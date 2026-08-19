@@ -141,4 +141,4 @@ den Leser weitergegeben wird.',
        "updated_at" = now()
  WHERE "name" = 'piloti-voice'
    AND "created_by" = 'system'
-   AND md5("body") = 'ad2b4b9546cb0f0a9138273a63402f9a';
+   AND md5("body") = 'ad2b4b9546cb0f0a9138273a63402f9a';  -- pragma: allowlist secret
