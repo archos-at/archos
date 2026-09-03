@@ -12,7 +12,6 @@
 # Delete every section you do not need — an empty one fails the lint.
 fixes:
   - >
-    Broad overview questions about a building guideline now find the same
-    documents as the precise technical terms. A question asked in everyday
-    wording no longer comes back with too few sources when the official
-    documents spell the key terms differently.
+    A standard or product code typed in lowercase now matches the documents
+    that write it in capitals, so a question about a specific code finds the
+    same sources whichever way it is typed.
