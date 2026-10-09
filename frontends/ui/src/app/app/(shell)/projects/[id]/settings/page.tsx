@@ -3,12 +3,12 @@ import { type Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import { isProjectKnowledgePageEnabled } from '@/lib/authz/feature-flags'
 import { getProjectOverviewData } from '@/lib/projects/overview-query'
-import { ProjectSettings } from '@/features/projects/components/project-settings'
+import { resolveProjectSettingsAccess } from '@/lib/projects/settings-access'
+import { GeneralSettings } from '@/features/projects/components/settings/general-settings'
 import { getTranslations } from '@/i18n/server'
 
-interface ProjectSettingsPageProps {
+interface PageProps {
   params: Promise<{ id: string }>
 }
 
@@ -17,40 +17,28 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('sections.settings') }
 }
 
-/**
- * Project Settings (spec §5, FB-9) — consolidates what used to live on the
- * Overview and Members pages: project parameters (intake brief + applicable
- * standards), the member roster, project memory, an insights placeholder, and
- * the danger zone.
- *
- * View access gates the page (same guard the layout applies); manager-only
- * affordances (member management, rename, danger zone) are gated by the
- * derived role, matching the old pages exactly.
- */
-export default async function ProjectSettingsPage({ params }: ProjectSettingsPageProps): Promise<JSX.Element> {
+/** Settings → General: the project's name, its size, and its deletion. */
+export default async function ProjectGeneralSettingsPage({
+  params,
+}: PageProps): Promise<JSX.Element> {
   return withPageSession(async (session) => {
     const { id } = await params
+    await requireProjectAccess(session, id, 'project:view')
 
-    const { role } = await requireProjectAccess(session, id, 'project:view')
-
-    const data = await getProjectOverviewData(id, session.organizationId)
-    if (!data) {
-      notFound()
-    }
+    const [data, access] = await Promise.all([
+      getProjectOverviewData(id, session.organizationId),
+      resolveProjectSettingsAccess(session, id),
+    ])
+    if (!data) notFound()
 
     return (
-      <ProjectSettings
-        data={data}
-        canManageProject={role === 'project-admin'}
-        // Knowledge left the top-level nav (spec §5) but stays reachable from
-        // Settings while its feature flag is on.
-        showKnowledgeLink={isProjectKnowledgePageEnabled(session)}
-        // Same id space as the roster's `organizationMembershipId` (see
-        // GridSession/AuthorizedSession) — lets the members form recognize the
-        // signed-in user's own row and guard against self-lockout.
-        currentMembershipId={session.organizationMembershipId}
-        // The upload history links the reader's own uploads to their summaries.
-        currentUserId={session.userId}
+      <GeneralSettings
+        projectId={data.id}
+        projectName={data.name}
+        createdAt={data.createdAt}
+        documentCount={data.documentCount}
+        totalFileSize={data.totalFileSize}
+        canManage={access.manage}
       />
     )
   })
