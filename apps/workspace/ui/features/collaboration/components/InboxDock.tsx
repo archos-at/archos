@@ -69,7 +69,7 @@ export function InboxDock(): JSX.Element {
       onKeyDown={onKeyDown}
     >
       <header className="flex shrink-0 items-center gap-2 py-2.5 pr-2 pl-5">
-        <h2 id="inbox-dock-title" className="text-sm font-semibold">
+        <h2 id="inbox-dock-title" className="text-sm font-medium">
           {t('inbox.title')}
         </h2>
         <Button

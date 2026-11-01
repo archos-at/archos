@@ -1583,6 +1583,16 @@ describe('InboxItemRow — the row’s menu', () => {
     expect(onMarkUnread).toHaveBeenCalledWith('i1')
   })
 
+  test('offers no “mark unread” on an archived row, which the server would not change', async () => {
+    const user = userEvent.setup()
+    render(
+      <InboxItemRow item={item({ state: 'archived', read: true, archived: true })} onMarkUnread={vi.fn()} onUnarchive={vi.fn()} />,
+    )
+    await user.click(screen.getByRole('button', { name: 'More actions' }))
+    await screen.findByTestId('inbox-unarchive')
+    expect(screen.queryByTestId('inbox-mark-unread')).toBeNull()
+  })
+
   test('carries archiving, the only archive control on a phone, where the icon is hidden', async () => {
     const user = userEvent.setup()
     const onArchive = vi.fn()

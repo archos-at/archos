@@ -280,7 +280,7 @@ export const InboxItemRow = forwardRef<HTMLLIElement, InboxItemRowProps>(functio
     ...(!item.read && onMarkRead
       ? [{ type: 'item' as const, id: 'read', label: t('inbox.markRead'), icon: MailOpen, onSelect: () => onMarkRead(item.id), testId: 'inbox-mark-read' }]
       : []),
-    ...(item.read && item.state !== 'inert' && onMarkUnread
+    ...(item.read && item.state !== 'inert' && !archived && onMarkUnread
       ? [{ type: 'item' as const, id: 'unread', label: t('inbox.markUnread'), icon: Mail, onSelect: () => onMarkUnread(item.id), testId: 'inbox-mark-unread' }]
       : []),
     ...(archived && onUnarchive

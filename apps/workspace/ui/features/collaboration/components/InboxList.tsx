@@ -306,7 +306,7 @@ export function InboxList({
         return
       }
       if (!current.read) void markRead([current.id])
-      else if (current.state !== 'inert') void markUnread([current.id])
+      else if (current.state !== 'inert' && !current.archived) void markUnread([current.id])
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

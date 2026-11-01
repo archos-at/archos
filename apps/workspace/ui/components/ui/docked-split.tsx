@@ -117,7 +117,10 @@ export function DockedSplit({
   const reducedMotion = usePrefersReducedMotion()
   const settledRef = useRef(false)
   // The content as it was while open, rendered for the one commit in which the
-  // panel closes, so the slide-out has something to take a snapshot of.
+  // panel closes, so the slide-out has something to take a snapshot of. Outside
+  // that commit the caller's `panel` is rendered as given, open or not: a
+  // caller that keeps its content mounted while collapsed (the file peek parks
+  // its pane there) must not have it dropped.
   const lastPanelRef = useRef<ReactNode>(null)
   const [wasOpen, setWasOpen] = useState(open)
   const [leaving, setLeaving] = useState(false)
@@ -125,7 +128,7 @@ export function DockedSplit({
     setWasOpen(open)
     setLeaving(!open)
   }
-  const shownPanel = open ? panel : leaving ? lastPanelRef.current : null
+  const shownPanel = leaving ? (lastPanelRef.current ?? panel) : panel
   useLayoutEffect(() => {
     if (open && panel) lastPanelRef.current = panel
   })
