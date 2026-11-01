@@ -2264,6 +2264,10 @@
     "de": "Ein geteilter Link zu einer Projektdatei lässt sich wieder öffnen, auch wenn der Link den Namen der Datei enthält. Der Chat findet die Datei jetzt und zeigt ihren Status an, statt zu scheitern."
   },
   {
+    "en": "Opening the inbox from the bell puts the keyboard in it, so j and k work right away; Escape closes it and returns you to the bell.",
+    "de": "Wenn Sie den Posteingang über die Glocke öffnen, erhält er sofort den Tastaturfokus, sodass j und k gleich funktionieren; mit Escape schließen Sie ihn und der Fokus kehrt zur Glocke zurück."
+  },
+  {
     "en": "Organisation admins can now see who downloaded which document, and who opened one in a folder with its own access list, under Organisation → Download-Protokoll. Entries are kept for up to 12 months, or 30 days if your organization shortens it, and opening the log is itself recorded.",
     "de": "Organisations-Admins sehen jetzt unter Organisation → Download-Protokoll, wer welches Dokument heruntergeladen hat und wer eines in einem Ordner mit eigener Zugriffsliste geöffnet hat. Einträge bleiben höchstens 12 Monate erhalten, oder 30 Tage, wenn Ihre Organisation die Frist verkürzt, und auch das Ansehen des Protokolls wird festgehalten."
   },
@@ -3268,6 +3272,10 @@
     "de": "Die Detailansicht zeigt, wo die Datei im hochgeladenen Ordner lag, und ein Klick kopiert diesen Pfad."
   },
   {
+    "en": "The docked inbox is calmer. Entries are no longer boxed into cards, the heading says once how many wait and how many are overdue, and a finished inbox shows a quiet check instead of an empty frame.",
+    "de": "Der angedockte Posteingang wirkt ruhiger. Die Einträge sind nicht mehr in Karten eingefasst, die Überschrift zeigt einmal, wie viele warten und wie viele überfällig sind, und bei einem abgearbeiteten Posteingang erscheint ein dezentes Häkchen statt eines leeren Rahmens."
+  },
+  {
     "en": "The document viewer can now tell you whether your office has dealt with a passage before: \"Im Büro nachsehen\" on a cited or selected passage answers in one line, such as \"In 3 Projekten und der Büroablage gefunden\", and lists the passages project by project, each as a quotation with its document, Fassung and page.",
     "de": "Der Dokumenten-Viewer kann Ihnen jetzt sagen, ob Ihr Büro eine Passage schon einmal bearbeitet hat: „Im Büro nachsehen“ bei einer zitierten oder ausgewählten Passage liefert eine einzeilige Antwort, etwa „In 3 Projekten und der Büroablage gefunden“, und listet die Passagen projektweise auf, jeweils als Zitat mit Dokument, Fassung und Seite."
   },
@@ -3374,6 +3382,14 @@
   {
     "en": "The inbox is calmer: each entry shows what happened, which project it belongs to and when, with overdue and soon-due annotations marked, and its actions appear when you point at it.",
     "de": "Der Posteingang ist übersichtlicher: Jeder Eintrag zeigt, was passiert ist, zu welchem Projekt er gehört und wann; überfällige und bald fällige Einträge sind gekennzeichnet, und die Aktionen erscheinen, wenn Sie mit der Maus darauf zeigen."
+  },
+  {
+    "en": "The inbox moves: it slides in when you open it, an archived entry folds away instead of vanishing, and the bell's count settles in when something new arrives.",
+    "de": "Der Posteingang bewegt sich: Wenn Sie ihn öffnen, gleitet er herein, archivierte Einträge klappen weg, statt zu verschwinden, und die Zahl an der Glocke wird eingeblendet, sobald etwas Neues eintrifft."
+  },
+  {
+    "en": "The inbox no longer says \"All caught up\" under a bell that still counts something. A request a colleague answered before you opened it now shows as new until you read it, and when part of the inbox cannot be loaded you see the error and a way to retry.",
+    "de": "Im Posteingang wird „Alles erledigt“ nicht mehr angezeigt, solange die Glocke noch eine Anzahl ausweist. Eine Anfrage, die ein Kollege beantwortet hat, bevor Sie sie geöffnet haben, wird als neu angezeigt, bis Sie sie gelesen haben. Wenn sich ein Teil des Posteingangs nicht laden lässt, sehen Sie die Fehlermeldung und können es erneut versuchen."
   },
   {
     "en": "The interface feels calmer and more responsive: buttons answer every press with a subtle dip, copying an answer pops a check mark, and loading placeholders shimmer instead of flashing grey.",
