@@ -5,7 +5,8 @@
  * `DocumentReviewMode` with the real sketch stage, the review read from an
  * in-page stand-in for the annotations route (the marks given here), and the
  * room on a transport the page chooses (a `BroadcastChannel` between tabs, or
- * a room of one). The page answers `GET /api/documents/{id}/sketch` itself.
+ * a room of one). `GET /api/documents/{id}/sketch` is answered here when the
+ * page gives the Skizze (`sketch`), else by the page's own stand-in.
  */
 
 import { useEffect, useState } from 'react'
@@ -27,19 +28,19 @@ export const roomOfOne = (self: { userId: string; name: string }): RoomTransport
   post: () => {},
 })
 
-/** The annotations route of one document, from memory; everything else goes on to the page's own stand-ins. */
-function useAnnotationsRoute(documentId: string, annotations: readonly AnnotationView[]) {
+/** The annotations route of one document (and its sketch, when given), from memory; the rest goes on to the page's stand-ins. */
+function useDocumentRoutes(documentId: string, annotations: readonly AnnotationView[], sketch: object | null) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     const original = window.fetch
-    const path = `/api/documents/${documentId}/annotations`
+    const base = `/api/documents/${documentId}`
+    const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
     window.fetch = async (input, init) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (new URL(url, window.location.href).pathname === path && (init?.method ?? 'GET') === 'GET') {
-        return new Response(JSON.stringify({ annotations, canAnnotate: true, pilotiWakes: false }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
+      const path = new URL(url, window.location.href).pathname
+      if ((init?.method ?? 'GET') === 'GET') {
+        if (path === `${base}/annotations`) return json({ annotations, canAnnotate: true, pilotiWakes: false })
+        if (path === `${base}/sketch` && sketch) return json(sketch)
       }
       return original(input, init)
     }
@@ -47,7 +48,7 @@ function useAnnotationsRoute(documentId: string, annotations: readonly Annotatio
     return () => {
       window.fetch = original
     }
-  }, [documentId, annotations])
+  }, [documentId, annotations, sketch])
   return ready
 }
 
@@ -57,6 +58,7 @@ export function DevSketchReview({
   revisionLabel = null,
   transport,
   annotations = [],
+  sketch = null,
   open,
   onOpenChange,
 }: {
@@ -65,10 +67,12 @@ export function DevSketchReview({
   revisionLabel?: string | null
   transport: RoomTransport
   annotations?: readonly AnnotationView[]
+  /** What `GET …/sketch` answers, when the page has no stand-in of its own for it. */
+  sketch?: object | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const ready = useAnnotationsRoute(documentId, annotations)
+  const ready = useDocumentRoutes(documentId, annotations, sketch)
   const review = useDocumentReview(documentId, { enabled: ready, transport })
   return (
     <DocumentReviewMode

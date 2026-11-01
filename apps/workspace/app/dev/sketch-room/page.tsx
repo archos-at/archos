@@ -13,6 +13,9 @@
  *   ?as=anna | max      who this tab is (default anna)
  *   ?role=reader        open as someone who may only read: view mode, no save
  *
+ * One Anmerkung sits on „Wohnen“: the review's list holds it, its pin follows the
+ * bubble when it is dragged.
+ *
  * Saving writes a Fassung to a stand-in for `PUT /api/documents/{id}/sketch`
  * kept in this browser's `localStorage`, which answers 409 for a stale base
  * the way the route does, so „someone saved first" can be tried with two
@@ -25,6 +28,7 @@
 import { notFound, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { I18nProvider } from '@/i18n'
+import type { AnnotationView } from '@/lib/annotations/types'
 import { DevSketchReview } from '../_fixtures/sketch-review'
 import { broadcastRoomTransport } from './broadcast-room'
 
@@ -46,6 +50,18 @@ const FIRST_SCENE = {
     { type: 'ellipse', id: 'schlafen', x: 0, y: 220, width: 180, height: 100, version: 1, versionNonce: 13, isDeleted: false, index: 'a2', backgroundColor: '#a5d8ff', fillStyle: 'hachure', strokeColor: '#1e1e1e', roughness: 1, strokeWidth: 1, seed: 3 },
   ],
 }
+
+/** One Anmerkung on „Wohnen“, so the review's list, pin and card have something to show. */
+const MARKS: AnnotationView[] = [
+  {
+    id: 'ann-wohnen', documentId: DOCUMENT_ID, number: 1, page: 1, shape: 'region', x: 0.1, y: 0.1, w: 0.4, h: 0.3,
+    elementIds: ['wohnen'], kind: 'question', body: 'Reicht der Wohnbereich für acht Personen?', basis: null,
+    authorKind: 'person', status: 'open', assigneeUserId: null, assigneeName: null, dueOn: null, revisionNumber: 1,
+    onCurrentRevision: true, createdBy: 'user_max', createdByName: 'Max Huber', createdAt: '2026-11-01T08:00:00.000Z',
+    updatedAt: '2026-11-01T08:00:00.000Z', acceptedBy: null, acceptedByName: null, closedBy: null, closedByName: null,
+    closedAt: null, delegatedBy: null, delegatedByName: null, delegatedAt: null, replies: [], canEdit: true, canDelete: false,
+  },
+]
 
 interface StoredRevision {
   versionId: string
@@ -111,7 +127,15 @@ function Room() {
       <button type="button" className="text-sm underline" onClick={() => setOpen(true)} data-testid="sketch-room-open">
         Skizze öffnen
       </button>
-      <DevSketchReview documentId={DOCUMENT_ID} documentName="Raumprogramm.svg" transport={transport} open={open} onOpenChange={setOpen} />
+      <DevSketchReview
+        documentId={DOCUMENT_ID}
+        documentName="Raumprogramm.svg"
+        revisionLabel="Fassung 1"
+        transport={transport}
+        annotations={MARKS}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </div>
   )
 }

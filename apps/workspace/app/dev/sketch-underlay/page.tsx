@@ -104,11 +104,6 @@ function usePages(reader: boolean) {
     })
     window.fetch = async (input, init) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.href)
-      if (url.pathname === `/api/documents/${DOCUMENT_ID}/sketch` && (init?.method ?? 'GET') === 'GET') {
-        const underlay = reader ? { state: 'unavailable', elementId: 'page', ref: REF } : UNDERLAY
-        const body = { documentId: DOCUMENT_ID, versionId: 'ver-5', canWrite: !reader, title: 'Wand im Wohnen', scene: SCENE, underlay, projectId: 'dev-project' }
-        return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
-      }
       const raster = /\/versions\/([^/]+)\/pages\/\d+\/raster$/.exec(url.pathname)
       if (raster) {
         while (!blobs[raster[1]]) await new Promise((resolve) => setTimeout(resolve, 50))
@@ -130,6 +125,10 @@ function Underlay() {
   const [open, setOpen] = useState(true)
   const [moving, setMoving] = useState(params.get('move') === '1')
   const transport = useMemo(() => roomOfOne({ userId: 'user_anna', name: 'Anna Berger' }), [])
+  const sketch = useMemo(() => {
+    const underlay = reader ? { state: 'unavailable', elementId: 'page', ref: REF } : UNDERLAY
+    return { documentId: DOCUMENT_ID, versionId: 'ver-5', canWrite: !reader, title: 'Wand im Wohnen', scene: SCENE, underlay, projectId: 'dev-project' }
+  }, [reader])
   return (
     <div data-testid="sketch-underlay-preview" className="bg-background flex min-h-screen flex-col items-center gap-4 p-4 sm:p-10">
       <button type="button" className="text-sm underline" onClick={() => setOpen(true)}>
@@ -140,6 +139,7 @@ function Underlay() {
         documentName="Wand im Wohnen.svg"
         revisionLabel="Fassung 5"
         transport={transport}
+        sketch={sketch}
         open={open && !moving}
         onOpenChange={setOpen}
       />
