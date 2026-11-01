@@ -1277,6 +1277,7 @@ export const files = {
       siteplan: 'Site plan',
       notice: 'Official notice',
       photo: 'Photo',
+      sketch: 'Sketch',
       model: '3D model (IFC)',
       sheet: 'Spreadsheet',
       text: 'Text / note',

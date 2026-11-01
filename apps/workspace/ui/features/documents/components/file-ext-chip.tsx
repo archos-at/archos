@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from 'react'
+import { PencilLine } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { extChipTint, fileExtensionLabel } from '../document-kind'
 
@@ -11,6 +12,9 @@ import { extChipTint, fileExtensionLabel } from '../document-kind'
  * A five-letter extension ("IFCZIP") steps the type down rather than spilling
  * out of the tile. `fallback` is drawn when the name carries no extension.
  *
+ * A Skizze (an SVG Piloti filed, ADR-0148) is not an „SVG“ to the reader: its
+ * tile is a pencil, named by `sketch` („Skizze“), the word Files' filter uses.
+ *
  * `xs` is the row size: the upload tray's rows and the Files list's name
  * column, which used to hand-roll this tile twice. Its 8.5px type is
  * load-bearing: it holds a four-letter extension ("DOCX") inside a 24px
@@ -21,9 +25,12 @@ export function FileExtChip({
   fallback,
   size = 'md',
   className,
+  sketch,
 }: {
   filename: string
   fallback?: ReactNode
+  /** The word for a Skizze, when the file is one: the tile draws a pencil under that name. */
+  sketch?: string
   size?: 'xs' | 'sm' | 'md'
   className?: string
 }): JSX.Element {
@@ -39,10 +46,12 @@ export function FileExtChip({
         ext.length > 4 && size !== 'xs' && 'text-[9px]',
         className,
       )}
-      style={extChipTint(ext)}
+      style={extChipTint(sketch ? 'svg' : ext)}
       aria-hidden
+      title={sketch}
+      data-kind={sketch ? 'sketch' : undefined}
     >
-      {ext || fallback}
+      {sketch ? <PencilLine className={size === 'xs' ? 'size-3' : 'size-4'} /> : ext || fallback}
     </span>
   )
 }

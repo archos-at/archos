@@ -52,6 +52,21 @@ export interface CompanionRedraw {
   request?: Request
 }
 
+/**
+ * The PDF beside a Skizze, when this session may read it: Files folds it into
+ * the Skizze's row (`notARendition`), and the review offers it as the Skizze's
+ * PDF. `null` without one, or for a reader it is kept from. Never throws.
+ */
+export async function readableCompanionPdf(session: AuthorizedSession, sketch: Document): Promise<string | null> {
+  if (!sketch.projectId || !sketch.authoredByRef) return null
+  try {
+    const found = await findDocumentAuthoredByRef(sketch.authoredByRef, session.organizationId, sketch.projectId, 'diagram_pdf')
+    return found ? (await getAccessibleDocument(session, found.id, 'read')).id : null
+  } catch {
+    return null
+  }
+}
+
 /** The PDF's new Fassung, or `null` with the reason in `outcome`. Never throws. */
 export async function redrawCompanionPdf(
   input: CompanionRedraw

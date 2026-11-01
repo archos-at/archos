@@ -215,7 +215,7 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
     <DocumentKindThumbnail
       kind={kind}
       variant="fill"
-      formatLabel={ext || t('thumbnail.image')}
+      formatLabel={kind === 'sketch' ? t('filters.kind.sketch') : ext || t('thumbnail.image')}
       failed={state === 'error'}
       failedLabel={t('thumbnail.unavailable')}
     />

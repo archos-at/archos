@@ -4,12 +4,13 @@
  * Pure helpers — no React, no I/O — that map a document's real metadata onto
  * one visual kind used to pick a skeleton thumbnail: floor plan (Grundriss),
  * section (Schnitt), site plan (Lageplan), official notice (Bescheid), photo,
- * building model, spreadsheet, notes/Markdown, or generic document.
+ * a Skizze, building model, spreadsheet, notes/Markdown, or generic document.
  *
  * Inference order (most trustworthy signal first):
  *   0. FORMAT, for formats that ARE their kind — an `.ifc` is a building model,
  *      a `.csv` is a table and a `.md` is a written note, whatever they are
  *      named and whatever tags they carry.
+ *   0b. A Skizze: an SVG Piloti filed (ADR-0148) is a sketch, not a photo.
  *   1. Controlled ingestion tags (backend-classified, user-correctable).
  *   2. Content type (an `image/*` is a photo, unless its name names a drawing).
  *   3. Filename heuristics (German building-domain terms + image extensions).
@@ -27,6 +28,7 @@ export type DocumentKind =
   | 'siteplan'
   | 'notice'
   | 'photo'
+  | 'sketch'
   | 'model'
   | 'sheet'
   | 'text'
@@ -75,9 +77,11 @@ export interface DocumentKindInput {
   filename: string
   contentType?: string | null
   tags?: string[] | null
+  /** Who wrote it: an SVG Piloti filed is a Skizze. Absent reads as a person's upload. */
+  authoredBy?: string | null
 }
 
-export function inferDocumentKind({ filename, contentType, tags }: DocumentKindInput): DocumentKind {
+export function inferDocumentKind({ filename, contentType, tags, authoredBy }: DocumentKindInput): DocumentKind {
   const lowerName = filename.toLowerCase()
   const lowerType = (contentType ?? '').toLowerCase()
 
@@ -91,6 +95,9 @@ export function inferDocumentKind({ filename, contentType, tags }: DocumentKindI
   if (IFC_EXT.test(lowerName)) return 'model'
   if (SHEET_EXT.test(lowerName) || SHEET_TYPES.includes(lowerType)) return 'sheet'
   if (TEXT_EXT.test(lowerName) || TEXT_TYPES.includes(lowerType)) return 'text'
+  // A Skizze is a document Piloti filed as an SVG with its scene (ADR-0148): the same test the preview
+  // makes before it opens one in its review (`sketchInWell`), and never a photo, whatever its name says.
+  if (lowerType === 'image/svg+xml' && authoredBy === 'agent') return 'sketch'
 
   // 1. Ingestion tags are authoritative when present.
   for (const tag of tags ?? []) {

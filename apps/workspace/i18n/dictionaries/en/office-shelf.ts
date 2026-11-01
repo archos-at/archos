@@ -14,6 +14,7 @@ export const officeShelf = {
       siteplan: 'Site plan',
       notice: 'Notice',
       photo: 'Photo',
+      sketch: 'Sketch',
       // `model` was missing while `inferDocumentKind` had been returning it for
       // every `.ifc` — the card printed the raw key. A building is not a
       // document, and the label says so.

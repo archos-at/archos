@@ -11,6 +11,7 @@ import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { FileExtChip } from './file-ext-chip'
+import { inferDocumentKind } from '../document-kind'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -408,7 +409,7 @@ const FileListRowItem = memo(function FileListRowItem({
         <div className="flex min-h-8 min-w-0 items-center gap-2.5">
           {/* The same tile the upload tray's row draws, so a document looks
               like itself from the second it is dropped. */}
-          <FileExtChip filename={file.filename} size="xs" fallback="—" />
+          <FileExtChip filename={file.filename} size="xs" fallback="—" sketch={inferDocumentKind(file) === 'sketch' ? t('filters.kind.sketch') : undefined} />
           <span className="min-w-0 flex-1">
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"

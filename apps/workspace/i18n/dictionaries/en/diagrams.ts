@@ -140,6 +140,8 @@ export const diagrams = {
     discardShared: '{names} is still here and keeps the changes. Close without saving?',
     savedDraft: 'Saved into the draft under review (version {number}); it is published once it is approved.',
     reviewOpen: 'This sketch is in review: saving is possible once the review is decided. You can keep drawing, the others see it live; nothing is saved.',
+    // The PDF beside the sketch: no row of its own in Files any more, but its download.
+    downloadPdf: 'Download PDF',
     keepDrawing: 'Keep drawing',
     reviseDraftDescription: 'You are editing the draft under review. Saving changes the draft; it is published once it is approved.',
     reviewOpenDescription: 'This sketch is in review. You can draw along live; saving waits for the review.',

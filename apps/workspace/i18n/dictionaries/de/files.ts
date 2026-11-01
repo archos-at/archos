@@ -1249,6 +1249,7 @@ export const files: typeof en.files = {
       siteplan: 'Lageplan',
       notice: 'Bescheid',
       photo: 'Foto',
+      sketch: 'Skizze',
       model: '3D-Modell (IFC)',
       sheet: 'Tabellendatei',
       text: 'Text / Notiz',

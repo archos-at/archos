@@ -352,6 +352,16 @@ describe('listDocumentLevelPage', () => {
     expect(params.at(-1)).toBe(101)
   })
 
+  it('folds a Skizze’s PDF into the Skizze’s row: no rendition whose picture lies in the same folder (ADR-0148)', async () => {
+    await listDocumentLevelPage(shelf, 'org-1', { reader, level: level({ folderId: null }) })
+    const { sql } = onlyQuery()
+    expect(sql).toMatch(/NOT \("documents"\."authored_by_producer" = 'diagram_pdf' AND EXISTS \(/)
+    expect(sql).toMatch(/picture\.authored_by_ref = "documents"\."authored_by_ref"/)
+    expect(sql).toMatch(/picture\.authored_by_producer = 'diagram_svg'/)
+    expect(sql).toMatch(/picture\.folder_id IS NOT DISTINCT FROM "documents"\."folder_id"/)
+    expect(sql).toMatch(/picture\.organization_id = "documents"\."organization_id"/)
+  })
+
   it('reads the root as the documents filed in no folder', async () => {
     await listDocumentLevelPage(shelf, 'org-1', { reader, level: level({ folderId: null }) })
     expect(onlyQuery().sql).toMatch(/(?:"documents"\.)?"folder_id" is null/)

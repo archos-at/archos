@@ -24,6 +24,7 @@ import { ButtonGroup } from '@/components/ui/button-group'
 import { ToolbarIconButton } from '@/components/ui/floating-toolbar'
 import { useFileFacts } from '../hooks/use-file-facts'
 import { FileExtChip } from './file-ext-chip'
+import { inferDocumentKind } from '../document-kind'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { useSettlingRefresh } from '../hooks/use-settling-refresh'
 import { useDocumentActions, type DocumentScope } from './document-actions'
@@ -724,7 +725,7 @@ function PeekToolbar({
         (`ChatToolbar`: `pt-2.5` + `min-h-12`), so the file's name and the
         session's title sit on one line across the seam. */}
     <div className="mt-2.5 flex min-h-12 shrink-0 items-center gap-2.5 pr-3 pb-2.5 pl-4">
-      <FileExtChip filename={file.filename} size="sm" fallback={<FileText className="size-3.5" />} />
+      <FileExtChip filename={file.filename} size="sm" fallback={<FileText className="size-3.5" />} sketch={inferDocumentKind(file) === 'sketch' ? t('filters.kind.sketch') : undefined} />
       <div className="min-w-0 flex-1">
         <p
           className="text-foreground truncate text-sm font-medium leading-tight tracking-[-0.01em]"

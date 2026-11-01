@@ -37,6 +37,19 @@ const rowNames = (): string[] =>
   screen.getAllByTestId('file-list-row').map((row) => row.querySelector('span[title]')?.textContent ?? '')
 
 describe('FileListView', () => {
+  it('names a Skizze as one: a pencil tile called „Sketch“, not an SVG photo', () => {
+    renderList([
+      doc('Raumprogramm.svg', { contentType: 'image/svg+xml', authoredBy: 'agent', createdAt: '2026-06-02T09:00:00Z' }),
+      doc('Logo.svg', { contentType: 'image/svg+xml' }),
+    ])
+    const [sketch, logo] = screen.getAllByTestId('file-ext-chip')
+    expect(sketch).toHaveAttribute('data-kind', 'sketch')
+    expect(sketch).toHaveAttribute('title', 'Sketch')
+    expect(sketch).not.toHaveTextContent('SVG')
+    expect(logo).toHaveTextContent('SVG')
+    expect(logo).not.toHaveAttribute('data-kind')
+  })
+
   it('shows the newest first without being asked', () => {
     renderList()
     expect(rowNames()).toEqual(['Plan_10.pdf', 'Plan_2.pdf', 'Plan_1.pdf'])

@@ -311,11 +311,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
    * `IfcFilePreview` removed that prerequisite; the surfaces that have a
    * project still use it, and the ones that do not now work.
    */
-  const kind = inferDocumentKind({
-    filename: file.filename,
-    contentType: file.contentType,
-    tags: file.tags,
-  })
+  const kind = inferDocumentKind(file)
   const isModel = kind === 'model'
   /**
    * Word, Excel, PowerPoint and their ODF kin are shown through a PDF the BFF

@@ -42,6 +42,10 @@ const SEES_EVERY_ROW: Record<string, string> = {
   'lib/documents/repository/quarantine-and-retry.ts#listQuarantinedDocuments':
     "The reviewers' queue: held rows are what it lists, and `listQuarantineQueue` authorizes each row with `mayReviewQuarantine`.",
 
+  // --- A predicate inside a reader's query ------------------------------------
+  'lib/documents/repository/levels.ts#notARendition':
+    "An EXISTS inside the level read, which composes documentVisibleTo itself: it only hides a diagram's PDF whose picture lies beside it, never shows a row, and the picture is machine-filed, never a held upload.",
+
   // --- Sweeps over every organization or every stuck row ---------------------
   'lib/documents/repository/ingest-state.ts#listStuckProcessingDocuments':
     'Sweep: re-dispatches rows left at `processing`, which are held by definition. Returns ids to a worker, nothing to a person.',

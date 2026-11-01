@@ -28,10 +28,11 @@
 import dynamic from 'next/dynamic'
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Save } from 'lucide-react'
+import { FileDown, Save } from 'lucide-react'
 import { getSketch, type SketchForEditing } from '@/adapters/api/diagrams-client'
 import type { WireElement } from '@/lib/diagrams/sketch-room-types'
 import type { RealtimePeer } from '@/lib/realtime/types'
+import { startDocumentDownload } from '@/lib/documents/download'
 import { documentFileUrl } from '@/lib/documents/urls'
 import type { ReviewStageProps } from '@/features/documents/preview-actions'
 import { ReviewPageLayer, type ReviewDraft } from '@/features/documents/sketch-review'
@@ -245,6 +246,19 @@ function SketchEditor({
 
   const headerActions = (
     <>
+      {sketch.pdfDocumentId ? (
+        // Its PDF: the rendition Files no longer lists beside it, drawn from the current Fassung.
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t('sketch.downloadPdf')}
+          title={t('sketch.downloadPdf')}
+          data-testid="sketch-download-pdf"
+          onClick={() => void startDocumentDownload(sketch.pdfDocumentId as string, `${sketch.title}.pdf`)}
+        >
+          <FileDown aria-hidden />
+        </Button>
+      ) : null}
       {revised.state.kind === 'review_open' ? (
         <Button variant="ghost" size="sm" onClick={revised.dismiss} data-testid="sketch-keep-drawing">
           {t('sketch.keepDrawing')}

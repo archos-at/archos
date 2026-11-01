@@ -172,6 +172,7 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/projects/memory-restricted.integration.spec.ts \
     bff/documents/document-versions.integration.spec.ts \
     bff/documents/list-page.integration.spec.ts \
+    bff/documents/sketch-rendition-listing.integration.spec.ts \
     bff/documents/quarantine-listing.integration.spec.ts \
     bff/documents/visibility.integration.spec.ts \
     bff/upload-batches/upload-batches.integration.spec.ts \

@@ -101,6 +101,11 @@ export interface SketchDocumentView {
   saveTarget: 'published' | 'draft' | 'review_open'
   /** The draft's content hash, to send back as `baseContentHash`; `null` otherwise. */
   contentHash: string | null
+  /**
+   * The PDF filed beside it, its rendition, when this reader may read it: Files lists the Skizze alone
+   * (`notARendition`), so the PDF is reached from the Skizze as its download. `null` without one.
+   */
+  pdfDocumentId: string | null
 }
 
 /** What `GET ?probe=1` answers: whether to offer the editor, and nothing of the drawing. */

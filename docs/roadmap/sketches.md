@@ -19,7 +19,8 @@ person may edit it once in a modal and file it. Everything after that is a dead 
 
 - **A filed sketch cannot be reopened.** `DIAGRAM_RENDERERS.excalidraw` is `null`
   (`apps/workspace/ui/features/diagrams/render-diagram.ts`), and the dialog turns
-  read-only once filed (`sketch-dialog.tsx`, `readOnly={filed}`).
+  read-only once filed (`sketch-dialog.tsx`, `readOnly={filed}`). (Fixed: S1, and a
+  filed Skizze now opens in its review.)
 - **It has no Fassungen.** Filing writes a new pair of `documents` rows (SVG and PDF)
   keyed by a hash of the scene (`diagramRunId`), with no `document_versions` row. A
   second edit is a second, unrelated document.
@@ -115,6 +116,20 @@ have no slice yet. Both wait for S1's structured read.
   measuring on PDF plans in the document viewer. A sketch's strokes still claim no
   dimension: nothing measures on an underlay. When a base page is calibrated, the
   link to offer from the Skizze is „measure on the base document“ (open).
+
+## One shell (2026-11-01)
+
+The [fits-the-lineup](../contributing/fits-the-lineup.md#worked-example-the-skizze-now-fixed)
+audit found the data one product and the interface two. Built: a Skizze opens in
+the review every document opens in, its canvas as the review's stage
+(`sketch-stage.tsx`), with the review's header, list, cards, Protokoll, Presence
+and „Piloti prüfen lassen“; every way in (the rail, a pin, the phone, a link from
+the Postfach, a mention or a search) lands there; the rail's separate „Als Skizze
+bearbeiten“ is gone. Files lists the Skizze alone, as the „Skizze“ kind, its PDF
+offered as its download. Still open from that audit: Piloti in the shell (slice 3:
+„Piloti fragen“ on a selection, a `document-sketch-edit` proposal shown in the
+open review rather than only as a chat receipt), and C8 below, after which the
+chat's `SketchDialog` goes too.
 
 ## Coherence: what is still open
 

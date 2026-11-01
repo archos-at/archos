@@ -105,6 +105,13 @@ describe('a Skizze’s stage', () => {
     slot.remove()
   })
 
+  it('offers the Skizze’s PDF from its header, the rendition Files no longer lists beside it', async () => {
+    const { slot } = stage({ fetch: vi.fn(async () => respond(200, { ...SKETCH, pdfDocumentId: 'doc-pdf' })) })
+    await screen.findByTestId('fake-canvas')
+    expect(within(slot).getByTestId('sketch-download-pdf')).toHaveAccessibleName('PDF herunterladen')
+    slot.remove()
+  })
+
   it('shows an SVG without a scene as its picture with its marks, and offers no save', async () => {
     const { slot } = stage({ fetch: vi.fn(async () => respond(415, { error: 'Not a sketch' })) })
     expect(await screen.findByTestId('sketch-stage-sheet')).toBeInTheDocument()

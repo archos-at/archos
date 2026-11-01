@@ -132,6 +132,17 @@ function PhotoSketch(props: SvgProps) {
   )
 }
 
+/** Skizze: rooms as bubbles and an arrow between them, as an architect thinks on paper. */
+function SketchGlyph(props: SvgProps) {
+  return (
+    <Frame {...props}>
+      <ellipse cx={42} cy={32} rx={18} ry={12} />
+      <ellipse cx={82} cy={50} rx={16} ry={11} strokeOpacity={0.7} />
+      <path d="M58 38c6 2 9 4 12 7M66 45l4 0 0-4" />
+    </Frame>
+  )
+}
+
 /**
  * BIM model: an axonometric box with a hinted storey slab and an opening.
  *
@@ -197,6 +208,7 @@ const SKETCHES: Record<DocumentKind, (props: SvgProps) => JSX.Element> = {
   siteplan: SitePlanSketch,
   notice: NoticeSketch,
   photo: PhotoSketch,
+  sketch: SketchGlyph,
   model: ModelSketch,
   sheet: SheetSketch,
   text: TextSketch,
@@ -271,6 +283,18 @@ function SitePlanFill() {
         strokeOpacity={0.85}
       />
       <path d="M156 66V34M151 39l5-5 5 5" strokeWidth={1.5} strokeOpacity={0.4} />
+    </FillSvg>
+  )
+}
+
+/** Skizze: the bubbles drawn large, a third one sketched in. */
+function SketchFill() {
+  return (
+    <FillSvg>
+      <ellipse cx={64} cy={38} rx={34} ry={20} strokeWidth={1.6} strokeOpacity={0.85} fill="currentColor" fillOpacity={0.07} />
+      <ellipse cx={138} cy={58} rx={28} ry={18} strokeWidth={1.4} strokeOpacity={0.6} />
+      <ellipse cx={60} cy={76} rx={20} ry={10} strokeWidth={1.2} strokeOpacity={0.35} strokeDasharray="4 3" />
+      <path d="M96 46c10 3 16 6 20 10M112 56h5v-5" strokeWidth={1.4} strokeOpacity={0.6} />
     </FillSvg>
   )
 }
@@ -382,6 +406,7 @@ const FILLS: Record<DocumentKind, () => JSX.Element> = {
   // with a format chip); this entry keeps the record type-complete but is never
   // reached for `variant="fill"`.
   photo: DocumentFill,
+  sketch: SketchFill,
   model: ModelFill,
   sheet: SheetFill,
   text: TextFill,
@@ -395,6 +420,7 @@ const FILL_PADDED: Record<DocumentKind, boolean> = {
   siteplan: true,
   notice: false,
   photo: false,
+  sketch: true,
   model: true,
   sheet: true,
   text: false,

@@ -60,7 +60,7 @@ import { replaceVersionContent } from '@/lib/documents/lifecycle'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import { sketchOpeningFor, sketchTargetOf } from './sketch-target'
 import { mayReceiveVersionBytes } from '@/lib/documents/version-content'
-import { redrawCompanionPdf, type CompanionPdfOutcome } from './sketch-companion'
+import { readableCompanionPdf, redrawCompanionPdf, type CompanionPdfOutcome } from './sketch-companion'
 import { s3Client } from '@/lib/s3'
 import { resolveDocumentBucket } from '@/lib/storage/bucket'
 import { MAX_DIAGRAM_SOURCE_BYTES, MAX_DIAGRAM_SVG_BYTES } from './diagram-sources'
@@ -248,6 +248,7 @@ export async function readSketchDocument(
     ...(options.ids ? { elements: focusedElements(scene, options.ids) } : {}),
     saveTarget: target.kind,
     contentHash: draft?.contentHash ?? null,
+    pdfDocumentId: await readableCompanionPdf(session, document),
   }
 }
 

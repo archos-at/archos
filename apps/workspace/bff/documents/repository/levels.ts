@@ -114,9 +114,29 @@ export function readFamilyWhere(states: readonly DocumentReadFamily[] | undefine
   )
 }
 
-/** The level's own predicates: its folder, the name search, the families, the cursor. */
+/**
+ * Not the PDF filed beside a diagram while its picture sits in the same folder
+ * (ADR-0148): that PDF is the picture's rendition, drawn again from its current
+ * Fassung, and one document is one row in Files. It stays a document (its
+ * download, a citation, an Einreichung's attachment by name), reached from the
+ * picture's row as its PDF; a PDF moved apart from its picture, or whose
+ * picture is archived while it is not, is listed on its own.
+ */
+export function notARendition(): SQL {
+  return sql`NOT (${documents.authoredByProducer} = 'diagram_pdf' AND EXISTS (
+    SELECT 1 FROM documents AS picture
+    WHERE picture.organization_id = ${documents.organizationId}
+      AND picture.project_id = ${documents.projectId}
+      AND picture.authored_by_ref = ${documents.authoredByRef}
+      AND picture.authored_by_producer = 'diagram_svg'
+      AND picture.folder_id IS NOT DISTINCT FROM ${documents.folderId}
+      AND picture.lifecycle = ${documents.lifecycle}
+  ))`
+}
+
+/** The level's own predicates: its folder, the name search, the families, the cursor, and no rendition. */
 function levelWhere({ folderId, q, states, cursor }: DocumentLevelQuery): SQL[] {
-  const where: SQL[] = []
+  const where: SQL[] = [notARendition()]
   if (folderId !== undefined) where.push(folderId === null ? isNull(documents.folderId) : eq(documents.folderId, folderId))
   const named = nameContains(q)
   if (named) where.push(named)

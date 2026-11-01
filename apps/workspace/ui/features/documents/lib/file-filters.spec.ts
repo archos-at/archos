@@ -111,6 +111,7 @@ describe('FILE_KIND_FILTERS', () => {
       siteplan: true,
       notice: true,
       photo: true,
+      sketch: true,
       model: true,
       sheet: true,
       text: true,

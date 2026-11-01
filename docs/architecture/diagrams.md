@@ -169,6 +169,20 @@ header prescribes — so the rule is now one document per (organization, project
 run, **producer**). A producer is a KIND OF DELIVERABLE, and a run owes at most
 one of each kind. `deep_research` is unaffected.
 
+**Two rows in the database, one in Files.** The PDF is the picture's rendition,
+drawn again from its current Fassung, so the Files listing (a level read,
+`listDocumentLevelPage`, which the agent door's listing shares) leaves out a
+`diagram_pdf` whose `diagram_svg` of the same reference lies in the same folder
+(`notARendition`, `bff/documents/repository/levels.ts`). The PDF stays a
+document: its own download, a citation by name, an Einreichung's attachment.
+The review of a Skizze offers it as „PDF herunterladen“ (`pdfDocumentId` on
+`GET …/sketch`, when the reader may read it). A PDF moved apart from its
+picture, or whose picture is gone or archived, is listed on its own. The row
+says what it is: an SVG Piloti filed is the `sketch` kind, „Skizze“, with a
+pencil for its tile (`inferDocumentKind`, `FileExtChip`), not a photo. A flow
+filed as a picture counts as one too; that test is the preview's own
+(`sketchInWell`), and no scene is read to list a row.
+
 The alternative — two synthetic ids, `{ref}:svg` and `{ref}:pdf` — needed no
 migration and was rejected: `authored_by_ref` exists so somebody can later ask
 what wrote a file and where it came from, and a key that joins back to nothing is

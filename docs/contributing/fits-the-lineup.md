@@ -44,16 +44,23 @@ tables and still be a second product in the interface. The signs:
 - **A duplicate renderer.** Two rows, two presences or two previews for one
   document.
 
-### Worked example: the Skizze
+### Worked example: the Skizze (now fixed)
 
 [ADR-0148](../adr/0148-a-sketch-is-a-document.md) made a Skizze a document. Its
-data fits: the same documents table, Fassungen, Freigabe, Anmerkungen and room.
+data fit: the same documents table, Fassungen, Freigabe, Anmerkungen and room.
 Its interface did not. It opened in `ui/features/diagrams/sketch/sketch-dialog.tsx`
 instead of the review, so the header had no document name or Fassung, there was
 no Anmerkungen list, no export and no „Piloti prüfen lassen“. A deep link to a
 mark opened the dialog, not the review. Files showed two rows, the SVG and its
 PDF rendition, and both carried the photo kind. Excalidraw drew its own presence beside
 the review's. On a phone the editor was unreachable.
+
+Fixed on 2026-11-01 the way the next section says: `DocumentReviewMode` takes a
+`stage`, the diagrams feature supplies `sketch-stage.tsx` through the slot in
+`preview-actions.tsx`, and everything around the canvas is the review's
+(`docs/architecture/diagrams.md`, „In Files, a Skizze opens in its review“).
+Files lists the Skizze alone, as the `sketch` kind, and its PDF is its download.
+The dialog remains only for the chat's sketch that is not filed yet.
 
 ### What to do instead
 

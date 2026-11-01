@@ -75,6 +75,7 @@ export const FILE_KIND_FILTERS: readonly DocumentKind[] = [
   'siteplan',
   'notice',
   'photo',
+  'sketch',
   'model',
   'sheet',
   'text',
@@ -261,6 +262,7 @@ export function applyFileFilters<T extends FileItem>(
         filename: file.filename,
         contentType: file.contentType,
         tags: file.tags,
+        authoredBy: file.authoredBy,
       })
       if (!filters.kinds.includes(kind)) return false
     }

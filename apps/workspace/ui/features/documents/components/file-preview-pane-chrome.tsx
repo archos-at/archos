@@ -32,7 +32,7 @@ import { ReaderActions, ReaderHeader } from './file-preview-reader'
 import type { FilePreviewController } from './use-file-preview-controller'
 
 export function FilePreviewChrome({ controller }: { controller: FilePreviewController }) {
-  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, detectedType, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, showMetadataPanel, sideways, t } = controller
+  const { Icon, kind, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, detectedType, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, showMetadataPanel, sideways, t } = controller
   return (
     <>
         {/* Peek chrome lives on the host — this header is the modal/expanded one,
@@ -120,7 +120,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
         )}
         {!peeking && !reader && (
           <div className="@md:gap-x-3 @md:px-5 flex shrink-0 items-start gap-x-2 border-b px-3.5 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
-            <FileExtChip filename={file.filename} fallback={<Icon className="size-4" />} />
+            <FileExtChip filename={file.filename} fallback={<Icon className="size-4" />} sketch={kind === 'sketch' ? t('filters.kind.sketch') : undefined} />
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
               underneath it, which is the answer to "which file is this actually"

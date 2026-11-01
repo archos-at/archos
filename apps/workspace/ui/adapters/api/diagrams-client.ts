@@ -135,6 +135,8 @@ const SketchViewSchema = z.object({
   contentHash: z.string().nullable().default(null),
   /** The project the Skizze lies in; absent from an older server. */
   projectId: z.string().nullable().default(null),
+  /** The PDF filed beside it, its rendition, when this reader may read it; absent from an older server. */
+  pdfDocumentId: z.string().nullable().default(null),
   /** The page it is traced over, as this reader sees it (`lib/diagrams/sketch-underlay-wire.ts`); absent from an older server. */
   underlay: z
     .looseObject({ state: z.enum(['available', 'unavailable']), elementId: z.string(), ref: z.looseObject({}) })

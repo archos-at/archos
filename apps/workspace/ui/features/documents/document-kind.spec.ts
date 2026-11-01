@@ -62,6 +62,14 @@ describe('inferDocumentKind', () => {
       expect(inferDocumentKind({ filename: 'IMG_plan_wall.jpg', contentType: 'image/jpeg' })).toBe('photo')
     })
 
+    it('reads an SVG Piloti filed as a Skizze, not a photo, whatever it is named (ADR-0148)', () => {
+      expect(inferDocumentKind({ filename: 'Raumprogramm.svg', contentType: 'image/svg+xml', authoredBy: 'agent' })).toBe('sketch')
+      expect(inferDocumentKind({ filename: 'Grundriss Skizze.svg', contentType: 'image/svg+xml', authoredBy: 'agent' })).toBe('sketch')
+      // A person's own SVG is a picture like any other.
+      expect(inferDocumentKind({ filename: 'Logo.svg', contentType: 'image/svg+xml', authoredBy: 'user' })).toBe('photo')
+      expect(inferDocumentKind({ filename: 'Logo.svg', contentType: 'image/svg+xml' })).toBe('photo')
+    })
+
     it('lets a Foto tag win over a drawing-like name', () => {
       expect(inferDocumentKind({ filename: 'Grundriss_EG.jpg', contentType: 'image/jpeg', tags: ['Foto'] })).toBe('photo')
     })
