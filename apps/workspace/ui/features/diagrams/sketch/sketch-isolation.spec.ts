@@ -6,9 +6,10 @@
  * The chat stays at its size only while two things hold: `@excalidraw/excalidraw`
  * is imported by the editor (`sketch-canvas.tsx`) and the sketch renderer
  * (`sketch-render.ts`) alone, and each is reached only through a dynamic
- * import: the canvas from the dialog, the renderer from the sketch figure. A
- * static import anywhere else type-checks, builds and works, and costs every
- * reader 2.5 MB; this is what catches it.
+ * import: the canvas from the chat's dialog and from a Skizze's review stage,
+ * the renderer from the sketch figure. A static import anywhere else
+ * type-checks, builds and works, and costs every reader 2.5 MB; this is what
+ * catches it. A new importer joins the list here on purpose, never to pass.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -36,9 +37,9 @@ describe('the sketch editor stays out of the chat bundle', () => {
   })
 
   it.each([
-    ['sketch-canvas', 'features/diagrams/sketch/sketch-dialog.tsx'],
-    ['sketch-render', 'features/diagrams/components/sketch-figure.tsx'],
-  ])('reaches %s only through a dynamic import, and only from %s', (module, importer) => {
+    ['sketch-canvas', ['features/diagrams/sketch/sketch-dialog.tsx', 'features/diagrams/sketch/sketch-stage.tsx']],
+    ['sketch-render', ['features/diagrams/components/sketch-figure.tsx']],
+  ])('reaches %s only through a dynamic import, and only from %j', (module, importers) => {
     // A whole `import type … from '…'` statement is erased at compile time, so
     // it is cut out first; whatever still names sketch-canvas in a `from` (an
     // import or a re-export) or a bare side-effect import is a static edge.
@@ -49,6 +50,6 @@ describe('the sketch editor stays out of the chat bundle', () => {
     const statics = files.filter(({ text }) => STATIC_EDGE.test(text.replace(TYPE_ONLY_IMPORT, '')))
     expect(statics.map(({ path }) => path)).toEqual([])
     const dynamics = files.filter(({ text }) => new RegExp(`import\\(\\s*['"][^'"]*${module}['"]\\s*\\)`).test(text))
-    expect(dynamics.map(({ path }) => path)).toEqual([importer])
+    expect(dynamics.map(({ path }) => path).sort()).toEqual(importers)
   })
 })

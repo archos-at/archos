@@ -19,7 +19,9 @@
  *
  * „Anmerkung“ on a selection: the selected elements become the draft's
  * anchor. The server takes a mark's elements from the saved Fassung, so the
- * dialog saves first when anything is unsaved (`onAnnotate`).
+ * stage saves first when anything is unsaved (`onAnnotate`). The pins are laid
+ * over the canvas by the review's stage (`sketch-stage.tsx`), beside it rather
+ * than inside it, so the canvas imports nothing of the review.
  */
 
 import { MessageSquarePlus } from 'lucide-react'
@@ -40,6 +42,8 @@ export interface SketchPinsProps {
   /** Set a mark on these elements: the dialog saves first when the canvas has unsaved changes. */
   onAnnotate: (draft: ReviewDraft & { elementIds: string[] }) => void
   canPickAssignee?: boolean
+  /** Draw the open card beside its mark; off on a phone, where the review docks it at the bottom edge. */
+  cards?: boolean
 }
 
 const NONE: string[] = []
@@ -55,7 +59,7 @@ export function placedLive<T extends { elementIds?: string[] | null; x: number; 
   return region ? { ...mark, x: region.x, y: region.y, w: region.w, h: region.h } : mark
 }
 
-export function SketchPins({ api, review, canAnnotate, onAnnotate, canPickAssignee = false }: SketchPinsProps) {
+export function SketchPins({ api, review, canAnnotate, onAnnotate, canPickAssignee = false, cards = true }: SketchPinsProps) {
   const t = useTranslations(diagramsCopy)
   const view = useCanvasView(api)
   const elements = view?.elements
@@ -99,7 +103,7 @@ export function SketchPins({ api, review, canAnnotate, onAnnotate, canPickAssign
   return (
     <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden" data-testid="sketch-pins">
       <div className="absolute" style={sheet} data-testid="sketch-pins-sheet">
-        <ReviewPageLayer page={1} review={live} focused renderThread={renderThread} />
+        <ReviewPageLayer page={1} review={live} focused renderThread={cards ? renderThread : undefined} />
       </div>
       {canAnnotate && selected.length > 0 && !review.draft ? (
         <Button

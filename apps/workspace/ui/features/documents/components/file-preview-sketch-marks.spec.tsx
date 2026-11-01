@@ -1,14 +1,17 @@
 /**
- * A Skizze's Anmerkungen in the Files preview (migration 0192): drawn over its
- * one sheet as a PDF page's are, and its review is the sketch editor, which the
- * preview's action slot owns. So a link with `?review=1&mark=` opens the
- * action at that mark, never the PDF review, and hands it the preview's review.
+ * A Skizze in the Files preview (migration 0192, ADR-0148): its Anmerkungen
+ * drawn over its one sheet as a PDF page's are, and its review the same
+ * `DocumentReviewMode` as every document, with the diagrams feature's stage
+ * (its canvas) where the PDF's pages would be. So a link with
+ * `?review=1&mark=` (the Postfach, a mention, a search hit) opens that shell
+ * at the mark, with the preview's own review, and so does a phone.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 import type { AnnotationView } from '@/lib/annotations/types'
-import { PreviewDocumentActionProvider, type PreviewDocumentActionProps } from '../preview-actions'
+import { PreviewSlotsProvider, type ReviewStageProps } from '../preview-actions'
+import type { DocumentReview } from '../hooks/use-document-review'
 import { FilePreviewPane } from './file-preview-pane'
 
 const nav = vi.hoisted(() => ({ params: new URLSearchParams() }))
@@ -17,9 +20,24 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/app/projects/proj-1/files',
   useSearchParams: () => nav.params,
 }))
+/** The shell as a stand-in: what the pane hands it, and the stage it is given, drawn in its place. */
+const shell = vi.hoisted(() => ({ props: null as null | Record<string, unknown> }))
 vi.mock('./review/document-review', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  DocumentReviewMode: ({ open }: { open: boolean }) => (open ? <div data-testid="review-mode" /> : null),
+  DocumentReviewMode: (props: {
+    open: boolean
+    review: DocumentReview
+    focusRequest?: { annotationId: string | null } | null
+    stage?: ((slots: { headerSlot: null; setCloseGuard: () => void; close: () => void }) => unknown) | null
+  }) => {
+    shell.props = props
+    if (!props.open) return null
+    return (
+      <div data-testid="review-mode" data-mark={props.focusRequest?.annotationId ?? ''}>
+        {props.stage?.({ headerSlot: null, setCloseGuard: () => {}, close: () => {} }) as never}
+      </div>
+    )
+  },
 }))
 
 const SKETCH = {
@@ -99,17 +117,34 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const seen: PreviewDocumentActionProps[] = []
-function RecordingAction(props: PreviewDocumentActionProps) {
-  seen.push(props)
-  return <div data-testid="sketch-action" data-open={String(props.reviewRequest?.open ?? false)} data-mark={props.reviewRequest?.annotationId ?? ''} />
+const staged: ReviewStageProps[] = []
+function RecordingStage(props: ReviewStageProps) {
+  staged.push(props)
+  return <div data-testid="sketch-stage" data-document={props.documentId} />
 }
 
 const pane = () => (
-  <PreviewDocumentActionProvider action={RecordingAction}>
+  <PreviewSlotsProvider stage={RecordingStage}>
     <FilePreviewPane file={SKETCH} projectId="proj-1" />
-  </PreviewDocumentActionProvider>
+  </PreviewSlotsProvider>
 )
+
+const original = window.matchMedia
+/** Pretend to be a phone: below `sm`. */
+const phone = () => {
+  window.matchMedia = ((query: string) => ({
+    matches: query.includes('40rem'),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+  })) as unknown as typeof window.matchMedia
+}
+afterEach(() => {
+  window.matchMedia = original
+  staged.length = 0
+})
 
 describe('a Skizze in the Files preview', () => {
   it('draws its marks over its sheet', async () => {
@@ -118,12 +153,29 @@ describe('a Skizze in the Files preview', () => {
     await waitFor(() => expect(sheet.querySelector('[data-testid="review-layer-1"]')).not.toBeNull())
   })
 
-  it('opens a review link in the sketch editor at its mark, not in the PDF review', async () => {
+  it('opens a review link in the review shell at its mark, the canvas as its stage', async () => {
     nav.params = new URLSearchParams('doc=doc-svg&review=1&mark=ann-1')
     render(pane())
-    await waitFor(() => expect(screen.getByTestId('sketch-action').dataset.open).toBe('true'))
-    expect(screen.getByTestId('sketch-action').dataset.mark).toBe('ann-1')
+    const shellNode = await screen.findByTestId('review-mode')
+    expect(shellNode.dataset.mark).toBe('ann-1')
+    expect(within(shellNode).getByTestId('sketch-stage').dataset.document).toBe('doc-svg')
+    // The stage draws with the preview's review: one instance, one room.
+    await waitFor(() => expect(staged.at(-1)?.review.annotations.map((mark) => mark.id)).toEqual(['ann-1']))
+    expect(staged.at(-1)?.review).toBe((shell.props as { review: DocumentReview }).review)
+  })
+
+  it('mounts the review on a phone too: the reader bar’s way in reaches the canvas', async () => {
+    phone()
+    nav.params = new URLSearchParams('doc=doc-svg&review=1')
+    render(pane())
+    expect(await screen.findByTestId('file-reader-header')).toBeInTheDocument()
+    expect(within(await screen.findByTestId('review-mode')).getByTestId('sketch-stage')).toBeInTheDocument()
+  })
+
+  it('opens no review without the diagrams feature’s stage: there is nothing to draw it with', async () => {
+    nav.params = new URLSearchParams('doc=doc-svg&review=1')
+    render(<FilePreviewPane file={SKETCH} projectId="proj-1" />)
+    await screen.findByTestId('sketch-sheet')
     expect(screen.queryByTestId('review-mode')).toBeNull()
-    expect(seen.at(-1)?.review?.annotations.map((mark) => mark.id)).toEqual(['ann-1'])
   })
 })

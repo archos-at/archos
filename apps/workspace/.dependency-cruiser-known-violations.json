@@ -2879,7 +2879,7 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/documents/components/review/document-review.tsx",
+    "from": "ui/features/documents/components/review/review-header.tsx",
     "to": "ui/features/chat/lib/turn-events.ts",
     "unresolvedTo": "@/features/chat/lib/turn-events",
     "dependencyTypes": [

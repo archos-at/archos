@@ -6,7 +6,9 @@
  * Open this page in two tabs (or two windows side by side): each is a person
  * in the same document room, joined over a `BroadcastChannel` instead of the
  * server (`broadcast-room.ts`). Draw in one and the other follows; its
- * pointer, selection and name show on the other canvas.
+ * pointer, selection and name show on the other canvas, and the review's
+ * header shows who is here (the review's Presence: the canvas has no faces of
+ * its own). The Skizze opens in its review, like every document.
  *
  *   ?as=anna | max      who this tab is (default anna)
  *   ?role=reader        open as someone who may only read: view mode, no save
@@ -23,7 +25,7 @@
 import { notFound, useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { I18nProvider } from '@/i18n'
-import { SketchDialog } from '@/features/diagrams/sketch/sketch-dialog'
+import { DevSketchReview } from '../_fixtures/sketch-review'
 import { broadcastRoomTransport } from './broadcast-room'
 
 const DOCUMENT_ID = 'dev-sketch-room'
@@ -61,6 +63,9 @@ function readStoredRevision(): StoredRevision {
   return { versionId: 'ver-1', versionNumber: 1, scene: FIRST_SCENE }
 }
 
+/** Whether this tab may write: `?role=reader` may not. */
+const canWriteHere = () => new URLSearchParams(window.location.search).get('role') !== 'reader'
+
 /** The route, in this browser: GET the latest Fassung, PUT the next one unless its base is stale. */
 function useStandInRoute() {
   useEffect(() => {
@@ -73,7 +78,7 @@ function useStandInRoute() {
       const json = (status: number, body: unknown) =>
         new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
       if (init?.method !== 'PUT') {
-        return json(200, { documentId: DOCUMENT_ID, versionId: current.versionId, canWrite: true, title: 'Raumprogramm', scene: { ...FIRST_SCENE, ...current.scene } })
+        return json(200, { documentId: DOCUMENT_ID, versionId: current.versionId, canWrite: canWriteHere(), title: 'Raumprogramm', scene: { ...FIRST_SCENE, ...current.scene } })
       }
       const body = JSON.parse(String(init.body)) as { baseVersionId: string | null; scene: { elements: object[] } }
       if (body.baseVersionId !== current.versionId) {
@@ -95,10 +100,6 @@ function Room() {
   const canWrite = params.get('role') !== 'reader'
   useStandInRoute()
   const [open, setOpen] = useState(true)
-  const [opened, setOpened] = useState<StoredRevision | null>(null)
-  useEffect(() => {
-    if (open) setOpened(readStoredRevision())
-  }, [open])
   const transport = useMemo(() => broadcastRoomTransport(DOCUMENT_ID, { ...who, canWrite }), [who, canWrite])
 
   return (
@@ -110,22 +111,7 @@ function Room() {
       <button type="button" className="text-sm underline" onClick={() => setOpen(true)} data-testid="sketch-room-open">
         Skizze öffnen
       </button>
-      {opened ? (
-        <SketchDialog
-          open={open}
-          onOpenChange={setOpen}
-          source=""
-          elements={[]}
-          title="Raumprogramm"
-          revision={{
-            documentId: DOCUMENT_ID,
-            baseVersionId: opened.versionId,
-            scene: opened.scene,
-            canWrite,
-            roomTransport: transport,
-          }}
-        />
-      ) : null}
+      <DevSketchReview documentId={DOCUMENT_ID} documentName="Raumprogramm.svg" transport={transport} open={open} onOpenChange={setOpen} />
     </div>
   )
 }

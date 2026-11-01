@@ -120,8 +120,6 @@ export const diagrams = {
     fallback: 'This sketch could not be drawn. Ask {productName} to draw it again.',
     /** A filed sketch reopened from Files (ADR-0148): each save is a new Fassung of the same document. */
     reviseDescription: 'Each save becomes a new version of this document; earlier versions stay in its history.',
-    opening: 'Opening the sketch…',
-    openFailed: 'The sketch could not be opened.',
     saveVersion: 'Save as new version',
     savingVersion: 'Saving…',
     savedVersion: 'Saved as version {number}',

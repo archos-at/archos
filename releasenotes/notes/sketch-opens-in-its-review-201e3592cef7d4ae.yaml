@@ -1,0 +1,8 @@
+---
+improvements:
+  - >
+    A Skizze now opens in the same review as every other document, its drawing
+    where a PDF's pages would be, with the name and Fassung, the list of
+    Anmerkungen, who is looking, the Protokoll and „Piloti prüfen lassen“
+    around it. Links from the inbox, a mention or a search open it at its
+    Anmerkung, on a phone too.

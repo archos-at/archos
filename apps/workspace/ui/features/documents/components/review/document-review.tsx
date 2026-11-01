@@ -1,45 +1,21 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type JSX, type RefObject } from 'react'
-import Link from 'next/link'
-import {
-  ArrowDown,
-  ArrowUp,
-  ExternalLink,
-  Link2,
-  MessageSquarePlus,
-  MessagesSquare,
-  MousePointer2,
-  RotateCcw,
-  Sparkles,
-  Speech,
-  SquareDashed,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode, type RefObject } from 'react'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useMediaQuery } from '@/hooks/use-media-query'
-import { Button } from '@/components/ui/button'
 import { identityInk } from '@/components/ui/avatar-identity'
-import { FloatingNote, FloatingToolbar, ToolbarIconButton } from '@/components/ui/floating-toolbar'
+import { FloatingNote, FloatingToolbar } from '@/components/ui/floating-toolbar'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
-import { Kbd } from '@/components/ui/kbd'
 import { PeerTag } from '@/components/ui/live-cursor'
-import { MiddleTruncate } from '@/components/ui/middle-truncate'
-import { AgentGlyph } from '@/components/ui/agent-glyph'
-import { ShimmerText } from '@/components/ui/shimmer-text'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PdfDocumentView } from '@/features/knowledge/components/pdf-document-view'
-import { liveLine } from '@/features/chat/lib/turn-events'
-import { useLocale, useTranslations } from '@/i18n'
-import { chatCopy } from '@/i18n/namespaces/chat'
+import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { isGhostMark, type AnnotationView } from '@/lib/annotations/types'
 import { documentFileUrl } from '@/lib/documents/urls'
 import { cn } from '@/lib/utils'
-import { stepsOf, type CanvasAsk } from '../../hooks/use-canvas-ask'
 import { DECISION_UNDO_MS, type DocumentReview as ReviewState, type ReviewTool } from '../../hooks/use-document-review'
 import { sameValue } from '@/lib/utils/same-value'
 import {
@@ -47,12 +23,14 @@ import {
   useRoomSelector,
   type RoomPeerState,
 } from '../../hooks/use-document-room'
+import type { ReviewStageSlots } from '../../preview-actions'
 import { CursorChat } from './cursor-chat'
 import { OWN_CURSOR_ZONE, OwnCursor } from './own-cursor'
 import { keepTrigger, restoreFocus } from './focus-return'
 import { AgentAnswerCard } from './agent-answer-card'
 import { ReviewPageLayer } from './review-page-layer'
-import { pageOf, people, Presence } from './presence'
+import { pageOf, people } from './presence'
+import { ReviewHeader } from './review-header'
 import { ReviewPageMenu } from './review-page-menu'
 import { ReviewPanel, type OpenMark } from './review-panel'
 import { ReviewAnnouncer } from './review-announcer'
@@ -60,42 +38,12 @@ import { ReviewExportMenu } from './review-export-menu'
 import type { ProtocolFilingTarget } from '../../lib/protocol-filing'
 import { useCheckFixed } from './check-fixed'
 import { ReviewToaster, reviewToast } from './review-toaster'
-import { hasLiveMarks, openMarksLabel, openMarksShortLabel } from '../open-marks-chip'
 import { clearReviewParams, setReviewParams } from '../../lib/open-review'
 import { covers, ReviewStageContext, STAGE_FOOT, STAGE_HEAD, type StageBounds } from './review-stage'
 import { DraftCard, ThreadCard, type CardPlacement } from './thread-card'
+import { rememberToolsIntro, ReviewTools, toolOffered, toolsIntroSeen } from './review-tools'
 
-/** A tool on the palette: the review's own, or the cursor chat, which sets nothing. */
-type PaletteTool = ReviewTool | 'chat'
-
-const TOOLS: Array<{ tool: PaletteTool; key: string; icon: LucideIcon }> = [
-  { tool: 'select', key: 'V', icon: MousePointer2 },
-  { tool: 'point', key: 'C', icon: MessageSquarePlus },
-  { tool: 'region', key: 'R', icon: SquareDashed },
-  { tool: 'ask', key: 'P', icon: Sparkles },
-  // A head speaking, not a bubble: the comment tool already is one, and this one keeps nothing.
-  { tool: 'chat', key: '/', icon: Speech },
-]
-
-/** Where this browser keeps that it has seen the tools explained: the first review opens with them spelled out. */
-export const TOOLS_INTRO_KEY = 'review.toolsIntroSeen'
-
-/** Whether the tools were explained here before. Storage that cannot be read counts as seen: no intro on every open. */
-export function toolsIntroSeen(): boolean {
-  try {
-    return window.localStorage.getItem(TOOLS_INTRO_KEY) === '1'
-  } catch {
-    return true
-  }
-}
-
-function rememberToolsIntro(): void {
-  try {
-    window.localStorage.setItem(TOOLS_INTRO_KEY, '1')
-  } catch {
-    // A private window: the intro shows again next time, which is harmless.
-  }
-}
+export { TOOLS_INTRO_KEY } from './review-tools'
 
 /** A phone, or a phone on its side: a card beside a mark has no room, so it comes up from the bottom edge. */
 const DOCKED_CARDS = '(max-width: 639px), (pointer: coarse) and (max-height: 500px)'
@@ -114,101 +62,12 @@ export function walkPosition(
   return index === -1 ? null : { index: index + 1, total: walk.length }
 }
 
-/**
- * The tools, as one row of buttons for a pill. `icons`: glyphs with the name
- * and key in a tooltip, in the viewer's own pill. `intro`: the first review a
- * browser opens, every tool spelled out with its key, and a way to fold it.
- * `touch`: a label under every glyph, since a finger has no tooltip and no keys.
- */
-function ReviewTools({
-  review,
-  chatOpen,
-  onChat,
-  variant,
-  onFold,
-  onAim,
-}: {
-  review: ReviewState
-  chatOpen: boolean
-  onChat: () => void
-  variant: 'icons' | 'intro' | 'touch'
-  onFold?: () => void
-  /** A mark tool was taken up from the keyboard: the crosshair sets the place. */
-  onAim?: () => void
-}): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const offered = TOOLS.filter(({ tool }) => tool === 'chat' || toolOffered(tool, review))
-  return (
-    <div role="group" aria-label={t('review.toolsLabel')} data-testid="review-tools" data-variant={variant} className="flex items-center gap-0.5">
-      {offered.map(({ tool, key, icon: Icon }) => {
-        const pressed = tool === 'chat' ? chatOpen : review.tool === tool
-        const name = tool === 'chat' ? t('review.chatOpen') : t(`review.tools.${tool}`)
-        const button = (
-          <ToolbarIconButton
-            data-testid={`review-tool-${tool}`}
-            aria-pressed={pressed}
-            aria-keyshortcuts={key}
-            aria-label={name}
-            onClick={(event) => {
-              if (tool === 'chat') return onChat()
-              review.setTool(tool)
-              // `detail` is 0 for a click the keyboard made (Enter, Space).
-              if (tool !== 'select' && event.detail === 0) onAim?.()
-            }}
-            className={cn(
-              // The tool in hand is filled in ink: what the pointer will do is never a guess.
-              'aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:text-background',
-              // Spelled out where the stage is wide enough for the whole pill; under ~1000px of it the
-              // tools fold to their glyphs, still named for a screen reader (the viewer's container).
-              variant === 'intro' && 'w-auto gap-1.5 px-2 text-xs font-medium @max-5xl:w-7 @max-5xl:px-0',
-              variant === 'touch' && 'h-12 w-14 flex-col gap-0.5 pointer-coarse:size-auto pointer-coarse:h-12 pointer-coarse:w-14'
-            )}
-          >
-            <Icon aria-hidden />
-            {variant === 'intro' && (
-              <>
-                {/* The short name: the pill also carries the viewer's own controls. */}
-                <span className="@max-5xl:sr-only">{t(`review.toolsShort.${tool}`)}</span>
-                <Kbd className="h-4 min-w-4 px-1 text-[10px] @max-5xl:hidden">{key}</Kbd>
-              </>
-            )}
-            {variant === 'touch' && <span className="text-[10px] leading-3 font-medium">{t(`review.toolsShort.${tool}`)}</span>}
-          </ToolbarIconButton>
-        )
-        // A finger has no hover: its labels are under the glyphs. Spelled out, the
-        // tools keep the tooltip too, for when a narrow stage folds them to glyphs.
-        if (variant === 'touch') return <span key={tool} className="contents">{button}</span>
-        return (
-          <Tooltip key={tool}>
-            <TooltipTrigger asChild>{button}</TooltipTrigger>
-            <TooltipContent side="top">
-              {name} <Kbd className="ml-1">{key}</Kbd>
-            </TooltipContent>
-          </Tooltip>
-        )
-      })}
-      {variant === 'intro' && onFold && (
-        <ToolbarIconButton
-          aria-label={t('review.toolsIntroFold')}
-          title={t('review.toolsIntroFold')}
-          data-testid="review-tools-fold"
-          className="@max-5xl:hidden"
-          onClick={onFold}
-        >
-          <X aria-hidden />
-        </ToolbarIconButton>
-      )}
-    </div>
-  )
-}
-
-/** Which tools a reader has: marks need the right to set them; Piloti needs a project to ask in. */
-const toolOffered = (tool: ReviewTool, review: ReviewState): boolean =>
-  tool === 'select' || (tool === 'ask' ? review.piloti.available : review.canAnnotate)
-
 /** Whether a key press belongs to a field the reader is typing in. */
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+
+/** Whether a key press is the stage's: focus in a Skizze's canvas, whose V, R, E, ⌫ and Esc are Excalidraw's. */
+const stageKeys = (target: EventTarget | null) => target instanceof Element && target.closest('[data-stage-keys]') !== null
 
 /** Where a colleague is from this reader's view: in it, or past its top or bottom edge. */
 export type PeerSide = 'here' | 'above' | 'below'
@@ -330,117 +189,6 @@ function Elsewhere({
   )
 }
 
-/** The whole-document review asked of Piloti: the latest one, while it is in the header. */
-const documentReviewOf = (asks: readonly CanvasAsk[]): CanvasAsk | null =>
-  asks.findLast((ask) => ask.region === null && !ask.replyInThread) ?? null
-
-/**
- * „Piloti prüfen lassen" in place: Piloti goes through the document while it
- * stays open, its findings landing as proposals through the room, its pointer
- * on the pages. The header says what it is doing, compactly, and where the
- * conversation is.
- */
-function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => void }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const tChat = useTranslations(chatCopy)
-  const { piloti } = review
-  const run = documentReviewOf(piloti.asks)
-  if (!run) {
-    const button = (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        data-testid="review-with-agent"
-        disabled={piloti.busy}
-        onClick={() => piloti.ask({ text: t('review.reviewSeed'), region: null, effort: 'medium' })}
-      >
-        <Sparkles className="size-3.5" aria-hidden />
-        {/* On a phone the glyph carries it; the words stay for a screen reader. */}
-        <span className="max-sm:sr-only">{t('review.reviewWithAgent')}</span>
-      </Button>
-    )
-    if (!piloti.busy) return button
-    // A disabled button says why: a wrapper takes the pointer the button no longer does.
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span tabIndex={0} className="inline-flex rounded-control" data-testid="review-with-agent-busy">
-            {button}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>{t('review.piloti.busyTooltip')}</TooltipContent>
-      </Tooltip>
-    )
-  }
-  const working = run.status === 'thinking'
-  // A check of what is fixed answers in the threads: it finds no proposals to walk.
-  const checking = run.checkFixed !== null
-  const found = run.status === 'answered' && !checking ? review.counts.proposed : 0
-  const line = working
-    ? (liveLine(stepsOf(run.view), tChat) ?? t(checking ? 'review.piloti.checkingFixed' : 'review.piloti.reviewing'))
-    : run.status === 'failed'
-      ? t('review.piloti.reviewFailed')
-      : found > 0
-        ? t('review.piloti.reviewFound', { count: found })
-        : t(checking ? 'review.piloti.checkFixedDone' : 'review.piloti.reviewDone')
-  return (
-    <div
-      role="status"
-      data-testid="review-agent-status"
-      className="border-border/70 bg-muted/40 flex h-8 max-w-[30rem] items-center gap-2 rounded-control border pr-0.5 pl-1.5"
-    >
-      <AgentGlyph working={working} />
-      {working ? (
-        <ShimmerText className="min-w-0 flex-1 text-xs">{line}</ShimmerText>
-      ) : (
-        <span className="text-foreground min-w-0 flex-1 truncate text-xs font-medium">{line}</span>
-      )}
-      {found > 0 && (
-        <Button
-          type="button"
-          variant="secondary"
-          size="xs"
-          className="shrink-0"
-          data-testid="review-agent-walk"
-          onClick={onWalk}
-        >
-          {t('review.walkProposals')}
-        </Button>
-      )}
-      {piloti.conversationHref && (
-        <Button asChild variant="ghost" size="xs" className="shrink-0">
-          <Link href={piloti.conversationHref} data-testid="review-agent-conversation">
-            {t('review.piloti.openConversation')}
-          </Link>
-        </Button>
-      )}
-      {run.status === 'failed' && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={t('review.piloti.retry')}
-          onClick={() => piloti.retry(run.id)}
-        >
-          <RotateCcw aria-hidden />
-        </Button>
-      )}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        aria-label={working ? t('review.piloti.stop') : t('review.piloti.close')}
-        title={working ? t('review.piloti.stop') : t('review.piloti.close')}
-        data-testid="review-agent-dismiss"
-        onClick={() => piloti.dismiss(run.id)}
-      >
-        <X aria-hidden />
-      </Button>
-    </div>
-  )
-}
-
 /**
  * The focused review of one document: the sheet, the marks on it, the threads
  * under them, and the people looking at it with you.
@@ -473,6 +221,7 @@ export function DocumentReviewMode({
   onPage,
   protocolFiling = null,
   openCreated = null,
+  stage: stageContent = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -496,9 +245,14 @@ export function DocumentReviewMode({
   protocolFiling?: ProtocolFilingTarget | null
   /** Opens a document the page menu made (a Skizze on this page) with its own review; null offers no page menu. */
   openCreated?: ((documentId: string) => void) | null
+  /**
+   * What stands where the PDF's pages would: a Skizze's canvas (`ReviewStageProps`). A stage owns its
+   * pointer, its tools and its keys, so the review's page tools, own cursor, follow and page chips step
+   * aside; the header, the list, the cards, the Protokoll and Piloti stay the review's.
+   */
+  stage?: ((slots: ReviewStageSlots) => ReactNode) | null
 }): JSX.Element {
   const t = useTranslations(filesCopy)
-  const { locale } = useLocale()
   const [focus, setFocus] = useState<{ page: number; y: number; key: string; instant?: boolean } | null>(null)
   const [following, setFollowing] = useState<string | null>(null)
   const { annotations, select, setTool, tool, selectedId, draft, setDraft, room, piloti } = review
@@ -557,8 +311,8 @@ export function DocumentReviewMode({
    */
   const [intro, setIntro] = useState(false)
   useEffect(() => {
-    if (open && !touch && !toolsIntroSeen()) setIntro(true)
-  }, [open, touch])
+    if (open && !touch && !stageContent && !toolsIntroSeen()) setIntro(true)
+  }, [open, touch, stageContent])
   const foldIntro = useCallback(() => {
     setIntro(false)
     rememberToolsIntro()
@@ -580,10 +334,10 @@ export function DocumentReviewMode({
       return
     }
     // Not before the reader's rights are known: the tools are offered once the list has said so.
-    if (armed.current || !initialTool || !toolOffered(initialTool, review)) return
+    if (armed.current || !initialTool || stageContent || !toolOffered(initialTool, review)) return
     armed.current = true
     setTool(initialTool)
-  }, [open, initialTool, review, setTool])
+  }, [open, initialTool, review, setTool, stageContent])
 
   const bring = useCallback(
     (annotation: AnnotationView) => {
@@ -736,12 +490,20 @@ export function DocumentReviewMode({
     dismissNotice()
   }, [notice, dismissNotice, t])
 
-  const close = useCallback(() => {
+  const forceClose = useCallback(() => {
     setFollowing(null)
     setDraft(null)
     setTool('select')
     onOpenChange(false)
   }, [onOpenChange, setDraft, setTool])
+  /** The stage's say before closing (a Skizze's unsaved strokes), and where its header controls go. */
+  const closeGuard = useRef<(() => boolean) | null>(null)
+  const setCloseGuard = useCallback((guard: (() => boolean) | null) => void (closeGuard.current = guard), [])
+  const close = useCallback(() => {
+    if (closeGuard.current && !closeGuard.current()) return
+    forceClose()
+  }, [forceClose])
+  const [stageSlot, setStageSlot] = useState<HTMLElement | null>(null)
 
   // A mark of an earlier Fassung is not drawn as a mark of this sheet (an open
   // one is a ghost, where it stood on its own): selected, its thread opens over
@@ -768,6 +530,7 @@ export function DocumentReviewMode({
    */
   const stepBack = (event: KeyboardEvent) => {
     event.preventDefault()
+    if (stageKeys(event.target) && !draft && !openAsk) return
     if (typing(event.target) && !draft && !openAsk) return
     if (openAsk) piloti.open(null)
     else if (draft) setDraft(null)
@@ -803,8 +566,10 @@ export function DocumentReviewMode({
     if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
     // The list's sheet, and a phone's card sheet, are layers of their own: their keys are their own.
     if (listOpen || dockOpen) return
-    if (event.key === 'Escape' || typing(event.target)) return
+    if (event.key === 'Escape' || typing(event.target) || stageKeys(event.target)) return
     const key = event.key.toLowerCase()
+    // A stage has its own tools: the review's letters for them are its own there.
+    if (stageContent && (key === '/' || key === 'v' || key === 'c' || key === 'r' || key === 'p')) return
     if (key === '/') openChat(true)
     else if (key === 'v') setTool('select')
     else if ((key === 'c' || key === 'r') && review.canAnnotate) {
@@ -939,106 +704,24 @@ export function DocumentReviewMode({
         className="bg-background inset-0 top-0 left-0 flex h-dvh max-h-dvh w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:max-w-none"
         data-testid="document-review"
       >
-        <header className="flex min-h-13 shrink-0 items-center gap-3 border-b px-3 pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] max-sm:flex-wrap max-sm:gap-x-2 max-sm:gap-y-0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0"
-            aria-label={t('review.close')}
-            title={`${t('review.close')} (Esc)`}
-            onClick={close}
-          >
-            <X aria-hidden />
-          </Button>
-          {/* On a phone the name has a row of its own, under the close and the
-              faces: beside them it kept ~40px, „G…_Index-C.pdf". Cut in the
-              middle where even the row is short: the index at its end is what
-              says which Fassung is under review. The line under it wraps there
-              rather than lose the count. */}
-          <div className="min-w-0 flex-1 max-sm:order-last max-sm:basis-full max-sm:pb-2">
-            <DialogTitle className="text-foreground flex text-sm font-semibold">
-              <MiddleTruncate text={documentName} tail={12} />
-            </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs sm:truncate">
-              {[
-                revisionLabel,
-                // Another document replaces this one, or this one replaces another: the header says so.
-                review.revision?.replacedBy
-                  ? t('review.replacedBy', { name: review.revision.replacedBy.filename })
-                  : review.revision?.replaces[0]
-                    ? t('review.replaces', { name: review.revision.replaces[0].filename })
-                    : null,
-                // „2 offen · 12 Vorschläge": Piloti's untaken proposals are not counted as open, as in Dateien.
-                hasLiveMarks(review.counts) ? openMarksShortLabel(t, review.counts) : t('review.nothingOpen'),
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </DialogDescription>
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-3 max-sm:gap-2">
-            {room.status === 'offline' && (
-              <span
-                className="text-muted-foreground text-xs font-medium"
-                data-testid="review-offline"
-                title={t('review.offlineHint')}
-                role="status"
-              >
-                {t('review.offline')}
-              </span>
-            )}
-            <Presence review={review} following={following} onFollow={setFollowing} />
-            <ReviewPageMenu documentId={review.documentId} page={viewPage ?? 1} onCreated={openCreated} />
-            {popoutHref && (
-              // A window of its own for a second screen, and the link to send: both quiet, beside the faces.
-              <span className="flex items-center max-sm:hidden">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t('review.popout')}
-                  title={t('review.popout')}
-                  data-testid="review-popout"
-                  onClick={popout}
-                >
-                  <ExternalLink aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t('review.copyReviewLink')}
-                  title={t('review.copyReviewLink')}
-                  data-testid="review-copy-link"
-                  onClick={() => copyText(new URL(popoutHref, window.location.href).toString())}
-                >
-                  <Link2 aria-hidden />
-                </Button>
-              </span>
-            )}
-            {!listBeside && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                aria-haspopup="dialog"
-                aria-expanded={listOpen}
-                // „Anmerkungen: 3 offene Anmerkungen und 12 Vorschläge von Piloti“: the chip's sentence.
-                aria-label={t('review.listOpen', {
-                  marks: hasLiveMarks(review.counts) ? openMarksLabel(t, locale, review.counts) : t('review.nothingOpen'),
-                })}
-                data-testid="review-list-open"
-                onClick={() => setListOpen(true)}
-              >
-                <MessagesSquare className="size-3.5" aria-hidden />
-                {/* The open marks, as „offen“ counts them everywhere: Piloti's proposals are not the office's yet. */}
-                <span className="font-mono tabular-nums">{review.counts.open}</span>
-              </Button>
-            )}
-            {listBeside && exportMenu}
-            {piloti.available && review.canAnnotate && <AgentReview review={review} onWalk={walkProposals} />}
-          </div>
-        </header>
+        <ReviewHeader
+          review={review}
+          documentName={documentName}
+          revisionLabel={revisionLabel}
+          onClose={close}
+          following={following}
+          onFollow={stageContent ? undefined : setFollowing}
+          pageMenu={stageContent ? null : <ReviewPageMenu documentId={review.documentId} page={viewPage ?? 1} onCreated={openCreated} />}
+          popoutHref={popoutHref}
+          onPopout={popout}
+          onCopyText={copyText}
+          listBeside={listBeside}
+          listOpen={listOpen}
+          onListOpen={() => setListOpen(true)}
+          exportMenu={exportMenu}
+          onWalk={walkProposals}
+          stageSlot={stageContent ? setStageSlot : undefined}
+        />
 
         <ReviewStageContext.Provider value={stage}>
           <div className="flex min-h-0 flex-1">
@@ -1050,7 +733,7 @@ export function DocumentReviewMode({
               onPointerDownCapture={() => following && setFollowing(null)}
               onPointerMove={(event) => void (lastPointer.current = { x: event.clientX, y: event.clientY })}
             >
-              <OwnCursor canvas={canvasRef} userId={room.self?.userId ?? null} name={room.self?.name ?? ''} tool={tool} />
+              {!stageContent && <OwnCursor canvas={canvasRef} userId={room.self?.userId ?? null} name={room.self?.name ?? ''} tool={tool} />}
               {/* What sits at the top of the canvas, one under the other: whom the
                   view follows, who is out of view above, what the tool in hand does. */}
               <div className="pointer-events-none absolute inset-x-3 top-3 z-30 flex flex-col items-center gap-1.5">
@@ -1059,7 +742,7 @@ export function DocumentReviewMode({
                     {t('review.following', { name: followedState.name })}
                   </PeerTag>
                 )}
-                <Elsewhere review={review} page={viewPage ?? 1} edge="above" canvas={canvasRef} onJump={jumpTo} />
+                {!stageContent && <Elsewhere review={review} page={viewPage ?? 1} edge="above" canvas={canvasRef} onJump={jumpTo} />}
                 {toolHint && (
                   // With the crosshair out its own label says the keys in words; the glyphs here would be read on top of it.
                   <FloatingNote role={aim ? undefined : 'status'} aria-hidden={aim ? true : undefined} data-testid="review-tool-hint">
@@ -1067,7 +750,7 @@ export function DocumentReviewMode({
                   </FloatingNote>
                 )}
               </div>
-              <Elsewhere review={review} page={viewPage ?? 1} edge="below" canvas={canvasRef} onJump={jumpTo} />
+              {!stageContent && <Elsewhere review={review} page={viewPage ?? 1} edge="below" canvas={canvasRef} onJump={jumpTo} />}
               {earlier && !openAsk && !draft && !docked && (
                 <div className="absolute top-4 left-1/2 z-40 -translate-x-1/2" data-testid="review-earlier-thread">
                   {threadCard('detached')}
@@ -1092,14 +775,14 @@ export function DocumentReviewMode({
                   style={{ borderColor: identityInk(followedState.userId) }}
                 />
               )}
-              {touch && (
+              {touch && !stageContent && (
                 // On a touch screen the tools sit centred ABOVE the viewer's own
                 // pill, at the thumb, each with its name under it.
                 <FloatingToolbar className="pointer-events-auto absolute bottom-[4.75rem] left-1/2 z-30 -translate-x-1/2">
                   {toolsPalette('touch')}
                 </FloatingToolbar>
               )}
-              <PdfDocumentView
+              {stageContent ? stageContent({ headerSlot: stageSlot, setCloseGuard, close: forceClose, cardsDocked: docked }) : <PdfDocumentView
                 src={documentFileUrl(review.documentId)}
                 title={documentName}
                 focus={focus}
@@ -1124,7 +807,7 @@ export function DocumentReviewMode({
                   />
                 )}
                 className="size-full"
-              />
+              />}
               <ReviewToaster foot={foot} />
             </div>
             <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />

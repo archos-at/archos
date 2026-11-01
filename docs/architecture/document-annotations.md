@@ -648,15 +648,22 @@ and an open review reads them again. The carry is scored, `sketch-pins-kept`.
 **Where it is shown.** The Files preview draws the marks over the Skizze's
 sheet with the review's own layer, by the same path as a PDF page's (`marksOn`
 in `file-preview-pane-document.tsx`: `ReviewPageLayer` unfocused and the
-`InlineMarkPeek`), and its review is the sketch editor, not
-the Prüfansicht: a pin, „Prüfansicht öffnen“ or a link with `?review=1&mark=`
-opens the editor at that mark (`reviewRequest`, the preview's action slot,
-`features/documents/preview-actions.tsx`). In the editor the pins sit over the
-live canvas (`features/diagrams/sketch/sketch-pins.tsx`): the layer is laid
-where the sheet stands at the canvas's scroll and zoom, and each pinned mark
-is placed from where its elements are now, so a pin follows its element while
-it is dragged, before any save. „Anmerkung“ on a selection opens the review's
-draft card for those elements; the thread is the review's own card.
+`InlineMarkPeek`), and its review is the Prüfansicht, the same
+`DocumentReviewMode` as every document's, with the Skizze's canvas where a
+PDF's pages would be (the diagrams feature's stage, `stage` in
+`features/documents/preview-actions.tsx`). A pin, „Prüfansicht öffnen“, the
+phone's reader bar or a link with `?review=1&mark=` opens it at that mark. The
+header, the list (Offen/Erledigt, Alle/Für Sie), the cards, „Protokoll
+exportieren“ and „Piloti prüfen lassen“ are the review's; the point and box
+tools, the own cursor, follow and the peer chips are not offered on a Skizze,
+whose canvas has its own pointer and tools, and the review's keys yield while
+the focus is in the canvas (`data-stage-keys`). The pins sit over the live
+canvas (`features/diagrams/sketch/sketch-pins.tsx`): the layer is laid where
+the sheet stands at the canvas's scroll and zoom, and each pinned mark is
+placed from where its elements are now, so a pin follows its element while it
+is dragged, before any save. „Anmerkung“ on a selection opens the review's
+draft card for those elements; the thread is the review's own card, docked at
+the bottom edge on a phone as on every document.
 
 **The PDF beside it takes none.** The PDF filed beside a diagram is its
 rendition, drawn again from the current Fassung (`lib/diagrams/sketch-companion.ts`),

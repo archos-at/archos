@@ -62,8 +62,6 @@ export const diagrams: typeof en.diagrams = {
     notToScale: 'Skizze — nicht maßstäblich, ohne Maßangabe.',
     fallback: 'Diese Skizze konnte nicht gezeichnet werden. Bitten Sie {productName}, sie noch einmal zu zeichnen.',
     reviseDescription: 'Jedes Speichern wird eine neue Fassung dieses Dokuments; frühere Fassungen bleiben im Verlauf.',
-    opening: 'Skizze wird geöffnet …',
-    openFailed: 'Die Skizze konnte nicht geöffnet werden.',
     saveVersion: 'Als neue Fassung speichern',
     savingVersion: 'Wird gespeichert …',
     savedVersion: 'Als Fassung {number} gespeichert',

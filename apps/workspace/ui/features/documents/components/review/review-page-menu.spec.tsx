@@ -8,7 +8,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { I18nProvider } from '@/i18n'
-import { PreviewDocumentActionProvider, type ReviewPageActionProps } from '../../preview-actions'
+import { PreviewSlotsProvider, type ReviewPageActionProps } from '../../preview-actions'
 import { ReviewPageMenu } from './review-page-menu'
 
 const toast = vi.hoisted(() => ({ error: vi.fn() }))
@@ -26,9 +26,9 @@ function FakeAction({ documentId, page, onCreated, onFailed }: ReviewPageActionP
 const open = (onCreated: ((id: string) => void) | null, withAction = true) =>
   render(
     <I18nProvider initialLocale="de" fixedLocale>
-      <PreviewDocumentActionProvider action={() => null} pageAction={withAction ? FakeAction : null}>
+      <PreviewSlotsProvider pageAction={withAction ? FakeAction : null}>
         <ReviewPageMenu documentId="doc-1" page={4} onCreated={onCreated} />
-      </PreviewDocumentActionProvider>
+      </PreviewSlotsProvider>
     </I18nProvider>
   )
 

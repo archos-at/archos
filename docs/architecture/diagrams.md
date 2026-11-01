@@ -686,17 +686,31 @@ document, never a new pair.
 - **Only a filed sketch is saved this way** (`diagram_svg`). A person's own
   upload that carries a scene is read, never written: new bytes for it are an
   upload, with an upload's screening.
-- **In Files**, a machine-authored SVG whose `GET` answers a scene gets „Als
-  Skizze bearbeiten" in the preview's rail (`sketch/sketch-revise-action.tsx`,
-  through the documents feature's slot `features/documents/preview-actions.tsx`,
-  so documents imports nothing of diagrams). It opens the same lazy editor on
-  the stored scene; „Als neue Fassung speichern" saves, and a 409 tells the
-  person a newer Fassung exists. The preview asks with `?probe=1`, which
-  answers `{ hasScene, canWrite, versionId }` and nothing of the drawing, so
-  the download log need not record it; the click reads, logged, and opens the
-  latest Fassung (or the open draft). `canWrite` is what the PUT would take:
-  write access and a filed `diagram_svg`. When another Fassung becomes current
-  (`version.published` from someone else), the preview reads its picture again.
+- **In Files, a Skizze opens in its review, like every document.** The review
+  (`DocumentReviewMode`) is the same shell a PDF opens in: the name, the
+  Fassung, „Ersetzt …“, the open marks, Presence, the pop-out and the link,
+  „Protokoll exportieren“, „Piloti prüfen lassen“, the list with Offen/Erledigt
+  and Alle/Für Sie, the cards. Where a PDF's pages would be stands the Skizze's
+  stage (`sketch/sketch-stage.tsx`), which the diagrams feature provides
+  through the documents feature's slot (`features/documents/preview-actions.tsx`,
+  `stage`), so documents imports nothing of diagrams. The stage reads the
+  Skizze (`GET`, logged: the person opened the drawing; the latest Fassung, or
+  the open draft for a writer), loads the lazy canvas, lays the marks over
+  their elements, shows the page it is traced over, and puts „Als neue Fassung
+  speichern“ into the review's header; a 409 tells the person a newer Fassung
+  exists. `canWrite` is what the PUT would take: write access and a filed
+  `diagram_svg`. Every way in opens it: the rail's „Prüfansicht öffnen“ and
+  „Bearbeiten“, a pin, the phone's reader bar, and a link with
+  `?review=1&mark=` from the Postfach, a mention or a search hit. The stage
+  owns its pointer and its tools, so the review's point/box tools, its own
+  cursor, follow-a-peer, the peer chips and the page menu step aside (a box
+  mark on a Skizze is refused anyway). The canvas carries `data-stage-keys`:
+  while the focus is in it, the review's letters and its Escape are
+  Excalidraw's. Closing with unsaved strokes asks the stage, which asks the
+  person. An SVG Piloti filed without a scene (a flow) shows its picture with
+  its marks there. When another Fassung becomes current (`version.published`
+  from someone else), the preview reads its picture again
+  (`file-preview-pane-footer.tsx`).
 - **Found by what is drawn on it.** Filing and every save that publishes write the
   Skizze's search row from its scene (`sketch-search.ts`, `sketchSearchFacets`):
   title, every text and the frames' names, so a search for „Lift“ finds the sketch
@@ -982,22 +996,21 @@ delta is a hint towards the same scene, never a record.
 - A save reads its base before it takes the scene, so a merge that lands while
   the picture is drawn makes the save stale rather than lossy.
 
-In the editor (`sketch-dialog.tsx`, `use-sketch-room.ts`):
+In the review's stage (`sketch-stage.tsx`, `use-sketch-room.ts`):
 
-- One room per tab. The editor opened from the Files preview joins through
-  the preview's room (the review's, `useSketchRoom({ room })`), so a person is
-  one peer: no avatar of her own on the canvas, no „Anna ist noch hier“ in the
-  close guard, one entry in Piloti's `roomSnapshot` (which also lists a person
-  in two tabs once), and no pointer motion while she is alone. An editor with
-  no room to share (`/dev/sketch-room`) opens its own.
-- A reopened Skizze joins the room when the dialog opens. `GET …/sketch`
-  answers `canWrite`; a reader's canvas is in view mode, has no save button,
-  and still shows everyone draw. The send path checks write access again for
-  every edit, so the flag only decides what the editor offers.
-- Excalidraw's own collaborator rendering shows the others: pointer, name
-  tag, selection outline and the avatar list, in each person's identity
-  colour (`sketch-collaborators.ts`). The agent is named with the person it
-  acts for.
+- One room per tab. The stage joins through the review's room
+  (`useSketchRoom({ room })`), so a person is one peer: no avatar of her own
+  on the canvas, no „Anna ist noch hier“ in the close guard, one entry in
+  Piloti's `roomSnapshot` (which also lists a person in two tabs once), and no
+  pointer motion while she is alone.
+- A Skizze joins the room when its review opens. `GET …/sketch` answers
+  `canWrite`; a reader's canvas is in view mode, has no save button, and still
+  shows everyone draw. The send path checks write access again for every
+  edit, so the flag only decides what the stage offers.
+- Who is here is the review's Presence, the one presence of every document.
+  On the canvas Excalidraw draws the others' pointer, name tag and selection
+  outline in each person's identity colour (`sketch-collaborators.ts`); its own
+  avatar list is hidden. The agent is named with the person it acts for.
 - Saving is explicit, by any writer, one Fassung per save, no autosave. The
   canvas stays open after a save and sits on the new Fassung; the room hears
   `saved`, and a peer whose canvas shows exactly that scene is told so and is
@@ -1008,7 +1021,8 @@ In the editor (`sketch-dialog.tsx`, `use-sketch-room.ts`):
   they keep the changes; never the person herself, from another tab.
 - `/dev/sketch-room` is two people in one room over a `BroadcastChannel`
   (open it twice, `?as=max`, `?role=reader`), with a stand-in for the route
-  that answers 409 on a stale base.
+  that answers 409 on a stale base, in the real review shell
+  (`app/dev/_fixtures/sketch-review.tsx`).
 
 ## Known limits
 

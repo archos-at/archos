@@ -16,7 +16,7 @@ import type { ComponentProps, ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@/test-utils'
 import type * as ReviewModule from './review/document-review'
-import { PreviewDocumentActionProvider } from '../preview-actions'
+import { PreviewSlotsProvider } from '../preview-actions'
 import { FilePreviewPane } from './file-preview-pane'
 
 const nav = vi.hoisted(() => ({ params: new URLSearchParams('doc=doc-1'), push: vi.fn(), replace: vi.fn() }))
@@ -75,9 +75,9 @@ const json = (body: unknown, status = 200): Response =>
 const PageAction = () => <span data-testid="page-action" />
 const pane = () =>
   render(
-    <PreviewDocumentActionProvider action={() => null} pageAction={PageAction}>
+    <PreviewSlotsProvider pageAction={PageAction}>
       <FilePreviewPane file={FILE} projectId="proj-1" />
-    </PreviewDocumentActionProvider>
+    </PreviewSlotsProvider>
   )
 
 beforeEach(() => {

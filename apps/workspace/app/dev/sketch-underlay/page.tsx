@@ -12,6 +12,9 @@
  *   ?move=1     open with the move dialog open
  *   ?reader=1   a reader who may not open the base: the strokes on a blank sheet
  *
+ * The Skizze opens in its review, like every document: the banner over the
+ * canvas, the save in the review's header.
+ *
  * Pinned to German. 404s outside development.
  */
 
@@ -20,7 +23,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import type { SketchUnderlayView } from '@/lib/diagrams/sketch-underlay-wire'
 import { newUnderlayElement, type SketchUnderlay } from '@/lib/diagrams/sketch-underlay'
 import { I18nProvider } from '@/i18n'
-import { SketchDialog } from '@/features/diagrams/sketch/sketch-dialog'
+import { DevSketchReview, roomOfOne } from '../_fixtures/sketch-review'
 import { UnderlayMoveDialog } from '@/features/diagrams/sketch/sketch-underlay'
 
 const DOCUMENT_ID = 'dev-sketch-underlay'
@@ -101,6 +104,11 @@ function usePages(reader: boolean) {
     })
     window.fetch = async (input, init) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.href)
+      if (url.pathname === `/api/documents/${DOCUMENT_ID}/sketch` && (init?.method ?? 'GET') === 'GET') {
+        const underlay = reader ? { state: 'unavailable', elementId: 'page', ref: REF } : UNDERLAY
+        const body = { documentId: DOCUMENT_ID, versionId: 'ver-5', canWrite: !reader, title: 'Wand im Wohnen', scene: SCENE, underlay, projectId: 'dev-project' }
+        return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } })
+      }
       const raster = /\/versions\/([^/]+)\/pages\/\d+\/raster$/.exec(url.pathname)
       if (raster) {
         while (!blobs[raster[1]]) await new Promise((resolve) => setTimeout(resolve, 50))
@@ -121,20 +129,19 @@ function Underlay() {
   const urls = usePages(reader)
   const [open, setOpen] = useState(true)
   const [moving, setMoving] = useState(params.get('move') === '1')
-  const underlay: SketchUnderlayView = reader ? { state: 'unavailable', elementId: 'page', ref: REF } : UNDERLAY
-  const scene = useMemo(() => SCENE, [])
+  const transport = useMemo(() => roomOfOne({ userId: 'user_anna', name: 'Anna Berger' }), [])
   return (
     <div data-testid="sketch-underlay-preview" className="bg-background flex min-h-screen flex-col items-center gap-4 p-4 sm:p-10">
       <button type="button" className="text-sm underline" onClick={() => setOpen(true)}>
         Skizze öffnen
       </button>
-      <SketchDialog
+      <DevSketchReview
+        documentId={DOCUMENT_ID}
+        documentName="Wand im Wohnen.svg"
+        revisionLabel="Fassung 5"
+        transport={transport}
         open={open && !moving}
         onOpenChange={setOpen}
-        source=""
-        elements={[]}
-        title="Wand im Wohnen"
-        revision={{ documentId: DOCUMENT_ID, baseVersionId: 'ver-5', scene, canWrite: !reader, underlay, projectId: 'dev-project' }}
       />
       {urls[V4] ? (
         <UnderlayMoveDialog

@@ -158,23 +158,6 @@ export const getSketch = async (documentId: string, signal?: AbortSignal): Promi
   return parsed.data
 }
 
-const SketchProbeSchema = z.object({ hasScene: z.boolean(), canWrite: z.boolean(), versionId: z.string().nullable() })
-
-/** Whether to offer the editor on a file. */
-export type SketchProbe = z.infer<typeof SketchProbeSchema>
-
-/**
- * `GET /api/documents/{id}/sketch?probe=1`: whether the file is a Skizze this reader may open or edit. It carries
- * nothing of the drawing, which is why the download log does not record it.
- */
-export const probeSketch = async (documentId: string, signal?: AbortSignal): Promise<SketchProbe> => {
-  const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/sketch?probe=1`, { signal })
-  if (!response.ok) throw await sketchError(response)
-  const parsed = SketchProbeSchema.safeParse(await response.json())
-  if (!parsed.success) throw new SketchRequestError(response.status, null, null)
-  return parsed.data
-}
-
 /** What a save sends: the route's own request body. */
 export type SketchSaveRequest = z.input<typeof saveSketchSchema>
 

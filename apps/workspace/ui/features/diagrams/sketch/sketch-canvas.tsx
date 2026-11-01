@@ -4,10 +4,10 @@
  * The Excalidraw canvas, and the only module that imports `@excalidraw/excalidraw`.
  *
  * It is 2.5 MB gzipped (`docs/architecture/diagrams.md`, "Measured cost"), so
- * it is never imported statically: `sketch-dialog.tsx` loads this file with
- * `next/dynamic` and `ssr: false` when a person presses „Als Skizze
- * bearbeiten", and not before. Nothing else may import it; the bundle numbers
- * in ADR-0141 depend on that.
+ * it is never imported statically: the chat's `sketch-dialog.tsx` and the
+ * review's `sketch-stage.tsx` load this file with `next/dynamic` and
+ * `ssr: false` when a person opens a drawing, and not before. Nothing else may
+ * import it; the bundle numbers in ADR-0141 depend on that.
  *
  * ## What is switched off, and why
  *
@@ -37,7 +37,7 @@
  *     the PDF can show, so what is filed reads like what was drawn.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './excalidraw-assets'
 import {
   CaptureUpdateAction,
@@ -57,7 +57,6 @@ import { fileableSketchSvg } from '@/lib/diagrams/sketch-svg'
 import { opensForbiddenDialog } from './sketch-guards'
 import type { SketchHelpers } from './sketch-sync'
 import type { SketchCanvasBridge, SketchCollab } from './use-sketch-room'
-import type { SketchPinsProps } from './sketch-pins'
 import type { SketchViewApi } from './sketch-view'
 import { loadUnderlay, type UnderlayLoadState } from './sketch-underlay-load'
 
@@ -98,13 +97,13 @@ export interface SketchCanvasProps {
    */
   collab?: SketchCollab | null
   /**
-   * A reopened Skizze's Anmerkungen, drawn over the canvas where their elements
-   * are. `Pins` is `SketchPins` (`sketch-pins.tsx`), handed in by the caller
-   * that owns the review (`sketch-revise-action.tsx`) instead of imported here:
-   * this canvas sits below every rendered Markdown fence, and an import would
-   * put the review's whole subtree below them (`task workspace:blast-radius`).
+   * The canvas's view (scroll, zoom, elements, selection), once there: the
+   * review's stage lays a Skizze's Anmerkungen over it (`sketch-pins.tsx`).
+   * Only its shape is handed out, so the pins never import Excalidraw.
    */
-  pins?: (Omit<SketchPinsProps, 'api'> & { Pins: ComponentType<SketchPinsProps> }) | null
+  onApi?: (api: SketchViewApi | null) => void
+  /** Take the keyboard on opening: in the review the drawing is what is in hand. */
+  autoFocus?: boolean
   /** Whether the page under the strokes could be shown to this reader (S6). */
   onUnderlay?: (state: UnderlayLoadState) => void
 }
@@ -143,7 +142,8 @@ export default function SketchCanvas({
   onDirtyChange,
   readOnly = false,
   collab = null,
-  pins = null,
+  onApi,
+  autoFocus = false,
   onUnderlay,
 }: SketchCanvasProps) {
   const apiRef = useRef<ExcalidrawApi | null>(null)
@@ -219,12 +219,15 @@ export default function SketchCanvas({
   return (
     // The library sidebar's trigger opens a browser for libraries.excalidraw.com;
     // there is no prop for it in 0.18, so it is hidden here.
-    <div className="relative h-full w-full [&_.default-sidebar-trigger]:hidden!" data-testid="sketch-canvas">
+    // Nor are Excalidraw's own faces of the room (`UserList`): the review's Presence is the one presence.
+    <div className="relative h-full w-full [&_.UserList-Wrapper]:hidden! [&_.default-sidebar-trigger]:hidden!" data-testid="sketch-canvas">
       <Excalidraw
         excalidrawAPI={(ready) => {
           apiRef.current = ready
           setApi(ready)
+          onApi?.(ready as unknown as SketchViewApi)
         }}
+        autoFocus={autoFocus}
         isCollaborating={collab !== null}
         onPointerUpdate={({ pointer, button }) =>
           collab?.pointer({ pointer: { x: pointer.x, y: pointer.y }, tool: pointer.tool, button })
@@ -286,7 +289,6 @@ export default function SketchCanvas({
           <MainMenu.DefaultItems.Help />
         </MainMenu>
       </Excalidraw>
-      {pins ? <pins.Pins api={api as unknown as SketchViewApi | null} {...pins} /> : null}
     </div>
   )
 }
