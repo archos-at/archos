@@ -75,7 +75,8 @@ export interface DiagramFiling {
   documentId: string | null
   /** The paper bytes exist, or can be drawn on demand, and there is somewhere to put them. */
   canFile: boolean
-  file: () => Promise<void>
+  /** File it; resolves the picture's document id, or `null` when nothing was filed. */
+  file: () => Promise<string | null>
 }
 
 /**
@@ -151,7 +152,7 @@ export function useDiagramFiling({
   const [state, setState] = useState<DiagramFilingState>({ kind: 'idle' })
 
   const file = useCallback(async () => {
-    if (!target || (!fileSvg && !renderFileSvg && !prepareSketch)) return
+    if (!target || (!fileSvg && !renderFileSvg && !prepareSketch)) return null
     // Feedback inside 100ms: this lands synchronously, before the network is
     // touched, so the control the reader pressed is replaced by „Wird abgelegt …"
     // in the same frame as the press.
@@ -186,11 +187,13 @@ export function useDiagramFiling({
       // answers 201 with `pdf: null` when only the SVG landed, because the SVG
       // is filed and quota-charged either way.
       setState({ kind: filed.pdfFiled ? 'filed' : 'partial', documentId: filed.svgDocumentId })
+      return filed.svgDocumentId
     } catch (error) {
       console.debug('[diagrams] filing failed', error)
       // A refusal names its own sentence when the server gave one.
       const message = error instanceof DiagramFilingError && error.serverMessage !== null ? error.serverMessage : t('file.failed')
       setState({ kind: 'failed', message })
+      return null
     }
   }, [target, fileSvg, renderFileSvg, prepareSketch, edited, source, title, t])
 

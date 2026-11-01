@@ -778,7 +778,12 @@ subject: a sketch claims no dimension, and says so.
   filter (`invert(93%) hue-rotate(180deg)`) in dark mode, so the screen, the
   editor and the file are one drawing. Under it: „Skizze — nicht maßstäblich,
   ohne Maßangabe.", and inside a project „Im Projekt ablegen" (as drawn, keyed
-  by the fence, marked `diagrams.markingSketch`) and „Als Skizze bearbeiten".
+  by the fence, marked `diagrams.markingSketch`) and „Als Skizze bearbeiten",
+  which files it the same way, once, and opens the filed document's review
+  (`openReviewAt`, through `features/documents/open-document-review.ts`): two
+  people editing one card land on one Skizze. The chat's `SketchDialog` is left
+  only for a mermaid flow turned into a sketch, which Excalidraw has to lay out
+  in the browser before there is anything to file.
 - **Observable.** `sketch-drawn` per fence and trace metadata `answer_dialect.sketches`
   (`docs/observability/langfuse.md`).
 

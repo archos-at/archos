@@ -1,11 +1,11 @@
 'use client'
 
 /**
- * „Als Skizze bearbeiten" in the chat: a drawing Piloti made, not filed yet,
- * opened in Excalidraw so a person can rework it and file their own version
- * into the project. The drawing is a flow or a Gliederung laid out as a sketch
- * (`sketchFromModel`), or a sketch Piloti drew itself (an ```excalidraw fence,
- * ADR-0146).
+ * „Als Skizze bearbeiten" on a mermaid flow or Gliederung in the chat: the
+ * drawing laid out as a sketch (`sketchFromModel`) and opened in Excalidraw, so
+ * a person can rework it and file their own version into the project. Only
+ * Excalidraw can lay the flow out, in the browser, so there is nothing to file
+ * before it is drawn here.
  *
  * The canvas (`sketch-canvas.tsx`) is loaded with `next/dynamic` when the
  * dialog opens, never before, so a chat with diagrams in it downloads none of
@@ -17,8 +17,10 @@
  * edited them, and the turn's trace gets a `diagram-filed: edited` score.
  *
  * A Skizze that is filed opens in its document's review instead, like every
- * document (`sketch-stage.tsx`): its Fassungen, its room, its Anmerkungen. This
- * dialog is only the chat's way to a first filing.
+ * document (`sketch-stage.tsx`): its Fassungen, its room, its Anmerkungen. A
+ * sketch Piloti drew itself (an ```excalidraw fence, ADR-0146) is filed as
+ * drawn and opened there too (`sketch-figure.tsx`). This dialog is only the
+ * flow's way to a first filing.
  *
  * A close with unsaved changes asks once, in place. Excalidraw keeps no draft
  * of its own here (its local storage is the excalidraw.com app's, not the
@@ -49,11 +51,9 @@ export interface SketchDialogProps {
   source: string
   /** The starting scene as Excalidraw skeletons, laid out once per opening by the caller. */
   elements: readonly object[]
-  /** A title the fence states outside its source (a sketch fence's `title`). */
-  title?: string | null
 }
 
-export function SketchDialog({ open, onOpenChange, source, elements, title }: SketchDialogProps) {
+export function SketchDialog({ open, onOpenChange, source, elements }: SketchDialogProps) {
   const t = useTranslations(diagramsCopy)
   const { locale } = useLocale()
   const theme = useDiagramTheme()
@@ -65,7 +65,7 @@ export function SketchDialog({ open, onOpenChange, source, elements, title }: Sk
     if (!handle.current) throw new Error('the canvas is not ready')
     return handle.current.prepare()
   }, [])
-  const filing = useDiagramFiling({ source, fileSvg: null, prepareSketch, title })
+  const filing = useDiagramFiling({ source, fileSvg: null, prepareSketch })
   const filed = filing.state.kind === 'filed' || filing.state.kind === 'partial'
   const saving = filing.state.kind === 'filing'
 

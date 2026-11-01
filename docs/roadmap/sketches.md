@@ -128,8 +128,8 @@ the Postfach, a mention or a search) lands there; the rail's separate „Als Ski
 bearbeiten“ is gone. Files lists the Skizze alone, as the „Skizze“ kind, its PDF
 offered as its download. Still open from that audit: Piloti in the shell (slice 3:
 „Piloti fragen“ on a selection, a `document-sketch-edit` proposal shown in the
-open review rather than only as a chat receipt), and C8 below, after which the
-chat's `SketchDialog` goes too.
+open review rather than only as a chat receipt). The chat's `SketchDialog` is
+left for a mermaid flow turned into a sketch (C8 below).
 
 ## Coherence: what is still open
 
@@ -137,11 +137,12 @@ The interference audit of 2026-10-29 (sketches against the room, review,
 Freigabe, notices, sharing, the download log, proposals) closed C1 to C7 and G1,
 G5, G6 and G8; the ADR-0148 amendment says what was decided. Still open:
 
-- **C8, two edits of one chat sketch.** `use-diagram-filing.ts` keys an edited
-  sketch by its scene, so Anna and Max each editing Piloti's card in a shared
-  chat file two Skizzen. The fix: key the filing by the fence (answer and
-  source), and when it is already filed open the filed document in revision mode
-  so a save writes its next Fassung.
+- **C8, closed (2026-11-01) for a sketch Piloti drew.** „Als Skizze bearbeiten“
+  on its card files it as drawn, keyed by the fence, and opens the filed
+  document's review, so Anna and Max editing one card land on one Skizze. A
+  mermaid flow turned into a sketch still opens the chat's `SketchDialog` and
+  files the edit keyed by its scene: Excalidraw lays the flow out in the browser,
+  so there is nothing to file before it is drawn.
 - **G2, contributors.** A Fassung names only the person who saved it, neither the
   live co-editors whose deltas it holds nor Piloti when its proposal was applied.
   The sync can collect the user ids behind merged deltas and send them with the

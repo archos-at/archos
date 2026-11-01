@@ -18,6 +18,15 @@
  *   - **drawn** — the sketch on a sheet, the line that says it is not to scale,
  *     and inside a project „Im Projekt ablegen" and „Als Skizze bearbeiten".
  *
+ * ## „Als Skizze bearbeiten“ files once, then opens the review
+ *
+ * A Skizze is a document (ADR-0148), so it is edited where every document is:
+ * its review, the canvas as its stage. The press files the sketch as drawn,
+ * keyed by its fence, and opens the filed document's review, beside the chat
+ * or in Dateien. Two people pressing it on one card in a shared chat land on
+ * the same document and in the same room, not on two Skizzen (C8,
+ * `docs/roadmap/sketches.md`); a second press finds it filed and opens it.
+ *
  * ## Why the drawn SVG is injected as markup
  *
  * `renderSketch` returns a string Excalidraw exported and the server's own SVG
@@ -33,8 +42,10 @@
  * sketch, the editor in dark mode and the filed copy are one drawing.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { AnimatePresence } from 'motion/react'
+import { openReviewAt } from '@/features/documents/open-document-review'
 import { useTranslations } from '@/i18n'
 import { diagramsCopy } from '@/i18n/namespaces/diagrams'
 import {
@@ -45,7 +56,6 @@ import {
 import { viewBoxWidth } from '../diagram-size'
 import { useDiagramFiling } from '../use-diagram-filing'
 import type { RenderedSketch } from '../sketch/sketch-render'
-import { SketchDialog } from '../sketch/sketch-dialog'
 import { CAPTION_CONTROL, DiagramFilingControls } from './diagram-filing-controls'
 import { DrawingCaption, DrawingReveal, DrawingSkeleton } from './drawing-skeleton'
 
@@ -129,7 +139,21 @@ export function SketchFigure({ source, isStreaming = false, refused = false }: S
       return { source: current.scene, svg: current.svg }
     },
   })
-  const [editing, setEditing] = useState(false)
+  const router = useRouter()
+  const [opening, setOpening] = useState(false)
+  const { documentId: filedId, file, target } = filing
+  const editInReview = useCallback(async () => {
+    if (!target) return
+    setOpening(true)
+    try {
+      const documentId = filedId ?? (await file())
+      if (documentId) {
+        await openReviewAt({ documentId }, { projectId: target.projectId, navigate: (href, how) => router[how](href, { scroll: false }) })
+      }
+    } finally {
+      setOpening(false)
+    }
+  }, [target, filedId, file, router])
 
   if (refused || (fence && !fence.ok) || failed) {
     return (
@@ -185,7 +209,8 @@ export function SketchFigure({ source, isStreaming = false, refused = false }: S
             {filing.target ? (
               <button
                 type="button"
-                onClick={() => setEditing(true)}
+                onClick={() => void editInReview()}
+                disabled={opening || filing.state.kind === 'filing'}
                 className={CAPTION_CONTROL}
                 data-testid="sketch-edit"
               >
@@ -195,15 +220,6 @@ export function SketchFigure({ source, isStreaming = false, refused = false }: S
           </DrawingCaption>
         ) : null}
       </AnimatePresence>
-      {editing && fence?.ok ? (
-        <SketchDialog
-          open={editing}
-          onOpenChange={setEditing}
-          source={source}
-          elements={fence.elements}
-          title={fence.title}
-        />
-      ) : null}
     </figure>
   )
 }
