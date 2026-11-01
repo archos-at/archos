@@ -23,10 +23,10 @@
  * list itself when it is docked beside a page that has keys of its own.
  */
 
-import type { JSX, KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { AlertCircle, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useTranslations } from '@/i18n'
@@ -36,7 +36,7 @@ import { inboxClient, type InboxClient } from '@/lib/inbox/client'
 import { isMarkAnchored, type InboxItemView } from '@/lib/inbox/types'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
+import { FadeIn, motion, springSnap, useMotionToken } from '@/components/motion'
 import { LoadError } from '@/components/ui/load-error'
 import { LoadMore } from '@/components/ui/load-more'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -103,7 +103,7 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
   const ownerOf = useCallback((item: InboxItemView) => (isOpenRequest(item) ? waiting : fresh), [waiting, fresh])
   const markRead = useCallback(
     (item: InboxItemView) => {
-      if (item.state === 'unread') void ownerOf(item).markRead([item.id])
+      if (!item.read) void ownerOf(item).markRead([item.id])
     },
     [ownerOf],
   )
@@ -122,7 +122,7 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
   // ---- Keys: the entries are links, so moving is moving focus, and Enter is the link's ----
   const rootRef = useRef<HTMLDivElement>(null)
   const onKey = useCallback(
-    (event: KeyboardEvent | ReactKeyboardEvent): void => {
+    (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || typingInto(event.target)) return
       if (!QUEUE_KEYS.has(event.key) || order.length === 0) return
       const links = [...(rootRef.current?.querySelectorAll<HTMLElement>('[data-testid="inbox-queue-entry"]') ?? [])]
@@ -144,17 +144,24 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
         archive(item.id)
         return
       }
-      void (item.state === 'unread' ? ownerOf(item).markRead([item.id]) : ownerOf(item).markUnread([item.id]))
+      void (!item.read ? ownerOf(item).markRead([item.id]) : ownerOf(item).markUnread([item.id]))
     },
     [order, archive, ownerOf],
   )
 
-  // On a page or in a sheet, the keys are the list's wherever focus is not in a field.
+  // On a page or in a sheet, the keys are the list's wherever focus is not in a
+  // field. Kept to itself, they are the list's while focus is anywhere in the
+  // container that declares the scope (`data-queue-keys`, the dock), so a click
+  // on the dock's own background is enough; without one, the list itself.
   useEffect(() => {
-    if (keyScope !== 'page') return
     const listen = (event: KeyboardEvent): void => {
       const root = rootRef.current
       if (!root) return
+      if (keyScope === 'self') {
+        const scope = root.closest('[data-queue-keys]') ?? root
+        if (event.target instanceof Node && scope.contains(event.target)) onKey(event)
+        return
+      }
       const scope = root.closest('[role="dialog"]') ?? document.body
       if (event.target instanceof Node && event.target !== document.body && !scope.contains(event.target)) return
       onKey(event)
@@ -167,20 +174,22 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
   const late = groups.flatMap((group) => group.items).filter((item) => item.variant === 'overdue').length
   const waitingCount = groups.reduce((sum, group) => sum + group.items.length, 0)
 
-  if (waiting.error && fresh.error) {
+  // Either read failing means the queue cannot say it is done: half a queue
+  // under „Alles erledigt“ is the one answer that must never be wrong.
+  if ((waiting.error || fresh.error) && order.length === 0) {
     return <LoadError title={t('inbox.errors.loadFailed')} onRetry={() => (waiting.refresh(), fresh.refresh())} />
   }
   // Nothing waits and nothing is new: the queue is done, and says so.
   if (!loading && order.length === 0 && !waiting.hasMore && !fresh.hasMore) {
     return (
       <div ref={rootRef} data-testid="inbox-queue">
-        <EmptyState icon={CheckCircle2} title={t('inbox.empty.needsMeTitle')} description={t('inbox.empty.needsMeDescription')} />
+        <QueueDone />
       </div>
     )
   }
 
   return (
-    <div ref={rootRef} className="space-y-3" data-testid="inbox-queue" onKeyDown={keyScope === 'self' ? onKey : undefined}>
+    <div ref={rootRef} className="space-y-3" data-testid="inbox-queue">
       {(waiting.mutationError || fresh.mutationError) && (
         <Alert variant="destructive">
           <AlertCircle />
@@ -191,55 +200,83 @@ export function InboxQueue({ enabled = true, returnHere = true, keyScope = 'page
         </Alert>
       )}
 
-      {!loading && waitingCount > 0 && (
-        <p className="px-1 text-sm text-muted-foreground" data-testid="inbox-queue-summary">
-          {t('inbox.queue.summary', { count: waitingCount })}
-          {late > 0 && `, ${t('inbox.queue.late', { count: late })}`}
-        </p>
-      )}
-
       {loading ? (
-        <div className="space-y-2" aria-busy="true" data-testid="inbox-queue-skeleton">
+        // The shape of what is coming: a heading, then rows of a title and its
+        // line, so the list lands where the skeleton stood instead of reflowing.
+        <div className="space-y-4 px-2" aria-busy="true" data-testid="inbox-queue-skeleton">
+          <Skeleton className="h-3 w-28" />
           {[0, 1, 2].map((index) => (
-            <Skeleton key={index} className="h-20 w-full rounded-surface" />
+            <div key={index} className="space-y-1.5">
+              <Skeleton className="h-3.5 w-4/5" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
           ))}
         </div>
       ) : (
-        <InboxQueueList
-          groups={groups}
-          news={news}
-          currentId={currentId}
-          hrefOf={hrefOf}
-          onFollow={(event, item) => {
-            // Following an entry is reading it; a background tab is not.
-            if (isPlainClick(event)) markRead(item)
-          }}
-          onArchive={archive}
-          onNewsRead={news.length > 0 ? () => void fresh.markAllRead() : undefined}
-          waitingMore={
-            <LoadMore
-              hasMore={waiting.hasMore}
-              loading={waiting.loadingMore}
-              failed={waiting.loadMoreFailed}
-              onLoadMore={waiting.loadMore}
-              loadMoreLabel={t('inbox.loadMore')}
-              loadingLabel={t('inbox.loadingMore')}
-              failedLabel={t('inbox.loadMoreFailed')}
-            />
-          }
-          newsMore={
-            <LoadMore
-              hasMore={fresh.hasMore}
-              loading={fresh.loadingMore}
-              failed={fresh.loadMoreFailed}
-              onLoadMore={fresh.loadMore}
-              loadMoreLabel={t('inbox.loadMore')}
-              loadingLabel={t('inbox.loadingMore')}
-              failedLabel={t('inbox.loadMoreFailed')}
-            />
-          }
-        />
+        // Lands where the skeleton stood, settling the last few pixels instead of snapping in.
+        <FadeIn distance={4}>
+          <InboxQueueList
+            groups={groups}
+            news={news}
+            waitingCount={waitingCount}
+            lateCount={late}
+            currentId={currentId}
+            hrefOf={hrefOf}
+            onFollow={(event, item) => {
+              // Following an entry is reading it; a background tab is not.
+              if (isPlainClick(event)) markRead(item)
+            }}
+            onArchive={archive}
+            onNewsRead={news.length > 0 ? () => void fresh.markAllRead() : undefined}
+            waitingMore={
+              <LoadMore
+                hasMore={waiting.hasMore}
+                loading={waiting.loadingMore}
+                failed={waiting.loadMoreFailed}
+                onLoadMore={waiting.loadMore}
+                loadMoreLabel={t('inbox.loadMore')}
+                loadingLabel={t('inbox.loadingMore')}
+                failedLabel={t('inbox.loadMoreFailed')}
+              />
+            }
+            newsMore={
+              <LoadMore
+                hasMore={fresh.hasMore}
+                loading={fresh.loadingMore}
+                failed={fresh.loadMoreFailed}
+                onLoadMore={fresh.loadMore}
+                loadMoreLabel={t('inbox.loadMore')}
+                loadingLabel={t('inbox.loadingMore')}
+                failedLabel={t('inbox.loadMoreFailed')}
+              />
+            }
+          />
+        </FadeIn>
       )}
+    </div>
+  )
+}
+
+/**
+ * The queue worked to the end. Not an empty box: a quiet mark of having
+ * finished, the one moment in the queue that earns a small spring.
+ */
+function QueueDone(): JSX.Element {
+  const t = useTranslations(collaborationCopy)
+  const settle = useMotionToken(springSnap)
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-14 text-center" data-testid="inbox-queue-done">
+      <motion.span
+        aria-hidden
+        className="mb-1 flex size-10 items-center justify-center rounded-full bg-success-subtle text-success"
+        initial={{ scale: 0.7, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={settle}
+      >
+        <Check className="size-5" strokeWidth={2.25} />
+      </motion.span>
+      <p className="text-sm font-medium text-foreground">{t('inbox.empty.needsMeTitle')}</p>
+      <p className="max-w-[30ch] text-sm text-muted-foreground">{t('inbox.empty.needsMeDescription')}</p>
     </div>
   )
 }
