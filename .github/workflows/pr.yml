@@ -71,6 +71,41 @@ jobs:
               print("::error::A closing keyword is followed by a list of issues, and GitHub closes only the first. Write the keyword before every number: 'Fixes #1, fixes #2'.")
               raise SystemExit(1)
 
+  fits-the-lineup:
+    name: Fits the lineup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Dependabot and other bots open PRs without the template.
+    if: github.event.pull_request.user.type != 'Bot'
+    steps:
+      # VISION.md principle 8. The Skizze kept its data in the shared tables
+      # and still opened in a shell of its own, because nobody named the
+      # touchpoints. docs/contributing/fits-the-lineup.md lists them; this
+      # step fails a PR whose section is missing, empty or only the template's
+      # comment. Whether the answer is right is review's job.
+      - name: Section is filled in
+        shell: python
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          import os
+          import re
+
+          # GitHub stores a body typed in the browser with CRLF line ends.
+          body = os.environ.get("BODY", "").replace("\r\n", "\n")
+          body = re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL)
+          heading = re.search(r"^#{1,6}[ \t]+Fits the lineup[ \t]*$", body, re.MULTILINE | re.IGNORECASE)
+          if heading is None:
+              print("::error::The PR description has no '#### Fits the lineup' section. Restore it from .github/pull_request_template.md and answer the touchpoints in docs/contributing/fits-the-lineup.md.")
+              raise SystemExit(1)
+          rest = body[heading.end():]
+          # A deeper heading (##### Files row) is part of the answer.
+          following = re.search(r"^#{1,4}[ \t]", rest, re.MULTILINE)
+          section = rest[: following.start()] if following else rest
+          if not section.strip():
+              print("::error::The 'Fits the lineup' section is empty. Name the touchpoints from docs/contributing/fits-the-lineup.md this change reaches and how each stays the shared one, or say why it reaches none.")
+              raise SystemExit(1)
+
   label:
     name: Auto-label by path
     runs-on: ubuntu-latest

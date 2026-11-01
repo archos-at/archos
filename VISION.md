@@ -113,7 +113,9 @@ These are directions with a document behind them, not promises:
 8. **One product, not a set of features.** A feature draws on what the office
    already holds, hands its result to the next step, and makes the features it
    touches better. One that brings its own list, store, vocabulary or entry
-   point is a second product inside the first.
+   point is a second product inside the first. Sharing the data is not enough:
+   a new kind of thing opens and acts in the surfaces people already use (the
+   same viewer, list, links and search), never in a shell of its own.
 
 ## How to use this document
 

@@ -6,7 +6,11 @@
 
 <!-- Name the existing features this change draws on and the ones it makes
      better, and how (VISION.md, principle 8). A name per feature, not "yes".
-     If it touches none, say why it still belongs in the product. -->
+     Name each touchpoint from docs/contributing/fits-the-lineup.md the change
+     reaches (Files row, document view, deep links, search, chat, agent door,
+     Fassungen, sharing, export, live room, phone) and how it stays the shared
+     one. If it touches none, say why it still belongs in the product.
+     CI fails this section while it holds only this comment. -->
 
 #### Validation
 
