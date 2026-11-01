@@ -164,6 +164,18 @@
               "de": "Auf breiten Bildschirmen dockt die Glocke den Posteingang neben Ihrer Seite an: Was auf Sie wartet, steht an erster Stelle, nach Dokument gruppiert und das Dringendste ganz oben. Ein Eintrag öffnet den Chat oder die Prüfung direkt dort, während der Posteingang für den nächsten Eintrag offen bleibt."
             },
             {
+              "en": "The docked inbox is calmer. Entries are no longer boxed into cards, the heading says once how many wait and how many are overdue, and a finished inbox shows a quiet check instead of an empty frame.",
+              "de": "Der angedockte Posteingang wirkt ruhiger. Die Einträge sind nicht mehr in Karten eingefasst, die Überschrift zeigt einmal, wie viele warten und wie viele überfällig sind, und bei einem abgearbeiteten Posteingang erscheint ein dezentes Häkchen statt eines leeren Rahmens."
+            },
+            {
+              "en": "Opening the inbox from the bell puts the keyboard in it, so j and k work right away; Escape closes it and returns you to the bell.",
+              "de": "Wenn Sie den Posteingang über die Glocke öffnen, erhält er sofort den Tastaturfokus, sodass j und k gleich funktionieren; mit Escape schließen Sie ihn und der Fokus kehrt zur Glocke zurück."
+            },
+            {
+              "en": "The inbox moves: it slides in when you open it, an archived entry folds away instead of vanishing, and the bell's count settles in when something new arrives.",
+              "de": "Der Posteingang bewegt sich: Wenn Sie ihn öffnen, gleitet er herein, archivierte Einträge klappen weg, statt zu verschwinden, und die Zahl an der Glocke wird eingeblendet, sobald etwas Neues eintrifft."
+            },
+            {
               "en": "When you ask Piloti to show you files on a topic, it now finds them with the same search you use, in the language of your documents, and the files it offers carry a link that opens that search with every result.",
               "de": "Wenn Sie Piloti bitten, Ihnen Dateien zu einem Thema anzuzeigen, findet es diese jetzt über dieselbe Suche, die Sie selbst verwenden, und in der Sprache Ihrer Dokumente. Die angezeigten Dateien enthalten einen Link, der diese Suche mit allen Ergebnissen öffnet."
             },
@@ -351,6 +363,10 @@
             {
               "en": "The Herleitung draws its graph again: the sources sit side by side under the question and the lines join them, instead of sliding down the page in a staircase that the panel cut off.",
               "de": "Die Herleitung zeichnet ihr Diagramm neu: Die Quellen stehen nebeneinander unter der Frage und sind durch Linien verbunden, statt treppenförmig nach unten zu rutschen und vom Panel abgeschnitten zu werden."
+            },
+            {
+              "en": "The inbox no longer says \"All caught up\" under a bell that still counts something. A request a colleague answered before you opened it now shows as new until you read it, and when part of the inbox cannot be loaded you see the error and a way to retry.",
+              "de": "Im Posteingang wird „Alles erledigt“ nicht mehr angezeigt, solange die Glocke noch eine Anzahl ausweist. Eine Anfrage, die ein Kollege beantwortet hat, bevor Sie sie geöffnet haben, wird als neu angezeigt, bis Sie sie gelesen haben. Wenn sich ein Teil des Posteingangs nicht laden lässt, sehen Sie die Fehlermeldung und können es erneut versuchen."
             },
             {
               "en": "For people who work in more than one office, the top bar above the projects filled the whole window and hid the page. The bar is back to its normal height, and switching offices now lives in the menu behind your picture.",
