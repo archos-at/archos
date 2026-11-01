@@ -134,6 +134,12 @@ describe('a stage in the review', () => {
     expect(screen.queryByTestId('review-page-menu')).toBeNull()
   })
 
+  it('says how a mark is set on a canvas when there is none: on its elements, not with C or R', async () => {
+    server.use(http.get('/api/documents/:id/annotations', () => HttpResponse.json({ annotations: [], canAnnotate: true, pilotiWakes: false })))
+    render(<Host />)
+    expect(await screen.findByTestId('review-empty')).toHaveTextContent('Select elements on the canvas')
+  })
+
   it('does not take the canvas’s keys: J and E while drawing are Excalidraw’s', async () => {
     render(<Host />)
     await screen.findAllByTestId('review-row')

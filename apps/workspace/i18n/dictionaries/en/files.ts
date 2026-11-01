@@ -1932,6 +1932,7 @@ export const files = {
     empty: {
       noneTitle: 'No annotations yet',
       noneBody: 'Press C and click the place it is about, or R and drag out a region.',
+      noneBodyElements: 'Select elements on the canvas, then ‘Annotate’: the annotation stays with them as they move.',
       noneBodyTouch: 'Tap ‘Comment’, then the place.',
       readOnlyTitle: 'No annotations yet',
       readOnlyBody: 'Nobody has annotated anything here yet.',

@@ -1914,6 +1914,7 @@ export const files: typeof en.files = {
     empty: {
       noneTitle: 'Noch keine Anmerkungen',
       noneBody: 'Drücken Sie C und klicken Sie auf die Stelle, um die es geht, oder R und ziehen Sie einen Bereich auf.',
+      noneBodyElements: 'Wählen Sie auf der Zeichenfläche Elemente aus und dann ‚Anmerkung‘: die Anmerkung hängt an ihnen und wandert mit.',
       noneBodyTouch: 'Tippen Sie auf ‚Anmerken‘ und dann auf die Stelle.',
       readOnlyTitle: 'Noch keine Anmerkungen',
       readOnlyBody: 'Hier hat noch niemand etwas angemerkt.',

@@ -810,7 +810,7 @@ export function DocumentReviewMode({
               />}
               <ReviewToaster foot={foot} />
             </div>
-            <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} />
+            <ReviewPanel review={review} onOpen={openFromList} onWalkProposals={walkProposals} onCheckFixed={checkFixed} elementMarks={Boolean(stageContent)} />
           </div>
         </ReviewStageContext.Provider>
         {docked && (
@@ -850,7 +850,7 @@ export function DocumentReviewMode({
               </SheetHeader>
               <ReviewPanel
                 review={review}
-                presentation="sheet"
+                presentation="sheet" elementMarks={Boolean(stageContent)}
                 // Choosing a mark shows it: the sheet steps aside for the page.
                 onOpen={(annotation, byKeyboard) => {
                   setListOpen(false)

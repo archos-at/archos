@@ -410,6 +410,7 @@ export function ReviewPanel({
   onWalkProposals,
   onCheckFixed,
   presentation = 'rail',
+  elementMarks = false,
 }: {
   review: DocumentReview
   onOpen: OpenMark
@@ -424,6 +425,8 @@ export function ReviewPanel({
    * to an item there was to find its pin on the drawing.
    */
   presentation?: 'rail' | 'sheet'
+  /** A mark is set on the stage's elements (a Skizze's canvas), not with C or R: the empty list says so. */
+  elementMarks?: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { listed, filter, setFilter, load, mine, setMine } = review
@@ -507,7 +510,7 @@ export function ReviewPanel({
               ))}
             {filter === 'open' && <EarlierBar review={review} onCheckFixed={onCheckFixed} />}
             {listed.length === 0 ? (
-              <EmptyList review={review} />
+              <EmptyList review={review} elementMarks={elementMarks} />
             ) : (
               <ListedMarks
                 review={review}
@@ -592,7 +595,7 @@ function ListedMarks({
 }
 
 /** What an empty list says depends on why it is empty: nothing yet, nothing left, or nothing in this view. */
-function EmptyList({ review }: { review: DocumentReview }): JSX.Element {
+function EmptyList({ review, elementMarks }: { review: DocumentReview; elementMarks: boolean }): JSX.Element {
   const t = useTranslations(filesCopy)
   const { counts, filter, annotations, mine } = review
   // A finger has no C or R: the touch copy names the button instead.
@@ -616,7 +619,11 @@ function EmptyList({ review }: { review: DocumentReview }): JSX.Element {
       className="px-6"
       data-testid="review-empty"
       title={t(`review.empty.${key}Title`)}
-      description={key === 'none' && touch ? t('review.empty.noneBodyTouch') : t(`review.empty.${key}Body`)}
+      description={
+        key !== 'none'
+          ? t(`review.empty.${key}Body`)
+          : t(elementMarks ? 'review.empty.noneBodyElements' : touch ? 'review.empty.noneBodyTouch' : 'review.empty.noneBody')
+      }
     />
   )
 }
