@@ -108,13 +108,13 @@ function Host({ dirty = false, onOpenChange = () => {} }: { dirty?: boolean; onO
   )
 }
 
+/** The annotations route, answering these marks. */
+const serve = (annotations: AnnotationView[]) =>
+  server.use(http.get('/api/documents/:id/annotations', () => HttpResponse.json({ annotations, canAnnotate: true, pilotiWakes: false })))
+
 beforeEach(() => {
   window.localStorage.clear()
-  server.use(
-    http.get('/api/documents/:id/annotations', () =>
-      HttpResponse.json({ annotations: [mark({ id: 'ann_1' }), mark({ id: 'ann_2', number: 2 })], canAnnotate: true, pilotiWakes: false })
-    )
-  )
+  serve([mark({ id: 'ann_1' }), mark({ id: 'ann_2', number: 2 })])
 })
 
 describe('a stage in the review', () => {
@@ -135,7 +135,7 @@ describe('a stage in the review', () => {
   })
 
   it('says how a mark is set on a canvas when there is none: on its elements, not with C or R', async () => {
-    server.use(http.get('/api/documents/:id/annotations', () => HttpResponse.json({ annotations: [], canAnnotate: true, pilotiWakes: false })))
+    serve([])
     render(<Host />)
     expect(await screen.findByTestId('review-empty')).toHaveTextContent('Select elements on the canvas')
   })
