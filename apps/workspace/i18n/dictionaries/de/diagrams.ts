@@ -48,29 +48,6 @@ export const diagrams: typeof en.diagrams = {
     action: 'Als Skizze bearbeiten',
     // Auf eine Auswahl von Elementen: eine Anmerkung, die an ihnen hängt und mit ihnen wandert.
     annotate: 'Anmerkung',
-    // Ein Element zeigt auf etwas im Arbeitsbereich: eine Dokumentseite, ein Modellelement, eine Anmerkung.
-    link: {
-      action: 'Verknüpfen',
-      title: 'Element verknüpfen',
-      hint: 'Die Verknüpfung zeigt, was gemeint ist. Sie ist keine Maßangabe.',
-      tabDocument: 'Dokument',
-      tabElement: 'Modellelement',
-      tabAnnotation: 'Anmerkung',
-      search: 'Suchen …',
-      page: 'Seite',
-      model: 'Modell',
-      noModels: 'In diesem Projekt liegt kein gelesenes Modell.',
-      noResults: 'Nichts gefunden.',
-      searching: 'Sucht …',
-      apply: 'Verknüpfen',
-      unlink: 'Verknüpfung lösen',
-      cancel: 'Abbrechen',
-      open: 'Öffnen: {title}',
-      openPage: '{title}, S. {page}',
-      version: 'Fassung {number}',
-      gone: 'Nicht mehr vorhanden',
-      unresolved: 'Verknüpft; das Ziel zeigt sich beim nächsten Öffnen',
-    },
     title: 'Skizze bearbeiten',
     description: 'Ausgangspunkt ist {productName}s Zeichnung. Eine Skizze ist nicht maßstäblich und behauptet keine Maße.',
     loading: 'Zeichenfläche wird geladen …',
@@ -128,7 +105,7 @@ export const diagrams: typeof en.diagrams = {
     moveAction: 'Auf neue Fassung übertragen',
     moveTitle: 'Auf Fassung {number} übertragen',
     moveDescription:
-      'Die Striche bleiben, wo sie sind; darunter liegt dann die Seite der neuen Fassung. Anmerkungen und Verknüpfungen bleiben an ihren Elementen. Gespeichert wird eine neue Fassung der Skizze.',
+      'Die Striche bleiben, wo sie sind; darunter liegt dann die Seite der neuen Fassung. Anmerkungen bleiben an ihren Elementen. Gespeichert wird eine neue Fassung der Skizze.',
     matchedByLabel: 'Seite „{label}“ der Fassung {number}, gefunden über die Seitenbezeichnung',
     matchedByIndex: 'Seite {page} der Fassung {number}: gleiche Seitenzahl, das PDF bezeichnet seine Seiten nicht',
     // Die alte Seite hatte eine Bezeichnung, die neue Fassung kennt sie nicht: dieselbe Seitenzahl ist dann oft ein anderes Blatt.

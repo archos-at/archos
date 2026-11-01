@@ -46,7 +46,6 @@ import {
   exportToSvg,
   hashElementsVersion,
   MainMenu,
-  newElementWith,
   reconcileElements,
   restoreElements,
   serializeAsJSON,
@@ -60,8 +59,6 @@ import type { SketchHelpers } from './sketch-sync'
 import type { SketchCanvasBridge, SketchCollab } from './use-sketch-room'
 import type { SketchPinsProps } from './sketch-pins'
 import type { SketchViewApi } from './sketch-view'
-import { SketchLinks, type SketchLinksProps } from './sketch-links'
-import type { SketchLink } from '@/lib/diagrams/sketch-links'
 import { loadUnderlay, type UnderlayLoadState } from './sketch-underlay-load'
 
 type ExcalidrawApi = Parameters<NonNullable<React.ComponentProps<typeof Excalidraw>['excalidrawAPI']>>[0]
@@ -108,8 +105,6 @@ export interface SketchCanvasProps {
    * put the review's whole subtree below them (`task workspace:blast-radius`).
    */
   pins?: (Omit<SketchPinsProps, 'api'> & { Pins: ComponentType<SketchPinsProps> }) | null
-  /** A reopened Skizze's links, marked on their elements and opened in the app (`sketch-links.tsx`). */
-  links?: Omit<SketchLinksProps, 'api' | 'onLink'> | null
   /** Whether the page under the strokes could be shown to this reader (S6). */
   onUnderlay?: (state: UnderlayLoadState) => void
 }
@@ -149,7 +144,6 @@ export default function SketchCanvas({
   readOnly = false,
   collab = null,
   pins = null,
-  links = null,
   onUnderlay,
 }: SketchCanvasProps) {
   const apiRef = useRef<ExcalidrawApi | null>(null)
@@ -193,16 +187,6 @@ export default function SketchCanvas({
     dirty.current = false
     onDirtyChange(false)
   }, [onDirtyChange])
-
-  // A link is the element's `customData`, written as an edit: it is undone, travels through the room and is saved.
-  const setLink = useCallback((elementId: string, link: SketchLink | null) => {
-    const current = apiRef.current
-    if (!current) return
-    const elements = current
-      .getSceneElementsIncludingDeleted()
-      .map((element) => (element.id === elementId ? newElementWith(element, { customData: link ?? undefined }) : element))
-    current.updateScene({ elements, captureUpdate: CaptureUpdateAction.IMMEDIATELY })
-  }, [])
 
   useEffect(() => {
     onReady({ prepare, markSaved })
@@ -303,7 +287,6 @@ export default function SketchCanvas({
         </MainMenu>
       </Excalidraw>
       {pins ? <pins.Pins api={api as unknown as SketchViewApi | null} {...pins} /> : null}
-      {links ? <SketchLinks api={api as unknown as SketchViewApi | null} onLink={setLink} {...links} /> : null}
     </div>
   )
 }

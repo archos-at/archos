@@ -3,10 +3,9 @@
 /**
  * Where the sheet of a live sketch canvas sits: its elements, their padded
  * frame, the scroll, zoom and selection, read once per animation frame. The
- * pins (`sketch-pins.tsx`) and the links (`sketch-links.tsx`) both lay their
- * marks over it. Its own module so the links, drawn on every canvas, do not
- * import the pins and with them the document review
- * (`task workspace:blast-radius`).
+ * pins (`sketch-pins.tsx`) lay their marks over it. Its own module so the
+ * canvas, drawn on every fence, names the view's shape without importing the
+ * pins and with them the document review (`task workspace:blast-radius`).
  *
  * Only the Excalidraw API's shape is named here, never its module:
  * `sketch-canvas.tsx` stays the one importer (`sketch-isolation.spec.ts`).

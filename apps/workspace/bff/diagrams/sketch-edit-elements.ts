@@ -170,16 +170,13 @@ export function textElement(
     autoResize: true,
     lineHeight: LINE_HEIGHT,
     ...Object.fromEntries(
-      Object.entries(options.style ?? {}).filter(([key]) => ['strokeColor', 'textAlign', 'opacity', 'angle', 'customData'].includes(key))
+      Object.entries(options.style ?? {}).filter(([key]) => ['strokeColor', 'textAlign', 'opacity', 'angle'].includes(key))
     ),
   })
 }
 
-/**
- * The fields of a skeleton copied onto the element as they are (the fence kept
- * them to their ranges): its styles, and its link into the workspace.
- */
-const STYLE_FIELDS = ['strokeColor', 'backgroundColor', 'fillStyle', 'strokeWidth', 'strokeStyle', 'roughness', 'opacity', 'angle', 'roundness', 'customData'] as const
+/** The fields of a skeleton that are styles, copied onto the element as they are (the fence kept them to their ranges). */
+const STYLE_FIELDS = ['strokeColor', 'backgroundColor', 'fillStyle', 'strokeWidth', 'strokeStyle', 'roughness', 'opacity', 'angle', 'roundness'] as const
 
 function styleOf(skeleton: SceneSkeleton): Record<string, unknown> {
   return Object.fromEntries(STYLE_FIELDS.filter((field) => skeleton[field] !== undefined).map((field) => [field, skeleton[field]]))

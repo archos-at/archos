@@ -20,18 +20,12 @@
  * coordinates, y downwards; a sketch claims no dimension, so they are positions
  * on the sheet, never measurements.
  *
- * And the links (`sketch-links.ts`): which element points at which document,
- * model element or Anmerkung, by the ids it stores. What the reader may see of
- * each target is the read's (`sketch-link-resolve.ts`), never the outline's: the
- * outline is the scene's, and the scene is the same for every reader.
- *
  * And the underlay (`sketch-underlay.ts`, S6): which Fassung's page the sketch
  * is traced over, by ids, and where that page lies on the sheet, so Piloti
  * knows what the strokes are drawn on and places beside or over it.
  */
 
 import type { SceneElement, SketchScene } from './sketch-scene'
-import { linksOf, type SketchOutlineLink } from './sketch-links'
 import { underlayOf, type SceneUnderlay } from './sketch-underlay'
 
 const SHAPE_TYPES: ReadonlySet<string> = new Set(['rectangle', 'ellipse', 'diamond'])
@@ -90,8 +84,6 @@ export interface SketchOutline {
   shapes: SketchOutlineShape[]
   connections: SketchOutlineConnection[]
   frames: SketchOutlineFrame[]
-  /** The elements that link into the workspace, by stored ids. */
-  links: SketchOutlineLink[]
   /** The Fassung page the sketch is traced over, or null. A sketch still claims no dimension on it. */
   underlay: SceneUnderlay | null
 }
@@ -163,7 +155,7 @@ export function outlineSketch(scene: SketchScene): SketchOutline {
   const elements = scene.elements.filter((element) => !element.isDeleted)
   const byId = new Map(elements.map((element) => [element.id, element]))
   const labels = labelsOf(elements)
-  const outline: SketchOutline = { texts: [], shapes: [], connections: [], frames: [], links: linksOf(elements), underlay: underlayOf(elements) }
+  const outline: SketchOutline = { texts: [], shapes: [], connections: [], frames: [], underlay: underlayOf(elements) }
 
   for (const element of elements) {
     if (element.type === 'text') {

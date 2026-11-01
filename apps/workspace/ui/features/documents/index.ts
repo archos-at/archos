@@ -15,7 +15,7 @@
 export { useFileUpload } from './hooks/use-file-upload'
 export { useFileDragDrop } from './hooks/use-file-drag-drop'
 export { FileUploadZone } from './components/FileUploadZone'
-// A Skizze takes the room, the review's pieces and its links' targets from
-// top-level modules instead (`document-room.ts`, `sketch-review.ts`,
-// `sketch-link-target.ts`): through here they put the upload hooks, and with
+// A Skizze takes the room, the review's pieces and the way back to its traced
+// page from top-level modules instead (`document-room.ts`, `sketch-review.ts`,
+// `page-review-href.ts`): through here they put the upload hooks, and with
 // them the folder rules and upload screening, below every sketch canvas.

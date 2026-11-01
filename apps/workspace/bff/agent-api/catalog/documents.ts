@@ -208,8 +208,7 @@ export const documentsOperations = [
       'A sketch document (an SVG filed from an Excalidraw drawing) read as structure. `outline` first: `texts` (with the ' +
       'element each labels), `shapes` with labels, `connections` (from-label → to-label, bound ids, own label; `points` ' +
       'when an end is unbound) and `frames` with children, each with its id and a `box` {x, y, w, h} in scene pixels, y ' +
-      'down; `links`: elements pointing at a document page, model element or annotation, `available` with a `title` or ' +
-        '`unavailable`. `scene=omit` drops `scene`; `ids` answers just those `elements`. To change it, send operations with ' +
+      'down. `scene=omit` drops `scene`; `ids` answers just those `elements`. To change it, send operations with ' +
       '`versionId` to document-sketch-edit; document-sketch-update takes a whole scene. Other documents answer 415. A ' +
       'sketch claims no dimension.',
     method: 'GET',
@@ -244,8 +243,7 @@ export const documentsOperations = [
     description:
       'Changes a filed sketch by operations on its elements (ids from document-sketch-get, `scene=omit`), saved as its ' +
       'next version. Prefer the relative ops (place, align, distribute, stack) over computed x and y; remove takes ' +
-      'labels and bound arrows along; bound arrows are rerouted. `set.customData` links an element (a GlobalId only ' +
-        'from a model query); a link is no measurement. No ops plus a `note` changes nothing: never write ' +
+      'labels and bound arrows along; bound arrows are rerouted. No ops plus a `note` changes nothing: never write ' +
       'dimensions. 409 `sketch_changed` when a newer version lost or changed an element it needs; 422 names a wrong op.',
     method: 'POST',
     path: '/api/documents/[id]/sketch/edits',
@@ -328,7 +326,7 @@ export const documentsOperations = [
     summary: 'Move a sketch to its page’s newer version',
     description:
       'Swaps the page under the sketch for the newer version’s (document-sketch-underlay-get) and saves the sketch’s ' +
-      'next version; strokes, annotations and links stay.',
+      'next version; strokes and annotations stay.',
     method: 'POST',
     path: '/api/documents/[id]/sketch/underlay',
     params: documentParams,

@@ -15,7 +15,6 @@
 import { z } from 'zod'
 import type { fileDiagramSchema } from '@/lib/diagrams/diagram-wire'
 import { ROOM_PEER_HEADER, type saveSketchSchema } from '@/lib/diagrams/sketch-wire'
-import { SKETCH_LINK_KINDS, type ResolvedSketchLink } from '@/lib/diagrams/sketch-links'
 import type { SketchUnderlay } from '@/lib/diagrams/sketch-underlay'
 import type { SketchUnderlayView, UnderlayMovePlan } from '@/lib/diagrams/sketch-underlay-wire'
 import { ApiRequestError } from './api-error'
@@ -136,11 +135,6 @@ const SketchViewSchema = z.object({
   contentHash: z.string().nullable().default(null),
   /** The project the Skizze lies in; absent from an older server. */
   projectId: z.string().nullable().default(null),
-  /** Its links as the server read them for this reader (`lib/diagrams/sketch-links.ts`); absent from an older server. */
-  links: z
-    .array(z.looseObject({ elementId: z.string(), kind: z.enum(SKETCH_LINK_KINDS), state: z.enum(['available', 'unavailable']), ref: z.looseObject({}) }))
-    .default([])
-    .transform((links) => links as unknown as ResolvedSketchLink[]),
   /** The page it is traced over, as this reader sees it (`lib/diagrams/sketch-underlay-wire.ts`); absent from an older server. */
   underlay: z
     .looseObject({ state: z.enum(['available', 'unavailable']), elementId: z.string(), ref: z.looseObject({}) })

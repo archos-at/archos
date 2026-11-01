@@ -604,9 +604,8 @@ document, never a new pair.
   underlay (S6, below), no embed or `files`, at most 2 000 elements, coordinates within ±1 000 000, text up to
   5 000 characters, and the 512 KiB excalidraw source cap. Filing used to store
   the scene unread. What the fence drops is dropped here too: an element's
-  `link`, `customData` outside `SCENE_CUSTOM_DATA_KEYS` (empty for now; a slice
-  that ties elements to the workspace names its key there), and `appState`
-  outside the four keys Excalidraw's own export writes.
+  `link`, its `customData` (only the underlay image keeps its page reference,
+  S6), and `appState` outside the four keys Excalidraw's own export writes.
 - **A save is versioned against the scene it replaces**
   (`bff/diagrams/sketch-revise.ts`), whoever wrote it: an element whose content
   changed at the version it was read with gets the next version and a fresh
@@ -764,8 +763,7 @@ Piloti does not send a whole scene back. It reads the Skizze's outline
 
 - `add` (a fence skeleton with a new id, checked by `checkSketchSkeleton`;
   bindings and frame children may name drawn elements), `update` (geometry,
-  style, a label or a free text's words, the element's link as `customData`,
-  replaced whole or removed with `null`),
+  style, a label or a free text's words; there is no `customData` to set),
   `remove` (takes its label and every arrow bound to it along; a frame lets its
   children go), `rebind` (an arrow's ends);
 - the relative `place` (beside a reference, on a side, with an offset and an
@@ -820,59 +818,14 @@ box changes size (`textsToMeasure`).
 - **Not yet.** In an open editor the proposal is not drawn as a ghost layer
   with its own buttons; the person decides on the card.
 
-### A sketch element links into the workspace (S5)
+### Sketch element links (S5): dropped
 
-An element can point at what it means: an arrow at „Detail 4, Polierplan S. 12“,
-a Raumprogramm bubble at the model's Raum, a cloud at an Anmerkung. The link is
-Excalidraw's own `customData` with the keys of `SKETCH_LINK_KEYS`
-(`bff/diagrams/sketch-links.ts`) and no others: `documentId`, then `page` and a
-pinned `versionId` for a document, `ifcGlobalId` for an element of the model
-that document is, or `annotationId` for an Anmerkung on it. A defect is an
-Anmerkung of kind `defect`; an Aufgabe is work handed to Piloti, so there is no
-`taskId`. Excalidraw's `link` field stays dropped everywhere.
-
-- **One list, every door.** The fence keeps a valid link and drops every other
-  key (`sketch-fence.ts`), `common/sketch_fence.py` counts the same links on the
-  trace (`links` on the sketch score), and `__fixtures__/sketch-fences.json`
-  holds both to the same `link_keys` and cases. The scene a save stores and the
-  live wire keep it through `withoutForeignFields`; `document-sketch-edit`'s
-  `set.customData` takes a link or `null`, and its diff compares what a save
-  keeps. A wrong value (a GlobalId that is not 22 characters, page 0, a
-  document, Fassung or Anmerkung id that is no uuid) drops the link whole: half
-  a link points somewhere nobody meant, and a non-uuid id bound to a uuid column
-  makes Postgres throw. A key set to `null` reads as absent, and `12.0` is page
-  12, in both fences.
-- **Ids in the scene, the reader's view on read.** The outline lists `links`
-  `{elementId, kind, ref}`. `GET /api/documents/{id}/sketch` resolves them per
-  reader (`sketch-link-resolve.ts`): a document through `getAccessibleDocument`
-  (shelf, folder visibility, the hold), a pinned Fassung by its row when it
-  was published and its bytes are the reader's (`versionBytesReadableBy`; a
-  draft in Freigabe or a held upload shows no number), a model element through
-  `findElementsOfReadDocument`, an Anmerkung by its row on a document the reader
-  may open. Gone or not theirs: `unavailable`, no title and no reason, so a link
-  never names a document its reader cannot see. The links are grouped by
-  document: one access check per document, one query per kind of target
-  (`sketch-link-repository.ts`, no reply threads), four documents at a time, at
-  most 60 links per read. Any error resolving a link makes it `unavailable`
-  (logged unless it is a refusal), never a failed read. The search row indexes
-  no link.
-- **In the editor.** A linked element carries a mark at its corner
-  (`sketch-links.tsx`); pressed, it opens the target with `router.push`
-  (`features/documents/lib/sketch-link-href.ts`: the document's preview at the
-  page, the model view at the element, the review at the mark), or says
-  „Nicht mehr vorhanden“ in place. A linked Anmerkung colours its mark by its
-  status, read with the link and never stored. „Verknüpfen“ on one selected
-  element opens the picker (`sketch-link-picker.tsx`): a document and page from
-  the workspace search, a model element by name from the project's models, an
-  Anmerkung from the search. `sketch_link_opened` (PostHog) counts the opens.
-- **Piloti** links through `document-sketch-edit` and writes links in a fence;
-  the skill says a GlobalId comes from `ifc_query`, never made up, and a link is
-  never a measurement.
-- **Not yet.** A pinned Fassung opens the document's current preview at the page
-  (the preview has no address for a Fassung); a page past the document's end is
-  not refused, because the page count lives only in the search projection; the
-  Files preview of a target does not yet say „verlinkt aus Skizze …“; a link a
-  co-editor sets live shows as unresolved until the next open.
+An element pointing at a document page, an IFC GlobalId or an Anmerkung was
+built and then dropped by the product owner on 2026-11-01. The whole state is
+parked on the branch `claude/sketch-element-links-parked`. A sketch element
+carries no `customData`: the fence, the stored scene, the live wire and
+`document-sketch-edit` drop it, and only the underlay image keeps its page
+reference (S6).
 
 ### A Skizze traced over a PDF page (S6)
 
@@ -948,7 +901,7 @@ at); with unsaved strokes it waits for the save.
   are the person's choice (`document-sketch-underlay-get`, `label_ambiguous`),
   old and new alone or overlaid, and
   „Übertragen“ (`document-sketch-underlay-move`), which saves the Skizze's next
-  Fassung. Strokes, pins and links stay.
+  Fassung. Strokes and pins stay.
 - **The doctrine holds.** Every export says „nicht maßstäblich“; there is no
   measuring on an underlay.
 - **Not yet.** The base's preview does not list „Skizzen auf dieser Seite“ (the

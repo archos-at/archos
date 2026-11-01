@@ -139,7 +139,6 @@ export function SketchReviseAction({
             onSaved,
             review,
             Pins: SketchPins,
-            links: sketch.links,
             projectId: sketch.projectId,
             underlay: sketch.underlay,
             // Moved to the base's newer Fassung: the preview shows the new picture, the editor reopens on it.

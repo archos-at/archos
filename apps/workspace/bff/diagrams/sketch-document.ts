@@ -66,7 +66,6 @@ import { resolveDocumentBucket } from '@/lib/storage/bucket'
 import { MAX_DIAGRAM_SOURCE_BYTES, MAX_DIAGRAM_SVG_BYTES } from './diagram-sources'
 import { publishNextVersion } from './sketch-version'
 import { outlineSketch } from './sketch-outline'
-import { resolveSketchLinks } from './sketch-link-resolve'
 import { reviseScene, withoutTombstones } from './sketch-revise'
 import { drawSketchScene } from './sketch-picture'
 import { indexSketchForSearch } from './sketch-search'
@@ -243,8 +242,6 @@ export async function readSketchDocument(
     canWrite,
     title: titleOf(document),
     outline,
-    // What each link is for this reader: the outline names ids, this what they may see of them.
-    links: await resolveSketchLinks(session, outline.links),
     // Whether this reader may see the page it is traced over, and whether a newer Fassung of it exists (S6).
     underlay: await resolveUnderlayView(session, outline.underlay),
     ...(options.scene ? { scene } : {}),

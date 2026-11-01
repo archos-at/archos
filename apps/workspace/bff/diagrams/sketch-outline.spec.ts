@@ -6,9 +6,6 @@ import { MAX_RESULT_CHARS } from '@/lib/agent-api/discovery'
 import { MAX_OUTLINE_POINTS, outlineSketch } from './sketch-outline'
 import { checkSketchScene } from './sketch-scene'
 
-const DOC_IFC = '11111111-1111-4111-8111-111111111111'
-const DOC_PLAN = '22222222-2222-4222-8222-222222222222'
-
 const scene = checkSketchScene({
   type: 'excalidraw',
   elements: [
@@ -179,25 +176,5 @@ describe('the outline at the agent door', () => {
     expect(chars).toBeLessThan(MAX_RESULT_CHARS)
     // Measured 2026-10-30: 25,202 characters, so room for longer labels.
     expect(chars).toBeLessThan(0.8 * MAX_RESULT_CHARS)
-  })
-})
-
-describe('links in the outline', () => {
-  it('lists each linked element by its stored ids, and the search reads no link', async () => {
-    const { checkSketchScene } = await import('./sketch-scene')
-    const { sketchReadingOf } = await import('./sketch-search')
-    const scene = checkSketchScene({
-      type: 'excalidraw',
-      elements: [
-        { id: 'room', type: 'ellipse', x: 0, y: 0, width: 100, height: 60, customData: { documentId: DOC_IFC, ifcGlobalId: '2O2Fr$t4X7Zf8NOew3FLOH' } },
-        { id: 'note', type: 'text', x: 0, y: 100, text: 'Detail', customData: { documentId: DOC_PLAN, page: 4 } },
-        { id: 'gone', type: 'rectangle', x: 0, y: 0, isDeleted: true, customData: { documentId: DOC_PLAN } },
-      ],
-    })
-    expect(outlineSketch(scene).links).toEqual([
-      { elementId: 'room', kind: 'ifcElement', ref: { documentId: DOC_IFC, ifcGlobalId: '2O2Fr$t4X7Zf8NOew3FLOH' } },
-      { elementId: 'note', kind: 'document', ref: { documentId: DOC_PLAN, page: 4 } },
-    ])
-    expect(JSON.stringify(sketchReadingOf('Skizze', scene))).not.toMatch(/11111111|22222222|2O2Fr/)
   })
 })

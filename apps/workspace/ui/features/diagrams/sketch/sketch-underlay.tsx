@@ -27,7 +27,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { diagramsCopy } from '@/i18n/namespaces/diagrams'
-import { pageReviewHref } from '@/features/documents/sketch-link-target'
+import { pageReviewHref } from '@/features/documents/page-review-href'
 
 export interface UnderlayBannerProps {
   underlay: SketchUnderlayView

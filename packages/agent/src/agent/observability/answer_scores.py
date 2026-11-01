@@ -31,7 +31,7 @@ def sketch_scores(checks: Iterable[Any]) -> list[RuntimeScore]:
             "drawn" if check.drawn else "refused",
             comment=check.refusal,
             item=str(index),
-            metadata={"elements": check.elements, "dimension_labels": check.dimension_labels, "links": check.links},
+            metadata={"elements": check.elements, "dimension_labels": check.dimension_labels},
         )
         for index, check in enumerate(checks)
     ]

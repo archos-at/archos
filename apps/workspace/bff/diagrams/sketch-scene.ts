@@ -24,7 +24,7 @@
  * kept as it came, so the editor reopens what it saved, with three exceptions
  * the fence makes too (`sketch-fence.ts`, "What reaches Excalidraw"): an
  * element's `link` (Excalidraw makes the element a click to anywhere) is
- * dropped, `customData` keeps only the keys in {@link SCENE_CUSTOM_DATA_KEYS},
+ * dropped, `customData` is dropped (an underlay keeps its page, `sketch-underlay.ts`),
  * and `appState` only the keys in {@link SCENE_APP_STATE_KEYS}, the ones
  * Excalidraw itself writes into an exported scene. The live wire
  * (`sketch-room-types.ts`) drops the same fields with {@link withoutForeignFields},
@@ -33,7 +33,6 @@
 
 import { DIAGRAM_SOURCE_FACTS } from './diagram-sources'
 import { SKETCH_ELEMENT_TYPES } from './sketch-fence'
-import { keptSketchLink, SKETCH_LINK_KEYS } from './sketch-links'
 import { keptUnderlayData, MAX_UNDERLAYS, underlayProblem } from './sketch-underlay'
 
 export const MAX_SCENE_ELEMENTS = 2_000
@@ -43,21 +42,14 @@ export const MAX_SCENE_TEXT_CHARS = 5_000
 /** The element types a stored scene may hold: the fence's, and a hand's freehand line. */
 export const SCENE_ELEMENT_TYPES: ReadonlySet<string> = new Set([...SKETCH_ELEMENT_TYPES, 'freedraw'])
 
-/**
- * The `customData` keys a stored or travelling element may carry: a link into
- * the workspace (`sketch-links.ts`, the one list). Every other key is dropped,
- * and so is a link whose value is wrong.
- */
-export const SCENE_CUSTOM_DATA_KEYS: ReadonlySet<string> = new Set<string>(SKETCH_LINK_KEYS)
-
 /** The `appState` a stored scene keeps: what Excalidraw's own export writes (`APP_STATE_STORAGE_CONF`, `export: true`). */
 export const SCENE_APP_STATE_KEYS: ReadonlySet<string> = new Set(['gridSize', 'gridStep', 'gridModeEnabled', 'viewBackgroundColor'])
 
-/** An element without the fields a sketch does not carry: `link`, and `customData` that is not a valid link (an underlay's: its page). */
+/** An element without the fields a sketch does not carry: `link`, and `customData` (an underlay keeps its page). */
 export function withoutForeignFields<T extends Record<string, unknown>>(element: T): T {
   if (!('link' in element) && !('customData' in element)) return element
   const { link: _link, customData, ...rest } = element
-  const kept = element.type === 'image' ? keptUnderlayData(customData) : keptSketchLink(customData)
+  const kept = element.type === 'image' ? keptUnderlayData(customData) : undefined
   return (kept ? { ...rest, customData: kept } : rest) as unknown as T
 }
 
