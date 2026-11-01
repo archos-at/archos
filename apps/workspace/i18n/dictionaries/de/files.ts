@@ -1829,6 +1829,8 @@ export const files: typeof en.files = {
     // an derselben Stelle, mit Nummer und Verlauf. Eine Anmerkung eines
     // ersetzten Dokuments kommt als verknüpfte Anmerkung in das neue.
     carry: 'Auf aktuelle Fassung übernehmen',
+    // On a row under „Aus Fassung …“, which already says from where; the screen reader hears carryMark.
+    carryShort: 'Übernehmen',
     carryTo: 'In „{name}“ übernehmen',
     carryMark: 'Anmerkung {number} auf aktuelle Fassung übernehmen',
     carryMarkTo: 'Anmerkung {number} in „{name}“ übernehmen',

@@ -1860,6 +1860,8 @@ export const files = {
     earlierRevision: 'From revision {number}. Not drawn on this sheet.',
     earlierRevisionGhost: 'From revision {number}. The hollow pin shows where it stood there.',
     carry: 'Carry to the current revision',
+    // On a row under „Aus Fassung …“, which already says from where; the screen reader hears carryMark.
+    carryShort: 'Carry over',
     carryTo: 'Carry to “{name}”',
     carryMark: 'Carry annotation {number} to the current revision',
     carryMarkTo: 'Carry annotation {number} to “{name}”',

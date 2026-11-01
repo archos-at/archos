@@ -8,7 +8,8 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { CommentPin } from '@/components/ui/comment-pin'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
-import { SectionLabel } from '@/components/ui/section-label'
+import { FOCUS_RING } from '@/components/ui/focus-ring'
+import { InspectorGroup, InspectorSection } from '@/components/ui/inspector-group'
 import { Spinner } from '@/components/ui/spinner'
 import { Toggle, ToggleSegments } from '@/components/ui/toggle'
 import { useTranslations } from '@/i18n'
@@ -19,7 +20,7 @@ import { cn } from '@/lib/utils'
 import type { CarriedGroup, DocumentReview, ReviewFilter } from '../../hooks/use-document-review'
 import { compareFromReviewHref } from '../../lib/revision-links'
 import { MarkBody } from './mark-body'
-import { MarkMeta, MarkRowContent, markRowClassName } from './mark-row'
+import { MarkGroupHeader, MarkMeta, MarkRowContent, markRowClassName } from './mark-row'
 import { markInk } from './review-page-layer'
 
 /** Open a mark from the list; `byKeyboard` when Enter or Space did it, so its card takes the focus. */
@@ -56,7 +57,7 @@ function CheckFixedButton({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="outline"
       size="xs"
       className="self-start"
       disabled={review.piloti.busy}
@@ -109,45 +110,58 @@ const Row = memo(function Row({
   )
 })
 
-/** Marks grouped by page; the page heading only where there is more than one page to tell apart. */
+/**
+ * Marks by page, each page a sheet on the rail, named above it where there is
+ * more than one page. `bare`: the rows alone, in a group that is already a sheet.
+ */
 function Pages({
   marks,
   review,
   onOpen,
+  bare = false,
 }: {
   marks: readonly AnnotationView[]
   review: DocumentReview
   onOpen: OpenMark
+  bare?: boolean
 }): JSX.Element {
   const t = useTranslations(filesCopy)
   const pages = [...new Set(marks.map((annotation) => annotation.page))]
   const headed = new Set(review.annotations.map((annotation) => annotation.page)).size > 1
+  const rows = (page: number) => (
+    <ul className="space-y-0.5 p-1">
+      {marks
+        .filter((annotation) => annotation.page === page)
+        .map((annotation) => (
+          <Row
+            key={annotation.id}
+            annotation={annotation}
+            viewerId={review.me}
+            selected={annotation.id === review.selectedId}
+            unread={review.unread.has(annotation.id) && annotation.id !== review.selectedId}
+            onHover={review.hover}
+            onOpen={onOpen}
+          />
+        ))}
+    </ul>
+  )
   return (
     <>
-      {pages.map((page) => (
-        <section key={page} aria-label={t('review.page', { page })}>
-          {headed && (
-            <SectionLabel as="h3" className="block px-2.5 pt-3 pb-1">
-              {t('review.page', { page })}
-            </SectionLabel>
-          )}
-          <ul className="space-y-0.5">
-            {marks
-              .filter((annotation) => annotation.page === page)
-              .map((annotation) => (
-                <Row
-                  key={annotation.id}
-                  annotation={annotation}
-                  viewerId={review.me}
-                  selected={annotation.id === review.selectedId}
-                  unread={review.unread.has(annotation.id) && annotation.id !== review.selectedId}
-                  onHover={review.hover}
-                  onOpen={onOpen}
-                />
-              ))}
-          </ul>
-        </section>
-      ))}
+      {pages.map((page) =>
+        bare ? (
+          <section key={page} aria-label={t('review.page', { page })}>
+            {rows(page)}
+          </section>
+        ) : headed ? (
+          <InspectorSection key={page} label={t('review.page', { page })}>
+            <InspectorGroup>{rows(page)}</InspectorGroup>
+          </InspectorSection>
+        ) : (
+          <section key={page} aria-label={t('review.page', { page })}>
+            <InspectorGroup>{rows(page)}</InspectorGroup>
+          </section>
+        )
+      )}
     </>
   )
 }
@@ -178,24 +192,31 @@ function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckF
   const marks = review.annotations.filter((annotation) => !annotation.onCurrentRevision && annotation.carryTarget)
   if (marks.length === 0) return null
   return (
-    <div className="bg-muted/40 mx-0.5 mb-2 flex flex-col gap-1 rounded-surface px-3 py-2" data-testid="review-earlier-bar">
-      <div className="flex items-center gap-2">
-        <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-        <span className="text-foreground min-w-0 flex-1 text-xs font-medium">{t('review.earlierOpen', { count: marks.length })}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          disabled={busy}
-          data-testid="review-carry-all-earlier"
-          onClick={() => void carry(marks)}
-        >
-          {t('review.carryAll')}
-        </Button>
-      </div>
-      {onCheckFixed && <CheckFixedButton review={review} marks={marks} from={null} onCheckFixed={onCheckFixed} />}
-      {failed && <p className="text-destructive text-xs">{t('review.carryFailed')}</p>}
-    </div>
+    <InspectorGroup data-testid="review-earlier-bar">
+      <MarkGroupHeader
+        icon={History}
+        wrap
+        title={t('review.earlierOpen', { count: marks.length })}
+        action={
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={busy}
+            data-testid="review-carry-all-earlier"
+            onClick={() => void carry(marks)}
+          >
+            {t('review.carryAll')}
+          </Button>
+        }
+      />
+      {(onCheckFixed || failed) && (
+        <div className="flex flex-col gap-1.5 px-3 py-2.5">
+          {onCheckFixed && <CheckFixedButton review={review} marks={marks} from={null} onCheckFixed={onCheckFixed} />}
+          {failed && <p className="text-destructive text-xs">{t('review.carryFailed')}</p>}
+        </div>
+      )}
+    </InspectorGroup>
   )
 }
 
@@ -227,7 +248,7 @@ function CarriedFrom({
   /** The button's words: „Übernehmen" when it lands here, else the document it lands on; the row's mark for a screen reader. */
   const carryWords = (annotation: AnnotationView, target: CarryTargetView) =>
     target.documentId === review.documentId
-      ? { label: t('review.carry'), aria: t('review.carryMark', { number: annotation.number }) }
+      ? { label: t('review.carryShort'), aria: t('review.carryMark', { number: annotation.number }) }
       : {
           label: t('review.carryTo', { name: target.documentName }),
           aria: t('review.carryMarkTo', { number: annotation.number, name: target.documentName }),
@@ -235,18 +256,16 @@ function CarriedFrom({
   const compare =
     typeof window === 'undefined' ? null : compareFromReviewHref(window.location, review.documentId, group.from.id)
   return (
-    <section
+    <InspectorGroup
+      role="region"
       data-testid="review-carried-group"
       aria-label={t('review.carriedGroup', { name: group.from.filename })}
-      className="mx-0.5 mb-2 rounded-surface border"
     >
-      <div className="flex flex-col gap-1 px-3 pt-2 pb-1">
-        <div className="flex items-center gap-2">
-          <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-          <h3 className="text-foreground min-w-0 flex-1 truncate text-xs font-medium">
-            {t('review.carriedGroup', { name: group.from.filename })}
-          </h3>
-          {carryable.length > 1 && (
+      <MarkGroupHeader
+        icon={History}
+        title={t('review.carriedGroup', { name: group.from.filename })}
+        action={
+          carryable.length > 1 && (
             <Button
               type="button"
               variant="ghost"
@@ -257,8 +276,10 @@ function CarriedFrom({
             >
               {t('review.carryAll')}
             </Button>
-          )}
-        </div>
+          )
+        }
+      />
+      <div className="flex flex-col gap-1.5 px-3 pt-2.5 pb-1">
         <p className="text-muted-foreground text-xs">{t('review.carriedGroupHint', { name: group.from.filename })}</p>
         {onCheckFixed && carryable.length > 0 && (
           <CheckFixedButton review={review} marks={carryable} from={group.from} onCheckFixed={onCheckFixed} />
@@ -284,7 +305,7 @@ function CarriedFrom({
           </Button>
         </div>
       )}
-      <ul className="space-y-0.5 px-0.5 pb-1">
+      <ul className="space-y-0.5 p-1">
         {group.annotations.map((annotation) => (
           <li key={annotation.id} className="flex gap-3 rounded-control px-2.5 py-2" data-testid="review-carried-row">
             <span className="pt-0.5">
@@ -297,7 +318,7 @@ function CarriedFrom({
               <MarkMeta annotation={annotation} showPage />
               <AgentVerdict annotation={annotation} viewerId={review.me} />
               {annotation.carryTarget && (
-                <span className="mt-1.5 flex flex-wrap items-center gap-1">
+                <span className="mt-2 flex flex-wrap items-center gap-1.5">
                   <Button
                     type="button"
                     variant="outline"
@@ -312,7 +333,7 @@ function CarriedFrom({
                   {/* Fixed in this document: closed where it was set, by the person, never by Piloti. */}
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="xs"
                     disabled={busy}
                     data-testid="review-resolve-from"
@@ -329,7 +350,7 @@ function CarriedFrom({
       </ul>
       {failed && <p className="text-destructive px-3 pb-2 text-xs">{t('review.carryFailed')}</p>}
       {resolveFailed && <p className="text-destructive px-3 pb-2 text-xs">{t('review.checkFixed.resolveFailed')}</p>}
-    </section>
+    </InspectorGroup>
   )
 }
 
@@ -416,11 +437,12 @@ export function ReviewPanel({
       data-testid="review-panel"
       aria-label={t('annotations.section')}
       className={cn(
-        'bg-background flex flex-col',
-        presentation === 'rail' ? 'h-full w-[22rem] shrink-0 border-l max-lg:hidden' : 'min-h-0 flex-1',
+        'flex flex-col',
+        // The rail is a rail: sunken, holding white sheets, as the file preview's is.
+        presentation === 'rail' ? 'bg-surface-sunken h-full w-[22rem] shrink-0 border-l max-lg:hidden' : 'min-h-0 flex-1',
       )}
     >
-      <div className="flex items-center gap-2 px-4 pt-4 pb-3">
+      <div className="flex flex-wrap items-center gap-2 px-4 pt-4 pb-3">
         {/* Two buttons that say which is on, not a tab list: there is no tab panel, and Tab reaches each. */}
         <ToggleSegments aria-label={t('review.filter')}>
           {FILTERS.map((option) => (
@@ -442,19 +464,30 @@ export function ReviewPanel({
             </Toggle>
           ))}
         </ToggleSegments>
-        <Toggle
-          variant="inverted"
-          size="xs"
-          pressed={mine}
-          data-testid="review-filter-mine"
-          onPressedChange={setMine}
-          className="ml-auto"
-        >
-          {t('review.mine')}
-        </Toggle>
+        <ToggleSegments aria-label={t('openPoints.filters.assignee')} className="ml-auto">
+          <Toggle
+            variant="segment"
+            size="xs"
+            pressed={!mine}
+            data-testid="review-filter-all"
+            onPressedChange={() => setMine(false)}
+          >
+            {t('openPoints.filters.all')}
+          </Toggle>
+          <Toggle
+            variant="segment"
+            size="xs"
+            pressed={mine}
+            data-testid="review-filter-mine"
+            onPressedChange={() => setMine(true)}
+          >
+            {t('review.mine')}
+          </Toggle>
+        </ToggleSegments>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+      {/* `shrink-0`: a sheet clips its overflow, so squeezed it would hide its rows. */}
+      <div className="scroll-fade-bottom flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-4 [&>*]:shrink-0">
         {load === 'loading' ? (
           <div className="flex justify-center py-10">
             <Spinner size="sm" />
@@ -515,18 +548,16 @@ function ListedMarks({
   return (
     <>
       {proposals.length > 0 && (
-        <section
-          data-testid="review-proposals"
-          className="border-foreground/25 mx-0.5 mb-2 rounded-surface border border-dashed"
-        >
-          <div className="flex items-center gap-2 px-2.5 py-2">
+        // A sheet like every group of marks; its dashed edge is what „proposed" looks like, as on the pins.
+        <InspectorGroup role="region" data-testid="review-proposals" className="border-foreground/25 border-dashed">
+          <div className={cn('flex items-center gap-2 px-3 py-2', proposalsOpen && 'border-b border-dashed')}>
             <button
               type="button"
               aria-expanded={proposalsOpen}
               onClick={() => setProposalsOpen((open) => !open)}
-              className="text-foreground flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-semibold"
+              className={cn('text-foreground flex min-w-0 flex-1 items-center gap-2 rounded-control text-left text-sm font-semibold', FOCUS_RING)}
             >
-              <Sparkles className="size-3.5" aria-hidden />
+              <Sparkles className="text-muted-foreground size-4 shrink-0" aria-hidden />
               {t('review.proposalsGroup', { count: proposals.length })}
               <ChevronDown
                 className={cn('text-muted-foreground size-3.5 transition-transform duration-quick', !proposalsOpen && '-rotate-90')}
@@ -546,14 +577,14 @@ function ListedMarks({
             )}
           </div>
           {proposalsOpen && (
-            <div className="px-0.5 pb-1">
-              <Pages marks={proposals} review={review} onOpen={onOpen} />
-              <p className="text-muted-foreground px-2.5 pt-1 pb-1.5 text-[11px] leading-4" data-testid="review-proposals-legend">
+            <div>
+              <Pages marks={proposals} review={review} onOpen={onOpen} bare />
+              <p className="text-muted-foreground px-3 pb-2.5 text-xs" data-testid="review-proposals-legend">
                 {t('review.proposalsLegend')}
               </p>
             </div>
           )}
-        </section>
+        </InspectorGroup>
       )}
       <Pages marks={rest} review={review} onOpen={onOpen} />
     </>
