@@ -1,13 +1,11 @@
 'use client'
 
 import { memo, useState, type JSX } from 'react'
-import { useMediaQuery } from '@/hooks/use-media-query'
-import { CheckCheck, ChevronDown, GitCompare, History, MousePointerClick, Sparkles } from 'lucide-react'
+import { ChevronDown, GitCompare, History, Sparkles } from 'lucide-react'
 import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { CommentPin } from '@/components/ui/comment-pin'
 import { CountPill } from '@/components/ui/count-pill'
-import { EmptyState } from '@/components/ui/empty-state'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { InspectorGroup, InspectorSection } from '@/components/ui/inspector-group'
 import { Spinner } from '@/components/ui/spinner'
@@ -22,6 +20,7 @@ import { compareFromReviewHref } from '../../lib/revision-links'
 import { MarkBody } from './mark-body'
 import { MarkGroupHeader, MarkMeta, MarkRowContent, markRowClassName } from './mark-row'
 import { markInk } from './review-page-layer'
+import { EmptyList } from './review-empty-list'
 
 /** Open a mark from the list; `byKeyboard` when Enter or Space did it, so its card takes the focus. */
 export type OpenMark = (annotation: AnnotationView, byKeyboard?: boolean) => void
@@ -591,39 +590,5 @@ function ListedMarks({
       )}
       <Pages marks={rest} review={review} onOpen={onOpen} />
     </>
-  )
-}
-
-/** What an empty list says depends on why it is empty: nothing yet, nothing left, or nothing in this view. */
-function EmptyList({ review, elementMarks }: { review: DocumentReview; elementMarks: boolean }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  const { counts, filter, annotations, mine } = review
-  // A finger has no C or R: the touch copy names the button instead.
-  const touch = useMediaQuery('(pointer: coarse)')
-  const allDone = filter === 'open' && !mine && annotations.length > 0 && counts.open + counts.proposed === 0
-  const Icon = allDone ? CheckCheck : MousePointerClick
-  const key = mine
-    ? 'mine'
-    : allDone
-      ? 'done'
-      : annotations.length === 0
-        ? review.canAnnotate
-          ? 'none'
-          : 'readOnly'
-        : filter
-  return (
-    <EmptyState
-      variant="bare"
-      size="sm"
-      icon={Icon}
-      className="px-6"
-      data-testid="review-empty"
-      title={t(`review.empty.${key}Title`)}
-      description={
-        key !== 'none'
-          ? t(`review.empty.${key}Body`)
-          : t(elementMarks ? 'review.empty.noneBodyElements' : touch ? 'review.empty.noneBodyTouch' : 'review.empty.noneBody')
-      }
-    />
   )
 }
