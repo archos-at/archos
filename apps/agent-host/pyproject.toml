@@ -51,7 +51,7 @@ postgres = [
 ]
 dev = [
     "pytest>=9.1.1",
-    "pytest-asyncio>=0.21.0",
+    "pytest-asyncio>=1.4.1",
     "psycopg[binary]>=3.3.6",
 ]
 
