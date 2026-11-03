@@ -43,6 +43,7 @@ export type ListedDocument = Omit<
   | 'ingestFailureCategory'
   | 'ingestRetryable'
   | 'ingestReaderVersion'
+  | 'ingestAttempts'
   | 'quarantine'
 > &
   DocumentMetadata & {
@@ -105,7 +106,7 @@ export async function toListedDocuments(
   // A row the query let through on an earlier verdict (a re-index of a file
   // that passed before) can come back `quarantined`: it is narrowed again here,
   // by the same rule, after the verdict (ADR-0086).
-  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId), reader)
+  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId, 'read'), reader)
 
   // Both keyed by the rows the reader may see, each one query for the page.
   const [revision, marks] = await Promise.all([
@@ -128,6 +129,7 @@ export async function toListedDocuments(
       ingestFailureCategory,
       ingestRetryable,
       ingestReaderVersion,
+      ingestAttempts: _attempts,
       quarantine,
       ...row
     }) => ({

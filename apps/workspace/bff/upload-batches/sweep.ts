@@ -85,7 +85,7 @@ export async function sweepUploadBatches(
           result.sealed += 1
         }
         const inFlight = await listInFlightBatchDocuments(batch.organizationId, batch.id)
-        if (inFlight.length > 0) await reconcileDocumentStatuses(inFlight, batch.organizationId)
+        if (inFlight.length > 0) await reconcileDocumentStatuses(inFlight, batch.organizationId, 'sweep')
         const completed = await settleUploadBatches(batch.organizationId, [batch.id])
         result.completed += completed.length
       })

@@ -4,9 +4,10 @@
  * The server is the only place that knows. The browser sees `document_uploaded`
  * when the bytes leave; whether the file then became searchable, failed or was
  * quarantined happens minutes later in the ingest job, and is learnt by whichever
- * read first reconciles the row (`reconcile-status.ts`). That read already knows
- * which rows IT moved (`moved`), so a row is announced once, by the read whose
- * write landed, exactly as it is settled once.
+ * reconcile first settles the row (`reconcile-status.ts`): the worker's push when
+ * the job ends, a read, or a sweep. That reconcile already knows which rows IT
+ * moved (`moved`), so a row is announced once, by the call whose write landed,
+ * exactly as it is settled once.
  *
  * Personless on purpose: the read that notices is often somebody else's page
  * load, so the actor is not the uploader, and attributing the outcome to the
@@ -17,12 +18,30 @@
  * property is a report about the column, not a write to it.
  *
  * What is sent: the outcome, the screening verdict, the counts the backend
- * reported, the file's extension and how long it took. Never the filename,
- * the summary or the error text, which can quote the document.
+ * reported, the file's extension, how long it took, the document's id, which
+ * attempt it was, the stored failure category and which path noticed
+ * (`settled_by`). Never the filename, the summary or the error text, which can
+ * quote the document.
+ *
+ * Two durations, on purpose. `duration_ms` is dispatch to the settle that
+ * noticed: what the uploader waited, the lag until somebody looked included.
+ * `processing_ms` is the job's own start to finish, from the status the backend
+ * reported: what the worker spent. The gap between the two is the lag the
+ * settle push (`/api/internal/ingest/settled`) exists to remove.
  */
 import { captureServer } from './posthog-server'
 
+/**
+ * Which path settled the row: `push` (the worker's call to
+ * `/api/internal/ingest/settled` when the job ended), `read` (a read that
+ * reconciles in passing: a listing, a detail, a filing or placement step),
+ * `sweep` (the scheduler's sweeps, for the rows nobody reads). A parameter of
+ * every reconcile, so the share each path settles is measured, not guessed.
+ */
+export type SettledBy = 'push' | 'read' | 'sweep'
+
 export interface FinishedIngest {
+  documentId: string
   filename: string
   /** When the row was last written: the dispatch time for a row that was in flight. */
   updatedAt?: Date | string | null
@@ -31,6 +50,32 @@ export interface FinishedIngest {
   screening?: string
   pageCount?: number
   chunkCount?: number
+  /** The row's dispatch count (`documents.ingest_attempts`), when the row carries it. */
+  attempt?: number | null
+  /** The stored failure category (`IngestFailureCategory`, a closed set); sent for a `failed` row only. */
+  failureCategory?: string | null
+  /** The job's `started_at` and `completed_at`, raw, as the backend's batch status reported them. */
+  jobStartedAt?: unknown
+  jobCompletedAt?: unknown
+}
+
+/**
+ * A backend timestamp as epoch ms, or null. The ingestor stamps naive UTC
+ * (`datetime.utcnow()`), so a string without an offset is read as UTC, not as
+ * this process's local time.
+ */
+const backendInstant = (value: unknown): number | null => {
+  if (typeof value !== 'string' || value.length === 0) return null
+  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`
+  const ms = Date.parse(zoned)
+  return Number.isFinite(ms) ? ms : null
+}
+
+/** The job's start to finish, or `undefined` when either end is missing or they are out of order. */
+const processingMs = (startedAt: unknown, completedAt: unknown): number | undefined => {
+  const start = backendInstant(startedAt)
+  const end = backendInstant(completedAt)
+  return start !== null && end !== null && end >= start ? end - start : undefined
 }
 
 const EXTENSION = /^[a-z0-9]{1,8}$/
@@ -56,7 +101,12 @@ const durationSince = (updatedAt: Date | string | null | undefined, now: number)
 }
 
 /** Queue one event per finished row. Fire-and-forget: `captureServer` never throws. */
-export function announceIngestsFinished(organizationId: string, finished: FinishedIngest[], now = Date.now()): void {
+export function announceIngestsFinished(
+  organizationId: string,
+  finished: FinishedIngest[],
+  settledBy: SettledBy,
+  now = Date.now()
+): void {
   for (const ingest of finished) {
     captureServer({
       event: 'document_ingest_finished',
@@ -69,6 +119,11 @@ export function announceIngestsFinished(organizationId: string, finished: Finish
         page_count: ingest.pageCount,
         chunk_count: ingest.chunkCount,
         duration_ms: durationSince(ingest.updatedAt, now),
+        document_id: ingest.documentId,
+        attempt: typeof ingest.attempt === 'number' ? ingest.attempt : undefined,
+        failure_category: ingest.status === 'failed' ? (ingest.failureCategory ?? undefined) : undefined,
+        processing_ms: processingMs(ingest.jobStartedAt, ingest.jobCompletedAt),
+        settled_by: settledBy,
       },
     })
   }

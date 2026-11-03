@@ -96,7 +96,7 @@ export async function listSessionDocuments(
   const rows = await listSessionDocumentRows(conversationId, session.organizationId, reader, SESSION_DOCUMENT_LIST_LIMIT)
   // Narrowed again after the reconcile, by the same rule: a row the query let
   // through on an earlier verdict can come back `quarantined`.
-  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId), reader)
+  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId, 'read'), reader)
 
   return {
     documents: reconciled.map(

@@ -101,6 +101,7 @@ function wireRow(n: number, cursorCreatedAt = `2026-01-01T00:00:00.${String(n).p
     null, // ingestFailureCategory
     null, // ingestRetryable
     null, // ingestReaderVersion
+    null, // ingestAttempts
     cursorCreatedAt, // cursorCreatedAt
   ]
 }

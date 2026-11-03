@@ -54,7 +54,7 @@ describe('placeProjectDocuments drops the cached prompt view', () => {
   })
 
   it('but not for the sweep, which changes nothing about who reads what', async () => {
-    await retryProjectPlacement('org-1', 'proj-1')
+    await retryProjectPlacement('org-1', 'proj-1', 'sweep')
 
     expect(invalidateProjectPromptViewCache).not.toHaveBeenCalled()
   })

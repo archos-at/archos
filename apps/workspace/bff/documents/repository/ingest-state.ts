@@ -1,14 +1,41 @@
-/** Stuck, transient and failed ingest documents. */
+/** Stuck, transient, failed and just-finished ingest documents. */
 
 import 'server-only'
-import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
+import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
 import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
-import { documents } from '@/lib/db/schema/documents'
+import { documents, type Document } from '@/lib/db/schema/documents'
 import { notQuarantined } from './mutations'
+
+/**
+ * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
+ * organization: the settle push (`/api/internal/ingest/settled`) names jobs,
+ * not documents or tenants. Discovery only, under platform access; the caller
+ * reconciles each row inside its own organization. A job id no row carries
+ * finds nothing, and a row that already came to rest is not in flight, so a
+ * second push for the same job finds nothing either. Bounded by the ids: one
+ * dispatch records one job id on one row (`setDocumentIngestJob`).
+ */
+export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
+  if (jobIds.length === 0) return []
+  const db = getDb()
+  return withPlatformAccess('settle push: finding the documents of ingest jobs that ended', () =>
+    db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+          inArray(sql`${documents.metadata} ->> 'ingestJobId'`, [...jobIds]),
+        ),
+      )
+      .limit(jobIds.length),
+  )
+}
 
 /** A document left at `processing` with no live job behind it. */
 export interface StuckProcessingDocument {

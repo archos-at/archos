@@ -12,7 +12,7 @@
  * wiped the in-memory job registry) and terminal states are written back.
  */
 
-import { fetchInChunks } from './status-batch'
+import { fetchInChunks, type BackendJobFile, type BackendJobStatus } from './status-batch'
 import {
   extractIngestJobId,
   isLostJob,
@@ -22,7 +22,7 @@ import {
   toEpochMs,
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
-import { announceIngestsFinished } from '@/lib/analytics/ingest-events'
+import { announceIngestsFinished, type SettledBy } from '@/lib/analytics/ingest-events'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
   reportsQuarantine,
@@ -128,6 +128,8 @@ export interface ReconcilableDocument {
    * leaves it out is enriched from the TTL cache exactly as before.
    */
   updatedAt?: Date | string | null
+  /** Dispatches so far (`documents.ingest_attempts`): the `attempt` of `document_ingest_finished`, when the row carries it. */
+  ingestAttempts?: number | null
 }
 
 /**
@@ -229,33 +231,6 @@ const fetchJson = async (
   } catch {
     return null
   }
-}
-
-/** One file of a job, as the batch status endpoint reports it (`FileProgress`). */
-interface BackendJobFile {
-  status?: string
-  error_message?: string | null
-  /** The content gate's per-file outcome (ADR-0086), null when the job carried no rules. */
-  screening?: string | null
-  /**
-   * Why the gate held the file (`FileProgress.quarantine`, ADR-0113), null on
-   * every other file and absent from a job written before the field. Parsed at
-   * this boundary by `storedQuarantineVerdictOf`, never trusted as typed.
-   */
-  quarantine?: unknown
-  /** Why it failed (`ingest_failures.py`), and whether the same bytes may read again; null unless FAILED. */
-  failure_category?: string | null
-  retryable?: boolean | null
-}
-
-interface BackendJobStatus {
-  status?: string
-  error_message?: string | null
-  /** `queue_ahead`: the backend's count for a job still in the durable queue. */
-  metadata?: { queue_ahead?: unknown } | null
-  /** The reader that ran the job (`INGEST_READER_VERSION`); null until a worker started it. */
-  reader_version?: string | null
-  file_details?: BackendJobFile[]
 }
 
 /**
@@ -897,6 +872,8 @@ function announceSettledShelves(
 export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   rows: T[],
   organizationId: string,
+  /** Which path is asking, for `document_ingest_finished` (`SettledBy`): the push, a read or a sweep. */
+  settledBy: SettledBy,
 ): Promise<Array<T & DocumentMetadata>> {
   if (rows.length === 0) return []
 
@@ -925,6 +902,8 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   const now = Date.now()
   const interrupted = rows.filter((row) => isRecheckableInterruption(row, now))
   const cancelled = rows.filter((row) => isRecheckableCancellation(row, now))
+  // Kept past the status pass: the event below reads each settled job's start and finish.
+  let seenJobs: Map<string, BackendJobStatus | null> | null = null
   if (inFlight.length > 0 || interrupted.length > 0 || cancelled.length > 0) {
     // One batch call for every job id asked about (previously one GET per row).
     const jobIds = [
@@ -935,6 +914,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
       ),
     ]
     const jobStatuses = await fetchJobStatuses(jobIds)
+    seenJobs = jobStatuses
 
     // An interrupted row is healed from its job alone. The collection file
     // list is no evidence about THIS dispatch: a previous version's `success`
@@ -1121,17 +1101,24 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
       // record; this event stays what it says it is — a read that came to rest.
       if (resolution.status === 'cancelled') return []
       const meta = metaByRow.get(id)
+      const job = seenJobs?.get(extractIngestJobId(row.metadata) ?? '')
       return [
         {
+          documentId: id,
           filename: row.filename,
           updatedAt: row.updatedAt,
           status: resolution.status,
           screening: 'screeningOutcome' in resolution ? resolution.screeningOutcome : undefined,
           pageCount: meta?.pageCount,
           chunkCount: meta?.chunkCount,
+          attempt: row.ingestAttempts,
+          failureCategory: resolution.failure?.category,
+          jobStartedAt: job?.started_at,
+          jobCompletedAt: job?.completed_at,
         },
       ]
-    })
+    }),
+    settledBy
   )
 
   return rows.map((row) => {

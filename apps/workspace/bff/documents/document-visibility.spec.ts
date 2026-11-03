@@ -47,6 +47,8 @@ const SEES_EVERY_ROW: Record<string, string> = {
     'Sweep: re-dispatches rows left at `processing`, which are held by definition. Returns ids to a worker, nothing to a person.',
   'lib/documents/repository/ingest-state.ts#listTransientFailures':
     'Sweep: re-reads documents whose read failed for a passing reason, each through `retryTransientFailure`. Ids only, to a worker.',
+  'lib/documents/repository/ingest-state.ts#listInFlightDocumentsForIngestJobs':
+    "The settle push: the in-flight rows of jobs the worker says ended, held by definition, each reconciled in its own organization. Nothing to a person; the route answers a count.",
   'lib/documents/repository/quarantine-and-retry.ts#listFailedDocumentPageInOrg':
     'Sweep: the failed-ingestion rescan re-dispatches each id through `reingestDocument`. Ids only, to a job.',
   'lib/platform/vector-reconcile.ts#liveFilenamesByCollection':
