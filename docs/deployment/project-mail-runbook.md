@@ -320,7 +320,8 @@ and only once the Worker's `LANDING_URL` binding names the website (B1):
 | WorkOS audit log | `inbound_mail.received`, `.decided`, `.expired`, `.part_read`, `.original_read`; `inbound_mail_address.created`, `.rotated`, `.deleted`; `mail_thread.*` | who read and filed what, per office |
 | Langfuse | the suggestion's `filing-fit` generations (`surface: inbound_mail`), the decision score with subject `inbound_mail_suggestion`, `mail-thread-match` | acceptance of the agent's suggestions |
 | Cloudflare | Email Routing → Activity log (per message: Handled, Rejected, Error); Workers → `inbound-mail-prod` → Metrics (errors, CPU) | Rejected only for senders failing SPF/DKIM/DMARC; Errors only while paused |
-| Scheduler log | `[job-scheduler] background work sweep, project mail …` | one line per sweep that acted |
+| `bff-jobs` log | `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of <budget>)`, one per wait: the receive job waits a WorkOS, reader, object-store or database fault out over about six hours (budget 11), DNS for DKIM over twelve minutes (budget 2); `mail <id>: the verifier threw` is a mailauth exception on that message, held unverified at once | none outside an outage. `dkim_dns` from one sender domain only is that domain's nameserver, not ours. An object store that answers 4xx is no fault and spends the job's attempts instead ([`inbound-mail.md`](../architecture/inbound-mail.md)) |
+| Scheduler log | `[job-scheduler] background work sweep, project mail …` | one line per sweep that acted. `rereads … deferred <n>` above 0 means the reader is slow: sweep 15 reads five texts within 45 s a tick |
 
 Alert when no `inbound_mail_received` arrives for 24 h on working days once
 offices use it.
