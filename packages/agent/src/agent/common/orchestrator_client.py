@@ -15,6 +15,8 @@ re-implements it.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from .task_failures import TaskFailure
@@ -26,6 +28,12 @@ if TYPE_CHECKING:
 
 _lock = threading.Lock()
 _client: Hatchet | None = None
+
+#: The longest a REST call to the engine may take. The SDK's REST client sets no
+#: connect timeout, so an address that swallows the SYN holds the caller until
+#: the OS gives up (about two minutes), on a person's cancel among others.
+REST_TIMEOUT_SECONDS = 15.0
+_rest_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="orchestrator-rest")
 
 
 def client() -> Hatchet:
@@ -44,6 +52,14 @@ def reset_for_tests(fake: Hatchet | None = None) -> None:
     global _client
     with _lock:
         _client = fake
+
+
+def within_rest_timeout[T](call: Callable[[], T], timeout: float = REST_TIMEOUT_SECONDS) -> T:
+    """``call()``, a synchronous REST call to the engine, or ``TimeoutError`` after ``timeout`` seconds.
+
+    A call that times out keeps its pool thread until the OS ends it; the caller is free.
+    """
+    return _rest_pool.submit(call).result(timeout=timeout)
 
 
 def task_error(failure: TaskFailure, *, retry: bool) -> Exception:
