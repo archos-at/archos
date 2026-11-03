@@ -138,7 +138,7 @@ async function folderInputsOf(
 ): Promise<FilingFolderInput[]> {
   const paths = new Map(folders.map((folder) => [folder.id, folder.path]))
   const filed = await listFiledDocuments(organizationId, projectShelf(projectId), SCREENED_ONLY)
-  const read = await reconcileDocumentStatuses(filed, organizationId)
+  const read = await reconcileDocumentStatuses(filed, organizationId, 'read')
   const docTypes = docTypesByFolder(
     read
       // A document in a folder not every member reads lends nothing: its folder is not offered.
