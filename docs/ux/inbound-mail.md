@@ -35,7 +35,7 @@ English copy calls the place „Project mail“.
 - The project overview (Einstellungen › Übersicht): a full-width tile
   „E-Mail-Adresse des Projekts“, „In Cc gesetzt, bringt sie die Antworten von
   Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum
-  Ablegen.“, the address with „Kopieren“, „Als Kontakt sichern“ and the footer
+  Ablegen.“, the address (a press copies it), „Als Kontakt sichern“ and the footer
   link „Zum E-Mail-Eingang“. Only for whoever may decide the project's mail and
   only while an address is active; creating one stays in Einstellungen ›
   Dokumente.
@@ -55,10 +55,12 @@ Projekts“, says „So landet die Korrespondenz im Projekt, ohne dass jemand si
 von Hand abspeichert.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
 Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
 E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
-weiter.“, „Was jemand mit Schreibrecht im Projekt von der eigenen, signierten
-Adresse sendet, wird direkt abgelegt. Alles andere wartet, bis jemand es
-ablegt; E-Mails von außerhalb des Büros 14 Tage lang.“ Then the address with
-„Kopieren“ (`CopyableValue`; `EmailAddress` marks where it may wrap: after
+weiter.“, „Was jemand mit Schreibrecht im Projekt von der eigenen Adresse
+sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere
+wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage lang.“
+Then the address, which a press copies (`CopyableValue`: a copy glyph beside
+it, its name „Kopieren: {Adresse}“, „Kopiert“ announced; `EmailAddress` marks
+where it may wrap: after
 the `+`, before the token's dot and before the `@`, so a phone never splits
 the domain, as `break-all` once did), „Als Kontakt sichern“ (a vCard), when mail last
 arrived, how many automatic replies were dropped in 30 days, the size line
@@ -81,7 +83,7 @@ the project ends.
 
 The never-used list says „Noch keine E-Mails an dieses Projekt“ and „Setzen Sie
 die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft
-schreiben. Was Sie selbst von Ihrer signierten Adresse senden, wird direkt
+schreiben. Was Sie selbst so senden und Ihre Domain bestätigt, wird direkt
 abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.“
 
 ## The E-Mail-Eingang
@@ -131,7 +133,8 @@ its rows do not repeat it. A row whose text a follow already appended shows no
 thread line; its attachments still wait.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
-row reads „Gibt sich als {Name} aus · nicht ablegen“ in red and has neither
+row reads „Gibt sich als {Name} aus · nicht ablegen“ (a red glyph, the words
+in ink) and has neither
 the one-press button nor a checkbox: it can never join a bulk decision, nor by
 the keyboard's X. The
 detail opens with a full-width warning above the header („Vorsicht: Diese
@@ -226,8 +229,8 @@ Verwerfen“, enabled only when every selected mail is complete
 with a dialog grouped by destination.
 
 **States**, each with its own copy: empty (never received / nothing waits /
-nothing handled), loading, load error, suggestion pending („The agent liest noch
-…“), no suggestion, decided by someone else, partial failure, quota full,
+nothing handled), loading, load error, suggestion pending („{productName} liest
+noch …“), no suggestion, decided by someone else, partial failure, quota full,
 closed project („Projekt ist abgeschlossen – wieder öffnen, um abzulegen“,
 dismiss possible), expired and dismissed („… · wiederherstellbar bis {Datum}“),
 original not clean, feature off (`notFound()`).
@@ -284,8 +287,9 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   another thread or „Als neuen E-Mail-Verlauf“ (name, same folder). Refusals are
   said in the dialog (`MAIL_THREAD_REFUSALS` and a closed project).
 - **Links**: `/app/projects/{id}/files?doc={threadDocumentId}&mailEntry={entryId}`
-  opens the Verlauf with „E-Mails“ up and the entry scrolled to and marked (ink
-  bar, `aria-current="location"`, focus moves). Closing or switching the
+  opens the Verlauf with „E-Mails“ up and the entry scrolled to and marked (the
+  `Item`'s current state: lifted to the card with the selected hairline all
+  round, `aria-current="location"`, focus moves; no bar down its edge). Closing or switching the
   preview drops `mailEntry`. A chat citation does not carry the section heading
   on the wire yet, so a citation opens the Verlauf without scrolling to its
   entry.
@@ -304,9 +308,15 @@ that a mail brought carries the same line (`document-revisions.tsx`).
 `--warning` text measures 4.48:1 on paper and 4.2:1 inside the kit's
 `Alert variant="warning"` at 12–14px, under WCAG AA. The E-Mail-Eingang draws
 warnings as a gold glyph with ink words (`FactLine tone="warning"`,
-`inbound-mail-atoms.tsx`) and the default Alert with a gold icon; a selected
-row lifts to `bg-card` with an ink bar instead of a tint (`bg-accent/70` behind
-muted 12px text is 4.33:1). The kit's warning Alert is a known AA gap of the
+`components/ui/fact-line.tsx`) and the default Alert with a gold icon, and what
+makes filing impossible as a red glyph with ink words (`tone="danger"`). The
+open row lifts to `bg-card` with the selected hairline inset all round instead
+of a tint (`bg-accent/70` behind muted 12px text is 4.33:1), and the keyboard's
+row (J/K) wears the keyboard's ring, inset: `Item`'s `data-current` and
+`data-cursor`. Neither is a bar down the row's edge (design language,
+„Emphasis without a stripe“). Each attachment's „Wird auf Schadsoftware
+geprüft …“ and „Wird abgelegt …“ is a still glyph; the detail's own „Wird
+abgelegt …“ line is the one spinner (one ambient loop per screen). The kit's warning Alert is a known AA gap of the
 design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet
