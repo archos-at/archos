@@ -43,12 +43,14 @@ const ENV: Env = {
   SIGNING_KEY_ID: VECTOR.keyId,
   SIGNING_KEY: VECTOR.secret,
   PAUSED: "false",
+  ADDRESS_DOMAIN: "inbox.example.test",
+  ADDRESS_LOCAL_PART: "p",
 };
 
 /** The handler never touches the execution context. */
 const CTX = {} as ExecutionContext;
 
-const PROJECT_ADDRESS = "riverside.k3m7q2xw4pab@example.test";
+const PROJECT_ADDRESS = "p+riverside.k3m7q2xw4pab@inbox.example.test";
 
 function bytesOf(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -146,6 +148,8 @@ describe("inbound mail worker: the signed request", () => {
       SIGNING_KEY_ID: vector.keyId,
       SIGNING_KEY: vector.secret,
       PAUSED: "false",
+      ADDRESS_DOMAIN: vector.envelope.to.slice(vector.envelope.to.lastIndexOf("@") + 1),
+      ADDRESS_LOCAL_PART: "p",
     });
 
     const [url, init] = fetchMock.mock.calls[0];
@@ -199,7 +203,7 @@ describe("inbound mail worker: the pause", () => {
 
   it("still refuses an address that is not project-shaped while paused", async () => {
     stubFetch(respond(202));
-    const { message, setReject } = fakeMessage("contact@example.test");
+    const { message, setReject } = fakeMessage("p@inbox.example.test");
     await deliver(message, { ...ENV, PAUSED: "true" });
     expect(setReject).toHaveBeenCalledWith(UNKNOWN_ADDRESS_TEXT);
   });
@@ -346,11 +350,16 @@ describe("inbound mail worker: the bounce texts", () => {
 
 /** The address contract both sides run (see its `$comment`). */
 interface AddressContract {
+  localPart: string;
+  domain: string;
   tokenPattern: string;
   cases: { recipient: string; project: boolean; note?: string }[];
 }
 
 const ADDRESSES: AddressContract = addressContract;
+
+/** The bindings the address contract's cases are run with. */
+const CONTRACT_ENV: Env = { ...ENV, ADDRESS_DOMAIN: ADDRESSES.domain, ADDRESS_LOCAL_PART: ADDRESSES.localPart };
 
 describe("inbound mail worker: which recipients reach the BFF", () => {
   it("uses the token pattern of contracts/inbound-address.json", () => {
@@ -363,7 +372,7 @@ describe("inbound mail worker: which recipients reach the BFF", () => {
     async ({ recipient }) => {
       const fetchMock = stubFetch(respond(202));
       const { message, setReject } = fakeMessage(recipient);
-      await deliver(message);
+      await deliver(message, CONTRACT_ENV);
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(setReject).not.toHaveBeenCalled();
     },
@@ -372,14 +381,28 @@ describe("inbound mail worker: which recipients reach the BFF", () => {
   it.each(ADDRESSES.cases.filter((c) => !c.project))(
     "refuses any other address itself, without a request: $recipient",
     async ({ recipient }) => {
-      // The catch-all hands the Worker every unrouted address on the product
+      // Subaddressing hands the Worker every `p+<anything>` on the receiving
       // domain. Only project addresses are the BFF's business.
       const fetchMock = stubFetch(respond(202));
       const { message, setReject } = fakeMessage(recipient);
-      await expect(deliver(message)).resolves.toBeUndefined();
+      await expect(deliver(message, CONTRACT_ENV)).resolves.toBeUndefined();
       expect(fetchMock).not.toHaveBeenCalled();
       expect(setReject).toHaveBeenCalledWith(UNKNOWN_ADDRESS_TEXT);
       expect(message.raw.locked).toBe(false);
+    },
+  );
+});
+
+describe("inbound mail worker: its address bindings", () => {
+  it.each(["ADDRESS_DOMAIN", "ADDRESS_LOCAL_PART"] as const)(
+    "asks the sender to retry, never bounces, while %s is unbound",
+    async (name) => {
+      // A misconfigured script is our fault: a bounce would lose the mail.
+      const fetchMock = stubFetch(respond(202));
+      const { message, setReject } = fakeMessage();
+      await expect(deliver(message, { ...ENV, [name]: "" })).rejects.toThrow(/not bound/);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(setReject).not.toHaveBeenCalled();
     },
   );
 });

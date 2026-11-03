@@ -16,13 +16,13 @@ import { LEGACY_PROJECT } from "./src/names";
  * frontend pod must hold the same map under the name the BFF reads, with
  * `WORKOS_REDIRECT_URI` on the origin the Worker signs for. The per-module
  * specs each see one side. The program on the app zone's apex is
- * `index-inbound-mail-apex.spec.ts`.
+ * `index-inbound-mail-app-zone.spec.ts`.
  */
 
 type Recorded = { type: string; name: string; inputs: Record<string, unknown> };
 const RESOURCES: Recorded[] = [];
 
-const DOMAIN = "post.example.test";
+const DOMAIN = "inbox.post.example.test";
 
 pulumi.runtime.setMocks(
   {
@@ -35,10 +35,10 @@ pulumi.runtime.setMocks(
     },
     call: (args: pulumi.runtime.MockCallArgs) => {
       if (args.token === "cloudflare:index/getZone:getZone") {
-        return { id: args.inputs.zoneId, name: DOMAIN, account: { id: "account-1", name: "Office" } };
+        return { id: args.inputs.zoneId, name: "post.example.test", account: { id: "account-1", name: "Office" } };
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
-        // The apex MX guard's lookup: Cloudflare's own MX, as after a first `up`.
+        // The MX guard's lookup: Cloudflare's own MX, as after a first `up`.
         return { results: [{ name: DOMAIN, content: "route1.mx.cloudflare.net", type: "MX" }] };
       }
       return {};
@@ -92,20 +92,21 @@ describe("the program constructs with project mail on", () => {
     );
   }, 120_000);
 
-  it("creates the Worker, the routing and the catch-all", () => {
+  it("creates the Worker, the routing and the one rule", () => {
     expect(RESOURCES.map((r) => r.type)).toEqual(
       expect.arrayContaining([
         "cloudflare:index/workersScript:WorkersScript",
         "cloudflare:index/emailRoutingDns:EmailRoutingDns",
-        "cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll",
+        "cloudflare:index/emailRoutingRule:EmailRoutingRule",
       ]),
     );
     expect(outputs.inboundMailWorker).toBe("inbound-mail-test (paused)");
   });
 
-  it("gives the frontend the domain, the pause and the key map, the map from the Secret", () => {
+  it("gives the frontend the domain, the local part, the pause and the key map, the map from the Secret", () => {
     const env = containerEnv("frontend");
     expect(env.find((e) => e.name === "INBOUND_MAIL_DOMAIN")?.value).toBe(DOMAIN);
+    expect(env.find((e) => e.name === "INBOUND_MAIL_LOCAL_PART")?.value).toBe("p");
     expect(env.find((e) => e.name === "INBOUND_MAIL_PAUSED")?.value).toBe("true");
     const keys = env.find((e) => e.name === "INBOUND_MAIL_SIGNING_KEYS");
     // Never inline: anything with `get pod` could read it.
@@ -127,6 +128,15 @@ describe("the program constructs with project mail on", () => {
     expect(text("PAUSED")).toBe("true");
   });
 
+  it("binds the Worker to the address shape the BFF parses", () => {
+    const env = containerEnv("frontend");
+    const script = RESOURCES.find((r) => r.type === "cloudflare:index/workersScript:WorkersScript");
+    const bindings = reveal<Array<{ name: string; text: string }>>(script?.inputs.bindings);
+    const text = (name: string) => bindings.find((b) => b.name === name)?.text;
+    expect(text("ADDRESS_DOMAIN")).toBe(env.find((e) => e.name === "INBOUND_MAIL_DOMAIN")?.value);
+    expect(text("ADDRESS_LOCAL_PART")).toBe(env.find((e) => e.name === "INBOUND_MAIL_LOCAL_PART")?.value);
+  });
+
   it("points the Worker at the origin the BFF checks @target-uri against", () => {
     // `configuredAppOrigin()` is the origin of WORKOS_REDIRECT_URI; a Worker
     // signing for another origin is refused `bad-signature`, every time.
@@ -136,9 +146,10 @@ describe("the program constructs with project mail on", () => {
     expect(bindings.find((b) => b.name === "BFF_URL")?.text).toBe(new URL(String(redirect)).origin);
   });
 
-  it("gives the bff-jobs pool the domain, but no key to verify with", () => {
+  it("gives the bff-jobs pool the address shape, but no key to verify with", () => {
     const names = containerEnv("bff-jobs").map((e) => e.name);
     expect(names).toContain("INBOUND_MAIL_DOMAIN");
+    expect(names).toContain("INBOUND_MAIL_LOCAL_PART");
     expect(names).not.toContain("INBOUND_MAIL_SIGNING_KEYS");
     expect(names).not.toContain("INBOUND_MAIL_PAUSED");
   });

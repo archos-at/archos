@@ -1,7 +1,8 @@
 /**
  * Copy of /e-mail-eingang/ (/en/project-mail/), the help page for project mail
  * (ADR-0137), both locales. `{name}` is the brand name, filled by `withName`;
- * `{domain}` is the receiving domain, filled by the view. Two readers land here:
+ * `{domain}` is the brand domain, filled by the view; project mail is received
+ * on its `inbox.` subdomain (ADR-0138). Two readers land here:
  * a member of an office that uses the product, from „Anleitung“ in the address
  * dialog, and somebody whose mail was not taken, from the link in the reply. So
  * it says plainly what happens to a mail sent to a project address.
@@ -28,7 +29,7 @@ const de = {
       id: 'ablauf',
       heading: 'Was mit einer E-Mail geschieht',
       paragraphs: [
-        'Eine E-Mail an die Adresse eines Projekts (etwa bauplatz-12.k3x7q2m9p4ab@{domain}) wird nicht automatisch Teil des Projekts. Sie wartet bis zu 30 Tage im E-Mail-Eingang. Eine Person im Büro, die Unterlagen in das Projekt ablegen darf, entscheidet über jeden Teil: den Text der E-Mail und jeden Anhang.',
+        'Eine E-Mail an die Adresse eines Projekts (etwa p+bauplatz-12.k3x7q2m9p4ab@inbox.{domain}) wird nicht automatisch Teil des Projekts. Sie wartet bis zu 30 Tage im E-Mail-Eingang. Eine Person im Büro, die Unterlagen in das Projekt ablegen darf, entscheidet über jeden Teil: den Text der E-Mail und jeden Anhang.',
         'Der Text kommt in den E-Mail-Verlauf des Gesprächs: ein Dokument je Konversation, in dem jede abgelegte E-Mail ein Abschnitt ist. Anhänge kommen in die Ordner des Projekts. Was niemand ablegt, wird verworfen oder läuft ab und wird gelöscht.',
         '{name} verschickt keine Antworten und keine Eingangsbestätigungen.',
       ],
@@ -110,7 +111,7 @@ const en: typeof de = {
       id: 'ablauf',
       heading: 'What happens to a mail',
       paragraphs: [
-        'A mail sent to a project’s address (such as bauplatz-12.k3x7q2m9p4ab@{domain}) does not become part of the project by itself. It waits for up to 30 days. A person in the office who may add documents to the project decides on each part: the mail’s text and each attachment.',
+        'A mail sent to a project’s address (such as p+bauplatz-12.k3x7q2m9p4ab@inbox.{domain}) does not become part of the project by itself. It waits for up to 30 days. A person in the office who may add documents to the project decides on each part: the mail’s text and each attachment.',
         'The text goes into the conversation’s mail thread: one document per conversation, each filed mail a section of it. Attachments go into the project’s folders. What nobody files is dismissed or expires and is deleted.',
         '{name} sends no replies and no receipts.',
       ],

@@ -5,18 +5,18 @@ import { APP_ZONE, APP_ZONE_ID, appZoneStackConfig, mailStackConfig } from "./sr
 import { LEGACY_PROJECT } from "./src/names";
 
 /**
- * The whole program as production runs it: project mail on the product's own
- * apex, the zone this stack already manages for DNS, and switched off
- * (`inboundMailEnabled: false`), the state a stack passes through on the way
- * to removing the feature.
+ * The whole program as production runs it: project mail on a subdomain of the
+ * product's own zone (`inbox.<zone>`), the zone this stack already manages for
+ * DNS, and switched off (`inboundMailEnabled: false`), the state a stack
+ * passes through on the way to removing the feature.
  *
  * A separate file for the reason `index-dns.spec.ts` gives: `index.ts` works at
  * module scope and Pulumi's runtime is process-global.
  *
  * What only the whole program shows: with no `inboundMailZoneId`, routing and
- * the catch-all land on the app zone, beside the DNS module's records; and
- * switched off, the catch-all stays (disabled) while the Worker and the
- * frontend's domain go.
+ * the rule land on the app zone, beside the DNS module's records, with routing
+ * on the subdomain and never the apex; and switched off, the rule stays
+ * (disabled) while the Worker and the frontend's domain go.
  */
 
 type Recorded = { type: string; name: string; inputs: Record<string, unknown> };
@@ -64,7 +64,9 @@ function containerEnv(deploymentName: string): EnvVar[] {
   return spec.template.spec.containers[0].env;
 }
 
-describe("the program with project mail on the app zone's apex, switched off", () => {
+const INBOX = `inbox.${APP_ZONE}`;
+
+describe("the program with project mail on a subdomain of the app zone, switched off", () => {
   beforeAll(async () => {
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
@@ -73,8 +75,8 @@ describe("the program with project mail on the app zone's apex, switched off", (
       [`${LEGACY_PROJECT}:seaweedfsTopology`]: "single",
       [`${LEGACY_PROJECT}:seaweedfsPerOrgBuckets`]: "false",
       [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
-      // No inboundMailZoneId: on the app zone's apex it defaults to dnsZoneId.
-      [`${LEGACY_PROJECT}:inboundMailDomain`]: APP_ZONE,
+      // No inboundMailZoneId: under the app zone it defaults to dnsZoneId.
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: INBOX,
       [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false",
     });
     const stack = (await import("./index")) as Record<string, unknown>;
@@ -85,20 +87,23 @@ describe("the program with project mail on the app zone's apex, switched off", (
     );
   }, 120_000);
 
-  it("keeps routing on once, on the app zone's apex", () => {
+  it("keeps routing on once, on the subdomain, never on the app zone's apex", () => {
     const routing = byType("cloudflare:index/emailRoutingDns:EmailRoutingDns");
-    expect(routing.map((r) => [r.inputs.zoneId, r.inputs.name])).toEqual([[APP_ZONE_ID, APP_ZONE]]);
+    expect(routing.map((r) => [r.inputs.zoneId, r.inputs.name])).toEqual([[APP_ZONE_ID, INBOX]]);
+    expect(byType("cloudflare:index/emailRoutingSettings:EmailRoutingSettings")).toEqual([]);
   });
 
-  it("keeps the app zone's catch-all, disabled, and deploys no Worker", () => {
-    const catchAlls = byType("cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll");
-    expect(catchAlls.map((r) => [r.inputs.zoneId, r.inputs.enabled])).toEqual([[APP_ZONE_ID, false]]);
+  it("keeps the rule on the app zone, disabled, and deploys no Worker", () => {
+    const rules = byType("cloudflare:index/emailRoutingRule:EmailRoutingRule");
+    expect(rules.map((r) => [r.inputs.zoneId, r.inputs.enabled])).toEqual([[APP_ZONE_ID, false]]);
+    expect(byType("cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll")).toEqual([]);
     expect(byType("cloudflare:index/workersScript:WorkersScript")).toEqual([]);
   });
 
   it("takes the domain off the frontend, which hides the address in the UI, and keeps the empty key map", () => {
     const names = containerEnv("frontend").map((e) => e.name);
     expect(names).not.toContain("INBOUND_MAIL_DOMAIN");
+    expect(names).not.toContain("INBOUND_MAIL_LOCAL_PART");
     expect(names).not.toContain("INBOUND_MAIL_PAUSED");
     expect(names).toContain("INBOUND_MAIL_SIGNING_KEYS");
   });

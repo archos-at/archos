@@ -538,6 +538,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     ...(cfg.inboundMail.enabled
       ? [
           { name: "INBOUND_MAIL_DOMAIN", value: cfg.inboundMail.domain },
+          { name: "INBOUND_MAIL_LOCAL_PART", value: cfg.inboundMail.localPart },
           { name: "INBOUND_MAIL_PAUSED", value: String(cfg.inboundMail.paused) },
         ]
       : []),

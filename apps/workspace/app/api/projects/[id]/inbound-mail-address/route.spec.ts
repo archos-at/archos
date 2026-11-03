@@ -23,7 +23,7 @@ vi.mock('@/lib/auth/require-auth', () => ({
 
 vi.mock('@/lib/inbound-mail/address-service', async () => {
   const { NotFoundError } = await import('@/lib/api/errors')
-  const view = { state: 'active', address: 'haus.abcdefgh2345@example.org', canManage: true, lastReceivedAt: null, droppedLast30Days: 0, ownDomainVerifiedShare: null }
+  const view = { state: 'active', address: 'p+haus.abcdefgh2345@inbox.example.org', canManage: true, lastReceivedAt: null, droppedLast30Days: 0, ownDomainVerifiedShare: null }
   return {
     getInboundMailAddress: vi.fn().mockImplementation(async (_s: unknown, projectId: string) => {
       if (projectId === 'hidden') throw new NotFoundError()

@@ -89,7 +89,7 @@ describe('the project address', () => {
   })
 
   it('is created once, under the project’s slug, and a second create answers the same one', async () => {
-    expect((await createInboundMailAddress(session, PROJECT)).address).toBe('wohnhaus-moedling.abcdefgh2345@example.org')
+    expect((await createInboundMailAddress(session, PROJECT)).address).toBe('p+wohnhaus-moedling.abcdefgh2345@example.org')
     expect(await createInboundMailAddress(session, PROJECT)).toMatchObject({ state: 'active' })
     expect(insertAddress).toHaveBeenCalledTimes(1)
     expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ action: 'inbound_mail_address.created' }))

@@ -107,41 +107,48 @@ export interface DeployConfig {
 
   /**
    * Project mail (ADR-0138, `platform/inbound-mail.ts`): Cloudflare Email
-   * Routing on `domain`, whose catch-all hands every unclaimed address to one
-   * Email Worker, which signs each message (RFC 9421) and posts it to the
-   * BFF's `/api/internal/signed/inbound-mail`.
+   * Routing on `domain` (a subdomain such as `inbox.example.org`), whose one
+   * literal rule `<localPart>@<domain>` hands the Email Worker every
+   * `<localPart>+<slug>.<token>@<domain>` through subaddressing. The Worker
+   * signs each message (RFC 9421) and posts it to the BFF's
+   * `/api/internal/signed/inbound-mail`.
    *
    * Three states, outermost switch first:
    *   - **unset** (`inboundMailDomain` absent): nothing at Cloudflare, no
    *     `INBOUND_MAIL_DOMAIN` on the frontend (the UI shows no address),
    *     an empty key map (the route answers 503).
-   *   - **on**: routing, the catch-all pointing at the Worker, the Worker.
+   *   - **on**: routing, the rule pointing at the Worker, the Worker.
    *   - **managed off** (`inboundMailEnabled: false`, the domain kept): the
-   *     catch-all stays declared but disabled, so Cloudflare refuses every
-   *     unclaimed address at SMTP time and the sender learns to write
-   *     elsewhere; the Worker is deleted once the catch-all no longer names
-   *     it. Removing the feature for good is this first, then the domain:
-   *     unsetting the domain alone would leave a catch-all naming a deleted
-   *     Worker (Email Routing itself is kept, `retainOnDelete`).
+   *     rule stays declared but disabled, so Cloudflare refuses the addresses
+   *     at SMTP time and the sender learns to write elsewhere; the Worker is
+   *     deleted once the rule no longer names it. Removing the feature for
+   *     good is this first, then the domain (Email Routing itself is kept,
+   *     `retainOnDelete`).
    *
    * `paused` is the incident lever inside "on": every delivery fails
    * temporarily and senders retry for days; nothing bounces, nothing is lost.
    */
   inboundMail: {
-    /** `inboundMailDomain` is set: Email Routing and the catch-all are this stack's. */
+    /** `inboundMailDomain` is set: Email Routing and the rule are this stack's. */
     configured: boolean;
-    /** Configured and not switched off: the Worker runs and the catch-all points at it. */
+    /** Configured and not switched off: the Worker runs and the rule points at it. */
     enabled: boolean;
     /** Every delivery is answered with a temporary failure (`inboundMailPaused`). */
     paused: boolean;
     /**
-     * The address domain, and the APEX of the zone `zoneId` names: the app
-     * zone's own apex (the product domain, the recommended setup) or a domain
-     * of its own. Not a subdomain: Cloudflare's catch-all only exists for a
-     * zone's apex (the module header of `platform/inbound-mail.ts`).
+     * The receiving domain, inside the zone `zoneId` names: a subdomain of the
+     * app zone (`inbox.example.org`, the recommended setup, which leaves the
+     * apex's MX to the company's mail provider) or a domain of its own. The
+     * BFF's `INBOUND_MAIL_DOMAIN`, the Worker's `ADDRESS_DOMAIN`.
      */
     domain: string;
-    /** Cloudflare zone whose apex is `domain`; `dns.zoneId` when `domain` is `dns.zoneName`. */
+    /**
+     * The local part of the one routing rule and of every project address,
+     * in front of the `+` (`inboundMailLocalPart`, default `p`). The BFF's
+     * `INBOUND_MAIL_LOCAL_PART`, the Worker's `ADDRESS_LOCAL_PART`.
+     */
+    localPart: string;
+    /** Cloudflare zone `domain` lives in; `dns.zoneId` when `domain` is `dns.zoneName` or under it. */
     zoneId: string;
     /**
      * The BFF's key map, `INBOUND_MAIL_SIGNING_KEYS`: JSON, keyid →
@@ -564,7 +571,8 @@ export function loadConfig(): DeployConfig {
     dnsZoneId: dns.zoneId,
     dnsZoneName: dns.zoneName,
     dnsZoneBaseline: dns.zoneBaseline,
-    cloudflareApiToken: dns.enabled ? dns.apiToken : undefined,
+    // The token itself, not DNS's: an inbox zone of its own needs it while DNS is off.
+    cloudflareApiToken: cfg.getSecret("cloudflareApiToken"),
     malwareScanEnabled: malwareScan.enabled,
   });
 

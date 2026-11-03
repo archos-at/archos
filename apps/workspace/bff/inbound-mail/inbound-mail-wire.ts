@@ -119,7 +119,7 @@ export type InboundMailAddressState = (typeof INBOUND_MAIL_ADDRESS_STATES)[numbe
 /** A project's address as `inbound-mail-address-get` answers it. Reading it never mints one. */
 export interface InboundMailAddressView {
   state: InboundMailAddressState
-  /** `<slug>.<token>@<domain>`, only while `active`. */
+  /** `<local part>+<slug>.<token>@<domain>` (`address.ts`), only while `active`. */
   address: string | null
   /** Whether the reader may create, replace or switch off the address (`project:manage`). */
   canManage: boolean

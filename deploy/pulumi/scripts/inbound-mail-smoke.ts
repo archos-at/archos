@@ -1,5 +1,5 @@
 /**
- * Project mail launch gates G1–G9 (DECISION §8, ADR-0138), as one operator
+ * Project mail launch gates G0–G9 (DECISION §8, ADR-0138), as one operator
  * tool: what can be checked from a laptop is checked, and what needs a person
  * at a mail client or the Cloudflare dashboard is printed as exact steps.
  *
@@ -19,12 +19,14 @@
  *
  *   CLOUDFLARE_API_TOKEN       read access to the zone's Email Routing and DNS,
  *                              and to the account's Workers scripts
- *   INBOUND_MAIL_ZONE_ID       the zone whose apex is the mail domain
+ *   INBOUND_MAIL_ZONE_ID       the zone the mail domain lives in
  *   INBOUND_MAIL_ACCOUNT_ID    the account that owns the Worker
- *   INBOUND_MAIL_DOMAIN        e.g. example.org
+ *   INBOUND_MAIL_DOMAIN        the receiving domain, e.g. inbox.example.org
+ *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default p)
  *   INBOUND_MAIL_WORKER        the script name, the stack output `inboundMailWorker`
  *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.example.org, the origin of WORKOS_REDIRECT_URI
- *   INBOUND_MAIL_TEST_ADDRESS  a project address of the TEST office (never a customer's)
+ *   INBOUND_MAIL_TEST_ADDRESS  a project address of the TEST office (never a customer's),
+ *                              p+<slug>.<token>@<domain>
  *   INBOUND_MAIL_KEY_ID        the keyid the Worker signs with (`inboundMailSigningKeyId`)
  *   INBOUND_MAIL_SIGNING_KEY   its base64 secret, from `pulumi config get --show-secrets`
  *
@@ -259,6 +261,16 @@ function env(name: string): string {
 /** The manual steps, printed by `plan`, one line each. */
 const MANUAL: Array<[string, string]> = [
   [
+    "G0",
+    "Subaddressing on the subdomain (ADR-0138's one unproven assumption), before anything else: Cloudflare " +
+      "dashboard → the zone → Email Routing → Settings → Subaddressing on (the provider cannot set it), then " +
+      "`cloudflare` (it reads support_subaddress). With the stack still paused, send one plain mail to " +
+      "INBOUND_MAIL_LOCAL_PART+smoke.aaaaaaaaaaaa@INBOUND_MAIL_DOMAIN: the sender must see a TEMPORARY failure " +
+      "(the Worker's pause), not 'Address does not exist' (no rule matched). Email Routing → Activity log must show " +
+      "the rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN matched. A permanent 5xx here means subaddressing does not " +
+      "reach the subdomain's rule: stop, and take the fallback (a dedicated mail domain with an apex catch-all, ADR-0138).",
+  ],
+  [
     "G1",
     "From a mailbox of a domain that signs DKIM (and whose DMARC is published), send a mail with one PDF to " +
       "INBOUND_MAIL_TEST_ADDRESS, after G4's unpause: the inbound-mail entitlement is on for the test office " +
@@ -269,7 +281,7 @@ const MANUAL: Array<[string, string]> = [
   [
     "G2",
     "Cloudflare dashboard → the zone → Email Routing: create a throwaway Worker whose email handler is " +
-      "`throw new Error('gate')`, and a literal rule gate-test@<domain> → that Worker. Send a mail to it; the " +
+      "`throw new Error('gate')`, and a literal rule gate-test@<INBOUND_MAIL_DOMAIN> → that Worker. Send a mail to it; the " +
       "sending server must report a temporary failure (4xx) and keep retrying. Repoint the rule to the real " +
       "Worker; the retry must arrive. Delete the rule and the throwaway Worker. Record the date.",
   ],
@@ -296,7 +308,11 @@ const MANUAL: Array<[string, string]> = [
       "database) and confirm a scan answers 'failed' (stale-signatures). Known gap: clamd scans a zip member " +
       "only up to MaxFileSize and answers OK without an alert (ADR-0139).",
   ],
-  ["G7", "`cloudflare` checks it: literal rules for postmaster@ and abuse@ (and every company address) exist."],
+  [
+    "G7",
+    "`cloudflare` checks it: the one literal rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN → the Worker, and no other " +
+      "rule on the receiving domain, which nobody else receives mail on.",
+  ],
   ["G8", "After any COMPATIBILITY_DATE bump (platform/inbound-mail.ts): G1 and G2 again."],
   [
     "G9",
@@ -329,34 +345,32 @@ type Rule = {
 
 async function checkCloudflare(): Promise<void> {
   const zone = env("INBOUND_MAIL_ZONE_ID");
-  const domain = env("INBOUND_MAIL_DOMAIN");
+  const domain = env("INBOUND_MAIL_DOMAIN").toLowerCase();
+  const localPart = (process.env.INBOUND_MAIL_LOCAL_PART?.trim() || "p").toLowerCase();
   const worker = env("INBOUND_MAIL_WORKER");
   const account = env("INBOUND_MAIL_ACCOUNT_ID");
 
   const routing = (await cloudflareApi(`/zones/${zone}/email/routing`)) as { enabled?: boolean; status?: string };
   record("G0", "Email Routing on the zone", routing.enabled ? "pass" : "fail", `enabled=${routing.enabled} status=${routing.status}`);
 
-  const rules = (await cloudflareApi(`/zones/${zone}/email/routing/rules?per_page=50`)) as Rule[];
-  const literal = (local: string) =>
-    rules.some(
-      (r) =>
-        r.enabled !== false &&
-        (r.matchers ?? []).some((m) => m.type === "literal" && m.value?.toLowerCase() === `${local}@${domain}`),
-    );
-  for (const local of ["postmaster", "abuse"]) {
-    record("G7", `literal rule ${local}@${domain}`, literal(local) ? "pass" : "fail", literal(local) ? "present" : "missing");
-  }
-  const others = rules.filter((r) => (r.matchers ?? []).some((m) => m.type === "literal")).length;
-  record("G7", "other literal rules", "info", `${others} literal rules in all; every company address needs one`);
+  // `support_subaddress` is what makes p+<slug>.<token>@ reach the rule for p@.
+  const subaddress = (routing as { support_subaddress?: boolean }).support_subaddress;
+  record("G0", "subaddressing on the zone", subaddress === true ? "pass" : "fail", `support_subaddress=${subaddress}`);
 
-  const catchAll = (await cloudflareApi(`/zones/${zone}/email/routing/rules/catch_all`)) as Rule;
-  const target = catchAll.actions?.[0];
+  const rules = (await cloudflareApi(`/zones/${zone}/email/routing/rules?per_page=50`)) as Rule[];
+  const base = `${localPart}@${domain}`;
+  const onDomain = rules.filter((r) =>
+    (r.matchers ?? []).some((m) => m.type === "literal" && m.value?.toLowerCase().endsWith(`@${domain}`)),
+  );
+  const rule = onDomain.find((r) => (r.matchers ?? []).some((m) => m.value?.toLowerCase() === base));
+  const target = rule?.actions?.[0];
   const toWorker = target?.type === "worker" && [...(target.value ?? []), ...(target.values ?? [])].includes(worker);
-  record("G0", "catch-all → Worker", catchAll.enabled && toWorker ? "pass" : "fail", JSON.stringify(catchAll.actions));
+  record("G7", `literal rule ${base} → Worker`, rule?.enabled !== false && toWorker ? "pass" : "fail", JSON.stringify(rule?.actions ?? "missing"));
+  record("G7", `other rules on ${domain}`, onDomain.length === 1 ? "pass" : "fail", `${onDomain.length} literal rules on the receiving domain`);
 
   const mx = (await cloudflareApi(`/zones/${zone}/dns_records?type=MX&name=${domain}`)) as Array<{ content: string }>;
   const foreign = mx.filter((r) => !/\.mx\.cloudflare\.net\.?$/i.test(r.content));
-  record("G0", "apex MX", mx.length > 0 && foreign.length === 0 ? "pass" : "fail", mx.map((r) => r.content).join(", ") || "none");
+  record("G0", `MX of ${domain}`, mx.length > 0 && foreign.length === 0 ? "pass" : "fail", mx.map((r) => r.content).join(", ") || "none");
 
   const settings = (await cloudflareApi(`/accounts/${account}/workers/scripts/${worker}/settings`)) as {
     compatibility_date?: string;
@@ -371,9 +385,11 @@ async function checkCloudflare(): Promise<void> {
     ["SIGNING_KEY_ID", "plain_text"],
     ["SIGNING_KEY", "secret_text"],
     ["PAUSED", "plain_text"],
+    ["ADDRESS_DOMAIN", "plain_text"],
+    ["ADDRESS_LOCAL_PART", "plain_text"],
   ];
   const wrong = expected.filter(([name, type]) => bindings.get(name)?.type !== type).map(([name]) => name);
-  record("G0", "Worker bindings", wrong.length === 0 ? "pass" : "fail", wrong.length === 0 ? "all four, key secret" : `wrong or missing: ${wrong.join(", ")}`);
+  record("G0", "Worker bindings", wrong.length === 0 ? "pass" : "fail", wrong.length === 0 ? "all six, key secret" : `wrong or missing: ${wrong.join(", ")}`);
   const paused = bindings.get("PAUSED")?.text;
   record("G4", "Worker pause", "info", `PAUSED=${paused ?? "?"}`);
 }

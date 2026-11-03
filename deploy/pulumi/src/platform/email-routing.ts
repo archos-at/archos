@@ -3,25 +3,39 @@ import * as pulumi from "@pulumi/pulumi";
 import type { DeployConfig } from "../config";
 
 /**
- * Cloudflare Email Routing on project mail's zone apex (`inbound-mail.ts`
- * puts the zone's catch-all and its Email Worker on it): the provider, the
- * guards, and the enablement. Normally the product's own apex (`example.org`);
- * project mail may instead have a zone of its own.
+ * Cloudflare Email Routing on project mail's receiving domain (`inbound-mail.ts`
+ * puts the one routing rule and its Email Worker on it): the provider, the
+ * guards, and the enablement. Normally a subdomain of the product's own zone
+ * (`inbox.example.org`), so the apex keeps its own mail provider; project mail
+ * may instead have a zone of its own (ADR-0138, the fallback).
  *
- * ## The apex MX guard
+ * ## The MX guard, on the receiving domain
  *
- * Enabling Email Routing on a domain (`EmailRoutingDns`) moves the apex's MX
- * to Cloudflare and locks them. If the apex already receives mail elsewhere
- * (say `office@example.org` is delivered by Microsoft 365), that mail would go
- * to Cloudflare from then on, into the catch-all, whose Worker refuses every
- * address that is not project-shaped. So before anything is created, the
- * preview reads the apex's MX records and refuses any that point anywhere but
- * Cloudflare's own `*.mx.cloudflare.net`.
+ * Enabling Email Routing on a domain (`EmailRoutingDns`) points that domain's
+ * MX at Cloudflare and locks them. If the domain already receives mail
+ * elsewhere, that mail would go to Cloudflare from then on, where only the
+ * project rule exists, and everything else is refused. So before anything is
+ * created, the preview reads the receiving domain's MX records and refuses any
+ * that point anywhere but Cloudflare's own `*.mx.cloudflare.net`.
  *
- * No MX at all passes: that is the first run on a fresh domain. Cloudflare's
- * MX passes: that is every run after it. Subdomains' MX records are not read:
- * routing on the apex does not touch them, so a `cf-bounce.<apex>` or
- * `send.<apex>` bounce MX for an outbound provider is safe.
+ * No MX at all passes: that is the first run on a fresh subdomain. Cloudflare's
+ * MX passes: that is every run after it. Other names' MX records are not read:
+ * routing on `inbox.example.org` does not touch the apex's (say Google
+ * Workspace's `aspmx.l.google.com`), which is the point of the subdomain.
+ *
+ * ## Not managed here: subaddressing
+ *
+ * The project addresses are `p+<slug>.<token>@<domain>` and reach the rule
+ * `p@<domain>` only with the zone's subaddressing setting on. The provider
+ * (`@pulumi/cloudflare` 6.23.1) has `supportSubaddress` only on
+ * `EmailRoutingSettings`, whose create calls the zone's Email Routing ENABLE
+ * endpoint (onboarding the APEX, which fails with "Non-Cloudflare MX records
+ * exist" beside Google Workspace) without sending the field, whose update is a
+ * no-op, and whose delete DISABLES Email Routing for the whole zone
+ * (terraform-provider-cloudflare `internal/services/email_routing_settings`,
+ * read 2026-11-03). So it is a dashboard step (Email Routing → Settings →
+ * Subaddressing), checked by `scripts/inbound-mail-smoke.ts cloudflare`
+ * (ADR-0138, gate G0).
  */
 
 /** Cloudflare Email Routing's own MX hosts: `route1.mx.cloudflare.net` and its siblings. */
@@ -34,9 +48,9 @@ export interface MxRecord {
 }
 
 /**
- * Refuse an apex whose MX records point anywhere but Cloudflare Email Routing.
- * Records on other names are ignored. `configKey` names the stack key(s) that
- * chose the domain, so the error says what to change.
+ * Refuse a receiving domain whose MX records point anywhere but Cloudflare
+ * Email Routing. Records on other names are ignored. `configKey` names the
+ * stack key(s) that chose the domain, so the error says what to change.
  */
 export function assertNoForeignMx(
   configKey: string,
@@ -53,8 +67,8 @@ export function assertNoForeignMx(
     `${configKey} put Cloudflare Email Routing on "${domain}" (zone ${zoneId}), but ` +
       `that domain already receives mail elsewhere: its MX records point at ` +
       `${foreign.map((h) => h || ".").join(", ")}. Email Routing would take its MX over and ` +
-      "capture that mail. Use a domain of its own, or remove those MX records if nothing " +
-      "should receive mail there.",
+      'capture that mail. Use a subdomain nothing else receives mail on (e.g. "inbox.<domain>"), ' +
+      "or remove those MX records if nothing should receive mail there.",
   );
 }
 
@@ -71,11 +85,11 @@ export interface CheckedZone {
 }
 
 /**
- * Look up the zone and its apex MX, and run the guards inside the lookup:
- * `checkZoneName` (the caller's check of the zone's real name) and the MX
- * guard. Every Email Routing resource must take its zone or account id from
- * the result, so that none is registered, not even in a preview, unless the
- * guards passed.
+ * Look up the zone and the receiving domain's MX, and run the guards inside
+ * the lookup: `checkZoneName` (the caller's check of the zone's real name) and
+ * the MX guard. Every Email Routing resource must take its zone or account id
+ * from the result, so that none is registered, not even in a preview, unless
+ * the guards passed.
  */
 export function checkedRoutingZone(args: {
   configKey: string;
@@ -97,35 +111,35 @@ export function checkedRoutingZone(args: {
   });
 }
 
-/** Email Routing on one zone apex, guarded and enabled. */
+/** Email Routing on one receiving domain, guarded and enabled. */
 export interface MailZone {
   provider: cloudflare.Provider;
-  /** The apex, e.g. `example.org`. */
+  /** The receiving domain, e.g. `inbox.example.org`. */
   domain: string;
   /** Taken from the guarded lookup, so nothing using them exists unless the guards passed. */
   zoneId: pulumi.Output<string>;
   accountId: pulumi.Output<string>;
-  /** Enables Email Routing on the apex and adds (and locks) its MX and SPF records. */
+  /** Enables Email Routing on the domain and adds (and locks) its MX and SPF records. */
   routing: cloudflare.EmailRoutingDns;
 }
 
 /**
- * Refuse a zone whose real name is not the apex the config claims. Thrown
- * inside the zone lookup, so `pulumi preview` fails before anything routes.
- * `configKeys` names the stack keys that chose the zone, so the error says
- * what to change.
+ * Refuse a zone the receiving domain does not live in: the domain must be the
+ * zone's apex or a name under it. Thrown inside the zone lookup, so `pulumi
+ * preview` fails before anything routes. `configKeys` names the stack keys
+ * that chose the zone, so the error says what to change.
  */
-export function assertZoneApex(
+export function assertDomainInZone(
   configKeys: string,
   domain: string,
   zoneId: string,
   zoneName: string,
 ): void {
-  if (zoneName === domain) return;
+  if (domain === zoneName || domain.endsWith(`.${zoneName}`)) return;
   throw new Error(
     `${configKeys} route mail on "${domain}", but zone ${zoneId} is "${zoneName}". The ` +
-      "domain must be the zone's apex: Cloudflare Email Routing has no catch-all for " +
-      "subdomains, and a zone id naming another zone would route mail there.",
+      "domain must be that zone's apex or a subdomain of it: a zone id naming another zone " +
+      "would route mail there.",
   );
 }
 
@@ -134,19 +148,20 @@ export function assertZoneApex(
  * Pulumi's mocks do not carry resource options.
  */
 export const ROUTING_RESOURCE_OPTIONS = {
-  // Deleting it (unsetting `inboundMailDomain`, or a destroy) turns Email
-  // Routing off for the whole zone: its MX, SPF and DKIM go, and with them every
-  // company address's literal rule. Turning project mail off must leave those be.
+  // Deleting it (unsetting `inboundMailDomain`, or a destroy) calls Email
+  // Routing's DNS delete for the zone, which may take every other routed
+  // address of the zone with it. Turning project mail off must leave those be.
   retainOnDelete: true,
 } as const satisfies pulumi.CustomResourceOptions;
 
 /**
- * Email Routing on project mail's zone, or undefined while no domain is set.
- * Declared while the feature is switched off too (`inboundMailEnabled: false`):
- * the disabled catch-all needs the zone, and routing is the zone's, not the
- * feature's. `loadConfig` has already refused a subdomain of the DNS zone and
- * project mail on the app zone in a stack that does not own it; the zone
- * lookup here refuses every other mismatch at preview.
+ * Email Routing on project mail's receiving domain, or undefined while no
+ * domain is set. Declared while the feature is switched off too
+ * (`inboundMailEnabled: false`): the disabled rule needs the routing, and the
+ * routing is the zone's, not the feature's. `loadConfig` has already refused a
+ * domain outside the DNS zone named by its id and project mail on the app zone
+ * in a stack that does not own it; the zone lookup here refuses every other
+ * mismatch at preview.
  */
 export function installInboundMailZone(cfg: DeployConfig): MailZone | undefined {
   const mail = cfg.inboundMail;
@@ -161,11 +176,12 @@ export function installInboundMailZone(cfg: DeployConfig): MailZone | undefined 
     zoneId: mail.zoneId,
     domain: mail.domain,
     provider,
-    checkZoneName: (zoneName) => assertZoneApex(configKeys, mail.domain, mail.zoneId, zoneName),
+    checkZoneName: (zoneName) => assertDomainInZone(configKeys, mail.domain, mail.zoneId, zoneName),
   });
 
-  // `email/routing/dns` rather than the older `email/routing/enable`
-  // (`EmailRoutingSettings`): same effect, and this one names the domain.
+  // `email/routing/dns` (POST with `name`) enables routing on the named domain,
+  // a subdomain included; the older `email/routing/enable`
+  // (`EmailRoutingSettings`) always onboards the zone's apex.
   const routing = new cloudflare.EmailRoutingDns(
     "inbound-mail-routing",
     { zoneId: checked.zoneId, name: mail.domain },

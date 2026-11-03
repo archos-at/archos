@@ -74,8 +74,8 @@ export function fakeDns(txt: Record<string, string>, failing: readonly string[] 
 
 export const INBOUND_DOMAIN = 'example.org'
 export const PROJECT_TOKEN = 'abcdefgh2345'
-export const PROJECT_ADDRESS = `wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}`
-export const OTHER_TENANT_ADDRESS = `nachbar.zzzzzzzzzzzz@${INBOUND_DOMAIN}`
+export const PROJECT_ADDRESS = `p+wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}`
+export const OTHER_TENANT_ADDRESS = `p+nachbar.zzzzzzzzzzzz@${INBOUND_DOMAIN}`
 export const MEMBER = 'Anna Muster <anna@buero-muster.at>'
 export const MEMBER_ADDRESS = 'anna@buero-muster.at'
 export const MEMBER_DOMAIN = 'buero-muster.at'

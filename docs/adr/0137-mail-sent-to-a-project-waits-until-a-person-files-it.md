@@ -18,8 +18,8 @@ whole Outlook archive afterwards (ADR-0085). The workspace did not have the
 conversation itself, so the agent could not say what the Behörde wrote, and a file
 that came by mail had no record of the mail it came with.
 
-Giving every project an address (`<slug>.<token>@example.org`, the transport is
-ADR-0138) fixes the gap and opens a new one: anyone who knows the address can
+Giving every project an address (`p+<slug>.<token>@inbox.example.org`, the
+transport is ADR-0138) fixes the gap and opens a new one: anyone who knows the address can
 put bytes and words in front of the office. A conversation where the project
 is only in Cc grows through other people's replies, so the address cannot be
 limited to members. And a mail is third-party text: an injected instruction, a

@@ -1,7 +1,8 @@
 # Project mail: the E-Mail-Eingang and the E-Mail-Verläufe
 
 Every project of an office that has the feature gets an address,
-`<slug>.<token>@example.org`. Mail sent to it waits in the project's
+`p+<slug>.<token>@inbox.example.org` (ADR-0138: one routing rule, `p@`, on a
+receiving subdomain, and Cloudflare's subaddressing). Mail sent to it waits in the project's
 **E-Mail-Eingang** until a person with write access to the project's documents
 files each part of it, its text and each attachment. A filed text becomes a
 section of the conversation's one document, the **E-Mail-Verlauf**, and the
@@ -21,7 +22,7 @@ Operating it: [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail
 ```mermaid
 flowchart LR
   subgraph Cloudflare
-    MX[Email Routing<br/>apex MX] --> W[Email Worker<br/>shape check, RFC 9421 sign]
+    MX[Email Routing<br/>MX of inbox.domain<br/>one rule p@, subaddressing] --> W[Email Worker<br/>shape check, RFC 9421 sign]
   end
   subgraph Edge
     E[Envoy route app-signed<br/>Content-Length at most 27 MiB]
@@ -121,7 +122,19 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
 7. **scan each attachment**;
 8. **the Python reader**, `POST /v1/mail/read` (no model): own text, quoted
    blocks, calendar invitations; then the content check on the own text after
-   the signature was removed (`content_findings`);
+   the signature was removed (`content_findings`). The text is what a reader
+   sees, nothing more (`agent_host/mail/body_text.py`, shared with the Outlook
+   import): from HTML it drops `script`, `style`, `head`, `title`, `template`,
+   comments, elements hidden by inline CSS (`display:none`,
+   `visibility:hidden`, `mso-hide:all`, a zero `font-size` or `opacity`, a zero
+   `height` or `max-height` with `overflow:hidden`; `font-size` and
+   `visibility` are inherited, so a child that sets them back is read), the
+   `hidden` attribute, `aria-hidden="true"` and tracking pixels; from every
+   form, zero-width characters, the soft hyphen and the bidi controls. A
+   `display:none` instruction never reaches the index or the person deciding.
+   The renderer drops the same characters from names, subjects and file names
+   (`INVISIBLE` in `lib/mail-thread/render.ts`). A colour equal to the
+   background is not detected;
 9. **redact every other project's address** in the subject, participants, text,
    quotes and invitations; the receiving project's own address is kept here,
    so the person deciding sees which address was written to. Filing redacts it
@@ -455,10 +468,22 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | Filing as the decider (or follower) | job | `last_failure` | nothing past an ordinary upload by that person |
 | Static ratchet | `review-first.spec.ts` | CI | — |
 
-HTML is never rendered: the text is shown as text, links inert, previews before
+HTML is never rendered: the approval view shows the reader's extracted text,
+as text, links inert, and the list of attachments (name, type, size, and the
+scan when it is not clean); the wire carries no HTML at all
+(`InboundMailTextView`). `inbound-mail-detail.spec.ts` pins it with a mail
+whose text, quote header and invitation hold `<script>`, `<style>`,
+`<iframe>` and a tracking `<img>`: none becomes an element. Previews before
 filing only for clean images and PDFs, drawn client-side in the sandboxed
 viewer; Office files show their tile until filed (no Gotenberg on a stranger's
 file).
+
+**The size a mail may have.** 25 MiB as sent, headers and base64 included
+(`INBOUND_MAIL_MAX_MESSAGE_BYTES` in `lib/inbound-mail/inbound-mail-vocabulary.ts`,
+the most Cloudflare Email Routing hands the Worker), so about 18 MiB of
+attachments (`INBOUND_MAIL_MAX_ATTACHMENT_BYTES`). The webhook's 26 MiB and
+Envoy's 27 MiB sit above it. Every place that shows the address states both
+numbers from those constants, with a link to Dateien for anything larger.
 
 ## Observability
 

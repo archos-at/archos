@@ -224,7 +224,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
           hostile.attachment('S-101_C.pdf', 'application/pdf', hostile.pdf('S-101 C')),
         ]),
         {
-          To: `wohnbau.${TOKEN}@example.org`,
+          To: `p+wohnbau.${TOKEN}@example.org`,
           Date: new Date(Date.now() - 60_000).toUTCString(),
         }
       )

@@ -1,18 +1,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
-import { assertNoForeignMx, ROUTING_RESOURCE_OPTIONS } from "./email-routing";
+import { assertDomainInZone, assertNoForeignMx, ROUTING_RESOURCE_OPTIONS } from "./email-routing";
 import { LEGACY_PROJECT } from "../names";
 
 /**
- * The apex MX guard the inbox's Email Routing runs before creating anything
+ * The MX guard the inbox's Email Routing runs on the receiving domain before
+ * creating anything
  * (`email-routing.ts`). The refusal is tested on the function: under Pulumi's
  * mocks a failed guard surfaces only as an unhandled rejection from resource
  * registration. `inbound-mail.spec.ts` shows that the lookup is made and that
  * the resources are created when it passes.
  */
 
-const DOMAIN = "post.example.test";
+const DOMAIN = "inbox.example.test";
 const ZONE_ID = "zone-mail-1";
 const KEY = `${LEGACY_PROJECT}:inboundMailDomain`;
 
@@ -22,10 +23,10 @@ const CLOUDFLARE_MX = ["route1", "route2", "route3"].map((h) => mx(`${h}.mx.clou
 const guard = (records: Array<{ name: string; content: string }>) => () =>
   assertNoForeignMx(KEY, DOMAIN, ZONE_ID, records);
 
-describe("the apex MX guard", () => {
-  it("refuses an apex whose mail goes elsewhere, naming the key and the hosts", () => {
-    expect(guard([mx("post-example-test.mail.protection.outlook.com")])).toThrow(
-      /inboundMailDomain.*already receives mail elsewhere.*post-example-test\.mail\.protection\.outlook\.com/,
+describe("the receiving domain's MX guard", () => {
+  it("refuses a domain whose mail goes elsewhere, naming the key and the hosts", () => {
+    expect(guard([mx("inbox-example-test.mail.protection.outlook.com")])).toThrow(
+      /inboundMailDomain.*already receives mail elsewhere.*inbox-example-test\.mail\.protection\.outlook\.com/,
     );
   });
 
@@ -44,7 +45,7 @@ describe("the apex MX guard", () => {
     expect(guard([mx("mx.cloudflare.net")])).toThrow(/elsewhere/);
   });
 
-  it("allows an apex with no MX records (the first run)", () => {
+  it("allows a domain with no MX records (the first run)", () => {
     expect(guard([])).not.toThrow();
   });
 
@@ -55,10 +56,12 @@ describe("the apex MX guard", () => {
     ).not.toThrow();
   });
 
-  it("ignores MX records on other names, which routing on the apex does not touch", () => {
-    // Cloudflare Email Sending's own bounce MX, and an outbound provider's.
+  it("ignores MX records on other names, which routing on the subdomain does not touch", () => {
+    // The apex's Google Workspace MX (the reason for the subdomain), Cloudflare
+    // Email Sending's own bounce MX, and an outbound provider's.
     expect(
       guard([
+        mx("aspmx.l.google.com", "example.test"),
         mx("route1.mx.cloudflare.net", `cf-bounce.${DOMAIN}`),
         mx("feedback-smtp.eu-central-1.amazonses.com", `send.${DOMAIN}`),
       ]),
@@ -66,10 +69,24 @@ describe("the apex MX guard", () => {
   });
 });
 
+describe("the zone check", () => {
+  it("accepts a subdomain of the zone, and the zone's apex (a mail domain of its own)", () => {
+    expect(() => assertDomainInZone(KEY, DOMAIN, ZONE_ID, "example.test")).not.toThrow();
+    expect(() => assertDomainInZone(KEY, "mail.example", ZONE_ID, "mail.example")).not.toThrow();
+  });
+
+  it("refuses a zone the domain is not in, a look-alike suffix included", () => {
+    expect(() => assertDomainInZone(KEY, DOMAIN, ZONE_ID, "example.org")).toThrow(
+      /inboundMailDomain.*zone zone-mail-1 is "example\.org"/,
+    );
+    expect(() => assertDomainInZone(KEY, "inbox.badexample.test", ZONE_ID, "example.test")).toThrow(/apex or a subdomain/);
+  });
+});
+
 describe("Email Routing on the zone", () => {
   it("is left on when the inbox is switched off or the stack destroyed", () => {
-    // Deleting the routing resource switches Email Routing off for the whole
-    // zone, and every company address on the domain stops receiving mail.
+    // Deleting the routing resource calls Email Routing's DNS delete for the
+    // zone, which may take every other routed address with it.
     expect(ROUTING_RESOURCE_OPTIONS.retainOnDelete).toBe(true);
     // A resource option, which the mocks do not carry: check it is applied.
     expect(readFileSync(join(__dirname, "email-routing.ts"), "utf8")).toMatch(

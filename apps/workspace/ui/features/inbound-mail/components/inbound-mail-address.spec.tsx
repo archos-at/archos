@@ -3,7 +3,9 @@
  * copyable in full, saved as a contact (each counted, by the door it was
  * taken from), replaced only behind a warning that says every follow ends,
  * offered to a manager only; the office's own signing said to a manager only;
- * the overview's tile; and the states without an address.
+ * the overview's tile; and the states without an address. Beside the
+ * address, the size a mail may have and the upload for anything larger, both
+ * read from the server's constant.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,7 +20,14 @@ import { toast } from 'sonner'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { render, screen, waitFor } from '@/test-utils'
 import { ADDRESS_VARIANTS, PROJECT_ID, PROJECT_NAME, fixtureAddressClient } from '@/app/dev/inbound-mail/fixtures'
+import {
+  INBOUND_MAIL_ADDRESS_STATS_DAYS,
+  INBOUND_MAIL_MAX_ATTACHMENT_BYTES,
+  INBOUND_MAIL_MAX_MESSAGE_BYTES,
+} from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { InboundMailAddressCard, InboundMailAddressDialog, InboundMailAddressTile } from './inbound-mail-address'
+
+const MIB = 1024 * 1024
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -29,7 +38,7 @@ beforeEach(() => {
 describe('InboundMailAddressCard', () => {
   it('shows the address whole and saves it as a contact', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    expect(await screen.findByText('bauplatz-12.k3x7q2m9p4ab@example.org')).toBeInTheDocument()
+    expect(await screen.findByText('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(download.start).toHaveBeenCalledWith('blob:card', 'bauplatz-12-wohnbau-seestadt.vcf')
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'settings' })
@@ -39,9 +48,9 @@ describe('InboundMailAddressCard', () => {
     const writeText = vi.fn(() => Promise.resolve())
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    await userEvent.click(await screen.findByRole('button', { name: /bauplatz-12\.k3x7q2m9p4ab@example\.org/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /p\+bauplatz-12\.k3x7q2m9p4ab@inbox\.example\.org/ }))
     await waitFor(() => expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_copied', { surface: 'settings' }))
-    expect(writeText).toHaveBeenCalledWith('bauplatz-12.k3x7q2m9p4ab@example.org')
+    expect(writeText).toHaveBeenCalledWith('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
   })
 
   it('tells a member nothing about the office’s own signing: that is a manager’s to fix', async () => {
@@ -59,7 +68,7 @@ describe('InboundMailAddressCard', () => {
     await userEvent.click(screen.getByTestId('address-rotate-confirm'))
     await waitFor(() => expect(rotate).toHaveBeenCalledWith(PROJECT_ID))
     expect(toast.success).toHaveBeenCalledWith('New address created')
-    expect(await screen.findByText('bauplatz-12.w8n2c4r7t1qz@example.org')).toBeInTheDocument()
+    expect(await screen.findByText('p+bauplatz-12.w8n2c4r7t1qz@inbox.example.org')).toBeInTheDocument()
   })
 
   it('offers a member no way to change it', async () => {
@@ -95,6 +104,39 @@ describe('InboundMailAddressCard', () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['own-dkim-missing'])} />)
     expect(await screen.findByTestId('own-domain-dkim')).toHaveAttribute('data-state', 'missing')
   })
+
+  it('says the window its figures look back over from the constant, not from the copy', async () => {
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.refusals)} />)
+    const address = await screen.findByTestId('inbound-mail-address')
+    expect(address).toHaveTextContent(`17 automatic replies or delivery reports in the last ${INBOUND_MAIL_ADDRESS_STATS_DAYS} days, not shown`)
+    expect(screen.getByTestId('own-domain-dkim')).toHaveTextContent(`in the last ${INBOUND_MAIL_ADDRESS_STATS_DAYS} days`)
+  })
+})
+
+describe('the size a mail may have', () => {
+  it('states the limit beside the address, from the server’s constant, with the upload for anything larger', async () => {
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
+    const line = await screen.findByTestId('address-size-limit')
+    expect(INBOUND_MAIL_MAX_MESSAGE_BYTES).toBe(25 * MIB)
+    expect(line).toHaveTextContent(
+      `Up to ${INBOUND_MAIL_MAX_MESSAGE_BYTES / MIB} MB per mail, attachments together up to about ${Math.floor(INBOUND_MAIL_MAX_ATTACHMENT_BYTES / MIB)} MB. Upload larger files directly`
+    )
+    // Base64 sends three bytes as four: 25 MiB of mail carries 18 MiB of files.
+    expect(line).toHaveTextContent('about 18 MB')
+    expect(screen.getByTestId('address-upload-instead')).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files`)
+  })
+
+  it('closes the dialog when the upload is taken instead, so Dateien is not behind it', async () => {
+    const onOpenChange = vi.fn()
+    render(<InboundMailAddressDialog projectId={PROJECT_ID} projectName={PROJECT_NAME} open onOpenChange={onOpenChange} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
+    await userEvent.click(await screen.findByTestId('address-upload-instead'))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('states it on the overview’s tile too', async () => {
+    render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
+    expect(await screen.findByTestId('address-size-limit')).toHaveTextContent('Up to 25 MB per mail')
+  })
 })
 
 describe('InboundMailAddressDialog', () => {
@@ -107,7 +149,7 @@ describe('InboundMailAddressDialog', () => {
     const uses = await screen.findByTestId('address-uses')
     expect(uses).toHaveTextContent('Put it in Cc when you write to the authority, the structural engineer or the client')
     // The use comes before the address, and the promise is its last line.
-    expect(uses.compareDocumentPosition(screen.getByText('bauplatz-12.k3x7q2m9p4ab@example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(uses.compareDocumentPosition(screen.getByText('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(uses.lastElementChild).toHaveTextContent('Nothing is filed until someone confirms it.')
     expect(get).toHaveBeenCalledTimes(1)
   })
@@ -124,7 +166,7 @@ describe('InboundMailAddressTile', () => {
     render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     const tile = await screen.findByTestId('inbound-mail-address-tile')
     expect(tile).toHaveTextContent('Put in Cc, it brings the replies')
-    expect(tile).toHaveTextContent('bauplatz-12.k3x7q2m9p4ab@example.org')
+    expect(tile).toHaveTextContent('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
     expect(screen.getByRole('link', { name: /Open project mail/ })).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files/mail`)
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'overview' })

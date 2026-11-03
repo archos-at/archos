@@ -555,7 +555,7 @@ export const dnsRecords = dns
 export const inboundMailWorker = inboundMail?.script
   ? pulumi.interpolate`${inboundMail.script.scriptName}${cfg.inboundMail.paused ? " (paused)" : ""}`
   : pulumi.output(
-      inboundMail ? "(none: inboundMailEnabled=false, the catch-all refuses)" : "(none: inboundMailDomain unset)",
+      inboundMail ? "(none: inboundMailEnabled=false, the routing rule is disabled)" : "(none: inboundMailDomain unset)",
     );
 // The image refs this update deployed. `deploy.yml` reads them back before the
 // next staging deploy and refuses one that would move a service to an older
