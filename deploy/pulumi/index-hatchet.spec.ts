@@ -159,14 +159,17 @@ describe("the hatchet-ha release", () => {
   });
 
   it("runs two replicas of each backend component, with a PDB, spread across nodes and explicit resources", () => {
-    for (const key of ["api", "grpc", "controllers", "scheduler"]) {
+    const names: Record<string, string> = { api: "hatchet-api", grpc: "hatchet-grpc", controllers: "controllers", scheduler: "scheduler" };
+    for (const key of Object.keys(names)) {
       const c = values()[key];
       expect(c.replicaCount, key).toBe(2);
       expect(c.podDisruptionBudget, key).toEqual({ maxUnavailable: 1 });
-      expect(c.nameOverride, key).toBe(`hatchet-${key}`);
+      expect(c.nameOverride, key).toBe(names[key]);
+      // The chart names the container port after it; Kubernetes refuses a port name over 15 characters.
+      expect(c.nameOverride.length, key).toBeLessThanOrEqual(15);
       expect(c.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm, key).toEqual({
         topologyKey: "kubernetes.io/hostname",
-        labelSelector: { matchLabels: { "app.kubernetes.io/name": `hatchet-${key}` } },
+        labelSelector: { matchLabels: { "app.kubernetes.io/name": names[key] } },
       });
       expect(c.resources.requests.memory, key).toBe(c.resources.limits.memory);
       expect(c.ingress, key).toEqual({ enabled: false });
@@ -268,8 +271,8 @@ describe("RabbitMQ", () => {
     expect(amqp.from.map((f: any) => f.podSelector.matchLabels["app.kubernetes.io/name"])).toEqual([
       "hatchet-api",
       "hatchet-grpc",
-      "hatchet-controllers",
-      "hatchet-scheduler",
+      "controllers",
+      "scheduler",
     ]);
     expect(policy("allow-rabbitmq-operator").ingress[0]).toEqual({
       from: [{ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": "rabbitmq-system" } } }],

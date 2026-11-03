@@ -19,7 +19,7 @@ switch: Hatchet is required.
 
 | Piece | What it is | Source |
 |---|---|---|
-| `hatchet-api`, `hatchet-grpc`, `hatchet-controllers`, `hatchet-scheduler` | The `hatchet-ha` chart's backend, two replicas each, a PDB (`maxUnavailable: 1`) and preferred anti-affinity per component | `platform/hatchet.ts`, `hatchetValues` |
+| `hatchet-api`, `hatchet-grpc`, `controllers`, `scheduler` | The `hatchet-ha` chart's backend (each name is also its container port name, at most 15 characters), two replicas each, a PDB (`maxUnavailable: 1`) and preferred anti-affinity per component | `platform/hatchet.ts`, `hatchetValues` |
 | `hatchet-frontend`, `caddy` | The dashboard and the chart's Caddy in front of it (`/api/*` to the API). ClusterIP, no route | same |
 | `background-work-pg` | CloudNativePG cluster, two instances, database and role `hatchet` | `data/background-work-pg.ts` |
 | `hatchet-rabbitmq` | `RabbitmqCluster`, three nodes, a PDB, a volume each; Hatchet's message queue | `platform/rabbitmq.ts` |
