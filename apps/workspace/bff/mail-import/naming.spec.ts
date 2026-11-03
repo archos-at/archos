@@ -1,10 +1,6 @@
 /**
  * @vitest-environment node
  */
-import type { Root, RootContent } from 'mdast'
-import remarkGfm from 'remark-gfm'
-import remarkParse from 'remark-parse'
-import { unified } from 'unified'
 import { describe, expect, it } from 'vitest'
 import {
   archiveFolderName,
