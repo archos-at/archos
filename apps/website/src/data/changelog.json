@@ -39,6 +39,10 @@
           "key": "features",
           "notes": [
             {
+              "en": "When you set up a new project, the address field now suggests matching Austrian addresses as you type, and choosing one fills in the municipality and federal state for you.",
+              "de": "Wenn Sie ein neues Projekt anlegen, schlägt das Adressfeld während der Eingabe passende österreichische Adressen vor. Wenn Sie eine auswählen, werden Gemeinde und Bundesland automatisch ergänzt."
+            },
+            {
               "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
               "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
             },

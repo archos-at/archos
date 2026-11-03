@@ -4220,6 +4220,10 @@
     "de": "Wenn Sie eine neue Frage senden, während Piloti noch die vorherige beantwortet, wird die frühere Antwort vollständig beendet, bevor die neue beginnt. So können sich die beiden nicht mehr in einer Unterhaltung vermischen. Falls die frühere Antwort ausnahmsweise nicht innerhalb weniger Sekunden stoppt, teilt Piloti Ihnen mit, dass sie noch abgeschlossen wird, und bittet Sie, die Frage erneut zu senden."
   },
   {
+    "en": "When you set up a new project, the address field now suggests matching Austrian addresses as you type, and choosing one fills in the municipality and federal state for you.",
+    "de": "Wenn Sie ein neues Projekt anlegen, schlägt das Adressfeld während der Eingabe passende österreichische Adressen vor. Wenn Sie eine auswählen, werden Gemeinde und Bundesland automatisch ergänzt."
+  },
+  {
     "en": "When you set up a project, the questions step now also names the documents its location calls for, such as the Grundbuchauszug or the Flächenwidmungs- und Bebauungsplan, with the reason for your Bundesland. Hand each document in right at its entry, answer directly, or mark it as not known, and the step counts what is done.",
     "de": "Beim Anlegen eines Projekts nennt der Schritt „Fragen“ jetzt auch die für den Standort erforderlichen Unterlagen, etwa den Grundbuchauszug oder den Flächenwidmungs- und Bebauungsplan, und erklärt, warum sie in Ihrem Bundesland benötigt werden. Laden Sie jedes Dokument direkt beim entsprechenden Eintrag hoch, beantworten Sie die Frage direkt oder markieren Sie sie als nicht bekannt. Der Schritt zeigt an, was bereits erledigt ist."
   },
