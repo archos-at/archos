@@ -237,11 +237,15 @@ workspace:
   # The brand script writes the app's icons (packages/brand/build-brand-assets.mjs).
   - 'packages/brand/**'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
+  - 'apps/agent-host/src/agent_host/models/document_type_tag.py'
   - 'apps/agent-host/src/agent_host/models/requests.py'
+  - 'apps/agent-host/src/agent_host/routes/ingest.py'
   - 'deploy/compose/init-db.sql'
   - 'docs/technical-reference/answer-feedback-export.md'
   - 'packages/agent/src/agent/common/status_keys.py'
+  - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
+  - 'packages/knowledge-layer/src/llamaindex/chosen_document_type.py'
   - 'packages/ris-adapter/src/client.py'
   # End of the files this tier's tests read.
 site:
@@ -292,6 +296,7 @@ infra:
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
+  - 'apps/workspace/bff/malware-scan/config.ts'
   - 'apps/workspace/deploy/Dockerfile'
   - 'apps/workspace/migrations/0104_bff_job_queue.sql'
   - 'apps/workspace/server.js'
