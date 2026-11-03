@@ -55,7 +55,9 @@ Projekts“, says „So landet die Korrespondenz im Projekt, ohne dass jemand si
 von Hand abspeichert.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
 Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
 E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
-weiter.“, „Abgelegt wird erst, was jemand bestätigt.“ Then the address with
+weiter.“, „Was jemand mit Schreibrecht im Projekt von der eigenen, signierten
+Adresse sendet, wird direkt abgelegt. Alles andere wartet, bis jemand es
+ablegt; E-Mails von außerhalb des Büros 14 Tage lang.“ Then the address with
 „Kopieren“ (`CopyableValue`), „Als Kontakt sichern“ (a vCard), when mail last
 arrived, how many automatic replies were dropped in 30 days, the size line
 „Bis 25 MB pro E-Mail, Anhänge zusammen bis etwa 18 MB. Größere Dateien direkt
@@ -77,8 +79,8 @@ the project ends.
 
 The never-used list says „Noch keine E-Mails an dieses Projekt“ and „Setzen Sie
 die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft
-schreiben. Die Antworten landen hier, und abgelegt wird erst, was jemand
-bestätigt.“
+schreiben. Was Sie selbst von Ihrer signierten Adresse senden, wird direkt
+abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.“
 
 ## The E-Mail-Eingang
 
