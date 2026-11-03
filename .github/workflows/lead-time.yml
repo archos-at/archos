@@ -1,0 +1,41 @@
+name: Lead time
+
+# Merge to staging and pull request to green, p50 and p90 by stage, in the run
+# summary (ci/lead_time.py). Weekly for the trend, and on demand before and
+# after a change to the pipeline: a CI change states its effect in these
+# numbers, not in a few runs picked by hand (docs/contributing/ci.md).
+on:
+  schedule:
+    - cron: "17 7 * * 1" # Mondays 07:17 UTC
+  workflow_dispatch:
+    inputs:
+      days:
+        description: Days to look back
+        default: "7"
+        type: string
+
+permissions:
+  contents: read
+  actions: read # the run lists the report is computed from
+
+concurrency:
+  group: lead-time
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Lead time report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: ci
+      - name: Report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DAYS: ${{ inputs.days || '7' }}
+        run: |
+          case "$DAYS" in ''|*[!0-9]*) echo "::error::days must be a number"; exit 1 ;; esac
+          python3 ci/lead_time.py --days "$DAYS" | tee -a "$GITHUB_STEP_SUMMARY"

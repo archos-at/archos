@@ -68,7 +68,7 @@ CI = load("ci.yml")
 JOBS = CI["jobs"]
 PLAN = JOBS["changes"]
 STEPS = {step["id"]: step for step in PLAN["steps"] if "id" in step}
-TIERS = ["backend", "workspace", "site", "infra", "packages", "sast", "hatchet"]
+TIERS = ["backend", "workspace", "site", "infra", "packages", "sast", "hatchet", "skills"]
 BUILD = json.dumps([{"name": "backend"}])
 
 
@@ -390,7 +390,7 @@ def test_the_engine_job_runs_on_its_own_tier():
 
 
 def test_a_push_lints_its_release_notes_and_a_pull_request_must_add_one():
-    steps = JOBS["repo"]["steps"]
+    steps = JOBS["release-notes"]["steps"]
     lint = next(step for step in steps if step.get("name") == "Release notes (lint)")
     require = next(step for step in steps if "require_release_note.py" in step.get("run", ""))
 
@@ -407,9 +407,10 @@ def test_a_push_lints_its_release_notes_and_a_pull_request_must_add_one():
     assert "no-release-note" in require["run"]
 
 
-def test_a_pull_requests_repo_checks_fetch_only_down_to_the_merge_base():
+@pytest.mark.parametrize("job", ["repo", "release-notes"])
+def test_a_pull_requests_repo_checks_fetch_only_down_to_the_merge_base(job):
     """Full history was ~75 s of every PR's critical path (docs/audit/blast-radius-2026-10.md §7)."""
-    steps = JOBS["repo"]["steps"]
+    steps = JOBS[job]["steps"]
     checkout = steps[0]
     depth = checkout["with"]["fetch-depth"]
     assert evaluate(depth.removeprefix("${{").removesuffix("}}"), github={"event_name": "pull_request"}) == 1
@@ -427,6 +428,28 @@ def test_a_pull_requests_repo_checks_fetch_only_down_to_the_merge_base():
         if "require_release_note.py" in step.get("run", "") or "gitleaks" in step.get("run", "")
     ]
     assert readers and min(readers) > 1
+
+
+def test_repo_checks_run_as_legs_side_by_side_and_all_gate():
+    # One job ran them in series and finished last in 21 of 45 pull request runs.
+    legs = {"repo", "repo-tests", "release-notes"}
+
+    for leg in legs:
+        assert JOBS[leg]["needs"] == "changes"
+        assert JOBS[leg]["if"] == "needs.changes.outputs.reused != 'true'"
+        assert JOBS[leg]["name"].startswith("Repo checks (")
+        assert leg in JOBS["publish"]["needs"] and leg in JOBS["ci-ok"]["needs"]
+    assert "be:test:harness" in json.dumps(JOBS["repo-tests"])
+    assert "be:test:harness" not in json.dumps(JOBS["repo"]) + json.dumps(JOBS["release-notes"])
+
+
+def test_the_skill_lockfile_is_audited_only_when_something_it_hashes_changed():
+    audit = next(step for step in JOBS["release-notes"]["steps"] if step.get("run") == "task agents:audit")
+    filters = yaml.safe_load((WORKFLOWS.parent / "filters.yml").read_text(encoding="utf-8"))
+
+    assert audit["if"] == "needs.changes.outputs.skills == 'true'"
+    assert {"skills/**", "apm.yml", "apm.lock.yaml", "Taskfile.yml"} <= set(filters["skills"])
+    assert evaluate(PLAN["outputs"]["skills"], steps={"filter": {"outputs": {"skills": "true"}}}) == "true"
 
 
 def test_semgrep_finds_its_own_merge_base_from_a_shallow_clone():

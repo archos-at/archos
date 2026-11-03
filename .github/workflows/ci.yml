@@ -80,6 +80,7 @@ jobs:
       migrations: ${{ steps.filter.outputs.migrations || 'false' }}
       sast: ${{ steps.filter.outputs.sast || 'false' }}
       hatchet: ${{ steps.filter.outputs.hatchet || 'false' }}
+      skills: ${{ steps.filter.outputs.skills || 'false' }}
       # The images this run builds (a matrix), and all three with their hashes.
       build: ${{ steps.images.outputs.build }}
       images: ${{ steps.images.outputs.images }}
@@ -204,15 +205,21 @@ jobs:
   # invisible until an unrelated PR trips over it. Whoever introduces the drift
   # is the one who sees it. One job, because every step needs the same Python
   # environment and none is slow enough to be worth a runner slot of its own.
+  # Repo checks run as three legs side by side. As one job they ran in series
+  # and were the last check to finish in 21 of 45 pull request runs measured on
+  # 2026-11-03 (median 195 s, p90 331 s, max 444 s): pre-commit, the machinery
+  # tests, reno's history-walking lint and apm's network fetches, one after
+  # another. Runners wait about two seconds for a slot now, so the split costs
+  # setup time on three runners and saves the sum on the critical path. Each
+  # leg is named "Repo checks (...)" so the run page still groups them.
   repo:
-    name: Repo checks (lint, release notes, secrets)
+    name: Repo checks (lint, secrets)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: read # the no-release-note label, read when the job runs
     steps:
       # No persisted checkout token: this job runs repository-defined pre-commit
       # hooks, which never need a credential (hook repos clone anonymously).
@@ -255,20 +262,93 @@ jobs:
           . .venv/bin/activate
           pre-commit run --all-files
       - uses: ./.github/actions/setup-task
+      # `github` output makes each finding an annotation on the diff.
+      - name: Backend lint (ruff)
+        run: task be:lint -- --output-format=github
+      # Every commit the change adds, not only its final diff, so a secret is
+      # caught in the commit that added it even when a later one deletes it.
+      # On a pull request that is base..HEAD: the commits under the base were
+      # scanned when they landed, and the weekly Security run reads the whole
+      # history of every branch. A push reads its own full history. Not
+      # `--all`, gitleaks' default: a full-depth checkout fetches every
+      # branch, and an open PR's fixture then failed every other PR's run.
+      # Exceptions: CONTRIBUTING.md "Secret scanning".
+      - name: Secret scan (gitleaks)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range="--full-history HEAD"
+          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
+            zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
+            --log-opts="$range"
+
+
+  # The tests of ci/, the workflows and the release-note pipeline. Here rather
+  # than only in the backend suite, so the backend filter need not fire for a
+  # change that only touches those (.github/filters.yml). A shallow checkout:
+  # they read the tree, not its history.
+  repo-tests:
+    name: Repo checks (CI machinery tests)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - uses: ./.github/actions/setup-task
+      - name: Repository machinery tests (CI, release notes)
+        run: task be:test:harness
+
+  # The release notes and the agent-skill lockfile. Neither needs the project
+  # venv: reno and the house rules run through `uv run --no-project`, apm
+  # through `uvx`, so this leg sets up uv alone.
+  release-notes:
+    name: Repo checks (release notes, skills)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read # the no-release-note label, read when the job runs
+    steps:
+      # As in the lint leg: a pull request fetches down to its merge base, which
+      # the release-note rule reads; reno's lint deepens the clone itself when
+      # the notes changed. A push keeps the full clone for reno.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+      - name: Fetch down to the merge base
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          . ci/git_auth.sh
+          ci/fetch_merge_base.sh "$BASE_SHA" "$HEAD_SHA"
+      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+        with:
+          enable-cache: true
+      - uses: ./.github/actions/setup-task
       # `skills/` is the source, `.claude/` and `.agents/` are generated and
       # gitignored, and apm.lock.yaml hashes both, so a skill edit that was
       # never re-locked appears in no diff at all. `apm audit` exits 0 on
       # drift; `task agents:audit` is the wrapper that does not.
+      # Only when the skills, the manifest, the lockfile or apm's pin change:
+      # nothing else can make the lockfile stale, and apm fetches every pinned
+      # skill repository over the network, 17 s at the median and over two
+      # minutes in 6 of 45 pull request runs measured on 2026-11-03.
       - name: Agent-skill lockfile (apm)
+        if: needs.changes.outputs.skills == 'true'
         run: task agents:audit
-      # `github` output makes each finding an annotation on the diff.
-      - name: Backend lint (ruff)
-        run: task be:lint -- --output-format=github
-      # The tests of ci/, the workflows and the release-note pipeline. Here
-      # rather than only in the backend suite, so the backend filter need not
-      # fire for a change that only touches those (.github/filters.yml).
-      - name: Repository machinery tests (CI, release notes)
-        run: task be:test:harness
       # The notes are published verbatim to piloti.at, so their prose is linted
       # on every run, a push straight to release/** included. reno's own lint
       # reads the notes through the whole git history, and its verdict changes
@@ -304,24 +384,6 @@ jobs:
             exit 0
           fi
           python3 ci/require_release_note.py "$BASE_SHA" "$HEAD_SHA"
-      # Every commit the change adds, not only its final diff, so a secret is
-      # caught in the commit that added it even when a later one deletes it.
-      # On a pull request that is base..HEAD: the commits under the base were
-      # scanned when they landed, and the weekly Security run reads the whole
-      # history of every branch. A push reads its own full history. Not
-      # `--all`, gitleaks' default: a full-depth checkout fetches every
-      # branch, and an open PR's fixture then failed every other PR's run.
-      # Exceptions: CONTRIBUTING.md "Secret scanning".
-      - name: Secret scan (gitleaks)
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          range="--full-history HEAD"
-          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
-          docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
-            zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
-            --log-opts="$range"
-
   # Diff-aware: `semgrep ci` on a pull request reports only findings the change
   # introduces, so it blocks a new finding without failing on the backlog. A
   # push has nothing new to find that its pull request did not, and the
@@ -1001,7 +1063,7 @@ jobs:
   # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -1051,7 +1113,7 @@ jobs:
     # checkout can hold a corpus to measure, and a job that can only pass
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
-    needs: [changes, repo, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, hatchet, trivy, image, image-push, publish]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

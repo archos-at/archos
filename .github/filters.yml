@@ -334,6 +334,16 @@ packages:
 migrations:
   - 'apps/workspace/migrations/**'
   - 'scripts/rls-test-db.sh'
+# The agent-skill lockfile check (`task agents:audit` in Repo checks): the
+# skills, apm's manifest and lockfile, and the pin of apm itself. Nothing else
+# can make apm.lock.yaml stale, and the check fetches every pinned skill
+# repository over the network.
+skills:
+  - 'skills/**'
+  - 'apm.yml'
+  - 'apm.lock.yaml'
+  - 'Taskfile.yml'
+  - 'taskfiles/repo.yml'
 # The pull request SAST scan. Semgrep is diff-aware, so it only ever reports
 # findings the change introduces; this decides whether there is code to scan.
 sast:
