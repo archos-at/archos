@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
-import type { GridConfig } from "../config";
+import type { DeployConfig } from "../config";
 import { appOrigin } from "../app/config";
 import type { MailZone } from "./email-routing";
 
@@ -124,7 +124,7 @@ export function workerScriptName(stack: string): string {
  * Project mail on `zone` (from `installInboundMailZone`), which is undefined
  * exactly when no domain is set.
  */
-export function installInboundMail(cfg: GridConfig, zone: MailZone | undefined): InboundMail | undefined {
+export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined): InboundMail | undefined {
   const mail = cfg.inboundMail;
   if (!mail.configured || zone === undefined) return undefined;
   const opts = { provider: zone.provider };

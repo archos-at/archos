@@ -12,15 +12,15 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import read_passage
+from knowledge_layer.register import KnowledgeRetrievalConfig
 
-from aiq_agent.common.source_kinds import Shelf
-from aiq_agent.knowledge.schema import AvailableDocument
-from aiq_agent.knowledge.schema import Chunk
-from aiq_agent.knowledge.schema import ContentType
-from aiq_agent.knowledge.scoping import ScopedCollection
-from sources.knowledge_layer.src.read_passage import ReadPassageConfig
-from sources.knowledge_layer.src.read_passage import read_passage
-from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
+from agent.common.source_kinds import Shelf
+from agent.knowledge.schema import AvailableDocument
+from agent.knowledge.schema import Chunk
+from agent.knowledge.schema import ContentType
+from agent.knowledge.scoping import ScopedCollection
 
 PROJECT = "proj_1"
 FORGED = {
@@ -79,18 +79,18 @@ class _Store:
 
 @pytest.fixture
 def store(monkeypatch):
-    monkeypatch.setattr("aiq_agent.knowledge.factory.get_active_retriever", lambda: _Store())
+    monkeypatch.setattr("agent.knowledge.factory.get_active_retriever", lambda: _Store())
 
     async def _documents(collection: str):
         return list(DOCS) if collection == PROJECT else []
 
-    monkeypatch.setattr("aiq_agent.knowledge.factory.get_available_documents_async", _documents)
+    monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
     monkeypatch.setattr(
-        "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection(PROJECT, Shelf.PROJECT)],
     )
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
-        monkeypatch.setattr(f"aiq_agent.knowledge.factory.{name}", lambda _c, _f: {})
+        monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
 
 
 async def _read(**kwargs) -> str:
@@ -125,10 +125,10 @@ class TestAnAttachmentSaysWhichMailBroughtIt:
 
 class TestAVerlaufPassageIsMail:
     async def test_it_states_its_format_and_lands_in_the_mail_lane(self, store):
-        from aiq_agent.common.citation_verification import extract_sources_from_tool_result
-        from aiq_agent.common.citation_verification import source_entry_to_wire
-        from aiq_agent.common.grounding_block import begin_grounding_capture
-        from aiq_agent.common.grounding_block import end_grounding_capture
+        from agent.common.citation_verification import extract_sources_from_tool_result
+        from agent.common.citation_verification import source_entry_to_wire
+        from agent.common.grounding_block import begin_grounding_capture
+        from agent.common.grounding_block import end_grounding_capture
 
         token = begin_grounding_capture()
         try:

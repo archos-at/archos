@@ -458,7 +458,7 @@ that reads injected text in that mail and lacks elicitation would make the
 decision itself, and the promise would hold only for well-behaved clients.
 
 **An operation may be marked `requiresPersonConfirmation`**
-(`frontends/ui/src/lib/agent-api/operation.ts`). For an outside agent, a
+(`apps/workspace/bff/agent-api/operation.ts`). For an outside agent, a
 marked call runs only on the person's yes:
 
 - where the request can carry the question (2026-07-28, form elicitation

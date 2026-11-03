@@ -12,9 +12,9 @@ from pathlib import Path
 
 import pytest
 
-from aiq_agent.knowledge.document_metadata_store import DocumentMetadataStore
-from aiq_agent.knowledge.document_metadata_store import _normalize_db_url
-from aiq_agent.knowledge.schema import AvailableDocument
+from agent.knowledge.document_metadata_store import DocumentMetadataStore
+from agent.knowledge.document_metadata_store import _normalize_db_url
+from agent.knowledge.schema import AvailableDocument
 
 # =============================================================================
 # URL Normalization Tests
@@ -379,7 +379,7 @@ class TestDocumentMetadataStore:
         from sqlalchemy import create_engine
         from sqlalchemy import text
 
-        from aiq_agent.knowledge.document_metadata_store import TABLE_NAME
+        from agent.knowledge.document_metadata_store import TABLE_NAME
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_url = f"sqlite:///{Path(tmpdir) / 'classes.db'}"
@@ -911,7 +911,7 @@ class TestReSummarisingKeepsTheHumanColumns:
     rename, the platform owner's reclassification, and (once folders travelled)
     the user's filing. Postgres, on its `ON CONFLICT DO UPDATE` branch, kept all
     three. Same store, same call, two different outcomes, and the SQLite one is
-    what the default `AIQ_SUMMARY_DB` uses.
+    what the default `SUMMARY_DB` uses.
     """
 
     @pytest.fixture
@@ -944,7 +944,7 @@ class TestFactoryFunctions:
     @pytest.fixture(autouse=True)
     def reset_summary_store(self):
         """Reset the global summary store before each test."""
-        from aiq_agent.knowledge import factory
+        from agent.knowledge import factory
 
         factory._document_metadata_store = None
         yield
@@ -960,20 +960,20 @@ class TestFactoryFunctions:
 
     def test_configure_summary_db(self, temp_db_url):
         """Test configuring the summary database."""
-        from aiq_agent.knowledge import configure_summary_db
+        from agent.knowledge import configure_summary_db
 
         configure_summary_db(temp_db_url)
 
-        from aiq_agent.knowledge import factory
+        from agent.knowledge import factory
 
         assert factory._document_metadata_store is not None
         assert factory._document_metadata_store.db_url == temp_db_url
 
     def test_register_summary(self, temp_db_url):
         """Test registering a summary via factory function."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("test_collection", "test.pdf", "Test summary")
@@ -985,9 +985,9 @@ class TestFactoryFunctions:
 
     def test_register_summary_none_skipped(self, temp_db_url):
         """Test that None summaries are not registered."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("collection", "doc.pdf", None)
@@ -997,9 +997,9 @@ class TestFactoryFunctions:
 
     def test_register_summary_empty_string_skipped(self, temp_db_url):
         """Test that empty string summaries are not registered."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("collection", "doc.pdf", "")
@@ -1009,9 +1009,9 @@ class TestFactoryFunctions:
 
     def test_get_available_documents(self, temp_db_url):
         """Test getting available documents via factory function."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("my_collection", "file1.pdf", "Summary for file 1")
@@ -1025,9 +1025,9 @@ class TestFactoryFunctions:
     @pytest.mark.asyncio
     async def test_get_available_documents_async(self, temp_db_url):
         """Test async retrieval of available documents."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge.factory import get_available_documents_async
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge.factory import get_available_documents_async
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("async_test", "doc.pdf", "Async test summary")
@@ -1038,10 +1038,10 @@ class TestFactoryFunctions:
 
     def test_unregister_summary(self, temp_db_url):
         """Test unregistering a summary via factory function."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import register_summary
-        from aiq_agent.knowledge.factory import unregister_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import register_summary
+        from agent.knowledge.factory import unregister_summary
 
         configure_summary_db(temp_db_url)
         register_summary("collection", "doc1.pdf", "Summary 1")
@@ -1055,10 +1055,10 @@ class TestFactoryFunctions:
 
     def test_clear_collection_summaries(self, temp_db_url):
         """Test clearing collection summaries via factory function."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import clear_collection_summaries
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import clear_collection_summaries
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("coll1", "doc1.pdf", "Summary 1")
@@ -1071,10 +1071,10 @@ class TestFactoryFunctions:
 
     def test_clear_all_summaries(self, temp_db_url):
         """Test clearing all summaries via factory function."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import clear_all_summaries
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import clear_all_summaries
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("coll1", "doc1.pdf", "Summary 1")
@@ -1087,13 +1087,13 @@ class TestFactoryFunctions:
 
     def test_lazy_initialization(self):
         """Test that summary store is lazily initialized with default DB."""
-        from aiq_agent.knowledge import get_available_documents
+        from agent.knowledge import get_available_documents
 
         # Don't call configure_summary_db - should auto-initialize
         docs = get_available_documents("test_collection")
         assert docs == []  # Empty but works
 
-        from aiq_agent.knowledge import factory
+        from agent.knowledge import factory
 
         assert factory._document_metadata_store is not None
 
@@ -1115,7 +1115,7 @@ class TestReconcileCollectionSummaries:
     @pytest.fixture(autouse=True)
     def reset_summary_store(self):
         """Reset the global summary store before each test."""
-        from aiq_agent.knowledge import factory
+        from agent.knowledge import factory
 
         factory._document_metadata_store = None
         yield
@@ -1131,8 +1131,8 @@ class TestReconcileCollectionSummaries:
 
     @staticmethod
     def _file_info(file_name, status=None):
-        from aiq_agent.knowledge.schema import FileInfo
-        from aiq_agent.knowledge.schema import FileStatus
+        from agent.knowledge.schema import FileInfo
+        from agent.knowledge.schema import FileStatus
 
         return FileInfo(
             file_id=file_name,
@@ -1158,9 +1158,9 @@ class TestReconcileCollectionSummaries:
     def test_backfills_missing_document_with_text_sample(self, temp_db_url):
         """A document present in the index but absent from summaries gets a
         deterministic fallback summary derived from its sampled text."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import reconcile_collection_summaries
 
         configure_summary_db(temp_db_url)
 
@@ -1179,9 +1179,9 @@ class TestReconcileCollectionSummaries:
     def test_no_sampler_falls_back_to_filename(self, temp_db_url):
         """Backends without the optional text-sampling hook still get a row —
         visibility beats a perfect summary."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import reconcile_collection_summaries
 
         configure_summary_db(temp_db_url)
 
@@ -1197,10 +1197,10 @@ class TestReconcileCollectionSummaries:
 
     def test_noop_when_already_consistent(self, temp_db_url):
         """A document already present in the summaries table is left alone."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import reconcile_collection_summaries
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
         register_summary("coll", "already.pdf", "Already has a summary.")
@@ -1217,10 +1217,10 @@ class TestReconcileCollectionSummaries:
     def test_ignores_files_not_indexed_successfully(self, temp_db_url):
         """A FAILED file was never actually indexed, so it must never get a
         fallback summary row."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import reconcile_collection_summaries
-        from aiq_agent.knowledge.schema import FileStatus
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge.schema import FileStatus
 
         configure_summary_db(temp_db_url)
 
@@ -1234,9 +1234,9 @@ class TestReconcileCollectionSummaries:
     def test_sampler_exception_falls_back_to_filename(self, temp_db_url):
         """A broken ``get_document_text_sample`` must not break reconciliation
         (fail-open, same contract as the primary summary path)."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import reconcile_collection_summaries
 
         configure_summary_db(temp_db_url)
 
@@ -1255,8 +1255,8 @@ class TestReconcileCollectionSummaries:
 
     def test_list_files_exception_returns_zero(self, temp_db_url):
         """A backend that cannot list files at all fails open (never raises)."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge.factory import reconcile_collection_summaries
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge.factory import reconcile_collection_summaries
 
         configure_summary_db(temp_db_url)
 
@@ -1286,7 +1286,7 @@ class TestSummaryIntegration:
     @pytest.fixture(autouse=True)
     def reset_store(self):
         """Reset global store before each test."""
-        from aiq_agent.knowledge import factory
+        from agent.knowledge import factory
 
         factory._document_metadata_store = None
         yield
@@ -1294,11 +1294,11 @@ class TestSummaryIntegration:
 
     def test_full_workflow(self, temp_db_url):
         """Test complete summary storage workflow."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import clear_collection_summaries
-        from aiq_agent.knowledge.factory import register_summary
-        from aiq_agent.knowledge.factory import unregister_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import clear_collection_summaries
+        from agent.knowledge.factory import register_summary
+        from agent.knowledge.factory import unregister_summary
 
         # 1. Configure database
         configure_summary_db(temp_db_url)
@@ -1325,9 +1325,9 @@ class TestSummaryIntegration:
 
     def test_multiple_collections_isolation(self, temp_db_url):
         """Test that different sessions/collections are isolated."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import get_available_documents
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
 
@@ -1352,9 +1352,9 @@ class TestSummaryIntegration:
     @pytest.mark.asyncio
     async def test_mixed_sync_async_operations(self, temp_db_url):
         """Test mixing sync registration with async retrieval."""
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge.factory import get_available_documents_async
-        from aiq_agent.knowledge.factory import register_summary
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge.factory import get_available_documents_async
+        from agent.knowledge.factory import register_summary
 
         configure_summary_db(temp_db_url)
 
@@ -1763,8 +1763,8 @@ class TestTopicsAndCaptureThroughTheFactory:
 
     @pytest.fixture
     def db_url(self):
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import factory
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import factory
 
         with tempfile.TemporaryDirectory() as tmpdir:
             url = f"sqlite:///{Path(tmpdir) / 'factory_topics.db'}"
@@ -1774,11 +1774,11 @@ class TestTopicsAndCaptureThroughTheFactory:
             DocumentMetadataStore.dispose_engine(url)
 
     def test_register_summary_carries_topics_and_the_person_seams_round_trip(self, db_url):
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge import get_document_person_topics
-        from aiq_agent.knowledge import get_topic_vocabulary
-        from aiq_agent.knowledge import register_summary
-        from aiq_agent.knowledge import set_document_topics_by_person
+        from agent.knowledge import get_available_documents
+        from agent.knowledge import get_document_person_topics
+        from agent.knowledge import get_topic_vocabulary
+        from agent.knowledge import register_summary
+        from agent.knowledge import set_document_topics_by_person
 
         register_summary("coll", "plan.pdf", "A plan.", tags=["Grundriss"], topics=["Attika"])
         assert get_available_documents("coll")[0].topics == ["Attika"]
@@ -1789,9 +1789,9 @@ class TestTopicsAndCaptureThroughTheFactory:
         assert set_document_topics_by_person("coll", "ghost.pdf", ["Fluchtweg"]) is False
 
     def test_set_document_capture_is_visible_on_the_available_document(self, db_url):
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge import register_summary
-        from aiq_agent.knowledge import set_document_capture
+        from agent.knowledge import get_available_documents
+        from agent.knowledge import register_summary
+        from agent.knowledge import set_document_capture
 
         register_summary("coll", "foto.jpg", "Baustelle.")
         capture = {"captured_at": "2026-10-09T14:30:00", "latitude": 47.8, "longitude": 13.0}

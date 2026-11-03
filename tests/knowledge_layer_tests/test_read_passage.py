@@ -21,21 +21,21 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.read_passage import _MAX_PASSAGE_CHUNKS
+from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
+from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import _clause_sort_key
+from knowledge_layer.read_passage import _document_names
+from knowledge_layer.read_passage import _matches
+from knowledge_layer.read_passage import _passage_filters
+from knowledge_layer.read_passage import read_passage
+from knowledge_layer.register import KnowledgeRetrievalConfig
 
-from aiq_agent.common.source_kinds import Shelf
-from aiq_agent.knowledge.schema import Chunk
-from aiq_agent.knowledge.schema import ContentType
-from aiq_agent.knowledge.schema import RetrievalResult
-from aiq_agent.knowledge.scoping import ScopedCollection
-from sources.knowledge_layer.src.read_passage import _MAX_PASSAGE_CHUNKS
-from sources.knowledge_layer.src.read_passage import _READ_PASSAGE_DESCRIPTION
-from sources.knowledge_layer.src.read_passage import ReadPassageConfig
-from sources.knowledge_layer.src.read_passage import _clause_sort_key
-from sources.knowledge_layer.src.read_passage import _document_names
-from sources.knowledge_layer.src.read_passage import _matches
-from sources.knowledge_layer.src.read_passage import _passage_filters
-from sources.knowledge_layer.src.read_passage import read_passage
-from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
+from agent.common.source_kinds import Shelf
+from agent.knowledge.schema import Chunk
+from agent.knowledge.schema import ContentType
+from agent.knowledge.schema import RetrievalResult
+from agent.knowledge.scoping import ScopedCollection
 
 OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
 
@@ -94,16 +94,16 @@ def store(monkeypatch):
     async def _documents(collection: str):
         return list(handle.documents)
 
-    monkeypatch.setattr("aiq_agent.knowledge.factory.get_active_retriever", lambda: handle)
-    monkeypatch.setattr("aiq_agent.knowledge.factory.get_available_documents_async", _documents)
+    monkeypatch.setattr("agent.knowledge.factory.get_active_retriever", lambda: handle)
+    monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
     monkeypatch.setattr(
-        "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("oib_knowledge", Shelf.BASE)],
     )
     # The formatter's three store lookups are not what these tests are about;
     # an empty map is the documented fail-open and keeps the run database-free.
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
-        monkeypatch.setattr(f"aiq_agent.knowledge.factory.{name}", lambda _c, _f: {})
+        monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     return handle
 
 
@@ -350,14 +350,14 @@ class TestFormatParity:
     """The block is the search's block. Nothing downstream learns a second shape."""
 
     async def test_the_located_passage_renders_exactly_as_a_searched_one(self, store):
-        from sources.knowledge_layer.src.register import _format_results
+        from knowledge_layer.search_results import format_results
 
         out = await _read(document=OIB, clause="3.5.2")
 
         located = _chunk(clause="3.5.2", page=12, content="Fluchtweglänge …", chunk_id="a")
         located.metadata["collection"] = "oib_knowledge"
         located.metadata["shelf"] = str(Shelf.BASE)
-        expected = _format_results(
+        expected = format_results(
             RetrievalResult(
                 chunks=[located],
                 query="Pkt. 3.5.2",
@@ -388,7 +388,7 @@ class TestLaneToolStamp:
     """
 
     async def test_the_captured_hit_names_read_passage_as_its_tool(self, store):
-        from aiq_agent.common import turn_status
+        from agent.common import turn_status
 
         token = turn_status.begin_lane_capture()
         try:
@@ -412,7 +412,7 @@ class TestLaneToolStamp:
         assert '"tool"' not in out
 
     async def test_the_scope_does_not_outlive_the_call(self, store):
-        from aiq_agent.common import turn_status
+        from agent.common import turn_status
 
         await _read(document=OIB, clause="3.5.2")
 

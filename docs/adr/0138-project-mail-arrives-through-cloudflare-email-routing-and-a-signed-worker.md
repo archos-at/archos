@@ -115,7 +115,7 @@ outside printable ASCII, and `%`; `<>` for the null sender), so the BFF reads
 back exactly what Cloudflare saw.
 
 - The BFF verifies with `http-message-signatures` (the oracle,
-  `requireInternalSignature` in `frontends/ui/src/lib/internal-auth.ts`); the
+  `requireInternalSignature` in `apps/workspace/bff/internal-auth.ts`); the
   Worker signs by hand on WebCrypto. Both are held to the same vectors,
   `shared/inbound-mail-signature.json`.
 - `@target-uri` is checked against the pinned origin of `WORKOS_REDIRECT_URI`,
@@ -124,7 +124,7 @@ back exactly what Cloudflare saw.
   hence a 200 duplicate.
 - **No fallback that drops the digest.** If buffering proves too costly at G5,
   the launch stops and this record is revisited.
-- Keys: `GRID_INBOUND_MAIL_SIGNING_KEYS`, a JSON map of one or two keyid →
+- Keys: `INBOUND_MAIL_SIGNING_KEYS`, a JSON map of one or two keyid →
   base64 secrets of at least 32 bytes. Rotation adds the successor, moves the
   Worker to it, then removes the old one; the BFF accepts both meanwhile.
 
@@ -224,7 +224,7 @@ inside it.
    refuses unclaimed addresses, never Drop, which loses mail silently; the
    Worker is deleted after).
 2. `inboundMailPaused`: the Worker answers a temporary failure before reading,
-   and the BFF answers 503 (`GRID_INBOUND_MAIL_PAUSED`). The first promote is
+   and the BFF answers 503 (`INBOUND_MAIL_PAUSED`). The first promote is
    paused.
 3. The WorkOS entitlement `inbound-mail`, per office, off for all.
 4. Per project: the address switched off or rotated.
@@ -263,9 +263,9 @@ runbook, with the owner gates and the launch gates G1–G9:
   `shared/inbound-mail-signature.json` byte for byte, the verdict mapping, the
   pause, `redirect: "manual"`, and a spec that fails once `COMPATIBILITY_DATE`
   is a year old.
-- `frontends/ui/src/lib/inbound-mail/contract.spec.ts` and the route spec: the
+- `apps/workspace/bff/inbound-mail/contract.spec.ts` and the route spec: the
   same contract from the BFF's side; a DKIM-failed mail answers 202 and is held.
-- `frontends/ui/src/lib/internal-auth` specs: the same vectors verified with
+- `apps/workspace/bff/internal-auth` specs: the same vectors verified with
   `http-message-signatures`; every malformed key map fails closed.
 - `deploy/pulumi/src/app/httproutes.spec.ts`: the signed route's header match,
   no rate limit, validated against the upstream CRD models.

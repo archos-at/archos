@@ -22,7 +22,7 @@ import os
 import urllib.error
 import urllib.request
 
-from aiq_agent.common.openrouter import PLATFORM_FIXED
+from agent.common.openrouter import PLATFORM_FIXED
 
 JUDGE_MODEL = os.environ.get("SUITE_JUDGE_MODEL", "openai/gpt-6-luna")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -133,7 +133,7 @@ def ask(kind: str, question: str, answer: str, *, timeout: float = 60.0) -> bool
         with urllib.request.urlopen(request, timeout=timeout) as response:
             reply = json.loads(response.read().decode("utf-8"))
         text = str(reply["choices"][0]["message"]["content"]).strip().casefold()
-    except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError):
+    except urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError:
         return None
     if text.startswith("yes"):
         return True

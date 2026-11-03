@@ -4,7 +4,7 @@ The controlled tag vocabulary lives canonically in the Python backend
 (``document_classification``). Two copies are kept by hand, each for a reason
 a shared import cannot serve:
 
-* ``frontends/ui/src/lib/documents/tag-vocabulary.ts``, the BFF's mirror: it
+* ``apps/workspace/bff/documents/tag-vocabulary.ts``, the BFF's mirror: it
   validates the tags a person or an agent sets and renders the editor's chips;
 * the ``DocumentType`` / ``Discipline`` ``Literal`` of the cross-project tool
   (``tools/cross_project/register.py``), so a provider constrains the model's
@@ -22,15 +22,15 @@ from typing import get_args
 
 import pytest
 
-from aiq_agent.knowledge.document_classification import CORRESPONDENCE_TAG
-from aiq_agent.knowledge.document_classification import DISCIPLINE_TAGS
-from aiq_agent.knowledge.document_classification import DOCUMENT_TYPE_CRITERIA
-from aiq_agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
-from aiq_agent.tools.cross_project.register import Discipline
-from aiq_agent.tools.cross_project.register import DocumentType
+from agent.knowledge.document_classification import CORRESPONDENCE_TAG
+from agent.knowledge.document_classification import DISCIPLINE_TAGS
+from agent.knowledge.document_classification import DOCUMENT_TYPE_CRITERIA
+from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
+from agent.tools.cross_project.register import Discipline
+from agent.tools.cross_project.register import DocumentType
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-TS_VOCAB = REPO_ROOT / "frontends" / "ui" / "src" / "lib" / "documents" / "tag-vocabulary.ts"
+TS_VOCAB = REPO_ROOT / "apps" / "workspace" / "bff" / "documents" / "tag-vocabulary.ts"
 
 
 def _extract_ts_array(source: str, const_name: str) -> list[str]:

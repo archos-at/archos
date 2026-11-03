@@ -1,9 +1,12 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { GridConfig, backendAutoscaled } from "../config";
-import { CHROMA_MIGRATION, CLAMAV, EDGE_RATE_LIMIT, GEOCODER, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
+import { DeployConfig } from '../config'
+import { backendAutoscaled } from '../config/chat-tier'
+import { CLAMAV } from "../clamav-constants";
+import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GEOCODER, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
 import { CLUSTER_NAME as POSTGRES_CLUSTER } from "../data/postgres";
+import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 
 /**
  * `app.kubernetes.io/name` of the two Langfuse workloads and their ClickHouse
@@ -21,10 +24,10 @@ const OTEL_AGENT_POD = { podSelector: { matchLabels: { "app.kubernetes.io/name":
  * The backend roles that carry the Langfuse API keys (`backendEnv`, less the
  * ingest worker) and so are named callers of the web tier in rule 11d.
  */
-export const LANGFUSE_BACKEND_CALLERS = ["aiq-agent", "aiq-api", "agent-worker"] as const;
+export const LANGFUSE_BACKEND_CALLERS = [...CHAT_TIERS, ...API_TIERS, "agent-worker"] as const;
 
 /**
- * The pods that get `AIQ_QDRANT_URL` (every role built from `backendEnv`), the
+ * The pods that get `QDRANT_URL` (every role built from `backendEnv`), the
  * snapshot CronJob, the one-shot Chroma migration's importer, and the
  * operator's throwaway `qdrant-ops` pod (the runbook's restore and shard
  * moves, run from inside the namespace): the named callers of Qdrant's client
@@ -32,8 +35,8 @@ export const LANGFUSE_BACKEND_CALLERS = ["aiq-agent", "aiq-api", "agent-worker"]
  * times out on every call while its plan is green.
  */
 export const QDRANT_CALLERS = [
-  "aiq-agent",
-  "aiq-api",
+  ...CHAT_TIERS,
+  ...API_TIERS,
   "agent-worker",
   "ingest-worker",
   QDRANT.snapshotJob,
@@ -68,7 +71,7 @@ export const QDRANT_CALLERS = [
  * these policies, so readiness/liveness keep working.
  */
 export function installNetworkPolicies(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
 ): k8s.networking.v1.NetworkPolicy[] {
@@ -292,10 +295,10 @@ export function installNetworkPolicies(
 
   // 11d. The backend tiers → Langfuse web public API. The agent writes the
   //      answer pipeline's checks as scores on each turn's trace (ADR-0089,
-  //      `aiq_agent/observability/langfuse_scores.py`) through `LANGFUSE_HOST`,
+  //      `agent/observability/langfuse_scores.py`) through `LANGFUSE_HOST`,
   //      the in-cluster Service, for the reason rule 11c gives. The three roles
-  //      that run answers or serve them: chat (`aiq-agent`), api (`aiq-api`)
-  //      and the research worker (`agent-worker`). The ingest worker is not
+  //      that run answers or serve them: chat and api (each under both names
+  //      while they run side by side, `tier-names.ts`) and the research worker (`agent-worker`). The ingest worker is not
   //      named and does not get the keys (`ingestWorkerEnv`): it writes none.
   const backendToLangfuse = cfg.langfuse.enabled
     ? mk("allow-backend-to-langfuse", {
@@ -396,8 +399,8 @@ export function installNetworkPolicies(
   //     pods only, and only when that tier autoscales. (Its cpu trigger reads
   //     `metrics.k8s.io`, which is no connection into `grid`.)
   const kedaToBackend = backendAutoscaled(cfg)
-    ? mk("allow-keda-to-aiq-agent", {
-        podSelector: { matchLabels: { "app.kubernetes.io/name": "aiq-agent" } },
+    ? mk(`allow-keda-to-${CHAT_TIER}`, {
+        podSelector: { matchLabels: { "app.kubernetes.io/name": CHAT_TIER } },
         policyTypes: ["Ingress"],
         ingress: [{ from: kedaOperator, ports: [{ protocol: "TCP", port: PORT.backend }] }],
       })
@@ -482,7 +485,7 @@ export function installNetworkPolicies(
   //     Every address a person types in the project dialog reaches it, so it
   //     is withheld from rule 2: the frontend BFF (`/api/geocode`) is its one
   //     caller. The bff-jobs pool inherits the frontend's environment but
-  //     not `GRID_GEOCODER_URL` (`BFF_JOBS_WITHHELD`), so it is not named.
+  //     not `GEOCODER_URL` (`BFF_JOBS_WITHHELD`), so it is not named.
   //
   //     Egress is the init container's: the jar from GitHub and the index
   //     from download1.graphhopper.com, both over HTTPS. Photon itself dials
@@ -523,13 +526,13 @@ export function installNetworkPolicies(
         })
       : undefined;
 
-  // 22. ClamAV (ADR-0139): the frontend and the bff-jobs pool in. Egress open.
+  // 22. ClamAV (ADR-0150): the frontend and the bff-jobs pool in. Egress open.
   //
   //     clamd authenticates nobody and its whole job is to open hostile files,
   //     so it is withheld from rule 2: the BFF is its only caller, in the
   //     request path (an original's download is scanned whole) and in the
   //     bff-jobs pool (the receive job scans each attachment and raw message).
-  //     Ingress only, as decided in ADR-0139: freshclam needs DNS and HTTPS to
+  //     Ingress only, as decided in ADR-0150: freshclam needs DNS and HTTPS to
   //     database.clamav.net, a CDN no NetworkPolicy can name, and a port-only
   //     rule (as the geocoder's) would admit the whole internet on 443 anyway.
   //     The kubelet's exec probes are not network traffic.
@@ -545,7 +548,7 @@ export function installNetworkPolicies(
                 ? [{ podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } }]
                 : []),
             ],
-            ports: [{ protocol: "TCP", port: PORT.clamav }],
+            ports: [{ protocol: "TCP", port: CLAMAV.port }],
           },
         ],
       })

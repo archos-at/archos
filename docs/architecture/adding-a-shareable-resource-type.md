@@ -3,7 +3,7 @@
 ADR-0032 promises that sharing is **a platform capability, not a chat feature**:
 "any current or future resource inherits it by declaring itself shareable", and
 anything a second consumer has to change *outside* its own registry entry is a
-substrate defect, not a cost of the new type.
+sharing-layer defect, not a cost of the new type.
 
 Today `conversation` is the only consumer, so that promise has never been tested.
 This document is the honest state of it, measured against the code in
@@ -23,8 +23,8 @@ registry entry.
 **Storage.** `resource_shares`, `mention_requests` and `inbox_items` all key on a
 polymorphic `(resource_type text, resource_id text)` with matching indexes, and
 none of them has a foreign key to `conversations` (the one FK in
-`drizzle/0027_collaboration.sql` is on `conversation_reads`, a chat-only table
-outside the substrate). **A new type needs no migration on these three tables.**
+`migrations/0027_collaboration.sql` is on `conversation_reads`, a chat-only table
+outside the sharing layer). **A new type needs no migration on these three tables.**
 
 **Effective access.** `lib/sharing/access.ts` — tenancy → container → strongest
 of (visibility, grant, creator) — contains no conversation reference at all.
@@ -103,7 +103,7 @@ An inbox type need not belong to a shareable resource; the steps are the same.
 
 ## 3. What is still leaking
 
-Each of these is a substrate defect by ADR-0032's own definition. They are listed
+Each of these is a sharing-layer defect by ADR-0032's own definition. They are listed
 worst-first, with what it costs to lift them. **Fix the one you touch** rather
 than working around it, or the second consumer pays and the third pays again.
 
@@ -170,12 +170,12 @@ resource waits on somebody who can never answer.
 project-scoped variants from a `listIdsInProject` descriptor member.
 
 **And the cascade is stated twice, in two runtimes.** The purger service
-(`frontends/ui/purger/purge-project.js`) deletes `inbox_items`,
+(`apps/workspace/purger/purge-project.js`) deletes `inbox_items`,
 `mention_requests` and `resource_shares` for a purged project with its own raw
 SQL and its own hardcoded `resource_type = 'conversation'` literal. It is not
 working around the helper: it *cannot* call it. The purger is a separate
 CommonJS process (`node purger/index.js`) with no bundler and no TS step, so a
-`'server-only'` module behind `@/…` aliases is unreachable; its grid_app deletes
+`'server-only'` module behind `@/…` aliases is unreachable; its `app` deletes
 must stay inside one postgres.js transaction, while this tier's repositories open
 their own connection; the per-conversation helper is best-effort and never
 throws, where the purger needs a failure to abort and leave the queue row
@@ -203,7 +203,7 @@ zero and looks healthy.
 ### 3.7 The mention, awaiting and presence routes are mounted under the chat
 
 `/api/conversations/[id]/{awaiting,mention-candidates,typing,live}` — only the
-release endpoint is substrate-shaped. Client hooks hardcode the same paths.
+release endpoint is shaped for the sharing layer. Client hooks hardcode the same paths.
 
 *Lift:* mount them under `/api/resources/[resourceType]/[resourceId]/…`, keeping
 the conversation paths as one-line delegations.
@@ -226,7 +226,7 @@ genuinely helps.
 
 `defaultVisibility`, `supportsMentions` and `labelKey` are all on
 `ShareableDescriptor` and consumed nowhere; the equivalent facts are hardcoded at
-each site. Treat a field nobody reads as a promise the substrate is not keeping.
+each site. Treat a field nobody reads as a promise the sharing layer is not keeping.
 
 ### 3.10 The container is assumed to be a project
 
@@ -254,10 +254,10 @@ takes it off permanently: the third consumer then pays only §2.
 
 If adding your type makes you edit a file under `lib/sharing`, `lib/inbox`,
 `lib/mentions`, `lib/events` or `lib/collaboration` **for any reason other than
-adding a registry entry**, you have found a substrate defect. Fix it there rather
+adding a registry entry**, you have found a sharing-layer defect. Fix it there rather
 than at your call site, and add it to §1 here when it is gone.
 
-**Do not bolt a new consumer onto a non-working substrate.** YAGNI does not
+**Do not bolt a new consumer onto a non-working sharing layer.** YAGNI does not
 make §3 acceptable. Those rows are defects in a promise ADR-0032 already made,
 not unused features you can defer because the first vertical is small. If your
 change is the second (or third) consumer, every §3 item you would have to
@@ -271,12 +271,12 @@ a visibility write that no-ops, a cleanup that only deletes conversations, an
 inbox row that calls a document “Chat ohne Titel.”
 
 The files work is the second consumer this document was waiting for
-([spec](../superpowers/specs/2026-08-13-file-native-ownership-design.md),
+(spec (removed; in git history at `56ee3329`),
 [ADR-0047](../adr/0059-assignment-is-not-access.md)). That change is not
 allowed to leave this §3 standing.
 
-One place the rule cannot reach, and you have to check by hand: the substrate has
-a second implementation outside the BFF. `frontends/ui/purger/purge-project.js`
+One place the rule cannot reach, and you have to check by hand: the sharing layer has
+a second implementation outside the BFF. `apps/workspace/purger/purge-project.js`
 carries its own copy of the delete cascade, in CommonJS, outside `tsc --noEmit`
 and outside the lint run over `src` (§3.5). Widening the union will not make it fail to
 compile, and no test in this tier covers it. Grep the purger for your type's name

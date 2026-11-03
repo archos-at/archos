@@ -6,13 +6,13 @@ adds only what the extension needs (``refile``, ``tags``). Unlike the intake eva
 three file tools over the fixture, the ``files`` set runs the REAL ``list_files``,
 ``knowledge_search`` and ``read_passage``, so the project has to exist where they read:
 
-- the vector store (``AIQ_QDRANT_URL``): each file cut by the ingest job's own chunkers
+- the vector store (``QDRANT_URL``): each file cut by the ingest job's own chunkers
   (``adapter.text_chunks_for_pages``: the section chunker's breadcrumbs and its overlap across page
   breaks, the per-page splitter where a file has no headings), written through the adapter's own
   write path (``knowledge_layer.qdrant.writes.write_chunks``) and embedded by the deployment's
   embedder, with ``page_label``, ``chunk_ordinal``, ``folder_path`` and ``grid_document_id`` as an
   ingest job writes them;
-- the metadata store (``AIQ_SUMMARY_DB``): each document registered, filed, typed and given its
+- the metadata store (``SUMMARY_DB``): each document registered, filed, typed and given its
   Fassung facts through ``DocumentMetadataStore``, which is what ``list_files`` reads.
 
 Seeding is idempotent: a file whose chunks already carry this content's hash is not embedded again.
@@ -24,7 +24,7 @@ caption per sheet, as a scanned sheet's ingest leaves it).
 
 **The E-Mail-Verlauf is cut as its ingest cuts it** (ADR-0137). A file with ``markdown:`` is the bytes
 the BFF's renderer wrote (``tests/fixtures/files_eval/mail/``, pinned by
-``frontends/ui/src/lib/mail-thread/files-eval-fixture.spec.ts``), cut by the knowledge layer's own
+``apps/workspace/bff/mail-thread/files-eval-fixture.spec.ts``), cut by the knowledge layer's own
 Markdown chunker (``text_formats.markdown_documents``) and stamped ``source_format: mail`` the way
 an ingest job stamps it, because what its rows test is the message boundary: one section per
 message, the forged heading inside its real sender's section, a quote under the message that kept
@@ -182,7 +182,7 @@ def markdown_chunk_specs(project: FilesProject, file: FixtureFile) -> list[dict[
     """
     from knowledge_layer.llamaindex.text_formats import markdown_documents
 
-    from aiq_agent.common.source_kinds import MAIL_SOURCE_FORMAT
+    from agent.common.source_kinds import MAIL_SOURCE_FORMAT
 
     digest = content_hash(file)
     text = file.pages[0]
@@ -225,11 +225,11 @@ def _ingested_specs(project: FilesProject, file: FixtureFile, digest: str) -> li
 
 def seed_problem() -> str | None:
     """Why the suite cannot seed or read the project (nothing runs then), or None."""
-    if not os.environ.get("AIQ_QDRANT_URL"):
-        return "AIQ_QDRANT_URL is not set: the files set seeds its project into a Qdrant and its runs read it."
-    summary_db = os.environ.get("AIQ_SUMMARY_DB", "")
+    if not os.environ.get("QDRANT_URL"):
+        return "QDRANT_URL is not set: the files set seeds its project into a Qdrant and its runs read it."
+    summary_db = os.environ.get("SUMMARY_DB", "")
     if "://" not in summary_db:
-        return "AIQ_SUMMARY_DB must be a database URL (sqlite+aiosqlite:////absolute/path/summaries.db)."
+        return "SUMMARY_DB must be a database URL (sqlite+aiosqlite:////absolute/path/summaries.db)."
     return None
 
 
@@ -239,13 +239,13 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
     ``embed`` is texts -> vectors (default: the deployment's embedder, as ``production_embedder`` builds it).
     """
     from fixture_bff import production_embedder
-    from knowledge_layer.llamaindex.adapter import LlamaIndexRetriever
-    from knowledge_layer.llamaindex.adapter import embed_fingerprint_metadata
+    from knowledge_layer.llamaindex.embedding import embed_fingerprint_metadata
+    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
     from knowledge_layer.qdrant.payload import ChunkRecord
     from knowledge_layer.qdrant.store import get_store
     from knowledge_layer.qdrant.writes import write_chunks
 
-    from aiq_agent.knowledge.document_metadata_store import DocumentMetadataStore
+    from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
     project = project or load_project()
     embed = embed or production_embedder()
@@ -255,7 +255,7 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
         LlamaIndexRetriever.DEFAULT_EMBED_MODEL, LlamaIndexRetriever.DEFAULT_EMBED_BASE_URL
     )
     store = get_store(identity)
-    metadata = DocumentMetadataStore(os.environ["AIQ_SUMMARY_DB"])
+    metadata = DocumentMetadataStore(os.environ["SUMMARY_DB"])
     written: dict[str, int] = {}
     for file in project.files:
         # The row first: the chunk write copies the row's facts onto the points (``writes.facts_by_file``),

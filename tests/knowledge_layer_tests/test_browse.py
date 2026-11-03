@@ -16,30 +16,31 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
+from knowledge_layer.browse import MAX_TOPIC_COUNTS
+from knowledge_layer.browse import MAX_TYPE_COUNTS
+from knowledge_layer.browse import ListFilesConfig
+from knowledge_layer.browse import file_row
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import list_files
+from knowledge_layer.browse import no_match_message
+from knowledge_layer.browse import phrase_pattern
+from knowledge_layer.browse import pick_passages
+from knowledge_layer.browse import render_listing
+from knowledge_layer.browse import select_files
+from knowledge_layer.browse import split_alternatives
+from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.register import knowledge_retrieval
 
-from aiq_agent.common.source_kinds import Shelf
-from aiq_agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
-from aiq_agent.knowledge.inventory import set_turn_documents
-from aiq_agent.knowledge.schema import AvailableDocument
-from aiq_agent.knowledge.schema import Chunk
-from aiq_agent.knowledge.schema import ContentType
-from aiq_agent.knowledge.scoping import ScopedCollection
-from sources.knowledge_layer.src.browse import _LIST_FILES_DESCRIPTION
-from sources.knowledge_layer.src.browse import MAX_TOPIC_COUNTS
-from sources.knowledge_layer.src.browse import MAX_TYPE_COUNTS
-from sources.knowledge_layer.src.browse import ListFilesConfig
-from sources.knowledge_layer.src.browse import file_row
-from sources.knowledge_layer.src.browse import file_rows
-from sources.knowledge_layer.src.browse import group_matches
-from sources.knowledge_layer.src.browse import list_files
-from sources.knowledge_layer.src.browse import no_match_message
-from sources.knowledge_layer.src.browse import phrase_pattern
-from sources.knowledge_layer.src.browse import pick_passages
-from sources.knowledge_layer.src.browse import render_listing
-from sources.knowledge_layer.src.browse import select_files
-from sources.knowledge_layer.src.browse import split_alternatives
-from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
-from sources.knowledge_layer.src.register import knowledge_retrieval
+from agent.common.brand import PRODUCT_NAME
+from agent.common.source_kinds import Shelf
+from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
+from agent.knowledge.inventory import set_turn_documents
+from agent.knowledge.schema import AvailableDocument
+from agent.knowledge.schema import Chunk
+from agent.knowledge.schema import ContentType
+from agent.knowledge.scoping import ScopedCollection
 
 
 def _doc(name: str, folder: str | None = None, *, shelf: str = "project", **extra) -> AvailableDocument:
@@ -187,16 +188,16 @@ def _builder() -> MagicMock:
 @pytest.fixture
 def scope(monkeypatch):
     monkeypatch.setattr(
-        "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [
             ScopedCollection("oib_knowledge", Shelf.BASE),
             ScopedCollection("proj_1", Shelf.PROJECT),
             ScopedCollection("archiv_1", Shelf.OFFICE_SHELF),
         ],
     )
-    monkeypatch.setattr("aiq_agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
+    monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
-        monkeypatch.setattr(f"aiq_agent.knowledge.factory.{name}", lambda _c, _f: {})
+        monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     set_turn_documents(PROJECT)
     yield
     set_turn_documents(None)
@@ -218,7 +219,7 @@ class TestListFilesTool:
         async def _documents(collection: str):
             return [AvailableDocument(file_name=f"{collection}.pdf")]
 
-        monkeypatch.setattr("aiq_agent.knowledge.get_available_documents_async", _documents)
+        monkeypatch.setattr("agent.knowledge.get_available_documents_async", _documents)
         text = await self._call()
         assert "proj_1.pdf" in text and "archiv_1.pdf" in text
         assert "oib_knowledge.pdf" not in text
@@ -296,10 +297,10 @@ def search_with(monkeypatch, scope):
     """Install a retriever into ``knowledge_search`` and neutralise its boot-time reach."""
 
     def install(retriever):
-        monkeypatch.setattr("sources.knowledge_layer.src.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("sources.knowledge_layer.src.register._initialize_ingestor", lambda config, llm: None)
-        monkeypatch.setattr("aiq_agent.knowledge.factory.configure_summary_db", lambda url: None)
-        monkeypatch.setattr("aiq_agent.knowledge.norm_store.configure_norm_store", lambda url: None)
+        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
+        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
+        monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
 
     return install
@@ -366,7 +367,7 @@ class TestExactSearch:
 
 
 def test_the_exact_mode_is_never_withheld_as_a_repeat_of_the_ranked_one():
-    from aiq_agent.common.turn_status import fetch_signature
+    from agent.common.tool_calls import fetch_signature
 
     ranked = fetch_signature({"name": "knowledge_search", "args": {"query": "BA-03"}})
     exact = fetch_signature({"name": "knowledge_search", "args": {"query": "BA-03", "match": "exact"}})
@@ -405,14 +406,14 @@ def turn_shelves(monkeypatch):
     """Restrict the turn to some shelves, as ``focus_file.set_turn_intent`` does for a focused turn."""
 
     def install(shelves):
-        monkeypatch.setattr("aiq_agent.common.focus_file.get_turn_shelves", lambda: frozenset(shelves))
+        monkeypatch.setattr("agent.common.focus_file.get_turn_shelves", lambda: frozenset(shelves))
 
     return install
 
 
 def _store_retriever():
     """The production retriever over the test's Qdrant (``qdrant_store``), with no embedder: exact mode needs none."""
-    from knowledge_layer.llamaindex.adapter import LlamaIndexRetriever
+    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
 
     retriever = LlamaIndexRetriever.__new__(LlamaIndexRetriever)
     retriever._ensure_initialized = lambda: None
@@ -421,8 +422,8 @@ def _store_retriever():
 
 def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
     """Write ``(file_name, text, page, metadata)`` rows into collection ``name``, as ingestion writes chunks."""
-    from sources.knowledge_layer.tests.qdrant_testing import record
-    from sources.knowledge_layer.tests.qdrant_testing import write
+    from knowledge_layer_testing.qdrant import record
+    from knowledge_layer_testing.qdrant import write
 
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
@@ -444,7 +445,7 @@ class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
         )
         _seed(project, [("Notiz.docx", "Firma Müller, EI 90", 1, {})])
         monkeypatch.setattr(
-            "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+            "agent.knowledge.scoping.get_scoped_collections_from_context",
             lambda: [ScopedCollection(base, Shelf.BASE), ScopedCollection(project, Shelf.PROJECT)],
         )
         search_with(retriever)
@@ -717,7 +718,7 @@ class TestTheDokumentartProfile:
         last = select_files(rows, offset=6, limit=2)
 
         assert first.types == last.types == [("Grundriss", 5), ("Schnitt", 2)]
-        expected = "Dokumentart (assigned by Piloti): Grundriss 5 · Schnitt 2."
+        expected = f"Dokumentart (assigned by {PRODUCT_NAME}): Grundriss 5 · Schnitt 2."
         assert _profile_line(render_listing(first)) == _profile_line(render_listing(last)) == expected
 
     def test_it_sits_directly_under_the_count_line(self):
@@ -747,11 +748,11 @@ class TestTheDokumentartProfile:
 
     def test_the_untyped_count_is_named_on_the_profile_line(self):
         text = render_listing(select_files(_typed(("Grundriss",), ("Brandschutz",))))
-        assert _profile_line(text) == "Dokumentart (assigned by Piloti): Grundriss 1; without Dokumentart: 1."
+        assert _profile_line(text) == f"Dokumentart (assigned by {PRODUCT_NAME}): Grundriss 1; without Dokumentart: 1."
 
     def test_no_untyped_clause_when_every_row_has_a_type(self):
         text = render_listing(select_files(_typed(("Grundriss",), ("Grundriss",))))
-        assert _profile_line(text) == "Dokumentart (assigned by Piloti): Grundriss 2."
+        assert _profile_line(text) == f"Dokumentart (assigned by {PRODUCT_NAME}): Grundriss 2."
 
     def test_at_most_the_cap_is_named_and_the_listing_keeps_them_all(self):
         types = [tag for tag in DOCUMENT_TYPE_TAGS if tag != "Sonstiges"][:10]
@@ -765,8 +766,8 @@ class TestTheDokumentartProfile:
 
     def test_a_selection_with_no_document_type_says_so_rather_than_saying_nothing(self):
         rendered = render_listing(select_files(_typed((), ("Brandschutz",))))
-        assert "Piloti has assigned none of these files a Dokumentart" in rendered
-        assert "Dokumentart (assigned by Piloti)" not in rendered
+        assert f"{PRODUCT_NAME} has assigned none of these files a Dokumentart" in rendered
+        assert f"Dokumentart (assigned by {PRODUCT_NAME})" not in rendered
 
     def test_no_profile_line_for_an_empty_selection(self):
         assert "Dokumentart" not in render_listing(select_files([]))
@@ -866,24 +867,27 @@ class TestTopicsAndCaptureInTheListing:
         rows = _topical(("Attika", "Fluchtweg"), ("attika",), ("Holz",))
         listing = select_files(rows)
         assert listing.topics == [("Attika", 2), ("Fluchtweg", 1), ("Holz", 1)]
-        assert "Topics (recognised by Piloti): Attika 2 · Fluchtweg 1 · Holz 1." in render_listing(listing).splitlines()
+        assert (
+            f"Topics (recognised by {PRODUCT_NAME}): Attika 2 · Fluchtweg 1 · Holz 1."
+            in render_listing(listing).splitlines()
+        )
 
     def test_the_profile_names_at_most_eight_topics_and_counts_the_whole_selection(self):
         rows = _topical(*[(f"Thema{index:02}",) for index in range(10)])
         listing = select_files(rows, limit=1)
-        line = _profile(render_listing(listing), "Topics (recognised by Piloti)")
+        line = _profile(render_listing(listing), f"Topics (recognised by {PRODUCT_NAME})")
         assert len(listing.topics) == 10
         assert line.count(" · ") == MAX_TOPIC_COUNTS - 1
         assert "Thema08" not in line
 
     def test_no_profile_line_without_topics(self):
-        assert "Topics (recognised by Piloti)" not in render_listing(select_files(_rows()))
+        assert f"Topics (recognised by {PRODUCT_NAME})" not in render_listing(select_files(_rows()))
 
     def test_the_profile_sits_directly_under_the_dokumentarten_line(self):
         rows = file_rows([_doc("Plan.pdf", "Plaene", tags=["Grundriss"], topics=["Attika"])])
         lines = render_listing(select_files(rows)).splitlines()
         dokumentarten = next(index for index, line in enumerate(lines) if line.startswith("Dokumentart ("))
-        assert lines[dokumentarten + 1] == "Topics (recognised by Piloti): Attika 1."
+        assert lines[dokumentarten + 1] == f"Topics (recognised by {PRODUCT_NAME}): Attika 1."
 
 
 class TestTopicsThroughTheTool:
@@ -986,8 +990,8 @@ class TestTheIngestsReadingInAListing:
         assert "Type:" not in line and "States:" not in line and "Refers to:" not in line
 
     def test_the_facts_and_references_are_bounded(self):
-        from sources.knowledge_layer.src.browse import MAX_ROW_FACTS
-        from sources.knowledge_layer.src.browse import MAX_ROW_REFERENCES
+        from knowledge_layer.browse import MAX_ROW_FACTS
+        from knowledge_layer.browse import MAX_ROW_REFERENCES
 
         row = self._row(
             dossier={"facts": [{"key": "units", "value": str(n)} for n in range(20)]},

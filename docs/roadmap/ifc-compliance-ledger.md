@@ -1,6 +1,8 @@
 # The Prüfbuch — from "a model you can ask" to "a building that is checked"
 
-Status: **proposed**. Supersedes nothing; extends ADR-0045.
+Status: **built**, steps 1 to 6 of the sequence below; the dossier half of step 6
+(the ledger as a PDF annex for the Einreichung) is still open. Supersedes nothing;
+extends ADR-0045.
 
 Known gaps in what is already built are tracked in
 [ifc-review-findings.md](./ifc-review-findings.md).
@@ -10,7 +12,7 @@ Known gaps in what is already built are tracked in
 Two halves of this product have never actually touched.
 
 One half knows the rules: the OIB corpus, the applicability engine
-(`src/aiq_agent/common/applicability.py` — which Richtlinien apply to *this*
+(`packages/agent/src/agent/common/applicability.py` — which Richtlinien apply to *this*
 project, from its facts), the retrieval that answers "was verlangt OIB 4 für
 Treppen".
 

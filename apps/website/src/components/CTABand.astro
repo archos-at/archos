@@ -1,0 +1,40 @@
+---
+import Button from './Button.astro';
+import type { NavLink } from '../i18n/nav';
+
+interface Props {
+  title: string;
+  /** lead in ink */
+  text?: string;
+  primary?: NavLink;
+  secondary?: NavLink;
+  /** Analytics: where the band sits; its buttons' clicks carry it as `cta-area` */
+  area?: string;
+  class?: string;
+}
+
+const { title, text, primary, secondary, area, class: className } = Astro.props;
+---
+
+<div data-reveal class:list={['ui-cta', className]}>
+  <div>
+    <h2 class="ui-cta-title heading-1">{title}</h2>
+    {text && <p class="ui-cta-text lead">{text}</p>}
+  </div>
+  <div class="ui-cta-actions">
+    {
+      primary && (
+        <Button href={primary.href} variant="primary" size="lg" cta={area} ctaLabel={primary.key}>
+          {primary.label}
+        </Button>
+      )
+    }
+    {
+      secondary && (
+        <Button href={secondary.href} variant="secondary" size="lg" cta={area} ctaLabel={secondary.key}>
+          {secondary.label}
+        </Button>
+      )
+    }
+  </div>
+</div>
