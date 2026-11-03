@@ -102,6 +102,25 @@ def test_a_missing_model_or_endpoint_is_configuration_not_the_bytes():
     assert _verdict(HTTPStatusError(404)) == ("configuration", True)
 
 
+class _NoAllowedProvider(_StatusError):
+    def __init__(self, status_code: int):
+        super().__init__(status_code)
+        self.args = (f"Error code: {status_code} - No allowed providers are available for the selected model.",)
+
+
+@pytest.mark.parametrize("status", [404, 503])
+def test_no_allowed_eu_endpoint_now_is_transient(status):
+    """An EU-only page read (`DataPolicy.for_page_reads`) the provider cannot place passes when an endpoint is back."""
+    assert _verdict(_NoAllowedProvider(status)) == ("transient", True)
+    assert _verdict(RuntimeError("x"), "Error code: 404 - No allowed providers are available") == ("transient", True)
+
+
+def test_a_model_without_a_zdr_endpoint_stays_configuration():
+    error = _StatusError(404)
+    error.args = ("Error code: 404 - No endpoints found matching your data policy",)
+    assert _verdict(error) == ("configuration", True)
+
+
 def test_an_upstream_answer_that_fails_its_model_is_not_blamed_on_the_file():
     """pydantic's ValidationError is a ValueError, and it is the answer's shape, not the bytes."""
     from pydantic import BaseModel
