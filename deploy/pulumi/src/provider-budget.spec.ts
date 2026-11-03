@@ -196,7 +196,7 @@ describe("the budget reaches the pods that spend it", () => {
     }
 
     const sources = [
-      read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
+      read("packages", "knowledge-layer", "src", "llamaindex", "vision_calls.py"),
       read("packages", "knowledge-layer", "src", "llamaindex", "processing.py"),
       read("packages", "agent", "src", "agent", "common", "provider_limiter.py"),
     ].join("\n");
@@ -208,7 +208,7 @@ describe("the budget reaches the pods that spend it", () => {
     const python = (path: string[], pattern: RegExp) => Number(read(...path).match(pattern)?.[1]);
 
     expect(cfg.providerLimits.vlmFleetConcurrency).toBe(
-      python(["packages", "knowledge-layer", "src", "llamaindex", "adapter.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
+      python(["packages", "knowledge-layer", "src", "llamaindex", "vision_calls.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
     );
     expect(cfg.providerLimits.vlmBatchWorkers).toBe(
       python(["packages", "knowledge-layer", "src", "llamaindex", "processing.py"], /os\.environ\.get\("VLM_BATCH_WORKERS", "(\d+)"\)/),
