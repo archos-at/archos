@@ -35,8 +35,10 @@ warns and audits on `baseline`.
 
 The app tiers that start or run Hatchet runs (chat, api, agent-worker,
 ingest-worker, frontend, bff-jobs) get the SDK's environment
-(`HATCHET_CLIENT_TOKEN`, `HATCHET_CLIENT_HOST_PORT`,
-`HATCHET_CLIENT_TLS_STRATEGY=none`, `HATCHET_CLIENT_NAMESPACE`=the stack name;
+(`HATCHET_CLIENT_TOKEN`, `HATCHET_CLIENT_HOST_PORT`, the REST API's URL as
+both `HATCHET_CLIENT_SERVER_URL` (Python) and `HATCHET_CLIENT_API_URL`
+(TypeScript), `HATCHET_CLIENT_TLS_STRATEGY=none`,
+`HATCHET_CLIENT_NAMESPACE`=the stack name;
 [`environment-variables.md`](environment-variables.md), "Hatchet client").
 Only they reach the gRPC engine (7070) and the API (8080); only Hatchet's four
 backend components reach RabbitMQ (5672); KEDA's operator reaches
@@ -48,6 +50,20 @@ backlog: the runs in `v1_queue_item` (waiting for a slot) plus those in
 `<namespace>_<workflow>:` (`hatchetBacklogQuery`, `app/keda-scaling.ts`). A run
 held back by its organisation's concurrency limit is in neither table, so it
 asks for no replica it could not use.
+
+### Two URLs for the API
+
+The chart's `sharedConfig.serverUrl` stays `http://localhost:8080`: it is the
+dashboard's own address behind the port-forward (its links, its cookie domain).
+The engine also stamps it into every token as the `server_url` claim, and both
+SDKs fall back to that claim when no API URL is set. Inside a pod, localhost is
+the pod itself, so a client on the claim fails every REST call: scheduled runs,
+crons, cancels, pausing a workflow. That is why every tier is given
+`http://hatchet-api.background-work.svc.cluster.local:8080` (the chart's
+`hatchet-api` Service) explicitly, under both SDKs' names
+(`HATCHET_API_URL`, `platform/hatchet.ts`), and the token's claim is never
+used. Exposing the dashboard on a real hostname would mean changing
+`serverUrl` and the cookie domain together; the clients would not notice.
 
 ## Enabling a stack (dev first)
 
@@ -210,4 +226,8 @@ Hatchet is back.
 (the engine, API and dashboard in one container, at the same image tag) and its
 Postgres. `docker compose --profile hatchet up -d`, then create a token at
 http://localhost:8888 (Settings, API Tokens) and set the four `HATCHET_CLIENT_*`
-lines of `deploy/.env.example` in `deploy/.env`.
+lines of `deploy/.env.example` in `deploy/.env`. The API's URL needs no line:
+the app services default `HATCHET_CLIENT_SERVER_URL` and
+`HATCHET_CLIENT_API_URL` to `http://hatchet-lite:8888`, because the token's
+`server_url` (the lite engine's `SERVER_URL`, `http://localhost:8888`, which
+the browser needs) is the container itself from inside one.

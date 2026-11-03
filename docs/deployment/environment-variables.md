@@ -340,6 +340,7 @@ Read by `apps/workspace/workers/jobs/index.js`, the entry point of the `bff-jobs
 |----------|----------|---------|-------------|
 | `HATCHET_CLIENT_TOKEN` | **Yes** | — | The Hatchet SDK's API token (the SDK's own variable, read by `@hatchet-dev/typescript-sdk`). A secret. Also read by the frontend, which triggers a run for every enqueue. |
 | `HATCHET_CLIENT_HOST_PORT` | **Yes** | — | The engine's gRPC address, `host:port` (the SDK's own variable). |
+| `HATCHET_CLIENT_API_URL` | **Yes** | the token's `server_url` | The REST API's base URL (the SDK's own variable), which the scheduling tasks' crons and the cancels use. The token's default is the dashboard's localhost, so it is always set; "Hatchet client" below. |
 | `HATCHET_CLIENT_TLS_STRATEGY` | No | `tls` | `none` inside the cluster (the SDK's own variable). |
 | `HATCHET_CLIENT_NAMESPACE` | No | (none) | Prefix of the task and worker names, one per stack (`prod`), so stacks sharing an engine never take each other's runs (the SDK's own variable). |
 | `BFF_JOBS_CONCURRENCY` | No | `2` | Runs one replica takes at once: the Hatchet worker's slots, and the per-organization cap when `BFF_JOBS_MAX_PER_ORG` is 0. Pulumi `bffJobsConcurrency`. |
@@ -647,6 +648,8 @@ Every background job runs on Hatchet. These are the SDKs' own variables (Python 
 |---|---|---|---|---|
 | `HATCHET_CLIENT_TOKEN` | Yes | from the Secret `hatchet-client-token` (key `HATCHET_CLIENT_TOKEN`), copied from the chart's worker-token Job by `hatchet-token-sync` | — (create one in the dashboard, see `hatchet.md`) | The tenant API token the SDK authenticates with. It also carries the engine's addresses, which the next variable overrides. Optional on the pod (`secretKeyRef.optional`), so a Job that never starts a run is not blocked; the long-running tiers are ordered after the copy. |
 | `HATCHET_CLIENT_HOST_PORT` | Yes | `hatchet-grpc.background-work.svc.cluster.local:7070` | `hatchet-lite:7077` | The engine's gRPC address. |
+| `HATCHET_CLIENT_SERVER_URL` | Yes | `http://hatchet-api.background-work.svc.cluster.local:8080` | `http://hatchet-lite:8888` | The REST API's base URL, as the Python SDK reads it: scheduled runs, crons, cancels and pausing a workflow go there, not over gRPC. Unset, the SDK takes the token's `server_url` claim, which is the dashboard's `http://localhost:…` and fails in every container. |
+| `HATCHET_CLIENT_API_URL` | Yes | `http://hatchet-api.background-work.svc.cluster.local:8080` | `http://hatchet-lite:8888` | The same URL under the TypeScript SDK's name (`@hatchet-dev/typescript-sdk`, read by the frontend and bff-jobs), with the same fallback to the token's localhost. |
 | `HATCHET_CLIENT_TLS_STRATEGY` | Yes | `none` | `none` | `none` inside the cluster: the engine serves plaintext gRPC there, and the `background-work` NetworkPolicies bound who connects. |
 | `HATCHET_CLIENT_NAMESPACE` | No | the Pulumi stack name (`dev`, `prod`) | `local` | Prefix the SDKs put before every workflow name (lower-cased, with `_`). The KEDA triggers count the backlog under it (`hatchetBacklogQuery`), so it must be the same on every tier of a stack. |
 

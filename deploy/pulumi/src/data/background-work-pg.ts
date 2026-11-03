@@ -1,6 +1,6 @@
 /**
  * `background-work-pg` (ADR-0150): the CloudNativePG cluster Hatchet keeps its
- * state AND its message queue in (`SERVER_MSGQUEUE_KIND=postgres`), apart from
+ * state in (its message queue is RabbitMQ, `platform/rabbitmq.ts`), apart from
  * the application's cluster so a backlog of background work never competes with
  * a person's request for the same primary, and so a bulk reindex cannot fill
  * the disk that holds every conversation.
