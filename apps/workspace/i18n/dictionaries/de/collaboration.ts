@@ -859,7 +859,7 @@ export const collaboration: typeof en.collaboration = {
           },
         },
       },
-      // Die E-Mail trägt die Adresse des Mitglieds, seine Domain hat sie nicht bestätigt: nur es selbst kann sie freigeben.
+      // Die E-Mail trägt die Adresse des Mitglieds, seine Domain hat sie nicht bestätigt: nur es selbst kann sie ablegen.
       // Auch ein Fälscher löst diese Zeile aus, deshalb nennt der Titel beide Antworten. Kein Betreff: fremde Worte erreichen keine Zeile (RT-X1).
       inboundMailHeld: {
         title: 'Haben Sie eine E-Mail an das Projekt „{subject}“ gesendet? Sonst verwerfen',

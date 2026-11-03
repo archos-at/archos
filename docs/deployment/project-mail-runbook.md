@@ -58,7 +58,7 @@ domain later stops every address (each project gets a new one; the old ones boun
 |---|---|---|
 | Config | `inboundMailDomain` only: the stack's own zone, no zone id, no new token zone | `inboundMailDomain` and `inboundMailZoneId` (the brand zone's id); the token gains that zone |
 | Risk B2 | Low. The apex has no MX, so even a forced apex onboarding would succeed and take no one's mail; the owner may accept that (step 7, path a) | The real test. The apex's MX are Google's: never onboard the apex. If G0 fails here, the fallback is code |
-| Lifetime | Ends at the domain cutover: every project address changes then | Survives the cutover |
+| Lifetime | Ends at the domain cutover: every project mail address changes then | Survives the cutover |
 | Sender's view | The retired domain in every address | The brand in every address |
 
 Recommendation: **(b)**, if step 7 can switch subaddressing on without touching
@@ -286,7 +286,7 @@ Only the test office has the entitlement, so unpausing exposes no customer.
 | Gate | Do | Expect | If not |
 |---|---|---|---|
 | **G4**, second half | wait for G4's real mail | It arrives in the test project when the sending server retries (minutes to an hour) | Check the Activity log and section 10 |
-| **G1** | From a mailbox of a domain that signs DKIM (the company's Google Workspace does), send a mail with one PDF to the test address. Once from a member of the test project with write rights, once from someone outside the office | The member's mail is **filed directly**: its text in an E-Mail-Verlauf, the PDF in the suggested folder; the member gets the notice „Ihre E-Mail an „…“ wurde abgelegt“, „Direkt in Ihrem Namen abgelegt, …“ (`inbound_mail.decided`, variant `direct`). The outsider's waits in the E-Mail-Eingang, „Domain bestätigt“ (`*_verified`), with the signed headers in its details | Waits although sent by a writer: open its details; the sender rule (`inbound-mail.md`, "The sender rule") names the reason, usually a domain that does not sign or a Bcc to someone else |
+| **G1** | From a mailbox of a domain that signs DKIM (the company's Google Workspace does), send a mail with one PDF to the test address. Once from a member of the test project with write rights, once from someone outside the office | The member's mail is **filed directly**: its text in an E-Mail-Verlauf, the PDF in the suggested folder; the member gets the notice „Ihre E-Mail an „…“ wurde direkt abgelegt“, „Niemand hat sie angesehen: …“ (`inbound_mail.decided`, variant `direct`). The outsider's waits in the E-Mail-Eingang, „Domain bestätigt“ (`*_verified`), with the signed headers in its details | Waits although sent by a writer: open its details; the sender rule (`inbound-mail.md`, "The sender rule") names the reason, usually a domain that does not sign or a Bcc to someone else |
 | **G2** | Dashboard: Workers & Pages → Create → a Worker whose code is `export default { async email() { throw new Error("gate"); } }`. Email Routing → Routing rules → Create address: **the test address itself** → Send to a Worker → that Worker (a rule for the full subaddress wins over the base rule). Send a mail to the test address. Then delete that rule, and later the throwaway Worker | The sender's server reports a temporary failure and retries; after the rule is deleted the retry lands in the test project | A permanent bounce: Cloudflare turned a thrown error into a 5xx. Stop: every fault of ours would lose mail (ADR-0138, "Known unknowns") |
 | **G3** | `bun scripts/inbound-mail-smoke.ts signed --run`; and through real SMTP the largest mail your provider sends (Google Workspace: one attachment of about 18 MB) | All PASS: 401s, a small mail and 24 MiB held (202), over 26 MiB a 413 bounce, over the edge ceiling Envoy's own 413, a truncated body never accepted. The real mail arrives | A FAIL names the check and the HTTP answer; `[inbound-mail] delivery outcome=…` in the frontend's log says why the BFF refused |
 | **G3**, the refusal | Optional: a mail over 26 MiB from a provider that sends one (Microsoft 365 with a raised limit) | Refused by Cloudflare at SMTP time ("message too large") | If no provider is at hand, record "not run: Cloudflare's documented 25 MiB cap, and `signed` covered the BFF" |
@@ -343,7 +343,7 @@ PostHog `inbound_mail_sender_filed` with `reason: direct_filing_off` counts
 those mails ([`kubernetes.md`](kubernetes.md#incidents), incident 0).
 
 **Pause** (the incident lever after that): `inboundMailPaused: "true"` in the stack file,
-promote. The Worker answers every project address with a temporary failure as
+promote. The Worker answers every project mail address with a temporary failure as
 soon as Cloudflare has the binding; the BFF answers 503. Senders see nothing at
 first, then their server's "delayed" notice after some hours, and a bounce only
 when their server gives up (typically after two to five days). Keep a pause
@@ -434,19 +434,19 @@ uploaded directly; a larger mail bounces at the sender.
 **Filed directly, without a click:** a mail sent by a member who may write in
 the project, from their own address, signed by their domain (an aligned DKIM
 signature: Google Workspace and Microsoft 365 with DKIM switched on do this),
-addressed to the project in a signed To or Cc (their own Bcc copy waits for
+addressed to the project in its signed To or Cc (their own Bcc copy waits for
 them), not an automatic mail, and without a suspicious date or a reused
 Message-ID. Its text becomes the next
 section of the conversation's E-Mail-Verlauf, its attachments go where the
 agent suggests (or become the next Fassung of a document the sender vouched
 for); anything that cannot be placed waits in the E-Mail-Eingang for any of
-the project's writers. The member is told
-„Direkt in Ihrem Namen abgelegt, weil Ihre Domain sie signiert hat und Sie in
-diesem Projekt ablegen dürfen.“
+the project's writers, marked „Nicht direkt abgelegt“. The member is told
+„Ihre E-Mail an „…“ wurde direkt abgelegt“, „Niemand hat sie angesehen: Ihre
+Domain hat sie bestätigt, und Sie dürfen in diesem Projekt ablegen.“
 
 **Held for a person** in the project's E-Mail-Eingang (Dateien → E-Mail-Eingang):
-- a writer's mail that is not signed by their own domain, is their Bcc copy,
-  is automatic or carries a suspicious date: only that member may file it
+- a member's mail that is not signed by their own domain, is their Bcc copy,
+  reads as re-sent or misdated, or is automatic: only that member may file it
   („Haben Sie diese E-Mail gesendet?“), anyone may dismiss it, for 30 days;
 - a member's mail who may not write in the project: for the project's writers, 30 days;
 - everyone else's: for the project's writers, 14 days, then discarded.
@@ -469,5 +469,5 @@ delivery reports are dropped silently.
 **Safety.** Every attachment and the whole mail are scanned for malware in our
 own cluster before anyone can file or download them; an infected part can only
 be dismissed. Mail text is shown as text: no HTML, no images loaded, links inert.
-A mail that claims a colleague's address but is not signed by their domain is
-marked and can only be released by that colleague.
+A mail that carries a member's address but is not signed by their domain is
+marked and can only be filed or restored by that member.

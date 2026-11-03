@@ -614,7 +614,7 @@ export const collaboration = {
       // An Outlook archive was imported. {subject} is the archive's file name.
       mailImportCompleted: {
         title: '“{subject}” has been imported',
-        body: '{productName} filed the attachments under E-Mail-Import and the emails in the project’s email threads.',
+        body: '{productName} filed the attachments under E-Mail-Import and the emails in the project’s mail threads.',
       },
       mailImportFailed: {
         title: 'The import of “{subject}” stopped',
@@ -1000,7 +1000,7 @@ export const collaboration = {
             titleRelated: 'Your mail to “{subject}” was dismissed',
             body: 'Dismissed by {actor}. It can be restored for seven days.',
           },
-          // Filed as you, without anyone looking at it: your domain verified it and you may write in the project.
+          // Filed as you, without anyone looking at it: your domain verified it and you may file in the project.
           direct: {
             title: 'Your mail to “{subject}” was filed directly',
             titleRelated: 'Your mail to “{subject}” was filed directly in “{related}”',

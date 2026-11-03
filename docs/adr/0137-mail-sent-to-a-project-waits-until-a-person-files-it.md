@@ -201,7 +201,7 @@ person decides.
 **A finding in the text is decided before filing.** The content check runs on
 the own text after the signature is removed. With a finding, the person
 chooses „Unkenntlich ablegen“ (the default: the spans are masked in the
-Verlauf, the original keeps the bytes), „Als eigenen E-Mail-Verlauf ablegen“,
+Verlauf, the original keeps the bytes), „Getrennt ablegen (eigener E-Mail-Verlauf)“,
 or „Ungekürzt in den E-Mail-Verlauf“, which holds the whole Verlauf until
 someone checks it (ADR-0086).
 
@@ -617,13 +617,13 @@ sender once, when the mail is held (`inbound_mails.sender_class`, migration
 | Class | When | What happens |
 |---|---|---|
 | `verified_writer` | DKIM passes signed by the From domain itself (DMARC's strict alignment: a parent's or a subdomain's key, such as one a newsletter service holds for `news.<domain>`, keeps the verified label but is flagged `relaxed_alignment` and waits), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address in To or Cc, no replay or date flag is set, and it was not sent automatically (list or bulk mail). A member's own Bcc copy does not qualify: its flag (`bcc_own`) is told apart from a recipient re-sending the member's signed mail to the project by time alone, and time does not tell them apart | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
-| `unverified_writer` | The From address is such a member, but the signature fails, is absent, is a parent's or a subdomain's, does not name the project (a Bcc copy included), carries a replay or date flag, or the mail was sent automatically | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
+| `unverified_writer` | The From address is such a member, but the signature fails, is absent, is a parent's or a subdomain's, does not name the project (a Bcc copy included), carries a replay or date flag, or the mail was sent automatically | Held. Only that member can file it, by answering „Haben Sie diese E-Mail gesendet?“ (`acknowledged_sender`); any writer may dismiss it |
 | `office_member` | The From address is an office member without write rights on the project | Held for the project's writers |
 | `external` | The From address is outside the office | Held for the project's writers; discarded after 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`), with no restore window |
 
 Nobody outside the office ever hears from us: no bounce for a held mail, no
 auto-reply, no notice when it is filed, dismissed or expires. Office members
-hear about their own mail in the app (held, released, rejected, expired);
+hear about their own mail in the app (held, filed, dismissed, expired);
 the Postfach rows still carry the project's name, a count and a code, never a
 subject or sender text.
 
@@ -660,13 +660,13 @@ scanner (ADR-0150) and the upload path like any other file.
 - **DKIM/DMARC alignment, not the From header.** The competitors trust the
   From address; we file directly only when the sender's domain signed the
   mail and the full address is a named member with write rights. A forged
-  From of a real member is held, and only that member can release it.
+  From of a real member is held, and only that member can file it.
 - **It can be switched off alone.** `INBOUND_MAIL_DIRECT_FILING=false`
   (Pulumi `inboundMailDirectFiling`) queues no sender's filing, so every
   verified writer's mail waits for any of the project's writers as before
   this amendment, without pausing receipt: the first lever if the sender rule
   or the filing misbehaves. It is never stricter than the rule it switches
-  off: the class stays `verified_writer`, so no mail becomes releasable by its
+  off: the class stays `verified_writer`, so no mail becomes fileable by its
   member alone.
 - **The rule is in the database.** A CHECK and a trigger (migration 0194)
   tie a `via = 'sender'` decision to a `verified_writer` mail, its own
@@ -691,12 +691,12 @@ scanner (ADR-0150) and the upload path like any other file.
   never reaches that member through us" in "Who hears what": the member is the
   one person who can answer.
 - An `unverified_writer` mail whose member has left the office, or lost
-  their write right, can be released by nobody: the database lets only that
+  their write right, can be filed by nobody: the database lets only that
   member file or restore it (`inbound_mail_decisions_claimed_sender_releases`),
   and it cannot see WorkOS to tell that they left. Any writer may dismiss it,
   or download the original and forward it to the project from their own
   address, which files it as theirs. The E-Mail-Eingang says so under the
-  wait reason. A manager's audited release is a follow-up, not built.
+  wait reason. A manager's audited filing on their behalf is a follow-up, not built.
 - Write rights live in WorkOS, which the database cannot see; the class
   records the app's check at receipt. A wrong class can only file as the
   authenticated sender, whose upload is authorized again in their own session.

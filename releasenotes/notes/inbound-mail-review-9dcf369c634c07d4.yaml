@@ -1,11 +1,11 @@
 ---
 features:
   - >
-    For offices that have it switched on, every project can have its own email
+    For offices that have it switched on, every project can have its own mail
     address, and mail sent to it waits in the project's E-Mail-Eingang in
-    Dateien until someone files it. Nothing becomes part of the project
-    without a person's decision, and every attachment is checked for malware
-    before anyone can open or file it.
+    Dateien until someone files it. Apart from a member's own mail, nothing
+    becomes part of the project without a person's decision, and every
+    attachment is checked for malware before anyone can open or file it.
   - >
     A filed conversation becomes one E-Mail-Verlauf: each mail is a section,
     each later reply adds a Fassung, and the original mail is kept beside it
@@ -17,7 +17,7 @@ features:
     Attachments still wait for you.
   - >
     Each waiting mail says whether the sender's domain confirmed it, and a
-    mail that poses as a colleague stands behind a warning with „Verwerfen“
+    mail that poses as a member of your office stands behind a warning with „Verwerfen“
     as the first button. It can never be filed together with other mails.
   - >
     ARCHOS suggests a folder and a Dokumentart for each attachment of a
@@ -41,7 +41,7 @@ features:
     After filing, each part says which folder it went to and which Fassung it
     became.
   - >
-    The project's email address is on the project overview and says what it
+    The project's mail address is on the project overview and says what it
     is for: put it in Cc when you write to the Behörde, the Statik or the
     Bauherrschaft.
   - >
