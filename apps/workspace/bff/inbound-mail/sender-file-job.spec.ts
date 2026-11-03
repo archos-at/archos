@@ -70,6 +70,8 @@ const plan = (files: string[]) => ({
   freshNames: [],
 })
 
+let info: ReturnType<typeof vi.spyOn>
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(findMailForReceive).mockResolvedValue(heldMail({ senderClass: 'verified_writer', senderUserId: PERSON }))
@@ -80,7 +82,7 @@ beforeEach(() => {
   vi.mocked(mailViews).mockResolvedValue([{ id: MAIL_ID } as never])
   vi.mocked(senderDecision).mockReturnValue(decision as never)
   vi.mocked(planMailDecision).mockReturnValue(plan([FILE_PART_ID, TEXT_PART_ID]) as never)
-  vi.spyOn(console, 'info').mockImplementation(() => {})
+  info = vi.spyOn(console, 'info').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
@@ -175,7 +177,7 @@ describe('the sender’s own filing', () => {
     expect(events()).toEqual([
       { event: 'inbound_mail_sender_filed', distinctId: null, organizationId: ORG, properties: { outcome: 'filed', files: 2, left: 0, waits_for_suggestion: 0 } },
     ])
-    expect(console.info).toHaveBeenCalledWith(`[inbound-mail] sender filing of mail ${MAIL_ID}: filed`)
+    expect(info).toHaveBeenCalledWith(`[inbound-mail] sender filing of mail ${MAIL_ID}: filed`)
 
     vi.mocked(captureServer).mockClear()
     vi.mocked(senderDecision).mockReturnValueOnce(null)

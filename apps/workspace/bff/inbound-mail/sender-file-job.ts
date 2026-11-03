@@ -121,9 +121,7 @@ export async function runInboundMailSenderFile(
     throw error
   }
   if (outcome.kind !== 'later') {
-    console.info(
-      `[inbound-mail] sender filing of mail ${payload.mailId}: ${outcome.kind}${'reason' in outcome ? `:${outcome.reason}` : ''}`,
-    )
+    logInfo(`[inbound-mail] sender filing of mail ${payload.mailId}: ${outcome.kind}${'reason' in outcome ? `:${outcome.reason}` : ''}`)
     captureOutcome(
       organizationId,
       outcome.kind === 'filed'
@@ -135,6 +133,12 @@ export async function runInboundMailSenderFile(
     return { done: false, payload: { ...payload, waits: payload.waits + 1 }, notBefore: new Date(Date.now() + SENDER_FILE_WAIT_MS) }
   }
   return { done: true, payload }
+}
+
+/** The job's INFO line: how a direct filing ended is the operator's trail, as a delivery's is (`./receive.ts`). */
+function logInfo(line: string): void {
+  // oxlint-disable-next-line no-console -- the per-run INFO line is the operator's trail
+  console.info(line)
 }
 
 /** One run's end, as `inbound_mail_sender_filed`: codes and counts only, personless (the job acts, not a person). */
@@ -216,7 +220,7 @@ async function fileDecision(
     } catch (error) {
       const partId = refusedPart(error)
       if (!partId) return refusedWhole(mail, error)
-      console.info(`[inbound-mail] sender filing of mail ${mail.id}: a part waits (${refusalCode(error)})`)
+      logInfo(`[inbound-mail] sender filing of mail ${mail.id}: a part waits (${refusalCode(error)})`)
       decision = withoutPart(decision, partId)
     }
   }
@@ -239,7 +243,7 @@ async function refusedWhole(mail: InboundMailRow, error: unknown): Promise<Sende
   if (error instanceof MailChangedError || error instanceof PartNotWaitingError) return waits('changed')
   if (error instanceof ConflictError && refusalCode(error) === 'stale') return waits('changed')
   if (error instanceof ConflictError || error instanceof NotFoundError || error instanceof ForbiddenError || isProjectClosedError(error)) {
-    console.info(`[inbound-mail] sender filing of mail ${mail.id}: refused (${refusalCode(error)})`)
+    logInfo(`[inbound-mail] sender filing of mail ${mail.id}: refused (${refusalCode(error)})`)
     return told(mail, 'refused')
   }
   throw error
