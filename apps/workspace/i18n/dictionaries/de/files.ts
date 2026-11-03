@@ -1013,7 +1013,14 @@ export const files: typeof en.files = {
     uploadStorageFull: 'Der Speicher Ihres Büros ist voll. Es wurde nichts hochgeladen.',
     // Von der Namensprüfung nicht hochgeladen (ADR-0086): auf einem Weg ohne
     // Upload-Dialog, etwa im Chat, oder als Nachprüfung des Servers.
-    screenedOut: '{count} Datei(en) nicht hochgeladen, weil Ihr Büro sie als sensibel einstuft: {files}',
+    screenedOut:
+      '{count, plural, one {Eine Datei wurde nicht hochgeladen} other {# Dateien wurden nicht hochgeladen}}, weil ihr Name einen Begriff enthält, den Ihr Büro als sensibel eingestuft hat: {files}',
+    // Ein Name allein ist ein schwaches Zeichen („Lüftungssteuerung“ enthält
+    // „Steuer“): wer die Datei abgelegt hat, schickt sie trotzdem; der Inhalt
+    // wird danach geprüft, die Freigabe protokolliert.
+    uploadAnyway: '{count, plural, one {Trotzdem hochladen} other {Alle # trotzdem hochladen}}',
+    uploadAnywayHint:
+      'Der Name allein entscheidet nicht: Den Inhalt prüft {productName} nach dem Hochladen trotzdem. Ihre Freigabe wird protokolliert.',
     screenedOutFile: '„{name}“ ({reason})',
     // Die Liste des Büros ist nicht lesbar: ohne sie wird nichts gesendet,
     // auch nicht mit Pilotis Vorschlag (ADR-0086).
