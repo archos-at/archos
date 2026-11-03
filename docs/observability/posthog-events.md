@@ -107,6 +107,8 @@ No-op until `initPosthogClient` ran, which needs the host and project token in
 | `skill_deleted` | `scope` | `features/skills/components/skill-toolbox.tsx`, `skill-editor-dialog.tsx` |
 | `skill_enabled_changed` | `scope`, `enabled` | `features/skills/components/skill-toolbox.tsx`, `curated-skills.tsx` |
 | `answer_retry_thorough` | `message_id`, `original_effort` | `features/chat/components/RetryThoroughButton.tsx` |
+| `answer_completed` | `message_id`, `outcome`, `duration_ms`, `citation_count`, `source_kinds`, `effort`, `has_run` | `features/chat/stores/messages-store.ts` (browser; `message_id` joins the trace and `answer_failed`) |
+| `answer_failed` | `message_id`, `conversation_id`, `reason` (`provider_credits`, `timeout`, `budget`, `provider_error`, `workflow_error`), `error_type`, `organization_id` | server (Python), `agent_host/chat_socket.py` via `agent/observability/answer_failure.py`: every turn that ends in a `RUN_ERROR` |
 | `answer_feedback_submitted` | `verdict`, `reason` | `features/chat/hooks/use-answer-feedback.ts` |
 | `product_feedback_submitted` | `kind` | `features/product-feedback/components/feedback-form.tsx` |
 | `document_uploaded` | `count`, `types` (comma-joined extensions), `shelf` | `features/documents/hooks/use-file-upload.ts` |
@@ -140,4 +142,4 @@ unhandled errors, survey and replay events). They are configured in
 | `skill_run` | `GET /api/internal/skills/resolve` resolves the skills an agent MAY use at the start of a run; it is not a run of one, and a per-resolve event would fire on every turn. The honest site is where the agent loads a skill (`use_skill`, Python), through `agent.observability.posthog_client.capture` |
 | `member_joined`, `member_removed`, `member_role_changed` | Done in WorkOS's own widgets in the browser; no code path of ours sees them. They need a WorkOS webhook route |
 | `annotation_answered_from_inbox` | The row's „Antworten“ posts the thread's own reply (`POST …/annotations/{id}/replies`) through the same typed client as the Prüfansicht, so the server cannot tell the two apart. The room's peer header is missing on a row's reply, but also on any reply while the room is down, so it would count wrong. It needs the client to say where it answered |
-| `answer_completed`, `citation_opened`, `document_opened`, `ifc_model_opened` | Browser events the analytics review proposes; they belong to the browser client and get a row here when they land |
+| `citation_opened`, `document_opened`, `ifc_model_opened` | Browser events the analytics review proposes; they belong to the browser client and get a row here when they land |

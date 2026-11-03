@@ -138,6 +138,7 @@ from agent.common.write_fence import unbind_write_fence
 from agent.conversation_context import ContextOnlyMessage
 from agent.conversation_context import append_conversation_context
 from agent.conversation_context import format_context_turn
+from agent.observability import answer_failure
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import file_tool_scores
 from agent.observability.langfuse_scores import steer_scores
@@ -193,6 +194,7 @@ from agent_host.internal_api import chat_screening_for
 from agent_host.internal_api import post_internal_conversation_message
 from agent_host.internal_api import post_internal_turn_outcome
 from agent_host.startup_banner import deployed_sha
+from agent_host.tool_calls import tool_called_by
 from agent_host.turn_fence import TurnFence
 from agent_host.turn_fence import validate_running_ttl
 from agent_host.workflow_stream import stream_workflow
@@ -1500,23 +1502,6 @@ async def _beat(wire: TurnWire) -> None:
         await wire.send(body)
 
 
-def tool_called_by(body: Any) -> str | None:
-    """The basename of the tool a ``tool`` step names, from a step body; nothing for any other body.
-
-    A file tool that stayed in the drafts (``mount`` ``drafts``, ADR-0133) is named ``draft:<tool>``: it
-    was a call, but no office-file move, so ``file_tool_scores`` counts it as neither search nor navigate.
-    """
-    step = getattr(body, "step", None)
-    if getattr(step, "kind", None) != "tool":
-        return None
-    tool = getattr(step, "tool", None) or None
-    mount = getattr(step, "mount", None)
-    if tool and mount in ("drafts", "skills"):
-        # A skill read (ADR-0135) is no office-file move either.
-        return f"{'draft' if mount == 'drafts' else 'skill'}:{tool}"
-    return tool
-
-
 async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any) -> None:
     """Send every body the turn's ``_run`` yields, in order; the stream closes in this task."""
     # One entry per call (a tool step is sent when it starts and again when it ends, under one id).
@@ -1539,6 +1524,9 @@ async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any)
                     emit_scores(steer_scores(turn.inbox), writer="chat")
             elif isinstance(body, RunErrorBody):
                 record_turn_error(body.code, body.details or body.message)
+                answer_failure.report_turn_failed(
+                    turn, answer_failure.reason_for_text(body.details or body.message), body.code
+                )
             await turn.publish(body)
 
 
@@ -1616,6 +1604,8 @@ def _error_for(exc: Exception) -> RunErrorBody:
             message="The answer took too long and was stopped. Please ask again, perhaps more narrowly.",
             details=f"{DEADLINE_DETAILS}: {exc}",
         )
+    if answer_failure.reason_for(exc) == answer_failure.PROVIDER_CREDITS:
+        return RunErrorBody(code="workflow_error", message=answer_failure.CREDITS_MESSAGE, details=str(exc))
     return RunErrorBody(
         code="workflow_error",
         message="The assistant hit an unexpected error while handling your request. Please try again.",
@@ -1673,6 +1663,7 @@ async def _end_turn(turn: RunningTurn, request: UserMessage, **drive: Any) -> No
         await turn.finish_cancelled()
     except Exception as exc:  # noqa: BLE001 — every failure ends the turn with a RUN_ERROR the client can act on
         logger.warning("Turn %s failed", turn.wire.turn_id, exc_info=True)
+        answer_failure.report_turn_failed(turn, answer_failure.reason_for(exc), type(exc).__name__)
         await turn.wire.send(_error_for(exc))
 
 
@@ -1680,6 +1671,7 @@ async def _ensure_terminal(turn: RunningTurn) -> None:
     """The last line of the one-terminal rule: a turn that has none yet gets a RUN_ERROR."""
     if turn.wire.finished:
         return
+    answer_failure.report_turn_failed(turn, answer_failure.WORKFLOW_ERROR, "no_terminal")
     await turn.wire.send(RunErrorBody(code="workflow_error", message="The turn ended without a result."))
 
 

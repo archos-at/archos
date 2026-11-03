@@ -1,6 +1,6 @@
 {
   "files": {
-    "apps/agent-host/src/agent_host/chat_socket.py": 1887,
+    "apps/agent-host/src/agent_host/chat_socket.py": 1877,
     "apps/agent-host/src/agent_host/jobs/access.py": 687,
     "apps/agent-host/src/agent_host/jobs/callbacks.py": 1149,
     "apps/agent-host/src/agent_host/jobs/event_store.py": 672,
