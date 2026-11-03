@@ -185,7 +185,7 @@ full-text index.
 | `evidence` | bool | Replaces `chunking != page` and the YAML change-log list |
 | `page`, `page_end`, `section_order` | integer | Locators; `section_order` is `is_principal` for ordered reads |
 | `reading_order` | integer | The page a chunk starts on, 0 when it has none; derived at write time, what a structural fetch orders by (§6) |
-| `chunk_ordinal` | integer | The chunk's place in its file, 0 for the first the chunker cut; written at ingest and by the import (in the export's order). Point ids are random node ids, so it is what orders the chunks of one page (§6) |
+| `chunk_ordinal` | integer | The chunk's place in its file, 0 for the first the chunker cut; written at ingest and by the import (in the export's order). Point ids are hashes (`chunk_identity.chunk_id`), so it is what orders the chunks of one page (§6) |
 | `richtlinie`, `clause_id`, `clause_path`, `clause_depth` | keyword / integer | Corpus structure (corpus only) |
 | `country`, `edition` | keyword | Corpus profile and OIB edition |
 | `file_name`, `title` | keyword, `text` | Display, plus the title-contains filter |
@@ -325,7 +325,7 @@ next write; the import from Chroma rewrites the payloads of the points it carrie
 A reader of a whole document (the Fassung compare, `collection_pages.read_pages`)
 needs the order within a page too, and no server-side order gives it: a
 `SentenceSplitter` chunk of a PDF page carries no position, and point ids are
-the chunker's random node ids. `reads.in_document_order` sorts by page, then by
+hashes (`uuid5` of collection, document, version, ordinal and text), which order nothing. `reads.in_document_order` sorts by page, then by
 the section structure `read_passage` sorts by (`base.section_position`:
 section, first line, part), then by `chunk_ordinal`, then chunk id. A point
 written before `chunk_ordinal` existed sorts after the numbered ones of its
@@ -689,7 +689,7 @@ change took Chroma out. What was built:
 | Part | Where |
 |---|---|
 | Ingestion writes Qdrant directly: a `SentenceSplitter` per job (the job's chunk size and overlap, no process-wide `Settings`), the ingestor's own embedder over each chunk's EMBED rendering, then `write_chunks`, which enriches every point (office, project, BFF document, folder, project facts, `indexed_at`) and adds the facts the metadata store holds. A failed write fails the file. Point ids stay `point_id(chunk_id)`, the chunker's node ids, so migrated points and fresh ingests agree and citations survive the move | `llamaindex/adapter.py` — `_embedded_records`, `_ingest_job`; `qdrant/writes.py` |
-| Re-ingest keeps retire-after-insert: the previous version's chunk ids are read from Qdrant (a `file_name` filter over its spellings, through `store.with_retry`; a read that still fails fails the file before anything is written) before the write and deleted by id after it; a failed or deleted-while-indexing attempt deletes exactly the ids it sent (fresh node ids, so never the previous version's) | `adapter.py` — `_find_previous_versions`, `_retire_previous_version`, `_retire_held_predecessor`, `_discard_partial_version` |
+| Re-ingest keeps retire-after-insert: the previous version's chunk ids are read from Qdrant (a `file_name` filter over its spellings, through `store.with_retry`; a read that still fails fails the file before anything is written) before the write and deleted by id after it; a failed attempt deletes the ids it sent minus those the kept version holds, and a deleted-while-indexing attempt every id it sent. Ids are deterministic (`chunk_identity.chunk_id`), so a retry overwrites, and retirement leaves out the ids the new write holds | `adapter.py` — `_find_previous_versions`, `_retire_previous_version`, `_retire_held_predecessor`, `_discard_partial_version` |
 | Every delete is one store's: `delete_file` reads the ids under every accepted spelling and deletes those, `delete_collection` deletes by scope; nothing is deleted or recorded as deleted when Qdrant refuses. Deletes go in bounded requests | `adapter.py`; `store.delete_chunks` (`DELETE_BATCH`) |
 | Registry reads from Qdrant: a file listing is one payload-limited scroll (no text); a collection's chunks and files are an exact count and a facet; `list_collections` is one facet per physical collection; a text sample is a structural fetch; visual details and `collection_pages.read_pages` scroll by filter. `get_collection` never answers "missing": a collection is a scope, and an empty one has no chunks (ADR-0116) | `adapter.py` — `_indexed_files`, `_collection_info`, `list_collections`; `collection_pages.py` |
 | A collection's `updated_at` (what the reaper of conversation uploads reads) is the newest `indexed_at` on its points, an ordered scroll | `schema.INDEXED_AT_FIELD`, `store.newest` |
@@ -913,10 +913,11 @@ rest stands.
    filters in the agent's contract"), judged on Postgres; moving them into the
    query as `filters.project_facts` waits for that envelope, and for a copy
    whose freshness is checked rather than assumed.
-3. Deterministic `UUIDv5(document_version_id, ordinal)` point ids, once a
-   document version id reaches the ingest job: today a point id is the
-   chunker's random node id, which keeps retire-after-insert simple and the
-   migrated ids valid.
+3. ~~Deterministic point ids.~~ Done (2026-11-03): a chunk id is `uuid5` of the
+   collection, the document id, the file's content hash, the ordinal and the
+   text hash (`chunk_identity.chunk_id`); the payload's `chunk_id` names it and
+   the point id is the same UUID. Points written before keep their random ids
+   until their file is read again.
 4. A sweep for documents the vector store lost: a `documents` row whose
    collection holds no point for it after a peer was lost inside the
    re-sync window or restored from an older snapshot. `reconcile-vectors`

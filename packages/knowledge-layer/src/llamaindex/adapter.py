@@ -3840,11 +3840,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             _read_human_set_fields(collection_name, found)
         return found
 
-    def _retire_previous_version(self, collection_name: str, file_name: str, previous: _PreviousVersion | None) -> None:
+    def _retire_previous_version(
+        self, collection_name: str, file_name: str, previous: _PreviousVersion | None, written: list[str] | None = None
+    ) -> None:
         """Delete a replaced version once its successor is in the vector store.
 
         By the chunk ids collected before the job, never by name: the new
-        version carries the same ``file_name`` and would go with it. For the
+        version carries the same ``file_name`` and would go with it. Chunk ids
+        are deterministic (``chunk_identity``), so a re-read of the same bytes
+        wrote some of those ids again: ``written`` is left out. For the
         same reason the metadata row is dropped only under a stored spelling
         OTHER than ``file_name``: the row under ``file_name`` is the new
         version's row, and keeping it is what keeps the Dokumentart, title and
@@ -3852,10 +3856,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         """
         if previous is None or not previous.chunk_ids:
             return
+        from .chunk_identity import ids_only_in
+
         try:
             from agent.knowledge import unregister_summary
 
-            self._store().delete_chunks(collection_name, previous.chunk_ids)
+            self._store().delete_chunks(collection_name, ids_only_in(previous.chunk_ids, written))
             bump_collection_version(collection_name)
             for stored in previous.stored_names:
                 if stored != file_name:
@@ -3913,17 +3919,24 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 exc_info=True,
             )
 
-    def _discard_partial_version(self, collection_name: str, file_name: str, attempted: list[str] | None) -> None:
+    def _discard_partial_version(
+        self, collection_name: str, file_name: str, attempted: list[str] | None, kept: _PreviousVersion | None = None
+    ) -> None:
         """Delete what a failed attempt wrote, and nothing it found there.
 
         A file can fail after some of its chunks are in (a write batch times
         out halfway through a long PDF). Those chunks carry the same
         ``file_name`` as the previous version the failure keeps, so left alone
         they sat beside it: part of a version nobody meant to publish,
-        retrieved with it. ``attempted`` is every chunk id this attempt sent:
-        fresh node ids, so none of them names a chunk of the previous version,
+        retrieved with it. ``attempted`` is every chunk id this attempt sent,
         and an id that never landed deletes nothing. None: nothing was sent.
+        The ids are deterministic (``chunk_identity``): one the kept version
+        also holds (``kept``, a re-read of the same bytes) is that version's
+        chunk, written over with the same text, and stays.
         """
+        from .chunk_identity import ids_only_in
+
+        attempted = ids_only_in(attempted or [], kept.chunk_ids if kept is not None else None)
         if not attempted:
             return
         try:
@@ -3940,40 +3953,25 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 "Could not discard the partial chunks of %s; they sit beside the kept version", file_name, exc_info=True
             )
 
-    def _embedded_records(self, documents: list[Any], *, chunk_size: int, chunk_overlap: int) -> list[Any]:
-        """``documents`` split into chunks and embedded: the records the store writes.
+    def _embedded_records(
+        self, documents: list[Any], *, chunk_size: int, chunk_overlap: int, version: Any = None
+    ) -> list[Any]:
+        """``documents`` split into chunks and embedded, through the embedding cache (``chunk_identity``).
 
-        The splitter is what ``VectorStoreIndex.from_documents`` ran under
-        ``Settings``: a ``SentenceSplitter`` at the job's chunk size and
-        overlap, built per job here instead of set on the process-wide
-        ``Settings`` two concurrent jobs shared. What is embedded is each
-        chunk's EMBED rendering (its metadata header, minus the keys
-        ``stamp_chunk_metadata`` excluded, then its text); what is stored is
-        the bare text. The model is passed explicitly, never read off a global.
-        ``documents`` are one file's, so a record's ``ordinal`` (its index in
-        the chunker's output) is its place in the file: what orders the chunks
-        of one page, whose node ids are random.
+        The model and its fingerprint are this ingestor's, never a global's. With
+        ``version`` (a ``ChunkVersion``) each record's id is deterministic.
         """
-        from llama_index.core.schema import MetadataMode
+        from .chunk_identity import embedded_records
+        from .embedding import EMBED_FINGERPRINT_KEY
 
-        from ..qdrant.payload import ChunkRecord
-
-        nodes = split_documents(documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        if not nodes:
-            return []
-        vectors = self._embed_model.get_text_embedding_batch(
-            [node.get_content(metadata_mode=MetadataMode.EMBED) for node in nodes], show_progress=False
+        return embedded_records(
+            documents,
+            self._embed_model,
+            fingerprint=self._embed_fingerprint_metadata()[EMBED_FINGERPRINT_KEY],
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            version=version,
         )
-        return [
-            ChunkRecord(
-                chunk_id=node.node_id,
-                text=node.get_content(metadata_mode=MetadataMode.NONE),
-                embedding=[float(value) for value in vector],
-                metadata=dict(node.metadata),
-                ordinal=ordinal,
-            )
-            for ordinal, (node, vector) in enumerate(zip(nodes, vectors, strict=True))
-        ]
 
     @staticmethod
     def _deleted_while_indexing(config: dict[str, Any], collection_name: str) -> bool:
@@ -4328,7 +4326,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         mode_str = "multimodal"
                     logger.info(f"Processing file {i + 1}/{len(file_paths)} (mode={mode_str})")
 
-                    # Update file status to ingesting
                     with self._lock:
                         if i < len(job.file_details):
                             job.file_details[i].status = FileStatus.INGESTING
@@ -4340,7 +4337,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # none. See `_thumbnail_after_screen`.
                     thumbnail_upload_url = config.get("thumbnail_upload_url")
 
-                    # Collect all documents for this file
                     all_documents = []
 
                     # 1. Extract text content. PDFs use pdfplumber directly because
@@ -4751,12 +4747,14 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         file_name=file_name,
                     )
 
-                    # Embedding is the expensive step; a run that lost its claim
-                    # stops before it.
+                    # Embedding is the expensive step; a run that lost its claim stops before it.
                     self._assert_still_owner(job_id)
+                    from .chunk_identity import chunk_version
+
+                    version = chunk_version(collection_name, config.get("document_id") or file_name, source_path)
                     with _stage(stages, "embedding"):
                         records = self._embedded_records(
-                            all_documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap
+                            all_documents, chunk_size=chunk_size, chunk_overlap=chunk_overlap, version=version
                         )
                     # The last moment a run that lost its claim can stop with
                     # nothing of this file written: the new owner indexes it.
@@ -4803,7 +4801,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # The new version is in the vector store: only now does the
                     # one it replaces go. A second file of the same normalized
                     # name later in this job finds THIS version as its previous.
-                    self._retire_previous_version(collection_name, file_name, previous)
+                    self._retire_previous_version(collection_name, file_name, previous, [r.chunk_id for r in records])
                     retired = True
 
                     # Searchable from here; what describes the file lands on its row now.
@@ -5060,7 +5058,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                 except Exception as e:
                     logger.exception(f"Error processing file {file_path}")
                     self._update_file_status(job, i, FileStatus.FAILED, error=str(e), exc=e)
-                    self._discard_partial_version(collection_name, file_name, attempted)
+                    self._discard_partial_version(collection_name, file_name, attempted, previous)
                 finally:
                     # Where this file's wall time went, in one line. Logged here,
                     # not on the success path, so a held or failed file shows the

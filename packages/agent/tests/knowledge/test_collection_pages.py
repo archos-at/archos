@@ -31,6 +31,8 @@ def _ingested_records(file_name: str, lines: list[str], page: str = "1"):
 
     ingestor = object.__new__(LlamaIndexIngestor)
     ingestor._embed_model = qt.FakeEmbedder()
+    # The embedding cache keys on the embedder's identity.
+    ingestor.embed_model_name, ingestor.embed_base_url = "fake/embedder", "http://embedder.test"
     documents = [
         Document(text=line, metadata={"file_name": file_name, "page_label": page, "content_type": "text"})
         for line in lines

@@ -16,8 +16,8 @@ so a set holding such a point is ordered here instead, from the ``page_label``
 the field is derived from.
 
 A reader of a whole document (the Fassung compare, the page reads) needs the
-order WITHIN a page too, which no server-side order gives: point ids are the
-chunker's random node ids. :func:`in_document_order` sorts by page, then by
+order WITHIN a page too, which no server-side order gives: point ids are
+hashes (``chunk_identity.chunk_id``), which order nothing. :func:`in_document_order` sorts by page, then by
 the section structure ``read_passage`` sorts by, then by ``chunk_ordinal``,
 the chunk's place in its file.
 """

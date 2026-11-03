@@ -354,8 +354,9 @@ the release's reading.
 
 A file that fails after some of its chunks were inserted (an embedding batch
 timing out halfway through a long PDF) takes those chunks back out:
-`_discard_partial_version` deletes exactly the ids this attempt sent to Qdrant.
-They are fresh node ids, so the kept version's chunks are never among them. Left in, they sat
+`_discard_partial_version` deletes the ids this attempt sent to Qdrant, minus
+any the kept version also holds: ids are deterministic (`chunk_identity.chunk_id`),
+so a re-read of the same bytes writes over the kept chunks with the same text. Left in, they sat
 beside the kept version as part of a version nobody published.
 
 The lock (`keyed_lock` in `agent/knowledge/leader_lock.py`) is held from

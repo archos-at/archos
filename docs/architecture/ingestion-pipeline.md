@@ -147,8 +147,8 @@ flowchart TB
   VI --> SUM[summary + tags + topics<br/>first and last chunk, 4000 chars<br/>started, not awaited]:::model
   VI --> DS[dossier: one strict call<br/>over a digest of every page<br/>started, not awaited]:::model
   VI --> CV[coverage: pages read and why not]:::cpu
-  VI --> EM[embed: 1024-token chunks<br/>batches of 64, not cached]:::model
-  EM --> WR[upsert into Qdrant<br/>then retire the previous version<br/>searchable from here]:::cpu
+  VI --> EM[embed: 1024-token chunks<br/>batches of 64, cached by embedder + text]:::model
+  EM --> WR[upsert into Qdrant, ids uuid5 of the chunk<br/>then retire the previous version<br/>searchable from here]:::cpu
   WR --> CO[collect summary, tags, topics, dossier<br/>ingest_enrichment]:::cpu
   SUM -.-> CO
   DS -.-> CO
@@ -189,6 +189,20 @@ needs the tags, follows them. The job's terminal status, and so the settle push,
 only once all of it is done, so the coverage and the status are unchanged. Measured with
 each enrichment call stubbed to 2 s on the offline test harness: the write landed
 3.7 s after the job started before, 0.9 s after; the job settled at the same 4.3 s.
+
+**A chunk's id is what it is** (`llamaindex/chunk_identity.py`). It is `uuid5` of
+the collection, the document (its id, else its name), the version (the file's
+content hash), the chunk's ordinal and the hash of its text, no longer the
+splitter's random node id. A retried write of the same version writes the same ids
+and overwrites instead of adding a second copy; retiring the previous version leaves
+out the ids the new write holds (a re-read of the same bytes lands on them), and
+discarding a failed attempt leaves out the ids the kept version holds, so both are
+idempotent. The chunk's embedding is cached on Dragonfly by the embedder's
+fingerprint (model and endpoint, the identity `check_identity` enforces) and the
+hash of the text it embeds, as float32, for `INGEST_EMBED_CACHE_TTL_SECONDS`
+(30 days): a retry or a re-read embeds only the chunks whose text changed. On the
+offline harness, two attempts of one 40-line PDF embedded 3 + 3 chunks and left
+6 distinct ids before, 3 + 0 and 3 ids after.
 
 What fails the file, and what only makes it poorer:
 
