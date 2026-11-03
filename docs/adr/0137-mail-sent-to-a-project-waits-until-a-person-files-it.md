@@ -92,7 +92,8 @@ card mechanics for the agent (proposals), decision scoring (Freigabe's scores).
 
 ### The guarantee
 
-No server path files received mail on its own. Every filed part references a
+*Replaced by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits):
+a verified writer's own mail is filed directly.* Until then: no server path files received mail on its own. Every filed part references a
 decision row made by a named person, either on that mail or as that person's
 standing, revocable decision to follow its conversation, which appends text
 only, only from verified senders whose thread headers are signed. The agent's
@@ -558,7 +559,8 @@ placement review and no document check.
 
 - Never: a followed conversation of 30 replies is 30 presses for text the
   person already decided belongs there.
-- Per sender: DKIM proves a domain, not a person, and a verified member's
+- Per sender (chosen by the amendment of 2026-11-03, with the replay closed by
+  requiring a signature that names the project address): DKIM proves a domain, not a person, and a verified member's
   replayed mail to a third party would file itself.
 - Per conversation under conditions (chosen): the person decided about this
   conversation; signed thread headers and no new domain keep a hijacked reply
@@ -583,3 +585,91 @@ placement review and no document check.
   (re-render old archive notes).
 - The architecture: [`inbound-mail.md`](../architecture/inbound-mail.md). The
   data: [`schema.md`](../database/schema.md#project-mail-migration-0193-adr-0137).
+
+## Amendment, 2026-11-03: verified project mail is filed directly; only unverified mail waits
+
+*Product owner.* This amendment replaces "The guarantee" above and reverses the
+rejected "Per sender" option of "Filing without a click". The rest of the
+record stands: the held mail is its own review object, a conversation is one
+document, the original is evidence, a person may follow a conversation.
+
+### The rule
+
+For each mail that reaches a project address, the receive job classifies the
+sender once, when the mail is held (`inbound_mails.sender_class`, migration
+0194), and the database refuses any filing the class does not allow:
+
+| Class | When | What happens |
+|---|---|---|
+| `verified_writer` | DKIM passes aligned with the From domain (DMARC alignment), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address (or the mail is that member's own Bcc copy), and no replay or date flag is set | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
+| `unverified_writer` | The From address is such a member, but the signature fails, is absent, or carries a replay or date flag | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
+| `office_member` | The From address is an office member without write rights on the project | Held for the project's writers |
+| `external` | The From address is outside the office | Held for the project's writers; discarded after 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`), with no restore window |
+
+Nobody outside the office ever hears from us: no bounce for a held mail, no
+auto-reply, no notice when it is filed, dismissed or expires. Office members
+hear about their own mail in the app (held, released, rejected, expired);
+the Postfach rows still carry the project's name, a count and a code, never a
+subject or sender text.
+
+The approval view shows the extracted text and the list of attachments, never
+the rendered HTML. Mail enters retrieval as data in the project lane of the
+`project` SourceKind, never as instructions; attachments go through the
+scanner (ADR-0150) and the upload path like any other file.
+
+### Why
+
+- **Forwarding already is the member's decision.** A colleague who forwards
+  the Behörde's letter to the project address has decided it belongs there.
+  Asking them again, in another tool, is the same decision twice.
+- **A click per mail makes the queue grow until nobody uses it.** 10 to 50
+  mails a day per project, each waiting for a press, is a second inbox; the
+  driver "review must not become a second inbox" above cannot hold with a
+  click per mail. A queue nobody empties files nothing, and mail then stays in
+  Outlook, which is the gap this record set out to close.
+- **The products offices compare us with do not have that step.** HubSpot
+  (logging by BCC or forward), Basecamp (forwarding to a project), Newforma
+  (project email filing) and GitHub (reply by mail) file a member's mail
+  without a review queue; they recognise the member by the From address or by
+  a secret reply address.
+- **The real risk is handled at retrieval.** A filed mail is the office's
+  content, read as data, cited as a source with its author and date, and never
+  followed as an instruction. Injected text in a mail is the same risk in a
+  filed PDF; the defence is the same, in the answer pipeline, not in a queue.
+
+### Where we stay stricter than they are
+
+- **DKIM/DMARC alignment, not the From header.** The competitors trust the
+  From address; we file directly only when the sender's domain signed the
+  mail and the full address is a named member with write rights. A forged
+  From of a real member is held, and only that member can release it.
+- **The rule is in the database.** A CHECK and a trigger (migration 0194)
+  tie a `via = 'sender'` decision to a `verified_writer` mail, its own
+  sender, a clean scan and an unflagged part; the class is written once, in
+  the step that holds the mail, and frozen afterwards. No application path
+  can file a stranger's mail without a person.
+- **The sender learns why.** A member whose mail waits sees, in the app, why
+  ("the signature did not match", "you have no write rights here"), not
+  silence.
+
+### What this gives up, stated plainly
+
+- DKIM proves a domain, not a person. Whoever can send as a member's address
+  inside the member's own mail domain gets mail filed as that member. That is
+  the same trust the office already places in its own mail system.
+- A forger now causes an in-app notice to the member they impersonated
+  ("Did you send this?"). That reverses "whoever forged a member's address
+  never reaches that member through us" in "Who hears what": the member is the
+  one person who can answer.
+- Write rights live in WorkOS, which the database cannot see; the class
+  records the app's check at receipt. A wrong class can only file as the
+  authenticated sender, whose upload is authorized again in their own session.
+
+### Confirmation, in addition to the above
+
+- `scripts/rls-test-db.sh`, the 0194 section: one assertion per class,
+  including a spoofed From of a real member, a replayed signed mail, a class
+  rewritten after hold, a `via = 'sender'` decision by someone else, and the
+  cross-tenant and runtime-role refusals.
+- `review-first.e2e.spec.ts`: a `verified_writer` mail ends as a document; a
+  spoofed one waits for its member.
