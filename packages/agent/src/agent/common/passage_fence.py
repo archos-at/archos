@@ -23,7 +23,9 @@ skips what lies inside a fence (:func:`unfenced`): a mail whose body spells
 ``--- Result 9 ---`` and ``Shelf: building_law`` stays one passage of its own
 hit. A header value is one line outside the fence, and a sender writes some of
 them (a mail's subject is its Verlauf's title, an attachment's name is a file
-name), so the renderer passes each through :func:`neutralise_tags` too.
+name), so the renderer passes each free-text value through
+:func:`neutralise_tags` too; a key a tool takes back (a path, a citation key)
+it leaves as it is, since a tag mid-line opens or closes nothing.
 
 The fence does not decide whether a passage is suspicious; the knowledge
 layer's injection question (``knowledge_layer.decisions``) still flags one on

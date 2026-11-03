@@ -1066,10 +1066,14 @@ every reader that splits the grammar skips them inside a fence
 (`passage_fence.unfenced`): the text parser (`citations/grounding_text.py`),
 `strip_trace_lanes`, the history's compaction and deep research's exclusion cut.
 Without that, a mail body spelling a second hit with `Shelf: building_law` was a
-hit on every replayed turn. A header value outside the fence (a mail's subject
-is its Verlauf's title, an attachment's name is a file name) has its tags
-escaped and a spelled `--- Result` made one dash (`grounding_block._line`), and
-a `Source:` title stops at 200 characters. Grep's `## Lines around the matches`
+hit on every replayed turn. A free-text header value outside the fence (a
+mail's subject is its Verlauf's title, a folder, a label) has its tags escaped
+and a spelled `--- Result` made one dash (`grounding_block._line`), and a
+`Source:` title stops at 200 characters. A key another tool takes back
+(`Path:` for `read_file`, `Citation:` for the registry, the codes, the
+project id) is only made one line (`grounding_block._key`), so it round-trips;
+it cannot act as grammar mid-line, since every reader anchors the tags and the
+delimiter at the start of a line. Grep's `## Lines around the matches`
 index prints documents' own lines, so it is fenced too.
 
 The hit is now a record and the text is its rendering.
