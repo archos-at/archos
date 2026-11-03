@@ -822,6 +822,9 @@ class RunningTurn:
     thread_reply: ThreadReply | None = None
     #: The socket's signed envelope as received, echoed by the thread's answer (echo, never sign).
     envelope: SignedEnvelope | None = None
+    #: The WorkOS user the BFF signed into the envelope. An internal (service-token) caller has no
+    #: verified subject of its own, so this is who the trace belongs to, not the caller's type.
+    envelope_user_id: str | None = None
     #: The answer row's write, which what follows the terminal waits for.
     persisting: asyncio.Task[Any] | None = None
     _followed: bool = field(default=False, init=False, repr=False)
@@ -1530,6 +1533,16 @@ async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any)
             await turn.publish(body)
 
 
+def trace_user_id(turn: RunningTurn, caller: Mapping[str, Any]) -> str | None:
+    """The user a turn's trace is filed under: the verified subject, else the envelope's user, else the caller type.
+
+    The BFF reaches the socket with a service token, so its caller has no
+    subject and the trace used to read ``internal`` for a customer's chat.
+    The envelope is signed, so its user is as verified as a subject.
+    """
+    return turn.asker_subject or turn.envelope_user_id or caller.get("type")
+
+
 async def _drive(
     turn: RunningTurn,
     request: UserMessage,
@@ -1569,7 +1582,7 @@ async def _drive(
         with pinned_trace(trace_id_for_message(turn.message_id)), user_context(caller), request_trace_tag_context(tags):
             async with session_manager.session(
                 # Never None: the agent runtime would then derive an id from the unverified headers.
-                user_id=turn.asker_subject or caller.get("type"),
+                user_id=trace_user_id(turn, caller),
                 user_message_id=request.message_id,
                 conversation_id=request.conversation_id,
                 http_connection=socket,
@@ -1705,6 +1718,7 @@ class ChatSocket:
         #: restricted folders a turn may draw on is asked per TURN by the agent
         #: (``agent.knowledge.restricted_use``), never fixed per socket.
         self.signed_org_id = envelope.organization_id if envelope is not None else None
+        self.signed_user_id = envelope.user_id if envelope is not None else None
         #: The envelope's bytes as received, for a write that acts as the asker (echo, never sign).
         self.signed = (
             SignedEnvelope(header=envelope.envelope_header, signature=envelope.envelope_signature)
@@ -1851,6 +1865,7 @@ class ChatSocket:
             headless=bool(self.caller.get("headless")),
             thread_reply=ThreadReply.requested_by(message),
             envelope=self.signed,
+            envelope_user_id=self.signed_user_id,
         )
         await wire.send(RunStartedBody(message_id=turn.message_id))
         if fence.refusal is not None:

@@ -646,6 +646,10 @@ export function installLangfuse(
                   ...sharedEnv,
                   { name: "PORT", value: String(PORT.langfuseWorker) },
                   { name: "HOSTNAME", value: "0.0.0.0" },
+                  // The PostHog export runs in the worker and builds each event's
+                  // `langfuse_url` from NEXTAUTH_URL; without it every link began
+                  // `undefined/`. The same public URL as the web tier.
+                  { name: "NEXTAUTH_URL", value: publicUrl },
                   // Migrations belong to ONE container. Both images ship them
                   // and both run them by default, so leaving this unset means
                   // web and worker race at every deploy — they contend on an

@@ -23,8 +23,13 @@ here. What is ours:
   nothing; the logging handler in ``posthog_exceptions`` captures them instead.
 * Presigned URLs are scrubbed from every event's text (``_scrub_event``): an
   exception message can embed one, and a PostHog event is retained off-cluster.
-* Every event carries the deployment's ``environment`` and the emitting
-  ``service`` as super properties, the same values the Langfuse traces carry.
+* Every event carries the deployment's ``environment``, the emitting
+  ``service`` and the deployed ``release`` (the commit, as Langfuse's release)
+  as super properties, the same values the Langfuse traces carry.
+* Every event has a stable distinct id and the office as the ``organization``
+  group (:func:`resolve_identity`): the acting user when the run knows one,
+  else ``organization:<id>``, else ``system``. The last two mint no person. A
+  random UUID per event made per-office funnels and retention impossible.
 * Frames under ``agent`` and ``agent_host`` are in-app, so error tracking
   groups an issue by our frame rather than by the library frame that raised.
 
@@ -85,11 +90,13 @@ def super_properties() -> dict[str, str]:
     """What every event of this process carries. Absent values are omitted.
 
     ``environment`` is ``APP_ENV`` exactly as Langfuse files the traces
-    (``trace_context``), and ``service`` is ``OTEL_SERVICE_NAME``, which tells
-    the chat tier from the workers.
+    (``trace_context``), ``service`` is ``OTEL_SERVICE_NAME``, which tells
+    the chat tier from the workers, and ``release`` is ``GIT_SHA``, the same
+    key the BFF and the browser send.
     """
     values = {
         "environment": trace_context.langfuse_environment(),
+        "release": trace_context.langfuse_release(),
         "service": os.environ.get("OTEL_SERVICE_NAME", "").strip() or None,
     }
     return {key: value for key, value in values.items() if value}
@@ -134,23 +141,62 @@ def get_client() -> Posthog | None:
         return _client
 
 
+SYSTEM_DISTINCT_ID = "system"
+ORGANIZATION_GROUP = "organization"
+
+
+def _context_identity() -> tuple[str | None, str | None]:
+    """``(user_id, organization_id)`` of the run this thread is in; ``(None, None)`` outside one."""
+    try:
+        from agent.project_context import get_organization_id_from_context
+        from agent.project_context import get_signed_request_context
+
+        envelope = get_signed_request_context()
+        return (envelope.user_id if envelope is not None else None), get_organization_id_from_context()
+    except Exception:  # noqa: BLE001 - no run context (a script, a timer) is not an error
+        return None, None
+
+
+def resolve_identity(
+    distinct_id: str | None, organization_id: str | None = None
+) -> tuple[str, dict[str, Any]]:
+    """Who an event belongs to: ``(distinct_id, extra properties)``.
+
+    The given id, else the run's signed user, else a stable id per office, else
+    ``system``. The last two are personless. The office, given or read from the
+    run, is the ``organization_id`` property and the ``organization`` group.
+    """
+    context_user, context_org = _context_identity()
+    organization_id = organization_id or context_org
+    properties: dict[str, Any] = {}
+    if organization_id:
+        properties["organization_id"] = organization_id
+        properties["$groups"] = {ORGANIZATION_GROUP: organization_id}
+    resolved = distinct_id or context_user
+    if resolved:
+        return resolved, properties
+    properties["$process_person_profile"] = False
+    return (f"{ORGANIZATION_GROUP}:{organization_id}" if organization_id else SYSTEM_DISTINCT_ID), properties
+
+
 def capture(
     event: str,
     *,
     distinct_id: str | None,
     properties: dict[str, Any] | None = None,
+    organization_id: str | None = None,
 ) -> bool:
     """Queue one event; whether the SDK admitted it. Never raises.
 
-    ``distinct_id`` ``None`` is a personless event: a job or a system step with
-    no user behind it must not mint a person. Tenancy travels as the
-    ``organization_id`` property, not as a PostHog group: group analytics is a
-    paid add-on, and ADR-0100 keeps to the free tier.
+    ``distinct_id`` ``None`` resolves through :func:`resolve_identity`: a job or
+    a system step with no user behind it is filed under its office's stable id
+    and mints no person.
     """
     client = get_client()
     if client is None:
         return False
-    return client.capture(event, distinct_id=distinct_id, properties=properties) is not None
+    resolved, extra = resolve_identity(distinct_id, organization_id)
+    return client.capture(event, distinct_id=resolved, properties={**extra, **(properties or {})}) is not None
 
 
 def capture_exception(
@@ -158,12 +204,21 @@ def capture_exception(
     *,
     distinct_id: str | None = None,
     properties: dict[str, Any] | None = None,
+    organization_id: str | None = None,
 ) -> bool:
-    """Queue one ``$exception`` event; whether the SDK admitted it. Never raises."""
+    """Queue one ``$exception`` event; whether the SDK admitted it. Never raises.
+
+    Filed like :func:`capture`: the run's user and office, else the office's
+    stable id, else ``system``, so an issue shows who and which office it hit.
+    """
     client = get_client()
     if client is None:
         return False
-    return client.capture_exception(exception, distinct_id=distinct_id, properties=properties) is not None
+    resolved, extra = resolve_identity(distinct_id, organization_id)
+    return (
+        client.capture_exception(exception, distinct_id=resolved, properties={**extra, **(properties or {})})
+        is not None
+    )
 
 
 def rate_limiter(burst: int, refill_seconds: float, clock: Callable[[], float] = time.monotonic) -> BucketedRateLimiter:

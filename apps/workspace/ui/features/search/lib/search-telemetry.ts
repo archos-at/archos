@@ -90,6 +90,9 @@ export function searchIssuedProperties(surface: SearchTelemetrySurface, issued: 
   const total = sections.reduce((sum, section) => sum + (section?.total ?? 0), 0)
   return {
     surface,
+    // A person typing in the app. Automated search goes through the agent door,
+    // which tags its own events `mcp` or `script` (`agent_operation_called`).
+    session_source: 'ui',
     scope: issued.response.scope.kind,
     has_text: text !== '',
     text_tokens: text === '' ? 0 : text.split(/\s+/).length,

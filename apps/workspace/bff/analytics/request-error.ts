@@ -58,7 +58,9 @@ import { isAuthzRefusal } from '@/lib/api/errors'
 import { isProjectClosedBody } from '@/lib/projects/project-status'
 
 import { isFrameworkControlFlow } from './control-flow-error'
-import { posthogServerSettings, serverSuperProperties } from './posthog-server'
+import { getTenantContext } from '@/lib/db/tenant-context'
+
+import { posthogServerSettings, organizationProperties, serverSuperProperties } from './posthog-server'
 import { scrubServerEvent } from './scrub-server-event'
 
 /** Events allowed per fingerprint per window. */
@@ -140,7 +142,15 @@ export const beforeCapture = (
   if (limiter.consumeRateLimit(fingerprintOf(capture))) return false
   // The package's client is not ours to `register` on, so the super
   // properties every other server event carries travel per event here.
-  return { source: 'bff-on-request-error', ...serverSuperProperties() }
+  // The visitor's cookie gives the package the person; the office is the
+  // tenant scope when the request had one (a render error usually did not).
+  const scope = getTenantContext()
+  const organizationId = scope?.kind === 'tenant' ? scope.organizationId : null
+  return {
+    source: 'bff-on-request-error',
+    ...serverSuperProperties(),
+    ...(organizationId ? organizationProperties(organizationId) : {}),
+  }
 }
 
 /** What `createOnRequestError` is built with; `null` while PostHog is off. */

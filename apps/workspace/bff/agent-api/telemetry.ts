@@ -74,6 +74,19 @@ function doorOf({ principal, door }: McpCallContext): CallDoor {
   return principal.actor === 'external_agent' ? 'mcp' : 'piloti'
 }
 
+/**
+ * Who is behind a call, to keep automation out of usage numbers: `ui` when
+ * Piloti works in a person's chat, `mcp` when an outside agent holds an OAuth
+ * client's token, `script` when an outside agent's token names no client (a
+ * bare token in a script).
+ */
+export type SessionSource = 'ui' | 'mcp' | 'script'
+
+export function sessionSourceOf({ principal }: Pick<McpCallContext, 'principal'>): SessionSource {
+  if (principal.actor === 'piloti') return 'ui'
+  return principal.clientId ? 'mcp' : 'script'
+}
+
 export function recordOperationCalled(
   ctx: McpCallContext,
   call: {
@@ -111,6 +124,7 @@ export function recordOperationCalled(
       operation: call.operation,
       domain: call.domain,
       door: doorOf(ctx),
+      session_source: sessionSourceOf(ctx),
       mode,
       decision: call.decision,
       ...(ctx.decisionSource ? { decision_source: ctx.decisionSource } : {}),
@@ -131,6 +145,7 @@ export function recordOperationMissing(ctx: McpCallContext, descriptionLength: n
       description_length: descriptionLength,
       category,
       door: doorOf(ctx),
+      session_source: sessionSourceOf(ctx),
       mode,
       client_id: principal.clientId,
     },

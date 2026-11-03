@@ -37,6 +37,8 @@ const sdk = vi.hoisted(() => ({
   register: vi.fn(),
   unregister: vi.fn(),
   setPersonProperties: vi.fn(),
+  group: vi.fn(),
+  resetGroups: vi.fn(),
   reset: vi.fn(),
   opt_out_capturing: vi.fn(),
   opt_in_capturing: vi.fn(),
@@ -84,6 +86,7 @@ describe('posthog analytics facade', () => {
       sessionReplay: false,
       replaySampleRate: 0,
       proxy: false,
+      release: '',
     })
   })
 })
@@ -358,7 +361,18 @@ describe('adoptServerIdentity', () => {
 
   test('is wired to init as the loaded callback only when the server knows the user', () => {
     expect(typeof buildPosthogInitOptions(enabledConfig, identity).loaded).toBe('function')
-    expect('loaded' in buildPosthogInitOptions(enabledConfig)).toBe(false)
+  })
+
+  test('registers the release at init, after the identity was adopted, and reads it from GIT_SHA', () => {
+    const loaded = buildPosthogInitOptions({ ...enabledConfig, release: 'abc1234' }, identity).loaded as (
+      client: unknown
+    ) => void
+    const sdkClient = { get_distinct_id: () => 'user_00', reset: vi.fn(), identify: vi.fn(), register: vi.fn() }
+    loaded(sdkClient)
+    expect(sdkClient.register).toHaveBeenCalledWith({ release: 'abc1234' })
+    expect(sdkClient.reset.mock.invocationCallOrder[0]).toBeLessThan(sdkClient.register.mock.invocationCallOrder[0]!)
+    expect(postHogConfigFromEnv({ GIT_SHA: 'abc1234' }).release).toBe('abc1234')
+    expect(postHogConfigFromEnv({ GIT_SHA: 'unknown' }).release).toBe('')
   })
 })
 
@@ -462,7 +476,7 @@ describe('posthog enabled path', () => {
     expect(sdk.identify.mock.calls).toEqual([['user_01']])
   })
 
-  test('context is registered as non-personal super properties, never a group', async () => {
+  test('context is registered as non-personal super properties and the office joins the organization group', async () => {
     const mod = await load()
     mod.registerPosthogContext({
       organizationId: 'org_01',
@@ -477,7 +491,7 @@ describe('posthog enabled path', () => {
       locale: 'de',
     })
     expect(sdk.unregister).not.toHaveBeenCalled()
-    expect('group' in sdk).toBe(false)
+    expect(sdk.group).toHaveBeenCalledWith('organization', 'org_01', { name: 'Planungsbüro Muster' })
     expect(JSON.stringify(sdk.register.mock.calls)).not.toMatch(/email/)
   })
 

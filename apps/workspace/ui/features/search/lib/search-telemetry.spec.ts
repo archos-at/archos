@@ -66,6 +66,7 @@ describe('search_issued', () => {
     const total = Object.values(SEARCH_FIXTURE_RESPONSE.sections).reduce((sum, section) => sum + (section?.total ?? 0), 0)
     expect(properties).toEqual({
       surface: 'page',
+      session_source: 'ui',
       scope: 'office',
       has_text: true,
       text_tokens: 3,

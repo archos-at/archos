@@ -46,6 +46,7 @@ def configured_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(posthog_client.PROJECT_TOKEN_ENV, "phc_test")
     monkeypatch.setenv("APP_ENV", "Staging")
     monkeypatch.setenv("OTEL_SERVICE_NAME", "grid-agent-worker")
+    monkeypatch.setenv("GIT_SHA", "abc1234")
 
 
 @pytest.fixture
@@ -97,7 +98,7 @@ def test_builds_one_client_with_the_promised_options(configured_env: None, fake_
         "disable_geoip": True,
         "enable_exception_autocapture": False,
         "before_send": posthog_client._scrub_event,
-        "super_properties": {"environment": "staging", "service": "grid-agent-worker"},
+        "super_properties": {"environment": "staging", "service": "grid-agent-worker", "release": "abc1234"},
         "in_app_modules": ["agent", "agent_host"],
     }
 
@@ -105,6 +106,7 @@ def test_builds_one_client_with_the_promised_options(configured_env: None, fake_
 def test_absent_super_properties_are_omitted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
+    monkeypatch.delenv("GIT_SHA", raising=False)
 
     assert posthog_client.super_properties() == {}
 
@@ -128,12 +130,43 @@ def test_a_system_event_mints_no_person(sent: list[dict[str, Any]]) -> None:
     assert properties == {"status": "ok"}, "the caller's dict must not be mutated"
 
 
+def test_a_system_event_with_an_office_gets_a_stable_id_and_the_group(sent: list[dict[str, Any]]) -> None:
+    posthog_client.capture("ingest_finished", distinct_id=None, organization_id="org_1")
+    posthog_client.capture("ingest_finished", distinct_id=None, organization_id="org_1")
+
+    assert sent[0]["distinct_id"] == sent[1]["distinct_id"] == "organization:org_1"
+    assert sent[0]["properties"]["organization_id"] == "org_1"
+    assert sent[0]["properties"]["$groups"] == {"organization": "org_1"}
+    assert sent[0]["properties"]["$process_person_profile"] is False
+
+
+def test_an_event_with_nobody_behind_it_shares_one_system_id(sent: list[dict[str, Any]]) -> None:
+    posthog_client.capture("x", distinct_id=None)
+
+    assert sent[0]["distinct_id"] == "system"
+
+
+def test_the_runs_user_and_office_are_read_from_the_context(
+    sent: list[dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(posthog_client, "_context_identity", lambda: ("user_9", "org_9"))
+
+    posthog_client.capture_exception(ValueError("x"))
+
+    event = sent[0]
+    assert event["distinct_id"] == "user_9"
+    assert event["properties"]["organization_id"] == "org_9"
+    assert event["properties"]["$groups"] == {"organization": "org_9"}
+    assert "$process_person_profile" not in event["properties"]
+
+
 def test_every_event_carries_the_super_properties_and_no_geoip(sent: list[dict[str, Any]]) -> None:
     posthog_client.capture("x", distinct_id="user_1")
 
     properties = sent[0]["properties"]
     assert properties["environment"] == "staging"
     assert properties["service"] == "grid-agent-worker"
+    assert properties["release"] == "abc1234"
     assert properties["$geoip_disable"] is True
 
 
@@ -144,7 +177,7 @@ def test_the_deploys_release_id_links_every_event(sent: list[dict[str, Any]], mo
     posthog_client.capture_exception(ValueError("x"))
 
     assert sent[0]["properties"]["$release_id"] == "0193f5a6-release"
-    assert "release" not in sent[0]["properties"]
+    assert sent[0]["properties"]["release"] == "abc1234"  # the commit, beside the PostHog release id
 
 
 def test_an_exception_without_a_user_mints_no_person_and_marks_our_frames(sent: list[dict[str, Any]]) -> None:

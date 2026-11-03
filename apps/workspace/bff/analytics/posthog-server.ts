@@ -126,14 +126,40 @@ export const getPosthogServer = (): PostHog | null => {
   return client
 }
 
+/** PostHog group type for an office; the browser and Python use the same one. */
+export const ORGANIZATION_GROUP = 'organization'
+/** The distinct id of an event no user stands behind and no office is known for. */
+export const SYSTEM_DISTINCT_ID = 'system'
+
+/** The office as a property and as the `organization` group. */
+export const organizationProperties = (organizationId: string): ServerProperties => ({
+  organization_id: organizationId,
+  $groups: { [ORGANIZATION_GROUP]: organizationId },
+})
+
+/**
+ * Who an event belongs to. The acting user when known; otherwise a stable id per
+ * office (so a system event still groups by office, not by a fresh random UUID),
+ * otherwise one shared system id. The latter two mint no person profile. The
+ * office also rides as the `organization` group.
+ */
+export const serverEventIdentity = (
+  distinctId: string | null | undefined,
+  organizationId: string | null | undefined,
+): { distinctId: string; properties: ServerProperties } => {
+  const properties: ServerProperties = organizationId ? organizationProperties(organizationId) : {}
+  if (distinctId) return { distinctId, properties }
+  properties.$process_person_profile = false
+  return { distinctId: organizationId ? `${ORGANIZATION_GROUP}:${organizationId}` : SYSTEM_DISTINCT_ID, properties }
+}
+
 export interface ServerCapture {
   event: ServerEvent
   /** The acting WorkOS user id. `null` sends a personless event (no person minted): a system action. */
   distinctId: string | null
   /**
    * The WorkOS organization the event happened in, sent as the
-   * `organization_id` property. A property rather than a PostHog group: group
-   * analytics is a paid add-on, and the browser registers the same property.
+   * `organization_id` property. Also sent as the `organization` group.
    */
   organizationId?: string | null
   properties?: ServerEventProperties
@@ -148,11 +174,10 @@ export interface ServerCapture {
 export const captureServer = ({ event, distinctId, organizationId, properties }: ServerCapture): boolean => {
   const posthog = getPosthogServer()
   if (!posthog) return false
-  const props: ServerProperties = { ...properties }
-  if (organizationId) props.organization_id = organizationId
+  const identity = serverEventIdentity(distinctId, organizationId)
+  const props: ServerProperties = { ...properties, ...identity.properties }
   try {
-    // No distinct id for a system action: posthog-node makes the event personless.
-    posthog.capture({ event, distinctId: distinctId ?? undefined, properties: props })
+    posthog.capture({ event, distinctId: identity.distinctId, properties: props })
     return true
   } catch (error) {
     console.debug('[posthog] could not queue event', event, error)
@@ -192,9 +217,13 @@ export const createPosthogBatch = (): PosthogBatch | null => {
   void posthog.register(serverSuperProperties())
   return {
     capture: ({ event, distinctId, organizationId, properties, timestamp }) => {
-      const props: ServerProperties = { ...properties }
-      if (organizationId) props.organization_id = organizationId
-      posthog.capture({ event, distinctId: distinctId ?? undefined, properties: props, timestamp })
+      const identity = serverEventIdentity(distinctId, organizationId)
+      posthog.capture({
+        event,
+        distinctId: identity.distinctId,
+        properties: { ...properties, ...identity.properties },
+        timestamp,
+      })
     },
     flush: () => posthog.flush(),
     close: async () => {
