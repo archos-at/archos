@@ -202,7 +202,7 @@ describe('InboundMailAddressTile', () => {
     const tile = await screen.findByTestId('inbound-mail-address-tile')
     expect(tile).toHaveTextContent('Put in Cc, it brings the replies')
     expect(tile).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
-    expect(screen.getByRole('link', { name: /Open project mail/ })).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files/mail`)
+    expect(screen.getByRole('link', { name: /Open Project mail/ })).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files/mail`)
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'overview' })
   })
