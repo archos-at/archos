@@ -12,7 +12,7 @@ import { objectName } from "../names";
  * evaluator (vmalert, Prometheus) is pointed at.
  *
  * The one rule is the one `pulumi up` cannot give: a Deployment with no
- * available replica. `bff-jobs`, `purger` and `skill-scheduler` sat in
+ * available replica. `bff-jobs`, `purger` and the since-retired `skill-scheduler` sat in
  * `CreateContainerConfigError` for eight days (`couldn't find key … in Secret`)
  * while the update that renamed the key went green, because Pulumi's await
  * ends with the rollout it started. `index-key-refs.spec.ts` stops that cause

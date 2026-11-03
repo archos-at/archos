@@ -6,6 +6,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from urllib.parse import unquote
@@ -17,6 +18,8 @@ from fastapi import Depends
 from fastapi import Header
 from fastapi import HTTPException
 
+from agent.common.connect_retry import CONNECT_RETRIES
+from agent.common.connect_retry import CONNECT_TIMEOUT_SECONDS
 from agent.knowledge.base import BaseIngestor
 
 from ..models.requests import IngestRequest
@@ -142,14 +145,13 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         # Who is waiting on it: the durable queue claims by it inside an
         # organisation, and the provider limiter ranks the job's model calls by it.
         "priority": request.priority,
+        # The original's size: a large file reads on the high-memory pool (`ingest_dispatch.original_bytes`).
+        "original_bytes": request.byte_size,
     }
-    if request.thumbnail_upload_url:
+    if thumbnail_url := request.thumbnail_upload_url:
         # Gated as an `ObjectStoreUrl` and rebuilt on the configured store's origin.
-        config["thumbnail_upload_url"] = object_store_request_url(
-            request.thumbnail_upload_url, field="thumbnail_upload_url"
-        )
-    # What a retried dispatch of this document and object is matched against
-    # (`BaseIngestor.find_live_job`).
+        config["thumbnail_upload_url"] = object_store_request_url(thumbnail_url, field="thumbnail_upload_url")
+    # What a retried dispatch of this document and object is matched against (`BaseIngestor.find_live_job`).
     if dispatch_key:
         config["dispatch_key"] = dispatch_key
     config.update(_filing_choice_config(request))
@@ -170,7 +172,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         config["project_facts"] = request.project_facts.facts.to_store()
         config["project_status"] = request.project_facts.status
     # The document's id, so the pipeline can ask the BFF for a PUT slot per
-    # raster it extracts (`knowledge_layer.llamaindex.image_store`). Without
+    # raster it extracts (`knowledge_layer.ingest.image_store`). Without
     # it the captions are indexed and the rasters discarded, which is what
     # every caller that sends no id (the OIB corpus sync) gets.
     if request.document_id:
@@ -179,7 +181,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     # every human document, which is what the parser expects
     # (agent.common.provenance.parse_agent_provenance).
     config.update(_provenance_config(request))
-    # The office's upload screening (`knowledge_layer.llamaindex.screening`),
+    # The office's upload screening (`knowledge_layer.ingest.screening`),
     # as plain data so it rides the durable queue's JSON payload unchanged.
     # An empty policy is no policy: the file's `screening` outcome stays null.
     if request.screening is not None and not request.screening.is_empty:
@@ -285,7 +287,7 @@ class DeferredObjectDownload:
     request and the job id is a false failure waiting to happen. The original
     (``file_ref``) and its PDF rendition (``extraction_ref``, ADR-0071) are
     each up to tens of megabytes, so the route gates both URLs and hands the
-    job this object instead of the bytes (``knowledge_layer.deferred_files``).
+    job this object instead of the bytes (``knowledge_layer.ingest.deferred_files``).
 
     The URL is a presigned GET, a bearer credential: it lives in a private slot
     and never in ``repr``, so a job config that is logged, printed or shown in
@@ -333,18 +335,7 @@ class DeferredObjectDownload:
         # The request goes to the configured store by construction: only the
         # object's path and its presigned query come from the URL handed in
         # (`object_store_request_url`), never its host.
-        request_url = object_store_request_url(self._url)
-        # The transport retries a refused or timed-out CONNECT only, with
-        # httpcore's backoff: a few seconds of object-store restart no longer
-        # fails every file in flight (PostHog Logs, "Download of the original
-        # failed: ConnectError", 2026-10-19 and -22). A request that reached the
-        # store is never repeated.
-        with httpx.Client(transport=httpx.HTTPTransport(retries=_DOWNLOAD_CONNECT_RETRIES)) as client:
-            response = client.get(
-                request_url,
-                follow_redirects=False,
-                timeout=httpx.Timeout(_DOWNLOAD_TIMEOUT_SECONDS, connect=_DOWNLOAD_CONNECT_TIMEOUT_SECONDS),
-            )
+        response = _get_original(object_store_request_url(self._url))
         response.raise_for_status()
         suffix = self._suffix or _infer_suffix(response.headers.get("content-type", ""), self._url)
         fd, path = tempfile.mkstemp(suffix=suffix)
@@ -362,12 +353,41 @@ class DeferredObjectDownload:
 #: Per phase (connect, each read), not for the whole body: a large original
 #: streams for as long as bytes keep arriving.
 _DOWNLOAD_TIMEOUT_SECONDS = 60.0
-#: Connect attempts after the first, backing off 0, 0.5, 1, 2, 4, 8 s: about
-#: 15 s in all, longer than the object-store outages PostHog Logs has shown.
-_DOWNLOAD_CONNECT_RETRIES = 6
+#: Connect attempts after the first (``agent.common.connect_retry``, the
+#: same policy every other BFF and store call of the worker uses).
+_DOWNLOAD_CONNECT_RETRIES = CONNECT_RETRIES
 #: Per connect attempt. The 60 s read timeout on every one of seven attempts
 #: would hold a worker for minutes against a store that drops SYNs.
-_DOWNLOAD_CONNECT_TIMEOUT_SECONDS = 5.0
+_DOWNLOAD_CONNECT_TIMEOUT_SECONDS = CONNECT_TIMEOUT_SECONDS
+#: Tries of a GET the store cut short mid-response (a reset, a truncated
+#: body). A GET repeats the same bytes; the file is lost if the last one fails.
+_DOWNLOAD_RESPONSE_ATTEMPTS = 3
+_RESPONSE_RETRY_PAUSE_SECONDS = 1.0
+
+
+def _get_original_once(url: str) -> httpx.Response:
+    with httpx.Client(transport=httpx.HTTPTransport(retries=_DOWNLOAD_CONNECT_RETRIES)) as client:
+        return client.get(
+            url,
+            follow_redirects=False,
+            timeout=httpx.Timeout(_DOWNLOAD_TIMEOUT_SECONDS, connect=_DOWNLOAD_CONNECT_TIMEOUT_SECONDS),
+        )
+
+
+def _get_original(url: str) -> httpx.Response:
+    """GET the object, again when the store cut the response short.
+
+    Connect failures are retried by the transport, before any byte is sent. A
+    reset mid-response (``RemoteProtocolError``, ``ReadError``; PostHog Logs,
+    2026-11-02 14:44 to 14:47, 118 failed downloads) reached the store, so the
+    retry is a second GET, which is safe for a presigned object and never a write.
+    """
+    for _ in range(_DOWNLOAD_RESPONSE_ATTEMPTS - 1):
+        try:
+            return _get_original_once(url)
+        except httpx.RemoteProtocolError, httpx.ReadError:
+            time.sleep(_RESPONSE_RETRY_PAUSE_SECONDS)
+    return _get_original_once(url)
 
 
 def _provenance_config(request: IngestRequest) -> dict[str, str]:

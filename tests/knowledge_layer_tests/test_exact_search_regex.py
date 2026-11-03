@@ -11,16 +11,17 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.browse import MAX_MATCH_CHUNKS
 from knowledge_layer.browse import MAX_SNIPPET_LINES
 from knowledge_layer.browse import group_matches
 from knowledge_layer.browse import match_snippets
 from knowledge_layer.browse import user_pattern
-from knowledge_layer.qdrant import retrieval
-from knowledge_layer.qdrant.retrieval import PatternTooCostly
-from knowledge_layer.qdrant.retrieval import user_literal_tokens
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.vector_store import PatternTooCostly
+from knowledge_layer.vector_store import retrieval
+from knowledge_layer.vector_store import user_literal_tokens
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -111,8 +112,8 @@ class _Store:
 @pytest.fixture
 def search_with(monkeypatch, scope):
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -287,7 +288,7 @@ class TestFolderPushdown:
         assert store.calls == []
 
     def test_tenancy_stays_anded_on_the_pushed_down_folder(self):
-        from knowledge_layer.qdrant.scope import scope_filter
+        from knowledge_layer.vector_store import scope_filter
 
         flt = scope_filter(["proj_1"], {"folder_ancestors": "plaene"})
         keys = [getattr(condition, "key", None) for condition in flt.must]
@@ -295,8 +296,8 @@ class TestFolderPushdown:
         assert len(flt.must) == 2
 
     def test_the_facet_runs_under_the_scope_filter_too(self):
-        from knowledge_layer.qdrant.schema import physical_for_scope
-        from knowledge_layer.qdrant.store import QdrantStore
+        from knowledge_layer.vector_store import QdrantStore
+        from knowledge_layer.vector_store import physical_for_scope
 
         client = MagicMock()
         client.facet.return_value = SimpleNamespace(hits=[SimpleNamespace(value="a.pdf", count=7)])
@@ -461,7 +462,7 @@ def _regex_examples(description: str) -> list[str]:
 
 class TestRegexExamplesPassTheirOwnAnchorRule:
     async def test_every_example_in_the_description_is_accepted_without_a_folder(self, search_with):
-        from knowledge_layer.browse import _has_literal_word
+        from knowledge_layer.browse.tool import _has_literal_word
         from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
         examples = _regex_examples(_KNOWLEDGE_SEARCH_DESCRIPTION)
@@ -559,11 +560,11 @@ class TestPageEndReachesTheHit:
         [({"page_end": "5"}, 4, 5), ({"page_end": "4"}, 4, None), ({}, 4, None), ({"page_end": "x"}, 4, None)],
     )
     def test_only_a_later_numeric_end_is_stated(self, metadata, page, expected):
-        from knowledge_layer.grounding_hits import _page_end
+        from knowledge_layer.search.grounding_hits import _page_end
 
         assert _page_end(SimpleNamespace(metadata=metadata), page) == expected
 
     def test_a_chunk_without_a_page_states_no_end(self):
-        from knowledge_layer.grounding_hits import _page_end
+        from knowledge_layer.search.grounding_hits import _page_end
 
         assert _page_end(SimpleNamespace(metadata={"page_end": "5"}), None) is None

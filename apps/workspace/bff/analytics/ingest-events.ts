@@ -4,9 +4,10 @@
  * The server is the only place that knows. The browser sees `document_uploaded`
  * when the bytes leave; whether the file then became searchable, failed or was
  * quarantined happens minutes later in the ingest job, and is learnt by whichever
- * read first reconciles the row (`reconcile-status.ts`). That read already knows
- * which rows IT moved (`moved`), so a row is announced once, by the read whose
- * write landed, exactly as it is settled once.
+ * reconcile first settles the row (`reconcile-status.ts`): the worker's push when
+ * the job ends, a read, or a sweep. That reconcile already knows which rows IT
+ * moved (`moved`), so a row is announced once, by the call whose write landed,
+ * exactly as it is settled once.
  *
  * Personless on purpose: the read that notices is often somebody else's page
  * load, so the actor is not the uploader, and attributing the outcome to the
@@ -17,14 +18,41 @@
  * property is a report about the column, not a write to it.
  *
  * What is sent: the outcome, the screening verdict, the counts the backend
- * reported, the file's extension and how long it took. Never the filename,
- * the summary or the error text, which can quote the document.
+ * reported, the file's extension, how long it took, the document's id, its
+ * upload batch, which attempt it was, the machine prefix of the failure message
+ * (`error_reason`), the stored failure class (`error_category`) and which path
+ * noticed (`settled_by`). Never the filename, the summary or the error text,
+ * which can quote the document.
+ *
+ * Where the worked time went, and how much was read: `text_s` … `write_s`, one
+ * number of seconds per stage the file reached (`INGEST_STAGES`), and the
+ * reading counts `pages_fully_read`, `pages_not_read`, `pages_over_render_cap`
+ * and `rasters_over_cap`, from the job's status (`ingest/measures.py`). The
+ * worker's `[ingest-perf]` line carries the same seconds at INFO, which never
+ * reaches PostHog.
+ *
+ * Three durations, on purpose. `duration_ms` is dispatch to the settle that
+ * noticed: what the uploader waited, the lag until somebody looked included.
+ * `queue_wait_ms` and `processing_ms` are the job's own clock, submitted to
+ * started and started to completed (`documents/ingest-timing.ts`): what the
+ * queue and the worker spent. The gap between `duration_ms` and their sum is
+ * the lag the settle push (`/api/internal/ingest/settled`) exists to remove.
  */
+import { INGEST_STAGES, type IngestReading, type IngestTiming } from '@/lib/documents/ingest-timing'
 import { captureServer, getPosthogServer } from './posthog-server'
+
+/**
+ * Which path settled the row: `push` (the worker's call to
+ * `/api/internal/ingest/settled` when the job ended), `read` (a read that
+ * reconciles in passing: a listing, a detail, a filing or placement step),
+ * `sweep` (the scheduler's sweeps, for the rows nobody reads). A parameter of
+ * every reconcile, so the share each path settles is measured, not guessed.
+ */
+export type SettledBy = 'push' | 'read' | 'sweep'
 
 export interface FinishedIngest {
   /** Our own row id, so an attempt can be joined to its document and to its retries. */
-  documentId?: string
+  documentId: string
   filename: string
   /** When the row was last written: the dispatch time for a row that was in flight. */
   updatedAt?: Date | string | null
@@ -44,9 +72,15 @@ export interface FinishedIngest {
   /** From the job's own clock: submitted to started, and started to completed. */
   queueWaitMs?: number | null
   processingMs?: number | null
+  /** Seconds per stage and the reading counts, from the job's status. */
+  stageSeconds?: IngestTiming['stageSeconds']
+  reading?: IngestReading
   /** The row's `error_message`; only its machine prefix (`interrupted`, `unreadable_job`) is ever sent. */
   errorMessage?: string | null
-  /** The backend's failure class (`transient`, `deterministic`, ...), when it gave one. */
+  /**
+   * The stored failure class (`IngestFailureCategory`: `transient`, `deterministic`, ...),
+   * a closed set, when the backend gave one. Sent as `error_category`, for a `failed` row only.
+   */
   failureCategory?: string | null
   retryable?: boolean | null
 }
@@ -59,7 +93,7 @@ export const finishedIngestOf = (
     errorMessage: string | null
     screeningOutcome?: string
     failure?: { category: string | null; retryable: boolean | null }
-    timing?: { queueWaitMs?: number | null; processingMs?: number | null }
+    timing?: Partial<IngestTiming>
   },
   meta?: { pageCount?: number; chunkCount?: number }
 ): FinishedIngest => ({
@@ -75,7 +109,18 @@ export const finishedIngestOf = (
   retryable: resolution.failure?.retryable,
   queueWaitMs: resolution.timing?.queueWaitMs,
   processingMs: resolution.timing?.processingMs,
+  stageSeconds: resolution.timing?.stageSeconds,
+  reading: resolution.timing?.reading,
 })
+
+/** `text_s` … `write_s`: one property per stage the file reached, flat like `processing_ms`. */
+const stageProperties = (stageSeconds: IngestTiming['stageSeconds']): Record<string, number> =>
+  Object.fromEntries(
+    INGEST_STAGES.flatMap((stage) => {
+      const seconds = stageSeconds?.[stage]
+      return seconds === undefined ? [] : [[`${stage}_s`, seconds]]
+    })
+  )
 
 const REASON = /^([a-z][a-z0-9_]{1,40}):/
 
@@ -176,7 +221,12 @@ export function announceIngestStarted(
 }
 
 /** Queue one event per finished row. Fire-and-forget: `captureServer` never throws. */
-export function announceIngestsFinished(organizationId: string, finished: FinishedIngest[], now = Date.now()): void {
+export function announceIngestsFinished(
+  organizationId: string,
+  finished: FinishedIngest[],
+  settledBy: SettledBy,
+  now = Date.now()
+): void {
   for (const ingest of finished) {
     captureServer({
       event: 'document_ingest_finished',
@@ -189,16 +239,23 @@ export function announceIngestsFinished(organizationId: string, finished: Finish
         status: ingest.status,
         screening: ingest.screening ?? SCREENING_NOT_RUN,
         error_reason: errorReasonOf(ingest.errorMessage),
-        error_category: ingest.failureCategory ?? undefined,
+        error_category: ingest.status === 'failed' ? (ingest.failureCategory ?? undefined) : undefined,
         retryable: ingest.retryable ?? undefined,
         file_type: fileTypeOf(ingest.filename),
-        page_count: ingest.pageCount,
+        // A failed file has no listing to count its pages from; the job's coverage still does.
+        page_count: ingest.pageCount ?? ingest.reading?.pages,
         chunk_count: ingest.chunkCount,
         // Dispatch to the read that noticed: includes every poll gap, and days
         // when nothing read the row. The two below are the job's own clock.
         duration_ms: durationSince(ingest.updatedAt, now),
         queue_wait_ms: ingest.queueWaitMs ?? undefined,
         processing_ms: ingest.processingMs ?? undefined,
+        ...stageProperties(ingest.stageSeconds),
+        pages_fully_read: ingest.reading?.pagesFullyRead,
+        pages_not_read: ingest.reading?.pagesNotRead,
+        pages_over_render_cap: ingest.reading?.pagesOverRenderCap,
+        rasters_over_cap: ingest.reading?.rastersOverCap,
+        settled_by: settledBy,
       },
     })
     if (ingest.status === 'failed') captureIngestFailure(organizationId, ingest, now)

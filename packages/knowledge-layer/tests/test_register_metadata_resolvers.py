@@ -11,7 +11,7 @@ import logging
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer import hit_metadata
+from knowledge_layer.search import hit_metadata
 
 
 def _chunk(collection: str = "proj_1", file_name: str = "plan.pdf") -> SimpleNamespace:

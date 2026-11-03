@@ -3,6 +3,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { loadConfig } from '../config'
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
+import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 
 /**
  * The Langfuse tier (ADR-0044).
@@ -138,8 +140,19 @@ describe("with the Langfuse tier enabled", () => {
   });
 
   describe("collector fan-out", () => {
-    it("gives the traces pipeline to Langfuse alone", () => {
-      expect(parseCollectorConfig(collectorConfig).service.pipelines.traces).toEqual(pipeline(["otlp_http/langfuse"]));
+    it("gives the traces pipeline to Langfuse alone, without the BFF's request spans", () => {
+      const { processors, service } = parseCollectorConfig(collectorConfig);
+      expect(service.pipelines.traces).toEqual(
+        pipeline(["otlp_http/langfuse"], { processors: ["filter/drop_app_spans"] }),
+      );
+      // One trace per HTTP request is what flooded Langfuse (ADR-0029 Amendment 5).
+      expect(processors["filter/drop_app_spans"]).toEqual({
+        error_mode: "ignore",
+        // Exactly the names the Next tiers are given as OTEL_SERVICE_NAME.
+        trace_conditions: [
+          `resource.attributes["service.name"] == "${BFF_SERVICE_NAME}" or resource.attributes["service.name"] == "${BFF_JOBS_SERVICE_NAME}"`,
+        ],
+      });
     });
 
     it("sends it no logs and no metrics", () => {
@@ -265,6 +278,23 @@ describe("with the Langfuse tier enabled", () => {
       expect(spec.progressDeadlineSeconds).toBeGreaterThan(
         probeBudget + spec.minReadySeconds,
       );
+    });
+  });
+
+  describe("images", () => {
+    // Digests are opaque, so this cannot prove web and worker are one Langfuse
+    // version; it proves each Deployment runs the default it is meant to.
+    it.each([
+      ["langfuse-web", "webImage"],
+      ["langfuse-worker", "workerImage"],
+    ] as const)("runs %s on its pinned %s", async (name, key) => {
+      const spec = (await resolve(
+        find("kubernetes:apps/v1:Deployment", name).inputs.spec,
+      )) as any;
+      const images = spec.template.spec.containers.map((c: { image: string }) => c.image);
+
+      expect(images).toContain(loadConfig().langfuse[key]);
+      expect(loadConfig().langfuse[key]).toMatch(/^ghcr\.io\/langfuse\/langfuse(-worker)?@sha256:[0-9a-f]{64}$/);
     });
   });
 
@@ -438,7 +468,7 @@ describe("with the Langfuse tier enabled", () => {
       expect(has("kubernetes:networking.k8s.io/v1:NetworkPolicy", "allow-edge-to-langfuse")).toBe(true);
     });
 
-    it("names the purger and the scheduler as the only API callers, on the web port", async () => {
+    it("names the purger and bff-jobs as the only API callers, on the web port", async () => {
       const spec = (await resolve(
         find("kubernetes:networking.k8s.io/v1:NetworkPolicy", "allow-workers-to-langfuse").inputs.spec,
       )) as any;
@@ -446,7 +476,7 @@ describe("with the Langfuse tier enabled", () => {
       expect(spec.podSelector.matchLabels["app.kubernetes.io/name"]).toBe("langfuse-web");
       expect(
         (spec.ingress[0].from as any[]).map((f) => f.podSelector.matchLabels["app.kubernetes.io/name"]).sort(),
-      ).toEqual(["purger", "skill-scheduler"]);
+      ).toEqual(["bff-jobs", "purger"]);
       expect(spec.ingress[0].ports).toEqual([{ protocol: "TCP", port: 3000 }]);
     });
   });

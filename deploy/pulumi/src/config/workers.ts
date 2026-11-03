@@ -1,10 +1,9 @@
 /**
- * The background workers and their limits: ingest, BFF jobs, KEDA, the provider ceilings, Gotenberg and the geocoder.
+ * The background workers and their limits: ingest, BFF jobs, KEDA, the provider ceilings and Gotenberg.
  */
 import * as pulumi from "@pulumi/pulumi";
-import { GEOCODER } from "../constants";
-import { GOTENBERG_SLOTS_PER_REPLICA, bffJobsMode } from "../rendition-sizing";
-import { bool, num, positiveInt } from "./readers";
+import { GOTENBERG_SLOTS_PER_REPLICA } from "../rendition-sizing";
+import { bool, num } from "./readers";
 import type { ResourceSpec } from "./resources";
 
 export interface GotenbergConfig {
@@ -27,39 +26,16 @@ export interface GotenbergConfig {
   replicas: number;
 }
 
-export interface GeocoderConfig {
-  /**
-   * OFF by default: prepared, switched on per stack (`geocoderEnabled`).
-   * The first start downloads about 1 GB from download1.graphhopper.com and
-   * the jar from GitHub, so the cluster needs egress to both.
-   */
-  enabled: boolean;
-  /** The Java runtime Photon runs on (Java 21+, Photon 1.x). Digest-pinned. */
-  image: string;
-  /** The init container that fetches and verifies the jar and the index (busybox wget, tar, bunzip2). Digest-pinned. */
-  fetchImage: string;
-  /** The Photon 1.x index tarball; its checksum is read from `<url>.md5`. */
-  indexUrl: string;
-  /** The index volume. The index takes about 2 GB; a refresh holds the old and the new one side by side, plus the tarball. */
-  storageSize: string;
-  /**
-   * At pod start, an index older than this is fetched again (old one kept
-   * when the fetch fails). Nothing restarts the pod on a clock: a refresh
-   * happens at the next restart past this age.
-   */
-  indexMaxAgeDays: number;
-}
-
 export interface IngestWorkerConfig {
   resources: ResourceSpec;
   /** Floor; 0 lets the tier scale to nothing while no job waits. */
   minReplicas: number;
   /**
    * Ceiling. The real ceiling is the model provider's rate limit on the
-   * shared key: replicas × concurrency × `VLM_BATCH_WORKERS` is the
-   * peak number of VLM calls in flight, and `assertVlmPeakFitsCeiling` fails
-   * the deploy when that is more than twice `vlmFleetConcurrency`, which is
-   * itself held to the provider ceilings.
+   * shared key, which the fleet's lease pool (`vlmFleetConcurrency`) holds:
+   * `assertVlmPeakFitsCeiling` fails the deploy when replicas × concurrency
+   * (documents read at once) is more than that pool, which is itself held to
+   * the provider ceilings.
    */
   maxReplicas: number;
   /** Jobs one replica runs at once (`INGEST_MAX_WORKERS`); also KEDA's jobs-per-replica target. */
@@ -79,12 +55,50 @@ export interface IngestWorkerConfig {
    * embedded raster.
    */
   maxImagePixels: number;
+  /** The high-memory pool (`ingest-worker-heavy`) that runs `ingest-document-heavy`. */
+  heavy: IngestHeavyConfig;
+}
+
+/**
+ * The high-memory ingest pool: a file of `fileBytes` or more (the original's
+ * size, which the BFF states) runs on it, one at a time per pod, with the whole
+ * pod's memory (the `index` step's `slot_cost` is the pod's slots).
+ */
+export interface IngestHeavyConfig {
+  /** Off: no pool, and `INGEST_HEAVY_FILE_BYTES` is 0 on the dispatching tiers, so every file runs standard. */
+  enabled: boolean;
+  resources: ResourceSpec;
+  /** Floor; 0 (the default) lets the pool scale to nothing while no heavy file waits. */
+  minReplicas: number;
+  maxReplicas: number;
+  /** Heavy files one pod runs at once (`INGEST_HEAVY_WORKER_SLOTS`), and KEDA's target. */
+  concurrency: number;
+  /** `INGEST_HEAVY_FILE_BYTES`: the size from which a file runs here. */
+  fileBytes: number;
+}
+
+/**
+ * Ingest jobs the two pools run at once at their ceilings: what each holds of
+ * the vision pool (`vlm-ceiling.ts`) and of Postgres's session locks
+ * (`pg-connection-budget.ts`). The heavy pool counts only when it exists.
+ */
+export function ingestJobsAtCeiling(ingest: IngestWorkerConfig): number {
+  const heavy = ingest.heavy?.enabled ? ingest.heavy.maxReplicas * ingest.heavy.concurrency : 0;
+  return ingest.maxReplicas * ingest.concurrency + heavy;
+}
+
+/**
+ * `INGEST_HEAVY_FILE_BYTES` for the dispatching tiers: from this size on a file runs
+ * on the high-memory pool, and 0 while the stack has none, so nothing waits for a
+ * worker that is not there.
+ */
+export function heavyFileBytesEnv(ingest: IngestWorkerConfig): number {
+  return ingest.heavy.enabled ? ingest.heavy.fileBytes : 0;
 }
 
 export interface BffJobsConfig {
-  enabled: boolean;
   resources: ResourceSpec;
-  /** Floor; 0 lets the pool scale to nothing while no job waits. */
+  /** Floor, at least 1: the pool runs the scheduling crons (`assertBffJobsRunsSchedules`). */
   minReplicas: number;
   maxReplicas: number;
   /** Jobs one replica runs at once (`BFF_JOBS_CONCURRENCY`); also KEDA's jobs-per-replica target. */
@@ -93,13 +107,6 @@ export interface BffJobsConfig {
   drainSeconds: number;
   /** Most jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless). */
   maxPerOrg: number;
-  /**
-   * Where a slice runs (`BFF_JOBS_MODE`): `http`, in a `node server.js`
-   * the pod spawns, or `inprocess`, in the supervisor from the bundled
-   * services (`dist-jobs/slice.mjs`, ADR-0079 amendment 1). `http` until the
-   * in-process host has run in every environment.
-   */
-  mode: "http" | "inprocess";
   /**
    * Office conversions ONE pod runs at Gotenberg at once (`GOTENBERG_MAX_
    * CONCURRENCY` in the pod). The fleet's ceiling is this times `maxReplicas`
@@ -115,17 +122,38 @@ export interface KedaConfig { install: boolean }
 export interface ProviderLimitsConfig {
   /** `VLM_FLEET_CONCURRENCY`: vision calls in flight across every ingest process at once. */
   vlmFleetConcurrency: number;
-  /** `VLM_BATCH_WORKERS`: vision calls one file runs at once. */
-  vlmBatchWorkers: number;
+  /**
+   * `INGEST_PAGE_READ_PARALLELISM`: threads one file's page reads (OCR and vision
+   * together) share. Bounds a file's threads and memory; the fleet pool caps the calls.
+   */
+  pageReadParallelism: number;
   /** `PROVIDER_LIMIT_CEILING`: model calls in flight fleet-wide, all models together. */
   limitCeiling: number;
   /** `PROVIDER_MODEL_LIMIT_CEILING`: model calls in flight fleet-wide to one model. */
   modelLimitCeiling: number;
 }
 
+/**
+ * The `bff-jobs` pool is the only Hatchet worker that registers the scheduling
+ * tasks (`apps/workspace/bff/scheduling/tasks.ts`): every scheduled automation's
+ * fire and every maintenance sweep's cron. KEDA scales the pool on the `bff-job`
+ * backlog alone, which a cron never adds to, so a floor of zero (or no pool)
+ * leaves nothing to fire or prune, and the plan stays green.
+ */
+export function assertBffJobsRunsSchedules(enabled: boolean, minReplicas: number): void {
+  const why =
+    "the bff-jobs pool is the only worker of the scheduled automations and the maintenance sweeps " +
+    "(Hatchet crons, apps/workspace/bff/scheduling/tasks.ts), and KEDA scales it on the bff-job backlog only, " +
+    "so without a running replica nothing fires or prunes.";
+  if (!enabled) throw new Error(`bffJobsEnabled=false is refused: ${why}`);
+  if (minReplicas < 1) throw new Error(`bffJobsMinReplicas must be at least 1, not ${minReplicas}: ${why}`);
+}
+
 export function loadWorkers(
   cfg: pulumi.Config,
-): { gotenberg: GotenbergConfig; geocoder: GeocoderConfig; ingestWorker: IngestWorkerConfig; bffJobs: BffJobsConfig; keda: KedaConfig; providerLimits: ProviderLimitsConfig } {
+): { gotenberg: GotenbergConfig; ingestWorker: IngestWorkerConfig; bffJobs: BffJobsConfig; keda: KedaConfig; providerLimits: ProviderLimitsConfig } {
+  const bffJobsMinReplicas = num(cfg, "bffJobsMinReplicas", 1);
+  assertBffJobsRunsSchedules(cfg.getBoolean("bffJobsEnabled") !== false, bffJobsMinReplicas);
   return {
     gotenberg: {
       enabled: bool(cfg, "gotenbergEnabled", true),
@@ -148,26 +176,6 @@ export function loadWorkers(
         ),
       ),
     },
-    geocoder: {
-      enabled: bool(cfg, "geocoderEnabled", false),
-      // Both official images, pinned by digest: there is no upstream Photon
-      // image, and this pod sees every address a person types (ADR-0120).
-      // Temurin 21.0.12.1+1 on Ubuntu 24.04, the multi-arch index Docker Hub's
-      // `21.0.12.1_1-jre-noble` tag resolved to on 2026-10-22. Moved off
-      // 21.0.12_8 because its OpenSSL (libssl3t64 3.0.13-0ubuntu3.15) carried
-      // CVE-2026-84782; this one carries 0ubuntu3.16, read from its dpkg
-      // database by a local trivy scan, with the same entrypoint, JAVA_HOME and
-      // PATH, and still no fixed user.
-      image:
-        cfg.get("geocoderImage") ??
-        "eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c",
-      fetchImage:
-        cfg.get("geocoderFetchImage") ??
-        "alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
-      indexUrl: cfg.get("geocoderIndexUrl") ?? GEOCODER.defaultIndexUrl,
-      storageSize: cfg.get("geocoderStorageSize") ?? "10Gi",
-      indexMaxAgeDays: positiveInt(cfg, "geocoderIndexMaxAgeDays", 30),
-    },
     ingestWorker: {
       // The memory request is what a worker measurably holds while it parses
       // (4 to 6 GB on prod, 2026-10), not its idle floor. At the old 1536Mi the
@@ -182,8 +190,8 @@ export function loadWorkers(
         limitsMemory: cfg.get("ingestWorkerLimitsMemory") ?? "6Gi",
       },
       minReplicas: Math.max(0, num(cfg, "ingestWorkerMinReplicas", 1)),
-      // 5 x 3 x `VLM_BATCH_WORKERS` (4) = 60, within 2 x the vision pool (32): the
-      // most the default budget can feed (`assertVlmPeakFitsCeiling`).
+      // 5 x 3 = 15 documents at once, within the vision pool (32): every one can
+      // hold a slot (`assertVlmPeakFitsCeiling`).
       maxReplicas: Math.max(1, num(cfg, "ingestWorkerMaxReplicas", 5)),
       concurrency: Math.max(1, num(cfg, "ingestWorkerConcurrency", 3)),
       drainSeconds: Math.max(30, num(cfg, "ingestWorkerDrainSeconds", 600)),
@@ -192,9 +200,28 @@ export function loadWorkers(
       // 256 MP). 268_435_456 is adapter.py's own default: 256 MP admits an A0
       // sheet at 400 dpi and refuses a 20000x20000 px pavement.
       maxImagePixels: Math.max(0, num(cfg, "ingestWorkerMaxImagePixels", 268_435_456)),
+      // The high-memory pool. 12Gi a pod, request equal to limit like the
+      // standard pool: twice a standard pod, for ONE file where that one holds
+      // two in 6Gi. Two 26-29 MB plan sets crossed 12 GiB before the text pass
+      // held one page (ingest-memory-runbook.md); 12Gi is that high-water mark.
+      heavy: {
+        enabled: bool(cfg, "ingestWorkerHeavyEnabled", true),
+        resources: {
+          requestsCpu: cfg.get("ingestWorkerHeavyRequestsCpu") ?? "1",
+          requestsMemory: cfg.get("ingestWorkerHeavyRequestsMemory") ?? "12Gi",
+          limitsCpu: cfg.get("ingestWorkerHeavyLimitsCpu") ?? "2",
+          limitsMemory: cfg.get("ingestWorkerHeavyLimitsMemory") ?? "12Gi",
+        },
+        minReplicas: Math.max(0, num(cfg, "ingestWorkerHeavyMinReplicas", 0)),
+        maxReplicas: Math.max(1, num(cfg, "ingestWorkerHeavyMaxReplicas", 1)),
+        concurrency: Math.max(1, num(cfg, "ingestWorkerHeavyConcurrency", 1)),
+        // 40 MiB: above the largest files measured on the standard pool (the
+        // 26-29 MB plan sets), below the 100 MB upload cap. The reasoning is in
+        // docs/deployment/environment-variables.md, `INGEST_HEAVY_FILE_BYTES`.
+        fileBytes: Math.max(1, num(cfg, "ingestHeavyFileBytes", 41_943_040)),
+      },
     },
     bffJobs: {
-      enabled: cfg.getBoolean("bffJobsEnabled") !== false,
       // A reindex or a rescan only pages and POSTs, but an IFC model is parsed
       // here too (`bim_extract`): several times its own size in memory, up to
       // `maxIfcBytes`, with `bffJobsConcurrency` of them at once. So the limit
@@ -205,12 +232,11 @@ export function loadWorkers(
         limitsCpu: cfg.get("bffJobsLimitsCpu") ?? "1",
         limitsMemory: cfg.get("bffJobsLimitsMemory") ?? "2Gi",
       },
-      minReplicas: Math.max(0, num(cfg, "bffJobsMinReplicas", 1)),
+      minReplicas: bffJobsMinReplicas,
       maxReplicas: Math.max(1, num(cfg, "bffJobsMaxReplicas", 4)),
       concurrency: Math.max(1, num(cfg, "bffJobsConcurrency", 2)),
       drainSeconds: Math.max(15, num(cfg, "bffJobsDrainSeconds", 60)),
       maxPerOrg: Math.max(0, num(cfg, "bffJobsMaxPerOrg", 0)),
-      mode: bffJobsMode(cfg.get("bffJobsMode")),
       // One: LibreOffice converts one document at a time, and the second slot
       // Gotenberg is sized for is the next job waiting behind it. A pod running
       // two jobs at once still converts one file at a time.
@@ -222,7 +248,7 @@ export function loadWorkers(
     // default, is where the fleet's budget is read and changed.
     providerLimits: {
       vlmFleetConcurrency: Math.max(0, num(cfg, "vlmFleetConcurrency", 32)),
-      vlmBatchWorkers: Math.max(1, num(cfg, "vlmBatchWorkers", 4)),
+      pageReadParallelism: Math.max(1, num(cfg, "ingestPageReadParallelism", 16)),
       limitCeiling: Math.max(1, num(cfg, "providerLimitCeiling", 128)),
       modelLimitCeiling: Math.max(1, num(cfg, "providerModelLimitCeiling", 32)),
     },

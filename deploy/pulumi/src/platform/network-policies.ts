@@ -3,9 +3,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { backendAutoscaled } from '../config/chat-tier'
 import { CLAMAV } from "../clamav-constants";
-import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GEOCODER, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
+import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
-import { CLUSTER_NAME as POSTGRES_CLUSTER } from "../data/postgres";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 
 /**
@@ -39,6 +38,7 @@ export const QDRANT_CALLERS = [
   ...API_TIERS,
   "agent-worker",
   "ingest-worker",
+  "ingest-worker-heavy",
   QDRANT.snapshotJob,
   CHROMA_MIGRATION.name,
   QDRANT.opsLabel,
@@ -55,9 +55,10 @@ export const QDRANT_CALLERS = [
  *     agent calls many external endpoints (OpenRouter, Tavily, WorkOS, ACME)
  *     plus cluster DNS, and an egress allow-list is the easiest way to silently
  *     break the product. Tightening egress is a follow-up that needs a live
- *     cluster to validate. The exceptions are Gotenberg (rule 13), which needs no
- *     egress at all, so denying all of it cannot break anything it does, and the
- *     geocoder (rule 20), which needs DNS and HTTPS only.
+ *     cluster to validate. The exception is Gotenberg (rule 13), which needs no
+ *     egress at all, so denying all of it cannot break anything it does. The
+ *     frontend's address search calls komoot's public Photon over HTTPS
+ *     (ADR-0151) through that open egress.
  *   - **Intra-namespace is allowed wholesale** (frontend→backend, backend→data,
  *     workers→data, backend→frontend BFF). Per-edge micro-policies buy little
  *     here and are far easier to get subtly wrong. The exceptions are the pods
@@ -125,7 +126,6 @@ export function installNetworkPolicies(
           values: [
             ...langfuseWithheld,
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
-            ...(cfg.geocoder.enabled ? [GEOCODER.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
             QDRANT.name,
           ],
@@ -253,9 +253,10 @@ export function installNetworkPolicies(
       })
     : undefined;
 
-  // 11b. The purger and the skill-scheduler → Langfuse web, for its public API:
-  //     the purger deletes an erased chat's traces and the scheduler deletes the
-  //     ones past retention (ADR-0044; `workers/langfuse-traces.js`). Rule 2
+  // 11b. The purger and bff-jobs → Langfuse web, for its public API: the purger
+  //     deletes an erased chat's traces, and bff-jobs' Hatchet sweeps delete the
+  //     traces of chats the BFF erased and the ones past retention (ADR-0044,
+  //     ADR-0150; `workers/langfuse-traces.js`). Rule 2
   //     withholds the web tier from the wholesale allow, so each caller is named,
   //     as the collector is in rule 11. Deleting traces is theirs alone: the BFF
   //     (rule 11c) and the agent (rule 11d) write scores but delete nothing.
@@ -265,7 +266,7 @@ export function installNetworkPolicies(
         policyTypes: ["Ingress"],
         ingress: [
           {
-            from: ["purger", "skill-scheduler"].map((name) => ({
+            from: ["purger", "bff-jobs"].map((name) => ({
               podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
             })),
             ports: [{ protocol: "TCP", port: PORT.langfuseWeb }],
@@ -364,9 +365,7 @@ export function installNetworkPolicies(
           {
             from: [
               { podSelector: { matchLabels: { "app.kubernetes.io/name": "frontend" } } },
-              ...(cfg.bffJobs.enabled
-                ? [{ podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } }]
-                : []),
+              { podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } },
               ...(cfg.posthog.metricsEnabled ? [OTEL_AGENT_POD] : []),
             ],
             ports: [{ protocol: "TCP", port: PORT.gotenberg }],
@@ -377,22 +376,13 @@ export function installNetworkPolicies(
       })
     : undefined;
 
-  // 14-15. KEDA (its own namespace) reaches exactly the two kinds of target its
-  //     triggers name, and nothing else in `grid`. The caller is the OPERATOR pod,
-  //     not the namespace: the operator runs every scaler (the metrics server and
-  //     the admission webhooks in `keda` ask it, they poll nothing), so those two
-  //     have no reason to open a connection into the app or data tier.
+  // 14-15. KEDA (its own namespace) reaches the one target its triggers name in
+  //     `grid`, and nothing else. The caller is the OPERATOR pod, not the
+  //     namespace: the operator runs every scaler. Rule 14 (the queues' depth on
+  //     this cluster's Postgres) is gone with the claim queues: the worker tiers
+  //     scale on Hatchet's backlog in `background-work-pg`, admitted by that
+  //     namespace's own policies (`hatchet-network-policies.ts`).
   const kedaOperator = [{ ...nsLabel(KEDA_NAMESPACE), podSelector: { matchLabels: { ...KEDA_OPERATOR_LABEL } } }];
-
-  // 14. The queues' depth, to scale the ingest-worker and agent-worker tiers
-  //     (ADR-0076, ADR-0079) and the bff_job_queue's, to scale the bff-jobs pool:
-  //     Postgres only, port 5432 only. The operator runs one COUNT(*) there as the
-  //     read-only scaler login.
-  const kedaToPostgres = mk("allow-keda-to-postgres", {
-    podSelector: { matchLabels: { "cnpg.io/cluster": POSTGRES_CLUSTER } },
-    policyTypes: ["Ingress"],
-    ingress: [{ from: kedaOperator, ports: [{ protocol: "TCP", port: 5432 }] }],
-  });
 
   // 15. The fleet's running turns, from the backend's internal occupancy route,
   //     to scale the chat tier (ADR-0080). The backend port only, on the backend
@@ -480,38 +470,7 @@ export function installNetworkPolicies(
       })
     : undefined;
 
-  // 20. The geocoder (ADR-0120): the frontend in, DNS and HTTPS out.
-  //
-  //     Every address a person types in the project dialog reaches it, so it
-  //     is withheld from rule 2: the frontend BFF (`/api/geocode`) is its one
-  //     caller. The bff-jobs pool inherits the frontend's environment but
-  //     not `GEOCODER_URL` (`BFF_JOBS_WITHHELD`), so it is not named.
-  //
-  //     Egress is the init container's: the jar from GitHub and the index
-  //     from download1.graphhopper.com, both over HTTPS. Photon itself dials
-  //     nothing. Port-scoped rather than host-scoped, because NetworkPolicy
-  //     has no hostnames and both hosts sit behind CDNs.
-  const geocoder = cfg.geocoder.enabled
-    ? mk("geocoder-frontend-only", {
-        podSelector: { matchLabels: { "app.kubernetes.io/name": GEOCODER.name } },
-        policyTypes: ["Ingress", "Egress"],
-        ingress: [
-          {
-            from: [{ podSelector: { matchLabels: { "app.kubernetes.io/name": "frontend" } } }],
-            ports: [{ protocol: "TCP", port: PORT.geocoder }],
-          },
-        ],
-        egress: [
-          {
-            ports: [
-              { protocol: "UDP", port: 53 },
-              { protocol: "TCP", port: 53 },
-            ],
-          },
-          { ports: [{ protocol: "TCP", port: 443 }] },
-        ],
-      })
-    : undefined;
+  // 20. Retired with the self-hosted geocoder (ADR-0151).
 
   // 21. otel-agent → ClickHouse's metrics listener (ADR-0119), which answers
   //     `/metrics` without a login and nothing else (`PORT.clickhouseMetrics`).
@@ -526,15 +485,15 @@ export function installNetworkPolicies(
         })
       : undefined;
 
-  // 22. ClamAV (ADR-0150): the frontend and the bff-jobs pool in. Egress open.
+  // 22. ClamAV (ADR-0152): the frontend and the bff-jobs pool in. Egress open.
   //
   //     clamd authenticates nobody and its whole job is to open hostile files,
   //     so it is withheld from rule 2: the BFF is its only caller, in the
   //     request path (an original's download is scanned whole) and in the
   //     bff-jobs pool (the receive job scans each attachment and raw message).
-  //     Ingress only, as decided in ADR-0150: freshclam needs DNS and HTTPS to
+  //     Ingress only, as decided in ADR-0152: freshclam needs DNS and HTTPS to
   //     database.clamav.net, a CDN no NetworkPolicy can name, and a port-only
-  //     rule (as the geocoder's) would admit the whole internet on 443 anyway.
+  //     rule would admit the whole internet on 443 anyway.
   //     The kubelet's exec probes are not network traffic.
   const clamav = cfg.malwareScan.enabled
     ? mk("clamav-bff-only", {
@@ -558,7 +517,6 @@ export function installNetworkPolicies(
     deny,
     intra,
     cnpg,
-    ...(kedaToPostgres ? [kedaToPostgres] : []),
     ...(kedaToBackend ? [kedaToBackend] : []),
     edgeFrontend,
     edgeS3,
@@ -572,7 +530,6 @@ export function installNetworkPolicies(
     ...(backendToLangfuse ? [backendToLangfuse] : []),
     ...(langfuseToClickhouse ? [langfuseToClickhouse] : []),
     ...(gotenberg ? [gotenberg] : []),
-    ...(geocoder ? [geocoder] : []),
     ...(clamav ? [clamav] : []),
     appToQdrant,
     qdrantPeers,

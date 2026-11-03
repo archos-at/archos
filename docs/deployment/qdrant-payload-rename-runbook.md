@@ -36,13 +36,13 @@ a BFF pod that has not rolled yet keeps working.
 
 ## What reads both until the rewrite has run
 
-- **Filters** (`packages/knowledge-layer/src/qdrant/scope.py`): a condition on a new name
+- **Filters** (`packages/knowledge-layer/src/vector_store/scope.py`): a condition on a new name
   matches the new name **or** the old one (`should`), with the German token for
   the old key; a negative condition (`$ne`, `$nin`) excludes both. That covers
   `read_passage`'s clause and outline filters, the `chunking != page` exclusion,
   the cross-project fact filters and anything a model sends as a raw filter.
-- **Boost** (`qdrant/boost.py`): every fact term is "new key OR old key".
-- **Hits** (`qdrant/payload.py`, `chunk_metadata`): a point's metadata is read
+- **Boost** (`vector_store/boost.py`): every fact term is "new key OR old key".
+- **Hits** (`vector_store/payload.py`, `chunk_metadata`): a point's metadata is read
   back under the new names, the new key winning when both exist.
 - **Indexes**: the old keys stay in `INDEXED_FIELDS`, so a fresh collection has
   them too and strict mode never refuses a filter on either spelling.
@@ -131,11 +131,11 @@ repository's `scripts/` (every `aiq-api` pod).
 7. **Delete the fallback in a later release**, once `--verify` has exited 0 on
    every environment and one release has shipped since: remove
    `LEGACY_FIELDS`, `LEGACY_CHUNKING` and `LEGACY_KEYWORD_FIELDS` in
-   `qdrant/schema.py` (and the `punkt_depth`/`gebaeudeklasse` entries in
+   `vector_store/schema.py` (and the `punkt_depth`/`gebaeudeklasse` entries in
    `INTEGER_FIELDS`); `_legacy_value`, `_legacy_condition` and the `_field`
-   wrapper in `qdrant/scope.py`; `_english_clause_keys` in `qdrant/payload.py`;
-   the second branch of `_any` in `qdrant/boost.py`; `legacy_profile_token` in
-   `profile_names.py`; `qdrant/legacy_rewrite.py`,
+   wrapper in `vector_store/scope.py`; `_english_clause_keys` in `vector_store/payload.py`;
+   the second branch of `_any` in `vector_store/boost.py`; `legacy_profile_token` in
+   `profile_names.py`; `vector_store/legacy_rewrite.py`,
    `scripts/qdrant_rename_payload_keys.py`, their tests
    (`test_qdrant_legacy_payload.py`) and this runbook. The old payload indexes
    can then be dropped:

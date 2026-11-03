@@ -162,7 +162,7 @@ def _counting_decodes(adapter: Any) -> Iterator[_Tally]:
 
 @pytest.fixture(scope="module")
 def adapter() -> Any:
-    return pytest.importorskip("knowledge_layer.llamaindex.adapter")
+    return pytest.importorskip("knowledge_layer.ingest.adapter")
 
 
 @pytest.fixture(scope="module")

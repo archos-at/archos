@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    A brief connection hiccup while a file was being read no longer leaves it
+    without its page previews, images or thumbnail. Large drawings and long
+    documents no longer lose the document type and key facts {productName} reads from them.

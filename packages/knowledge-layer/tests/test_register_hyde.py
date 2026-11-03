@@ -8,9 +8,9 @@ original query's — the original is always retrieved.
 
 from types import SimpleNamespace
 
-from knowledge_layer import fusion
-from knowledge_layer import hyde
 from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.search import fusion
+from knowledge_layer.search import hyde
 
 from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType

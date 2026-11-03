@@ -19,8 +19,8 @@ _TIMEOUT_SECONDS = 120
 
 #: site -> the tables its ensure function must leave behind.
 SITES: dict[str, tuple[str, ...]] = {
-    "ingest_status_store": ("ingest_jobs", "ingest_job_queue", "ingest_lane_turns"),
-    "research_queue": ("research_job_queue", "research_lane_turns"),
+    "ingest_status_store": ("ingest_jobs",),
+    "research_runs": ("research_orchestrator_runs",),
     "norm_store": ("norm_registry",),
     "document_metadata_store": ("document_metadata",),
     "corpus_store": ("oib_corpus_files",),
@@ -40,11 +40,11 @@ def _ingest_status_store(url: str) -> bool:
     return url in ingest_status_store._initialized
 
 
-def _research_queue(url: str) -> bool:
-    from agent_host.jobs import queue
+def _research_runs(url: str) -> bool:
+    from agent_host.jobs import orchestrator_runs
 
-    queue.ensure_research_queue_table(url)
-    return url in queue.queue_for(url).initialized
+    orchestrator_runs.ensure_table(url)
+    return url in orchestrator_runs._ensured
 
 
 def _norm_store(url: str) -> bool:
@@ -131,7 +131,7 @@ def _langgraph_store(url: str) -> bool:
 
 _ENSURE = {
     "ingest_status_store": _ingest_status_store,
-    "research_queue": _research_queue,
+    "research_runs": _research_runs,
     "norm_store": _norm_store,
     "document_metadata_store": _document_metadata_store,
     "corpus_store": _corpus_store,

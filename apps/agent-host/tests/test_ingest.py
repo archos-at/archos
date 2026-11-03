@@ -506,6 +506,46 @@ def test_deferred_download_bounds_each_connect_attempt():
     assert timeout.read == 60.0
 
 
+def test_deferred_download_repeats_a_get_the_store_cut_short(monkeypatch):
+    """A reset mid-response (PostHog Logs, 2026-11-02 14:44 to 14:47) reached the
+    store, but a GET repeats the same bytes: the second GET saves the file."""
+    import time
+
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    answers = [httpx.RemoteProtocolError("reset"), _download(b"%PDF", "application/pdf")]
+    calls: list[str] = []
+
+    def get(self, url, **kwargs):
+        calls.append(url)
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    with patch("httpx.Client.get", new=get):
+        path = DeferredObjectDownload(_SIGNED_REF)()
+    os.unlink(path)
+    assert len(calls) == 2
+
+
+def test_deferred_download_gives_up_after_its_response_attempts(monkeypatch):
+    """Three cut responses in a row fail the download, which the job turns into a failed file."""
+    import time
+
+    from agent_host.routes.ingest import _DOWNLOAD_RESPONSE_ATTEMPTS
+
+    monkeypatch.setattr(time, "sleep", lambda seconds: None)
+    calls: list[str] = []
+
+    def get(self, url, **kwargs):
+        calls.append(url)
+        raise httpx.ReadError("reset")
+
+    with patch("httpx.Client.get", new=get), pytest.raises(httpx.ReadError):
+        DeferredObjectDownload(_SIGNED_REF)()
+    assert len(calls) == _DOWNLOAD_RESPONSE_ATTEMPTS == 3
+
+
 def test_infer_suffix_office_types():
     """An office original whose presigned path has no extension keeps its
     type's extension rather than landing as `.bin`."""

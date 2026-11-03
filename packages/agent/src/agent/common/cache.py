@@ -80,7 +80,7 @@ _CLIENT_RETRY_SECONDS = 30.0
 #: How often the "the store is down" warning may repeat. Longer than
 #: :data:`_CLIENT_RETRY_SECONDS` on purpose: the breaker retries every 30s, and
 #: a warning per retry is the wall of tracebacks again at a tenth of the rate.
-#: Same shape as ``knowledge_layer.cross_encoder._throttled_warning``, which
+#: Same shape as ``knowledge_layer.search.cross_encoder._throttled_warning``, which
 #: paid for this lesson first.
 _STORE_DOWN_WARN_INTERVAL_SECONDS = 300.0
 

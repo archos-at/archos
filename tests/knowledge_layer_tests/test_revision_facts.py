@@ -24,10 +24,10 @@ from knowledge_layer.browse import file_row
 from knowledge_layer.browse import file_rows
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import revisions
-from knowledge_layer.llamaindex import visual_analysis as va
-from knowledge_layer.llamaindex import visual_domains as vd
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import revisions
+from knowledge_layer.ingest import visual_analysis as va
+from knowledge_layer.ingest import visual_domains as vd
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.schema import AvailableDocument

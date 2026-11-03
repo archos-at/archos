@@ -1,7 +1,7 @@
-"""Only ``knowledge_layer/qdrant/`` talks to Qdrant, and nothing talks to Chroma (ADR-0115, ADR-0116).
+"""Only ``knowledge_layer/vector_store/`` talks to Qdrant, and nothing talks to Chroma (ADR-0115, ADR-0116).
 
 The scope filter is the boundary between offices' documents. It holds by
-construction only while every read goes through ``knowledge_layer.qdrant``,
+construction only while every read goes through ``knowledge_layer.vector_store``,
 whose filters cannot be built without a scope; a second client elsewhere
 would be a read path that never asked for one. Tests may import the client to
 drive and inspect the server.
@@ -20,7 +20,7 @@ import pathlib
 import re
 
 REPO = pathlib.Path(__file__).resolve().parents[3]
-ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "qdrant"
+ALLOWED = REPO / "packages" / "knowledge-layer" / "src" / "vector_store"
 SEARCHED = ("src", "packages", "apps/agent-host/src", "scripts")
 IMPORT = re.compile(r"^\s*(from\s+qdrant_client\b|import\s+qdrant_client\b)", re.MULTILINE)
 
@@ -65,7 +65,7 @@ def _offenders(repo: pathlib.Path = REPO) -> list[str]:
     offenders: list[str] = []
     files = _real_python_files() if repo == REPO else _python_files(repo)
     roots = tuple(repo / root for root in SEARCHED)
-    allowed = repo / "packages" / "knowledge-layer" / "src" / "qdrant"
+    allowed = repo / "packages" / "knowledge-layer" / "src" / "vector_store"
     for path in files:
         relative = path.relative_to(repo)
         # Tests and their support packages (`testing/`) may reach the client.

@@ -279,6 +279,11 @@ export async function dispatchIngest(
     file_ref: presignedUrl,
     collection: collectionName,
     document_id: documentId,
+    // The original's size, from the row, when the row names these bytes: the
+    // backend reads a file of `INGEST_HEAVY_FILE_BYTES` or more on its
+    // high-memory pool. Null (the IFC digest, a row without a size) is the
+    // standard pool.
+    byte_size: attribution?.storageKey === storageKey ? (attribution?.fileSize ?? null) : null,
     project_id: attribution?.projectId ?? null,
     user_id: attribution?.createdBy ?? null,
     // The project's facts and status, stamped onto every chunk the job writes

@@ -1,8 +1,8 @@
 /**
  * Bundle the `bff-jobs` slice entry (`bff/jobs-queue/slice-entry.ts`) into
  * one ESM file, `dist-jobs/slice.mjs`, that plain Node imports (ADR-0079,
- * amendment 1). `workers/jobs/runner.js` loads it when
- * `BFF_JOBS_MODE=inprocess`, so a job pod runs its slices without booting
+ * amendment 1). `workers/jobs/index.js` loads it and starts the Hatchet
+ * worker it exports (ADR-0150), so a job pod runs its jobs without booting
  * the Next server.
  *
  *   bun scripts/build-jobs-bundle.ts [--outdir <dir>]

@@ -1086,7 +1086,7 @@ def oib_families(file_names: Iterable[str]) -> list[NormFamily]:
 #
 # Detection is pure and lives beside :func:`oib_families`, which turns the
 # number this returns into the members. It reads the anchor vocabulary the
-# requery gate reads (``knowledge_layer.requery._NARROW_ANCHOR_PATTERNS``) and
+# requery gate reads (``knowledge_layer.search.requery._NARROW_ANCHOR_PATTERNS``) and
 # adds the bare ``OIB 2`` spelling, which is how the question is usually asked.
 # ---------------------------------------------------------------------------
 
@@ -1348,7 +1348,7 @@ def lane_for_knowledge_hit(
 
     This exists so the two consumers of the rule cannot drift: the citation
     chips (``citations.binding.source_lane``) and the Herleitung fan-out
-    (``knowledge_layer.trace_lanes.trace_lanes_for_hits``) used to apply it
+    (``knowledge_layer.search.trace_lanes.trace_lanes_for_hits``) used to apply it
     separately, and only the former actually did — so the same document showed
     as "Projektwissen" on a chip and "Web" in the fan-out of the same answer.
     """

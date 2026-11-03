@@ -58,4 +58,4 @@ def test_scope_reaches_the_top_level_worker_files(checker):
     """A git pathspec ``**/`` needs a subdirectory: ``workers/*.js`` must name job-queue.js itself."""
     files = checker._scoped_files()
     assert "apps/workspace/workers/job-queue.js" in files
-    assert "apps/workspace/workers/jobs/runner.js" in files
+    assert "apps/workspace/workers/jobs/index.js" in files

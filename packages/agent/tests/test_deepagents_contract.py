@@ -196,7 +196,7 @@ def test_the_composite_strips_the_route_prefix_the_draft_route_puts_back() -> No
         "agent.tools.documents.draft_store:DraftBackend",
         "agent.skills.backend:SkillsBackend",
         "agent.tools.documents.filesystem:_DraftRoute",
-        "knowledge_layer.estate:EstateBackend",
+        "knowledge_layer.estate.backend:EstateBackend",
     ],
 )
 def test_our_backend_overrides_match_the_protocol(path: str) -> None:

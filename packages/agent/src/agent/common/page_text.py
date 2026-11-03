@@ -3,9 +3,9 @@
 A document's pages repeat their edges: a title line, „Seite 2 von 14“, a firm's
 address. Those lines are not the text; they stand between the end of one page
 and the start of the next. Chunking leaves them out so a section reads on
-across a page break (``knowledge_layer.llamaindex.section_chunking``), and the
+across a page break (``knowledge_layer.ingest.section_chunking``), and the
 upload screen leaves them out so a number or a word split across a page break
-is read whole (``knowledge_layer.llamaindex.screening.screen_pages``).
+is read whole (``knowledge_layer.ingest.screening.screen_pages``).
 
 An edge line (one of a page's first or last two) is furniture when, with its
 digits read as ``#``, it repeats on at least half the pages and on at least

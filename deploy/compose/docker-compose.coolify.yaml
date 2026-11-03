@@ -57,6 +57,8 @@ services:
       # (ADR-0082). The services below extend this one and set their own role.
       - PROCESS_ROLE=chat
       - APP_ENV=${APP_ENV:-production}
+      # One ingest worker, the standard pool: no file goes to `ingest-document-heavy`.
+      - INGEST_HEAVY_FILE_BYTES=${INGEST_HEAVY_FILE_BYTES:-0}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # PostHog for the Python roles (fail-open: both empty means no events leave
       # the backend). Inherited by every role that extends this service.
@@ -335,7 +337,6 @@ services:
       - PROCESS_ROLE=ingest-worker
       # Ingestion jobs this process runs at once (K8s: ingestWorker.concurrency).
       - INGEST_MAX_WORKERS=${INGEST_MAX_WORKERS:-${GRID_INGEST_MAX_WORKERS:-${AIQ_INGEST_MAX_WORKERS:-2}}}
-      - INGEST_WORKER_DRAIN_SECONDS=${INGEST_WORKER_DRAIN_SECONDS:-${GRID_INGEST_WORKER_DRAIN_SECONDS:-600}}
       - WORKER_LIVENESS_FILE=/tmp/ingest-worker.alive
     # The drain budget and the time to give back what is still running; docker's
     # default 10 s would kill it first.
@@ -616,6 +617,9 @@ services:
       # dev file's `-`, because Coolify's parser may not honour the colon-less
       # form; an empty value here falls back to the default too.
       - GOTENBERG_URL=${GOTENBERG_URL:-http://gotenberg:3000}
+      # Address search in the project dialog (ADR-0151): komoot's public Photon,
+      # no account. `-` here, so an empty value switches it off.
+      - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
       # Internal (server-side uploads) vs public (browser presigned URLs).
       - SEAWEED_ENDPOINT=http://seaweedfs:8333
       - SEAWEED_PUBLIC_ENDPOINT=https://${SERVICE_FQDN_SEAWEEDFS}
@@ -720,11 +724,11 @@ services:
       service: frontend
     command: ["node", "workers/jobs/index.js"]
     environment:
+      # The scheduling tasks' run-history retention (`task-runs-prune`, ADR-0150).
+      - SKILL_RUNS_RETENTION_DAYS=${SKILL_RUNS_RETENTION_DAYS:-${GRID_SKILL_RUNS_RETENTION_DAYS:-90}}
       - BFF_JOBS_CONCURRENCY=${BFF_JOBS_CONCURRENCY:-${GRID_BFF_JOBS_CONCURRENCY:-2}}
       - BFF_JOBS_DRAIN_SECONDS=${BFF_JOBS_DRAIN_SECONDS:-${GRID_BFF_JOBS_DRAIN_SECONDS:-30}}
       - BFF_JOBS_MAX_PER_ORG=${BFF_JOBS_MAX_PER_ORG:-${GRID_BFF_JOBS_MAX_PER_ORG:-0}}
-      # `inprocess` runs the slices without spawning the BFF (ADR-0079 amendment 1).
-      - BFF_JOBS_MODE=${BFF_JOBS_MODE:-${GRID_BFF_JOBS_MODE:-http}}
       # The runner stops the BFF only after it has drained.
       - SHUTDOWN_DRAIN_MS=5000
     # The runner gives claims back for up to the drain budget; docker's default
@@ -818,37 +822,6 @@ services:
       seaweedfs-init:
         condition: service_completed_successfully
       api:
-        condition: service_healthy
-    restart: unless-stopped
-
-  skill-scheduler:
-    # Agent Skills cron scheduler (ADR-0046) — dedicated worker off the frontend
-    # image (like the purger). DB-claimed ticks advance each due workflow's
-    # next_run_at, then POST the BFF internal fire endpoint, which skips a
-    # schedule whose organization lacks the `skills` WorkOS flag. Every tick it
-    # also POSTs the BFF's run reconciler, which closes runs whose ending never
-    # reached the BFF.
-    build:
-      context: ./apps/workspace
-      dockerfile: apps/agent-host/Dockerfile
-    command: ["node", "scheduler/index.js"]
-    environment:
-      # Least-privilege runtime role (ADR-0041). This worker spans tenants, so
-      # it steps up to app_platform per transaction.
-      - APP_DATABASE_URL=postgresql://app_rw:${SERVICE_PASSWORD_GRIDRUNTIME}@pgbouncer:5432/app
-      - FRONTEND_INTERNAL_URL=http://frontend:3000
-      - INTERNAL_API_TOKEN=${SERVICE_PASSWORD_INTERNALTOKEN}
-      - SKILL_SCHEDULER_POLL_MS=${SKILL_SCHEDULER_POLL_MS:-${GRID_SKILL_SCHEDULER_POLL_MS:-30000}}
-      - SKILL_SCHEDULER_BATCH=${SKILL_SCHEDULER_BATCH:-${GRID_SKILL_SCHEDULER_BATCH:-20}}
-      - SKILL_RUNS_RETENTION_DAYS=${SKILL_RUNS_RETENTION_DAYS:-${GRID_SKILL_RUNS_RETENTION_DAYS:-90}}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      postgres-rename:
-        condition: service_completed_successfully
-      pgbouncer:
-        condition: service_healthy
-      frontend:
         condition: service_healthy
     restart: unless-stopped
 

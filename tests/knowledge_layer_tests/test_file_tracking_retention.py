@@ -86,11 +86,11 @@ class TestRetention:
         assert ingest_status_store.prune_expired(DAY) == 0
         assert ingest_status_store.get("running") is not None
 
-    def test_a_job_the_queue_still_holds_is_never_pruned(self, sqlite_db):
-        from agent.knowledge import ingest_queue
+    def test_a_job_hatchet_still_holds_is_never_pruned(self, sqlite_db):
+        from agent.knowledge import ingest_run_hold
 
         ingest_status_store.put(_job("queued", JobState.PENDING, {"wait.pdf": FileStatus.UPLOADING}))
-        ingest_queue.enqueue("queued", None, "payload")
+        ingest_run_hold.hold("queued", "run-1", 3600)
         _write_back(sqlite_db, "queued")
 
         assert ingest_status_store.prune_expired(DAY) == 0

@@ -106,6 +106,15 @@ describe('request errors through @posthog/next', () => {
     expect(beforeCapture(capture(new Error('The destination stream closed early because of X'), '/app/chat'))).not.toBe(false)
   })
 
+  test('a multipart body the client truncated or aborted is not an exception', () => {
+    // undici's message, verbatim, from a body that ends mid-part.
+    const truncated = new TypeError('Failed to parse body as FormData.')
+
+    expect(beforeCapture(capture(truncated, '/app/projects'))).toBe(false)
+    expect(beforeCapture(capture(new Error('Failed to parse body as FormData.'), '/app/projects'))).toBe(false)
+    expect(beforeCapture(capture(new Error('Failed to parse the project body'), '/app/projects'))).not.toBe(false)
+  })
+
   test('the closed-project refusal is dropped even from another copy of the error class', () => {
     const lookalike = Object.assign(new Error('This project is closed and can only be read. Reopen it to change it.'), {
       details: { reason: 'project-closed' },

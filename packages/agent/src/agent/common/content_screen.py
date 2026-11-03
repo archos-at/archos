@@ -3,7 +3,7 @@
 One matcher for every place Piloti checks text against the office's „Sensible
 Daten" policy (ADR-0086):
 
-* the ingest job's content gate (``knowledge_layer.llamaindex.screening``) turns
+* the ingest job's content gate (``knowledge_layer.ingest.screening``) turns
   the spans into a quarantine verdict before the first model call;
 * the chat socket (``agent_host.chat_socket``) replaces them with a placeholder
   before the agent sees a message or its history keeps one.
@@ -17,7 +17,7 @@ runtime's own idea of whitespace, case folding or digits, and the detectors are
 the same small parsers on both sides, not two regex dialects.
 
 It lives in ``agent.common`` because both Python consumers already import
-from here, while importing anything under ``knowledge_layer.llamaindex`` loads
+from here, while importing anything under ``knowledge_layer.ingest`` loads
 LlamaIndex (seconds) into a process that only wants a regex.
 
 Characters

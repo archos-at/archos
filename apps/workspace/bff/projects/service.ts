@@ -38,7 +38,7 @@ import { currentMonth, dateToMonth, isMonth, monthToDate, type Month } from './m
 import type { ProjectSetup } from './create-project-schema'
 import { startProjectIntake } from './intake-seed'
 import type { GeocodeResult } from '@/lib/geocoding/types'
-import { rearmOneShotsSkippedWhileParked } from '@/lib/tasks/repository'
+import { rearmOneShotsSkippedWhileParked } from '@/lib/scheduling/scheduled-runs'
 import { nextOffsetCursor, type OffsetPage } from '@/lib/api/offset-page'
 import { deriveProjectStandards, toStandardWire } from '@/lib/oib/project-standards'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'

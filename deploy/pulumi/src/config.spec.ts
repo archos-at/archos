@@ -140,6 +140,44 @@ describe("the Chroma migration Job's knobs", () => {
   });
 });
 
+describe("the bff-jobs pool's floor", () => {
+  // It is the one worker of the scheduling crons, and KEDA wakes it only for
+  // `bff-job` runs: at zero replicas nothing fires and nothing is pruned.
+  it("refuses a floor of zero, naming what runs there", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [`${pulumi.getProject()}:bffJobsMinReplicas`]: "0" });
+    expect(() => loadConfig()).toThrow(/bffJobsMinReplicas must be at least 1, not 0: .*scheduled automations and the maintenance sweeps/);
+  });
+
+  it("refuses the pool switched off", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [`${pulumi.getProject()}:bffJobsEnabled`]: "false" });
+    expect(() => loadConfig()).toThrow(/bffJobsEnabled=false is refused/);
+  });
+
+  it("defaults to one replica", () => {
+    pulumi.runtime.setAllConfig(baseStackConfig());
+    expect(loadConfig().bffJobs.minReplicas).toBe(1);
+  });
+});
+
+describe("the geocoder URL (ADR-0151)", () => {
+  const key = `${pulumi.getProject()}:geocoderUrl`;
+
+  it("defaults to komoot's public Photon", () => {
+    pulumi.runtime.setAllConfig(baseStackConfig());
+    expect(loadConfig().geocoderUrl).toBe("https://photon.komoot.io");
+  });
+
+  it("takes empty as address search off", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key]: "" });
+    expect(loadConfig().geocoderUrl).toBe("");
+  });
+
+  it("refuses a value that is no http(s) URL rather than serving it as off", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key]: "photon.komoot.io" });
+    expect(() => loadConfig()).toThrow(/geocoderUrl must be an http\(s\) URL or empty/);
+  });
+});
+
 describe("Qdrant (ADR-0115)", () => {
   it("defaults the cluster to the design's shape", () => {
     pulumi.runtime.setAllConfig(baseStackConfig());
@@ -463,7 +501,7 @@ describe("chat tier scale-out (ADR-0080)", () => {
 });
 
 /**
- * The malware scanner (ADR-0150). Off by default; on, it runs an image that
+ * The malware scanner (ADR-0152). Off by default; on, it runs an image that
  * parses every hostile file strangers send, so the image is a digest, and the
  * URL the BFF gets is always this stack's own clamd.
  */

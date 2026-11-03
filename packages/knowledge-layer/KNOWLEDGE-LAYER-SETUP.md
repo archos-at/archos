@@ -33,7 +33,7 @@ Document ingestion and retrieval for Piloti, on one backend: `llamaindex`.
 
 `llamaindex` is the knowledge layer's only backend: LlamaIndex for loading and
 chunking, Qdrant as the one vector store (ADR-0115, reached through
-`qdrant-client` inside `knowledge_layer/qdrant/`), embeddings and the VLM
+`qdrant-client` inside `knowledge_layer/vector_store/`), embeddings and the VLM
 through OpenRouter. It runs in the agent's process and needs a Qdrant cluster
 (`QDRANT_URL`) and OpenRouter. It is the production backend,
 and has been since the first commit: every config Piloti deployed selects it.
@@ -125,7 +125,7 @@ By default, LlamaIndex ingests text only and calls the embedding and VLM models 
 | `EMBED_TIMEOUT_SECONDS` | `60` | Per-request timeout on the ingestion embeddings client, two retries |
 | `QUERY_EMBED_TIMEOUT_SECONDS` | `3` | Per-request timeout on the query embedding a chat turn waits on, two retries; retrieval fails open after the third attempt |
 | **Extraction switches** (on unless set to `false`; no deployment sets them) | | |
-| `EXTRACT_TABLES` | `true` | Also index every other pdfplumber table in a PDF as a `[TABLE from page N]` chunk. Captioned tables („Tabelle 3: …") do not need it: they are always read as tables and cut out of the page text (`llamaindex/captioned_tables.py`). In a document with a Punkt outline each is its own passage, addressable as `read_passage(punkt="Tabelle 3")`; otherwise it is put back as Markdown into its page's text. This pass skips them |
+| `EXTRACT_TABLES` | `true` | Also index every other pdfplumber table in a PDF as a `[TABLE from page N]` chunk. Captioned tables („Tabelle 3: …") do not need it: they are always read as tables and cut out of the page text (`ingest/captioned_tables.py`). In a document with a Punkt outline each is its own passage, addressable as `read_passage(punkt="Tabelle 3")`; otherwise it is put back as Markdown into its page's text. This pass skips them |
 | `EXTRACT_IMAGES` | `true` | Extract embedded images from PDFs and caption them with a VLM, skipping pages already rendered whole as visual pages. For a BFF-dispatched document the raster is also stored beside the file (`_img/<index>.jpg`, via the BFF presign route) so `look` can show it at its own resolution |
 | `EXTRACT_CHARTS` | `true` | Index a visual the VLM types as a chart as a `chart` chunk with its structured data (chart type, axis labels, data points); off, it is indexed as an image |
 | `MAX_IMAGES_PER_DOCUMENT` | `64` | Most embedded images per PDF sent to the VLM, largest first; the count left out is on the file's job status as `images_over_cap` |
@@ -155,7 +155,8 @@ LlamaIndexIngestor initialized: mode=text + tables + charts + images
 
 ```python
 # Import the adapter module to trigger registration
-from knowledge_layer.llamaindex import LlamaIndexRetriever, LlamaIndexIngestor
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.search.retriever import LlamaIndexRetriever
 
 # Use the factory to get instances
 from agent.knowledge import get_retriever, get_ingestor
@@ -358,7 +359,7 @@ The summary store uses SQLAlchemy and follows the same pattern as the jobs datab
 
 To customize summary generation, modify the `generate_summary()` method in your adapter. See reference implementations:
 
-- **LlamaIndex**: `packages/knowledge-layer/src/llamaindex/adapter.py` (search for `generate_summary`)
+- **LlamaIndex**: `packages/knowledge-layer/src/ingest/adapter.py` (search for `generate_summary`)
 
 Key customization points:
 - LLM model selection and prompt template

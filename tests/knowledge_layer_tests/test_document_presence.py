@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from knowledge_layer.llamaindex import document_presence
+from knowledge_layer.ingest import document_presence
 
 
 @pytest.fixture()
@@ -34,13 +34,13 @@ class _Response:
 def _answer(monkeypatch, response=None, raises: Exception | None = None) -> list[dict]:
     calls: list[dict] = []
 
-    def get(url, **kwargs):
+    def get(self, url, **kwargs):
         calls.append({"url": url, **kwargs})
         if raises:
             raise raises
         return response
 
-    monkeypatch.setattr(httpx, "get", get)
+    monkeypatch.setattr(httpx.Client, "get", get)
     return calls
 
 

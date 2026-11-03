@@ -28,7 +28,7 @@ BODY = {
 @pytest.fixture
 def written(monkeypatch):
     """The store's write, recorded instead of sent."""
-    from knowledge_layer.qdrant import retrieval
+    from knowledge_layer.vector_store import retrieval
 
     calls: list[tuple[str, dict, str]] = []
     monkeypatch.setattr(

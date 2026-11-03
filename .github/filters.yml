@@ -89,6 +89,8 @@ backend:
   - 'apps/workspace/bff/documents/retry-policy.ts'
   - 'apps/workspace/bff/documents/semantic-search.ts'
   - 'apps/workspace/bff/documents/tag-vocabulary.ts'
+  - 'apps/workspace/bff/jobs-queue/attempts.ts'
+  - 'apps/workspace/bff/jobs-queue/task.ts'
   - 'apps/workspace/bff/jobs/types.ts'
   - 'apps/workspace/bff/legal/content/de.ts'
   - 'apps/workspace/bff/legal/content/en.ts'
@@ -141,11 +143,11 @@ backend:
   - 'apps/workspace/ui/features/layout/components/InputArea.tsx'
   - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
-  - 'apps/workspace/workers/jobs/runner.js'
   - 'ci/brand_history_manifest.txt'
   - 'ci/brand_names_baseline.json'
   - 'ci/brand_prose_baseline.json'
   - 'ci/english_names_baseline_py.json'
+  - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'
   - 'contracts/cards/schemas.json'
   - 'deploy/compose/docker-compose.yaml'
@@ -245,7 +247,6 @@ workspace:
   - 'packages/agent/src/agent/common/status_keys.py'
   - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
-  - 'packages/knowledge-layer/src/llamaindex/chosen_document_type.py'
   - 'packages/ris-adapter/src/client.py'
   # End of the files this tier's tests read.
 site:
@@ -290,27 +291,27 @@ infra:
   - 'apps/agent-host/src/agent_host/chat_socket.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_dispatch.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_worker.py'
-  - 'apps/agent-host/src/agent_host/jobs/queue.py'
-  - 'apps/agent-host/src/agent_host/jobs/worker.py'
+  - 'apps/agent-host/src/agent_host/jobs/research_workflow.py'
   - 'apps/agent-host/src/agent_host/roles.py'
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
   - 'apps/workspace/bff/malware-scan/config.ts'
+  - 'apps/workspace/bff/model-config/openrouter.ts'
+  - 'apps/workspace/bff/scheduling/sweeps.ts'
   - 'apps/workspace/deploy/Dockerfile'
-  - 'apps/workspace/migrations/0104_bff_job_queue.sql'
   - 'apps/workspace/server.js'
-  - 'apps/workspace/workers/app-database.js'
   - 'apps/workspace/workers/housekeeping-clock.js'
-  - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
   - 'apps/workspace/workers/langfuse-traces.js'
-  - 'packages/agent/src/agent/common/claim_queue.py'
+  - 'packages/agent/src/agent/common/credential_resolution.py'
   - 'packages/agent/src/agent/common/provider_limiter.py'
-  - 'packages/agent/src/agent/knowledge/ingest_queue.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
-  - 'packages/knowledge-layer/src/llamaindex/adapter.py'
-  - 'packages/knowledge-layer/src/llamaindex/processing.py'
+  - 'packages/agent/src/agent/knowledge/ingest_workflow.py'
+  - 'packages/knowledge-layer/src/embedding.py'
+  - 'packages/knowledge-layer/src/ingest/adapter.py'
+  - 'packages/knowledge-layer/src/ingest/page_reads.py'
+  - 'packages/knowledge-layer/src/ingest/vision_calls.py'
   # End of the files this tier's tests read.
 # The two standalone IFC packages (ADR-0045). Their own family rather than a
 # line in `backend:` or `workspace:`, because they are outside BOTH workspaces —
@@ -345,3 +346,41 @@ sast:
   - 'deploy/**'
   - 'scripts/**'
   - '.github/**'
+# The `Hatchet engine tests` job: the suites that run the Hatchet layer on a
+# real hatchet-lite (ci/hatchet_engine.sh). Every one of them skips without an
+# engine, so this tier is the only place they run. The code each proves, the
+# SDK pins, and the harness: the scripted workers and handlers, and the RLS
+# script that builds the BFF suite's database.
+hatchet:
+  # The ingest workflow, and the client both Python workflows build on.
+  - 'packages/agent/src/agent/common/orchestrator_client.py'
+  - 'packages/agent/src/agent/knowledge/ingest_*.py'
+  - 'packages/agent/tests/knowledge/test_ingest_workflow_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/orchestrator_engine_worker.py'
+  # The research run: submit, the worker, cancel, and the job store it shares.
+  - 'apps/agent-host/src/agent_host/jobs/**'
+  - 'apps/agent-host/src/agent_host/routes/job_kill.py'
+  - 'apps/agent-host/tests/test_research_workflow_engine.py'
+  - 'apps/agent-host/tests/orchestrator_engine_worker.py'
+  - 'apps/agent-host/tests/conftest.py'
+  # The BFF's background jobs and the scheduler that fires them.
+  - 'apps/workspace/bff/jobs-queue/**'
+  - 'apps/workspace/bff/scheduling/**'
+  - 'apps/workspace/tests/test-utils/scripted-job-handlers.ts'
+  - 'apps/workspace/migrations/**'
+  - 'scripts/rls-test-db.sh'
+  # The SDK versions: hatchet-sdk (packages/agent) and @hatchet-dev/typescript-sdk.
+  - 'packages/agent/pyproject.toml'
+  - 'uv.lock'
+  - 'apps/workspace/package.json'
+  - 'apps/workspace/bun.lock'
+  # The engine and how the job runs.
+  - 'ci/hatchet_engine.sh'
+  - 'deploy/pulumi/src/config/background-work.ts'
+  - 'Taskfile.yml'
+  - 'taskfiles/workspace.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-python-env/**'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'

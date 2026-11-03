@@ -49,7 +49,6 @@ TS_ROOTS = tuple(
         "tests/test-utils",
         "workers",
         "purger",
-        "scheduler",
     )
 )
 TS_SUFFIXES = {".ts", ".tsx", ".js", ".mjs", ".cjs"}

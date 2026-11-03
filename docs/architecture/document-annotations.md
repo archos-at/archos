@@ -1218,11 +1218,11 @@ devices with notifications on, one notification per person for the morning's
 reminders however many marks are due (above); the type's mail after two hours
 unread waits for the ADR-0035 sender, like every other mail.
 
-- **When.** The job scheduler's daily clock (`scheduler/index.js`,
-  `sweepAnnotationDue`) posts `POST /api/internal/annotations/due-reminders` at
-  06:45 in Vienna. A start before 06:45 waits for it: a restart at 01:00 would
-  otherwise push at 01:00, and its stamps would silence the 06:45
-  run. A start later in the day catches that day's run up on its first tick.
+- **When.** At 06:45 in Vienna: the `frist-reminder` Hatchet task runs at
+  minute 45 of every UTC hour and only the run that is 06:45 in Vienna calls
+  `enqueueDueReminders` (`apps/workspace/bff/scheduling/office-clock.ts`), so
+  it stays on 06:45 across daylight saving. A day whose 06:45 run never ran is
+  not caught up later; the next morning's reminder includes the overdue marks.
   A failed post retries in an hour, but never past the office's midnight: a
   retry that would fall on the next day waits for its 06:45 instead.
 - **Where it runs.** The route (`enqueueDueReminders`,

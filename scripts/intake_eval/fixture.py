@@ -281,7 +281,7 @@ def knowledge_search_tool(fixture: Fixture, index: PassageIndex) -> StructuredTo
 
 
 def read_passage_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
-    from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
+    from knowledge_layer.read_passage.tool import _READ_PASSAGE_DESCRIPTION
 
     async def read_passage(
         document: str, clause: str | int | None = None, page: int | str | None = None, conclusion: str = ""
@@ -308,8 +308,8 @@ def read_passage_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
 
 
 def list_files_tool(fixture: Fixture) -> StructuredTool:
-    from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
     from knowledge_layer.browse import file_rows
+    from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 
     rows = file_rows(available_document(fixture, f).model_dump() for f in fixture.files)
 

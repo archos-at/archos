@@ -37,7 +37,6 @@ export default defineConfig({
       '*.{spec,test}.{ts,tsx}',
       'tests/**/*.{spec,test}.{ts,tsx}',
       'purger/**/*.spec.mjs',
-      'scheduler/**/*.spec.mjs',
       'observability/**/*.spec.mjs',
       'workers/**/*.spec.mjs',
       'scripts/**/*.spec.mjs',

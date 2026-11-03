@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from knowledge_layer.browse import FileRow
 from knowledge_layer.estate import glob_files
-from knowledge_layer.estate_listing import render_glob
+from knowledge_layer.estate import render_glob
 from knowledge_layer_testing.estate_listing import ROWS
 from knowledge_layer_testing.estate_listing import _backend
 from knowledge_layer_testing.estate_listing import _no_in_flight  # noqa: F401 - autouse fixture

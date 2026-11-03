@@ -1,11 +1,11 @@
 """One research job, in phases: claim, prepare, run, persist, finish.
 
-The research worker (``jobs/worker.py``) claims a queued row and awaits
-``run_agent_job`` with its payload. This is the one place a research job runs
+The ``research-run`` task (``jobs/research_workflow.py``, through
+``jobs/worker.py``) awaits ``run_agent_job`` with the job's payload. This is the one place a research job runs
 (ADR-0021), and the function reads as its phases, each a function with one job:
 
 - ``_claim``: the job store's RUNNING write, refused when a cancel or the reaper
-  finalized the job between the queue claim and here;
+  finalized the job between its submit and here;
 - ``_prepare_models``, ``_prepare_tools`` and ``_bind_request``: the agent's
   config, its models with every dial (overrides, thinking level, BYOK, zero
   data retention), its tools, and the request metadata a background run has to
@@ -61,9 +61,10 @@ from .runner import _JOB_PROFILE_NAMES
 from .runner import CancellationMonitor
 from .runner import _bound_card_registry
 from .runner import _create_agent_instance
+from .runner import _current_job_status
 from .runner import _finalize_cancelled_run
 from .runner import _load_agent_class
-from .runner import _purge_deep_checkpoint_unless_reclaimed
+from .runner import _purge_deep_checkpoint
 from .runner import _resolve_deep_research_checkpointer
 from .runner import _run_agent
 from .runner import _update_status_if_not_terminal
@@ -122,9 +123,6 @@ class JobRequest:
     # and its ``llms:`` ref (else the workflow's own).
     memory_reflection_enabled: bool = False
     memory_reflection_llm: str | None = None
-    # The worker's own id, filled in at replay, for the still-owner publish
-    # gate. None (unclaimed) leaves only the terminal verdict to gate publishing.
-    claim_owner: str | None = None
     # The ``task_runs`` row this job is, for the run ledger's flush. Without it
     # the ledger still folds and streams as ``run.ledger``, and posts nothing.
     run_id: str | None = None
@@ -194,7 +192,6 @@ async def run_agent_job(
     clarifier_result: str | None = None,
     memory_reflection_enabled: bool = False,
     memory_reflection_llm: str | None = None,
-    claim_owner: str | None = None,
     run_id: str | None = None,
     documents: dict | None = None,
     request_envelope: dict | None = None,
@@ -214,22 +211,43 @@ async def run_agent_job(
         await finish_failed(scope, request, exc)
     finally:
         await _release(scope, request)
-        # Drop the run's durable deep-checkpoint rows once the run is terminal,
-        # unless another worker now owns the job (see the helper).
-        await _purge_deep_checkpoint_unless_reclaimed(request.db_url, request.job_id, request.claim_owner)
+        # Drop the run's durable deep-checkpoint rows once the run is terminal.
+        # A lost worker never gets here, so a Hatchet retry still resumes from them.
+        await asyncio.to_thread(_purge_deep_checkpoint, request.job_id)
+
+
+class RunStoppedError(TimeoutError):
+    """The orchestrator stopped a run nobody cancelled: its execution timeout (``RESEARCH_RUN_TIMEOUT_SECONDS``)."""
+
+    def __init__(self) -> None:
+        # "wall-clock" is the marker ``sanitize_job_error`` turns into the time-limit message.
+        super().__init__("wall-clock: the research run exceeded its execution timeout")
+
+
+async def _cancelled_by_a_person(scope: JobScope, request: JobRequest) -> bool:
+    """Whether the cancel route (or the platform kill) recorded this cancel: it writes INTERRUPTED first."""
+    from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
+    from nat.front_ends.fastapi.async_jobs.job_store import JobStore
+
+    store = scope.job_store or JobStore(scheduler_address="", db_url=request.db_url)
+    return await _current_job_status(store, request.job_id) == JobStatus.INTERRUPTED.value
 
 
 async def _finish_cancelled(scope: JobScope, request: JobRequest) -> None:
-    """Record a run that was cancelled, or lost its claim: the two are told apart inside, by claim state.
+    """Record a run that was cancelled: a person's cancel is INTERRUPTED, any other stop a FAILURE.
 
-    A user cancel keeps its INTERRUPTED verdict, notice and ``job.cancelled``
-    event; the loser of a reclaim emits ``job.ownership-lost`` only.
+    A person's cancel reaches the run after the cancel route wrote INTERRUPTED,
+    through the ``CancellationMonitor`` or Hatchet's cancel. A cancellation with
+    no INTERRUPTED recorded is Hatchet ending the run at its execution timeout:
+    that is a FAILURE with the time-limit message, never "cancelled by user".
     """
+    if not await _cancelled_by_a_person(scope, request):
+        await finish_failed(scope, request, RunStoppedError())
+        return
     scope.event_store = await _finalize_cancelled_run(
         job_store=scope.job_store,
         db_url=request.db_url,
         job_id=request.job_id,
-        claim_owner=request.claim_owner,
         parent_conversation_id=request.parent_conversation_id,
         usage_context=request.usage_context,
         event_store=scope.event_store,
@@ -313,9 +331,9 @@ async def _claim(scope: JobScope, request: JobRequest) -> bool:
     """Write RUNNING unless the job is already terminal; whether this run goes ahead.
 
     Guarded, not unconditional: a cancel (INTERRUPTED) or the ghost reaper
-    (FAILURE) may have finalized the job between the queue claim and here, and
-    an unconditional write would resurrect a reaped job or lose a cancel (the
-    cancel deletes the queue row, so this status is its only signal).
+    (FAILURE) may have finalized the job while its run waited on Hatchet, and
+    an unconditional write would resurrect a reaped job or lose a cancel (a run
+    the cancel could not stop on Hatchet has only this status as its signal).
     """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore

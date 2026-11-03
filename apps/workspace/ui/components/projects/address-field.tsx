@@ -238,6 +238,10 @@ export function AddressField({
             <p className="text-muted-foreground border-border mt-1 border-t px-2.5 pt-2 pb-1.5 text-xs">
               {t('form.address.keepTyped')}
             </p>
+            {/* The hits are OpenStreetMap data, whose licence (ODbL) asks for this line. */}
+            <p className="text-muted-foreground px-2.5 pb-1 text-xs" data-testid="create-project-address-attribution">
+              {t('form.address.attribution')}
+            </p>
           </div>
         )}
       </div>

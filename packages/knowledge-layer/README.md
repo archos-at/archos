@@ -11,6 +11,24 @@ For comprehensive documentation, see [`KNOWLEDGE-LAYER-SETUP.md`](./KNOWLEDGE-LA
 uv pip install -e "packages/knowledge-layer[llamaindex]"
 ```
 
+## Layout
+
+The import root is `knowledge_layer` (the directory is `src/`), one folder per job:
+
+| Package | What it does |
+|---|---|
+| `ingest/` | A file read, screened, triaged, chunked, enriched and written: extraction, page reads, transcription, visual analysis, the parsed, page-text and image stores |
+| `search/` | `knowledge_search`: the retriever, fusion, rerank, HyDE, the requery judge, the result block |
+| `read_passage/` | `read_passage`: opening a named passage |
+| `browse/` | `list_files` and the exact search |
+| `estate/` | The documents as a read-only filesystem (`ls`, `glob`, `grep`, `read_file`) |
+| `vector_store/` | The vector store, the only code that imports `qdrant_client` |
+
+What fits no one job sits at the top: the plugin registration (`register.py`),
+the embedding client and the environment knobs both sides use, `view_image`,
+`stored_pages`. Code outside a package imports from the package, not its files
+([the rule](../../docs/contributing/code-conventions.md#a-package-is-imported-by-its-surface)).
+
 ## The backend
 
 There is one: `llamaindex` (LlamaIndex for loading and chunking, Qdrant as the
