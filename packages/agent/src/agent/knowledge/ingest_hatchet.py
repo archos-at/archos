@@ -384,8 +384,8 @@ def trigger(
 
 
 def cancel_run(run_id: str) -> None:
-    """Cancel a run by its id, through the SDK's runs API. Raises when Hatchet cannot be reached."""
-    hatchet_client.client().runs.cancel(run_id)
+    """Cancel a run by its id, through the SDK's runs API. Raises when Hatchet cannot be reached in time."""
+    hatchet_client.within_rest_timeout(lambda: hatchet_client.client().runs.cancel(run_id))
 
 
 class _Runtime:

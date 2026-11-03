@@ -282,7 +282,7 @@ async def cancel(db_url: str, job_id: str) -> bool:
     if run_id is None:
         return False
     try:
-        await hatchet_client.client().runs.aio_cancel(run_id)
+        await asyncio.wait_for(hatchet_client.client().runs.aio_cancel(run_id), hatchet_client.REST_TIMEOUT_SECONDS)
     except Exception:
         logger.warning("Job %s: Hatchet run %s not cancelled; INTERRUPTED stops it", job_id, run_id, exc_info=True)
         return False
