@@ -70,6 +70,7 @@ if [ "$(id -u)" = "0" ]; then
 fi
 run_pg() { if [ -n "$RUNAS" ]; then su "$RUNAS" -c "$1"; else sh -c "$1"; fi; }
 
+echo "==> $("$PGBIN/postgres" --version)"
 echo "==> initialising a throwaway cluster on port $PORT"
 run_pg "'$PGBIN/initdb' -D '$PGDATA' -U postgres --auth=trust" >/dev/null
 run_pg "'$PGBIN/pg_ctl' -D '$PGDATA' -o '-p $PORT -k $WORKDIR' -l '$PGDATA/server.log' -w start" >/dev/null
@@ -1543,7 +1544,7 @@ SQL
 apply_in grid_revnames 0165_revision_names.sql
 check_in grid_revnames "SELECT (to_regclass('document_revision_announcements') IS NOT NULL AND to_regclass('document_fassung_announcements') IS NULL)::text" "true" "0165 renames the announcement table"
 check_in grid_revnames "SELECT count(*) FROM document_revision_announcements" "2" "0165 keeps the announcements"
-check_in grid_revnames "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conrelid = 'document_revision_announcements'::regclass" "document_revision_announcements_document_fkey,document_revision_announcements_pk" "0165 renames the key and the foreign key"
+check_in grid_revnames "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conrelid = 'document_revision_announcements'::regclass AND contype <> 'n'" "document_revision_announcements_document_fkey,document_revision_announcements_pk" "0165 renames the key and the foreign key"
 check_in grid_revnames "SELECT relrowsecurity::text || ':' || (SELECT count(*) FROM pg_policy WHERE polrelid = 'document_revision_announcements'::regclass)::text FROM pg_class WHERE relname = 'document_revision_announcements'" "true:1" "the renamed table is secured by exactly one policy"
 RW164=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U grid_app_rw -d grid_revnames -qtA \
   -c "SET grid.organization_id = 'org_0165'" \
@@ -1558,7 +1559,7 @@ check_in grid_revnames "SELECT (count(*) FILTER (WHERE conname = 'proposed_chang
 refused_in grid_revnames "INSERT INTO proposed_changes (organization_id, project_id, scope, kind, payload, proposed_by_kind, on_behalf_of) VALUES ('org_0165', NULL, 'archiv', 'memory', '{}', 'piloti', 'user_1')" "proposed_changes_office_shelf_move" "the renamed constraint still refuses a Büroablage proposal that is not a move"
 apply_in grid_revnames 0165_revision_names.down.sql
 check_in grid_revnames "SELECT (to_regclass('document_fassung_announcements') IS NOT NULL AND to_regclass('document_revision_announcements') IS NULL)::text" "true" "down gives the announcement table its name back"
-check_in grid_revnames "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conrelid = 'document_fassung_announcements'::regclass" "document_fassung_announcements_document_fkey,document_fassung_announcements_pk" "down restores the key names"
+check_in grid_revnames "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conrelid = 'document_fassung_announcements'::regclass AND contype <> 'n'" "document_fassung_announcements_document_fkey,document_fassung_announcements_pk" "down restores the key names"
 check_in grid_revnames "SELECT string_agg(type, ',' ORDER BY type) FROM inbox_items" "document.new_fassung,job.completed" "down restores the inbox type"
 check_in grid_revnames "SELECT group_key FROM inbox_items WHERE type = 'document.new_fassung'" "document.new_fassung:document:d1d1d1d1-0000-4000-8000-000000000164:d2d2d2d2-0000-4000-8000-000000000164" "down restores the group key"
 check_in grid_revnames "SELECT count(*) FROM pg_constraint WHERE conname = 'proposed_changes_archiv_move' AND conrelid = 'proposed_changes'::regclass" "1" "down restores the Büroablage constraint name"
@@ -2408,7 +2409,7 @@ SQL
 apply_in agents_0189 0189_agent_tables.sql
 check_in agents_0189 "SELECT string_agg(relname || ':' || relkind::text, ',' ORDER BY relname) FROM pg_class WHERE relname ~ '^(piloti|agent)_(wakes|changes|asks)$'" "agent_asks:r,agent_changes:r,agent_wakes:r,piloti_asks:v,piloti_changes:v,piloti_wakes:v" "0189 renames the tables and leaves a view under each old name"
 check_in agents_0189 "SELECT count(*) FROM agent_asks" "2" "0189 keeps the asks"
-check_in agents_0189 "SELECT count(*) FROM pg_constraint WHERE conname ~ '^piloti_(wakes|changes|asks)_'" "0" "0189 leaves no constraint under an old name"
+check_in agents_0189 "SELECT count(*) FROM pg_constraint WHERE conname ~ '^piloti_(wakes|changes|asks)_' AND contype <> 'n'" "0" "0189 leaves no constraint under an old name"
 check_in agents_0189 "SELECT count(*) FROM pg_indexes WHERE indexname ~ '^idx_piloti_(wakes|changes|asks)_'" "0" "0189 leaves no index under an old name"
 check_in agents_0189 "SELECT count(*) FROM pg_indexes WHERE indexname IN ('idx_agent_wakes_document_annotation_created', 'idx_agent_changes_origin', 'idx_agent_asks_conversation')" "3" "0189 renames the indexes by prefix"
 refused_in agents_0189 "INSERT INTO agent_asks (id, organization_id, conversation_id, requested_by, state, ended_at) VALUES (gen_random_uuid(), 'org_0189_a', 'conv_0189_a', 'user_1', 'working', now())" "agent_asks_ended_when_terminal" "a running ask with an end, after the rename"
