@@ -29,12 +29,26 @@ from agent_host.jobs.event_store import EventStore
 from agent_host.jobs.runner import _update_status_if_not_terminal
 
 
+async def _store(events: EventStore, event: dict) -> None:
+    """Write an event off the event loop.
+
+    The engine tests share one SQLite file, whose write lock is the whole
+    database. A run's ownership take (``run_ownership.try_take``) holds that lock
+    across an ``await``; a second run on the same worker that wrote its event
+    synchronously on the loop then waited out SQLite's 30 s busy timeout with the
+    loop blocked, so the take could never commit, and the event was dropped
+    ("database is locked"). On Postgres, production's job store, the take locks
+    one ``job_info`` row and an event insert never waits for it.
+    """
+    await asyncio.to_thread(events.store, event)
+
+
 async def stand_in_agent(*, job_id: str, db_url: str, input_text: str, **_payload) -> None:
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
     events = EventStore(db_url, job_id)
-    events.store({"type": "test.started", "data": {"pid": os.getpid(), "at": time.time()}})
+    await _store(events, {"type": "test.started", "data": {"pid": os.getpid(), "at": time.time()}})
     mode, _, arg = input_text.partition(":")
     if mode == "exit-once" and not Path(arg).exists():
         Path(arg).write_text("first attempt died here")
@@ -43,11 +57,11 @@ async def stand_in_agent(*, job_id: str, db_url: str, input_text: str, **_payloa
         try:
             await asyncio.sleep(float(arg))
         except asyncio.CancelledError:
-            events.store({"type": "test.cancelled", "data": {"at": time.time()}})
+            await _store(events, {"type": "test.cancelled", "data": {"at": time.time()}})
             raise
     store = JobStore(scheduler_address="", db_url=db_url)
     await _update_status_if_not_terminal(store, job_id, JobStatus.SUCCESS, output="done")
-    events.store({"type": "test.finished", "data": {"at": time.time()}})
+    await _store(events, {"type": "test.finished", "data": {"at": time.time()}})
 
 
 if __name__ == "__main__":
