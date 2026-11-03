@@ -5,6 +5,8 @@ import { loadConfig } from '../config'
 import { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } from '../config/posthog'
 import { posthogEnv } from "../app/config";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
+import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 
 /**
  * One PostHog configuration for every runtime, and the logs path to it.
@@ -131,8 +133,9 @@ describe("PostHog logs in the collector, enabled", () => {
     });
     expect(processors["filter/app_spans_only"]).toEqual({
       error_mode: "ignore",
+      // Exactly the names the Next tiers are given as OTEL_SERVICE_NAME.
       trace_conditions: [
-        'not (resource.attributes["service.name"] == "grid-ui" or resource.attributes["service.name"] == "grid-bff-jobs")',
+        `not (resource.attributes["service.name"] == "${BFF_SERVICE_NAME}" or resource.attributes["service.name"] == "${BFF_JOBS_SERVICE_NAME}")`,
       ],
     });
     expect(processors["resource/traces_environment"]).toEqual({
@@ -172,10 +175,13 @@ describe("PostHog logs in the collector, by default and off", () => {
   }, 120_000);
 });
 
+/** A stack config key, in the namespace Pulumi gives this project's keys. */
+const stackKey = (name: string) => `${pulumi.getProject()}:${name}`;
+
 describe("PostHog request traces, switched off", () => {
   it.each([
-    ["the stack switches traces off", { "grid-oib:posthogTracesEnabled": "false" }],
-    ["the stack opts out of PostHog with an empty host", { "grid-oib:posthogHost": "" }],
+    ["the stack switches traces off", { [stackKey("posthogTracesEnabled")]: "false" }],
+    ["the stack opts out of PostHog with an empty host", { [stackKey("posthogHost")]: "" }],
   ])("is absent when %s, and Langfuse still never gets the BFF's spans", async (_why, values) => {
     const { collector } = await deploy(values);
     const { exporters, service } = parseCollectorConfig(collector);
@@ -187,7 +193,7 @@ describe("PostHog request traces, switched off", () => {
   it("is on by default and needs the collector", () => {
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG });
     expect(loadConfig().posthog.tracesEnabled).toBe(true);
-    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG, "grid-oib:observabilityEnabled": "false" });
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG, [stackKey("observabilityEnabled")]: "false" });
     expect(loadConfig().posthog.tracesEnabled).toBe(false);
   });
 });

@@ -1151,7 +1151,7 @@
   "deploy/pulumi/src/config/dragonfly.ts": 7,
   "deploy/pulumi/src/config/images.ts": 5,
   "deploy/pulumi/src/config/langfuse.ts": 13,
-  "deploy/pulumi/src/config/observability.ts": 3,
+  "deploy/pulumi/src/config/observability.ts": 1,
   "deploy/pulumi/src/config/postgres.ts": 3,
   "deploy/pulumi/src/config/posthog.ts": 11,
   "deploy/pulumi/src/config/qdrant.ts": 13,

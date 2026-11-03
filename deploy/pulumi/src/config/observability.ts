@@ -69,8 +69,8 @@ export function loadObservability(
   if (observabilityFlag && !collectorEnabled) {
     pulumi.log.warn(
       "OTel Collector (ADR-0029) not deployed: nothing consumes it. Enable Langfuse " +
-        "(it also needs the otelOidc* application), grid-oib:posthogLogsEnabled, " +
-        "grid-oib:posthogMetricsEnabled or grid-oib:posthogTracesEnabled, or set " +
+        "(it also needs the otelOidc* application) or one of the stack keys " +
+        "posthogLogsEnabled, posthogMetricsEnabled and posthogTracesEnabled, or set " +
         "grid-oib:observabilityEnabled=false to silence this.",
     );
   }

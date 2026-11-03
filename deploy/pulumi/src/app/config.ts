@@ -8,6 +8,12 @@ import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from
 import { logicalName, objectName } from "../names";
 import { API_TIER, CHAT_TIER } from "./tier-names";
 
+/**
+ * The BFF's `service.name`. The collector routes by it: the Next tiers' spans
+ * go to PostHog Tracing and never to Langfuse (`APP_TRACE_SERVICES`).
+ */
+export const BFF_SERVICE_NAME = "grid-ui";
+
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
 export interface AppWiring {
@@ -642,15 +648,14 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // Absent ⇒ the route answers `enabled: false` and the address stays a plain
     // text field. Only ever the in-cluster Photon: an address is client data.
     ...(w.geocoderUrl ? [{ name: "GEOCODER_URL", value: w.geocoderUrl }] : []),
-    // OTLP tracing via the cluster collector — injected only when the
-    // observability tier is deployed, which is what makes
-    // src/instrumentation.ts register @vercel/otel (it no-ops without the
-    // endpoint). NOTE the BASE URL here vs. the backend's full /v1/traces
+    // OTLP via the cluster collector — injected only when the observability
+    // tier is deployed, which is what makes instrumentation.ts register the
+    // request tracer and the log bridge (both no-op without the endpoint). NOTE the BASE URL here vs. the backend's full /v1/traces
     // path: the JS OTLP HTTP exporter appends the signal path per the OTEL
     // spec; the Python agent-runtime exporter does not.
     ...(cfg.observability.enabled
       ? [
-          { name: "OTEL_SERVICE_NAME", value: "grid-ui" },
+          { name: "OTEL_SERVICE_NAME", value: BFF_SERVICE_NAME },
           { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
         ]
       : []),

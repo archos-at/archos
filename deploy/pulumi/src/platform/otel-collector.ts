@@ -16,6 +16,8 @@ import {
   langfuseOtlpTracesEndpoint,
 } from "./langfuse";
 import { CLUSTER_STATE_RULES, installCollectorIdentity } from "./collector-identity";
+import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 import {
   CollectorFragment,
   HEALTH_PORT,
@@ -245,12 +247,12 @@ export function installOtelCollector(
 
 /**
  * The tiers whose spans are application request traces rather than LLM traces:
- * the Next.js BFF (`grid-ui`) and the Next server inside bff-jobs. Their spans
- * go to PostHog Tracing and never to Langfuse; every other tier's spans are the
- * agent's and go to Langfuse only (ADR-0029 Amendment 6). The names are the
- * `OTEL_SERVICE_NAME` values `app/config.ts` and `app/bff-jobs-env.ts` set.
+ * the Next.js BFF and the Next server inside bff-jobs. Their spans go to
+ * PostHog Tracing and never to Langfuse; every other tier's spans are the
+ * agent's and go to Langfuse only (ADR-0029 Amendment 6). Read from where each
+ * tier's `OTEL_SERVICE_NAME` is set, so a rename cannot split them.
  */
-export const APP_TRACE_SERVICES = ["grid-ui", "grid-bff-jobs"] as const;
+export const APP_TRACE_SERVICES = [BFF_SERVICE_NAME, BFF_JOBS_SERVICE_NAME] as const;
 
 /** The span attributes Next records a URL in, query string included. */
 const URL_ATTRIBUTES = ["http.target", "http.url", "url.full"] as const;
