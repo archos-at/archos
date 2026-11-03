@@ -134,25 +134,6 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     })
   })
 
-  it('names no document of a restricted folder in the legacy inline project context and serves open memory only, whatever the scope carries (ADR-0087, ADR-0088)', async () => {
-    // Listing is not use: the shared, cached prompt view names no restricted
-    // document for anyone, and restricted memory reaches a turn only through
-    // the live per-turn digest, which admits its folders for the conversation.
-    // The authenticated handshake loads no prompt block at all, so the only
-    // inline copy left is the anonymous legacy one.
-    isAuthRequired.mockReturnValue(false)
-    getUserSession.mockResolvedValue(null)
-    const restricted = 'proj_proj_q_r0123456789ab'
-    buildCollectionScopeFromRequest.mockResolvedValue({
-      ...scopeReturning('proj_q'),
-      scope: ['base', 'proj_proj_q', restricted],
-    })
-
-    await upgrade('?projectId=proj_q&conversationId=s_mine')
-    expect(loadProjectPromptView).toHaveBeenCalledWith('proj_q', undefined)
-    expect(buildProjectMemoryDigest).toHaveBeenCalledWith('proj_q', undefined)
-  })
-
   it('returns 403 without firing the project lookups when the budget is blocked', async () => {
     getBudgetStatus.mockResolvedValue({ ...OPEN_BUDGET, blocked: true, blockedScope: 'org' })
 
@@ -263,14 +244,26 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     expect(resolveOrgInstructions).not.toHaveBeenCalled()
   })
 
-  it('preserves anonymous development with its legacy inline profile and memory', async () => {
+  // `MissingTenantContextError` on `project_memory`: with no organization there
+  // is no tenant, so a read of the office's rows throws. The handshake used to
+  // inline the profile view and memory digest for exactly these callers.
+  it.each([
+    ['an anonymous caller (auth off)', () => getUserSession.mockResolvedValue(null)],
+    [
+      'a signed-in person with no active organization',
+      () => getUserSession.mockResolvedValue({ ...SESSION, organizationId: null }),
+    ],
+  ])('reads nothing of an office\'s for %s', async (_who, arrange) => {
     isAuthRequired.mockReturnValue(false)
-    getUserSession.mockResolvedValue(null)
+    arrange()
     const response = await upgrade()
     expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({ projectContext: 'prompt-view', projectMemory: 'digest' })
-    expect(loadProjectPromptView).toHaveBeenCalledWith('proj_q', undefined)
-    expect(buildProjectMemoryDigest).toHaveBeenCalledWith('proj_q', undefined)
+    const body = await response.json()
+    for (const field of ['projectContext', 'projectMemory', 'orgInstructions']) {
+      expect(body).not.toHaveProperty(field)
+    }
+    expect(loadProjectPromptView).not.toHaveBeenCalled()
+    expect(buildProjectMemoryDigest).not.toHaveBeenCalled()
     expect(resolveOrgInstructions).not.toHaveBeenCalled()
   })
 
@@ -280,12 +273,5 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     expect(loadProjectPromptView).not.toHaveBeenCalled()
     expect(buildProjectMemoryDigest).not.toHaveBeenCalled()
     expect(resolveOrgInstructions).not.toHaveBeenCalled()
-  })
-
-  it('preserves prompt access refusals in anonymous legacy mode', async () => {
-    isAuthRequired.mockReturnValue(false)
-    getUserSession.mockResolvedValue(null)
-    loadProjectPromptView.mockRejectedValueOnce(new NotFoundError())
-    expect((await upgrade()).status).toBe(403)
   })
 })

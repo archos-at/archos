@@ -13,8 +13,8 @@
  * Not to be confused with `lib/turn-context/`, the per-turn PROMPT blocks the
  * agent fetches by `POST /api/internal/turn-context` once the socket is open:
  * the handshake carries only identity, scope and policy, because base64 alone
- * can push prompt blocks past the upstream header-line limit. Anonymous
- * contexts keep their prompt blocks inline here.
+ * can push prompt blocks past the upstream header-line limit. No context
+ * carries them inline, anonymous or not: with no tenant they cannot be read.
  *
  * Every project-scoped lookup uses the EFFECTIVE project (the authorized
  * scope's project, falling back to the requested one), never the raw request,
@@ -25,9 +25,7 @@
 import 'server-only'
 import type { UserSession } from '@/lib/auth/types'
 import { buildCollectionScopeFromRequest } from '@/lib/retrieval-scope/collection-scope-request'
-import { loadProjectFederalState, loadProjectPromptView } from '@/lib/project-profile/prompt-view'
-import { buildProjectMemoryDigest } from '@/lib/projects/memory-service'
-import { resolveOrgInstructions } from '@/lib/org-instructions/service'
+import { loadProjectFederalState } from '@/lib/project-profile/prompt-view'
 import { isMemoryReflectionEnabled } from '@/lib/workos/feature-flags'
 import { isWebSearchEnabledForOrg } from '@/lib/organizations/service'
 import { getEffectiveModelOverrides } from '@/lib/model-config/service'
@@ -79,10 +77,6 @@ export interface TurnContext {
   disabledSources?: string[]
   modelOverrides?: Record<string, string>
   budget?: TurnBudget
-  /** Anonymous contexts only: the prompt blocks inline. */
-  projectContext?: string
-  projectMemory?: string
-  orgInstructions?: string
   /** Who `userId` is, by name: signed into the envelope (`requesterOf`). */
   requester?: RequestPerson
 }
@@ -189,20 +183,13 @@ export async function resolveTurnContext(
     ? await bestEffort('load federal-state fact', () => loadProjectFederalState(effectiveProjectId, organizationId))
     : null
 
-  if (!organizationId || !session?.userId) {
-    const [projectContext, projectMemory, orgInstructions] = await Promise.all([
-      effectiveProjectId ? loadProjectPromptView(effectiveProjectId, organizationId) : Promise.resolve(null),
-      // Open memory only (ADR-0087): restricted notes are admitted per turn
-      // against the conversation's audience, never here.
-      bestEffort('build project memory digest', () =>
-        buildProjectMemoryDigest(effectiveProjectId, organizationId ?? undefined)
-      ),
-      organizationId ? resolveOrgInstructions(organizationId) : Promise.resolve(null),
-    ])
-    if (projectContext) context.projectContext = projectContext
-    if (projectMemory) context.projectMemory = projectMemory
-    if (orgInstructions) context.orgInstructions = orgInstructions
-  }
+  // No inline prompt blocks here, ever. They were the anonymous legacy path
+  // (no session, or a session with no active organization), and every read
+  // behind them (profile view, memory digest, instructions) is row-level-security
+  // scoped: with no organization there is no tenant to answer as, and each one
+  // threw `MissingTenantContextError` (swallowed by `bestEffort`, so it only
+  // showed in the logs). An authenticated turn loads its blocks per turn from
+  // `POST /api/internal/turn-context`, inside the tenant its envelope names.
 
   context.memoryReflectionEnabled = memoryReflectionEnabled
   if (organizationId) {
