@@ -160,7 +160,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `dnsZoneBaseline` | `false` | Whether this stack owns the zone-level records (`www`, `_dmarc`, the apex). **At most one stack** — two stacks writing the same record is not an API error, the later `up` silently wins |
 | `dnsDmarc` | — | Value of the `_dmarc` TXT record, when the baseline is owned here |
 | `dnsApexRedirectTo` | — | Absolute URL the apex and `www` redirect to (302) while no stack serves the apex. Unset it once one does — `loadConfig` refuses both at once |
-| **Project mail (Cloudflare Email Routing, ADR-0138)** — operator guide: [`docs/deployment/kubernetes.md` §3c](../../docs/deployment/kubernetes.md) | | |
+| **Project mail (Cloudflare Email Routing, ADR-0138)** — taking it to production: [`docs/deployment/project-mail-runbook.md`](../../docs/deployment/project-mail-runbook.md); reference: [`docs/deployment/kubernetes.md` §3c](../../docs/deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138) | | |
 | `inboundMailDomain` | — | The receiving domain of the project addresses, normally a subdomain of the app zone (`inbox.example.org`): the apex's MX stay with the company's mail provider. Setting it turns the feature on: Email Routing on that domain, its one literal rule and the Worker at Cloudflare, `INBOUND_MAIL_DOMAIN` on the frontend and `bff-jobs`. Email Routing adds and locks the domain's MX and SPF records and a DKIM TXT. **Must lie in `inboundMailZoneId`** (its apex or a subdomain; refused at load time for a domain outside `dnsZoneName` on the DNS zone's id, at preview for any other mismatch). On the app zone it needs `dnsEnabled` and `dnsZoneBaseline`. Refused while `malwareScanEnabled` is false: every part of a mail is scanned before it can be filed. Refused at preview if the domain has MX records pointing anywhere but `*.mx.cloudflare.net`. Needs the zone's **subaddressing** switched on by hand (gate G0). Each organization also needs the `inbound-mail` WorkOS entitlement. At most one stack per mail zone. **Never unset it to turn the feature off**: set `inboundMailEnabled: false` first |
 | `inboundMailLocalPart` | `project` | The local part of the one routing rule and of every project address, in front of the `+`: `project+<slug>.<token>@<domain>`. 1 to 32 of `[a-z0-9-]`, no hyphen at either end. Reaches the frontend and `bff-jobs` as `INBOUND_MAIL_LOCAL_PART` and the Worker as `ADDRESS_LOCAL_PART`. Changing it changes every project's address |
 | `inboundMailZoneId` | `dnsZoneId` when `inboundMailDomain` is `dnsZoneName` or a subdomain of it | Cloudflare zone `inboundMailDomain` lives in. Set it only for a domain on a zone of its own |
@@ -385,11 +385,13 @@ with `inboundMailPaused: true` and before the unpause, and again after any
 bump of the Worker's `COMPATIBILITY_DATE` (G8). It never writes to
 Cloudflare and sends nothing without `--run`; its header lists the
 environment it reads. Never point it at a customer office's address: the
-probes are held mail in the test office.
+probes are held mail in the test office. The order to run them in, and what to
+do when one fails: [`docs/deployment/project-mail-runbook.md`](../../docs/deployment/project-mail-runbook.md) §8.
 
 ```bash
 bun scripts/inbound-mail-smoke.ts plan                # every gate's steps
-bun scripts/inbound-mail-smoke.ts cloudflare          # G0, G7: routing, subaddressing, the rule, MX, Worker settings (read-only)
+bun scripts/inbound-mail-smoke.ts g0                  # G0: both MX sets over public DNS, subaddressing, the rules, the test mail (read-only)
+bun scripts/inbound-mail-smoke.ts cloudflare          # G7: subaddressing, the rule and the RFC 2142 forwards, MX, Worker settings (read-only)
 bun scripts/inbound-mail-smoke.ts signed --run        # G3 at the BFF and the edge
 bun scripts/inbound-mail-smoke.ts signed --run --expect-paused   # G4, while paused
 bun scripts/inbound-mail-smoke.ts malware --run       # G6: EICAR and a limit-exceeding archive

@@ -560,6 +560,11 @@ E-Mail-Eingang until a person files it (ADR-0137,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
 is deployed until `inboundMailDomain` is set.
 
+**Taking it to production:** [`project-mail-runbook.md`](project-mail-runbook.md),
+the owner's checklist from "off" to the first office, in order: decisions, the
+Cloudflare and ESC steps, the three promotions, gates G0–G9 as a test protocol,
+operating it, and what the customer sees. This section is the reference it orders.
+
 ### What it is
 
 ```text
@@ -592,7 +597,7 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
   temporary error, so the sender retries for days and the mail never arrives.
   A small mail may fit in 10 ms. Gate G5 measures the CPU of a 25 MiB mail.
 - `cloudflareApiToken` with, on the mail domain's zone, `Zone:Zone Settings:Edit`,
-  `Zone:Email Routing Rules:Edit` and `Zone:Zone:Read`, plus Account
+  `Zone:Email Routing Rules:Edit`, `Zone:DNS:Edit` and `Zone:Zone:Read`, plus Account
   `Workers Scripts:Edit` with the account under the token's Account Resources.
 - The mail domain is a subdomain nothing else receives mail on, normally
   `inbox.<app zone>` (ADR-0138): the apex's MX belongs to the company's mail
@@ -625,13 +630,17 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
    company's mail provider.
 2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
    `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
-   `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`), `inboundMailLocalPart`
+   `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`; on dev and prod in the
+   stack's ESC environment with `esc env set … --secret --string`, never
+   `pulumi config set --secret`, the runbook's §5), `inboundMailLocalPart`
    only to change the default `project`, and `inboundMailZoneId` only for a domain on
    a zone of its own. Pulumi enables Email Routing on the subdomain and creates
    the one literal rule `project@<domain>` → the Worker.
 3. `npm run preview`, then `npm run up` (gate O4).
-4. Run the launch gates against the test office (below), then set
-   `inboundMailPaused: false` and promote.
+4. With only the test office holding the entitlement, run G0, G4's paused half
+   and G7 (below), then set `inboundMailPaused: false` and promote: that exposes
+   no customer. Then run the gates that need mail to arrive (G1–G6). The smoke
+   tool's `signed --run` expects 202s, so it cannot pass while paused.
 5. Switch `inbound-mail` on for an office only after the Datenschutzberater's
    sign-off and the customer notice (gate O7).
 
@@ -645,7 +654,7 @@ below.
 |---|---|---|
 | O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments. `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
 | O2 | Cloudflare Workers Paid | before O4 |
-| O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
+| O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
 | O5 | DNS: Email Routing on the subdomain writes its MX and TXT records; subaddressing switched on for the zone first | with O4 |
 | O6 | Launch gates G0–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
@@ -658,7 +667,7 @@ probes are held mail in the TEST office, never a customer's):
 
 | Gate | Check |
 |---|---|
-| G0 | Subaddressing reaches the subdomain's rule: `cloudflare` reads `support_subaddress`, the rule and the subdomain's MX; one plain mail to `project+smoke.aaaaaaaaaaaa@<domain>` while paused gets a temporary failure (the Worker answered), not "Address does not exist" (no rule matched). A permanent refusal stops the launch: take ADR-0138's fallback, a dedicated mail domain with an apex catch-all |
+| G0 | Subaddressing reaches the subdomain's rule: `g0` reads both MX sets over public DNS (the subdomain's Cloudflare's, the apex's unchanged), `support_subaddress`, the rules, and prints the test mail; one plain mail to `project+smoke.aaaaaaaaaaaa@<domain>` while paused gets a temporary failure (the Worker answered), not "Address does not exist" (no rule matched). A permanent refusal stops the launch: take ADR-0138's fallback, a dedicated mail domain with an apex catch-all |
 | G1 | A DKIM-signed test mail arrives `*_verified` with its `signed_headers` (DKIM survives into `message.raw`) |
 | G2 | A throwing Worker gives a temporary failure, and the retry delivers |
 | G3 | 24 MiB is held, 26 MiB refused by Cloudflare, a truncated body gives `body-truncated`, unsigned and unknown-key requests 401 |
@@ -734,6 +743,15 @@ sub-processor row and the customer notice belong to gate O7
 
 ### Known unknowns
 
+- What Cloudflare checks before the Worker runs. Its docs (Email Service →
+  Postmaster, "Mail authentication requirement"; Email handler,
+  "Authentication results"; read 2026-11-03) say Email Routing refuses mail
+  that passes neither SPF nor DKIM, refuses mail failing the sender's DMARC
+  policy, and prepends an `Authentication-Results` header of its own. ADR-0138
+  was written assuming no verdict at all; the BFF still computes its own from
+  the raw message and never reads that header. For support: a correspondent
+  whose domain publishes neither SPF nor DKIM is bounced by Cloudflare, before
+  the product sees the mail ([`project-mail-runbook.md`](project-mail-runbook.md) §0, B3).
 - That a thrown error in an email Worker is a temporary SMTP failure is not
   documented by Cloudflare; G2 proves it and G8 re-proves it.
 - The email handler's wall-clock limit is undocumented; the Worker gives up on

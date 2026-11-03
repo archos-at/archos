@@ -10,6 +10,7 @@
  *
  *   cd deploy/pulumi
  *   bun scripts/inbound-mail-smoke.ts plan            # every gate, nothing sent (the default)
+ *   bun scripts/inbound-mail-smoke.ts g0              # G0: both MX sets, subaddressing, the rules, the test mail (read-only)
  *   bun scripts/inbound-mail-smoke.ts cloudflare      # G7 + the deployed edge, read-only
  *   bun scripts/inbound-mail-smoke.ts signed --run    # G3 (and G4 with --expect-paused)
  *   bun scripts/inbound-mail-smoke.ts malware --run   # G6, the parts a request can drive
@@ -22,8 +23,11 @@
  *   INBOUND_MAIL_ZONE_ID       the zone the mail domain lives in
  *   INBOUND_MAIL_ACCOUNT_ID    the account that owns the Worker
  *   INBOUND_MAIL_DOMAIN        the receiving domain, e.g. inbox.example.org
- *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default project)
- *   INBOUND_MAIL_WORKER        the script name, the stack output `inboundMailWorker`
+ *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default: the program's,
+ *                              DEFAULT_INBOUND_MAIL_LOCAL_PART in src/config/inbound-mail.ts)
+ *   INBOUND_MAIL_APEX_MX       `g0` only: the apex's MX hosts as they must stay, or `none`
+ *   INBOUND_MAIL_WORKER        the script name, inbound-mail-<stack> (the stack output
+ *                              `inboundMailWorker` without its " (paused)" suffix)
  *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.example.org, the origin of WORKOS_REDIRECT_URI
  *   INBOUND_MAIL_TEST_ADDRESS  a project address of the TEST office (never a customer's),
  *                              project+<slug>.<token>@<domain>
@@ -48,6 +52,8 @@ import { connect } from "node:tls";
 import { gzipSync } from "node:zlib";
 import { createSigner, httpbis } from "http-message-signatures";
 import { serializeDictionary } from "structured-headers";
+import { g0Findings, localPartFromEnv, ruleFindings, subaddressFinding, zoneRoutingFinding } from "./inbound-mail-g0";
+import type { Finding, RoutingSettings, Rule } from "./inbound-mail-g0";
 
 const CONTRACT = JSON.parse(
   readFileSync(join(__dirname, "../../../contracts/inbound-mail-contract.json"), "utf8"),
@@ -264,7 +270,7 @@ const MANUAL: Array<[string, string]> = [
     "G0",
     "Subaddressing on the subdomain (ADR-0138's one unproven assumption), before anything else: Cloudflare " +
       "dashboard → the zone → Email Routing → Settings → Subaddressing on (the provider cannot set it), then " +
-      "`cloudflare` (it reads support_subaddress). With the stack still paused, send one plain mail to " +
+      "`g0` (both MX sets, support_subaddress, the rules, and this test mail spelled out). With the stack still paused, send one plain mail to " +
       "INBOUND_MAIL_LOCAL_PART+smoke.aaaaaaaaaaaa@INBOUND_MAIL_DOMAIN: the sender must see a TEMPORARY failure " +
       "(the Worker's pause), not 'Address does not exist' (no rule matched). Email Routing → Activity log must show " +
       "the rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN matched. A permanent 5xx here means subaddressing does not " +
@@ -280,10 +286,11 @@ const MANUAL: Array<[string, string]> = [
   ],
   [
     "G2",
-    "Cloudflare dashboard → the zone → Email Routing: create a throwaway Worker whose email handler is " +
-      "`throw new Error('gate')`, and a literal rule gate-test@<INBOUND_MAIL_DOMAIN> → that Worker. Send a mail to it; the " +
-      "sending server must report a temporary failure (4xx) and keep retrying. Repoint the rule to the real " +
-      "Worker; the retry must arrive. Delete the rule and the throwaway Worker. Record the date.",
+    "Cloudflare dashboard: create a throwaway Worker whose email handler is `throw new Error('gate')`, and a " +
+      "literal rule for INBOUND_MAIL_TEST_ADDRESS itself → that Worker (a literal rule for a subaddress takes " +
+      "precedence over the base rule). Send a mail to the test address; the sending server must report a temporary " +
+      "failure (4xx) and keep retrying. Delete that rule, so the address falls back to the real rule; the retry " +
+      "must arrive in the test project. Delete the throwaway Worker. Record the date.",
   ],
   [
     "G3",
@@ -310,8 +317,8 @@ const MANUAL: Array<[string, string]> = [
   ],
   [
     "G7",
-    "`cloudflare` checks it: the one literal rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN → the Worker, and no other " +
-      "rule on the receiving domain, which nobody else receives mail on.",
+    "`cloudflare` checks it: the one literal rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN → the Worker, the " +
+      "RFC 2142 forwards postmaster@ and abuse@ (set up in the dashboard), and no other rule on the receiving domain.",
   ],
   ["G8", "After any COMPATIBILITY_DATE bump (platform/inbound-mail.ts): G1 and G2 again."],
   [
@@ -322,7 +329,7 @@ const MANUAL: Array<[string, string]> = [
 ];
 
 function plan(): void {
-  console.log("Project mail launch gates (DECISION §8). Automated parts: `cloudflare`, `signed`, `malware`, `dkim-share`.\n");
+  console.log("Project mail launch gates (DECISION §8). Automated parts: `g0`, `cloudflare`, `signed`, `malware`, `dkim-share`.\n");
   for (const [gate, text] of MANUAL) record(gate, "steps", "manual", text);
 }
 
@@ -337,36 +344,21 @@ async function cloudflareApi(path: string): Promise<unknown> {
   return body.result;
 }
 
-type Rule = {
-  enabled?: boolean;
-  matchers?: Array<{ type?: string; field?: string; value?: string }>;
-  actions?: Array<{ type?: string; value?: string[]; values?: string[] }>;
-};
+function recordAll(findings: Finding[]): void {
+  for (const f of findings) record(f.gate, f.name, f.status, f.detail);
+}
 
 async function checkCloudflare(): Promise<void> {
   const zone = env("INBOUND_MAIL_ZONE_ID");
   const domain = env("INBOUND_MAIL_DOMAIN").toLowerCase();
-  const localPart = (process.env.INBOUND_MAIL_LOCAL_PART?.trim() || "project").toLowerCase();
+  const localPart = localPartFromEnv();
   const worker = env("INBOUND_MAIL_WORKER");
   const account = env("INBOUND_MAIL_ACCOUNT_ID");
 
-  const routing = (await cloudflareApi(`/zones/${zone}/email/routing`)) as { enabled?: boolean; status?: string };
-  record("G0", "Email Routing on the zone", routing.enabled ? "pass" : "fail", `enabled=${routing.enabled} status=${routing.status}`);
-
-  // `support_subaddress` is what makes project+<slug>.<token>@ reach the rule for project@.
-  const subaddress = (routing as { support_subaddress?: boolean }).support_subaddress;
-  record("G0", "subaddressing on the zone", subaddress === true ? "pass" : "fail", `support_subaddress=${subaddress}`);
-
+  const routing = (await cloudflareApi(`/zones/${zone}/email/routing`)) as RoutingSettings;
+  recordAll([zoneRoutingFinding(routing), subaddressFinding(routing)]);
   const rules = (await cloudflareApi(`/zones/${zone}/email/routing/rules?per_page=50`)) as Rule[];
-  const base = `${localPart}@${domain}`;
-  const onDomain = rules.filter((r) =>
-    (r.matchers ?? []).some((m) => m.type === "literal" && m.value?.toLowerCase().endsWith(`@${domain}`)),
-  );
-  const rule = onDomain.find((r) => (r.matchers ?? []).some((m) => m.value?.toLowerCase() === base));
-  const target = rule?.actions?.[0];
-  const toWorker = target?.type === "worker" && [...(target.value ?? []), ...(target.values ?? [])].includes(worker);
-  record("G7", `literal rule ${base} → Worker`, rule?.enabled !== false && toWorker ? "pass" : "fail", JSON.stringify(rule?.actions ?? "missing"));
-  record("G7", `other rules on ${domain}`, onDomain.length === 1 ? "pass" : "fail", `${onDomain.length} literal rules on the receiving domain`);
+  recordAll(ruleFindings(rules, domain, localPart, worker));
 
   const mx = (await cloudflareApi(`/zones/${zone}/dns_records?type=MX&name=${domain}`)) as Array<{ content: string }>;
   const foreign = mx.filter((r) => !/\.mx\.cloudflare\.net\.?$/i.test(r.content));
@@ -557,6 +549,9 @@ async function main(argv: string[]): Promise<void> {
     case "plan":
       plan();
       break;
+    case "g0":
+      recordAll(await g0Findings({ cloudflareApi, env }));
+      break;
     case "cloudflare":
       await checkCloudflare();
       break;
@@ -576,7 +571,7 @@ async function main(argv: string[]): Promise<void> {
       break;
     }
     default:
-      console.error(`Unknown command '${command}'. Commands: plan, cloudflare, signed, malware, dkim-share.`);
+      console.error(`Unknown command '${command}'. Commands: plan, g0, cloudflare, signed, malware, dkim-share.`);
       process.exit(2);
   }
   if (checks.some((check) => check.status === "fail")) process.exit(1);

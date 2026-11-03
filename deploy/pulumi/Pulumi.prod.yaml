@@ -151,13 +151,13 @@ config:
 
   # nothing to notice), plus:
 
-  #   pulumi config set        grid-oib:dnsZoneId   <zone id from the Cloudflare Overview page>
+  #   pulumi config set        dnsZoneId   <zone id from the Cloudflare Overview page>
 
-  #   pulumi config set        grid-oib:dnsZoneName example.com
+  #   pulumi config set        dnsZoneName example.com
 
   #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:cloudflareApiToken "<Zone:DNS:Edit + Zone:Dynamic URL Redirects:Edit, scoped to that zone>" --secret
 
-  #   pulumi config set        grid-oib:dnsEnabled  true
+  #   pulumi config set        dnsEnabled  true
 
   #
 
@@ -180,18 +180,25 @@ config:
   # the zone apex, that stack is the natural owner.
   grid-oib:dnsEnabled: "true"
   # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
-  # Off until owner gate O4 (docs/deployment/kubernetes.md §3c). The promote that
-  # turns it on sets the domain AND the pause, with the scanner already running:
-  #   pulumi config set        malwareScanEnabled true   (deployed first)
-  #   pulumi config set --secret inboundMailSigningKeys '{"mi-2026-10":"<openssl rand -base64 32>"}'
-  #   pulumi config set        inboundMailPaused   true
-  #   pulumi config set        inboundMailDomain   inbox.<the zone>   (a subdomain: the apex MX stay with Google Workspace)
-  # Project addresses then read project+<slug>.<token>@inbox.<the zone> (inboundMailLocalPart, default project).
-  # First switch on subaddressing for the zone (dashboard → Email Routing → Settings; gate G0).
-  # The Cloudflare token then also needs Zone:Zone Settings:Edit, Zone:Email Routing
-  # Rules:Edit, Zone:Zone:Read and Account:Workers Scripts:Edit (account listed
-  # under the token's Account Resources). Unpause after launch gates G0-G9.
-  # Turning it off: inboundMailEnabled false and promote; never unset the domain first.
+  # Off. The owner's runbook, top to bottom: docs/deployment/project-mail-runbook.md.
+  # Three promotions, each uncommenting only its own lines below. Never the
+  # domain without the scanner running, never unpaused before G0, G4 (paused) and G7 pass.
+  #
+  # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
+  # grid-oib:malwareScanEnabled: "true"
+  #
+  # Promotion 2, paused. Before it: subaddressing on in the dashboard if it lets you (§7),
+  # the token's scopes (runbook §4), and the signing key in ESC, never in this file (§5).
+  # Decision D1 picks ONE of (a) and (b); uncomment its lines and the pause.
+  #   (a) the subdomain of this stack's own zone:
+  # grid-oib:inboundMailDomain: inbox.piloti.at
+  #   (b) the subdomain of the brand domain, a zone of its own (zone id: Cloudflare → the zone → Overview):
+  # grid-oib:inboundMailDomain: inbox.archos.tech
+  # grid-oib:inboundMailZoneId: <the zone id of archos.tech>
+  # grid-oib:inboundMailPaused: "true"
+  #
+  # Promotion 3, after G0, G4 (paused) and G7 pass, only the test office entitled: the pause "false".
+  # Turning it off: inboundMailEnabled "false" and promote; never unset the domain first.
   # NetworkPolicies (default-deny ingress + least-privilege allows) are ON by
 
   # default. Set false only if a validation pass shows they block required
@@ -417,9 +424,9 @@ config:
 
   # platform:organizations:view permission under Scopes. Then:
 
-  #   pulumi config set        grid-oib:otelOidcIssuer       https://<tenant>.authkit.app
+  #   pulumi config set        otelOidcIssuer       https://<tenant>.authkit.app
 
-  #   pulumi config set        grid-oib:otelOidcClientId     client_...
+  #   pulumi config set        otelOidcClientId     client_...
 
   #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:otelOidcClientSecret <secret> --secret
 
@@ -443,7 +450,7 @@ config:
 
   # Then:
 
-  #   pulumi config set        grid-oib:err2issueEnabled     true
+  #   pulumi config set        err2issueEnabled     true
 
   #   pulumi config set        grid-oib:err2issueGithubRepo  GRID-check/grid-oib-agent
 
