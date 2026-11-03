@@ -192,6 +192,10 @@
     "de": "Ein Dokument ist jetzt ein einziger Eintrag, egal wie viele Fassungen es hat. Der Eintrag zeigt, wie viele es sind, und beim Öffnen stehen alle Fassungen in einem Verlauf, die neueste zuerst, mit Angabe, wer sie wann eingestellt hat und was sich geändert hat."
   },
   {
+    "en": "A document now shows as ready as soon as it has been read, instead of only after someone next opened the file list, and a file whose upload hit a passing storage hiccup is read again within seconds instead of failing.",
+    "de": "Ein Dokument wird jetzt als bereit angezeigt, sobald es gelesen wurde, statt erst, wenn jemand die Dateiliste erneut öffnet, und eine Datei, deren Upload durch eine vorübergehende Speicherstörung unterbrochen wurde, wird innerhalb von Sekunden erneut gelesen, statt fehlzuschlagen."
+  },
+  {
     "en": "A document says how many of its pages were fully read, and why the rest were not, instead of looking complete when a drawing or scan could not be read.",
     "de": "Ein Dokument weist aus, wie viele seiner Seiten vollständig gelesen wurden und warum die übrigen nicht gelesen wurden, statt vollständig zu erscheinen, wenn eine Zeichnung oder ein Scan nicht gelesen werden konnte."
   },
@@ -316,6 +320,10 @@
     "de": "Eine Datei, deren Name eine OIB-Richtlinie nennt, etwa Ihr eigener Kommentar dazu, wird nicht mehr zusammen mit der Richtlinie als eine Quelle angezeigt."
   },
   {
+    "en": "A file whose pictures are read while many other files are being read no longer fails for that: its reading waits a minute and carries on.",
+    "de": "Eine Datei, deren Bilder gelesen werden, während viele andere Dateien eingelesen werden, schlägt deshalb nicht mehr fehl: Das Einlesen wartet eine Minute und wird dann fortgesetzt."
+  },
+  {
     "en": "A file whose reading failed before the check (an IFC model too large to read, for example) waits in Organization → Quarantine, marked as not checked, until someone who may release files releases or deletes it. The person who uploaded it can ask for the release.",
     "de": "Eine Datei, deren Lesen vor der Prüfung fehlgeschlagen ist (etwa ein IFC-Modell, das zu groß zum Lesen ist), wartet unter Organisation → Quarantäne mit dem Vermerk „Nicht geprüft“, bis jemand, der Dateien freigeben darf, sie freigibt oder löscht. Wer sie hochgeladen hat, kann die Freigabe anfragen."
   },
@@ -416,6 +424,10 @@
     "de": "Eine Folgefrage baut jetzt auf der vorherigen Frage und Antwort auf – auch nach einer Antwort, bei der lange Passagen gelesen wurden, sowohl im Chat als auch, wenn ein anderer Agent Piloti fragt."
   },
   {
+    "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
+    "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
+  },
+  {
     "en": "A large upload no longer shows as failed while it is still being read: it stays at Wird gelesen, a notice says reading continues in the background, and the file becomes citable once it is ready.",
     "de": "Ein großer Upload wird nicht mehr als fehlgeschlagen angezeigt, solange die Datei noch gelesen wird: Der Status bleibt auf „Wird gelesen“, ein Hinweis informiert Sie, dass das Lesen im Hintergrund fortgesetzt wird, und sobald die Datei bereit ist, ist sie zitierfähig."
   },
@@ -446,6 +458,10 @@
   {
     "en": "A new revision now also tells everyone working on the open annotations it leaves behind, and says how many are left to check.",
     "de": "Eine neue Revision informiert jetzt auch alle, die an den offenen Anmerkungen arbeiten, die sie hinterlässt, und zeigt an, wie viele noch zu prüfen sind."
+  },
+  {
+    "en": "A newly uploaded document can be found in search sooner: its content is searchable as soon as it is read, while its summary, tags and topics are still being written. It shows as finished once those are done too.",
+    "de": "Ein neu hochgeladenes Dokument ist schneller über die Suche auffindbar: Sein Inhalt ist durchsuchbar, sobald er eingelesen wurde, während Zusammenfassung, Tags und Themen noch erstellt werden. Das Dokument wird als abgeschlossen angezeigt, sobald auch diese fertig sind."
   },
   {
     "en": "A note that research was cut off, or that an answer came out weaker than usual, now stays with the answer when you reopen the conversation later. Previously that caveat was visible only while the run was live, so a partial answer read as a complete one the next morning.",
@@ -1568,6 +1584,10 @@
     "de": "Zeichnungen, die als Bild hochgeladen werden, werden genauso strukturiert gelesen wie Zeichnungen in einer PDF, und die Detailansicht einer Datei zeigt, was Piloti auf jeder Zeichnung erkannt hat."
   },
   {
+    "en": "Drawings, photos and scanned pages are read even when many uploads arrive at once: a page that could not be read at first is tried again a moment later instead of being left out, and a photo no longer fails for that reason. A page that still cannot be read is counted as not fully read.",
+    "de": "Pläne, Fotos und eingescannte Seiten werden auch dann ausgelesen, wenn viele Uploads gleichzeitig eingehen: Eine Seite, die zunächst nicht gelesen werden kann, wird kurz darauf erneut ausgelesen, statt ausgelassen zu werden, und Fotos scheitern aus diesem Grund nicht mehr. Eine Seite, die weiterhin nicht gelesen werden kann, wird als nicht vollständig gelesen gewertet."
+  },
+  {
     "en": "Dropping a folder no longer uploads the system and lock files that Macs, Windows and Office create alongside documents.",
     "de": "Wenn Sie einen Ordner hineinziehen, lädt Piloti damit nicht mehr die Systemdateien und Sperrdateien hoch, die Macs, Windows und Office neben Dokumenten anlegen."
   },
@@ -2028,6 +2048,10 @@
     "de": "Große Dateien mit CAD-Zeichnungen, etwa gesammelte Projektunterlagen oder ein Brandschutzkonzept mit vielen Planblättern, lassen sich jetzt hochladen und durchsuchen. Bisher schlägt das Einlesen solcher Dateien jedes Mal fehl, und auch ein erneuter Versuch scheitert."
   },
   {
+    "en": "Large files with drawings and scanned pages are read faster: their scanned pages and their drawings are now read at the same time, and many more of them at once, instead of a few at a time one kind after the other.",
+    "de": "Große Dateien mit Plänen und gescannten Seiten werden schneller ausgelesen: Gescannte Seiten und Zeichnungen werden jetzt gleichzeitig und in deutlich größerer Anzahl ausgelesen, statt jeweils nur wenige eines Typs nach dem anderen."
+  },
+  {
     "en": "Large folders in a project's files and in the Archiv now open and scroll faster: the first documents appear right away while the rest load behind them, and previews load as you scroll to them.",
     "de": "Große Ordner in den Dateien eines Projekts und im Archiv öffnen sich jetzt schneller und lassen sich flüssiger durchscrollen: Die ersten Dokumente werden sofort angezeigt, während die übrigen im Hintergrund laden, und Vorschauen werden geladen, sobald Sie zu ihnen scrollen."
   },
@@ -2322,6 +2346,10 @@
   {
     "en": "Permit notices with several conditions are remembered in full again.",
     "de": "Bewilligungsbescheide mit mehreren Auflagen werden wieder vollständig berücksichtigt."
+  },
+  {
+    "en": "Photos and other images are now checked against your office's upload screening by what was read off them, like scanned documents. An image that matches is held for review instead of being added, and its preview appears only once it has passed.",
+    "de": "Fotos und andere Bilder werden jetzt wie gescannte Dokumente anhand der ausgelesenen Inhalte mit der Upload-Prüfung Ihres Büros abgeglichen. Ein passendes Bild wird zur Überprüfung zurückgehalten, statt hinzugefügt zu werden. Die Vorschau erscheint erst, wenn es die Prüfung bestanden hat."
   },
   {
     "en": "Photos show when and with which camera they were taken, and link to the place where they were taken. Piloti uses the date to describe a photo, but never passes its location on to the AI.",
@@ -3792,6 +3820,10 @@
     "de": "Das Hochladen einer neuen Datei über eine Datei, die aufgrund ihres Inhalts zurückgehalten wird, wird nicht mehr als fehlgeschlagener Upload angezeigt. Die neue Datei wird ebenfalls als zurückgehalten angezeigt, mit dem Hinweis, dass sie auf die Datei wartet, die sie ersetzen soll. Die Person, die sie hochgeladen hat, kann direkt dort eine Überprüfung der zu ersetzenden Datei anfordern."
   },
   {
+    "en": "Uploading a new version of a document while the old one is still being read now stops the old reading and reads only the new file. The old one is not shown as failed or as stopped by you.",
+    "de": "Wenn Sie eine neue Version eines Dokuments hochladen, während die alte noch gelesen wird, wird das Lesen der alten Datei jetzt beendet und nur die neue Datei gelesen. Die alte Version wird weder als fehlgeschlagen noch als von Ihnen gestoppt angezeigt."
+  },
+  {
     "en": "Uploading hundreds of files at once no longer makes a share of them fail to be read and wait several minutes for a second try.",
     "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
   },
@@ -4056,8 +4088,16 @@
     "de": "Sobald alles gelesen ist, was ein Upload gebracht hat, meldet es Ihr Postfach – mit einer Zusammenfassung, was angekommen ist, wo es abgelegt wurde, was jede Datei ist und was zurückgehalten wurde oder fehlgeschlagen ist. Die Projekteinstellungen listen jeden Upload mit seinem Ergebnis und der Person, die ihn hochgeladen hat."
   },
   {
+    "en": "When many offices upload at once, each office's documents take turns, so a single file is never stuck behind another office's large folder.",
+    "de": "Wenn viele Büros gleichzeitig Uploads durchführen, werden die Dokumente der einzelnen Büros der Reihe nach verarbeitet, sodass eine einzelne Datei nie hinter einem großen Ordner eines anderen Büros warten muss."
+  },
+  {
     "en": "When nothing is found or the search fails, the palette now says so and offers to try again or continue in the full search.",
     "de": "Wenn nichts gefunden wird oder die Suche fehlschlägt, weist die Palette jetzt darauf hin und bietet an, es erneut zu versuchen oder in der vollständigen Suche fortzufahren."
+  },
+  {
+    "en": "When reading a large PDF has to be tried again, for example after an interruption, it finishes sooner: the text and tables already taken from that same file are reused instead of being read out of the PDF a second time.",
+    "de": "Wenn ein großes PDF erneut eingelesen werden muss, etwa nach einer Unterbrechung, ist der Vorgang schneller abgeschlossen: Der bereits aus derselben Datei extrahierte Text sowie die Tabellen werden wiederverwendet, statt das PDF ein zweites Mal auszulesen."
   },
   {
     "en": "When reading a project's documents stops before it finishes, the person who started it now gets a Postfach entry saying so, instead of nothing.",
