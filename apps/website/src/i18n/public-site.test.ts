@@ -28,3 +28,15 @@ describe('contracts/public-site.json against the route table', () => {
     }
   });
 });
+
+/**
+ * The help page's section headings are statement headings (packages/brand/README.md, „German
+ * copy“: they end with a full stop, a question with a question mark). `scripts/check_brand_rules.mjs`
+ * skips them, since it reads an array's items as a list's labels; here they are the page's h2s.
+ */
+describe('the project mail page', () => {
+  test.each(LOCALES)('every heading in %s ends with a full stop or a question mark', (locale) => {
+    const headings = [projectMail[locale].heading, ...projectMail[locale].sections.map((s) => s.heading)];
+    expect(headings.filter((heading) => !/[.?]$/.test(heading.trim()))).toEqual([]);
+  });
+});

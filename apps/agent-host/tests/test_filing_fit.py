@@ -283,7 +283,7 @@ MAIL_BODY = {
         {"id": "a2", "file": "Lageplan.dwg"},
     ],
     "mail": {"subject": "AW: Einreichung Stellplatznachweis ███", "sender_domain": "wien.gv.at", "text_id": "t1"},
-    "trace": {"batch_id": "mail-1", "project_id": "p1", "shelf": "project"},
+    "trace": {"batch_id": "mail-1", "project_id": "p1", "shelf": "project", "sender_class": "verified_writer"},
 }
 
 
@@ -364,6 +364,7 @@ def test_the_mail_generation_names_its_surface_and_ids_only():
     assert metadata["basis"] == "mail"
     assert metadata["batch_id"] == "mail-1"
     assert metadata["text_placed"] is True
+    assert metadata["sender_class"] == "verified_writer"
     assert "subject" not in metadata and "sender_domain" not in metadata
     assert "surface" not in _trace_metadata(_request())
 

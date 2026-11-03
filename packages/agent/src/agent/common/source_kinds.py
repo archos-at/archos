@@ -147,7 +147,7 @@ MAIL_SOURCE_FORMAT = "mail"
 #: stays the shelf's, so a mail never wears the building-law colour, not even
 #: one from ``ma37.wien.gv.at`` (a clerk's e-mail is not a Bescheid). The lane
 #: is the sub-label inside that kind, the way ``AGENT_AUTHORED_LANE`` is. Mirrored in
-#: ``apps/workspace/ui/features/chat/lib/source-kinds.ts``.
+#: ``apps/workspace/bff/source-kinds.ts``.
 MAIL_LANE = "project_mail"
 OFFICE_MAIL_LANE = "office_mail"
 MAIL_LANE_LABEL = "E-Mail"

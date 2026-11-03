@@ -184,7 +184,7 @@ export interface SuggestionContext {
  * none can reach the model.
  */
 export function mailFilingInput(
-  mail: Pick<InboundMailRow, 'id' | 'projectId' | 'threadMatch' | 'senderAddress' | 'signerDomain'>,
+  mail: Pick<InboundMailRow, 'id' | 'projectId' | 'threadMatch' | 'senderAddress' | 'signerDomain' | 'senderClass'>,
   parts: readonly PartFacts[],
   context: SuggestionContext,
 ): MailFilingInput | null {
@@ -197,7 +197,7 @@ export function mailFilingInput(
     conventions: context.conventions,
     attachments,
     mail: { subject: context.maskedSubject, senderDomain: senderDomainOf(mail), textId: text?.id ?? null },
-    trace: { mailId: mail.id, projectId: mail.projectId },
+    trace: { mailId: mail.id, projectId: mail.projectId, senderClass: mail.senderClass },
   }
 }
 

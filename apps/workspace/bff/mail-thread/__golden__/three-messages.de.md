@@ -28,7 +28,7 @@ Eva Berger
 
 Die Anzahl der Pflichtstellplätze ist bis 24.10.2026 nachzureichen.
 
-### Zitat in der Nachricht von 14.10.2026 09:12 · Mag. Anna Huber (ma37.wien.gv.at)
+### Zitat aus der E-Mail vom 14.10.2026 09:12 · Mag. Anna Huber (ma37.wien.gv.at)
 
 Am 30.09.2026 schrieb DI Max Weber:
 \> Die Tiefgarage trägt die geforderten zwölf Stellplätze ohne Verstärkung der Decke.

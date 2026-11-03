@@ -1,7 +1,7 @@
 ---
 features:
   - >
-    Wherever the project's email address is shown, it now says how large a
+    Wherever the project's mail address is shown, it now says how large a
     mail may be, 25 MB with about 18 MB of attachments, and links to Dateien
     to upload anything larger. The days in the E-Mail-Eingang's texts now
     always match how long mail can actually be restored.

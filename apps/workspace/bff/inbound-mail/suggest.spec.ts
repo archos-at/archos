@@ -105,7 +105,7 @@ describe('what the model reads (D21): names and labels, never the text or the by
       conventions: [],
       attachments: [{ id: FILE_PART_ID, file: 'S-101_C.pdf' }],
       mail: { subject: 'AW: Statik ███', senderDomain: 'statik-weber.at', textId: TEXT_PART_ID },
-      trace: { mailId: mail.id, projectId: mail.projectId },
+      trace: { mailId: mail.id, projectId: mail.projectId, senderClass: mail.senderClass },
     })
   })
 

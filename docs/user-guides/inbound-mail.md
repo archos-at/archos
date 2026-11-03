@@ -1,14 +1,15 @@
 # Project mail: the E-Mail-Eingang and the E-Mail-Verläufe
 
 Every project can have its own e-mail address. Put it in Cc when you write to
-the Behörde, the Statiker or the Bauherr, or forward a mail to it, and the mail
-lands in the project's **E-Mail-Eingang** in Dateien. There it waits until
-someone files it: its text into the conversation's **E-Mail-Verlauf**, its
-attachments into the project's folders, each as a new document or the next
-Fassung of one.
+the Behörde, the Statik or the Bauherrschaft, or forward a mail to it. A mail
+you send yourself, from your own office address, is **filed directly** when
+your domain confirms it and you may file in the project. Every other mail lands
+in the project's **E-Mail-Eingang** in Dateien and waits until someone files
+it: its text into the conversation's **E-Mail-Verlauf**, its attachments into
+the project's folders, each as a new document or the next Fassung of one.
 
-**Nothing is filed automatically**, except the text of an E-Mail-Verlauf you
-chose to follow. ARCHOS reads a mail only once it is filed.
+**Nothing from anyone else is filed without a person**, except the text of an
+E-Mail-Verlauf you chose to follow. ARCHOS reads a mail only once it is filed.
 
 Project mail is switched on per office. If you do not see „E-Mail-Eingang“ in
 Dateien, your office does not have it yet.
@@ -20,8 +21,8 @@ Dateien, your office does not have it yet.
 The address looks like `project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`: the
 project's name and a random part behind the `+`. **What it is for:** put it in Cc when you write to the
 Behörde, the Statik or the Bauherrschaft, and their replies land in the
-E-Mail-Eingang; forward documents from your mail program to it. Nothing is
-filed before someone confirms it.
+E-Mail-Eingang; forward documents from your mail program to it. Your own mail
+is filed directly (below); everything else waits for a person.
 
 Find it on the project overview (the tile „E-Mail-Adresse des Projekts“, for
 whoever may decide the project's mail), under **Adresse** in the
@@ -33,15 +34,15 @@ sichern** (a contact card for your mail program).
   **Einstellungen › Dokumente**. Until then the dialog says the project has
   none.
 - Anyone who knows the address can send mail to it. That is the point: when
-  the project is in Cc, the Statiker's reply-all arrives too. It is also why
-  nothing that arrives goes into the project by itself.
+  the project is in Cc, the Statik's reply-all arrives too. It is also why
+  only a member's own, confirmed mail is filed directly.
 - A leaked address is replaced with **Neue Adresse erzeugen …**. The old
   address stops working at once (mail to it bounces), and everyone who follows
   an E-Mail-Verlauf of the project stops following it. Give the new address to
   everyone who sends documents to the project.
 - **Ausschalten …** switches the address off. Mail already waiting stays.
 
-Do not send fee, contract or personnel mail to the project address: everyone
+Do not send fee, contract or personnel mail to the project's address: everyone
 who may add documents to the project sees what waits there.
 
 ## Who sees the E-Mail-Eingang
@@ -51,10 +52,12 @@ file or dismiss what waits there. Where a file goes still depends on the
 folder: you can only file into folders you may write in. Suggestions never name
 a folder you cannot see.
 
-You are told in the **Postfach** when mail waits: „2 E-Mails an Bauplatz 12
+You are told in the **Postfach** when mail waits: „2 E-Mails an „Bauplatz 12“
 warten auf Ablage“. The notice never shows a sender, a subject or a file name.
-When you sent the mail yourself, from your office address, the notice and the
-outcome come to you; otherwise to the people who manage the project.
+When you sent the mail yourself, from your office address, and may file in the
+project, the notice and the outcome come to you; otherwise the notice goes to
+everyone who may add documents to the project, and you hear why your mail
+waits.
 
 ## What a mail shows
 
@@ -64,9 +67,9 @@ Each mail says whether its sender's domain confirmed it:
 |---|---|
 | **Domain bestätigt: statik-weber.at** | The sender's domain signed the mail (DKIM). This proves the domain, not the person who wrote it |
 | **Domain nicht bestätigt** | The domain did not sign it. ARCHOS makes no suggestion, and no E-Mail-Verlauf is pre-selected |
-| **Mitglied · Domain nicht bestätigt** | The address is a colleague's, but your domain did not sign it. You confirm before filing |
+| **Mitglied · Domain nicht bestätigt** | The address is a member's, but their domain did not sign it. If that member may file in the project, only they can file it; otherwise you confirm before filing |
 | **Ihre eigene E-Mail (Bcc)** | A copy of a mail you sent to others, with the project in Bcc |
-| **Gibt sich als … aus** | The signature was rejected, or a colleague's name appears on an address that is not theirs |
+| **Gibt sich als … aus** | The domain rejected the mail, or a member's name appears on an address that is not theirs |
 
 **A mail that poses as someone is a stop.** It opens behind a warning, „Verwerfen“
 is the first button, nothing is pre-selected, ARCHOS suggests nothing, and it
@@ -84,9 +87,28 @@ The mail's text is shown as plain text: links are not opened, and nothing from
 outside is loaded. Long text folds; „Zitierten Text anzeigen“ shows what the
 sender quoted.
 
+## Filed directly
+
+A mail is **filed directly**, as you and without a click, when all of this
+holds: it comes from your own address, you may file in the project, your
+domain signed it (DKIM, below), the project's address is in To or Cc, and it is
+neither sent automatically nor oddly dated nor already known. Its text and
+attachments go where they would be suggested, and the Postfach tells you („Ihre
+E-Mail an „…“ wurde direkt abgelegt“). A part that needs a look, or has no
+place, waits in the E-Mail-Eingang.
+
+A Bcc copy is not filed directly: whoever received your mail could send it on
+to the project unchanged, and that looks the same. Such a mail, and one your
+domain did not confirm, waits for you alone, and the Postfach asks you
+whether you sent it („Haben Sie eine E-Mail an das Projekt „…“ gesendet?
+Sonst verwerfen“). Only you can file it („Ja, ich habe diese E-Mail gesendet.
+Ablegen“) or restore it; the others in the project see whom it waits for and
+can only dismiss it. If you did not send it, dismiss it: someone is using your
+address.
+
 ## Bereit and Braucht Sie
 
-The waiting mails stand under two headings, and a third when a colleague's mail waits for them. **Bereit** means the sender's
+The waiting mails stand under up to three headings. **Bereit** means the sender's
 domain is confirmed, every part has a suggested place, and nothing needs
 checking. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
 without a confirmation; the mail is read again first, and if it changed
@@ -97,10 +119,10 @@ them after a confirmation grouped by destination (at most 20 at a time).
 Under **Braucht Sie** each mail says what it needs: „Haben Sie sie gesendet?
 Bestätigen Sie es“ (your own mail your domain did not confirm), „Absender
 prüfen“, „Anhang prüfen“, „Anhang wird noch geprüft …“, „E-Mail-Verlauf
-wählen“, „Ordner wählen“ or „Projekt ist abgeschlossen“. „Nicht von selbst
-abgelegt“ marks a colleague's verified mail that direct filing left for a
-person. Under **Wartet auf andere** stand mails with a colleague's address
-that only that colleague can file („Wartet auf {Name}“): you can dismiss them,
+wählen“, „Ordner wählen“ or „Projekt ist abgeschlossen“. „Nicht direkt
+abgelegt“ marks a member's confirmed mail that direct filing left for a
+person. Under **Wartet auf andere** stand mails with another member's address
+that only that member can file („Wartet auf {Name}“): you can dismiss them,
 and then only they can restore them. A mail that poses as someone never gets
 the button. Mail from an unconfirmed domain and automatic mail sit below, in a
 folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
@@ -133,8 +155,8 @@ quiet: no upload summary and no „Neue Fassung“ notice per reply. A filed
 document is published with you as the person who approved it, like any upload;
 its preview says which mail it came with.
 
-**When something needs your confirmation.** A colleague's address without your
-domain's signature, a mail not addressed to the project, an old date, a file
+**When something needs your confirmation.** A mail from an unconfirmed domain,
+a mail not addressed to the project, an old date, a file
 with macros or a name that does not match its content, and a thread match the
 sender's signature does not cover each need a tick before filing. These mails
 are filed one at a time, never in a group.
@@ -167,10 +189,12 @@ filing has no undo; „Öffnen“ takes you to the document.
 ## Dismissing, expiring, restoring
 
 - „Verwerfen“ dismisses a mail. It can be restored for **7 days** under
-  „Bearbeitet › Verworfen“, then it is deleted. A dismissed mail from an
-  unconfirmed domain is deleted at once.
-- A mail nobody decides **expires after 30 days**. You are told five days
-  before. An expired mail can still be restored for 7 days.
+  „Bearbeitet“, then it is deleted. A dismissed mail from outside the office
+  whose domain is not confirmed is deleted at once.
+- A mail nobody decides **expires after 30 days**, a mail from outside the
+  office after **14 days**. You are told five days before. An expired mail of a
+  member can still be restored for 7 days; an expired mail from outside the
+  office is gone.
 - A closed project still receives mail and shows „Projekt ist abgeschlossen –
   wieder öffnen, um abzulegen“. Dismissing is possible; reopen the project to
   file.
@@ -178,8 +202,9 @@ filing has no undo; „Öffnen“ takes you to the document.
 ## Malware checks
 
 Every attachment, and every mail as a whole, is checked for malware on
-ARCHOS's own servers before anyone can file or open it: „Auf Schadsoftware
-geprüft“. An infected attachment („Schadsoftware gefunden“) cannot be filed;
+ARCHOS's own servers before anyone can file or open it; while it runs the
+attachment says „Wird auf Schadsoftware geprüft …“, and a clean one says
+nothing. An infected attachment („Schadsoftware gefunden“) cannot be filed;
 the mail can only be dismissed. A check that failed is repeated by itself.
 Previews before filing are drawn for images and PDFs only; other files show
 their icon until filed.
@@ -259,27 +284,30 @@ nothing the name or content check would stop. Everything else waits as usual.
 
 ## Tips
 
-- **Bcc the project on your own mail.** A copy of a mail you sent, signed by
-  your domain, is recognised as „Ihre eigene E-Mail (Bcc)“ and needs no extra
-  confirmation.
-- **Let your domain sign its mail.** The address dialog shows how much of your
-  office's own mail was „Domain bestätigt“ in the last 30 days. Unsigned mail
-  from colleagues needs a confirmation each time; ask whoever runs your mail
-  to enable DKIM (the „so richten Sie es ein“ link in the dialog).
-- Large plan sets do not fit: a mail may be at most about 25 MB.
+- **Cc the project on your own mail, not Bcc.** In Cc your mail is filed
+  directly; a Bcc copy („Ihre eigene E-Mail (Bcc)“) waits until you confirm
+  you sent it.
+- **Let your domain sign its mail.** Whoever manages the project sees under
+  **Einstellungen › Dokumente** how much of your office's own mail was „Domain
+  bestätigt“ in the last 30 days. A member's mail their domain does not sign is
+  never filed directly and waits for that member each time; ask whoever runs
+  your mail to enable DKIM (the „so richten Sie es ein“ link on that card).
+- Large sets of documents do not fit: a mail may be at most 25 MB, with about
+  18 MB of attachments. Upload larger files directly.
 
 ## Outlook archives
 
 An Outlook archive you import (Dateien › Outlook-Archiv importieren) files its
 e-mails' text into the same E-Mail-Verläufe, and skips any e-mail the project
 already has. Importing is your decision, so an archive does not wait in the
-E-Mail-Eingang. Its sections say „aus dem Outlook-Archiv“ and have no
+E-Mail-Eingang. Its sections say „aus dem Outlook-Archiv“, its rows in the
+E-Mails tab „Aus dem Outlook-Archiv · nicht geprüft“, and they have no
 original.
 
 ## For agents
 
-Everything here is also an operation of ARCHOS's agent door, in the `mail`
+Everything here is also an operation of ARCHOS's MCP server, in the `mail`
 domain: an outside agent acting for you can list and read waiting mail and
 file it, but only on your own yes, and it never gets an original. ARCHOS
-proposes a filing as a card you accept. See
+proposes a filing as a card you confirm. See
 [Connect your agent](connect-your-agent.md).

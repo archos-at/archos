@@ -138,7 +138,7 @@ describe('InboundMailWorkspace', () => {
     expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others (1)')).toBeInTheDocument()
     // The forgery stays where the reader acts on it: dismissing it is theirs to do.
     expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
-    expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed by itself · Choose a folder')
+    expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed directly · Choose a folder')
     unmount()
     renderWorkspace('own')
     const own = within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['own-unverified'].view.id}`)).getByTestId('inbound-mail-row-reason')

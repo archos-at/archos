@@ -652,6 +652,9 @@ services:
       - INBOUND_MAIL_LOCAL_PART=${INBOUND_MAIL_LOCAL_PART:-project}
       - INBOUND_MAIL_SIGNING_KEYS=${INBOUND_MAIL_SIGNING_KEYS:-}
       - INBOUND_MAIL_PAUSED=${INBOUND_MAIL_PAUSED:-false}
+      # DIRECT_FILING=false files no verified writer's mail as them: it waits for
+      # the project's writers (ADR-0137, amendment of 2026-11-03).
+      - INBOUND_MAIL_DIRECT_FILING=${INBOUND_MAIL_DIRECT_FILING:-true}
       - WORKOS_CLIENT_ID=${WORKOS_CLIENT_ID}
       - WORKOS_API_KEY=${WORKOS_API_KEY}
       - NEXT_PUBLIC_WORKOS_REDIRECT_URI=${NEXT_PUBLIC_WORKOS_REDIRECT_URI:-${WORKOS_REDIRECT_URI:-http://localhost:3000/api/auth/callback}}

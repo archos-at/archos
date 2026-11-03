@@ -40,7 +40,7 @@ describe('MailOriginLine', () => {
     expect(screen.getByTestId('mail-origin-trust')).toHaveTextContent('Domain not verified')
     unmount()
     render(<MailOriginLine origins={PROVENANCE_ORIGINS.archive} />)
-    expect(screen.getByTestId('mail-origin-trust')).toHaveTextContent('From the mail archive · not checked')
+    expect(screen.getByTestId('mail-origin-trust')).toHaveTextContent('From the Outlook archive · not checked')
   })
 
   it('counts further mails and says a nameless one without a name', () => {

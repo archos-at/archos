@@ -7,7 +7,7 @@ import type { en } from '../en'
  * formuliert, damit jede Fläche sie gleich sagt.
  *
  * Die Worte der Darstellung selbst (Abschnittsüberschriften, „eingegangen …“,
- * „Zitat in der Nachricht von …“) stehen NICHT hier, sondern versioniert in
+ * „Zitat aus der E-Mail vom …“) stehen NICHT hier, sondern versioniert in
  * `lib/mail-thread/render-copy.ts`: eine Änderung schriebe jeden Abschnitt neu.
  */
 export const mailThread: typeof en.mailThread = {
@@ -17,7 +17,7 @@ export const mailThread: typeof en.mailThread = {
     match_not_reference: 'Die E-Mail verweist auf keine E-Mail dieses E-Mail-Verlaufs',
     header_not_signed: 'Der Verweis auf den E-Mail-Verlauf ist nicht von der Domain signiert',
     flagged: 'Die E-Mail ist an andere adressiert, oder ihr Datum ist nicht plausibel',
-    automatic: 'Die E-Mail wurde automatisch gesendet',
+    automatic: 'Die E-Mail wurde automatisch versandt',
     new_participant_domain: 'Neue Beteiligte: {domains}',
     recipients_unchecked: 'Die E-Mail hat mehr Empfänger, als geprüft werden können',
     name_stop: 'Die Namensprüfung hat den Betreff angehalten',
@@ -55,22 +55,22 @@ export const mailThread: typeof en.mailThread = {
       verified: 'Domain bestätigt: {domain}',
       verifiedNoDomain: 'Domain bestätigt',
       unverified: 'Domain nicht bestätigt',
-      notChecked: 'Aus dem E-Mail-Archiv · nicht geprüft',
+      notChecked: 'Aus dem Outlook-Archiv · nicht geprüft',
     },
     /** Wie sie abgelegt wurde, nur genannt, wo nicht eine Person in der App entschieden hat. */
     filedVia: {
       agent: 'Von einem Agenten im Namen einer Person abgelegt',
       agent_proposal: 'Auf Vorschlag von {productName} abgelegt',
       follow: 'Angefügt, weil jemand diesem E-Mail-Verlauf folgt',
-      archive_import: 'Aus dem E-Mail-Archiv übernommen',
-      sender: 'Direkt abgelegt: Die Domain eines Mitglieds mit Schreibrecht hat sie bestätigt',
+      archive_import: 'Aus dem Outlook-Archiv übernommen',
+      sender: 'Direkt abgelegt: von einem Mitglied gesendet, das im Projekt ablegen darf, und von seiner Domain bestätigt',
     },
     /** Unter der Überschrift einer weitergeleiteten E-Mail, die ihren ursprünglichen Absender nennt. */
     forwardedBy: 'Weitergeleitet von {name}',
     compare: 'Vergleichen',
     compareLabel: 'Fassung {from} mit Fassung {to} vergleichen',
     comparing: 'Wird verglichen …',
-    compareFailed: 'Der Vergleich hat nicht geklappt.',
+    compareFailed: 'Der Vergleich hat nicht geklappt. Bitte erneut versuchen.',
     compareClose: 'Vergleich schließen',
     menu: 'Mehr zur E-Mail vom {heading}',
     detach: 'Herauslösen …',
@@ -108,7 +108,7 @@ export const mailThread: typeof en.mailThread = {
     hint: 'Öffnet sich im Mailprogramm; Bilder von außen werden dort geladen.',
     notClean: 'Das Original enthält Schadsoftware und kann nicht heruntergeladen werden',
     scanning: 'Das Original wird auf Schadsoftware geprüft',
-    gone: 'Kein Original: aus dem E-Mail-Archiv übernommen',
+    gone: 'Kein Original: aus dem Outlook-Archiv übernommen',
     failed: 'Das Herunterladen hat nicht geklappt. Bitte erneut versuchen.',
   },
   /** „Verlauf folgen“ im Reiter: das eigene Folgen, und für die Projektverwaltung das aller. */
@@ -165,10 +165,10 @@ export const mailThread: typeof en.mailThread = {
     last_entry: 'Das ist die einzige E-Mail dieses E-Mail-Verlaufs. Löschen Sie stattdessen das Dokument.',
     busy: 'Gerade wird eine E-Mail in diesen E-Mail-Verlauf abgelegt. Bitte gleich noch einmal versuchen.',
     target_unknown: 'Den gewählten E-Mail-Verlauf oder Ordner gibt es nicht mehr, oder Sie dürfen dort nicht ablegen.',
-    thread_full: 'Der gewählte E-Mail-Verlauf ist voll.',
+    thread_full: 'Der gewählte E-Mail-Verlauf ist voll. Wählen Sie einen anderen oder einen neuen E-Mail-Verlauf.',
     name_stop: 'Die Namensprüfung hat diesen Namen angehalten. Bitte einen anderen wählen.',
-    name_taken: 'Ein Dokument dieses Namens liegt schon im Projekt.',
-    upload_refused: 'Die neue Fassung ließ sich nicht hochladen.',
+    name_taken: 'Ein Dokument dieses Namens liegt schon im Projekt. Wählen Sie einen anderen Namen.',
+    upload_refused: 'Die neue Fassung ließ sich nicht hochladen. Bitte erneut versuchen.',
     gone: 'Die E-Mail ist nicht mehr da.',
     original_not_clean: 'Das Original hat die Prüfung auf Schadsoftware nicht bestanden und lässt sich nicht herunterladen.',
     project_closed: 'Das Projekt ist abgeschlossen. Bitte zuerst wieder öffnen.',

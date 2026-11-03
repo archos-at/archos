@@ -84,8 +84,9 @@ async function writesInProject(mail: InboundMailRow, userId: string, degraded: b
 }
 
 /**
- * A held mail that is not filed directly: its waiting row (the sender per D9,
- * else the managers), and the member it names hears why it waits.
+ * A held mail that is not filed directly: its waiting row (the sender per D9
+ * when they may write here, else the project's writers), and the member it
+ * names hears why it waits.
  */
 export async function announceHeldMail(mail: InboundMailRow & { senderTrust: NonNullable<InboundMailRow['senderTrust']> }): Promise<void> {
   const facts = {

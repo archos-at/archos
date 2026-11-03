@@ -10,7 +10,7 @@ features:
     A mail carrying your address that could not be filed directly (your
     domain did not confirm it, it is your Bcc copy, it reads as re-sent or
     misdated, or it was sent automatically) waits for you alone, and the
-    Postfach asks „Haben Sie diese E-Mail gesendet?“. If your domain rejected
+    Postfach asks whether you sent it. If your domain rejected
     it outright, the E-Mail-Eingang says so in your own words.
   - >
     Your colleagues see such a mail under „Wartet auf andere“, with your name,
@@ -26,8 +26,8 @@ features:
     address dialog and the guide on the website describe direct filing.
   - >
     The Postfach tells you when your own mail to a project waits, was filed,
-    was dismissed or expired, and tells the project's writers when a mail
-    waits for them.
+    was dismissed or expired, and tells everyone who may file in the project
+    when a mail waits for them.
 fixes:
   - >
     Filing an attachment the E-Mail-Eingang had suggested a folder for no

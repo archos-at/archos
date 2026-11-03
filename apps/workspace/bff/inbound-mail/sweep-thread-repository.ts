@@ -11,6 +11,7 @@ import 'server-only'
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { mailThreadFollows } from '@/lib/db/schema/mail-thread'
+import { MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS } from './inbound-mail-vocabulary'
 import { DAY_MS, select } from './sweep-sql'
 
 // ---------------------------------------------------------------------------
@@ -170,7 +171,7 @@ export async function findEndingFollows(now: Date, limit: number): Promise<Array
 }
 
 /** How long before its end a follower is asked to renew: day 55 of 60 (D31). */
-export const FOLLOW_EXPIRING_BEFORE_MS = 5 * DAY_MS
+export const FOLLOW_EXPIRING_BEFORE_MS = MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS * DAY_MS
 
 /** Running follows within five days of their end, not asked yet, on a live thread. Platform scope. */
 export async function findExpiringFollows(now: Date, limit: number): Promise<DueFollow[]> {

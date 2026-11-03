@@ -274,7 +274,7 @@ const projectTarget: InboxTargetDescriptor = {
  * answer them 404, so it opens Dateien, at the folder the files went to when
  * the row names one they may open (its anchor). The member's own rows about
  * their mail (held for the writers, rejected, expired) open Dateien too; the
- * one they must answer („Haben Sie das gesendet?“, `held`) opens the mail,
+ * one they must answer („Haben Sie diese E-Mail gesendet?“, `held`) opens the mail,
  * which they, a writer, may read. `inbound_mail.appended` and
  * `mail_thread.follow_expiring` point at the Verlauf document instead.
  */

@@ -129,7 +129,7 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('says a verified writer’s mail direct filing left waits for any writer, with the next step (not_filed)', () => {
     renderDetail('not-filed')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'not_filed')
-    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Miriam Huber sent it and the domain verified it, but it was not filed by itself. Check it, then file or dismiss it.')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Miriam Huber sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.')
     expect(screen.queryByTestId('claimed-mail-bar')).toBeNull()
     expect(screen.getAllByTestId('attachment-checkbox').length).toBeGreaterThan(0)
   })

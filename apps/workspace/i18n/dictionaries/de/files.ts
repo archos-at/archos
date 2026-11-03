@@ -928,7 +928,7 @@ export const files: typeof en.files = {
     description:
       'Wählen Sie eine .pst- oder .ost-Datei. Die Anhänge jeder E-Mail kommen in einen Ordner unter „E-Mail-Import“, ihr Text in die E-Mail-Verläufe des Projekts. Was das Projekt schon hat, wird nicht doppelt abgelegt.',
     privacy:
-      'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem Postfach geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes Postfach.',
+      'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem E-Mail-Konto geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes E-Mail-Konto.',
     choose: 'Outlook-Archiv auswählen…',
     maxSize: 'Bis {size}.',
     // Nur für Touch: ein Archiv dieser Größe sendet man vom Schreibtisch, mit stabiler Leitung.

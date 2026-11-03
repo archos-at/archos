@@ -9,7 +9,7 @@ import 'server-only'
  * |---|---|---|---|
  * | `inbound_mail.waiting` | the sender per D9 when they may write here, else the project's writers | per project | nothing waits |
  * | `inbound_mail.expiring` | the same, once per mail (sweep 4) | per project | nothing told about waits |
- * | `inbound_mail.held` | the member a mail claims whose signature did not hold („Haben Sie das gesendet?“) | per mail | the mail is decided or expires |
+ * | `inbound_mail.held` | the member a mail claims whose signature did not hold („Haben Sie diese E-Mail gesendet?“) | per mail | the mail is decided or expires |
  * | `inbound_mail.held_for_writers` | the member without write rights whose mail waits for the writers | per mail | the mail is decided or expires |
  * | `inbound_mail.decided` | the member sender: their mail was filed (by a writer, or directly as them, `direct`) | per mail | — |
  * | `inbound_mail.rejected` | the member sender: their mail was dismissed | per mail | — |
@@ -159,7 +159,7 @@ export interface HeldMail extends WaitingMail {
 /**
  * Tell the member a held mail names why it waits (the receive job, once per
  * mail): `inbound_mail.held` when it claims them as a writer and their
- * signature did not hold, so only they can release it; `inbound_mail.held_for_writers`
+ * signature did not hold, so only they can file it; `inbound_mail.held_for_writers`
  * when they may not write in the project, or, variant `unchecked`, when
  * WorkOS never answered whether they may (`sender_unchecked`): a degraded
  * check must not tell them they have no write rights. Nothing for an

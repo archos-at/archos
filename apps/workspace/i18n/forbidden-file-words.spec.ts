@@ -157,12 +157,37 @@ describe('file copy never calls a file a plan', () => {
  * - „Abgelegt“ is the upload status `stored`; a mail never wears it as a
  *   state. It stays allowed inside sentences („2 Dateien abgelegt“). The
  *   handled list's facet that once wore it alone is gone (2026-10-27).
+ * - Direct filing (ADR-0137's amendment of 2026-11-03) is „direkt abgelegt“,
+ *   never „von selbst“ or „automatisch abgelegt“ (en „filed directly“, never
+ *   „by itself“); whoever may add documents is someone who „im Projekt ablegen
+ *   darf“, not „mit Schreibrecht“; the person a mail names is a „Mitglied“
+ *   (en „member“), never a „Kollege“ (CONTEXT.md, „E-Mail-Eingang“).
+ *
+ * The Postfach's notices about mail and the settings card speak the same
+ * words, so they are read here too, all but „Postfach“, which they may name.
  */
 const MAIL_NAMESPACES = ['inboundMail', 'mailThread', 'files.inboundMail', 'nav.inboundMailWaiting', 'projects.card.mailWaiting'] as const
+const MAIL_NOTICE_PATHS = [
+  ...[
+    'Waiting',
+    'Expiring',
+    'Decided',
+    'Held',
+    'HeldForWriters',
+    'Rejected',
+    'Expired',
+    'FilingFailed',
+    'CapReached',
+    'Appended',
+  ].map((type) => `collaboration.inbox.types.inboundMail${type}`),
+  'collaboration.inbox.types.mailThreadFollowExpiring',
+  'settings.project.documents.inboundMailTitle',
+  'settings.project.documents.inboundMailDescription',
+] as const
 
 const MAIL_FORBIDDEN: Record<'de' | 'en', RegExp> = {
-  de: /Projektadresse|Posteingang|Postfach|Quarantäne|Durchsicht|durchsehen|annehmen|ablehnen|freigeben|zulassen|\bNachrichte?n?\b|\bThreads?\b|Unterhaltung|\bInbox\b|Schriftverkehr|abonnieren|(?<!E-Mail-)\bVerl(?:auf|äufe)\b(?! folgen\))/u,
-  en: /\binbox\b|\bintake\b|project address|\bmessages?\b|(?<!mail )\bthreads?\b|\bapprove|\bdecline|\baccept(?!ed)|\bquarantine/i,
+  de: /Projektadresse|Posteingang|Postfach|Quarantäne|Durchsicht|durchsehen|annehmen|ablehnen|freigeben|zulassen|\bNachrichte?n?\b|\bThreads?\b|Unterhaltung|\bInbox\b|Schriftverkehr|abonnieren|(?<!E-Mail-)\bVerl(?:auf|äufe)\b(?! folgen\))|von selbst|automatisch abgelegt|Schreibrecht|Kolleg/u,
+  en: /\binbox\b|\bintake\b|project address|\bmessages?\b|(?<!mail )\bthreads?\b|\bapprove|\bdecline|\baccept(?!ed)|\bquarantine|by itself|colleague|email thread/i,
 }
 
 describe('the E-Mail-Eingang keeps its own words', () => {
@@ -177,6 +202,17 @@ describe('the E-Mail-Eingang keeps its own words', () => {
         return leaves(node, path)
       })
         .filter(([, text]) => MAIL_FORBIDDEN[locale].test(text))
+        .map(([path, text]) => `${path}: ${text}`)
+      expect(offenders).toEqual([])
+    })
+
+    it(`${locale}: the Postfach's notices and the settings card about mail keep the same words`, () => {
+      const offenders = MAIL_NOTICE_PATHS.flatMap((path) => {
+        const node = subtree(dictionary, path)
+        expect(node, `${path} moved; update MAIL_NOTICE_PATHS`).toBeDefined()
+        return leaves(node, path)
+      })
+        .filter(([, text]) => MAIL_FORBIDDEN[locale].test(text.replaceAll('Postfach', '')))
         .map(([path, text]) => `${path}: ${text}`)
       expect(offenders).toEqual([])
     })

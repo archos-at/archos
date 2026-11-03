@@ -40,6 +40,7 @@ import type {
   SenderFlag,
 } from './inbound-mail-vocabulary'
 import type { StoredScan } from './repository'
+import { INBOUND_MAIL_EXPIRING_NOTICE_DAYS } from './inbound-mail-vocabulary'
 import { DAY_MS, mailProjectFree, select } from './sweep-sql'
 
 export {
@@ -198,10 +199,10 @@ export async function expireMail(mailId: string, now: Date): Promise<number> {
   })
 }
 
-/** How long before its end a held mail's people are told it expires: day 25 of 30 (D8). */
-export const EXPIRING_NOTICE_BEFORE_MS = 5 * DAY_MS
+/** How long before its end a held mail's people are told it expires (D8), in milliseconds. */
+export const EXPIRING_NOTICE_BEFORE_MS = INBOUND_MAIL_EXPIRING_NOTICE_DAYS * DAY_MS
 
-/** Held mail within five days of its end, not told yet, with a part still waiting (sweep 4). Platform scope. */
+/** Held mail within `INBOUND_MAIL_EXPIRING_NOTICE_DAYS` of its end, not told yet, with a part still waiting (sweep 4). Platform scope. */
 export async function findExpiringMails(now: Date, limit: number): Promise<HeldMailFacts[]> {
   const from = new Date(now.getTime() + EXPIRING_NOTICE_BEFORE_MS)
   return select<HeldMailFacts>(sql`

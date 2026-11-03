@@ -80,10 +80,11 @@ The binding also says how the call reached the route. `actingReaderIsAgent()`
 is true for a call whose answer a model reads, and `actingProposalId()` names
 the agent's proposal whose acceptance the call applies (set by the proposal
 applier through `callOperation`'s `origin`). A route that records how a person
-decided reads them: an E-Mail-Eingang decision's `via` is `piloti_proposal`,
+decided reads them: an E-Mail-Eingang decision's `via` is `agent_proposal`,
 `agent` or `app` from these, never from the body an agent writes
 (`decisionActor`, `lib/inbound-mail/service.ts`), and a card may then carry no
-acknowledgement or release (ADR-0137).
+acknowledgement or release (ADR-0137). `sender` comes only from the sender's
+own filing job, never from a call (ADR-0137's amendment).
 
 ### How long a revocation takes
 

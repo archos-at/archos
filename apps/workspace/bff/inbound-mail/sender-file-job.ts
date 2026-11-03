@@ -71,7 +71,7 @@ export const SENDER_FILE_WAIT_MS = 30_000
 /** How often the run waits for the suggestion before it files without it (five minutes in all). */
 export const SENDER_FILE_MAX_WAITS = 10
 
-/** Why a verified writer's mail, or some of it, waits for its sender after all. */
+/** Why a verified writer's mail, or some of it, waits after all, for any of the project's writers (wait reason `not_filed`). */
 export const SENDER_FILE_WAIT_REASONS = [
   /** A person decided first, or the mail is gone. */
   'not_waiting',

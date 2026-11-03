@@ -10,6 +10,7 @@
 
 import { z } from 'zod'
 import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
+import type { InboundMailSenderClass } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import type { FilingBasis } from '@/lib/proposals/types'
 
 export type { FilingBasis }
@@ -130,7 +131,12 @@ export interface MailFilingInput {
     /** The text part, when the mail matched no E-Mail-Verlauf and its text would start one; else null. */
     textId: string | null
   }
-  trace: { mailId: string; projectId: string }
+  /**
+   * Metadata of the generation, never the model's input. `senderClass` says whether a person
+   * decides on the suggestion (ADR-0137's amendment): a `verified_writer`'s mail is filed by its
+   * sender's own filing without a click, so no decision score follows its suggestion.
+   */
+  trace: { mailId: string; projectId: string; senderClass: InboundMailSenderClass | null }
 }
 
 /** Where the agent would file one part of a held mail, checked against the input. */

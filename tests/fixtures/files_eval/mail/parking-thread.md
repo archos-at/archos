@@ -58,7 +58,7 @@ die Berechnung mit vier Pflichtstellplätzen ist nachvollziehbar. Für die Fests
 Mit freundlichen Grüßen
 Anna Huber
 
-### Zitat in der Nachricht von 12.05.2026 09:12 · Mag. Anna Huber (ma37.wien.gv.at)
+### Zitat aus der E-Mail vom 12.05.2026 09:12 · Mag. Anna Huber (ma37.wien.gv.at)
 
 Am 28.04.2026 schrieb Ing. Paul Gruber:
 \> Statt der Ausgleichsabgabe wäre auch ein Stellplatz im Hof zulässig.

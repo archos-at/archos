@@ -116,7 +116,7 @@ const MAIL: MailFilingInput = {
     { id: 'p2', file: 'Lageplan.dwg' },
   ],
   mail: { subject: 'AW: Einreichung ███', senderDomain: 'wien.gv.at', textId: 't1' },
-  trace: { mailId: 'mail-1', projectId: 'project-1' },
+  trace: { mailId: 'mail-1', projectId: 'project-1', senderClass: 'verified_writer' },
 }
 
 describe('a held mail (basis mail)', () => {
@@ -130,7 +130,7 @@ describe('a held mail (basis mail)', () => {
         { id: 'p2', file: 'Lageplan.dwg' },
       ],
       mail: { subject: 'AW: Einreichung ███', sender_domain: 'wien.gv.at', text_id: 't1' },
-      trace: { batch_id: 'mail-1', project_id: 'project-1', shelf: 'project' },
+      trace: { batch_id: 'mail-1', project_id: 'project-1', shelf: 'project', sender_class: 'verified_writer' },
     })
     for (const document of body.documents as Array<Record<string, unknown>>) {
       expect(Object.keys(document).sort()).toEqual(['file', 'id'])

@@ -23,7 +23,7 @@ import { OFFICE_TIME_ZONE } from '@/lib/format'
 import type { Locale } from '@/i18n/config'
 
 /** The rendition's format version. A change to this table or to `render.ts`'s layout bumps it. */
-export const MAIL_THREAD_RENDER_VERSION = 2
+export const MAIL_THREAD_RENDER_VERSION = 3
 
 export interface MailThreadRenderCopy {
   /** The heading suffix for an inbound sender whose domain no signature confirmed. */
@@ -125,7 +125,7 @@ export const MAIL_THREAD_RENDER_COPY: Readonly<Record<Locale, MailThreadRenderCo
     filedIn: (folderPath) => `abgelegt in ${folderPath}`,
     unnamedAttachments: (count) =>
       count === 1 ? '1 Anhang nur im Original' : `${count} Anhänge nur im Original`,
-    quoteIn: (heading) => `Zitat in der Nachricht von ${heading}`,
+    quoteIn: (heading) => `Zitat aus der E-Mail vom ${heading}`,
     noText: '(ohne Text)',
     truncated: '(gekürzt; der ganze Text steht im Original)',
   },
@@ -153,7 +153,7 @@ export const MAIL_THREAD_RENDER_COPY: Readonly<Record<Locale, MailThreadRenderCo
     filedIn: (folderPath) => `filed in ${folderPath}`,
     unnamedAttachments: (count) =>
       count === 1 ? '1 attachment only in the original' : `${count} attachments only in the original`,
-    quoteIn: (heading) => `Quoted in the message of ${heading}`,
+    quoteIn: (heading) => `Quoted from the mail of ${heading}`,
     noText: '(no text)',
     truncated: '(shortened; the whole text is in the original)',
   },

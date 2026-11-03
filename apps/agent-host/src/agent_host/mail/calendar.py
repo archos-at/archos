@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import unicodedata
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
 from datetime import datetime
@@ -56,16 +57,22 @@ def calendar_events(data: bytes, limit: int = limits.MAX_CALENDAR_EVENTS) -> Cal
         return CalendarRead(events=(), truncated=False, malformed=True)
     events: list[CalendarEvent] = []
     truncated = False
+    for component, method in _vevents(calendars):
+        if len(events) >= limit:
+            truncated = True
+            break
+        event = _event(component, method)
+        if event is not None:
+            events.append(event)
+    return CalendarRead(events=tuple(events), truncated=truncated, malformed=False)
+
+
+def _vevents(calendars: list[Calendar]) -> Iterator[tuple[Component, str | None]]:
+    """Every VEVENT of the calendars, in order, with its calendar's METHOD; lazily, so a cut stops reading."""
     for calendar in calendars:
         method = _text(calendar.get("METHOD"), 40)
         for component in calendar.walk("VEVENT"):
-            if len(events) >= limit:
-                truncated = True
-                break
-            event = _event(component, method)
-            if event is not None:
-                events.append(event)
-    return CalendarRead(events=tuple(events), truncated=truncated, malformed=False)
+            yield component, method
 
 
 def _event(component: Component, method: str | None) -> CalendarEvent | None:

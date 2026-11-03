@@ -44,6 +44,9 @@ list here. A cleanup shrinks the ratchet's baseline
 | Original (.eml) | `original` (`original_storage_key`, `_mail-originals/`) | `raw` (the staged `raw.eml` before filing) |
 | Korrespondenz (Dokumentart) | `correspondence` | `mail` (the format, `source_format: mail`) |
 | Domain bestätigt / nicht bestätigt | `sender_trust` `*_verified` / `*_unverified` (`not_checked` for the archive) | `trusted`, `authenticated sender` |
+| direkt abgelegt (a member's own mail, filed as they sent it) | the sender class `verified_writer`; the decision's `via = 'sender'`; `waitReason` `not_filed` (left waiting) and `paused` (switched off) | `auto_file`, `automatic` (a sender flag: mail sent by a machine) |
+| Haben Sie diese E-Mail gesendet? (a mail only its member may file) | the sender class `unverified_writer`; `acknowledgeSender`, `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf` (`own` / `colleague`) | `release`, `approve` (Freigabe's) |
+| the sender, as the E-Mail-Eingang classes it | `INBOUND_MAIL_SENDER_CLASSES`: `verified_writer`, `unverified_writer`, `office_member`, `external` (`inbound_mails.sender_class`, `lib/inbound-mail/sender-class.ts`) | `sender_trust`, which is the domain's verdict, not who the sender is to the project |
 | Punkt, Absatz (of a norm) | `clause`, `subsection` (`clause_chunking.py`, `build_clause_index.py`; the Qdrant keys `clause_id`, `clause_path`, `chunking: "clause"`; the `read_passage` argument `clause`) | |
 | Richtlinie (OIB) | `guideline` (the Qdrant key `guideline`; `norm_registry.oib_doc_class` returns `guideline`, `guide`, `explanatory_note`, `definitions`, `referenced_standards`, `amendment`) | |
 | Nutzung, Bauweise, Vorhabensart | `use` / `uses`, `construction_method`, `work_type` (the boost weights `use`, `use_max`; the `project_facts` payload keys) | |

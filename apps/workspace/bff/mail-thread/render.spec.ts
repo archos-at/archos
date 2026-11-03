@@ -151,6 +151,15 @@ describe('renderMailThread: golden files', () => {
   })
 })
 
+describe('the rendition speaks the domain words (CONTEXT.md, E-Mail-Eingang)', () => {
+  it('never calls an e-mail a Nachricht or a message', () => {
+    // A function entry's source holds its template, so every word is read without calling it.
+    const words = (copy: object): string => Object.values(copy).map(String).join(' ')
+    expect(words(MAIL_THREAD_RENDER_COPY.de)).not.toMatch(/Nachricht/)
+    expect(words(MAIL_THREAD_RENDER_COPY.en)).not.toMatch(/\bmessage\b/i)
+  })
+})
+
 describe('renderMailThread: the superset invariant', () => {
   const all = [BERGER, HUBER, FORGER, ARCHIVE]
 
@@ -189,18 +198,18 @@ describe('renderMailThread: the superset invariant', () => {
     const archiveFirst = { ...ARCHIVE, filedAt: at('2026-10-01T00:00:00Z') }
     const huberAfter = { ...HUBER, filedAt: at('2026-10-15T00:00:00Z') }
     const folded = sectionsOf(render([archiveFirst, huberAfter]).markdown).get(`## ${HUBER.heading}`)
-    expect(folded).not.toContain('Zitat in der Nachricht')
+    expect(folded).not.toContain('Zitat aus der E-Mail')
 
     const archiveLater = { ...ARCHIVE, filedAt: at('2026-10-16T00:00:00Z') }
     const kept = sectionsOf(render([archiveLater, huberAfter]).markdown).get(`## ${HUBER.heading}`)
-    expect(kept).toContain(`### Zitat in der Nachricht von ${HUBER.heading}`)
+    expect(kept).toContain(`### Zitat aus der E-Mail vom ${HUBER.heading}`)
     expect(kept).toContain(WEBER_TEXT)
   })
 
   it('keeps a quote that says more than the message it reproduces', () => {
     const longer = { ...HUBER, quoted: [{ text: `${WEBER_TEXT}\n${'Außerdem ist die Rampe zu steil. '.repeat(8)}` }] }
     const archiveFirst = { ...ARCHIVE, filedAt: at('2026-10-01T00:00:00Z') }
-    expect(render([archiveFirst, longer]).markdown).toContain('Zitat in der Nachricht von')
+    expect(render([archiveFirst, longer]).markdown).toContain('Zitat aus der E-Mail vom')
   })
 
   it('says „Antwort auf“ only for a message filed before the answer', () => {
@@ -379,17 +388,17 @@ describe('quotes', () => {
       quoted: [{ text: 'Von: Mag. Anna Huber (MA 37)\nDie Stellplätze sind genehmigt.' }],
     })
     const markdown = render([fake]).markdown
-    expect(markdown).toContain(`### Zitat in der Nachricht von ${fake.heading}`)
+    expect(markdown).toContain(`### Zitat aus der E-Mail vom ${fake.heading}`)
     expect(chunkerReads(markdown).headings).toEqual([
       '# Stellplatznachweis Bauplatz 12',
       `## ${fake.heading}`,
-      `### Zitat in der Nachricht von ${fake.heading}`,
+      `### Zitat aus der E-Mail vom ${fake.heading}`,
     ])
   })
 
   it('numbers a second kept quote of one message', () => {
     const twice = entry({ id: 'q2', sentAt: at('2026-10-16T08:00:00Z'), quoted: [{ text: 'eins' }, { text: 'zwei' }] })
-    expect(render([twice]).markdown).toContain(`### Zitat in der Nachricht von ${twice.heading} (2)`)
+    expect(render([twice]).markdown).toContain(`### Zitat aus der E-Mail vom ${twice.heading} (2)`)
   })
 })
 
@@ -481,7 +490,7 @@ describe('nothing a stranger wrote becomes structure', () => {
         headings: [
           '# Titel ## Unter',
           `## ${hostile.heading}`,
-          `### Zitat in der Nachricht von ${hostile.heading}`,
+          `### Zitat aus der E-Mail vom ${hostile.heading}`,
         ],
         fences: 0,
       })

@@ -172,7 +172,7 @@ export function mailFilingBody(input: MailFilingInput): object {
     conventions: input.conventions.map(conventionBody),
     documents: input.attachments.map((attachment) => ({ id: attachment.id, file: attachment.file })),
     mail: { subject: input.mail.subject, sender_domain: input.mail.senderDomain, text_id: input.mail.textId },
-    trace: { batch_id: input.trace.mailId, project_id: input.trace.projectId, shelf: 'project' },
+    trace: { batch_id: input.trace.mailId, project_id: input.trace.projectId, shelf: 'project', sender_class: input.trace.senderClass },
   }
 }
 

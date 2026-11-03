@@ -115,8 +115,8 @@ describe('MailThreadTab', () => {
       renderTab('archive-sections')
       const first = (await entries())[0]
       expect(within(first).getByTestId('mail-entry-original').dataset.state).toBe('gone')
-      expect(first).toHaveTextContent('No original: taken over from the mail archive')
-      expect(within(first).getByTestId('mail-thread-entry-trust')).toHaveTextContent('From the mail archive · not checked')
+      expect(first).toHaveTextContent('No original: taken over from the Outlook archive')
+      expect(within(first).getByTestId('mail-thread-entry-trust')).toHaveTextContent('From the Outlook archive · not checked')
     })
   })
 

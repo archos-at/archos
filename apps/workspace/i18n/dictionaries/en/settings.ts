@@ -128,7 +128,7 @@ export const settings = {
       knowledgeLink: 'Open knowledge base',
       inboundMailTitle: 'Project mail address',
       inboundMailDescription:
-        'Put it in Cc when you write to the authority, the structural engineer or the client, or forward documents to it. Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits in Project mail under Files until someone files it; {productName} suggests a folder, a name and a document type for each attachment.',
+        'Put it in Cc when you write to the authority, the structural engineer or the client, or forward documents to it. Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits in Project mail under Files until someone files it; for mail from verified domains {productName} suggests a folder, a name and a document type for each attachment.',
     },
   },
 }

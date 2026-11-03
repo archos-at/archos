@@ -382,7 +382,7 @@ job does three things with them:
 
 | Step | What happens |
 |---|---|
-| chunking | nothing new: a `.md` is cut by `text_formats.markdown_documents`, one section per ATX heading, cited by its heading (`clause_id`), so each message is one passage and a quote (`### Zitat in der Nachricht von …`) is cited under the message that kept it. A body line that looks like a heading was escaped by the renderer and stays inside its real sender's section |
+| chunking | nothing new: a `.md` is cut by `text_formats.markdown_documents`, one section per ATX heading, cited by its heading (`clause_id`), so each message is one passage and a quote (`### Zitat aus der E-Mail vom …`) is cited under the message that kept it. A body line that looks like a heading was escaped by the renderer and stays inside its real sender's section |
 | stamping (`_stamp_chunk_metadata`) | `mail_thread` puts `source_format: mail` on every chunk (excluded from the embedding and the LLM header, indexed as a keyword). `norm_registry.lane_for_hit` reads it after the stated author and before the doc_class: `project_mail` on a project, `office_mail` on the Büroablage, label „E-Mail“, the shelf's kind. A mail from `ma37.wien.gv.at` never reaches the authority lane. The grounding block states it as `Format: mail — E-Mail` (ADR-0061), so a replayed turn places it the same way |
 | after the summary row (`_store_mail_facts`) | `mail_thread` and `mail_origin` land on the row through `agent.knowledge.mail_facts`, which keeps no address. The Verlauf's `latest_sent_at` is its `document_date` in the payload; an attachment keeps its own date (the day it was mailed is where it came from, not when it was written). A re-upload of the name without them clears both |
 
