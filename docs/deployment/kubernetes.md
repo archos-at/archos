@@ -1987,8 +1987,8 @@ incident.
 
 | Policy | Level | Blocks |
 |---|---|---|
-| `deployment-rollout-gated` | mandatory | a Deployment with no `minReadySeconds` / `progressDeadlineSeconds` |
-| `deployment-no-capacity-dip` | mandatory | `maxUnavailable != 0`, or `Recreate` on a multi-replica tier |
+| `deployment-rollout-gated` | mandatory | a Deployment with no `minReadySeconds`. `progressDeadlineSeconds` is not required: apps/v1 defaults it to 600, and our tiers set their own (`rollout.ts`). A vendor manifest's controller that serves nothing is exempt by name (`UPSTREAM_SOAK_EXEMPT`) |
+| `deployment-no-capacity-dip` | mandatory | `maxUnavailable != 0`, or `Recreate` on a multi-replica tier. An unset `maxUnavailable` at one replica passes: the 25% default rounds down to 0 |
 | `statefulset-rollout-gated` | mandatory | `updateStrategy: OnDelete` (updates the template and rolls nothing), or no soak |
 | `statefulset-no-immutable-field-writes` | mandatory | writing `podManagementPolicy` — immutable, so on a live StatefulSet it plans a **replace**, not an update |
 | `workload-graceful-termination` | mandatory | an unstated (or <5s) `terminationGracePeriodSeconds` |

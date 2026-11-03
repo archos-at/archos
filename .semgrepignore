@@ -23,11 +23,6 @@ build/
 **/__mocks__/**
 **/mocks/**
 contracts/cards/schemas.json
-# Upstream release manifests vendored verbatim (deploy/pulumi/src/platform/rabbitmq.ts).
-# Their CRD schemas name every securityContext field, which the Kubernetes rules
-# read as an unhardened container; what we change in them is checked by
-# index-policy.spec.ts.
-deploy/pulumi/src/platform/manifests/
 
 # Non-source assets and data
 data/
