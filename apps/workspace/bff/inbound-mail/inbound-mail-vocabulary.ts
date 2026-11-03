@@ -137,9 +137,10 @@ export type SenderReason = (typeof SENDER_REASONS)[number]
 
 /**
  * Facts about one mail's sender that shape defaults (`sender_flags`, D4, D11,
- * D33). Each one disables pre-selection and following. The first four and
- * `claims_member_name` come from `./sender-auth`; `message_id_reused` and
- * `already_filed` from the receive job's Message-ID lookup.
+ * D33). Each one but `relaxed_alignment` disables pre-selection and
+ * following. The first four, `claims_member_name` and `relaxed_alignment` come
+ * from `./sender-auth`; `message_id_reused` and `already_filed` from the
+ * receive job's Message-ID lookup.
  *
  * - `not_addressed_to_project`: a verified mail whose signed To and Cc do not
  *   name the project's address: a member's mail to someone else, replayed.
@@ -147,7 +148,9 @@ export type SenderReason = (typeof SENDER_REASONS)[number]
  *   `member_verified` with a signed Date within a day of receipt: the
  *   member's own Bcc copy (the database holds the pairing). The pair errs
  *   safe: whoever forgets the exception asks for one acknowledgement too many
- *   and never offers a follow it should not.
+ *   and never offers a follow it should not. It is a label, never evidence:
+ *   a recipient re-sending the member's signed mail within the day carries it
+ *   too, so it never makes a mail a verified writer's.
  * - `stale_date`: the signed Date is more than seven days before receipt.
  * - `date_out_of_range`: the Date is missing or outside the clamp window, and
  *   the receipt time stands in for it.
@@ -158,6 +161,12 @@ export type SenderReason = (typeof SENDER_REASONS)[number]
  *   `claimsMemberName`): „Miriam Huber <miriam.huber@mail.example>“. The
  *   classic payment-diversion mail. Only on an `external_*` mail (the database
  *   holds the pairing): a member's own address is a `member_*` mail.
+ * - `relaxed_alignment`: a verified mail whose admitting signature's `d=` is
+ *   not the From domain itself but a parent or a subdomain of it (DMARC's
+ *   relaxed mode, RFC 7489 §3.1.1): `news.buero.at` signing for
+ *   `miriam@buero.at`, a key a newsletter service may hold. The label stays
+ *   verified; a direct filing needs strict alignment (`./sender-class`, the
+ *   database's `inbound_mails_verified_writer_evidence`).
  */
 export const SENDER_FLAGS = [
   'not_addressed_to_project',
@@ -167,6 +176,7 @@ export const SENDER_FLAGS = [
   'message_id_reused',
   'already_filed',
   'claims_member_name',
+  'relaxed_alignment',
 ] as const
 export type SenderFlag = (typeof SENDER_FLAGS)[number]
 
@@ -317,11 +327,12 @@ export type InboundMailContentFinding = ScreeningDetector | 'term'
  * amendment of 2026-11-03):
  *
  * - `verified_writer`: DKIM passed aligned with the From domain, the From is a
- *   member who holds `project:documents:write`, the mail is addressed to the
- *   project (or the member's own Bcc copy), no replay or date flag, not
- *   automatic. Filed directly, as that member (`via = 'sender'`).
+ *   member who holds `project:documents:write`, the signed To or Cc names the
+ *   project, no replay or date flag, not automatic. Filed directly, as that
+ *   member (`via = 'sender'`).
  * - `unverified_writer`: the From is such a member, but the signature failed,
- *   is missing, or carries a replay or date flag. Only that member releases it
+ *   is missing, does not name the project (a Bcc copy included), or carries a
+ *   replay or date flag. Only that member releases it
  *   („Haben Sie das gesendet?“, `acknowledgeSender`); any writer dismisses it.
  * - `office_member`: the From is a member without write rights in the project.
  * - `external`: the From is nobody in the office; it waits

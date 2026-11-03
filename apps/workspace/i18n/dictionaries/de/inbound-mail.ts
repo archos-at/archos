@@ -116,6 +116,16 @@ export const inboundMail: typeof en.inboundMail = {
   waitReason: {
     signature: 'Wartet: Die Signatur passt nicht zur Adresse des Mitglieds. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
     signatureOwn: 'Haben Sie diese E-Mail gesendet? Die Signatur passt nicht zu Ihrer Adresse, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    replay:
+      'Wartet: Die E-Mail ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    replayOwn:
+      'Haben Sie diese E-Mail an das Projekt gesendet? Sie ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    automatic: 'Wartet: Die E-Mail wurde automatisch versandt und deshalb nicht direkt abgelegt. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    paused: 'Wartet: Als sie einging, war die direkte Ablage ausgeschaltet. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    pausedOwn: 'Haben Sie diese E-Mail gesendet? Als sie einging, war die direkte Ablage ausgeschaltet, deshalb wartet sie auf Sie. Nur Sie können sie ablegen.',
+    // Unter der Zeile, wenn nur das genannte Mitglied die E-Mail freigeben kann (die Datenbank lässt niemand anderen).
+    memberLeft: 'Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
     no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, wird nach {days} Tagen verworfen.',
   },
@@ -315,7 +325,8 @@ export const inboundMail: typeof en.inboundMail = {
     originalErased: 'Das Original der E-Mail wird nach der Ablage gelöscht',
     blockers: {
       project_closed: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
-      sender_only: 'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen; Sie können sie verwerfen.',
+      sender_only:
+        'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen; Sie können sie verwerfen. Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
       folder_missing: '{count, plural, one {Wählen Sie für # Anhang einen Ordner.} other {Wählen Sie für # Anhänge einen Ordner.}}',
       name_stop: '{count, plural, one {Bestätigen Sie die Namensprüfung bei # Anhang.} other {Bestätigen Sie die Namensprüfung bei # Anhängen.}}',
       risk: '{count, plural, one {Bestätigen Sie die Warnung bei # Teil.} other {Bestätigen Sie die Warnung bei # Teilen.}}',
@@ -402,7 +413,8 @@ export const inboundMail: typeof en.inboundMail = {
       'Die Namensprüfung hat einen Namen angehalten. Bestätigen Sie ihn mit „Trotzdem ablegen“ oder wählen Sie einen anderen Namen.',
     risk_not_acknowledged: 'Bestätigen Sie die Warnung vor dem Ablegen.',
     sender_not_acknowledged: 'Bestätigen Sie die nicht bestätigte Domain vor dem Ablegen.',
-    sender_only: 'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen oder wiederherstellen; Sie können sie verwerfen.',
+    sender_only:
+      'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen oder wiederherstellen; Sie können sie verwerfen. Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
     acknowledgement_in_bulk: 'Diese E-Mail braucht Ihre Bestätigung. Öffnen Sie sie einzeln.',
     card_carries_acknowledgement: 'Dafür braucht es eine Bestätigung, die nur Sie geben können. Öffnen Sie die E-Mail.',
     name_taken:

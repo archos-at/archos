@@ -111,8 +111,25 @@ describe('senderDecision', () => {
     expect(decision?.parts).toEqual([expect.objectContaining({ partId: FILE_PART_ID, revisionOf: DOCUMENT_ID })])
   })
 
-  it('leaves for the member what has no confident place, a flag, a finding, no name, or was not offered checked', () => {
-    expect(senderDecision(view([partView({ suggestion: null })]), rows, null)).toBeNull()
+  it('files attachments without a suggestion where the text goes: the text’s suggested folder, else correspondence, else the root', () => {
+    // The agent's suggestion is off, out of budget or failed: nothing is suggested for any part.
+    const unsuggested = partView({ suggestion: null })
+    expect(senderDecision(view([textView(), unsuggested]), rows, { folderId: FOLDER_ID })?.parts).toEqual([
+      { partId: FILE_PART_ID, folderId: FOLDER_ID, newFolderPath: null, name: 'S-101_C.pdf', documentType: undefined },
+    ])
+    expect(senderDecision(view([unsuggested]), rows, null)?.parts).toEqual([
+      { partId: FILE_PART_ID, folderId: null, newFolderPath: null, name: 'S-101_C.pdf', documentType: undefined },
+    ])
+    const textSuggested = textView({ suggestion: { ...SUGGESTED, folderId: null, folderPath: 'Korrespondenz/Statik', newFolder: true } })
+    expect(senderDecision(view([textSuggested, unsuggested]), rows, { folderId: FOLDER_ID })?.parts).toEqual([
+      expect.objectContaining({ partId: FILE_PART_ID, folderId: null, newFolderPath: 'Korrespondenz/Statik' }),
+    ])
+    // The risk-flag and name checks hold without a suggestion too.
+    expect(senderDecision(view([unsuggested]), [textPart(), filePart({ riskFlags: ['encrypted'] })], null)).toBeNull()
+    expect(senderDecision(view([partView({ suggestion: null, filename: null })]), rows, null)).toBeNull()
+  })
+
+  it('leaves for the member what has a flag, a finding, no name, or was not offered checked', () => {
     expect(senderDecision(view([partView({})]), [textPart(), filePart({ riskFlags: ['encrypted'] })], null)).toBeNull()
     expect(senderDecision(view([partView({ filename: null })]), rows, null)).toBeNull()
     expect(senderDecision(view([partView({ preselected: false })]), rows, null)).toBeNull()

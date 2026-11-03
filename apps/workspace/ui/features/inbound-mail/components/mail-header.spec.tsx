@@ -21,6 +21,7 @@ import { render, screen, within } from '@/test-utils'
 import { DETAIL_VARIANTS, FIXTURE_NOW, FOLDERS, PROJECT_ID, fixtureClient } from '@/app/dev/inbound-mail/fixtures'
 import { expiryShownInline } from '../lib/evidence'
 import { InboundMailDetail } from './inbound-mail-detail'
+import { SenderWaitLine } from './sender-trust'
 
 function renderDetail(name: string) {
   const fixture = DETAIL_VARIANTS[name]
@@ -115,9 +116,22 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Did you send this mail?')
   })
 
+  it('says a signed writer’s mail held as re-sent or misdated, or as sent automatically, waits for that, not for a bad signature', () => {
+    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'replay', onlySenderReleases: false }} />)
+    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'replayOwn')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('addressed to others, oddly dated or already known')
+    expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('signature does not match')
+    unmount()
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'automatic', onlySenderReleases: true }} />)
+    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'automatic')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('sent automatically')
+  })
+
   it('tells another writer only the member can file it, and blocks filing while leaving dismissal', () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
+    // A member who has left can release nothing: the line says what is left to do.
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('If that member has left the office, nobody can file it')
     expect(screen.queryByTestId('acknowledge-sender')).toBeNull()
     expect(screen.getByTestId('decision-dismiss')).toBeEnabled()
   })

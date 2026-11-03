@@ -81,6 +81,7 @@ export type ServerEvent =
   | 'inbound_mail_refused'
   | 'inbound_mail_dropped'
   | 'inbound_mail_decided'
+  | 'inbound_mail_sender_filed'
   | 'inbound_mail_address_rotated'
   | 'mail_thread_followed'
   | 'mail_thread_original_downloaded'

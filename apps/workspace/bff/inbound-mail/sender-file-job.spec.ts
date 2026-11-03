@@ -38,6 +38,7 @@ vi.mock('@/lib/authz/folder-access', () => ({ requireFolderWrite: vi.fn(async ()
 vi.mock('@/lib/filing/repository', () => ({ listProjectsFolders: vi.fn(async () => []) }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ findOpenJobId: vi.fn(async () => null) }))
 
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { ConflictError, NotFoundError } from '@/lib/api/errors'
 import { resolvePinnedRequesterSessionStrict } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -69,6 +70,8 @@ const plan = (files: string[]) => ({
   freshNames: [],
 })
 
+let info: ReturnType<typeof vi.spyOn>
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(findMailForReceive).mockResolvedValue(heldMail({ senderClass: 'verified_writer', senderUserId: PERSON }))
@@ -79,7 +82,8 @@ beforeEach(() => {
   vi.mocked(mailViews).mockResolvedValue([{ id: MAIL_ID } as never])
   vi.mocked(senderDecision).mockReturnValue(decision as never)
   vi.mocked(planMailDecision).mockReturnValue(plan([FILE_PART_ID, TEXT_PART_ID]) as never)
-  vi.spyOn(console, 'debug').mockImplementation(() => {})
+  info = vi.spyOn(console, 'info').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
 
 describe('the sender’s own filing', () => {
@@ -95,6 +99,17 @@ describe('the sender’s own filing', () => {
       payload: { projectId: PROJECT_ID, mailIds: [MAIL_ID], decisionIds: [`decision-${FILE_PART_ID}`, `decision-${TEXT_PART_ID}`], requester: expect.objectContaining({ userId: PERSON }) },
     })
     expect(announceWaiting).not.toHaveBeenCalled()
+  })
+
+  it('files nothing while direct filing is switched off, and says the mail waits', async () => {
+    vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'false')
+    try {
+      expect(await fileAsSender(ORG, payload)).toEqual({ kind: 'waits', reason: 'direct_filing_off' })
+    } finally {
+      vi.unstubAllEnvs()
+    }
+    expect(writeMailDecisions).not.toHaveBeenCalled()
+    expect(announceWaiting).toHaveBeenCalledOnce()
   })
 
   it('files only a verified writer’s mail, and nothing a person decided first', async () => {
@@ -153,5 +168,31 @@ describe('the sender’s own filing', () => {
     expect(announceWaiting).not.toHaveBeenCalled()
     await expect(runInboundMailSenderFile(ORG, payload, { last: true })).rejects.toThrow('db down')
     expect(announceWaiting).toHaveBeenCalledOnce()
+  })
+
+  it('reports every run that ends as one personless event and an info line: filed, waits with its reason, or failed', async () => {
+    const events = () => vi.mocked(captureServer).mock.calls.map(([call]) => call).filter((call) => call.event === 'inbound_mail_sender_filed')
+
+    await runInboundMailSenderFile(ORG, payload, { last: false })
+    expect(events()).toEqual([
+      { event: 'inbound_mail_sender_filed', distinctId: null, organizationId: ORG, properties: { outcome: 'filed', files: 2, left: 0, waits_for_suggestion: 0 } },
+    ])
+    expect(info).toHaveBeenCalledWith(`[inbound-mail] sender filing of mail ${MAIL_ID}: filed`)
+
+    vi.mocked(captureServer).mockClear()
+    vi.mocked(senderDecision).mockReturnValueOnce(null)
+    await runInboundMailSenderFile(ORG, payload, { last: false })
+    expect(events()).toEqual([expect.objectContaining({ properties: { outcome: 'waits', reason: 'nothing_to_file', waits_for_suggestion: 0 } })])
+
+    vi.mocked(captureServer).mockClear()
+    vi.mocked(findOpenJobId).mockResolvedValueOnce('suggest-job')
+    await runInboundMailSenderFile(ORG, payload, { last: false })
+    expect(events()).toEqual([])
+
+    vi.mocked(mailViews).mockRejectedValueOnce(new Error('db down'))
+    await expect(runInboundMailSenderFile(ORG, payload, { last: true })).rejects.toThrow('db down')
+    expect(events()).toEqual([expect.objectContaining({ properties: { outcome: 'failed', last_attempt: true } })])
+    // Codes and counts only: nothing a sender wrote.
+    expect(JSON.stringify(vi.mocked(captureServer).mock.calls)).not.toMatch(/anna|example\.test|db down/)
   })
 })

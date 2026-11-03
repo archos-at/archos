@@ -555,8 +555,9 @@ reverting is deleting a Cloudflare zone nobody is pointed at.
 
 Every project of an office with the `inbound-mail` entitlement can have an
 address `project+<slug>.<token>@<domain>` (`<domain>` a receiving subdomain such as
-`inbox.example.org`); mail to it waits in the project's
-E-Mail-Eingang until a person files it (ADR-0137,
+`inbox.example.org`); a project writer's own signed mail to it is filed
+directly as them, and every other mail waits in the project's E-Mail-Eingang
+until a person files it (ADR-0137 and its amendment of 2026-11-03,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
 is deployed until `inboundMailDomain` is set.
 
@@ -715,6 +716,12 @@ bounce text with the same `up`.
 
 ### Incidents
 
+0. **Direct filing misbehaves** (a way past the sender rule, a filing that
+   goes wrong): `inboundMailDirectFiling: false`, promote. Mail is still
+   received; a verified writer's mail now waits for its member's one press
+   (`unverified_writer`, wait reason `paused`), and a sender job already
+   queued files nothing. Mail held meanwhile keeps waiting after it is
+   switched back on. This is the first lever; pausing receipt is the next.
 1. **Pause**: `inboundMailPaused: true`, promote. The Worker answers a
    temporary failure before reading anything, effective as soon as Cloudflare
    has the binding (no frontend rollout needed for that half), and the BFF

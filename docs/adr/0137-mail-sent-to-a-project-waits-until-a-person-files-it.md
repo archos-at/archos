@@ -395,7 +395,12 @@ through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-e
 From address names now hears why their mail waits and what became of it, forged
 or not (`inbound_mail.held`, `.held_for_writers`, `.rejected`, `.expired`, and
 `.decided` with `direct` for a mail filed as them): eleven types. Rows still
-carry the project's name, a count and a code.
+carry the project's name, a count and a code. That a mail waits
+(`inbound_mail.waiting`, `.expiring`) goes to the sender only when they may
+write in the project, so may file it; otherwise to the project's writers, who
+are the people the E-Mail-Eingang lets file it, not the managers. A read-only
+member's signed mail thereby reaches someone who can act on it, and its member
+hears `held_for_writers`.
 
 ### Exposure
 
@@ -611,8 +616,8 @@ sender once, when the mail is held (`inbound_mails.sender_class`, migration
 
 | Class | When | What happens |
 |---|---|---|
-| `verified_writer` | DKIM passes aligned with the From domain (DMARC alignment), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address (or the mail is that member's own Bcc copy), and no replay or date flag is set | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
-| `unverified_writer` | The From address is such a member, but the signature fails, is absent, or carries a replay or date flag | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
+| `verified_writer` | DKIM passes signed by the From domain itself (DMARC's strict alignment: a parent's or a subdomain's key, such as one a newsletter service holds for `news.<domain>`, keeps the verified label but is flagged `relaxed_alignment` and waits), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address in To or Cc, and no replay or date flag is set. A member's own Bcc copy does not qualify: its flag (`bcc_own`) is told apart from a recipient re-sending the member's signed mail to the project by time alone, and time does not tell them apart | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
+| `unverified_writer` | The From address is such a member, but the signature fails, is absent, does not name the project (a Bcc copy included), or carries a replay or date flag | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
 | `office_member` | The From address is an office member without write rights on the project | Held for the project's writers |
 | `external` | The From address is outside the office | Held for the project's writers; discarded after 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`), with no restore window |
 
@@ -656,24 +661,39 @@ scanner (ADR-0150) and the upload path like any other file.
   From address; we file directly only when the sender's domain signed the
   mail and the full address is a named member with write rights. A forged
   From of a real member is held, and only that member can release it.
+- **It can be switched off alone.** `INBOUND_MAIL_DIRECT_FILING=false`
+  (Pulumi `inboundMailDirectFiling`) makes every verified writer's mail wait
+  for its member's one press, without pausing receipt: the first lever if the
+  sender rule or the filing misbehaves.
 - **The rule is in the database.** A CHECK and a trigger (migration 0194)
   tie a `via = 'sender'` decision to a `verified_writer` mail, its own
   sender, a clean scan and an unflagged part; the class is written once, in
   the step that holds the mail, and frozen afterwards. No application path
   can file a stranger's mail without a person.
 - **The sender learns why.** A member whose mail waits sees, in the app, why
-  ("the signature did not match", "you have no write rights here"), not
-  silence.
+  ("the signature did not match"; "signed, but addressed to others, oddly
+  dated or already known"; "sent automatically"; "you have no write rights
+  here"), not silence: `waitReason` on the views, `senderWaitReason` in
+  `lib/inbound-mail/sender-class.ts`.
 
 ### What this gives up, stated plainly
 
 - DKIM proves a domain, not a person. Whoever can send as a member's address
   inside the member's own mail domain gets mail filed as that member. That is
-  the same trust the office already places in its own mail system.
+  the same trust the office already places in its own mail system, and only
+  that: the signing domain must be the From domain exactly, so a key delegated
+  to a subdomain (a newsletter service's, say) files nothing directly.
 - A forger now causes an in-app notice to the member they impersonated
   ("Did you send this?"). That reverses "whoever forged a member's address
   never reaches that member through us" in "Who hears what": the member is the
   one person who can answer.
+- An `unverified_writer` mail whose member has left the office, or lost
+  their write right, can be released by nobody: the database lets only that
+  member file or restore it (`inbound_mail_decisions_claimed_sender_releases`),
+  and it cannot see WorkOS to tell that they left. Any writer may dismiss it,
+  or download the original and forward it to the project from their own
+  address, which files it as theirs. The E-Mail-Eingang says so under the
+  wait reason. A manager's audited release is a follow-up, not built.
 - Write rights live in WorkOS, which the database cannot see; the class
   records the app's check at receipt. A wrong class can only file as the
   authenticated sender, whose upload is authorized again in their own session.

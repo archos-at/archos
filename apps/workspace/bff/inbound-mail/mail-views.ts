@@ -86,7 +86,7 @@ function mailView(
   return withReviewDefaults({
     id: mail.id,
     senderClass: mail.senderClass,
-    waitReason: senderWaitReason(mail.senderClass),
+    waitReason: senderWaitReason(mail),
     onlySenderReleases: onlySenderReleases(mail, context.viewerUserId),
     projectId: mail.projectId,
     status: listStatusOf(mail, parts),

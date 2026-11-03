@@ -8,8 +8,12 @@
  *   with no risk flag at all (the database refuses a direct filing of a
  *   flagged part) and a name, goes where the review would put it: as the next
  *   Fassung of its earlier document when the sender vouches for it, else into
- *   the folder the agent suggested. With neither there is no confident folder,
- *   and it waits for the member.
+ *   the folder the agent suggested. With no suggestion (the agent's suggestion
+ *   is switched off, out of budget, or its job failed) it goes where the
+ *   mail's text goes by default: the folder suggested for the text, else the
+ *   first correspondence folder the member may write in, else the project
+ *   root. A direct filing never depends on the model having answered; the
+ *   risk-flag and name checks hold either way.
  * - **The text**, offered checked and with nothing the content check found,
  *   goes into the pre-selected E-Mail-Verlauf with room; with none it starts a
  *   new one named after the subject, in the folder the agent suggested for
@@ -44,7 +48,26 @@ function clean(part: { preselected: boolean }, row: InboundMailPartRow | undefin
   return part.preselected && !!row && row.riskFlags.length === 0 && row.contentFindings.length === 0
 }
 
-function attachmentDecisions(view: InboundMailView, rows: ReadonlyMap<string, InboundMailPartRow>): InboundMailPartDecision[] {
+/**
+ * Where the text goes by default when it starts a Verlauf: the folder the
+ * agent suggested for the text, else the correspondence folder the sender may
+ * write in, else the project root. Attachments the agent placed nowhere go
+ * there too.
+ */
+function textFolder(
+  view: InboundMailView,
+  correspondence: FolderChoice | null,
+): { folderId: string | null; newFolderPath: string | null } {
+  const text = view.parts.find((part) => part.kind === 'message')
+  if (text?.suggestion) return suggestedTarget(text.suggestion)
+  return { folderId: correspondence?.folderId ?? null, newFolderPath: null }
+}
+
+function attachmentDecisions(
+  view: InboundMailView,
+  rows: ReadonlyMap<string, InboundMailPartRow>,
+  correspondence: FolderChoice | null,
+): InboundMailPartDecision[] {
   const sender = senderFactsOfView(view)
   const decisions: InboundMailPartDecision[] = []
   for (const part of view.parts) {
@@ -52,8 +75,9 @@ function attachmentDecisions(view: InboundMailView, rows: ReadonlyMap<string, In
     const documentType = part.suggestion?.documentType ?? undefined
     if (part.revisionCandidate && revisionVouched(part, sender)) {
       decisions.push({ partId: part.id, folderId: null, newFolderPath: null, name: part.filename, revisionOf: part.revisionCandidate.documentId, documentType })
-    } else if (part.suggestion) {
-      decisions.push({ partId: part.id, ...suggestedTarget(part.suggestion), name: part.filename, documentType })
+    } else {
+      const target = part.suggestion ? suggestedTarget(part.suggestion) : textFolder(view, correspondence)
+      decisions.push({ partId: part.id, ...target, name: part.filename, documentType })
     }
   }
   return decisions
@@ -70,9 +94,7 @@ function messageDecision(
   if (thread) return { partId: part.id, text: 'full', thread: { action: 'append', mailThreadId: thread.threadId } }
   const name = displaySubject(view.subject)
   if (!name) return null
-  const target: InboundMailThreadTarget = part.suggestion
-    ? { action: 'create', ...suggestedTarget(part.suggestion), name }
-    : { action: 'create', folderId: correspondence?.folderId ?? null, newFolderPath: null, name }
+  const target: InboundMailThreadTarget = { action: 'create', ...textFolder(view, correspondence), name }
   return { partId: part.id, text: 'full', thread: target }
 }
 
@@ -83,7 +105,7 @@ export function senderDecision(
   correspondence: FolderChoice | null,
 ): InboundMailDecision | null {
   const byId = new Map(rows.map((row) => [row.id, row]))
-  const parts = attachmentDecisions(view, byId)
+  const parts = attachmentDecisions(view, byId, correspondence)
   const message = messageDecision(view, byId, correspondence)
   if (parts.length === 0 && !message) return null
   return { mailId: view.id, ifMatch: view.ifMatch, parts, message }

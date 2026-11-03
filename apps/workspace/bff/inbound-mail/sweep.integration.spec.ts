@@ -95,6 +95,7 @@ vi.mock('@/lib/audit/service', async (importOriginal) => {
 })
 
 vi.mock('@/lib/authz/project-membership', () => ({
+  PERMISSION_CHECKS_AT_ONCE: 8,
   userHoldsProjectPermission: vi.fn(async (_scope: unknown, _project: string, userId: string) => userId === MANAGER),
 }))
 vi.mock('@/lib/sharing/directory', () => ({
@@ -437,7 +438,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
   })
 
   describe('sweep 4: five days left', () => {
-    it('tells the managers once per mail, in the project’s collapsed row, naming no sender', async () => {
+    it('tells the project’s writers once per mail, in the project’s collapsed row, naming no sender', async () => {
       const mail = await seedMail({ receivedAgo: '26 days' })
       await seedPart(mail)
       const notYet = await seedMail({ receivedAgo: '10 days' })

@@ -108,6 +108,8 @@ describe("the program constructs with project mail on", () => {
     expect(env.find((e) => e.name === "INBOUND_MAIL_DOMAIN")?.value).toBe(DOMAIN);
     expect(env.find((e) => e.name === "INBOUND_MAIL_LOCAL_PART")?.value).toBe("project");
     expect(env.find((e) => e.name === "INBOUND_MAIL_PAUSED")?.value).toBe("true");
+    // Direct filing is on unless switched off.
+    expect(env.find((e) => e.name === "INBOUND_MAIL_DIRECT_FILING")?.value).toBe("true");
     const keys = env.find((e) => e.name === "INBOUND_MAIL_SIGNING_KEYS");
     // Never inline: anything with `get pod` could read it.
     expect(keys?.value).toBeUndefined();
@@ -150,6 +152,8 @@ describe("the program constructs with project mail on", () => {
     const names = containerEnv("bff-jobs").map((e) => e.name);
     expect(names).toContain("INBOUND_MAIL_DOMAIN");
     expect(names).toContain("INBOUND_MAIL_LOCAL_PART");
+    // The receive job classifies the sender there: the kill switch must reach it.
+    expect(names).toContain("INBOUND_MAIL_DIRECT_FILING");
     expect(names).not.toContain("INBOUND_MAIL_SIGNING_KEYS");
     expect(names).not.toContain("INBOUND_MAIL_PAUSED");
   });

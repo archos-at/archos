@@ -6,6 +6,7 @@ import { APP_DB, CHECKPOINTS_DB, JOBS_DB, RUNTIME_ROLE, type Postgres } from "..
 import { FRONTEND_DRAIN_SECONDS, secretChecksum } from "../platform/rollout";
 import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "../platform/langfuse";
 import { logicalName, objectName } from "../names";
+import { inboundMailAppEnv } from "../config/inbound-mail";
 import { API_TIER, CHAT_TIER } from "./tier-names";
 import { posthogEnv } from "./posthog-env";
 
@@ -530,17 +531,10 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // The corpus export (`/api/internal/oib-corpus`). No caller since the
     // answer-suite CI workflow was removed; unset disables it.
     sref("CORPUS_EXPORT_TOKEN"),
-    // Project mail (ADR-0138). The key map is always wired; empty fails closed. The domain is
-    // absent while the feature is off, which hides the address in the UI; the pause makes the
-    // webhook answer 503, the Worker's own pause aside.
+    // Project mail (ADR-0138). The key map is always wired; empty fails closed. The rest only
+    // while the inbox is on (`inboundMailAppEnv`), the Worker's own pause aside.
     sref("INBOUND_MAIL_SIGNING_KEYS"),
-    ...(cfg.inboundMail.enabled
-      ? [
-          { name: "INBOUND_MAIL_DOMAIN", value: cfg.inboundMail.domain },
-          { name: "INBOUND_MAIL_LOCAL_PART", value: cfg.inboundMail.localPart },
-          { name: "INBOUND_MAIL_PAUSED", value: String(cfg.inboundMail.paused) },
-        ]
-      : []),
+    ...inboundMailAppEnv(cfg.inboundMail),
     { name: "ALLOW_AGENT_ORG_MEMORY", value: String(cfg.auth.allowAgentOrgMemory) },
     // WorkOS AuthKit.
     { name: "WORKOS_CLIENT_ID", value: cfg.auth.workosClientId },

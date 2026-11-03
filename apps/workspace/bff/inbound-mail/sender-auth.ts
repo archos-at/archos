@@ -2,10 +2,16 @@
  * Who a mail is from, as far as its bytes and DNS can tell, and what that
  * means for the defaults a person sees (ADR-0137 D4, check B2).
  *
- * Every mail is held whatever this says. The verdict is a label and a
- * condition on defaults (thread pre-selection, following, the acknowledgements
- * a decision needs), never a gate on acceptance. DKIM proves a domain, not a
- * person, so `verified` never means more than "the From domain signed this".
+ * Every mail is received whatever this says: the verdict is never a gate on
+ * acceptance. It is a label, a condition on defaults (thread pre-selection,
+ * following, the acknowledgements a decision needs) and, since ADR-0137's
+ * amendment of 2026-11-03, the evidence of a direct filing: a member's mail
+ * whose verdict is `member_verified`, `dkim_pass`, strictly aligned and
+ * unflagged is classed `verified_writer` (`./sender-class`, migration 0194's
+ * `inbound_mails_verified_writer_evidence`) and filed as that member without a
+ * click. A mistake here therefore files, so every rule below errs towards
+ * unverified. DKIM proves a domain, not a person, so `verified` never means
+ * more than "the From domain signed this".
  *
  * ## Two halves
  *
@@ -36,6 +42,13 @@
  * 5. is not rsa-sha1 and its key has at least 1024 bits (RFC 8301; mailauth
  *    enforces both, and they are re-checked here).
  *
+ * Relaxed alignment (a `d=` that is a parent or a subdomain of the From
+ * domain) earns the verified label and the flag `relaxed_alignment`: a key for
+ * `news.buero.at`, often held by a newsletter service, aligns with
+ * `miriam@buero.at`. A direct filing as a member needs `d=` to be the From
+ * domain exactly (`./sender-class`): the trust the office places in its own
+ * mail system, and nobody else's.
+ *
  * Before any of that, the raw header block must hold exactly one From with one
  * plain ASCII mailbox, no duplicated singleton field (RFC 5322 §3.6) and at
  * most {@link MAX_DKIM_SIGNATURES} signatures, counted over the raw bytes,
@@ -47,8 +60,10 @@
  * A verified mail whose SIGNED To and Cc do not name this project's token is
  * `not_addressed_to_project`: a member's genuine mail to someone else, replayed
  * into the project by a recipient, or the member's own Bcc copy. The latter is
- * told apart by time: `member_verified` with a signed Date within
- * {@link BCC_WINDOW_MS} of receipt also gets `bcc_own`. The question is asked of
+ * guessed by time: `member_verified` with a signed Date within
+ * {@link BCC_WINDOW_MS} of receipt also gets `bcc_own`. Time does not tell a
+ * Bcc copy from a recipient re-sending the mail within the window, so the flag
+ * is a label and never a direct filing's evidence (`./sender-class`). The question is asked of
  * verified mail only; an unsigned To says whatever the sender typed, and
  * unverified mail is never pre-selected or followed anyway.
  *
@@ -457,6 +472,7 @@ export function judgeSender(authentication: SenderAuthentication, input: JudgeSe
   if (verified && age !== null && age > STALE_DATE_MS) flags.push('stale_date')
   if (clamped.outOfRange) flags.push('date_out_of_range')
   if (!member && input.claimsMemberName) flags.push('claims_member_name')
+  if (verified && authentication.signerDomain !== authentication.fromDomain) flags.push('relaxed_alignment')
   return {
     trust,
     senderUserId: member ? input.memberUserId : null,

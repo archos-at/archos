@@ -67,10 +67,16 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
 
 | Class | When | What happens | Window |
 |---|---|---|---|
-| `verified_writer` | an aligned DKIM pass, the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), addressed to the project or their own Bcc copy, no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them | 30 days |
-| `unverified_writer` | the From is such a member, but the signature failed or is absent, or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it | 30 days |
+| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them | 30 days |
+| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it. Nobody else can release it, the member gone from the office included (the database cannot see WorkOS): the wait line and the `sender_only` copy tell the others to dismiss it or forward the original themselves | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
+
+**The kill switch** of direct filing alone is `INBOUND_MAIL_DIRECT_FILING=false`
+(Pulumi `inboundMailDirectFiling`, `lib/inbound-mail/direct-filing.ts`): the hold
+then classes a verified writer's mail `unverified_writer` (wait reason
+`paused`) and queues no sender job, and a sender job already queued files
+nothing (`direct_filing_off`). Receipt is unchanged; `INBOUND_MAIL_PAUSED` stops it.
 
 **The sender's filing** (`lib/inbound-mail/sender-file-job.ts`, a sliced job
 as the system that resolves the sender itself, strictly): it waits for the
@@ -80,11 +86,14 @@ project open), builds the member's own view of the mail and files what that
 view offers checked, as „Ablegen“ unchanged would (`sender-filing.ts`): an
 attachment offered checked with no risk flag and a name, as the next Fassung of
 its earlier document when the sender vouches for it, else into the agent's
-suggested folder, and with neither it waits; the text, offered checked with no
-content finding, into the pre-selected Verlauf, else a new one named after the
-subject in the suggested text folder, else the first correspondence folder the
-sender may write, else the root (`CORRESPONDENCE_FOLDER` in `review-defaults.ts`,
-shared with the UI's draft); a text without a subject waits. Every check of a
+suggested folder, else (no suggestion: switched off, out of budget, its job
+failed) where the text's new Verlauf would go; the text, offered checked with
+no content finding, into the pre-selected Verlauf, else a new one named after
+the subject in the suggested text folder, else the first correspondence folder
+the sender may write, else the root (`CORRESPONDENCE_FOLDER` in
+`review-defaults.ts`, shared with the UI's draft); a text without a subject
+waits. A direct filing therefore never depends on the model having answered,
+and the risk-flag and name checks hold either way. Every check of a
 person's decision applies (`planMailDecision`, `requireDecisionRights`); a part
 the review refuses by id waits and the rest goes. The decisions are written
 `via = 'sender'`, `decided_by` = the sender, other parts left waiting
@@ -264,8 +273,10 @@ DMARC only; a CHECK refuses one containing `spf=`.
 
 Flags: `not_addressed_to_project` (no signed To or Cc names the token on the
 inbound domain; a look-alike domain such as `example.org.evil.example` does not
-count), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
-receipt: the member's own Bcc copy), `stale_date` (signed Date more than 7 days
+count), `relaxed_alignment` (verified, but the admitting signature's `d=` is a
+parent or a subdomain of the From domain, not the domain itself: the label stays,
+a direct filing needs strict alignment), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
+receipt: the member's own Bcc copy, or a recipient re-sending it, which is why it never files directly), `stale_date` (signed Date more than 7 days
 before receipt), `date_out_of_range` (the Date outside `[received − 30 days,
 received + 15 minutes]`; the receipt time is used), `message_id_reused`,
 `already_filed` (the same Message-ID and own text already an entry, an archive
@@ -489,7 +500,7 @@ adds the variant `unconfirmed`.
 
 | Type | Told to | Row | Link | Push | Settled |
 |---|---|---|---|---|---|
-| `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, holding project read), else the project's managers | collapsed per project, actionable | `/files/mail` | requests, normal | nothing waits |
+| `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
 | `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
 | `inbound_mail.rejected` | the member the From names, when a dismissal ended their mail | per mail | `/files` | results, low | — |

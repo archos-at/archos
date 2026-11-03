@@ -592,6 +592,15 @@ describe("project mail (ADR-0138)", () => {
     expect(loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailPaused`]: "true" }).inboundMail.paused).toBe(true);
   });
 
+  it("reads the direct-filing switch, on by default, and hands it to the app", async () => {
+    expect(loadValues(mail).inboundMail.directFiling).toBe(true);
+    const off = loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailDirectFiling`]: "false" }).inboundMail;
+    expect(off.directFiling).toBe(false);
+    const { inboundMailAppEnv } = await import("./config/inbound-mail");
+    expect(inboundMailAppEnv(off).find((e) => e.name === "INBOUND_MAIL_DIRECT_FILING")?.value).toBe("false");
+    expect(inboundMailAppEnv({ ...off, enabled: false })).toEqual([]);
+  });
+
   it("refuses the domain without the zone to enable routing on", () => {
     expect(loadWith(mail, [`${LEGACY_PROJECT}:inboundMailZoneId`])?.message).toMatch(/inboundMailZoneId is required/);
   });

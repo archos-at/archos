@@ -37,6 +37,8 @@ const SIGNING_KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
  *
  * `paused` is the incident lever inside "on": every delivery fails
  * temporarily and senders retry for days; nothing bounces, nothing is lost.
+ * `directFiling` is the narrower one: mail is still received, but a verified
+ * writer's mail waits for its member instead of being filed as them.
  */
 export interface InboundMailConfig {
   /** `inboundMailDomain` is set: Email Routing and the rule are this stack's. */
@@ -45,6 +47,14 @@ export interface InboundMailConfig {
   enabled: boolean;
   /** Every delivery is answered with a temporary failure (`inboundMailPaused`). */
   paused: boolean;
+  /**
+   * A verified writer's mail is filed directly as them (`inboundMailDirectFiling`,
+   * default true). False is the kill switch of that path alone: such mail waits
+   * for its member like any mail that only claims them. The BFF's
+   * `INBOUND_MAIL_DIRECT_FILING`, read where the receive job classifies the
+   * sender (`bff-jobs`) and by the sender's filing job.
+   */
+  directFiling: boolean;
   /**
    * The receiving domain, inside the zone `zoneId` names: a subdomain of the
    * app zone (`inbox.example.org`, the recommended setup, which leaves the
@@ -154,10 +164,12 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
   const configured = domain !== "";
   const enabled = configured && bool(cfg, "inboundMailEnabled", true);
   const paused = bool(cfg, "inboundMailPaused", false);
+  const directFiling = bool(cfg, "inboundMailDirectFiling", true);
   const off = {
     configured,
     enabled,
     paused,
+    directFiling,
     domain,
     localPart,
     zoneId,
@@ -250,4 +262,19 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     signingKeyId,
     signingKey: signingKeys.apply((v) => (JSON.parse(v) as Record<string, string>)[signingKeyId]),
   };
+}
+
+/**
+ * The application's project-mail variables while the inbox is on: the domain
+ * (absent hides the address in the UI), the local part, the pause (the webhook
+ * answers 503) and the direct-filing switch. Nothing while it is off.
+ */
+export function inboundMailAppEnv(mail: InboundMailConfig): { name: string; value: string }[] {
+  if (!mail.enabled) return [];
+  return [
+    { name: "INBOUND_MAIL_DOMAIN", value: mail.domain },
+    { name: "INBOUND_MAIL_LOCAL_PART", value: mail.localPart },
+    { name: "INBOUND_MAIL_PAUSED", value: String(mail.paused) },
+    { name: "INBOUND_MAIL_DIRECT_FILING", value: String(mail.directFiling) },
+  ];
 }

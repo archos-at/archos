@@ -2,22 +2,26 @@
 features:
   - >
     Mail you send to a project's address from your own office address is now
-    filed directly, as you, when your domain signed it and you may file in
-    the project. Forward the Behörde's letter and it is in the project, with
-    anything lacking a clear place or carrying a warning waiting for you in
-    the E-Mail-Eingang.
+    filed directly, as you, when your own domain signed it, it names the
+    project's address in To or Cc, and you may file in the project. Forward
+    the Behörde's letter and it is in the project, with anything lacking a
+    clear place or carrying a warning waiting for you in the E-Mail-Eingang.
   - >
-    A mail carrying your address whose signature did not match waits for you
-    alone, and the Postfach asks „Haben Sie diese E-Mail gesendet?“. Anyone
-    in the project can still dismiss it.
+    A mail carrying your address that could not be filed directly (its
+    signature did not match, it is your Bcc copy, it reads as re-sent or
+    misdated, or it was sent automatically) waits for you alone, and the
+    Postfach asks „Haben Sie diese E-Mail gesendet?“. Anyone in the project
+    can still dismiss it.
   - >
     Each waiting mail says why it waits: a signature that did not match, a
-    sender who may not file in the project, or a sender outside the office.
-    Mail from outside the office waits 14 days instead of 30, and nobody
-    outside the office is ever told anything about it.
+    mail that may have been re-sent or sent automatically, a sender who may
+    not file in the project, or a sender outside the office. Mail from
+    outside the office waits 14 days instead of 30, and nobody outside the
+    office is ever told anything about it.
   - >
     The Postfach tells you when your own mail to a project waits, was filed,
-    was dismissed or expired.
+    was dismissed or expired, and tells the project's writers when a mail
+    waits for them.
 fixes:
   - >
     Filing an attachment the E-Mail-Eingang had suggested a folder for no
