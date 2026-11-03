@@ -501,7 +501,6 @@
   "apps/workspace/scripts/provision-workos-authz.ts": 4,
   "apps/workspace/scripts/provision-workos-environment.ts": 10,
   "apps/workspace/scripts/regrant-office-shelf-permission.ts": 1,
-  "apps/workspace/scripts/sourcemaps-wiring.spec.mjs": 3,
   "apps/workspace/scripts/sync-platform-skills.mjs": 1,
   "apps/workspace/shared/cards/legacy.ts": 1,
   "apps/workspace/tests/app/api/internal/skills/resolve/route.test.ts": 1,
