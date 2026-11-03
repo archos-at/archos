@@ -34,23 +34,26 @@ start() {
   wait_until "Postgres to accept connections" \
     docker exec hatchet-postgres pg_isready -q -d hatchet -U hatchet
 
+  # Every address is 127.0.0.1, never localhost: Python tries ::1 first, the
+  # runner's ::1 hangs rather than refusing, and each REST call then waits out the
+  # OS connect timeout (about two minutes) before it falls back to IPv4.
   # The environment is deploy/compose's hatchet-lite, which follows
   # https://docs.hatchet.run/self-hosting/hatchet-lite, with every address the
   # runner's own: the tests and their workers run on the host, not on the
   # network. 8733 is the engine's health port (the hatchet-ha chart probes
   # /ready there); published so the wait below can ask it.
   docker run -d --name hatchet-lite --network "$NETWORK" \
-    -p 8888:8888 -p 7077:7077 -p 8733:8733 \
+    -p 127.0.0.1:8888:8888 -p 127.0.0.1:7077:7077 -p 127.0.0.1:8733:8733 \
     -e DATABASE_URL="postgresql://hatchet:hatchet@hatchet-postgres:5432/hatchet?sslmode=disable" \
     -e SERVER_AUTH_COOKIE_DOMAIN=localhost \
     -e SERVER_AUTH_COOKIE_INSECURE=t \
     -e SERVER_GRPC_BIND_ADDRESS=0.0.0.0 \
     -e SERVER_GRPC_INSECURE=t \
-    -e SERVER_GRPC_BROADCAST_ADDRESS=localhost:7077 \
+    -e SERVER_GRPC_BROADCAST_ADDRESS=127.0.0.1:7077 \
     -e SERVER_GRPC_PORT=7077 \
-    -e SERVER_URL=http://localhost:8888 \
+    -e SERVER_URL=http://127.0.0.1:8888 \
     -e SERVER_AUTH_SET_EMAIL_VERIFIED=t \
-    -e SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS=localhost:7077 \
+    -e SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS=127.0.0.1:7077 \
     "$HATCHET_IMAGE" >/dev/null
   wait_until "the Hatchet engine to report ready" engine_ready
 
@@ -69,10 +72,11 @@ start() {
   echo "::add-mask::$token"
   {
     echo "HATCHET_CLIENT_TOKEN=$token"
-    echo "HATCHET_CLIENT_HOST_PORT=localhost:7077"
+    echo "HATCHET_CLIENT_HOST_PORT=127.0.0.1:7077"
+    echo "HATCHET_CLIENT_SERVER_URL=http://127.0.0.1:8888"
     echo "HATCHET_CLIENT_TLS_STRATEGY=none"
   } >>"${GITHUB_ENV:-/dev/stdout}"
-  echo "Hatchet engine ready on localhost:7077, token for tenant $DEFAULT_TENANT_ID exported."
+  echo "Hatchet engine ready on 127.0.0.1:7077, token for tenant $DEFAULT_TENANT_ID exported."
 }
 
 # Ready once the API answers its readiness route (/api/ready, the chart's API
@@ -81,8 +85,8 @@ start() {
 # is what `token create` reads; the tests retry their first trigger until the
 # worker has registered, so registration lag is theirs to wait out.
 engine_ready() {
-  curl -fsS -o /dev/null http://localhost:8888/api/ready 2>/dev/null \
-    || curl -fsS -o /dev/null http://localhost:8733/ready 2>/dev/null
+  curl -fsS -o /dev/null http://127.0.0.1:8888/api/ready 2>/dev/null \
+    || curl -fsS -o /dev/null http://127.0.0.1:8733/ready 2>/dev/null
 }
 
 wait_until() {
