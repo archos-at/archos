@@ -24,7 +24,7 @@ export type AgentDoor = 'office' | 'platform'
  * agent on an office door, in-product Piloti, or platform staff on the
  * platform door.
  */
-export type Audience = 'external' | 'piloti' | 'platform'
+export type Audience = 'external' | 'agent' | 'platform'
 
 /** The door `principal` was resolved on: the platform door's own, else an office door. */
 export function doorOfPrincipal(principal: Pick<AgentPrincipal, 'door'>): AgentDoor {
@@ -33,7 +33,7 @@ export function doorOfPrincipal(principal: Pick<AgentPrincipal, 'door'>): AgentD
 
 export function audienceOf(principal: Pick<AgentPrincipal, 'actor' | 'door'>): Audience {
   if (doorOfPrincipal(principal) === 'platform') return 'platform'
-  return principal.actor === 'piloti' ? 'piloti' : 'external'
+  return principal.actor === 'piloti' ? 'agent' : 'external'
 }
 
 function exposureOf(name: string): Exposure | undefined {
@@ -43,14 +43,14 @@ function exposureOf(name: string): Exposure | undefined {
 /**
  * Whether `exposure.config.ts` offers `name` to `audience`: THE visibility
  * rule. A name without an entry is offered to nobody (the spec fails the
- * catalog first), a withheld one to nobody, and `piloti: 'native:<tool>'` is
+ * catalog first), a withheld one to nobody, and `agent: 'native:<tool>'` is
  * not offered to Piloti, which uses that tool instead.
  */
 export function isExposedTo(audience: Audience, name: string): boolean {
   const entry = exposureOf(name)
   if (!entry || entry.withheld) return false
   if (audience === 'external') return entry.external
-  if (audience === 'piloti') return entry.piloti === true
+  if (audience === 'agent') return entry.agent === true
   return entry.platform === true
 }
 
@@ -65,7 +65,7 @@ export function isExposedTo(audience: Audience, name: string): boolean {
 export function isOnDoor(name: string, door: AgentDoor = 'office'): boolean {
   const entry = exposureOf(name)
   if (!entry || entry.withheld) return false
-  return door === 'platform' ? entry.platform === true : entry.external || entry.piloti !== false
+  return door === 'platform' ? entry.platform === true : entry.external || entry.agent !== false
 }
 
 /**
@@ -80,6 +80,6 @@ export function isAppToolFor(audience: Audience, name: string): boolean {
 
 /** The native tool Piloti does `name` with, when the config names one: `remember` for `project-memory-create`. */
 export function nativeToolOf(name: string): string | undefined {
-  const piloti = exposureOf(name)?.piloti
-  return typeof piloti === 'string' ? piloti.slice('native:'.length) : undefined
+  const native = exposureOf(name)?.agent
+  return typeof native === 'string' ? native.slice('native:'.length) : undefined
 }

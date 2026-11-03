@@ -493,7 +493,7 @@ is no operation, or an operation without an entry, does not compile (the object
 | Field | Audience | Values |
 |---|---|---|
 | `external` | an outside agent on an office door (`/api/mcp`, `/api/a2a`), and the OpenAPI document | `true` / `false` |
-| `piloti` | in-product Piloti on its workspace door | `true`; `false`; `'native:<tool>'`: Piloti does it with that native tool, so the door hides the operation from it |
+| `agent` | the in-product agent on its workspace door | `true`; `false`; `'native:<tool>'`: the agent does it with that native tool, so the door hides the operation from it |
 | `platform` | platform staff on the platform door (ADR-0126) | `true` for the `platform` domain, absent elsewhere |
 | `app` | an MCP Apps view in an outside agent's host (ADR-0142) | `true` on an app-only tool (`catalog/app-views.ts`) only, with `external` and `piloti` false: a card's button, listed with `_meta.ui.visibility: ["app"]` |
 | `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence` |
@@ -536,9 +536,9 @@ ceiling.
 | Column | Count |
 |---|---|
 | `external: true` | 259 |
-| `piloti: true` | 216 |
-| `piloti: 'native:…'` | 16 |
-| `piloti: false` | 133 (51 withheld, 55 platform, 13 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
+| `agent: true` | 216 |
+| `agent: 'native:…'` | 16 |
+| `agent: false` | 133 (51 withheld, 55 platform, 13 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
 | `platform: true` | 55 |
 | `withheld` | 51 (29 `product-config`, 13 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
 | `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
@@ -645,7 +645,7 @@ the organization's enabled skills and the platform offers it switched on, never
 the pipeline's machinery. A skill is one SKILL.md body with no files of its
 own, so there is no file index and no third read for a referenced file. Any
 member may read; the routes are gated on the skills feature. Piloti is not
-offered either (`piloti: false`): it gets the same catalogue at turn start and
+offered either (`agent: false`): it gets the same catalogue at turn start and
 reads a body with its own `read_file` (ADR-0135).
 
 ### Output schemas and icons

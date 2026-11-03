@@ -7,19 +7,19 @@
 import type { Exposure, WithheldCategory } from './exposure.config'
 
 /** Offered to an outside agent only; `reason` says why the in-product agent does not get it. */
-export const externalOnly = (reason: string) => ({ external: true, piloti: false, reason }) as const satisfies Exposure
+export const externalOnly = (reason: string) => ({ external: true, agent: false, reason }) as const satisfies Exposure
 
 /** On no door at all, with the category and why. */
 export const withheldAs = (category: WithheldCategory, reason: string) =>
-  ({ external: false, piloti: false, withheld: { category, reason } }) as const satisfies Exposure
+  ({ external: false, agent: false, withheld: { category, reason } }) as const satisfies Exposure
 
 /** Offered to an outside agent and to the agent. */
-export const OFFERED = { external: true, piloti: true } as const satisfies Exposure
+export const OFFERED = { external: true, agent: true } as const satisfies Exposure
 
 /** The operator console: the platform door only (ADR-0126). */
 export const PLATFORM = {
   external: false,
-  piloti: false,
+  agent: false,
   platform: true,
   reason: 'the operator console is the platform operator’s, not an office’s: every write there reaches every tenant',
 } as const satisfies Exposure
@@ -59,7 +59,7 @@ export const HELD_MAIL =
 /** A control on an MCP Apps card (ADR-0142): the person presses it, the model never sees it, the agent never decides. */
 export const APP_ONLY = {
   external: false,
-  piloti: false,
+  agent: false,
   app: true,
   reason:
     'pressed by the person on the agent’s card inside their own assistant (an MCP App); listed with `visibility: ["app"]`, so ' +

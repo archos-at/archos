@@ -44,7 +44,7 @@ export const AGENT_ASK_REFUSAL =
  * card that applies or dismisses another proposal would turn one click on a
  * card the agent worded into a yes to a change the person never read, and an
  * undo the agent proposes is the same decision made for them. Piloti does not
- * see them either (`exposure.config.ts`, `piloti: false`); this is the
+ * see them either (`exposure.config.ts`, `agent: false`); this is the
  * applier's own reason, kept whatever the config says.
  */
 export const PROPOSAL_DECISION_OPERATIONS: ReadonlySet<string> = new Set([
