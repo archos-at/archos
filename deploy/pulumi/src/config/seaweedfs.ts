@@ -2,7 +2,7 @@
  * SeaweedFS (ADR-0043): topology, filer store, volume sizing, per-organization buckets, backup and encryption.
  */
 import * as pulumi from "@pulumi/pulumi";
-import { LANGFUSE, QDRANT } from "../constants";
+import { DATA_RESOURCES, LANGFUSE, QDRANT } from "../constants";
 import { bool, num, requireSecretsTogether } from "./readers";
 
 /**
@@ -216,6 +216,17 @@ export interface SeaweedfsConfig {
    * protection.
    */
   encryptVolumeData: boolean;
+  /**
+   * Memory request and limit of the `single` topology's one `weed server`
+   * process (`seaweedfsSingleRequestsMemory`, `seaweedfsSingleLimitsMemory`).
+   * The defaults are the envelope it had before these knobs, so a stack that
+   * sets neither keeps its pod untouched. Prod raised the limit after
+   * 2026-11-02: at 1Gi the process restarted five times in 15 minutes while
+   * eight ingest pods downloaded originals (working set 226 MB to 1,062 MB), and
+   * every download in those seconds failed its file. A change restarts the only
+   * storage server a `single` stack has, so roll it in a quiet hour.
+   */
+  singleMemory: { request: string; limit: string };
 }
 
 export function loadSeaweedfs(cfg: pulumi.Config): SeaweedfsConfig {
@@ -545,5 +556,9 @@ export function loadSeaweedfs(cfg: pulumi.Config): SeaweedfsConfig {
       metadataSchedule: cfg.get("seaweedfsMetaSnapshotSchedule") ?? "0 3 * * *",
     },
     encryptVolumeData: cfg.getBoolean("seaweedfsEncryptVolumeData") ?? true,
+    singleMemory: {
+      request: cfg.get("seaweedfsSingleRequestsMemory") ?? DATA_RESOURCES.seaweedfs.requests.memory,
+      limit: cfg.get("seaweedfsSingleLimitsMemory") ?? DATA_RESOURCES.seaweedfs.limits.memory,
+    },
   };
 }

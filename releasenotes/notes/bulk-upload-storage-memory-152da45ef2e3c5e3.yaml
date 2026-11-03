@@ -1,0 +1,9 @@
+---
+fixes:
+  - >
+    Uploading hundreds of files at once no longer makes a share of them fail to
+    be read and wait several minutes for a second try.
+operators:
+  - >
+    Prod gives the single SeaweedFS server 4Gi instead of 1Gi (request 1Gi).
+    Applying it restarts the only object store, so roll it in a quiet hour.
