@@ -217,7 +217,12 @@ jobs:
           # Full history: the image resolver walks develop's first-parent line
           # back from this commit, and its downgrade guard asks whether the
           # deployed commit is an ancestor. A shallow clone answers neither.
+          # Blobless: commits and trees answer both, and the full clone with
+          # every blob took 25 s at the median and up to 414 s (2026-10-20..30).
+          # The few blobs a script reads at an old commit (the vector-store
+          # floor) are fetched on demand with the persisted checkout token.
           fetch-depth: 0
+          filter: blob:none
 
       # Fail fast, with instructions, if the committed stack file is still the
       # template — otherwise the failure surfaces as a cryptic preview error.
@@ -377,6 +382,27 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           GH_TOKEN: ${{ github.token }} # GHCR tag lookups
 
+      # A CI-triggered deploy of exactly what the stack already runs does
+      # nothing but hold `deploy-dev` for three to four minutes: 19 of 78
+      # commits were deployed twice in two weeks (a re-run CI run fires
+      # workflow_run again). Same three refs, all `sha-<this commit>`, means
+      # the same program too, since the program is this commit's checkout. A
+      # dispatch always applies: an operator asking for a re-apply means it.
+      - name: Skip a commit staging already runs
+        if: ${{ github.event_name == 'workflow_run' }}
+        continue-on-error: true
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          deployed="$(pulumi stack output deployedImages --json)"
+          same() { [ "$(jq -r --arg s "$1" '.[$s] // empty' <<<"$deployed")" = "$2" ]; }
+          if same backend "$BACKEND_IMAGE_REF" && same frontend "$FRONTEND_IMAGE_REF" && same web "$WEB_IMAGE_REF"; then
+            echo "::notice::staging already runs ${IMAGE_TAG} on all three services; nothing to apply"
+            echo "ALREADY_DEPLOYED=true" >> "$GITHUB_ENV"
+          fi
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       # The PostHog release of the backend image, whose id posthog-python sends
       # as `$release_id` (POSTHOG_RELEASE_ID) so error tracking links each
       # Python exception to it. Release `grid-agent` at the commit the backend
@@ -386,12 +412,14 @@ jobs:
       # fork, a repository without PostHog), and a PostHog outage must not block
       # a deploy. docs/contributing/ci.md#posthog-releases-and-source-maps
       - name: Name the backend release
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         id: backend-release
         run: |
           tag="${BACKEND_IMAGE_REF##*:}"
           echo "version=${tag#sha-}" >> "$GITHUB_OUTPUT"
 
       - name: Resolve the backend's PostHog release
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         id: posthog-release
         continue-on-error: true
         uses: PostHog/resolve-release@52d3bea6f86a713545874057b7d4bfebb6b5f367 # v1.0.0
@@ -403,6 +431,7 @@ jobs:
           release-version: ${{ steps.backend-release.outputs.version }}
 
       - name: Validate plan (CRD schemas + policy pack)
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         working-directory: deploy/pulumi
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
@@ -433,6 +462,7 @@ jobs:
       # smoke check below fails, printed in the summary as a ready rollback.
       # Best effort: a first deploy has no output yet.
       - name: Remember what is running
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         id: previous
         continue-on-error: true
         working-directory: deploy/pulumi
@@ -451,6 +481,7 @@ jobs:
       # experimental `pulumi up --remote` / Deployments path was tried and
       # reverted same-day; see docs/deployment/pulumi-cloud-feature-audit.md.)
       - name: Pulumi up
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         working-directory: deploy/pulumi
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
@@ -460,7 +491,9 @@ jobs:
           pulumi config set grid-oib:frontendImage "$FRONTEND_IMAGE_REF"
           pulumi config set grid-oib:webImage "$WEB_IMAGE_REF"
           [ -z "$POSTHOG_RELEASE_ID" ] || pulumi config set grid-oib:posthogReleaseId "$POSTHOG_RELEASE_ID"
-          pulumi up --yes
+          # The plan step above previewed this exact config a minute ago, under
+          # the same concurrency group; `up` would preview it again (~10 s).
+          pulumi up --yes --skip-preview
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           POSTHOG_RELEASE_ID: ${{ steps.posthog-release.outputs.release-id }}
@@ -471,6 +504,7 @@ jobs:
       # and the backend's health behind it. Red means the deploy is live and
       # broken; the summary names the tag to roll back to.
       - name: Smoke check
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         working-directory: deploy/pulumi
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
@@ -480,7 +514,7 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
       - name: How to roll this back
-        if: ${{ always() && steps.previous.outputs.tag != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
+        if: ${{ always() && env.ALREADY_DEPLOYED != 'true' && steps.previous.outputs.tag != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
         env:
           PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
         run: |
@@ -498,6 +532,7 @@ jobs:
 
       # Best effort: a missing output must not turn a finished deploy red.
       - name: Record what was deployed
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         id: deployed
         continue-on-error: true
         working-directory: deploy/pulumi
@@ -528,6 +563,7 @@ jobs:
       # newest image; only a CI deploy or a rollback names the sha exactly.
       # docs/contributing/ci.md#posthog-releases-and-source-maps
       - name: Mark the deploy in PostHog
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         continue-on-error: true
         run: deploy/pulumi/scripts/posthog-annotate.sh dev "$IMAGE_TAG"
         env:
@@ -545,6 +581,7 @@ jobs:
       # decrypts. Both are best effort and run after the apply above, so neither
       # can stop or change the staging deploy. Expand makes them required.
       - name: Workspace stack - ESC environment (ADR-0147)
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         continue-on-error: true
         working-directory: deploy/pulumi
         run: |
@@ -556,6 +593,7 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
       - name: Workspace stack - preview only (ADR-0147)
+        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         continue-on-error: true
         working-directory: deploy/pulumi
         run: |
@@ -621,6 +659,8 @@ jobs:
         with:
           ref: prod
           fetch-depth: 0
+          # As staging's: prod's full clone took 158 s at the median.
+          filter: blob:none
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -717,7 +757,7 @@ jobs:
           export PATH="$HOME/.pulumi/bin:$PATH"
           pulumi stack select matthiasbigl/grid-oib/prod
           [ -z "$ROLLBACK_TAG" ] || pulumi config set imageTag "$ROLLBACK_TAG"
-          pulumi up --yes
+          pulumi up --yes --skip-preview
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
