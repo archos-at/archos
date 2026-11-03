@@ -432,8 +432,10 @@ other Cloudflare traffic defer it (ADR-0138). Its edge bound is a 27 MiB
 `Content-Length` header match. The BFF charges, after the signature and before
 the body is read (`lib/inbound-mail/receive.ts`), narrowest first so a
 refusal never spends a wider bucket: `inbound-mail-address` 120/h,
-`inbound-mail-organization` 600/h, `inbound-mail-signing-key` 3,000/h per
-signing key; and `inbound-mail-unknown-address` 300/h per
+`inbound-mail-organization` 600/h, `inbound-mail-signing-key` 60,000/h per
+signing key (one bucket every office shares, so it is sized to a hundred offices at
+their full organization cap at once: at 3,000, five busy offices deferred everyone's
+mail; `bff/limits/inbound-mail.spec.ts` holds the ratio); and `inbound-mail-unknown-address` 300/h per
 signing key for tokens no project has, a bucket of its own so a guesser walking
 the token space never spends real mail's budget. On top, byte caps on staged
 raw bytes: 1 GiB per address, 5 GiB per organization; over either the answer
