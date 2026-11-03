@@ -15,7 +15,7 @@ vi.mock('@/lib/upload-batches/settle', () => ({ onDocumentsSettled: vi.fn().mock
 // What PostHog hears is `lib/analytics/ingest-events.spec.ts`'s subject; here it is the
 // call reconciliation makes for the rows it moved.
 const captureServer = vi.hoisted(() => vi.fn(() => true))
-vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer }))
+vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer, getPosthogServer: () => null }))
 
 // The live channel's own subject is `shelf-live.spec.ts`; here it is which
 // shelves a reconciliation announces.
@@ -1432,7 +1432,9 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     await reconcileDocumentStatuses([makeRow()], 'org-1')
 
     expect(captureServer).toHaveBeenCalledWith(
-      expect.objectContaining({ properties: expect.objectContaining({ status: 'failed' }) })
+      expect.objectContaining({
+        properties: expect.objectContaining({ status: 'failed', document_id: 'doc-1', error_reason: 'unknown' }),
+      })
     )
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('secret')
   })

@@ -20,7 +20,7 @@
  * reported, the file's extension and how long it took. Never the filename,
  * the summary or the error text, which can quote the document.
  */
-import { captureServer } from './posthog-server'
+import { captureServer, getPosthogServer } from './posthog-server'
 
 export interface FinishedIngest {
   /** Our own row id, so an attempt can be joined to its document and to its retries. */
@@ -41,11 +41,53 @@ export interface FinishedIngest {
   attempt?: number | null
   /** The upload gesture (batch) that wrote the bytes. */
   uploadId?: string | null
-  /** The backend's failure class (`transient`, `configuration`, `deterministic`, `quarantined`, `unknown`). */
-  errorReason?: string | null
   /** From the job's own clock: submitted to started, and started to completed. */
   queueWaitMs?: number | null
   processingMs?: number | null
+  /** The row's `error_message`; only its machine prefix (`interrupted`, `unreadable_job`) is ever sent. */
+  errorMessage?: string | null
+  /** The backend's failure class (`transient`, `deterministic`, ...), when it gave one. */
+  failureCategory?: string | null
+  retryable?: boolean | null
+}
+
+/** What `finishedIngestOf` reads of a document row, a resolution and the backend's counts. */
+export const finishedIngestOf = (
+  row: { id: string; filename: string; updatedAt?: Date | string | null },
+  resolution: {
+    status: FinishedIngest['status'] | 'pending' | 'cancelled'
+    errorMessage: string | null
+    screeningOutcome?: string
+    failure?: { category: string | null; retryable: boolean | null }
+    timing?: { queueWaitMs?: number | null; processingMs?: number | null }
+  },
+  meta?: { pageCount?: number; chunkCount?: number }
+): FinishedIngest => ({
+  documentId: row.id,
+  filename: row.filename,
+  updatedAt: row.updatedAt,
+  status: resolution.status as FinishedIngest['status'],
+  screening: resolution.screeningOutcome,
+  pageCount: meta?.pageCount,
+  chunkCount: meta?.chunkCount,
+  errorMessage: resolution.errorMessage,
+  failureCategory: resolution.failure?.category,
+  retryable: resolution.failure?.retryable,
+  queueWaitMs: resolution.timing?.queueWaitMs,
+  processingMs: resolution.timing?.processingMs,
+})
+
+const REASON = /^([a-z][a-z0-9_]{1,40}):/
+
+/**
+ * The machine prefix of a failure message (`interrupted: ingestion stopped…` is
+ * `interrupted`), `unknown` for a message without one, nothing without a message.
+ * The rest of the text can quote the document, so it never leaves.
+ */
+export const errorReasonOf = (message: string | null | undefined): string | undefined => {
+  if (!message) return undefined
+  return REASON.exec(message)?.[1] ?? 'unknown'
+}
 }
 
 /** The screening value for an ingest whose job reported none. */
@@ -73,6 +115,67 @@ const durationSince = (updatedAt: Date | string | null | undefined, now: number)
   return Number.isFinite(written) ? Math.max(0, now - written) : undefined
 }
 
+/** The error-tracking budget per reason: a bulk upload that fails 109 times is five issues' worth, the event counts the rest. */
+const FAILURE_CAPTURE_BURST = 5
+const FAILURE_CAPTURE_WINDOW_MS = 5 * 60_000
+let failureWindows = new Map<string, { startedAt: number; count: number }>()
+
+export const resetIngestFailureLimiterForTests = (): void => {
+  failureWindows = new Map()
+}
+
+class IngestFailedError extends Error {
+  override name = 'IngestFailedError'
+}
+
+/**
+ * A failed ingest as an exception in PostHog error tracking, with the office and
+ * the document. The worker's own exception lives in the backend's logs; this is
+ * the one place that knows which office and which row it was, and a failure the
+ * backend settles without an exception (a lost owner, `interrupted`) leaves
+ * nothing else behind. Never throws.
+ */
+const captureIngestFailure = (organizationId: string, ingest: FinishedIngest, now: number): void => {
+  const posthog = getPosthogServer()
+  if (!posthog) return
+  const reason = errorReasonOf(ingest.errorMessage) ?? 'unknown'
+  const window = failureWindows.get(reason)
+  if (!window || now - window.startedAt >= FAILURE_CAPTURE_WINDOW_MS) failureWindows.set(reason, { startedAt: now, count: 1 })
+  else if (++window.count > FAILURE_CAPTURE_BURST) return
+  try {
+    posthog.captureException(new IngestFailedError(`document ingest failed: ${reason}`), undefined, {
+      source: 'bff-ingest-reconcile',
+      organization_id: organizationId,
+      document_id: ingest.documentId,
+      error_reason: reason,
+      error_category: ingest.failureCategory ?? undefined,
+      retryable: ingest.retryable ?? undefined,
+      attempt: ingest.attempt ?? undefined,
+      file_type: fileTypeOf(ingest.filename),
+    })
+  } catch (failure) {
+    console.debug('[posthog] could not queue an ingest failure', failure)
+  }
+}
+
+/** `document_ingest_started`: a dispatch the backend took (the job is queued, not yet read). Fire-and-forget. */
+export function announceIngestStarted(
+  organizationId: string,
+  started: { documentId: string; filename: string; attempt: number | null; jobId: string }
+): void {
+  captureServer({
+    event: 'document_ingest_started',
+    distinctId: null,
+    organizationId,
+    properties: {
+      document_id: started.documentId,
+      job_id: started.jobId,
+      file_type: fileTypeOf(started.filename),
+      attempt: started.attempt ?? undefined,
+    },
+  })
+}
+
 /** Queue one event per finished row. Fire-and-forget: `captureServer` never throws. */
 export function announceIngestsFinished(organizationId: string, finished: FinishedIngest[], now = Date.now()): void {
   for (const ingest of finished) {
@@ -86,7 +189,9 @@ export function announceIngestsFinished(organizationId: string, finished: Finish
         attempt: ingest.attempt ?? undefined,
         status: ingest.status,
         screening: ingest.screening ?? SCREENING_NOT_RUN,
-        error_reason: ingest.errorReason ?? undefined,
+        error_reason: errorReasonOf(ingest.errorMessage),
+        error_category: ingest.failureCategory ?? undefined,
+        retryable: ingest.retryable ?? undefined,
         file_type: fileTypeOf(ingest.filename),
         page_count: ingest.pageCount,
         chunk_count: ingest.chunkCount,
@@ -97,6 +202,7 @@ export function announceIngestsFinished(organizationId: string, finished: Finish
         processing_ms: ingest.processingMs ?? undefined,
       },
     })
+    if (ingest.status === 'failed') captureIngestFailure(organizationId, ingest, now)
   }
 }
 

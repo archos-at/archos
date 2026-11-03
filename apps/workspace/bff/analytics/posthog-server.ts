@@ -55,6 +55,7 @@ export type ServerEvent =
   | 'mention_released'
   | 'job_run_started'
   | 'job_run_finished'
+  | 'document_ingest_started'
   | 'document_ingest_finished'
   | 'document_uploaded'
   | 'bim_query_executed'

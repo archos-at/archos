@@ -22,7 +22,7 @@ import {
   toEpochMs,
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
-import { announceIngestsFinished } from '@/lib/analytics/ingest-events'
+import { announceIngestsFinished, finishedIngestOf } from '@/lib/analytics/ingest-events'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
   reportsQuarantine,
@@ -128,6 +128,7 @@ export interface ReconcilableDocument {
    * leaves it out is enriched from the TTL cache exactly as before.
    */
   updatedAt?: Date | string | null
+  ingestAttempts?: number | null
 }
 
 /**
@@ -1145,22 +1146,12 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
     organizationId,
     announced.flatMap(([id, resolution]) => {
       const row = rowsById.get(id)
-      if (!row || resolution.status === 'pending' || resolution.status === 'cancelled') return []
-      const meta = metaByRow.get(id)
+      if (!row) return []
       return [
         {
-          documentId: id,
-          filename: row.filename,
-          updatedAt: row.updatedAt,
-          status: resolution.status,
-          screening: 'screeningOutcome' in resolution ? resolution.screeningOutcome : undefined,
-          pageCount: meta?.pageCount,
-          chunkCount: meta?.chunkCount,
+          ...finishedIngestOf(row, resolution, metaByRow.get(id)),
           attempt: facts.get(id)?.attempt,
           uploadId: facts.get(id)?.uploadBatchId,
-          errorReason: 'failure' in resolution ? resolution.failure?.category : undefined,
-          queueWaitMs: 'timing' in resolution ? resolution.timing?.queueWaitMs : undefined,
-          processingMs: 'timing' in resolution ? resolution.timing?.processingMs : undefined,
         },
       ]
     })
