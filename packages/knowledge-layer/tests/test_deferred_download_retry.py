@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from knowledge_layer import deferred_files
 from knowledge_layer.deferred_files import run_deferred_download
 

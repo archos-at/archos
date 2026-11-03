@@ -37,11 +37,12 @@ holds the heartbeat, the reclaim of stale claims, `release_claims` on a drain (n
 attempt spent), and `dead` rows kept as a trace instead of a `DELETE`. A change to the order, the heartbeat or the dead
 rows is made there, once. `jobs/queue.py` and `jobs/worker.py` are research's
 table, encrypted payload and poison verdict on it; the reaper and the checkpoint
-retention sweep assume it. Ingestion claims from its own table,
-`agent.knowledge.ingest_queue`; `jobs/ingest_dispatch.py` puts jobs there and
-`jobs/ingest_worker.py` is its dedicated tier, the only process that claims
-(ADR-0076): the `chat` and `api` roles enqueue and never claim. New work of either kind
-joins by claiming through its queue, never by an in-process pool alone.
+retention sweep assume it. Ingestion runs on Hatchet instead (ADR-0150): the
+`ingest-document` workflow (`agent.knowledge.ingest_hatchet`, steps `index` then
+`settle`); `jobs/ingest_dispatch.py` starts a run per job with the encrypted payload,
+and `jobs/ingest_worker.py` is its dedicated tier, the only process that serves it: the
+`chat` and `api` roles dispatch and never run a job. New research work joins by claiming
+through its queue, new ingestion work through the workflow, never by an in-process pool alone.
 
 **Research waits, it is not refused.** Capacity never makes `jobs/submit.py`
 raise: `MAX_ACTIVE_JOBS_PER_ORG` is the claim's per-lane cap (read by the

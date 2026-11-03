@@ -852,25 +852,24 @@ def source_commit() -> str:
 
 
 def _ingest_corpus(poll_seconds: float = 5.0, timeout_seconds: float = 3600.0) -> str | None:
-    """Queue the corpus's ingest jobs and run them here; None when done, else why not.
+    """Run the corpus's ingest jobs here; None when done, else why not.
 
-    The base corpus is ingested by jobs on the durable ingest queue (ADR-0082), and
-    ``oib_sync.sync()`` only queues them. Nothing else claims them on a developer machine,
-    so for this run this process is the ingest worker: it attaches a claiming source to the
-    ingestor, then syncs until no file waits on a job. A file whose job failed is reported,
-    not retried: the sync does not queue it again.
+    The corpus is ingested by Hatchet's ``ingest-document`` runs (ADR-0150), with no worker on a
+    developer machine, so here the sync's hand-over runs each job at once, until no file waits on
+    a job. A file whose job failed is reported, not retried: the sync does not queue it again.
     """
     from agent import corpus_store
     from agent import oib_sync
-    from agent_host.jobs import ingest_dispatch
 
-    print("queueing the corpus:", oib_sync.sync(enqueue=ingest_dispatch.enqueue_only))
-    if not ingest_dispatch.attach(oib_sync._get_oib_ingestor()):
-        return "the ingest queue is off or has no database (INGEST_QUEUE, SUMMARY_DB): nothing can ingest the corpus"
+    def run_corpus_job_here(prepared) -> bool:
+        oib_sync._get_oib_ingestor().run_prepared(prepared)
+        return True
+
+    print("ingesting the corpus:", oib_sync.sync(enqueue=run_corpus_job_here))
     unfinished = (oib_sync.JobProgress.WAITING, oib_sync.JobProgress.RUNNING)
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
-        result = oib_sync.sync(enqueue=ingest_dispatch.enqueue_only)
+        result = oib_sync.sync(enqueue=run_corpus_job_here)
         rows = corpus_store.list_files()
         waiting = [
             name

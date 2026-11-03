@@ -302,7 +302,6 @@ infra:
   - 'apps/workspace/workers/langfuse-traces.js'
   - 'packages/agent/src/agent/common/claim_queue.py'
   - 'packages/agent/src/agent/common/provider_limiter.py'
-  - 'packages/agent/src/agent/knowledge/ingest_queue.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
   - 'packages/knowledge-layer/src/llamaindex/adapter.py'
   - 'packages/knowledge-layer/src/llamaindex/processing.py'

@@ -1,40 +1,44 @@
-"""The dedicated ingestion worker tier (ADR-0076).
+"""The dedicated ingestion worker tier (ADR-0076, ADR-0150).
 
 Run as its own container: ``PROCESS_ROLE=ingest-worker`` makes the entrypoint start
-``python -m agent_host.jobs.ingest_worker``. It builds the agent-runtime workflow once, which
-activates the ingestor exactly as the web roles do (same summary model, same
-shared Qdrant, same object store), attaches the durable queue to it, and then
-does nothing but claim: its ``INGEST_MAX_WORKERS`` threads take the next job
-fairly across every organisation, run it, and come back for another.
+``python -m agent_host.jobs.ingest_worker``. It is a Hatchet worker serving the
+``ingest-document`` task (``agent.knowledge.ingest_hatchet``). Its lifespan builds
+the agent-runtime workflow once, which activates the ingestor exactly as the web
+roles do (same summary model, same shared Qdrant, same object store), and then
+Hatchet hands it runs, ``INGEST_MAX_WORKERS`` at once, fair across every
+organisation.
 
-No web server, no port, no state of its own: jobs live in Postgres, vectors in
-the shared Qdrant cluster. So the tier scales on the one number that says how much
-ingestion is waiting, the depth of ``ingest_job_queue``, from zero workers when
-nothing is queued to as many as the provider's rate limit allows.
+No web server, no port, no state of its own: jobs live in Hatchet, their status
+in Postgres, vectors in the shared Qdrant cluster.
 
-On SIGTERM it stops claiming and waits up to ``INGEST_WORKER_DRAIN_SECONDS``
-for the jobs it holds (a claim in flight counts as held). A job still running
-when that budget ends is given back to the queue at no cost in attempts, and
-another worker claims it at once; re-indexing replaces a file's chunks, so the
-second run is the one that counts. A pod that is killed instead (OOM, node loss)
-leaves its claims to go stale and be claimed again.
+On SIGTERM the SDK stops taking runs and waits for the ones it holds; a pod that
+is killed instead (OOM, node loss) leaves its runs to Hatchet, which tries them
+again. Re-indexing replaces a file's chunks, so the second run is the one that
+counts.
+
+On boot it also moves what the retired claim queue still holds onto Hatchet
+(``agent.knowledge.ingest_cutover``), and it runs the folder card builder beside
+the task.
 
 Config (env):
   CONFIG_FILE / NAT_CONFIG_FILE        the agent-runtime config the web tier runs
   INGEST_MAX_WORKERS               jobs this process runs at once (default 2)
-  INGEST_WORKER_DRAIN_SECONDS     drain budget on SIGTERM (default 600)
-  WORKER_LIVENESS_FILE            touched while the loop is alive
+  WORKER_LIVENESS_FILE            touched while the worker is alive
+  HATCHET_CLIENT_*                 the Hatchet connection (the SDK's own variables)
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
-import signal
 import time
+from collections.abc import AsyncIterator
 
 from agent.common.logging_utils import suppress_noisy_dependency_logs
+from agent.knowledge import ingest_cutover
+from agent.knowledge import ingest_hatchet
 from agent.knowledge.leader_lock import require_direct_dsns
 
 from . import ingest_dispatch
@@ -46,13 +50,14 @@ _DEFAULT_CONFIG = "/app/configs/config_oib_openrouter.yml"
 _LIVENESS_EVERY_SECONDS = 15
 
 
-def _drain_seconds() -> int:
-    """Not a number is the default; a negative budget is none."""
-    return max(0, lease_policy.int_env("INGEST_WORKER_DRAIN_SECONDS", lease_policy.DRAIN_SECONDS))
+def _slots() -> int:
+    """``INGEST_MAX_WORKERS``, the per-pod concurrency the adapter documents (default 2)."""
+    return max(1, lease_policy.int_env("INGEST_MAX_WORKERS", 2, floor=1))
 
 
-async def run(stop: asyncio.Event) -> None:
-    """Build the ingestor, claim until ``stop``, then drain."""
+@contextlib.asynccontextmanager
+async def ingestor_lifespan() -> AsyncIterator:
+    """Build the ingestor, keep the side loops running beside the task, and tear down at the end."""
     from agent.knowledge.factory import get_active_ingestor
     from agent.observability import boot_timing
     from agent.observability import ensure_registered as register_telemetry
@@ -61,7 +66,6 @@ async def run(stop: asyncio.Event) -> None:
     from nat.runtime.loader import load_config
 
     config_file = os.environ.get("CONFIG_FILE") or os.environ.get("NAT_CONFIG_FILE") or _DEFAULT_CONFIG
-    liveness = os.environ.get("WORKER_LIVENESS_FILE", "/tmp/ingest-worker.alive")
     # Grid's telemetry `_type`s register at import; load_config fails without them.
     register_telemetry()
     clock = BootClock("ingest-worker")
@@ -71,27 +75,38 @@ async def run(stop: asyncio.Event) -> None:
     async with WorkflowBuilder.from_config(config=config):
         clock.record("workflow_build", time.monotonic() - building)
         ingestor = get_active_ingestor()
-        if ingestor is None:
-            raise RuntimeError(f"{config_file} activates no ingestor; there is nothing to run jobs with")
-        if not ingest_dispatch.attach(ingestor):
-            raise RuntimeError("the ingest queue is off or has no database (INGEST_QUEUE, SUMMARY_DB)")
-        logger.info("Ingest worker %s claiming", ingest_dispatch.worker_id())
+        if ingestor is None or getattr(ingestor, "supports_durable_jobs", False) is not True:
+            raise RuntimeError(f"{config_file} activates no ingestor that runs jobs from Hatchet")
+        await asyncio.to_thread(_cut_over)
         clock.ready()
         boot_timing.flush()
-        cards = _start_folder_cards(stop)
-        while not stop.is_set():
-            lease_policy.touch_liveness(liveness)
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=_LIVENESS_EVERY_SECONDS)
-            except TimeoutError:
-                pass
-        await _drain(ingestor)
-        if cards is not None:
-            await cards
+        stop = asyncio.Event()
+        loops = [_start_folder_cards(stop), asyncio.create_task(_liveness(stop), name="liveness")]
+        try:
+            yield ingestor
+        finally:
+            stop.set()
+            await asyncio.gather(*loops, return_exceptions=True)
 
 
-def _start_folder_cards(stop: asyncio.Event) -> asyncio.Task | None:
-    """The folder card builder's loop, beside the claim loop.
+def _cut_over() -> None:
+    """Move what the retired claim queue still holds onto Hatchet. Best effort; the next boot tries again."""
+    try:
+        ingest_cutover.redispatch_queued(ingest_hatchet.trigger)
+    except Exception as error:  # noqa: BLE001 - a failed cutover must not keep the worker down
+        logger.warning("Ingest cutover failed (%s); the next boot tries again", type(error).__name__)
+
+
+async def _liveness(stop: asyncio.Event) -> None:
+    liveness = os.environ.get("WORKER_LIVENESS_FILE", "/tmp/ingest-worker.alive")
+    while not stop.is_set():
+        lease_policy.touch_liveness(liveness)
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=_LIVENESS_EVERY_SECONDS)
+
+
+def _start_folder_cards(stop: asyncio.Event) -> asyncio.Task:
+    """The folder card builder's loop, beside the task.
 
     It always runs: whether an organization has cards is its ``folder-cards`` WorkOS
     flag, which the builder asks the BFF per claimed folder (ADR-0127), so a
@@ -103,26 +118,6 @@ def _start_folder_cards(stop: asyncio.Event) -> asyncio.Task | None:
     return asyncio.create_task(worker.loop(stop), name="folder-cards")
 
 
-async def _drain(ingestor) -> None:
-    ingestor.detach_job_source()
-    budget = _drain_seconds()
-    logger.info("Ingest worker draining %d job(s) for up to %ds", ingestor.busy_workers, budget)
-    waited = 0.0
-    while ingestor.busy_workers and waited < budget:
-        await asyncio.sleep(1)
-        waited += 1
-    if ingestor.busy_workers:
-        # Not lost, and not a failed attempt: another worker takes them now,
-        # where a claim left to go stale would wait out the stale window and
-        # count against the job's attempts.
-        released = ingest_dispatch.release_held()
-        logger.warning(
-            "Ingest worker stopping with %d job(s) running; %d claim(s) given back to the queue",
-            ingestor.busy_workers,
-            released,
-        )
-
-
 def main() -> None:
     logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
     suppress_noisy_dependency_logs()
@@ -130,15 +125,7 @@ def main() -> None:
     # needs the direct DSN (ADR-0083). It never LISTENs. Fail the boot, not the
     # first file.
     require_direct_dsns(listen=False)
-    stop = asyncio.Event()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, stop.set)
-    try:
-        loop.run_until_complete(run(stop))
-    finally:
-        loop.close()
+    ingest_hatchet.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots())
 
 
 if __name__ == "__main__":
