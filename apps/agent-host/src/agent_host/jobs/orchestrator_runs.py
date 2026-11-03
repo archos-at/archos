@@ -124,9 +124,9 @@ def waiting_for_org(db_url: str, organization_id: str | None) -> int:
     if not inspect(engine).has_table("job_info") or not inspect(engine).has_table("job_access"):
         return 0
     org_clause = "a.organization_id = :org" if organization_id else "a.organization_id IS NULL"
+    # Only a literal clause chosen above is interpolated; every value is bound.
+    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     query = text(
-        # Only a literal clause chosen above is interpolated; every value is bound.
-        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         "SELECT COUNT(*) FROM job_info i JOIN job_access a ON a.job_id = i.job_id "
         f"WHERE i.status = :submitted AND {org_clause}"
     )

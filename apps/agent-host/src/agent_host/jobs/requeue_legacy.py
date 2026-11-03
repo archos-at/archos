@@ -62,9 +62,9 @@ def _waiting_rows(db_url: str) -> list[tuple[str, str, str, int, str | None]]:
     engine = _engine(db_url)
     if not inspect(engine).has_table(TABLE):
         return []
+    # Only the module constant is interpolated.
+    # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
     query = text(
-        # Only the module constant is interpolated.
-        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         f"SELECT q.job_id, q.lane, q.payload, q.priority, i.status FROM {TABLE} q "
         "LEFT JOIN job_info i ON i.job_id = q.job_id "
         "WHERE q.status IN ('queued', 'claimed') ORDER BY q.created_at, q.job_id"

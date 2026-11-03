@@ -190,6 +190,8 @@ def _add_missing_columns(conn, url: str) -> None:
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(_BACKFILL_COLLECTION_NAME[_is_postgres(url)]))
     if "held_until" not in present and "ingest_job_queue" in inspect(conn).get_table_names():
+        # A module constant filled with dialect SQL built from an int constant; no input reaches it.
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(_HOLD_QUEUED_AT_CUTOVER.format(until=_from_now(url, _CUTOVER_HOLD_SECONDS), now=_now(url))))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_dispatch_key ON ingest_jobs (dispatch_key)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_collection_name ON ingest_jobs (collection_name)"))
