@@ -188,8 +188,12 @@ through the chart's `sharedConfig.image.tag`, default `v0.114.2`; Compose's
 
 The operator is pinned by `RABBITMQ_OPERATOR_VERSION` (`platform/rabbitmq.ts`,
 2.23.2); `scripts/validate-crs.mjs` validates the `RabbitmqCluster` against the
-CRD of that same release. To upgrade it, read the operator's release notes,
-raise the constant, preview on dev. An operator upgrade can roll every
+CRD of that same release. The release manifest is vendored at
+`platform/manifests/rabbitmq-cluster-operator-<version>.yml`, and its operator
+Deployment gets the rollout gates the policy pack requires in code
+(`gateOperatorRollout`). To upgrade it, read the operator's release notes,
+download the new release's `cluster-operator.yml` into that folder under its
+version, raise the constant, delete the old file, preview on dev. An operator upgrade can roll every
 RabbitmqCluster it manages (a new default RabbitMQ image); the PDB keeps that to
 one node at a time, and two of three keep the quorum. The RabbitMQ version
 itself is the operator's default image for that release; pin `spec.image` in

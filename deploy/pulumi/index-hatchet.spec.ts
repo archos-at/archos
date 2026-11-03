@@ -232,10 +232,13 @@ describe("the hatchet-ha release", () => {
 describe("RabbitMQ", () => {
   it("comes from the official operator's release manifest, pinned, after cert-manager", async () => {
     const { RABBITMQ_OPERATOR_VERSION } = await import("./src/platform/rabbitmq");
-    const op = RESOURCES.find((r) => r.type === "kubernetes:yaml/v2:ConfigFile" && r.name === "rabbitmq-cluster-operator");
-    expect(op?.inputs.file).toBe(
-      `https://github.com/rabbitmq/cluster-operator/releases/download/v${RABBITMQ_OPERATOR_VERSION}/cluster-operator.yml`,
-    );
+    const op = RESOURCES.find((r) => r.type === "kubernetes:yaml/v2:ConfigGroup" && r.name === "rabbitmq-cluster-operator");
+    const objs = op?.inputs.objs as { kind: string; metadata: { name: string }; spec?: Record<string, unknown> }[];
+    // The vendored release manifest, its operator Deployment gated for the policy pack.
+    const deployment = objs.find((o) => o.kind === "Deployment");
+    expect(deployment?.metadata.name).toBe("rabbitmq-cluster-operator");
+    expect(deployment?.spec).toMatchObject({ minReadySeconds: expect.any(Number), progressDeadlineSeconds: expect.any(Number) });
+    expect(objs.filter((o) => o.kind === "CustomResourceDefinition").length).toBeGreaterThan(0);
     expect(RABBITMQ_OPERATOR_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(read("index.ts")).toMatch(/installRabbitmqOperator\(provider, \[certManager\.release\]\)/);
     // Never the chart's Bitnami subchart.
