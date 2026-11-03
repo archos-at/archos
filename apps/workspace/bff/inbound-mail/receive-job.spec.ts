@@ -827,7 +827,7 @@ describe('the sender rule: the class the hold writes (ADR-0137, amendment of 202
 
 describe('B2: an attached original’s Message-ID never drops a delivery', () => {
   const REAL_ID = 'real-bescheid-123@ma37.wien.gv.at'
-  const bescheid = (body: string) =>
+  const decisionMail = (body: string) =>
     [
       'From: Mag. Anna Huber <anna.huber@ma37.wien.gv.at>',
       'To: anna@buero-muster.at',
@@ -846,12 +846,12 @@ describe('B2: an attached original’s Message-ID never drops a delivery', () =>
 
   it('holds an outsider’s junk claiming a real original, and then the architect’s real forward of it (suppression)', async () => {
     receive(
-      message(multipart('mixed', [BODY, forwarded(bescheid('gefälscht'))]), { From: 'x@stranger.example', 'Message-ID': '<junk@stranger.example>' }),
+      message(multipart('mixed', [BODY, forwarded(decisionMail('gefälscht'))]), { From: 'x@stranger.example', 'Message-ID': '<junk@stranger.example>' }),
     )
     await run()
     expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'external', originalMessageId: REAL_ID })
 
-    receive(await sign(message(multipart('mixed', [BODY, forwarded(bescheid('Der Bescheid.'))]), { Subject: 'WG: Bescheid' })))
+    receive(await sign(message(multipart('mixed', [BODY, forwarded(decisionMail('Der Bescheid.'))]), { Subject: 'WG: Bescheid' })))
     await run()
     expect(heldRow()).toMatchObject({ status: 'waiting', droppedReason: null, senderClass: 'verified_writer', originalMessageId: REAL_ID })
     expect(jobKinds()).toContain('inbound_mail_sender_file')
@@ -861,7 +861,7 @@ describe('B2: an attached original’s Message-ID never drops a delivery', () =>
   it('holds a colleague’s mail that attaches an original the project holds, with its own text and new attachment', async () => {
     receive(
       await sign(
-        message(multipart('mixed', [BODY, attachment('Antwort_v2.pdf', 'application/pdf', pdf('Antwort v2')), forwarded(bescheid('Der Bescheid.'))]), {
+        message(multipart('mixed', [BODY, attachment('Antwort_v2.pdf', 'application/pdf', pdf('Antwort v2')), forwarded(decisionMail('Der Bescheid.'))]), {
           Subject: 'Antwortentwurf',
         }),
       ),
