@@ -125,8 +125,8 @@ class TestAnAttachmentSaysWhichMailBroughtIt:
 
 class TestAVerlaufPassageIsMail:
     async def test_it_states_its_format_and_lands_in_the_mail_lane(self, store):
-        from agent.common.citation_verification import extract_sources_from_tool_result
-        from agent.common.citation_verification import source_entry_to_wire
+        from agent.citations.extraction import extract_sources_from_tool_result
+        from agent.citations.wire import source_entry_to_wire
         from agent.common.grounding_block import begin_grounding_capture
         from agent.common.grounding_block import end_grounding_capture
 

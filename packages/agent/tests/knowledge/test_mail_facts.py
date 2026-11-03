@@ -26,9 +26,9 @@ from agent.knowledge.mail_facts import mail_thread_label
 from agent.knowledge.mail_facts import normalise_mail_origin
 from agent.knowledge.mail_facts import normalise_mail_thread
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-RENDER_COPY = REPO_ROOT / "frontends" / "ui" / "src" / "lib" / "mail-thread" / "render-copy.ts"
-VOCABULARY = REPO_ROOT / "frontends" / "ui" / "src" / "lib" / "inbound-mail" / "inbound-mail-vocabulary.ts"
+REPO_ROOT = Path(__file__).resolve().parents[4]
+RENDER_COPY = REPO_ROOT / "apps" / "workspace" / "bff" / "mail-thread" / "render-copy.ts"
+VOCABULARY = REPO_ROOT / "apps" / "workspace" / "bff" / "inbound-mail" / "inbound-mail-vocabulary.ts"
 
 HUBER = {
     "sent_at": "2026-05-12T07:12:00Z",

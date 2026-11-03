@@ -8,6 +8,7 @@ import yaml
 from pydantic import ValidationError
 
 from agent.common import norm_registry as nr
+from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
