@@ -138,66 +138,62 @@ deploy exactly as before.
 
 | Piece | Where | What it does |
 |---|---|---|
-| Source maps and release | `image-push` for the frontend image, inside `next build` in the Docker build (`@posthog/nextjs-config`, wired in `apps/workspace/next.config.ts`) | At the end of the build, injects a chunk id into the shipped JavaScript, uploads the maps to PostHog, deletes them. The release is `grid-ui` at the commit that built the image, which is the `GIT_SHA` the container reports |
+| Source maps and release | The frontend Docker build (inject, offline) and `.github/workflows/sourcemaps.yml` (upload, after CI) | The build emits maps and injects a chunk id into each shipped chunk; `image-push` exports the maps as an artifact; the Source maps workflow uploads them for release `grid-ui` at the commit that built the image, the `GIT_SHA` the container reports |
 | Backend release | `deploy.yml` (staging), before the plan (`PostHog/resolve-release`) | Finds or creates release `grid-agent` at the backend image's commit and hands its id to the Python tiers as `POSTHOG_RELEASE_ID` (below) |
 | Deploy marker | `deploy.yml`, after each `Pulumi up` (`deploy/pulumi/scripts/posthog-annotate.sh`) | A project annotation `deploy dev <sha>` or `deploy prod <sha>` at the time the apply finished. `continue-on-error`: a PostHog outage never turns a deploy red |
 
 | Name | Kind | Value |
 |---|---|---|
-| `POSTHOG_CLI_API_KEY` | secret | A personal API key with scopes `error_tracking:write`, `organization:read` and `annotation:write`, created at PostHog → Settings → User API keys. Repository-level, because `image-push` has no environment; the deploy jobs read the same one |
+| `POSTHOG_CLI_API_KEY` | secret | A personal API key with scopes `error_tracking:write`, `organization:read` and `annotation:write`, created at PostHog → Settings → User API keys. Repository-level; the Source maps workflow and the deploy jobs read it. The image build never does |
 | `POSTHOG_PROJECT_ID` | variable | The numeric project id (269895 for the EU staging project). Not secret |
 | `POSTHOG_CLI_HOST` | variable, optional | The PostHog **app** host. Default `https://eu.posthog.com`. Not the ingestion host `eu.i.posthog.com` |
 
 Why it is built this way:
 
-- **Inside the Docker build, not a workflow step.** The injection rewrites the
-  files the image ships. A step after the build would inject into files the
-  image never contained, and the chunk ids in the image would match nothing.
-  `PostHog/upload-source-maps` works on a directory of the runner, so it does
-  not fit an image built by BuildKit. `@posthog/nextjs-config` runs the PostHog
-  CLI from Next's own after-compile hook, which is inside the build.
-- **A BuildKit secret, never a build arg.** An arg is written into the image
-  history. The key reaches the Dockerfile as `--mount=type=secret`, and the RUN
-  that builds exports it as `POSTHOG_CLI_API_KEY` for `next.config.ts` and the
-  CLI. `build-image` passes it only for the frontend image and only from
-  `image-push`; a pull request build has no access and uploads nothing, so
-  unmerged code never creates a release.
-- **Off unless it can upload.** `next.config.ts` wraps its config with
-  `withPostHogConfig` (outermost, as the package requires) only when the key
-  and `POSTHOG_PROJECT_ID` are both present, and imports the package only then.
-  Every other build, and the running server, which loads `next.config.ts` too,
-  gets the config as written with no map flags.
-- **The maps are uploaded and not served.** Next serves `.next/static/**/*.map`,
-  original source included, to anyone. The package turns browser maps on only
-  for the uploading build and deletes them after the upload; `next.config.ts`
-  turns server maps on beside it. The same Dockerfile RUN then deletes every
-  `.map` still under `.next/static` or `.next/server` (Turbopack writes some
-  unasked, uploading or not) and fails the build if one survives. It fails as
-  well when it uploaded and no chunk id was injected, which would mean the
-  upload matches no stack frame.
-- **`symbol-set` release mode**, set explicitly: the maps are bound to the
-  release, as the CLI did before the package. The newer `event` mode injects a
-  release id for posthog-js to send per event, which the pinned posthog-js is
-  not known to read.
+- **Inject inside the build, upload after CI.** The injection rewrites the files
+  the image ships, so it runs in the Dockerfile's build RUN; a step after the
+  build would inject into files the image never contained. The upload only
+  reads the maps, so it does not belong there: done by `@posthog/nextjs-config`
+  inside `next build`, it took ~232 s of every frontend build (4360 chunks,
+  run 41688820888), on the path every deploy waited for. Now the build keeps
+  maps and injected chunks in a `sourcemaps` stage, `image-push` exports it
+  (`build-image`'s `export-sourcemaps`, seconds from the warm builder), and the
+  Source maps workflow uploads it when CI completes, beside the deploy. It is a
+  workflow of its own and not a job in `ci.yml` because the deploy follows the
+  CI run as a whole.
+- **No key in the build, so every build is the same build.** `posthog-cli
+  sourcemap inject` without a release name contacts nobody; it only insists
+  that credentials exist, and the Dockerfile gives it placeholders (measured on
+  0.18.11: with `--release-*` it calls the API, without them it logs "injecting
+  chunk ids only"). A pull request build therefore injects exactly as a push
+  does, and an image no longer differs by whether its builder held the secret.
+  The release is linked at upload (`--release-name grid-ui --release-version
+  <commit>`), so unmerged code still never creates one.
+- **The maps are kept aside and not served.** Next serves `.next/static/**/*.map`,
+  original source included, to anyone. `next.config.ts` turns browser and
+  server maps on only for the image build (`EMIT_SOURCE_MAPS=1`); the RUN
+  copies them out, deletes every `.map` under `.next/static` and `.next/server`
+  with the `sourceMappingURL` comments that pointed at them, and fails if a map
+  survives or a chunk carries no id. The `sourcemaps` stage sits before the
+  runner, which stays the default target.
+- **`symbol-set` release mode**, the CLI's default: the maps are bound to the
+  release. The newer `event` mode injects a release id for posthog-js to send
+  per event, which the pinned posthog-js is not known to read.
 - **Why the release is a build commit.** An image whose inputs did not change is
-  re-tagged, not rebuilt (above), so an error on such a deploy names the older
-  commit that built the code. The deploy marker carries the commit that was
-  deployed. Read the pair together: the release says where the code came from,
-  the annotation says when users got it.
-- **Chunk ids are content-addressed**, so a rebuild of unchanged files yields
-  the same ids and a re-run cannot orphan an earlier upload.
-- The CLI is the `@posthog/cli` the package depends on (pinned through
-  `@posthog/nextjs-config`, an exact devDependency). Its npm package downloads
-  the binary on first use (`bun install --ignore-scripts` skips its
-  postinstall), which happens inside the build RUN, and the same RUN deletes
-  the binary. It has to: `bun install --production` over an existing
-  `node_modules` does not prune devDependencies (measured with bun 1.3.11), so
-  the later production install would let it ship in the runtime image.
-- Caching: `ARG GIT_SHA` is declared before `bun run build`, because the
-  release version is read during the build. That costs nothing a rebuild did
-  not already pay: an image is rebuilt only when its inputs changed, and then
-  the build layer re-runs anyway. `POSTHOG_PROJECT_ID` is an arg before the
-  build too, so a build with PostHog configured never reuses one without maps.
+  re-tagged, not rebuilt (above), and its run exports no maps: its chunks kept
+  their ids, and PostHog has their maps from the build that made them. The
+  deploy marker carries the commit that was deployed. Read the pair together:
+  the release says where the code came from, the annotation says when users got
+  it.
+- **Chunk ids are content-addressed** (UUIDv5 of the chunk), so a rebuild of
+  unchanged files yields the same ids and a re-run cannot orphan an upload.
+- The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the
+  Source maps workflow installs that same version (a test holds the two
+  together). Its npm package downloads the binary on first use (`bun install
+  --ignore-scripts` skips its postinstall), which happens inside the build RUN,
+  and the same RUN deletes the binary: `bun install --production` over an
+  existing `node_modules` does not prune devDependencies (measured with bun
+  1.3.11), so the later production install would let it ship.
 
 An image already in GHCR under its `inputs-<hash>` is not rebuilt when the
 secret is added later, so its maps are never uploaded. Wait for the weekly

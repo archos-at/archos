@@ -1075,13 +1075,10 @@ jobs:
           hash: ${{ matrix.hash }}
           registry: ${{ env.REGISTRY }}
           push: "true"
-          # Source maps for PostHog error tracking. Only here, never in the pull
-          # request `image` job above: a PR build must not write release data
-          # into the PostHog project, and a fork has neither value. Both empty
-          # (the secret/variable is not set up) builds exactly as before.
+          # The PostHog source maps the build kept aside, for the Source maps
+          # workflow to upload after CI; nothing here holds a PostHog key.
           # docs/contributing/ci.md#posthog-releases-and-source-maps
-          posthog-api-key: ${{ secrets.POSTHOG_CLI_API_KEY }}
-          posthog-project-id: ${{ vars.POSTHOG_PROJECT_ID }}
+          export-sourcemaps: ${{ matrix.name == 'frontend' }}
 
   # The commit's tags, `sha-<commit>` for all three images (and `latest` on
   # develop), go on only after every check on this push passed. That is the

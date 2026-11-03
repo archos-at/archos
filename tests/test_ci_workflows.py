@@ -639,3 +639,43 @@ def test_the_runner_is_one_repository_variable_away_from_self_hosted(workflow, v
     # deploys get their own, so they need not run inside the cluster they change.
     for name, job in load(workflow)["jobs"].items():
         assert job["runs-on"] == f"${{{{ vars.{variable} || 'ubuntu-latest' }}}}", name
+
+
+# --- Source maps -------------------------------------------------------------------
+
+
+def test_source_maps_are_uploaded_after_ci_by_a_workflow_nothing_waits_on():
+    # Inside `next build` the upload was ~232 s of every frontend build, and a
+    # job in ci.yml would hold the deploy, which follows the CI run as a whole.
+    workflow = load("sourcemaps.yml")
+    job = workflow["jobs"]["upload"]
+
+    assert workflow["on"]["workflow_run"]["workflows"] == ["CI"]
+    green_push = {
+        "event_name": "workflow_run",
+        "repository": "acme/grid",
+        "event": {
+            "workflow_run": {"conclusion": "success", "event": "push", "head_repository": {"full_name": "acme/grid"}}
+        },
+    }
+    assert evaluate(job["if"], github=green_push)
+    for change in ({"event": "pull_request"}, {"conclusion": "failure"}, {"head_repository": {"full_name": "fork/x"}}):
+        run = green_push["event"]["workflow_run"] | change
+        assert not evaluate(job["if"], github=green_push | {"event": {"workflow_run": run}})
+    assert "POSTHOG_CLI_API_KEY" not in json.dumps(JOBS)  # no job of CI holds the key any more
+
+
+def test_the_upload_runs_the_cli_the_build_injected_with():
+    package = json.loads((WORKFLOWS.parents[1] / "apps/workspace/package.json").read_text(encoding="utf-8"))
+    upload = next(s for s in load("sourcemaps.yml")["jobs"]["upload"]["steps"] if s.get("name") == "Upload to PostHog")
+
+    assert upload["env"]["POSTHOG_CLI_VERSION"] == package["devDependencies"]["@posthog/cli"]
+    assert "--release-name grid-ui" in upload["run"] and '--release-version "$RELEASE_VERSION"' in upload["run"]
+
+
+def test_only_the_pushed_frontend_build_exports_its_source_maps():
+    push = next(s for s in JOBS["image-push"]["steps"] if s.get("uses") == "./.github/actions/build-image")
+    pull_request = next(s for s in JOBS["image"]["steps"] if s.get("uses") == "./.github/actions/build-image")
+
+    assert push["with"]["export-sourcemaps"] == "${{ matrix.name == 'frontend' }}"
+    assert "export-sourcemaps" not in pull_request["with"]

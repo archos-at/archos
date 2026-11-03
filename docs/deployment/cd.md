@@ -22,7 +22,7 @@ a commit CI failed cannot be deployed by accident.
 - **The only GitHub secret** the pipeline needs is `PULUMI_ACCESS_TOKEN`.
   Optionally `POSTHOG_CLI_API_KEY` (with the variable `POSTHOG_PROJECT_ID`) adds
   a PostHog annotation `deploy <env> <sha>` after each `Pulumi up` and
-  uploads the frontend's source maps at build time; without them nothing
+  uploads the frontend's source maps after CI (Source maps workflow); without them nothing
   changes. [ci.md](../contributing/ci.md#posthog-releases-and-source-maps).
 - **Gating**: `deploy.yml` runs on `workflow_run` of **CI**, for a run that
   concluded `success`, was a `push` (not a pull request whose branch happens to
