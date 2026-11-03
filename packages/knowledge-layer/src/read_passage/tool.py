@@ -231,9 +231,9 @@ class ReadPassageConfig(FunctionBaseConfig, name="read_passage"):
 @register_function(config_type=ReadPassageConfig)
 async def read_passage(config: ReadPassageConfig, _builder: Builder):
     """Open a named passage of a named document, or its outline. Deterministic; no LLM."""
-    from knowledge_layer.search.scope import resolve_base_collection
-    from knowledge_layer.search.scope import resolve_scoped_collections
-    from knowledge_layer.search.scope import restrict_scope_to_turn
+    from knowledge_layer.search import resolve_base_collection
+    from knowledge_layer.search import resolve_scoped_collections
+    from knowledge_layer.search import restrict_scope_to_turn
 
     search_config = _builder.get_function_config(config.knowledge_search)
 
@@ -372,7 +372,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
             return await _open(document, clause, page, outcome)
 
     async def _open(document: str, clause: str | None, page: int | None, outcome: ActionOutcome) -> str:
-        from knowledge_layer.search.results import format_results
+        from knowledge_layer.search import format_results
 
         targets, refusal = await _resolve_or_refuse(document)
         if refusal:
@@ -407,7 +407,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
     async def _open_range(document: str, pages_argument: Any, cursor_token: str | None, outcome: ActionOutcome) -> str:
         """Pages ``first``-``last`` of a document in reading order, or the rest of a read that stopped early."""
-        from knowledge_layer.search.results import format_results
+        from knowledge_layer.search import format_results
 
         try:
             span = _parse_pages(pages_argument, document)
@@ -478,7 +478,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
 
     async def _outline(document: str, outcome: ActionOutcome) -> str:
         """The same lookup at document granularity: scope passage plus Gliederung."""
-        from knowledge_layer.search.results import format_results
+        from knowledge_layer.search import format_results
 
         targets, refusal = await _resolve_or_refuse(document)
         if refusal:
@@ -520,7 +520,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
         a second clause on ``page_label`` would exclude every store that fills
         it with something other than a page number.
         """
-        from knowledge_layer.search.results import format_results
+        from knowledge_layer.search import format_results
 
         whole = await _fetch_all(targets, _whole_document_filters, query, _MAX_OUTLINE_CHUNKS)
         fetched = whole.chunks

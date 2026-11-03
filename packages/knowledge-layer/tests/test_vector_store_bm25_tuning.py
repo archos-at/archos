@@ -17,13 +17,13 @@ import random
 import uuid
 
 import pytest
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import QdrantStore
 from knowledge_layer.vector_store import folders
+from knowledge_layer.vector_store import hybrid_search
 from knowledge_layer.vector_store import rebuild
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import store as store_module
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.search import hybrid_search
-from knowledge_layer.vector_store.store import QdrantStore
 
 #: Every collection here is made with a few indexes (``qdrant_testing.few_payload_indexes``).
 pytestmark = pytest.mark.usefixtures("few_payload_indexes")

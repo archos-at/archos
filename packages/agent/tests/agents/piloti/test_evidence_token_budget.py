@@ -61,7 +61,7 @@ async def _noop(**_kwargs):
 
 def _evidence_tools() -> list:
     from knowledge_layer.chat_binding import chat_tools
-    from knowledge_layer.estate.backend import EstateBackend
+    from knowledge_layer.estate import EstateBackend
 
     estate = EstateBackend(SimpleNamespace())
     drafts = DraftBackend(store=InMemoryStore(), conversation_id="conv-1")

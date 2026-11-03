@@ -7,8 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 from knowledge_layer import stored_pages
-from knowledge_layer.browse.tool import FileRow
-from knowledge_layer.estate.backend import EstateBackend
+from knowledge_layer.browse import FileRow
+from knowledge_layer.estate import EstateBackend
 
 from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture

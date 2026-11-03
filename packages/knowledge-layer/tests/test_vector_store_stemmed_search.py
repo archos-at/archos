@@ -14,17 +14,18 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse.tool import inflection_stem
-from knowledge_layer.browse.tool import stemmed_pattern
+from knowledge_layer import register as register_module
+from knowledge_layer.browse import inflection_stem
+from knowledge_layer.browse import stemmed_pattern
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
-from knowledge_layer.search.retriever import LlamaIndexRetriever
+from knowledge_layer.search import LlamaIndexRetriever
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import build_payload
+from knowledge_layer.vector_store import chunk_metadata
 from knowledge_layer.vector_store import retrieval
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.payload import build_payload
-from knowledge_layer.vector_store.payload import chunk_metadata
-from knowledge_layer.vector_store.scope import scope_filter
+from knowledge_layer.vector_store import scope_filter
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import vector
 from knowledge_layer_testing.vector_store import write
@@ -75,7 +76,7 @@ def test_the_stemmed_copy_is_written_and_never_read_back_as_metadata():
     assert payload[schema.TEXT_STEM_FIELD] == "Die Türen"
     assert schema.TEXT_STEM_FIELD not in chunk_metadata(payload)
     with pytest.raises(ValueError, match="not an indexed payload field"):
-        from knowledge_layer.vector_store.scope import translate
+        from knowledge_layer.vector_store import translate
 
         translate({schema.TEXT_STEM_FIELD: "x"})
 
@@ -108,7 +109,7 @@ class TestOnQdrant:
             assert "Other.pdf" not in _files(found)
 
     def test_the_literal_search_is_what_it_was(self, placed):
-        from knowledge_layer.browse.tool import phrase_pattern
+        from knowledge_layer.browse import phrase_pattern
 
         literal = retrieval.find_text(PROJECT, phrase_pattern(["Fluchtwegbreiten"]), None, 50)
 
@@ -161,7 +162,7 @@ def tool(qdrant_store, monkeypatch):
     docs = [AvailableDocument(file_name=name, collection=PROJECT, shelf="project") for name in TEXTS]
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     monkeypatch.setattr("agent.knowledge.get_superseded_files", lambda collection: {})
@@ -169,7 +170,7 @@ def tool(qdrant_store, monkeypatch):
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection(PROJECT, Shelf.PROJECT)],
     )
-    monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: instance)
+    monkeypatch.setattr(register_module, "_get_retriever", lambda config: instance)
     set_turn_documents(docs)
 
     async def run(**kwargs: Any) -> str:

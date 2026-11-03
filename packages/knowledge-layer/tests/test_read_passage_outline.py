@@ -510,7 +510,7 @@ class TestWhatTheStoreIsAsked:
         """The dialect is the store's, not this module's opinion of it: an
         operator or field it cannot translate raises at the tool boundary
         rather than silently over-retrieving."""
-        from knowledge_layer.vector_store.scope import translate
+        from knowledge_layer.vector_store import translate
 
         assert translate(rp._outline_filters(OIB)) is not None
         assert translate(rp._whole_document_filters(OIB)) is not None

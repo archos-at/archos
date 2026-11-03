@@ -106,12 +106,12 @@ class Decompounder:
 
 def build_split_scope(decompounder: Decompounder, source_scope: str) -> dict[str, int]:
     """Copy ``source_scope``'s points into :data:`SPLIT_SCOPE` with BM25 over text plus compound parts."""
-    from knowledge_layer.vector_store.schema import DENSE
-    from knowledge_layer.vector_store.schema import LEXICAL
-    from knowledge_layer.vector_store.schema import SCOPE_FIELD
-    from knowledge_layer.vector_store.scope import scope_filter
-    from knowledge_layer.vector_store.store import bm25
-    from knowledge_layer.vector_store.store import get_store
+    from knowledge_layer.vector_store import DENSE
+    from knowledge_layer.vector_store import LEXICAL
+    from knowledge_layer.vector_store import SCOPE_FIELD
+    from knowledge_layer.vector_store import bm25
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import scope_filter
     from qdrant_client import models
 
     store = get_store()

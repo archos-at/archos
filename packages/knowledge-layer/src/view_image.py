@@ -54,7 +54,7 @@ import os
 from dataclasses import dataclass
 from dataclasses import replace
 
-from knowledge_layer.ingest.pdfium_lock import detached_pil
+from knowledge_layer.ingest import detached_pil
 from knowledge_layer.ingest.pdfium_lock import pdfium_lock
 
 from agent.common import seaweed_s3

@@ -12,7 +12,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.search.rerank import rerank_chunks
+from knowledge_layer.search import rerank_chunks
 
 
 def _chunk(chunk_id: str, content: str = "text") -> SimpleNamespace:

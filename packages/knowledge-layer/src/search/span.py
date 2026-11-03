@@ -101,7 +101,7 @@ def _fetch_fields(search: Any, merged: Any, overview: Any, coverage: Any) -> dic
     spot locator_eligible, and the requery/cap/refusal flags to spot
     cap_retry/repair_fetch. Counts and keys only, no usage or cost telemetry.
     """
-    from knowledge_layer.vector_store.search import RANKING
+    from knowledge_layer.vector_store import RANKING
 
     args = search.args
     fields: dict[str, Any] = {

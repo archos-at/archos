@@ -385,7 +385,7 @@ async def test_the_decision_models_client_holds_a_slot(pool, monkeypatch):
 
 
 async def test_the_rerank_holds_a_slot(pool, monkeypatch):
-    from knowledge_layer.search.cross_encoder import CrossEncoderReranker
+    from knowledge_layer.search import CrossEncoderReranker
 
     sent: list[tuple[int, dict]] = []
     _serving(monkeypatch, pool, sent)

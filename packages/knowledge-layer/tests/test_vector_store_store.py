@@ -16,16 +16,16 @@ import random
 import uuid
 
 import pytest
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import QdrantStore
+from knowledge_layer.vector_store import build_payload
+from knowledge_layer.vector_store import grouped_search
+from knowledge_layer.vector_store import hybrid_search
+from knowledge_layer.vector_store import phrase
+from knowledge_layer.vector_store import point_id
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.payload import build_payload
-from knowledge_layer.vector_store.payload import point_id
-from knowledge_layer.vector_store.scope import scope_filter
-from knowledge_layer.vector_store.scope import translate
-from knowledge_layer.vector_store.search import grouped_search
-from knowledge_layer.vector_store.search import hybrid_search
-from knowledge_layer.vector_store.search import phrase
-from knowledge_layer.vector_store.store import QdrantStore
+from knowledge_layer.vector_store import scope_filter
+from knowledge_layer.vector_store import translate
 
 DIM = 8
 IDENTITY = {"embed_fingerprint": "test-fp", "embed_model": "test-model"}
@@ -388,7 +388,7 @@ NUMBERED = [
 
 def test_phrases_on_numbers_match_exactly_the_chunks_that_contain_them(store):
     """``multilingual`` dropped digits: "5.1.1" and "43" matched nothing and "Abs. 2" matched every "Abs."."""
-    from knowledge_layer.vector_store.search import exact_term
+    from knowledge_layer.vector_store import exact_term
 
     store.upsert("proj_a", [_record(text, f"{index}.pdf") for index, text in enumerate(NUMBERED)])
 
@@ -602,7 +602,7 @@ def test_the_metadata_keys_the_chunkers_write_are_filterable(store):
 
 
 def test_a_string_boolean_is_read_for_what_it_says():
-    from knowledge_layer.vector_store.payload import coerce_field
+    from knowledge_layer.vector_store import coerce_field
 
     assert coerce_field("superseded", "false") is False
     assert coerce_field("superseded", "False") is False
@@ -614,7 +614,7 @@ def test_a_string_boolean_is_read_for_what_it_says():
 
 def test_a_list_value_is_any_of_on_every_field_type(store):
     """``project_facts.*`` are keyword fields holding lists; a list equality was one string and matched nothing."""
-    from knowledge_layer.vector_store.payload import project_payload
+    from knowledge_layer.vector_store import project_payload
 
     store.upsert(
         "proj_a",

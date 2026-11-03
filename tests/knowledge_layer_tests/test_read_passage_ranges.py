@@ -19,17 +19,17 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.read_passage.tool import LABEL_FILTERS
-from knowledge_layer.read_passage.tool import RangeRefused
-from knowledge_layer.read_passage.tool import ReadCursor
-from knowledge_layer.read_passage.tool import ReadPassageConfig
+from knowledge_layer.read_passage import LABEL_FILTERS
+from knowledge_layer.read_passage import RangeRefused
+from knowledge_layer.read_passage import ReadCursor
+from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import decode_cursor
+from knowledge_layer.read_passage import encode_cursor
+from knowledge_layer.read_passage import read_passage
 from knowledge_layer.read_passage.tool import _chunk_position
 from knowledge_layer.read_passage.tool import _parse_pages
 from knowledge_layer.read_passage.tool import _range_order
 from knowledge_layer.read_passage.tool import _without_overlap
-from knowledge_layer.read_passage.tool import decode_cursor
-from knowledge_layer.read_passage.tool import encode_cursor
-from knowledge_layer.read_passage.tool import read_passage
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf

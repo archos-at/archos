@@ -14,13 +14,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import apply_agent_filters
+from knowledge_layer.search import empty_search_message
+from knowledge_layer.search import format_results
 from knowledge_layer.search.hit_metadata import _folder_matches
-from knowledge_layer.search.hit_metadata import apply_agent_filters
-from knowledge_layer.search.results import empty_search_message
-from knowledge_layer.search.results import format_results
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -231,7 +232,7 @@ class _RankedStore:
         self.calls: list[dict] = []
 
     async def retrieve(self, query, collection_name, top_k, filters=None):
-        from knowledge_layer.vector_store.prefilter import folder_ancestors
+        from knowledge_layer.vector_store import folder_ancestors
 
         self.calls.append({"collection": collection_name, "top_k": top_k, "filters": filters})
         pool = self.pools.get(collection_name, [])
@@ -256,12 +257,12 @@ def ranked(monkeypatch):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
 
     def install(documents: list[AvailableDocument], pools: dict[str, list[Chunk]]) -> _RankedStore:
         store = _RankedStore(pools, {doc.file_name: doc.folder_path for doc in documents if doc.folder_path})
         set_turn_documents(documents)
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: store)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: store)
         _folders(monkeypatch, {doc.file_name: doc.folder_path for doc in documents if doc.folder_path})
         return store
 

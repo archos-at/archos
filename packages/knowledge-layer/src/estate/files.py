@@ -8,7 +8,7 @@ from dataclasses import field
 from typing import Any
 
 from knowledge_layer import stored_pages
-from knowledge_layer.browse.tool import FileRow
+from knowledge_layer.browse import FileRow
 
 from agent.common.estate_paths import SHELF_MOUNTS
 from agent.common.estate_paths import TEXT_EXTENSIONS

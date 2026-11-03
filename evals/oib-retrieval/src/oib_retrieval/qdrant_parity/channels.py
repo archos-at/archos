@@ -43,11 +43,11 @@ def qdrant_bm25(retriever: Any, query: str, depth: int, filters: dict[str, Any] 
     question's terms priced against the collection), so an empty text, and an
     empty result, is the channel staying silent as it would in production.
     """
-    from knowledge_layer.vector_store.schema import LEXICAL
-    from knowledge_layer.vector_store.scope import scope_condition
-    from knowledge_layer.vector_store.scope import scope_filter
-    from knowledge_layer.vector_store.store import bm25
-    from knowledge_layer.vector_store.store import get_store
+    from knowledge_layer.vector_store import LEXICAL
+    from knowledge_layer.vector_store import bm25
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import scope_condition
+    from knowledge_layer.vector_store import scope_filter
     from qdrant_client import models
 
     store = get_store()
@@ -81,7 +81,7 @@ def hybrid(
 
 def exact_matches(retriever: Any, phrase: str, filters: dict[str, Any] | None, limit: int = 5000) -> set[str]:
     """Chunk ids ``find_text`` returns for one phrase (through ``browse.phrase_pattern``)."""
-    from knowledge_layer.browse.tool import phrase_pattern
+    from knowledge_layer.browse import phrase_pattern
 
     pattern = phrase_pattern([phrase])
     if pattern is None:
@@ -94,7 +94,7 @@ def regex_oracle(chunks: Iterable[Any], phrase: str) -> set[str]:
 
     ``chunks`` are the ones the base filter admits (``runner.Corpus.allowed``).
     """
-    from knowledge_layer.browse.tool import phrase_pattern
+    from knowledge_layer.browse import phrase_pattern
 
     pattern = phrase_pattern([phrase])
     if pattern is None:
@@ -105,9 +105,9 @@ def regex_oracle(chunks: Iterable[Any], phrase: str) -> set[str]:
 
 def phrase_index_matches(phrase: str, filters: dict[str, Any] | None) -> set[str]:
     """Chunk ids the full-text index's ``MatchPhrase`` alone admits (design Q3: can it serve exact mode?)."""
-    from knowledge_layer.vector_store.scope import scope_filter
-    from knowledge_layer.vector_store.search import phrase as phrase_condition
-    from knowledge_layer.vector_store.store import get_store
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import phrase as phrase_condition
+    from knowledge_layer.vector_store import scope_filter
 
     store = get_store()
     found: set[str] = set()

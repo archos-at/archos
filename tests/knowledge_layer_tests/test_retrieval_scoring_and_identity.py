@@ -22,12 +22,12 @@ from types import SimpleNamespace
 import pytest
 from knowledge_layer.embedding import embed_fingerprint
 from knowledge_layer.embedding import embed_fingerprint_metadata
-from knowledge_layer.ingest.chunk_metadata import EMBED_EXCLUDED_METADATA_KEYS
-from knowledge_layer.ingest.chunk_metadata import apply_metadata_exclusions
-from knowledge_layer.search.retrieved_chunks import unit_score
-from knowledge_layer.search.retriever import LlamaIndexRetriever
-from knowledge_layer.vector_store.schema import identity_mismatch
-from knowledge_layer.vector_store.search import Hit
+from knowledge_layer.ingest import EMBED_EXCLUDED_METADATA_KEYS
+from knowledge_layer.ingest import apply_metadata_exclusions
+from knowledge_layer.search import LlamaIndexRetriever
+from knowledge_layer.search import unit_score
+from knowledge_layer.vector_store import Hit
+from knowledge_layer.vector_store import identity_mismatch
 
 # ===========================================================================
 # Score scale
@@ -84,7 +84,7 @@ def test_a_hit_keeps_the_stored_chunk_id() -> None:
 
 def test_two_rankings_agree_on_identity_so_rrf_can_fuse() -> None:
     """The end-to-end property the id fix exists for: one passage, one identity."""
-    from knowledge_layer.search.hybrid import reciprocal_rank_fusion
+    from knowledge_layer.search import reciprocal_rank_fusion
 
     lexical = [_retriever()._chunk_from_hit(_hit("shared-id", 0.6))]
     vector = [SimpleNamespace(chunk_id="shared-id"), SimpleNamespace(chunk_id="other-id")]
@@ -174,7 +174,7 @@ def test_a_malformed_reranker_env_var_does_not_break_the_import() -> None:
 
 def test_resolving_a_nonsense_provider_returns_none_rather_than_raising() -> None:
     """A YAML ``provider: 0`` arrives as an int, not a string."""
-    from knowledge_layer.search.cross_encoder import resolve_cross_encoder
+    from knowledge_layer.search import resolve_cross_encoder
 
     for hostile in (0, ["openrouter"], object(), "definitely-not-a-provider", "", "none"):
         assert resolve_cross_encoder(hostile) is None

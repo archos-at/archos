@@ -176,7 +176,7 @@ def embedded_records(
     :func:`chunk_id`; without one (a caller outside an ingest) it keeps the
     splitter's node id.
     """
-    from knowledge_layer.vector_store.payload import ChunkRecord
+    from knowledge_layer.vector_store import ChunkRecord
     from llama_index.core.schema import MetadataMode
 
     from .adapter import split_documents

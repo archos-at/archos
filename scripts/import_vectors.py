@@ -49,12 +49,12 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
+from knowledge_layer.vector_store import Export
+from knowledge_layer.vector_store import InvalidExport
+from knowledge_layer.vector_store import QdrantStore
+from knowledge_layer.vector_store import ScopeReport
 from knowledge_layer.vector_store import import_vectors
-from knowledge_layer.vector_store.import_vectors import Export
-from knowledge_layer.vector_store.import_vectors import InvalidExport
-from knowledge_layer.vector_store.import_vectors import ScopeReport
-from knowledge_layer.vector_store.store import QdrantStore
-from knowledge_layer.vector_store.store import make_client
+from knowledge_layer.vector_store import make_client
 
 logger = logging.getLogger("import_vectors")
 

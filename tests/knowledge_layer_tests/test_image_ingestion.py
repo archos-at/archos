@@ -16,9 +16,9 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import visual_analysis
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 from knowledge_layer.ingest.adapter import _build_image_caption_document
 from knowledge_layer.ingest.adapter import _looks_like_image
 from knowledge_layer.ingest.adapter import _read_image_as_jpeg

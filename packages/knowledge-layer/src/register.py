@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 
-from knowledge_layer.search.knowledge_search import KnowledgeSearch
+from knowledge_layer.search import KnowledgeSearch
 from pydantic import Field
 from pydantic import model_validator
 
@@ -490,7 +490,7 @@ def _cross_encoder(config: KnowledgeRetrievalConfig):
     never authenticate anything is one this returns None for.
     """
     try:
-        from knowledge_layer.search.cross_encoder import resolve_cross_encoder
+        from knowledge_layer.search import resolve_cross_encoder
 
         return resolve_cross_encoder(config.reranker_provider, model=config.reranker_model)
     except Exception as e:

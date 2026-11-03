@@ -43,7 +43,7 @@ REPEAT = "baseline_repeat"
 
 def plain(**settings: Any) -> Any:
     """A ``search.Ranking`` without the cosine tie-break: production's ranking before the sweep, plus ``settings``."""
-    from knowledge_layer.vector_store.search import Ranking
+    from knowledge_layer.vector_store import Ranking
 
     return Ranking(cosine_tie_break=False, **settings)
 
@@ -51,7 +51,7 @@ def plain(**settings: Any) -> Any:
 def catalogue() -> dict[str, Any]:
     """Every named variant: a ``search.Ranking``, None for dense alone (the adapter's ``hybrid_search`` off),
     or a ``decompound.Variant``."""
-    from knowledge_layer.vector_store.search import Ranking
+    from knowledge_layer.vector_store import Ranking
 
     return {
         BASELINE: plain(),

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import threading
 
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter as adapter_mod
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 from knowledge_layer_testing.vector_store import chunk_texts
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import write

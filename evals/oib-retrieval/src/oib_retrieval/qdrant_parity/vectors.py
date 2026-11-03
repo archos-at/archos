@@ -51,8 +51,8 @@ EMBED_BATCH = 64
 
 def embed_text(text: str, metadata: dict[str, Any]) -> str:
     """The string production embeds for one chunk: the EMBED header, then the body."""
-    from knowledge_layer.ingest.chunk_metadata import EMBED_EXCLUDED_METADATA_KEYS
-    from knowledge_layer.ingest.clause_chunking import CLAUSE_EMBED_EXCLUDED_METADATA_KEYS
+    from knowledge_layer.ingest import CLAUSE_EMBED_EXCLUDED_METADATA_KEYS
+    from knowledge_layer.ingest import EMBED_EXCLUDED_METADATA_KEYS
     from llama_index.core.schema import MetadataMode
     from llama_index.core.schema import TextNode
 

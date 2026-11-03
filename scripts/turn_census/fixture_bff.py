@@ -94,7 +94,7 @@ def production_embedder() -> Embed | None:
     try:
         from knowledge_layer.embedding import make_embed_model
         from knowledge_layer.embedding import resolve_embed_api_key
-        from knowledge_layer.search.retriever import LlamaIndexRetriever
+        from knowledge_layer.search import LlamaIndexRetriever
     except ImportError:
         return None
     model = LlamaIndexRetriever.DEFAULT_EMBED_MODEL

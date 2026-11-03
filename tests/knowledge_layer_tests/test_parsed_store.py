@@ -11,11 +11,11 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.ingest import PageTable
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import file_version
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import parsed_store
-from knowledge_layer.ingest.captioned_tables import PageTable
-from knowledge_layer.ingest.chunk_identity import file_version
 
 from .test_ingest_screen_before_tables import _ingest
 from .test_ingest_screen_before_tables import calls  # noqa: F401 - fixtures, shared with the harness

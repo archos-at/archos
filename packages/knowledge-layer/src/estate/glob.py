@@ -7,7 +7,7 @@ from __future__ import annotations
 import difflib
 from collections.abc import Sequence
 
-from knowledge_layer.browse.tool import fold
+from knowledge_layer.browse import fold
 
 from agent.common.estate_paths import ESTATE_MOUNTS
 from agent.common.estate_paths import MOUNT_ROOTS

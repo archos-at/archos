@@ -75,7 +75,7 @@ def add_note_embedding_routes(router: APIRouter) -> None:
 
             from knowledge_layer.embedding import embed_fingerprint
             from knowledge_layer.embedding import resolve_embed_api_key
-            from knowledge_layer.search.retriever import LlamaIndexRetriever
+            from knowledge_layer.search import LlamaIndexRetriever
 
             model = LlamaIndexRetriever.DEFAULT_EMBED_MODEL
             base_url = LlamaIndexRetriever.DEFAULT_EMBED_BASE_URL

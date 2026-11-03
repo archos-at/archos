@@ -48,7 +48,7 @@ async def _post(app: FastAPI, texts: list[str]) -> dict:
 
 async def test_it_embeds_with_the_deployments_model_and_says_which(app, monkeypatch) -> None:
     from knowledge_layer import embedding
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     monkeypatch.setattr(embedding, "resolve_embed_api_key", lambda base_url, model: "key")
     monkeypatch.setattr(embedding, "make_embed_model", lambda **_: _FakeModel())

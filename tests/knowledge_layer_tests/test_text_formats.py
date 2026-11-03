@@ -9,8 +9,8 @@ umlaut and ß without a trace.
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.ingest.text_formats import decode_text
-from knowledge_layer.ingest.text_formats import extract_text_format_documents
+from knowledge_layer.ingest import decode_text
+from knowledge_layer.ingest import extract_text_format_documents
 
 DIGEST = """# BIM-Modell: Wohnanlage Musterstraße
 
@@ -184,7 +184,7 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def ingestor(tmp_path, monkeypatch, qdrant_store):
-    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest import LlamaIndexIngestor
     from knowledge_layer_testing.vector_store import FakeEmbedder
     from knowledge_layer_testing.vector_store import capture_indexed_documents
 

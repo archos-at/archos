@@ -28,8 +28,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.search import format_results
 from knowledge_layer.search.grounding_hits import _CHUNK_TRUNCATE_CHARS
-from knowledge_layer.search.results import format_results
 from ris_adapter.lookup.address import Address
 from ris_adapter.lookup.passages import SCORE_ADDRESSED
 from ris_adapter.lookup.passages import SCORE_RANKED_TOP

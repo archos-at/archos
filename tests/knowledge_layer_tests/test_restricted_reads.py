@@ -22,10 +22,11 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse.tool import ListFilesConfig
-from knowledge_layer.browse.tool import list_files
-from knowledge_layer.read_passage.tool import ReadPassageConfig
-from knowledge_layer.read_passage.tool import read_passage
+from knowledge_layer.browse import ListFilesConfig
+from knowledge_layer.browse import list_files
+from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.read_passage import ReadPassageConfig
+from knowledge_layer.read_passage import read_passage
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from langchain_core.messages import ToolMessage
 
@@ -328,7 +329,7 @@ def image_tool(monkeypatch):
 
     monkeypatch.setattr(vi, "_resolve_storage_location", _resolve)
     monkeypatch.setattr(vi, "_fetch_seaweed_bytes", lambda key, bucket=None: _png())
-    monkeypatch.setattr("knowledge_layer.ingest.adapter._get_vlm_api_key", lambda: "k")
+    monkeypatch.setattr(adapter_module, "_get_vlm_api_key", lambda: "k")
     monkeypatch.setattr(vi, "try_consume_image_view", lambda *_kind: True)
 
     async def view(*, file_name: str, collection: str):

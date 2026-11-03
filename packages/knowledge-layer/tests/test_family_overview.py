@@ -21,6 +21,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -129,8 +130,8 @@ def corpus(monkeypatch):
         async def _documents(collection: str):
             return [SimpleNamespace(file_name=name, display_title=None) for name in members.values()]
 
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: store)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: store)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.get_active_retriever", lambda: store)
         monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)

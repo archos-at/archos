@@ -51,8 +51,8 @@ async def family_branch(entries, family_key: str) -> _FamilyBranch:
     this module back; both directions are function-scoped, so neither package
     can be half-initialised by the other.
     """
-    from knowledge_layer.read_passage.tool import FamilyUnreadable
-    from knowledge_layer.read_passage.tool import family_overview
+    from knowledge_layer.read_passage import FamilyUnreadable
+    from knowledge_layer.read_passage import family_overview
 
     try:
         return _FamilyBranch(overview=await family_overview(entries, family_key))

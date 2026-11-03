@@ -11,8 +11,8 @@ import re
 from pathlib import Path
 
 import pytest
-from knowledge_layer.ingest.photo_facts import PhotoFacts
-from knowledge_layer.ingest.photo_facts import read_photo_facts
+from knowledge_layer.ingest import PhotoFacts
+from knowledge_layer.ingest import read_photo_facts
 from PIL import ExifTags
 from PIL import Image
 from PIL.TiffImagePlugin import IFDRational

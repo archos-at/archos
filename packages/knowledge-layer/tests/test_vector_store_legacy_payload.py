@@ -8,14 +8,14 @@ Delete this file with ``schema.LEGACY_FIELDS``.
 
 from __future__ import annotations
 
+from knowledge_layer.vector_store import FactWeights
+from knowledge_layer.vector_store import PayloadRewrite
+from knowledge_layer.vector_store import boost_terms
+from knowledge_layer.vector_store import chunk_metadata
+from knowledge_layer.vector_store import parse_boost
+from knowledge_layer.vector_store import project_payload
+from knowledge_layer.vector_store import rewrite_payload
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.boost import FactWeights
-from knowledge_layer.vector_store.boost import boost_terms
-from knowledge_layer.vector_store.boost import parse_boost
-from knowledge_layer.vector_store.legacy_rewrite import PayloadRewrite
-from knowledge_layer.vector_store.legacy_rewrite import rewrite_payload
-from knowledge_layer.vector_store.payload import chunk_metadata
-from knowledge_layer.vector_store.payload import project_payload
 from qdrant_client import models
 
 

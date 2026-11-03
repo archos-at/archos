@@ -32,16 +32,16 @@ def _enabled() -> bool:
 
 
 def _office_scopes(collections: Sequence[str]) -> list[str]:
-    from knowledge_layer.vector_store.schema import Physical
-    from knowledge_layer.vector_store.schema import physical_for_scope
+    from knowledge_layer.vector_store import Physical
+    from knowledge_layer.vector_store import physical_for_scope
 
     return [name for name in dict.fromkeys(collections) if physical_for_scope(name) is Physical.OFFICE]
 
 
 def _routes(retriever: Any, scopes: list[str], query_text: str, folder: str | None, hint: str) -> str:
-    from knowledge_layer.vector_store.folders import render_folder_hits
-    from knowledge_layer.vector_store.folders import search_folders
-    from knowledge_layer.vector_store.store import get_store
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import render_folder_hits
+    from knowledge_layer.vector_store import search_folders
 
     vector = retriever.embed_query(query_text)
     store = get_store(retriever.embedding_identity())

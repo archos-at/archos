@@ -19,9 +19,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from knowledge_layer.browse import fold
+from knowledge_layer.browse import folder_cards
 from knowledge_layer.browse.tool import _card_lines
-from knowledge_layer.browse.tool import fold
-from knowledge_layer.browse.tool import folder_cards
 
 from agent.common.estate_paths import ESTATE_MOUNTS
 from agent.common.estate_paths import MOUNT_ROOTS
@@ -291,6 +291,6 @@ def collections_of(files: Sequence[EstateFile]) -> list[str]:
 
 def abstracts_by_folder(found: Mapping[tuple[str, str], Any]) -> dict[str, list[str]]:
     """The written abstracts' ``About:`` lines by folder path (``browse.abstract_lines``)."""
-    from knowledge_layer.browse.tool import abstract_lines
+    from knowledge_layer.browse import abstract_lines
 
     return abstract_lines(found)

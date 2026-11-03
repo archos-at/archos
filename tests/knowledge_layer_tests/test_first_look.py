@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pytest
+from knowledge_layer.ingest import PageSignals
 from knowledge_layer.ingest import first_look
-from knowledge_layer.ingest.page_triage import PageSignals
 
 from agent.common import openrouter
 

@@ -30,15 +30,15 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.register import KnowledgeRetrievalConfig
-from knowledge_layer.search.retriever import LlamaIndexRetriever
+from knowledge_layer.search import LlamaIndexRetriever
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import Hit
+from knowledge_layer.vector_store import build_payload
+from knowledge_layer.vector_store import chunk_metadata
 from knowledge_layer.vector_store import reads
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.payload import build_payload
-from knowledge_layer.vector_store.payload import chunk_metadata
-from knowledge_layer.vector_store.search import Hit
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.base import READING_ORDER

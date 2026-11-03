@@ -111,7 +111,7 @@ def summary_llm() -> Any | None:
 
 def collection_rows(collection: str) -> list[Any]:
     """The collection's documents as ``browse.FileRow``: the rows ``list_files`` counts."""
-    from knowledge_layer.browse.tool import file_rows
+    from knowledge_layer.browse import file_rows
 
     from agent.knowledge import get_available_documents
 
@@ -141,7 +141,7 @@ def _publish_point(collection: str, card: dict[str, Any]) -> None:
     """Embed ``card`` with the production embedder and write its point into ``collection``'s scope."""
     try:
         from knowledge_layer.vector_store import folders
-        from knowledge_layer.vector_store.store import get_store
+        from knowledge_layer.vector_store import get_store
 
         from agent.knowledge.factory import get_active_retriever
 
@@ -156,7 +156,7 @@ def _publish_point(collection: str, card: dict[str, Any]) -> None:
 def _restamp_point(collection: str, folder_path: str, status: str) -> None:
     try:
         from knowledge_layer.vector_store import folders
-        from knowledge_layer.vector_store.store import get_store
+        from knowledge_layer.vector_store import get_store
 
         folders.set_folder_card_status(get_store(), collection, folder_path, status)
     except Exception:  # noqa: BLE001
@@ -166,7 +166,7 @@ def _restamp_point(collection: str, folder_path: str, status: str) -> None:
 def _drop_point(collection: str, folder_path: str) -> None:
     try:
         from knowledge_layer.vector_store import folders
-        from knowledge_layer.vector_store.store import get_store
+        from knowledge_layer.vector_store import get_store
 
         folders.delete_folder_card(get_store(), collection, folder_path)
     except Exception:  # noqa: BLE001

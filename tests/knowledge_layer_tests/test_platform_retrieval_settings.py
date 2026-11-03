@@ -4,8 +4,10 @@ are consulted per call by the knowledge_search tool and win over the YAML values
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import results as results_module
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -29,10 +31,11 @@ class _FakeRetriever:
 @pytest.fixture
 def harness(monkeypatch):
     retriever = _FakeRetriever()
-    monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
     monkeypatch.setattr(
-        "knowledge_layer.search.results.format_results",
+        results_module,
+        "format_results",
         lambda merged, query, notice="", *_rest: notice + "no results",
     )
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)

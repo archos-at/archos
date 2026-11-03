@@ -14,10 +14,10 @@ from __future__ import annotations
 import time
 
 import pytest
+from knowledge_layer.ingest import COVERAGE_KEY
+from knowledge_layer.ingest import STAGE_SECONDS_KEY
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.ingest.measures import COVERAGE_KEY
-from knowledge_layer.ingest.measures import STAGE_SECONDS_KEY
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 

@@ -25,7 +25,7 @@ def _import_adapters():
 
 
 def test_llamaindex_maps_to_an_ingestor_class():
-    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest import LlamaIndexIngestor
 
     assert is_ingestor_registered("llamaindex")
 

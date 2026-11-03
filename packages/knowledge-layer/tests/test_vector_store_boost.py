@@ -13,19 +13,19 @@ import random
 import uuid
 
 import pytest
+from knowledge_layer.vector_store import LIKENESS
+from knowledge_layer.vector_store import Boost
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import FactWeights
+from knowledge_layer.vector_store import QdrantStore
+from knowledge_layer.vector_store import boost_terms
+from knowledge_layer.vector_store import boosted
+from knowledge_layer.vector_store import chunk_metadata
+from knowledge_layer.vector_store import grouped_search
+from knowledge_layer.vector_store import likeness_formula
+from knowledge_layer.vector_store import parse_boost
+from knowledge_layer.vector_store import project_payload
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.boost import LIKENESS
-from knowledge_layer.vector_store.boost import Boost
-from knowledge_layer.vector_store.boost import FactWeights
-from knowledge_layer.vector_store.boost import boost_terms
-from knowledge_layer.vector_store.boost import boosted
-from knowledge_layer.vector_store.boost import likeness_formula
-from knowledge_layer.vector_store.boost import parse_boost
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.payload import chunk_metadata
-from knowledge_layer.vector_store.payload import project_payload
-from knowledge_layer.vector_store.search import grouped_search
-from knowledge_layer.vector_store.store import QdrantStore
 from qdrant_client import models
 
 DIM = 8

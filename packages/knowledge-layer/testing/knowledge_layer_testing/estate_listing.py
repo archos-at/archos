@@ -5,8 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.browse.tool import FileRow
-from knowledge_layer.estate.backend import EstateBackend
+from knowledge_layer.browse import FileRow
+from knowledge_layer.estate import EstateBackend
 
 ROWS = [
     FileRow(

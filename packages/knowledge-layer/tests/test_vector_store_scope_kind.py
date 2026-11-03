@@ -12,16 +12,16 @@ then the two that may see it: the folder search and the folder scroll.
 from __future__ import annotations
 
 import pytest
+from knowledge_layer.vector_store import PassageSource
+from knowledge_layer.vector_store import find_similar
 from knowledge_layer.vector_store import folders
+from knowledge_layer.vector_store import grouped_search
+from knowledge_layer.vector_store import hybrid_search
+from knowledge_layer.vector_store import kind_filter
 from knowledge_layer.vector_store import reads
 from knowledge_layer.vector_store import retrieval
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.scope import kind_filter
-from knowledge_layer.vector_store.scope import scope_filter
-from knowledge_layer.vector_store.search import grouped_search
-from knowledge_layer.vector_store.search import hybrid_search
-from knowledge_layer.vector_store.similar import PassageSource
-from knowledge_layer.vector_store.similar import find_similar
+from knowledge_layer.vector_store import scope_filter
 from knowledge_layer_testing.vector_store import record
 from knowledge_layer_testing.vector_store import vector
 from knowledge_layer_testing.vector_store import write

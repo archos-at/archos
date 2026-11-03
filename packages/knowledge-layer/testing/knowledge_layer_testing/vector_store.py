@@ -30,10 +30,10 @@ from collections.abc import Sequence
 from typing import Any
 
 import pytest
+from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
-from knowledge_layer.vector_store.payload import ChunkRecord
 from qdrant_client import models
 
 #: Dense size of every test vector: small, so a test collection costs nothing.
@@ -229,7 +229,7 @@ def capture_indexed_documents(monkeypatch, into: list[list[Any]] | None = None) 
     ingestion embedded and wrote its chunks itself. ``into`` is the list to
     record in (cleared first), for a module-level helper that reads it.
     """
-    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest import LlamaIndexIngestor
 
     calls: list[list[Any]] = into if into is not None else []
     calls.clear()

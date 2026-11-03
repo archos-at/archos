@@ -12,7 +12,7 @@ import sys
 import threading
 
 from knowledge_layer import register
-from knowledge_layer.search.retriever import LlamaIndexRetriever
+from knowledge_layer.search import LlamaIndexRetriever
 
 
 class _Retriever:

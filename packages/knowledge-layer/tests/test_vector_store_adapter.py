@@ -16,11 +16,11 @@ from typing import Any
 import pytest
 from knowledge_layer import embedding as embedding_module
 from knowledge_layer.ingest import adapter as adapter_module
-from knowledge_layer.search.lexical_query import bm25_text
-from knowledge_layer.search.retriever import LlamaIndexRetriever
+from knowledge_layer.search import LlamaIndexRetriever
+from knowledge_layer.search import bm25_text
+from knowledge_layer.vector_store import ChunkRecord
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
-from knowledge_layer.vector_store.payload import ChunkRecord
 from knowledge_layer_testing.vector_store import record as _record
 from knowledge_layer_testing.vector_store import vector as _vector
 
@@ -138,7 +138,7 @@ def test_a_foreign_embedder_is_refused_on_write(retriever):
 
 
 async def test_find_text_applies_the_phrase_pattern(retriever):
-    from knowledge_layer.browse.tool import phrase_pattern
+    from knowledge_layer.browse import phrase_pattern
 
     _ingest(
         retriever,
@@ -386,7 +386,7 @@ FIND_PHRASES = [
 
 
 async def test_find_text_with_the_token_prefilter_returns_exactly_what_the_full_scroll_does(retriever, monkeypatch):
-    from knowledge_layer.browse.tool import phrase_pattern
+    from knowledge_layer.browse import phrase_pattern
     from knowledge_layer.vector_store import retrieval as qdrant_retrieval
     from knowledge_layer.vector_store import store as store_module
 
@@ -426,8 +426,8 @@ async def test_find_text_with_the_token_prefilter_returns_exactly_what_the_full_
 
 
 def test_literal_tokens_only_names_words_every_match_holds_whole():
-    from knowledge_layer.browse.tool import phrase_pattern
-    from knowledge_layer.vector_store.retrieval import literal_tokens
+    from knowledge_layer.browse import phrase_pattern
+    from knowledge_layer.vector_store import literal_tokens
 
     assert literal_tokens(phrase_pattern(["Größe der Fläche"])) == [["der"]]
     assert literal_tokens(phrase_pattern(["OIB-Richtlinie 2"])) == [["richtlinie"]]
@@ -542,7 +542,7 @@ async def test_a_hit_carries_the_chunks_own_dokumentart(retriever, metadata_stor
 def test_bm25_candidates_leave_out_the_stopwords_qdrants_folding_lets_through():
     """Qdrant folds „über“ to ``uber`` before its German stopword list runs, so it
     ranked every chunk with an „über“ for „was weißt du über die oib 1“."""
-    from knowledge_layer.vector_store.retrieval import bm25_candidates
+    from knowledge_layer.vector_store import bm25_candidates
 
     assert "über" not in bm25_candidates("was weißt du über die oib 1")
     assert bm25_candidates("Anforderungen für Fluchtwege während des Brandes") == [
@@ -555,7 +555,7 @@ def test_bm25_candidates_leave_out_the_stopwords_qdrants_folding_lets_through():
 
 def test_bm25_candidates_leave_out_the_pieces_of_a_file_name():
     """„oib-rl_5_ausgabe_mai_2023.pdf“ asked BM25 for „ausgabe mai 2023“, every Richtlinie's front matter."""
-    from knowledge_layer.vector_store.retrieval import bm25_candidates
+    from knowledge_layer.vector_store import bm25_candidates
 
     assert bm25_candidates("oib-rl_5_ausgabe_mai_2023.pdf") == []
     assert bm25_candidates("Was steht in Brandschutzkonzept_V2.PDF zur Fluchttreppe?") == [
@@ -569,7 +569,7 @@ def test_bm25_candidates_leave_out_the_pieces_of_a_file_name():
 
 def test_bm25_candidates_ask_both_german_spellings():
     """The index folds „ä“ to „a“ and keeps „ae“: „Flaechenwidmung“ found none of what „Flächenwidmung“ found."""
-    from knowledge_layer.vector_store.retrieval import bm25_candidates
+    from knowledge_layer.vector_store import bm25_candidates
 
     assert bm25_candidates("Flaechenwidmung") == ["flaechenwidmung", "flächenwidmung"]
     assert bm25_candidates("Flächenwidmung Tür") == ["flächenwidmung", "flaechenwidmung", "tür", "tuer"]

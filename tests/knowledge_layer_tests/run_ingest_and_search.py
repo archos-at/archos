@@ -111,8 +111,8 @@ async def main():
     print("=" * 70)
 
     # Import adapter to register it with the factory
-    from knowledge_layer.ingest.adapter import LlamaIndexIngestor  # noqa: F401
-    from knowledge_layer.search.retriever import LlamaIndexRetriever  # noqa: F401
+    from knowledge_layer.ingest import LlamaIndexIngestor  # noqa: F401
+    from knowledge_layer.search import LlamaIndexRetriever  # noqa: F401
 
     from agent.knowledge import get_ingestor
     from agent.knowledge import get_retriever

@@ -41,8 +41,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from knowledge_layer.ingest.page_triage import MIN_JUDGEABLE_CHARS
-from knowledge_layer.ingest.page_triage import text_quality
+from knowledge_layer.ingest import MIN_JUDGEABLE_CHARS
+from knowledge_layer.ingest import text_quality
 
 #: Thresholds, measured 2026-10 on passages captured from a live knowledge_search
 #: ("Brandabschnitt Gebäudeklasse 5 Wohngebäude", OIB-RL 2 and its Erläuterungen)

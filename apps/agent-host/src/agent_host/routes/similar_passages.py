@@ -101,9 +101,9 @@ def _query(request: SimilarPassagesRequest, collections: list[str]) -> dict[str,
 
 def _search(request: SimilarPassagesRequest, collections: list[str]) -> Any:
     """Run the query on a worker thread's terms: the store and the embedder both block."""
-    from knowledge_layer.vector_store.similar import PassageSource
-    from knowledge_layer.vector_store.similar import find_similar
-    from knowledge_layer.vector_store.store import get_store
+    from knowledge_layer.vector_store import PassageSource
+    from knowledge_layer.vector_store import find_similar
+    from knowledge_layer.vector_store import get_store
 
     from agent.knowledge.factory import get_active_retriever
 

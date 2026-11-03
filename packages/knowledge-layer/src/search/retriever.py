@@ -288,8 +288,8 @@ class LlamaIndexRetriever(BaseRetriever):
         order_by: str | None,
         start_from: tuple[int, int] | None = None,
     ) -> list[Chunk]:
+        from knowledge_layer.vector_store import CHUNK_ORDINAL_FIELD
         from knowledge_layer.vector_store import reads as qdrant_reads
-        from knowledge_layer.vector_store.schema import CHUNK_ORDINAL_FIELD
 
         if start_from is None:
             hits = qdrant_reads.fetch(collection_name, filters, limit, order_by)
@@ -315,8 +315,8 @@ class LlamaIndexRetriever(BaseRetriever):
     ) -> list[Chunk]:
         if not pattern or limit <= 0:
             return []
+        from knowledge_layer.vector_store import CHUNK_ORDINAL_FIELD
         from knowledge_layer.vector_store import retrieval as qdrant_retrieval
-        from knowledge_layer.vector_store.schema import CHUNK_ORDINAL_FIELD
 
         # Every returned chunk matches, so none ranks above another; the
         # caller orders them by document and page (cosine 1.0).
@@ -564,7 +564,7 @@ class LlamaIndexRetriever(BaseRetriever):
 
     def _chunk_from_hit(self, hit: Any) -> Chunk:
         """A Qdrant hit as a Chunk, through ``normalize``, with the hit's true cosine as its score."""
-        from knowledge_layer.vector_store.payload import chunk_metadata
+        from knowledge_layer.vector_store import chunk_metadata
         from llama_index.core.schema import NodeWithScore
         from llama_index.core.schema import TextNode
 

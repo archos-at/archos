@@ -12,8 +12,8 @@ import pytest
 from knowledge_layer.vector_store import reads
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import scope as scope_module
-from knowledge_layer.vector_store.scope import scope_filter
-from knowledge_layer.vector_store.scope import translate
+from knowledge_layer.vector_store import scope_filter
+from knowledge_layer.vector_store import translate
 from qdrant_client import models
 
 

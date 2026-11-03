@@ -14,8 +14,8 @@ from uuid import uuid4
 
 import pytest
 from knowledge_layer import stored_pages
-from knowledge_layer.browse.tool import FileRow
-from knowledge_layer.estate.backend import EstateBackend
+from knowledge_layer.browse import FileRow
+from knowledge_layer.estate import EstateBackend
 from langgraph.store.memory import InMemoryStore
 
 from agent.citations.extraction import extract_sources_from_tool_result
@@ -287,7 +287,7 @@ class TestGrepOnTheDrafts:
 
 class TestKnowledgeSearchPath:
     def test_a_path_compiles_to_shelf_folder_and_file(self) -> None:
-        from knowledge_layer.search.knowledge_search import path_scope
+        from knowledge_layer.search import path_scope
 
         assert path_scope("/project/Gutachten/", None, None, None) == ("project", "Gutachten", None)
         assert path_scope("/office/", None, None, None) == ("office", None, None)
@@ -297,7 +297,7 @@ class TestKnowledgeSearchPath:
 
     @pytest.mark.parametrize("path", ["/drafts/a.md", "project/x", "/nowhere/"])
     def test_a_path_that_names_no_place_is_refused(self, path: str) -> None:
-        from knowledge_layer.search.knowledge_search import path_scope
+        from knowledge_layer.search import path_scope
 
         with pytest.raises(ValueError):
             path_scope(path, None, None, None)

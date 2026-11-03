@@ -5,9 +5,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from knowledge_layer.ingest import image_coverage
 from knowledge_layer.ingest import measures as ingest_measures
 from knowledge_layer.ingest import vision_calls
-from knowledge_layer.ingest.coverage import image_coverage
 
 from agent.common import openrouter
 from agent.common.cost_tracking import cost_tracker_var
@@ -246,7 +246,7 @@ class TestAnImageIsScreenedByWhatTheModelRead:
 
     @pytest.fixture
     def ingestor(self, monkeypatch):
-        from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+        from knowledge_layer.ingest import LlamaIndexIngestor
 
         ingestor = LlamaIndexIngestor({})
         events: list[str] = []
@@ -261,9 +261,9 @@ class TestAnImageIsScreenedByWhatTheModelRead:
         return ingestor
 
     def _read(self, ingestor, monkeypatch, caption: str | None, tmp_path):
+        from knowledge_layer.ingest import ScreeningRules
         from knowledge_layer.ingest import adapter
-        from knowledge_layer.ingest.image_ingest import read_standalone_image
-        from knowledge_layer.ingest.screening import ScreeningRules
+        from knowledge_layer.ingest import read_standalone_image
         from llama_index.core import Document
 
         documents = None if caption is None else [Document(text=caption, metadata={"content_type": "image"})]
@@ -296,7 +296,7 @@ class TestAnImageIsScreenedByWhatTheModelRead:
         assert {"vision", "screen"} <= set(stages)
 
     def test_a_match_quarantines_the_image_and_draws_no_thumbnail(self, ingestor, monkeypatch, tmp_path):
-        from knowledge_layer.ingest.screening import QUARANTINED_PREFIX
+        from knowledge_layer.ingest import QUARANTINED_PREFIX
 
         read, detail, _ = self._read(ingestor, monkeypatch, "Gehaltsabrechnung Oktober", tmp_path)
 

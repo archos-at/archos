@@ -146,8 +146,8 @@ def _hybrid(
     entries are identical whether it is called with 16 or with 120. Only the fill pass
     beyond production's cutoff differs, and nothing is reported from there.
     """
-    from knowledge_layer.search.fusion import merge_results
-    from knowledge_layer.search.hybrid import reciprocal_rank_fusion
+    from knowledge_layer.search import merge_results
+    from knowledge_layer.search import reciprocal_rank_fusion
 
     fused = reciprocal_rank_fusion([dense_hits, lexical_hits], top_n=top_k)
     merged = merge_results(

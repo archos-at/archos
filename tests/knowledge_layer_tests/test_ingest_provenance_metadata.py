@@ -19,8 +19,8 @@ read them from there.
 """
 
 import pytest
-from knowledge_layer.ingest.chunk_metadata import EMBED_EXCLUDED_METADATA_KEYS
-from knowledge_layer.ingest.chunk_metadata import provenance_from_config
+from knowledge_layer.ingest import EMBED_EXCLUDED_METADATA_KEYS
+from knowledge_layer.ingest import provenance_from_config
 
 _STAMPED = {
     "authored_by": "agent",

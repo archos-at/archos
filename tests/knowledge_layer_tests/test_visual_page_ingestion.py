@@ -23,8 +23,8 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 from knowledge_layer.ingest.adapter import _parse_drawing_fields
 from knowledge_layer.ingest.adapter import _scrub_watermark_phrases
 from knowledge_layer.ingest.adapter import _strip_watermark_lines
@@ -657,7 +657,7 @@ class TestRunIngestionDrawingBranch:
 class TestRunIngestionEmbedsAndChecksWithTheWholePage:
     def _ingest_table_page(self, tmp_path, monkeypatch, ingestor, render):
         import knowledge_layer.ingest.processing as processing_module
-        from knowledge_layer.ingest.captioned_tables import PageTable
+        from knowledge_layer.ingest import PageTable
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
         monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", render)

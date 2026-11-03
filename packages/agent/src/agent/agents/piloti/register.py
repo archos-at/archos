@@ -667,7 +667,7 @@ def _estate_backend(config: ResearchAgentConfig, builder: Builder) -> Any:
     """
     if config.filesystem is None:
         return None
-    from knowledge_layer.estate.backend import EstateBackend
+    from knowledge_layer.estate import EstateBackend
 
     return EstateBackend(builder.get_function_config(config.filesystem))
 

@@ -118,7 +118,7 @@ async def judge_hits(query: str, hits: Sequence[dict[str, Any]]) -> HitVerdicts 
     if not hits or not query.strip():
         return None
     try:
-        from knowledge_layer.search.decisions import INJECTION_QUESTION
+        from knowledge_layer.search import INJECTION_QUESTION
     except ImportError:  # pragma: no cover - the layer ships with the agent
         INJECTION_QUESTION = None  # noqa: N806
     questions: dict[str, Any] = {"solved": SOLVED_QUESTION}

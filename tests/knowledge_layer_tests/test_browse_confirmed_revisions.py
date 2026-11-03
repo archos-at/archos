@@ -9,12 +9,12 @@ both files are in the selection.
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.browse.tool import MAX_CHANGE_CHARS
-from knowledge_layer.browse.tool import confirmed_revision_marks
-from knowledge_layer.browse.tool import file_row
-from knowledge_layer.browse.tool import file_rows
-from knowledge_layer.browse.tool import render_listing
-from knowledge_layer.browse.tool import select_files
+from knowledge_layer.browse import MAX_CHANGE_CHARS
+from knowledge_layer.browse import confirmed_revision_marks
+from knowledge_layer.browse import file_row
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import render_listing
+from knowledge_layer.browse import select_files
 
 from agent.knowledge.inventory import render_inventory_block
 from agent.knowledge.schema import AvailableDocument

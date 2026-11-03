@@ -244,7 +244,7 @@ def reference_values(terms: list[str]) -> list[str]:
     """
     from knowledge_layer.references import KINDS
     from knowledge_layer.vector_store import prefilter
-    from knowledge_layer.vector_store.payload import reference_value
+    from knowledge_layer.vector_store import reference_value
 
     values: list[str] = []
     for term in terms:

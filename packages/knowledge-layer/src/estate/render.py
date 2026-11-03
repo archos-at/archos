@@ -163,7 +163,7 @@ def _read_trailer(
 
 
 def _older_revision_notice(file: EstateFile) -> str:
-    from knowledge_layer.read_passage.tool import older_revision_line
+    from knowledge_layer.read_passage import older_revision_line
 
     from agent.knowledge.restricted_use import may_name
 
@@ -242,7 +242,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
 
 def _render(hits: tuple[Any, ...], *, preamble: str, notices: Sequence[str], trailer: str, tool: str) -> ToolOutput:
     """The block, rendered and filed (ADR-0061); the hits noted for the call's artifact."""
-    from knowledge_layer.search.trace_lanes import trace_lanes_for_hits
+    from knowledge_layer.search import trace_lanes_for_hits
 
     from agent.common.grounding_block import GroundingBlock
     from agent.common.grounding_block import render_grounding_block

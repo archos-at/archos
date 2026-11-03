@@ -602,7 +602,7 @@ async def exact_search(
         )
     if regex_mode and not (narrowed is not None or folder_key) and not _has_literal_word(pattern):
         return _NEEDS_A_ANCHOR
-    from knowledge_layer.search.scope import resolve_base_collection
+    from knowledge_layer.search import resolve_base_collection
 
     base = resolve_base_collection(search_config)
     scopes = shelf_scopes(entries, await _searched_documents(search_config, narrowed, folder))
@@ -688,10 +688,10 @@ async def _search(
     outcome: ActionOutcome | None = None,
 ) -> str:
     from knowledge_layer.read_passage.tool import _passage_result
-    from knowledge_layer.search.results import format_results
-    from knowledge_layer.vector_store.retrieval import USER_REGEX_SCAN_SECONDS
-    from knowledge_layer.vector_store.retrieval import USER_REGEX_TIMEOUT
-    from knowledge_layer.vector_store.retrieval import PatternTooCostly
+    from knowledge_layer.search import format_results
+    from knowledge_layer.vector_store import USER_REGEX_SCAN_SECONDS
+    from knowledge_layer.vector_store import USER_REGEX_TIMEOUT
+    from knowledge_layer.vector_store import PatternTooCostly
 
     # A person's regex is the only caller that asks for the timed, narrowed-by-its-words read; a store
     # that knows only the literal lookup is never handed the keyword.

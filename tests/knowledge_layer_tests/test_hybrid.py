@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from knowledge_layer.search.hybrid import DEFAULT_DF_CEILING_MIN_TOTAL
-from knowledge_layer.search.hybrid import DEFAULT_DF_CEILING_RATIO
-from knowledge_layer.search.hybrid import RRF_K
-from knowledge_layer.search.hybrid import fuse_with_ranks
-from knowledge_layer.search.hybrid import reciprocal_rank_fusion
-from knowledge_layer.search.hybrid import selective_terms
+from knowledge_layer.search import DEFAULT_DF_CEILING_MIN_TOTAL
+from knowledge_layer.search import DEFAULT_DF_CEILING_RATIO
+from knowledge_layer.search import RRF_K
+from knowledge_layer.search import fuse_with_ranks
+from knowledge_layer.search import reciprocal_rank_fusion
+from knowledge_layer.search import selective_terms
 
 
 def _chunk(chunk_id: str) -> SimpleNamespace:

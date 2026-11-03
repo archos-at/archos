@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from knowledge_layer.vector_store import LIST_FIELDS
+from knowledge_layer.vector_store import document_facts
+from knowledge_layer.vector_store import fact_value
+from knowledge_layer.vector_store import reading_facts
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.payload import LIST_FIELDS
-from knowledge_layer.vector_store.payload import document_facts
-from knowledge_layer.vector_store.payload import fact_value
-from knowledge_layer.vector_store.payload import reading_facts
 
 from agent.knowledge.schema import AvailableDocument
 
@@ -64,8 +64,8 @@ def test_every_field_a_filter_names_has_an_index_and_the_lists_are_lists():
 def test_a_hit_keeps_its_document_id_so_grouping_and_the_bff_join_by_it():
     from types import SimpleNamespace
 
-    from knowledge_layer.search.document_groups import document_key
-    from knowledge_layer.vector_store.payload import chunk_metadata
+    from knowledge_layer.search import document_key
+    from knowledge_layer.vector_store import chunk_metadata
 
     metadata = chunk_metadata(
         {"grid_document_id": "doc-1", "office_id": "org-1", "project_id": "p-1", "file_name": "a.pdf"}

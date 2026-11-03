@@ -22,9 +22,10 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse.tool import group_matches
-from knowledge_layer.browse.tool import match_snippets
-from knowledge_layer.browse.tool import phrase_pattern
+from knowledge_layer import register as register_module
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import match_snippets
+from knowledge_layer.browse import phrase_pattern
 from knowledge_layer.chunk_positions import own_texts
 from knowledge_layer.chunk_positions import split_prefix
 from knowledge_layer.register import KnowledgeRetrievalConfig
@@ -73,7 +74,7 @@ def _as_chunks(name: str) -> list[Chunk]:
 
 def _clause_chunks() -> list[Chunk]:
     """A small Richtlinie through ``clause_documents``, the OIB corpus's chunker."""
-    from knowledge_layer.ingest.clause_chunking import clause_documents
+    from knowledge_layer.ingest import clause_documents
 
     pages = [
         "OIB-Richtlinie 2\nBrandschutz\n",
@@ -291,8 +292,8 @@ def search_with(monkeypatch):
     )
 
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -336,9 +337,9 @@ class TestThroughTheTool:
 
 def test_the_adapter_hands_the_search_each_chunks_place_in_its_file(monkeypatch):
     """``chunk_ordinal`` is store-only metadata; without it on the hit no overlap could be found."""
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import Hit
     from knowledge_layer.vector_store import retrieval as adapter_retrieval
-    from knowledge_layer.vector_store.search import Hit
 
     payload = {"text": "x", "chunk_id": "a", "file_name": "a.pdf", "page_label": "2", "chunk_ordinal": 7}
     monkeypatch.setattr(adapter_retrieval, "find_text", lambda *a, **k: [Hit("a", "x", payload, 0.0, 1.0)])

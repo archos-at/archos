@@ -16,8 +16,8 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter as adapter_module
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 from knowledge_layer_testing import reingest
 from knowledge_layer_testing.vector_store import FakeEmbedder
 

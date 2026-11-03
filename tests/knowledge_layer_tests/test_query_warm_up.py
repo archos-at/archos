@@ -7,7 +7,7 @@ import threading
 import time
 from types import SimpleNamespace
 
-from knowledge_layer.search.retriever import LlamaIndexRetriever
+from knowledge_layer.search import LlamaIndexRetriever
 
 from agent.knowledge import factory
 

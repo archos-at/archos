@@ -19,11 +19,11 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import processing
 from knowledge_layer.ingest import screening
 from knowledge_layer.ingest import transcription
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 
@@ -231,8 +231,8 @@ class TestTheTablePassLeavesTheDrawingsToVision:
     """A vector drawing is all edges to the table finder: 0.68 s a page for no table. Vision reads it whole."""
 
     def _triage(self, *drawings: int):
-        from knowledge_layer.ingest.page_triage import PageKind
-        from knowledge_layer.ingest.page_triage import PdfTriage
+        from knowledge_layer.ingest import PageKind
+        from knowledge_layer.ingest import PdfTriage
 
         kinds = {page: PageKind.TEXT for page in range(1, 31)}
         kinds.update({page: PageKind.DRAWING for page in drawings})

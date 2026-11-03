@@ -386,7 +386,7 @@ def guideline_key(file_name: str) -> str:
     ``"2"`` in the chunker, and every golden label for that file would have resolved to
     nothing the moment the corpus moved off the May 2023 edition.
     """
-    from knowledge_layer.ingest.clause_chunking import guideline_key as shared_key
+    from knowledge_layer.ingest import guideline_key as shared_key
 
     return shared_key(file_name)
 

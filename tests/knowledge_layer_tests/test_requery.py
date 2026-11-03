@@ -11,14 +11,18 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
-from knowledge_layer.search.requery import SUFFICIENT
-from knowledge_layer.search.requery import SufficiencyVerdict
+from knowledge_layer.search import SUFFICIENT
+from knowledge_layer.search import SufficiencyVerdict
+from knowledge_layer.search import coverage_gap
+from knowledge_layer.search import decisions as decisions_module
+from knowledge_layer.search import judge_sufficiency
+from knowledge_layer.search import requery as requery_module
+from knowledge_layer.search import requery_notice
+from knowledge_layer.search import results as results_module
 from knowledge_layer.search.requery import _parse_verdict
-from knowledge_layer.search.requery import judge_sufficiency
-from knowledge_layer.search.requery import requery_notice
-from knowledge_layer.search.results import coverage_gap
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -180,9 +184,9 @@ def _body(out: str) -> str:
 @pytest.fixture
 def loop_harness(monkeypatch):
     def install(retriever, judge):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
-        monkeypatch.setattr("knowledge_layer.search.results.format_results", _grounding)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(results_module, "format_results", _grounding)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
@@ -371,7 +375,7 @@ class TestLaneToolScope:
 
         retriever = _FakeRetriever({"Fluchtweg GK4": [_chunk("a", "a")]})
         loop_harness(retriever, None)
-        monkeypatch.setattr("knowledge_layer.search.results.format_results", _spy)
+        monkeypatch.setattr(results_module, "format_results", _spy)
 
         await _search(_config())
 
@@ -428,7 +432,7 @@ class TestTheCoverageSignal:
     async def test_an_unanswered_pool_says_why_and_stays_whole(self, loop_harness, monkeypatch):
         """The gap is stated, never enforced: a decision withholds no passage (ADR-0064)."""
         decider = _Decider(0.1, 0.2)
-        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
+        monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge", requery_decider="jev")))
@@ -440,7 +444,7 @@ class TestTheCoverageSignal:
 
     async def test_a_widened_pool_that_now_answers_is_delivered_whole(self, loop_harness, monkeypatch):
         decider = _Decider(0.1, 0.8)
-        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
+        monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge", requery_decider="jev")))
@@ -449,7 +453,7 @@ class TestTheCoverageSignal:
 
     async def test_a_coverage_decision_that_did_not_run_claims_nothing(self, loop_harness, monkeypatch):
         decider = _Decider(0.1, None)
-        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
+        monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge", requery_decider="jev")))
@@ -458,7 +462,7 @@ class TestTheCoverageSignal:
 
     async def test_a_head_the_decider_finds_answered_is_never_rechecked(self, loop_harness, monkeypatch):
         decider = _Decider(0.9)
-        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
+        monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = await _search(_config(requery_llm="judge", requery_decider="jev"))
@@ -468,7 +472,7 @@ class TestTheCoverageSignal:
     async def test_the_llm_decider_claims_nothing(self, loop_harness, monkeypatch):
         """Its verdict was on the fused head before the reranker; re-asking it is a frontier call."""
         decider = _Decider(0.1)
-        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
+        monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge")))
@@ -477,7 +481,7 @@ class TestTheCoverageSignal:
 
     async def test_a_pinned_file_is_never_judged_for_coverage(self, loop_harness, monkeypatch):
         decider = _Decider(0.1)
-        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
+        monkeypatch.setattr(decisions_module, "_client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = await _search(_config(requery_llm="judge", requery_decider="jev"), file_name="oib-rl_4.pdf")
@@ -504,11 +508,11 @@ class TestTheCoverageGate:
         async def _never(*args, **kwargs):
             raise AssertionError("coverage asked")
 
-        monkeypatch.setattr("knowledge_layer.search.requery.judge_coverage", _never)
+        monkeypatch.setattr(requery_module, "judge_coverage", _never)
         assert await coverage_gap("q", pool, verdict, self.CONFIG, widened=False) is None
 
     def test_the_real_renderer_states_the_gap_and_stops_calling_the_hits_relevant(self):
-        from knowledge_layer.search.results import format_results
+        from knowledge_layer.search import format_results
 
         result = SimpleNamespace(success=True, error_message=None, chunks=[_chunk("nah", "a")])
         rendered = format_results(result, "q", coverage_gap="kein Beleg")

@@ -14,13 +14,13 @@ import os
 import uuid
 
 import pytest
+from knowledge_layer.vector_store import DENSE
+from knowledge_layer.vector_store import LEXICAL
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import QdrantStore
 from knowledge_layer.vector_store import schema
+from knowledge_layer.vector_store import scope_filter
 from knowledge_layer.vector_store import search
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.schema import DENSE
-from knowledge_layer.vector_store.schema import LEXICAL
-from knowledge_layer.vector_store.scope import scope_filter
-from knowledge_layer.vector_store.store import QdrantStore
 from qdrant_client import models
 
 VECTOR = [0.1, 0.2, 0.3]

@@ -145,7 +145,7 @@ def user_pattern(text: str) -> tuple[Any | None, str]:
     pattern, and a pattern that matches the empty string (it would match every passage). Catastrophic
     backtracking is stopped at match time, by the timeout the store scan runs under.
     """
-    from knowledge_layer.vector_store.retrieval import compile_user_regex
+    from knowledge_layer.vector_store import compile_user_regex
 
     pattern = text.strip()
     if len(pattern) < MIN_PHRASE_CHARS:

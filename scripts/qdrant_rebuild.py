@@ -28,10 +28,10 @@ import argparse
 import logging
 import sys
 
+from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import make_client
 from knowledge_layer.vector_store import rebuild
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.schema import Physical
-from knowledge_layer.vector_store.store import make_client
 
 logger = logging.getLogger("qdrant_rebuild")
 

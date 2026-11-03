@@ -12,10 +12,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
+from knowledge_layer.search import AGENT_FILTER_OVERFETCH
+from knowledge_layer.search import apply_agent_filters
+from knowledge_layer.search import empty_search_message
 from knowledge_layer.search.hit_metadata import _file_name_matches
-from knowledge_layer.search.hit_metadata import apply_agent_filters
-from knowledge_layer.search.ranked_search import AGENT_FILTER_OVERFETCH
-from knowledge_layer.search.results import empty_search_message
 
 from agent.knowledge.document_classification import DOCUMENT_CLASSES
 

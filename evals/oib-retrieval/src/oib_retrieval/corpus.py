@@ -170,7 +170,7 @@ def _pages_to_json(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _pages_from_json(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Cached pages with their tables rebuilt as ``PageTable``, the type the chunkers read."""
-    from knowledge_layer.ingest.captioned_tables import PageTable
+    from knowledge_layer.ingest import PageTable
 
     return [
         {
@@ -195,7 +195,7 @@ def page_documents(pages: list[dict[str, Any]], file_name: str, file_size: int) 
     The page's captioned tables are put back as Markdown, as production's per-page path
     does (``adapter.text_documents_for_pages``): ``text`` alone no longer holds them.
     """
-    from knowledge_layer.ingest.captioned_tables import page_text_with_tables
+    from knowledge_layer.ingest import page_text_with_tables
     from llama_index.core import Document
 
     return [
@@ -221,7 +221,7 @@ def clause_or_page_documents(pages: list[dict[str, Any]], file_name: str, file_s
     files, so the two arms index the same corpus and a recall difference cannot come from
     one arm simply having more of it.
     """
-    from knowledge_layer.ingest.clause_chunking import clause_documents
+    from knowledge_layer.ingest import clause_documents
 
     documents = clause_documents(pages, file_name, file_size)
     if documents is None:

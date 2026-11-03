@@ -130,7 +130,7 @@ def test_the_retriever_raise_site_chains_the_original_import_error(break_import)
     is whatever `_initialize_components` raises, so that is what this pins --
     including `__cause__`, which is the frame naming the import that broke.
     """
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     break_import("llama_index.core", _BROKEN_CORE)
 
@@ -148,7 +148,7 @@ def test_the_retriever_raise_site_chains_the_original_import_error(break_import)
 
 def test_the_ingestor_raise_site_preflights_the_same_way(break_import) -> None:
     """Both entry points, or the guarantee is only half true."""
-    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest import LlamaIndexIngestor
 
     break_import("qdrant_client", _BROKEN_CORE)
 

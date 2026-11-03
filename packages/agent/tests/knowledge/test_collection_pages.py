@@ -26,7 +26,7 @@ LINES = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i
 
 def _ingested_records(file_name: str, lines: list[str], page: str = "1"):
     """The records ingestion writes for ``lines``: one LlamaIndex Document each, cut and embedded by the adapter."""
-    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest import LlamaIndexIngestor
     from llama_index.core import Document
 
     ingestor = object.__new__(LlamaIndexIngestor)
@@ -151,7 +151,7 @@ def _fixture_hits(name: str):
     import sys
     from pathlib import Path
 
-    from knowledge_layer.vector_store.search import Hit
+    from knowledge_layer.vector_store import Hit
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "scripts" / "turn_census"))
     import fixture_files

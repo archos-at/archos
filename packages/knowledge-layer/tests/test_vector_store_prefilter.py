@@ -15,18 +15,19 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import LlamaIndexRetriever
 from knowledge_layer.search.hit_metadata import _folder_matches
-from knowledge_layer.search.retriever import LlamaIndexRetriever
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import Pushdown
+from knowledge_layer.vector_store import build_payload
+from knowledge_layer.vector_store import document_facts
 from knowledge_layer.vector_store import prefilter
 from knowledge_layer.vector_store import schema
 from knowledge_layer.vector_store import store as store_module
 from knowledge_layer.vector_store import writes
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.payload import build_payload
-from knowledge_layer.vector_store.payload import document_facts
-from knowledge_layer.vector_store.prefilter import Pushdown
 from knowledge_layer_testing.vector_store import vector as _vector
 
 from agent.common.source_kinds import Shelf
@@ -272,7 +273,7 @@ def _harness(monkeypatch, inner: Any):
     replaced = {PROJECT: {d.file_name: d.superseded_by for d in DOCS if d.superseded_by}}
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
 
     def column(name: str):
         return lambda _c, files: {
@@ -291,7 +292,7 @@ def _harness(monkeypatch, inner: Any):
         lambda *, tool_name, search_input, picks: spans.append(search_input),
     )
     recording = _Recording(inner)
-    monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: recording)
+    monkeypatch.setattr(register_module, "_get_retriever", lambda config: recording)
     set_turn_documents(DOCS)
 
     async def run(**kwargs) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:

@@ -204,7 +204,7 @@ class KnowledgeSearch:
         # Platform-tunable counts (Platform → Retrieval), resolved per call so
         # an admin save takes effect without a redeploy; fail-open to the YAML
         # build-time values.
-        from knowledge_layer.browse.tool import entries_on_shelf
+        from knowledge_layer.browse import entries_on_shelf
 
         from agent.common.retrieval_settings import get_retrieval_setting
 
@@ -247,7 +247,7 @@ class KnowledgeSearch:
         )
 
     async def _literal(self, outcome: ActionOutcome, args: SearchArgs, targets: list) -> str:
-        from knowledge_layer.browse.tool import exact_search
+        from knowledge_layer.browse import exact_search
 
         from agent.common.action_rows import emit_literal_search
 

@@ -18,10 +18,10 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import PdfTextPages
 from knowledge_layer.ingest import adapter as adapter_module
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.ingest.adapter import PdfTextPages
-from knowledge_layer.ingest.adapter import unreadable_pdf_verdict
+from knowledge_layer.ingest import unreadable_pdf_verdict
 
 from agent.knowledge import ingest_status_store
 from agent.knowledge.schema import FileProgress

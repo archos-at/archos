@@ -70,7 +70,7 @@ def read_chunks(collection: str, file_name: str) -> list[tuple[str, dict[str, An
     (``chunk_metadata``: the payload without the fields only the store adds).
     Raises when the store cannot be read, as ``read_pages`` does.
     """
-    from knowledge_layer.vector_store.payload import chunk_metadata
+    from knowledge_layer.vector_store import chunk_metadata
 
     hits = _document_hits(collection, file_name)
     return [(hit.text, chunk_metadata(hit.payload)) for hit in hits if hit.text] or None

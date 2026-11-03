@@ -46,9 +46,9 @@ from deepagents.backends.protocol import LsResult
 from deepagents.backends.protocol import ReadResult
 from deepagents.backends.protocol import WriteResult
 from knowledge_layer import stored_pages
-from knowledge_layer.browse.tool import FileRow
-from knowledge_layer.browse.tool import file_rows
-from knowledge_layer.browse.tool import fold
+from knowledge_layer.browse import FileRow
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import fold
 
 from agent.common.estate_paths import EstatePath
 from agent.common.estate_paths import Mount
@@ -164,9 +164,9 @@ class EstateBackend(BackendProtocol):
     def entries(self) -> list[Any]:
         """The collections this turn may read, with their shelves, narrowed to the turn's shelves."""
         from knowledge_layer.browse.tool import _session_collection
-        from knowledge_layer.search.scope import resolve_base_collection
-        from knowledge_layer.search.scope import resolve_scoped_collections
-        from knowledge_layer.search.scope import restrict_scope_to_turn
+        from knowledge_layer.search import resolve_base_collection
+        from knowledge_layer.search import resolve_scoped_collections
+        from knowledge_layer.search import restrict_scope_to_turn
 
         config = self.search_config
         return list(
@@ -192,8 +192,8 @@ class EstateBackend(BackendProtocol):
 
     async def _load_rows(self) -> list[FileRow]:
         """The turn's inventory rows, with the base corpus added when the inventory does not carry it."""
+        from knowledge_layer.browse import restrict_rows_to_turn
         from knowledge_layer.browse.tool import _turn_rows
-        from knowledge_layer.browse.tool import restrict_rows_to_turn
 
         from agent.knowledge.restricted_collections import is_restricted_collection
 
@@ -389,9 +389,9 @@ class EstateBackend(BackendProtocol):
 
     async def _outline(self, file: EstateFile) -> str:
         """The document's Gliederung, as ``read_passage`` builds it; empty when it has none or the read fails."""
-        from knowledge_layer.read_passage.tool import PassageTarget
+        from knowledge_layer.read_passage import PassageTarget
+        from knowledge_layer.read_passage import outline_for
         from knowledge_layer.read_passage.tool import _outline_block
-        from knowledge_layer.read_passage.tool import outline_for
 
         target = PassageTarget(collection=file.row.collection, file_name=file.row.file_name, shelf=file.row.shelf)
         try:
@@ -403,7 +403,7 @@ class EstateBackend(BackendProtocol):
 
     async def _read_clause(self, file: EstateFile, clause: str, note: str) -> ToolOutput:
         """One Punkt: the chunks that carry it, as ``read_passage(clause=…)`` opens them."""
-        from knowledge_layer.read_passage.tool import PassageTarget
+        from knowledge_layer.read_passage import PassageTarget
         from knowledge_layer.read_passage.tool import _addresses
         from knowledge_layer.read_passage.tool import _clause_sort_key
         from knowledge_layer.read_passage.tool import _fetch_all

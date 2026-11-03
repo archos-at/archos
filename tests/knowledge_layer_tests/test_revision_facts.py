@@ -20,10 +20,10 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from knowledge_layer.browse.tool import file_row
-from knowledge_layer.browse.tool import file_rows
-from knowledge_layer.browse.tool import render_listing
-from knowledge_layer.browse.tool import select_files
+from knowledge_layer.browse import file_row
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import render_listing
+from knowledge_layer.browse import select_files
 from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import revisions
 from knowledge_layer.ingest import visual_analysis as va

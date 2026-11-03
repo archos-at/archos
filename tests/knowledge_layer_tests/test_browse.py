@@ -16,20 +16,21 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
+from knowledge_layer.browse import MAX_TOPIC_COUNTS
+from knowledge_layer.browse import MAX_TYPE_COUNTS
+from knowledge_layer.browse import ListFilesConfig
+from knowledge_layer.browse import file_row
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import list_files
+from knowledge_layer.browse import no_match_message
+from knowledge_layer.browse import phrase_pattern
+from knowledge_layer.browse import pick_passages
+from knowledge_layer.browse import render_listing
+from knowledge_layer.browse import select_files
+from knowledge_layer.browse import split_alternatives
 from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
-from knowledge_layer.browse.tool import MAX_TOPIC_COUNTS
-from knowledge_layer.browse.tool import MAX_TYPE_COUNTS
-from knowledge_layer.browse.tool import ListFilesConfig
-from knowledge_layer.browse.tool import file_row
-from knowledge_layer.browse.tool import file_rows
-from knowledge_layer.browse.tool import group_matches
-from knowledge_layer.browse.tool import list_files
-from knowledge_layer.browse.tool import no_match_message
-from knowledge_layer.browse.tool import phrase_pattern
-from knowledge_layer.browse.tool import pick_passages
-from knowledge_layer.browse.tool import render_listing
-from knowledge_layer.browse.tool import select_files
-from knowledge_layer.browse.tool import split_alternatives
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -249,8 +250,8 @@ def search_with(monkeypatch, scope):
     """Install a retriever into ``knowledge_search`` and neutralise its boot-time reach."""
 
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -365,7 +366,7 @@ def turn_shelves(monkeypatch):
 
 def _store_retriever():
     """The production retriever over the test's Qdrant (``qdrant_store``), with no embedder: exact mode needs none."""
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     retriever = LlamaIndexRetriever.__new__(LlamaIndexRetriever)
     retriever._ensure_initialized = lambda: None
@@ -942,8 +943,8 @@ class TestTheIngestsReadingInAListing:
         assert "Type:" not in line and "States:" not in line and "Refers to:" not in line
 
     def test_the_facts_and_references_are_bounded(self):
-        from knowledge_layer.browse.tool import MAX_ROW_FACTS
-        from knowledge_layer.browse.tool import MAX_ROW_REFERENCES
+        from knowledge_layer.browse import MAX_ROW_FACTS
+        from knowledge_layer.browse import MAX_ROW_REFERENCES
 
         row = self._row(
             dossier={"facts": [{"key": "units", "value": str(n)} for n in range(20)]},

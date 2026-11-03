@@ -251,7 +251,7 @@ def _page_range_text(first: int, last: int) -> str:
 
 def _clause_spellings(clause: str) -> list[str]:
     """The requested locator and its one normal spelling (``§3`` -> ``§ 3``), which the chunkers write."""
-    from knowledge_layer.ingest.section_chunking import normalise_locator
+    from knowledge_layer.ingest import normalise_locator
 
     return sorted({clause, normalise_locator(clause)})
 

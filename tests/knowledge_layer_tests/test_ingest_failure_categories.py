@@ -11,9 +11,9 @@ BFF's reconcile reads.
 import time
 
 import pytest
+from knowledge_layer.ingest import INGEST_READER_VERSION
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.ingest.reader_version import INGEST_READER_VERSION
 
 from agent.common.credential_resolution import ResolvedCredential
 from agent.knowledge.ingest_status_store import interrupted

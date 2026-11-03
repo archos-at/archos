@@ -10,6 +10,7 @@ import base64
 
 import knowledge_layer.ingest.adapter as llm_adapter
 import pytest
+from knowledge_layer import view_image as view_image_module
 from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _find_pdf
 from knowledge_layer.view_image import _is_enabled
@@ -49,20 +50,23 @@ async def _invoke(
         def _boom(*_args, **_kwargs):
             raise render_raises
 
-        monkeypatch.setattr("knowledge_layer.view_image._render_page", _boom)
-        monkeypatch.setattr("knowledge_layer.view_image._render_page_from_bytes", _boom)
+        monkeypatch.setattr(view_image_module, "_render_page", _boom)
+        monkeypatch.setattr(view_image_module, "_render_page_from_bytes", _boom)
     else:
         monkeypatch.setattr(
-            "knowledge_layer.view_image._render_page",
+            view_image_module,
+            "_render_page",
             lambda _pdf_path, _page_number, _max_dim: render_result,
         )
         monkeypatch.setattr(
-            "knowledge_layer.view_image._render_page_from_bytes",
+            view_image_module,
+            "_render_page_from_bytes",
             lambda _pdf_bytes, _page_number, _max_dim: render_result,
         )
 
     monkeypatch.setattr(
-        "knowledge_layer.view_image._find_pdf",
+        view_image_module,
+        "_find_pdf",
         lambda _name: pdf_path,
     )
 
@@ -334,13 +338,15 @@ def _patch_seaweed_chain(
 
     _patch_seaweed_chain.seen = []
 
-    monkeypatch.setattr("knowledge_layer.view_image._resolve_storage_location", _resolve)
+    monkeypatch.setattr(view_image_module, "_resolve_storage_location", _resolve)
     monkeypatch.setattr(
-        "knowledge_layer.view_image._fetch_seaweed_bytes",
+        view_image_module,
+        "_fetch_seaweed_bytes",
         lambda _key, _bucket=None: fetched,
     )
     monkeypatch.setattr(
-        "knowledge_layer.view_image._normalize_image_to_jpeg",
+        view_image_module,
+        "_normalize_image_to_jpeg",
         lambda _bytes, _max_dim: normalized,
     )
 
@@ -600,9 +606,9 @@ async def test_per_turn_cap_stops_the_tool_before_any_work(monkeypatch, tmp_path
     try:
         for _ in range(2):
             result = await _invoke(monkeypatch, tmp_path, pdf_path="x.pdf")
-            monkeypatch.setattr("knowledge_layer.view_image._render_page", _counting_render)
+            monkeypatch.setattr(view_image_module, "_render_page", _counting_render)
             assert isinstance(result, list)
-        monkeypatch.setattr("knowledge_layer.view_image._render_page", _counting_render)
+        monkeypatch.setattr(view_image_module, "_render_page", _counting_render)
         capped = await _invoke(monkeypatch, tmp_path, pdf_path="x.pdf")
     finally:
         end_image_view_budget(token)

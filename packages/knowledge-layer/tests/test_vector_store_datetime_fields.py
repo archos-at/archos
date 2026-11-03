@@ -10,15 +10,15 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.vector_store import ChunkRecord
+from knowledge_layer.vector_store import as_rfc3339
+from knowledge_layer.vector_store import build_payload
+from knowledge_layer.vector_store import chunk_metadata
+from knowledge_layer.vector_store import chunk_own_payload
+from knowledge_layer.vector_store import coerce_field
+from knowledge_layer.vector_store import document_facts
 from knowledge_layer.vector_store import schema
-from knowledge_layer.vector_store.payload import ChunkRecord
-from knowledge_layer.vector_store.payload import as_rfc3339
-from knowledge_layer.vector_store.payload import build_payload
-from knowledge_layer.vector_store.payload import chunk_metadata
-from knowledge_layer.vector_store.payload import chunk_own_payload
-from knowledge_layer.vector_store.payload import coerce_field
-from knowledge_layer.vector_store.payload import document_facts
-from knowledge_layer.vector_store.scope import translate
+from knowledge_layer.vector_store import translate
 from qdrant_client import models
 
 

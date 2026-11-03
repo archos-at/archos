@@ -9,7 +9,7 @@ import time
 import uuid
 
 import pytest
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest import LlamaIndexIngestor
 from langchain_core.messages import AIMessage
 
 

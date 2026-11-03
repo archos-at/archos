@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from agent_testing.folder_cards import FakeModel
-from knowledge_layer.browse.tool import file_rows
+from knowledge_layer.browse import file_rows
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from agent.knowledge import factory

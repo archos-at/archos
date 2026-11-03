@@ -539,7 +539,7 @@ def exact_files_for(terms: list[str], docs: list[FixtureDoc]) -> list[str]:
     """
     if not terms:
         return []
-    from knowledge_layer.search.hybrid import selective_terms
+    from knowledge_layer.search import selective_terms
 
     haystacks = [f"{doc.file_name}\n{doc.text}" for doc in docs]
     frequencies = {term: sum(1 for hay in haystacks if term in hay) for term in terms}
@@ -613,7 +613,7 @@ def fuse_file_channels(channels: list[list[str]]) -> list[str]:
     """
     from types import SimpleNamespace
 
-    from knowledge_layer.search.hybrid import fuse_with_ranks
+    from knowledge_layer.search import fuse_with_ranks
 
     doubles = [[SimpleNamespace(chunk_id=name) for name in channel] for channel in channels]
     return [chunk.chunk_id for chunk, _, _ in fuse_with_ranks(doubles)]

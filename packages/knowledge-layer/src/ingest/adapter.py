@@ -2709,7 +2709,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     @staticmethod
     def _store():
         """The process-wide Qdrant store. Reads and deletes need no embedder; a write names it (``_ingest_job``)."""
-        from knowledge_layer.vector_store.store import get_store
+        from knowledge_layer.vector_store import get_store
 
         return get_store()
 
@@ -2717,7 +2717,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         """``(chunk_id, stored file_name)`` of every chunk stored under one of ``stored_names``."""
         if not stored_names:
             return []
-        from knowledge_layer.vector_store.schema import CHUNK_ID_FIELD
+        from knowledge_layer.vector_store import CHUNK_ID_FIELD
 
         records = self._store().scroll(
             collection_name,
@@ -3256,7 +3256,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         newest ``indexed_at`` its points carry; a collection whose points all
         predate the field states none, which the reaper reads as "skip".
         """
-        from knowledge_layer.vector_store.schema import INDEXED_AT_FIELD
+        from knowledge_layer.vector_store import INDEXED_AT_FIELD
 
         store = self._store()
         count = store.count(name) if chunk_count is None else chunk_count
@@ -3332,7 +3332,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         summary reconcile never judges a collection missing from it, and
         refuses outright when the list is empty (``routes/maintenance.py``).
         """
-        from knowledge_layer.vector_store.schema import Physical
+        from knowledge_layer.vector_store import Physical
 
         store = self._store()
         counts: dict[str, int] = {}
@@ -3615,7 +3615,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         for v1 chunks and non-drawings). Sorted by page, then content type,
         then segment.
         """
-        from knowledge_layer.vector_store.schema import TEXT_FIELD
+        from knowledge_layer.vector_store import TEXT_FIELD
 
         visual = {"file_name": file_name, "content_type": {"$in": ["drawing", "image", "chart"]}}
         try:
@@ -3817,7 +3817,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         percent-encoding) is dropped at retirement, and the new row takes them
         over from here.
         """
-        from knowledge_layer.vector_store.store import with_retry
+        from knowledge_layer.vector_store import with_retry
 
         found: dict[str, _PreviousVersion] = {}
         normalize = _normalized_file_name
@@ -4187,7 +4187,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             # misconfigured process could still WRITE foreign vectors, and the
             # collection would then hold two spaces permanently. The write itself
             # checks again when it creates the collection (`schema.ensure_collection`).
-            from knowledge_layer.vector_store.store import get_store
+            from knowledge_layer.vector_store import get_store
 
             identity = self._embed_fingerprint_metadata()
             get_store(identity).check_identity(collection_name)

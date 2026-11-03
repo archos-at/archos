@@ -17,11 +17,11 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import QUARANTINED_PREFIX
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import transcription
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.ingest.screening import QUARANTINED_PREFIX
 from knowledge_layer_testing.pdf_fixtures import build_pdf
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents

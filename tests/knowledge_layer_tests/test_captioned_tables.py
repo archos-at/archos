@@ -11,11 +11,11 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from knowledge_layer.ingest.captioned_tables import PageTable
-from knowledge_layer.ingest.captioned_tables import join_fragments
-from knowledge_layer.ingest.captioned_tables import markdown_chunks
-from knowledge_layer.ingest.captioned_tables import page_text_with_tables
-from knowledge_layer.ingest.clause_chunking import clause_documents
+from knowledge_layer.ingest import PageTable
+from knowledge_layer.ingest import clause_documents
+from knowledge_layer.ingest import join_fragments
+from knowledge_layer.ingest import markdown_chunks
+from knowledge_layer.ingest import page_text_with_tables
 
 HEADER = ["Gegenstand", "GK 3", "GK 4", "GK 5"]
 ROWS = [
@@ -234,7 +234,7 @@ def test_a_page_whose_box_is_not_at_the_origin_still_reads_its_tables():
     """A CAD export's sheet, box (-1162, 1275, 1162, 3826): the caption region was built
     from x 0 and page.width, pdfplumber refused it, and every table on the page went
     unread (2026-10, ``WR_25003_P1240_0.pdf``)."""
-    from knowledge_layer.ingest.captioned_tables import extract_page_tables
+    from knowledge_layer.ingest import extract_page_tables
 
     box = (-1162.2, 1275.54, 1162.2, 3826.62)
     captioned = _FakeTable([HEADER, *ROWS], top=1700, left=-1000)
@@ -246,7 +246,7 @@ def test_a_page_whose_box_is_not_at_the_origin_still_reads_its_tables():
 
 
 def test_a_continuation_is_measured_from_the_top_of_its_page_box():
-    from knowledge_layer.ingest.captioned_tables import extract_page_tables
+    from knowledge_layer.ingest import extract_page_tables
 
     box = (-1162.2, 1275.54, 1162.2, 3826.62)
     near_top = _FakeTable([["4.1 in Treppenhäusern", "R 60"], ["4.2", "R 30"]], top=1275.54 + 60, left=-1000)
@@ -257,7 +257,7 @@ def test_a_continuation_is_measured_from_the_top_of_its_page_box():
 
 
 def test_only_the_next_page_can_continue_a_table():
-    from knowledge_layer.ingest.captioned_tables import extract_page_tables
+    from knowledge_layer.ingest import extract_page_tables
 
     previous = _table(page=3)
     page = _FakePage(
@@ -286,7 +286,7 @@ def test_a_captioned_table_is_cited_by_its_page_not_as_table_1():
     """Every captioned table carried no ``table_index`` and was cited
     „<file>, p.N, Table 1", whichever table it was, under a key no other hit
     on that page renders."""
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
     from llama_index.core.schema import NodeWithScore
     from llama_index.core.schema import TextNode
 
@@ -305,8 +305,8 @@ def test_a_table_page_counts_its_table_as_text_for_the_visual_page_check():
     """A page that is mostly a captioned table kept only its caption-free prose
     in ``text``, fell under the visual-page threshold and was VLM-captioned as a
     drawing (oib-rl_2 pages 29, 31, 33, 34), competing with the table's chunks."""
-    from knowledge_layer.ingest.adapter import VISUAL_PAGE_MIN_TEXT_CHARS
-    from knowledge_layer.ingest.adapter import page_texts_for_visual_heuristic
+    from knowledge_layer.ingest import VISUAL_PAGE_MIN_TEXT_CHARS
+    from knowledge_layer.ingest import page_texts_for_visual_heuristic
 
     page = {"page_number": 30, "text": "Seite 30", "tables": [_table()]}
 

@@ -414,7 +414,7 @@ def run(
                 inputs, reader, report["lexical"]["relevant_counts"], variant_names, rounds, HYBRID_DEPTH
             )
         if with_dimension:
-            from knowledge_layer.vector_store.store import get_store
+            from knowledge_layer.vector_store import get_store
 
             report["dimension"] = measure_dimension(inputs, corpus_view, get_store().client)
     report["verdicts"] = [asdict(v) for v in verdicts(report)]

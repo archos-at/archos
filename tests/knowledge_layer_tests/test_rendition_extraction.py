@@ -19,12 +19,12 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import OFFICE_RENDITION_REQUIRED
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import align_extraction_paths
 from knowledge_layer.ingest import office_extractors
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.ingest.renditions import OFFICE_RENDITION_REQUIRED
-from knowledge_layer.ingest.renditions import align_extraction_paths
-from knowledge_layer.ingest.renditions import requires_rendition
+from knowledge_layer.ingest import requires_rendition
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 
@@ -490,7 +490,7 @@ class TestDeferredOriginal:
     def test_a_failed_download_fails_the_file_with_a_stable_reason(
         self, tmp_path, ingestor, summary_db, pdf_pipeline, caplog
     ):
-        from knowledge_layer.ingest.deferred_files import ORIGINAL_DOWNLOAD_FAILED
+        from knowledge_layer.ingest import ORIGINAL_DOWNLOAD_FAILED
 
         rendition_calls: list[str] = []
 

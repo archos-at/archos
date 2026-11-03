@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-from knowledge_layer.search.results import format_results
+from knowledge_layer.search import format_results
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.factory import configure_summary_db

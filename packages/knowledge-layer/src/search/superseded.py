@@ -41,7 +41,7 @@ def named_older_revision_notice(file_name: str | None, superseded: dict[str, dic
     """
     if not file_name:
         return ""
-    from knowledge_layer.read_passage.tool import older_revision_line
+    from knowledge_layer.read_passage import older_revision_line
 
     from agent.knowledge.restricted_use import may_name
 

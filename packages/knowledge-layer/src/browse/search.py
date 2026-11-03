@@ -28,7 +28,7 @@ SEARCH_SHELVES = {
 
 def _has_literal_word(pattern: str) -> bool:
     """True when a person's regex names a word the full-text index can narrow the scan with."""
-    from knowledge_layer.vector_store.retrieval import user_literal_tokens
+    from knowledge_layer.vector_store import user_literal_tokens
 
     return bool(user_literal_tokens(pattern))
 
@@ -51,7 +51,7 @@ def _collection_filter(
     never filtered beyond the narrowing, as in the ranked search. The narrowing
     is a file list and/or the folder condition; ``scope_filter`` ANDs it onto the tenancy condition.
     """
-    from knowledge_layer.vector_store.prefilter import FOLDER_FIELD
+    from knowledge_layer.vector_store import FOLDER_FIELD
 
     clauses = [
         clause
@@ -64,7 +64,7 @@ def _collection_filter(
     narrowing = None if not clauses else clauses[0] if len(clauses) == 1 else {"$and": clauses}
     if collection != base:
         return narrowing
-    from knowledge_layer.search.scope import base_collection_filters
+    from knowledge_layer.search import base_collection_filters
 
     extra = [clause for clause in (caller_filters, narrowing) if clause]
     combined = extra[0] if len(extra) == 1 else ({"$and": extra} if extra else None)

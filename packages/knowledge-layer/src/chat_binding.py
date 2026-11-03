@@ -11,8 +11,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from knowledge_layer.browse import TREE_PARAGRAPH
 from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
-from knowledge_layer.browse.tool import TREE_PARAGRAPH
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import create_model

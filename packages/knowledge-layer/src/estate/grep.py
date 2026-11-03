@@ -38,14 +38,14 @@ from typing import Any
 from typing import Literal
 
 from knowledge_layer import stored_pages
-from knowledge_layer.browse.tool import MAX_CONTEXT_LINES
-from knowledge_layer.browse.tool import MAX_MATCH_CHUNKS
-from knowledge_layer.browse.tool import MAX_MATCH_PASSAGES
-from knowledge_layer.browse.tool import fold
-from knowledge_layer.browse.tool import group_matches
-from knowledge_layer.browse.tool import phrase_pattern
-from knowledge_layer.browse.tool import stemmed_pattern
-from knowledge_layer.browse.tool import user_pattern
+from knowledge_layer.browse import MAX_CONTEXT_LINES
+from knowledge_layer.browse import MAX_MATCH_CHUNKS
+from knowledge_layer.browse import MAX_MATCH_PASSAGES
+from knowledge_layer.browse import fold
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import phrase_pattern
+from knowledge_layer.browse import stemmed_pattern
+from knowledge_layer.browse import user_pattern
 from knowledge_layer.chunk_positions import own_matches
 
 from agent.common.estate_paths import MOUNT_ROOTS
@@ -138,7 +138,7 @@ class GrepRefused(ValueError):
 
 def compile_query(pattern: str, mode: str, stemmed: bool) -> Query:
     """The pattern for the store and for verification, or :class:`GrepRefused` with the rule. Pure."""
-    from knowledge_layer.vector_store.retrieval import USER_REGEX_TIMEOUT
+    from knowledge_layer.vector_store import USER_REGEX_TIMEOUT
 
     text = (pattern or "").strip()
     mode = (mode or "exact").strip().lower()
@@ -348,8 +348,8 @@ async def _candidates(
     """Stage 1: the chunks the index's literal scan proposes, per collection, and what it could not serve."""
     from knowledge_layer.browse.tool import _collection_filter
     from knowledge_layer.browse.tool import _entry_shelf
-    from knowledge_layer.search.scope import resolve_base_collection
-    from knowledge_layer.vector_store.retrieval import PatternTooCostly
+    from knowledge_layer.search import resolve_base_collection
+    from knowledge_layer.vector_store import PatternTooCostly
 
     if retriever is None:
         from agent.knowledge.factory import get_active_retriever

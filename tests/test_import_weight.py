@@ -35,6 +35,12 @@ LAZY_PACKAGES = [
     "agent.agents.deep_researcher",
     "agent.common",
     "knowledge_layer",
+    "knowledge_layer.browse",
+    "knowledge_layer.estate",
+    "knowledge_layer.ingest",
+    "knowledge_layer.read_passage",
+    "knowledge_layer.search",
+    "knowledge_layer.vector_store",
 ]
 
 # What a package ``__init__`` or a conftest every test loads may not load: each

@@ -126,7 +126,7 @@ def chunk_specs(project: FilesProject, file: FixtureFile) -> list[dict[str, Any]
 
 
 def _ingested_specs(project: FilesProject, file: FixtureFile, digest: str) -> list[dict[str, Any]]:
-    from knowledge_layer.ingest.adapter import text_chunks_for_pages
+    from knowledge_layer.ingest import text_chunks_for_pages
     from llama_index.core.schema import MetadataMode
 
     pages = [{"page_number": number, "text": text} for number, text in enumerate(file.pages, start=1)]
@@ -161,10 +161,10 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
     """
     from fixture_bff import production_embedder
     from knowledge_layer.embedding import embed_fingerprint_metadata
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
-    from knowledge_layer.vector_store.payload import ChunkRecord
-    from knowledge_layer.vector_store.store import get_store
-    from knowledge_layer.vector_store.writes import write_chunks
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import ChunkRecord
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import write_chunks
 
     from agent.knowledge.document_metadata_store import DocumentMetadataStore
 

@@ -27,11 +27,11 @@ import logging
 import sys
 from collections import Counter
 
+from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import legacy_remaining
+from knowledge_layer.vector_store import make_client
 from knowledge_layer.vector_store import rebuild
-from knowledge_layer.vector_store.legacy_rewrite import legacy_remaining
-from knowledge_layer.vector_store.legacy_rewrite import rename_collection
-from knowledge_layer.vector_store.schema import Physical
-from knowledge_layer.vector_store.store import make_client
+from knowledge_layer.vector_store import rename_collection
 
 logger = logging.getLogger("qdrant_rename_payload_keys")
 

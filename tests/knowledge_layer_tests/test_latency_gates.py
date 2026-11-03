@@ -14,14 +14,16 @@ from unittest.mock import MagicMock
 
 import knowledge_layer.search.requery as requery_mod
 import pytest
+from knowledge_layer import register as register_module
+from knowledge_layer.search import claim_requery_slot
+from knowledge_layer.search import is_known_entity_lookup
+from knowledge_layer.search import requery_already_fired
+from knowledge_layer.search import reset_requery_slot
+from knowledge_layer.search import reset_requery_slot_for_turn
+from knowledge_layer.search import results as results_module
+from knowledge_layer.search import scores_decisively_strong
+from knowledge_layer.search import should_skip_judge
 from knowledge_layer.search.requery import _has_narrow_anchor
-from knowledge_layer.search.requery import claim_requery_slot
-from knowledge_layer.search.requery import is_known_entity_lookup
-from knowledge_layer.search.requery import requery_already_fired
-from knowledge_layer.search.requery import reset_requery_slot
-from knowledge_layer.search.requery import reset_requery_slot_for_turn
-from knowledge_layer.search.requery import scores_decisively_strong
-from knowledge_layer.search.requery import should_skip_judge
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -291,10 +293,11 @@ class _FakeRetriever:
 @pytest.fixture
 def loop_harness(monkeypatch):
     def install(retriever, judge):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr(
-            "knowledge_layer.search.results.format_results",
+            results_module,
+            "format_results",
             # The real renderer carries every decoration inside its bytes; the fake does too.
             lambda merged, query, notice="", trailer="", preamble_note="", opened_files=frozenset(), **_: (
                 notice + preamble_note + ("|".join(c.chunk_id for c in merged.chunks) or "no results") + trailer
@@ -437,12 +440,12 @@ class TestGateSkipsTheJudge:
 
 class TestSpanEnrichment:
     def test_normalized_query_folds_whitespace_and_case(self):
-        from knowledge_layer.search.span import normalized_query_for_span
+        from knowledge_layer.search import normalized_query_for_span
 
         assert normalized_query_for_span("  FluchtWEG   GK4\n") == "fluchtweg gk4"
 
     def test_citation_key_prefers_the_stored_display_citation(self):
-        from knowledge_layer.search.span import citation_key_for_span
+        from knowledge_layer.search import citation_key_for_span
 
         chunk = SimpleNamespace(display_citation="oib-rl_2.pdf p.12", file_name="x.pdf", page_number=5)
         assert citation_key_for_span(chunk) == "oib-rl_2.pdf p.12"

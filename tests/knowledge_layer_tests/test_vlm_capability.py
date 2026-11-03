@@ -8,8 +8,8 @@ the base URL) and the derived ``vlm_configured`` boolean.
 """
 
 import pytest
-from knowledge_layer.ingest.adapter import resolve_vlm_api_key
-from knowledge_layer.ingest.adapter import vlm_configured
+from knowledge_layer.ingest import resolve_vlm_api_key
+from knowledge_layer.ingest import vlm_configured
 
 
 @pytest.fixture(autouse=True)

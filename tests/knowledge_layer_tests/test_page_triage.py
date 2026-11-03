@@ -21,18 +21,18 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import COVERAGE_KEY
+from knowledge_layer.ingest import MIN_SKETCH_PATHS
+from knowledge_layer.ingest import STAGE_SECONDS_KEY
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import PageKind
+from knowledge_layer.ingest import PageSignals
 from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import classify_page
 from knowledge_layer.ingest import page_triage
 from knowledge_layer.ingest import processing
+from knowledge_layer.ingest import text_quality
 from knowledge_layer.ingest import transcription
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.ingest.measures import COVERAGE_KEY
-from knowledge_layer.ingest.measures import STAGE_SECONDS_KEY
-from knowledge_layer.ingest.page_triage import MIN_SKETCH_PATHS
-from knowledge_layer.ingest.page_triage import PageKind
-from knowledge_layer.ingest.page_triage import PageSignals
-from knowledge_layer.ingest.page_triage import classify_page
-from knowledge_layer.ingest.page_triage import text_quality
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 

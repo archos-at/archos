@@ -12,11 +12,11 @@ import uuid
 
 import numpy as np
 import pytest
+from knowledge_layer.ingest import ChunkVersion
+from knowledge_layer.ingest import chunk_id
 from knowledge_layer.ingest import chunk_identity
-from knowledge_layer.ingest.chunk_identity import ChunkVersion
-from knowledge_layer.ingest.chunk_identity import chunk_id
-from knowledge_layer.ingest.chunk_identity import embed_with_cache
-from knowledge_layer.ingest.chunk_identity import ids_only_in
+from knowledge_layer.ingest import embed_with_cache
+from knowledge_layer.ingest import ids_only_in
 
 from .test_ingest_screen_before_tables import _ingest
 from .test_ingest_screen_before_tables import _pdf

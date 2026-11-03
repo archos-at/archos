@@ -551,7 +551,7 @@ async def test_grouped_search_narrows_to_documents_reading_types_and_references_
 
 def test_the_reading_filters_compile_in_the_one_scope_filter():
     """Every field is one the scope filter accepts (indexed, keyword), so Qdrant applies it, not a post-filter."""
-    from knowledge_layer.vector_store.scope import scope_filter
+    from knowledge_layer.vector_store import scope_filter
 
     from agent_host.models.requests import GroupedSearchFilters
     from agent_host.routes.document_search import grouped_filters

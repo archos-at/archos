@@ -13,10 +13,10 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.ingest import LlamaIndexIngestor
 from knowledge_layer.ingest import adapter
 from knowledge_layer.ingest import image_store
-from knowledge_layer.ingest.adapter import LlamaIndexIngestor
-from knowledge_layer.search.results import format_results
+from knowledge_layer.search import format_results
 from knowledge_layer_testing.vector_store import FakeEmbedder
 from knowledge_layer_testing.vector_store import capture_indexed_documents
 

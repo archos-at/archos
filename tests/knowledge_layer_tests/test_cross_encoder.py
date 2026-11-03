@@ -13,9 +13,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from knowledge_layer.search import CrossEncoderReranker
 from knowledge_layer.search import cross_encoder as ce
-from knowledge_layer.search.cross_encoder import CrossEncoderReranker
-from knowledge_layer.search.cross_encoder import resolve_cross_encoder
+from knowledge_layer.search import resolve_cross_encoder
 
 
 @pytest.fixture(autouse=True)

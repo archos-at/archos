@@ -11,16 +11,17 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse.tool import MAX_MATCH_CHUNKS
-from knowledge_layer.browse.tool import MAX_SNIPPET_LINES
-from knowledge_layer.browse.tool import group_matches
-from knowledge_layer.browse.tool import match_snippets
-from knowledge_layer.browse.tool import user_pattern
+from knowledge_layer import register as register_module
+from knowledge_layer.browse import MAX_MATCH_CHUNKS
+from knowledge_layer.browse import MAX_SNIPPET_LINES
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import match_snippets
+from knowledge_layer.browse import user_pattern
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.vector_store import PatternTooCostly
 from knowledge_layer.vector_store import retrieval
-from knowledge_layer.vector_store.retrieval import PatternTooCostly
-from knowledge_layer.vector_store.retrieval import user_literal_tokens
+from knowledge_layer.vector_store import user_literal_tokens
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -111,8 +112,8 @@ class _Store:
 @pytest.fixture
 def search_with(monkeypatch, scope):
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -287,7 +288,7 @@ class TestFolderPushdown:
         assert store.calls == []
 
     def test_tenancy_stays_anded_on_the_pushed_down_folder(self):
-        from knowledge_layer.vector_store.scope import scope_filter
+        from knowledge_layer.vector_store import scope_filter
 
         flt = scope_filter(["proj_1"], {"folder_ancestors": "plaene"})
         keys = [getattr(condition, "key", None) for condition in flt.must]
@@ -295,8 +296,8 @@ class TestFolderPushdown:
         assert len(flt.must) == 2
 
     def test_the_facet_runs_under_the_scope_filter_too(self):
-        from knowledge_layer.vector_store.schema import physical_for_scope
-        from knowledge_layer.vector_store.store import QdrantStore
+        from knowledge_layer.vector_store import QdrantStore
+        from knowledge_layer.vector_store import physical_for_scope
 
         client = MagicMock()
         client.facet.return_value = SimpleNamespace(hits=[SimpleNamespace(value="a.pdf", count=7)])
@@ -501,8 +502,8 @@ class TestDistinctMatches:
     def test_the_list_is_bounded_and_says_what_it_left_out(self):
         import re
 
-        from knowledge_layer.browse.tool import MAX_DISTINCT_MATCHES
-        from knowledge_layer.browse.tool import match_table
+        from knowledge_layer.browse import MAX_DISTINCT_MATCHES
+        from knowledge_layer.browse import match_table
 
         body = " ".join(f"Nr{n:04d}" for n in range(MAX_DISTINCT_MATCHES + 5))
         pattern = re.compile(r"Nr\d{4}")

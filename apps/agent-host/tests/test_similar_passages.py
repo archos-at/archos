@@ -87,7 +87,7 @@ def stack(monkeypatch):
         if os.environ.get("CI"):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
-    from knowledge_layer.search.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
     from knowledge_layer.vector_store import schema
     from knowledge_layer.vector_store import store as store_module
 
@@ -120,7 +120,7 @@ def stack(monkeypatch):
 
 def _put(store, scope: str, file_name: str, *passages: tuple[float, int], text: str = "", **metadata) -> list[str]:
     """Passages of one file, each at a cosine to SOURCE and on a page; returns their chunk ids."""
-    from knowledge_layer.vector_store.payload import ChunkRecord
+    from knowledge_layer.vector_store import ChunkRecord
 
     ids = [str(uuid.uuid4()) for _ in passages]
     store.upsert(
