@@ -49,10 +49,11 @@ export interface InboundMailConfig {
   paused: boolean;
   /**
    * A verified writer's mail is filed directly as them (`inboundMailDirectFiling`,
-   * default true). False is the kill switch of that path alone: such mail waits
-   * for its member like any mail that only claims them. The BFF's
-   * `INBOUND_MAIL_DIRECT_FILING`, read where the receive job classifies the
-   * sender (`bff-jobs`) and by the sender's filing job.
+   * default true). False is the kill switch of that path alone: such mail is
+   * queued no sender job and waits for any of the project's writers, as all
+   * mail did before direct filing. The BFF's `INBOUND_MAIL_DIRECT_FILING`, read
+   * where the receive job queues the sender's filing (`bff-jobs`), by that job,
+   * and for the wait reason the E-Mail-Eingang shows.
    */
   directFiling: boolean;
   /**

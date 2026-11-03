@@ -10,7 +10,7 @@ import 'server-only'
  * 1. **The mail.** Still waiting, still a verified writer's (the class is
  *    frozen at the hold, migration 0194), and direct filing still switched
  *    on (`./direct-filing.ts`): a job queued before the switch went off
- *    files nothing.
+ *    files nothing, and the mail waits for any of the project's writers.
  * 2. **The suggestion.** While the agent's suggestion for the mail is still
  *    queued or running, the run waits for it (`notBefore`), at most
  *    {@link SENDER_FILE_MAX_WAITS} times: the attachments go where the review

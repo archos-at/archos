@@ -138,16 +138,21 @@ export function SenderTrustLine({ sender, impersonation }: { sender: InboundMail
   )
 }
 
-/** The reasons a writer's own mail waits for them: each is asked of that writer as „Haben Sie das gesendet?“. */
-const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic', 'paused'])
+/**
+ * The reasons a writer's own mail waits for them: each is asked of that writer
+ * as „Haben Sie das gesendet?“. Not `paused`: with direct filing switched off a
+ * verified writer's mail waits for any of the project's writers.
+ */
+const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic'])
 
 /**
  * Why the mail waits, by who its sender is to the project (ADR-0137's
  * amendment): a writer's mail that was not filed directly, because their
  * domain did not sign it, it reads as re-sent or misdated, or it was sent
- * automatically (asked of that writer as „Haben Sie das gesendet?“), a member
- * who may not write here, or someone outside the office. Nothing for a
- * verified writer's mail, nor once nothing of it waits.
+ * automatically (asked of that writer as „Haben Sie das gesendet?“), direct
+ * filing switched off (`paused`, any writer files it), a member who may not
+ * write here, or someone outside the office. Nothing for a verified writer's
+ * mail while direct filing is on, nor once nothing of it waits.
  */
 export function SenderWaitLine({ view }: { view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)

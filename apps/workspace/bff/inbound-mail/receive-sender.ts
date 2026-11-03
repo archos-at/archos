@@ -11,6 +11,7 @@
 
 import 'server-only'
 import { v5 as uuidv5 } from 'uuid'
+import { captureServer } from '@/lib/analytics/posthog-server'
 import { DOCUMENT_WRITE_PERMISSIONS } from '@/lib/authz/folder-access-rule'
 import { userHoldsProjectPermissionStrict } from '@/lib/authz/project-membership'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
@@ -23,7 +24,9 @@ import {
   type InboundMailSenderClass,
   type SenderFlag,
 } from './inbound-mail-vocabulary'
+import { directFilingEnabled } from './direct-filing'
 import { DependencyFaultError } from './receive-faults'
+import { findMailForReceive } from './receive-repository'
 import type { SenderVerdict } from './sender-auth'
 import { senderClassOf } from './sender-class'
 
@@ -103,8 +106,15 @@ export async function announceHeldMail(mail: InboundMailRow & { senderTrust: Non
  * so the receive side stays free of filing code (`review-first.spec.ts`). The
  * job runs as the sender, re-checks their rights and files as them, or leaves
  * the mail waiting and says so (`./sender-file-job.ts`).
+ *
+ * With direct filing switched off (`./direct-filing.ts`) nothing is queued:
+ * the mail keeps its class and waits for any of the project's writers (wait
+ * reason `paused`), announced as any held mail is, and the run is counted as
+ * the sender's filing would count it (`inbound_mail_sender_filed`, `waits`,
+ * `direct_filing_off`).
  */
 export async function queueSenderFiling(mail: Pick<InboundMailRow, 'id' | 'organizationId' | 'projectId'>): Promise<void> {
+  if (!directFilingEnabled()) return leaveForTheWriters(mail.id)
   await insertJobIfAbsent({
     kind: 'inbound_mail_sender_file',
     organizationId: mail.organizationId,
@@ -112,4 +122,19 @@ export async function queueSenderFiling(mail: Pick<InboundMailRow, 'id' | 'organ
     jobId: inboundMailJobId('sender', mail.id),
     payload: { mailId: mail.id, projectId: mail.projectId, waits: 0 },
   })
+}
+
+/** Direct filing is off: the verified writer's mail waits for the project's writers, and they hear so. */
+async function leaveForTheWriters(mailId: string): Promise<void> {
+  const mail = await findMailForReceive(mailId)
+  if (!mail?.senderTrust || mail.status !== 'waiting') return
+  // oxlint-disable-next-line no-console -- the operator's trail, as the sender's filing logs each end
+  console.info(`[inbound-mail] sender filing of mail ${mail.id}: waits:direct_filing_off (not queued)`)
+  captureServer({
+    event: 'inbound_mail_sender_filed',
+    distinctId: null,
+    organizationId: mail.organizationId,
+    properties: { outcome: 'waits', reason: 'direct_filing_off', waits_for_suggestion: 0 },
+  })
+  await announceHeldMail({ ...mail, senderTrust: mail.senderTrust })
 }

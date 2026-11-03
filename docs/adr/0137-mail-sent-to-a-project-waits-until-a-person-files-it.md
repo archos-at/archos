@@ -662,9 +662,12 @@ scanner (ADR-0150) and the upload path like any other file.
   mail and the full address is a named member with write rights. A forged
   From of a real member is held, and only that member can release it.
 - **It can be switched off alone.** `INBOUND_MAIL_DIRECT_FILING=false`
-  (Pulumi `inboundMailDirectFiling`) makes every verified writer's mail wait
-  for its member's one press, without pausing receipt: the first lever if the
-  sender rule or the filing misbehaves.
+  (Pulumi `inboundMailDirectFiling`) queues no sender's filing, so every
+  verified writer's mail waits for any of the project's writers as before
+  this amendment, without pausing receipt: the first lever if the sender rule
+  or the filing misbehaves. It is never stricter than the rule it switches
+  off: the class stays `verified_writer`, so no mail becomes releasable by its
+  member alone.
 - **The rule is in the database.** A CHECK and a trigger (migration 0194)
   tie a `via = 'sender'` decision to a `verified_writer` mail, its own
   sender, a clean scan and an unflagged part; the class is written once, in

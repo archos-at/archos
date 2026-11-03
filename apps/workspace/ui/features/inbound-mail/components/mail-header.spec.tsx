@@ -127,6 +127,16 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('sent automatically')
   })
 
+  it('says a verified writer’s mail waits because direct filing is off, for any writer: never asked of its member alone', () => {
+    const { unmount } = render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'paused', onlySenderReleases: false }} />)
+    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'paused')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Anyone who may file in this project can file it')
+    expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('Did you send this mail?')
+    unmount()
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'paused', onlySenderReleases: false }} />)
+    expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('If that member has left the office')
+  })
+
   it('tells another writer only the member can file it, and blocks filing while leaving dismissal', () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')

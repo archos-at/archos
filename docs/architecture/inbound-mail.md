@@ -67,16 +67,22 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
 
 | Class | When | What happens | Window |
 |---|---|---|---|
-| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them | 30 days |
+| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them; with direct filing switched off, the whole mail waits for any of the project's writers (`paused`) | 30 days |
 | `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it. Nobody else can release it, the member gone from the office included (the database cannot see WorkOS): the wait line and the `sender_only` copy tell the others to dismiss it or forward the original themselves | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
 
 **The kill switch** of direct filing alone is `INBOUND_MAIL_DIRECT_FILING=false`
-(Pulumi `inboundMailDirectFiling`, `lib/inbound-mail/direct-filing.ts`): the hold
-then classes a verified writer's mail `unverified_writer` (wait reason
-`paused`) and queues no sender job, and a sender job already queued files
-nothing (`direct_filing_off`). Receipt is unchanged; `INBOUND_MAIL_PAUSED` stops it.
+(Pulumi `inboundMailDirectFiling`, `lib/inbound-mail/direct-filing.ts`): a
+verified writer's mail keeps its class (evidence, not a decision) but
+`queueSenderFiling` queues nothing; it announces the mail as any held mail and
+counts `inbound_mail_sender_filed` (`waits`, `direct_filing_off`). The mail
+waits for any of the project's writers, as all mail did before direct filing
+(wait reason `paused`, read from the live switch), and a sender job already
+queued files nothing (`direct_filing_off`). Never stricter than the rule it
+switches off: nothing becomes releasable by its member alone. Mail held while
+it was off is not filed when it goes back on. Receipt is unchanged;
+`INBOUND_MAIL_PAUSED` stops it.
 
 **The sender's filing** (`lib/inbound-mail/sender-file-job.ts`, a sliced job
 as the system that resolves the sender itself, strictly): it waits for the

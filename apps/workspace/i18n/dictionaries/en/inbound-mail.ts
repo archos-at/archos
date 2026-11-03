@@ -116,8 +116,7 @@ export const inboundMail = {
       'Did you send this mail to the project? It is signed, but addressed to others, oddly dated or already known, so it was not filed directly. Only you can file it.',
     automatic: 'Waiting: the mail was sent automatically, so it was not filed directly. Only that member can file it; anyone can dismiss it.',
     automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
-    paused: 'Waiting: direct filing was switched off when it arrived. Only that member can file it; anyone can dismiss it.',
-    pausedOwn: 'Did you send this mail? Direct filing was switched off when it arrived, so it waits for you. Only you can file it.',
+    paused: 'Waiting: direct filing is switched off, so it was not filed directly. Anyone who may file in this project can file it.',
     // Under the line when only the member it names can release the mail (the database lets nobody else).
     memberLeft: 'If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
     no_write_rights: 'Waiting: the sender may not file in this project.',

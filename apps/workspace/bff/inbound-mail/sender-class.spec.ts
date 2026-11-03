@@ -90,12 +90,15 @@ describe('senderClassOf', () => {
       expect(directFilingEnabled({ INBOUND_MAIL_DIRECT_FILING: ' FALSE ' })).toBe(false)
     })
 
-    it('off, a verified writer’s mail waits for its member like a claimed one, and says why', () => {
-      expect(senderClassOf(input({ directFiling: false }))).toBe('unverified_writer')
+    it('off, a verified writer’s mail keeps its class, so any writer files it, and says why it waits', () => {
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'false')
-      expect(senderClassOf(input())).toBe('unverified_writer')
-      expect(senderWaitReason({ senderClass: 'unverified_writer', senderTrust: 'member_verified', senderFlags: [], automatic: false })).toBe('paused')
+      expect(senderClassOf(input())).toBe('verified_writer')
+      expect(onlySenderReleases({ senderClass: 'verified_writer', senderUserId: 'user_writer' }, 'user_colleague')).toBe(false)
+      const held = { senderClass: 'verified_writer', senderTrust: 'member_verified', senderFlags: [], automatic: false } as const
+      expect(senderWaitReason(held)).toBe('paused')
+      expect(senderWaitReason({ ...held, directFiling: false })).toBe('paused')
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'true')
+      expect(senderWaitReason(held)).toBeNull()
       expect(senderClassOf(input())).toBe('verified_writer')
     })
   })
