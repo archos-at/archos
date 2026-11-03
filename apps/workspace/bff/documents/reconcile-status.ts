@@ -188,7 +188,7 @@ export interface TerminalResolution {
    * resolution built elsewhere (a spec, an older caller) writes none.
    */
   failure?: IngestFailureFacts
-  /** The job's own clock, for the analytics event: time queued and time worked. Absent without a job. */
+  /** The job's own account for the analytics event: its clock, stage seconds, reading. Absent without a job. */
   timing?: IngestTiming
 }
 

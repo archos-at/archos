@@ -167,7 +167,20 @@ What fails the file, and what only makes it poorer:
 | Pages over the render cap (20) or the raster cap (64) | counted on the file and in its coverage, not read | "n Seiten nicht vollständig gelesen" |
 | A worker dies or stalls | the claim goes stale after 180 s and another worker takes the job, up to 3 times, then `dead` | "unterbrochen" |
 
-A 429 or a timeout inside a vision call is retried in place (A:2274). A file whose
+A 429, an in-flight-credit 402 ("would exceed your available credits given your
+current in-flight requests", for at most 60 s from the first attempt, the transport's
+own 7 s of retries included) or a timeout inside a vision call is retried in place
+(`llamaindex/vision_calls.py`); a plain "insufficient credits" 402 is final. A page
+still unread after that is counted in the coverage, and a standalone image, whose
+only content is that reading, fails with `not_read: 1` (`vision_failed`) on its trace
+and job status. Every vision call carries a sticky-routing prompt-cache key built
+from the organization, the model and the prompt's identity (never the page). A
+zero-data-retention organization keeps the EU-first `provider.order` on its page
+reads, which switches OpenRouter's sticky routing off, so it caches less: the
+owner's decision on 2026-11-03, EU hosting over the cache. An organization without
+ZDR sends no order, and its page reads stay on their cache's shard. A standalone
+image's reading is screened once it exists, like a scan's transcription: `partial`
+when clean, quarantined on a match, and its thumbnail drawn only after that. A file whose
 read failed for a passing reason (`transient`: an interruption, a timeout, a download
 or provider error) is retried by its Hatchet task (`ingest-document`, with backoff);
 a deterministic failure is not retried. Every other failure waits for a person or
@@ -229,10 +242,15 @@ What is measured in production today:
 - A Langfuse trace per file, `ingest-file`: its status, every stage's seconds, its
   pages, drawings read and pages not fully read, with every vision call
   (`ingest-vision`) and the dossier (`document-dossier`) nested under it as
-  generations (`direct_trace.observed_span`). Filter by `file_type`,
-  `organization_id` or `priority` to see where a kind of document spends its time.
-- `[ingest-perf]` log line per file: text, tables, screen, ocr, renders, rasters,
-  vision, summary, embedding, write (A:2931).
+  generations (`direct_trace.observed_span`). A nested generation writes no
+  `langfuse.trace.*` attribute, so it cannot rename its file's trace. Filter by
+  `file_type`, `organization_id` or `priority` to see where a kind of document
+  spends its time.
+- `[ingest-perf]` log line per file at INFO: text, tables, screen, ocr, renders,
+  rasters, vision, summary, dossier, embedding, write. The same seconds and the
+  coverage counts are on the job status's `metadata` (`stage_seconds`, `coverage`,
+  `llamaindex/ingest_measures.py`) and so on `document_ingest_finished` as `*_s`
+  and `pages_not_read` and its siblings.
 - `llm_usage_events` with `activity = ingest` per job: the one queryable cost
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).
 - `document_ingest_finished` in PostHog, one per settled document
