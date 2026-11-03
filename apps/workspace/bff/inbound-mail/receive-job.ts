@@ -30,7 +30,7 @@
  *     write in the project (`project:documents:write`). A directory or write
  *     check WorkOS does not answer is a fault, never a "no".
  *  6. The Namensprüfung on each attachment's name and the base subject.
- *  7. Scan each attachment.
+ *  7. Scan each attachment, at most {@link ATTACHMENT_SCANS_IN_FLIGHT} at once.
  *  8. The Python reader (`/v1/mail/read`): own text, quotes, invitations; the
  *     content check on the own text, after the signature was removed.
  *  9. Redact every other project's address (B8) in the subject, the
@@ -74,6 +74,7 @@ import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
 import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
 import { baseSubject, clampSentAt, matchThread } from '@/lib/mail-thread/mail-threading'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
+import { inPool } from '@/lib/utils/in-pool'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { inboundMailDomain, redactProjectAddresses } from './address'
 import { classifyAutomaticMail } from './automatic-mail'
@@ -124,6 +125,15 @@ import { suggestionSkipReason } from './suggest'
 import { announceHeldMail, classified, inboundMailJobId, queueSenderFiling } from './receive-sender'
 
 export { inboundMailJobId } from './receive-sender'
+
+/**
+ * Attachment scans one mail runs at once. clamd runs `MaxThreads 8` and queues
+ * `MaxConnectionQueueLength 30` (`deploy/compose/clamav/clamd.conf`) for every
+ * `bff-jobs` replica together, each running `BFF_JOBS_CONCURRENCY` jobs. A mail
+ * of 100 attachments scanned all at once overran that queue, and its scans came
+ * back `failed` with no outage at all (S2 of the 2026-11 ship review).
+ */
+export const ATTACHMENT_SCANS_IN_FLIGHT = 4
 
 /**
  * The job's slice (`systemSliceHandler`): one run, done, or given back while a
@@ -248,7 +258,7 @@ async function readAndHold(
   if (mime.kind === 'unreadable') return holdUnreadable(mail, raw, automatic, evidence)
 
   const screening = await mailScreeningFor(mail.organizationId, mail.projectId)
-  const scans = await Promise.all(mime.attachments.map((attachment) => scanForStorage(attachment.content)))
+  const scans = await inPool(mime.attachments, ATTACHMENT_SCANS_IN_FLIGHT, (attachment) => scanForStorage(attachment.content))
   const text = await readHeldText(mail, degraded)
   const read = redactRead(text.read, (text) => redactProjectAddresses(text, domain, token))
   const redact = (text: string) => redactProjectAddresses(text, domain, token)

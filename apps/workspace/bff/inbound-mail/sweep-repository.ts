@@ -279,6 +279,9 @@ export interface FailedScan {
   kind: 'part' | 'raw'
   mailId: string
   organizationId: string
+  projectId: string
+  /** The mail's class: a verified writer's mail gets its sender's filing again once a scan is clean. */
+  senderClass: InboundMailSenderClass | null
   stagingBucket: string
   storageKey: string
 }
@@ -288,6 +291,7 @@ export async function findFailedScans(now: Date, limit: number): Promise<FailedS
   const due = new Date(now.getTime() - RESCAN_AFTER_MS).toISOString()
   return select<FailedScan>(sql`
     (SELECT p.id, 'part' AS kind, p.mail_id AS "mailId", p.organization_id AS "organizationId",
+            m.project_id AS "projectId", m.sender_class AS "senderClass",
             m.staging_bucket AS "stagingBucket", p.storage_key AS "storageKey"
        FROM inbound_mail_parts p
        JOIN inbound_mails m ON m.id = p.mail_id
@@ -297,6 +301,7 @@ export async function findFailedScans(now: Date, limit: number): Promise<FailedS
       LIMIT ${limit})
     UNION ALL
     (SELECT m.id, 'raw' AS kind, m.id AS "mailId", m.organization_id AS "organizationId",
+            m.project_id AS "projectId", m.sender_class AS "senderClass",
             m.staging_bucket AS "stagingBucket", m.raw_storage_key AS "storageKey"
        FROM inbound_mails m
       WHERE m.raw_scan_status = 'failed' AND m.status = 'waiting' AND m.raw_storage_key IS NOT NULL

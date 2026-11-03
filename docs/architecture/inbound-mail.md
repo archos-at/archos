@@ -188,7 +188,10 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    display name that is a member's (`claims_member_name`);
 6. the **Namensprüfung** on each attachment's name and the base subject: a
    match is the part's flag `name_stop`, never a drop;
-7. **scan each attachment**;
+7. **scan each attachment**, at most four at once (`ATTACHMENT_SCANS_IN_FLIGHT`):
+   clamd runs 8 scans and queues 30 for every `bff-jobs` replica together, and
+   a mail of a hundred attachments scanned all at once came back `failed`
+   without any outage;
 8. **the Python reader**, `POST /v1/mail/read` (no model): own text, quoted
    blocks, calendar invitations; then the content check on the own text after
    the signature was removed (`content_findings`). The text is what a reader
@@ -493,7 +496,7 @@ In the order they run:
 | 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`) | 30 days; an outsider's 14 | — (no erasure) |
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
 | 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
-| 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts | 1 h | — |
+| 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
 | 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0196), the mail waiting and within its window, the text part waiting: read again, redacted and checked, `read.json` and the part written in one compare-and-set; a verified writer's mail gets its sender filing queued again by name; a reader still down moves `reader_fault_at` on | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |

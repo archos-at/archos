@@ -24,7 +24,7 @@ import 'server-only'
  * | 3 | `waiting` past its end: parts `expired` (restorable 7 days; an outsider's never), audited; its member told (`inbound_mail.expired`) | 30 days, an outsider's 14 | — |
  * | 4 | five days left: `inbound_mail.expiring`, once per mail | day 25, an outsider's day 9 | — |
  * | 6 | dismissed and expired parts past 7 days, and an outsider's expired parts at once: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days, or the next tick | deferred |
- * | 7 | failed scans: scanned again, hourly, up to 24 times | 1 h | — |
+ * | 7 | failed scans: scanned again, hourly, up to 24 times; a verified writer's mail scanned clean gets its sender's filing again | 1 h | — |
  * | 15 | texts the reader did not answer for (`reader_fault_at`): read again, while the mail waits (`./receive-reread.ts`) | 15 min | — |
  * | 10 | erasures a hold deferred, once it is released | — | the point |
  * | 8 | settled and dropped rows past their keep, with no live document and nothing owed to the trail: deleted | 30 days | skipped |
@@ -63,6 +63,7 @@ import type { InboundMailCapNotice } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
 import { INBOUND_MAIL_ADDRESS_STAGED_BYTES, INBOUND_MAIL_ORGANIZATION_STAGED_BYTES } from './receive'
 import { rereadHeldText } from './receive-reread'
+import { queueSenderFiling } from './receive-sender'
 import { queueReceiveJob } from './repository'
 import { eraseStagedObjects, readStagedObject } from './staging'
 import * as sweeps from './sweep-repository'
@@ -309,15 +310,24 @@ export async function sweepEndedParts(now: Date): Promise<SweepCounts> {
   return result
 }
 
-/** Sweep 7: failed scans of waiting parts and held raw messages, again, hourly, up to 24 times. */
+/**
+ * Sweep 7: failed scans of waiting parts and held raw messages, again, hourly,
+ * up to 24 times. A verified writer's mail had nothing of it filed while a scan
+ * was not clean (the database refuses it, `review-defaults.ts` preselects
+ * nothing): once one is, its sender's filing is queued again, by the job's name
+ * (`queueSenderFiling`), and decides as that member what can go now.
+ */
 export async function sweepFailedScans(now: Date): Promise<SweepCounts> {
-  const result = counts('clean', 'infected', 'failed')
+  const result = counts('clean', 'infected', 'failed', 'senderFilingQueued')
   const rows = await discover('failed scans', () => sweeps.findFailedScans(now, SWEEP_BATCH))
   await eachRow(rows, result, (row) => `the scan of ${row.kind} ${row.id}`, async (row) => {
     const scan = await scanForStorage(await readStagedObject(row.stagingBucket, row.storageKey))
     const recorded = row.kind === 'part' ? await sweeps.recordPartRescan(row.id, scan) : await sweeps.recordRawRescan(row.id, scan)
     if (!recorded) return
     result[scan.status] = (result[scan.status] ?? 0) + 1
+    if (scan.status !== 'clean' || row.senderClass !== 'verified_writer') return
+    await queueSenderFiling({ id: row.mailId, organizationId: row.organizationId, projectId: row.projectId })
+    result.senderFilingQueued += 1
   })
   return result
 }

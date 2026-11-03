@@ -5,7 +5,8 @@
  * to the rows is proven against Postgres (`sweep.integration.spec.ts`); this
  * spec holds what no row shows: sweep 11 runs before the two that wait for the
  * audit trail, sweep 12 before the one that deletes the follows it ends, one
- * failing sweep costs no other its turn, and the caps' thresholds.
+ * failing sweep costs no other its turn, the caps' thresholds, and sweep 7
+ * queueing a verified writer's filing again once a scan turns clean (S2).
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -24,6 +25,8 @@ const repository = vi.hoisted(() => {
     findEndedPartBytes: empty(),
     findMailsToSettle: empty(),
     findFailedScans: empty(),
+    recordPartRescan: vi.fn(async () => true),
+    recordRawRescan: vi.fn(async () => true),
     findUnreadTexts: empty(),
     findReleasedErasures: empty(),
     findKeptMails: empty(),
@@ -45,6 +48,7 @@ vi.mock('./filing-repository', () => ({ projectIsHeld: vi.fn() }))
 vi.mock('./malware-scan', () => ({ scanForStorage: vi.fn() }))
 vi.mock('./repository', () => ({ queueReceiveJob: vi.fn() }))
 vi.mock('./receive-reread', () => ({ rereadHeldText: vi.fn() }))
+vi.mock('./receive-sender', () => ({ queueSenderFiling: vi.fn(async () => undefined) }))
 vi.mock('./staging', () => ({ eraseStagedObjects: vi.fn(), readStagedObject: vi.fn() }))
 vi.mock('./receive', () => ({
   INBOUND_MAIL_ADDRESS_STAGED_BYTES: 1024 * 1024 * 1024,
@@ -57,7 +61,9 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(), SYSTEM_ACTORS: { inboundMail: 'system:inbound_mail' } }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 
-import { capNoticeFor, SWEEP_ORDER, sweepInboundMail } from './sweep'
+import { scanForStorage } from './malware-scan'
+import { queueSenderFiling } from './receive-sender'
+import { capNoticeFor, SWEEP_ORDER, sweepFailedScans, sweepInboundMail } from './sweep'
 
 const GIB = 1024 * 1024 * 1024
 
@@ -111,5 +117,45 @@ describe('the caps (D18)', () => {
 
   it('says nothing of a revoked address: its successor is a new row', () => {
     expect(capNoticeFor(state(GIB, GIB, true))).toBeNull()
+  })
+})
+
+describe('sweep 7 and a verified writer’s mail (S2 of the 2026-11 ship review)', () => {
+  const failed = (senderClass: string | null, kind: 'part' | 'raw' = 'raw') => ({
+    id: kind === 'raw' ? 'm1' : 'p1',
+    kind,
+    mailId: 'm1',
+    organizationId: 'org_1',
+    projectId: 'proj_1',
+    senderClass,
+    stagingBucket: 'b',
+    storageKey: 'k',
+  })
+  const scanned = (status: 'clean' | 'failed' | 'infected') =>
+    vi.mocked(scanForStorage).mockResolvedValue({ status, engine: null, signature: null, scannedAt: new Date() })
+
+  it('queues the sender’s filing again, by name, when a raw message or a part of a verified writer’s mail scans clean', async () => {
+    scanned('clean')
+    repository.findFailedScans.mockResolvedValueOnce([failed('verified_writer'), failed('verified_writer', 'part')] as never)
+
+    const result = await sweepFailedScans(new Date())
+
+    expect(queueSenderFiling).toHaveBeenCalledWith({ id: 'm1', organizationId: 'org_1', projectId: 'proj_1' })
+    expect(result.senderFilingQueued).toBe(2)
+  })
+
+  it('queues nothing for another class, for a scan that failed again, or for a rescan another run recorded', async () => {
+    scanned('clean')
+    repository.findFailedScans.mockResolvedValueOnce([failed('office_member'), failed('external', 'part')] as never)
+    await sweepFailedScans(new Date())
+    scanned('failed')
+    repository.findFailedScans.mockResolvedValueOnce([failed('verified_writer')] as never)
+    await sweepFailedScans(new Date())
+    scanned('clean')
+    repository.recordRawRescan.mockResolvedValueOnce(false)
+    repository.findFailedScans.mockResolvedValueOnce([failed('verified_writer')] as never)
+    await sweepFailedScans(new Date())
+
+    expect(queueSenderFiling).not.toHaveBeenCalled()
   })
 })

@@ -166,7 +166,7 @@ import { readMail, type MailRead } from './read-client'
 import { recordOriginal } from './receive-original'
 import { RECEIVE_FAULT_BUDGET, RECEIVE_FAULT_WAITS_MS } from './receive-faults'
 import { findAddressToken, findThreadCandidates } from './repository'
-import { inboundMailJobId, runInboundMailReceive } from './receive-job'
+import { ATTACHMENT_SCANS_IN_FLIGHT, inboundMailJobId, runInboundMailReceive } from './receive-job'
 
 const ORG = 'org_01RECEIVEJOB'
 const PROJECT = '0e5b4f2e-1d7c-4c3a-9a51-2f0d8c6b7a10'
@@ -387,6 +387,25 @@ describe('the receive job holds a mail for a person', () => {
     await run()
 
     expect(state.parts[1]).toMatchObject({ scanStatus: 'infected', scanSignature: 'Eicar-Test-Signature' })
+  })
+
+  it('scans at most four attachments at once, within clamd’s queue (S2)', async () => {
+    let inFlight = 0
+    let most = 0
+    vi.mocked(scanForMalware).mockImplementation(async () => {
+      most = Math.max(most, ++inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      inFlight -= 1
+      return CLEAN
+    })
+    const files = Array.from({ length: 12 }, (_, index) => attachment(`S-${100 + index}.pdf`, 'application/pdf', pdf(`S-${index}`)))
+    receive(await sign(message(multipart('mixed', [BODY, ...files]))))
+
+    await run()
+
+    expect(state.parts.filter((part) => part.kind === 'attachment')).toHaveLength(12)
+    expect(most).toBe(ATTACHMENT_SCANS_IN_FLIGHT)
+    expect(ATTACHMENT_SCANS_IN_FLIGHT).toBeLessThanOrEqual(4)
   })
 
   it('holds a mail whose DKIM fails like any other: labelled, never refused (NEGATIVE)', async () => {
