@@ -174,7 +174,9 @@ a refused existing one gets them in its next Fassung, whoever writes it.
 (preference, else the office default, else `de`: `newThreadLocaleFor` in
 `lib/mail-thread/thread-locale.ts`, shared with the inbound filing job). An
 archive section is headed `{dd.mm.yyyy HH:MM} · {name} ({from domain}, aus dem
-Outlook-Archiv)`. The body is the text the reader chose (plain > HTML > RTF);
+Outlook-Archiv)`. The body is the text the reader chose (plain > HTML > RTF),
+without what a reader cannot see: hidden HTML, tracking pixels, zero-width
+characters and bidi controls ([`inbound-mail.md`](inbound-mail.md#reading-and-holding-the-receive-job), step 8);
 quotes are not split off, so a section keeps the history its mail quoted.
 Everything a stranger wrote is escaped by the renderer (`render.spec.ts`;
 `archive.spec.ts` keeps the forged-heading, Python-terminator and
