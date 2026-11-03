@@ -5,6 +5,10 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 import { OPENROUTER_KEY_ENV, OPENROUTER_SECRET_KEY } from "./model-keys";
+import { LEGACY_PROJECT } from "../names";
+
+/** A stack config key under the project these specs run as. */
+const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
 
 /**
  * One OpenRouter key per workload. On 2026-11-02 (and 10-12, 10-19) a bulk
@@ -19,7 +23,7 @@ pulumi.runtime.setMocks(
     newResource: (args: pulumi.runtime.MockResourceArgs) => ({ id: `${args.name}-id`, state: args.inputs }),
     call: () => ({}),
   },
-  "grid-oib",
+  LEGACY_PROJECT,
   "test",
   false,
 );
@@ -35,20 +39,20 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 }
 
 const OWN_KEYS = {
-  "grid-oib:openrouterChatKey": "or-chat", // pragma: allowlist secret
-  "grid-oib:openrouterResearchKey": "or-research", // pragma: allowlist secret
-  "grid-oib:openrouterIngestKey": "or-ingest", // pragma: allowlist secret
+  [key("openrouterChatKey")]: "or-chat", // pragma: allowlist secret
+  [key("openrouterResearchKey")]: "or-research", // pragma: allowlist secret
+  [key("openrouterIngestKey")]: "or-ingest", // pragma: allowlist secret
 };
 
 async function load(config: Record<string, string>) {
-  pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:observabilityEnabled": "false", ...config });
+  pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key("observabilityEnabled")]: "false", ...config });
   const { loadConfig } = await import("../config");
   const app = await import("./config");
   const { bffJobsEnv } = await import("./bff-jobs-env");
   const cfg = loadConfig();
   const wiring = {
     cfg,
-    namespace: "grid",
+    namespace: "app",
     provider: new k8s.Provider("test-keys", { kubeconfig: "apiVersion: v1" }),
     redisUrl: pulumi.output("redis://dragonfly:6379"),
     seaweedInternalEndpoint: pulumi.output("http://seaweedfs:8333"),
@@ -112,7 +116,7 @@ describe("one OpenRouter key per workload", () => {
   });
 
   it("falls back to openrouterApiKey for every workload the stack has not given its own key", async () => {
-    const { stringData } = await load({ "grid-oib:openrouterIngestKey": "or-ingest" }); // pragma: allowlist secret
+    const { stringData } = await load({ [key("openrouterIngestKey")]: "or-ingest" }); // pragma: allowlist secret
     expect(stringData[OPENROUTER_SECRET_KEY.chat]).toBe("or");
     expect(stringData[OPENROUTER_SECRET_KEY.research]).toBe("or");
     expect(stringData[OPENROUTER_SECRET_KEY.ingest]).toBe("or-ingest");
