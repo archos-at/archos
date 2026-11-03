@@ -31,17 +31,22 @@ import { findAddressToken } from './repository'
 import { queueSenderFiling } from './receive-sender'
 import { mailScreeningFor } from './screening'
 import { putStagedObject, stagedObjectUrlForBackend } from './staging'
-import { postponeReread, recordReread, type UnreadText } from './sweep-repository'
+import { recordReread, type UnreadText } from './sweep-repository'
 
 /** What one re-read came to. */
 export type RereadOutcome = 'read' | 'later' | 'gone'
 
-/** Read one mail's text again (see the module header). Throws for the sweep to count a fault of the store or the database. */
-export async function rereadHeldText(mail: UnreadText, now: Date): Promise<RereadOutcome> {
+/**
+ * Read one mail's text again (see the module header), leased by the sweep
+ * first (`leaseReread`), within `timeoutMs`. A reader that does not answer
+ * leaves the lease as the time it was last tried. Throws for the sweep to
+ * count a fault of the store or the database.
+ */
+export async function rereadHeldText(mail: UnreadText, timeoutMs: number): Promise<RereadOutcome> {
   const domain = inboundMailDomain()
   if (!domain) throw new Error('INBOUND_MAIL_DOMAIN is not set: a held mail cannot be read')
-  const read = await readAgain(mail)
-  if (!read) return (await postponeReread(mail, now)) ? 'later' : 'gone'
+  const read = await readAgain(mail, timeoutMs)
+  if (!read) return 'later'
 
   const token = await findAddressToken(mail.addressId)
   const redacted = redactRead(read, (text) => redactProjectAddresses(text, domain, token))
@@ -63,9 +68,9 @@ export async function rereadHeldText(mail: UnreadText, now: Date): Promise<Rerea
 }
 
 /** The reader's answer, a refusal read as unreadable (permanent), or null when it did not answer again. */
-async function readAgain(mail: UnreadText): Promise<MailRead | null> {
+async function readAgain(mail: UnreadText, timeoutMs: number): Promise<MailRead | null> {
   try {
-    return await readMail(await stagedObjectUrlForBackend(mail.stagingBucket, mail.rawStorageKey))
+    return await readMail(await stagedObjectUrlForBackend(mail.stagingBucket, mail.rawStorageKey), timeoutMs)
   } catch (error) {
     if (error instanceof MailReadRefusedError) return unreadableRead('failed')
     console.warn(`[inbound-mail] the reader did not answer for mail ${mail.id} again; its text waits unread`)

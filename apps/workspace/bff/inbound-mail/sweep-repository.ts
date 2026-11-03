@@ -430,14 +430,22 @@ class TextNoLongerWaiting extends Error {}
 const faultSeen = (mail: UnreadText) =>
   sql`date_trunc('milliseconds', ${inboundMails.readerFaultAt}) = ${mail.readerFaultAt.toISOString()}::timestamptz`
 
-/** The reader did not answer again: tried again after `REREAD_AFTER_MS`. */
-export async function postponeReread(mail: UnreadText, now: Date): Promise<boolean> {
+/**
+ * Lease one text for a re-read before it is read: `reader_fault_at` moves to
+ * `leasedAt`, compare-and-set on the fault the find saw. A sweep running
+ * beside this one (the scheduler aborts its call at 120 s, the handler runs
+ * on) found the same row and loses the set, so no two runs read one text
+ * (R3 of the second 2026-11 ship review). A read that fails leaves the lease
+ * as the time it was last tried: read again after `REREAD_AFTER_MS`. The
+ * leased text, or null when another run or a person came first.
+ */
+export async function leaseReread(mail: UnreadText, leasedAt: Date): Promise<UnreadText | null> {
   const rows = await getDb()
     .update(inboundMails)
-    .set({ readerFaultAt: now, updatedAt: now })
+    .set({ readerFaultAt: leasedAt, updatedAt: leasedAt })
     .where(and(eq(inboundMails.id, mail.id), eq(inboundMails.status, 'waiting'), faultSeen(mail)))
     .returning({ id: inboundMails.id })
-  return rows.length === 1
+  return rows.length === 1 ? { ...mail, readerFaultAt: leasedAt } : null
 }
 
 // ---------------------------------------------------------------------------

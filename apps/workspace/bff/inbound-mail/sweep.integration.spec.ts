@@ -674,6 +674,21 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       vi.unstubAllEnvs()
     })
 
+    it('leases a text before it reads it: two runs side by side read it once (R3)', async () => {
+      vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
+      const { readMail } = await import('@/lib/inbound-mail/read-client')
+      const text = await unreadText({ faultAgo: '1 hour' })
+      vi.mocked(readMail).mockClear()
+
+      const [first, second] = await Promise.all([sweep.sweepUnreadTexts(now()), sweep.sweepUnreadTexts(now())])
+
+      const readsOf = vi.mocked(readMail).mock.calls.filter(([ref]) => ref.includes(text.mail))
+      expect(readsOf).toHaveLength(1)
+      expect(first.read + second.read).toBe(1)
+      expect(await faultOf(text.mail)).toBeNull()
+      vi.unstubAllEnvs()
+    })
+
     it('moves a text on while the reader is still down, its text still unreadable', async () => {
       vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
       reader.down = true

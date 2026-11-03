@@ -737,7 +737,8 @@ Record of runs: none yet.
   the budget the mail is held anyway: a sender WorkOS could not place is
   flagged `sender_unchecked` (30 days, for the writers, never filed directly),
   a text the reader did not answer for keeps `reader_fault_at` and sweep 15
-  reads it again every 15 minutes while the mail waits. Alert on the warning
+  reads it again every 15 minutes while the mail waits, five a tick within 45 s
+  (`rereads: … deferred <n>` in its log line counts those left for the next). Alert on the warning
   rate, and on any `sender_unchecked` or `reader_fault_at` row
   (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
 - **Retention sweeps** run in the scheduler's background-work call, one log

@@ -127,14 +127,14 @@ export class MailReadRefusedError extends Error {
  * (permanent). Anything else (502 from the store, 503 while the API restarts, a
  * timeout, no service token to send) throws for the job's queue to retry.
  */
-export async function readMail(fileRef: string): Promise<MailRead> {
+export async function readMail(fileRef: string, timeoutMs: number = MAIL_READ_TIMEOUT_MS): Promise<MailRead> {
   const baseUrl = getBackendUrl()
   const response = await fetch(`${baseUrl}/v1/mail/read`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(baseUrl) },
     body: JSON.stringify({ file_ref: fileRef }),
     redirect: 'manual',
-    signal: AbortSignal.timeout(MAIL_READ_TIMEOUT_MS),
+    signal: AbortSignal.timeout(Math.min(timeoutMs, MAIL_READ_TIMEOUT_MS)),
   })
   if (response.status === 422) throw new MailReadRefusedError(422)
   if (!response.ok) throw new Error(`the mail reader answered ${response.status}`)

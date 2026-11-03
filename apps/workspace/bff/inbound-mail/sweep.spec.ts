@@ -28,6 +28,7 @@ const repository = vi.hoisted(() => {
     recordPartRescan: vi.fn(async () => true),
     recordRawRescan: vi.fn(async () => true),
     findUnreadTexts: empty(),
+    leaseReread: vi.fn(async (mail: { readerFaultAt: Date }, leasedAt: Date) => ({ ...mail, readerFaultAt: leasedAt })),
     findReleasedErasures: empty(),
     findKeptMails: empty(),
     deleteKeptMails: empty(),
@@ -62,8 +63,9 @@ vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: vi.fn(), SYSTEM_ACTORS
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 
 import { scanForStorage } from './malware-scan'
+import { rereadHeldText } from './receive-reread'
 import { queueSenderFiling } from './receive-sender'
-import { capNoticeFor, SWEEP_ORDER, sweepFailedScans, sweepInboundMail } from './sweep'
+import { capNoticeFor, REREAD_BATCH, REREAD_BUDGET_MS, SWEEP_ORDER, sweepFailedScans, sweepInboundMail, sweepUnreadTexts } from './sweep'
 
 const GIB = 1024 * 1024 * 1024
 
@@ -157,5 +159,54 @@ describe('sweep 7 and a verified writer’s mail (S2 of the 2026-11 ship review)
     await sweepFailedScans(new Date())
 
     expect(queueSenderFiling).not.toHaveBeenCalled()
+  })
+})
+
+describe('sweep 15: a lease, a small batch and a time budget (R3 of the second 2026-11 ship review)', () => {
+  const unread = (id: string) => ({
+    id,
+    organizationId: 'org_1',
+    projectId: 'proj_1',
+    addressId: 'a1',
+    stagingBucket: 'b',
+    rawStorageKey: 'k',
+    readerFaultAt: new Date('2026-11-03T06:00:00Z'),
+    senderClass: null,
+  })
+
+  it('asks for five texts at most, leases each before it reads it, and gives each read only what is left', async () => {
+    let clock = 0
+    repository.findUnreadTexts.mockResolvedValueOnce(['m1', 'm2', 'm3', 'm4', 'm5'].map(unread) as never)
+    // A slow reader: each read takes 15 s of the budget.
+    vi.mocked(rereadHeldText).mockImplementation(async () => {
+      clock += 15_000
+      return 'later'
+    })
+
+    const result = await sweepUnreadTexts(new Date(), () => clock)
+
+    expect(repository.findUnreadTexts).toHaveBeenCalledWith(expect.any(Date), REREAD_BATCH)
+    expect(REREAD_BATCH).toBeLessThanOrEqual(5)
+    expect(REREAD_BUDGET_MS).toBeLessThanOrEqual(60_000)
+    // 45 s: reads at 0, 15 s; at 30 s only 15 s are left, under the 20 s a read may take.
+    expect(vi.mocked(rereadHeldText).mock.calls.map(([mail, left]) => [mail.id, left])).toEqual([
+      ['m1', REREAD_BUDGET_MS],
+      ['m2', REREAD_BUDGET_MS - 15_000],
+    ])
+    expect(repository.leaseReread).toHaveBeenCalledTimes(2)
+    expect(result).toMatchObject({ checked: 5, later: 2, deferred: 3 })
+  })
+
+  it('reads nothing another run leased first', async () => {
+    repository.findUnreadTexts.mockResolvedValueOnce([unread('m1'), unread('m2')] as never)
+    repository.leaseReread.mockResolvedValueOnce(null as never)
+    vi.mocked(rereadHeldText).mockResolvedValue('read')
+
+    const result = await sweepUnreadTexts(new Date())
+
+    expect(vi.mocked(rereadHeldText).mock.calls.map(([mail]) => mail.id)).toEqual(['m2'])
+    // The read compares against the lease it took, not the fault the find saw.
+    expect(vi.mocked(rereadHeldText).mock.calls[0][0].readerFaultAt.getTime()).toBeGreaterThan(unread('m2').readerFaultAt.getTime())
+    expect(result).toMatchObject({ read: 1, gone: 1 })
   })
 })
