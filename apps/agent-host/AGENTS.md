@@ -28,7 +28,8 @@ validates the JWT and reads the context headers; it does not look up who you
 are. The BFF decided that (ADR-0003, ADR-0007). Anything that needs to *decide*
 access belongs in the BFF, not here.
 
-**Background work runs on Hatchet, not on our own claim queues (ADR-0150).**
+**Background work runs on Hatchet, not on our own claim queues** (ADR-0150, runbook
+[`docs/deployment/hatchet.md`](../../docs/deployment/hatchet.md)).
 A research job is a `research-run` task: concurrency `GROUP_ROUND_ROBIN` on
 `input.organization_id` capped at `MAX_ACTIVE_JOBS_PER_ORG`, `interactive` at
 `Priority.HIGH` before `bulk` at `Priority.LOW`, retries only after a lost worker

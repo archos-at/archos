@@ -8,6 +8,8 @@ import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from
 import { logicalName, objectName } from "../names";
 import { API_TIER, CHAT_TIER } from "./tier-names";
 import { hatchetEnv } from "./hatchet-env";
+import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
+import type { ModelWorkload } from "../config/app-services";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -102,7 +104,7 @@ export interface AppSecrets {
 export function buildSecrets(w: AppWiring): AppSecrets {
   const { cfg } = w;
   const values: Record<string, pulumi.Input<string>> = {
-    OPENROUTER_API_KEY: cfg.llm.openrouterApiKey,
+    ...openrouterSecretValues(cfg),
     TAVILY_API_KEY: cfg.llm.tavilyApiKey,
     INTERNAL_API_TOKEN: cfg.internal.apiToken,
     ADMIN_TOKEN: cfg.internal.adminToken,
@@ -243,7 +245,7 @@ export function webPosthogEnv(cfg: DeployConfig): EnvVar[] {
  * §4, §6). `chatEnv`, `apiEnv` and the worker envs add `PROCESS_ROLE`.
  */
 
-export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvVar[] {
+export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workload: ModelWorkload = "chat"): EnvVar[] {
   const { cfg } = w;
   const env: EnvVar[] = [
     { name: "APP_ENV", value: "production" },
@@ -335,16 +337,15 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvV
     // No env for the base corpus: it lives in SeaweedFS and the knowledge
     // database (ADR-0082 step A2), and the per-replica cache defaults to
     // /tmp/base-corpus (BASE_CORPUS_CACHE_DIR), a place the pod may lose.
-    // LLM / embeddings / VLM (all via OpenRouter).
-    sref("OPENROUTER_API_KEY"),
+    // LLM / embeddings / VLM (all via OpenRouter), on this workload's own key
+    // (`model-keys.ts`) as OPENROUTER_API_KEY, EMBED_API_KEY and VLM_API_KEY.
+    ...openrouterKeyEnv(workload, SECRET_NAME),
     sref("TAVILY_API_KEY"),
     { name: "EMBED_MODEL", value: cfg.llm.embedModel },
     { name: "EMBED_BASE_URL", value: cfg.llm.embedBaseUrl },
-    srefAs("EMBED_API_KEY", "OPENROUTER_API_KEY"),
     { name: "VLM_MODEL", value: cfg.llm.vlmModel },
     { name: "VLM_BASE_URL", value: cfg.llm.vlmBaseUrl },
-    srefAs("VLM_API_KEY", "OPENROUTER_API_KEY"),
-    // What the one OpenRouter key is asked to carry (ADR-0076, ADR-0081). Set
+    // What the OpenRouter keys are asked to carry (ADR-0076, ADR-0081). Set
     // from the stack so the budget is read where `ingestWorkerMaxReplicas` is:
     // `assertVlmPeakFitsCeiling` holds the two together.
     { name: "VLM_FLEET_CONCURRENCY", value: String(cfg.providerLimits.vlmFleetConcurrency) },
@@ -424,12 +425,11 @@ export function apiEnv(w: AppWiring): EnvVar[] {
  */
 export function workerEnv(w: AppWiring): EnvVar[] {
   return [
-    ...backendEnv(w, "grid-agent-worker"),
+    ...backendEnv(w, "grid-agent-worker", "research"),
     { name: "PROCESS_ROLE", value: "worker" },
     { name: "RESEARCH_WORKERS", value: String(w.cfg.agentWorker.concurrency) },
-    // The drain budget the pod's grace period is derived from (`agent-worker.ts`):
-    // a job still running when it ends is given back to the queue, not killed.
-    { name: "RESEARCH_WORKER_DRAIN_SECONDS", value: String(w.cfg.agentWorker.drainSeconds) },
+    // No drain variable: on SIGTERM the Hatchet SDK waits for the runs it holds
+    // for as long as the pod's grace period (`agentWorkerDrainSeconds` + 30 s).
   ];
 }
 
@@ -449,7 +449,7 @@ const INGEST_WITHHELD_ENV = new Set(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LA
 export function ingestWorkerEnv(w: AppWiring, livenessFile: string): EnvVar[] {
   const overridden = new Set(["INGEST_MAX_WORKERS"]);
   return [
-    ...backendEnv(w, "grid-ingest-worker").filter(
+    ...backendEnv(w, "grid-ingest-worker", "ingest").filter(
       (e) => !(typeof e.name === "string" && (overridden.has(e.name) || INGEST_WITHHELD_ENV.has(e.name))),
     ),
     { name: "PROCESS_ROLE", value: "ingest-worker" },
@@ -554,8 +554,8 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     { name: "SEAWEED_PRESIGNED_URL_TTL_SECONDS", value: String(APP_DEFAULTS.presignedUrlTtlSeconds) },
     { name: "PROJECT_PURGE_GRACE_DAYS", value: String(APP_DEFAULTS.projectPurgeGraceDays) },
     { name: "FOLDER_PURGE_GRACE_DAYS", value: String(APP_DEFAULTS.folderPurgeGraceDays) },
-    // Model catalog. Pricing (margin, credit price) is a platform setting in
-    // the database (ADR-0053), not an environment variable.
+    // Model catalog reads (no completions, so no credit spent): the chat key,
+    // which the Secret holds under this name. Pricing is a platform setting.
     sref("OPENROUTER_API_KEY"),
     // Platform tier.
     { name: "PLATFORM_OWNER_EMAILS", value: cfg.auth.platformOwnerEmails },

@@ -54,6 +54,55 @@ export function isInClusterSeaweed(endpoint: string): boolean {
   return endpoint.includes("//seaweedfs") || endpoint.includes("seaweedfs:8333");
 }
 
+function hostOf(endpoint: string): string {
+  try {
+    return new URL(endpoint).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** The stack whose app archive may not stay on the in-cluster SeaweedFS once it has a destination outside. */
+export const PRODUCTION_STACK = "prod";
+
+/**
+ * Refuse a production plan that keeps the app cluster's archive on the
+ * in-cluster SeaweedFS while the stack already has a backup destination
+ * outside the cluster (the background-work cluster's, or any other prefix in
+ * `externalPrefixes`).
+ *
+ * The in-cluster SeaweedFS is one pod on the same Delete-reclaim storage as the
+ * database it would restore; it restarted five times on 2026-11-02. An archive
+ * there survives a lost Postgres volume, not a lost cluster or a lost object
+ * store. Once the operator has an off-cluster bucket, the app's archive (all
+ * three databases) belongs in it, so leaving it behind, or moving it back by
+ * dropping `pgBackupEndpoint`, fails the plan instead of passing silently.
+ * Until such a bucket exists the stack plans as before.
+ *
+ * The SeaweedFS's own public route (`s3Domain`) counts as in-cluster: it is the
+ * same pod behind the ingress, however external the URL looks.
+ */
+export function refuseInClusterAppArchive(
+  cfg: pulumi.Config,
+  app: BarmanBackups,
+  where: { stack: string; seaweedPublicHost: string },
+  externalPrefixes: string[] = ["backgroundWorkPg"],
+): void {
+  const onSeaweed = (endpoint: string) =>
+    isInClusterSeaweed(endpoint) || hostOf(endpoint) === where.seaweedPublicHost.toLowerCase();
+  if (where.stack !== PRODUCTION_STACK || !app.enabled || !onSeaweed(app.endpoint)) return;
+  const external = externalPrefixes
+    .map((prefix) => ({ prefix, endpoint: (cfg.get(`${prefix}BackupEndpoint`) ?? "").trim() }))
+    .find(({ endpoint }) => endpoint !== "" && !onSeaweed(endpoint));
+  if (!external) return;
+  throw new Error(
+    `The production app database archive (pgBackupEndpoint) points at the in-cluster SeaweedFS (${app.endpoint}), ` +
+      `but this stack already archives off-cluster (${external.prefix}BackupEndpoint=${external.endpoint}). ` +
+      "Set pgBackupEndpoint, pgBackupBucket, pgBackupAccessKey and pgBackupSecretKey to the external bucket " +
+      "(docs/deployment/kubernetes.md, \"Moving the app archive off-cluster\").",
+  );
+}
+
 function readEncryption(cfg: pulumi.Config, key: string): BarmanEncryption | undefined {
   const raw = (cfg.get(key) ?? "").trim();
   if (raw === "") return undefined;
@@ -104,11 +153,22 @@ export function loadBarmanBackups(cfg: pulumi.Config, d: BarmanDefaults): Barman
         "See docs/deployment/kubernetes.md § Encryption posture.",
     );
   }
+  const accessKey = cfg.get(key("BackupAccessKey"));
+  const secretKey = cfg.getSecret(key("BackupSecretKey"));
+  if (enabled && endpoint !== undefined && !isInClusterSeaweed(endpoint) && (!accessKey || !secretKey)) {
+    // Without its own pair the archive would sign for an external bucket with
+    // the in-cluster SeaweedFS identity, which that bucket does not know: WAL
+    // archiving then fails at the first segment, long after the plan passed.
+    throw new Error(
+      `${key("BackupEndpoint")} points outside the cluster (${endpoint}) but ${key("BackupAccessKey")} / ` +
+        `${key("BackupSecretKey")} are not both set. Set the bucket's own credentials (the secret one with --secret).`,
+    );
+  }
   return {
     enabled,
     endpoint: endpoint ?? "",
-    accessKey: cfg.get(key("BackupAccessKey")),
-    secretKey: cfg.getSecret(key("BackupSecretKey")),
+    accessKey,
+    secretKey,
     bucket: cfg.get(key("BackupBucket")) ?? d.bucket,
     retention: cfg.get(key("BackupRetention")) ?? d.retention,
     schedule: cfg.get(key("BackupSchedule")) ?? d.schedule,

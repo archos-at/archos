@@ -225,8 +225,8 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
-    # The drain budget (RESEARCH_WORKER_DRAIN_SECONDS, 600 s) and the time
-    # to give back what is still running; docker's default 10 s would kill it first.
+    # The drain budget (600 s: the Hatchet SDK waits for held runs on SIGTERM)
+    # and slack; docker's default 10 s would kill it first.
     stop_grace_period: 660s
     depends_on:
       seaweedfs:

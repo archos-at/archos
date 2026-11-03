@@ -15,8 +15,9 @@ the cadences Kubernetes runs as CronJobs. One of them is the base-corpus sync
 (`base-corpus`, every ten minutes), which queues an ingest job for each uploaded OIB PDF that is
 not indexed yet (the `ingest-worker` service claims and runs it); the backend does no sync at boot. `bff-jobs` (ADR-0079) is the frontend image
 running `workers/jobs/index.js`: the BFF (or, with `BFF_JOBS_MODE=inprocess`,
-the services bundled into `dist-jobs/slice.mjs` and no server) plus the claim loop that runs the jobs
-in `bff_job_queue` (project reindex, failed-ingestion rescan, IFC extraction,
+the services bundled into `dist-jobs/slice.mjs` and no server) plus the worker that runs the BFF's
+jobs as `bff-job` runs on Hatchet (ADR-0150; the Compose `hatchet` profile, [`hatchet.md`](hatchet.md), and `bff_job_queue` kept
+until the cutover drains it) (project reindex, failed-ingestion rescan, IFC extraction,
 Office rendition through `gotenberg`, research-report filing), with no
 published port. Without it none of them runs. It shares the frontend's environment by YAML alias, so a
 variable added to `frontend` reaches it.
