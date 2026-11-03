@@ -1146,7 +1146,7 @@ run tries again (the daily ones also retry a few times with backoff).
 | Task | Cron (UTC) | What it calls |
 |---|---|---|
 | `runs-reconcile` | every minute | `reconcileStaleRuns` (`lib/runs/reconcile.ts`): closes the runs whose ending never reached the BFF, and settles the block of a closed run that still reads „läuft" |
-| `reconcile-background-work` | every minute | `recoverStuckProcessing`, `recoverStuckFilings`, `sweepStaleMailImports`, `retryTransientFailures` (ADR-0079) |
+| `reconcile-background-work` | every minute | `recoverStuckProcessing`, `recoverStuckFilings`, `sweepStaleMailImports`, `reconcileStalePending` (ADR-0079) |
 | `upload-sweep` | every minute | `sweepUploadBatches` (ADR-0086). The route `/api/internal/upload-batches/sweep` stays for the operator's `?windowDays=` catch-up |
 | `folder-placement-sweep` | every minute | `sweepCollectionPlacement` (ADR-0087) |
 | `conversation-trace-erasure` | every minute | deletes the Langfuse traces of chats the BFF erased in the delete request |

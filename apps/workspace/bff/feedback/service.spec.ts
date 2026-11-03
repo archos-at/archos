@@ -189,6 +189,7 @@ describe('submitAnswerFeedback', () => {
       reason: null,
       comment: null,
       expectedAnswer: null,
+      traceId: null,
     })
     expect(mockRequireProjectAccess).not.toHaveBeenCalled()
   })
@@ -211,6 +212,7 @@ describe('submitAnswerFeedback', () => {
       reason: 'inaccurate',
       comment: null,
       expectedAnswer: null,
+      traceId: null,
     })
   })
 
@@ -456,11 +458,12 @@ describe('submitAnswerFeedback -> Langfuse score', () => {
     expect(upsertFeedbackScore).not.toHaveBeenCalled()
   })
 
-  it('does not even look the trace up when Langfuse is not configured', async () => {
+  it('scores nothing when Langfuse is not configured, though the write still returns the trace id', async () => {
     vi.mocked(feedbackScoringEnabled).mockReturnValueOnce(false)
-    await submitAnswerFeedback(session, { messageId: 'msg_1', verdict: 'up' })
+    vi.mocked(getAnswerTraceId).mockResolvedValueOnce('6135ac80f26d5f7dab0f1633fe313293')
+    const view = await submitAnswerFeedback(session, { messageId: 'msg_1', verdict: 'up' })
     await flush()
-    expect(getAnswerTraceId).not.toHaveBeenCalled()
+    expect(view.traceId).toBe('6135ac80f26d5f7dab0f1633fe313293')
     expect(upsertFeedbackScore).not.toHaveBeenCalled()
   })
 

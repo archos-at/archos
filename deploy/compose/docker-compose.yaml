@@ -225,8 +225,8 @@ services:
       - ../../configs:/app/configs:ro
     networks:
       - app
-    # The drain budget (RESEARCH_WORKER_DRAIN_SECONDS, 600 s) and the time
-    # to give back what is still running; docker's default 10 s would kill it first.
+    # The drain budget (600 s: the Hatchet SDK waits for held runs on SIGTERM)
+    # and slack; docker's default 10 s would kill it first.
     stop_grace_period: 660s
     depends_on:
       seaweedfs:
@@ -274,7 +274,6 @@ services:
       PROCESS_ROLE: ingest-worker
       # Ingestion jobs this process runs at once (K8s: ingestWorker.concurrency).
       INGEST_MAX_WORKERS: ${INGEST_MAX_WORKERS:-${GRID_INGEST_MAX_WORKERS:-${AIQ_INGEST_MAX_WORKERS:-2}}}
-      INGEST_WORKER_DRAIN_SECONDS: ${INGEST_WORKER_DRAIN_SECONDS:-${GRID_INGEST_WORKER_DRAIN_SECONDS:-600}}
       WORKER_LIVENESS_FILE: /tmp/ingest-worker.alive
     volumes:
       - ../../configs:/app/configs:ro
@@ -922,63 +921,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  skill-scheduler:
-    # Agent Skills cron scheduler (ADR-0046). Dedicated worker off the frontend
-    # image (like the purger): DB-claimed ticks advance each due schedule's
-    # next_run_at (FOR UPDATE SKIP LOCKED — replica- and crash-safe), then POST
-    # the BFF internal fire endpoint, which skips a schedule whose organization
-    # lacks the `skills` WorkOS flag. Every tick it also POSTs the BFF's run
-    # reconciler, which closes runs whose ending never reached the BFF
-    # (lib/runs/reconcile.ts).
-    image: ${FRONTEND_IMAGE:-frontend:local}
-    build:
-      context: ../../apps/workspace
-      dockerfile: apps/agent-host/Dockerfile
-    command: ["node", "scheduler/index.js"]
-    environment:
-      # Least-privilege runtime role (ADR-0041). This worker sweeps every
-      # organization, so it steps up to app_platform per transaction
-      # — see apps/workspace/workers/platform-scope.js.
-      - APP_DATABASE_URL=${APP_DATABASE_URL:-${GRID_APP_DATABASE_URL:-postgresql://app_rw:${APP_RUNTIME_PASSWORD:-grid_app_rw_dev}@pgbouncer:5432/app}}
-      - FRONTEND_INTERNAL_URL=${FRONTEND_INTERNAL_URL:-http://frontend:3000}
-      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-${GRID_INTERNAL_API_TOKEN:-grid-internal-dev-token}}
-      # Object storage, for `look` (ADR-0039): the tool asks the
-      # BFF where a document is and then reads the bytes from SeaweedFS itself.
-      # These were only ever wired in the Kubernetes deployment, so in compose
-      # the tool failed its credential guard and silently degraded every
-      # project/Archiv image to a text-only block — no error, no log line
-      # anyone would look at. The Kubernetes tier holds a dedicated read-only
-      # identity here; compose has one identity, so it uses that.
-      - SEAWEED_ENDPOINT=${SEAWEED_ENDPOINT:-http://seaweedfs:8333}
-      - SEAWEED_ACCESS_KEY=${SEAWEED_ACCESS_KEY:-seaweedadmin}
-      - SEAWEED_SECRET_KEY=${SEAWEED_SECRET_KEY:?set it in deploy/.env — see the SeaweedFS section of deploy/.env.example}
-      - SEAWEED_BUCKET=${SEAWEED_BUCKET:-grid-documents}
-      - SKILL_SCHEDULER_POLL_MS=${SKILL_SCHEDULER_POLL_MS:-${GRID_SKILL_SCHEDULER_POLL_MS:-30000}}
-      - SKILL_SCHEDULER_BATCH=${SKILL_SCHEDULER_BATCH:-${GRID_SKILL_SCHEDULER_BATCH:-20}}
-      - SKILL_RUNS_RETENTION_DAYS=${SKILL_RUNS_RETENTION_DAYS:-${GRID_SKILL_RUNS_RETENTION_DAYS:-90}}
-    networks:
-      - app
-    depends_on:
-      postgres-rename-roles:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      postgres-rename:
-        condition: service_completed_successfully
-      pgbouncer:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 256M
-        reservations:
-          cpus: '0.05'
-          memory: 128M
-    restart: unless-stopped
-
   housekeeping:
     # The backend's housekeeping clock (ADR-0082 step A1). The backend runs no
     # loop of its own; this calls its housekeeping routes (ghost-job reaper,
@@ -1402,6 +1344,74 @@ services:
       - app
     restart: unless-stopped
 
+  # ===========================================================================
+  # Hatchet (ADR-0150), the orchestrator every background job runs on
+  # ===========================================================================
+  #
+  # OPT-IN, like Langfuse: both services carry `profiles: [hatchet]`, so a plain
+  # `docker compose up` starts exactly what it started before. Kubernetes runs
+  # the `hatchet-ha` chart on its own CloudNativePG cluster and a three-node
+  # RabbitMQ (deploy/pulumi/src/platform/hatchet.ts); here it is `hatchet-lite`,
+  # the engine, API and dashboard in one container, queueing in its Postgres.
+  #
+  #   docker compose --env-file ../.env -f docker-compose.yaml --profile hatchet up -d
+  #
+  # Dashboard: http://localhost:8888 (admin@example.com / Admin123!!, the
+  # image's seed; local only). Create an API token under Settings -> API Tokens
+  # and put it in deploy/.env as HATCHET_CLIENT_TOKEN, with the other three
+  # HATCHET_CLIENT_* lines from deploy/.env.example: every app service reads
+  # deploy/.env through `env_file`. docs/deployment/hatchet.md has the rest.
+  hatchet-postgres:
+    image: postgres:16-alpine
+    profiles: [hatchet]
+    command: postgres -c max_connections=200
+    environment:
+      POSTGRES_USER: hatchet
+      POSTGRES_PASSWORD: hatchet
+      POSTGRES_DB: hatchet
+    volumes:
+      - hatchet-postgres-data:/var/lib/postgresql/data
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d hatchet -U hatchet"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  hatchet-lite:
+    # Pinned to the tag Kubernetes runs (`hatchetImageTag`, deploy/pulumi/src/config/background-work.ts).
+    image: ghcr.io/hatchet-dev/hatchet/hatchet-lite:v0.114.2
+    profiles: [hatchet]
+    depends_on:
+      hatchet-postgres:
+        condition: service_healthy
+    ports:
+      - "8888:8888"
+      - "7077:7077"
+    environment:
+      # https://docs.hatchet.run/self-hosting/hatchet-lite, with the address
+      # the app containers dial on the compose network.
+      DATABASE_URL: "postgresql://hatchet:hatchet@hatchet-postgres:5432/hatchet?sslmode=disable"
+      SERVER_AUTH_COOKIE_DOMAIN: localhost
+      SERVER_AUTH_COOKIE_INSECURE: "t"
+      SERVER_GRPC_BIND_ADDRESS: "0.0.0.0"
+      SERVER_GRPC_INSECURE: "t"
+      SERVER_GRPC_BROADCAST_ADDRESS: hatchet-lite:7077
+      SERVER_GRPC_PORT: "7077"
+      SERVER_URL: http://localhost:8888
+      SERVER_AUTH_SET_EMAIL_VERIFIED: "t"
+      SERVER_INTERNAL_CLIENT_INTERNAL_GRPC_BROADCAST_ADDRESS: localhost:7077
+      # Kubernetes keeps runs 14 days; the same here.
+      SERVER_LIMITS_DEFAULT_TENANT_RETENTION_PERIOD: 336h
+    volumes:
+      - hatchet-lite-config:/config
+    networks:
+      - app
+    restart: unless-stopped
+
 volumes:
   # No `chroma_data` any more (ADR-0115). An installation that ran Chroma still
   # has the volume (`compose_chroma_data` with the default project name):
@@ -1417,6 +1427,10 @@ volumes:
   postgres-data:
     driver: local
   clickhouse-data:
+    driver: local
+  hatchet-postgres-data:
+    driver: local
+  hatchet-lite-config:
     driver: local
 
 networks:

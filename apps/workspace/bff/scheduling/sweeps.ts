@@ -13,8 +13,8 @@
 import 'server-only'
 import { exportUsageToPosthog } from '@/lib/analytics/usage-export'
 import { enqueueDueReminders } from '@/lib/annotations/due-reminders'
+import { reconcileStalePending } from '@/lib/documents/stale-pending'
 import { recoverStuckProcessing } from '@/lib/documents/stuck-processing'
-import { retryTransientFailures } from '@/lib/documents/transient-retry'
 import { sweepStaleMailImports } from '@/lib/mail-import/job'
 import { sweepCollectionPlacement } from '@/lib/projects/placement-sweep'
 import { reconcileStaleRuns } from '@/lib/runs/reconcile'
@@ -46,13 +46,13 @@ let sql: ReturnType<typeof createSql> | null = null
 /** The worker's one postgres.js client for the cross-tenant SQL in `workers/maintenance-sql.js`. */
 const maintenanceSql = (): ReturnType<typeof createSql> => (sql ??= createSql())
 
-/** Close what the documents, filings, mail imports and transient read failures left half-done (ADR-0079). */
+/** Close what the documents, filings and mail imports left half-done, and settle the stale pending documents (ADR-0079). */
 export async function reconcileBackgroundWork(): Promise<void> {
   const parts = await Promise.allSettled([
     recoverStuckProcessing(),
     recoverStuckFilings(),
     sweepStaleMailImports(),
-    retryTransientFailures(),
+    reconcileStalePending(),
   ])
   // Every part ran, so one that threw costs the others nothing; it fails the run only now.
   const failed = parts.find((part) => part.status === 'rejected')

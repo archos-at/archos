@@ -1,14 +1,41 @@
-/** Stuck, transient and failed ingest documents. */
+/** Stuck, transient, failed and just-finished ingest documents. */
 
 import 'server-only'
-import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
+import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
 import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
-import { documents } from '@/lib/db/schema/documents'
+import { documents, type Document } from '@/lib/db/schema/documents'
 import { notQuarantined } from './mutations'
+
+/**
+ * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
+ * organization: the settle push (`/api/internal/ingest/settled`) names jobs,
+ * not documents or tenants. Discovery only, under platform access; the caller
+ * reconciles each row inside its own organization. A job id no row carries
+ * finds nothing, and a row that already came to rest is not in flight, so a
+ * second push for the same job finds nothing either. Bounded by the ids: one
+ * dispatch records one job id on one row (`setDocumentIngestJob`).
+ */
+export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
+  if (jobIds.length === 0) return []
+  const db = getDb()
+  return withPlatformAccess('settle push: finding the documents of ingest jobs that ended', () =>
+    db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+          inArray(sql`${documents.metadata} ->> 'ingestJobId'`, [...jobIds]),
+        ),
+      )
+      .limit(jobIds.length),
+  )
+}
 
 /** A document left at `processing` with no live job behind it. */
 export interface StuckProcessingDocument {
@@ -69,48 +96,6 @@ export async function listStuckProcessingDocuments(
   }))
 }
 
-/** A failed document the transient-retry sweep may send back: its id, its organization, how often it was sent. */
-export interface TransientFailureDocument {
-  id: string
-  organizationId: string
-  attempts: number
-}
-
-/**
- * Failed documents whose failure the backend called `transient` (an interruption, a timeout, a download
- * or upstream error), sent fewer than `maxAttempts` times, and whose last attempt is older than its backoff:
- * `firstBackoffMinutes` after the first attempt, doubling with each further one. Oldest first, bounded.
- * Discovery across every organization, like {@link listStuckProcessingDocuments}; each row is retried
- * inside its own. A person's document only (`authored_by = 'user'`), with stored bytes, not in the bin.
- */
-export async function listTransientFailures(
-  now: Date,
-  options: { maxAttempts: number; firstBackoffMinutes: number; maxAgeHours: number; limit: number },
-): Promise<TransientFailureDocument[]> {
-  const db = getDb()
-  const attempts = sql`greatest(coalesce(${documents.ingestAttempts}, 1), 1)`
-  const rows = await withPlatformAccess('document sweep: finding transient ingest failures to retry', () =>
-    db
-      .select({ id: documents.id, organizationId: documents.organizationId, attempts: documents.ingestAttempts })
-      .from(documents)
-      .where(
-        and(
-          eq(documents.status, 'failed'),
-          eq(documents.ingestFailureCategory, 'transient'),
-          eq(documents.authoredBy, 'user'),
-          sql`${documents.storageKey} IS NOT NULL`,
-          sql`coalesce(${documents.ingestAttempts}, 1) < ${options.maxAttempts}`,
-          sql`${documents.updatedAt} < ${now.toISOString()}::timestamptz - make_interval(mins => ${options.firstBackoffMinutes} * power(2, ${attempts} - 1)::int)`,
-          sql`${documents.updatedAt} > ${now.toISOString()}::timestamptz - make_interval(hours => ${options.maxAgeHours})`,
-          sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
-        ),
-      )
-      .orderBy(asc(documents.updatedAt))
-      .limit(options.limit),
-  )
-  return rows.map((row) => ({ id: row.id, organizationId: row.organizationId, attempts: Number(row.attempts ?? 1) }))
-}
-
 /**
  * Persist an ingestion failure so status reads tell the truth. Without this a
  * document whose ingest dispatch never started would sit at 'uploaded' — which
@@ -140,4 +125,67 @@ export async function markDocumentIngestFailed(
   // extraction that failed, a row stuck in processing): the badge turns red
   // for everyone reading the shelf, not only for a tab that happens to poll it.
   if (row) publishShelfChanged(organizationId, documentShelf(row))
+}
+
+/** What `document_ingest_finished` says about a row beyond the reconcile's own view. */
+export interface IngestAnnouncementFacts {
+  /** Dispatches of the row so far (`ingest_attempts`); null on a row from before the column. */
+  attempt: number | null
+  /** The upload gesture that wrote the bytes, or null. */
+  uploadBatchId: string | null
+}
+
+/**
+ * The attempt count and upload batch of the rows a read just settled, by id.
+ * Fail-open: analytics must not fail a status read, so a failed read answers with no facts.
+ */
+export async function findIngestAnnouncementFacts(
+  organizationId: string,
+  documentIds: string[],
+): Promise<Map<string, IngestAnnouncementFacts>> {
+  const facts = new Map<string, IngestAnnouncementFacts>()
+  if (documentIds.length === 0) return facts
+  try {
+    const rows = await withTenant({ organizationId }, () =>
+      getDb()
+        .select({ id: documents.id, attempts: documents.ingestAttempts, uploadBatchId: documents.uploadBatchId })
+        .from(documents)
+        .where(and(eq(documents.organizationId, organizationId), inArray(documents.id, documentIds))),
+    )
+    for (const row of rows) {
+      facts.set(row.id, {
+        attempt: row.attempts === null || row.attempts === undefined ? null : Number(row.attempts),
+        uploadBatchId: row.uploadBatchId ?? null,
+      })
+    }
+  } catch (error) {
+    console.debug('[posthog] could not read ingest facts', error)
+  }
+  return facts
+}
+
+/**
+ * Documents the backend took (`pending`, with a job id) and nobody has asked about
+ * since `before`, oldest first, across every organization. Reconciliation is pull-only
+ * (the backend pushes no result back), so a row whose office closed the tab, and which
+ * no open upload batch names, stayed `pending` until somebody next read its shelf:
+ * hours, or days. The caller reconciles each row inside its own organization.
+ */
+export async function listStalePendingDocuments(before: Date, limit: number): Promise<Document[]> {
+  const db = getDb()
+  return withPlatformAccess('document sweep: finding dispatched ingests nobody has read back', () =>
+    db
+      .select(getTableColumns(documents))
+      .from(documents)
+      .where(
+        and(
+          eq(documents.status, 'pending'),
+          lt(documents.updatedAt, before),
+          sql`${documents.metadata}->>'ingestJobId' IS NOT NULL`,
+          sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
+        ),
+      )
+      .orderBy(asc(documents.updatedAt))
+      .limit(limit),
+  )
 }

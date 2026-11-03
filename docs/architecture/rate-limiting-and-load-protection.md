@@ -60,7 +60,7 @@ There is also a fourth, less structural but more immediate finding:
 |---|---|---|---|---|---|
 | 1 | `apps/workspace/server.js` (WS upgrade) | per client IP | fixed window, atomic `INCR` | Dragonfly | fail open |
 | 2 | `apps/workspace/bff/sharing/rate-limit.ts` | per subject/action | fixed window, **non-atomic** read-modify-write | Dragonfly via cache | fail open |
-| 3 | `apps/agent-host/.../jobs/submit.py`, `jobs/queue.py` | per org a **claim cap** (`…_PER_ORG` 3) plus a **queued-length bound** (`MAX_QUEUED_JOBS_PER_ORG` 50), the only 429 | Postgres | fail open |
+| 3 | `apps/agent-host/.../jobs/submit.py`, `jobs/research_hatchet.py` | per org a **Hatchet concurrency cap** (`MAX_ACTIVE_JOBS_PER_ORG` 3) plus a **queued-length bound** (`MAX_QUEUED_JOBS_PER_ORG` 50), the only 429 | Postgres | fail open |
 | 4 | `common/cost_tracking.py` + ADR-0015 | org / member / project | EUR budget, daily+monthly | Postgres ledger + rollups | read fails open, refusal fails closed |
 | 5 | `MAX_RUN_COMPLETION_TOKENS`, `MAX_QUERY_SUBMISSIONS` | per run | hard ceilings | in-process | n/a |
 
@@ -471,19 +471,18 @@ turns answered with a friendly message the way a budget refusal already is.
 Ingestion is not refused, it waits, so its L3 is an order and a ceiling rather
 than an admission.
 
-This section describes the claim queue, the default. With
-`INGEST_ORCHESTRATOR=hatchet` (ADR-0150) the order is a Hatchet concurrency
-strategy instead: `GROUP_ROUND_ROBIN` keyed on the organization id, with run
-priority for interactive before bulk. The vision ceiling below is unchanged on
-both paths until page reading is its own task.
+A document is one `ingest-document` run on Hatchet (ADR-0150,
+[`hatchet.md`](../deployment/hatchet.md)): the order is the task's concurrency
+strategy, `GROUP_ROUND_ROBIN` keyed on the organization id, with run priority
+for interactive before bulk. The vision ceiling below is still the Dragonfly
+pool until page reading is its own task. Where a bullet says "claim", it
+describes the claim queue Hatchet replaced, `ingest_job_queue`, kept until the
+cutover drains it.
 
-- **Fair share, not a cap.** `/v1/ingest` jobs sit in `ingest_job_queue`, and a
-  free worker claims the next job of the organisation with the fewest jobs
-  running fleet-wide, then the one served longest ago. A lone office uses every
-  worker; a second office's upload takes the next worker that frees up.
-  `INGEST_MAX_PER_ORG` adds a hard cap, off by default. The claim is the
-  generic `agent.common.claim_queue` (ADR-0079); `ingest_queue` is the
-  ingestion table on it.
+- **Fair share, not a cap.** When an office has more runs than its share, its
+  runs wait and the next free slot rotates to the next office. A lone office
+  uses every worker; a second office's upload takes the next slot that frees up.
+  `INGEST_MAX_PER_ORG` adds a hard cap, off by default.
 - **Priority inside an office.** `POST /v1/ingest` takes
   `priority: "interactive" | "bulk"` (default `interactive`). An office's own
   upload is claimed before its older reindex jobs; priority never lets one
@@ -497,9 +496,9 @@ both paths until page reading is its own task.
   again. A job that fails every claim is kept as a `dead` row with its reason,
   and is not counted as work. A job a person stops is `cancelled`, terminal the
   same way (`POST /v1/documents/{job_id}/cancel`).
-- **Elastic.** The ingest-worker tier scales on the queue's depth through
-  KEDA, not on CPU (`deploy/pulumi/src/app/ingest-worker.ts`); retired rows —
-  `dead` and `cancelled` — are excluded from that depth. Its ceiling is held to the provider budget at plan
+- **Elastic.** The ingest-worker tier scales through KEDA on the
+  `ingest-document` backlog Hatchet holds, queued or running
+  (`hatchetBacklogQuery`), not on CPU (`deploy/pulumi/src/app/ingest-worker.ts`). Its ceiling is held to the provider budget at plan
   time: `ingestWorkerMaxReplicas` x `ingestWorkerConcurrency` x
   `VLM_BATCH_WORKERS` may not exceed twice `VLM_FLEET_CONCURRENCY`, or
   `pulumi up` fails with the numbers (`assertVlmPeakFitsCeiling`); replicas past
@@ -608,34 +607,32 @@ gateway (the back-pocket option of section 5).
 ### L3d — research fair share (ADR-0079)
 
 Research is not refused for capacity either: it
-waits, so its L3 is the same order and ceiling ingestion has. With
-`RESEARCH_ORCHESTRATOR=hatchet` (ADR-0150) the claim below is Hatchet's
-`research-run` task with the same organization-keyed round robin; the
-admission caps are unchanged.
+waits, so its L3 is the same order and ceiling ingestion has. A research job
+is one `research-run` on Hatchet (ADR-0150) with the same organization-keyed
+round robin; the admission caps are unchanged. The old `research_job_queue`
+table is kept until the cutover drains it.
 
-- **Capacity waits, it never fails.** A submit is a row in
-  `research_job_queue` and the job is `SUBMITTED` until a worker claims it; the
-  UI reads that as `queued`.
-- **Fair share.** The claim is the same `agent.common.claim_queue`: a free
-  worker takes the next job of the organisation with the fewest research jobs
-  running fleet-wide, then the one served longest ago. One office's sweep of
-  twenty scheduled runs does not make another office's question wait for all of
-  them.
-- **The per-organisation cap is a claim cap.** `MAX_ACTIVE_JOBS_PER_ORG` is
-  how many of an organisation's jobs run at once; the rest wait their turn.
+- **Capacity waits, it never fails.** A submit writes a `SUBMITTED` `job_info`
+  row and starts its run, which waits in Hatchet until a slot frees; the UI
+  reads that as `queued`.
+- **Fair share.** `GROUP_ROUND_ROBIN` on `input.organization_id`: one office's
+  sweep of twenty scheduled runs does not make another office's question wait
+  for all of them.
+- **The per-organisation cap is a concurrency cap.** `MAX_ACTIVE_JOBS_PER_ORG`
+  is how many of an organisation's runs run at once; the rest wait their turn.
 - **Priority inside an office.** A scheduled fire is `bulk`; an escalated
   question and a person pressing "run now" are `interactive`. The scheduler no
   longer records "skipped" for a full queue: a queued job is a queued run.
 - **One 429 is left, as abuse protection.** `MAX_QUEUED_JOBS_PER_ORG` bounds
   how many jobs one organisation may have waiting. Past it a submit is refused
   (a scheduled occurrence is then recorded `skipped`).
-- **A claim is given back, not lost.** A drain that runs out of time requeues
-  what it holds without spending an attempt; a job that crashed every worker is
-  kept as a `dead` row and is not counted as work.
-- **Elastic.** The `agent-worker` tier scales through KEDA on the queue's depth,
-  not on CPU, which a job that waits on a model never moves
-  (`deploy/pulumi/src/app/agent-worker.ts`). Measured as
-  `grid.queue.*{queue="research"}`.
+- **A run is given back, not lost.** Hatchet reassigns what a lost worker held,
+  up to the task's retries; when they are spent the on-failure task writes
+  FAILURE unless a verdict stands.
+- **Elastic.** The `agent-worker` tier scales through KEDA on the `research-run`
+  backlog in Hatchet, not on CPU, which a job that waits on a model never moves
+  (`deploy/pulumi/src/app/agent-worker.ts`). The backlog is in Hatchet's
+  dashboard (`hatchet_tenant_queue_size`).
 
 ### L4 — cost
 

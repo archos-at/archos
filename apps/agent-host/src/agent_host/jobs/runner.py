@@ -94,23 +94,6 @@ JOB_DEGRADED_EVENT_TYPE = "job.degraded"
 # channel exists so a live listener and an operator counting cutoffs can see it.
 _DEGRADED_EVENT_FIELDS = ("research_truncated", "truncation_reason", "degraded_reasons")
 
-#: Lifecycle event a reclaimed loser emits instead of ``job.cancelled``
-#: (deep-research hardening, item 7). The ownership-loss abort arrives as a
-#: bare ``task.cancel()`` — the same delivery as a user cancel — so the loser
-#: and a real cancel are told apart by positive claim state (``_lost_claim``),
-#: never by message sniffing. Same ``job.*`` lifecycle shape as the other
-#: terminal events, stored through the same ``EventStore`` the SSE stream
-#: replays, so the stored history and the live stream agree. Deliberately NOT a
-#: ``job.phase`` row:
-#: ``phase_events`` owns phase progress for the progress display, and an
-#: ownership change is not a phase (apps/agent-host/AGENTS.md).
-JOB_OWNERSHIP_LOST_EVENT_TYPE = "job.ownership-lost"
-
-#: The only payload of the ownership-lost event. A stable reason token, never
-#: the user-cancel string and never worker hostnames (worker ids are
-#: ``hostname:pid`` — infra detail that must not stream to clients).
-_OWNERSHIP_LOST_REASON = "queue claim reclaimed by another worker"
-
 #: The request-context headers a worker supplies to the tools it runs, from
 #: the run's identity. The contract `agent.project_context.
 #: TOOL_CONTEXT_REQUIREMENTS` is checked against THIS tuple by
@@ -282,40 +265,6 @@ async def _current_job_status(job_store: Any, job_id: str) -> str | None:
     return getattr(job, "status", None)
 
 
-async def _lost_claim(db_url: str, job_id: str, claim_owner: str | None) -> bool:
-    """True only on POSITIVE ownership loss: this run no longer holds its job's claim.
-
-    Two things are a loss, and both are visible in the queue row: another worker
-    holds the claim (a reclaim after this one stalled), or the row is QUEUED
-    again while this run is alive (a draining worker gave the claim back,
-    ``queue.release_claims``, so another worker runs the job from the start).
-
-    ``claim_owner`` is the research worker's own id. ``None`` (an unclaimed run, as in
-    the tests) has no claim table to check, so only the terminal verdict gates
-    publishing. Anything
-    indeterminate (no row, row gone via cancel/mark_done, unreadable) is NOT a
-    loss: the terminal-verdict gate below stays the decider and fails open, the
-    same philosophy :func:`_update_status_if_not_terminal` keeps.
-    """
-    if not claim_owner:
-        return False
-    from . import queue
-
-    status, owner = await asyncio.to_thread(queue.claim_state, db_url, job_id)
-    if owner is not None and owner != claim_owner:
-        logger.warning(
-            "Job %s claim now held by %s (not %s); this run lost the race",
-            job_id,
-            owner,
-            claim_owner,
-        )
-        return True
-    if status == queue.QUEUED:
-        logger.warning("Job %s is queued again (its claim was given back); this run stops", job_id)
-        return True
-    return False
-
-
 async def _should_write_notice(*, job_store: Any, job_id: str, verdict: str, finalized: bool) -> bool:
     """Whether a terminal path may write its conversation notice.
 
@@ -413,40 +362,19 @@ async def _finalize_cancelled_run(
     job_store: Any,
     db_url: str,
     job_id: str,
-    claim_owner: str | None,
     parent_conversation_id: str | None,
     usage_context: dict | None,
     event_store: Any | None,
     expect_run: bool = False,
 ) -> Any:
-    """Finalize a run aborted via ``asyncio.CancelledError`` (hardening item 7).
+    """Finalize a run aborted via ``asyncio.CancelledError``: a user cancel, or Hatchet cancelling the run.
 
-    Root cause this closes: the DB worker aborts a reclaimed run with a bare
-    ``run_task.cancel()``, which is indistinguishable on delivery from the
-    ``CancellationMonitor``'s user cancel — so the handler told every abort as
-    a user cancel (INTERRUPTED "cancelled by user" + user notice +
-    ``job.cancelled``) while the new owner was still running. The two causes
-    are told apart here by positive claim state — item 10's ``_lost_claim`` —
-    never by message sniffing.
-
-    A reclaimed loser publishes nothing user-visible: no INTERRUPTED write, no
-    thread notice, no outcome notify, no ``job.cancelled``. Its only signal is
-    the truthful ``job.ownership-lost`` lifecycle event. Anything else follows
-    the pre-existing user-cancel shape, with the ``job.cancelled`` event
-    additionally gated on verdict agreement (``_should_emit_cancelled_event``)
-    so a late abort after the winner's SUCCESS or the reaper's FAILURE streams
-    nothing.
-
-    Still-owner first (item 10): a reclaim abort must not steal the terminal
-    write from the new owner, nor leave an INTERRUPTED_NOTICE beside the
-    winner's answer. Returns the event store (created lazily when the path
-    streams an event).
+    Writes INTERRUPTED unless a verdict stands, then the notice and the
+    ``job.cancelled`` event, the event gated on verdict agreement
+    (``_should_emit_cancelled_event``) so a late abort after a SUCCESS or the
+    reaper's FAILURE streams nothing. Returns the event store (created lazily
+    when the path streams an event).
     """
-    if await _lost_claim(db_url, job_id, claim_owner):
-        logger.warning("Job %s lost its queue claim; emitting ownership-lost only (the owner publishes)", job_id)
-        lost = {"type": JOB_OWNERSHIP_LOST_EVENT_TYPE, "data": {"reason": _OWNERSHIP_LOST_REASON}}
-        return _emit_lifecycle_event(db_url=db_url, event_store=event_store, job_id=job_id, event=lost)
-
     logger.info("Job %s cancelled", job_id)
     finalized = await _mark_interrupted(job_store, job_id)
     await _publish_interrupted(
@@ -795,26 +723,6 @@ def _purge_deep_checkpoint(job_id: str) -> None:
             conn.commit()
     except Exception:
         logger.debug("Deep checkpoint purge skipped for job %s", job_id, exc_info=True)
-
-
-async def _purge_deep_checkpoint_unless_reclaimed(db_url: str, job_id: str, claim_owner: str | None) -> bool:
-    """Purge the run's deep checkpoint at its end, unless the job was reclaimed.
-
-    The rows (``DEEP_CHECKPOINT_DB``, ``thread_id == job_id``) are keyed by
-    job, not by worker, so after a reclaim they are the NEW owner's resume
-    point. A stalled loser reaching its ``finally`` deleted them from under it,
-    and the winner resumed from nothing. ``worker.py`` already skipped its own
-    purge on claim loss; the runner's did not. Same positive-loss rule as every
-    other gate here (:func:`_lost_claim`): an indeterminate claim still purges,
-    and an unclaimed run always does. Both purges are idempotent.
-
-    Returns True when it purged.
-    """
-    if await _lost_claim(db_url, job_id, claim_owner):
-        logger.warning("Job %s lost its queue claim; leaving the deep checkpoint to the owning worker", job_id)
-        return False
-    _purge_deep_checkpoint(job_id)
-    return True
 
 
 def _load_agent_class(agent_class_path: str) -> type:

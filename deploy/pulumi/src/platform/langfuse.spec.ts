@@ -224,6 +224,14 @@ describe("with the Langfuse tier enabled", () => {
       }
     });
 
+    it("gives the worker the public URL, which its PostHog export builds langfuse_url from", async () => {
+      const web = await containerEnv("langfuse-web");
+      const worker = await containerEnv("langfuse-worker");
+
+      expect(worker.NEXTAUTH_URL).toBeTruthy();
+      expect(worker.NEXTAUTH_URL).toBe(web.NEXTAUTH_URL);
+    });
+
     it("gives them to exactly one container", async () => {
       const web = await containerEnv("langfuse-web");
       const worker = await containerEnv("langfuse-worker");
@@ -430,7 +438,7 @@ describe("with the Langfuse tier enabled", () => {
       expect(has("kubernetes:networking.k8s.io/v1:NetworkPolicy", "allow-edge-to-langfuse")).toBe(true);
     });
 
-    it("names the purger and the scheduler as the only API callers, on the web port", async () => {
+    it("names the purger and bff-jobs as the only API callers, on the web port", async () => {
       const spec = (await resolve(
         find("kubernetes:networking.k8s.io/v1:NetworkPolicy", "allow-workers-to-langfuse").inputs.spec,
       )) as any;
@@ -438,7 +446,7 @@ describe("with the Langfuse tier enabled", () => {
       expect(spec.podSelector.matchLabels["app.kubernetes.io/name"]).toBe("langfuse-web");
       expect(
         (spec.ingress[0].from as any[]).map((f) => f.podSelector.matchLabels["app.kubernetes.io/name"]).sort(),
-      ).toEqual(["purger", "skill-scheduler"]);
+      ).toEqual(["bff-jobs", "purger"]);
       expect(spec.ingress[0].ports).toEqual([{ protocol: "TCP", port: 3000 }]);
     });
   });

@@ -86,7 +86,7 @@ export const RisPreviewChip: FC<{
   )
 
   const face = (
-    <button
+    <button data-attr="chat-open"
       type="button"
       className={cn(faceClasses(variant), className)}
       style={faceStyle(variant, signal)}

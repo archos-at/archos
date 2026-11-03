@@ -1,6 +1,6 @@
 """The platform operator's kill.
 
-Every submitted or running job interrupted, its queue row dropped, its verdict reported.
+Every submitted or running job interrupted, its Hatchet run cancelled, its verdict reported.
 """
 
 from __future__ import annotations
@@ -25,12 +25,13 @@ KILL_BATCH = 1000
 async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None:
     """Stop the worker of a job whose INTERRUPTED status the caller just wrote, and report it.
 
-    Shared by the cancel route and the platform kill. Dropping the queue row
-    keeps a job no worker has claimed from ever running; a running worker sees
+    Shared by the cancel route and the platform kill. Cancelling the Hatchet
+    run (ADR-0150) keeps a job no worker has started from ever running; a
+    running worker sees
     the INTERRUPTED status through its CancellationMonitor and stops on its own
     (ADR-0021).
     """
-    from ..jobs import queue
+    from ..jobs import research_hatchet
     from ..jobs.event_store import EventStore
 
     loop = asyncio.get_running_loop()
@@ -41,11 +42,11 @@ async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None
         EventStore(db_url, job_id).store({"type": "job.cancellation_requested", "data": {"reason": reason}})
 
     await loop.run_in_executor(None, _record_cancellation_event)
-    await loop.run_in_executor(None, queue.mark_done, db_url, job_id)
+    await research_hatchet.cancel(db_url, job_id)
 
     # The caller wrote the verdict, so it reports it. A running worker reports
     # the same INTERRUPTED again when its abort lands, which the BFF absorbs;
-    # but a job no worker ever claimed (its queue row was just dropped) has no
+    # but a job no worker ever started (its Hatchet run was just cancelled) has no
     # runner left to report anything, and the BFF's run row would stay `running`
     # forever. No error text, exactly like the runner's own report, so the two
     # reports write the same row.

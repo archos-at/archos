@@ -119,6 +119,15 @@ export interface ButtonProps
    * to put the spinner without the caller composing it themselves.
    */
   loading?: boolean
+  /**
+   * The id PostHog's autocapture reads from `data-attr` (`attr__data-attr` on
+   * the click, dead-click and rage-click events), so a click can be attributed
+   * to a control without its German label. Stable English kebab-case
+   * (`files-move`, `intake-save`), see `docs/contributing/naming.md`. When
+   * omitted it falls back to `data-testid`, which already names most controls.
+   */
+  'data-attr'?: string
+  'data-testid'?: string
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
@@ -134,6 +143,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       onClick,
       'aria-disabled': ariaDisabled,
       'aria-busy': ariaBusy,
+      'data-attr': dataAttr,
       ...props
     },
     ref
@@ -172,6 +182,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <Comp
         data-slot="button"
+        data-attr={dataAttr ?? props['data-testid']}
         className={cn(
           buttonVariants({ variant, size }),
           // The caller's first `<svg>` child (the leading icon at every current

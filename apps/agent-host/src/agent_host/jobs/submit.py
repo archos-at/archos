@@ -1,8 +1,8 @@
 """
 Job submission utilities.
 
-Provides functions to submit agent jobs to the research queue (ADR-0021): the
-submit persists the job and its claimable row, and a research worker claims it.
+Provides functions to submit agent jobs (ADR-0021, ADR-0150): the submit persists
+the job, then starts its ``research-run`` on Hatchet, which a research worker runs.
 """
 
 from __future__ import annotations
@@ -13,12 +13,12 @@ import os
 
 from agent.auth import Principal
 from agent.auth import get_current_principal
-from agent.common import claim_queue
 from agent.common.job_admission import JobAdmissionError
 from agent_host.auth import get_current_trace_tags
 
 from ..registry import get_agent_config
-from . import queue
+from . import orchestrator_runs
+from . import research_hatchet
 from .access import _make_no_auth_principal
 from .access import create_job_access
 from .access import derive_project_collection
@@ -106,10 +106,6 @@ def _build_run_agent_payload(
         # sent it with the submit, so the run's person-acting tools can echo it
         # (ADR-0108, ``jobs/run_envelope.py``). ``None`` when none verified.
         "request_envelope": request_envelope,
-        # No owner at submit time (unclaimed): the research worker fills in its
-        # own worker id at replay for the runner's still-owner publish gate
-        # (hardening item 10). Travels inside the encrypted payload like the rest.
-        "claim_owner": None,
     }
 
 
@@ -125,9 +121,9 @@ logger = logging.getLogger(__name__)
 # choice about how much of the cluster each kind of work may hold — not a race
 # between them.
 #
-# Capacity makes a job WAIT, never fail (ADR-0079). The worker tier claims fairly
-# across organizations and holds one organization to `MAX_ACTIVE_JOBS_PER_ORG`
-# running at once (`jobs/queue.py`), so a full cluster is a longer queue, and a
+# Capacity makes a job WAIT, never fail (ADR-0079). Hatchet runs fairly across
+# organizations and holds one organization to `MAX_ACTIVE_JOBS_PER_ORG` running
+# at once (`jobs/research_hatchet.py`), so a full cluster is a longer wait, and a
 # scheduled run is not skipped for it. The one refusal left is a bound on how many
 # jobs ONE organization may have waiting (`MAX_QUEUED_JOBS_PER_ORG`), which
 # stops a runaway caller and is not capacity management.
@@ -147,11 +143,11 @@ async def _enforce_job_admission(db_url: str, organization_id: str | None) -> No
 
 async def _enforce_queue_bound(db_url: str, organization_id: str | None) -> None:
     """Refuse only an organization whose own waiting queue is past its bound."""
-    bound = queue.max_queued_per_org()
+    bound = orchestrator_runs.max_queued_per_org()
     if bound <= 0:
         return
     loop = asyncio.get_running_loop()
-    waiting = await loop.run_in_executor(None, queue.queued_in_lane, db_url, organization_id)
+    waiting = await loop.run_in_executor(None, orchestrator_runs.waiting_for_org, db_url, organization_id)
     if waiting >= bound:
         raise JobAdmissionError(
             f"Your organization already has {waiting} research jobs waiting. "
@@ -384,12 +380,7 @@ async def _discard_failed_submission(
     preexistence_verified: bool,
     loop: asyncio.AbstractEventLoop,
 ) -> None:
-    """Undo a submission that failed part-way: its queue row, and its job rows when they were ours to delete."""
-    # Drop any partial queue row so a half-submitted job is never run.
-    try:
-        await loop.run_in_executor(None, queue.mark_done, db_url, resolved_job_id, None)
-    except Exception:
-        logger.warning("Failed to clean up queue row for %s during rollback", resolved_job_id, exc_info=True)
+    """Undo a submission that failed part-way: its job rows, when they were ours to delete."""
     if not preexistence_verified:
         # rollback_job_submission deletes job_access, job_events AND
         # job_info. Without positive proof the job ID did not exist before
@@ -446,11 +437,11 @@ async def submit_agent_job(
     request_envelope: dict[str, str] | None = None,
 ) -> str:
     """
-    Submit an agent job to the research queue (ADR-0021).
+    Submit an agent job as a ``research-run`` on Hatchet (ADR-0021, ADR-0150).
 
     This is the main entry point for submitting async jobs from application code.
     It looks up the agent configuration from the registry, persists the job, and
-    enqueues a claimable row that a research worker runs.
+    starts the run, which a research worker runs.
 
     Args:
         agent_type: Agent type identifier (e.g., 'deep_researcher').
@@ -483,7 +474,7 @@ async def submit_agent_job(
             (e.g. ``card_llm``). When set and enabled, the worker records durable
             project findings from the completed report.
         priority: ``"interactive"`` (the default) or ``"bulk"``. Inside one
-            organization the queue runs interactive jobs first: a question the
+            organization Hatchet runs interactive jobs first: a question the
             reader escalated goes before a scheduled sweep of the same
             organization, and never before another organization's.
         run_id: Optional id of the ``task_runs`` row this job is. Carried into
@@ -512,9 +503,9 @@ async def submit_agent_job(
     """
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
-    # Before anything is persisted: a priority nobody defined is refused where it
-    # enters, not after the job's status rows exist.
-    claim_queue.priority_rank(priority)
+    # Before anything is persisted: a priority nobody defined, or a missing KEK, is
+    # refused where it enters, not after the job's status rows exist.
+    research_hatchet.check_submittable(priority)
 
     # Get agent configuration from registry
     agent_config = get_agent_config(agent_type)
@@ -562,8 +553,8 @@ async def submit_agent_job(
     project_collection = derive_project_collection(collection_scope)
 
     try:
-        # Persist the job's status row and enqueue a claimable row carrying the
-        # run_agent_job payload (ADR-0021). A research worker claims and runs it.
+        # Persist the job's status row, then start its run with the encrypted
+        # run_agent_job payload (ADR-0150). A research worker runs it.
         payload = _build_run_agent_payload(
             configure_logging=True,
             log_level=log_level,
@@ -605,10 +596,9 @@ async def submit_agent_job(
             project_collection,
             organization_id,
         )
-        # Enqueue the claimable row LAST — only once job_info AND job_access
-        # are fully persisted — so a worker can never claim and run a job
-        # whose ownership/rollback state is still incomplete.
-        await loop.run_in_executor(None, queue.enqueue, db_url, resolved_job_id, payload, organization_id, priority)
+        # Start the run LAST, once job_info AND job_access exist, so no worker
+        # runs a job whose ownership/rollback state is still incomplete.
+        await research_hatchet.start(db_url, resolved_job_id, payload, organization_id, priority)
     except Exception:
         await _discard_failed_submission(resolved_job_id, db_url, preexistence_verified, loop)
         raise

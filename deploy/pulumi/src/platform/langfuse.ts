@@ -23,7 +23,7 @@ import { logicalName, objectName } from "../names";
  *  SecurityPolicy spec is a plain (typed) object, not a Pulumi resource input. */
 const SECRETS_NAME = "langfuse-secrets"; // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
-/** {@link SECRETS_NAME}, for the app workers that call Langfuse's API (purger, scheduler). */
+/** {@link SECRETS_NAME}, for the app workers that call Langfuse's API (purger, bff-jobs). */
 export const LANGFUSE_SECRETS_NAME = SECRETS_NAME;
 
 /**
@@ -182,7 +182,7 @@ export function frontendLangfuseEnv(cfg: DeployConfig): k8s.types.input.core.v1.
  * A pod's rollout checksum with the Langfuse project keys folded in, for every
  * app pod that reads them from the Langfuse Secret (`frontendLangfuseEnv`,
  * `langfuseApiEnv`): the frontend and bff-jobs, the backend tiers that write
- * scores, the purger and the scheduler.
+ * scores, and the purger.
  *
  * `secretKeyRef` is read once at container start, and the app checksum covers
  * `grid-secrets` only, so without this a key rotation would leave each of them
@@ -344,6 +344,7 @@ export function installLangfuse(
    * once rather than kept in sync by hand.
    */
   const sharedEnv: k8s.types.input.core.v1.EnvVar[] = [
+    { name: "NEXTAUTH_URL", value: publicUrl }, // the worker's PostHog export builds `langfuse_url` from it
     { name: "DATABASE_URL", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.databaseUrl) },
     { name: "SALT", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.salt) },
     { name: "ENCRYPTION_KEY", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.encryptionKey) },
@@ -529,7 +530,6 @@ export function installLangfuse(
                   ...initEnv,
                   { name: "PORT", value: String(PORT.langfuseWeb) },
                   { name: "HOSTNAME", value: "0.0.0.0" },
-                  { name: "NEXTAUTH_URL", value: publicUrl },
                   {
                     name: "NEXTAUTH_SECRET",
                     valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.nextAuthSecret),

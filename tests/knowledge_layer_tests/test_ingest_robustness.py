@@ -422,18 +422,8 @@ def test_a_retry_writes_the_job_as_it_is_now(status_db, monkeypatch, held_ingest
 
 
 # ---------------------------------------------------------------------------
-# Fair share, and a job that runs in another process than the one that took it
+# A job that runs in another process than the one that took it
 # ---------------------------------------------------------------------------
-
-
-def test_a_submitted_job_waits_in_its_organisations_lane(tmp_path, held_ingestor):
-    upload = tmp_path / "a.txt"
-    upload.write_text("x", encoding="utf-8")
-
-    held_ingestor.submit_job([str(upload)], "proj_1", config={"organization_id": "org-1"})
-
-    lane = held_ingestor._ingest_pool.submit.call_args.args[0]
-    assert lane == "org-1"
 
 
 def test_a_prepared_job_is_vouched_for_by_the_process_that_runs_it(tmp_path, monkeypatch):
@@ -446,7 +436,7 @@ def test_a_prepared_job_is_vouched_for_by_the_process_that_runs_it(tmp_path, mon
         prepared = accepting.prepare_job([str(upload)], "proj_1", config={"organization_id": "org-1"})
 
         # Recorded for every replica to read, but not this process's to beat for:
-        # the durable queue may hand it to any worker.
+        # Hatchet may hand it to any worker.
         assert accepting._live_job_ids() == []
         assert accepting.get_job_status(prepared.job_id).status == JobState.PENDING
         assert prepared.organization_id == "org-1"

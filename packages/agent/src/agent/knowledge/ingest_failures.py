@@ -15,7 +15,9 @@ retries from them (``apps/workspace/bff/documents/retry-policy.ts``):
 category        retryable  what it means
 ==============  =========  ====================================================
 transient       yes        interrupted, timed out, a download, a dispatch or an
-                           upstream call failed. The same bytes may read now.
+                           upstream call failed, or the provider's credits were
+                           held by requests in flight (a 402 that says so).
+                           The same bytes may read now.
 configuration   yes        the deployment lacks something (a vision model), or
                            the job's screening policy could not be applied.
                            The same bytes read once it is configured.
@@ -162,6 +164,10 @@ _TRANSIENT_TEXT = re.compile(
     re.IGNORECASE,
 )
 _PREFIX = re.compile(r"^([a-z][a-z_]*):")
+#: OpenRouter's 402 when the account HAS credits but the requests already in
+#: flight have reserved them: capacity, freed as those calls finish. A 402 that
+#: does not say so ("insufficient credits") is the account, and stays refused.
+_IN_FLIGHT_CREDITS = re.compile(r"\bcredits?\b.*\bin[\s-]?flight\b|\bin[\s-]?flight\b.*\bcredits?\b", re.I | re.S)
 
 
 def classify_failure(error: str | None, exc: BaseException | None = None) -> FailureVerdict:
@@ -216,6 +222,8 @@ def _from_status_code(exc: BaseException) -> FailureCategory | None:
         return None
     if status >= 500 or status in (408, 409, 425, 429):
         return TRANSIENT
+    if status == 402 and _IN_FLIGHT_CREDITS.search(str(exc)):
+        return TRANSIENT
     if status in (401, 403, 404):
         # 404: a misnamed model or a wrong base URL. The deployment, not the
         # bytes: once it is fixed the same file reads.
@@ -227,7 +235,7 @@ def _from_status_code(exc: BaseException) -> FailureCategory | None:
 def _from_text(message: str) -> FailureCategory | None:
     if not message:
         return None
-    if _TRANSIENT_TEXT.search(message):
+    if _TRANSIENT_TEXT.search(message) or _IN_FLIGHT_CREDITS.search(message):
         return TRANSIENT
     if _DETERMINISTIC_TEXT.search(message):
         return DETERMINISTIC

@@ -74,10 +74,7 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
   }
 
   beforeAll(async () => {
-    const { HatchetClient: sdk } = await import('@hatchet-dev/typescript-sdk/v1')
-    hatchet = sdk.init()
-    const { setSchedulingHatchetForTests } = await import('./hatchet')
-    setSchedulingHatchetForTests(hatchet)
+    hatchet = (await import('@/lib/jobs-queue/hatchet')).hatchetClient()
     scheduling = await import('./scheduled-runs')
     const { fireTask, sweepTask } = await import('./tasks')
     overlapping = sweepTask(hatchet, {

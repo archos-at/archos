@@ -162,10 +162,10 @@ RUN for script in provision-workos-authz migrate-folder-grants-to-workos; do \
         --outfile="dist-scripts/$script.mjs" || exit 1; \
     done
 
-# The `bff-jobs` slice entry, the same way: our services inlined, packages left
-# to the production node_modules. `workers/jobs/index.js` imports it when
-# `BFF_JOBS_MODE=inprocess`, and then spawns no `node server.js` (ADR-0079
-# amendment 1). Its own script, for the shims Next would otherwise provide.
+# The `bff-jobs` entry, the same way: our services inlined, packages left to
+# the production node_modules. `workers/jobs/index.js` imports it and runs the
+# Hatchet worker in process (`bff-job` and the scheduling tasks, ADR-0150). Its
+# own script, for the shims Next would otherwise provide.
 RUN bun scripts/build-jobs-bundle.ts
 
 # Remove devDependencies — keeps dev-only packages out of the production image

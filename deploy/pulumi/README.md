@@ -1,8 +1,8 @@
 # Piloti — Kubernetes deployment (Pulumi)
 
 TypeScript Pulumi program that deploys the entire Piloti stack to a Kubernetes
-cluster: the `aiq-agent` backend (the chat tier), the Next.js frontend/BFF, the purger and
-skill-scheduler workers, plus CloudNativePG Postgres, a Dragonfly cache, and
+cluster: the `aiq-agent` backend (the chat tier), the Next.js frontend/BFF, the purger,
+the bff-jobs workers, plus CloudNativePG Postgres, a Dragonfly cache, and
 SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic Let's Encrypt TLS.
 
 > Operator walkthrough (prereqs, DNS, day-2, scaling roadmap):
@@ -14,7 +14,7 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 |-------|-----------|
 | Platform | namespace `grid` (+ default-deny NetworkPolicies), cert-manager (Gateway-API) + Let's Encrypt `ClusterIssuer`, Envoy Gateway, observability (ADR-0029: `otel-collector` Deployment + Service + ConfigMap — only when `observabilityEnabled` **and** something consumes it: Langfuse, `posthogLogsEnabled` or `posthogMetricsEnabled`; with metrics, ADR-0119, an `otel-agent` DaemonSet and a read-only ServiceAccount and ClusterRole for each), Langfuse (ADR-0044: `langfuse-web` + `langfuse-worker` Deployments, `clickhouse` StatefulSet, a dedicated ingestion queue, HTTPRoute + SecurityPolicy — only when `langfuseEnabled` **and** its config deps are set; flag **on by default**), (metrics-server only on bare clusters) |
 | Data | CloudNativePG operator + `Cluster` (`jobs`, `checkpoints`, `app`) with optional PITR backups to SeaweedFS (`ScheduledBackup`), Dragonfly, SeaweedFS (one StatefulSet under `seaweedfsTopology=single`; master + volume + filer StatefulSets, and a `seaweedfs_filer` CNPG database + role, under `split`) + bucket-init Job, Qdrant, the one vector store (ADR-0115: `qdrant` StatefulSet + headless and ClusterIP Services + PDB + `qdrant-snapshot` CronJob + `qdrant-alert-rules` ConfigMap, always; operating it: [`qdrant-runbook.md`](../../docs/deployment/qdrant-runbook.md)). No Chroma: `chromaMigration` copies the retired store into Qdrant on the deploy that removes it, and its volume `data-chroma-0` is kept, unmanaged, as the way back |
-| App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, `skill-scheduler`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
+| App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
 | Edge | Gateway API (Envoy Gateway, HA: 2 replicas + PDB) + HTTPRoutes with cert-manager TLS for `app.<baseDomain>` and `s3.<baseDomain>` |
 | DNS | Cloudflare A records for exactly the Gateway's HTTPS listener hosts, plus optionally the zone-level `www` / `_dmarc` / apex-redirect records — only when `dnsEnabled` (off by default; records are otherwise maintained by hand) |
 
@@ -188,7 +188,21 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `pgBackupRetention` | `30d` | Barman retention window |
 | `pgBackupSchedule` | `0 0 2 * * *` | 6-field CNPG cron (sec min hour …) |
 | `pgBackupEncryption` | unset | Server-side encryption on the PITR archive: `AES256` or `aws:kms`, written to `barmanObjectStore.{wal,data}.encryption`. **Refused against the in-cluster SeaweedFS**, which has no SSE and would answer 200 while storing plaintext — use it only with an external S3 that documents SSE. Unset (the default) means the archive is unencrypted and `pulumi up` warns. See `docs/deployment/kubernetes.md` §7e |
-| 🔒 `pgScalerPassword` | derived from `pgAppPassword` | Password of `keda_scaler`, the read-only login KEDA's `postgresql` scaler counts the queue tables with (SELECT on the `status` column of `ingest_job_queue`, `research_job_queue` and `bff_job_queue`, and nothing else). Optional: unset, it is an HMAC of `pgAppPassword`, so it is never the owner's password and needs no new secret to deploy. Set it to rotate the scaler's credential alone; it lives in the `grid-keda-scaler` Secret, which no pod reads, so a rotation restarts nothing |
+| 🔒 `pgScalerPassword` | derived from `pgAppPassword` | Password of `keda_scaler` on the app cluster, still kept by the rename Jobs. Nothing reads through it any more: the worker tiers scale on Hatchet's backlog (below), and the grants it held on the claim-queue tables are gone with them |
+| **Background work: Hatchet (ADR-0150)** | | Always deployed, in the `background-work` namespace: the `hatchet-ha` chart (API, gRPC engine, controllers, scheduler, two replicas each with PDBs; the dashboard behind a ClusterIP Caddy, no route), the `background-work-pg` CloudNativePG cluster (database and role `hatchet`), a three-node `RabbitmqCluster` from the RabbitMQ Cluster Operator as Hatchet's message queue, the `hatchet-token-sync` Job that copies the worker token into `hatchet-client-token` in the app namespace, the namespace's NetworkPolicies and the `background-work-alert-rules` ConfigMap. Runbook: [`hatchet.md`](../../docs/deployment/hatchet.md) |
+| `hatchetChartVersion` | `0.21.0` | The `hatchet-ha` chart from `https://hatchet-dev.github.io/hatchet-charts`. Move it with `hatchetImageTag`, on dev first |
+| `hatchetImageTag` | `v0.114.2` | Hatchet's image tag for every component (the chart's `sharedConfig.image.tag`); also the Compose `hatchet-lite` pin |
+| `hatchetAdminEmail` | `letsEncryptEmail` | The dashboard's seeded admin login |
+| 🔒 `hatchetAdminPassword` | derived from `pgAppPassword` | Its password. Unset, an HMAC of `pgAppPassword`; read it back from the `hatchet-shared-config` Secret (`ADMIN_PASSWORD`) |
+| `hatchetRabbitmqStorageSize` | `10Gi` | Each RabbitMQ node's volume. Initial size only, like every StatefulSet claim |
+| `backgroundWorkPgInstances` | `2` | Instances of `background-work-pg`: a primary and a replica |
+| `backgroundWorkPgStorageSize` | `20Gi` | Its PVC per instance |
+| `backgroundWorkPgCpu` / `backgroundWorkPgMemory` | `2` / `4Gi` | Its CPU and memory limits (memory requested at its limit, CPU requested at 500m) |
+| 🔒 `backgroundWorkPgPassword` | derived from `pgAppPassword` | Password of `hatchet`, the role that owns database `hatchet`; its `CONNECTION LIMIT` comes from `backgroundWorkPgConnectionBudget` |
+| 🔒 `backgroundWorkPgScalerPassword` | derived from `pgAppPassword` | Password of `keda_scaler` on `background-work-pg`, the read-only login the worker tiers' ScaledObjects count Hatchet's backlog with (column SELECT on `v1_queue_item`, `v1_task`, `v1_task_runtime`). In the `background-work-keda-scaler` Secret, which no pod reads |
+| `backgroundWorkPgBackupsEnabled` | `false` | PITR archive of `background-work-pg`. Unlike `pgBackupsEnabled` it has no in-cluster default: it needs an endpoint outside the cluster |
+| `backgroundWorkPgBackupEndpoint` / `backgroundWorkPgBackupAccessKey` / 🔒 `backgroundWorkPgBackupSecretKey` | — | Required with the archive on |
+| `backgroundWorkPgBackupBucket` / `backgroundWorkPgBackupRetention` / `backgroundWorkPgBackupSchedule` / `backgroundWorkPgBackupEncryption` | `background-work-pg-backups` / `14d` / `0 30 2 * * *` / unset | As the `pgBackup*` keys |
 | **Dragonfly (cache)** | | |
 | `dragonflyMaxmemory` | `512mb` | Dataset cap (cache evicts above it) |
 | `dragonflyMemoryLimit` | `768Mi` | Pod memory limit; must exceed maxmemory |
@@ -262,21 +276,21 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | 🔒 `jobPayloadKek` | — | REQUIRED for db mode (encrypts job payloads at rest) |
 | `allowPlaintextJobPayloads` | `false` | Dev-only escape hatch for the KEK requirement |
 | `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Worker sizing |
-| `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on `research_job_queue` depth (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
+| `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on the `research-run` backlog in Hatchet (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
 | `agentWorkerConcurrency` | `1` | Jobs per worker process; KEDA asks for one replica per this many open jobs |
-| `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing already-claimed research jobs (`RESEARCH_WORKER_DRAIN_SECONDS`); the grace period is this plus 30 s. A job still running when it ends is requeued without costing an attempt and started over by another worker, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
+| `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing the research runs it holds (the Hatchet SDK waits for them on SIGTERM; no env variable carries it); the grace period is this plus 30 s. A run still going when it ends is a lost worker's, which Hatchet assigns again, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
 | **The api tier** (ADR-0082): `aiq-api`, every backend HTTP route but the chat socket, which `BACKEND_URL` names | | |
 | `apiMinReplicas` / `apiMaxReplicas` | 2 / 4 (prod 1 / 3, dev 1 / 2) | Bounds of its CPU HPA. A ceiling below the floor fails the plan |
 | `apiHpaCpuTargetPercent` | `70` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`) |
 | `apiRequestsCpu/Memory`, `apiLimitsCpu/Memory` | 500m / 1536Mi / 2 / 6Gi | Sizing |
 | **Ingestion tier, BFF pool and KEDA** (ADR-0076, ADR-0079) | | |
-| `ingestWorkerMinReplicas` / `ingestWorkerMaxReplicas` | 1 / 5 (prod 1 / 8) | KEDA bounds for the ingest tier, which scales on `ingest_job_queue` depth. The ceiling is held to the provider budget below: the deploy fails when it is more than 2x `vlmFleetConcurrency`. Prod's 8 x 2 x 4 = 64 sits exactly at it |
+| `ingestWorkerMinReplicas` / `ingestWorkerMaxReplicas` | 1 / 5 (prod 1 / 8) | KEDA bounds for the ingest tier, which scales on the `ingest-document` backlog in Hatchet. The ceiling is held to the provider budget below: the deploy fails when it is more than 2x `vlmFleetConcurrency`. Prod's 8 x 2 x 4 = 64 sits exactly at it |
 | `ingestWorkerRequestsCpu/Memory`, `ingestWorkerLimitsCpu/Memory` | 500m / 4Gi / 2 / 6Gi (prod: 1 / 6Gi / 2 / 6Gi, on the batch group) | Sizing. The memory request is what a worker holds while it parses, so the scheduler cannot pack several onto one node; prod sets request = limit, so it cannot overcommit at all |
 | `ingestWorkerConcurrency` / `ingestWorkerDrainSeconds` | 3 (prod 2) / 600 | Jobs per worker (also KEDA's jobs-per-replica target) / SIGTERM budget; the grace period is the drain plus 30 s |
 | `ingestMaxPerOrg` | `0` | Most ingest jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless) |
 | `bffJobsEnabled` | `true` | Run the `bff-jobs` pool. It runs project reindex, failed-ingestion rescan, IFC extraction, Office → PDF rendition and research-report filing, so with it off none of those runs |
 | `bffJobsRequestsCpu/Memory`, `bffJobsLimitsCpu/Memory` | 250m / 512Mi / 1 / 2Gi | Sizing. The limit is double a frontend pod's because an IFC model is parsed in the pod, several times its own size in memory, `bffJobsConcurrency` of them at once |
-| `bffJobsMinReplicas` / `bffJobsMaxReplicas` | 1 / 4 | KEDA bounds for the `bff-jobs` pool, which scales on `bff_job_queue` depth |
+| `bffJobsMinReplicas` / `bffJobsMaxReplicas` | 1 / 4 | KEDA bounds for the `bff-jobs` pool, which scales on the `bff-job` backlog in Hatchet |
 | `bffJobsConcurrency` / `bffJobsDrainSeconds` | 2 / 60 | Jobs per pod (also KEDA's target) / SIGTERM budget; the grace period is the drain plus 30 s |
 | `bffJobsMaxPerOrg` | `0` | Most jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless) |
 | `bffJobsMode` | `http` | `BFF_JOBS_MODE`: where a slice runs. `http` spawns the BFF (`node server.js`) in each pod and asks it per slice; `inprocess` runs the services bundled at image build in the supervisor and spawns no server (ADR-0079 amendment 1). Any other value fails the plan |
@@ -296,6 +310,8 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `webHpaCpuTargetPercent` | `70` | HPA target |
 | **LLM / models** | | |
 | 🔒 **`openrouterApiKey`** / 🔒 **`tavilyApiKey`** | — | Provider keys |
+| 🔒 `openrouterChatKey` / 🔒 `openrouterResearchKey` / 🔒 `openrouterIngestKey` | `openrouterApiKey` | One OpenRouter key per workload, each with its own credit limit in OpenRouter: chat, api and the frontend; the agent-worker; the ingest-worker. Each pod gets only its own, as `OPENROUTER_API_KEY` (and `EMBED_API_KEY`, `VLM_API_KEY`). Runbook: `docs/deployment/kubernetes.md` §6.3e |
+| `pgBackupEndpoint` / `pgBackupBucket` / `pgBackupAccessKey` / 🔒 `pgBackupSecretKey` | in-cluster SeaweedFS, `grid-pg-backups` | The app cluster's PITR archive. An external endpoint needs its own key pair; on `prod`, once any off-cluster backup endpoint is set, the in-cluster SeaweedFS is refused. Runbook: `docs/deployment/kubernetes.md`, "Moving the app archive off-cluster" |
 | `embedModel` / `embedBaseUrl` | text-embedding-3-large / OpenRouter | Embeddings |
 | `vlmModel` / `vlmBaseUrl` | gpt-6-luna / OpenRouter | Vision model |
 | **Auth / platform** | | |

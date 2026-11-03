@@ -177,7 +177,7 @@ function ScreeningEditor({
               return (
                 <li key={term}>
                   <Chip asChild interactive variant={on ? 'secondary' : 'outline'} size="md">
-                    <button
+                    <button data-attr="intake-toggle-office-term"
                       type="button"
                       aria-pressed={on}
                       aria-label={t(on ? 'screening.termOn' : 'screening.termOff', { term })}

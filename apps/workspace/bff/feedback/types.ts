@@ -50,6 +50,8 @@ export interface AnswerFeedbackView {
   reason: (typeof ANSWER_FEEDBACK_REASONS)[number] | null
   comment: string | null
   expectedAnswer: string | null
+  /** The answer's Langfuse trace id; set on the write's response only, null when the turn recorded none. */
+  traceId?: string | null
 }
 
 /**

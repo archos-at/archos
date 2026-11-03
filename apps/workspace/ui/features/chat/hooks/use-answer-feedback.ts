@@ -43,9 +43,71 @@ function subscribeToVerdict(messageId: string, listener: VerdictListener): () =>
   }
 }
 
+/** How long a down-vote without a reason waits for one before it is reported as it stands. */
+export const REASON_GRACE_MS = 20_000
+
+type Properties = Record<string, string | number | boolean | null>
+const pendingDown = new Map<string, { properties: Properties; timer: ReturnType<typeof setTimeout> }>()
+
+function flushPendingDown(messageId: string): void {
+  const held = pendingDown.get(messageId)
+  if (!held) return
+  clearTimeout(held.timer)
+  pendingDown.delete(messageId)
+  capturePosthog('answer_feedback_submitted', held.properties)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => [...pendingDown.keys()].forEach(flushPendingDown))
+}
+
+/**
+ * `answer_feedback_submitted`: the vote, its reason chip and whether a note came
+ * with it (its length, never its words: they may quote a restricted folder, and
+ * the Langfuse mirror keeps them out for the same reason). A down-vote is asked
+ * for its reason in the same interaction, so it is held for REASON_GRACE_MS and
+ * sent once, with the reason the voter gave, instead of as a reasonless event
+ * followed by a second one. A note saved on top of the same vote is not another.
+ */
+function recordVote(
+  messageId: string,
+  previous: AnswerFeedbackState | null,
+  next: AnswerFeedbackState | null,
+  ids: Properties,
+): void {
+  if (!next) {
+    const held = pendingDown.get(messageId)
+    if (held) clearTimeout(held.timer)
+    pendingDown.delete(messageId)
+    return
+  }
+  const properties: Properties = {
+    verdict: next.verdict,
+    reason: next.reason,
+    has_comment: next.comment !== null || next.expectedAnswer !== null,
+    comment_length: (next.comment?.length ?? 0) + (next.expectedAnswer?.length ?? 0),
+    message_id: messageId,
+    ...ids,
+  }
+  const held = pendingDown.get(messageId)
+  if (held) {
+    held.properties = { ...held.properties, ...properties }
+    if (next.reason !== null) flushPendingDown(messageId)
+    return
+  }
+  if (previous?.verdict === next.verdict && previous.reason === next.reason) return
+  if (next.verdict === 'down' && next.reason === null) {
+    pendingDown.set(messageId, { properties, timer: setTimeout(() => flushPendingDown(messageId), REASON_GRACE_MS) })
+    return
+  }
+  capturePosthog('answer_feedback_submitted', properties)
+}
+
 /** Test hook: reset the module-level hydration cache between specs. */
 export function __clearAnswerFeedbackCache(): void {
   conversationCache.clear()
+  pendingDown.forEach((held) => clearTimeout(held.timer))
+  pendingDown.clear()
 }
 
 async function loadConversationFeedback(conversationId: string): Promise<ConversationFeedbackMap> {
@@ -159,20 +221,12 @@ export function useAnswerFeedback(
                 })
             if (res.ok) {
               updateCache(conversationId, messageId, next)
-              // The vote and its reason chip, never the comment or the expected
-              // answer: those are the voter's words (and may quote a restricted
-              // folder), and the Langfuse mirror keeps them out for the same reason.
-              // A note saved on top of the same vote is the same vote, not another.
-              if (next && (previous?.verdict !== next.verdict || previous?.reason !== next.reason)) {
-                // The two ids are what lets a vote be joined to its turn and to
-                // the score Langfuse exports for it; they are our own row ids.
-                capturePosthog('answer_feedback_submitted', {
-                  verdict: next.verdict,
-                  reason: next.reason,
-                  message_id: messageId,
-                  conversation_id: conversationId ?? null,
-                })
-              }
+              const body = (await res.json().catch(() => null)) as { traceId?: string | null } | null
+              recordVote(messageId, previous, next, {
+                conversation_id: conversationId ?? null,
+                trace_id: body?.traceId ?? null,
+                langfuse_trace_id: body?.traceId ?? null,
+              })
             } else {
               setState(previous) // revert the optimistic update
             }

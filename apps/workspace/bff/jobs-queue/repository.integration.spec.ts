@@ -3,8 +3,8 @@
  *
  * The BFF's side of `bff_job_queue`, against a REAL Postgres, through the
  * restricted runtime role: a request enqueues into its own lane, a second
- * click finds the open job by its payload, and the internal route reads back
- * only the row a worker holds. The claim itself is `queue.integration.spec.ts`.
+ * click finds the open job by its payload, and a `bff-job` run takes, saves,
+ * fails and finishes only the row it holds (ADR-0150).
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run bff/jobs-queue/repository.integration.spec.ts
@@ -147,20 +147,62 @@ describe.skipIf(!url)('bff_job_queue reads and writes from the BFF', () => {
     expect(none).toBeNull()
   })
 
-  it('reads back a job only for the worker that holds it', async () => {
-    const jobId = await enqueueAs(ORG_A, 'p-claimed')
-    await context.withPlatformAccess('test: claim the job', () =>
-      db.execute(sql`
-        UPDATE bff_job_queue
-        SET status = 'claimed', claimed_by = 'w-0', claimed_at = now(), heartbeat_at = now(), attempts = 1
-        WHERE job_id = ${jobId}::uuid
-      `),
+  const platform = <T>(fn: () => Promise<T>) => context.withPlatformAccess('test: a run', fn)
+  const status = async (jobId: string) => {
+    const rows = await platform(() =>
+      db.execute<Record<string, unknown>>(sql`SELECT status, attempts, claimed_by, payload, last_error FROM bff_job_queue WHERE job_id = ${jobId}::uuid`),
     )
+    return Array.from(rows)[0] ?? null
+  }
 
-    const read = (worker: string) =>
-      context.withPlatformAccess('test: the run route reads the row', () => repo.findClaimedJob(jobId, worker))
+  it('lets one run take a job, refuses a second, and lets the first take it again for its retry', async () => {
+    const jobId = await enqueueAs(ORG_A, 'p-take')
 
-    expect((await read('w-0'))?.lane).toBe(ORG_A)
-    expect(await read('w-1')).toBeNull()
+    expect((await platform(() => repo.takeJob(jobId, 'run-1', { staleSeconds: 600 })))?.attempts).toBe(1)
+    expect(await platform(() => repo.takeJob(jobId, 'run-2', { staleSeconds: 600 }))).toBeNull()
+    expect((await platform(() => repo.takeJob(jobId, 'run-1', { staleSeconds: 600 })))?.attempts).toBe(2)
+    // A run silent past the stale window has lost it.
+    expect((await platform(() => repo.takeJob(jobId, 'run-2', { staleSeconds: 0 })))?.claimedBy).toBe('run-2')
+    expect(await platform(() => repo.finishJob(jobId, 'run-1'))).toBe(false)
+    expect(await platform(() => repo.finishJob(jobId, 'run-2'))).toBe(true)
+    expect(await status(jobId)).toBeNull()
+  })
+
+  it('saves a slice for the next run with its attempts back to none, and waits it out', async () => {
+    const jobId = await enqueueAs(ORG_A, 'p-slice')
+    await platform(() => repo.takeJob(jobId, 'run-1', { staleSeconds: 600 }))
+
+    const saved = await platform(() => repo.saveJobProgress(jobId, 'run-1', { projectId: 'p-slice', cursor: 7 }, new Date(Date.now() + 3_600_000)))
+
+    expect(saved?.claimedAt).toBeInstanceOf(Date)
+    expect(await status(jobId)).toMatchObject({ status: 'queued', attempts: 0, claimed_by: null, payload: { projectId: 'p-slice', cursor: 7 } })
+    // Not due for an hour: no run takes it, and the sweep does not dispatch it.
+    expect(await platform(() => repo.takeJob(jobId, 'run-2', { staleSeconds: 600 }))).toBeNull()
+    const stranded = await platform(() => repo.listJobsToDispatch({ graceSeconds: 0, staleSeconds: 600, limit: 500 }))
+    expect(stranded.map((row) => row.jobId)).not.toContain(jobId)
+  })
+
+  it('queues a failed attempt behind its backoff, and makes the last one dead with ids only', async () => {
+    const jobId = await context.withTenant({ organizationId: ORG_A }, () =>
+      repo.insertJob({ kind: 'bim_extract', organizationId: ORG_A, priority: 0, payload: { projectId: 'p-fail', storageKey: 'k/plan.ifc' } }),
+    )
+    await platform(() => repo.takeJob(jobId, 'run-1', { staleSeconds: 600 }))
+    expect(await platform(() => repo.failJob(jobId, 'run-1', new Error('blip'), { maxAttempts: 2, retryInSeconds: 0 }))).toBe('queued')
+
+    await platform(() => repo.takeJob(jobId, 'run-1', { staleSeconds: 600 }))
+    expect(await platform(() => repo.failJob(jobId, 'run-1', new Error('object store down'), { maxAttempts: 2, retryInSeconds: 0 }))).toBe('dead')
+
+    expect(await status(jobId)).toMatchObject({ status: 'dead', payload: { projectId: 'p-fail' }, last_error: 'object store down' })
+  })
+
+  it('lists a queued row nobody dispatched, and a held row whose run went silent', async () => {
+    const waiting = await enqueueAs(ORG_B, 'p-waiting')
+    const held = await enqueueAs(ORG_B, 'p-held')
+    await platform(() => repo.takeJob(held, 'run-gone', { staleSeconds: 600 }))
+
+    const listed = await platform(() => repo.listJobsToDispatch({ graceSeconds: 0, staleSeconds: 0, limit: 500 }))
+
+    expect(listed.map((row) => row.jobId)).toEqual(expect.arrayContaining([waiting, held]))
+    expect(listed.find((row) => row.jobId === held)?.claimedAt).toBeInstanceOf(Date)
   })
 })

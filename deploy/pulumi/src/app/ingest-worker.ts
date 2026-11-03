@@ -9,22 +9,14 @@ import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduli
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { agentWorkerRollout, gracefulShutdown, secretChecksumAnnotations, surgeRollout } from "../platform/rollout";
 import { AppSecrets, AppWiring, ingestWorkerEnv } from "./config";
-import { JOBS_QUEUE_AUTH } from "./jobs-queue-auth";
-import { installQueueScaledObject, queueDepthQuery } from "./keda-scaling";
+import { installQueueScaledObject } from "./keda-scaling";
 import { UID } from "../constants";
 
-/** The durable queue the tier drains (`agent.knowledge.ingest_queue.TABLE`). */
-export const QUEUE_TABLE = "ingest_job_queue";
+/** The Hatchet workflow the tier runs (ADR-0150). */
+export const WORKFLOW = "ingest-document";
 
 /**
- * KEDA's measure of the tier's work: every job queued or held by a worker,
- * retired rows (dead, cancelled) left out (`queueDepthQuery`). A crashed claim
- * ages out of the table through the reaper.
- */
-export const QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
-
-/**
- * The ingestion tier (ADR-0076), the only process that claims ingestion jobs.
+ * The ingestion tier (ADR-0076, ADR-0150), the only process that runs ingestion jobs.
  *
  * Replicas of the backend image with `PROCESS_ROLE=ingest-worker`: no web port, no PVC. Each builds the ingestor once and its `concurrency` threads
  * claim jobs from Postgres, fairly across organisations (fewest running first,
@@ -32,7 +24,7 @@ export const QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
  * is disposable.
  *
  * SCALED ON THE QUEUE, NOT ON CPU. An ingest job mostly waits on the model
- * provider, so CPU says nothing about the backlog. KEDA runs `QUEUE_DEPTH_QUERY`
+ * provider, so CPU says nothing about the backlog. KEDA counts the workflow's Hatchet backlog
  * and asks for ceil(depth / concurrency) replicas between `minReplicas` and
  * `maxReplicas`: a thousand-document reindex fans out across the tier, and an
  * empty queue shrinks it back to the floor (zero, if the floor is zero).
@@ -139,10 +131,7 @@ export function installIngestWorker(
     minReplicas: cfg.ingestWorker.minReplicas,
     maxReplicas: cfg.ingestWorker.maxReplicas,
     concurrency: cfg.ingestWorker.concurrency,
-    table: QUEUE_TABLE,
-    // The shared TriggerAuthentication (`jobs-queue-auth.ts`), created once for
-    // both Python claim queues and passed in through `dependsOn`.
-    authName: JOBS_QUEUE_AUTH,
+    workflow: WORKFLOW,
     dependsOn,
   });
 

@@ -15,20 +15,24 @@
  * the one sweep tied to the office's clock (the Frist reminder) runs hourly and
  * gates itself (`./office-clock.ts`).
  *
- * The worker passes `await schedulingTasks()` to `hatchet.worker('bff-jobs', { workflows })`.
+ * `startJobWorker` (`bff/jobs-queue/slice-entry.ts`) registers `schedulingTasks()`
+ * beside `bff-job` on the one `bff-jobs` worker.
  */
 
 import 'server-only'
-import { ConcurrencyLimitStrategy } from '@hatchet-dev/typescript-sdk/v1'
+import { ConcurrencyLimitStrategy, type HatchetClient } from '@hatchet-dev/typescript-sdk/v1'
+import { hatchetClient } from '@/lib/jobs-queue/hatchet'
 import { runAsJobSlice } from '@/lib/jobs-queue/slice-scope'
 import { runWithTenantSlot, withPlatformAccess } from '@/lib/db/tenant-context'
 import { fireTaskDefinition, repairOverdueSchedules } from './fire-definition'
-import { schedulingHatchet, type SchedulingHatchet } from './hatchet'
 import { FIRE_TASK_DEFINITION, type FireTaskDefinitionInput } from './scheduled-runs'
 import * as sweeps from './sweeps'
 
 /** How many definitions of one organization fire at once. */
 const FIRES_PER_ORGANIZATION = 5
+
+/** What declaring a task needs of the client; the wiring spec hands in a fake. */
+export type TaskDeclarer = Pick<HatchetClient, 'task'>
 
 /** Like a job slice: no request, no tenant inherited from the run before (`slice-scope.ts`). */
 function inWorkerScope<T>(fn: () => Promise<T>): Promise<T> {
@@ -46,7 +50,7 @@ export interface SweepSpec {
 }
 
 /** A maintenance sweep as a Hatchet cron task that never overlaps itself. */
-export function sweepTask(hatchet: SchedulingHatchet, spec: SweepSpec) {
+export function sweepTask(hatchet: TaskDeclarer, spec: SweepSpec) {
   return hatchet.task({
     name: spec.name,
     on: { cron: spec.cron },
@@ -135,7 +139,7 @@ const SWEEPS: SweepSpec[] = [
 ]
 
 /** The task a definition's scheduled run fires. */
-export function fireTask(hatchet: SchedulingHatchet) {
+export function fireTask(hatchet: TaskDeclarer) {
   return hatchet.task({
     name: FIRE_TASK_DEFINITION,
     concurrency: {
@@ -152,14 +156,7 @@ export function fireTask(hatchet: SchedulingHatchet) {
   })
 }
 
-function declareAll(hatchet: SchedulingHatchet) {
+/** Every scheduling task, for the `bff-jobs` worker's `workflows` (`bff/jobs-queue/slice-entry.ts`). */
+export function schedulingTasks(hatchet: TaskDeclarer = hatchetClient()) {
   return [fireTask(hatchet), ...SWEEPS.map((spec) => sweepTask(hatchet, spec))]
-}
-
-let declared: Promise<ReturnType<typeof declareAll>> | null = null
-
-/** Every scheduling task, declared once per process, for `hatchet.worker('bff-jobs', { workflows })`. */
-export function schedulingTasks(): Promise<ReturnType<typeof declareAll>> {
-  declared ??= schedulingHatchet().then(declareAll)
-  return declared
 }

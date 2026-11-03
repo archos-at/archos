@@ -112,7 +112,7 @@ function OpenMarksButton({
     <Tooltip>
       <TooltipTrigger asChild>
         <Chip asChild interactive size="sm" variant="muted" className={cn('tabular-nums', className)}>
-          <button
+          <button data-attr="open-marks"
             type="button"
             data-slot="open-marks"
             data-testid="open-marks"

@@ -2,9 +2,9 @@
 
 :class:`FakeIngestor` can only PREPARE a job, as the real one does (a PENDING status in the ingest status
 store); it raises on anything that would ingest in the calling process. :func:`run_worker` plays the ingest
-worker: it claims what is queued, runs the job's download for real, and writes the outcome as the ingestor
-does. Both sit on the real ingest queue and status store, which ``tests.object_corpus_fakes.install`` points
-at the test database.
+worker: it takes each run handed to Hatchet (the recording fake ``tests.object_corpus_fakes.install``
+installs), runs the job's download for real, and writes the outcome as the ingestor does, on the real
+status store in the test database.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
 
+from agent_testing.hatchet_fake import take_run
 from sqlalchemy import text
 
-from agent.knowledge import ingest_queue
+from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
@@ -85,35 +86,42 @@ class FakeIngestor:
 
 
 def _engine():
-    return DocumentMetadataStore._get_or_create_sync_engine(ingest_queue.db_url())
+    return DocumentMetadataStore._get_or_create_sync_engine(ingest_status_store._db_url())
 
 
 def run_worker(*, succeed: bool = True, downloaded: list[bytes] | None = None) -> list[PreparedIngestJob]:
-    """What an ingest worker does with the queue, minus the pipeline: claim, download, write the outcome.
+    """What an ingest worker does with its runs, minus the pipeline: take, download, write the outcome.
 
     Each job's downloaded bytes are appended to ``downloaded`` when it is given.
     """
     ran: list[PreparedIngestJob] = []
-    while claim := ingest_queue.claim_next("worker-1", stale_seconds=180, max_attempts=3):
-        prepared = ingest_dispatch.decode(claim.payload)
-        path = prepared.file_paths[0]()  # the job's own download, for real
-        if downloaded is not None:
-            with open(path, "rb") as handle:
-                downloaded.append(handle.read())
-        os.unlink(path)
-        status = prepared.status.model_copy(deep=True)
-        status.status = JobState.COMPLETED if succeed else JobState.FAILED
-        for detail in status.file_details:
-            detail.status = FileStatus.SUCCESS if succeed else FileStatus.FAILED
-        ingest_status_store.put(status)
-        ingest_queue.mark_done(claim.job_id, "worker-1")
-        ran.append(prepared)
+    while run := take_run():
+        ran.append(finish(ingest_dispatch.decode(run.input.payload), succeed=succeed, downloaded=downloaded))
     return ran
 
 
+def finish(
+    prepared: PreparedIngestJob, *, succeed: bool = True, downloaded: list[bytes] | None = None
+) -> PreparedIngestJob:
+    """One job as a worker ends it, minus the pipeline: its download for real, then its outcome written."""
+    path = prepared.file_paths[0]()  # the job's own download, for real
+    if downloaded is not None:
+        with open(path, "rb") as handle:
+            downloaded.append(handle.read())
+    os.unlink(path)
+    status = prepared.status.model_copy(deep=True)
+    status.status = JobState.COMPLETED if succeed else JobState.FAILED
+    for detail in status.file_details:
+        detail.status = FileStatus.SUCCESS if succeed else FileStatus.FAILED
+    ingest_status_store.put(status)
+    return prepared
+
+
 def lose_the_workers_for(job_id: str) -> None:
-    """Every claim of the job died: its queue row is dead and its owner stopped beating."""
-    ingest_queue.mark_dead(job_id, "claimed 3 times without finishing")
+    """Every attempt of the job died: its run's last attempt released the hold, and its owner stopped beating."""
+    while take_run(job_id) is not None:
+        pass
+    ingest_run_hold.release(job_id)
     with _engine().begin() as conn:
         conn.execute(
             text("UPDATE ingest_jobs SET heartbeat_at = :old WHERE job_id = :id"),

@@ -7,14 +7,15 @@ import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-conf
 
 /**
  * Who may call Langfuse's public API (ADR-0044), and for what. The purger
- * erases an erased chat's traces and those of a folder purge's removed answers,
- * and the scheduler erases the ones past retention: deletion is theirs alone.
- * The frontend writes every answer vote as a score (Amendment 3) and deletes
- * nothing. The bff-jobs pool, built from the frontend's environment, holds no
- * keys at all.
+ * erases an erased chat's traces and those of a folder purge's removed answers;
+ * the bff-jobs pool's Hatchet sweeps (`bff/scheduling/sweeps.ts`, ADR-0150)
+ * erase the traces of chats the BFF erased and the ones past retention:
+ * deletion is theirs alone. The frontend writes every answer vote as a score
+ * (Amendment 3) and deletes nothing. bff-jobs does not inherit the frontend's
+ * Langfuse settings; it gets the API keys on their own.
  *
  * Two layers say so and must agree. The network policy admits exactly those
- * three pods into Langfuse web (`platform/network-policies.ts`, rules 11b and
+ * pods into Langfuse web (`platform/network-policies.ts`, rules 11b and
  * 11c), and only their environments carry the API's host and keys. Trace
  * deletion run from anywhere but the two workers fails silently or by
  * accident, which is how the Papierkorb's „Endgültig löschen" once "erased"
@@ -46,7 +47,7 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
   beforeAll(async () => {
     pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...langfuseStackConfig() });
     const { loadConfig } = await import("../config");
-    const { frontendEnv, purgerEnv, schedulerEnv } = await import("./config");
+    const { frontendEnv, purgerEnv } = await import("./config");
     const { bffJobsEnv } = await import("./bff-jobs-env");
     const cfg = loadConfig();
     expect(cfg.langfuse.enabled).toBe(true);
@@ -64,30 +65,30 @@ describe("Langfuse's API credentials, with the tier deployed", () => {
     envs.frontend = frontendEnv(wiring as never);
     envs.bffJobs = bffJobsEnv(wiring as never);
     envs.purger = purgerEnv(wiring as never);
-    envs.scheduler = schedulerEnv(wiring as never);
   });
 
-  it("are in the frontend's, which scores votes, and not in the bff-jobs pool's built from it", () => {
+  it("are in the frontend's, which scores votes", () => {
     expect(apiNames(envs.frontend).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
-    expect(apiNames(envs.bffJobs)).toEqual([]);
   });
 
-  it("are in the purger's and the scheduler's, the two pods the network policy admits", () => {
+  it("are in the purger's and bff-jobs', the two pods the network policy admits, once each", () => {
     // Not vacuous: the pattern finds all three names where they belong.
     expect(apiNames(envs.purger).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
-    expect(apiNames(envs.scheduler).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
+    expect(apiNames(envs.bffJobs).sort()).toEqual(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]);
     const policies = readFileSync(join(repoRoot, "deploy", "pulumi", "src", "platform", "network-policies.ts"), "utf8");
-    expect(policies).toContain('from: ["purger", "skill-scheduler"].map(');
+    expect(policies).toContain('from: ["purger", "bff-jobs"].map(');
   });
 
-  it("are not reached for by the BFF's own code", () => {
-    // The trace client lives in `workers/` for the purger and the scheduler. A
-    // BFF module that imports it erases nothing, and says it did.
+  it("are not reached for by the BFF's own code, outside the sweeps only bff-jobs runs", () => {
+    // The trace client lives in `workers/` for the purger and bff-jobs' sweeps.
+    // A module the frontend runs that imports it erases nothing, and says it did.
+    const BFF_JOBS_ONLY = new Set([join("scheduling", "sweeps.ts")]);
     const importers = ["app", "bff", "ui", "i18n", "shared", "types", "utils"].flatMap((dir) => {
       const root = join(repoRoot, "apps", "workspace", dir);
       return (readdirSync(root, { recursive: true }) as string[])
         .filter((file) => /\.(ts|tsx)$/.test(file) && !/\.spec\.tsx?$/.test(file))
-        .filter((file) => readFileSync(join(root, file), "utf8").includes("workers/langfuse-traces"));
+        .filter((file) => readFileSync(join(root, file), "utf8").includes("workers/langfuse-traces"))
+        .filter((file) => !(dir === "bff" && BFF_JOBS_ONLY.has(file)));
     });
     expect(importers).toEqual([]);
   });

@@ -17,7 +17,7 @@
 import 'server-only'
 import type { TaskDefinition } from '@/lib/db/schema/task-model'
 import * as tasks from '@/lib/tasks/repository'
-import { schedulingHatchet } from './hatchet'
+import { hatchetClient } from '@/lib/jobs-queue/hatchet'
 import { setScheduledRunId } from './repository'
 
 export const FIRE_TASK_DEFINITION = 'fire-task-definition'
@@ -41,7 +41,7 @@ const LOG = '[scheduling]'
 /** Delete a scheduled run; one that already fired or is gone is not an error worth more than a line. */
 async function deleteScheduledRun(scheduledRunId: string): Promise<void> {
   try {
-    await (await schedulingHatchet()).scheduled.delete(scheduledRunId)
+    await hatchetClient().scheduled.delete(scheduledRunId)
   } catch (error) {
     // A leftover run is harmless: its fire finds `next_run_at` moved and records nothing.
     console.warn(`${LOG} could not delete scheduled run ${scheduledRunId}:`, error instanceof Error ? error.message : error)
@@ -64,8 +64,7 @@ export async function syncScheduledRun(definition: ScheduledDefinition, now: Dat
         organization_id: definition.organizationId,
         due_at: due.toISOString(),
       }
-      const hatchet = await schedulingHatchet()
-      const created = await hatchet.scheduled.create(FIRE_TASK_DEFINITION, {
+      const created = await hatchetClient().scheduled.create(FIRE_TASK_DEFINITION, {
         triggerAt: new Date(Math.max(due.getTime(), now.getTime())),
         input,
         additionalMetadata: { definition_id: definition.id },

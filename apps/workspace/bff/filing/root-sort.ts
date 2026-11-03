@@ -109,7 +109,7 @@ async function judgeableRootDocuments(
   documentIds: readonly string[]
 ): Promise<EnrichedDocument[]> {
   const rows = await findRootDocuments(session.organizationId, shelf, SCREENED_ONLY, documentIds)
-  const enriched = await reconcileDocumentStatuses(rows, session.organizationId)
+  const enriched = await reconcileDocumentStatuses(rows, session.organizationId, 'read')
   return enriched.filter(isJudgeable)
 }
 

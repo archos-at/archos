@@ -1524,10 +1524,19 @@ split is stated explicitly).
 
 ---
 
-## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079)
+## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079; kept until the cutover drains them)
 
-The BFF's durable background work: one row is one job a `bff-jobs` replica
-claims and runs (project reindex, failed-ingestion rescan, the sort of a shelf's root
+The BFF's background work runs on Hatchet (ADR-0150): one `bff-job` run per
+job, the kind in its input, fair across offices by a `GROUP_ROUND_ROBIN`
+concurrency key on `input.organization_id` and ordered inside an office by run
+priority ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)). These two
+tables are the claim queue it replaced. Nothing new is written to them; they are
+kept until the cutover drains them (hatchet.md, "Cutover from the claim
+queues"), and a later migration drops them. What follows describes the rows
+still in them.
+
+Under the claim queue, one row was one job a `bff-jobs` replica
+claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's root
 `root_sort`, ADR-0121, the re-read of the documents collection placement moved
 `placement_reingest`; and, one step each,
 IFC extraction `bim_extract`, office conversion `office_rendition` and research
@@ -1567,13 +1576,13 @@ RLS: both are tenant tables whose predicate compares `lane` (not an
 `organization_id` column) to `current_org()`, so a request enqueues and
 reads only its own organization's jobs. The runner is cross-tenant by nature
 and steps up to `app_platform` per transaction
-(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA counts
-the table as `keda_scaler`, a login with SELECT on this table's `status`
-column and nothing else (a leaked scaler DSN cannot read a payload); it crosses the tenant boundary by a second policy,
-`grid_keda_scaler_count` (`FOR SELECT TO keda_scaler USING (true)`), which
-the Pulumi grants Job (`deploy/pulumi/src/app/queue-scaler-grants.ts`) creates
-after the migrations, not a migration: the role exists only where CloudNativePG
-declares it. `tenant_isolation` is untouched.
+(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA no
+longer counts this table: the `bff-jobs` tier scales on its Hatchet backlog in
+`background-work-pg` (`hatchetBacklogQuery`, `deploy/pulumi/src/app/keda-scaling.ts`),
+read by that cluster's own `keda_scaler` login. A database that ran the claim
+queue may still carry the scaler's `grid_keda_scaler_count` policy
+(`FOR SELECT TO keda_scaler USING (true)`, a policy a Pulumi Job created, never a
+migration); it goes with the tables. `tenant_isolation` is untouched.
 
 ---
 

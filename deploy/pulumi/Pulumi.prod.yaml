@@ -32,6 +32,10 @@
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:gridAdminToken        "$(openssl rand -hex 32)" --secret
 
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:openrouterApiKey      "sk-or-..." --secret
+#   # Optional: openrouterChatKey, openrouterResearchKey, openrouterIngestKey, set
+#   # like openrouterApiKey above. One OpenRouter key per workload, each with its
+#   # own credit limit; each falls back to openrouterApiKey
+#   # (docs/deployment/kubernetes.md §6.3e).
 
 #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:tavilyApiKey          "tvly-..." --secret
 
@@ -228,6 +232,18 @@ config:
   grid-oib:pgBackupsEnabled: "true"
   grid-oib:pgBackupRetention: 30d
   grid-oib:pgBackupSchedule: "0 0 2 * * *" # 6-field (sec min hour …): 02:00 daily
+  # OFF-CLUSTER (open, needs a bucket): the archive above still goes to the
+  # in-cluster SeaweedFS, the one pod that crashed on 2026-11-02. Once the
+  # operator has an external S3-compatible bucket, uncomment these with the
+  # project namespace the keys above carry, and put pgBackupSecretKey in ESC like the
+  # other secrets above. Once any off-cluster endpoint is set (this one or
+  # backgroundWorkPgBackupEndpoint), a plan that leaves this archive on
+  # SeaweedFS is refused (`refuseInClusterAppArchive`). Runbook and restore
+  # drill: docs/deployment/kubernetes.md, "Moving the app archive off-cluster".
+  # pgBackupEndpoint: https://<s3-endpoint-outside-this-cluster>
+  # pgBackupBucket: <bucket>
+  # pgBackupAccessKey: <access key id of a key scoped to that bucket>
+  # pgBackupEncryption: AES256 # only if the destination documents SSE
   # ── SeaweedFS ──
 
   # Pin the storage engine in prod: the provider replaces nodes on ITS schedule,

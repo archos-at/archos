@@ -187,7 +187,8 @@ export function migrateChromaToQdrant(
                 imagePullPolicy: appPullPolicy(cfg, backendImage(cfg)),
                 securityContext: hardenedContainerSecurityContext(),
                 command: ["python", "scripts/import_vectors.py", "--in", SCRATCH.export, "--verify"],
-                env: backendEnv(w, "grid-chroma-migration"),
+                // Bulk knowledge work: whatever model call it makes spends the ingest key.
+                env: backendEnv(w, "grid-chroma-migration", "ingest"),
                 volumeMounts: [exchangeMount],
                 resources: CHROMA_MIGRATION.importerResources,
               },

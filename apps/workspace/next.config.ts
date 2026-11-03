@@ -25,6 +25,14 @@ const requestBodyLimitMB = Math.ceil(requestBodyLimitBytes(process.env) / (1024 
 export const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  // Version skew protection (Next guides/self-hosting, "Version Skew"). A tab
+  // opened before a deploy posts server action ids the new build does not know
+  // ("Failed to find Server Action", 16 a month). With a deployment id the client
+  // sends it, sees the server's differ, and reloads the page instead of posting a
+  // stale action. The commit the image is built from (`GIT_SHA`, a build arg of
+  // `deploy/Dockerfile`); unset in a local build, which then has no skew to guard.
+  deploymentId: process.env.GIT_SHA?.trim() || undefined,
+
   // `next dev` rewrites AGENTS.md when it detects a coding agent: it upserts a
   // managed block whose heading level differs from ours, so every dev start in an
   // agent session dirtied a tracked file (docs/contributing/gotchas.md, "next dev
@@ -110,8 +118,10 @@ export const nextConfig: NextConfig = {
   // node_modules (deploy/Dockerfile), so Node resolves it as it does in tests.
   // `ws` likewise: the wake job's chat socket (`lib/turns/headless-turn.ts`),
   // whose optional native peers (`bufferutil`, `utf-8-validate`) a bundler
-  // would try to resolve and inline.
-  serverExternalPackages: ['exceljs', 'ws'],
+  // would try to resolve and inline. The Hatchet SDK likewise (an enqueue
+  // triggers a run, `lib/jobs-queue/hatchet.ts`): a gRPC client whose agent
+  // adapters name optional peers nothing here installs.
+  serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk'],
 
   experimental: {
     serverActions: {

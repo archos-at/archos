@@ -26,6 +26,7 @@ import { auditScreeningOverride } from '@/lib/upload-screening/service'
 import { normalizeOriginPath } from '@/lib/documents/origin-path'
 import { assertMayReplaceHeld, shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
 import { acceptedUploadBatchId } from '@/lib/upload-batches/service'
+import { announceDocumentUploaded } from '@/lib/analytics/ingest-events'
 import 'server-only'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { s3Client, bucketAdminS3Client, buildSessionStorageKey } from '@/lib/s3'
@@ -96,7 +97,7 @@ export async function listSessionDocuments(
   const rows = await listSessionDocumentRows(conversationId, session.organizationId, reader, SESSION_DOCUMENT_LIST_LIMIT)
   // Narrowed again after the reconcile, by the same rule: a row the query let
   // through on an earlier verdict can come back `quarantined`.
-  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId), reader)
+  const reconciled = keepReadable(await reconcileDocumentStatuses(rows, session.organizationId, 'read'), reader)
 
   return {
     documents: reconciled.map(
@@ -334,6 +335,14 @@ export async function uploadSessionDocument(
     storageKey,
     storageBucket,
     collectionName,
+  })
+
+  announceDocumentUploaded(session.organizationId, session.userId, {
+    source: 'chat',
+    filename,
+    documentId,
+    uploadId: uploadBatchId,
+    replaced,
   })
 
   // Data-provenance event: who brought which file into which conversation.

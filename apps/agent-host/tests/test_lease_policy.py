@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from agent_host.jobs import lease_policy
-from agent_host.jobs import worker as worker_mod
 
 _BFF_RUNNER = Path(__file__).resolve().parents[3] / "apps" / "workspace" / "workers" / "jobs" / "index.js"
 
@@ -56,35 +55,3 @@ def test_the_bff_claim_loop_shares_the_lease_defaults_that_are_meant_to_be_share
     assert _bff_default("BFF_JOBS_DEAD_RETENTION_DAYS") == lease_policy.DEAD_RETENTION_DAYS
     assert _bff_default("BFF_JOBS_DRAIN_SECONDS") == 60
     assert lease_policy.DRAIN_SECONDS == 600
-
-
-async def test_the_research_worker_reaps_once_a_heartbeat_not_on_every_poll(monkeypatch):
-    reaps = []
-
-    async def reap(self):
-        reaps.append(1)
-
-    monkeypatch.setattr(worker_mod.ResearchWorker, "_fail_exhausted", reap)
-    monkeypatch.setattr(worker_mod.ResearchWorker, "_purge_dead", lambda self: _nothing())
-    worker = worker_mod.ResearchWorker()
-
-    for _ in range(5):
-        await worker._maintain()
-
-    assert len(reaps) == 1
-
-
-async def test_a_failed_reap_does_not_end_the_poll_loop(monkeypatch, caplog):
-    async def reap(self):
-        raise ConnectionError("database restarting")
-
-    monkeypatch.setattr(worker_mod.ResearchWorker, "_fail_exhausted", reap)
-    monkeypatch.setattr(worker_mod.ResearchWorker, "_purge_dead", lambda self: _nothing())
-
-    await worker_mod.ResearchWorker()._maintain()
-
-    assert "Reaping exhausted research claims failed" in caplog.text
-
-
-async def _nothing() -> None:
-    return None

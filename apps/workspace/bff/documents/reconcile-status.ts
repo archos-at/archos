@@ -12,7 +12,7 @@
  * wiped the in-memory job registry) and terminal states are written back.
  */
 
-import { fetchInChunks } from './status-batch'
+import { fetchInChunks, type BackendJobFile, type BackendJobStatus } from './status-batch'
 import {
   extractIngestJobId,
   isLostJob,
@@ -22,7 +22,9 @@ import {
   toEpochMs,
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
-import { announceIngestsFinished } from '@/lib/analytics/ingest-events'
+import type { SettledBy } from '@/lib/analytics/ingest-events'
+import { announceSettledIngests } from './announce-settled'
+import { timingOf, type IngestTiming } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
   reportsQuarantine,
@@ -186,6 +188,8 @@ export interface TerminalResolution {
    * resolution built elsewhere (a spec, an older caller) writes none.
    */
   failure?: IngestFailureFacts
+  /** The job's own clock, for the analytics event: time queued and time worked. Absent without a job. */
+  timing?: IngestTiming
 }
 
 /** What a resolution says when the backend said nothing about the failure. */
@@ -229,33 +233,6 @@ const fetchJson = async (
   } catch {
     return null
   }
-}
-
-/** One file of a job, as the batch status endpoint reports it (`FileProgress`). */
-interface BackendJobFile {
-  status?: string
-  error_message?: string | null
-  /** The content gate's per-file outcome (ADR-0086), null when the job carried no rules. */
-  screening?: string | null
-  /**
-   * Why the gate held the file (`FileProgress.quarantine`, ADR-0113), null on
-   * every other file and absent from a job written before the field. Parsed at
-   * this boundary by `storedQuarantineVerdictOf`, never trusted as typed.
-   */
-  quarantine?: unknown
-  /** Why it failed (`ingest_failures.py`), and whether the same bytes may read again; null unless FAILED. */
-  failure_category?: string | null
-  retryable?: boolean | null
-}
-
-interface BackendJobStatus {
-  status?: string
-  error_message?: string | null
-  /** `queue_ahead`: the backend's count for a job still in the durable queue. */
-  metadata?: { queue_ahead?: unknown } | null
-  /** The reader that ran the job (`INGEST_READER_VERSION`); null until a worker started it. */
-  reader_version?: string | null
-  file_details?: BackendJobFile[]
 }
 
 /**
@@ -342,6 +319,12 @@ export const cancelledResolution = (): TerminalResolution => ({
 })
 
 const resolveFromJobStatus = (job: BackendJobStatus | null | undefined): JobResolution => {
+  const resolved = resolveJobOutcome(job)
+  if (resolved.kind !== 'terminal' || !job) return resolved
+  return { kind: 'terminal', resolution: { ...resolved.resolution, timing: timingOf(job) } }
+}
+
+const resolveJobOutcome = (job: BackendJobStatus | null | undefined): JobResolution => {
   if (job === undefined || job === null) return { kind: 'unknown' }
 
   if (job.status === 'cancelled') {
@@ -897,6 +880,8 @@ function announceSettledShelves(
 export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   rows: T[],
   organizationId: string,
+  /** Which path is asking, for `document_ingest_finished` (`SettledBy`): the push, a read or a sweep. */
+  settledBy: SettledBy,
 ): Promise<Array<T & DocumentMetadata>> {
   if (rows.length === 0) return []
 
@@ -1110,29 +1095,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   // rows `settled` names: the ones THIS read moved, so a concurrent read that
   // lost the race announces nothing (`lib/analytics/ingest-events.ts`).
   const rowsById = new Map(rows.map((row) => [row.id, row]))
-  announceIngestsFinished(
-    organizationId,
-    settled.flatMap(([id, resolution]) => {
-      const row = rowsById.get(id)
-      if (!row || resolution.status === 'pending') return []
-      // A stop is not an ingest result: nothing was read, so there is no
-      // duration to report (the row's own write is the settle, not the
-      // dispatch) and no outcome the funnel can use. The person's act is the
-      // record; this event stays what it says it is — a read that came to rest.
-      if (resolution.status === 'cancelled') return []
-      const meta = metaByRow.get(id)
-      return [
-        {
-          filename: row.filename,
-          updatedAt: row.updatedAt,
-          status: resolution.status,
-          screening: 'screeningOutcome' in resolution ? resolution.screeningOutcome : undefined,
-          pageCount: meta?.pageCount,
-          chunkCount: meta?.chunkCount,
-        },
-      ]
-    })
-  )
+  await announceSettledIngests(organizationId, settled, rowsById, metaByRow, settledBy)
 
   return rows.map((row) => {
     const resolution = resolutions.get(row.id)

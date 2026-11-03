@@ -143,9 +143,12 @@ export async function submitAnswerFeedback(
   // the voter anything, and the vote in the database is the record either way.
   // The prior verdict decides whether a down-vote is new enough to queue for
   // review (an edited complaint is not a second one).
-  void scoreVoteInLangfuse(session.organizationId, row, prior?.verdict ?? null)
-
-  return toView(row)
+  // The turn's trace id is read once: the score needs it, and it rides back with
+  // the write so the browser's `answer_feedback_submitted` joins to the trace.
+  const traceLookup = getAnswerTraceId(row.messageId, session.organizationId)
+  void scoreVoteInLangfuse(session.organizationId, row, prior?.verdict ?? null, traceLookup)
+  const traceId = await traceLookup.catch(() => null)
+  return { ...toView(row), traceId }
 }
 
 /**
@@ -187,11 +190,12 @@ async function implicateFeedbackMemory(
 async function scoreVoteInLangfuse(
   organizationId: string,
   row: AnswerFeedback,
-  previousVerdict: AnswerFeedback['verdict'] | null
+  previousVerdict: AnswerFeedback['verdict'] | null,
+  traceLookup: Promise<string | null>
 ): Promise<void> {
   if (!feedbackScoringEnabled()) return
   try {
-    const traceId = await getAnswerTraceId(row.messageId, organizationId)
+    const traceId = await traceLookup
     if (!traceId) return
     const withWords = !(await isRestrictedUseVote(row.id, organizationId))
     await upsertFeedbackScore({

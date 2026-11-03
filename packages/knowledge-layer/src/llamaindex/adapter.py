@@ -55,9 +55,6 @@ from agent.knowledge.base import BaseIngestor
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.base import TTLCleanupMixin
 from agent.knowledge.factory import register_ingestor
-from agent.knowledge.ingest_scheduler import FairIngestScheduler
-from agent.knowledge.ingest_scheduler import JobSource
-from agent.knowledge.ingest_scheduler import per_org_cap_from_env
 from agent.knowledge.schema import CollectionInfo
 from agent.knowledge.schema import FileInfo
 from agent.knowledge.schema import FileProgress
@@ -347,7 +344,7 @@ SCREENING_UNAVAILABLE = (
 
 
 class _ClaimLost(Exception):  # noqa: N818 - a signal, not an error
-    """The durable queue gave this job to another worker; this run must write nothing more."""
+    """The job's run was stopped (cancelled, or out of time); this run must write nothing more."""
 
 
 # A finished job's row in the shared status store is retained this long, then
@@ -1827,8 +1824,10 @@ VISION_GENERATION_NAME = "ingest-vision"
 
 def _observed_vlm_call(client: Any, request: dict[str, Any]) -> Any:
     """One vision call, as a Langfuse generation under the file's trace (images redacted from the span)."""
+    from agent.common.openrouter import vision_extra_body
     from agent.observability.direct_trace import observed_generation
 
+    request = {**vision_extra_body(client), **request}
     with observed_generation(
         VISION_GENERATION_NAME, model=request.get("model"), messages=request.get("messages")
     ) as generation:
@@ -1979,11 +1978,9 @@ def _vlm_chat_create(client, *, model: str, messages: list, max_tokens: int, tem
             retry_client = client
     try:
         with _vlm_slot():
-            response = retry_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens * 2,
-                temperature=temperature,
+            response = _observed_vlm_call(
+                retry_client,
+                {"model": model, "messages": messages, "max_tokens": max_tokens * 2, "temperature": temperature},
             )
     except Exception as exc:
         logger.warning("VLM truncation retry failed (%s); keeping the truncated caption", exc)
@@ -2741,11 +2738,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
     # (job status stays PENDING) instead of each spawning a thread.
     INGEST_MAX_WORKERS = max(1, env_int("INGEST_MAX_WORKERS", 2))
 
-    # Most ingestion jobs one organisation may run at once in this process's
-    # own pool; 0 for no cap. `INGEST_MAX_PER_ORG`, the setting the
-    # durable queue also reads (`per_org_cap_from_env`).
-    INGEST_MAX_PER_ORG = per_org_cap_from_env()
-
     # @environment_variable EXTRACT_IMAGES
     # @category Knowledge Layer
     # @type bool
@@ -2797,24 +2789,17 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         self._persist_lock = threading.Lock()
         self._unpersisted: set[str] = set()
         # Jobs this process prepared whose PENDING write did not land. Handed to
-        # `_unpersisted` when this process runs the job; a job the durable queue
+        # `_unpersisted` when this process runs the job; a job Hatchet runs
         # carries elsewhere is written by its worker's first status change.
         self._unstored_at_prepare: set[str] = set()
-        # Jobs claimed from the durable queue, and how to ask whether this
-        # process still holds each claim (`run_prepared`).
+        # Jobs run for Hatchet, and how to ask whether each run should
+        # go on (`run_prepared`).
         self._claim_guards: dict[str, Callable[[], bool]] = {}
 
-        # Bounded ingestion pool: a thread per upload gave N concurrent
-        # uploads N threads all embedding against the remote API and writing
-        # into the same store. Excess jobs queue (status stays
-        # PENDING until a worker picks them up) instead of piling on threads.
-        # Shared FAIRLY between organisations: a FIFO here queued every office
-        # behind one office's folder upload (`ingest_scheduler`).
-        self._ingest_pool = FairIngestScheduler(
-            self.INGEST_MAX_WORKERS,
-            name="llamaindex-ingest",
-            per_org_cap=self.INGEST_MAX_PER_ORG,
-        )
+        # Bounded pool for the jobs only this process can run (local files: a RIS
+        # fetch, `upload_file`). Excess jobs wait PENDING instead of piling on
+        # threads. A document's job runs on Hatchet, fair between offices (ADR-0150).
+        self._ingest_pool = ThreadPoolExecutor(self.INGEST_MAX_WORKERS, thread_name_prefix="llamaindex-ingest")
 
         # Lazy-loaded components
         self._embed_model = None
@@ -3251,7 +3236,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         collection_name: str,
         config: dict[str, Any] | None = None,
     ) -> str:
-        """Submit an ingestion job (non-blocking) to this process's fair pool.
+        """Submit an ingestion job (non-blocking) to this process's pool.
 
         An entry is a local path, or a deferred download the job runs when it
         reaches the file (``knowledge_layer.deferred_files``); the latter is
@@ -3277,8 +3262,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         status, so a caller that chooses ids looks the status up first.
 
         What runs it is the caller's choice: ``submit_prepared`` queues it in
-        this process, and the durable queue (``agent_host.jobs.ingest_queue``)
-        stores it for whichever worker claims it, on any replica. So a pending
+        this process, and Hatchet (``agent.knowledge.ingest_hatchet``) runs it
+        on whichever ingest worker is free, on any replica. So a pending
         job is NOT registered in this process here: the process that runs it
         is the one that vouches for it (``_beat``). A job that fails validation
         is final at once, and is registered and stored as failed.
@@ -3386,11 +3371,10 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             self._jobs[prepared.job_id] = prepared.status
 
     def submit_prepared(self, prepared: PreparedIngestJob) -> None:
-        """Queue a prepared job in this process's fair pool; it stays PENDING while it waits."""
+        """Queue a prepared job in this process's pool; it stays PENDING while it waits."""
         self._adopt(prepared)
         try:
             self._ingest_pool.submit(
-                prepared.organization_id,
                 self._run_ingestion,
                 prepared.job_id,
                 prepared.file_paths,
@@ -3410,15 +3394,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         logger.info("LlamaIndex ingestion job submitted: %s", prepared.job_id)
 
     def run_prepared(self, prepared: PreparedIngestJob, still_owner: Callable[[], bool] | None = None) -> None:
-        """Run a prepared job here and now, on the calling thread: a job claimed from the durable queue.
+        """Run a prepared job here and now, on the calling thread: a job Hatchet handed this worker.
 
         Adopting it makes this process the one that vouches for it; the first
         status write (`_run_ingestion`'s PROCESSING) takes the row over from
-        the process that prepared it. ``still_owner`` answers whether this
-        worker still holds the job's claim; it is asked before each file is
+        the process that prepared it. ``still_owner`` answers whether the run
+        should go on (it was not cancelled); it is asked before each file is
         read and again before its chunks are written, and a "no" ends the run
-        without another write (``_ClaimLost``): the worker that holds the claim
-        now indexes the file, once.
+        without another write (``_ClaimLost``): a later attempt, if any,
+        indexes the file, once.
         """
         self._adopt(prepared)
         if still_owner is not None:
@@ -3431,35 +3415,22 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             self._claim_guards.pop(prepared.job_id, None)
 
     def _assert_still_owner(self, job_id: str) -> None:
-        """Raise ``_ClaimLost`` when the durable queue gave this job to another worker."""
+        """Raise ``_ClaimLost`` when the job's run was stopped."""
         guard = self._claim_guards.get(job_id)
         if guard is not None and not guard():
             raise _ClaimLost(job_id)
 
     def _abandon(self, job_id: str) -> None:
-        """Forget a job whose claim was lost: no status write, no heartbeat; the new owner has the row."""
+        """Forget a job whose run was stopped: no status write, no heartbeat; whoever stopped it has the row."""
         with self._lock:
             self._jobs.pop(job_id, None)
         with self._persist_lock:
             self._unpersisted.discard(job_id)
-        logger.warning("Ingestion job %s was claimed by another worker; this run stops without writing", job_id)
+        logger.warning("Ingestion job %s was stopped; this run ends without writing", job_id)
 
     def _job_config(self, prepared: PreparedIngestJob) -> dict[str, Any]:
         """This ingestor's config under the job's own, as ``_run_ingestion`` reads it."""
         return {**self.config, **prepared.config}
-
-    def attach_job_source(self, source: JobSource) -> None:
-        """Let this process's free workers claim jobs from ``source`` (the durable queue)."""
-        self._ingest_pool.attach_source(source)
-
-    def detach_job_source(self) -> None:
-        """Stop claiming; claimed jobs run to the end."""
-        self._ingest_pool.detach_source()
-
-    @property
-    def busy_workers(self) -> int:
-        """Workers running a job now: what a draining worker process waits for."""
-        return self._ingest_pool.busy
 
     def _prune_completed_jobs(self) -> None:
         """Remove terminal jobs older than the retention window.
