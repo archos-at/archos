@@ -149,8 +149,7 @@ def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
         rendered = [
             key
             for key in document.metadata
-            if key not in _ALWAYS_RENDERED_METADATA_KEYS
-            and _is_rendered(document, key)
+            if key not in _ALWAYS_RENDERED_METADATA_KEYS and _is_rendered(document, key)
         ]
         if not rendered:
             # Only the always-rendered keys are left (typically a very long file
@@ -158,7 +157,9 @@ def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
             # it: the keys stay STORED, which is what finds and deletes a file's
             # chunks, and only leave the embedded text.
             rendered = [
-                key for key in document.metadata if key in _ALWAYS_RENDERED_METADATA_KEYS and _is_rendered(document, key)
+                key
+                for key in document.metadata
+                if key in _ALWAYS_RENDERED_METADATA_KEYS and _is_rendered(document, key)
             ]
         if not rendered:
             break

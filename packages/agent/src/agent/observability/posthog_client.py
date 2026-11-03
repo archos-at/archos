@@ -157,9 +157,7 @@ def _context_identity() -> tuple[str | None, str | None]:
         return None, None
 
 
-def resolve_identity(
-    distinct_id: str | None, organization_id: str | None = None
-) -> tuple[str, dict[str, Any]]:
+def resolve_identity(distinct_id: str | None, organization_id: str | None = None) -> tuple[str, dict[str, Any]]:
     """Who an event belongs to: ``(distinct_id, extra properties)``.
 
     The given id, else the run's signed user, else a stable id per office, else

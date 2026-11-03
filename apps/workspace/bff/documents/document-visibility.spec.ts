@@ -47,6 +47,8 @@ const SEES_EVERY_ROW: Record<string, string> = {
     'Sweep: re-dispatches rows left at `processing`, which are held by definition. Returns ids to a worker, nothing to a person.',
   'lib/documents/repository/ingest-state.ts#listStalePendingDocuments':
     'Sweep: reads dispatched ingests back from the backend (`reconcileStalePending`) and writes their status. The rows go to a worker, never to a person.',
+  'lib/documents/repository/ingest-state.ts#findIngestAnnouncementFacts':
+    'Analytics: the attempt count and upload batch of rows a status read just settled, for `document_ingest_finished`. Ids and numbers into an event, nothing to a person.',
   'lib/documents/repository/ingest-state.ts#listTransientFailures':
     'Sweep: re-reads documents whose read failed for a passing reason, each through `retryTransientFailure`. Ids only, to a worker.',
   'lib/documents/repository/quarantine-and-retry.ts#listFailedDocumentPageInOrg':

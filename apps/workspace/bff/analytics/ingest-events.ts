@@ -88,7 +88,6 @@ export const errorReasonOf = (message: string | null | undefined): string | unde
   if (!message) return undefined
   return REASON.exec(message)?.[1] ?? 'unknown'
 }
-}
 
 /** The screening value for an ingest whose job reported none. */
 export const SCREENING_NOT_RUN = 'not_run'

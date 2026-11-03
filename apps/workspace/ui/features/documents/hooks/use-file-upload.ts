@@ -36,7 +36,7 @@ import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-sc
 import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '../lib/upload-batch'
-import { capturePosthog } from '@/lib/analytics/posthog'
+import { captureUploadBatch } from './upload-batch-event'
 import { fileExtensionLabel } from '../document-kind'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { requestReingest } from '../lib/reingest-request'
@@ -619,18 +619,9 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         // listings again for each one.
         notifyDocumentsChanged()
 
-        // One event per batch the server took files from: how many, which types,
-        // and which shelf. Counts and extensions only; no name leaves the browser.
+        // One event per batch the server took files from.
         if (uploadedTypes.length > 0) {
-          capturePosthog('document_uploaded', {
-            count: uploadedTypes.length,
-            // Per batch, from the browser; the server sends one per file with
-            // `source` web, mail or chat (`announceDocumentUploaded`).
-            source: 'web_batch',
-            file_count: uploadedTypes.length,
-            types: [...new Set(uploadedTypes)].sort().join(','),
-            shelf,
-          })
+          captureUploadBatch(uploadedTypes, shelf)
         }
 
         // Sealed once every request has answered: the files that wrote no row

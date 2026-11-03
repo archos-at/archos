@@ -133,6 +133,12 @@ def vision_reasoning_body(base_url: object) -> dict[str, Any]:
     return {"reasoning": dict(VISION_REASONING)} if targets_openrouter(base_url) else {}
 
 
+def vision_extra_body(client: object) -> dict[str, Any]:
+    """``{"extra_body": {"reasoning": ...}}`` for an OpenAI SDK ``create`` on ``client``, else ``{}``."""
+    reasoning = vision_reasoning_body(getattr(client, "base_url", None))
+    return {"extra_body": reasoning} if reasoning else {}
+
+
 @dataclass(frozen=True)
 class DataPolicy:
     """What a model provider may keep of a request."""

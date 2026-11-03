@@ -740,7 +740,7 @@ describe('what the marks tell PostHog (the one door every client passes)', () =>
     await service.updateAnnotation(session, 'doc_1', 'ann_1', { status: 'open', expectedStatus: 'resolved' })
 
     expect(events().map((capture) => [capture.event, capture.properties])).toEqual([
-      ['annotation_reopened', { document_id: 'doc_1', was: 'resolved', by: 'person', author_kind: 'person' }],
+      ['annotation_reopened', { document_id: 'doc_1', status: 'open', was: 'resolved', by: 'person', author_kind: 'person' }],
     ])
   })
 

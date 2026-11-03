@@ -193,6 +193,11 @@ from agent_host.internal_api import ChatScreening
 from agent_host.internal_api import chat_screening_for
 from agent_host.internal_api import post_internal_conversation_message
 from agent_host.internal_api import post_internal_turn_outcome
+from agent_host.socket_identity import may_act_for
+from agent_host.socket_identity import token_expired
+from agent_host.socket_identity import trace_user_id
+from agent_host.socket_identity import verified_display_name
+from agent_host.socket_identity import verified_subject
 from agent_host.startup_banner import deployed_sha
 from agent_host.tool_calls import tool_called_by
 from agent_host.turn_fence import TurnFence
@@ -396,45 +401,6 @@ async def authenticate_websocket_connection(socket: WebSocket) -> tuple[dict[str
     if not is_external:
         return detect_internal_caller(headers), None
     return None, WS_POLICY_VIOLATION
-
-
-def verified_subject(user: Mapping[str, Any]) -> str | None:
-    """The stable identity of the human holding the socket, from VERIFIED claims.
-
-    Internal and anonymous callers carry none; they are trusted by other means
-    (a service token, not a user), see :func:`may_act_for`.
-    """
-    for key in ("sub", "user_id", "id"):
-        value = user.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def verified_display_name(user: Mapping[str, Any]) -> str | None:
-    """The display name from the verified claims, preferred over a client-supplied ``author_name``."""
-    for key in ("name", "email"):
-        value = user.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def token_expired(user: Mapping[str, Any]) -> bool:
-    """Whether the handshake token has passed its ``exp``. Callers without one never expire."""
-    exp = user.get("exp")
-    return isinstance(exp, int | float) and time.time() >= exp
-
-
-def may_act_for(asker: str | None, actor: str | None, *, internal: bool) -> bool:
-    """Whether ``actor`` may stop, or answer a question of, a turn ``asker`` asked.
-
-    An internal caller may. A turn with no verified asker (an internal or
-    anonymous caller asked) has no identity to match. Everyone else must be the
-    asker: in a shared conversation a colleague is a different subject, and the
-    assistant asked one person.
-    """
-    return internal or asker is None or actor == asker
 
 
 def _handshake_envelope(scope: Mapping[str, Any]) -> RequestContext | None:
@@ -1531,16 +1497,6 @@ async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any)
                     turn, answer_failure.reason_for_text(body.details or body.message), body.code
                 )
             await turn.publish(body)
-
-
-def trace_user_id(turn: RunningTurn, caller: Mapping[str, Any]) -> str | None:
-    """The user a turn's trace is filed under: the verified subject, else the envelope's user, else the caller type.
-
-    The BFF reaches the socket with a service token, so its caller has no
-    subject and the trace used to read ``internal`` for a customer's chat.
-    The envelope is signed, so its user is as verified as a subject.
-    """
-    return turn.asker_subject or turn.envelope_user_id or caller.get("type")
 
 
 async def _drive(

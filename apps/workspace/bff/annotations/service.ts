@@ -1080,20 +1080,10 @@ export async function updateAnnotation(
   if (actor.kind === 'person' && moves) {
     traceMove(session, { id: doc.id, projectId: doc.projectId ?? null }, annotationId, existing, parsed.status)
   }
-  if (moves && closes && parsed.status) {
-    markEvent(session, 'annotation_closed', doc.id, {
-      status: parsed.status,
-      by: actor.kind,
-      author_kind: existing.authorKind,
-      was: existing.status,
-    })
-  }
-  if (moves && parsed.status === 'open' && (existing.status === 'resolved' || existing.status === 'dismissed')) {
-    markEvent(session, 'annotation_reopened', doc.id, {
-      was: existing.status,
-      by: actor.kind,
-      author_kind: existing.authorKind,
-    })
+  const reopens = parsed.status === 'open' && (existing.status === 'resolved' || existing.status === 'dismissed')
+  if (moves && parsed.status && (closes || reopens)) {
+    const event = reopens ? 'annotation_reopened' : 'annotation_closed'
+    markEvent(session, event, doc.id, { status: parsed.status, by: actor.kind, author_kind: existing.authorKind, was: existing.status })
   }
   traceMentioned(
     session,

@@ -22,7 +22,8 @@ import {
   toEpochMs,
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
-import { announceIngestsFinished, finishedIngestOf } from '@/lib/analytics/ingest-events'
+import { announceSettledIngests } from './announce-settled'
+import { timingOf, type IngestTiming, type JobClock } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
   reportsQuarantine,
@@ -44,7 +45,7 @@ import {
   type Dossier,
   type ReadingCoverage,
 } from './dossier'
-import { findIngestAnnouncementFacts, setDocumentReconciledStatus } from './repository'
+import { setDocumentReconciledStatus } from './repository'
 import { documentShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
 import { projectReadings } from '@/lib/search/facets-projector'
@@ -128,7 +129,6 @@ export interface ReconcilableDocument {
    * leaves it out is enriched from the TTL cache exactly as before.
    */
   updatedAt?: Date | string | null
-  ingestAttempts?: number | null
 }
 
 /**
@@ -191,18 +191,6 @@ export interface TerminalResolution {
   timing?: IngestTiming
 }
 
-/** Milliseconds from submission to start, and from start to completion; null where the job recorded no time. */
-export interface IngestTiming {
-  queueWaitMs: number | null
-  processingMs: number | null
-}
-
-const gapMs = (from: string | null | undefined, to: string | null | undefined): number | null => {
-  if (!from || !to) return null
-  const ms = new Date(to).getTime() - new Date(from).getTime()
-  return Number.isFinite(ms) ? Math.max(0, ms) : null
-}
-
 /** What a resolution says when the backend said nothing about the failure. */
 const NO_FAILURE_FACTS: IngestFailureFacts = { category: null, retryable: null, readerVersion: null }
 
@@ -263,17 +251,13 @@ interface BackendJobFile {
   retryable?: boolean | null
 }
 
-interface BackendJobStatus {
+interface BackendJobStatus extends JobClock {
   status?: string
   error_message?: string | null
   /** `queue_ahead`: the backend's count for a job still in the durable queue. */
   metadata?: { queue_ahead?: unknown } | null
   /** The reader that ran the job (`INGEST_READER_VERSION`); null until a worker started it. */
   reader_version?: string | null
-  /** `IngestionJobStatus.submitted_at` / `started_at` / `completed_at`, ISO timestamps. */
-  submitted_at?: string | null
-  started_at?: string | null
-  completed_at?: string | null
   file_details?: BackendJobFile[]
 }
 
@@ -363,8 +347,7 @@ export const cancelledResolution = (): TerminalResolution => ({
 const resolveFromJobStatus = (job: BackendJobStatus | null | undefined): JobResolution => {
   const resolved = resolveJobOutcome(job)
   if (resolved.kind !== 'terminal' || !job) return resolved
-  const timing = { queueWaitMs: gapMs(job.submitted_at, job.started_at), processingMs: gapMs(job.started_at, job.completed_at) }
-  return { kind: 'terminal', resolution: { ...resolved.resolution, timing } }
+  return { kind: 'terminal', resolution: { ...resolved.resolution, timing: timingOf(job) } }
 }
 
 const resolveJobOutcome = (job: BackendJobStatus | null | undefined): JobResolution => {
@@ -1136,26 +1119,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   // rows `settled` names: the ones THIS read moved, so a concurrent read that
   // lost the race announces nothing (`lib/analytics/ingest-events.ts`).
   const rowsById = new Map(rows.map((row) => [row.id, row]))
-  // A stop is not an ingest result: nothing was read, so there is no duration
-  // to report (the row's own write is the settle, not the dispatch) and no
-  // outcome the funnel can use. The person's act is the record; this event
-  // stays what it says it is — a read that came to rest.
-  const announced = settled.filter(([id, resolution]) => rowsById.has(id) && resolution.status !== 'pending' && resolution.status !== 'cancelled')
-  const facts = await findIngestAnnouncementFacts(organizationId, announced.map(([id]) => id))
-  announceIngestsFinished(
-    organizationId,
-    announced.flatMap(([id, resolution]) => {
-      const row = rowsById.get(id)
-      if (!row) return []
-      return [
-        {
-          ...finishedIngestOf(row, resolution, metaByRow.get(id)),
-          attempt: facts.get(id)?.attempt,
-          uploadId: facts.get(id)?.uploadBatchId,
-        },
-      ]
-    })
-  )
+  await announceSettledIngests(organizationId, settled, rowsById, metaByRow)
 
   return rows.map((row) => {
     const resolution = resolutions.get(row.id)
