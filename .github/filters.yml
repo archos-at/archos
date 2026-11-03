@@ -141,7 +141,6 @@ backend:
   - 'apps/workspace/ui/features/layout/components/InputArea.tsx'
   - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
-  - 'apps/workspace/workers/jobs/runner.js'
   - 'ci/brand_history_manifest.txt'
   - 'ci/brand_names_baseline.json'
   - 'ci/brand_prose_baseline.json'
@@ -286,20 +285,23 @@ infra:
   - 'apps/agent-host/src/agent_host/chat_socket.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_dispatch.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_worker.py'
-  - 'apps/agent-host/src/agent_host/jobs/worker.py'
+  - 'apps/agent-host/src/agent_host/jobs/research_hatchet.py'
   - 'apps/agent-host/src/agent_host/roles.py'
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
+  - 'apps/workspace/bff/model-config/openrouter.ts'
   - 'apps/workspace/deploy/Dockerfile'
   - 'apps/workspace/server.js'
   - 'apps/workspace/workers/app-database.js'
   - 'apps/workspace/workers/housekeeping-clock.js'
   - 'apps/workspace/workers/jobs/index.js'
   - 'apps/workspace/workers/langfuse-traces.js'
+  - 'packages/agent/src/agent/common/credential_resolution.py'
   - 'packages/agent/src/agent/common/provider_limiter.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
   - 'packages/knowledge-layer/src/llamaindex/adapter.py'
+  - 'packages/knowledge-layer/src/llamaindex/embedding.py'
   - 'packages/knowledge-layer/src/llamaindex/processing.py'
   # End of the files this tier's tests read.
 # The two standalone IFC packages (ADR-0045). Their own family rather than a
@@ -335,3 +337,41 @@ sast:
   - 'deploy/**'
   - 'scripts/**'
   - '.github/**'
+# The `Hatchet engine tests` job: the suites that run the Hatchet layer on a
+# real hatchet-lite (ci/hatchet_engine.sh). Every one of them skips without an
+# engine, so this tier is the only place they run. The code each proves, the
+# SDK pins, and the harness: the scripted workers and handlers, and the RLS
+# script that builds the BFF suite's database.
+hatchet:
+  # The ingest workflow, and the client both Python workflows build on.
+  - 'packages/agent/src/agent/common/hatchet_client.py'
+  - 'packages/agent/src/agent/knowledge/ingest_*.py'
+  - 'packages/agent/tests/knowledge/test_ingest_hatchet_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/hatchet_engine_worker.py'
+  # The research run: submit, the worker, cancel, and the job store it shares.
+  - 'apps/agent-host/src/agent_host/jobs/**'
+  - 'apps/agent-host/src/agent_host/routes/job_kill.py'
+  - 'apps/agent-host/tests/test_research_hatchet_engine.py'
+  - 'apps/agent-host/tests/hatchet_engine_worker.py'
+  - 'apps/agent-host/tests/conftest.py'
+  # The BFF's background jobs and the scheduler that fires them.
+  - 'apps/workspace/bff/jobs-queue/**'
+  - 'apps/workspace/bff/scheduling/**'
+  - 'apps/workspace/tests/test-utils/scripted-job-handlers.ts'
+  - 'apps/workspace/migrations/**'
+  - 'scripts/rls-test-db.sh'
+  # The SDK versions: hatchet-sdk (packages/agent) and @hatchet-dev/typescript-sdk.
+  - 'packages/agent/pyproject.toml'
+  - 'uv.lock'
+  - 'apps/workspace/package.json'
+  - 'apps/workspace/bun.lock'
+  # The engine and how the job runs.
+  - 'ci/hatchet_engine.sh'
+  - 'deploy/pulumi/src/config/background-work.ts'
+  - 'Taskfile.yml'
+  - 'taskfiles/workspace.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-python-env/**'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'

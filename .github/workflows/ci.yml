@@ -79,6 +79,7 @@ jobs:
       packages: ${{ steps.filter.outputs.packages || 'false' }}
       migrations: ${{ steps.filter.outputs.migrations || 'false' }}
       sast: ${{ steps.filter.outputs.sast || 'false' }}
+      hatchet: ${{ steps.filter.outputs.hatchet || 'false' }}
       # The images this run builds (a matrix), and all three with their hashes.
       build: ${{ steps.images.outputs.build }}
       images: ${{ steps.images.outputs.images }}
@@ -860,6 +861,71 @@ jobs:
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
 
+  # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
+  # research run and the BFF's `bff-job`, each end to end, with its retries,
+  # cancel and per-organization cap. Every suite here skips without an engine,
+  # so until this job none of them had ever run. Its own job rather than a step
+  # of the backend or workspace ones: it needs both toolchains and an engine
+  # none of them starts, and it runs only when the code it proves changes.
+  hatchet:
+    name: Hatchet engine tests
+    needs: changes
+    if: needs.changes.outputs.hatchet == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.14"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      - run: task workspace:install
+      # hatchet-lite and its Postgres, healthy, with an API token made inside
+      # the container; exports HATCHET_CLIENT_TOKEN, _HOST_PORT, _TLS_STRATEGY.
+      - name: Start a Hatchet engine (hatchet-lite)
+        id: engine
+        run: bash ci/hatchet_engine.sh start
+      # Each suite runs whatever the one before it did, so one red suite does
+      # not hide the others' results.
+      - name: Ingest workflow on the engine (Python)
+        if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        run: >-
+          .venv/bin/python -X faulthandler -m pytest -q
+          packages/agent/tests/knowledge/test_ingest_hatchet_engine.py
+          --junitxml="$RUNNER_TEMP/hatchet-ingest.xml"
+      - name: Research run on the engine (Python, worker subprocesses)
+        if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        run: >-
+          .venv/bin/python -X faulthandler -m pytest -q
+          apps/agent-host/tests/test_research_hatchet_engine.py
+          --junitxml="$RUNNER_TEMP/hatchet-research.xml"
+      # Over the migrated database as the restricted role, which the RLS script
+      # builds (`--only`). One cluster per file: the BFF's job and scheduler
+      # suites take from whole tables, so they never share one. The glob picks
+      # up a new `bff/<area>/hatchet.integration.spec.ts` without an edit here.
+      - name: BFF jobs on the engine (TypeScript, real Postgres)
+        if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        working-directory: apps/workspace
+        run: |
+          for spec in bff/*/hatchet.integration.spec.ts; do
+            area="${spec#bff/}"; area="${area%%/*}"
+            bash ../../scripts/rls-test-db.sh --only "$spec" \
+              --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/hatchet-bff-$area.xml"
+          done
+      # A skipped suite is green, and every one of these skips without an engine.
+      - name: Every suite ran, none skipped
+        if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP"/hatchet-*.xml
+      - name: Engine logs
+        if: failure()
+        run: bash ci/hatchet_engine.sh logs
+
   # The third-party images deploy/pulumi pins by digest (ADR-0029) are built by
   # nobody here, so nothing else scans them. Only the pins this change adds or
   # moves: an untouched pin with a CVE disclosed this morning is not this
@@ -967,7 +1033,7 @@ jobs:
   # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, trivy, image-push]
+    needs: [changes, repo, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -1017,7 +1083,7 @@ jobs:
     # checkout can hold a corpus to measure, and a job that can only pass
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
-    needs: [changes, repo, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, trivy, image, image-push, publish]
+    needs: [changes, repo, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, hatchet, trivy, image, image-push, publish]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
