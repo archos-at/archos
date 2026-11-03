@@ -397,12 +397,22 @@ const INBOUND_MAIL_ORGANIZATION_LIMIT = { name: 'inbound-mail-organization', lim
 
 /**
  * Every delivery one signing key makes, per hour: the Worker's whole traffic
- * under that key. A leaked key spraying known addresses meets this before it
- * meets the database. Charged last, after the address and organization rules
- * allowed the mail, so one office's flood cannot spend every office's budget.
+ * under that key, the fleet's ceiling around the per-office buckets above. It
+ * is one bucket every office shares, so it is sized to a hundred offices at
+ * their full {@link INBOUND_MAIL_ORGANIZATION_LIMIT} at once, never to what a
+ * few busy ones spend: at 3,000 five offices at their cap deferred everyone
+ * else's mail. The per-office buckets are what bound one
+ * office; this one bounds a leaked key spraying known addresses across every
+ * office. Charged last, after the address and organization rules allowed the
+ * mail, so an office refused at its own cap never spends it. A refusal here
+ * with no office at its cap is the signal to raise it, not to tune an office.
  * @type {LimitRule}
  */
-const INBOUND_MAIL_SIGNING_KEY_LIMIT = { name: 'inbound-mail-signing-key', limit: 3000, windowMs: 60 * 60 * 1000 }
+const INBOUND_MAIL_SIGNING_KEY_LIMIT = {
+  name: 'inbound-mail-signing-key',
+  limit: 60_000,
+  windowMs: 60 * 60 * 1000,
+}
 
 /**
  * Deliveries to a token no project has, per signing key, in a bucket of their
