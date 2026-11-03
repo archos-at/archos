@@ -471,6 +471,12 @@ turns answered with a friendly message the way a budget refusal already is.
 Ingestion is not refused, it waits, so its L3 is an order and a ceiling rather
 than an admission.
 
+This section describes the claim queue, the default. With
+`INGEST_ORCHESTRATOR=hatchet` (ADR-0150) the order is a Hatchet concurrency
+strategy instead: `GROUP_ROUND_ROBIN` keyed on the organization id, with run
+priority for interactive before bulk. The vision ceiling below is unchanged on
+both paths until page reading is its own task.
+
 - **Fair share, not a cap.** `/v1/ingest` jobs sit in `ingest_job_queue`, and a
   free worker claims the next job of the organisation with the fewest jobs
   running fleet-wide, then the one served longest ago. A lone office uses every
@@ -602,7 +608,10 @@ gateway (the back-pocket option of section 5).
 ### L3d — research fair share (ADR-0079)
 
 Research is not refused for capacity either: it
-waits, so its L3 is the same order and ceiling ingestion has.
+waits, so its L3 is the same order and ceiling ingestion has. With
+`RESEARCH_ORCHESTRATOR=hatchet` (ADR-0150) the claim below is Hatchet's
+`research-run` task with the same organization-keyed round robin; the
+admission caps are unchanged.
 
 - **Capacity waits, it never fails.** A submit is a row in
   `research_job_queue` and the job is `SUBMITTED` until a worker claims it; the

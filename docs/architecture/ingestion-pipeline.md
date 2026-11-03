@@ -9,7 +9,8 @@ Older, deeper material is still right and is linked rather than repeated:
 [`technical-reference/document-ingestion.md`](../technical-reference/document-ingestion.md)
 (the step-by-step reference, with the history of each fix),
 [`visual-ingestion.md`](visual-ingestion.md) (the drawing schema and its rules),
-ADR-0076 (the queue), ADR-0117 (the page pipeline, proposed, not built).
+ADR-0076 (the queue), ADR-0117 (the page pipeline, proposed, not built), ADR-0150
+(the move to Hatchet, behind a flag per tier).
 
 Short forms: **A** is `packages/knowledge-layer/src/llamaindex/adapter.py`, **S** is
 `apps/workspace/bff/documents/service.ts` as it stood before it was split (its `S:N` line references are from then; `dispatchDocument` is now in `document-dispatch.ts`, `dispatchIngest` in `ingest-dispatch.ts`), **D** is
@@ -69,7 +70,8 @@ Three things in this picture decide almost everything about speed and reliabilit
    office on the platform. It is the throughput ceiling, not CPU.
 3. **Status is pulled, never pushed.** The BFF learns a document is done when someone
    reads the document list (`reconcile-status.ts:829`), polled every 5 s and then
-   every 60 s by an open tab.
+   every 60 s by an open tab. ADR-0150 adds a push when a job ends
+   ([section 7](#7-who-runs-the-job)); the read and the sweep stay as fallbacks.
 
 ## 2. How a file reaches the queue
 
@@ -326,13 +328,62 @@ page no longer competes with office A's fourteen running documents for a slot; i
 gets the next one. The 15 document slots are still first come within the claim
 order, so B's document waits for one document of A's to finish before it starts.
 
-## 7. The code, by question
+## 7. Who runs the job
+
+Everything above describes the claim queue, which runs every stack today. ADR-0150
+moves the job onto Hatchet, a self-hosted workflow engine, and the switch is one
+flag per tier:
+
+| Tier | Flag | Hatchet task | Worker pool |
+|---|---|---|---|
+| Ingestion | `INGEST_ORCHESTRATOR` | `ingest-document` | `ingest-worker` |
+| Research runs | `RESEARCH_ORCHESTRATOR` | `research-run` | `agent-worker` |
+| BFF jobs | `BFF_JOBS_ORCHESTRATOR` | `bff-job` (the job kind in the input) | `bff-jobs` |
+
+Each flag is `claim_queue` (the default) or `hatchet`, read by
+`agent.common.hatchet_client.orchestrator` on the Python side. A stack switches
+only after its Hatchet platform is applied (Pulumi `hatchetEnabled`) and the staging
+spike in ADR-0150 has passed.
+
+```mermaid
+flowchart LR
+  IN[/v1/ingest/] -->|claim_queue| Q[(ingest_job_queue)] --> CL[claim_next] --> PL[the per-file pipeline]
+  IN -->|hatchet| H[Hatchet engine<br/>background-work-pg] --> HW[ingest-document task] --> PL
+  PL --> ST[POST /api/internal/ingest/settled]
+  ST --> RC[reconcile, then document_ingest_finished]
+```
+
+On the Hatchet path:
+
+- **The pipeline is the same code.** Section 3 runs unchanged; only a thin layer
+  registers it as the `ingest-document` task, and the pipeline never imports
+  `hatchet_sdk`.
+- **Fairness is a concurrency strategy.** `GROUP_ROUND_ROBIN` keyed on
+  `input.organization_id` replaces the lane order of section 6, and Hatchet run
+  priority replaces `interactive` before `bulk`.
+- **Retries are the engine's.** A failed attempt is retried with backoff and its
+  error is kept on the run, instead of waiting for the BFF sweep.
+- **The input carries ids, the priority and the encrypted payload** (`JOB_PAYLOAD_KEK`),
+  never document text or file names.
+- **The vision ceiling stays the Dragonfly pool** until page reading is its own task.
+  A Hatchet concurrency key holds only inside one task definition
+  (hatchet-dev/hatchet#4237), so a constant-key cap must sit on the task that makes
+  every vision call.
+
+On both paths, a job that reaches a terminal status calls
+`POST /api/internal/ingest/settled` with its job id. The BFF runs its reconcile for
+those documents at once, which emits `document_ingest_finished` with `settled_by:
+push`. The call is best effort: when it fails, the next read or the sweep settles the
+document as before (`settled_by: read` or `sweep`).
+
+## 8. The code, by question
 
 | Question | Where |
 |---|---|
 | Why did this file fail? | `documents.ingest_error`, the job's `file_details`, `[ingest-perf]` and the worker log for the job id |
 | Why is this page missing from search? | page triage (`page_triage.classify_page`), the render cap (`MAX_RENDERED_PAGES`), a skipped vision or OCR call (warning in the log only) |
 | What did it cost? | `llm_usage_events` where `activity = 'ingest'` and the job id |
-| Who decides the order of jobs? | `agent.knowledge.ingest_queue.claim_next`, ADR-0076 and ADR-0079 |
+| Who decides the order of jobs? | `agent.knowledge.ingest_queue.claim_next`, ADR-0076 and ADR-0079; on Hatchet, the task's concurrency strategy, ADR-0150 |
+| Which orchestrator runs a tier? | `agent.common.hatchet_client.orchestrator`, the `*_ORCHESTRATOR` flags, ADR-0150 |
 | Where is the vision prompt? | `visual_analysis.build_prompt` over `visual_domains` |
 | What runs after a document settles? | `apps/workspace/bff/upload-batches/settle.ts` (`onDocumentsSettled`) |

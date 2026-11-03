@@ -119,6 +119,14 @@ Upgrade: no drain is needed. Rows queued by the release before this change carry
 
 `dask` and `distributed` stay in `uv.lock`: `nvidia-nat-core`'s `async-endpoints` extra requires them, and that extra provides the `JobStore` whose `job_info` table this path writes.
 
+## Amendment (2026-11-03): the claim moves to Hatchet
+
+ADR-0150 moves background work onto Hatchet behind `RESEARCH_ORCHESTRATOR`
+(default `claim_queue`). Once the flag flips, points 2 and 4 above (the claim,
+the heartbeat reclaim) are Hatchet's; points 1, 3 and 5 (submission writes a
+record, cancel is a status flip, streaming reads shared Postgres) stand. This
+record stays accepted for those.
+
 ## References
 
 - `frontends/ui/purger/db.js` (claim pattern), `frontends/aiq_api/src/aiq_api/jobs/runner.py`
