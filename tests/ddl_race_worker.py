@@ -19,7 +19,7 @@ _TIMEOUT_SECONDS = 120
 
 #: site -> the tables its ensure function must leave behind.
 SITES: dict[str, tuple[str, ...]] = {
-    "ingest_status_store": ("ingest_jobs", "ingest_job_queue", "ingest_lane_turns"),
+    "ingest_status_store": ("ingest_jobs",),
     "research_runs": ("research_orchestrator_runs",),
     "norm_store": ("norm_registry",),
     "document_metadata_store": ("document_metadata",),

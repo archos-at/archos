@@ -28,8 +28,8 @@ validates the JWT and reads the context headers; it does not look up who you
 are. The BFF decided that (ADR-0003, ADR-0007). Anything that needs to *decide*
 access belongs in the BFF, not here.
 
-**Research runs on Hatchet; ingestion still claims in the database.** A research
-job is a `research-run` task (ADR-0150): concurrency `GROUP_ROUND_ROBIN` on
+**Background work runs on Hatchet, not on our own claim queues (ADR-0150).**
+A research job is a `research-run` task: concurrency `GROUP_ROUND_ROBIN` on
 `input.organization_id` capped at `MAX_ACTIVE_JOBS_PER_ORG`, `interactive` at
 `Priority.HIGH` before `bulk` at `Priority.LOW`, retries only after a lost worker
 (a run that fails on its own, and an unreadable payload, raise
@@ -38,15 +38,18 @@ verdict stands. Hatchet delivers at least once, so a copy takes the job in
 `jobs/run_ownership.py` before it runs the agent (`submitted` to `running`, or a
 `running` job silent past the ghost reaper's window) and a losing copy runs
 nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends
-as FAILURE (`agent_job._finish_cancelled`). Its input carries ids, the priority and the `payload_crypto`
-ciphertext, never plaintext; without `JOB_PAYLOAD_KEK` a submit is refused. The
-run's id is kept in `research_orchestrator_runs` (`jobs/orchestrator_runs.py`)
-for the cancel. The old `research_job_queue` table stays until a later migration
-drops it; `python -m agent_host.jobs.requeue_legacy` starts what it still held
-at the cutover. Ingestion claims from its own table,
-`agent.knowledge.ingest_queue`; `jobs/ingest_dispatch.py` puts jobs there and
-`jobs/ingest_worker.py` is its dedicated tier, the only process that claims
-(ADR-0076): the `chat` and `api` roles enqueue and never claim.
+as FAILURE (`agent_job._finish_cancelled`). The run's id is kept in
+`research_orchestrator_runs` (`jobs/orchestrator_runs.py`) for the cancel.
+Ingestion is the `ingest-document` workflow (`agent.knowledge.ingest_hatchet`,
+steps `index` then `settle`): `jobs/ingest_dispatch.py` starts a run per job and
+`jobs/ingest_worker.py` is the only process that serves it; the `chat` and `api`
+roles dispatch and never run a job. Every task input carries ids, the priority
+and the `payload_crypto` ciphertext, never plaintext; without `JOB_PAYLOAD_KEK` a
+submit is refused. The old `research_job_queue` and `ingest_job_queue` tables stay
+until a later migration drops them; `python -m agent_host.jobs.requeue_legacy` and
+`python -m agent.knowledge.ingest_cutover` start what they still held at the
+cutover. New background work joins as a Hatchet task, never as an in-process pool
+alone or a table of our own.
 
 **Research waits, it is not refused.** Capacity never makes `jobs/submit.py`
 raise: `MAX_ACTIVE_JOBS_PER_ORG` is the `research-run` concurrency cap per
