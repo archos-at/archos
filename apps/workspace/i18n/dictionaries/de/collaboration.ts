@@ -226,7 +226,7 @@ export const collaboration: typeof en.collaboration = {
     // Das Postfach neben der Seite: schließen, und der Weg zu allen Einträgen.
     dock: {
       close: 'Postfach schließen',
-      all: 'Alle Einträge und Archiv',
+      all: 'Alle Einträge, auch archivierte',
     },
     navLabel: 'Postfach',
     badgeAria:
