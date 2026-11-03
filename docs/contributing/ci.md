@@ -290,10 +290,13 @@ to dies with a rollout that takes the cluster down, halfway through
 `pulumi up`. `tests/test_ci_workflows.py` fails a job that names a runner of
 its own.
 
-On a private repository every minute is billed and concurrent jobs are capped,
-so a job earns its place by what it catches, not by what it costs nothing to
-run. What this pipeline removed for that reason, and what is left, with
-numbers: [ci-north-star.md](ci-north-star.md).
+The runners are self-hosted, so the budget is wall time, not runner-minutes:
+a job that shortens the critical path is worth its runner, a second runner for
+a shard is cheap, and a job that duplicates another is removed because it
+holds a slot and a person's attention, not because of its bill. Self-hosting
+also allows what hosted runners cannot: warm caches that outlive a job (a
+persistent BuildKit, the venv, bun's store, `.next/cache`). What that buys,
+ranked: [ci-north-star.md](ci-north-star.md).
 
 ## The backend lane
 

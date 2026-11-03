@@ -14,8 +14,11 @@ signed by the run that tested them. Develop is never red, because nothing lands
 untested against the code it lands on. If a deploy breaks, the pipeline puts the
 previous build back on its own, opens the incident and tells you which commit
 and which migration stood in the way. Nobody waits on a check that duplicates
-another, nobody pays for a runner-minute that catches nothing, and the numbers
-that say so are on a page, every week.
+another, and the numbers that say so are on a page, every week.
+
+The runners are self-hosted (Actions Runner Controller), so wall time is the
+budget and runner-minutes are not: parallelism is cheap, and a job is removed
+when it duplicates another or holds the critical path, not for its cost.
 
 ## Baseline (2026-10-28 to 11-03)
 
@@ -60,7 +63,7 @@ Where the time went, and what made develop red:
 | Smoke check after every deploy, the rollback command in its summary, prod rollback by dispatch, prod always applies the `prod` program | recovery | rollback is one command; a dispatch can no longer apply develop's program to production |
 | `ci/migration_contract.py`, label `migration:contract` | rollback safety | a migration that breaks a rollback is visible in its PR |
 | No `[skip ci]` markers in PR text | develop | a marker can no longer skip the push run, its image tags and its deploy |
-| `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` | cost | moving to Actions Runner Controller is a variable |
+| `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` | runners | moving to Actions Runner Controller is a variable |
 | `ci/lead_time.py` and the weekly **Lead time** workflow | all | the numbers above, every week |
 
 Projected merge to staging at p50: about 1 min of CI for a reused merge plus
@@ -73,8 +76,9 @@ the PR image job (median 242 s before) with the Lead time report.
 
 ## Next slices, ranked
 
-Each names what it costs and what it saves. "Plan" marks a dependency on the
-repository's GitHub plan once it is private.
+Ranked by minutes off the critical path; runner cost is not a criterion
+(self-hosted). "Plan" marks a dependency on the repository's GitHub plan once
+it is private.
 
 1. **Close the selection gaps that made develop red** (2,657 of 3,252 red
    minutes). A Python test that reads a TypeScript or i18n file, and a Pulumi
@@ -85,8 +89,7 @@ repository's GitHub plan once it is private.
 2. **Merge queue** (`merge_group`): the queue runs the push job set before the
    merge, and the push only tags and deploys. Catches the selection gaps and
    push-only checks before develop (~3,088 red minutes) and makes the push a
-   reuse every time. Cost-neutral: the queue run replaces the work the push run
-   does now. Needs `merge_group` in `ci.yml` and `pr.yml`, a `ci-release-<tree>`
+   reuse every time, so merge to staging is tag plus `pulumi up`. Needs `merge_group` in `ci.yml` and `pr.yml`, a `ci-release-<tree>`
    marker the push accepts, and `release-notes.yml` opening a PR instead of
    pushing. **Plan**: on a private repository the merge queue needs GitHub
    Enterprise Cloud.
@@ -120,9 +123,17 @@ repository's GitHub plan once it is private.
 8. **DORA**: deployment frequency, lead time to prod, change failure rate and
    time to restore from Deployments, the incident issues and the runs API,
    beside `ci/lead_time.py`.
-9. **Pin what drifts**: the runner image (or the PostgreSQL major the RLS suite
+9. **Warm, persistent caches on the self-hosted runners.** A BuildKit that
+   outlives the job removes the registry cache round trip from every image
+   build (cache import plus a ~60 s `mode=max` export on the frontend), and
+   keeps `.next/cache` for an incremental `next build`; a persistent venv and
+   bun store remove most of the ~21 s each job spends on setup. Then larger
+   runners for the two critical-path jobs (the frontend image, the UI shards)
+   and more shards where a shard is the floor. Needs the ARC scale set; the
+   workflows already read `CI_RUNNER`.
+10. **Pin what drifts**: the runner image (or the PostgreSQL major the RLS suite
    installs), so a GitHub image update cannot turn develop red overnight.
-10. **Staging rolls in parallel**: `chromaMigration` is still `true` on dev, so
+11. **Staging rolls in parallel**: `chromaMigration` is still `true` on dev, so
     the API and chat tiers wait for the migrate Job (~80 s of the serial
     `pulumi up` chain); prod has it off. Turning it off is a stack config
     change after the Qdrant import is verified on staging.
@@ -142,11 +153,11 @@ is on the critical path of something above.
 |---|---|---|
 | Make `CI OK` and `Conventional PR title` required checks | The `protect-develop` ruleset requires no status check: a red PR can merge, and the docs said otherwise | Settings → Rules → `protect-develop` |
 | Squash merges only | 4 of 32 push runs missed reuse on two-parent merge commits, and their subjects break Conventional Commits on develop | the same ruleset, allowed merge methods |
-| Turn off CodeQL default setup | Semgrep replaced it; it starts 3 jobs per PR push and up to 447 s per develop push, and on a private repository it needs GitHub Advanced Security | Settings → Code security |
+| Turn off CodeQL default setup | It duplicates Semgrep, which replaced it; it holds 3 jobs per PR push and up to 447 s per develop push, and on a private repository it needs GitHub Advanced Security | Settings → Code security |
 | One AI reviewer per PR | `claude-code-review.yml` and the CodeRabbit app both review every PR | the workflow, or the app's installation |
 | GitHub plan once private | The merge queue and artifact attestations on a private repository need Enterprise Cloud; without it slices 2 and 3 take their plan-independent forms | billing |
-| Runner budget | Billed minutes and the concurrent-job cap return on a private repository; ARC removes both and adds a cluster to run. Set `CI_RUNNER` when the scale set exists | `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` |
-| Turn `chromaMigration` off on dev | Unblocks parallel rollouts on staging (slice 10) once the Qdrant import is verified there | `deploy/pulumi/Pulumi.dev.yaml` |
+| The ARC scale set | Set `CI_RUNNER` to it when it exists, and `DEPLOY_RUNNER` to runners outside the cluster they deploy to. Its runner image needs Docker, python3, jq, gh, curl and git, and persistent volumes for the caches in slice 9 | `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` |
+| Turn `chromaMigration` off on dev | Unblocks parallel rollouts on staging (slice 11) once the Qdrant import is verified there | `deploy/pulumi/Pulumi.dev.yaml` |
 
 ## How to tell whether it worked
 
