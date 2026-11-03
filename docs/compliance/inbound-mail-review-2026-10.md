@@ -158,7 +158,7 @@ transport, tenant isolation, audit trail, legal hold.
   (`apps/workspace/bff/legal/content/{de,en}.ts`): the processing purposes,
   the suggestion's exact inputs, Cloudflare's widened row and the ClamAV row;
   `content.spec.ts` holds the copy to them.
-- The public privacy page (`frontends/web/src/i18n/ui.ts`, `legal.datenschutz`),
+- The public privacy page (`apps/website/src/i18n/ui.ts`, `legal.datenschutz`),
   which the bounce text links senders to: a section for people who write to a
   project address.
 - The help page `/e-mail-eingang/` (`/en/project-mail/`), also linked from the

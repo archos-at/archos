@@ -61,6 +61,7 @@ UNFILTERED = {
     "taskfiles/repo.yml": "the Repo checks job's own tasks",
     ".pre-commit-config.yaml": "the hooks Repo checks runs on every pull request",
     ".gitleaks.toml": "gitleaks, run by Repo checks",
+    ".gitleaksignore": "gitleaks' fingerprints of test fixtures, run by Repo checks",
     ".semgrepignore": "Semgrep, run by its own job on the `sast` filter",
     ".trivyignore.yaml": "Trivy, run by its own job on the image plan",
     ".dockerignore": "an image input; ci/image_inputs.py hashes what each image copies",
