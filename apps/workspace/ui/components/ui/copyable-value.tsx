@@ -12,9 +12,13 @@
  * So the value wraps (`break-all`: an id has no word boundaries to break at)
  * and a tap copies it. The copy is the useful half: nobody reads 22 random
  * characters, they paste them.
+ *
+ * A value that has places to break, an email address, shows itself through
+ * `children` with those places marked (`<EmailAddress>`): it then wraps there,
+ * and breaks anywhere only inside a piece wider than the line.
  */
 
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
@@ -26,9 +30,14 @@ export interface CopyableValueProps {
   className?: string
   /** After the value reached the clipboard (a surface that counts its copies). */
   onCopied?: () => void
+  /**
+   * How the value is shown, when it marks its own break opportunities (`<wbr>`);
+   * `value` is still what is copied. Without it, the value breaks anywhere.
+   */
+  children?: ReactNode
 }
 
-export function CopyableValue({ value, className, onCopied }: CopyableValueProps): JSX.Element {
+export function CopyableValue({ value, className, onCopied, children }: CopyableValueProps): JSX.Element {
   const t = useTranslations(bimCopy)
   const [copied, raise] = useTransientFlag()
 
@@ -49,14 +58,15 @@ export function CopyableValue({ value, className, onCopied }: CopyableValueProps
         onClick={copy}
         aria-label={t('properties.copyValue', { value })}
         className={cn(
-          'focus-visible:ring-ring/60 hover:bg-muted duration-quick -mx-1 inline-flex max-w-full items-start gap-1.5 break-all rounded px-1 text-right text-xs outline-none transition-colors ease-out focus-visible:ring-2',
+          'focus-visible:ring-ring/60 hover:bg-muted duration-quick -mx-1 inline-flex max-w-full items-start gap-1.5 rounded px-1 text-right text-xs outline-none transition-colors ease-out focus-visible:ring-2',
+          children === undefined ? 'break-all' : '[overflow-wrap:anywhere]',
           // The value stays a few pixels tall on a desktop; under a finger the
           // row grows to the floor rather than overhanging its neighbour.
           'pointer-coarse:min-h-11 pointer-coarse:items-center',
           className
         )}
       >
-        <span>{value}</span>
+        <span>{children ?? value}</span>
         {copied ? (
           <Check className="pointer-coarse:mt-0 mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
         ) : (

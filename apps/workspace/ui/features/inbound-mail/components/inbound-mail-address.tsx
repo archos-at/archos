@@ -37,6 +37,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BentoTile } from '@/components/ui/bento'
 import { CopyableValue } from '@/components/ui/copyable-value'
+import { EmailAddress } from '@/components/ui/email-address'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { useLocale, useTranslations } from '@/i18n'
 import { capturePosthog } from '@/lib/analytics/posthog'
@@ -94,7 +95,11 @@ function AddressUses(): JSX.Element {
   )
 }
 
-/** The address in full, a press copies it; each copy counted by the door it was taken from. */
+/**
+ * The address in full, a press copies it; each copy counted by the door it was
+ * taken from. On a phone it wraps after the `+`, before the token's dot and
+ * before the `@`, never inside the domain.
+ */
 function AddressValue({ value, surface, className }: { value: string; surface: AddressSurface; className?: string }): JSX.Element {
   return (
     <CopyableValue
@@ -102,7 +107,9 @@ function AddressValue({ value, surface, className }: { value: string; surface: A
       className={cn('text-foreground mx-0 text-left font-mono text-sm', className)}
       // Whether the address reaches anyone's Cc line: the first step of the funnel to the first mail.
       onCopied={() => capturePosthog('inbound_mail_address_copied', { surface })}
-    />
+    >
+      <EmailAddress address={value} />
+    </CopyableValue>
   )
 }
 

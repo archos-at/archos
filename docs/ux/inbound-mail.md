@@ -56,7 +56,9 @@ von Hand abspeichert.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
 Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
 E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
 weiter.“, „Abgelegt wird erst, was jemand bestätigt.“ Then the address with
-„Kopieren“ (`CopyableValue`), „Als Kontakt sichern“ (a vCard), when mail last
+„Kopieren“ (`CopyableValue`; `EmailAddress` marks where it may wrap: after
+the `+`, before the token's dot and before the `@`, so a phone never splits
+the domain, as `break-all` once did), „Als Kontakt sichern“ (a vCard), when mail last
 arrived, how many automatic replies were dropped in 30 days, the size line
 „Bis 25 MB pro E-Mail, Anhänge zusammen bis etwa 18 MB. Größere Dateien direkt
 hochladen“ (the link goes to Dateien and closes the dialog; the overview tile

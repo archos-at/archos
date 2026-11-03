@@ -38,6 +38,22 @@ describe('CopyableValue', () => {
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
   })
 
+  it('shows marked children instead of breaking anywhere, and still copies the value', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } })
+    render(
+      <CopyableValue value="a+b@example.org">
+        a+<wbr />b<wbr />@example.org
+      </CopyableValue>
+    )
+    const button = screen.getByRole('button')
+    expect(button.querySelectorAll('wbr')).toHaveLength(2)
+    expect(button.className).not.toContain('break-all')
+    expect(button.className).toContain('[overflow-wrap:anywhere]')
+    fireEvent.click(button)
+    expect(writeText).toHaveBeenCalledWith('a+b@example.org')
+  })
+
   it('grows to the 44 px floor under a finger', () => {
     render(<CopyableValue value={ID} />)
     expect(screen.getByRole('button').className).toContain('pointer-coarse:min-h-11')

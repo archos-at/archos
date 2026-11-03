@@ -53,6 +53,19 @@ describe('InboundMailAddressCard', () => {
     expect(writeText).toHaveBeenCalledWith('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
   })
 
+  it('wraps the address only after the +, before the token and before the @, never inside the domain', async () => {
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
+    const shown = await screen.findByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    // Each line a phone may start: what precedes every <wbr> is a whole piece.
+    const lines = Array.from(shown.childNodes).reduce<string[]>(
+      (pieces, node) => (node.nodeName === 'WBR' ? [...pieces, ''] : [...pieces.slice(0, -1), `${pieces.at(-1)}${node.textContent}`]),
+      ['']
+    )
+    expect(lines).toEqual(['project+', 'bauplatz-12', '.k3x7q2m9p4ab', '@inbox.example.org'])
+    // Not break-all, which split the domain mid-word; anywhere only inside a piece wider than the line.
+    expect(screen.getByRole('button', { name: /project\+bauplatz-12/ }).className).not.toContain('break-all')
+  })
+
   it('tells a member nothing about the office’s own signing: that is a manager’s to fix', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     await screen.findByTestId('inbound-mail-address')
