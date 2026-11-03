@@ -28,7 +28,6 @@ import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
 import {
   type BffJobsConfig,
-  type GeocoderConfig,
   type GotenbergConfig,
   type IngestWorkerConfig,
   type KedaConfig,
@@ -177,11 +176,12 @@ export interface DeployConfig {
   gotenberg: GotenbergConfig;
 
   /**
-   * The self-hosted address search (ADR-0120, `data/geocoder.ts`): Photon over
-   * the Austrian OSM extract. The frontend gets `GEOCODER_URL` exactly
-   * when this is on; off, the project dialog's address stays a plain text field.
+   * The Photon geocoder behind the project dialog's address search, passed to
+   * the frontend as `GEOCODER_URL` (ADR-0151): komoot's public instance unless a
+   * stack names another. Empty switches address search off, and the dialog's
+   * address stays a plain text field.
    */
-  geocoder: GeocoderConfig;
+  geocoderUrl: string;
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant
@@ -537,6 +537,8 @@ export function loadConfig(): DeployConfig {
 
     ...loadWorkers(cfg),
 
+    geocoderUrl: loadGeocoderUrl(cfg),
+
     chromaMigration: loadChromaMigration(cfg),
 
     qdrant: loadQdrant(cfg, qdrantDashboard),
@@ -567,4 +569,16 @@ export function loadConfig(): DeployConfig {
 
     langfuse,
   };
+}
+
+/** komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`. */
+export const PUBLIC_GEOCODER_URL = "https://photon.komoot.io";
+
+/** `geocoderUrl`: an http(s) URL, or empty for no address search. A typo is refused, not served as "off". */
+function loadGeocoderUrl(cfg: pulumi.Config): string {
+  const url = (cfg.get("geocoderUrl") ?? PUBLIC_GEOCODER_URL).trim();
+  if (url !== "" && !/^https?:\/\/[^\s/]+/.test(url)) {
+    throw new Error(`${pulumi.getProject()}:geocoderUrl must be an http(s) URL or empty (got "${url}").`);
+  }
+  return url;
 }

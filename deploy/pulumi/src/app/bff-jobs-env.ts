@@ -26,8 +26,8 @@ const BFF_JOBS_OVERRIDES = new Set(["OTEL_SERVICE_NAME", "SHUTDOWN_DRAIN_MS"]);
  * (`trace-retention`, `conversation-trace-erasure`; ADR-0044, ADR-0150), and
  * `allow-workers-to-langfuse` admits it to the web port for them.
  *
- * The geocoder's URL likewise: address search is a request-path feature, and
- * `geocoder-frontend-only` admits the frontend alone (ADR-0120).
+ * The geocoder's URL likewise: address search is a request-path feature the
+ * frontend's `/api/geocode` serves, and no job calls it (ADR-0151).
  */
 const BFF_JOBS_WITHHELD = new Set([
   "LANGFUSE_HOST",

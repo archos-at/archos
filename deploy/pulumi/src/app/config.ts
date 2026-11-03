@@ -25,8 +25,6 @@ export interface AppWiring {
   seaweedPublicEndpoint: pulumi.Output<string>;
   /** Office → PDF converter URL (set when cfg.gotenberg.enabled, ADR-0070). */
   gotenbergUrl?: pulumi.Output<string>;
-  /** The self-hosted Photon's URL (set when cfg.geocoder.enabled, ADR-0120). */
-  geocoderUrl?: pulumi.Output<string>;
   /** The Qdrant cluster's client URL (ADR-0115): the one vector store, so there is no embedded one. */
   qdrantUrl: pulumi.Output<string>;
   /** Every DSN states its route (`via`), pooled or direct: see `PgRoute` in `data/postgres.ts`. */
@@ -592,10 +590,10 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // source it indexes those from (ADR-0071). Absent ⇒ those files are
     // marked failed (retryable); .xlsx/.xlsm index without preview.
     ...(w.gotenbergUrl ? [{ name: "GOTENBERG_URL", value: w.gotenbergUrl }] : []),
-    // Address search for the project dialog (ADR-0120), behind `/api/geocode`.
-    // Absent ⇒ the route answers `enabled: false` and the address stays a plain
-    // text field. Only ever the in-cluster Photon: an address is client data.
-    ...(w.geocoderUrl ? [{ name: "GEOCODER_URL", value: w.geocoderUrl }] : []),
+    // Address search for the project dialog (ADR-0151), behind `/api/geocode`:
+    // komoot's public Photon unless the stack names another. Empty ⇒ the route
+    // answers `enabled: false` and the address stays a plain text field.
+    ...(cfg.geocoderUrl ? [{ name: "GEOCODER_URL", value: cfg.geocoderUrl }] : []),
     // OTLP via the collector, only when it is deployed (instrumentation.ts no-ops
     // without it). A BASE URL: the JS exporter appends the signal path, the
     // Python agent-runtime exporter does not, so the backend gets /v1/traces.

@@ -158,6 +158,25 @@ describe("the bff-jobs pool's floor", () => {
   });
 });
 
+describe("the geocoder URL (ADR-0151)", () => {
+  const key = `${pulumi.getProject()}:geocoderUrl`;
+
+  it("defaults to komoot's public Photon", () => {
+    pulumi.runtime.setAllConfig(baseStackConfig());
+    expect(loadConfig().geocoderUrl).toBe("https://photon.komoot.io");
+  });
+
+  it("takes empty as address search off", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key]: "" });
+    expect(loadConfig().geocoderUrl).toBe("");
+  });
+
+  it("refuses a value that is no http(s) URL rather than serving it as off", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key]: "photon.komoot.io" });
+    expect(() => loadConfig()).toThrow(/geocoderUrl must be an http\(s\) URL or empty/);
+  });
+});
+
 describe("Qdrant (ADR-0115)", () => {
   it("defaults the cluster to the design's shape", () => {
     pulumi.runtime.setAllConfig(baseStackConfig());

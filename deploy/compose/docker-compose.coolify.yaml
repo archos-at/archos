@@ -617,6 +617,9 @@ services:
       # dev file's `-`, because Coolify's parser may not honour the colon-less
       # form; an empty value here falls back to the default too.
       - GOTENBERG_URL=${GOTENBERG_URL:-http://gotenberg:3000}
+      # Address search in the project dialog (ADR-0151): komoot's public Photon,
+      # no account. `-` here, so an empty value switches it off.
+      - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
       # Internal (server-side uploads) vs public (browser presigned URLs).
       - SEAWEED_ENDPOINT=http://seaweedfs:8333
       - SEAWEED_PUBLIC_ENDPOINT=https://${SERVICE_FQDN_SEAWEEDFS}
