@@ -1,0 +1,7 @@
+---
+improvements:
+  - >
+    When reading a large PDF has to be tried again, for example after an
+    interruption, it finishes sooner: the text and tables already taken from
+    that same file are reused instead of being read out of the PDF a second
+    time.

@@ -94,3 +94,16 @@ def read_standalone_image(
         return ImageRead(None, photo, image_coverage(read=True))
     ingestor._thumbnail_after_screen(thumbnail_upload_url, file_path)
     return ImageRead(documents, photo, image_coverage(read=True))
+
+
+#: An image's format by its name, when its bytes did not say (``adapter._looks_like_image``).
+_FORMAT_BY_SUFFIX = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".webp": "webp"}
+
+
+def standalone_image_format(file_path: str, file_name: str) -> str | None:
+    """The format of a file that is not a PDF when it is an image: by its magic bytes, else its extension."""
+    from pathlib import Path
+
+    from .adapter import _looks_like_image
+
+    return _looks_like_image(file_path) or _FORMAT_BY_SUFFIX.get(Path(file_name).suffix.lower())

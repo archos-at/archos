@@ -355,11 +355,13 @@ export function buildImageStorageKey(storageKey: string, index: number): string 
 }
 
 /**
- * The parts of a version's stored page text (ADR-0134): what each page says, and the
- * index that locates every page in it. A closed list, so the presign route can mint
+ * The parts of a version's stored page text (ADR-0134): what each page says, the
+ * index that locates every page in it, and the ingest's parsed document (the text,
+ * triage and table passes it reads back on a retry instead of parsing the PDF again,
+ * `llamaindex/parsed_store.py`). A closed list, so the presign route can mint
  * nothing else under the prefix.
  */
-export const PAGE_TEXT_PARTS = ['pages.md', 'index.json'] as const
+export const PAGE_TEXT_PARTS = ['pages.md', 'index.json', 'parsed.json'] as const
 export type PageTextPart = (typeof PAGE_TEXT_PARTS)[number]
 
 /**
@@ -373,8 +375,8 @@ export function buildPageTextPrefix(storageKey: string): string | null {
 }
 
 /**
- * Storage key of one part of a version's stored page text: `<dir>/_text/pages.md` or
- * `<dir>/_text/index.json`. Built from the document's own key and a part from
+ * Storage key of one part of a version's stored page text: `<dir>/_text/pages.md`,
+ * `<dir>/_text/index.json` or `<dir>/_text/parsed.json`. Built from the document's own key and a part from
  * {@link PAGE_TEXT_PARTS}, never from a caller's path; null for anything else.
  */
 export function buildPageTextStorageKey(storageKey: string, part: string): string | null {

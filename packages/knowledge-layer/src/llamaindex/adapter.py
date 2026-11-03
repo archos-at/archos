@@ -2921,11 +2921,12 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         """
         if rules is None:
             return _PdfScreen()
-        from knowledge_layer.llamaindex import page_triage
+        from knowledge_layer.llamaindex import parsed_store
         from knowledge_layer.llamaindex.screening import document_pages
 
         page_texts = page_texts_for_visual_heuristic(text_pages)
-        triage = page_triage.triage_pdf(
+        # Measured once per version: a retry reads the verdicts back (`parsed_store`).
+        triage = parsed_store.current().triage(
             source_path, page_texts, min_text_chars=VISUAL_PAGE_MIN_TEXT_CHARS, min_paths=VISUAL_PAGE_MIN_PATHS
         )
         has_rasters = any(page.get("image_count") for page in text_pages)
@@ -4304,16 +4305,10 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # Standalone image detection (magic bytes, else extension) —
                     # only when it is not a PDF. Routes PNG/JPEG to VLM captioning
                     # instead of the text reader (which would garble the binary).
-                    image_format = None if is_pdf else _looks_like_image(file_path)
-                    if image_format is None and not is_pdf:
-                        ext = Path(file_name).suffix.lower()
-                        if ext == ".png":
-                            image_format = "png"
-                        elif ext in (".jpg", ".jpeg"):
-                            image_format = "jpeg"
-                        elif ext == ".webp":
-                            image_format = "webp"
-                    is_image = image_format is not None and not is_pdf
+                    from knowledge_layer.llamaindex.image_ingest import standalone_image_format
+
+                    image_format = None if is_pdf else standalone_image_format(file_path, file_name)
+                    is_image = image_format is not None
                     # The image branch reads the camera facts; stored with the
                     # metadata rows after indexing. Reset here, before the branch.
                     photo = None
@@ -4321,9 +4316,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # after the vision batch; stored with the metadata rows.
                     coverage = None
 
-                    mode_str = "text"
-                    if is_image or (is_pdf and (extract_tables or extract_images)):
-                        mode_str = "multimodal"
+                    mode_str = "multimodal" if is_image or (is_pdf and (extract_tables or extract_images)) else "text"
                     logger.info(f"Processing file {i + 1}/{len(file_paths)} (mode={mode_str})")
 
                     with self._lock:
@@ -4351,8 +4344,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     tables: list[dict[str, Any]] = []
                     table_documents: list[Any] = []
                     if is_pdf:
+                        # The text, triage and table passes, read back when a previous
+                        # attempt stored them for these bytes and this code (`parsed_store`).
+                        from knowledge_layer.llamaindex import parsed_store
+
                         with _stage(stages, "text"):
-                            text_pages = _extract_text_from_pdf(source_path)
+                            parse = file_scope.enter_context(
+                                parsed_store.open_for(config, collection_name, source_path)
+                            )
+                            text_pages = parse.text_pages(source_path)
                         dense_pages = getattr(text_pages, "dense_pages", [])
                         _log_memory(f"text:done pages={len(text_pages)} without_layout={len(dense_pages)}")
                         if dense_pages:
@@ -4392,7 +4392,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 vision_reads=bool(vlm_api_key) and RENDER_VISUAL_PAGES,
                             )
                             with _stage(stages, "tables"):
-                                tables = _extract_tables_from_pdf(source_path, taken, skip)
+                                tables = parse.tables(source_path, taken, skip)
                             _log_memory(f"tables:done tables={len(tables)}")
                             table_documents = [
                                 document
@@ -4405,6 +4405,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 held = self._screen_tables(job, i, screening_rules, table_documents, screen.checked)
                             if held:
                                 continue
+                        parse.save()  # the screen passed: what was parsed is stored for a retry
                         # Scans and garbled pages are transcribed here, one vision call
                         # each, while the drawings the triage knows are already read on
                         # the same pool (`page_reads`): the vision batch below gets them.

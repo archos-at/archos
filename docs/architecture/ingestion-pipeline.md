@@ -129,14 +129,17 @@ flowchart TB
 
   G[deleted? lost claim? A:4779]:::cpu --> DL[download original + rendition<br/>60 s read timeout]:::cpu
   DL --> TY{type}
-  TY -- PDF / rendition --> TX[text, page by page<br/>pdfplumber, A:1708]:::cpu
+  TY -- PDF / rendition --> PS{parsed.json for these bytes<br/>and this code?}:::cpu
+  PS -- yes --> SC
+  PS -- no --> TX[text, page by page<br/>pdfplumber, A:1708]:::cpu
   TY -- image --> EX[EXIF facts, then analyze_visual]:::model
   TY -- xlsx, md, csv --> OX[office_extractors / text_formats]:::cpu
   TY -- Word without rendition --> F1[fail: office_rendition_required]:::stop
   TX --> SC[upload screen<br/>local rules, no model]:::cpu
   SC -- match --> QU[quarantine: file FAILED with verdict]:::stop
   SC --> TB[tables, pdfplumber<br/>not on drawings vision reads]:::cpu
-  TB --> TR[page triage<br/>text / scan / garbled / drawing]:::cpu
+  TB --> ST[store parsed.json<br/>text, triage, tables]:::cpu
+  ST --> TR[page triage<br/>text / scan / garbled / drawing]:::cpu
   TR --> AH[read the triage's drawings ahead<br/>on the file's page-read pool]:::model
   TR --> OCR[transcribe scans + garbled pages<br/>1 vision call per page, cap 500<br/>same pool, streamed]:::model
   OCR --> TH[thumbnail -> presigned PUT]:::cpu
@@ -159,6 +162,24 @@ flowchart TB
   CV --> MD
   MD --> FA[Fassung: confirm, change summary<br/>or suggestion, 45 s bound]:::model
 ```
+
+**A retry does not parse again** (`llamaindex/parsed_store.py`). Once the upload
+screen has passed and the tables are read, the text pass's pages, the triage's verdict
+per page and the table pass's tables (with the pages it skipped) are written as
+`<version dir>/_text/parsed.json`, beside `pages.md` and `index.json`, through the same
+BFF-presigned PUT (`document-text-upload-url`, part `parsed.json`). The next attempt for
+that version reads it back with the backend's read-only credential (the presign answer
+names the key and bucket) and skips the passes. It counts only when its header names
+this file's content hash and this pipeline: the schema, the reader version, the
+thresholds, the pdfplumber and pypdfium2 versions and the source of every module the
+pass runs, so a code change parses afresh. A table pass is reused only for the same
+skipped pages. The upload screen is not stored: it depends on the office's rules, which
+may change between attempts, and runs again on the read-back text. It is bounded by
+`INGEST_PARSED_MAX_BYTES` (32 MiB; larger is not written, and logged) and fail-open.
+Measured on 24 CAD sheets of 6,000 paths each (`build_drawing_sheets_pdf`): 22.3 s for
+text, triage and tables fresh, under 0.01 s read back, the same pages, triage and
+tables, in a 4.4 kB artefact. Without screening rules the triage is measured by
+`route_pdf_pages` and is not stored.
 
 **One page-read pool per file** (`llamaindex/page_reads.py`,
 `INGEST_PAGE_READ_PARALLELISM`, 16). Every page read of a file, a scan's
@@ -253,7 +274,8 @@ code paths (no Qdrant, so no write stage):
 
 Production numbers already on record: median job 138 s, mean 154 s, max 427 s; a
 133-page CAD PDF spends 103 s in the text pass and 125 s in the table pass before
-its first model call (ADR-0117). Vector CAD is where pdfplumber is slow; ordinary
+its first model call (ADR-0117). A retry of the same version no longer pays them:
+it reads the parsed document back (section 3). Vector CAD is where pdfplumber is slow; ordinary
 text PDFs are not.
 
 So the shape of a document's wall time is:

@@ -24,7 +24,9 @@ drawings, through BFF-presigned PUTs like the stored rasters (``image_store``):
 the backend holds a read-only object-store credential. The BFF builds each key
 from the document's own row, and the presign answer carries the row's id and
 version, which ``index.json`` repeats so the reader can refuse a stray file.
-Fail-open: a failure here costs the stored text, never the ingest.
+Fail-open: a failure here costs the stored text, never the ingest. The same
+presign serves a third part, ``parsed.json``, the ingest's own parsed document
+(``parsed_store``), whose answer's key and bucket the ingest reads it back from.
 """
 
 from __future__ import annotations
@@ -63,6 +65,9 @@ class Slot:
     document_id: str
     version: int | None
     content_hash: str | None
+    #: Where the part lives, for the ingest's read-back of its parsed document (``parsed_store``).
+    storage_key: str | None = None
+    storage_bucket: str | None = None
 
 
 #: ``(document_id, collection, part, organization_id) -> Slot``, or ``None`` when there is none.
@@ -186,6 +191,8 @@ def request_slot(document_id: str, collection: str, part: str, organization_id: 
             document_id=str(data.get("documentId") or document_id),
             version=version if isinstance(version, int) else None,
             content_hash=data.get("contentHash") if isinstance(data.get("contentHash"), str) else None,
+            storage_key=data.get("storageKey") if isinstance(data.get("storageKey"), str) else None,
+            storage_bucket=data.get("storageBucket") if isinstance(data.get("storageBucket"), str) else None,
         )
     except Exception as e:  # noqa: BLE001 - fail-open contract
         # Class name only: an httpx error's text embeds the request URL.
