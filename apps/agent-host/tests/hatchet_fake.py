@@ -34,7 +34,8 @@ class FakeWorkflow:
 
         return register
 
-    async def aio_run_no_wait(self, run, **options: Any):
+    async def aio_run(self, run, wait_for_result: bool = True, **options: Any):
+        assert wait_for_result is False, "a research run is started, never awaited"
         self.started.append({"input": run, **options})
         return SimpleNamespace(workflow_run_id=f"run-{len(self.started)}")
 

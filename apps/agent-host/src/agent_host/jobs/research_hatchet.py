@@ -256,8 +256,9 @@ async def start(
         priority=name,
         payload=payload_crypto.serialize_encrypted(payload),
     )
-    ref = await research_run(hatchet_client.client()).aio_run_no_wait(
+    ref = await research_run(hatchet_client.client()).aio_run(
         run,
+        wait_for_result=False,
         priority=priority_of(name),
         additional_metadata={"job_id": job_id, "organization_id": run.organization_id},
     )

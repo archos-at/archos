@@ -40,8 +40,15 @@ def stub_private_dns(monkeypatch):
     in-network in compose/Kubernetes deployments.
     """
 
+    real_getaddrinfo = socket.getaddrinfo
+
     def fake_getaddrinfo(*args, **kwargs):
+        host = args[0] if args else kwargs.get("host")
         port = args[1] if len(args) > 1 else kwargs.get("port", 0)
+        if _is_ip_literal(host):
+            # An address needs no DNS. Faking it too sent the real-engine tests'
+            # REST calls for 127.0.0.1 to 10.42.0.7, where each hung to the OS timeout.
+            return real_getaddrinfo(*args, **kwargs)
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.42.0.7", port or 0))]
 
     monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
@@ -97,3 +104,13 @@ def hatchet(monkeypatch):
     yield fake
     hatchet_client.reset_for_tests(None)
     research_hatchet._declared.clear()
+
+
+def _is_ip_literal(host: object) -> bool:
+    import ipaddress
+
+    try:
+        ipaddress.ip_address(host.decode() if isinstance(host, bytes) else str(host))
+    except ValueError:
+        return False
+    return True
