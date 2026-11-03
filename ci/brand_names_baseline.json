@@ -1,6 +1,6 @@
 {
   ".github/actions/build-image/action.yml": 1,
-  ".github/workflows/deploy.yml": 37,
+  ".github/workflows/deploy.yml": 35,
   "apps/agent-host/Dockerfile": 2,
   "apps/agent-host/src/agent_host/auth/__init__.py": 1,
   "apps/agent-host/src/agent_host/auth/utils.py": 4,

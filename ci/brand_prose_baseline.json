@@ -5,7 +5,7 @@
   ".github/ISSUE_TEMPLATE/02-enhancement.yml": 1,
   ".github/ISSUE_TEMPLATE/03-documentation.yml": 1,
   ".github/actions/build-image/action.yml": 1,
-  ".github/workflows/deploy.yml": 35,
+  ".github/workflows/deploy.yml": 33,
   ".github/workflows/turn-shapes-live.yml": 2,
   ".gitleaks.toml": 2,
   "AGENTS.md": 13,

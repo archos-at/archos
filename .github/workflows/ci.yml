@@ -497,7 +497,7 @@ jobs:
 
   # A pull request whose change testmon can see runs only the tests that
   # change reaches, per suite, from the database the last green develop push
-  # recorded (`backend-testmon`). The full sharded suite and the coverage gate
+  # recorded (`testmon.yml`). The full sharded suite and the coverage gate
   # run on every push to develop, which the deploy waits for, so a test this
   # selection misses still turns develop red before staging. What forces the
   # full suite on a pull request instead: ci/pr_selection.py.
@@ -555,7 +555,7 @@ jobs:
           key: testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-${{ github.sha }}
           restore-keys: |
             testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-
-      # Its own step, with the path `backend-testmon` saves under: a cache is
+      # Its own step, with the path `testmon.yml` saves under: a cache is
       # found only by the paths it was saved with, and when this was one step
       # with the suite's own path, develop's database was never found and a
       # first push ran every test.
@@ -596,40 +596,6 @@ jobs:
         run: task be:test:postgres
         env:
           TEST_POSTGRES_REQUIRED: "1"
-
-  # Records which test runs which code, for `backend-affected`. On every push
-  # to develop, reused or not: a squash merge of a green pull request skips the
-  # checks, and the database would otherwise stop following develop. Saved only
-  # when every test passed, because testmon re-runs a recorded failure forever.
-  # Not a check, so not in `CI OK` or `publish`: it holds nobody up.
-  backend-testmon:
-    name: Backend test database (testmon)
-    needs: changes
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      qdrant:
-        image: qdrant/qdrant:v1.19.2
-        ports:
-          - 6333:6333
-    env:
-      QDRANT_TEST_URL: http://localhost:6333
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
-        with:
-          python-version: "3.14"
-      - uses: ./.github/actions/setup-task
-      - run: task be:test:testmon
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .testmondata-*
-          # Its own prefix: `testmon-` alone also matches a pull request's
-          # `testmon-pr-…` entries, another suite's among them.
-          key: testmon-develop-${{ github.sha }}
 
   # Everything on the UI's toolchain except the test shards. The production
   # build is NOT here: the frontend image build (`image`) runs the same

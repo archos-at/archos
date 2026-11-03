@@ -222,18 +222,39 @@ Pick a quiet moment instead, or accept the retries.
 Gotenberg must be running (`gotenbergEnabled`, default on) before the new
 backend takes traffic. With it off, every Word and presentation upload fails.
 
+## Smoke check
+
+After `pulumi up`, both jobs ask the running app from outside, through DNS, TLS
+and the ingress: `GET <appUrl>/api/healthz` (the frontend process) and
+`GET <appUrl>/api/health` (the backend behind it), six tries ten seconds apart.
+The rollouts' readiness soaks only ever asked each pod about itself. A red smoke
+check means the deploy is **live and broken**: the job summary's "Rolling back"
+section names the tag the stack ran before this run and the command that puts it
+back. The check is inline in `deploy.yml` (`env.SMOKE_CHECK`), not a script,
+because both jobs run against checkouts that can predate a new file.
+
 ## Rolling back
 Deploys pin every service to an immutable `sha-<40-hex>` image tag, so a
 rollback is a deploy of an older tag — not a revert. It is also the only way a
 service moves to an older commit: an automatic deploy that resolves one fails
-the downgrade guard.
+the downgrade guard. **The step-by-step, for staging and production, is
+[rollback.md](rollback.md).** In short:
 
-1. Actions → **Deploy (staging)** → *Run workflow*.
+1. Actions → **Deploy (staging)** → *Run workflow*, or the command every deploy
+   prints in its summary.
 2. Set **`imageTag`** to the previous good build's tag: `sha-` + the full sha
-   of any `develop` commit whose CI push run passed. A rollback pins **all
-   three** services to that tag, after verifying GHCR has it for all three.
+   of any `develop` commit whose CI push run passed, and **`target`** to
+   `staging` or `prod`. A rollback pins **all three** services to that tag,
+   after verifying GHCR has it for all three. A prod rollback waits for the
+   `production` reviewers like any prod deploy.
 3. It goes through the identical gates and the identical gated rollout — surge,
-   readiness soak, drain. Nothing special-cases a rollback.
+   readiness soak, drain, smoke check. Nothing special-cases a rollback.
+4. Production only: the rollback lasts until the next push to `prod`, which
+   applies the tag `Pulumi.prod.yaml` pins. Pin the rollback tag (or the fix)
+   there in a PR to `prod`.
+
+The prod job always checks out the `prod` branch, so a dispatch from `develop`
+applies prod's program with the chosen images, never develop's program.
 
 **A rollback by tag deploys the current program with older images**, so it
 works only while the two still fit together. Across a change to what the
@@ -301,4 +322,4 @@ avoids them looks odd without the reason, so don't "simplify" it back.
 ## Day-to-day
 - Merge to `develop` → staging deploys automatically once green.
 - Fast-forward/merge `develop` → `prod` → production deploys after approval.
-- Roll back: see above.
+- Roll back: [rollback.md](rollback.md), or the command in the failed deploy's summary.

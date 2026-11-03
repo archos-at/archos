@@ -54,7 +54,8 @@ name: Deploy (staging)
 #   * Images must ALREADY exist in GHCR: prod consumes the imageTag PINNED in
 #     its committed Pulumi.prod.yaml, so unlike staging this job sets NO config,
 #     resolves NO per-service refs and verifies NO rollback tag — the preview
-#     applies exactly what the stack file records. That pinned line IS the
+#     applies exactly what the stack file records (a dispatch with imageTag is
+#     the one exception: a rollback, for that one run). That pinned line IS the
 #     promotion mechanism: every develop→prod promotion PR bumps
 #     grid-oib:imageTag to a develop sha CI passed, and every such sha has
 #     all three images (ci.yml tags them only on a green run; the verify step
@@ -87,6 +88,9 @@ on:
           with the older images, so it is refused for a backend built for
           another vector store than the program runs (vector-store-floor.sh):
           to go back across the Chroma-to-Qdrant change, revert it on develop.
+          With target=prod it rolls PRODUCTION back the same way, behind the
+          production reviewers, and the prod branch's next push restores the
+          pin its Pulumi.prod.yaml holds (docs/deployment/rollback.md).
         required: false
         type: string
       target:
@@ -98,6 +102,29 @@ on:
 permissions:
   contents: read
   packages: read # verify an image tag exists for all three images before pinning it
+
+env:
+  # The post-deploy smoke check, shared by both jobs. Inline rather than a file
+  # in the repository: staging runs develop's workflow against an older
+  # checkout, and prod's checkout is the prod branch, either of which can
+  # predate a new script (docs/contributing/gotchas.md). Six tries, ten seconds
+  # apart: an ingress can take a moment to route to the new pods.
+  SMOKE_CHECK: |
+    set -u
+    for path in /api/healthz /api/health; do
+      ok=""
+      for attempt in 1 2 3 4 5 6; do
+        code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$SMOKE_URL$path" || true)"
+        if [ "$code" = 200 ]; then ok=1; break; fi
+        echo "$SMOKE_URL$path answered ${code:-nothing} (try $attempt of 6)"
+        sleep 10
+      done
+      if [ -z "$ok" ]; then
+        echo "::error::smoke check failed: $SMOKE_URL$path never answered 200. The deploy is live; the job summary names the tag to roll back to."
+        exit 1
+      fi
+      echo "$SMOKE_URL$path: 200"
+    done
 
 # Concurrency is per job (`deploy-dev` / `deploy-prod` below): a production
 # apply must not queue behind a staging deploy or vice versa.
@@ -402,6 +429,21 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           POSTHOG_RELEASE_ID: ${{ steps.posthog-release.outputs.release-id }}
 
+      # What the cluster runs before this apply: the tag to go back to if the
+      # smoke check below fails, printed in the summary as a ready rollback.
+      # Best effort: a first deploy has no output yet.
+      - name: Remember what is running
+        id: previous
+        continue-on-error: true
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          # The stack the plan step selected.
+          ref="$(pulumi stack output deployedImages --json | jq -r '.backend // empty')"
+          echo "tag=${ref##*:}" >> "$GITHUB_OUTPUT"
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       # The apply runs on THIS runner, right after the gates, against the same
       # pinned image refs. Because the state backend is Pulumi Cloud, the update
       # is recorded in the console (stack → Activity) with full logs and diffs
@@ -422,6 +464,37 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           POSTHOG_RELEASE_ID: ${{ steps.posthog-release.outputs.release-id }}
+
+      # `pulumi up` is green once every rollout passed its readiness soak, which
+      # each pod answers about itself. This asks from outside, through DNS, TLS
+      # and the ingress, the way a person arrives: the frontend's liveness route
+      # and the backend's health behind it. Red means the deploy is live and
+      # broken; the summary names the tag to roll back to.
+      - name: Smoke check
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          url="$(pulumi stack output appUrl)"
+          SMOKE_URL="$url" bash -c "$SMOKE_CHECK"
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: How to roll this back
+        if: ${{ always() && steps.previous.outputs.tag != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
+        env:
+          PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
+        run: |
+          {
+            echo "## Rolling back"
+            echo
+            echo "Before this run staging ran \`$PREVIOUS_TAG\`. To put it back:"
+            echo
+            echo '```bash'
+            echo "gh workflow run deploy.yml --ref develop -f target=staging -f imageTag=$PREVIOUS_TAG"
+            echo '```'
+            echo
+            echo "docs/deployment/rollback.md has the rest."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Best effort: a missing output must not turn a finished deploy red.
       - name: Record what was deployed
@@ -511,15 +584,16 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
   # Mirrors the staging job above (same runner, checkout action/version,
-  # toolchain setup, working directories, secret mechanism, plan gates and
-  # error handling) against the fully-configured prod stack. All staging-only
-  # machinery is absent ON PURPOSE — see the header comment: no dispatch
-  # guard, no image-tag validation or pinning (the committed stack config owns
-  # the image refs), no template preflight.
+  # toolchain setup, working directories, secret mechanism, plan gates, smoke
+  # check and error handling) against the fully-configured prod stack. All
+  # staging-only machinery is absent ON PURPOSE — see the header comment: no
+  # dispatch guard, no per-service pinning (the committed stack config owns the
+  # image tag, and only an operator's rollback overrides it, for one run), no
+  # template preflight.
   deploy-prod:
     name: Pulumi up (prod)
     # Direct events only: pushes to `prod` (branch filter on the push trigger)
-    # and manual dispatches with target=prod/both. NEVER on the workflow_run
+    # and manual dispatches with target=prod/both, with imageTag a rollback. NEVER on the workflow_run
     # chain from CI — that is staging's trigger and would otherwise
     # queue a prod apply on every merge to develop.
     if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.target == 'prod' || inputs.target == 'both')) }}
@@ -533,13 +607,19 @@ jobs:
     concurrency:
       group: deploy-prod
       cancel-in-progress: false
+    env:
+      # An operator's rollback tag (dispatch with target=prod and imageTag),
+      # empty on a push: then the tag Pulumi.prod.yaml pins is deployed.
+      ROLLBACK_TAG: ${{ inputs.imageTag }}
     steps:
-      # Pushes land on refs/heads/prod, so the default checkout IS the
-      # promoted commit (dispatch checks out whatever ref it ran from). Full
-      # history: the vector-store floor reads the commit the pinned image was
-      # built from, a develop commit behind the promotion.
+      # Always the prod branch's program. A push lands on refs/heads/prod, so
+      # that is the promoted commit; a dispatch used to check out the ref it
+      # ran from, so `target=both` from develop applied DEVELOP's program to
+      # production. Full history: the vector-store floor reads the commit the
+      # pinned image was built from, a develop commit behind the promotion.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: prod
           fetch-depth: 0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -565,16 +645,25 @@ jobs:
       # checked that tag was ever built: a promotion to a commit whose publish
       # built only grid-oib-web left prod's backend on its old image, fixes and
       # all, with nothing red anywhere. A missing image stops the deploy here.
+      #
+      # A rollback tag is checked the same way, and by shape first, since it
+      # reaches `pulumi config set` on a command line.
       - name: Verify the pinned images exist
         working-directory: deploy/pulumi
         run: |
-          tag="$(sed -n 's/^  grid-oib:imageTag: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
+          pinned="$(sed -n 's/^  grid-oib:imageTag: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
+          tag="${ROLLBACK_TAG:-$pinned}"
           [ -n "$tag" ] || { echo "::error::Pulumi.prod.yaml pins no grid-oib:imageTag"; exit 1; }
+          if [ -n "$ROLLBACK_TAG" ]; then
+            [[ "$ROLLBACK_TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "::error::a prod rollback takes sha-<40-hex>, not '$ROLLBACK_TAG'"; exit 1; }
+            echo "::notice::rolling production back to $ROLLBACK_TAG (Pulumi.prod.yaml pins $pinned)"
+          fi
           ./scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "$tag"
           # The backend must be built for the vector store this program runs:
           # an older pin across the Chroma removal answers from an empty store.
           owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
-          DEPLOY_SHA="$GITHUB_SHA" ./scripts/vector-store-floor.sh "ghcr.io/${owner}/grid-oib-backend:${tag}"
+          DEPLOY_SHA="$(git rev-parse HEAD)" ./scripts/vector-store-floor.sh "ghcr.io/${owner}/grid-oib-backend:${tag}"
+          echo "PROD_IMAGE_TAG=$tag" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -587,13 +676,15 @@ jobs:
           sh "$RUNNER_TEMP/install-pulumi.sh" --version "$version"
 
       # The same two independent plan gates as staging (CRD schema validation +
-      # mandatory CrossGuard policies), but against the prod stack and with NO
-      # config overrides: what is previewed is exactly what the stack pins.
+      # mandatory CrossGuard policies), but against the prod stack and with no
+      # config override but a rollback's tag: what is previewed is what the
+      # stack pins, or the one tag an operator chose.
       - name: Validate plan (CRD schemas + policy pack)
         working-directory: deploy/pulumi
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           pulumi stack select matthiasbigl/grid-oib/prod
+          [ -z "$ROLLBACK_TAG" ] || pulumi config set imageTag "$ROLLBACK_TAG"
           # `--json` puts the plan on stdout, but policy-pack violations are NOT
           # part of it — re-run in text mode on failure so the violating rule is
           # visible in the log (the failed plan itself is cached server-side).
@@ -608,14 +699,53 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
+      - name: Remember what is running
+        id: previous
+        continue-on-error: true
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          # The stack the plan step selected.
+          ref="$(pulumi stack output deployedImages --json | jq -r '.backend // empty')"
+          echo "tag=${ref##*:}" >> "$GITHUB_OUTPUT"
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
       - name: Pulumi up
         working-directory: deploy/pulumi
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           pulumi stack select matthiasbigl/grid-oib/prod
+          [ -z "$ROLLBACK_TAG" ] || pulumi config set imageTag "$ROLLBACK_TAG"
           pulumi up --yes
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: Smoke check
+        working-directory: deploy/pulumi
+        run: |
+          export PATH="$HOME/.pulumi/bin:$PATH"
+          url="$(pulumi stack output appUrl)"
+          SMOKE_URL="$url" bash -c "$SMOKE_CHECK"
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+      - name: How to roll this back
+        if: ${{ always() && steps.previous.outputs.tag != '' && steps.previous.outputs.tag != env.PROD_IMAGE_TAG }}
+        env:
+          PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
+        run: |
+          {
+            echo "## Rolling back"
+            echo
+            echo "Before this run production ran \`$PREVIOUS_TAG\`. To put it back (the production reviewers approve it like any deploy):"
+            echo
+            echo '```bash'
+            echo "gh workflow run deploy.yml --ref develop -f target=prod -f imageTag=$PREVIOUS_TAG"
+            echo '```'
+            echo
+            echo "Then pin it, or the fix, in Pulumi.prod.yaml on prod: the next push to prod applies the file. docs/deployment/rollback.md."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record what was deployed
         id: deployed
@@ -624,7 +754,7 @@ jobs:
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           url="$(pulumi stack output appUrl --stack matthiasbigl/grid-oib/prod)"
-          tag="$(sed -n 's/^  grid-oib:imageTag: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
+          tag="$PROD_IMAGE_TAG"
           echo "url=$url" >> "$GITHUB_OUTPUT"
           {
             echo "## Production deployed"
@@ -632,7 +762,7 @@ jobs:
             echo "| | |"
             echo "|---|---|"
             echo "| URL | $url |"
-            echo "| Commit | \`$GITHUB_SHA\` |"
+            echo "| Commit | \`$(git rev-parse HEAD)\` |"
             echo "| Image tag | \`$tag\` |"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
@@ -644,9 +774,7 @@ jobs:
       - name: Mark the deploy in PostHog
         continue-on-error: true
         working-directory: deploy/pulumi
-        run: |
-          tag="$(sed -n 's/^  grid-oib:imageTag: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
-          ./scripts/posthog-annotate.sh prod "$tag"
+        run: ./scripts/posthog-annotate.sh prod "$PROD_IMAGE_TAG"
         env:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}

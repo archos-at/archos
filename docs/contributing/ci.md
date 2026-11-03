@@ -69,7 +69,6 @@ It also lists the third-party image pins the change adds or moves
 | Repo checks (`repo`) | unless reused | pre-commit on all files, the agent-skill lockfile, ruff, the tests of `ci/`, the workflows and the release-note pipeline (`task be:test:harness`), release-note lint and (PRs) the release-note requirement, gitleaks over the commits a PR adds (a push: its full history) |
 | SAST (`semgrep`) | PRs touching code | Semgrep, diff-aware: blocks findings the PR introduces |
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
-| Backend test database (`backend-testmon`) | every push to `develop` | records which test runs which code (`task be:test:testmon`) and caches it when green. Not a check |
 | Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
 | Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data, the 65% gate, the PR comment |
 | Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the migration test with the claim-queue suites on a real Postgres (`task be:test:postgres`) |
@@ -84,6 +83,17 @@ It also lists the third-party image pins the change adds or moves
 | Image build + push (`image-push`) | pushes, image not in GHCR | builds and pushes `inputs-<hash>` and the layer cache |
 | Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on all three images, and `latest` on `develop` |
 | `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green PR, records the tested tree for reuse |
+
+One more workflow runs on every push to `develop` and is not CI:
+**Test database** (`testmon.yml`) records which test runs which code
+(`task be:test:testmon`) and caches it when green, for `backend-affected` to
+select from. It checks nothing, so it lives outside `ci.yml`: the staging deploy
+follows the CI run's `completed` event, and as a job in CI it was the last to
+finish. On 2026-11-03 a reused push had `CI OK` after one minute and its run
+completed after eight, every minute of the difference this job, and the next
+develop run queued behind it (a run created at 17:56 started at 18:06). A job
+that "holds nobody up" belongs in CI only if nothing waits on the run as a
+whole; the deploy does.
 
 `task verify` runs the same checks locally, minus the image builds, the RLS
 suite and `packages/` (see

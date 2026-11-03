@@ -107,9 +107,8 @@ def runs(job: str, *, event: str, outputs: dict) -> bool:
     return bool(evaluate(condition, github={"event_name": event}, needs=needs))
 
 
-# Jobs that check the change. A reused push skips all of them. `backend-testmon`
-# checks nothing: it records the database pull requests select from.
-CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push", "backend-testmon")]
+# Jobs that check the change. A reused push skips all of them.
+CHECKS = [job for job in JOBS if job not in ("changes", "ci-ok", "publish", "image", "image-push")]
 # The full Python suite, and the selection a pull request runs instead of it.
 FULL_PY = ["backend", "backend-coverage", "backend-suites"]
 
@@ -246,19 +245,27 @@ def test_a_push_always_runs_the_full_python_suite():
 
 
 def test_the_test_database_follows_every_develop_push_and_holds_nobody_up():
-    reused = plan(event="push", parent_green=True, hit="true")
-    job = JOBS["backend-testmon"]
+    # Not a job in CI: the staging deploy follows the CI run as a whole, so a
+    # job there that checks nothing still held every deploy for its seven
+    # minutes, and the next develop run queued behind it.
+    testmon = load("testmon.yml")
+    job = testmon["jobs"]["backend-testmon"]
 
-    develop = {"event_name": "push", "ref": "refs/heads/develop"}
-    assert evaluate(job["if"], github=develop, needs={"changes": {"outputs": reused}})
-    assert not evaluate(job["if"], github={"event_name": "pull_request", "ref": "refs/pull/1/merge"}, needs={})
-    assert "backend-testmon" not in JOBS["ci-ok"]["needs"]
-    assert "backend-testmon" not in JOBS["publish"]["needs"]
+    assert testmon["on"] == {"push": {"branches": ["develop"]}}
+    assert "backend-testmon" not in JOBS
+    assert not any("be:test:testmon" in json.dumps(other) for other in JOBS.values())
+    assert testmon["concurrency"]["group"] != CI["concurrency"]["group"]
     # Saved by a step after the tests, so a red run saves nothing.
     steps = job["steps"]
     run = next(i for i, step in enumerate(steps) if step.get("run") == "task be:test:testmon")
     save = next(i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/cache/save"))
     assert save > run and "if" not in steps[save]
+    # Under the key and path the pull request lanes restore.
+    restore = next(
+        step for step in JOBS["backend-affected"]["steps"] if step.get("name") == "Restore develop's test database"
+    )
+    assert steps[save]["with"]["path"] == restore["with"]["path"]
+    assert steps[save]["with"]["key"].startswith(restore["with"]["restore-keys"].strip())
 
 
 def test_a_ui_selection_runs_the_shards_without_the_coverage_comment():
@@ -305,7 +312,7 @@ def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
 
     assert JOBS["ci-ok"]["if"] == "always()"
     # Every job gates the marker, bar the coverage comment (see CI OK).
-    assert set(JOBS["ci-ok"]["needs"]) == set(JOBS) - {"ci-ok", "workspace-coverage", "backend-testmon"}
+    assert set(JOBS["ci-ok"]["needs"]) == set(JOBS) - {"ci-ok", "workspace-coverage"}
     assert len(uploads) == 1 and uploads[0] > check
     upload = steps[uploads[0]]
     # No status function: the implicit success() keeps a failed check from uploading.
@@ -509,3 +516,52 @@ def test_every_action_is_pinned_to_a_commit():
         and not (re.fullmatch(r"[^@]+@[0-9a-f]{40}", match["ref"]) and re.match(r"\s+# v\d", match["rest"]))
     ]
     assert not unpinned, f"pin these to a commit SHA with a `# vX.Y.Z` comment: {unpinned}"
+
+
+def _step_index(steps: list[dict], name: str) -> int:
+    return next(i for i, step in enumerate(steps) if step.get("name") == name)
+
+
+@pytest.mark.parametrize("job", ["deploy", "deploy-prod"])
+def test_every_deploy_is_smoke_checked_from_outside_and_names_its_rollback(job):
+    steps = DEPLOY["jobs"][job]["steps"]
+    up = _step_index(steps, "Pulumi up")
+
+    # What ran before is read before the apply changes it.
+    assert _step_index(steps, "Remember what is running") < up
+    smoke = steps[_step_index(steps, "Smoke check")]
+    assert _step_index(steps, "Smoke check") > up
+    assert "continue-on-error" not in smoke
+    assert '"$SMOKE_CHECK"' in smoke["run"]
+    # Inline, so an older checkout cannot lack it (docs/contributing/gotchas.md).
+    # The frontend's liveness route, and the backend's health behind it.
+    assert "for path in /api/healthz /api/health;" in DEPLOY["env"]["SMOKE_CHECK"]
+    rollback = steps[_step_index(steps, "How to roll this back")]
+    assert rollback["if"].startswith("${{ always()")
+    assert "gh workflow run deploy.yml" in rollback["run"]
+
+
+def test_production_always_deploys_the_prod_branchs_program():
+    # A dispatch checked out the ref it ran from, so `target=both` from develop
+    # applied develop's program to production.
+    job = DEPLOY["jobs"]["deploy-prod"]
+    checkout = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout"))
+
+    assert checkout["with"]["ref"] == "prod"
+    assert "GITHUB_SHA" not in json.dumps(job["steps"])
+
+
+def test_a_prod_rollback_is_a_dispatch_tag_checked_before_it_reaches_a_command_line():
+    job = DEPLOY["jobs"]["deploy-prod"]
+    steps = job["steps"]
+
+    assert job["env"]["ROLLBACK_TAG"] == "${{ inputs.imageTag }}"
+    assert job["environment"]["name"] == "production"
+    verify = _step_index(steps, "Verify the pinned images exist")
+    assert "^sha-[0-9a-f]{40}$" in steps[verify]["run"]
+    assert "vector-store-floor.sh" in steps[verify]["run"]
+    for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):
+        index = _step_index(steps, name)
+        assert index > verify
+        # An unqualified key is the project's own: the stack file's imageTag.
+        assert 'pulumi config set imageTag "$ROLLBACK_TAG"' in steps[index]["run"]
