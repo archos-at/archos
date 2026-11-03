@@ -2860,6 +2860,8 @@ check_in inbound_0193 "SELECT string_agg(state || '@' || thread_id::text, ',' OR
 refused_in inbound_0193 "UPDATE mail_thread_message_ids SET thread_id = 'ec000000-0000-4000-8000-000000000184', project_id = 'c0000000-0000-4000-8000-000000000184' WHERE entry_id = 'e1000000-0000-4000-8000-000000000184'" "mail_thread_message_ids_entry_fkey" "an entry's id moved to a thread the entry is not in"
 
 # The runtime role: its organization's rows only, in all nine tables, and no DELETE.
+# The runtime role answers to its deployed name, so rename the roles as the deploy does.
+rename_rls_roles
 for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mail_decisions mail_threads mail_thread_entries mail_thread_entry_attachments mail_thread_message_ids mail_thread_follows; do
   seen=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA \
     -c "SET grid.organization_id = 'org_0184_b'" \
@@ -2887,6 +2889,7 @@ if ! grep -q "row-level security" <<<"$RWINS184"; then
   echo "MIGRATION ASSERTION FAILED on inbound_0193: the runtime role in org_0184_a wrote a follow into org_0184_b ($RWINS184)" >&2
   exit 1
 fi
+restore_rls_role_names
 
 # Legal hold: a held project's mail and filed messages are not deleted.
 sql_in inbound_0193 <<<"INSERT INTO legal_holds (entity_type, entity_id, organization_id, reason, created_by) VALUES ('project', 'c0000000-0000-4000-8000-000000000184', 'org_0184_a', 'rls test', 'user_1');"
