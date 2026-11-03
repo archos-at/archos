@@ -5,6 +5,7 @@ import type { LangfuseConfig } from "./langfuse";
 import type { PostgresConfig } from "./postgres";
 import type { SeaweedfsConfig } from "./seaweedfs";
 import type { BffJobsConfig, IngestWorkerConfig } from "./workers";
+import { BACKGROUND_WORK } from "./background-work";
 import {
   KEDA_SCALER_CONNECTION_LIMIT,
   POOLED_POOLS,
@@ -79,5 +80,47 @@ export function assertPgConnectionBudget(cfg: PgBudgetInputs): void {
       `pooled database/role pairs x pgPoolerPoolSize ${poolSize} + ${POSTGRES_POOLER.authConnections} auth session)) ` +
       `and the direct connections need ${budget.reserveTotal} (${parts.join(", ")}). ` +
       "Lower pgPoolerPoolSize or pgPoolerInstances, or raise POSTGRES_TUNING.maxConnections (and the primary's memory with it).",
+  );
+}
+
+/**
+ * The background-work cluster's budget (ADR-0150): every Hatchet process at its
+ * pool ceiling, during a rolling update (each component surges one pod), plus
+ * the chart's per-deploy Jobs, all as the `hatchet` role; then the direct
+ * reserve. `hatchetRole` is also the role's `CONNECTION LIMIT`, so the server
+ * refuses the role before it can crowd out the scaler or the operator.
+ */
+export function backgroundWorkPgConnectionBudget(): PgConnectionBudget & { hatchetRole: number } {
+  // The message queue is RabbitMQ, so no process opens Hatchet's Postgres pub/sub pool.
+  const perProcess = BACKGROUND_WORK.engineMaxConns;
+  const processes =
+    Object.values(BACKGROUND_WORK.replicas).reduce((sum, replicas) => sum + replicas + 1, 0) +
+    BACKGROUND_WORK.bootstrapProcesses;
+  const hatchetRole = processes * perProcess;
+  const reserve = [
+    { name: "superuser_reserved_connections", connections: POSTGRES_DIRECT_RESERVE.superuser },
+    { name: "CloudNativePG (instance manager, exporter, backup)", connections: POSTGRES_DIRECT_RESERVE.cnpg },
+    { name: "KEDA scaler login", connections: KEDA_SCALER_CONNECTION_LIMIT },
+    { name: "grants Job", connections: 1 },
+  ];
+  const reserveTotal = reserve.reduce((sum, part) => sum + part.connections, 0);
+  return {
+    limit: BACKGROUND_WORK.maxConnections,
+    pooled: hatchetRole,
+    hatchetRole,
+    reserve,
+    reserveTotal,
+    total: hatchetRole + reserveTotal,
+  };
+}
+
+/** Refuse a background-work cluster whose Hatchet pools and reserve can pass its `max_connections`. */
+export function assertBackgroundWorkPgConnectionBudget(): void {
+  const budget = backgroundWorkPgConnectionBudget();
+  if (budget.total <= budget.limit) return;
+  throw new Error(
+    `Invalid background-work-pg connection budget: ${budget.total} connections at the peak, more than ` +
+      `max_connections (${budget.limit}): Hatchet ${budget.hatchetRole}, reserve ${budget.reserveTotal}. ` +
+      "Lower BACKGROUND_WORK.engineMaxConns or the replicas, or raise BACKGROUND_WORK.maxConnections.",
   );
 }

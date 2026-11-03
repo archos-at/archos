@@ -650,6 +650,17 @@ init container, which runs `deploy/migration/chroma_export.py` through
 | `ANONYMIZED_TELEMETRY` | `False` | `chromadb`'s usage reporting, off. |
 | `PYTHONUNBUFFERED` | `1` | The export's progress reaches `kubectl logs` as it happens. |
 
+## Hatchet client (ADR-0150)
+
+Every background job runs on Hatchet. These are the SDKs' own variables (Python `hatchet-sdk`, TypeScript `@hatchet-dev/typescript-sdk`), read by every tier that starts or runs a Hatchet run. In Kubernetes they are set on every tier built from `backendEnv` or `frontendEnv` (`deploy/pulumi/src/app/hatchet-env.ts`): chat, api, agent-worker, ingest-worker, frontend and bff-jobs. Runbook: [`hatchet.md`](hatchet.md).
+
+| Variable | Required | Default (Kubernetes) | Default (Compose `hatchet` profile) | Description |
+|---|---|---|---|---|
+| `HATCHET_CLIENT_TOKEN` | Yes | from the Secret `hatchet-client-token` (key `HATCHET_CLIENT_TOKEN`), copied from the chart's worker-token Job by `hatchet-token-sync` | — (create one in the dashboard, see `hatchet.md`) | The tenant API token the SDK authenticates with. It also carries the engine's addresses, which the next variable overrides. Optional on the pod (`secretKeyRef.optional`), so a Job that never starts a run is not blocked; the long-running tiers are ordered after the copy. |
+| `HATCHET_CLIENT_HOST_PORT` | Yes | `hatchet-grpc.background-work.svc.cluster.local:7070` | `hatchet-lite:7077` | The engine's gRPC address. |
+| `HATCHET_CLIENT_TLS_STRATEGY` | Yes | `none` | `none` | `none` inside the cluster: the engine serves plaintext gRPC there, and the `background-work` NetworkPolicies bound who connects. |
+| `HATCHET_CLIENT_NAMESPACE` | No | the Pulumi stack name (`dev`, `prod`) | `local` | Prefix the SDKs put before every workflow name (lower-cased, with `_`). The KEDA triggers count the backlog under it (`hatchetBacklogQuery`), so it must be the same on every tier of a stack. |
+
 ## Notes
 
 - **Placeholder values**: The `.env.example` file contains commented-out optional variables. The `.env` file contains actual development keys.

@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
-import { QUEUE_DEPTH_QUERY } from "./ingest-worker";
+import { WORKFLOW } from "./ingest-worker";
+import { hatchetBacklogQuery } from "./keda-scaling";
 import { baseStackConfig } from "../test-support/stack-config";
 
 // src/app -> src -> deploy/pulumi -> deploy -> repo root
@@ -47,7 +48,7 @@ const names = (source: string, pattern: RegExp): Set<string> =>
 
 /**
  * The ingest tier crosses two process boundaries this program cannot see into:
- * the Python worker reads its env, and KEDA queries the Python queue's table.
+ * the Python worker reads its env, and KEDA counts the worker's Hatchet workflow.
  * A name that drifts on one side plans and applies clean, and the tier then
  * either never scales or claims nothing. Both sides are read here as source.
  */
@@ -59,27 +60,10 @@ describe("the ingest-worker tier", () => {
     expect([...emitted].filter((n) => !readByPython.has(n))).toEqual([]);
   });
 
-  it("scales on the table the queue actually writes", () => {
-    const table = read("packages", "agent", "src", "agent", "knowledge", "ingest_queue.py").match(/^TABLE = "([a-z_]+)"$/m)?.[1];
-    expect(table).toBeDefined();
-    const dead = read("packages", "agent", "src", "agent", "common", "claim_queue.py").match(/^DEAD = "([a-z_]+)"$/m)?.[1];
-    expect(dead).toBeDefined();
-    const cancelled = read("packages", "agent", "src", "agent", "common", "claim_queue.py").match(
-      /^CANCELLED = "([a-z_]+)"$/m,
-    )?.[1];
-    expect(cancelled).toBeDefined();
-    // Retired rows (dead, cancelled) stay in the table as traces; they must not
-    // keep replicas up.
-    expect(QUEUE_DEPTH_QUERY).toBe(
-      `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('${dead}', '${cancelled}')`,
-    );
-  });
-
-  it("reads the queue through the one TriggerAuthentication both Python tiers share", () => {
-    // The Secret key the scaler's DSN is in (`buildScalerSecret`): the tiers share
-    // it because both queues live in one database.
-    expect(configSource).toMatch(/JOBS_QUEUE_DSN_KEY = "KEDA_JOBS_QUEUE_DB_URL"/);
-    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("JOBS_QUEUE_AUTH");
+  it("scales on the backlog of the workflow the worker registers", () => {
+    expect(WORKFLOW).toBe("ingest-document");
+    expect(hatchetBacklogQuery("prod", WORKFLOW)).toContain("starts_with(action_id, 'prod_ingest-document:')");
+    expect(read("deploy", "pulumi", "src", "app", "ingest-worker.ts")).toContain("workflow: WORKFLOW");
   });
 
   it("runs prod wide and small on the batch group, never able to overcommit a node", () => {

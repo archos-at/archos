@@ -8,24 +8,16 @@ import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduli
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { agentWorkerRollout, gracefulShutdown, secretChecksumAnnotations, surgeRollout } from "../platform/rollout";
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
-import { AppSecrets, AppWiring, BFF_QUEUE_DSN_KEY, SCALER_SECRET_NAME } from "./config";
+import { AppSecrets, AppWiring } from "./config";
 import { bffJobsEnv } from "./bff-jobs-env";
-import { installQueueScaledObject, installTriggerAuth, queueDepthQuery } from "./keda-scaling";
+import { installQueueScaledObject } from "./keda-scaling";
 import { PORT, UID } from "../constants";
 
-/** The durable queue the pool drains (`apps/workspace/migrations/0104_bff_job_queue.sql`). */
-export const QUEUE_TABLE = "bff_job_queue";
+/** The Hatchet workflow the pool runs (ADR-0150), one task with the job kind in its input. */
+export const WORKFLOW = "bff-job";
 
 /**
- * KEDA's measure of the pool's work: every job a worker could still run or is
- * running, retired rows (dead, cancelled) left out (`queueDepthQuery`): a job
- * that failed every attempt waits for an operator, and counting it would hold a
- * replica up forever for work nothing will ever claim.
- */
-export const BFF_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
-
-/**
- * The BFF's background pool (ADR-0079): replicas of the FRONTEND image that run
+ * The BFF's background pool (ADR-0079, ADR-0150): replicas of the FRONTEND image that run
  * `workers/jobs/index.js`. Each is a supervisor around two things: the BFF
  * itself (`node server.js`) and a claim loop that takes jobs from
  * `bff_job_queue`, fairly across organizations (fewest running first,
@@ -47,7 +39,8 @@ export const BFF_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
  * progress it saved), and only then stops the BFF. Two containers would be
  * signalled together and the BFF would vanish under the slice still using it.
  *
- * SCALED ON THE QUEUE, NOT ON CPU: KEDA counts the open jobs and asks for
+ * SCALED ON THE BACKLOG, NOT ON CPU: KEDA counts the `bff-job` runs Hatchet
+ * holds queued or running (`hatchetBacklogQuery`) and asks for
  * ceil(depth / concurrency) replicas between `minReplicas` and `maxReplicas`. A
  * lane is one organization, so a burst from one office fans out across the
  * pool and a lone job from another still takes the next free slot.
@@ -136,17 +129,6 @@ export function installBffJobs(
     },
   );
 
-  // How KEDA reads the queue: the read-only scaler login's DSN on the app
-  // database, from the scaler's own Secret (`buildScalerSecret`).
-  const auth = installTriggerAuth(w, {
-    name: "bff-jobs-queue-auth",
-    parameter: "connection",
-    secretName: SCALER_SECRET_NAME,
-    key: BFF_QUEUE_DSN_KEY,
-    labels,
-    dependsOn,
-  });
-
   const scaledObject = installQueueScaledObject(w, {
     name: "bff-jobs",
     deployment,
@@ -154,9 +136,8 @@ export function installBffJobs(
     minReplicas: cfg.bffJobs.minReplicas,
     maxReplicas: cfg.bffJobs.maxReplicas,
     concurrency: cfg.bffJobs.concurrency,
-    table: QUEUE_TABLE,
-    authName: auth.metadata.name,
-    dependsOn: [auth, ...dependsOn],
+    workflow: WORKFLOW,
+    dependsOn,
   });
 
   const pdb = installPdb("bff-jobs", w.namespace, w.provider, labels, [deployment]);

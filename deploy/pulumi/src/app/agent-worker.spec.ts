@@ -4,7 +4,8 @@ import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
-import { RESEARCH_QUEUE_DEPTH_QUERY } from "./agent-worker";
+import { WORKFLOW } from "./agent-worker";
+import { hatchetBacklogQuery } from "./keda-scaling";
 import { TRANSFER_HPA_OWNERSHIP } from "./keda-scaling";
 
 // src/app -> src -> deploy/pulumi -> deploy -> repo root
@@ -56,9 +57,7 @@ function resolve<T>(value: pulumi.Input<T>): Promise<T> {
 
 const DEPLOYMENT = "kubernetes:apps/v1:Deployment";
 const SCALED_OBJECT = "kubernetes:keda.sh/v1alpha1:ScaledObject";
-const TRIGGER_AUTH = "kubernetes:keda.sh/v1alpha1:TriggerAuthentication";
 const HPA = "kubernetes:autoscaling/v2:HorizontalPodAutoscaler";
-const NETPOL = "kubernetes:networking.k8s.io/v1:NetworkPolicy";
 
 describe("the agent-worker tier", () => {
   let env: k8s.types.input.core.v1.EnvVar[] = [];
@@ -74,7 +73,6 @@ describe("the agent-worker tier", () => {
     });
     const { loadConfig } = await import("../config");
     const { installAgentWorker } = await import("./agent-worker");
-    const { installJobsQueueAuth } = await import("./jobs-queue-auth");
     const { buildSecrets, workerEnv, backendEnv } = await import("./config");
     const { installNetworkPolicies } = await import("../platform/network-policies");
     const cfg = loadConfig();
@@ -95,7 +93,6 @@ describe("the agent-worker tier", () => {
     env = workerEnv(wiring);
     backendEnvVars = backendEnv(wiring);
     const secrets = buildSecrets(wiring);
-    installJobsQueueAuth(wiring, []);
     const tier = installAgentWorker(wiring, cfg, secrets, []);
     installNetworkPolicies(cfg, provider, "grid");
     await new Promise((done) => tier.deployment.id.apply(done));
@@ -108,39 +105,13 @@ describe("the agent-worker tier", () => {
     expect(read("deploy", "pulumi", "src", "app", "agent-worker.ts")).not.toMatch(/HorizontalPodAutoscaler\(/);
   });
 
-  it("scales on the table the research queue is written to, leaving dead rows out", () => {
-    const table = read("apps", "agent-host", "src", "agent_host", "jobs", "queue.py").match(
-      /^TABLE = "([a-z_]+)"$/m,
-    )?.[1];
-    const dead = read("packages", "agent", "src", "agent", "common", "claim_queue.py").match(/^DEAD = "([a-z_]+)"$/m)?.[1];
-    const cancelled = read("packages", "agent", "src", "agent", "common", "claim_queue.py").match(
-      /^CANCELLED = "([a-z_]+)"$/m,
-    )?.[1];
-
-    expect(table).toBe("research_job_queue");
-    expect(dead).toBeDefined();
-    expect(cancelled).toBeDefined();
-    // Retired rows (dead, cancelled) stay in the table as traces; they must not
-    // keep replicas up.
-    expect(RESEARCH_QUEUE_DEPTH_QUERY).toBe(
-      `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('${dead}', '${cancelled}')`,
-    );
-  });
-
-  it("counts every row a worker could still run, because a finished job's row is deleted", () => {
-    // The query has no clause for finished jobs, so the worker must delete them.
-    const queue = read("apps", "agent-host", "src", "agent_host", "jobs", "queue.py");
-    expect(queue).toMatch(/def mark_done\(/);
-    expect(read("packages", "agent", "src", "agent", "common", "claim_queue.py")).toMatch(/DELETE FROM \{self\.table\}/);
-  });
-
-  it("asks KEDA for one replica per `concurrency` open jobs, within the configured bounds", async () => {
+  it("asks KEDA for one replica per `concurrency` open `research-run` runs, within the configured bounds", async () => {
     const spec = await resolve(find(SCALED_OBJECT, "agent-worker").inputs.spec);
 
     expect(spec.triggers).toHaveLength(1);
     expect(spec.triggers[0].type).toBe("postgresql");
     expect(spec.triggers[0].metadata).toMatchObject({
-      query: RESEARCH_QUEUE_DEPTH_QUERY,
+      query: hatchetBacklogQuery("test", WORKFLOW),
       targetQueryValue: String(concurrency),
       activationTargetQueryValue: "0",
     });
@@ -165,19 +136,10 @@ describe("the agent-worker tier", () => {
     expect(spec.advanced.horizontalPodAutoscalerConfig.name).toBe("agent-worker");
   });
 
-  it("reads the queue through the TriggerAuthentication the ingest tier shares, as the read-only scaler login", async () => {
+  it("counts its backlog through the TriggerAuthentication every worker tier shares", async () => {
     const spec = await resolve(find(SCALED_OBJECT, "agent-worker").inputs.spec);
-    const auth = await resolve(find(TRIGGER_AUTH, "jobs-queue-auth").inputs.spec);
-
-    expect(spec.triggers[0].authenticationRef.name).toBe("jobs-queue-auth");
-    // The DSN is in the scaler's own Secret, not `grid-secrets`: no pod reads it,
-    // so a rotation must not roll the tier.
-    expect(auth.secretTargetRef).toEqual([
-      { parameter: "connection", name: "grid-keda-scaler", key: "KEDA_JOBS_QUEUE_DB_URL" },
-    ]);
-    // Created once by the program, not by either tier, so the research tier runs
-    // with the ingest tier switched off.
-    expect(read("deploy", "pulumi", "index.ts")).toMatch(/installJobsQueueAuth\(wiring/);
+    expect(WORKFLOW).toBe("research-run");
+    expect(spec.triggers[0].authenticationRef.name).toBe("hatchet-queue-auth");
   });
 
   it("gives a pod its drain budget plus time to give back what it did not finish", async () => {
@@ -213,14 +175,6 @@ describe("the agent-worker tier", () => {
     const names = env.map((e) => e.name as string);
 
     expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([]);
-  });
-
-  it("lets KEDA reach Postgres when only the research tier runs", async () => {
-    // The scaler runs one COUNT(*) there and needs nothing else.
-    const pol = await resolve(find(NETPOL, "allow-keda-to-postgres").inputs.spec);
-
-    expect(pol.policyTypes).toEqual(["Ingress"]);
-    expect(pol.ingress[0].ports).toEqual([{ protocol: "TCP", port: 5432 }]);
   });
 
   it("sets its floor per stack: zero in dev, one warm worker in prod", () => {

@@ -5,6 +5,8 @@
  *   platform  → cert-manager (+ Let's Encrypt issuer), Envoy Gateway, metrics-server
  *   data      → CloudNativePG Postgres (3 DBs), Dragonfly cache, SeaweedFS (S3),
  *               Qdrant (the vector store, ADR-0115)
+ *   background → Hatchet (ADR-0150) on its own CloudNativePG cluster and RabbitMQ, in the
+ *               `background-work` namespace: every background job runs there
  *   app       → chat (StatefulSet, the chat role), api (Deployment + HPA,
  *               the api role), each beside its legacy name until the switch, frontend (Deployment + HPA), purger, skill-scheduler, gotenberg (office
  *               → PDF), a migration Job, a WorkOS audit-schema reconcile Job and,
@@ -36,7 +38,7 @@ import { installSeaweedFSBackup } from "./src/data/seaweedfs-backup";
 import { installQdrant } from "./src/data/qdrant";
 import { installWorkloadAlerts } from "./src/platform/workload-alerts";
 import { installGeocoder } from "./src/data/geocoder";
-import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildScalerSecret, buildSecrets } from "./src/app/config";
+import { AppWiring, PULL_SECRET_NAME, buildRegistryPullSecret, buildSecrets } from "./src/app/config";
 import { runMigrations } from "./src/app/migrations-job";
 import { reconcileAuditSchemas } from "./src/app/audit-schemas-job";
 import { carryOverFolderGrants, reconcileAuthzCatalog } from "./src/app/workos-authz-jobs";
@@ -51,9 +53,13 @@ import { installGotenberg } from "./src/app/gotenberg";
 import { installWorkers } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
 import { installIngestWorker } from "./src/app/ingest-worker";
-import { installJobsQueueAuth } from "./src/app/jobs-queue-auth";
+import { installHatchetQueueAuth } from "./src/app/hatchet-queue-auth";
 import { installBffJobs } from "./src/app/bff-jobs";
-import { installQueueScalerGrants } from "./src/app/queue-scaler-grants";
+import { installBackgroundWorkPostgres } from "./src/data/background-work-pg";
+import { installHatchet, installHatchetNamespace } from "./src/platform/hatchet";
+import { installHatchetNetworkPolicies } from "./src/platform/hatchet-network-policies";
+import { installRabbitmq, installRabbitmqOperator } from "./src/platform/rabbitmq";
+import { installBackgroundWorkAlerts } from "./src/platform/background-work-alerts";
 import { installKeda } from "./src/platform/keda";
 import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
@@ -164,6 +170,30 @@ installSeaweedFSBackup(
   { master: seaweed.masterAddress, filer: seaweed.filerAddress },
 );
 const dragonfly = installDragonfly(cfg, provider, namespace);
+
+// ── Background work (ADR-0150) ─────────────────────────────────────────────
+// Hatchet runs every background job (ingest, research runs, BFF jobs) on its
+// own CloudNativePG cluster and a three-node RabbitMQ, in its own namespace
+// (`platform/hatchet.ts` says why). The cluster waits for the CNPG operator's
+// webhook, which the app cluster already waits for; the RabbitMQ operator for
+// cert-manager, which issues its webhook's certificate; the grants Job for the
+// tables Hatchet's migrations make; the token copy for the chart's
+// worker-token Job. Every tier that starts or runs a Hatchet run waits for the
+// copy: the SDK reads its token at start.
+const backgroundWorkNs = installHatchetNamespace(provider);
+const backgroundWorkPg = installBackgroundWorkPostgres(cfg, provider, [backgroundWorkNs, postgres.cluster]);
+const rabbitmqOperator = installRabbitmqOperator(provider, [certManager.release]);
+const rabbitmq = installRabbitmq(cfg, provider, [backgroundWorkNs, rabbitmqOperator]);
+installBackgroundWorkAlerts(provider, [backgroundWorkNs]);
+const hatchet = installHatchet(cfg, provider, namespace, backgroundWorkPg.ownerDsn, [
+  backgroundWorkNs,
+  backgroundWorkPg.cluster,
+  rabbitmq.cluster,
+]);
+const hatchetGrants = backgroundWorkPg.grants([hatchet.release]);
+if (cfg.networkPolicies) {
+  installHatchetNetworkPolicies(cfg, provider, namespace, [backgroundWorkNs]);
+}
 // ClickHouse + the ingestion queue for Langfuse (ADR-0044). Both live in the
 // data tier because that is what they are, even though the tier they serve is
 // an observability one — the Pulumi module layout follows what a workload IS,
@@ -295,6 +325,7 @@ const afterChromaMigration = chromaMigration ? [chromaMigration] : [];
 // 10c, expand): callers still dial the legacy Services, so the new tiers come up
 // idle. `src/app/tier-names.ts` has the three steps.
 const apiDependsOn = [
+  hatchet.tokenSync,
   postgres.initJob,
   seaweed.bucketInitJob,
   dragonfly.service,
@@ -307,6 +338,7 @@ const legacyApi = installApi(wiring, cfg, secrets, apiDependsOn, LEGACY_API_TIER
 // The chat tier the frontend dials (the switch step, `tier-names.ts`): up and
 // ready before the frontend that points its socket at it rolls out.
 const backendDependsOn = [
+  hatchet.tokenSync,
   postgres.initJob,
   postgres.pooler,
   seaweed.bucketInitJob,
@@ -318,6 +350,7 @@ const backend = installBackend(wiring, cfg, secrets, backendDependsOn);
 
 const frontend = installFrontend(wiring, cfg, secrets, [
   migrations,
+  hatchet.tokenSync,
   api.service,
   legacyApi.service,
   backend.statefulSet,
@@ -348,27 +381,20 @@ const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ...(pullSecret ? [pullSecret] : []),
 ]);
 
-// KEDA scales the research and ingest workers and the BFF job pool (queue depth,
-// ADR-0079/0076) and the chat tier (running turns, ADR-0080).
+// KEDA scales the research and ingest workers and the BFF job pool (Hatchet's
+// backlog, ADR-0150) and the chat tier (running turns, ADR-0080).
 const keda = cfg.keda.install ? installKeda(provider) : undefined;
 
-// What the read-only scaler login may read, and the queue tables it reads, in
-// place before any ScaledObject is created (`app/queue-scaler-grants.ts`): after
-// the cluster (the role) and the migrations (`bff_job_queue`).
-const scalerGrants = installQueueScalerGrants(wiring, cfg, [postgres.cluster, postgres.initJob, migrations]);
+// How KEDA reads Hatchet's backlog: the read-only scaler login on
+// `background-work-pg`, after the grants Job gave it the columns it counts.
+const hatchetQueueAuth = installHatchetQueueAuth(wiring, backgroundWorkPg.scalerDsn, [
+  ...(keda ? [keda] : []),
+  hatchetGrants,
+]);
+const queueScalerDeps = [...(keda ? [keda] : []), hatchetQueueAuth, hatchetGrants, hatchet.tokenSync];
 
-// What KEDA connects with, in a Secret of its own that no pod reads.
-const scalerSecret = buildScalerSecret(wiring);
-
-// How KEDA reads the two Python claim queues, which share one database. Created
-// once for both tiers. After the grants: on a stack that already runs, the
-// existing ScaledObjects start reading through the scaler login the moment this
-// points at it, and the login can read nothing before the Job has run.
-const jobsQueueAuth = installJobsQueueAuth(wiring, [...(keda ? [keda] : []), scalerGrants, scalerSecret]);
-const queueScalerDeps = [...(keda ? [keda] : []), jobsQueueAuth, scalerGrants, scalerSecret];
-
-// Research worker tier (ADR-0021) — claims the research queue fairly across
-// organizations (ADR-0079), scaled by KEDA on the queue's depth.
+// Research worker tier (ADR-0021) — runs `research-run` on Hatchet (ADR-0150),
+// scaled by KEDA on its backlog there.
 const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
@@ -379,8 +405,8 @@ const agentWorker = installAgentWorker(wiring, cfg, secrets, [
   ...afterChromaMigration,
 ]);
 
-// Ingestion tier (ADR-0076) — the only process that claims the durable ingest
-// queue, fairly across organisations, scaled by KEDA on the queue's depth.
+// Ingestion tier (ADR-0076) — runs `ingest-document` on Hatchet (ADR-0150),
+// fairly across organisations, scaled by KEDA on its backlog there.
 const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
@@ -391,17 +417,15 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
   ...afterChromaMigration,
 ]);
 
-// BFF background pool (ADR-0079) — claims bff_job_queue fairly across
+// BFF background pool (ADR-0079) — runs `bff-job` on Hatchet (ADR-0150), fairly across
 // organisations and runs project reindex and rescan jobs in its own BFF,
-// scaled by KEDA on the queue's depth. Internal only: no Service, no route.
+// scaled by KEDA on its backlog there. Internal only: no Service, no route.
 const bffJobs = cfg.bffJobs.enabled
   ? installBffJobs(wiring, cfg, secrets, [
       migrations,
       api.service,
       legacyApi.service,
-      ...(keda ? [keda] : []),
-      scalerGrants,
-      scalerSecret,
+      ...queueScalerDeps,
     ])
   : undefined;
 

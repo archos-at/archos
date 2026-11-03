@@ -1,12 +1,13 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
-import { APP_DEFAULTS, KEDA_SCALER_ROLE, LANGFUSE, PORT, QDRANT } from "../constants";
+import { APP_DEFAULTS, LANGFUSE, PORT, QDRANT } from "../constants";
 import { APP_DB, CHECKPOINTS_DB, JOBS_DB, RUNTIME_ROLE, type Postgres } from "../data/postgres";
 import { FRONTEND_DRAIN_SECONDS, secretChecksum } from "../platform/rollout";
 import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "../platform/langfuse";
 import { logicalName, objectName } from "../names";
 import { API_TIER, CHAT_TIER } from "./tier-names";
+import { hatchetEnv } from "./hatchet-env";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -85,57 +86,6 @@ export interface AppSecrets {
   secret: k8s.core.v1.Secret;
   /** sha256 (truncated) over every value in `secret`. Not itself sensitive. */
   checksum: pulumi.Output<string>;
-}
-
-/** The Secret KEDA's TriggerAuthentications read the queue DSNs from; no pod references it. */
-export const SCALER_SECRET_NAME = objectName("kedaScalerSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
-
-/**
- * The Secret key of the DSN KEDA reads the Python claim queues (`jobs`)
- * through, and the one for the BFF queue (`app`).
- */
-export const JOBS_QUEUE_DSN_KEY = "KEDA_JOBS_QUEUE_DB_URL";
-export const BFF_QUEUE_DSN_KEY = "KEDA_BFF_QUEUE_DB_URL";
-
-/**
- * What KEDA's `postgresql` scaler connects with, in a Secret of its own
- * (ADR-0079): the read-only scaler login (`KEDA_SCALER_ROLE`, SELECT on the queue
- * tables and nothing else, `queue-scaler-grants.ts`), never the owner.
- *
- * Its own Secret, not keys of `grid-secrets`, for two reasons. No pod reads these
- * values, and a Secret that every pod's checksum covers would roll the frontend,
- * the backend and every worker on a rotation of a credential none of them holds.
- * And the operator in `keda` reads only what a TriggerAuthentication names, so
- * the scaler's credential sits apart from the keys of the application's own.
- *
- * Each DSN's host is the FQDN, because the operator resolves names in its own
- * namespace and a bare service name resolves there to nothing: the scaler would
- * error on every poll and the tier would never scale out. Both Python queues
- * live in one database, so the ingest and research tiers read one key.
- */
-export function buildScalerSecret(w: AppWiring): k8s.core.v1.Secret {
-  const dsn = (db: string) =>
-    // Direct: the operator opens a session per poll, from another namespace, as a
-    // login capped at KEDA_SCALER_CONNECTION_LIMIT (counted in the budget's direct
-    // reserve). The scaler reads the primary's own queue tables, whether or not
-    // the pooler is up.
-    w.dsn({
-      db,
-      via: "direct",
-      as: { user: KEDA_SCALER_ROLE, password: w.cfg.postgres.scalerPassword },
-      clusterWide: true,
-    });
-  return new k8s.core.v1.Secret(
-    logicalName("grid-keda-scaler"),
-    {
-      metadata: { name: SCALER_SECRET_NAME, namespace: w.namespace },
-      stringData: {
-        [JOBS_QUEUE_DSN_KEY]: dsn(JOBS_DB),
-        ...(w.cfg.bffJobs.enabled ? { [BFF_QUEUE_DSN_KEY]: dsn(APP_DB) } : {}),
-      },
-    },
-    { provider: w.provider },
-  );
 }
 
 /**
@@ -297,6 +247,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvV
   const { cfg } = w;
   const env: EnvVar[] = [
     { name: "APP_ENV", value: "production" },
+    ...hatchetEnv(),
     { name: "LOG_LEVEL", value: "INFO" },
     { name: "HOST", value: "0.0.0.0" },
     { name: "PORT", value: String(PORT.backend) },
@@ -516,6 +467,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
   const { cfg } = w;
   return [
     { name: "APP_ENV", value: "production" },
+    ...hatchetEnv(),
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
     { name: "LANDING_URL", value: `https://${cfg.ingress.webDomain}` },
     // Every backend HTTP call goes to the api role; only the WebSocket proxy

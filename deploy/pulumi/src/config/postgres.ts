@@ -3,15 +3,9 @@
  */
 import * as pulumi from "@pulumi/pulumi";
 import { createHmac } from "node:crypto";
-import { bool, num, positiveInt } from "./readers";
-
-/**
- * Server-side-encryption modes CloudNativePG accepts on `barmanObjectStore`'s
- * `wal.encryption` / `data.encryption`. Mirrors the CRD enum exactly
- * (`Enum=AES256;"aws:kms"`) — "off" is the absence of the key, not `""`, so it
- * has no member here.
- */
-export type BarmanEncryption = "AES256" | "aws:kms";
+import { num, positiveInt } from "./readers";
+import { type BarmanBackups, loadBarmanBackups } from "./barman-backups";
+export type { BarmanEncryption } from "./barman-backups";
 
 /**
  * The scaler login's password when `pgScalerPassword` is not set: an HMAC of a
@@ -21,9 +15,9 @@ export type BarmanEncryption = "AES256" | "aws:kms";
  * and URL-safe, so it needs no care in a DSN. It follows `pgAppPassword` when
  * that rotates.
  */
-function derivedScalerPassword(appPassword: pulumi.Output<string>): pulumi.Output<string> {
+export function derivedScalerPassword(appPassword: pulumi.Output<string>, label = "grid-keda-scaler"): pulumi.Output<string> {
   return pulumi.secret(
-    appPassword.apply((password) => createHmac("sha256", password).update("grid-keda-scaler").digest("base64url")),
+    appPassword.apply((password) => createHmac("sha256", password).update(label).digest("base64url")),
   );
 }
 
@@ -98,118 +92,25 @@ export interface PostgresConfig {
    * provider's `Delete` reclaim policy (a dropped PVC is otherwise
    * unrecoverable). Gives point-in-time recovery.
    */
-  backups: {
-    enabled: boolean;
-    /**
-     * S3 endpoint Barman writes to. Default: the in-cluster SeaweedFS —
-     * which protects against Postgres PVC loss but NOT against cluster
-     * deletion (it lives on the same Delete-reclaim CSI). Point this at an
-     * external S3 (with matching bucket + credentials via
-     * pgBackupAccessKey/pgBackupSecretKey) for real offsite PITR.
-     */
-    endpoint: string;
-    /** Override credentials for an external endpoint (default: SeaweedFS's). */
-    accessKey?: string;
-    secretKey?: pulumi.Output<string>;
-    /** Bucket for base backups + WAL (auto-created only on in-cluster SeaweedFS). */
-    bucket: string;
-    /** Barman retention (e.g. "30d"). */
-    retention: string;
-    /** 6-field cron (CNPG uses seconds-first): default nightly 02:00. */
-    schedule: string;
-    /**
-     * **Server-side** encryption barman-cloud asks the destination for, on
-     * both the WAL stream and the base backups. Undefined (the default) means
-     * the key is omitted entirely and the bucket's own policy decides — which,
-     * on a bucket with no policy, means the archive is written in the clear.
-     *
-     * This matters more than any other encryption knob in the program: the
-     * PITR archive is a byte-for-byte copy of every database — every
-     * conversation, every LangGraph checkpoint, every WAL record — sitting in
-     * object storage.
-     *
-     * The accepted values are CloudNativePG's, not ours. The field lives on
-     * `wal` and `data` inside `barmanObjectStore` (NOT at its top level) and
-     * the CRD pins it to an enum:
-     *
-     *   `+kubebuilder:validation:Enum=AES256;"aws:kms"`
-     *   "Whenever to force the encryption of files (if the bucket is not
-     *    already configured for that). Allowed options are empty string (use
-     *    the bucket policy, default), `AES256` and `aws:kms`."
-     *   — barman-cloud `pkg/api`, {Wal,Data}BackupConfiguration.Encryption
-     *
-     * Because the enum has no empty member, an explicit `encryption: ""` is
-     * REJECTED by the webhook; "off" must be the key being absent, which is
-     * why this is `undefined` rather than `""`.
-     *
-     * **SSE only encrypts if the DESTINATION implements it.** barman-cloud
-     * turns this into an `x-amz-server-side-encryption` header; a store that
-     * does not implement SSE answers 200 and writes plaintext. The default
-     * destination here is the in-cluster SeaweedFS, which has NO SSE at all on
-     * the pinned 3.80 image (SSE-S3/KMS/C first appear in 3.97, and this
-     * program configures no KMS for them even on a newer image). Setting this
-     * against that endpoint would be a setting that reads as encryption and
-     * is not — so `loadConfig` REFUSES the combination outright rather than
-     * letting it ship. Use it with an external S3 destination
-     * (`pgBackupEndpoint` + `pgBackupAccessKey`/`pgBackupSecretKey`) that
-     * documents SSE support.
-     */
-    encryption?: BarmanEncryption;
-  };
+  backups: BarmanBackups;
 }
 
 export function loadPostgres(cfg: pulumi.Config): PostgresConfig {
-  // ── Postgres PITR archive encryption ──────────────────────────────────────
   // The archive is the single largest plaintext surface in the stack when it is
   // on: WAL + base backups are a byte-for-byte copy of all three databases.
-  // `pgBackupEncryption` asks the DESTINATION for server-side encryption, so it
-  // is only ever as real as the destination — hence the two checks below and
-  // the warning that names the exposure when there is none.
-  const pgBackupsEnabled = bool(cfg, "pgBackupsEnabled", false);
-  const pgBackupEndpoint = cfg.get("pgBackupEndpoint") ?? "http://seaweedfs:8333";
-  const pgBackupEncryptionRaw = (cfg.get("pgBackupEncryption") ?? "").trim();
-  const pgBackupEncryption: BarmanEncryption | undefined =
-    pgBackupEncryptionRaw === "" ? undefined : (pgBackupEncryptionRaw as BarmanEncryption);
-  if (pgBackupEncryption !== undefined && !["AES256", "aws:kms"].includes(pgBackupEncryption)) {
-    // The CNPG webhook would reject this too, but only ~20 min into a `pulumi
-    // up` that has already started mutating the cluster.
-    throw new Error(
-      `grid-oib:pgBackupEncryption must be "AES256" or "aws:kms" (got "${pgBackupEncryptionRaw}"). ` +
-        "Leave it unset to inherit the bucket policy — CloudNativePG's enum has no empty member, " +
-        "so \"off\" is the key being absent, not an empty string.",
-    );
-  }
-  // `//seaweedfs` also catches `http://seaweedfs.grid.svc.cluster.local:8333`.
-  const pgBackupIsInCluster =
-    pgBackupEndpoint.includes("//seaweedfs") || pgBackupEndpoint.includes("seaweedfs:8333");
-  if (pgBackupEncryption !== undefined && pgBackupIsInCluster) {
-    // Refuse rather than warn. barman-cloud turns this into an
-    // `x-amz-server-side-encryption` request header; SeaweedFS 3.80 (the pinned
-    // production image) implements no SSE at all, answers 200, and stores the
-    // object unencrypted. Accepting the setting here would put "encryption:
-    // AES256" in the Cluster spec, in the plan, and in any audit of it — while
-    // the bytes on disk are plaintext. That is worse than no setting.
-    throw new Error(
-      `grid-oib:pgBackupEncryption is set ("${pgBackupEncryptionRaw}") but pgBackupEndpoint points at ` +
-        `the in-cluster SeaweedFS (${pgBackupEndpoint}), which implements no server-side encryption ` +
-        "(SSE-S3/KMS/C first appear in 3.97; prod pins 3.80, and this program configures no KMS for " +
-        "them on any image). SeaweedFS answers such a request 200 and stores the object in the clear, " +
-        "so the setting would claim an encryption that does not exist. Point pgBackupEndpoint at an " +
-        "external S3 destination that documents SSE support, or leave pgBackupEncryption unset.",
-    );
-  }
-  if (pgBackupsEnabled && pgBackupEncryption === undefined) {
-    pulumi.log.warn(
-      "Postgres PITR archive is UNENCRYPTED at rest. WAL and base backups are a byte-for-byte copy " +
-        "of all three databases (conversations, LangGraph checkpoints, the whole app schema) " +
-        `and go to ${pgBackupEndpoint} with no encryption requested. On the in-cluster SeaweedFS ` +
-        "there is no fix available in this program — SeaweedFS 3.80 has no SSE, and volume-chunk " +
-        "encryption (seaweedfsEncryptVolumeData) is the only at-rest control that applies. For a " +
-        "real guarantee use an external S3 destination and set grid-oib:pgBackupEncryption=AES256. " +
-        "See docs/deployment/kubernetes.md § Encryption posture.",
-    );
-  }
-      return {
+  // Its default destination is the in-cluster SeaweedFS, which protects
+  // against Postgres PVC loss but NOT against cluster deletion (it lives on the
+  // same Delete-reclaim CSI). Point `pgBackupEndpoint` at an external S3 (with
+  // `pgBackupAccessKey` / `pgBackupSecretKey`) for real offsite PITR.
+  const backups = loadBarmanBackups(cfg, {
+    prefix: "pg",
+    endpoint: "http://seaweedfs:8333",
+    bucket: "grid-pg-backups",
+    retention: "30d",
+    schedule: "0 0 2 * * *",
+    holds: "all three databases (conversations, LangGraph checkpoints, the whole app schema)",
+  });
+  return {
     instances: num(cfg, "pgInstances", 1),
     pooler: {
       instances: positiveInt(cfg, "pgPoolerInstances", 2),
@@ -230,15 +131,6 @@ export function loadPostgres(cfg: pulumi.Config): PostgresConfig {
     scalerPassword: cfg.getSecret("pgScalerPassword") ?? derivedScalerPassword(cfg.requireSecret("pgAppPassword")),
     primaryUpdateStrategy:
       cfg.get("pgPrimaryUpdateStrategy") === "supervised" ? "supervised" : "unsupervised",
-    backups: {
-      enabled: pgBackupsEnabled,
-      endpoint: pgBackupEndpoint,
-      accessKey: cfg.get("pgBackupAccessKey"),
-      secretKey: cfg.getSecret("pgBackupSecretKey"),
-      bucket: cfg.get("pgBackupBucket") ?? "grid-pg-backups",
-      retention: cfg.get("pgBackupRetention") ?? "30d",
-      schedule: cfg.get("pgBackupSchedule") ?? "0 0 2 * * *",
-      encryption: pgBackupEncryption,
-    },
+    backups,
   };
 }
