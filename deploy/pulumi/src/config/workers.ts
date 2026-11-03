@@ -1,10 +1,9 @@
 /**
- * The background workers and their limits: ingest, BFF jobs, KEDA, the provider ceilings, Gotenberg and the geocoder.
+ * The background workers and their limits: ingest, BFF jobs, KEDA, the provider ceilings and Gotenberg.
  */
 import * as pulumi from "@pulumi/pulumi";
-import { GEOCODER } from "../constants";
 import { GOTENBERG_SLOTS_PER_REPLICA } from "../rendition-sizing";
-import { bool, num, positiveInt } from "./readers";
+import { bool, num } from "./readers";
 import type { ResourceSpec } from "./resources";
 
 export interface GotenbergConfig {
@@ -25,29 +24,6 @@ export interface GotenbergConfig {
    * conversions the pool may have in flight.
    */
   replicas: number;
-}
-
-export interface GeocoderConfig {
-  /**
-   * OFF by default: prepared, switched on per stack (`geocoderEnabled`).
-   * The first start downloads about 1 GB from download1.graphhopper.com and
-   * the jar from GitHub, so the cluster needs egress to both.
-   */
-  enabled: boolean;
-  /** The Java runtime Photon runs on (Java 21+, Photon 1.x). Digest-pinned. */
-  image: string;
-  /** The init container that fetches and verifies the jar and the index (busybox wget, tar, bunzip2). Digest-pinned. */
-  fetchImage: string;
-  /** The Photon 1.x index tarball; its checksum is read from `<url>.md5`. */
-  indexUrl: string;
-  /** The index volume. The index takes about 2 GB; a refresh holds the old and the new one side by side, plus the tarball. */
-  storageSize: string;
-  /**
-   * At pod start, an index older than this is fetched again (old one kept
-   * when the fetch fails). Nothing restarts the pod on a clock: a refresh
-   * happens at the next restart past this age.
-   */
-  indexMaxAgeDays: number;
 }
 
 export interface IngestWorkerConfig {
@@ -175,7 +151,7 @@ export function assertBffJobsRunsSchedules(enabled: boolean, minReplicas: number
 
 export function loadWorkers(
   cfg: pulumi.Config,
-): { gotenberg: GotenbergConfig; geocoder: GeocoderConfig; ingestWorker: IngestWorkerConfig; bffJobs: BffJobsConfig; keda: KedaConfig; providerLimits: ProviderLimitsConfig } {
+): { gotenberg: GotenbergConfig; ingestWorker: IngestWorkerConfig; bffJobs: BffJobsConfig; keda: KedaConfig; providerLimits: ProviderLimitsConfig } {
   const bffJobsMinReplicas = num(cfg, "bffJobsMinReplicas", 1);
   assertBffJobsRunsSchedules(cfg.getBoolean("bffJobsEnabled") !== false, bffJobsMinReplicas);
   return {
@@ -199,26 +175,6 @@ export function loadWorkers(
           ),
         ),
       ),
-    },
-    geocoder: {
-      enabled: bool(cfg, "geocoderEnabled", false),
-      // Both official images, pinned by digest: there is no upstream Photon
-      // image, and this pod sees every address a person types (ADR-0120).
-      // Temurin 21.0.12.1+1 on Ubuntu 24.04, the multi-arch index Docker Hub's
-      // `21.0.12.1_1-jre-noble` tag resolved to on 2026-10-22. Moved off
-      // 21.0.12_8 because its OpenSSL (libssl3t64 3.0.13-0ubuntu3.15) carried
-      // CVE-2026-84782; this one carries 0ubuntu3.16, read from its dpkg
-      // database by a local trivy scan, with the same entrypoint, JAVA_HOME and
-      // PATH, and still no fixed user.
-      image:
-        cfg.get("geocoderImage") ??
-        "eclipse-temurin:21.0.12.1_1-jre-noble@sha256:35501d3f93173b420ac9001658eb68157e813316b865087e345c187fca422c4c",
-      fetchImage:
-        cfg.get("geocoderFetchImage") ??
-        "alpine:3.22.6@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8",
-      indexUrl: cfg.get("geocoderIndexUrl") ?? GEOCODER.defaultIndexUrl,
-      storageSize: cfg.get("geocoderStorageSize") ?? "10Gi",
-      indexMaxAgeDays: positiveInt(cfg, "geocoderIndexMaxAgeDays", 30),
     },
     ingestWorker: {
       // The memory request is what a worker measurably holds while it parses

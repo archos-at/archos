@@ -690,6 +690,9 @@ services:
       # you accept that: those files are then marked failed (retryable), and
       # .xlsx/.xlsm index without preview or thumbnail.
       - GOTENBERG_URL=${GOTENBERG_URL-http://gotenberg:3000}
+      # Address search in the project dialog (ADR-0151): komoot's public Photon,
+      # no account. Empty switches it off and the address stays a text field.
+      - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
       - SEAWEED_ENDPOINT=http://seaweedfs:8333
       # Browser-reachable endpoint used ONLY to sign presigned URLs handed to the
       # browser (PDF preview/download). Must be a host the browser can resolve --

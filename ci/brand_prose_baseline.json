@@ -1158,7 +1158,6 @@
   "deploy/pulumi/src/config/web-tier.ts": 1,
   "deploy/pulumi/src/constants.ts": 1,
   "deploy/pulumi/src/data/clickhouse.spec.ts": 1,
-  "deploy/pulumi/src/data/geocoder.spec.ts": 4,
   "deploy/pulumi/src/data/qdrant-alerts.spec.ts": 3,
   "deploy/pulumi/src/data/qdrant-recovery.spec.ts": 3,
   "deploy/pulumi/src/data/qdrant.spec.ts": 2,

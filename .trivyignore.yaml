@@ -160,10 +160,8 @@ vulnerabilities:
   # 2026-10-22), went with the pin moving 26.8.15.10 -> 26.8.33.10 within the
   # 26.8 LTS line: libssl3/openssl 3.0.2-0ubuntu1.30, and a local trivy 0.61.1
   # scan of that digest with this file EMPTY reports no fixable HIGH/CRITICAL.
-  # The same box was silently covering the geocoder's eclipse-temurin
-  # 21.0.12_8-jre-noble (libssl3t64 3.0.13-0ubuntu3.15), found only by
-  # scanning every pin; it moved to 21.0.12.1_1-jre-noble (0ubuntu3.16),
-  # which scans clean the same way. An `id` box matches every image.
+  # An `id` box matches every image, so a box written for one pin covers them
+  # all; scan every pin before trusting that one is empty.
 
 secrets:
   - id: gcp-service-account

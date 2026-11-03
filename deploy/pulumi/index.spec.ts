@@ -258,16 +258,19 @@ describe("the program constructs in the split topology", () => {
     );
   });
 
-  it("leaves the geocoder off by default, and the frontend without its URL (ADR-0120)", () => {
-    // Prepared, not switched on: a stack opts in with `geocoderEnabled`. A
-    // default flip would start a 1 GB download on every stack at the next `up`.
+  it("points the frontend, and only the frontend, at komoot's public Photon by default (ADR-0151)", () => {
+    // No geocoder workload of our own any more: no StatefulSet, no policy.
     expect(named("kubernetes:apps/v1:StatefulSet")).not.toContain("geocoder");
     expect(named("kubernetes:networking.k8s.io/v1:NetworkPolicy")).not.toContain("geocoder-frontend-only");
-    const frontend = RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === "frontend");
-    const env = frontend?.inputs.spec?.template?.spec.containers[0].env ?? [];
-    expect(env.length).toBeGreaterThan(0);
-    expect(env.map((e) => e.name)).not.toContain("GEOCODER_URL");
-    expect(STACK.geocoderUrl).toBeDefined();
+    const envOf = (name: string) =>
+      RESOURCES.find((r) => r.type === "kubernetes:apps/v1:Deployment" && r.name === name)?.inputs.spec?.template?.spec
+        .containers[0].env ?? [];
+    expect(envOf("frontend").find((e) => e.name === "GEOCODER_URL")?.value).toBe("https://photon.komoot.io");
+    // A request-path feature: the jobs pool never geocodes (`BFF_JOBS_WITHHELD`).
+    const jobs = envOf("bff-jobs");
+    expect(jobs.length).toBeGreaterThan(0);
+    expect(jobs.map((e) => e.name)).not.toContain("GEOCODER_URL");
+    expect(STACK.geocoderUrl).toBe("https://photon.komoot.io");
   });
 
   /** A workload's pod template, read with the fields the sizing cases need. */
