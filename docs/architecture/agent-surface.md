@@ -1038,7 +1038,7 @@ reads `read-only-writes.spec.ts` lists with why they return no secret, and:
 
 - **Piloti in-product never sees one** and `proposeOperation` refuses to file one
   (403): accepting a card the agent worded is not the confirmation such a change
-  needs (its entry says `piloti: false`, and `exposure.config.spec.ts` holds
+  needs (its entry says `agent: false`, and `exposure.config.spec.ts` holds
   that). Nor does it see the person's own decisions: `proposal-apply`,
   `proposal-dismiss` and `agent-change-undo`, which the applier also refuses at
   the click (`PROPOSAL_DECISION_OPERATIONS` in `operation-applier.ts`, its own
@@ -1261,7 +1261,7 @@ waits up to 40 seconds.
 **The recursion lock.** In-product Piloti only proposes writes, and
 `lib/proposals/operation-applier.ts` neither files nor applies an ask, so no
 turn asks Piloti again. Piloti does not see the three operations either
-(`piloti: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
+(`agent: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
 
 **The A2A door.** `POST /api/a2a` serves the same asks to agents that speak A2A
 (1.0, and 0.3 without an `A2A-Version` header), through the official SDK

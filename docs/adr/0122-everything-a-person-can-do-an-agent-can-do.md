@@ -131,7 +131,7 @@ The agent acts for a person, and the person decides what changes.
   project the member cannot see in front of an admin, whose click would apply
   it. Piloti never files the person's own decisions: applying or dismissing
   a proposal and undoing a change it made are hidden from it and refused at
-  the click (`PILOTI_HIDDEN_OPERATIONS`; since 2026-10-21 `piloti: false` in
+  the click (`PILOTI_HIDDEN_OPERATIONS`; since 2026-10-21 `piloti: false`, since 2026-11-03 `agent: false`, in
   the exposure config and the applier's `PROPOSAL_DECISION_OPERATIONS`), so one card can never accept
   another. Only a reader who may read every target may decide the card:
   another's `canDecide` is false and their apply is refused with the card left
@@ -385,7 +385,7 @@ list in `configs/config_oib_openrouter.yml`.
 whether a caller may see a sensitive operation is decided per call from the
 organization's opt-in flags and the token's step-up scope, which a static file
 cannot know. The config records the ceiling (`external: true` behind those
-guards, `piloti: false`), and its spec fails an entry that offers Piloti a
+guards, `agent: false`), and its spec fails an entry that offers Piloti a
 sensitive operation.
 
 **Initial values: today's behaviour,** except the consultant's steps 1 to 5
@@ -509,7 +509,7 @@ also break the promise ADR-0137 makes; that change needs an amendment of its own
 What is not evidence, and why: a held mail's text (`inbound-mail-text-get`)
 and an attachment's bytes before filing (`inbound-mail-part-content-get`) are
 what the person decides on. They are offered to an outside agent acting as the
-person (the text masked), and not to the agent (`piloti: false`), which reads a
+person (the text masked), and not to the agent (`agent: false`), which reads a
 mail only once a person filed it (ADR-0137, D22).
 
 ### The app is a client of the same routes
