@@ -420,14 +420,14 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
 // BFF background pool (ADR-0079) — runs `bff-job` on Hatchet (ADR-0150), fairly across
 // organisations and runs project reindex and rescan jobs in its own BFF,
 // scaled by KEDA on its backlog there. Internal only: no Service, no route.
-const bffJobs = cfg.bffJobs.enabled
-  ? installBffJobs(wiring, cfg, secrets, [
-      migrations,
-      api.service,
-      legacyApi.service,
-      ...queueScalerDeps,
-    ])
-  : undefined;
+// Always deployed, at least one replica: it is also the one worker of the
+// scheduling crons (`assertBffJobsRunsSchedules`, `config/workers.ts`).
+const bffJobs = installBffJobs(wiring, cfg, secrets, [
+  migrations,
+  api.service,
+  legacyApi.service,
+  ...queueScalerDeps,
+]);
 
 // Chat tier scale-out (ADR-0080) — KEDA moves the chat StatefulSet between its
 // floor and ceiling on the fleet's running turns. Only with affinity off. The
@@ -567,7 +567,5 @@ export const deployedImages = {
   web: webImage(cfg),
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
-export const bffJobsDeployment = bffJobs
-  ? bffJobs.deployment.metadata.name
-  : pulumi.output("(none: reindex and rescan jobs are not run)");
+export const bffJobsDeployment = bffJobs.deployment.metadata.name;
 export const agentWorkerDeployment = agentWorker.deployment.metadata.name;

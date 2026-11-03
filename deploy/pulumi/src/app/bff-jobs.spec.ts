@@ -236,12 +236,21 @@ describe("the bff-jobs pool", () => {
     expect(composeServices("docker-compose.coolify.yaml")["bff-jobs"].extends).toEqual({ service: "frontend" });
   });
 
-  it("sets its knobs per stack: a floor of zero in dev, a pool in prod", () => {
+  it("sets its knobs per stack: a floor of one in both, a pool in prod", () => {
     const prod = read("deploy", "pulumi", "Pulumi.prod.yaml");
     const dev = read("deploy", "pulumi", "Pulumi.dev.yaml");
 
     expect(prod).toMatch(/grid-oib:bffJobsMinReplicas: "1"/);
     expect(prod).toMatch(/grid-oib:bffJobsMaxReplicas: "4"/);
-    expect(dev).toMatch(/grid-oib:bffJobsMinReplicas: "0"/);
+    expect(dev).toMatch(/grid-oib:bffJobsMinReplicas: "1"/);
+  });
+
+  it("refuses a plan with no replica to run the scheduling crons on", async () => {
+    // KEDA wakes the pool for `bff-job` runs only; a cron adds nothing to that
+    // backlog, so at zero replicas no automation fires and no sweep prunes.
+    const { assertBffJobsRunsSchedules } = await import("../config/workers");
+    expect(() => assertBffJobsRunsSchedules(true, 1)).not.toThrow();
+    expect(() => assertBffJobsRunsSchedules(true, 0)).toThrow(/bffJobsMinReplicas must be at least 1.*scheduled automations/);
+    expect(() => assertBffJobsRunsSchedules(false, 1)).toThrow(/bffJobsEnabled=false is refused.*maintenance sweeps/);
   });
 });

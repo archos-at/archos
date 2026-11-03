@@ -23,7 +23,7 @@ their own namespaces.
 | `frontend` (Next.js + BFF + WS gateway) | Deployment + HPA | `frontendMinReplicas`→`frontendMaxReplicas` (default 2→6; prod and dev 1→3) | — | Horizontally (CPU HPA) |
 | `agent-worker` (research) | Deployment + KEDA ScaledObject | `agentWorkerMinReplicas`→`agentWorkerMaxReplicas` (default 1→8; prod 1→3, dev 0→3) | — | Horizontally, on the `research-run` backlog in Hatchet (§6.3, [`hatchet.md`](hatchet.md)) |
 | `ingest-worker` (ingestion) | Deployment + KEDA ScaledObject | `ingestWorkerMinReplicas`→`ingestWorkerMaxReplicas` (default 1→5; prod 1→8, dev 0→3) | — | Horizontally, on the `ingest-document` backlog in Hatchet; the ceiling is held to the provider budget (§6.3b, §6.3d) |
-| `bff-jobs` (the BFF's background pool: reindex, rescan, IFC, rendition, report filing; no Service, no route) | Deployment + KEDA ScaledObject | `bffJobsMinReplicas`→`bffJobsMaxReplicas` (default 1→4; prod 1→4, dev 0→2) | — | Horizontally, on the `bff-job` backlog in Hatchet (§6.3c) |
+| `bff-jobs` (the BFF's background pool: reindex, rescan, IFC, rendition, report filing; no Service, no route) | Deployment + KEDA ScaledObject | `bffJobsMinReplicas`→`bffJobsMaxReplicas` (default 1→4; prod 1→4, dev 1→2; a floor below 1 fails the plan, the scheduling crons run here) | — | Horizontally, on the `bff-job` backlog in Hatchet (§6.3c) |
 | KEDA (`keda` namespace) | Helm release, chart pinned to the release the plan's CRDs are validated against | 1 operator | — | n/a; what it may read and reach is §6.3d |
 | `purger` | Deployment | 1 | — | n/a (SKIP LOCKED-safe) |
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
@@ -1383,7 +1383,8 @@ the rows still in it run.
   `bff-job` runs Hatchet holds queued or running (`hatchetBacklogQuery`, through
   the shared `hatchet-queue-auth`) and asks for ceil(runs / `bffJobsConcurrency`)
   replicas between `bffJobsMinReplicas` and `bffJobsMaxReplicas` (prod 1 to 4,
-  dev 0 to 2). Out at once, in a pod a minute. The scaler connects to
+  dev 1 to 2; never below 1, because the pool also runs the scheduling crons,
+  which add nothing to the backlog). Out at once, in a pod a minute. The scaler connects to
   `background-work-pg` as its read-only `keda_scaler` (§6.3d) and reads no
   tenant table.
 
