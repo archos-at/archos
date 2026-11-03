@@ -14,6 +14,9 @@
  * address in full and copyable (30 characters of token nobody types) and „Als
  * Kontakt sichern“ (a vCard, which makes forwarding from a phone one tap).
  * The safety is one sentence, last: nothing is filed until someone confirms.
+ * Beside the address, what a mail can carry (25 MiB, about three quarters of
+ * it for attachments once base64 has encoded them) and the upload for
+ * anything larger, both read from `INBOUND_MAIL_MAX_MESSAGE_BYTES`.
  * How often the office's own domain signs its mail (RT-X6) is a manager's
  * fact, so only the settings card shows it, and only to a manager.
  *
@@ -23,6 +26,7 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { AtSign, BookOpen, CircleSlash, ContactRound, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -38,6 +42,11 @@ import { useLocale, useTranslations } from '@/i18n'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { startBrowserDownload } from '@/lib/browser-download'
 import type { InboundMailAddressView } from '@/lib/inbound-mail/inbound-mail-wire'
+import {
+  INBOUND_MAIL_ADDRESS_STATS_DAYS,
+  INBOUND_MAIL_MAX_ATTACHMENT_BYTES,
+  INBOUND_MAIL_MAX_MESSAGE_BYTES,
+} from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { type InboundMailAddressClient } from '../lib/client'
@@ -117,18 +126,50 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
   )
 }
 
+const MEBIBYTE = 1024 * 1024
+
+/**
+ * What a mail can carry, and the way past it: the limit a project address
+ * takes, what of it attachments can fill, and Dateien, where the upload is.
+ * `onLeave` closes whatever the line sits in (the dialog opened from that same
+ * upload menu), so the link never lands behind it.
+ */
+export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; onLeave?: () => void }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const { locale } = useLocale()
+  const mebibytes = (bytes: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(Math.floor(bytes / MEBIBYTE))
+  return (
+    <p className="text-muted-foreground text-xs" data-testid="address-size-limit">
+      {t('address.sizeLimit', { limit: mebibytes(INBOUND_MAIL_MAX_MESSAGE_BYTES), attachments: mebibytes(INBOUND_MAIL_MAX_ATTACHMENT_BYTES) })}{' '}
+      <Link
+        href={inboundMailPaths(projectId).files}
+        onClick={onLeave}
+        className="text-foreground underline-offset-2 hover:underline"
+        data-testid="address-upload-instead"
+      >
+        {t('address.uploadInstead')}
+      </Link>
+    </p>
+  )
+}
+
 /** The address itself, copyable and savable as a contact: shared by the dialog, the never-used list and the settings card. */
 export function InboundMailAddressBlock({
   address,
+  projectId,
   projectName,
   surface,
   showUses = true,
+  onLeave,
 }: {
   address: InboundMailAddressView
+  projectId: string
   projectName: string
   surface: AddressSurface
   /** The three lines of what it is for; off where the surrounding copy says it already. */
   showUses?: boolean
+  /** Closes what the block sits in when the upload link is followed. */
+  onLeave?: () => void
 }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
@@ -147,9 +188,12 @@ export function InboundMailAddressBlock({
           {address.lastReceivedAt
             ? t('address.lastReceived', { time: formatRelativeTime(address.lastReceivedAt, locale) })
             : t('address.nothingReceived')}
-          {address.droppedLast30Days > 0 && <> · {t('address.dropped', { count: address.droppedLast30Days })}</>}
+          {address.droppedLast30Days > 0 && (
+            <> · {t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
+          )}
         </p>
       </div>
+      <AddressSizeLimit projectId={projectId} onLeave={onLeave} />
       <a
         href={t('address.helpUrl')}
         target="_blank"
@@ -195,6 +239,7 @@ export function InboundMailAddressTile({ projectId, projectName, client }: Inbou
         <AddressValue value={ready.address} surface="overview" className="max-w-full" />
         <SaveContactButton value={ready.address} projectName={projectName} surface="overview" />
       </div>
+      <AddressSizeLimit projectId={projectId} />
     </BentoTile>
   )
 }
@@ -296,7 +341,13 @@ export function InboundMailAddressDialog({ projectId, projectName, open, onOpenC
           <DialogDescription>{t('address.dialogDescription')}</DialogDescription>
         </DialogHeader>
         {address.state.kind === 'ready' && address.state.address.state === 'active' ? (
-          <InboundMailAddressBlock address={address.state.address} projectName={projectName} surface="dialog" />
+          <InboundMailAddressBlock
+            address={address.state.address}
+            projectId={projectId}
+            projectName={projectName}
+            surface="dialog"
+            onLeave={() => onOpenChange(false)}
+          />
         ) : (
           <AddressStatus state={address.state} onRetry={() => void address.reload()} onCreate={actions.create} />
         )}
@@ -330,7 +381,7 @@ export function InboundMailAddressCard({ projectId, projectName, client }: Inbou
       <div className="flex flex-col gap-4">
         {ready?.state === 'active' ? (
           <>
-            <InboundMailAddressBlock address={ready} projectName={projectName} surface="settings" showUses={false} />
+            <InboundMailAddressBlock address={ready} projectId={projectId} projectName={projectName} surface="settings" showUses={false} />
             {/* The office's own signing (RT-X6) is a manager's to fix, so only a manager reads it. */}
             {ready.canManage && <OwnDomainDkimLine share={ready.ownDomainVerifiedShare} />}
           </>

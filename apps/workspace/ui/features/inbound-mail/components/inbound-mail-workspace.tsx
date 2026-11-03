@@ -54,6 +54,7 @@ import {
   type InboundMailView,
   type IncompleteReason,
 } from '@/lib/inbound-mail/inbound-mail-wire'
+import { INBOUND_MAIL_RESTORE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { cn } from '@/lib/utils'
 import { bulkSelectable } from '../lib/impersonation'
@@ -511,7 +512,7 @@ export function InboundMailWorkspace({
             }}
             loadingMore={loadingMore}
             everReceived={everReceived}
-            addressBlock={address ? <InboundMailAddressBlock address={address} projectName={projectName} surface="never_used" showUses={false} /> : null}
+            addressBlock={address ? <InboundMailAddressBlock address={address} projectId={projectId} projectName={projectName} surface="never_used" showUses={false} /> : null}
             selectionBar={selectionBar}
             notice={notice}
           />
@@ -568,7 +569,7 @@ export function InboundMailWorkspace({
         open={confirmDismiss}
         onOpenChange={setConfirmDismiss}
         title={t('bulk.dismissTitle', { count: selectedIds.length })}
-        description={t('bulk.dismissText')}
+        description={t('bulk.dismissText', { days: INBOUND_MAIL_RESTORE_DAYS })}
         confirmLabel={t('bulk.dismissConfirm')}
         cancelLabel={t('bulk.cancel')}
         tone="warning"

@@ -17,7 +17,7 @@ import { Info, ShieldAlert, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { Toggletip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
 import type { InboundMailSenderView } from '@/lib/inbound-mail/inbound-mail-wire'
-import type { ImpersonationBasis, InboundSenderTrust, SenderFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
+import { INBOUND_MAIL_STALE_DATE_DAYS, type ImpersonationBasis, type InboundSenderTrust, type SenderFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { cn } from '@/lib/utils'
 import { senderFlagLines, senderTone, senderTrustLine, type SenderTrustLine } from '../lib/sender'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -148,7 +148,7 @@ export function SenderFlagLines({ sender }: { sender: InboundMailSenderView }): 
       {flags.map((flag) => (
         <p key={flag} className="text-foreground flex items-center gap-1.5 font-medium" data-testid={`sender-flag-${flag}`}>
           <ShieldAlert className="text-warning size-3.5 shrink-0" aria-hidden />
-          <span>{t(`flags.${flag}`)}</span>
+          <span>{t(`flags.${flag}`, { days: INBOUND_MAIL_STALE_DATE_DAYS })}</span>
         </p>
       ))}
     </div>

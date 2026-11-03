@@ -26,6 +26,7 @@ import { LoadError } from '@/components/ui/load-error'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
+import { INBOUND_MAIL_RESTORE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import {
   INBOUND_MAIL_DECISION_MAX_MAILS,
   type InboundMailListStatus,
@@ -167,7 +168,7 @@ function ListBody({
     if (status === 'handled') {
       return (
         <div className="p-4">
-          <EmptyState icon={History} title={t('empty.handledTitle')} description={t('empty.handledText')} />
+          <EmptyState icon={History} title={t('empty.handledTitle')} description={t('empty.handledText', { days: INBOUND_MAIL_RESTORE_DAYS })} />
         </div>
       )
     }

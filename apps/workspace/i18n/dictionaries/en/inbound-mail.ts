@@ -29,7 +29,7 @@ export const inboundMail = {
     doneText: 'New mail to the project mail address appears here.',
     showHandled: 'Show handled mail',
     handledTitle: 'Nothing handled yet',
-    handledText: 'Mail that was filed, dismissed or expired is listed here for seven days after its last part.',
+    handledText: 'Mail that was filed, dismissed or expired is listed here for {days, plural, one {# day} other {# days}} after its last part.',
   },
 
   loadError: 'Project mail could not be loaded.',
@@ -108,7 +108,7 @@ export const inboundMail = {
 
   flags: {
     not_addressed_to_project: 'Addressed to other recipients',
-    stale_date: 'Dated more than 7 days before it arrived',
+    stale_date: 'Dated more than {days, plural, one {# day} other {# days}} before it arrived',
     date_out_of_range: 'The date is outside the expected range; the arrival time is used',
     already_filed: 'Already in a mail thread',
   },
@@ -197,7 +197,7 @@ export const inboundMail = {
       sender_not_verified: 'Refers to the mail thread, but the sender’s domain is not verified',
       header_not_signed: 'The reference to the mail thread is not signed by the domain',
       not_addressed_to_project: 'The mail is addressed to other recipients',
-      stale_date: 'The mail is dated more than 7 days back',
+      stale_date: 'The mail is dated more than {days, plural, one {# day} other {# days}} back',
       date_out_of_range: 'The date of the mail is not plausible',
       claims_member_name: 'The name is a member’s, the address is not',
     },
@@ -367,7 +367,7 @@ export const inboundMail = {
     confirm: 'File',
     cancel: 'Cancel',
     dismissTitle: '{count, plural, one {Dismiss # mail?} other {Dismiss # mails?}}',
-    dismissText: 'Dismissed mail can be restored for 7 days.',
+    dismissText: 'Dismissed mail can be restored for {days, plural, one {# day} other {# days}}.',
     dismissConfirm: 'Dismiss',
   },
 
@@ -436,7 +436,9 @@ export const inboundMail = {
     loadError: 'The project mail address could not be loaded.',
     lastReceived: 'Last mail received {time}',
     nothingReceived: 'No mail received yet',
-    dropped: '{count, plural, one {# automatic reply or delivery report in the last 30 days, not shown} other {# automatic replies or delivery reports in the last 30 days, not shown}}',
+    sizeLimit: 'Up to {limit} MB per mail, attachments together up to about {attachments} MB.',
+    uploadInstead: 'Upload larger files directly',
+    dropped: '{count, plural, one {# automatic reply or delivery report in the last {days} days, not shown} other {# automatic replies or delivery reports in the last {days} days, not shown}}',
     rotate: 'Create a new address …',
     rotateTitle: 'Create a new address?',
     rotateText:
@@ -451,7 +453,7 @@ export const inboundMail = {
     switchedOff: 'Project mail address switched off',
     created: 'Project mail address created',
     ownDomain: {
-      share: '{percent} % of your office’s mail in the last 30 days was verified by your domain',
+      share: '{percent} % of your office’s mail in the last {days} days was verified by your domain',
       missing: 'Your domain does not sign its mail – how to set it up',
       explain: 'Mail your domain signs is labelled “Domain verified”. Unsigned mail from your colleagues needs a confirmation before filing.',
       helpUrl: 'https://example.org/en/project-mail/#dkim',
