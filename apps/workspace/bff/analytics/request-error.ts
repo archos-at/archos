@@ -22,6 +22,10 @@
  *   its value.
  * - **Next's control flow is not an error.** `redirect()` and `notFound()` throw;
  *   one that reaches here anyway (a `try` around a redirect) is navigation.
+ * - **A browser that left mid-stream is not an error.** React aborts the render
+ *   with "The destination stream closed early." when the response closes.
+ * - **Neither is the refusal of a write into a closed project**, however many
+ *   copies of the error class the bundles hold.
  * - **A form post naming no action we have is not an error either.** Next
  *   throws "Failed to find Server Action" when a non-fetch multipart POST
  *   carries action ids this build does not know, and answers it with a 404. Our
@@ -51,6 +55,7 @@ import {
 } from '@posthog/next'
 
 import { isAuthzRefusal } from '@/lib/api/errors'
+import { isProjectClosedBody } from '@/lib/projects/project-status'
 
 import { isFrameworkControlFlow } from './control-flow-error'
 import { posthogServerSettings, serverSuperProperties } from './posthog-server'
@@ -62,6 +67,14 @@ export const REQUEST_ERROR_WINDOW_MS = 5 * 60_000
 const MESSAGE_FINGERPRINT_LENGTH = 120
 /** How Next's action handler opens the message for an action id this build lacks. */
 const UNKNOWN_ACTION_MESSAGE = 'Failed to find Server Action.'
+
+/**
+ * React's server renderer aborts a render with exactly this message when the
+ * response it writes to closes: the browser navigated away or cancelled a
+ * prefetch. Nobody was reading, so it is not a defect (the log bridge in
+ * `observability/otel-logs.js` files the same sentence as `client-disconnect`).
+ */
+const CLIENT_DISCONNECT_MESSAGE = 'The destination stream closed early.'
 
 const quietLogger: Logger = {
   debug: () => {},
@@ -99,6 +112,19 @@ const fingerprintOf = ({ error, context }: OnRequestErrorBeforeCaptureContext): 
 const isUnknownActionError = (error: unknown): boolean =>
   error instanceof Error && error.message.startsWith(UNKNOWN_ACTION_MESSAGE)
 
+const isClientDisconnect = (error: unknown): boolean =>
+  error instanceof Error && error.message === CLIENT_DISCONNECT_MESSAGE
+
+/**
+ * The refusal of a write into a closed project, matched by its marker rather
+ * than its class: the instrumentation bundle can hold its own copy of
+ * `ApiError`, which fails `instanceof` for an error thrown from a route bundle.
+ */
+const isProjectClosedRefusal = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) return false
+  return isProjectClosedBody({ details: (error as { details?: unknown }).details })
+}
+
 /**
  * The package's `beforeCapture`: `false` skips the capture, an object is
  * merged into the event's properties.
@@ -109,6 +135,8 @@ export const beforeCapture = (
   if (isAuthzRefusal(capture.error)) return false
   if (isFrameworkControlFlow(capture.error)) return false
   if (isUnknownActionError(capture.error)) return false
+  if (isClientDisconnect(capture.error)) return false
+  if (isProjectClosedRefusal(capture.error)) return false
   if (limiter.consumeRateLimit(fingerprintOf(capture))) return false
   // The package's client is not ours to `register` on, so the super
   // properties every other server event carries travel per event here.
