@@ -82,9 +82,8 @@ export interface IngestWorkerConfig {
 }
 
 export interface BffJobsConfig {
-  enabled: boolean;
   resources: ResourceSpec;
-  /** Floor; 0 lets the pool scale to nothing while no job waits. */
+  /** Floor, at least 1: the pool runs the scheduling crons (`assertBffJobsRunsSchedules`). */
   minReplicas: number;
   maxReplicas: number;
   /** Jobs one replica runs at once (`BFF_JOBS_CONCURRENCY`); also KEDA's jobs-per-replica target. */
@@ -116,9 +115,27 @@ export interface ProviderLimitsConfig {
   modelLimitCeiling: number;
 }
 
+/**
+ * The `bff-jobs` pool is the only Hatchet worker that registers the scheduling
+ * tasks (`apps/workspace/bff/scheduling/tasks.ts`): every scheduled automation's
+ * fire and every maintenance sweep's cron. KEDA scales the pool on the `bff-job`
+ * backlog alone, which a cron never adds to, so a floor of zero (or no pool)
+ * leaves nothing to fire or prune, and the plan stays green.
+ */
+export function assertBffJobsRunsSchedules(enabled: boolean, minReplicas: number): void {
+  const why =
+    "the bff-jobs pool is the only worker of the scheduled automations and the maintenance sweeps " +
+    "(Hatchet crons, apps/workspace/bff/scheduling/tasks.ts), and KEDA scales it on the bff-job backlog only, " +
+    "so without a running replica nothing fires or prunes.";
+  if (!enabled) throw new Error(`bffJobsEnabled=false is refused: ${why}`);
+  if (minReplicas < 1) throw new Error(`bffJobsMinReplicas must be at least 1, not ${minReplicas}: ${why}`);
+}
+
 export function loadWorkers(
   cfg: pulumi.Config,
 ): { gotenberg: GotenbergConfig; geocoder: GeocoderConfig; ingestWorker: IngestWorkerConfig; bffJobs: BffJobsConfig; keda: KedaConfig; providerLimits: ProviderLimitsConfig } {
+  const bffJobsMinReplicas = num(cfg, "bffJobsMinReplicas", 1);
+  assertBffJobsRunsSchedules(cfg.getBoolean("bffJobsEnabled") !== false, bffJobsMinReplicas);
   return {
     gotenberg: {
       enabled: bool(cfg, "gotenbergEnabled", true),
@@ -187,7 +204,6 @@ export function loadWorkers(
       maxImagePixels: Math.max(0, num(cfg, "ingestWorkerMaxImagePixels", 268_435_456)),
     },
     bffJobs: {
-      enabled: cfg.getBoolean("bffJobsEnabled") !== false,
       // A reindex or a rescan only pages and POSTs, but an IFC model is parsed
       // here too (`bim_extract`): several times its own size in memory, up to
       // `maxIfcBytes`, with `bffJobsConcurrency` of them at once. So the limit
@@ -198,7 +214,7 @@ export function loadWorkers(
         limitsCpu: cfg.get("bffJobsLimitsCpu") ?? "1",
         limitsMemory: cfg.get("bffJobsLimitsMemory") ?? "2Gi",
       },
-      minReplicas: Math.max(0, num(cfg, "bffJobsMinReplicas", 1)),
+      minReplicas: bffJobsMinReplicas,
       maxReplicas: Math.max(1, num(cfg, "bffJobsMaxReplicas", 4)),
       concurrency: Math.max(1, num(cfg, "bffJobsConcurrency", 2)),
       drainSeconds: Math.max(15, num(cfg, "bffJobsDrainSeconds", 60)),

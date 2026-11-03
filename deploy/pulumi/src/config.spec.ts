@@ -139,6 +139,25 @@ describe("the Chroma migration Job's knobs", () => {
   });
 });
 
+describe("the bff-jobs pool's floor", () => {
+  // It is the one worker of the scheduling crons, and KEDA wakes it only for
+  // `bff-job` runs: at zero replicas nothing fires and nothing is pruned.
+  it("refuses a floor of zero, naming what runs there", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [`${pulumi.getProject()}:bffJobsMinReplicas`]: "0" });
+    expect(() => loadConfig()).toThrow(/bffJobsMinReplicas must be at least 1, not 0: .*scheduled automations and the maintenance sweeps/);
+  });
+
+  it("refuses the pool switched off", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), [`${pulumi.getProject()}:bffJobsEnabled`]: "false" });
+    expect(() => loadConfig()).toThrow(/bffJobsEnabled=false is refused/);
+  });
+
+  it("defaults to one replica", () => {
+    pulumi.runtime.setAllConfig(baseStackConfig());
+    expect(loadConfig().bffJobs.minReplicas).toBe(1);
+  });
+});
+
 describe("Qdrant (ADR-0115)", () => {
   it("defaults the cluster to the design's shape", () => {
     pulumi.runtime.setAllConfig(baseStackConfig());

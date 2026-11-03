@@ -76,6 +76,16 @@ export const HATCHET_COMPONENTS = {
 /** The in-cluster gRPC address workers dial: `HATCHET_CLIENT_HOST_PORT`. */
 export const HATCHET_GRPC_ADDRESS = `${HATCHET.grpcService}.${BACKGROUND_WORK.namespace}.svc.cluster.local:${HATCHET.grpcPort}`;
 
+/**
+ * The in-cluster REST API every SDK calls for what is not on the gRPC stream:
+ * scheduled runs, crons, cancels, pausing a workflow. The Python SDK reads it as
+ * `HATCHET_CLIENT_SERVER_URL`, the TypeScript one as `HATCHET_CLIENT_API_URL`;
+ * either without it falls back to the token's `server_url` claim, which is
+ * {@link hatchetValues}' `serverUrl`, the port-forwarded dashboard on localhost.
+ * The chart's `hatchet-api` Service, `service.externalPort` 8080.
+ */
+export const HATCHET_API_URL = `http://${HATCHET.apiService}.${BACKGROUND_WORK.namespace}.svc.cluster.local:${HATCHET.apiPort}`;
+
 type Resources = { requests: Record<string, string>; limits: Record<string, string> };
 
 /**
@@ -178,7 +188,10 @@ export function hatchetValues(cfg: DeployConfig) {
       enabled: true,
       // One tag for every component, the chart's own mechanism.
       image: { tag: hatchet.imageTag },
-      // The dashboard is reached through a port-forward to Caddy only.
+      // The dashboard is reached through a port-forward to Caddy only, so its
+      // links and cookie name localhost. The engine also stamps this URL into
+      // every token as `server_url`; no client uses that claim, because every
+      // tier is given the in-cluster API explicitly (`HATCHET_API_URL`).
       serverUrl: `http://localhost:${HATCHET.dashboardPort}`,
       serverAuthCookieDomain: `localhost:${HATCHET.dashboardPort}`,
       serverAuthCookieInsecure: "t",

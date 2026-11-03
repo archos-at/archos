@@ -361,9 +361,7 @@ export function installNetworkPolicies(
           {
             from: [
               { podSelector: { matchLabels: { "app.kubernetes.io/name": "frontend" } } },
-              ...(cfg.bffJobs.enabled
-                ? [{ podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } }]
-                : []),
+              { podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } },
               ...(cfg.posthog.metricsEnabled ? [OTEL_AGENT_POD] : []),
             ],
             ports: [{ protocol: "TCP", port: PORT.gotenberg }],
