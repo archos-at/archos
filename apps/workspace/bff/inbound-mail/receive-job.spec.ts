@@ -967,4 +967,45 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
     expect(await run(LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
     expect(heldRow().status).toBe('received')
   })
+
+  it('a store that answers 5xx or times out is a fault; one that answers 4xx, or a request Node refuses to send, is not (R1)', async () => {
+    const { isObjectStoreFault } = await import('./receive-faults')
+    const status = (code: number) => Object.assign(new Error('store'), { $metadata: { httpStatusCode: code } })
+    expect([500, 502, 503, 408, 429].map((code) => isObjectStoreFault(status(code)))).toEqual([true, true, true, true, true])
+    expect(isObjectStoreFault(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))).toBe(true)
+    expect(isObjectStoreFault(new Error('wrapped', { cause: Object.assign(new Error('x'), { code: 'ECONNREFUSED' }) }))).toBe(true)
+
+    expect([400, 403, 404, 411].map((code) => isObjectStoreFault(status(code)))).toEqual([false, false, false, false])
+    expect(isObjectStoreFault(Object.assign(new TypeError('Invalid character in header content'), { code: 'ERR_INVALID_CHAR' }))).toBe(false)
+    expect(isObjectStoreFault(new Error('a bug'))).toBe(false)
+  })
+
+  it('a store that refuses one object spends attempts, not six hours, and the last one holds the mail (R1)', async () => {
+    const { putStagedObject } = await import('./staging')
+    const refused = () => Object.assign(new Error('Bad Request'), { name: 'InvalidArgument', $metadata: { httpStatusCode: 400 } })
+    vi.mocked(putStagedObject).mockRejectedValueOnce(refused()).mockRejectedValueOnce(refused())
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('Bad Request')
+    expect(heldRow().status).toBe('received')
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+    expect(state.parts[0]).toMatchObject({ kind: 'message', riskFlags: ['unreadable'] })
+  })
+
+  it('stages an attachment whose Content-Type Node would refuse as a header as application/octet-stream (R1)', async () => {
+    const { validateHeaderValue } = await import('node:http')
+    const { putStagedObject } = await import('./staging')
+    // The real client sends the type as a header; Node throws ERR_INVALID_CHAR on `☃`.
+    vi.mocked(putStagedObject).mockImplementation(async (_bucket, key, body, contentType) => {
+      validateHeaderValue('content-type', contentType)
+      state.objects.set(key, body)
+    })
+    receive(await sign(message(multipart('mixed', [BODY, attachment('Schnee.pdf', 'application/pdf☃', pdf('snow'))]))))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow().status).toBe('waiting')
+    expect(state.parts[1]).toMatchObject({ kind: 'attachment', filename: 'Schnee.pdf', contentType: 'application/octet-stream' })
+  })
 })

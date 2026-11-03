@@ -725,7 +725,8 @@ Record of runs: none yet.
   delivery carries ids, sizes and the outcome code only.
 - **A dependency that does not answer delays mail, it does not degrade it.**
   The receive job gives a WorkOS, DNS, reader, object-store or database fault
-  back to the queue without spending an attempt and tries again after 1, 2, 4,
+  (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends
+  an attempt) back to the queue without spending an attempt and tries again after 1, 2, 4,
   8, 16 and 32 minutes, then hourly, about six hours in all
   (`lib/inbound-mail/receive-faults.ts`). Each wait is a `bff-jobs` warning
   `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of 11)`. Past

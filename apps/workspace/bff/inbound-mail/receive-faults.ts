@@ -26,6 +26,7 @@
  *
  * What is a dependency here: {@link DependencyFaultError}, thrown where the
  * job asks one, and a database that is unreachable (`databaseUnavailableCode`).
+ * The object store faults only when it does not answer ({@link isObjectStoreFault}).
  * Anything else is a bug and spends an attempt.
  */
 
@@ -77,20 +78,63 @@ export function dependencyOf(error: unknown): ReceiveDependency | null {
   return databaseUnavailableCode(error) ? 'database' : null
 }
 
-/** Run a call to the object store; anything but a missing object is a fault of the store. */
+/**
+ * Run a call to the object store. Only a store that did not answer is its
+ * fault ({@link isObjectStoreFault}); a missing object, any other 4xx and an
+ * error raised before the request left (Node's `ERR_INVALID_CHAR` on a header)
+ * are failures of this run, and spend an attempt as any bug does.
+ */
 export async function fromObjectStore<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run()
   } catch (error) {
-    if (isMissingObject(error)) throw error
+    if (!isObjectStoreFault(error)) throw error
     throw new DependencyFaultError('object_store', error)
   }
 }
 
-function isMissingObject(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) return false
-  const candidate = error as { name?: unknown; $metadata?: { httpStatusCode?: unknown } }
-  return candidate.name === 'NoSuchKey' || candidate.$metadata?.httpStatusCode === 404
+/** Node's and undici's codes for a connection that failed, was cut, or timed out. */
+const NETWORK_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ECONNABORTED',
+  'ETIMEDOUT',
+  'ESOCKETTIMEDOUT',
+  'EPIPE',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENETDOWN',
+  'UND_ERR_SOCKET',
+  'UND_ERR_CLOSED',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+])
+
+/** The names the AWS SDK and `AbortSignal.timeout` give a request that timed out. */
+const TIMEOUT_ERROR_NAMES = new Set(['TimeoutError', 'RequestTimeout', 'RequestTimeoutException'])
+
+/**
+ * Whether the object store failed to answer: a network error, a timeout, or a
+ * 5xx (a 408 and a 429 are the store saying so too). A status the store sent
+ * is decisive; without one, the error and its causes are asked for a network
+ * code or a timeout. Anything else, a 4xx or a client-side error, is no fault:
+ * waiting six hours for it to change re-ran every scan eleven times for a mail
+ * that was going to fail anyway (R1 of the second 2026-11 ship review).
+ */
+export function isObjectStoreFault(error: unknown): boolean {
+  let current: unknown = error
+  for (let depth = 0; depth < 4 && typeof current === 'object' && current !== null; depth += 1) {
+    const candidate = current as { name?: unknown; code?: unknown; cause?: unknown; $metadata?: { httpStatusCode?: unknown } }
+    const status = candidate.$metadata?.httpStatusCode
+    if (typeof status === 'number') return status >= 500 || status === 408 || status === 429
+    if (typeof candidate.code === 'string' && NETWORK_ERROR_CODES.has(candidate.code)) return true
+    if (typeof candidate.name === 'string' && TIMEOUT_ERROR_NAMES.has(candidate.name)) return true
+    current = candidate.cause
+  }
+  return false
 }
 
 // ---------------------------------------------------------------------------

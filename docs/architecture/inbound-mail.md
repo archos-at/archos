@@ -248,8 +248,9 @@ the reader, and 0194 freezes the verdict a hold writes: a member's mail held on
 an unreadable directory became a stranger's, discarded after 14 days, and a
 writer's mail with an unanswered write check became read-only. Now a directory
 read, a write check (`userHoldsProjectPermissionStrict`), a transient DKIM
-verdict, the reader, the object store or an unreachable database gives the
-claim back (`notBefore`, the attempt not spent) and the job tries again after
+verdict, the reader, an object store that does not answer (a network error, a
+timeout, a 5xx, 408 or 429: `isObjectStoreFault`) or an unreachable database
+gives the claim back (`notBefore`, the attempt not spent) and the job tries again after
 1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Past that budget
 the mail is held with what was not learned, said, never guessed:
 
@@ -267,7 +268,13 @@ the mail is held with what was not learned, said, never guessed:
   (`receive-reread.ts`) reads it again every 15 minutes while the mail waits,
   then queues a verified writer's sender filing again, by name.
 
-Any other failure is a bug and retries through the queue. On the last attempt
+Any other failure is a bug and retries through the queue: an object store that
+answers 4xx, or a request Node refuses to send, fails the same on every try, so
+waiting six hours for it only re-ran every scan (R1 of the second review). For
+the same reason the Content-Type an attachment is staged with is the sender's
+only when it is a well-formed RFC 6838 media type, else `application/octet-stream`
+(`safeMediaType`, `mime-names.ts`): `application/pdf☃` made Node throw
+`ERR_INVALID_CHAR` on the store's header. On the last attempt
 the mail is held anyway, flagged `unreadable`, with a text part whose original
 can be downloaded once its scan is clean: mail is never lost to a parser bug.
 Its sender keeps the verdict the run reached before it failed; a sender it never
