@@ -25,5 +25,8 @@ The deployment side (Langfuse's workloads, its access gates, retention) is
 [ADR-0044](../adr/0044-langfuse-durable-llm-observability.md) and
 [`deployment/kubernetes.md`](../deployment/kubernetes.md) § Langfuse. The Aspire
 dashboard ([ADR-0029](../adr/0029-aspire-dashboard-telemetry.md)) is retired:
-traces are read in Langfuse, WARN+ logs and every metric in PostHog, and the
-collector (`deployment/kubernetes.md` §9) is what feeds both.
+LLM traces are read in Langfuse; the BFF's request traces (where a page or a
+route spent its time, linked to the session replay), WARN+ logs and every
+metric in PostHog; and the collector (`deployment/kubernetes.md` §9) is what
+feeds both. The split is by tier: the Next.js spans go to PostHog only, the
+agent's to Langfuse only (ADR-0029 Amendment 6).

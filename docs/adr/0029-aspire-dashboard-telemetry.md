@@ -430,6 +430,55 @@ never consulted the trace SDK. If frontend traces are ever wanted again, delete
 the `traceSampler` line in `src/instrumentation.ts`; there is no opt-out flag,
 per the capability doctrine.
 
+## Amendment 6 (2026-11-03): request traces go to PostHog, LLM traces stay in Langfuse
+
+Amendment 5 was right about Langfuse and wrong to make it the only place a
+trace could go. Langfuse is for LLM traces (ADR-0044, ADR-0089); a slow page or
+a slow BFF route is not one, and nothing showed where a request's time went
+before it reached the agent. PostHog Tracing takes OTLP at `/i/v1/traces` with
+the public project token, beside the logs and metrics the collector already
+sends it (ADR-0100, ADR-0119), and links a span to its session replay by a
+`sessionId` attribute.
+
+**Change:**
+
+* **The BFF registers a tracer provider again** (`apps/workspace/observability/otel-traces.js`,
+  from `instrumentation.ts`). Next records its own spans: the request root,
+  middleware, the route handler or render, and each `fetch`, which includes
+  every call to the Python backend. Its sampler records a root span only for a
+  request someone would read: health probes, `/_next/` assets, static files and
+  the PostHog proxy (`/ingest`) are dropped at creation. Children follow their
+  parent.
+* **The collector routes by tier.** `traces/posthog` takes the spans whose
+  `service.name` is a Next tier (`grid-ui`, `grid-bff-jobs`) and drops the
+  rest; the Langfuse `traces` pipeline drops exactly those. The agent's LLM
+  spans never reach PostHog this way (they carry prompts; ADR-0100's boundary
+  holds: LLM data reaches PostHog through Langfuse's integration), and the BFF's
+  request spans never reach Langfuse, whether or not PostHog traces are on.
+  Query strings are cut from the recorded URLs (`http.target`, `http.url`,
+  `url.full`) on the way out, since a search's text or a signed URL's token is
+  tenant data. Switch: `grid-oib:posthogTracesEnabled` (default on, the same
+  dependencies as the logs).
+* **Spans open beside their replay.** posthog-js sends `X-POSTHOG-SESSION-ID`
+  to the app's own host only (`tracing_headers`), and `apiRoute` puts a valid
+  UUIDv7 on the active span as `sessionId` (`bff/api/trace-session.ts`).
+
+**Not done, on purpose:** the agent does not continue the BFF's trace. Its
+trace id is pinned to the answer id so a rating can name its trace
+(`turn_trace.py`), a chat turn arrives over a socket rather than a request, and
+splitting one trace between two stores would leave each with a dangling parent.
+The BFF's `fetch` span shows how long the backend took; the backend's own trace
+is in Langfuse.
+
+Logs and traces share PostHog's 10 GB free allowance, of which logs used
+0.5 GB in the billing period this was written. Traces are kept 14 days.
+
+**Confirmation:** `posthog.spec.ts` holds the PostHog pipeline to the Next tiers'
+spans and `langfuse.spec.ts` the Langfuse pipeline to the rest;
+`collector-validate.spec.ts` runs both through the pinned collector.
+`otel-traces.spec.mjs` holds what the sampler records and exports a request
+through the real batch processor; `trace-session.spec.ts` the session link.
+
 ## Alternatives considered
 
 **Option 1 — Full OTel Collector + Grafana stack.** Durable storage, alerting,

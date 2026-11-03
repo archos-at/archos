@@ -3,6 +3,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { loadConfig } from '../config'
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
+import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 
 /**
  * The Langfuse tier (ADR-0044).
@@ -138,8 +140,19 @@ describe("with the Langfuse tier enabled", () => {
   });
 
   describe("collector fan-out", () => {
-    it("gives the traces pipeline to Langfuse alone", () => {
-      expect(parseCollectorConfig(collectorConfig).service.pipelines.traces).toEqual(pipeline(["otlp_http/langfuse"]));
+    it("gives the traces pipeline to Langfuse alone, without the BFF's request spans", () => {
+      const { processors, service } = parseCollectorConfig(collectorConfig);
+      expect(service.pipelines.traces).toEqual(
+        pipeline(["otlp_http/langfuse"], { processors: ["filter/drop_app_spans"] }),
+      );
+      // One trace per HTTP request is what flooded Langfuse (ADR-0029 Amendment 5).
+      expect(processors["filter/drop_app_spans"]).toEqual({
+        error_mode: "ignore",
+        // Exactly the names the Next tiers are given as OTEL_SERVICE_NAME.
+        trace_conditions: [
+          `resource.attributes["service.name"] == "${BFF_SERVICE_NAME}" or resource.attributes["service.name"] == "${BFF_JOBS_SERVICE_NAME}"`,
+        ],
+      });
     });
 
     it("sends it no logs and no metrics", () => {

@@ -1,5 +1,5 @@
 /**
- * PostHog (ADR-0100): on by default in every stack; logs and metrics also need the collector.
+ * PostHog (ADR-0100): on by default in every stack; logs, metrics and traces also need the collector.
  */
 import * as pulumi from "@pulumi/pulumi";
 import { bool } from "./readers";
@@ -59,6 +59,14 @@ export interface PosthogConfig {
    */
   metricsEnabled: boolean;
   /**
+   * Whether the collector ships the BFF's request traces to PostHog Tracing:
+   * the `posthogTracesEnabled` flag AND the same three dependencies as
+   * {@link logsEnabled}. Default on. Only the Next.js tiers' spans go; the
+   * agent's LLM spans stay in Langfuse (ADR-0029 Amendment 6). Logs and traces
+   * share one 10 GB free allowance.
+   */
+  tracesEnabled: boolean;
+  /**
    * Whether the browser may record sessions (`grid-oib:posthogSessionReplay`,
    * default on, like the browser's own default). Text and inputs are masked,
    * the PDF and IFC viewers, media and signed URLs are blocked, and the privacy
@@ -115,11 +123,13 @@ export function loadPosthog(cfg: pulumi.Config, observabilityFlag: boolean): Pos
   ].filter((k): k is string => k !== undefined);
   const posthogLogsEnabled = posthogExport(cfg, "posthogLogsEnabled", "WARN+ logs", missingPosthogExportDeps);
   const posthogMetricsEnabled = posthogExport(cfg, "posthogMetricsEnabled", "metrics", missingPosthogExportDeps);
-      return {
+  const posthogTracesEnabled = posthogExport(cfg, "posthogTracesEnabled", "request traces", missingPosthogExportDeps);
+  return {
     host: posthogHost,
     projectToken: posthogProjectToken,
     logsEnabled: posthogLogsEnabled,
     metricsEnabled: posthogMetricsEnabled,
+    tracesEnabled: posthogTracesEnabled,
     sessionReplay: bool(cfg, "posthogSessionReplay", true),
     replaySampleRate: cfg.get("posthogReplaySampleRate") ?? "1",
     releaseId: (cfg.get("posthogReleaseId") ?? "").trim(),

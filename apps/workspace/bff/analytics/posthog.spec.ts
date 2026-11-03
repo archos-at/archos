@@ -286,6 +286,13 @@ describe('posthog init options', () => {
     })
   })
 
+  test('sends the tracing headers to the app itself and to nobody else', () => {
+    // The BFF puts the session on its request span (bff/api/trace-session.ts);
+    // a third-party host must never receive the session or distinct id.
+    expect(buildPosthogInitOptions(enabledConfig, identity, 'app.example').tracing_headers).toEqual(['app.example'])
+    expect('tracing_headers' in buildPosthogInitOptions(enabledConfig, identity)).toBe(false)
+  })
+
   test('a signed-out visitor gets no bootstrap', () => {
     expect('bootstrap' in buildPosthogInitOptions(enabledConfig)).toBe(false)
     expect('bootstrap' in buildPosthogInitOptions(enabledConfig, null)).toBe(false)

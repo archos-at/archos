@@ -132,7 +132,8 @@ needed.
    role on the generation span would fix both views.
 10. **The BFF has no traces of its own.** `RootSpanDropSampler` drops every BFF
     root span on purpose (they drowned the agent's). The BFF's own latency is
-    visible only in logs.
+    visible only in logs. *Closed 2026-11-03:* the BFF's request traces go to
+    PostHog Tracing, never to Langfuse (ADR-0029 Amendment 6).
 11. **PostHog receives users' names and e-mail addresses** on identify
     (`apps/workspace/app/providers.tsx`), which contradicts the compliance
     audit's "no analytics/tracking anywhere in the UI". Not a Langfuse issue,

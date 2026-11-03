@@ -12,6 +12,8 @@ import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
 import type { ModelWorkload } from "../config/app-services";
 import { heavyFileBytesEnv } from "../config/workers";
 
+/** The BFF's `service.name`; the collector routes its spans by it (`APP_TRACE_SERVICES`). */
+export const BFF_SERVICE_NAME = "grid-ui";
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
 export interface AppWiring {
@@ -594,15 +596,12 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // Absent ⇒ the route answers `enabled: false` and the address stays a plain
     // text field. Only ever the in-cluster Photon: an address is client data.
     ...(w.geocoderUrl ? [{ name: "GEOCODER_URL", value: w.geocoderUrl }] : []),
-    // OTLP tracing via the cluster collector — injected only when the
-    // observability tier is deployed, which is what makes
-    // src/instrumentation.ts register @vercel/otel (it no-ops without the
-    // endpoint). NOTE the BASE URL here vs. the backend's full /v1/traces
-    // path: the JS OTLP HTTP exporter appends the signal path per the OTEL
-    // spec; the Python agent-runtime exporter does not.
+    // OTLP via the collector, only when it is deployed (instrumentation.ts no-ops
+    // without it). A BASE URL: the JS exporter appends the signal path, the
+    // Python agent-runtime exporter does not, so the backend gets /v1/traces.
     ...(cfg.observability.enabled
       ? [
-          { name: "OTEL_SERVICE_NAME", value: "grid-ui" },
+          { name: "OTEL_SERVICE_NAME", value: BFF_SERVICE_NAME },
           { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
         ]
       : []),

@@ -6,6 +6,9 @@ import * as k8s from "@pulumi/kubernetes";
 import { APP_DEFAULTS } from "../constants";
 import { AppWiring, frontendEnv, langfuseApiEnv } from "./config";
 
+/** bff-jobs' `service.name`; its Next server's spans are routed like the BFF's (`APP_TRACE_SERVICES`). */
+export const BFF_JOBS_SERVICE_NAME = "grid-bff-jobs";
+
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
 /**
@@ -69,6 +72,6 @@ export function bffJobsEnv(w: AppWiring): EnvVar[] {
         ]
       : []),
     // The collector endpoint came with the frontend's; only the name differs.
-    ...(cfg.observability.enabled ? [{ name: "OTEL_SERVICE_NAME", value: "grid-bff-jobs" }] : []),
+    ...(cfg.observability.enabled ? [{ name: "OTEL_SERVICE_NAME", value: BFF_JOBS_SERVICE_NAME }] : []),
   ];
 }

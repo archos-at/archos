@@ -333,10 +333,16 @@ export const adoptServerIdentity = (client: IdentityClient, distinctId: string):
  *
  * `identity` is the server-known session (signed-out visitors pass none): it
  * becomes `bootstrap`, so the first pageview already belongs to the person.
+ *
+ * `appHostname` is the app's own host: requests to it carry PostHog's session
+ * header, which the BFF puts on its request span so a trace in PostHog Tracing
+ * opens beside its replay (`bff/api/trace-session.ts`). Only the app's own
+ * host, so no third party ever receives the session or distinct id.
  */
 export const buildPosthogInitOptions = (
   config: PostHogConfig,
-  identity?: PostHogIdentity | null
+  identity?: PostHogIdentity | null,
+  appHostname?: string
 ): Partial<PostHogSdkConfig> => ({
   api_host: config.proxy ? POSTHOG_PROXY_PATH : config.host,
   // With a path as `api_host` the SDK cannot derive the app host any more; the
@@ -373,6 +379,7 @@ export const buildPosthogInitOptions = (
   disable_session_recording: !config.sessionReplay,
   enable_recording_console_log: false,
   session_recording: buildSessionRecordingOptions(config.replaySampleRate),
+  ...(appHostname ? { tracing_headers: [appHostname] } : {}),
   debug: process.env.NODE_ENV === 'development',
 })
 
@@ -384,7 +391,7 @@ export const buildPosthogInitOptions = (
 export const initPosthogClient = (config: PostHogConfig, identity?: PostHogIdentity | null): void => {
   if (initialized || typeof window === 'undefined') return
   if (!config.host || !config.projectToken) return
-  posthog.init(config.projectToken, buildPosthogInitOptions(config, identity))
+  posthog.init(config.projectToken, buildPosthogInitOptions(config, identity, window.location.hostname))
   initialized = true
 }
 

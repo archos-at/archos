@@ -2207,6 +2207,7 @@ nothing else:
 | Langfuse (§9b) | traces | `langfuseEnabled` and its credentials |
 | PostHog Logs | logs | `posthogLogsEnabled` plus `posthogHost` and `posthogProjectToken` |
 | PostHog Metrics | metrics | `posthogMetricsEnabled` plus `posthogHost` and `posthogProjectToken` |
+| PostHog Tracing | traces of the Next tiers | `posthogTracesEnabled` plus `posthogHost` and `posthogProjectToken` |
 
 With none of them `pulumi preview` logs a warning and nothing is deployed: no
 collector, and no `OTEL_*` env on any producer (so the frontend's
@@ -2239,8 +2240,9 @@ render through the pinned collector's own `validate` (CI's infra job installs
 the binary).
 
 **Signals actually emitted today** (ADR-0029 Amendment 3): traces from
-backend-chat and grid-agent-worker (the agent runtime's tracing exporter); the BFF registers
-no trace provider (below); logs from all five tiers - the Python tiers via the
+backend-chat and grid-agent-worker (the agent runtime's tracing exporter), to Langfuse;
+request traces from the Next tiers (grid-ui, grid-bff-jobs) to PostHog Tracing
+(below); logs from all five tiers - the Python tiers via the
 `otelcollector_logs` logging method
 (`packages/agent/src/agent/observability/otlp_logging_method.py`, attaches to the root
 logger) and the Node tiers (grid-ui, bff-jobs, purger) via the
@@ -2419,12 +2421,12 @@ It must redirect to the AuthKit login UI. `application_not_found` means the
 client id is wrong; `invalid_redirect_uri` means step 3 was missed.
 
 **Scope:** traces from the two Python tiers (`aiq-agent` chat/web,
-`agent-worker` deep-research jobs), which share the agent runtime's config. The Next.js BFF
-registers **no trace provider**: `src/instrumentation.ts` bridges `console.*` to
-OTLP logs and nothing else (ADR-0029 Amendment 5 dropped every BFF root span at
-creation, which left a provider that recorded nothing). Sending no `traceparent`
-costs nothing downstream: the Python tiers never continued the BFF's trace, and
-a root there is an agent-runtime span with no parent
+`agent-worker` deep-research jobs), which share the agent runtime's config. The Next.js BFF's
+request spans never reach Langfuse: the `traces` pipeline drops every span whose
+`service.name` is `grid-ui` or `grid-bff-jobs` (`filter/drop_app_spans`), and
+`traces/posthog` sends exactly those to PostHog Tracing instead (ADR-0029
+Amendment 6). The BFF sends no `traceparent`: the Python tiers never continued
+the BFF's trace, and a root there is an agent-runtime span with no parent
 (`test_a_chat_root_needs_no_incoming_trace_context`). Logs appear as separate
 resources via `OTEL_SERVICE_NAME` (`grid-ui` / `backend-chat` /
 `grid-agent-worker`). The `server.js` WS proxy is not instrumented.
