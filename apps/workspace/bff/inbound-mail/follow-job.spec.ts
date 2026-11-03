@@ -56,7 +56,7 @@ import { resolvePinnedRequesterSessionStrict } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { isInboundMailEnabled } from '@/lib/authz/feature-flags'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
-import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { SCREENED_ONLY } from '@/lib/documents/document-reader'
 import type { InboundMailFollowPayload } from '@/lib/jobs-queue/types'
 import { findThreadDocumentState, writeFollowDecision } from '@/lib/mail-thread/follow-repository'
@@ -108,7 +108,7 @@ const writable = (overrides: Partial<WritableThread['thread']> = {}): WritableTh
 
 /** The reply's header block: To is present, and signed in the fixture's `signedHeaders`. */
 const RAW = new TextEncoder().encode(
-  'From: p.weber@statik-weber.at\r\nTo: wohnbau.abcdefgh2345@piloti.at\r\nSubject: AW: Statik\r\n\r\nFreigegeben.\r\n',
+  'From: p.weber@statik-weber.at\r\nTo: wohnbau.abcdefgh2345@example.org\r\nSubject: AW: Statik\r\n\r\nFreigegeben.\r\n',
 )
 
 function given(
@@ -126,7 +126,7 @@ const decided = { id: 'decision-1', partId: textPart().id, via: 'follow', mailTh
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.stubEnv('INBOUND_MAIL_DOMAIN', 'piloti.at')
+  vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
   state.nameStops = []
   state.followContext = { threadId: THREAD_ID, participantDomains: ['statik-weber.at'], follows: [follow()] }
   given()

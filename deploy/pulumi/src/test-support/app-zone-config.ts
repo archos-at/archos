@@ -1,3 +1,4 @@
+import { LEGACY_PROJECT } from "../names";
 /**
  * Stack configurations for project mail (ADR-0138), on top of
  * {@link baseStackConfig}. Test support only; no value here is a real
@@ -10,12 +11,12 @@ export const APP_ZONE = "example.test";
 
 export function appZoneStackConfig(): Record<string, string> {
   return {
-    "grid-oib:dnsEnabled": "true",
-    "grid-oib:dnsZoneId": APP_ZONE_ID,
-    "grid-oib:dnsZoneName": APP_ZONE,
-    "grid-oib:dnsZoneBaseline": "true",
-    "grid-oib:loadBalancerIp": "203.0.113.10",
-    "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
+    [`${LEGACY_PROJECT}:dnsEnabled`]: "true",
+    [`${LEGACY_PROJECT}:dnsZoneId`]: APP_ZONE_ID,
+    [`${LEGACY_PROJECT}:dnsZoneName`]: APP_ZONE,
+    [`${LEGACY_PROJECT}:dnsZoneBaseline`]: "true",
+    [`${LEGACY_PROJECT}:loadBalancerIp`]: "203.0.113.10",
+    [`${LEGACY_PROJECT}:cloudflareApiToken`]: "cf-token", // pragma: allowlist secret
   };
 }
 
@@ -32,8 +33,8 @@ export const SIGNING_KEYS = JSON.stringify({ [SIGNING_KEY_ID]: SIGNING_SECRET })
  */
 export function mailStackConfig(): Record<string, string> {
   return {
-    "grid-oib:malwareScanEnabled": "true",
-    "grid-oib:inboundMailSigningKeys": SIGNING_KEYS,
-    "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
+    [`${LEGACY_PROJECT}:malwareScanEnabled`]: "true",
+    [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: SIGNING_KEYS,
+    [`${LEGACY_PROJECT}:cloudflareApiToken`]: "cf-token", // pragma: allowlist secret
   };
 }

@@ -15,7 +15,7 @@ import {
   TOKEN_PATTERN,
 } from './address'
 
-const DOMAIN = 'piloti-post.at'
+const DOMAIN = 'example-post.org'
 
 const token = (value: string) => ({ kind: 'token', token: value })
 
@@ -29,7 +29,7 @@ describe('parseInboundAddress', () => {
   })
 
   it('lowercases the local part and the domain', () => {
-    expect(parseInboundAddress(`Wohnbau.ABCDEFGH2345@Piloti-Post.AT`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`Wohnbau.ABCDEFGH2345@Example-Post.ORG`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
   it('lowercases ASCII only: a Kelvin sign or dotted capital I is not a letter of the token', () => {
@@ -133,8 +133,8 @@ describe('projectSlug', () => {
 
 describe('formatInboundAddress', () => {
   it('joins slug and token, or uses the token alone', () => {
-    expect(formatInboundAddress('wohnbau', 'abcdefgh2345', 'Piloti-Post.at')).toBe(
-      'wohnbau.abcdefgh2345@piloti-post.at'
+    expect(formatInboundAddress('wohnbau', 'abcdefgh2345', 'Example-Post.org')).toBe(
+      'wohnbau.abcdefgh2345@example-post.org'
     )
     expect(formatInboundAddress('', 'abcdefgh2345', DOMAIN)).toBe(`abcdefgh2345@${DOMAIN}`)
   })
@@ -163,7 +163,7 @@ describe('redactProjectAddresses', () => {
 
   it('finds a token however the address is dressed: case, +detail, quotes, angle brackets, a bare token', () => {
     const text = [
-      `<Nachbar.ZZZZZZZZZZZZ@Piloti-Post.AT>`,
+      `<Nachbar.ZZZZZZZZZZZZ@Example-Post.ORG>`,
       `nachbar.zzzzzzzzzzzz+plaene@${DOMAIN}`,
       `"nachbar.zzzzzzzzzzzz"@${DOMAIN}`,
       `zzzzzzzzzzzz@${DOMAIN}.`,
@@ -205,7 +205,7 @@ describe('inboundMailDomain', () => {
   it('is null when unset or blank, and lowercased otherwise', () => {
     expect(inboundMailDomain({})).toBeNull()
     expect(inboundMailDomain({ INBOUND_MAIL_DOMAIN: '  ' })).toBeNull()
-    expect(inboundMailDomain({ INBOUND_MAIL_DOMAIN: ' Piloti-Post.AT ' })).toBe(DOMAIN)
+    expect(inboundMailDomain({ INBOUND_MAIL_DOMAIN: ' Example-Post.ORG ' })).toBe(DOMAIN)
   })
 })
 
@@ -218,15 +218,15 @@ interface AddressContract {
 function loadAddressContract(): AddressContract {
   let dir = process.cwd()
   for (;;) {
-    const candidate = join(dir, 'shared', 'inbound-address.json')
+    const candidate = join(dir, 'contracts', 'inbound-address.json')
     if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, 'utf8')) as AddressContract
     const parent = dirname(dir)
-    if (parent === dir) throw new Error(`shared/inbound-address.json not found above ${process.cwd()}`)
+    if (parent === dir) throw new Error(`contracts/inbound-address.json not found above ${process.cwd()}`)
     dir = parent
   }
 }
 
-describe('the address contract with the Email Worker (shared/inbound-address.json)', () => {
+describe('the address contract with the Email Worker (contracts/inbound-address.json)', () => {
   const contract = loadAddressContract()
 
   it('uses the same token pattern', () => {
@@ -236,13 +236,13 @@ describe('the address contract with the Email Worker (shared/inbound-address.jso
   })
 
   it.each(contract.cases)('parses $recipient as a project address: $project', ({ recipient, project }) => {
-    expect(parseInboundAddress(recipient, 'piloti.at').kind === 'token').toBe(project)
+    expect(parseInboundAddress(recipient, 'example.org').kind === 'token').toBe(project)
   })
 
   it('mints only addresses the Worker routes to the BFF', () => {
     const pattern = new RegExp(contract.tokenPattern)
     for (let i = 0; i < 200; i += 1) {
-      const address = formatInboundAddress(projectSlug('Wohnbau Hietzing Bauteil 2'), mintToken(), 'piloti.at')
+      const address = formatInboundAddress(projectSlug('Wohnbau Hietzing Bauteil 2'), mintToken(), 'example.org')
       const local = address.slice(0, address.lastIndexOf('@'))
       expect(local.slice(local.lastIndexOf('.') + 1)).toMatch(pattern)
     }

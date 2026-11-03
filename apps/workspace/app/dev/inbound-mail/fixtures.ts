@@ -599,7 +599,7 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
       })),
       parts: [
         messagePart({ id: fixtureId('message:wc'), contentFindings: ['iban', 'at_svnr', 'credit_card', 'term'] }),
-        part({ name: longName, sizeBytes: 98_765_432, suggestion: suggestion('Einreichung/Behörde/Bescheide und Stellungnahmen/Tiefgarage/Ebene -2/Brandschutz', 'correspondence', 'Ein sehr langer Grund, warum Piloti genau diesen tief verschachtelten Ordner vorschlägt, der in drei Zeilen kaum Platz findet und trotzdem gelesen werden will.', { newFolder: true }) }),
+        part({ name: longName, sizeBytes: 98_765_432, suggestion: suggestion('Einreichung/Behörde/Bescheide und Stellungnahmen/Tiefgarage/Ebene -2/Brandschutz', 'correspondence', 'Ein sehr langer Grund, warum the agent genau diesen tief verschachtelten Ordner vorschlägt, der in drei Zeilen kaum Platz findet und trotzdem gelesen werden will.', { newFolder: true }) }),
         part({ name: 'a.pdf', sizeBytes: 12, revisionCandidate: { documentId: fixtureId('doc:a'), name: longName, folderPath: 'Tragwerk', nextVersion: 128 }, riskFlags: ['unverified_thread', 'name_stop', 'macro'], nameStopTerms: ['Honorar', 'Rechnung', 'Gehalt', 'Kontoauszug'] }),
         part({ name: '工程图纸_第二版_最终.pdf', sizeBytes: 3_000_000, lastFailure: 'digest_mismatch' }),
         ...Array.from({ length: 9 }, (_, index) => part({ name: `Detail_${index + 1}_${'Fassadenschnitt'.repeat(2)}.pdf` })),
@@ -721,7 +721,7 @@ export type AddressFixture = InboundMailAddressView | 'loading' | 'error'
 
 const activeAddress: InboundMailAddressView = {
   state: 'active',
-  address: 'bauplatz-12.k3x7q2m9p4ab@piloti.at',
+  address: 'bauplatz-12.k3x7q2m9p4ab@example.org',
   canManage: true,
   lastReceivedAt: minutesAgo(12),
   droppedLast30Days: 0,
@@ -736,7 +736,7 @@ export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
   unavailable: { ...activeAddress, state: 'unavailable', address: null, canManage: false, lastReceivedAt: null, ownDomainVerifiedShare: null },
   'long-address': {
     ...activeAddress,
-    address: 'stellplatznachweis-tiefgarage-ebene-2-wohnbau-seestadt-nord.k3x7q2m9p4ab@piloti.at',
+    address: 'stellplatznachweis-tiefgarage-ebene-2-wohnbau-seestadt-nord.k3x7q2m9p4ab@example.org',
   },
   loading: 'loading',
   error: 'error',
@@ -864,7 +864,7 @@ export function fixtureAddressClient(fixture: AddressFixture): InboundMailAddres
       return answer()
     },
     rotate: () => {
-      if (typeof current === 'object') current = { ...current, address: 'bauplatz-12.w8n2c4r7t1qz@piloti.at' }
+      if (typeof current === 'object') current = { ...current, address: 'bauplatz-12.w8n2c4r7t1qz@example.org' }
       return answer()
     },
     remove: () => {

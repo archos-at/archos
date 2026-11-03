@@ -140,13 +140,13 @@ beforeEach(() => {
 })
 
 describe('how a decision reached us', () => {
-  it('is the app, an outside agent acting as the person, or a Piloti card, read from the call', () => {
+  it('is the app, an outside agent acting as the person, or an agent's card, read from the call', () => {
     expect(decisionActor(session)).toEqual({ decidedBy: PERSON, via: 'app', proposalId: null })
     store.acting = true
     store.agent = true
     expect(decisionActor(session)).toMatchObject({ via: 'agent' })
     store.proposalId = 'prop-1'
-    expect(decisionActor(session)).toEqual({ decidedBy: PERSON, via: 'piloti_proposal', proposalId: 'prop-1' })
+    expect(decisionActor(session)).toEqual({ decidedBy: PERSON, via: 'agent_proposal', proposalId: 'prop-1' })
   })
 })
 
@@ -285,7 +285,7 @@ describe('a decision', () => {
     expect(auditDecisions).toHaveBeenCalledTimes(1)
   })
 
-  it('scores Piloti’s suggestion against the parts as they were, and tells PostHog whether it was followed', async () => {
+  it('scores the agent’s suggestion against the parts as they were, and tells PostHog whether it was followed', async () => {
     const before = [textPart(), filePart({ suggestion: { folderId: FOLDER_ID, folderPath: 'Tragwerk' } })]
     store.parts = before
     await fileInboundMails(session, PROJECT_ID, body())

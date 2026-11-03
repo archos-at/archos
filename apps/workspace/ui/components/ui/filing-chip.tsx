@@ -33,9 +33,9 @@ export interface FilingChipProps extends ButtonHTMLAttributes<HTMLButtonElement>
   /** „neu", when the move creates the folder. */
   newLabel?: string
   /**
-   * Whether the target IS Piloti's suggestion (default). False for a folder a
+   * Whether the target IS the agent's suggestion (default). False for a folder a
    * rule or the person chose: the chip then wears a folder glyph, never
-   * Piloti's mark, because the mark claims Piloti stands behind the place
+   * The agent's mark, because the mark claims the agent stands behind the place
    * (VISION: traceable; `lib/inbound-mail/suggest.ts` gives no suggestion on
    * an unconfirmed or forged mail, and a regex default must not look like one).
    */
@@ -44,7 +44,7 @@ export interface FilingChipProps extends ButtonHTMLAttributes<HTMLButtonElement>
 
 /**
  * FilingChip — where something will be filed, as a pill that opens the
- * decision: Piloti's glyph when it is Piloti's suggestion (a folder glyph when
+ * decision: The agent's glyph when it is the agent's suggestion (a folder glyph when
  * a rule or the person chose it), „→ Bescheide", and „neu" for a folder the
  * move creates.
  *

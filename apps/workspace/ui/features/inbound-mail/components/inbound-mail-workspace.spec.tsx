@@ -183,7 +183,7 @@ describe('InboundMailWorkspace', () => {
   it('teaches the address when nothing ever arrived, and says „all done“ otherwise', async () => {
     renderWorkspace('empty')
     expect(await screen.findByTestId('inbound-mail-never')).toHaveTextContent('No mail to this project yet')
-    expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('bauplatz-12.k3x7q2m9p4ab@piloti.at')
+    expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('bauplatz-12.k3x7q2m9p4ab@example.org')
   })
 
   it('says „nothing waits“ for a project that had mail', async () => {

@@ -5,7 +5,7 @@
  * half), against a REAL Postgres with migration 0193 through the restricted
  * runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://grid_app_rw@host:port/grid_app \
+ *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/inbound-mail/review-first.e2e.spec.ts
  *
  * The owner's sentence is „nothing is filed without a person's decision“. The
@@ -172,7 +172,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = url
-    vi.stubEnv('INBOUND_MAIL_DOMAIN', 'piloti.at')
+    vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -224,7 +224,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
           hostile.attachment('S-101_C.pdf', 'application/pdf', hostile.pdf('S-101 C')),
         ]),
         {
-          To: `wohnbau.${TOKEN}@piloti.at`,
+          To: `wohnbau.${TOKEN}@example.org`,
           Date: new Date(Date.now() - 60_000).toUTCString(),
         }
       )
@@ -234,7 +234,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     store.objects.set(rawKey, hostile.bytes(raw))
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, envelope_from, raw_size_bytes, staging_bucket, raw_storage_key, expires_at)
-      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'received', ${'e'.repeat(64)}, ${MEMBER_EMAIL}, ${raw.length}, 'grid-org-test', ${rawKey}, now() + interval '30 days')`)
+      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'received', ${'e'.repeat(64)}, ${MEMBER_EMAIL}, ${raw.length}, 'org-test-bucket', ${rawKey}, now() + interval '30 days')`)
   })
 
   afterAll(async () => {

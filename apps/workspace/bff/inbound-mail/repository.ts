@@ -25,27 +25,12 @@ import { and, desc, eq, inArray, isNotNull, isNull, or, sql, type SQL } from 'dr
 import { getDb } from '@/lib/db'
 import { isUniqueViolation } from '@/lib/db/errors'
 import type { DbExecutor, DbTransaction } from '@/lib/db/executor'
-import {
-  documents,
-  documentVersions,
-  inboundMailAddresses,
-  inboundMailDecisions,
-  inboundMailParts,
-  inboundMails,
-  mailThreadEntries,
-  mailThreadFollows,
-  mailThreadMessageIds,
-  mailThreads,
-  projectFolders,
-  projects,
-  type InboundMailAddressRow,
-  type InboundMailDecisionRow,
-  type InboundMailPartRow,
-  type InboundMailRow,
-  type NewInboundMailDecisionRow,
-  type NewInboundMailPartRow,
-  type NewInboundMailRow,
-} from '@/lib/db/schema'
+import { documentVersions } from '@/lib/db/schema/document-versions'
+import { documents } from '@/lib/db/schema/documents'
+import { inboundMailAddresses, inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailAddressRow, type InboundMailDecisionRow, type InboundMailPartRow, type InboundMailRow, type NewInboundMailDecisionRow, type NewInboundMailPartRow, type NewInboundMailRow } from '@/lib/db/schema/inbound-mail'
+import { mailThreadEntries, mailThreadFollows, mailThreadMessageIds, mailThreads } from '@/lib/db/schema/mail-thread'
+import { projectFolders } from '@/lib/db/schema/project-folders'
+import { projects } from '@/lib/db/schema/projects'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, internalRead, SCREENED_ONLY } from '@/lib/documents/visibility'
@@ -1109,7 +1094,7 @@ export interface MailDecisionWrite {
 /** Who decided and how, the same for every row of one request. */
 export interface DecisionActor {
   decidedBy: string
-  via: 'app' | 'agent' | 'piloti_proposal'
+  via: 'app' | 'agent' | 'agent_proposal'
   proposalId: string | null
 }
 
@@ -1328,11 +1313,11 @@ export async function hasOpenParts(mailId: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------------
-// The suggest job (Piloti's suggestion, D21)
+// The suggest job (The agent's suggestion, D21)
 // ---------------------------------------------------------------------------
 
 /**
- * Store Piloti's suggestion on the parts it placed, with the generation's
+ * Store the agent's suggestion on the parts it placed, with the generation's
  * trace. Only a part that still waits takes one: a person who decided in the
  * meantime decided without it, and the suggestion would name a file whose
  * bytes may be gone (`inbound_mail_parts_suggestion_with_bytes`). The number

@@ -9,7 +9,7 @@ features:
   - >
     A filed conversation becomes one E-Mail-Verlauf: each mail is a section,
     each later reply adds a Fassung, and the original mail is kept beside it
-    for download. Piloti answers from it and cites the mail a statement came
+    for download. ARCHOS answers from it and cites the mail a statement came
     from.
   - >
     You can follow an E-Mail-Verlauf, so the text of later replies from
@@ -20,7 +20,7 @@ features:
     mail that poses as a colleague stands behind a warning with „Verwerfen“
     as the first button. It can never be filed together with other mails.
   - >
-    Piloti suggests a folder and a Dokumentart for each attachment of a
+    ARCHOS suggests a folder and a Dokumentart for each attachment of a
     waiting mail, from the file names, the masked subject and the sender's
     domain only. Several complete mails can then be filed as suggested with
     one press.

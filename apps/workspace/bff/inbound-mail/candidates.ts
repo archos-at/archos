@@ -23,7 +23,7 @@ import 'server-only'
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds } from '@/lib/authz/folder-access'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { MAIL_THREAD_MAX_ENTRIES, MAIL_THREAD_MAX_RENDERED_BYTES } from '@/lib/mail-thread/mail-thread-vocabulary'
 import {
   MAX_SHOWN_THREAD_CANDIDATES,

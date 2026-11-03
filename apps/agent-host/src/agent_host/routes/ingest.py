@@ -155,17 +155,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         config["dispatch_key"] = dispatch_key
     config.update(_filing_choice_config(request))
     config.update(_mail_config(request))
-    # The org id, so the detached ingest thread resolves the tenant's BYOK
-    # VLM credential and runtime model override.
-    if organization_id:
-        config["organization_id"] = organization_id
-        # Who the job's model spend is booked to beside the organization
-        # (`_ingest_cost_scope`): attribution on the usage ledger only, never
-        # authorization, and only ever within the organization above.
-        if request.project_id:
-            config["project_id"] = request.project_id
-        if request.user_id:
-            config["user_id"] = request.user_id
+    config.update(_tenant_config(request, organization_id))
     # The project's facts for the chunks' payload (`qdrant.writes.enrichment`), as
     # plain data so they ride the durable queue's JSON payload unchanged.
     if request.project_facts is not None:
@@ -199,6 +189,25 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         # background task, it was a derivative of a file nobody had screened.
         # A file read from its rendition draws from that one download instead.
         config["preview_paths"] = [DeferredObjectDownload(request.preview_ref, suffix=".pdf")]
+    return config
+
+
+def _tenant_config(request: IngestRequest, organization_id: str | None) -> dict[str, str]:
+    """Whose job this is: the organization, and the project and user its spend is booked to.
+
+    The org id, so the detached ingest thread resolves the tenant's BYOK VLM
+    credential and runtime model override. The project and the user are who the
+    job's model spend is booked to beside the organization (`_ingest_cost_scope`):
+    attribution on the usage ledger only, never authorization, and only ever
+    within that organization, so neither is stated without it.
+    """
+    if not organization_id:
+        return {}
+    config = {"organization_id": organization_id}
+    if request.project_id:
+        config["project_id"] = request.project_id
+    if request.user_id:
+        config["user_id"] = request.user_id
     return config
 
 

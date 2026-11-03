@@ -7,7 +7,7 @@
  * the receive job, the drizzle schema (through `./inbound-mail-vocabulary`),
  * the wire module and the review UI all read the same tuples from here, and the
  * Worker, which is plain JavaScript outside this package, is held to the same
- * values by `shared/inbound-mail-contract.json` (`contract.spec.ts` here,
+ * values by `contracts/inbound-mail-contract.json` (`contract.spec.ts` here,
  * `inbound-mail-worker.spec.ts` there).
  *
  * Every token is English; what a person reads for one lives in the i18n
@@ -30,7 +30,7 @@ export const ENVELOPE_TO_HEADER = 'x-envelope-to'
 
 /**
  * The envelope sender (RFC 5321 MAIL FROM), `NULL_SENDER` for a null reverse-path. Both envelope headers carry
- * every UTF-8 byte outside 0x21–0x7E, and `%`, as `%XX` (shared/inbound-mail-contract.json `envelopeEncoding`).
+ * every UTF-8 byte outside 0x21–0x7E, and `%`, as `%XX` (contracts/inbound-mail-contract.json `envelopeEncoding`).
  */
 export const ENVELOPE_FROM_HEADER = 'x-envelope-from'
 
@@ -90,7 +90,7 @@ export const SIGNATURE_LIFETIME_SECONDS = 300
  */
 export const REJECT_TEXT =
   'This message could not be delivered: the address is unknown or no longer valid. ' +
-  'Help: https://piloti.at/e-mail-eingang/ Privacy: https://piloti.at/datenschutz/'
+  'Help: https://example.org/e-mail-eingang/ Privacy: https://example.org/datenschutz/'
 
 /** What the Worker does with the webhook's answer. */
 export type DeliveryOutcome = 'accepted' | 'rejected' | 'retry'

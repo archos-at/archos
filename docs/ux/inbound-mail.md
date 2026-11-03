@@ -14,7 +14,7 @@ Completeness, the defaults (`preselected`), the sender's risk, thread groups
 („wird Fassung 4–7“) and the forwarded-from line are computed on the server
 (`lib/inbound-mail/{sender-risk,review-defaults,thread-groups,forwarded}.ts`)
 and carried on the views. The UI never derives them, so the app, an outside
-agent and Piloti's card see the same mail the same way.
+agent and the agent's card see the same mail the same way.
 
 One word per concept (DECISION §3, the i18n file headers say it again):
 „E-Mail-Eingang“ is the place, „ablegen“ puts a part into the project,
@@ -148,7 +148,7 @@ E-Mail echt ist. Trotzdem ablegen“.
    (eigener E-Mail-Verlauf)“, „Ungekürzt in den E-Mail-Verlauf“.
 4. „Anhänge“: checkbox, thumbnail (clean images and PDFs only, drawn
    client-side in the sandboxed viewer; Office files show their tile), the
-   name, Piloti's suggestion, and the case notes (duplicate, revision, name
+   name, the agent's suggestion, and the case notes (duplicate, revision, name
    stop, macro, type mismatch, not accepted, not staged). A clean attachment
    says nothing about its scan; „Wird auf Schadsoftware geprüft …“, „Prüfung
    fehlgeschlagen, wird wiederholt“ and „Schadsoftware gefunden · lässt sich
@@ -178,7 +178,7 @@ Behörde/Bescheide · Fassung 1“) and „Ansehen“. A filing has no undo;
 one part dismissed says „1 Teil verworfen · wiederherstellbar bis …“ instead
 of a page-wide „Verworfen · …“.
 
-**Piloti's mark** (✦) appears on a folder chip only when the folder is Piloti's
+**The agent's mark** (✦) appears on a folder chip only when the folder is the agent's
 stored suggestion; the rule's default folder for a new Verlauf is a plain chip.
 
 **Bulk** by selection: „{n} ausgewählt · Wie vorgeschlagen ablegen ·
@@ -187,7 +187,7 @@ Verwerfen“, enabled only when every selected mail is complete
 with a dialog grouped by destination.
 
 **States**, each with its own copy: empty (never received / nothing waits /
-nothing handled), loading, load error, suggestion pending („Piloti liest noch
+nothing handled), loading, load error, suggestion pending („The agent liest noch
 …“), no suggestion, decided by someone else, partial failure, quota full,
 closed project („Projekt ist abgeschlossen – wieder öffnen, um abzulegen“,
 dismiss possible), expired and dismissed („… · wiederherstellbar bis {Datum}“),
@@ -229,7 +229,7 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   domain, never inside the date, and is still exactly what the document
   prints; „ab Fassung N“ and „eingegangen …“ wrap as two units. Preview:
   `/dev/mail-thread?variant=same-sender`; how it was
-  filed only where no person decided in the app (agent, Piloti card, follow,
+  filed only where no person decided in the app (agent, the agent card, follow,
   archive import); „Anhänge“: each a link to its document, „lag schon im
   Projekt“, „nicht abgelegt · {Grund}“ (15 reasons), or „Ein Anhang in einem
   Ordner, den Sie nicht sehen“ (never named).
@@ -268,7 +268,7 @@ warnings as a gold glyph with ink words (`FactLine tone="warning"`,
 `inbound-mail-atoms.tsx`) and the default Alert with a gold icon; a selected
 row lifts to `bg-card` with an ink bar instead of a tint (`bg-accent/70` behind
 muted 12px text is 4.33:1). The kit's warning Alert is a known AA gap of the
-design system ([`grid-design-language.md`](../design/grid-design-language.md)).
+design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet
 

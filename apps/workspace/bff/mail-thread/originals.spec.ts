@@ -48,7 +48,7 @@ vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 import { createHash } from 'node:crypto'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { MailThreadEntryRow } from '@/lib/db/schema'
+import type { MailThreadEntryRow } from '@/lib/db/schema/mail-thread'
 import {
   heldMail,
   MAIL_ID,

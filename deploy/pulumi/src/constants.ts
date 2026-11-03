@@ -443,11 +443,12 @@ export const EDGE_RATE_LIMIT = {
  */
 export const SIGNED_INTERNAL_ROUTE = {
   /** HTTPRoute name; the BackendTrafficPolicy attaches to it by name. */
-  routeName: "grid-app-signed",
+  // New with project mail, so brand-free in both projects (ADR-0147): nothing to rename later.
+  routeName: "app-signed",
   /**
    * The path family. Must equal `SIGNED_INTERNAL_PREFIX` in
    * `apps/workspace/bff/api/handler.ts` and `signedPathPrefix` in
-   * `shared/inbound-mail-contract.json` (the specs check the latter).
+   * `contracts/inbound-mail-contract.json` (the specs check the latter).
    */
   pathPrefix: "/api/internal/signed/",
   /**
@@ -460,7 +461,7 @@ export const SIGNED_INTERNAL_ROUTE = {
   /** Upstream budget per request, from the end of the request body. */
   requestTimeout: "120s",
   /** The HTTPRouteFilter that answers an over-limit or length-less request. */
-  refusalFilterName: "grid-signed-body-limit",
+  refusalFilterName: "signed-body-limit",
 } as const;
 
 /**

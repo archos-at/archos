@@ -10,7 +10,7 @@
  * decision bar pinned to the bottom. After filing: what landed, what did not
  * and why, and the offer to follow the conversation.
  *
- * The draft starts as Piloti's suggestion and the server's candidates; the
+ * The draft starts as the agent's suggestion and the server's candidates; the
  * press is the takeover. A decision is sent with the mail's `ifMatch`, so a
  * colleague who decided first wins: the mail is read again and says so.
  * Filing runs as the person in a job; the detail follows the parts until none
@@ -101,7 +101,7 @@ export interface InboundMailDetailProps {
   /** The way back to the list, where the detail is a page of its own (a phone). */
   back?: ReactNode
   actionsRef?: MutableRefObject<DetailActions | null>
-  /** Now, for the suggestion's „Piloti liest noch …“; a preview pins it. */
+  /** Now, for the suggestion's „The agent liest noch …“; a preview pins it. */
   now?: number
   /** How long to wait between reads while parts are being filed (a spec shortens it). */
   pollMs?: number

@@ -11,7 +11,7 @@
  * token or nothing.
  *
  * The Email Worker routes on the same shape without asking the BFF, so both
- * sides run the cases of `shared/inbound-address.json` (`address.spec.ts`,
+ * sides run the cases of `contracts/inbound-address.json` (`address.spec.ts`,
  * `inbound-mail-worker.spec.ts`), and neither can change the rule alone.
  *
  * Pure: no database, and no environment read except {@link inboundMailDomain}.
@@ -26,7 +26,7 @@ const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567' // pragma: allowlist 
 /** 12 characters × 5 bits = 60 bits of `crypto.randomBytes`. */
 export const TOKEN_LENGTH = 12
 
-/** What a token looks like; `tokenPattern` in `shared/inbound-address.json`. */
+/** What a token looks like; `tokenPattern` in `contracts/inbound-address.json`. */
 export const TOKEN_PATTERN = /^[a-z2-7]{12}$/
 
 /** The slug is at most this long, so the local part stays well under 64 octets. */
@@ -109,7 +109,7 @@ export function parseInboundAddress(recipient: string, domain: string): Recipien
 
 /**
  * The deployment's inbound mail domain (`INBOUND_MAIL_DOMAIN`, e.g.
- * `piloti.at`), or null when the deployment receives no mail. That is the
+ * `example.org`), or null when the deployment receives no mail. That is the
  * deployment's half of the switch; the office's half is the `inbound-mail`
  * WorkOS flag.
  */

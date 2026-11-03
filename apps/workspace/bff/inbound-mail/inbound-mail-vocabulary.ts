@@ -172,7 +172,7 @@ export type SenderFlag = (typeof SENDER_FLAGS)[number]
  *
  * - `impersonation`: the mail may be someone pretending (a signature the From
  *   domain refuses, or a member's name on another address). Nothing of it is
- *   pre-selected, Piloti suggests nothing, and filing needs `acknowledgeSender`.
+ *   pre-selected, the agent suggests nothing, and filing needs `acknowledgeSender`.
  * - `caution`: filing needs `acknowledgeSender` (a member's address without
  *   its domain's signature, a mail addressed to others, a stale Date).
  * - `none`: nothing to accept.
@@ -312,11 +312,11 @@ export type InboundMailDecisionAction = (typeof INBOUND_MAIL_DECISION_ACTIONS)[n
 
 /**
  * How the decision reached us: in the app, from an outside agent acting as the
- * person, through a Piloti operation card the person confirmed, or as the
+ * person, through an agent's operation card the person confirmed, or as the
  * person's standing decision to follow a thread (D31). The decider is a person
  * in every case.
  */
-export const INBOUND_MAIL_DECISION_VIAS = ['app', 'agent', 'piloti_proposal', 'follow'] as const
+export const INBOUND_MAIL_DECISION_VIAS = ['app', 'agent', 'agent_proposal', 'follow'] as const
 export type InboundMailDecisionVia = (typeof INBOUND_MAIL_DECISION_VIAS)[number]
 
 /** Where a filed message goes: into an existing thread as its next Fassung, or a new thread. */

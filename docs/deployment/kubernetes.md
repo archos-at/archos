@@ -566,7 +566,7 @@ sender ─SMTP─▶ Cloudflare Email Routing (apex MX) ─catch-all─▶ Email
                  literal rules first:                          shape check, buffer,
                  postmaster@, abuse@, company addresses        RFC 9421 sign, post
                                                                      │
-   app.<domain> Envoy: route grid-app-signed, Content-Length ≤ 27 MiB, no edge limit
+   app.<domain> Envoy: route app-signed, Content-Length ≤ 27 MiB, no edge limit
                                                                      ▼
    frontend: POST /api/internal/signed/inbound-mail ─▶ staging ─▶ bff-jobs: receive job
                                                                   ─▶ ClamAV, /v1/mail/read
@@ -596,7 +596,7 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 - The mail domain is the apex of its zone (Cloudflare's catch-all exists only
   for an apex). On the app zone that needs `dnsEnabled` and `dnsZoneBaseline`.
   The preview refuses an apex whose MX points anywhere but
-  `*.mx.cloudflare.net`. On 2026-10-22 `piloti.at` had no MX (DNS-over-HTTPS lookup); Email Routing adds and
+  `*.mx.cloudflare.net`. On 2026-10-22 `example.org` had no MX (DNS-over-HTTPS lookup); Email Routing adds and
   locks the apex MX, an SPF TXT and a DKIM TXT, and leaves A, `www` and
   `_dmarc` alone.
 - **The scanner first.** `loadConfig` refuses an inbound domain while
@@ -636,7 +636,7 @@ below.
 |---|---|---|
 | O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments. `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
 | O2 | Cloudflare Workers Paid | before O4 |
-| O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the `piloti-decision` subject `inbound_mail_suggestion`) | after the merge |
+| O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
 | O5 | DNS: Email Routing on the apex writes MX and TXT records; literal rules for `postmaster@`, `abuse@` and company addresses first | with O4 |
 | O6 | Launch gates G1–G9, then unpause | after O4 and O5, with a named pilot office for G9 |

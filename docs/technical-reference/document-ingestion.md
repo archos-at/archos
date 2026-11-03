@@ -393,7 +393,7 @@ attachment's read with the same line. The domain in brackets is the signing
 domain only when the sender was verified (`member_verified`,
 `external_verified`); every other sender's From domain carries „Domain nicht
 bestätigt“ (an archive entry's „aus dem Outlook-Archiv“), the words of the
-Verlauf's own headings, in the thread's locale. So Piloti attributes a statement
+Verlauf's own headings, in the thread's locale. So the agent attributes a statement
 to its mail and never presents an unconfirmed sender as the Behörde. The
 original `.eml` is never dispatched.
 

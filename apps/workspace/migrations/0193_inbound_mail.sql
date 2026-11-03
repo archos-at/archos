@@ -31,7 +31,7 @@
 -- makes it a decision about THIS part, and a trigger requires that decision to
 -- be a `file` (RT-S7). A decision's `decided_by` has the shape of a WorkOS user
 -- id, so no `system:*` actor ever decides (`inbound_mail_decisions_decider_is_person`).
--- A Piloti card files clean, unflagged parts only (`..._piloti_cards_file_clean`).
+-- An agent's card files clean, unflagged parts only (`..._agent_cards_file_clean`).
 -- A follow appends a message's text and nothing else (`..._follow_appends_text_only`,
 -- and a trigger checks the part is the text), and the composite key to
 -- `mail_thread_follows (id, thread_id, user_id)` makes the decider the follower.
@@ -361,7 +361,7 @@ CREATE TABLE IF NOT EXISTS "mail_thread_entries" (
   CONSTRAINT "mail_thread_entries_archive_not_checked"
     CHECK (("source" = 'archive') = ("sender_trust" = 'not_checked')),
   CONSTRAINT "mail_thread_entries_filed_via_known"
-    CHECK ("filed_via" IN ('app', 'agent', 'piloti_proposal', 'follow', 'archive_import')),
+    CHECK ("filed_via" IN ('app', 'agent', 'agent_proposal', 'follow', 'archive_import')),
   CONSTRAINT "mail_thread_entries_archive_imported"
     CHECK (("source" = 'archive') = ("filed_via" = 'archive_import')),
   CONSTRAINT "mail_thread_entries_filer_is_person" CHECK ("filed_by" ~ '^user_[0-9A-Z]{26}$'),
@@ -1036,9 +1036,9 @@ CREATE TABLE IF NOT EXISTS "inbound_mail_decisions" (
   CONSTRAINT "inbound_mail_decisions_action_known" CHECK ("action" IN ('file', 'dismiss', 'restore')),
   CONSTRAINT "inbound_mail_decisions_decider_is_person" CHECK ("decided_by" ~ '^user_[0-9A-Z]{26}$'),
   CONSTRAINT "inbound_mail_decisions_via_known"
-    CHECK ("via" IN ('app', 'agent', 'piloti_proposal', 'follow')),
+    CHECK ("via" IN ('app', 'agent', 'agent_proposal', 'follow')),
   CONSTRAINT "inbound_mail_decisions_proposal_iff_card"
-    CHECK (("via" = 'piloti_proposal') = ("proposal_id" IS NOT NULL)),
+    CHECK (("via" = 'agent_proposal') = ("proposal_id" IS NOT NULL)),
   CONSTRAINT "inbound_mail_decisions_follow_iff_follow"
     CHECK (("via" = 'follow') = ("follow_id" IS NOT NULL)),
   -- Only a filing has a destination; appending to a thread has its document.
@@ -1067,10 +1067,10 @@ CREATE TABLE IF NOT EXISTS "inbound_mail_decisions" (
        -- would refuse. The database bounds the value and keeps it one printable line.
        AND ("document_type" IS NULL
             OR (char_length("document_type") BETWEEN 1 AND 64 AND "document_type" !~ '[[:cntrl:]]'))),
-  -- A Piloti card files clean, unflagged parts only (RT-S5): every
+  -- An agent's card files clean, unflagged parts only (RT-S5): every
   -- acknowledgement and release is a person's act in the app or as themselves.
-  CONSTRAINT "inbound_mail_decisions_piloti_cards_file_clean"
-    CHECK ("via" <> 'piloti_proposal'
+  CONSTRAINT "inbound_mail_decisions_agent_cards_file_clean"
+    CHECK ("via" <> 'agent_proposal'
        OR (NOT "screening_release" AND NOT "acknowledged_risk" AND NOT "acknowledged_sender")),
   -- A follow appends a message's text to its thread and nothing else (D31).
   CONSTRAINT "inbound_mail_decisions_follow_appends_text_only"

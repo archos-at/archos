@@ -14,19 +14,11 @@ import 'server-only'
 
 import { and, desc, eq, inArray, isNull, notInArray, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import {
-  documents,
-  documentVersions,
-  inboundMailParts,
-  inboundMails,
-  mailThreadEntries,
-  mailThreadEntryAttachments,
-  mailThreadFollows,
-  mailThreads,
-  projectFolders,
-  type MailThreadEntryRow,
-  type MailThreadFollowRow,
-} from '@/lib/db/schema'
+import { documentVersions } from '@/lib/db/schema/document-versions'
+import { documents } from '@/lib/db/schema/documents'
+import { inboundMailParts, inboundMails } from '@/lib/db/schema/inbound-mail'
+import { mailThreadEntries, mailThreadEntryAttachments, mailThreadFollows, mailThreads, type MailThreadEntryRow, type MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
+import { projectFolders } from '@/lib/db/schema/project-folders'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { CURSOR_TIMESTAMP_FORMAT } from '@/lib/documents/list-cursor'
 import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'

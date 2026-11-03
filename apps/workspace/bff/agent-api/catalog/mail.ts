@@ -9,11 +9,11 @@
  * - Reading is metadata: the list and one mail carry masked subjects, senders,
  *   trust labels, part names and candidates, never a mail's text or bytes. The
  *   text, an attachment's bytes and the original are separate operations, and
- *   the exposure config decides who reads them (Piloti does not; the original
+ *   the exposure config decides who reads them (The agent does not; the original
  *   is withheld from every door as evidence).
  * - Deciding is the person's. `inbound-mail-file` and `inbound-mail-dismiss`
  *   run for an outside agent only on the person's own yes
- *   (`requiresPersonConfirmation`), and Piloti only proposes them as a card
+ *   (`requiresPersonConfirmation`), and the agent only proposes them as a card
  *   that files clean, unflagged parts. Acknowledgements are a single mail's
  *   decision, never a bulk one.
  * - The import's byte protocol is three operations: start, part upload (raw), complete.

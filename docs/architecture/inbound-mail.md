@@ -1,7 +1,7 @@
 # Project mail: the E-Mail-Eingang and the E-Mail-Verläufe
 
 Every project of an office that has the feature gets an address,
-`<slug>.<token>@piloti.at`. Mail sent to it waits in the project's
+`<slug>.<token>@example.org`. Mail sent to it waits in the project's
 **E-Mail-Eingang** until a person with write access to the project's documents
 files each part of it, its text and each attachment. A filed text becomes a
 section of the conversation's one document, the **E-Mail-Verlauf**, and the
@@ -24,7 +24,7 @@ flowchart LR
     MX[Email Routing<br/>apex MX] --> W[Email Worker<br/>shape check, RFC 9421 sign]
   end
   subgraph Edge
-    E[Envoy route grid-app-signed<br/>Content-Length at most 27 MiB]
+    E[Envoy route app-signed<br/>Content-Length at most 27 MiB]
   end
   subgraph BFF
     R[POST /api/internal/signed/inbound-mail<br/>receive.ts] --> S[(staging<br/>_inbound-mail/mail/raw.eml)]
@@ -41,7 +41,7 @@ flowchart LR
     Q3 --> O[(_mail-originals/entry.eml)]
   end
   W --> E --> R
-  Q1 -.-> PY[aiq_api POST /v1/mail/read]
+  Q1 -.-> PY[agent_host POST /v1/mail/read]
   Q1 -.-> AV[ClamAV]
   Q3 -.-> AV
 ```
@@ -92,7 +92,7 @@ then:
 13. 202.
 
 The Worker bounces only a 4xx carrying `x-inbound-verdict: reject`; everything
-else is a retry for the sending server (`shared/inbound-mail-contract.json`).
+else is a retry for the sending server (`contracts/inbound-mail-contract.json`).
 One log line per delivery, ids and codes only; a refusal is a PostHog
 `inbound_mail_refused` with its `reason`.
 
@@ -137,7 +137,7 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
     `inbound_mail_follow` queued;
 13. announce (`inbound_mail.waiting`), publish the project change to the agent
     door, audit `inbound_mail.received`, PostHog `inbound_mail_received`, and
-    queue Piloti's suggestion unless the sender is unconfirmed, impersonating,
+    queue the agent's suggestion unless the sender is unconfirmed, impersonating,
     or the mail is automatic.
 
 On the last attempt the mail is held anyway, flagged `unreadable`, with a text
@@ -151,7 +151,7 @@ to a parser bug.
 | The address | `inbound_mail_addresses` | active; revoked (`rotated`, `switched_off`) |
 | A delivery | `inbound_mails` | `receiving` → `received` → `waiting` → `settled`, or `dropped` |
 | A part | `inbound_mail_parts` (`message` or `attachment`) | `waiting` → `filing` → `filed`; `waiting` again with `last_failure`; `dismissed` / `expired` → `waiting` (restore, 7 days) |
-| A decision | `inbound_mail_decisions` (append-only) | `file`, `dismiss`, `restore`; `via` `app`, `agent`, `piloti_proposal`, `follow` |
+| A decision | `inbound_mail_decisions` (append-only) | `file`, `dismiss`, `restore`; `via` `app`, `agent`, `agent_proposal`, `follow` |
 
 Staged objects: `org/<org>/project/<project>/_inbound-mail/<mailId>/raw.eml`,
 `…/read.json` and `…/<position>` per attachment. A filed message's original:
@@ -179,7 +179,7 @@ signature as `neutral`; `sender-auth.ts` names them `dkim_fail` and
 DMARC only; a CHECK refuses one containing `spf=`.
 
 Flags: `not_addressed_to_project` (no signed To or Cc names the token on the
-inbound domain; a look-alike domain such as `piloti.at.evil.example` does not
+inbound domain; a look-alike domain such as `example.org.evil.example` does not
 count), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
 receipt: the member's own Bcc copy), `stale_date` (signed Date more than 7 days
 before receipt), `date_out_of_range` (the Date outside `[received − 30 days,
@@ -207,7 +207,7 @@ filing`, compare-and-set, 5-minute claim), dismisses every other waiting part of
 those mails, and queues `inbound_mail_file`. It answers 202. Refusals are 409s
 with `details.reason` from `INBOUND_MAIL_REFUSALS` (`inbound-mail-wire.ts`).
 
-`via` is read from the call, never the body (`decisionActor`): a Piloti card the
+`via` is read from the call, never the body (`decisionActor`): an agent's card the
 person accepted (`actingProposalId`, set by the proposal applier), an outside
 agent acting as the person, or the app.
 
@@ -368,9 +368,9 @@ Order matters: 11 before 8 and 9 (they wait for the trail, RT-S8); 12 before 9
 (9 never deletes a running follow). `sweep.spec.ts` holds the order.
 
 **Legal hold.** Every erasing or deleting set asks
-`grid_legal_hold_blocks('project', project_id, organization_id)` in its WHERE;
-a mail's bytes also ask `grid_legal_hold_blocks('user', sender_user_id, …)`
-(a custodian hold on the member it came from). `grid_legal_hold_blocks('project', …)`
+`legal_hold_blocks('project', project_id, organization_id)` in its WHERE;
+a mail's bytes also ask `legal_hold_blocks('user', sender_user_id, …)`
+(a custodian hold on the member it came from). `legal_hold_blocks('project', …)`
 is also true when a hold on any document, folder, conversation or user touches
 the project (migration 0115), so **one held document pauses that project's
 mail erasure**. Under a hold, ending still happens (expire, settle, scrub); only
@@ -401,7 +401,7 @@ mail's anchor ([`adding-a-shareable-resource-type.md`](adding-a-shareable-resour
 A `member_unverified` mail never notifies the member it names. The Postfach row's
 „Wie vorgeschlagen ablegen“ action of the design is not built yet.
 
-## Piloti's suggestion
+## The agent's suggestion
 
 `lib/inbound-mail/suggest-job.ts` (`inbound_mail_suggest`, system, bulk, job id
 uuid5 of the mail). Skipped, with no model call, when `FILING_SUGGESTIONS`
@@ -423,7 +423,7 @@ a person reads must not make their decision stale.
 All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 `mail` ([`agent-surface.md`](agent-surface.md)).
 
-| Operation | Outside agents | Piloti |
+| Operation | Outside agents | The agent |
 |---|---|---|
 | `inbound-mail-address-get`, `-create`, `-delete`, `-rotate` | yes | yes |
 | `inbound-mail-list`, `-get` (metadata only) | yes | yes |
@@ -467,7 +467,7 @@ file).
   ([`posthog-events.md`](../observability/posthog-events.md)). Ids, codes and
   counts only.
 - Langfuse: the suggestion's `filing-fit` generation (`surface: inbound_mail`),
-  `piloti-decision` (subject `inbound_mail_suggestion`) and `mail-thread-match`
+  the decision score (`DECISION_SCORE_NAME`) (subject `inbound_mail_suggestion`) and `mail-thread-match`
   ([`langfuse.md`](../observability/langfuse.md)). `/v1/mail/read` makes no
   model call.
 - Audit (`lib/audit/schemas.mjs`): `inbound_mail.received`, `.expired`,

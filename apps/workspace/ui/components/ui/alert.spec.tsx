@@ -1,7 +1,7 @@
 /**
  * The destructive alert's words are ink, its glyph the signal red: red words on
  * the danger tint measured 4.08:1, under WCAG AA's 4.5:1 for body text
- * (`grid-design-language.md`, „Measured contrasts that decide a token“). A
+ * (`design-language.md`, „Measured contrasts that decide a token“). A
  * class assertion, because jsdom computes no colours; the axe run on the
  * previews measures the ratio itself.
  */

@@ -18,7 +18,7 @@ vi.mock('@/lib/documents/accepted-types', () => ({
 import { ConflictError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import {
   DOCUMENT_ID,
   FILE_PART_ID,
@@ -275,13 +275,13 @@ describe('C2: each rule, failing alone', () => {
     expect(codeOf(() => plan(mail, decision(mail), context({ bulk: true })))).toBe('passes')
   })
 
-  it('refuses a Piloti card that carries an acknowledgement or a release (RT-S5)', () => {
+  it('refuses an agent's card that carries an acknowledgement or a release (RT-S5)', () => {
     const mail = heldMail()
-    const card = context({ actor: { decidedBy: PERSON, via: 'piloti_proposal', proposalId: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' } })
+    const card = context({ actor: { decidedBy: PERSON, via: 'agent_proposal', proposalId: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' } })
     expect(codeOf(() => plan(mail, { ...decision(mail), acknowledgeSender: true }, card))).toBe('card_carries_acknowledgement')
     const released = decision(mail, { parts: [{ partId: FILE_PART_ID, folderId: null, newFolderPath: null, name: 'S-101_C.pdf', screeningRelease: 'name' }] })
     expect(codeOf(() => plan(mail, released, card))).toBe('card_carries_acknowledgement')
-    expect(plan(mail, decision(mail), card).files[0]).toMatchObject({ via: 'piloti_proposal', proposalId: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' })
+    expect(plan(mail, decision(mail), card).files[0]).toMatchObject({ via: 'agent_proposal', proposalId: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' })
   })
 
   it('refuses a folder, thread or document the person may not read, and a full thread', () => {

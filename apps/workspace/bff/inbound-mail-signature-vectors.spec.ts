@@ -11,7 +11,7 @@ import { contentDigestOf, signedHeaders } from '@/test-utils/signed-request'
 
 /**
  * The BFF's half of the inbound-mail signature vectors
- * (`shared/inbound-mail-signature.json`). The Worker's half is
+ * (`contracts/inbound-mail-signature.json`). The Worker's half is
  * `deploy/pulumi/src/platform/inbound-mail-worker.spec.ts`, which makes the
  * Worker's hand-written WebCrypto signer produce every vector's request byte
  * for byte. Here the same requests must pass `requireInternalSignature`, and
@@ -51,19 +51,19 @@ interface Contract {
   readonly signedComponents: readonly string[]
 }
 
-function readShared<T>(file: string): T {
+function readContract<T>(file: string): T {
   let dir = process.cwd()
   for (;;) {
-    const candidate = join(dir, 'shared', file)
+    const candidate = join(dir, 'contracts', file)
     if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, 'utf8')) as T
     const parent = dirname(dir)
-    if (parent === dir) throw new Error(`shared/${file} not found in any directory above ${process.cwd()}`)
+    if (parent === dir) throw new Error(`contracts/${file} not found in any directory above ${process.cwd()}`)
     dir = parent
   }
 }
 
-const VECTORS = readShared<{ vectors: Vector[] }>('inbound-mail-signature.json').vectors
-const CONTRACT = readShared<Contract>('inbound-mail-contract.json')
+const VECTORS = readContract<{ vectors: Vector[] }>('inbound-mail-signature.json').vectors
+const CONTRACT = readContract<Contract>('inbound-mail-contract.json')
 const KEYS_ENV = 'INBOUND_MAIL_SIGNING_KEYS'
 const REQUIREMENT = { keysEnv: KEYS_ENV, components: [CONTRACT.envelopeToHeader, CONTRACT.envelopeFromHeader] } as const
 
@@ -145,7 +145,7 @@ describe('the inbound-mail signature vectors, against the BFF', () => {
     const [vector] = VECTORS
     useVector(vector)
     await expect(
-      requireInternalSignature(workerRequest(vector, { [CONTRACT.envelopeToHeader]: 'other.k3m7q2xw4pab@piloti.test' }), 'v', REQUIREMENT),
+      requireInternalSignature(workerRequest(vector, { [CONTRACT.envelopeToHeader]: 'other.k3m7q2xw4pab@example.test' }), 'v', REQUIREMENT),
     ).rejects.toMatchObject({ reason: 'bad-signature' })
     vi.stubEnv('WORKOS_REDIRECT_URI', 'https://elsewhere.example/api/auth/callback')
     await expect(requireInternalSignature(workerRequest(vector), 'v', REQUIREMENT)).rejects.toMatchObject({ reason: 'bad-signature' })

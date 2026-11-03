@@ -15,14 +15,7 @@ import 'server-only'
 
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import {
-  inboundMailDecisions,
-  inboundMailParts,
-  inboundMails,
-  type InboundMailDecisionRow,
-  type InboundMailPartRow,
-  type InboundMailRow,
-} from '@/lib/db/schema'
+import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type InboundMailPartRow, type InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import type {
   InboundMailFilingFailure,
   InboundMailIgnoredCounts,
@@ -203,7 +196,7 @@ export async function markAttachmentFiled(
 /** Whether a legal hold covers the project now (the 0093 function the triggers ask). */
 export async function projectIsHeld(projectId: string, organizationId: string): Promise<boolean> {
   const rows = await getDb().execute<{ held: boolean }>(
-    sql`SELECT grid_legal_hold_blocks('project', ${projectId}::text, ${organizationId}) AS held`
+    sql`SELECT legal_hold_blocks('project', ${projectId}::text, ${organizationId}) AS held`
   )
   return Boolean(Array.from(rows)[0]?.held)
 }

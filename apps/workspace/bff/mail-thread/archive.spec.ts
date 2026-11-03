@@ -37,7 +37,8 @@ vi.mock('@/lib/authz/folder-access', () => ({ canWriteFolder: vi.fn(async () => 
 vi.mock('@/lib/authz/folder-access-repository', () => ({ listProjectFolderTree: vi.fn(async () => []) }))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { MailImport, MailImportSkipReason, MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema'
+import type { MailImport, MailImportSkipReason } from '@/lib/db/schema/mail-imports'
+import type { MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema/mail-thread'
 import type { ArchiveMail } from '@/lib/mail-import/archive-client'
 import { canWriteFolder } from '@/lib/authz/folder-access'
 import { findThreadCandidates } from '@/lib/inbound-mail/repository'

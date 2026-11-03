@@ -20,7 +20,7 @@ import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds, projectMayWriteDocuments } from '@/lib/authz/folder-access'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import type { MailThreadFollowRow } from '@/lib/db/schema'
+import type { MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
 import { decodeDocumentListCursor, encodeDocumentListCursor } from '@/lib/documents/list-cursor'
 import { managesProject, requireInboundMailEnabled } from '@/lib/inbound-mail/access'
 import { followView } from './follows'
@@ -70,7 +70,7 @@ function summaryView(thread: ThreadRow, follows: readonly MailThreadFollowRow[],
  * and disposition and loses its name and ids (`visible: false`). One that was
  * not filed (waiting, dismissed, infected, name-stopped, never staged) keeps
  * its reason and never its name: that name became no document anyone may
- * read, and before filing only a reviewer reads it, so a thread reader, Piloti
+ * read, and before filing only a reviewer reads it, so a thread reader, the agent
  * or an outside agent learns none (RT-S13; the rendered Verlauf prints none
  * either).
  */

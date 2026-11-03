@@ -57,15 +57,8 @@ import {
 } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import type { AccessFolder } from '@/lib/authz/folder-access-rule'
-import type {
-  InboundMailDecisionRow,
-  InboundMailPartRow,
-  InboundMailRow,
-  MailThreadEntryAttachmentRow,
-  MailThreadEntryRow,
-  NewMailThreadEntryAttachmentRow,
-  NewMailThreadEntryRow,
-} from '@/lib/db/schema'
+import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import type { MailThreadEntryAttachmentRow, MailThreadEntryRow, NewMailThreadEntryAttachmentRow, NewMailThreadEntryRow } from '@/lib/db/schema/mail-thread'
 import { contentDigest } from '@/lib/documents/content-digest'
 import { memberReader } from '@/lib/documents/document-reader'
 import { documentNameKey } from '@/lib/documents/name-match'

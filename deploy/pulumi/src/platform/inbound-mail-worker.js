@@ -6,18 +6,18 @@
  * signs them for the BFF, posts them, and turns the BFF's answer into accept,
  * reject or retry. Everything that decides anything about a project (address,
  * office, sender, DKIM, limits) lives in the BFF, where it is tested and
- * audited (ADR-0138). The webhook's contract is `shared/inbound-mail-contract.json`;
+ * audited (ADR-0138). The webhook's contract is `contracts/inbound-mail-contract.json`;
  * the constants below restate it, and `inbound-mail-worker.spec.ts` holds them
  * to that file.
  *
  * ## The one thing it decides: is this a project address at all
  *
- * The catch-all it hangs off is the product domain's own (`piloti.at`), so it
+ * The catch-all it hangs off is the product domain's own (`example.org`), so it
  * receives every address on that domain that no literal rule claimed first:
  * project addresses, and also typos of company addresses and whatever spam
  * guesses. Cloudflare matches literal rules before the catch-all, so a named
  * company address with its own rule never gets here. For the rest, the Worker
- * checks the recipient's SHAPE, the rule of `shared/inbound-address.json`,
+ * checks the recipient's SHAPE, the rule of `contracts/inbound-address.json`,
  * which the BFF's parser runs too. A project-shaped address goes to the BFF.
  * Anything else is refused here with `UNKNOWN_ADDRESS_TEXT`, without a
  * request: spam to random names never reaches the webhook.
@@ -48,7 +48,7 @@
  * answers as a duplicate.
  *
  * The signer is written by hand on WebCrypto, because the Worker has no
- * bundler. `shared/inbound-mail-signature.json` pins it: the spec makes this
+ * bundler. `contracts/inbound-mail-signature.json` pins it: the spec makes this
  * module produce every vector's request byte for byte, and the BFF's spec
  * verifies the same vectors with the library the BFF uses.
  *
@@ -121,7 +121,7 @@
 
 /**
  * A project token: 12 characters of lowercased RFC 4648 base32. Must equal
- * `tokenPattern` in `shared/inbound-address.json` (the spec checks).
+ * `tokenPattern` in `contracts/inbound-address.json` (the spec checks).
  */
 export const TOKEN_PATTERN = "^[a-z2-7]{12}$";
 
@@ -172,7 +172,7 @@ export const BFF_TIMEOUT_MS = 90_000;
  */
 export const REJECT_TEXT =
   "This message could not be delivered: the address is unknown or no longer valid. " +
-  "Help: https://piloti.at/e-mail-eingang/ Privacy: https://piloti.at/datenschutz/";
+  "Help: https://example.org/e-mail-eingang/ Privacy: https://example.org/datenschutz/";
 
 /** The bounce for an address that is not project-shaped: a typo, a name nobody routed, a guess. */
 export const UNKNOWN_ADDRESS_TEXT = "Unknown address: this message was not delivered.";

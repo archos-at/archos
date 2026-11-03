@@ -2,7 +2,7 @@
  * One held mail (ADR-0137).
  *
  * GET — its headers (the subject masked), the sender's trust label and flags,
- *       its parts (names, states, scans, flags, Piloti's suggestion), the
+ *       its parts (names, states, scans, flags, the agent's suggestion), the
  *       threads and documents it matched as the caller may see them, and the
  *       `ifMatch` a decision sends back. Never its text: that is `…/text`.
  *       Whoever may add documents to the project reads it.

@@ -49,8 +49,9 @@ import {
   ARCHIVE_BYTES,
   ASK,
   CANVAS,
-  HELD_MAIL,
   DECISION,
+  externalOnly,
+  HELD_MAIL,
   MEMORY,
   NATIVE_READ,
   OFFERED,
@@ -58,6 +59,7 @@ import {
   SENSITIVE,
   SKILL_READ,
   TASK,
+  withheldAs,
 } from './exposure-presets'
 
 /**
@@ -237,23 +239,19 @@ export const EXPOSURE = {
   'inbound-mail-address-delete': OFFERED,
   'inbound-mail-address-get': OFFERED,
   'inbound-mail-address-rotate': OFFERED,
-  // Piloti proposes these as a card that files clean, unflagged parts only (RT-S5); an
+  // The agent proposes these as a card that files clean, unflagged parts only (RT-S5); an
   // outside agent's call runs only on the person's own yes (`requiresPersonConfirmation`).
   'inbound-mail-dismiss': OFFERED,
   'inbound-mail-file': OFFERED,
   'inbound-mail-get': OFFERED,
   'inbound-mail-list': OFFERED,
-  'inbound-mail-original-get': {
-    external: false,
-    piloti: false,
-    withheld: {
-      category: 'evidence',
-      reason: 'the original message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app',
-    },
-  },
-  'inbound-mail-part-content-get': { external: true, piloti: false, reason: HELD_MAIL },
+  'inbound-mail-original-get': withheldAs(
+    'evidence',
+    'the original message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app',
+  ),
+  'inbound-mail-part-content-get': externalOnly(HELD_MAIL),
   'inbound-mail-restore': OFFERED,
-  'inbound-mail-text-get': { external: true, piloti: false, reason: HELD_MAIL },
+  'inbound-mail-text-get': externalOnly(HELD_MAIL),
   'mail-import-cancel': OFFERED,
   'mail-import-complete': ARCHIVE_BYTES,
   'mail-import-get': OFFERED,
@@ -261,25 +259,17 @@ export const EXPOSURE = {
   'mail-import-part-upload': ARCHIVE_BYTES,
   'mail-import-start': ARCHIVE_BYTES,
   'mail-thread-entry-detach': OFFERED,
-  'mail-thread-entry-original-get': {
-    external: false,
-    piloti: false,
-    withheld: {
-      category: 'evidence',
-      reason: 'a filed message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app',
-    },
-  },
+  'mail-thread-entry-original-get': withheldAs(
+    'evidence',
+    'a filed message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app',
+  ),
   // A person's standing decision to let replies' text in without a click (D31):
-  // it turns review down for one conversation, so it is never Piloti's to make,
+  // it turns review down for one conversation, so it is never the agent's to make,
   // and an outside agent's only under the office's opt-in and the step-up scope.
   'mail-thread-follow': SENSITIVE,
   'mail-thread-get': OFFERED,
   'mail-thread-list': OFFERED,
-  'mail-thread-unfollow': {
-    external: true,
-    piloti: false,
-    reason: 'a standing decision is the person’s own; Piloti neither makes nor ends it',
-  },
+  'mail-thread-unfollow': externalOnly('a standing decision is the person’s own; the agent neither makes nor ends it'),
 
   // review
   'annotation-create': { external: true, piloti: 'native:canvas__mark', reason: CANVAS },

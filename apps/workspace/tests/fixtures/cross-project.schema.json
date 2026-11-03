@@ -32,7 +32,7 @@
         },
         "documentTypes": {
           "default": [],
-          "maxItems": 12,
+          "maxItems": 13,
           "type": "array",
           "items": {
             "type": "string",
@@ -47,6 +47,7 @@
               "Bescheid",
               "Norm/Richtlinie",
               "Vertrag",
+              "correspondence",
               "Foto",
               "Sonstiges"
             ]

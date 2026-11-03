@@ -133,7 +133,7 @@ export interface MailFilingInput {
   trace: { mailId: string; projectId: string }
 }
 
-/** Where Piloti would file one part of a held mail, checked against the input. */
+/** Where the agent would file one part of a held mail, checked against the input. */
 export interface MailPlacement {
   partId: string
   /** The folder as the input spelled it. */

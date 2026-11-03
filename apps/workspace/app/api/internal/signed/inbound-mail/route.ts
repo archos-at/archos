@@ -5,7 +5,7 @@
  *
  * POST — the body is the message as it arrived (`message/rfc822`), its length
  * and RFC 9530 digest signed with RFC 9421 together with the envelope headers
- * `x-envelope-to` and `x-envelope-from` (`shared/inbound-mail-contract.json`).
+ * `x-envelope-to` and `x-envelope-from` (`contracts/inbound-mail-contract.json`).
  * The answer is 202 (held for the receive job), 200 (a second delivery of a
  * mail already held), a 4xx with `x-inbound-verdict: reject` (the only answer
  * the Worker bounces: unknown address, office switched off, too large), or

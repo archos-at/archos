@@ -318,6 +318,20 @@ CHAT_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
 API_APP_REGISTRARS = (register_job_routes,)
 
 
+#: The readers the BFF calls on its own behalf, mounted by ``api_routers`` in this
+#: order. Internal-token only, off the external allowlist.
+INTERNAL_READER_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
+    # The agent's read tools (knowledge, passages, files, page images, BIM, RIS) for the
+    # BFF's MCP server, run for the person a signed envelope names (ADR-0122).
+    add_internal_tool_routes,
+    # Reads an Outlook archive the BFF staged, for its mail import (ADR-0085).
+    add_mail_archive_routes,
+    # Reads one mail sent to a project's address for the BFF's receive job:
+    # own text, quoted blocks, calendar (DECISION D12).
+    add_mail_routes,
+)
+
+
 def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], None], ...]:
     """The routers the ``api`` role mounts on its router.
 
@@ -354,17 +368,7 @@ def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], N
         # the close dialog's suggestions (ADR-0096). Internal-token only.
         add_project_experience_routes,
         add_ingest_routes,
-        # The agent's read tools (knowledge, passages, files, page images, BIM, RIS) for the
-        # BFF's MCP server, run for the person a signed envelope names (ADR-0122).
-        # Internal-token only, off the external allowlist.
-        add_internal_tool_routes,
-        # Reads an Outlook archive the BFF staged, for its mail import (ADR-0085).
-        # Internal-token only, off the external allowlist.
-        add_mail_archive_routes,
-        # Reads one mail sent to a project's address for the BFF's receive job:
-        # own text, quoted blocks, calendar (DECISION D12). Internal-token only,
-        # off the external allowlist.
-        add_mail_routes,
+        *INTERNAL_READER_ROUTERS,
         add_oib_routes,
         add_norm_routes,
         # A RIS document as text, so a RIS citation opens INSIDE Piloti rather

@@ -8,7 +8,7 @@ attachments into the project's folders, each as a new document or the next
 Fassung of one.
 
 **Nothing is filed automatically**, except the text of an E-Mail-Verlauf you
-chose to follow. Piloti reads a mail only once it is filed.
+chose to follow. ARCHOS reads a mail only once it is filed.
 
 Project mail is switched on per office. If you do not see „E-Mail-Eingang“ in
 Dateien, your office does not have it yet.
@@ -17,7 +17,7 @@ Dateien, your office does not have it yet.
 
 ## The project's address
 
-The address looks like `bauplatz-12.k3x7q2m9p4ab@piloti.at`: the project's
+The address looks like `bauplatz-12.k3x7q2m9p4ab@example.org`: the project's
 name and a random part. **What it is for:** put it in Cc when you write to the
 Behörde, the Statik or the Bauherrschaft, and their replies land in the
 E-Mail-Eingang; forward documents from your mail program to it. Nothing is
@@ -63,13 +63,13 @@ Each mail says whether its sender's domain confirmed it:
 | Label | Meaning |
 |---|---|
 | **Domain bestätigt: statik-weber.at** | The sender's domain signed the mail (DKIM). This proves the domain, not the person who wrote it |
-| **Domain nicht bestätigt** | The domain did not sign it. Piloti makes no suggestion, and no E-Mail-Verlauf is pre-selected |
+| **Domain nicht bestätigt** | The domain did not sign it. ARCHOS makes no suggestion, and no E-Mail-Verlauf is pre-selected |
 | **Mitglied · Domain nicht bestätigt** | The address is a colleague's, but your domain did not sign it. You confirm before filing |
 | **Ihre eigene E-Mail (Bcc)** | A copy of a mail you sent to others, with the project in Bcc |
 | **Gibt sich als … aus** | The signature was rejected, or a colleague's name appears on an address that is not theirs |
 
 **A mail that poses as someone is a stop.** It opens behind a warning, „Verwerfen“
-is the first button, nothing is pre-selected, Piloti suggests nothing, and it
+is the first button, nothing is pre-selected, ARCHOS suggests nothing, and it
 can never be filed together with other mails. This is how payment-change fraud
 starts: check any change of bank details by phone, never by replying.
 
@@ -145,7 +145,7 @@ until someone checks it.
 override is recorded.
 
 **Several mails at once.** Select mails (or press X) and use „Wie vorgeschlagen
-ablegen“: it files every selected mail as its defaults and Piloti's suggestions
+ablegen“: it files every selected mail as its defaults and ARCHOS's suggestions
 say, after a confirmation grouped by destination. It is offered only when every
 selected mail is complete: nothing to confirm, a folder for every attachment.
 Ready replies of one conversation are one group under „Bereit“: „Alle 4
@@ -172,7 +172,7 @@ filing has no undo; „Öffnen“ takes you to the document.
 ## Malware checks
 
 Every attachment, and every mail as a whole, is checked for malware on
-Piloti's own servers before anyone can file or open it: „Auf Schadsoftware
+ARCHOS's own servers before anyone can file or open it: „Auf Schadsoftware
 geprüft“. An infected attachment („Schadsoftware gefunden“) cannot be filed;
 the mail can only be dismissed. A check that failed is repeated by itself.
 Previews before filing are drawn for images and PDFs only; other files show
@@ -185,10 +185,10 @@ attachment) is listed as „… · Dateityp wird in diesem Büro nicht abgelegt 
 Original enthalten“. It cannot be filed, but it stays inside the mail's
 original when you file the text.
 
-## Piloti's suggestion
+## ARCHOS's suggestion
 
-For a mail from a confirmed domain, Piloti suggests a folder and a Dokumentart
-for each attachment („Vorschlag von Piloti“), and a folder for a new
+For a mail from a confirmed domain, ARCHOS suggests a folder and a Dokumentart
+for each attachment („Vorschlag von ARCHOS“), and a folder for a new
 E-Mail-Verlauf. It reads only the file names, the subject (masked by your
 office's content check) and the sender's domain, never the text or the files.
 There is no suggestion for unconfirmed or automatic mail.
@@ -200,7 +200,7 @@ filed e-mail is a section headed with its time, its sender and the confirmed
 domain („14.10.2026 09:12 · Mag. Huber (ma37.wien.gv.at)“), or „Domain nicht
 bestätigt“ when it was not confirmed. Each section says when it arrived
 („eingegangen …“). Each later e-mail adds a Fassung, and the newest Fassung
-holds the whole conversation. Piloti answers from it and cites one e-mail:
+holds the whole conversation. ARCHOS answers from it and cites one e-mail:
 „laut E-Mail von … vom …“.
 
 A Bescheid that arrived by e-mail is a **copy** („Kopie per E-Mail“), not its
@@ -223,7 +223,7 @@ came with, and „Im E-Mail-Verlauf ansehen“ leads there.
 
 ## The original (.eml)
 
-Piloti keeps every filed e-mail exactly as it arrived, beside its section, as
+ARCHOS keeps every filed e-mail exactly as it arrived, beside its section, as
 evidence: the signature can be checked again on these bytes, and pictures in
 the text and files that could not be filed are in it. Whoever may read the
 E-Mail-Verlauf may download it. It is checked for malware again on every
@@ -272,8 +272,8 @@ original.
 
 ## For agents
 
-Everything here is also an operation of Piloti's agent door, in the `mail`
+Everything here is also an operation of ARCHOS's agent door, in the `mail`
 domain: an outside agent acting for you can list and read waiting mail and
-file it, but only on your own yes, and it never gets an original. Piloti
+file it, but only on your own yes, and it never gets an original. ARCHOS
 proposes a filing as a card you accept. See
 [Connect your agent](connect-your-agent.md).

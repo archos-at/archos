@@ -2,11 +2,11 @@
  * The decision a person is making about one held mail, before they press the
  * button, and the request it becomes (`inbound-mail-file`, D26).
  *
- * The draft starts as Piloti's suggestion, the server's candidates and the
+ * The draft starts as the agent's suggestion, the server's candidates and the
  * server's defaults (`preselected` on each part, `initialDraft`), so pressing
  * „Ablegen“ IS taking the suggestion over
- * (CONTEXT: Piloti's findings are Vorschläge until a person takes them over);
- * every field the person edits stops being Piloti's (`suggested`). The button
+ * (CONTEXT: the agent's findings are Vorschläge until a person takes them over);
+ * every field the person edits stops being the agent's (`suggested`). The button
  * label, the bulk confirmation and the request are all read off the same
  * draft (`draftSummary`, `decisionOf`), so what the bar says is what is sent.
  *
@@ -44,7 +44,7 @@ export interface AttachmentDraft {
   partId: string
   checked: boolean
   name: string
-  /** Null until a folder is chosen: Piloti suggested none, and filing waits for the person. */
+  /** Null until a folder is chosen: the agent suggested none, and filing waits for the person. */
   folder: FolderTarget | null
   documentType: DocumentTypeTag | null
   /** File as the next Fassung of this document. */
@@ -53,16 +53,16 @@ export interface AttachmentDraft {
   releaseName: boolean
   /** The person accepted the part's risk flag (macro, type mismatch, an unconfirmed Fassung). */
   acknowledgeRisk: boolean
-  /** Which fields still hold Piloti's value. */
+  /** Which fields still hold the agent's value. */
   suggested: { folder: boolean; name: boolean; documentType: boolean }
 }
 
 export type MessageTarget =
   | { kind: 'append'; threadId: string }
   /**
-   * `folderSuggested`: the folder is Piloti's stored suggestion for the text
+   * `folderSuggested`: the folder is the agent's stored suggestion for the text
    * (D14), not the rule's correspondence folder (`defaultThreadFolder`) nor the
-   * person's pick. Only then may the folder wear Piloti's mark.
+   * person's pick. Only then may the folder wear the agent's mark.
    */
   | { kind: 'create'; name: string; folder: FolderTarget; folderSuggested: boolean; releaseName: boolean }
 
@@ -145,14 +145,14 @@ export function defaultThreadFolder(folders: readonly FolderOption[]): FolderTar
 
 /**
  * A new thread for the text: named after the subject (the person confirms it),
- * in the folder Piloti suggested for the text where it did (D14: only when no
+ * in the folder the agent suggested for the text where it did (D14: only when no
  * thread matched), else a correspondence folder, else the root.
  */
 export function newThreadTarget(view: Pick<InboundMailView, 'subject' | 'parts'>, folders: readonly FolderOption[], copy: DraftCopy): MessageTarget {
   const suggested = readSuggestion(view.parts.find((part) => part.kind === 'message')?.suggestion)
-  const fromPiloti = suggested?.folder != null
-  const folder = fromPiloti ? targetForPath(suggested.folder ?? '', folders, suggested.folderId) : defaultThreadFolder(folders)
-  return { kind: 'create', name: displaySubject(view.subject) ?? copy.untitledThread, folder, folderSuggested: fromPiloti, releaseName: false }
+  const fromAgent = suggested?.folder != null
+  const folder = fromAgent ? targetForPath(suggested.folder ?? '', folders, suggested.folderId) : defaultThreadFolder(folders)
+  return { kind: 'create', name: displaySubject(view.subject) ?? copy.untitledThread, folder, folderSuggested: fromAgent, releaseName: false }
 }
 
 /** Whether the mail's own text can be filed at all: waiting, read, its raw message scanned clean, and the project open. */
@@ -196,7 +196,7 @@ export function updateAttachment(draft: MailDraft, partId: string, change: Parti
         : {
             ...attachment,
             ...change,
-            // A field stays Piloti's until the person gives it another value.
+            // A field stays the agent's until the person gives it another value.
             suggested: {
               folder: attachment.suggested.folder && (change.folder === undefined || sameTarget(change.folder, attachment.folder)),
               name: attachment.suggested.name && (change.name === undefined || change.name === attachment.name),

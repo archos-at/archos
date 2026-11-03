@@ -19,7 +19,7 @@ import 'server-only'
  *   mail the person read (`ifMatch`, C3). The request files nothing: the job
  *   does, as the person, from those rows (`file-job.ts`). It answers 202.
  * - **How it reached us.** `via` is read from the call, never from the body:
- *   the app, an outside agent acting as the person, or a Piloti card the
+ *   the app, an outside agent acting as the person, or an agent's card the
  *   person accepted (`actingProposalId`). A card carries no acknowledgement
  *   and no release (RT-S5).
  */
@@ -30,7 +30,7 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import { BadRequestError, NotFoundError } from '@/lib/api/errors'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { contentDisposition } from '@/lib/documents/content-disposition'
 import { decodeDocumentListCursor, encodeDocumentListCursor } from '@/lib/documents/list-cursor'
@@ -98,12 +98,12 @@ export function filingJobId(firstDecisionId: string): string {
 
 /**
  * How the decision in flight reached us (`inbound_mail_decisions.via`), from
- * the call itself: a Piloti card the person accepted, an outside agent acting
+ * the call itself: an agent's card the person accepted, an outside agent acting
  * as the person, or the app. Never from the body, which an agent writes.
  */
 export function decisionActor(session: AuthorizedSession): DecisionActor {
   const proposalId = actingProposalId()
-  if (proposalId) return { decidedBy: session.userId, via: 'piloti_proposal', proposalId }
+  if (proposalId) return { decidedBy: session.userId, via: 'agent_proposal', proposalId }
   if (currentActingSession() && actingReaderIsAgent()) return { decidedBy: session.userId, via: 'agent', proposalId: null }
   return { decidedBy: session.userId, via: 'app', proposalId: null }
 }
@@ -158,7 +158,7 @@ function partView(mail: InboundMailRow, part: InboundMailPartRow, candidates: Vi
     duplicateOf: matched.duplicateOf,
     revisionCandidate: matched.revisionCandidate,
     revisionCandidateHidden: matched.revisionCandidateHidden,
-    // A mail Piloti does not suggest for shows none, even one stored before the rule said so (an impersonation).
+    // A mail the agent does not suggest for shows none, even one stored before the rule said so (an impersonation).
     suggestion: suggestionSkipReason(mail) === null ? readSuggestion(part.suggestion) : null,
     restorableUntil: restorableUntil(mail, part, now),
   }
@@ -326,7 +326,7 @@ export async function getInboundMail(session: AuthorizedSession, projectId: stri
 /**
  * The text of a held mail (`inbound-mail-text-get`, D7): the sender's own text
  * and the quoted blocks, every finding of the office's content check masked,
- * for every reader. Not offered to Piloti (the exposure config); outside agents
+ * for every reader. Not offered to the agent (the exposure config); outside agents
  * and people read it masked.
  */
 export async function getInboundMailText(session: AuthorizedSession, projectId: string, mailId: string): Promise<InboundMailTextView> {
@@ -381,7 +381,7 @@ export function heldBytesHeaders(contentType: string, filename: string): Record<
  * The bytes of one held attachment (`inbound-mail-part-content-get`), for the
  * person's preview and download: only after a clean scan (409
  * `scan_not_clean` otherwise, RT-S3), served so a browser never runs them, and
- * audited (`inbound_mail.part_read`). Not offered to Piloti.
+ * audited (`inbound_mail.part_read`). Not offered to the agent.
  */
 export async function readInboundMailPart(
   session: AuthorizedSession,

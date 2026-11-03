@@ -5,7 +5,7 @@
  * first look at it, its name and facts, what the reader must know before
  * filing it (DECISION §9, the case table), and where it would go.
  *
- * Where it goes is Piloti's suggestion until the person touches it: the
+ * Where it goes is the agent's suggestion until the person touches it: the
  * filing chip names the folder and opens the folder picker, the Dokumentart
  * and the name sit beside it, and „Ändern“ edits them. Pressing „Ablegen“
  * is the takeover; there is no separate „Vorschlag übernehmen“.

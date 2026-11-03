@@ -4,7 +4,7 @@
  * GET — the sender's own text and the quoted earlier messages, with every
  *       finding of the office's content check masked, for every reader.
  *       Whoever may add documents to the project reads it; no model of
- *       Piloti's does before a person filed it (the exposure config).
+ *       The agent's does before a person filed it (the exposure config).
  *
  * Thin handler; the logic is `@/lib/inbound-mail/service`.
  */

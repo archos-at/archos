@@ -17,24 +17,11 @@ import 'server-only'
 import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbExecutor, DbTransaction } from '@/lib/db/executor'
-import {
-  documents,
-  documentVersions,
-  inboundMailParts,
-  inboundMails,
-  mailThreadEntries,
-  mailThreadEntryAttachments,
-  mailThreadFollows,
-  mailThreadMessageIds,
-  mailThreads,
-  projectFolders,
-  type MailThreadEntryAttachmentRow,
-  type MailThreadEntryRow,
-  type MailThreadRow,
-  type NewMailThreadEntryAttachmentRow,
-  type NewMailThreadEntryRow,
-  type NewMailThreadRow,
-} from '@/lib/db/schema'
+import { documentVersions } from '@/lib/db/schema/document-versions'
+import { documents } from '@/lib/db/schema/documents'
+import { inboundMailParts, inboundMails } from '@/lib/db/schema/inbound-mail'
+import { mailThreadEntries, mailThreadEntryAttachments, mailThreadFollows, mailThreadMessageIds, mailThreads, type MailThreadEntryAttachmentRow, type MailThreadEntryRow, type MailThreadRow, type NewMailThreadEntryAttachmentRow, type NewMailThreadEntryRow, type NewMailThreadRow } from '@/lib/db/schema/mail-thread'
+import { projectFolders } from '@/lib/db/schema/project-folders'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 import { MAIL_THREAD_MAX_ENTRIES } from './mail-thread-vocabulary'

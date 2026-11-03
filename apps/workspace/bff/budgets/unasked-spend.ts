@@ -4,7 +4,7 @@
  * be read, says no. A turn a person types fails the other way; this one is the
  * unasked kind, so the doubt goes against the spend.
  *
- * Work that runs as the system, for no person (Piloti's suggestion for a held
+ * Work that runs as the system, for no person (The agent's suggestion for a held
  * mail), passes `userId: null`: the organization's and the project's budgets
  * still decide, and no member's.
  */

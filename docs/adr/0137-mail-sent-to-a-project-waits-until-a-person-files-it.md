@@ -13,12 +13,12 @@ informed: everyone who builds on documents, the agent door, retention or the inb
 A planning office's correspondence about a project lives in Outlook: the
 Behörde's letter with the Bescheid attached, the Statiker's reply with the next
 Fassung of S-101, the Bauherr's project manager answering all. Until now it
-reached Piloti only when somebody saved an attachment by hand, or imported a
+reached the agent only when somebody saved an attachment by hand, or imported a
 whole Outlook archive afterwards (ADR-0085). The workspace did not have the
-conversation itself, so Piloti could not say what the Behörde wrote, and a file
+conversation itself, so the agent could not say what the Behörde wrote, and a file
 that came by mail had no record of the mail it came with.
 
-Giving every project an address (`<slug>.<token>@piloti.at`, the transport is
+Giving every project an address (`<slug>.<token>@example.org`, the transport is
 ADR-0138) fixes the gap and opens a new one: anyone who knows the address can
 put bytes and words in front of the office. A conversation where the project
 is only in Cc grows through other people's replies, so the address cannot be
@@ -35,7 +35,7 @@ and its becoming part of the project, what it becomes, and who may decide.
   "nothing is filed without a person's decision, for that mail or as their
   standing decision to follow the conversation". It must hold for every code
   path, and the database must say who decided.
-* **No model Piloti runs reads a held mail.** Before a person filed it, a
+* **No model the agent runs reads a held mail.** Before a person filed it, a
   mail's text and bytes are a stranger's; prompt injection and data the office
   never chose stay out of every model.
 * **The mail is the asset.** A conversation is what an office cites, disputes
@@ -58,7 +58,7 @@ and its becoming part of the project, what it becomes, and who may decide.
 
 1. As a document in the Quarantäne (ADR-0086), released by an admin.
 2. As a Fassung in Freigabe (ADR-0054), approved by a reviewer.
-3. As a Piloti proposal (ADR-0105) the person accepts or dismisses.
+3. As an agent's proposal (ADR-0105) the person accepts or dismisses.
 4. As its own review object outside the project's documents, decided part by
    part by whoever may add documents to the project.
 
@@ -88,14 +88,14 @@ Chosen: **a held mail is its own review object (4); a conversation is one
 document with one Fassung per filed message (2); the original is kept as
 evidence (2); a person may follow a conversation (3)**. Each rejected home is
 reused for what it does well: the content check after filing (Quarantäne),
-card mechanics for Piloti (proposals), decision scoring (Freigabe's scores).
+card mechanics for the agent (proposals), decision scoring (Freigabe's scores).
 
 ### The guarantee
 
 No server path files received mail on its own. Every filed part references a
 decision row made by a named person, either on that mail or as that person's
 standing, revocable decision to follow its conversation, which appends text
-only, only from verified senders whose thread headers are signed. Piloti's
+only, only from verified senders whose thread headers are signed. The agent's
 part is a card that person accepted, and it carries no override. The database
 refuses a filed part without such a decision and without a clean scan.
 
@@ -180,7 +180,7 @@ label decides:
   Bcc case) and a stale date need `acknowledgeSender`; an append or Fassung the
   defaults would not pre-select needs the part in `acknowledgeRisk`
   (`unverified_thread`), as do `macro` and `type_mismatch` attachments;
-- whether Piloti suggests anything (not for `external_unverified`, automatic or
+- whether the agent suggests anything (not for `external_unverified`, automatic or
   impersonating mail);
 - how the Verlauf cites it: a verified section is headed by the signer's
   domain, an unverified one says „Domain nicht bestätigt“.
@@ -214,7 +214,7 @@ send time, Dokumentart *Korrespondenz* (token `correspondence`), lane
 a Fassung, and **Fassung N+1 holds every section of Fassung N byte for byte**
 (the superset invariant; `lib/mail-thread/render.ts` is a pure function over
 the entries, golden-tested). Retrieval serves the current Fassung (ADR-0054),
-so Piloti sees the conversation once and cites one message by its section.
+so the agent sees the conversation once and cites one message by its section.
 
 - **Headings never change**, so citations hold: `{dd.mm.yyyy HH:MM} · {name}
   ({signer domain})` for a verified mail, `… ({from domain}, Domain nicht
@@ -255,7 +255,7 @@ so Piloti sees the conversation once and cites one message by its section.
   reason. What the section prints for it is frozen at insert, and a name is
   printed only when the file sits in a folder at least as visible as the
   Verlauf and passed the Namensprüfung. The document routes answer
-  `mailOrigins` per Fassung, through threads the reader may read, so Piloti and
+  `mailOrigins` per Fassung, through threads the reader may read, so the agent and
   a person can tell which mail brought which Fassung.
 - **Detach** (`mail-thread-entry-detach`) moves a message filed into the wrong
   conversation into another thread or a new one. The thread it leaves gets
@@ -343,9 +343,9 @@ no follow again. Whether a follow should instead end after 60 quiet days rather
 than run to 180 days with renewals is an open question to the owner; the 180
 days stand. Every start, renewal and end is
 audited (`mail_thread.follow_started`, `mail_thread.follow_ended`). Following
-is a `control`-sensitive operation (ADR-0122): Piloti never sees it, an outside
+is a `control`-sensitive operation (ADR-0122): The agent never sees it, an outside
 agent only under the office's opt-in and the step-up scope. Ending is offered
-to outside agents and not to Piloti: the standing decision is the person's own.
+to outside agents and not to the agent: the standing decision is the person's own.
 Archive imports and mail that arrived before the follow follow nothing.
 
 ### The Outlook archive renders into the same Verläufe
@@ -392,27 +392,27 @@ through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-s
 
 ### Exposure
 
-- **Before filing, Piloti sees metadata only.** `inbound-mail-list` and
+- **Before filing, the agent sees metadata only.** `inbound-mail-list` and
   `inbound-mail-get` carry the masked subject, the sender's domain, trust,
   flags, parts (name, state, scan, flags, suggestion) and the candidates the
   person may see. `inbound-mail-text-get` and `inbound-mail-part-content-get`
-  are offered to outside agents acting as the person and not to Piloti.
-- **Piloti suggests from names, never from content.** The suggestion
+  are offered to outside agents acting as the person and not to the agent.
+- **The agent suggests from names, never from content.** The suggestion
   (`/v1/filing-fit`, `basis: mail`) reads the attachments' names that passed
   the name check, the masked subject, the sender's domain, the folders every
   member may read and the office's conventions; never the text, never the bytes;
   not for an unconfirmed sender, automatic mail or an impersonation. Each
   decision scores it (`piloti-decision`, subject `inbound_mail_suggestion`;
   `mail-thread-match`).
-- **Piloti may propose** `inbound-mail-file` and `inbound-mail-dismiss` as
+- **The agent may propose** `inbound-mail-file` and `inbound-mail-dismiss` as
   cards. A card files clean, unflagged parts only: the database refuses a
-  `via = 'piloti_proposal'` decision with any acknowledgement or release.
+  `via = 'agent_proposal'` decision with any acknowledgement or release.
 - **An outside agent acts as the person.** `inbound-mail-file` and
   `inbound-mail-dismiss` carry `requiresPersonConfirmation` (ADR-0122): a
   client that cannot ask the person is refused with a link to the mail's page.
 - **Originals are withheld from every door** (`evidence`).
 - After filing, a Verlauf is third-party evidence in the grounding block, never
-  instructions; `mail_origin.senderTrust` travels with it, so Piloti cites an
+  instructions; `mail_origin.senderTrust` travels with it, so the agent cites an
   unconfirmed sender as unconfirmed („laut E-Mail von … vom …“).
 
 ### Windows
@@ -437,7 +437,7 @@ from) pauses every erasure and deletion; ending still happens. The sweeps:
 
 Decided in the DDL, each deviating from the design document for a reason:
 
-- **DELETE is revoked from `grid_app_rw` on eight of the nine tables** (all but
+- **DELETE is revoked from `app_rw` on eight of the nine tables** (all but
   `mail_thread_message_ids`, which a detach rewrites), not three: a tenant
   DELETE on an address or a thread would erase mail, decisions or filed
   messages through owner-rights cascades. Ending is a state; only the sweeps and
@@ -466,7 +466,7 @@ placement review and no document check.
 * Good, because nothing reaches a project, an index or a model before a named
   person decided, and the database refuses the code path that would.
 * Good, because a conversation is one citable document with its originals, in
-  one shape for address mail and archive mail, and Piloti can answer what the
+  one shape for address mail and archive mail, and the agent can answer what the
   Behörde wrote and which mail brought which Fassung.
 * Good, because the common case is one press, a thread group files a
   conversation in one press, and a followed Verlauf takes replies' text without
@@ -485,7 +485,7 @@ placement review and no document check.
 * Bad, because files the office does not accept (DWG, ZIP) cannot be filed;
   they survive only inside the original. Fetching cloud links is a follow-up.
 * Bad, because one held document of a project pauses that project's mail
-  erasure: `grid_legal_hold_blocks('project', …)` is true when anything in the
+  erasure: `legal_hold_blocks('project', …)` is true when anything in the
   project is held.
 * Neutral: Message-IDs are not unique per project, on purpose. A forger can
   take a genuine id first; the genuine mail still files, flagged.
@@ -495,7 +495,7 @@ placement review and no document check.
 - **Database** (`scripts/rls-test-db.sh`, the 0193 section, run by
   `task db:test:rls`): each refusal is a violating insert or update: a filing or
   filed part without a decision, or with a decision that is not a `file`; a
-  system decider; a Piloti card with an acknowledgement; a follow decision by
+  system decider; an agent's card with an acknowledgement; a follow decision by
   anyone but the follower, or on an attachment; a filed part whose scan was not
   clean; a waiting mail whose raw message was not scanned; a stored
   authentication line with `spf=`; a tenant DELETE; the legal-hold triggers.
@@ -538,9 +538,9 @@ placement review and no document check.
 ### What a filed message becomes
 
 - One document per message: a conversation of 40 messages is 40 documents, a
-  folder of notes nobody reads as a thread, and Piloti cites them without their
+  folder of notes nobody reads as a thread, and the agent cites them without their
   order.
-- One document per conversation (chosen): Piloti reads the conversation once,
+- One document per conversation (chosen): The agent reads the conversation once,
   each message stays citable as a section, and the Fassung timeline records
   when each arrived. Costs the superset invariant, the render lease and detach.
 

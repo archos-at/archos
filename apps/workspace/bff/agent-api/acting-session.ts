@@ -35,7 +35,7 @@ export type ActingReader = 'agent' | 'person'
 interface ActingCall {
   readonly session: AuthorizedSession
   readonly reader: ActingReader
-  /** The Piloti proposal the person accepted, when the call is that acceptance applied (ADR-0105). */
+  /** The agent's proposal the person accepted, when the call is that acceptance applied (ADR-0105). */
   readonly proposalId?: string
 }
 
@@ -67,9 +67,9 @@ export function actingReaderIsAgent(): boolean {
 }
 
 /**
- * The Piloti proposal whose acceptance the call in flight applies, or
+ * The agent's proposal whose acceptance the call in flight applies, or
  * `undefined`. A route that records HOW a person decided (an E-Mail-Eingang
- * decision's `via`, ADR-0137) reads it: a card Piloti worded may not carry an
+ * decision's `via`, ADR-0137) reads it: a card the agent worded may not carry an
  * acknowledgement or a release, which the person gives only in the app or as
  * themselves (RT-S5). Set only by the proposal applier, through `callOperation`.
  */

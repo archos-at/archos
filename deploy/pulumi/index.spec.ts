@@ -402,7 +402,7 @@ describe("the program constructs in the split topology", () => {
       RESOURCES.filter((r) => r.inputs.kind === "HTTPRoute").map(
         (r) => (r.inputs.metadata as { name: string }).name,
       ),
-    ).toContain("grid-app-signed");
+    ).toContain("app-signed");
   });
 
   it("keeps the S3 endpoint on the name the app tier already uses", () => {

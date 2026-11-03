@@ -1,5 +1,5 @@
 /**
- * Piloti's suggestion for one part, as the E-Mail-Eingang reads it (D21).
+ * The agent's suggestion for one part, as the E-Mail-Eingang reads it (D21).
  *
  * The wire carries the suggestion as the suggest job stored it
  * (`InboundMailPartView.suggestion`, a JSON object) and promises nothing about
@@ -18,7 +18,7 @@ import { INBOUND_MAIL_FILE_NAME_MAX, INBOUND_MAIL_FOLDER_PATH_MAX, type InboundM
 import { suggestionSkipReason } from '@/lib/inbound-mail/suggest'
 
 export interface PartSuggestion {
-  /** The folder path, `''` for the project root; null when Piloti suggested no folder. */
+  /** The folder path, `''` for the project root; null when the agent suggested no folder. */
   folder: string | null
   /** The folder's id when it exists; null for a folder the filing would create, or when unknown. */
   folderId: string | null
@@ -26,7 +26,7 @@ export interface PartSuggestion {
   isNew: boolean
   documentType: DocumentTypeTag | null
   name: string | null
-  /** Piloti's one line of why. */
+  /** The agent's one line of why. */
   reason: string | null
 }
 
@@ -65,12 +65,12 @@ export function folderLeaf(path: string): string {
   return parts.length > 0 ? parts[parts.length - 1] : path
 }
 
-/** A fresh mail Piloti does suggest for may still be being read. */
+/** A fresh mail the agent does suggest for may still be being read. */
 export const SUGGESTION_GRACE_MS = 10 * 60 * 1000
 
 /**
- * Why a part shows no suggestion: Piloti is still reading it (a fresh mail),
- * Piloti never suggests for this mail (`skipped`: an unconfirmed sender, an
+ * Why a part shows no suggestion: The agent is still reading it (a fresh mail),
+ * The agent never suggests for this mail (`skipped`: an unconfirmed sender, an
  * impersonation, automatic mail; the suggest job's own rule,
  * `suggestionSkipReason`, D21), or it had none.
  */

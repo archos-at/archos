@@ -21,7 +21,7 @@
  * then completes as its last document is read.
  *
  * **Two kinds** (D35). The attachments go into the `files` batch, opened with
- * a person's upload effects: the summary, Piloti's placement review, the
+ * a person's upload effects: the summary, the agent's placement review, the
  * intake reading. The Fassungen of the E-Mail-Verläufe the import writes go
  * into the `threads` batch (`ARCHIVE_THREAD_RENDER_EFFECTS`): it announces
  * what arrived too, but a Verlauf is correspondence, never the project's

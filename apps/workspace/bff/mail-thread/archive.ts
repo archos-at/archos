@@ -58,14 +58,8 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { canWriteFolder } from '@/lib/authz/folder-access'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import type { AccessFolder } from '@/lib/authz/folder-access-rule'
-import type {
-  MailImport,
-  MailImportSkipReason,
-  MailThreadEntryRow,
-  MailThreadRow,
-  NewMailThreadEntryAttachmentRow,
-  NewMailThreadEntryRow,
-} from '@/lib/db/schema'
+import type { MailImport, MailImportSkipReason } from '@/lib/db/schema/mail-imports'
+import type { MailThreadEntryRow, MailThreadRow, NewMailThreadEntryAttachmentRow, NewMailThreadEntryRow } from '@/lib/db/schema/mail-thread'
 import { memberReader } from '@/lib/documents/document-reader'
 import type { InboundMailFilingFailure } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { findThreadCandidates } from '@/lib/inbound-mail/repository'

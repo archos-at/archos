@@ -59,7 +59,7 @@ export const mailThread = {
     /** How it was filed, said only where it is not a person deciding in the app. */
     filedVia: {
       agent: 'Filed by an agent on a person’s behalf',
-      piloti_proposal: 'Filed on Piloti’s suggestion',
+      agent_proposal: 'Filed on {productName}’s suggestion',
       follow: 'Added because someone follows this mail thread',
       archive_import: 'Taken over from the mail archive',
     },

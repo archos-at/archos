@@ -72,6 +72,7 @@ from . import dependencies
 from . import embedding
 from . import filed_mail
 from . import revisions
+from . import row_facts
 from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
 from .dependencies import retrieval_dependency_error
@@ -5343,31 +5344,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         from agent.knowledge import set_document_folder_path
 
                         register_summary(collection_name, file_name, summary, tags=tags, topics=topics)
-                        # The page count the listing and the tree show: the highest page
-                        # any chunk reaches. A text file has none, which clears an old count.
-                        from agent.knowledge import set_document_page_count
-                        from agent.knowledge.page_count import largest_page
-
-                        set_document_page_count(
-                            collection_name, file_name, largest_page(doc.metadata for doc in all_documents)
+                        # Pages, title block, photo and mail, read off this Fassung (`row_facts`).
+                        revision_facts = row_facts.store_read_facts(
+                            collection_name,
+                            file_name,
+                            all_documents,
+                            photo=photo,
+                            config=config,
+                            replaced=previous is not None,
                         )
-                        # The title block (Plankopf) the vision model read on the first drawing
-                        # page that has one: Plannummer, Index, Datum. Read from the same
-                        # analysis as the chunks, so it costs no further call. A re-upload
-                        # without one clears the old sheet's facts.
-                        revision_facts = revisions.revision_facts_from_documents(all_documents)
-                        if revision_facts or previous is not None:
-                            from agent.knowledge import set_document_revision_facts
-
-                            set_document_revision_facts(collection_name, file_name, revision_facts)
-                        if photo is not None and not photo.empty:
-                            from agent.knowledge import set_document_capture
-
-                            set_document_capture(collection_name, file_name, photo.as_metadata())
-                        # A filed mail (ADR-0137): the Verlauf's newest message and count, or the
-                        # message an attachment came with. Each Fassung states its own, so a
-                        # re-upload of the name as an ordinary file clears what the mail said.
-                        filed_mail.store_mail_facts(collection_name, file_name, config, replaced=previous is not None)
 
                         # What the ingest read: the dossier, the references, the coverage.
                         # Written together, so a re-ingest replaces the whole reading.

@@ -244,7 +244,7 @@ export const inboundMailParts = pgTable(
     /** When it was dismissed or expired: restorable for `INBOUND_MAIL_RESTORE_DAYS` from here. */
     endedAt: timestamp('ended_at', { withTimezone: true }),
     erasureDeferredAt: timestamp('erasure_deferred_at', { withTimezone: true }),
-    /** Piloti's suggestion (D21), shaped by `lib/inbound-mail/suggest.ts`; gone with the bytes. */
+    /** The agent's suggestion (D21), shaped by `lib/inbound-mail/suggest.ts`; gone with the bytes. */
     suggestion: jsonb('suggestion').$type<Record<string, unknown>>(),
     suggestionTraceId: text('suggestion_trace_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

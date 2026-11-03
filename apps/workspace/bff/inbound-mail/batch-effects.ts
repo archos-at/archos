@@ -15,7 +15,7 @@
  * - **Completion** (`announcesCompletion`): the upload tray's summary. The
  *   decision's own notice (`inbound_mail.decided`) and the toast cover a filing;
  *   an archive import still tells the person who started it.
- * - **Content re-judgement** (`reviewsFiling`): Piloti's placement review. A
+ * - **Content re-judgement** (`reviewsFiling`): The agent's placement review. A
  *   person placed every filed part.
  * - **Intake reading** (`startsIntake`): reading a new document into the
  *   project profile. An attachment is a document like any other; a Verlauf is
@@ -31,7 +31,7 @@
  * so only the filing job and the archive import open a quiet batch.
  */
 
-import type { UploadBatchEffects } from '@/lib/db/schema'
+import type { UploadBatchEffects } from '@/lib/db/schema/upload-batches'
 
 /** The attachments a person filed from a held mail. */
 export const INBOUND_ATTACHMENT_EFFECTS: Readonly<UploadBatchEffects> = Object.freeze({

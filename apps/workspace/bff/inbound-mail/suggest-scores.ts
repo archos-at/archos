@@ -1,14 +1,14 @@
 import 'server-only'
 /**
  * The scores a person's decision on a held mail writes (ADR-0089, ADR-0137,
- * DECISION §10), and what PostHog's `inbound_mail_decided` says of Piloti's
+ * DECISION §10), and what PostHog's `inbound_mail_decided` says of the agent's
  * suggestion. Called where the decision is made, once per mail: the review
- * service when a person files or dismisses (`via` app, agent or a Piloti card),
+ * service when a person files or dismisses (`via` app, agent or an agent's card),
  * the follow job when a person's standing decision appended the text (`via`
  * follow).
  *
- * - `piloti-decision`, subject `inbound_mail_suggestion`, per part that carried
- *   a suggestion: `accepted` when it was filed where Piloti suggested, as the
+ * - the decision score (`DECISION_SCORE_NAME`), subject `inbound_mail_suggestion`, per part that carried
+ *   a suggestion: `accepted` when it was filed where the agent suggested, as the
  *   Dokumentart it suggested; `dismissed` otherwise (filed elsewhere, or not
  *   filed). On the `filing-fit` trace that made the suggestion; metadata
  *   `folder` (`same`, `other`, `not_filed`) and `type` (`same`, `other`,
@@ -21,7 +21,7 @@ import 'server-only'
  * no longer waits was decided by someone else and is not scored again).
  */
 
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { recordDecisionScore } from '@/lib/langfuse/decision-score'
 import { recordMailThreadMatchScore, type ThreadChoice } from '@/lib/langfuse/mail-thread-match-score'
 import { senderEvidenceOf } from './candidates'

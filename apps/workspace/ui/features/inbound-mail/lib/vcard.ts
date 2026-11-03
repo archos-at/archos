@@ -7,6 +7,7 @@
  */
 
 import { fileSlug } from '@/lib/text/latinize'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 /** RFC 6350 §3.4: backslash, comma, semicolon and newlines are escaped in a text value. */
 function escapeText(value: string): string {
@@ -33,7 +34,7 @@ function fold(line: string): string {
 }
 
 export interface ContactCard {
-  /** The contact's name as the phone lists it („Piloti · Bauplatz 12“). */
+  /** The contact's name as the phone lists it (the product's name, then the project: „<Produkt> · Bauplatz 12“). */
   name: string
   address: string
   /** One line in the card's note: what the address is for. */
@@ -55,5 +56,5 @@ export function contactCard({ name, address, note }: ContactCard): string {
 
 /** The file name the card downloads as. */
 export function contactCardFileName(projectName: string): string {
-  return `piloti-${fileSlug(projectName, { maxLength: 60 }) || 'project'}.vcf`
+  return `${fileSlug(PRODUCT_NAME)}-${fileSlug(projectName, { maxLength: 60 }) || 'project'}.vcf`
 }

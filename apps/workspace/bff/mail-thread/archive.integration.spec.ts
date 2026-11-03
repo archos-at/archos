@@ -5,7 +5,7 @@
  * REAL Postgres with migration 0193, through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://grid_app_rw@host:port/grid_app \
+ *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/mail-thread/archive.integration.spec.ts
  *
  * DECISION §10's three promises, each as SQL rather than a mocked handle:

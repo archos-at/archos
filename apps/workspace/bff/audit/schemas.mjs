@@ -974,7 +974,7 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
   // One decision row (`inbound_mail_decisions`), sent at least once from the
   // table under an idempotency key (sweep 11 drains `audited_at IS NULL`), with
   // the time of the decision. Actor: the person who decided; `via` says whether
-  // in the app, as an outside agent, through a Piloti card or as their follow.
+  // in the app, as an outside agent, through an agent's card or as their follow.
   // The acknowledgements are what the person explicitly accepted.
   'inbound_mail.decided': {
     targets: [{ type: 'inbound_mail' }, { type: 'project' }],

@@ -72,7 +72,7 @@ export function fakeDns(txt: Record<string, string>, failing: readonly string[] 
 // Messages
 // ---------------------------------------------------------------------------
 
-export const INBOUND_DOMAIN = 'piloti.at'
+export const INBOUND_DOMAIN = 'example.org'
 export const PROJECT_TOKEN = 'abcdefgh2345'
 export const PROJECT_ADDRESS = `wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}`
 export const OTHER_TENANT_ADDRESS = `nachbar.zzzzzzzzzzzz@${INBOUND_DOMAIN}`

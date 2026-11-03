@@ -332,24 +332,7 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
                 )
             )
     else:
-        # No block markers (a non-``_format_results`` producer whose tool name
-        # still matches "knowledge"). Nothing delimits the hits, so fall back to
-        # the historical positional pairing rather than dropping the sources.
-        citations = _KL_CITATION_RE.findall(content)
-        sources = _KL_SOURCE_RE.findall(content)
-        collections = _KL_COLLECTION_RE.findall(content)
-        doc_classes = _KL_DOC_CLASS_RE.findall(content)
-        for i, citation_key in enumerate(citations):
-            entries.append(
-                _kl_entry(
-                    citation_key=citation_key,
-                    title=sources[i].strip() if i < len(sources) else None,
-                    collection=collections[i].strip() if i < len(collections) else None,
-                    doc_class=_parse_kl_doc_class(doc_classes[i] if i < len(doc_classes) else None),
-                    chunk_text=None,
-                    tool_name=tool_name,
-                )
-            )
+        entries = _kl_positional_entries(content, tool_name)
 
     # No Citation: line, no sources. A URL in a passage body is part of the
     # retrieved text, and a knowledge tool that FAILED returns an error message
@@ -357,6 +340,30 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
     # through the generic URL extractor, which is why a turn that tripped a
     # pydantic validation error showed a source card for errors.pydantic.dev.
     return entries
+
+
+def _kl_positional_entries(content: str, tool_name: str) -> list[SourceEntry]:
+    """:func:`parse_knowledge_layer` for a text with no ``--- Result N ---`` markers.
+
+    A non-``_format_results`` producer whose tool name still matches
+    "knowledge". Nothing delimits the hits, so this is the historical
+    positional pairing rather than dropping the sources.
+    """
+    citations = _KL_CITATION_RE.findall(content)
+    sources = _KL_SOURCE_RE.findall(content)
+    collections = _KL_COLLECTION_RE.findall(content)
+    doc_classes = _KL_DOC_CLASS_RE.findall(content)
+    return [
+        _kl_entry(
+            citation_key=citation_key,
+            title=sources[i].strip() if i < len(sources) else None,
+            collection=collections[i].strip() if i < len(collections) else None,
+            doc_class=_parse_kl_doc_class(doc_classes[i] if i < len(doc_classes) else None),
+            chunk_text=None,
+            tool_name=tool_name,
+        )
+        for i, citation_key in enumerate(citations)
+    ]
 
 
 _KL_REGION_RE = re.compile(r"^Region:\s*\[([^\]]+)\]\s*(?:„(.*?)“)?\s*$", re.MULTILINE)

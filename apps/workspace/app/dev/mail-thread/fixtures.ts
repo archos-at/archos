@@ -156,7 +156,7 @@ function threeMessages(): MailThreadEntryView[] {
       key: 'authority',
       version: 3,
       attachments: [attachment({ position: 1, filename: 'Bescheid_Kopie.pdf' })],
-      filedVia: 'piloti_proposal',
+      filedVia: 'agent_proposal',
     }),
   ]
 }

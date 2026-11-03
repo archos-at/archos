@@ -61,7 +61,7 @@ browser                     BFF (frontend)                     object store     
   `references`, and `conversation_index` (`PR_CONVERSATION_INDEX` base64, the
   same bytes an inbound mail's `Thread-Index` header carries; one derivation,
   `threadIndexGuid` in `lib/mail-thread/mail-threading.ts`, held to
-  `shared/thread-index.json` from both sides), and the Bcc of a sent item. An
+  `contracts/thread-index.json` from both sides), and the Bcc of a sent item. An
   open archive is cached under the object its presigned URL names
   (`archives.object_of`), never under the key the caller sends. A slice reads pages of
   20 messages, and one read of the archive (a page, an attachment) may take
@@ -220,7 +220,7 @@ a mail's inline pictures (signature logos).
 ## What the person is told
 
 Two inbox items, at two moments. `mail_import.completed` (or `.failed`) when
-filing ends: what was filed and what was skipped („Piloti hat die Anhänge unter
+filing ends: what was filed and what was skipped („The agent hat die Anhänge unter
 E-Mail-Import und die E-Mails in den E-Mail-Verläufen des Projekts
 abgelegt.“). Filing ending is not reading
 ending, so the files are still being screened and read then. The

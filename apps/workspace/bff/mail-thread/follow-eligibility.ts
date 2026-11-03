@@ -116,7 +116,7 @@ export type FollowEligibility =
 
 export interface FollowEligibilityContext {
   now: Date
-  /** The project addresses' domains (`piloti.at`), never counted as a participant. */
+  /** The project addresses' domains (`example.org`), never counted as a participant. */
   ownDomains: readonly string[]
 }
 

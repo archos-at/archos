@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { APP_ZONE, APP_ZONE_ID, appZoneStackConfig, mailStackConfig } from "./src/test-support/app-zone-config";
+import { LEGACY_PROJECT } from "./src/names";
 
 /**
  * The whole program as production runs it: project mail on the product's own
@@ -34,7 +35,7 @@ pulumi.runtime.setMocks(
       if (args.token === "cloudflare:index/getZone:getZone") {
         const zoneId = String(args.inputs.zoneId);
         const name = zoneId === APP_ZONE_ID ? APP_ZONE : undefined;
-        return { id: zoneId, name, account: { id: "account-1", name: "Grid" } };
+        return { id: zoneId, name, account: { id: "account-1", name: "Office" } };
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
         return { results: [] };
@@ -42,7 +43,7 @@ pulumi.runtime.setMocks(
       return {};
     },
   },
-  "grid-oib",
+  LEGACY_PROJECT,
   "test",
   false,
 );
@@ -69,12 +70,12 @@ describe("the program with project mail on the app zone's apex, switched off", (
       ...baseStackConfig(),
       ...appZoneStackConfig(),
       ...mailStackConfig(),
-      "grid-oib:seaweedfsTopology": "single",
-      "grid-oib:seaweedfsPerOrgBuckets": "false",
-      "grid-oib:observabilityEnabled": "false",
+      [`${LEGACY_PROJECT}:seaweedfsTopology`]: "single",
+      [`${LEGACY_PROJECT}:seaweedfsPerOrgBuckets`]: "false",
+      [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
       // No inboundMailZoneId: on the app zone's apex it defaults to dnsZoneId.
-      "grid-oib:inboundMailDomain": APP_ZONE,
-      "grid-oib:inboundMailEnabled": "false",
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: APP_ZONE,
+      [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false",
     });
     const stack = (await import("./index")) as Record<string, unknown>;
     await Promise.all(

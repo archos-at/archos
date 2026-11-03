@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * Piloti's suggestion for a held mail, the rules (`./suggest`): what is asked
+ * The agent's suggestion for a held mail, the rules (`./suggest`): what is asked
  * about, what the model reads (names and labels, never the text), how the
  * answer is stored, and whether a person's decision followed it.
  */

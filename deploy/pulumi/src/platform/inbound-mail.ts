@@ -35,12 +35,12 @@ import type { MailZone } from "./email-routing";
  *
  * ## The product's own apex, with the Worker as the router
  *
- * Project addresses live on the product domain (`<slug>.<token>@piloti.at`).
+ * Project addresses live on the product domain (`<slug>.<token>@example.org`).
  * The zone's catch-all sends every address that no literal rule claims to the
  * Worker. Cloudflare matches literal rules first, so a company address given a
  * rule of its own (`postmaster@`, `abuse@`, set up in the dashboard before the
  * first promote, gate G7) never reaches it. The Worker checks the recipient's
- * shape against `shared/inbound-address.json` and refuses everything that is
+ * shape against `contracts/inbound-address.json` and refuses everything that is
  * not a project address itself.
  *
  * The cost: the product domain's mail has to stay on Cloudflare Email Routing.
@@ -117,7 +117,7 @@ export interface InboundMail {
 
 /** The Worker's script name. Per stack, because scripts are per ACCOUNT and stacks may share one. */
 export function workerScriptName(stack: string): string {
-  return `grid-inbound-mail-${stack}`;
+  return `inbound-mail-${stack}`;
 }
 
 /**

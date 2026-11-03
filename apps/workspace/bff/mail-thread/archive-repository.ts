@@ -16,15 +16,7 @@ import 'server-only'
 
 import { and, eq, exists, isNotNull, isNull, ne, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import {
-  mailThreadEntries,
-  mailThreadEntryAttachments,
-  mailThreads,
-  type MailThreadRow,
-  type NewMailThreadEntryAttachmentRow,
-  type NewMailThreadEntryRow,
-  type NewMailThreadRow,
-} from '@/lib/db/schema'
+import { mailThreadEntries, mailThreadEntryAttachments, mailThreads, type MailThreadRow, type NewMailThreadEntryAttachmentRow, type NewMailThreadEntryRow, type NewMailThreadRow } from '@/lib/db/schema/mail-thread'
 import { insertMessageIds } from './write-repository'
 
 /** Threads one slice renders at most; the rest wait for the next slice, still pending. */

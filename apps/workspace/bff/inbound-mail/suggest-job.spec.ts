@@ -7,7 +7,7 @@
  * suggestion rather than failing anything.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 
 vi.mock('server-only', () => ({}))
 vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://backend.test' }))

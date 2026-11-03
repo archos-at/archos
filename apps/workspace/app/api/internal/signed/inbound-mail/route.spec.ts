@@ -8,7 +8,7 @@
  *
  * - the gate order of DECISION §6 (Receive): nothing past a refusal runs, and
  *   no byte of the body is read before every gate before the body passed;
- * - the verdict contract (`shared/inbound-mail-contract.json`): only an unknown
+ * - the verdict contract (`contracts/inbound-mail-contract.json`): only an unknown
  *   address, an office switched off and a message too large answer a 4xx with
  *   `x-inbound-verdict: reject`, the one answer the Worker bounces; everything
  *   else is retried by the sending server;
@@ -56,11 +56,11 @@ import { signedRequest, TEST_KEY_ID, TEST_SIGNING_SECRET, type SignedRequestOpti
 import { POST } from './route'
 
 const NOW = new Date('2026-10-22T12:00:00Z')
-const URL_SIGNED = 'https://app.piloti.test/api/internal/signed/inbound-mail'
+const URL_SIGNED = 'https://app.example.test/api/internal/signed/inbound-mail'
 const ORG = 'org_01MAILTEST'
 const PROJECT = '0e5b4f2e-1d7c-4c3a-9a51-2f0d8c6b7a10'
 const ADDRESS = '7a1f5c3e-8b2d-4e6f-9a0b-1c2d3e4f5a6b'
-const RECIPIENT = 'wohnbau-hietzing.k3m7q2xw4pab@piloti.at'
+const RECIPIENT = 'wohnbau-hietzing.k3m7q2xw4pab@example.org'
 const SENDER = 'sekretariat@statik-weber.at'
 const MESSAGE =
   'From: Statik Weber <sekretariat@statik-weber.at>\r\n' +
@@ -71,7 +71,7 @@ const MESSAGE =
   '\r\n' +
   'Anbei der Plan.\r\n'
 
-const CONTRACT = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'shared', 'inbound-mail-contract.json'), 'utf8')) as {
+const CONTRACT = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'contracts', 'inbound-mail-contract.json'), 'utf8')) as {
   rejectText: string
 }
 
@@ -99,7 +99,7 @@ beforeEach(() => {
   stored = null
   vi.useFakeTimers({ now: NOW, toFake: ['Date'] })
   vi.stubEnv('INBOUND_MAIL_SIGNING_KEYS', JSON.stringify({ [TEST_KEY_ID]: TEST_SIGNING_SECRET }))
-  vi.stubEnv('INBOUND_MAIL_DOMAIN', 'piloti.at')
+  vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
   vi.stubEnv('INBOUND_MAIL_PAUSED', 'false')
   vi.stubEnv('WORKOS_REDIRECT_URI', '')
   vi.stubEnv('REQUIRE_AUTH', 'true')
@@ -122,7 +122,7 @@ beforeEach(() => {
   })
   vi.mocked(stagingBucketFor).mockImplementation(async () => {
     calls.push('bucket')
-    return 'grid-org-test'
+    return 'org-test-bucket'
   })
   vi.mocked(insertReception).mockImplementation(async () => {
     calls.push('insert')
@@ -168,7 +168,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
       addressId: ADDRESS,
       envelopeFrom: SENDER,
       rawSizeBytes: Buffer.byteLength(MESSAGE),
-      stagingBucket: 'grid-org-test',
+      stagingBucket: 'org-test-bucket',
       rawStorageKey: `org/${ORG}/project/${PROJECT}/_inbound-mail/${reception.id}/raw.eml`,
     })
     expect(reception.expiresAt.getTime() - (reception.receivedAt as Date).getTime()).toBe(30 * 24 * 60 * 60 * 1000)
@@ -197,8 +197,8 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it.each([
-    ['an unknown token', { 'x-envelope-to': 'wohnbau.zzzzzzzzzzzz@piloti.at' }],
-    ['a recipient that holds no token', { 'x-envelope-to': 'info@piloti.at' }],
+    ['an unknown token', { 'x-envelope-to': 'wohnbau.zzzzzzzzzzzz@example.org' }],
+    ['a recipient that holds no token', { 'x-envelope-to': 'info@example.org' }],
   ])('rejects %s with the one bounce text, without reading the body', async (_, envelope) => {
     const response = await POST(await sign({}, envelope))
 
@@ -249,7 +249,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it.each([
-    ['the recipient', { 'x-envelope-to': 'wohnbau.k3m7q2xw4pab%E0%A4%A@piloti.at' }],
+    ['the recipient', { 'x-envelope-to': 'wohnbau.k3m7q2xw4pab%E0%A4%A@example.org' }],
     ['the envelope sender', { 'x-envelope-from': 'zo%C3@example.org' }],
   ])('answers a malformed escape in %s with 400 and no verdict, so the sender retries', async (_, envelope) => {
     const response = await POST(await sign({}, envelope))
@@ -260,7 +260,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it('decodes both envelope headers as the Worker encodes them, and the null sender to ""', async () => {
-    await POST(await sign({}, { 'x-envelope-to': 'wohnbau.k3m7q2xw4pab%2Bplaene@piloti.at', 'x-envelope-from': '<>' }))
+    await POST(await sign({}, { 'x-envelope-to': 'wohnbau.k3m7q2xw4pab%2Bplaene@example.org', 'x-envelope-from': '<>' }))
 
     expect(calls[0]).toBe('address:k3m7q2xw4pab')
     expect(vi.mocked(insertReception).mock.calls[0][0].envelopeFrom).toBe('')
@@ -301,7 +301,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
     expect(limited.headers.get(VERDICT_HEADER)).toBeNull()
 
     // A guesser's unknown tokens spend nothing of the address's budget, and theirs runs out on its own.
-    const unknown = await POST(await sign({}, { 'x-envelope-to': 'x.zzzzzzzzzzzz@piloti.at' }))
+    const unknown = await POST(await sign({}, { 'x-envelope-to': 'x.zzzzzzzzzzzz@example.org' }))
     expect(unknown.status).toBe(404)
   })
 
@@ -313,7 +313,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ status: 'duplicate' })
     const reception = vi.mocked(insertReception).mock.calls[0][0]
-    expect(eraseStagedObjects).toHaveBeenCalledWith('grid-org-test', [reception.rawStorageKey])
+    expect(eraseStagedObjects).toHaveBeenCalledWith('org-test-bucket', [reception.rawStorageKey])
     expect(forgetReceptionObject).toHaveBeenCalledWith(reception.id)
     expect(completeReception).not.toHaveBeenCalled()
   })
@@ -358,7 +358,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
 
   it('logs one line per delivery with ids and codes, never the sender, the recipient or the token', async () => {
     await POST(await sign())
-    await POST(await sign({}, { 'x-envelope-to': 'wohnbau.zzzzzzzzzzzz@piloti.at' }))
+    await POST(await sign({}, { 'x-envelope-to': 'wohnbau.zzzzzzzzzzzz@example.org' }))
 
     const lines = [...infoLines().mock.calls, ...vi.mocked(console.warn).mock.calls].flat().map(String)
     expect(lines.filter((line) => line.startsWith('[inbound-mail] delivery'))).toHaveLength(2)
@@ -371,7 +371,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   it('answers only what the Worker reads as the contract says: a bounce is a 4xx with the verdict, all else retries', async () => {
     const answers: Array<[string, Response]> = [
       ['accepted', await POST(await sign())],
-      ['rejected', await POST(await sign({}, { 'x-envelope-to': 'x.zzzzzzzzzzzz@piloti.at' }))],
+      ['rejected', await POST(await sign({}, { 'x-envelope-to': 'x.zzzzzzzzzzzz@example.org' }))],
       ['rejected', await POST(await sign({ contentLength: String(27 * 1024 * 1024) }))],
       ['retry', await POST(await sign({ sentBody: MESSAGE.slice(0, 10) }))],
       ['retry', await POST(await sign({}, { 'x-envelope-to': '%E0' }))],
