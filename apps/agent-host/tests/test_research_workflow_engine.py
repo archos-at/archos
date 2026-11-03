@@ -150,7 +150,13 @@ async def test_a_research_run_runs_end_to_end_and_its_events_reach_the_event_sto
     assert [event["type"] for event in engine.events("job-e2e")] == ["test.started", "test.finished"]
     assert run_id
     _wait_for(lambda: orchestrator_runs.run_id_for(engine.db_url, "job-e2e") is None, timeout=10, what="the id")
-    status = await orchestrator_client.client().runs.aio_get_status(run_id)
+    # The run forgets its id inside the step, before the engine records the step's
+    # end, so the engine may still answer RUNNING for a moment.
+    deadline = time.monotonic() + 15
+    while (status := await orchestrator_client.client().runs.aio_get_status(run_id)).value == "RUNNING":
+        if time.monotonic() > deadline:
+            break
+        await asyncio.sleep(0.5)
     assert status.value == "COMPLETED"
 
 
