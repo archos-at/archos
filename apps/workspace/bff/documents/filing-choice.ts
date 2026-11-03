@@ -27,14 +27,14 @@
  * at filing, which the ingest job treats as the newest choice.
  */
 
+import { FILING_CHOICE_METADATA_KEY } from './filing-choice-key'
 import type { Document } from '@/lib/db/schema/documents'
 import { documentTypeOf, type DocumentTypeTag } from './tag-vocabulary'
 
 /** A document id as the row's primary key holds it. */
 const DOCUMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The `documents.metadata` key the choice is kept under. */
-export const FILING_CHOICE_METADATA_KEY = 'filingChoice'
+export { FILING_CHOICE_METADATA_KEY } from './filing-choice-key'
 
 export interface FilingChoice {
   documentType: DocumentTypeTag | null
