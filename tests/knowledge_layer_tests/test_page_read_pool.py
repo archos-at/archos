@@ -208,4 +208,3 @@ def test_a_second_caller_waits_for_the_first_and_a_failure_is_asked_again():
     reads.single_flight("f", lambda: "[Drawing - analysis failed]", lambda result: True)
     assert reads.single_flight("f", lambda: "again", lambda result: False) == "again"
     reads.close()
-
