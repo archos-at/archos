@@ -39,11 +39,15 @@ The owner is exempt deliberately: with `FORCE ROW LEVEL SECURITY` a migration
 that backfills data would silently update zero rows and report success.
 
 A fourth login exists on clusters deployed by Pulumi and is not an application
-role: `keda_scaler`, which KEDA's `postgresql` scaler counts the queue
-tables with. It has no `BYPASSRLS`; its one read of a tenant table
-(`bff_job_queue`) is an extra `FOR SELECT` policy written for that role alone
-(`deploy/pulumi/src/app/queue-scaler-grants.ts`), and its rights are SELECT on
-three queue tables.
+role: `keda_scaler`. The worker tiers scale on Hatchet's backlog (ADR-0150), so
+the login that counts it lives on the background-work cluster
+(`background-work-pg`), with SELECT on the few columns of Hatchet's queue
+tables the count reads (`backgroundWorkGrantsSql`,
+`deploy/pulumi/src/data/background-work-pg.ts`) and no tenant table at all. On
+the app cluster the `keda_scaler` role and the extra `FOR SELECT` policy it had
+on `bff_job_queue` are what the claim queues left behind, kept until the
+cutover drains them ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)).
+Nothing in Pulumi grants them any more.
 
 `app_platform` is `NOLOGIN`. It is reached only by `SET LOCAL ROLE`, which
 means a cross-tenant read shows up as `current_user` in `pg_stat_activity` and

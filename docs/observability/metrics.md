@@ -36,7 +36,7 @@ collector, so nothing is exported there and every meter is a no-op.
 
 | Metric | Attributes | From |
 |---|---|---|
-| `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`) and `bff` (`workers/jobs/queue-metrics.js`). Research runs on Hatchet (ADR-0150) and reports its queue in Hatchet's own dashboard. Read from the table by every replica, so chart it with `max` |
+| `grid.queue.depth` | `queue`, `status` | The claim queues kept until the cutover drains them: `ingest` (`common/claim_queue.py`) and `bff` (`workers/jobs/queue-metrics.js`). Work on Hatchet (ADR-0150) reports its backlog as Hatchet's `hatchet_tenant_queue_size` and in its dashboard ([`hatchet.md`](../deployment/hatchet.md), "What to watch"). Read from the table by every replica, so chart it with `max` |
 | `grid.queue.oldest_age_seconds` | `queue` | The same queues; `max` as well. Absent while nothing is queued |
 | `grid.queue.claim_latency_ms` | `queue` | One claim round trip |
 | `grid.queue.job_duration_seconds` | `queue`, `kind` | One claimed job, to its end or its give-back |

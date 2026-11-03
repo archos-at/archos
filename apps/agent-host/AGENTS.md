@@ -28,7 +28,10 @@ validates the JWT and reads the context headers; it does not look up who you
 are. The BFF decided that (ADR-0003, ADR-0007). Anything that needs to *decide*
 access belongs in the BFF, not here.
 
-**Research runs on Hatchet; ingestion still claims in the database.** A research
+**Background work runs on Hatchet** (ADR-0150, runbook
+[`docs/deployment/hatchet.md`](../../docs/deployment/hatchet.md)): a research run
+is a `research-run`, a document an `ingest-document`, each fair across offices
+by its organization key. A research
 job is a `research-run` task (ADR-0150): concurrency `GROUP_ROUND_ROBIN` on
 `input.organization_id` capped at `MAX_ACTIVE_JOBS_PER_ORG`, `interactive` at
 `Priority.HIGH` before `bulk` at `Priority.LOW`, retries only after a lost worker
@@ -41,12 +44,14 @@ nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends
 as FAILURE (`agent_job._finish_cancelled`). Its input carries ids, the priority and the `payload_crypto`
 ciphertext, never plaintext; without `JOB_PAYLOAD_KEK` a submit is refused. The
 run's id is kept in `research_orchestrator_runs` (`jobs/orchestrator_runs.py`)
-for the cancel. The old `research_job_queue` table stays until a later migration
-drops it; `python -m agent_host.jobs.requeue_legacy` starts what it still held
-at the cutover. Ingestion claims from its own table,
-`agent.knowledge.ingest_queue`; `jobs/ingest_dispatch.py` puts jobs there and
-`jobs/ingest_worker.py` is its dedicated tier, the only process that claims
-(ADR-0076): the `chat` and `api` roles enqueue and never claim.
+for the cancel. Ingestion follows the same shape: the `ingest-worker` tier runs
+`ingest-document` runs, and the `chat` and `api` roles only start them. The claim
+queues they replaced, `research_job_queue` and `ingest_job_queue`
+(`agent.knowledge.ingest_queue`, `jobs/ingest_dispatch.py`,
+`jobs/ingest_worker.py`'s claim loop, ADR-0076), are kept until the cutover
+drains them, and a later migration drops the tables;
+`python -m agent_host.jobs.requeue_legacy` starts what the research table still
+held at the cutover. Do not add a caller to either queue.
 
 **Research waits, it is not refused.** Capacity never makes `jobs/submit.py`
 raise: `MAX_ACTIVE_JOBS_PER_ORG` is the `research-run` concurrency cap per
@@ -71,4 +76,4 @@ run acts as nobody and those tools refuse.
 - [`README.md`](README.md) here has the run commands and the layered
   architecture diagram.
 - Endpoint contracts: [`docs/api/python-endpoints.md`](../../docs/api/python-endpoints.md).
-- ADR-0021 (db-claimed workers), ADR-0018 (per-run state), ADR-0028 (conversation affinity).
+- ADR-0150 (Hatchet), ADR-0021 (db-claimed workers, superseded in part), ADR-0018 (per-run state), ADR-0028 (conversation affinity).
