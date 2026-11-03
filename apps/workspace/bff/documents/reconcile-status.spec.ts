@@ -133,7 +133,7 @@ describe('reconcileDocumentStatuses', () => {
     mockFetch.mockResolvedValue(collectionResponse([{ file_name: 'plan.pdf', status: 'success' }]))
     const rows = [makeRow({ status: 'completed' }), makeRow({ id: 'doc-2', status: 'failed' })]
 
-    const result = await reconcileDocumentStatuses(rows, 'org-1')
+    const result = await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     expect(result.map((r) => r.status)).toEqual(['completed', 'failed'])
     expect(db.update).not.toHaveBeenCalled()
@@ -151,7 +151,7 @@ describe('reconcileDocumentStatuses', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining('/v1/documents/status/batch'),
@@ -186,7 +186,7 @@ describe('reconcileDocumentStatuses', () => {
       makeRow({ id: `doc-${i}`, metadata: { ingestJobId: `job-${i}` } })
     )
 
-    const result = await reconcileDocumentStatuses(rows, 'org-1')
+    const result = await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     expect(Math.max(...calls)).toBeLessThanOrEqual(200)
     expect(result.filter((r) => r.status === 'completed')).toHaveLength(309)
@@ -210,7 +210,8 @@ describe('reconcileDocumentStatuses', () => {
         makeRow({ updatedAt: old }),
         makeRow({ id: 'doc-2', metadata: { ingestJobId: 'job-2' }, updatedAt: recent }),
       ],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(lost.status).toBe('failed')
@@ -228,7 +229,7 @@ describe('reconcileDocumentStatuses', () => {
         ? batchResponse({ 'job-1': null })
         : { ok: false, status: 503, json: () => Promise.resolve({}) }
     )
-    const [row] = await reconcileDocumentStatuses([makeRow({ updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60_000) })], 'org-1')
+    const [row] = await reconcileDocumentStatuses([makeRow({ updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60_000) })], 'org-1', 'read')
     expect(row.status).toBe('pending')
   })
 
@@ -240,7 +241,7 @@ describe('reconcileDocumentStatuses', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('failed')
     expect(result.errorMessage).toBe('embedding service unavailable')
@@ -260,7 +261,7 @@ describe('reconcileDocumentStatuses', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('failed')
     expect(result.errorMessage).toBe('unparseable PDF')
@@ -286,7 +287,7 @@ describe('reconcileDocumentStatuses', () => {
         : collectionResponse([{ file_name: 'plan.pdf', status: 'success', chunk_count: 12 }])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('failed')
     // The file's cause, not the adapter's tally.
@@ -307,7 +308,7 @@ describe('reconcileDocumentStatuses', () => {
       })
     )
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(db.set).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed', errorMessage: 'interrupted: worker stopped' })
@@ -318,7 +319,7 @@ describe('reconcileDocumentStatuses', () => {
     const db = makeDbMock()
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'processing', file_details: [] } }))
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('pending')
     expect(db.update).not.toHaveBeenCalled()
@@ -330,7 +331,7 @@ describe('reconcileDocumentStatuses', () => {
       batchResponse({ 'job-1': { status: 'pending', file_details: [], metadata: { queue_ahead: 3 } } })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.queueAhead).toBe(3)
   })
@@ -341,7 +342,7 @@ describe('reconcileDocumentStatuses', () => {
       batchResponse({ 'job-1': { status: 'processing', file_details: [], metadata: { queue_ahead: null } } })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.queueAhead).toBeNull()
   })
@@ -359,7 +360,7 @@ describe('reconcileDocumentStatuses', () => {
           ]),
       })
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(mockFetch).toHaveBeenNthCalledWith(
       2,
@@ -381,7 +382,7 @@ describe('reconcileDocumentStatuses', () => {
         ]),
     })
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1', 'read')
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(mockFetch).toHaveBeenCalledWith(
@@ -407,7 +408,7 @@ describe('reconcileDocumentStatuses', () => {
       makeRow({ metadata: null }),
       makeRow({ id: 'doc-2', filename: 'specs.pdf', metadata: null }),
     ]
-    const result = await reconcileDocumentStatuses(rows, 'org-1')
+    const result = await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     expect(mockFetch).toHaveBeenCalledTimes(1)
     expect(result.map((r) => r.status)).toEqual(['completed', 'completed'])
@@ -417,7 +418,7 @@ describe('reconcileDocumentStatuses', () => {
     const db = makeDbMock()
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'))
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('pending')
     expect(db.update).not.toHaveBeenCalled()
@@ -429,7 +430,7 @@ describe('reconcileDocumentStatuses', () => {
     // the fetchJson wrapper swallows it exactly like a connection refusal.
     mockFetch.mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'))
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('pending')
     expect(db.update).not.toHaveBeenCalled()
@@ -439,7 +440,7 @@ describe('reconcileDocumentStatuses', () => {
     makeDbMock()
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'in_progress' } }))
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     const batchCall = mockFetch.mock.calls.find(([url]) => String(url).includes('/v1/documents/status/batch'))
     expect(batchCall).toBeDefined()
@@ -454,7 +455,7 @@ describe('reconcileDocumentStatuses', () => {
       json: () => Promise.resolve([]),
     })
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1', 'read')
 
     expect(result.status).toBe('pending')
     expect(db.update).not.toHaveBeenCalled()
@@ -491,7 +492,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.summary).toBe('A ground-floor plan.')
     expect(result.pageCount).toBe(4)
@@ -508,7 +509,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.tags).toBeUndefined()
   })
@@ -527,7 +528,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.topics).toEqual(['Brandschutzkonzept', 'Fluchtweg'])
     expect(result.capture).toEqual({
@@ -552,7 +553,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.topics).toEqual(['Fluchtweg', 'Rauchabzug'])
     expect(result.capture).toBeUndefined()
@@ -566,7 +567,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.topics).toBeUndefined()
     expect(result.capture).toBeUndefined()
@@ -601,7 +602,8 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
         makeRow({ status: 'completed' }),
         makeRow({ id: 'doc-2', filename: 'junk.pdf', status: 'completed' }),
       ],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(present.revisionFacts).toEqual({
@@ -642,7 +644,8 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
 
     const [present, junk] = await reconcileDocumentStatuses(
       [makeRow({ status: 'completed' }), makeRow({ id: 'doc-2', filename: 'junk.pdf', status: 'completed' })],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(present.dossier?.documentType).toBe('submission_drawing')
@@ -674,7 +677,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     )
     const row = makeRow({ status: 'completed' })
 
-    const [result] = await reconcileDocumentStatuses([row], 'org-1')
+    const [result] = await reconcileDocumentStatuses([row], 'org-1', 'read')
 
     // A file name is a fact about a document the reader may not see: it never
     // rides on the row metadata other callers spread onto the wire.
@@ -729,7 +732,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       collectionResponse([{ file_id: 'f-1', file_name: 'plan.pdf', status: 'success', chunk_count: 5 }])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.chunkCount).toBe(5)
     expect(result.summary).toBeUndefined()
@@ -747,7 +750,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
       ])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.summary).toBeUndefined()
     expect(result.chunkCount).toBeUndefined()
@@ -757,7 +760,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     makeDbMock()
     mockFetch.mockRejectedValue(new Error('ECONNREFUSED'))
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.status).toBe('completed')
     expect(result.summary).toBeUndefined()
@@ -768,7 +771,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     makeDbMock()
     mockFetch.mockResolvedValue(collectionResponse([{ file_id: 'f-9', file_name: 'other.pdf', status: 'success' }]))
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(result.summary).toBeUndefined()
     expect(result.chunkCount).toBeUndefined()
@@ -806,7 +809,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     makeDbMock()
     mockFetch.mockResolvedValue(expertReportListing())
 
-    const [result] = await reconcileDocumentStatuses([collidingRow('agent')], 'org-1')
+    const [result] = await reconcileDocumentStatuses([collidingRow('agent')], 'org-1', 'read')
 
     // Every one of these belongs to somebody's actual Gutachten. `FileCard`
     // renders `summary` with no gate, so before the authorship gate this row
@@ -825,7 +828,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     makeDbMock()
     mockFetch.mockResolvedValue(expertReportListing())
 
-    const [result] = await reconcileDocumentStatuses([collidingRow('user')], 'org-1')
+    const [result] = await reconcileDocumentStatuses([collidingRow('user')], 'org-1', 'read')
 
     expect(result.summary).toBe('Gutachten zum Brandschutzkonzept, Bauteil B.')
     expect(result.pageCount).toBe(31)
@@ -836,7 +839,7 @@ describe('reconcileDocumentStatuses metadata enrichment', () => {
     makeDbMock()
     mockFetch.mockResolvedValue(expertReportListing())
 
-    await reconcileDocumentStatuses([collidingRow('agent')], 'org-1')
+    await reconcileDocumentStatuses([collidingRow('agent')], 'org-1', 'read')
 
     // The gate runs ahead of the fetch: the row owns nothing in that list either
     // way, so deciding costs no backend round trip.
@@ -905,7 +908,8 @@ describe('reconcileDocumentStatuses authorship gate on the status pass', () => {
           metadata: null,
         }),
       ],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(result.status).toBe('pending')
@@ -929,7 +933,8 @@ describe('reconcileDocumentStatuses authorship gate on the status pass', () => {
           metadata: null,
         }),
       ],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(result.status).toBe('completed')
@@ -958,8 +963,8 @@ describe('reconcileDocumentStatuses collection-file-list caching', () => {
     const rows = [makeRow({ status: 'completed' })]
 
     // First read fetches once and caches; a second read within the TTL reuses it.
-    await reconcileDocumentStatuses(rows, 'org-1')
-    await reconcileDocumentStatuses(rows, 'org-1')
+    await reconcileDocumentStatuses(rows, 'org-1', 'read')
+    await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     const collectionCalls = mockFetch.mock.calls.filter(([url]) =>
       String(url).includes('/v1/collections/proj_abc/documents')
@@ -975,8 +980,8 @@ describe('reconcileDocumentStatuses collection-file-list caching', () => {
     // Legacy in-flight row (no job id) → status reconciliation reads the list fresh.
     const rows = [makeRow({ status: 'pending', metadata: null })]
 
-    await reconcileDocumentStatuses(rows, 'org-1')
-    await reconcileDocumentStatuses(rows, 'org-1')
+    await reconcileDocumentStatuses(rows, 'org-1', 'read')
+    await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     const collectionCalls = mockFetch.mock.calls.filter(([url]) =>
       String(url).includes('/v1/collections/proj_abc/documents')
@@ -1029,11 +1034,11 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
 
     // A terminal sibling in the same collection primes the cache with the
     // listing from before plan.pdf existed.
-    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1')
+    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1', 'read')
     expect(collectionCalls()).toHaveLength(1)
 
     listing.current = [indexedPlan]
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('completed')
     expect(result.summary).toBe('A ground-floor plan.')
@@ -1048,11 +1053,11 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     makeDbMock()
     const listing = { current: [] as unknown[] }
     routeBackend({ 'job-1': { status: 'completed', file_details: [{ status: 'success' }] } }, listing)
-    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1')
+    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1', 'read')
     listing.current = [indexedPlan]
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
-    const [again] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1')
+    const [again] = await reconcileDocumentStatuses([makeRow({ status: 'completed' })], 'org-1', 'read')
 
     expect(again.summary).toBe('A ground-floor plan.')
     expect(collectionCalls()).toHaveLength(2)
@@ -1065,7 +1070,7 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
       { current: [{ ...indexedPlan, superseded_by: 'plan-c.pdf' }] }
     )
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(projectReadings).toHaveBeenCalledWith('org-1', [
       expect.objectContaining({
@@ -1090,7 +1095,7 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     ])
     const fetchesBefore = collectionCalls().length
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
     await vi.waitFor(() => expect(projectReadings).toHaveBeenCalledTimes(2))
 
     expect(listCollectionDocumentsForProjection).toHaveBeenCalledWith('org-1', 'proj_abc', ['plan-a.pdf'])
@@ -1107,7 +1112,7 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
       { current: [{ ...indexedPlan, revision_suggestion: { of: 'plan-a.pdf', confidence: 0.9, reason: 'r', basis: 'title_block' } }] }
     )
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(projectReadings).toHaveBeenCalledTimes(1)
     expect(projectReadings).toHaveBeenCalledWith('org-1', [expect.objectContaining({ documentId: 'doc-1', superseded: false })])
@@ -1118,8 +1123,8 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     makeDbMock()
     routeBackend({ 'job-1': { status: 'failed', error: 'kaputt' } }, { current: [indexedPlan] })
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
-    await reconcileDocumentStatuses([makeRow({ id: 'doc-2', status: 'completed' })], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
+    await reconcileDocumentStatuses([makeRow({ id: 'doc-2', status: 'completed' })], 'org-1', 'read')
 
     expect(projectReadings).not.toHaveBeenCalled()
   })
@@ -1134,7 +1139,7 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
       },
       listing
     )
-    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1')
+    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1', 'read')
     listing.current = [indexedPlan, { file_id: 'f-2', file_name: 'specs.pdf', status: 'success', chunk_count: 3 }]
 
     const result = await reconcileDocumentStatuses(
@@ -1145,7 +1150,8 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
         makeRow({ id: 'doc-3', filename: 'legacy.pdf', metadata: null }),
         makeRow({ id: 'doc-4', filename: 'old.pdf', status: 'completed' }),
       ],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(result.map((r) => r.chunkCount)).toEqual([12, 3, undefined, undefined])
@@ -1158,9 +1164,9 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     routeBackend({}, listing)
     const row = makeRow({ status: 'completed', updatedAt: new Date(Date.now() - 60_000) })
 
-    await reconcileDocumentStatuses([row], 'org-1')
-    await reconcileDocumentStatuses([row], 'org-1')
-    await reconcileDocumentStatuses([row], 'org-1')
+    await reconcileDocumentStatuses([row], 'org-1', 'read')
+    await reconcileDocumentStatuses([row], 'org-1', 'read')
+    await reconcileDocumentStatuses([row], 'org-1', 'read')
 
     expect(collectionCalls()).toHaveLength(1)
   })
@@ -1171,13 +1177,13 @@ describe('reconcileDocumentStatuses enrichment on a status transition', () => {
     makeDbMock()
     const listing = { current: [] as unknown[] }
     routeBackend({}, listing)
-    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1')
+    await reconcileDocumentStatuses([makeRow({ id: 'doc-old', filename: 'old.pdf', status: 'completed' })], 'org-1', 'read')
 
     vi.setSystemTime(new Date('2026-09-29T10:00:05Z'))
     listing.current = [indexedPlan]
     const row = makeRow({ status: 'completed', updatedAt: new Date('2026-09-29T10:00:03Z') })
-    const [first] = await reconcileDocumentStatuses([row], 'org-1')
-    const [second] = await reconcileDocumentStatuses([row], 'org-1')
+    const [first] = await reconcileDocumentStatuses([row], 'org-1', 'read')
+    const [second] = await reconcileDocumentStatuses([row], 'org-1', 'read')
 
     expect(first.summary).toBe('A ground-floor plan.')
     expect(second.summary).toBe('A ground-floor plan.')
@@ -1203,7 +1209,8 @@ describe('reconcileDocumentStatuses on a row the BFF is still working on', () =>
 
     const [result] = await reconcileDocumentStatuses(
       [makeRow({ status: 'processing', filename: 'Bericht.docx', metadata: null })],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(result.status).toBe('processing')
@@ -1222,7 +1229,8 @@ describe('reconcileDocumentStatuses on a row the BFF is still working on', () =>
 
     const [result] = await reconcileDocumentStatuses(
       [makeRow({ status: 'processing', filename: 'Bericht.docx', metadata: null })],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(result.status).toBe('processing')
@@ -1239,7 +1247,7 @@ describe('reconcileDocumentStatuses on a row the BFF is still working on', () =>
         : collectionResponse([])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'processing' })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ status: 'processing' })], 'org-1', 'read')
 
     expect(result.status).toBe('processing')
     expect(db.update).not.toHaveBeenCalled()
@@ -1276,7 +1284,7 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
       )
     )
 
-    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1', 'read')
 
     expect(result.status).toBe('completed')
     expect(result.errorMessage).toBeNull()
@@ -1293,7 +1301,7 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
       )
     )
 
-    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1', 'read')
 
     expect(result.status).toBe('pending')
     expect(result.errorMessage).toBeNull()
@@ -1310,7 +1318,7 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
       )
     )
 
-    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1', 'read')
 
     expect(batchCalls()).toHaveLength(1)
     expect(result.status).toBe('failed')
@@ -1328,7 +1336,7 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
       )
     )
 
-    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([interruptedRow()], 'org-1', 'read')
 
     expect(result.status).toBe('failed')
     expect(db.update).not.toHaveBeenCalled()
@@ -1339,7 +1347,7 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
     mockFetch.mockResolvedValue(collectionResponse([]))
 
     const rows = [interruptedRow({ updatedAt: minutesAgo(31) }), interruptedRow({ id: 'doc-2', updatedAt: null })]
-    const result = await reconcileDocumentStatuses(rows, 'org-1')
+    const result = await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     expect(batchCalls()).toHaveLength(0)
     expect(result.map((r) => r.status)).toEqual(['failed', 'failed'])
@@ -1355,7 +1363,7 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
       interruptedRow({ id: 'doc-2', errorMessage: null }),
       interruptedRow({ id: 'doc-3', metadata: {} }),
     ]
-    const result = await reconcileDocumentStatuses(rows, 'org-1')
+    const result = await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     expect(batchCalls()).toHaveLength(0)
     expect(result.map((r) => r.status)).toEqual(['failed', 'failed', 'failed'])
@@ -1389,7 +1397,7 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     backend({ status: 'completed', file_details: [{ file_name: 'plan.pdf', status: 'success', screening: 'clean' }] })
     const dispatched = new Date(Date.now() - 120_000)
 
-    await reconcileDocumentStatuses([makeRow({ updatedAt: dispatched })], 'org-1')
+    await reconcileDocumentStatuses([makeRow({ updatedAt: dispatched })], 'org-1', 'read')
 
     expect(captureServer).toHaveBeenCalledTimes(1)
     const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
@@ -1408,7 +1416,7 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     makeDbMock()
     backend({ status: 'failed', error_message: 'could not read secret-plan.pdf', file_details: [] })
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(captureServer).toHaveBeenCalledWith(
       expect.objectContaining({ properties: expect.objectContaining({ status: 'failed' }) })
@@ -1416,11 +1424,49 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('secret')
   })
 
+  it('carries the document, its attempt, who settled it and the job’s own processing time', async () => {
+    makeDbMock()
+    backend({
+      status: 'completed',
+      started_at: '2026-11-03T10:00:00.000000',
+      completed_at: '2026-11-03T10:00:42.500000',
+      file_details: [{ file_name: 'plan.pdf', status: 'success' }],
+    })
+
+    await reconcileDocumentStatuses([makeRow({ ingestAttempts: 3 })], 'org-1', 'push')
+
+    const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
+    expect(sent.properties).toMatchObject({
+      document_id: 'doc-1',
+      attempt: 3,
+      processing_ms: 42_500,
+      settled_by: 'push',
+    })
+    expect(sent.properties.failure_category).toBeUndefined()
+  })
+
+  it('sends the failure category the job reported, the one the row stores', async () => {
+    makeDbMock()
+    backend({
+      status: 'failed',
+      error_message: '1/1 file(s) failed',
+      file_details: [
+        { file_name: 'plan.pdf', status: 'failed', error_message: 'encrypted', failure_category: 'deterministic', retryable: false },
+      ],
+    })
+
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'sweep')
+
+    const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
+    expect(sent.properties).toMatchObject({ status: 'failed', failure_category: 'deterministic', settled_by: 'sweep' })
+    expect(sent.properties.processing_ms).toBeUndefined()
+  })
+
   it('sends nothing for a row another read moved first', async () => {
     makeDbMock({ moved: false })
     backend({ status: 'completed', file_details: [{ file_name: 'plan.pdf', status: 'success' }] })
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(captureServer).not.toHaveBeenCalled()
   })
@@ -1429,7 +1475,7 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     makeDbMock()
     backend({ status: 'processing', queue_position: 0 })
 
-    await reconcileDocumentStatuses([makeRow(), makeRow({ id: 'doc-2', status: 'completed' })], 'org-1')
+    await reconcileDocumentStatuses([makeRow(), makeRow({ id: 'doc-2', status: 'completed' })], 'org-1', 'read')
 
     expect(captureServer).not.toHaveBeenCalled()
   })
@@ -1575,7 +1621,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('quarantined')
     expect(result.errorMessage).toBe(verdict)
@@ -1629,7 +1675,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ quarantine: null } as Partial<ReconcilableDocument>)], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ quarantine: null } as Partial<ReconcilableDocument>)], 'org-1', 'read')
 
     expect(result.status).toBe('quarantined')
     expect((result as { quarantine?: unknown }).quarantine).toEqual(typed)
@@ -1650,7 +1696,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       })
     )
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ quarantine: typed }))
     expect(db.values).toHaveBeenCalledWith(expect.objectContaining({ reasons: 'iban,passport' }))
@@ -1662,7 +1708,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       collectionResponse([{ file_name: 'plan.pdf', status: 'failed', error_message: null, quarantine: typed }])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1', 'read')
 
     expect(result.status).toBe('quarantined')
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ quarantine: typed }))
@@ -1671,7 +1717,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
   it('writes no verdict for an ordinary failure', async () => {
     const failed = makeDbMock()
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'failed', error_message: 'unparseable PDF' } }))
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
     expect(failed.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed', quarantine: null }))
   })
 
@@ -1691,7 +1737,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('quarantined')
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'quarantined' }))
@@ -1701,12 +1747,12 @@ describe('reconcileDocumentStatuses — upload screening', () => {
   it('records no decision for a row it did not move, nor for one that came to rest otherwise', async () => {
     const lost = makeDbMock({ moved: false })
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'failed', error_message: verdict } }))
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
     expect(lost.insert).not.toHaveBeenCalled()
 
     const completed = makeDbMock()
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'completed' } }))
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
     expect(completed.update).toHaveBeenCalled()
     expect(completed.insert).not.toHaveBeenCalled()
   })
@@ -1717,7 +1763,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       collectionResponse([{ file_name: 'plan.pdf', status: 'failed', error_message: verdict }])
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: null })], 'org-1', 'read')
 
     expect(result.status).toBe('quarantined')
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'quarantined' }))
@@ -1734,7 +1780,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       .mockResolvedValueOnce(batchResponse({}))
       .mockResolvedValue(collectionResponse([{ file_name: 'plan.pdf', status: 'failed', error_message: verdict }]))
 
-    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: { ingestJobId: 'job-2' } })], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow({ metadata: { ingestJobId: 'job-2' } })], 'org-1', 'read')
 
     expect(result.status).toBe('pending')
     expect(db.update).not.toHaveBeenCalled()
@@ -1747,7 +1793,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       batchResponse({ 'job-1': { status: 'completed', file_details: [{ status: 'success', screening }] } })
     )
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', screeningOutcome: screening }))
   })
@@ -1758,7 +1804,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
       batchResponse({ 'job-1': { status: 'completed', file_details: [{ status: 'success', screening: null }] } })
     )
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     const written = db.set.mock.calls[0]?.[0] as Record<string, unknown>
     expect(written.status).toBe('completed')
@@ -1769,7 +1815,7 @@ describe('reconcileDocumentStatuses — upload screening', () => {
     const db = makeDbMock()
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'failed', error_message: 'unparseable PDF' } }))
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('failed')
     const written = db.set.mock.calls[0]?.[0] as Record<string, unknown>
@@ -1800,7 +1846,8 @@ describe('reconcileDocumentStatuses — settling uploads', () => {
 
     await reconcileDocumentStatuses(
       [makeRow(), makeRow({ id: 'doc-2', metadata: { ingestJobId: 'job-2' } })],
-      'org-1'
+      'org-1',
+      'read'
     )
 
     expect(onDocumentsSettled).toHaveBeenCalledWith('org-1', [{ id: 'doc-1', status: 'completed' }])
@@ -1821,7 +1868,7 @@ describe('reconcileDocumentStatuses — settling uploads', () => {
       })
     )
 
-    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1')
+    const [result] = await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(result.status).toBe('quarantined')
     expect(onDocumentsSettled).not.toHaveBeenCalled()
@@ -1831,7 +1878,7 @@ describe('reconcileDocumentStatuses — settling uploads', () => {
     makeDbMock()
     mockFetch.mockResolvedValue(batchResponse({ 'job-1': { status: 'running' } }))
 
-    await reconcileDocumentStatuses([makeRow()], 'org-1')
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(onDocumentsSettled).not.toHaveBeenCalled()
   })
@@ -1858,7 +1905,7 @@ describe('reconcileDocumentStatuses announcing what settled', () => {
     makeDbMock()
     const row: ShelfRow = { ...makeRow(), projectId: null, scope: 'office_shelf' }
 
-    await reconcileDocumentStatuses([row], 'org-1')
+    await reconcileDocumentStatuses([row], 'org-1', 'read')
 
     expect(publishShelfChanged).toHaveBeenCalledTimes(1)
     expect(publishShelfChanged).toHaveBeenCalledWith('org-1', { kind: 'office_shelf' })
@@ -1871,7 +1918,7 @@ describe('reconcileDocumentStatuses announcing what settled', () => {
       { ...makeRow({ id: 'doc-2' }), projectId: 'p1', scope: 'project' },
     ]
 
-    await reconcileDocumentStatuses(rows, 'org-1')
+    await reconcileDocumentStatuses(rows, 'org-1', 'read')
 
     expect(publishShelfChanged).toHaveBeenCalledTimes(1)
     expect(publishShelfChanged).toHaveBeenCalledWith('org-1', { kind: 'project', projectId: 'p1' })
@@ -1879,13 +1926,13 @@ describe('reconcileDocumentStatuses announcing what settled', () => {
 
   it('says nothing for a row another read moved first: that read announced it', async () => {
     makeDbMock({ moved: false })
-    await reconcileDocumentStatuses([{ ...makeRow(), projectId: 'p1', scope: 'project' } as ShelfRow], 'org-1')
+    await reconcileDocumentStatuses([{ ...makeRow(), projectId: 'p1', scope: 'project' } as ShelfRow], 'org-1', 'read')
     expect(publishShelfChanged).not.toHaveBeenCalled()
   })
 
   it('says nothing for a chat attachment, which is on no shelf', async () => {
     makeDbMock()
-    await reconcileDocumentStatuses([{ ...makeRow(), projectId: null, scope: 'session' } as ShelfRow], 'org-1')
+    await reconcileDocumentStatuses([{ ...makeRow(), projectId: null, scope: 'session' } as ShelfRow], 'org-1', 'read')
     expect(publishShelfChanged).not.toHaveBeenCalled()
   })
 })

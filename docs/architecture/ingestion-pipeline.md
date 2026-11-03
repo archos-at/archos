@@ -234,14 +234,25 @@ What is measured in production today:
   vision, summary, embedding, write (A:2931).
 - `llm_usage_events` with `activity = ingest` per job: the one queryable cost
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).
-- `document_ingest_finished` in PostHog with `duration_ms`. It is **not** a
-  processing time: it is `now − documents.updated_at` at the read that first
-  noticed the change (`bff/analytics/ingest-events.ts`), so it includes the queue
-  wait and every hour nobody looked. A rename, move or other write to the row
-  during the ingest moves `updated_at`, and the value then starts there. On 2026-11-02, 59 PDFs read in 18 s each
-  (p50 of their `ingest-file` traces) reported about 21,600 s, because no read
-  reconciled them until a chat turn six hours later. For processing time use the
-  `ingest-file` trace latency (mirrored into PostHog as `langfuse observation`).
+- `document_ingest_finished` in PostHog, one per settled document
+  (`bff/analytics/ingest-events.ts`), with `document_id`, `attempt`,
+  `failure_category` (failed only, the stored category), `settled_by` and two
+  durations:
+  - `processing_ms` is the job's own `started_at` to `completed_at`, from the
+    backend's batch status: what the worker spent, queue wait excluded. Absent
+    when the status carries either end not.
+  - `duration_ms` is `now − documents.updated_at` at the reconcile that settled
+    the row, so it includes the queue wait and every hour nobody looked. A
+    rename, move or other write to the row during the ingest moves `updated_at`,
+    and the value then starts there. On 2026-11-02, 59 PDFs read in 18 s each
+    (p50 of their `ingest-file` traces) reported about 21,600 s, because no read
+    reconciled them until a chat turn six hours later.
+  - `settled_by` says which path noticed: `push` (the worker's
+    `POST /api/internal/ingest/settled` when the job ended), `read` (a listing,
+    a detail or another read that reconciles in passing), `sweep` (the upload and
+    placement sweeps). With the push working, `duration_ms − processing_ms` is
+    the queue wait; a large gap on `read` or `sweep` rows is a push that did not
+    arrive.
 - `grid.queue.job_duration_seconds` and claim latency (OTel).
 
 ## 5. What is stored, and who reads it
