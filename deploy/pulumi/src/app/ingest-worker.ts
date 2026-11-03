@@ -19,6 +19,10 @@ export const HEAVY_WORKFLOW = "ingest-document-heavy";
 /** The high-memory pool's Deployment, and the worker label its `index` step requires (`pool=highmem`). */
 export const HEAVY_TIER = "ingest-worker-heavy";
 export const HEAVY_POOL = "highmem";
+/** The page fan-out's task for one page, the pool that runs it, and that pool's `INGEST_WORKER_POOL` (ADR-0151). */
+export const READ_PAGE_WORKFLOW = "read-page";
+export const PAGE_READER_TIER = "ingest-page-reader";
+export const PAGE_READ_POOL = "page-read";
 
 /** What tells the two ingest pools apart; everything else about them is one Deployment shape. */
 interface IngestPool {
@@ -115,6 +119,55 @@ export function installIngestWorkerHeavy(
     maxReplicas: heavy.maxReplicas,
     concurrency: heavy.concurrency,
   });
+}
+
+/**
+ * The page-read pool (`ingest-page-reader`, ADR-0151): under `ingestPageFanOut` a standard
+ * file is read in steps, and each page that needs a model is a `read-page` task. This pool
+ * serves those tasks only (`INGEST_WORKER_POOL=page-read`), `ingestPageReaderSlots` a pod, and
+ * KEDA scales it on the `read-page` backlog (`<namespace>_read-page:`), which no other pool's
+ * prefix matches. The fan-out parent waits on a durable slot of the standard pool, so it never
+ * holds a slot its pages need. Hatchet caps the tasks at `vlmFleetConcurrency` fleet-wide
+ * (`ingest-page-read-fleet`), and the lease pool caps the calls inside them. None while the
+ * fan-out is off.
+ */
+export function installIngestPageReader(
+  w: AppWiring,
+  cfg: DeployConfig,
+  secrets: AppSecrets,
+  dependsOn: pulumi.Resource[],
+): ReturnType<typeof installIngestPool> | undefined {
+  const reader = cfg.ingestWorker.pageFanOut;
+  if (!reader.enabled) return undefined;
+  const cap = cfg.providerLimits.vlmFleetConcurrency;
+  if (cap > 0 && reader.slots > cap) {
+    throw new Error(
+      `Invalid page-read sizing: ingestPageReaderSlots (${reader.slots}) is above vlmFleetConcurrency (${cap}). ` +
+        "Hatchet runs at most that many read-page tasks fleet-wide, so a pod's extra slots could never run one.",
+    );
+  }
+  const liveness = "/tmp/ingest-page-reader.alive";
+  return installIngestPool(w, cfg, secrets, dependsOn, {
+    name: PAGE_READER_TIER,
+    workflow: READ_PAGE_WORKFLOW,
+    env: ingestPageReaderEnv(w, liveness),
+    liveness,
+    resources: reader.resources,
+    minReplicas: reader.minReplicas,
+    maxReplicas: reader.maxReplicas,
+    concurrency: reader.slots,
+  });
+}
+
+/** The page-read pool's env: the ingest worker's, serving `read-page` with `ingestPageReaderSlots` slots. */
+export function ingestPageReaderEnv(w: AppWiring, livenessFile: string): ReturnType<typeof ingestWorkerEnv> {
+  const slots = String(w.cfg.ingestWorker.pageFanOut.slots);
+  return [
+    ...ingestWorkerEnv(w, livenessFile).filter((e) => e.name !== "INGEST_MAX_WORKERS"),
+    { name: "INGEST_WORKER_POOL", value: PAGE_READ_POOL },
+    { name: "INGEST_PAGE_READ_SLOTS", value: slots },
+    { name: "INGEST_MAX_WORKERS", value: slots },
+  ];
 }
 
 /**

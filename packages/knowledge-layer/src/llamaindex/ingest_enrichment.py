@@ -10,17 +10,57 @@ The job reads terminal, and the settle push fires, only once they are collected.
 
 Every call is fail-open and bounded (``_future_result``): a slow or failing
 dossier costs the dossier, never the write.
+
+On the page fan-out (``INGEST_PAGE_FAN_OUT``) the calls are steps of their own after the
+write (``enrich``): inside :func:`deferred`, :func:`start_enrichment`
+hands their inputs to the step's sink, which stores them beside the version
+(``step_outputs``), and starts nothing; the file's row gets the fallback summary
+until the steps write theirs. A sink that cannot store makes the calls here, as
+before.
 """
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import logging
+from collections.abc import Callable
+from collections.abc import Iterator
 from concurrent.futures import Future
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+#: Takes the enrichment's inputs and answers whether it stored them (``deferred``).
+_SINK: contextvars.ContextVar[Callable[[dict[str, Any]], bool] | None] = contextvars.ContextVar(
+    "ingest_enrichment_sink", default=None
+)
+
+
+@contextlib.contextmanager
+def deferred(sink: Callable[[dict[str, Any]], bool]) -> Iterator[None]:
+    """Inside the block, a file's enrichment inputs go to ``sink`` and its calls are left to later steps."""
+    token = _SINK.set(sink)
+    try:
+        yield
+    finally:
+        _SINK.reset(token)
+
+
+def light_documents(documents: list[Any], text_documents: list[Any]) -> list[dict[str, Any]]:
+    """What the later steps read of the chunks' documents: text, page, a drawing's analysis, whether it is page text."""
+    text_ids = {id(doc) for doc in text_documents}
+    return [
+        {
+            "t": doc.get_content(),
+            "p": doc.metadata.get("page_label"),
+            "d": doc.metadata.get("drawing_data"),
+            "x": id(doc) in text_ids,
+        }
+        for doc in documents
+    ]
 
 
 @dataclass
@@ -64,6 +104,18 @@ def summary_input(text_documents: list[Any], drawing_pages: list[dict[str, Any]]
     return text_source
 
 
+def _handed_to_steps(inputs: dict[str, Any], all_documents: list[Any], text_documents: list[Any]) -> bool:
+    """Inside :func:`deferred`: the inputs, with the digest and the documents, to the sink; whether it stored them."""
+    sink = _SINK.get()
+    if sink is None:
+        return False
+    digest = None if inputs["base_corpus"] else _dossier_digest(all_documents, inputs["file_name"])
+    if sink({**inputs, "digest": digest, "documents": light_documents(all_documents, text_documents)}):
+        return True
+    logger.warning("Enrichment inputs of %s were not stored; enriching it in this step", inputs["file_name"])
+    return False
+
+
 def start_enrichment(
     ingestor: Any,
     *,
@@ -87,6 +139,10 @@ def start_enrichment(
     from agent.knowledge.document_classification import suggest_topics
 
     llm_input = summary_input(text_documents, drawing_pages)
+    inputs = {"llm_input": llm_input, "file_name": file_name, "collection": collection_name}
+    inputs |= {"organization_id": organization_id, "base_corpus": base_corpus, "suggest_class": suggest_class}
+    if _handed_to_steps(inputs, all_documents, text_documents):
+        return Enrichment()
     llm = ingestor.summary_llm
     executor = ThreadPoolExecutor(max_workers=4)
     calls = Enrichment(executor=executor)

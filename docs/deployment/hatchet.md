@@ -93,6 +93,48 @@ key at start (`rate_limits.put`, a limit that holds nothing back). `RetryAfter`
 needs engine ≥ 0.111.0; the pause RPC is unverified on v0.114.2 until the CI
 engine job meets one.
 
+### The page fan-out (`INGEST_PAGE_FAN_OUT`, ADR-0151, proposed)
+
+Off by default, on for one deploy as a measured comparison; the next change
+deletes whichever shape loses. With it on, the standard pool declares
+`ingest-document` in steps (`ingest_hatchet._declare_fan_out`, the steps in
+`knowledge/ingest_steps.py`); heavy files keep `ingest-document-heavy`:
+
+| Step | What it does | Holds |
+|---|---|---|
+| `extract` | download, text, tables, triage, the screen's pre-verdict; stores `parsed.json`; lists the pages that need a model | `ingest-org`, `ingest-supersede` |
+| `read-pages` | **durable**: starts one `read-page` run per listed page and waits for all of them; skipped when `extract` lists none | a durable slot |
+| `read-page` (its own workflow) | renders one page from the original (downloaded once per worker), reads it through the vision cache, stores `_text/page-reads/<n>.json`; retried alone (2 retries), then recorded unread | `ingest-page-read-fleet` (one key, `VLM_FLEET_CONCURRENCY`), `ingest-page-read-org` (round robin) |
+| `assemble-write` | the `index` attempt (retries, credit waits, supersede) over the stored answers: chunk, embed (cached), write, retire the previous version; stores `_text/enrichment.json` | `ingest-org`, `ingest-supersede` |
+| `enrich-summary`, `-tags`, `-topics`, `-dossier` | one call each, after the write, at once; skipped when the write stored no inputs | |
+| `enrich-permit` | after the tags, only when they typed the document (Bescheid, or another kind whose record it drops) | |
+| `enrich-write`, `settle` | the answers onto the row, then the settle push | |
+
+**Why the tenant-scoped limits sit on tasks.** The engine refuses a
+tenant-scoped limit at the level of a workflow of several tasks (`put_workflow`:
+"tenant-scoped concurrency … is not supported at the workflow level"). Named,
+the two on `extract` and `assemble-write` are one limit across both, in
+`ingest-document`'s order.
+
+**Why `read-pages` is durable.** A parent that waits for its children in an
+ordinary slot holds a slot the children need, and on a full pool none of them
+runs. A durable task waits on a durable slot, which the SDK keeps apart from the
+ordinary ones (`durable_slots`), and the engine may evict it from its worker
+while it waits; a restart replays it and finds the children it already started.
+The page tasks also have a pool of their own, `ingest-page-reader`
+(`INGEST_WORKER_POOL=page-read`, `ingestPageReaderSlots` 16, 0 to 2 pods), scaled
+by KEDA on the `read-page` backlog, so one file's pages spread over its pods; the
+standard pool serves `read-page` too, which is all Compose has.
+
+**Flip it with nothing in flight.** A run needs the steps it was started with,
+and both shapes are named `ingest-document`: a worker of the other shape cannot
+run it. Drain ingestion (or let the backlog empty), set `ingestPageFanOut` on
+the stack, and deploy; every backend tier reads `INGEST_PAGE_FAN_OUT`.
+
+**Watch.** The `read-page` runs per document in the dashboard; a page recorded
+unread shows in the file's coverage (`transcription_failed`, `vision_failed`)
+and in `pages_transcription_failed` on its job status.
+
 **Traces.** `ingest-worker`, `ingest-worker-heavy` and `agent-worker` install
 the SDK's `HatchetInstrumentor` on the provider Langfuse reads
 (`observability/hatchet_tracing.py`), with `enable_hatchet_otel_collector=False`

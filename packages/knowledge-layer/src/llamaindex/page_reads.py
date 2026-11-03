@@ -25,6 +25,12 @@ Now every page read of one file draws from one pool of
   ``VLM_FLEET_CONCURRENCY`` slots (``vision_calls._vlm_slot``), shared fairly
   between offices. This pool bounds one file's threads and memory, not the
   calls the provider sees.
+* **Answers read elsewhere.** On the page fan-out (``INGEST_PAGE_FAN_OUT``,
+  ``read_page``) each page is read by a task of its own before the file is
+  assembled; :func:`answers_read_elsewhere` hands those answers, keyed as the
+  vision cache keys them, to the file's pool, and a call for one of them is
+  answered from it without a model call. An answer stored as failed stays
+  failed: its page was already tried, and the second vision pass skips it.
 """
 
 from __future__ import annotations
@@ -32,6 +38,7 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import copy
+import hashlib
 import logging
 import threading
 from collections.abc import Callable
@@ -56,6 +63,10 @@ logger = logging.getLogger(__name__)
 INGEST_PAGE_READ_PARALLELISM = env_int("INGEST_PAGE_READ_PARALLELISM", 16, minimum=1)
 
 _CURRENT: contextvars.ContextVar[FilePageReads | None] = contextvars.ContextVar("file_page_reads", default=None)
+#: Answers a page task already got for this file (``answers_read_elsewhere``), keyed by vision-cache key.
+_READ_ELSEWHERE: contextvars.ContextVar[dict[str, Any] | None] = contextvars.ContextVar(
+    "page_reads_read_elsewhere", default=None
+)
 
 
 class FilePageReads:
@@ -68,6 +79,12 @@ class FilePageReads:
         self._lock = threading.Lock()
         self._calls: dict[str, Future] = {}
         self.renders: dict[int, dict[str, Any]] = {}
+        #: Every answer a call got, failures included, by key: what a page task stores.
+        self.answers: dict[str, Any] = {}
+        #: Answers read before this pool opened (``answers_read_elsewhere``); consulted before the model.
+        self.read_elsewhere: dict[str, Any] = dict(_READ_ELSEWHERE.get() or {})
+        #: Keys answered from ``read_elsewhere`` with a failure: tried already, never tried again here.
+        self._settled_failures: set[str] = set()
 
     def submit(self, fn: Callable[..., Any], /, *args: Any, **kwargs: Any) -> Future:
         """``fn`` on the pool, in a copy of the caller's context (data policy, cost ledger, file trace)."""
@@ -113,17 +130,38 @@ class FilePageReads:
             # A copy: the two callers attach the result to two records.
             return copy.deepcopy(pending.result())
         try:
-            result = live()
+            result = self._answer(key, live, failed)
         except BaseException as exc:
             with self._lock:
                 self._calls.pop(key, None)
             pending.set_exception(exc)
             raise
-        if failed(result):
+        with self._lock:
+            self.answers[key] = result
+        if failed(result) and key not in self._settled_failures:
             with self._lock:
                 self._calls.pop(key, None)
         pending.set_result(result)
         return result
+
+    def _answer(self, key: str, live: Callable[[], Any], failed: Callable[[Any], bool]) -> Any:
+        """The answer a page task stored for ``key``, else ``live()``."""
+        if key not in self.read_elsewhere:
+            return live()
+        result = copy.deepcopy(self.read_elsewhere[key])
+        if failed(result):
+            with self._lock:
+                self._settled_failures.add(key)
+        return result
+
+    def settled_image(self, image_bytes: bytes) -> bool:
+        """Whether a read of these bytes failed in a page task that spent its retries: no second pass asks again.
+
+        A vision-cache key ends in the bytes' SHA-256 (``processing.vlm_cache_key``).
+        """
+        digest = hashlib.sha256(image_bytes).hexdigest()
+        with self._lock:
+            return any(key.rsplit(":", 1)[-1] == digest for key in self._settled_failures)
 
     def read_drawings_ahead(
         self, triage: Any, pdf_path: str, *, cap: int, max_dim: int, vision: dict[str, Any]
@@ -199,6 +237,16 @@ def pool_for_this_call(parallelism: int | None = None) -> Iterator[FilePageReads
         return
     with file_page_reads(parallelism) as private:
         yield private
+
+
+@contextlib.contextmanager
+def answers_read_elsewhere(answers: dict[str, Any]) -> Iterator[None]:
+    """Inside the block, every file pool opened starts with ``answers`` (the page tasks' reads, by key)."""
+    token = _READ_ELSEWHERE.set(dict(answers))
+    try:
+        yield
+    finally:
+        _READ_ELSEWHERE.reset(token)
 
 
 def ordered_results(futures: list[tuple[int, Future]]) -> list[tuple[int, Any]]:

@@ -335,6 +335,16 @@ describe('buildPageTextStorageKey (ADR-0134)', () => {
     expect(buildPageTextStorageKey('nodir.pdf', 'pages.md')).toBeNull()
   })
 
+  it('mints the page fan-out’s step outputs from a closed pattern (ADR-0151)', () => {
+    const dir = 'org/org-1/project/proj-1/doc/doc-1/v2/_text/'
+    expect(buildPageTextStorageKey(key, 'page-reads/12.json')).toBe(`${dir}page-reads/12.json`)
+    expect(buildPageTextStorageKey(key, 'enrichment.json')).toBe(`${dir}enrichment.json`)
+    expect(buildPageTextStorageKey(key, 'enrichment/dossier.json')).toBe(`${dir}enrichment/dossier.json`)
+    for (const part of ['page-reads/0.json', 'page-reads/../1.json', 'page-reads/1.json/x', 'enrichment/other.json']) {
+      expect(buildPageTextStorageKey(key, part)).toBeNull()
+    }
+  })
+
   it('keeps an upload from taking the name of the prefix', () => {
     expect(storageKeySegment('_text')).toBe('__text')
   })

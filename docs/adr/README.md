@@ -213,6 +213,7 @@ Consequences, where a reader looks for them.
 | [0148](0148-a-list-is-worked-beside-the-real-surface-never-a-copy.md) | A list is worked beside the real surface, never a copy of it: one docked-panel primitive, and page overlays that leave it in view | Proposed |
 | [0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md) | The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS | Accepted |
 | [0150](0150-background-work-runs-on-self-hosted-hatchet.md) | Background work runs on self-hosted Hatchet, with fairness keyed on the organization, in place of our claim queues; supersedes 0076 and 0079 | Accepted |
+| [0151](0151-a-file-is-read-in-steps-with-one-task-per-page.md) | A file is read in steps, with one task per page that needs a model; measured against one step, behind `INGEST_PAGE_FAN_OUT` | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

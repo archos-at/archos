@@ -74,6 +74,7 @@ from .embedding import embed_fingerprint_metadata
 from .env import env_float
 from .env import env_int
 from .env import env_switch
+from .fan_out_steps import PageFanOutSteps
 from .ingest_measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
 from .ingest_measures import file_trace as _file_trace
 from .ingest_measures import finish_file as _finish_file_trace
@@ -2425,7 +2426,7 @@ def _log_ingest_perf(file_name: str, stages: dict[str, float]) -> None:
 
 
 @register_ingestor("llamaindex")
-class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
+class LlamaIndexIngestor(PageFanOutSteps, TTLCleanupMixin, BaseIngestor):
     """
     LlamaIndex-based document ingestor with optional multimodal extraction.
 
@@ -4098,18 +4099,10 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         provider limiter (ADR-0081): a reindex yields to an office's own upload,
         and both yield to a person waiting on an answer.
         """
-        from agent.common.openrouter import ZERO_DATA_RETENTION
-        from agent.common.openrouter import data_policy_for
-        from agent.common.openrouter import data_policy_scope
-        from agent.common.provider_limiter import priority_scope
+        from knowledge_layer.llamaindex.read_page import model_call_scope
 
-        organization_id = config.get("organization_id")
-        policy = data_policy_for(organization_id) if organization_id else ZERO_DATA_RETENTION
-        with (
-            data_policy_scope(policy),
-            _ingest_cost_scope(job_id, config),
-            priority_scope(config.get("priority")),
-        ):
+        # The same scope a page task enters (``read_page``), so its calls follow the same policy.
+        with model_call_scope(job_id, config):
             self._ingest_job(job_id, file_paths, collection_name, config)
 
     def _ingest_job(
@@ -4166,18 +4159,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             # runs in a detached background thread with no request context. The
             # org-agnostic paths (base OIB corpus sync) carry no org id and get
             # the deployment default, exactly as before.
-            organization_id = config.get("organization_id")
-            vlm_cred = resolve_vlm_credential(organization_id)
-            vlm_api_key = vlm_cred.api_key
-            vlm_base_url = config.get("vlm_base_url") or vlm_cred.base_url
-            base_vlm_model = config.get("vlm_model", self.vlm_model)
-            vlm_override = _resolve_vlm_model_override(organization_id)
-            vlm_model = vlm_override or base_vlm_model
-            # Scans and garbled pages are transcribed on the same endpoint and
-            # key; only the model may differ (OCR_MODEL).
+            # Scans and garbled pages are transcribed on the same endpoint and key;
+            # only the model may differ (OCR_MODEL). One resolution, the page tasks' too.
             from knowledge_layer.llamaindex import transcription as _transcription
+            from knowledge_layer.llamaindex.read_page import vision_settings
 
-            ocr_model = _transcription.resolve_ocr_model(base_vlm_model, vlm_override)
+            organization_id = config.get("organization_id")
+            vision_endpoint = vision_settings(self, config)
+            vlm_api_key, vlm_base_url = vision_endpoint.api_key, vision_endpoint.base_url
+            vlm_model, ocr_model = vision_endpoint.vlm_model, vision_endpoint.ocr_model
 
             # Refuse to add vectors from a different embedding space to an existing
             # collection, before a single page is read or embedded. Retrieval

@@ -24,8 +24,10 @@ the folder card builder beside the task.
 Config (env):
   CONFIG_FILE / NAT_CONFIG_FILE        the agent-runtime config the web tier runs
   INGEST_MAX_WORKERS               jobs this process runs at once (default 2)
-  INGEST_WORKER_POOL               `standard` (default, `ingest-document`) or `highmem`
-                                   (`ingest-document-heavy`, `INGEST_HEAVY_WORKER_SLOTS` slots)
+  INGEST_WORKER_POOL               `standard` (default, `ingest-document`, and under `INGEST_PAGE_FAN_OUT=on`
+                                   `read-page`), `highmem`
+                                   (`ingest-document-heavy`, `INGEST_HEAVY_WORKER_SLOTS` slots) or
+                                   `page-read` (`read-page`, `INGEST_PAGE_READ_SLOTS` slots)
   WORKER_LIVENESS_FILE            touched while the worker is alive
   HATCHET_CLIENT_*                 the Hatchet connection (the SDK's own variables)
 """
@@ -58,9 +60,11 @@ CUTOVER_QUIET_SECONDS = 3600
 
 
 def _pool() -> str:
-    """``INGEST_WORKER_POOL``: which workflow this worker serves; anything but ``highmem`` is the standard pool."""
+    """``INGEST_WORKER_POOL``: what this worker serves; anything but ``highmem`` or ``page-read`` is standard."""
+    from agent.knowledge.ingest_hatchet import PAGE_READ_POOL
+
     pool = os.environ.get("INGEST_WORKER_POOL", "").strip().lower()
-    return ingest_hatchet.HEAVY_POOL if pool == ingest_hatchet.HEAVY_POOL else ingest_hatchet.STANDARD_POOL
+    return pool if pool in (ingest_hatchet.HEAVY_POOL, PAGE_READ_POOL) else ingest_hatchet.STANDARD_POOL
 
 
 def _slots() -> int:
