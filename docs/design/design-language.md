@@ -449,7 +449,7 @@ through the same discard confirmation, because a form that throws work away on
 a stray Escape has the failure the rule above was written to prevent, and it has
 it whichever gesture triggers it. A clean editor — nothing typed, or everything
 saved — closes like any other overlay; the confirmation is about the unsaved
-edit, not about the form.
+edit, not about the form. The shared form is `useUnsavedEditGuard` (`components/ui/unsaved-edit-confirm.tsx`): it takes the editor's `onOpenChange` and its dirty flag, and asks „Änderungen nicht übernehmen?“ (`common.unsavedEdit`). Never „verwerfen“ there: in the E-Mail-Eingang that word says no to a whole mail. The E-Mail-Eingang's „Ändern“ dialog and the Verlauf's „Herauslösen …“ name field use it; the custom-role, skill and sketch editors still carry their own copies of the question.
 
 An overlay whose state is worth sending to a colleague puts that state on the
 URL with `push`, so browser Back closes it. One whose state is not worth sharing

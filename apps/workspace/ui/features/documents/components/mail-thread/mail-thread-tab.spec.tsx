@@ -222,6 +222,37 @@ describe('MailThreadTab', () => {
       expect(screen.getByTestId('mail-thread-detach')).toBeInTheDocument()
     })
 
+    it('asks before Escape leaves a typed name behind; keeping it keeps the name, confirming closes with nothing moved', async () => {
+      const { client } = renderTab('detach-confirm')
+      const detach = vi.spyOn(client, 'detach')
+      const statik = (await entries())[1]
+      await userEvent.click(within(statik).getByTestId('mail-entry-menu'))
+      await userEvent.click(await screen.findByTestId('mail-entry-detach'))
+      const dialog = await screen.findByTestId('mail-thread-detach')
+      await userEvent.click(within(dialog).getByLabelText('As a new mail thread'))
+      await userEvent.type(within(dialog).getByTestId('mail-thread-detach-name'), 'Stellplätze Hof')
+      await userEvent.keyboard('{Escape}')
+      expect(await screen.findByText('Leave without your changes?')).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+      await waitFor(() => expect(screen.queryByText('Leave without your changes?')).not.toBeInTheDocument())
+      expect(screen.getByTestId('mail-thread-detach-name')).toHaveValue('Stellplätze Hof')
+      await userEvent.keyboard('{Escape}')
+      await userEvent.click(await screen.findByTestId('unsaved-edit-confirm'))
+      await waitFor(() => expect(screen.queryByTestId('mail-thread-detach')).not.toBeInTheDocument())
+      expect(detach).not.toHaveBeenCalled()
+    })
+
+    it('closes at once when no name was typed', async () => {
+      renderTab('detach-confirm')
+      const statik = (await entries())[1]
+      await userEvent.click(within(statik).getByTestId('mail-entry-menu'))
+      await userEvent.click(await screen.findByTestId('mail-entry-detach'))
+      await screen.findByTestId('mail-thread-detach')
+      await userEvent.keyboard('{Escape}')
+      await waitFor(() => expect(screen.queryByTestId('mail-thread-detach')).not.toBeInTheDocument())
+      expect(screen.queryByText('Leave without your changes?')).not.toBeInTheDocument()
+    })
+
     it('is not offered for the thread’s only mail, which cannot leave it', async () => {
       const single = { ...MAIL_THREAD_VARIANTS['three-messages'], view: { ...MAIL_THREAD_VARIANTS['three-messages'].view, entries: MAIL_THREAD_VARIANTS['three-messages'].view.entries.slice(0, 1) } }
       renderTab('three-messages', { client: fixtureMailThreadClient(single) })

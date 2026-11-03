@@ -69,8 +69,6 @@ export const mailThread: typeof en.mailThread = {
     forwardedBy: 'Weitergeleitet von {name}',
     compare: 'Vergleichen',
     compareLabel: 'Fassung {from} mit Fassung {to} vergleichen',
-    comparing: 'Wird verglichen …',
-    compareFailed: 'Der Vergleich hat nicht geklappt. Bitte erneut versuchen.',
     compareClose: 'Vergleich schließen',
     menu: 'Mehr zur E-Mail vom {heading}',
     detach: 'Herauslösen …',

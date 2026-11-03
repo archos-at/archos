@@ -98,7 +98,13 @@ agent-browser close --all
 well as `prefers-color-scheme`. `set media dark` alone flips the media query and
 leaves the class behind, and you get a half-themed screenshot that looks like a
 bug in the component. Set both, in that order, and give the repaint a moment
-before capturing.
+before capturing. An axe run is a capture too: run within about a second of
+the switch, `color-contrast` reads a half-themed page (dark text tokens on a
+dark ground, 1.09:1, on the heavy `worst-case` previews) and reports
+violations that are not there. Wait about 2.5 s after switching the theme
+before `axe.run` (measured 2026-11-03 on `/dev/inbound-mail?variant=worst-case`
+and `/dev/mail-thread?variant=worst-case`: 85 findings at 400 ms, none at
+2.5 s).
 
 **Capture `--full` for anything taller than the viewport.** Before/after pairs
 are laid out side by side, and equal-height full-page captures are what keeps

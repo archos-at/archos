@@ -68,8 +68,6 @@ export const mailThread = {
     forwardedBy: 'Forwarded by {name}',
     compare: 'Compare',
     compareLabel: 'Compare revision {from} with revision {to}',
-    comparing: 'Comparing …',
-    compareFailed: 'The comparison did not work. Try again.',
     compareClose: 'Close the comparison',
     menu: 'More for the mail of {heading}',
     detach: 'Detach …',

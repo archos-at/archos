@@ -290,7 +290,10 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   E-Mail. Dieser E-Mail-Verlauf bekommt Fassung {b+1} ohne sie.“ and „Wer
   diesem E-Mail-Verlauf folgt, folgt ihm danach nicht mehr.“; the target is
   another thread or „Als neuen E-Mail-Verlauf“ (name, same folder). Refusals are
-  said in the dialog (`MAIL_THREAD_REFUSALS` and a closed project).
+  said in the dialog (`MAIL_THREAD_REFUSALS` and a closed project). A typed
+  name is an edit: Escape, the X, a scrim click and „Abbrechen“ ask „Änderungen
+  nicht übernehmen?“ first (`useUnsavedEditGuard`), as the attachment's
+  „Ändern“ dialog does for Escape, the X and the scrim.
 - **Links**: `/app/projects/{id}/files?doc={threadDocumentId}&mailEntry={entryId}`
   opens the Verlauf with „E-Mails“ up and the entry scrolled to and marked (the
   `Item`'s current state: lifted to the card with the selected hairline all

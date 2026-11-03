@@ -14,13 +14,18 @@
  * the thread's only mail, a thread being written, a target gone or full, a
  * name stopped or taken) is said inside the dialog, which stays open so the
  * person can choose again.
+ *
+ * A name typed for a new Verlauf is an edit: Escape, the X, a scrim click and
+ * „Abbrechen“ ask before they leave it behind (`useUnsavedEditGuard`). The
+ * detach itself closes without asking.
  */
 
 import type { JSX } from 'react'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useUnsavedEditGuard } from '@/components/ui/unsaved-edit-confirm'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -66,10 +71,13 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
   const [threadId, setThreadId] = useState<string>('')
   const [name, setName] = useState('')
   const [refusal, setRefusal] = useState<MailThreadRefusalKey | null>(null)
+  // The detach landed: the dialog's own close after it is no edit left behind.
+  const landed = useRef(false)
 
   useEffect(() => {
     if (!open) return
     let alive = true
+    landed.current = false
     setRefusal(null)
     setName('')
     setThreadId('')
@@ -96,6 +104,7 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
   const threads = targets.kind === 'ready' ? targets.threads : []
   const trimmed = name.trim()
   const ready = mode === 'existing' ? threadId !== '' : trimmed !== ''
+  const guard = useUnsavedEditGuard({ dirty: mode === 'new' && trimmed !== '', onOpenChange })
 
   const confirm = async (): Promise<void> => {
     const body: MailThreadEntryDetachBody =
@@ -105,6 +114,7 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
     setRefusal(null)
     try {
       const result = await client.detach(projectId, thread.id, entry.id, body)
+      landed.current = true
       onDetached(result, mode === 'existing' ? (threads.find((candidate) => candidate.id === threadId)?.name ?? null) : trimmed)
     } catch (error) {
       setRefusal(refusalKey(error))
@@ -114,9 +124,10 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
   }
 
   return (
+    <>
     <ConfirmDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(next) => (landed.current ? onOpenChange(next) : guard.onOpenChange(next))}
       tone="warning"
       title={t('detach.title')}
       description={t('detach.description', { heading: entry.heading })}
@@ -208,5 +219,7 @@ export function DetachDialog({ open, onOpenChange, projectId, thread, entry, cur
         )}
       </div>
     </ConfirmDialog>
+    {guard.question}
+    </>
   )
 }

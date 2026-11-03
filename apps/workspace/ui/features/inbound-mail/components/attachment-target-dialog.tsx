@@ -3,9 +3,10 @@
 /**
  * „Ändern“ on an attachment: its name, its Dokumentart and whether it comes
  * in as the next Fassung of a document the project already has. An edit is a
- * question, so it is a `Dialog` (a bottom sheet on a phone), and Escape or
- * the scrim discard only what was typed here; nothing reaches the draft until
- * „Übernehmen“.
+ * question, so it is a `Dialog` (a bottom sheet on a phone); nothing reaches
+ * the draft until „Übernehmen“. Escape, the X and a scrim click ask before
+ * they leave a changed edit behind (`useUnsavedEditGuard`); „Abbrechen“ is
+ * the reader saying so, and closes at once.
  *
  * The folder is not here. It has its own place to choose from, the folder
  * picker the filing chip opens, so there is never a dialog on a dialog.
@@ -14,6 +15,7 @@
 import type { JSX } from 'react'
 import { useEffect, useId, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useUnsavedEditGuard } from '@/components/ui/unsaved-edit-confirm'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -57,6 +59,8 @@ export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onAppl
   const trimmed = name.trim()
   const changed = trimmed !== draft.name || documentType !== draft.documentType || revisionOf !== draft.revisionOf
 
+  const guard = useUnsavedEditGuard({ dirty: changed, onOpenChange })
+
   const apply = (): void => {
     if (trimmed === '') return
     onApply({ name: trimmed, documentType, revisionOf })
@@ -64,7 +68,7 @@ export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onAppl
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={guard.onOpenChange}>
       <DialogContent className="sm:max-w-md" closeLabel={t('target.cancel')} data-testid="attachment-target-dialog">
         <DialogHeader>
           <DialogTitle className="[overflow-wrap:anywhere]">{t('target.title', { name: part.filename ?? draft.name })}</DialogTitle>
@@ -141,6 +145,7 @@ export function AttachmentTargetDialog({ open, onOpenChange, part, draft, onAppl
           </DialogFooter>
         </form>
       </DialogContent>
+      {guard.question}
     </Dialog>
   )
 }

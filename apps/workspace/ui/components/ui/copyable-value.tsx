@@ -24,7 +24,7 @@ import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
 import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
-import { bimCopy } from '@/i18n/namespaces/bim'
+import { commonCopy } from '@/i18n/namespaces/common'
 import { cn } from '@/lib/utils'
 
 export interface CopyableValueProps {
@@ -40,7 +40,7 @@ export interface CopyableValueProps {
 }
 
 export function CopyableValue({ value, className, onCopied, children }: CopyableValueProps): JSX.Element {
-  const t = useTranslations(bimCopy)
+  const t = useTranslations(commonCopy)
   const [copied, raise] = useTransientFlag()
 
   const copy = (): void => {
@@ -58,7 +58,7 @@ export function CopyableValue({ value, className, onCopied, children }: Copyable
       <button
         type="button"
         onClick={copy}
-        aria-label={t('properties.copyValue', { value })}
+        aria-label={t('copyableValue.copy', { value })}
         className={cn(
           // A copy press is a pressable like any other (`design-language.md`, „One press“): the kit's press and ring.
           'hover:bg-muted rounded-control -mx-1 inline-flex max-w-full items-start gap-1.5 px-1 text-right text-xs outline-none',
@@ -82,7 +82,7 @@ export function CopyableValue({ value, className, onCopied, children }: Copyable
         )}
       </button>
       <span className="sr-only" role="status" aria-live="polite">
-        {copied ? t('properties.copied') : ''}
+        {copied ? t('copyableValue.copied') : ''}
       </span>
     </>
   )

@@ -123,8 +123,6 @@ export const bim = {
     none: 'Select an element to see its properties.',
     identity: 'Identity',
     globalId: 'GlobalId',
-    copyValue: 'Copy: {value}',
-    copied: 'Copied',
     ifcType: 'IFC type',
     predefinedType: 'Predefined type',
     typeName: 'Type name',
