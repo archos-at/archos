@@ -114,13 +114,21 @@ describe('UploadSummaryView', () => {
   describe('„Prüfung anfragen" on a file held back', () => {
     afterEach(() => vi.unstubAllGlobals())
 
+    /** The access read answers „ask", as it does for an uploader who may not decide. */
     const stubAsk = (notified: number) =>
-      vi.stubGlobal('fetch', vi.fn(async () => Response.json({ id: 'doc-honorar', notified })))
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) =>
+          url.endsWith('/quarantine')
+            ? Response.json({ canReview: false, canAskForReview: true })
+            : Response.json({ id: 'doc-honorar', notified })
+        )
+      )
 
     it('asks the reviewers through the release-request route and says so', async () => {
       stubAsk(2)
       render(<UploadSummaryView summary={MIXED_SUMMARY} />)
-      const button = screen.getByTestId('upload-file-request-release-doc-honorar')
+      const button = await screen.findByTestId('upload-file-request-release-doc-honorar')
       expect(button).toHaveTextContent(uploadBatchesCopy.messages.en.summary.files.requestRelease)
 
       fireEvent.click(button)
@@ -134,11 +142,31 @@ describe('UploadSummaryView', () => {
     it('tells the uploader when nobody but them may release it', async () => {
       stubAsk(0)
       render(<UploadSummaryView summary={MIXED_SUMMARY} />)
-      fireEvent.click(screen.getByTestId('upload-file-request-release-doc-honorar'))
+      fireEvent.click(await screen.findByTestId('upload-file-request-release-doc-honorar'))
       await waitFor(() => expect(toast.info).toHaveBeenCalled())
     })
 
+    it('offers „Allow anyway" instead to whoever may decide, and allows it after the question', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) =>
+          url.endsWith('/quarantine')
+            ? Response.json({ canReview: true, canAskForReview: false })
+            : Response.json({ id: 'doc-honorar', status: 'processing', jobId: null })
+        )
+      )
+      render(<UploadSummaryView summary={MIXED_SUMMARY} />)
+      fireEvent.click(await screen.findByTestId('upload-file-allow-doc-honorar'))
+      fireEvent.click(await screen.findByTestId('upload-file-allow-doc-honorar-confirm'))
+      await waitFor(() =>
+        expect(fetch).toHaveBeenCalledWith('/api/documents/doc-honorar/quarantine/release', { method: 'POST' })
+      )
+      expect(await screen.findByTestId('upload-file-allow-doc-honorar-done')).toHaveTextContent(/Allowed/)
+      expect(screen.queryByTestId('upload-file-request-release-doc-honorar')).not.toBeInTheDocument()
+    })
+
     it('offers it on no file that is not in quarantine', () => {
+      stubAsk(1)
       render(<UploadSummaryView summary={MIXED_SUMMARY} />)
       expect(screen.queryByTestId('upload-file-request-release-doc-grundriss-eg')).not.toBeInTheDocument()
       // Failed after its check passed (read by its name): nothing is held.
@@ -154,7 +182,7 @@ describe('UploadSummaryView', () => {
         ),
       }
       render(<UploadSummaryView summary={summary} />)
-      fireEvent.click(screen.getByTestId('upload-file-request-release-doc-scan'))
+      fireEvent.click(await screen.findByTestId('upload-file-request-release-doc-scan'))
       await waitFor(() =>
         expect(fetch).toHaveBeenCalledWith('/api/documents/doc-scan/quarantine/request-release', { method: 'POST' })
       )
@@ -206,6 +234,19 @@ describe('useUploadSummary', () => {
     // Completed: nothing is asked for again, however long the dialog stays open.
     await act(() => vi.advanceTimersByTimeAsync(UPLOAD_SUMMARY_POLL_MS * 3))
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('reads a settled summary again when a document changed, so an allowed file stops saying it waits', async () => {
+    const fetchMock = vi.fn(async () => Response.json(SETTLED_SUMMARY))
+    vi.stubGlobal('fetch', fetchMock)
+    const { notifyDocumentsChanged } = await import('@/lib/documents/document-changes')
+
+    const { result } = renderHook(() => useUploadSummary(SETTLED_SUMMARY.id))
+    await waitFor(() => expect(result.current.state.status).toBe('ready'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    act(() => notifyDocumentsChanged())
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
 
   it('does not poll a summary that arrives complete', async () => {

@@ -1440,6 +1440,16 @@
    "withheld": null,
    "reason": null
   },
+  "quarantine-decide": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": "control",
+   "external": true,
+   "piloti": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
+  },
   "agent-ask-cancel": {
    "kind": "catalog",
    "domain": "conversations",

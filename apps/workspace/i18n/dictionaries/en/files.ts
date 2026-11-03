@@ -1038,7 +1038,11 @@ export const files = {
     uploadStorageFull: "Your office's storage is full. Nothing was uploaded.",
     // Not uploaded by the name check (ADR-0086): on a path with no upload
     // dialog, such as a chat attachment, or by the server's repeat of it.
-    screenedOut: '{count} file(s) not uploaded because your office marks them as sensitive: {files}',
+    screenedOut:
+      '{count, plural, one {One file was not uploaded} other {# files were not uploaded}} because its name contains a term your office marked as sensitive: {files}',
+    uploadAnyway: '{count, plural, one {Upload anyway} other {Upload all # anyway}}',
+    uploadAnywayHint:
+      'The name alone does not decide: {productName} still checks the content after the upload. Your release is logged.',
     screenedOutFile: '“{name}” ({reason})',
     // The office's list could not be read: without it nothing is sent, not
     // even against Piloti's suggestion (ADR-0086).

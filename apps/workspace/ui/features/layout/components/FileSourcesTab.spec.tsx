@@ -43,6 +43,7 @@ const mockDeleteFile = vi.fn()
 const mockClearError = vi.fn()
 
 vi.mock('@/features/documents', () => ({
+  UploadAnywayButton: () => null,
   useFileUpload: vi.fn(() => ({
     uploadFiles: mockUploadFiles,
     deleteFile: mockDeleteFile,

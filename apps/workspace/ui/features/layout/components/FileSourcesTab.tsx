@@ -18,7 +18,7 @@ import { FileSourceCard, FileSourceCardSkeleton } from './FileSourceCard'
 import { DeleteFileConfirmationModal } from './DeleteFileConfirmationModal'
 import { useUploadDestination } from './UploadDestination'
 import { FilePreviewDialog } from '@/features/documents/components/file-preview-dialog'
-import { useFileUpload, FileUploadZone } from '@/features/documents'
+import { useFileUpload, FileUploadZone, UploadAnywayButton } from '@/features/documents'
 import { useDocumentsStore } from '@/features/documents/store'
 import { mapToDisplayStatus } from '@/features/documents/utils'
 import { trackedFileToFileItem } from '@/features/documents/types'
@@ -48,7 +48,10 @@ const UploadErrorAlert: FC<{ message: string; onClose: () => void; className?: s
   return (
   <Alert variant="destructive" className={className}>
     <AlertDescription className="flex w-full items-start justify-between gap-2">
-      <span>{message}</span>
+      <span>
+        {message}
+        <UploadAnywayButton className="flex" />
+      </span>
       <button data-attr="chat-close"
         type="button"
         onClick={onClose}

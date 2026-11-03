@@ -33,12 +33,15 @@ import { resolveDocumentFolderPath } from '@/lib/documents/folder-path'
 import { documentShelf } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { inboxGroupKey } from '@/lib/inbox/registry'
-import { emitInboxItems } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
 import { quarantineReviewersOf } from '@/lib/upload-batches/settle'
 import { quarantineNoticePayload, quarantineVerdictOf, type QuarantineVerdict } from './quarantine'
 import { mayReviewQuarantine } from './quarantine-reviewers'
 
 export { mayReviewQuarantine }
+
+/** The details of the refusal of a release whose row names no bytes: not a decision someone else made. */
+export const NO_DIGEST_DETAILS = Object.freeze({ reason: 'no_digest' })
 
 export interface ReleaseResult {
   id: string
@@ -71,7 +74,10 @@ export async function releaseQuarantinedDocument(
     throw new ConflictError('Only a held document can be released', { status: doc.status })
   }
   if (!doc.contentHash || !doc.storageKey) {
-    throw new ConflictError('This document has no recorded digest, so its release cannot name its bytes')
+    throw new ConflictError(
+      'This document has no recorded digest, so its release cannot name its bytes',
+      NO_DIGEST_DETAILS
+    )
   }
   // Releasing files the document into its folder for good: a write there
   // (ADR-0088). A reviewer who may only read the folder sees the document and
@@ -87,18 +93,10 @@ export async function releaseQuarantinedDocument(
   if (!took) throw new ConflictError('The document changed while it was being released; open it again')
   // Released: on its shelf for everyone who may read it, from now on.
   publishShelfChanged(session.organizationId, documentShelf(doc))
+  await settleReleaseRequests(session.organizationId, doc.id)
 
-  const { jobId, status } = await dispatchDocument({
-    organizationId: session.organizationId,
-    projectId: doc.projectId,
-    documentId: doc.id,
-    filename: doc.filename,
-    storageKey: doc.storageKey,
-    storageBucket: doc.storageBucket,
-    collectionName: doc.collectionName,
-    folderPath: await resolveDocumentFolderPath(doc, session.organizationId),
-  })
-
+  // Audited once the release took, before the dispatch: a dispatch that fails
+  // leaves an allowed file to be read again, never an unaudited release.
   const reasons = quarantineVerdictOf(doc)?.reasons ?? []
   await recordAuditEvent({
     organizationId: session.organizationId,
@@ -121,7 +119,27 @@ export async function releaseQuarantinedDocument(
     },
     request,
   })
+
+  const { jobId, status } = await dispatchDocument({
+    organizationId: session.organizationId,
+    projectId: doc.projectId,
+    documentId: doc.id,
+    filename: doc.filename,
+    storageKey: doc.storageKey,
+    storageBucket: doc.storageBucket,
+    collectionName: doc.collectionName,
+    folderPath: await resolveDocumentFolderPath(doc, session.organizationId),
+  })
   return { id: doc.id, status, jobId }
+}
+
+/**
+ * The uploader's „Prüfung anfragen" about this document is answered: it was
+ * allowed or deleted. Its rows leave every reviewer's inbox, so nobody opens
+ * the queue for a file someone already decided about.
+ */
+export async function settleReleaseRequests(organizationId: string, documentId: string): Promise<void> {
+  await resolveInboxItemsAnchoredOn({ organizationId, types: ['document.release_requested'], anchorId: documentId })
 }
 
 export interface ReleaseRequestResult {

@@ -13,11 +13,11 @@ import {
 import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { AlertCircle, Archive, Boxes, FileText, RotateCcw, X } from 'lucide-react'
+import { AlertCircle, Archive, Boxes, FileText, RotateCcw } from 'lucide-react'
 import { sourceBase } from '@/lib/ui/source-tint'
 import { cn } from '@/lib/utils'
 import type { ActionMenuEntry } from '@/components/ui/action-menu'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
@@ -102,6 +102,7 @@ import type { ProposalListQuery } from '@/lib/proposals/types'
 import { FolderUploadDialog } from './folder-upload-dialog'
 import { ProjectUppyUpload } from './project-uppy-upload'
 import { UploadTray } from './upload-tray'
+import { UploadProblemAlert } from './upload-anyway'
 
 /**
  * The building, full screen.
@@ -366,7 +367,6 @@ export function FileWorkspace({
   useEffect(() => {
     reloadFilesRef.current = reloadAll
   }, [reloadAll])
-
 
   const upload = shelf.useUpload({
     collectionName,
@@ -940,24 +940,7 @@ export function FileWorkspace({
           level, the drained listing's once its last page is in. */}
       {renderHeader(controls, { count: shelfCount })}
 
-      {error && (
-        <div className="border-b px-4 py-3 animate-in fade-in-0 duration-base ease-out motion-reduce:animate-none">
-          <Alert variant="destructive">
-            <AlertCircle className="size-4" />
-            <AlertTitle>{t('workspace.uploadProblem')}</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-2 top-2 size-6"
-              onClick={upload.clearError}
-              aria-label={t('workspace.dismissError')}
-            >
-              <X className="size-4" />
-            </Button>
-          </Alert>
-        </div>
-      )}
+      {error && <UploadProblemAlert message={error} onDismiss={upload.clearError} />}
 
       <UploadTray
         files={activeUploads}
@@ -965,6 +948,7 @@ export function FileWorkspace({
         onCancel={upload.cancelFile}
         onCancelAll={upload.cancelUpload}
         onDismiss={upload.dismissFiles}
+        onOpenDocument={handlers.onOpenDocument}
       />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

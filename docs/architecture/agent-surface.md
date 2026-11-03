@@ -987,13 +987,13 @@ The catalogued ones, and their class, are the `SENSITIVE` map of
 `agent-reachability.spec.ts`, which fails when an operation carries a sensitivity
 the map does not give it, or none where it does. Since the amendment most of them
 are withheld or on the platform door; the ones still on the office door are the
-`access` class, `document-quarantine-allow` and `hold-release`:
+`access` class, `document-quarantine-allow`, `quarantine-decide` and `hold-release`:
 
 | Class | Operations |
 |---|---|
 | `access` | `project-folder-access-set`, `sharing-visibility-set`, `sharing-grant-add`, `sharing-grant-update`, `sharing-grant-revoke`, `organization-role-create`, `organization-role-update`, `organization-role-delete`, `project-member-add`, `project-member-remove` |
 | `secret` | `organization-llm-credential-list`, `organization-llm-credential-create`, `organization-llm-credential-revoke`, `organization-llm-credential-verify`, `organization-llm-provider-mode-set`, `organization-audit-portal-link-create`, `platform-audit-portal-link` |
-| `control` | `organization-zdr-set`, `organization-upload-screening-set`, `project-upload-screening-set`, `document-quarantine-allow`, `hold-release`, `organization-download-log-retention-set`, `organization-deleted-folder-content-set`, `organization-web-search-set` |
+| `control` | `organization-zdr-set`, `organization-upload-screening-set`, `project-upload-screening-set`, `document-quarantine-allow`, `quarantine-decide`, `hold-release`, `organization-download-log-retention-set`, `organization-deleted-folder-content-set`, `organization-web-search-set` |
 
 A new operation that widens access, touches a credential or turns a control down
 gets its line in `SENSITIVE` in the same change. Its description says that the

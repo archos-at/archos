@@ -34,6 +34,7 @@ vi.mock('@/shared/context', () => ({
 
 const mockUploadFiles = vi.fn()
 vi.mock('@/features/documents', () => ({
+  UploadAnywayButton: () => null,
   useFileUpload: vi.fn(() => ({
     uploadFiles: mockUploadFiles,
     sessionFiles: [],

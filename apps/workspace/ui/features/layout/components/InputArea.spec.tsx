@@ -203,6 +203,7 @@ const mockDeleteFile = vi.fn()
 const mockRetryFile = vi.fn()
 
 vi.mock('@/features/documents', () => ({
+  UploadAnywayButton: () => null,
   useFileUpload: vi.fn(() => ({
     uploadFiles: mockUploadFiles,
     sessionFiles: [],

@@ -1,6 +1,5 @@
 /**
- * Who sees each capability (ADR-0122, amendment of 2026-10-21): the one file
- * that decides it.
+ * Who sees each capability (ADR-0122, amendment of 2026-10-21): the one file that decides it.
  *
  * One entry per operation, the catalog's (`catalog/`) and the agent's read
  * tools (`backend-operations.ts`). Three audiences, one column each:
@@ -284,6 +283,7 @@ export const EXPOSURE = {
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,
+  'quarantine-decide': SENSITIVE,
   'document-revision-candidates': OFFERED,
   'document-review-list': OFFERED,
   'document-revision-compare': OFFERED,

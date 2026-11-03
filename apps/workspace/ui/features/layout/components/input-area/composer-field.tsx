@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { UploadAnywayButton } from '@/features/documents'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion, motionEntrance, motionQuickExit } from '@/components/motion'
@@ -164,7 +165,10 @@ export function ComposerField({ controller }: { controller: InputAreaController 
           >
             <Alert variant="destructive" className="mt-2">
               <AlertDescription className="flex w-full items-start justify-between gap-2">
-                <span>{controller.uploadError}</span>
+                <span>
+                  {controller.uploadError}
+                  <UploadAnywayButton className="flex" />
+                </span>
                 <button data-attr="chat-clear-error"
                   type="button"
                   onClick={controller.clearError}
