@@ -3326,13 +3326,21 @@ refused_in faults_0196 "UPDATE inbound_mails SET status = 'waiting', sender_addr
 sql_in faults_0196 <<<"UPDATE inbound_mails SET status = 'waiting', sender_address = 'anna@buero.at', sender_trust = 'member_verified', sender_user_id = '$U196', sender_reason = 'dkim_pass', sender_flags = '{sender_unchecked}', sender_class = 'office_member', reader_fault_at = now() WHERE delivery_key = repeat('3', 64);"
 check_in faults_0196 "SELECT sender_class || ',' || (reader_fault_at IS NOT NULL)::text FROM inbound_mails WHERE delivery_key = repeat('3', 64)" "office_member,true" "0196: held unchecked for the writers, its text waiting for the reader"
 check_in faults_0196 "SELECT count(*) FROM pg_indexes WHERE indexname = 'inbound_mails_reader_fault_idx'" "1" "0196: the re-read sweep's index"
+# receive_progress (R10): a received mail keeps what a run learned; a held one may not, and the hold clears it.
+sql_in faults_0196 <<<"$M196 VALUES ('c4000000-0000-4000-8000-000000000196', $A196, 'received', repeat('4', 64), 1, 'b', 'clean', now(), now(), now() + interval '30 days', NULL, NULL, NULL, '{}', NULL, NULL, 'org/org_0196_a/project/a0000000-0000-4000-8000-000000000196/_inbound-mail/c4000000-0000-4000-8000-000000000196/raw.eml');"
+sql_in faults_0196 <<<"UPDATE inbound_mails SET receive_progress = '{\"scans\": {}}' WHERE delivery_key = repeat('4', 64);"
+check_in faults_0196 "SELECT jsonb_typeof(receive_progress) FROM inbound_mails WHERE delivery_key = repeat('4', 64)" "object" "0196: a received mail keeps what a run learned"
+refused_in faults_0196 "UPDATE inbound_mails SET receive_progress = '[]' WHERE delivery_key = repeat('4', 64)" "inbound_mails_receive_progress_received" "progress that is not an object"
+refused_in faults_0196 "UPDATE inbound_mails SET status = 'waiting', sender_address = 'x@stranger.example', sender_trust = 'external_unverified', sender_reason = 'dkim_none', sender_class = 'external', expires_at = received_at + interval '14 days' WHERE delivery_key = repeat('4', 64)" "inbound_mails_receive_progress_received" "a held mail that still carries a run's progress (it names the sender)"
+sql_in faults_0196 <<<"UPDATE inbound_mails SET status = 'waiting', sender_address = 'x@stranger.example', sender_trust = 'external_unverified', sender_reason = 'dkim_none', sender_class = 'external', expires_at = received_at + interval '14 days', receive_progress = NULL WHERE delivery_key = repeat('4', 64);"
+check_in faults_0196 "SELECT status FROM inbound_mails WHERE delivery_key = repeat('4', 64)" "waiting" "0196: the hold clears the progress"
 # Down: refused while a mail carries the flag; clean once none does; 0196 applies again.
 apply_in faults_0196 0196_receive_faults.sql
 refused_in faults_0196 "$(cat migrations/0196_receive_faults.down.sql)" "reverse 0196 refused" "the down while a mail carries sender_unchecked"
 sql_in faults_0196 <<<"DELETE FROM inbound_mails WHERE 'sender_unchecked' = ANY (sender_flags);"
 apply_in faults_0196 0196_receive_faults.down.sql
-check_in faults_0196 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'inbound_mails' AND column_name = 'reader_fault_at'" "0" "0196 down drops reader_fault_at"
+check_in faults_0196 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'inbound_mails' AND column_name IN ('reader_fault_at', 'receive_progress')" "0" "0196 down drops reader_fault_at and receive_progress"
 refused_in faults_0196 "INSERT INTO inbound_mails (organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, expires_at, sender_address, sender_trust, sender_reason, sender_flags, sender_class) VALUES ($A196, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), now() + interval '30 days', 'anna@buero.at', 'external_verified', 'dkim_pass', '{sender_unchecked}', 'external')" "inbound_mails_sender_flags_known" "the flag once 0196 is reverted"
 apply_in faults_0196 0196_receive_faults.sql
-check_in faults_0196 "SELECT count(*) FROM pg_constraint WHERE conname IN ('inbound_mails_sender_unchecked_not_direct', 'inbound_mails_sender_unchecked_full_window', 'inbound_mails_reader_fault_held')" "3" "0196 applies again after its down"
+check_in faults_0196 "SELECT count(*) FROM pg_constraint WHERE conname IN ('inbound_mails_sender_unchecked_not_direct', 'inbound_mails_sender_unchecked_full_window', 'inbound_mails_reader_fault_held', 'inbound_mails_receive_progress_received')" "4" "0196 applies again after its down"
 echo "==> 0196 receive faults and its down migration verified"

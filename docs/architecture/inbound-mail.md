@@ -253,7 +253,14 @@ read, a write check (`userHoldsProjectPermissionStrict`), a transient DKIM
 verdict, the reader, an object store that does not answer (a network error, a
 timeout, a 5xx, 408 or 429: `isObjectStoreFault`) or an unreachable database
 gives the claim back (`notBefore`, the attempt not spent) and the job tries again after
-1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Past that budget
+1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Before it gives
+the claim back, a run keeps what it learned on the row (`receive_progress`,
+`receive-progress.ts`, migration 0196): the sender's authentication unless its
+reason was transient, and each attachment's scan by SHA-256. The next run reuses
+both and scans again only what `failed`, so a reader outage no longer costs
+eleven scans of every attachment, and a DKIM pass cannot turn into a DNS
+timeout between runs (R10 of the second review). Only a `received` mail carries
+it; the hold and the drop clear it. Past that budget
 the mail is held with what was not learned, said, never guessed:
 
 - the directory or the write check: flag `sender_unchecked`, held for the

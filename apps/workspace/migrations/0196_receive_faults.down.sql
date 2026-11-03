@@ -7,7 +7,8 @@
 -- their 30 days and are deleted 30 days later), or delete those rows first.
 --
 -- Lossy: a text waiting for its re-read stays unreadable; its `.eml` can
--- still be downloaded.
+-- still be downloaded. A mail waiting out a fault loses `receive_progress`
+-- and is authenticated and scanned again on its next run.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM "inbound_mails" WHERE 'sender_unchecked' = ANY ("sender_flags")) THEN
@@ -15,6 +16,8 @@ BEGIN
   END IF;
 END
 $$;
+ALTER TABLE "inbound_mails" DROP CONSTRAINT IF EXISTS "inbound_mails_receive_progress_received";
+ALTER TABLE "inbound_mails" DROP COLUMN IF EXISTS "receive_progress";
 ALTER TABLE "inbound_mails" DROP CONSTRAINT IF EXISTS "inbound_mails_sender_unchecked_full_window";
 ALTER TABLE "inbound_mails" DROP CONSTRAINT IF EXISTS "inbound_mails_sender_unchecked_not_direct";
 ALTER TABLE "inbound_mails" DROP CONSTRAINT IF EXISTS "inbound_mails_sender_flags_known";

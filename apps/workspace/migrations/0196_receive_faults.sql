@@ -38,6 +38,17 @@
 -- once read, and for every text the reader did read (a refusal or a parser
 -- timeout is its answer, not a fault). Only a held mail carries it.
 --
+-- ## `receive_progress`
+--
+-- What a receive run learned before a fault gave its claim back, for the next
+-- run of the same mail (`lib/inbound-mail/receive-progress.ts`; R10 of the
+-- second 2026-11 ship review): the sender's authentication, unless its reason
+-- was transient, and each attachment's scan by the SHA-256 of its bytes. Each
+-- of up to eleven runs scanned every attachment again before, and could turn
+-- a DKIM pass into a DNS timeout. A `failed` scan is kept and scanned again.
+-- It names the sender, so only a mail still `received` carries it
+-- (`inbound_mails_receive_progress_received`): the hold and the drop clear it.
+--
 -- Additive and idempotent.
 
 ALTER TABLE "inbound_mails" ADD COLUMN IF NOT EXISTS "reader_fault_at" timestamp with time zone;
@@ -69,3 +80,13 @@ ALTER TABLE "inbound_mails" ADD CONSTRAINT "inbound_mails_sender_unchecked_full_
 --> statement-breakpoint
 COMMENT ON COLUMN "inbound_mails"."reader_fault_at" IS
   'The Python reader did not answer while the receive job held the mail: its text waits unreadable and sweep 15 reads it again from this time on while the mail waits. NULL once read (migration 0196).';
+--> statement-breakpoint
+ALTER TABLE "inbound_mails" ADD COLUMN IF NOT EXISTS "receive_progress" jsonb;
+--> statement-breakpoint
+ALTER TABLE "inbound_mails" DROP CONSTRAINT IF EXISTS "inbound_mails_receive_progress_received";
+--> statement-breakpoint
+ALTER TABLE "inbound_mails" ADD CONSTRAINT "inbound_mails_receive_progress_received"
+  CHECK ("receive_progress" IS NULL OR ("status" = 'received' AND jsonb_typeof("receive_progress") = 'object'));
+--> statement-breakpoint
+COMMENT ON COLUMN "inbound_mails"."receive_progress" IS
+  'What a receive run learned before a dependency fault, for the next run of the same mail: the sender''s authentication and each attachment''s scan by SHA-256. Only a received mail carries it; the hold and the drop clear it (migration 0196).';

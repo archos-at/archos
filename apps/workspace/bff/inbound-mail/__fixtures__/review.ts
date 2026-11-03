@@ -78,6 +78,7 @@ export function heldMail(overrides: Partial<InboundMailRow> = {}): InboundMailRo
     originalMessageId: null,
     originalSource: null,
     readerFaultAt: null,
+    receiveProgress: null,
     createdAt: AT,
     updatedAt: AT,
     ...overrides,

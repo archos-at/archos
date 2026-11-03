@@ -55,6 +55,17 @@ export async function recordRawScan(mailId: string, scan: StoredScan): Promise<v
 }
 
 /**
+ * Keep what a run learned for the next run of the same mail
+ * (`./receive-progress.ts`), while it is still `received`.
+ */
+export async function keepReceiveProgress(mailId: string, progress: Record<string, unknown>): Promise<void> {
+  await getDb()
+    .update(inboundMails)
+    .set({ receiveProgress: progress, updatedAt: new Date() })
+    .where(and(eq(inboundMails.id, mailId), eq(inboundMails.status, 'received')))
+}
+
+/**
  * Drop an automatic mail nobody needs to see: an auto-reply, a delivery
  * report, a loop (`dropped_reason`). Scrubbed in the same statement
  * (`inbound_mails_ended_is_scrubbed`): the envelope sender goes, and the raw
@@ -72,6 +83,7 @@ export async function dropMail(
       status: 'dropped',
       droppedReason: input.reason,
       envelopeFrom: null,
+      receiveProgress: null,
       rawStorageKey: input.erasureDeferred ? inboundMails.rawStorageKey : null,
       erasureDeferredAt: input.erasureDeferred ? now : null,
       updatedAt: now,
@@ -377,7 +389,7 @@ export async function holdMail(
     const now = new Date()
     const held = await tx
       .update(inboundMails)
-      .set({ ...fields, status: 'waiting', updatedAt: now })
+      .set({ ...fields, status: 'waiting', receiveProgress: null, updatedAt: now })
       .where(and(eq(inboundMails.id, mailId), eq(inboundMails.status, 'received')))
       .returning({ id: inboundMails.id })
     if (held.length === 0) return false

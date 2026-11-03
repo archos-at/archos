@@ -31,6 +31,8 @@
  *     check WorkOS does not answer is a fault, never a "no".
  *  6. The Namensprüfung on each attachment's name and the base subject.
  *  7. Scan each attachment, at most {@link ATTACHMENT_SCANS_IN_FLIGHT} at once.
+ *     A run after a fault reuses the sender's authentication and each scan an
+ *     earlier run reached, unless transient or failed (`./receive-progress.ts`).
  *  8. The Python reader (`/v1/mail/read`): own text, quotes, invitations; the
  *     content check on the own text, after the signature was removed.
  *  9. Redact every other project's address (B8) in the subject, the
@@ -76,7 +78,6 @@ import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
 import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
 import { baseSubject, clampSentAt, matchThread } from '@/lib/mail-thread/mail-threading'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
-import { inPool } from '@/lib/utils/in-pool'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { inboundMailDomain, redactProjectAddresses } from './address'
 import { classifyAutomaticMail } from './automatic-mail'
@@ -105,6 +106,7 @@ import {
   senderIdentityFor,
 } from './receive-faults'
 import { recordOriginal } from './receive-original'
+import { progressOf, rememberAuthentication, reusableAuthentication, scanAttachments, type ReceiveProgress } from './receive-progress'
 import {
   dropMail,
   findAddressToken,
@@ -115,6 +117,7 @@ import {
   findScreenedNamesakes,
   findThreadCandidates,
   holdMail,
+  keepReceiveProgress,
   markNotified,
   recordRawScan,
   type HeldMailFields,
@@ -199,12 +202,14 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   await recordOriginal(mail, raw, domain)
 
   // What the run learned of the sender before anything failed: a mail held unreadable keeps it.
-  const evidence: SenderEvidence = {}
+  const evidence: SenderEvidence = { progress: progressOf(mail.receiveProgress) }
   let held: boolean
   try {
     held = await readAndHold(mail, raw, domain, automatic.automatic, budget, evidence)
   } catch (error) {
     const fault = dependencyOf(error) !== null
+    // A fault is waited out: the next run reuses the verdicts this one reached (`./receive-progress`).
+    if (fault && !degraded) await keepProgress(mail.id, evidence.progress)
     if (fault ? !degraded : !attempt.last) throw error
     console.error(`[inbound-mail] mail ${mail.id} could not be read (${errorName(error)}); holding it as unreadable`)
     held = await holdUnreadable(mail, raw, automatic.automatic, evidence)
@@ -243,10 +248,16 @@ async function drop(mail: InboundMailRow, reason: NonNullable<InboundMailRow['dr
 // Steps 4-11: read, label, hold
 // ---------------------------------------------------------------------------
 
-/** The sender as far as a run judged it: the verdict and the flags it carries. */
+/** The sender as far as a run judged it: the verdict and the flags it carries, and what the next run may reuse. */
 interface SenderEvidence {
   verdict?: SenderVerdict
   flags?: SenderFlag[]
+  progress: ReceiveProgress
+}
+
+/** Best effort: progress the database does not take is asked again by the next run. */
+async function keepProgress(mailId: string, progress: ReceiveProgress): Promise<void> {
+  await keepReceiveProgress(mailId, progress).catch(() => undefined)
 }
 
 async function readAndHold(
@@ -259,7 +270,10 @@ async function readAndHold(
 ): Promise<boolean> {
   const token = await findAddressToken(mail.addressId)
   if (!token) throw new Error(`the address of mail ${mail.id} is gone`)
-  const authentication = await authenticateSender(raw, { projectToken: token, inboundDomain: domain, envelopeFrom: mail.envelopeFrom })
+  const authentication =
+    reusableAuthentication(evidence.progress) ??
+    (await authenticateSender(raw, { projectToken: token, inboundDomain: domain, envelopeFrom: mail.envelopeFrom }))
+  rememberAuthentication(evidence.progress, authentication)
   if (isTransientReason(authentication.reason) && !dkimSpent) {
     throw new DependencyFaultError('dkim_dns', new Error(`sender authentication was inconclusive (${authentication.reason})`))
   }
@@ -275,7 +289,7 @@ async function readAndHold(
   if (mime.kind === 'unreadable') return holdUnreadable(mail, raw, automatic, evidence)
 
   const screening = await mailScreeningFor(mail.organizationId, mail.projectId)
-  const scans = await inPool(mime.attachments, ATTACHMENT_SCANS_IN_FLIGHT, (attachment) => scanForStorage(attachment.content))
+  const scans = await scanAttachments(mime.attachments, evidence.progress, ATTACHMENT_SCANS_IN_FLIGHT, scanForStorage)
   const text = await readHeldText(mail, degraded)
   const read = redactRead(text.read, (text) => redactProjectAddresses(text, domain, token))
   const redact = (text: string) => redactProjectAddresses(text, domain, token)
