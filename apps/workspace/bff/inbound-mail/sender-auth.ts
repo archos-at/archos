@@ -2,10 +2,16 @@
  * Who a mail is from, as far as its bytes and DNS can tell, and what that
  * means for the defaults a person sees (ADR-0137 D4, check B2).
  *
- * Every mail is held whatever this says. The verdict is a label and a
- * condition on defaults (thread pre-selection, following, the acknowledgements
- * a decision needs), never a gate on acceptance. DKIM proves a domain, not a
- * person, so `verified` never means more than "the From domain signed this".
+ * Every mail is received whatever this says: the verdict is never a gate on
+ * acceptance. It is a label, a condition on defaults (thread pre-selection,
+ * following, the acknowledgements a decision needs) and, since ADR-0137's
+ * amendment of 2026-11-03, the evidence of a direct filing: a member's mail
+ * whose verdict is `member_verified`, `dkim_pass`, strictly aligned and
+ * unflagged is classed `verified_writer` (`./sender-class`, migration 0194's
+ * `inbound_mails_verified_writer_evidence`) and filed as that member without a
+ * click. A mistake here therefore files, so every rule below errs towards
+ * unverified. DKIM proves a domain, not a person, so `verified` never means
+ * more than "the From domain signed this".
  *
  * ## Two halves
  *
