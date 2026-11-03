@@ -153,6 +153,74 @@ def test_a_cutover_hatchet_refuses_leaves_the_job_where_it_was(db):
 
 def test_a_store_that_never_had_the_old_queue_has_nothing_to_move(db):
     assert ingest_cutover.redispatch_queued(lambda *args: pytest.fail("nothing to move")) == 0
+    assert ingest_cutover.live_rows() == 0
+
+
+def _held_until(db: str, job_id: str):
+    with DocumentMetadataStore._get_or_create_sync_engine(db).connect() as conn:
+        return conn.execute(text("SELECT held_until FROM ingest_jobs WHERE job_id = :id"), {"id": job_id}).scalar()
+
+
+def test_a_job_an_old_api_pod_queues_after_boot_is_held_and_handed_over_on_the_next_pass(db):
+    """The rollout: the schema hold ran long ago, and an old pod queues one more job."""
+    queue = ingest_cutover._QUEUE
+    ingest_status_store.put(_status("late-1"))
+    queue.enqueue("early-1", "org-1", "enc:early", "interactive")
+    assert ingest_cutover.redispatch_queued(lambda *args: True) == 1  # boot
+    queue.enqueue("late-1", "org-1", "enc:late", "interactive")
+    assert _held_until(db, "late-1") is None
+    assert ingest_cutover.live_rows() == 1
+    held: list = []
+
+    def trigger(job_id, *_args):
+        held.append(_held_until(db, job_id))
+        return True
+
+    assert ingest_cutover.redispatch_queued(trigger) == 1
+    assert held[0] is not None  # held before it was handed over
+    assert ingest_cutover.live_rows() == 0
+
+
+def test_a_pass_hands_over_a_bounded_batch(db):
+    for n in range(3):
+        ingest_cutover._QUEUE.enqueue(f"job-{n}", "org-1", f"enc:{n}", "interactive")
+
+    assert ingest_cutover.redispatch_queued(lambda *args: True, limit=2) == 2
+    assert ingest_cutover.live_rows() == 1
+
+
+def test_two_workers_never_hand_over_the_same_job(db):
+    """While one worker's trigger runs, a second worker's pass finds the row claimed and takes nothing."""
+    ingest_cutover._QUEUE.enqueue("job-1", "org-1", "enc:one", "interactive")
+    started: list[str] = []
+
+    def while_the_other_worker_passes(job_id, *_args):
+        started.append(job_id)
+        with patch.object(ingest_cutover, "_worker", return_value="hatchet-cutover-other-1"):
+            assert ingest_cutover.redispatch_queued(lambda job, *rest: started.append(job) or True) == 0
+        return True
+
+    assert ingest_cutover.redispatch_queued(while_the_other_worker_passes) == 1
+    assert started == ["job-1"]
+    assert ingest_cutover.live_rows() == 0
+
+
+@pytest.mark.parametrize("payload", ["json:eyJqb2JfaWQiOiAiam9iLTEifQ==", '{"job_id": "job-1"}'])
+def test_a_plaintext_payload_is_never_handed_to_hatchet_and_stays_in_the_table(db, payload, caplog):
+    queue = ingest_cutover._QUEUE
+    queue.enqueue("plain-1", "org-1", payload, "interactive")
+    queue.enqueue("sealed-1", "org-1", "enc:sealed", "interactive")
+    started: list[tuple] = []
+
+    assert ingest_cutover.redispatch_queued(lambda *args: started.append(args) or True) == 1
+
+    assert [args[0] for args in started] == ["sealed-1"]
+    assert ingest_cutover.live_rows() == 1
+    assert queue.status_of("plain-1") == "claimed"  # left, and not met again before the stale window
+    assert ingest_cutover.redispatch_queued(lambda *args: pytest.fail("the plaintext job again")) == 0
+    assert "plain-1 carries a payload that is not encrypted" in caplog.text
+    assert "eyJ" not in caplog.text
+    assert "job_id" not in caplog.text
 
 
 # ------------------------------------------------------------- outcomes

@@ -121,10 +121,10 @@ _SWEEP_LIMIT = 500
 #: so adding them never rewrites or rejects an existing row.
 _ADDED_COLUMNS = {"owner": "VARCHAR", "dispatch_key": "VARCHAR", "collection_name": "VARCHAR", "run_id": "VARCHAR"}
 
-#: At the cutover, holds the jobs the retired claim queue still carries until
-#: ``ingest_cutover`` hands them to Hatchet. Built from constants only.
+#: Holds the unheld jobs the retired claim queue carries, at schema init and on each
+#: pass of ``ingest_cutover`` (``ingest_run_hold.hold_cutover_rows``). Constants only.
 _HOLD_QUEUED_AT_CUTOVER = (
-    "UPDATE ingest_jobs SET held_until = {until} WHERE job_id IN "
+    "UPDATE ingest_jobs SET held_until = {until} WHERE (held_until IS NULL OR held_until <= {now}) AND job_id IN "
     "(SELECT job_id FROM ingest_job_queue WHERE status IN ('queued', 'claimed'))"
 )
 _CUTOVER_HOLD_SECONDS = 24 * 3600
@@ -190,7 +190,7 @@ def _add_missing_columns(conn, url: str) -> None:
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(_BACKFILL_COLLECTION_NAME[_is_postgres(url)]))
     if "held_until" not in present and "ingest_job_queue" in inspect(conn).get_table_names():
-        conn.execute(text(_HOLD_QUEUED_AT_CUTOVER.format(until=_from_now(url, _CUTOVER_HOLD_SECONDS))))
+        conn.execute(text(_HOLD_QUEUED_AT_CUTOVER.format(until=_from_now(url, _CUTOVER_HOLD_SECONDS), now=_now(url))))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_dispatch_key ON ingest_jobs (dispatch_key)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_collection_name ON ingest_jobs (collection_name)"))
 

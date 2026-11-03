@@ -16,9 +16,10 @@ is killed instead (OOM, node loss) leaves its runs to Hatchet, which tries them
 again. Re-indexing replaces a file's chunks, so the second run is the one that
 counts.
 
-On boot it also moves what the retired claim queue still holds onto Hatchet
-(``agent.knowledge.ingest_cutover``), and it runs the folder card builder beside
-the task.
+From boot on it also moves what the retired claim queue holds onto Hatchet
+(``agent.knowledge.ingest_cutover``), every minute while that table has jobs,
+since API pods on the old release write it until the rollout ends; and it runs
+the folder card builder beside the task.
 
 Config (env):
   CONFIG_FILE / NAT_CONFIG_FILE        the agent-runtime config the web tier runs
@@ -48,6 +49,10 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_CONFIG = "/app/configs/config_oib_openrouter.yml"
 _LIVENESS_EVERY_SECONDS = 15
+#: How often the worker moves what the retired claim queue holds onto Hatchet.
+CUTOVER_EVERY_SECONDS = 60
+#: How long that queue must hold nothing before the worker stops asking.
+CUTOVER_QUIET_SECONDS = 3600
 
 
 def _slots() -> int:
@@ -77,11 +82,14 @@ async def ingestor_lifespan() -> AsyncIterator:
         ingestor = get_active_ingestor()
         if ingestor is None or getattr(ingestor, "supports_durable_jobs", False) is not True:
             raise RuntimeError(f"{config_file} activates no ingestor that runs jobs from Hatchet")
-        await asyncio.to_thread(_cut_over)
         clock.ready()
         boot_timing.flush()
         stop = asyncio.Event()
-        loops = [_start_folder_cards(stop), asyncio.create_task(_liveness(stop), name="liveness")]
+        loops = [
+            _start_folder_cards(stop),
+            asyncio.create_task(_liveness(stop), name="liveness"),
+            asyncio.create_task(_cutover_loop(stop), name="ingest-cutover"),
+        ]
         try:
             yield ingestor
         finally:
@@ -89,12 +97,36 @@ async def ingestor_lifespan() -> AsyncIterator:
             await asyncio.gather(*loops, return_exceptions=True)
 
 
-def _cut_over() -> None:
-    """Move what the retired claim queue still holds onto Hatchet. Best effort; the next boot tries again."""
+def _cut_over() -> bool:
+    """One pass: the cheap check, then a batch onto Hatchet; whether the old queue still had jobs.
+
+    Best effort: a failed pass counts as one that found jobs, so the loop keeps going.
+    """
     try:
+        if ingest_cutover.live_rows() == 0:
+            return False
         ingest_cutover.redispatch_queued(ingest_hatchet.trigger)
     except Exception as error:  # noqa: BLE001 - a failed cutover must not keep the worker down
-        logger.warning("Ingest cutover failed (%s); the next boot tries again", type(error).__name__)
+        logger.warning("Ingest cutover pass failed (%s); the next one tries again", type(error).__name__)
+    return True
+
+
+async def _cutover_loop(
+    stop: asyncio.Event, *, every: float = CUTOVER_EVERY_SECONDS, quiet_for: float = CUTOVER_QUIET_SECONDS
+) -> None:
+    """Pass after pass while the retired queue holds jobs: API pods on the old release still write it.
+
+    The first pass runs at boot. Once the table has held nothing for
+    ``quiet_for`` seconds the loop stops, and the worker asks no more.
+    """
+    quiet = 0.0
+    while quiet < quiet_for:
+        quiet = 0.0 if await asyncio.to_thread(_cut_over) else quiet + every
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(stop.wait(), timeout=every)
+        if stop.is_set():
+            return
+    logger.info("Ingest cutover: %s held no job for %ds; no longer checked", ingest_cutover.TABLE, int(quiet_for))
 
 
 async def _liveness(stop: asyncio.Event) -> None:

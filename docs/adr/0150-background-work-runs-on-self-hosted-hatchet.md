@@ -156,8 +156,9 @@ its existing reconcile for those documents, which emits
 `read` or `sweep`). The read and the sweep stay as fallbacks.
 
 **Cutover.** Apply the platform, deploy, then run
-`python -m agent.knowledge.ingest_cutover` (it also runs when an ingest worker
-starts) and `python -m agent_host.jobs.requeue_legacy` to re-submit what the
+`python -m agent.knowledge.ingest_cutover` (an ingest worker also runs it every
+minute from boot while `ingest_job_queue` holds jobs, since API pods on the old
+release write it until the rollout ends) and `python -m agent_host.jobs.requeue_legacy` to re-submit what the
 old ingest and research tables still hold. BFF jobs are re-dispatched by their
 own sweep, and automations by `schedule-repair`. The old tables are no longer
 written and stay until a later migration drops them. Rollback is reverting the
