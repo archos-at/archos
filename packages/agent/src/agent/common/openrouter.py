@@ -119,6 +119,17 @@ def targets_openrouter(url: object) -> bool:
     return OPENROUTER_HOST in (host or text)
 
 
+#: Reading a page is transcription, not deliberation: a reasoning model left at its default spent
+#: 19% of ``ingest_vision`` output and 45k of 67k ``look_reading`` output tokens thinking (signals
+#: W5, 2026-11-02). A code default, not an admin group: page reading has no thinking-level dial.
+VISION_REASONING = {"effort": "low"}
+
+
+def vision_reasoning_body(base_url: object) -> dict[str, Any]:
+    """``{"reasoning": {...}}`` for a vision call to OpenRouter, else ``{}`` (other endpoints reject the field)."""
+    return {"reasoning": dict(VISION_REASONING)} if targets_openrouter(base_url) else {}
+
+
 @dataclass(frozen=True)
 class DataPolicy:
     """What a model provider may keep of a request."""

@@ -605,7 +605,21 @@ def _find_provider_usage(node: Any, depth: int = 0) -> dict[str, Any] | None:
     if provider is not None:
         return provider
     normalized = _find_usage(responses, _is_langchain_usage, depth)
-    return _normalize_langchain_usage(normalized) if normalized is not None else None
+    if normalized is None:
+        return None
+    usage = _normalize_langchain_usage(normalized)
+    # The Responses path has no provider usage object, but the cost carrier
+    # (cost_tracking.install_responses_cost_carrier) keeps OpenRouter's ``cost`` beside it. Without it
+    # Langfuse prices the span from its own table, ignores the cache discount and prices a model it
+    # does not know at $0 (signals T1, 2026-11-02: $53.53 in Langfuse against a $43.75 bill).
+    from agent.common.cost_tracking import RESPONSES_ACCOUNTING_KEY
+
+    carrier = _find_usage(responses, lambda node: isinstance(node.get(RESPONSES_ACCOUNTING_KEY), dict), depth)
+    accounting = carrier[RESPONSES_ACCOUNTING_KEY] if carrier is not None else {}
+    cost = accounting.get("cost")
+    if isinstance(cost, int | float) and not isinstance(cost, bool):
+        usage["cost"] = cost
+    return usage
 
 
 def extract_provider_usage(metadata_json: Any) -> dict[str, int | float] | None:

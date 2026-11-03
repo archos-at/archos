@@ -1955,12 +1955,17 @@ def _vlm_chat_create(client, *, model: str, messages: list, max_tokens: int, tem
       Raising here would discard usable content and — since failure placeholders
       are no longer indexed — drop the chunk entirely over a partial success.
     """
+    from agent.common.openrouter import vision_reasoning_body
+
+    reasoning = vision_reasoning_body(getattr(client, "base_url", None))
+    extra_body = {"extra_body": reasoning} if reasoning else {}
     response = _vlm_create_fairly(
         client,
         model=model,
         messages=messages,
         max_tokens=max_tokens,
         temperature=temperature,
+        **extra_body,
     )
     choice = response.choices[0]
     if getattr(choice, "finish_reason", None) != "length":
@@ -1984,6 +1989,7 @@ def _vlm_chat_create(client, *, model: str, messages: list, max_tokens: int, tem
                 messages=messages,
                 max_tokens=max_tokens * 2,
                 temperature=temperature,
+                **extra_body,
             )
     except Exception as exc:
         logger.warning("VLM truncation retry failed (%s); keeping the truncated caption", exc)
