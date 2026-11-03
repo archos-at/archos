@@ -27,9 +27,9 @@ import suite  # noqa: E402
 from fixture_bff import FixtureBFF  # noqa: E402
 from fixture_bff import FixtureOffice  # noqa: E402
 
-from aiq_agent.project_context import GridRequestContext  # noqa: E402
+from agent.project_context import RequestContext  # noqa: E402
 
-SCHEMA = json.loads((REPO_ROOT / "frontends" / "ui" / "tests" / "fixtures" / "cross-project.schema.json").read_text())
+SCHEMA = json.loads((REPO_ROOT / "apps" / "workspace" / "tests" / "fixtures" / "cross-project.schema.json").read_text())
 TOKEN = "eval-token"
 
 
@@ -48,7 +48,7 @@ def _post(bff: FixtureBFF, path: str, body: dict, token: str = TOKEN) -> tuple[i
     request = urllib.request.Request(
         f"{bff.url}{path}",
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", "X-Grid-Internal-Token": token},
+        headers={"Content-Type": "application/json", "X-Internal-Token": token},
         method="POST",
     )
     try:
@@ -156,7 +156,7 @@ class TestTheFixtureBff:
 def test_the_fixture_permit_records_are_of_documents_the_office_holds_and_the_ingest_typed_permit_decision():
     """`permits.json` is the pen's output over the office: a record for a document that is not one is a stale render."""
     permits = json.loads(
-        (REPO_ROOT / "frontends" / "ui" / "tests" / "fixtures" / "precedent" / "permits.json").read_text()
+        (REPO_ROOT / "apps" / "workspace" / "tests" / "fixtures" / "precedent" / "permits.json").read_text()
     )
     documents = {
         document["documentId"]: document
@@ -178,7 +178,7 @@ def test_the_envelope_the_suite_mints_is_one_the_agent_accepts():
     office = FixtureOffice().office
     header, signature = suite.precedent_envelope(office, "suite-1-traufe-frueher-1", TOKEN)
 
-    context = GridRequestContext.from_envelope(header, signature, TOKEN)
+    context = RequestContext.from_envelope(header, signature, TOKEN)
 
     assert context is not None
     assert (context.project_id, context.conversation_id, context.context_transport) == (
@@ -187,7 +187,7 @@ def test_the_envelope_the_suite_mints_is_one_the_agent_accepts():
         "bff",
     )
     assert context.federal_state == "lower_austria"
-    assert GridRequestContext.from_envelope(header, signature, "another-secret") is None
+    assert RequestContext.from_envelope(header, signature, "another-secret") is None
 
 
 def test_every_project_a_question_expects_is_in_its_scenarios_office():
@@ -283,7 +283,7 @@ class TestTheSearchRanksByMeaning:
         office = FixtureOffice(scenario="wien-bestand")
         header, signature = suite.precedent_envelope(office.office, "suite-1-wien-1", TOKEN, office.current)
 
-        context = GridRequestContext.from_envelope(header, signature, TOKEN)
+        context = RequestContext.from_envelope(header, signature, TOKEN)
 
         assert context is not None
         assert (context.project_id, context.federal_state) == ("a3000000-0000-4000-8000-000000000009", "vienna")
@@ -417,9 +417,9 @@ def test_a_lookup_counts_for_the_run_it_served_however_it_was_asked_for(tmp_path
                 data=json.dumps({"query": "Traufe"}).encode("utf-8"),
                 headers={
                     "Content-Type": "application/json",
-                    "X-Grid-Internal-Token": TOKEN,
-                    "X-Grid-Request-Context": header,
-                    "X-Grid-Request-Context-Sig": signature,
+                    "X-Internal-Token": TOKEN,
+                    "X-Request-Context": header,
+                    "X-Request-Context-Sig": signature,
                 },
                 method="POST",
             )

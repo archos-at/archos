@@ -8,8 +8,8 @@ parts.
 
 ## The data, and the rules the database holds
 
-Migration `frontends/ui/drizzle/0138_document_annotations.sql` creates two
-tables, both under `grid_secure_table` RLS.
+Migration `apps/workspace/migrations/0138_document_annotations.sql` creates two
+tables, both under `secure_table` RLS.
 
 | Table | Holds | RLS predicate |
 |---|---|---|
@@ -39,7 +39,7 @@ Piloti“):
 |---|---|---|
 | `document_annotation_replies.addresses_agent` | the reply addresses Piloti: the composer's @Piloti chip, never read from the text | default false |
 | `document_annotations.delegated_by`, `delegated_at` | Piloti is the delegate, working the mark for this person | both or neither (`…_delegation_complete`); only on an open mark (`…_delegated_while_open`) |
-| `piloti_wakes` | one row per event that met a wake rule: its id is the job id and the turn id (uuid5 of the event); trigger, event, the person who acted, and what it came to: `queued`, then `started` and its final word, `answered`, `stopped` or `failed` (a turn that ran), or `suppressed` and `refused` (no turn ran) | a reason exactly for `suppressed`, `refused` and `failed`; `settled_at` exactly when it left `queued`; `ended_at` exactly when it reached its final word (migration `0141_wake_ends.sql`); RLS on the org and the mark's org |
+| `agent_wakes` | one row per event that met a wake rule: its id is the job id and the turn id (uuid5 of the event); trigger, event, the person who acted, and what it came to: `queued`, then `started` and its final word, `answered`, `stopped` or `failed` (a turn that ran), or `suppressed` and `refused` (no turn ran) | a reason exactly for `suppressed`, `refused` and `failed`; `settled_at` exactly when it left `queued`; `ended_at` exactly when it reached its final word (migration `0141_wake_ends.sql`); RLS on the org and the mark's org |
 
 Migration `0150_annotation_mentions.sql` adds whom a text mentions (below,
 „Mentioning a colleague“):
@@ -127,7 +127,7 @@ the shelf's `?doc=` sync and the pane already answer.
 
 ## The service and its API
 
-`frontends/ui/src/lib/annotations/`:
+`apps/workspace/bff/annotations/`:
 
 | File | Owns |
 |---|---|
@@ -445,10 +445,10 @@ The server refuses, and the menu is not offered:
   the browser asked Piloti itself, and only Piloti's answer in the thread says
   so: the server lets a delete through in the moment between the ask and the
   answer, and Piloti answers a reply that is gone. The card reads the same
-  facts (`pilotiRepliedSince`, `pilotiWork` for the reply's author) to keep
+  facts (`agentRepliedSince`, `pilotiWork` for the reply's author) to keep
   from offering what the server would refuse, and withholds the change too
   while this tab's own ask of Piloti in that thread is thinking
-  (`pilotiAskingIn`), which leaves that moment to another tab only. The
+  (`agentAskingIn`), which leaves that moment to another tab only. The
   refusal says so in the card, not as a colleague's move.
 
 The write is a compare-and-swap on the words the service read
@@ -579,7 +579,7 @@ behoben: …“ or „Weiterhin offen: …“, naming B for B's marks (`document
 name from the turn's inventory). It changes no status: the question says so,
 and the `canvas` tools' descriptions hold it on every path, `piloti-acts` on or
 off (`update`: a request to check what is fixed asks for no change; `reply`: the
-verdict's form, and no status change; `tests/aiq_agent/tools/canvas/test_parity.py`).
+verdict's form, and no status change; `packages/agent/tests/tools/canvas/test_parity.py`).
 Closing stays the person's: „Erledigt“ in the mark's thread, or for B's marks
 „Erledigen“ on the row in C's review (`resolveCarried`, a PATCH to B's mark
 with the status the row showed). B's threads are in B's room, which C's review
@@ -599,7 +599,7 @@ the room hears it, and a carried mark names its source on the mark itself.
 The draft card and a thread's reply box are the chat's composer for mentions,
 gesture for gesture (`review/composer.tsx`): „@“ opens the chat's own picker
 (`MentionPicker`), a pick writes „@Anna Berger“ into the text and records whom
-it means (`features/collaboration/lib/mention-text.ts`), and what is sent is
+it means (`lib/mentions/mention-text.ts`), and what is sent is
 reconciled against the text at the last moment, so a name deleted while
 editing mentions nobody and a name typed by hand never did. The rows are the
 people who may open the document, read from the assignment candidates
@@ -673,7 +673,7 @@ the way a design tool shows its collaborators:
 | The mark a colleague has open | a ring round the pin (an outline round a region) in their colour, with their first name at its top-right; „Anna +1" for several; a person whose own pointer is within 48 px of the mark is not named twice (`selectionTagged`); never the reader's own tabs, never Piloti | `peerSelections`, `PeerSelection` |
 | A box being dragged out | dashed in their colour, with their first name over its top-right corner; beside the box when the box is narrower than the name, so the name never lies over a pin next to it (`draftTagPlace`) | `review-page-layer.tsx` |
 | A colleague out of view | a chip at the edge that leads to them („Lena · Seite 2"), decided by whether their point is on screen (`peerSide`); a click jumps there; the face's tooltip names the page. Never over the open card: the card keeps out of the foot, and a row that would still lie over it steps aside (`covers`) | `Elsewhere` in `document-review.tsx` |
-| Piloti | its own pointer, always led by its name („Piloti · Fluchtweg · für Anna"), quieting once it is parked with nothing in hand (`pilotiResting`); the box it reads glows while it reads it (`look` sends the `look` op for a workspace document, from the canvas or the chat: presence and a `reading` activity) | `PilotiCursor`, `tools/canvas/presence.py` `show_reading` |
+| Piloti | its own pointer, always led by its name („Piloti · Fluchtweg · für Anna"), quieting once it is parked with nothing in hand (`agentResting`); the box it reads glows while it reads it (`look` sends the `look` op for a workspace document, from the canvas or the chat: presence and a `reading` activity) | `AgentCursor`, `tools/canvas/presence.py` `show_reading` |
 
 A write sends an `annotations.changed` hint. A hint is a nudge to re-read, never
 the state itself, so a dropped hint costs a few seconds, not a wrong list. The
@@ -717,12 +717,12 @@ left the room it sends nothing more under its peer, so a late send from a timer
 
 Piloti reaches marks in two ways.
 
-**By tool.** The `canvas` function group (`src/aiq_agent/tools/canvas/`) calls
+**By tool.** The `canvas` function group (`packages/agent/src/agent/tools/canvas/`) calls
 `/api/internal/document-annotations`: `canvas__marks` (`list`), `canvas__mark`
 (`propose`, or `create` with `open=true`), `canvas__update` (`update`),
 `canvas__delete` (`delete`), `canvas__reply` (`reply`), `canvas__room`
 (`room`), and the gestures `canvas__point` and `canvas__highlight`.
-`look` (`src/aiq_agent/tools/look/`, ADR-0128), a tool of its own bound in every
+`look` (`packages/agent/src/agent/tools/look/`, ADR-0128), a tool of its own bound in every
 context, renders the page or a box on it and makes the box glow here. The turn sends `leave` when it ends, so Piloti's cursor goes with it.
 
 - A tool may name a document (`document`: a file name from the turn's inventory, or an id); the name is resolved against the inventory and its id read from `GET /api/internal/document-file` with the envelope echoed. Without one it acts on the document open on the canvas (`focus_document_id`), then on the conversation's *subject*. The server checks a named document against the asker's access and the turn's signed scope (`lib/annotations/agent.ts`).
@@ -742,7 +742,7 @@ service functions the person's own routes use (`lib/annotations/agent.ts`):
 | Asked for | Op | Runs | Recorded as |
 |---|---|---|---|
 | Set a mark | `create` | `setAnnotationsForAsker`: born `open`, `author_kind = piloti` | `created_by` and `accepted_by`/`accepted_at` = the asker |
-| Resolve, reopen, dismiss a proposal, take one over, assign, set or clear a date, reword, change the kind | `update` | `updateAnnotationForAsker`, which runs `updateAnnotation` with `actor = PILOTI`, then posts `note` as Piloti's reply | `closed_by` / `accepted_by` = the asker |
+| Resolve, reopen, dismiss a proposal, take one over, assign, set or clear a date, reword, change the kind | `update` | `updateAnnotationForAsker`, which runs `updateAnnotation` with `actor = AGENT`, then posts `note` as Piloti's reply | `closed_by` / `accepted_by` = the asker |
 | Delete a mark | `delete` | `deleteAnnotation`, which allows only a mark the asker set themselves, while nobody else wrote in its thread and it was not carried | nothing left |
 
 Findings Piloti makes on its own initiative, including a whole-document review
@@ -771,7 +771,7 @@ The CHECKs of migration 0138 hold on every path, unchanged:
 - `piloti_needs_a_person`: Piloti's open or resolved mark carries `accepted_by`, the asker, because the person stood behind it by asking.
 - `closing_complete`: closing goes through `transition()`, which sets `closed_by`/`closed_at` to the asker and clears them on reopening.
 
-`frontends/ui/src/app/api/internal/document-annotations/route.spec.ts` runs the
+`apps/workspace/app/api/internal/document-annotations/route.spec.ts` runs the
 real service over a fake repository and checks every row it leaves against
 these predicates; `repository.integration.spec.ts` sets a born-open mark in
 real PostgreSQL and finds the CHECK still refusing one with nobody behind it.
@@ -812,7 +812,7 @@ server does not read its box or its thread target still goes; the canvas client
 says what it went without (`onDegraded`, `canvasDegradations`), the card says
 Piloti answered about the whole document, and a thread answer that never
 reached the thread is offered there to add by hand. Both fields travel only
-while `GRID_WIRE_V2_ADDITIVE_FIELDS` is on, its default: the hello then names
+while `WIRE_V2_ADDITIVE_FIELDS` is on, its default: the hello then names
 them in `accepts`.
 
 Mentioning Piloti in a thread sends the same turn with `reply_in_thread`. The
@@ -844,7 +844,7 @@ events wake it, and only these, by a rule people can read (ADR-0036):
 `lib/annotations/wake.ts` decides; the service enqueues the wake **in the
 write's own transaction** (`insertAnnotationReply` / `updateDocumentAnnotation`
 take a hook that runs in it), so a reply that rolls back leaves no wake. The
-wake's id is uuid5 of the event (`wake-ids.ts`), which is its `piloti_wakes`
+wake's id is uuid5 of the event (`wake-ids.ts`), which is its `agent_wakes`
 row, its `bff_job_queue` job (`piloti_wake`) and the turn id: one event wakes
 Piloti at most once.
 
@@ -856,7 +856,7 @@ right to write the document, the mark, the caps. It writes the trigger into the
 person's thread as a question row („Anna Berger in Anmerkung 4: „…““), resolves
 the turn context for that session and thread (`lib/turns/turn-context.ts`,
 which refuses a spent budget), and opens the chat socket as an internal caller
-with the signed envelope and `X-AIQ-Mode: headless` (`lib/turns/headless-turn.ts`).
+with the signed envelope and `X-Chat-Mode: headless` (`lib/turns/headless-turn.ts`).
 The `user_message` carries `trigger`, `if_idle`, the mark's region with its
 `annotation_id`, and `reply_in_thread`. The contract:
 [`websocket-protocol.md`](../api/websocket-protocol.md#a-turn-an-event-woke-trigger--if_idle).
@@ -870,9 +870,9 @@ retried by the queue and recorded as `failed` on the last attempt.
 
 **Guards.** Piloti's own replies never wake it. Only a person who may write
 the document can reply, so only they can wake it. At most
-`GRID_WAKE_MAX_PER_MARK_HOUR` wakes per mark an hour (6) and
-`GRID_WAKE_MAX_PER_PERSON_DAY` per person a day (50), counted over the
-`piloti_wakes` rows at enqueue and again at claim. The WorkOS flag
+`WAKE_MAX_PER_MARK_HOUR` wakes per mark an hour (6) and
+`WAKE_MAX_PER_PERSON_DAY` per person a day (50), counted over the
+`agent_wakes` rows at enqueue and again at claim. The WorkOS flag
 `piloti-wakes`, an entitlement off by default. A wake held before Piloti was
 asked (a cap, the switch, rights lost, the mark gone, the delegation taken
 back) has no trace, so it is on its row and in the audit trail as
@@ -880,7 +880,7 @@ back) has no trace, so it is on its row and in the audit trail as
 every end, however it came, is one `piloti.wake.ended`: the turn's, or the
 job's when it was refused or gave up before a turn answered, with the class of
 its reason (`reasonKind`, the inbox's `variant` below)
-(`frontends/ui/src/lib/annotations/wake-audit.ts`).
+(`apps/workspace/bff/annotations/wake-audit.ts`).
 
 **With the switch off** the reply answers `wake: 'off'`, whichever rule met it
 (an @Piloti, or an answer to Piloti's own open Rückfrage with no @Piloti at
@@ -892,7 +892,7 @@ reads Piloti's work off the server. The inbox has no Piloti to ask, so a
 Rückfrage answered from there would reach nobody: its row leads to the
 Prüfansicht instead (`answerIn: 'review'`, below).
 
-**Piloti's work is the server's to say** (`lib/annotations/piloti-work.ts`).
+**Piloti's work is the server's to say** (`lib/annotations/agent-work.ts`).
 Every mark's view carries `pilotiWork`, read off its newest wake, so everyone
 in the room reads the same line, after a reload too:
 
@@ -905,15 +905,15 @@ in the room reads the same line, after a reload too:
 | `answered`, `stopped` | none | the answer is in the thread |
 
 Every transition of a wake (started, ended, held at claim) tells the room
-(`announcePilotiWork`), so the line moves without a reload.
+(`announceAgentWork`), so the line moves without a reload.
 
 ### How a woken turn ends
 
 A woken turn has an end (ADR-0106, amended by ADR-0109). When the turn's
 terminal is written, the chat socket posts its outcome once to
 `POST /api/internal/turns/outcome`
-(`frontends/ui/src/app/api/internal/turns/outcome/route.ts`). The BFF maps it to
-the wake's final word (`wakeEndOf` in `frontends/ui/src/lib/turns/outcome.ts`):
+(`apps/workspace/app/api/internal/turns/outcome/route.ts`). The BFF maps it to
+the wake's final word (`wakeEndOf` in `apps/workspace/bff/turns/outcome.ts`):
 
 - `answered` and `handed_off`: the wake is `answered`.
 - `stopped` (the turn was cancelled): the wake is `stopped`.
@@ -936,7 +936,7 @@ turn that errors at once can report before the job has marked it started.
 
 Taking a mark back from Piloti, or resolving, dismissing or deleting the mark,
 is a person's change, and it ends what the delegation started
-(`frontends/ui/src/lib/annotations/take-back.ts`, in the change's own
+(`apps/workspace/bff/annotations/take-back.ts`, in the change's own
 transaction):
 
 - A wake still `queued` is settled `suppressed`, with the reason `taken back`,
@@ -945,7 +945,7 @@ transaction):
   no turn.
 - A wake that started gets a `piloti_wake_stop` job, queued in the same
   transaction, so a crash after the commit loses no stop. The job
-  (`frontends/ui/src/lib/annotations/wake-stop-job.ts`) cancels the turn on the
+  (`apps/workspace/bff/annotations/wake-stop-job.ts`) cancels the turn on the
   chat socket, as the person in the thread. The turn ends `cancelled` and
   reports `stopped` itself, so the job never writes the wake. A turn that is no
   longer running is a stop already done.
@@ -959,17 +959,17 @@ audit trail, as the person who took the mark back.
 
 A turn asked from a thread, whose model did not call `canvas__reply`, posts its
 answer into that thread at the end, when the turn ended `answered`
-(`src/aiq_agent/turn/annotation_reply.py`, posted by `post_fallback_reply` in
-`frontends/aiq_api/src/aiq_api/chat_socket.py`). It does so only when nothing
+(`packages/agent/src/agent/turn/annotation_reply.py`, posted by `post_fallback_reply` in
+`apps/agent-host/src/agent_host/chat_socket.py`). It does so only when nothing
 Piloti did in that thread already spoke there, and only where everyone who
 opens the document reads. The reply goes through the route the tool uses, as
 the person who asked.
 
 ### What the person hears
 
-The inbox hears through `frontends/ui/src/lib/annotations/attention.ts` (ADR-0035).
+The inbox hears through `apps/workspace/bff/annotations/attention.ts` (ADR-0035).
 An item about a mark opens the Prüfansicht at that mark (`markId` in
-`frontends/ui/src/lib/sharing/registry.ts`):
+`apps/workspace/bff/sharing/registry.ts`):
 
 | Item | When | For | Actionable |
 |---|---|---|---|
@@ -1042,7 +1042,7 @@ person its turn acted for: on a wake, who woke it, who hears `piloti.work_done`
 instead. When Piloti follows up its own open Rückfrage, the Zuständige it asks
 has the `piloti.asks_you` row and no second one. Every recipient of a
 colleague's news must be able to open the document now, its folder included
-(`mayOpenDocument`, `frontends/ui/src/lib/documents/may-open.ts`), the rule
+(`mayOpenDocument`, `apps/workspace/bff/documents/may-open.ts`), the rule
 that decides who may be mentioned; who may be made Zuständige must also be
 able to write it (`mayWriteDocument`, above). A held upload (ADR-0086) opens
 and is written there only for its uploader and the people who may review its
@@ -1105,7 +1105,7 @@ reopening a dismissed proposal nobody stood behind, the moves that set
 (`assigned`) adds „Die Anmerkung liegt wieder bei Ihnen.“ Rows fold per mark
 and their payloads merge, so every row names its variant, and a replied-to
 mark is one counted row however busy its thread is (`titleRelatedMany` in
-`frontends/ui/src/lib/inbox/item-copy.ts`). Piloti's own rows wear its glyph,
+`apps/workspace/bff/inbox/item-copy.ts`). Piloti's own rows wear its glyph,
 drawn as a line like every other row's; a row a person caused wears that
 person's face with the type's glyph in its corner.
 
@@ -1166,9 +1166,9 @@ when its review opens (`marksSet: true` on the same route), not with the mark
 they link to.
 
 A failure says why. `onWakeEnded` classes the wake's stored reason with
-`wakeEndReasonKind` (`frontends/ui/src/lib/annotations/wake-end-reason.ts`) and
+`wakeEndReasonKind` (`apps/workspace/bff/annotations/wake-end-reason.ts`) and
 stores the class as the item's `variant`; the row reads
-`pilotiWorkFailed.variants.<class>.body`, never the stored reason, which is
+`agentWorkFailed.variants.<class>.body`, never the stored reason, which is
 English and meant for the audit trail:
 
 | Class | Stored reasons | The body says |
@@ -1297,7 +1297,7 @@ Whatever Piloti did on a document in a turn comes back as one
 proposed (`proposed`) or set on request (`created`), changes (`changed`, each
 field before and after, and the note), deletions (`deleted`) and replies. It
 is the way from the chat onto the canvas and back. The card is a window onto
-the change record (`piloti_changes`), not a copy of it: its turn's rows are read
+the change record (`agent_changes`), not a copy of it: its turn's rows are read
 when the card is first seen, and again whenever one of its marks changes, so
 every reader sees the same state. The card's own copy is only the fallback for
 an answer older than the record. Its actions:
@@ -1323,8 +1323,8 @@ an answer older than the record. Its actions:
    card reads its turn's rows from `GET /api/conversations/[id]/messages/[messageId]/changes`,
    and the button calls `POST /api/piloti-changes/[id]/undo`. The undo is a
    compare-and-swap run as the person who clicks, through the annotations
-   service's own rules (`frontends/ui/src/lib/changes/service.ts`, the inverse
-   in `frontends/ui/src/lib/changes/undo.ts`). It runs only while the mark is
+   service's own rules (`apps/workspace/bff/changes/service.ts`, the inverse
+   in `apps/workspace/bff/changes/undo.ts`). It runs only while the mark is
    still as Piloti left it, so a colleague's later move is never undone: the
    answer is `409 moved-on`, and the card says where the mark stands. Undoing a
    change that is already undone answers `409 already-undone` and shows who did
@@ -1342,13 +1342,13 @@ an answer older than the record. Its actions:
    changes, and undo there still replays that copy after reading the mark again.
 
    Each decision on Piloti's work also posts one `piloti-decision` score on the
-   trace of the turn that produced it (`frontends/ui/src/lib/langfuse/decision-score.ts`;
+   trace of the turn that produced it (`apps/workspace/bff/langfuse/decision-score.ts`;
    the catalogue is in [`langfuse.md`](../observability/langfuse.md)): a proposed
    mark taken over (`accepted`) or dismissed (`dismissed`), and an applied change
    undone (`undone`). The score says what was decided, never by whom; the
    audit trail says who: who undid it (`piloti.change.undone`), and who took
    over or dismissed a proposed mark (`piloti.mark.decided`,
-   `frontends/ui/src/lib/annotations/mark-audit.ts`, one per mark, the live
+   `apps/workspace/bff/annotations/mark-audit.ts`, one per mark, the live
    card's batch included, since it sends the same PATCH per mark).
 
 ## The Protokoll: Anmerkungen as a file
@@ -1358,7 +1358,7 @@ client or a consultant. „Protokoll exportieren" in the Prüfansicht's header
 (`features/documents/components/review/review-export-menu.tsx`) downloads one.
 
 `GET /api/documents/[id]/annotations/export?format=pdf|docx|md&scope=open|all&revision=current|all&includeProposals=1`
-(`frontends/ui/src/lib/annotations/export.ts`; the query and the link in
+(`apps/workspace/bff/annotations/export.ts`; the query and the link in
 `export-request.ts`, shared by the route and the menu). The defaults are a PDF
 of the open marks.
 
@@ -1567,4 +1567,4 @@ it, and the project is not closed (`protocolFiling`, `file-preview-pane.tsx`).
 - Over the chat, a canvas question whose server reads no box is not told so (`onDegraded` is the stand-alone canvas client's).
 - The Python side posts to internal routes through several near-identical helpers.
 - A change Piloti makes and its note are two writes in one request, not one transaction (`updateAnnotationForAsker`). Every refusal the service can foresee (rights, a stale status, a full thread) comes before the change; a database failure between the two writes would still leave the change without its note.
-- The change record is a third write, after the annotations service has committed the change and its note (`recordPilotiChanges`, `frontends/ui/src/lib/changes/service.ts`). The service offers no hook into its transaction, and a failed record is logged, not thrown: the change then lands without a row, so the card cannot undo it from the record.
+- The change record is a third write, after the annotations service has committed the change and its note (`recordAgentChanges`, `apps/workspace/bff/changes/service.ts`). The service offers no hook into its transaction, and a failed record is logged, not thrown: the change then lands without a row, so the card cannot undo it from the record.

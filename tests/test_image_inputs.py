@@ -40,8 +40,8 @@ COPY pyproject.toml uv.lock ./
 COPY --chown=app:app src/ ./src/
 COPY --from=builder /app /app
 ADD scripts/*.sh /usr/local/bin/
-COPY deploy/entrypoint.py \\
-     deploy/start_web.py ./deploy/
+COPY apps/agent-host/entrypoint.py \\
+     apps/agent-host/start_web.py ./deploy/
 COPY ["configs/a.yml", "/etc/a.yml"]
 copy lower/ ./lower/
 """
@@ -50,8 +50,8 @@ copy lower/ ./lower/
         "uv.lock",
         "src/",
         "scripts",
-        "deploy/entrypoint.py",
-        "deploy/start_web.py",
+        "apps/agent-host/entrypoint.py",
+        "apps/agent-host/start_web.py",
         "configs/a.yml",
         "lower/",
     ]
@@ -69,13 +69,13 @@ def test_the_backend_image_watches_what_its_dockerfile_copies(mod):
     inputs = mod.inputs(backend)
 
     assert "packages/ifc-spatial-py" in inputs
-    assert {"deploy/Dockerfile", "src", "uv.lock", "deploy/start_web.py"} <= set(inputs)
+    assert {"apps/agent-host/Dockerfile", "apps/agent-host", "packages/agent", "uv.lock"} <= set(inputs)
     assert "tests" not in inputs and "docs" not in inputs
 
 
 def test_a_copy_that_leaves_the_context_is_refused(mod):
     with pytest.raises(ValueError, match="leaves the build context"):
-        mod._normalise("frontends/ui", "../../etc/passwd")
+        mod._normalise("apps/workspace", "../../etc/passwd")
 
 
 # --- Hashing, on a repository of our own ---------------------------------------
@@ -107,14 +107,15 @@ def repo(mod, tmp_path, monkeypatch):
     write(
         tmp_path,
         {
-            "deploy/Dockerfile": "FROM debian\nCOPY src/ ./src/\nCOPY pyproject.toml ./\n",
+            "apps/agent-host/Dockerfile": "FROM debian\nCOPY src/ ./src/\nCOPY pyproject.toml ./\n",
             "src/app.py": "print(1)\n",
             "pyproject.toml": "[project]\n",
-            "frontends/ui/deploy/Dockerfile": "FROM node\nCOPY . .\n",
-            "frontends/ui/page.tsx": "export {}\n",
-            "frontends/web/Dockerfile": "FROM node\nCOPY . .\n",
-            "frontends/web/index.astro": "<p/>\n",
+            "apps/workspace/deploy/Dockerfile": "FROM node\nCOPY . .\n",
+            "apps/workspace/page.tsx": "export {}\n",
+            "apps/website/Dockerfile": "FROM node\nCOPY . .\n",
+            "apps/website/index.astro": "<p/>\n",
             "docs/readme.md": "hi\n",
+            "deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: live.example.org\n  proj:replicas: 2\n",
         },
     )
     monkeypatch.setattr(mod, "ROOT", tmp_path)
@@ -132,6 +133,23 @@ def test_only_an_input_change_renames_the_image(mod, repo):
     assert {k: after[k] for k in ("frontend", "web")} == {k: before[k] for k in ("frontend", "web")}
 
 
+def test_the_website_is_built_for_the_domain_prod_serves(mod, repo):
+    web = next(image for image in mod.IMAGES if image.name == "web")
+    assert mod.build_args(web) == {"PUBLIC_SITE_URL": "https://live.example.org"}
+    assert all(mod.build_args(image) == {} for image in mod.IMAGES if image.name != "web")
+
+    before = mod.hashes("HEAD", week=WEEK)
+    write(
+        repo, {"deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: live.example.org\n  proj:replicas: 3\n"}
+    )
+    assert mod.hashes("HEAD", week=WEEK) == before, "another prod key does not rebuild the website"
+
+    write(repo, {"deploy/pulumi/Pulumi.prod.yaml": "config:\n  proj:baseDomain: moved.example.org\n"})
+    after = mod.hashes("HEAD", week=WEEK)
+    assert after["web"] != before["web"], "the domain move rebuilds the website with its new address"
+    assert {k: after[k] for k in ("frontend", "backend")} == {k: before[k] for k in ("frontend", "backend")}
+
+
 def test_a_new_week_renames_every_image_so_base_images_are_refreshed(mod, repo):
     this_week, next_week = mod.hashes("HEAD", week=WEEK), mod.hashes("HEAD", week="2026-W42")
 
@@ -140,7 +158,7 @@ def test_a_new_week_renames_every_image_so_base_images_are_refreshed(mod, repo):
 
 
 def test_a_copied_path_the_commit_does_not_track_fails_loudly(mod, repo):
-    write(repo, {"deploy/Dockerfile": "FROM debian\nCOPY generated/ ./generated/\n"})
+    write(repo, {"apps/agent-host/Dockerfile": "FROM debian\nCOPY generated/ ./generated/\n"})
 
     with pytest.raises(ValueError, match="does not track"):
         mod.hashes("HEAD", week=WEEK)
@@ -149,7 +167,7 @@ def test_a_copied_path_the_commit_does_not_track_fails_loudly(mod, repo):
 def test_a_pull_request_builds_the_images_it_changes(mod, repo):
     base = git(repo, "rev-parse", "HEAD")
     git(repo, "checkout", "-q", "-b", "feature")
-    write(repo, {"frontends/ui/page.tsx": "export const x = 1\n"})
+    write(repo, {"apps/workspace/page.tsx": "export const x = 1\n"})
     # develop moves on under the PR; its change is not the PR's to build.
     git(repo, "checkout", "-q", "develop")
     moved = write(repo, {"src/app.py": "print(3)\n"})
@@ -159,8 +177,23 @@ def test_a_pull_request_builds_the_images_it_changes(mod, repo):
 
     assert [entry["name"] for entry in build] == ["frontend"]
     assert [entry["name"] for entry in images] == ["backend", "frontend", "web"]
-    assert build[0]["repository"] == "grid-oib-frontend" and build[0]["context"] == "frontends/ui"
+    assert build[0]["repository"] == "grid-oib-frontend" and build[0]["context"] == "apps/workspace"
     assert mod.plan_pull_request(base, week=WEEK)[0] == build
+
+
+def test_a_pull_request_that_moves_an_image_builds_it(mod, repo):
+    # The base had the site somewhere else, so it has no Dockerfile at the path
+    # the image names now: nothing to compare, so the image is built.
+    git(repo, "mv", "apps/website", "site-before-the-move")
+    git(repo, "commit", "-q", "-m", "the old layout")
+    base = git(repo, "rev-parse", "HEAD")
+    git(repo, "checkout", "-q", "-b", "move")
+    git(repo, "mv", "site-before-the-move", "apps/website")
+    git(repo, "commit", "-q", "-m", "the move")
+
+    build, _ = mod.plan_pull_request(base, week=WEEK)
+
+    assert [entry["name"] for entry in build] == ["web"]
 
 
 @pytest.mark.parametrize(

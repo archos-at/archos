@@ -1,7 +1,8 @@
 import * as k8s from "@pulumi/kubernetes";
 import { onNodeGroup } from "../platform/scheduling";
 import * as pulumi from "@pulumi/pulumi";
-import { GridConfig, pullPolicyFor } from "../config";
+import { DeployConfig } from '../config'
+import { pullPolicyFor } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import {
   ROLLOUT,
@@ -31,7 +32,7 @@ import type { SeaweedTopology } from "./seaweedfs-types";
  * alongside the volume files.
  */
 export function installSingleNodeSeaweedFS(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
   s3Secret: k8s.core.v1.Secret,

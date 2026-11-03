@@ -41,11 +41,16 @@ updates:
         versions: [">=0.7"]
       - dependency-name: "langchain-modal"
         versions: [">=0.0.6"]
+      # langfuse 5 pairs with the Langfuse server at 4.59 or later and changes
+      # the score API; it moves with the JS client in one migration (ADR-0044
+      # follow-ups). Minor and patch bumps stay allowed.
+      - dependency-name: "langfuse"
+        update-types: ["version-update:semver-major"]
 
   # Frontend (Next.js UI). bun.lock is its only lockfile; the Docker build and
   # CI install from it.
   - package-ecosystem: bun
-    directory: "/frontends/ui"
+    directory: "/apps/workspace"
     schedule:
       interval: weekly
       day: monday
@@ -121,10 +126,25 @@ updates:
       # move @types/node with it.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # OpenTelemetry JS 3.x and @langfuse/client 6 are one coordinated
+      # migration: the Langfuse server must be at least 4.59, the score API
+      # changes, and @opentelemetry/api must be at least 1.10. Minor and patch
+      # bumps stay allowed. Lift these in the change that does the migration
+      # (ADR-0044 follow-ups).
+      - dependency-name: "@opentelemetry/sdk-metrics"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@opentelemetry/sdk-logs"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@opentelemetry/resources"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@langfuse/client"
+        update-types: ["version-update:semver-major"]
 
-  # Landing site (Astro microservice). bun.lock, like the UI's (ADR-0103).
+  # The public website (Astro). bun.lock, like the UI's (ADR-0103). Its playwright is
+  # pinned twice: package.json and ci.yml's `playwright@<version> install-deps`; a bump
+  # PR must move both.
   - package-ecosystem: bun
-    directory: "/frontends/web"
+    directory: "/apps/website"
     schedule:
       interval: weekly
       day: monday
@@ -143,7 +163,7 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
     ignore:
-      # Same reasons as frontends/ui: `astro check` runs on the TypeScript JS
+      # Same reasons as apps/workspace: `astro check` runs on the TypeScript JS
       # API that TypeScript 7 drops, and the runtime is Node 22.
       - dependency-name: "typescript"
         versions: [">=7"]
@@ -178,13 +198,13 @@ updates:
         patterns: ["@pulumi/*"]
     ignore:
       # deploy.yml runs the program on Node 22 (node-version "22"); same rule
-      # as frontends/ui above.
+      # as apps/workspace above.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
       # `pulumi preview`/`up` load TypeScript through ts-node, which calls the
       # compiler's JS API (@pulumi/pulumi cmd/run/run.js `require(typescriptRequire)`).
       # TypeScript 7 ships no JS API, so `tsc --noEmit` stays green while every
-      # deploy breaks. Same rule as frontends/web.
+      # deploy breaks. Same rule as apps/website.
       - dependency-name: "typescript"
         versions: [">=7"]
 

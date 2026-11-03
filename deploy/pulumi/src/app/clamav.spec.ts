@@ -5,9 +5,13 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { load } from "js-yaml";
 import { baseStackConfig } from "../test-support/stack-config";
+import { LEGACY_PROJECT, objectName } from "../names";
+
+/** The namespace the legacy project deploys into, as the program names it. */
+const NAMESPACE = objectName("namespace", LEGACY_PROJECT);
 
 /**
- * ClamAV, the malware scanner (ADR-0139).
+ * ClamAV, the malware scanner (ADR-0150).
  *
  * Every mistake worth catching here plans clean and runs green, while the
  * scanner quietly vouches for bytes it never inspected:
@@ -33,7 +37,7 @@ pulumi.runtime.setMocks(
     },
     call: () => ({}),
   },
-  "grid-oib",
+  LEGACY_PROJECT,
   "test",
   false,
 );
@@ -88,26 +92,27 @@ describe("clamav", () => {
   beforeAll(async () => {
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
-      "grid-oib:observabilityEnabled": "false",
-      "grid-oib:malwareScanEnabled": "true",
+      [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
+      [`${LEGACY_PROJECT}:malwareScanEnabled`]: "true",
     });
     const { loadConfig } = await import("../config");
     const { installClamAV } = await import("./clamav");
     const { installNetworkPolicies } = await import("../platform/network-policies");
-    const { frontendEnv, bffJobsEnv } = await import("./config");
+    const { frontendEnv } = await import("./config");
+    const { bffJobsEnv } = await import("./bff-jobs-env");
     const cfg = loadConfig();
     cfgImage = cfg.malwareScan.image;
     const provider = new k8s.Provider("test", { kubeconfig: "apiVersion: v1" });
-    const clamav = installClamAV(cfg, provider, "grid", []);
-    installNetworkPolicies(cfg, provider, "grid");
+    const clamav = installClamAV(cfg, provider, NAMESPACE, []);
+    installNetworkPolicies(cfg, provider, NAMESPACE);
     const wiring = {
       cfg,
-      namespace: "grid",
+      namespace: NAMESPACE,
       provider,
       redisUrl: pulumi.output("redis://dragonfly:6379"),
       seaweedInternalEndpoint: pulumi.output("http://seaweedfs:8333"),
       seaweedPublicEndpoint: pulumi.output("https://s3.example.test"),
-      qdrantUrl: pulumi.output("http://qdrant.grid.svc.cluster.local:6333"),
+      qdrantUrl: pulumi.output(`http://qdrant.${NAMESPACE}.svc.cluster.local:6333`),
       dsn: () => pulumi.output("postgresql://x"),
       imagePullSecrets: [],
     };
@@ -198,11 +203,11 @@ describe("clamav", () => {
     const svc = await resolve(find("kubernetes:core/v1:Service", "clamav").inputs.spec);
     expect(svc.ports[0].port).toBe(3310);
     for (const list of [env, jobsEnv]) {
-      const url = list.find((e) => e.name === "GRID_MALWARE_SCAN_URL");
+      const url = list.find((e) => e.name === "MALWARE_SCAN_URL");
       expect(await resolve(url?.value)).toBe("tcp://clamav:3310");
     }
     // Absent, never `fake://`: the BFF then fails every scan closed.
-    expect(envDisabled.some((e) => e.name === "GRID_MALWARE_SCAN_URL")).toBe(false);
+    expect(envDisabled.some((e) => e.name === "MALWARE_SCAN_URL")).toBe(false);
   });
 
   it("admits the frontend and the bff-jobs pool alone", async () => {
@@ -240,7 +245,7 @@ describe("clamav", () => {
     // The entrypoint's default is one check a day; freshclam.conf says twelve.
     expect(svc.environment).toContain("FRESHCLAM_CHECKS=12");
     // Unset by default, never the fake: a plain `up` scans nothing and files nothing unscanned.
-    expect(composeService("frontend").environment).toContain("GRID_MALWARE_SCAN_URL=${GRID_MALWARE_SCAN_URL:-}");
+    expect(composeService("frontend").environment).toContain("MALWARE_SCAN_URL=${MALWARE_SCAN_URL:-}");
   });
 
   it("checks for signatures as often as freshclam.conf says, and notifies clamd", async () => {

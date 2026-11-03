@@ -21,7 +21,7 @@ The real path, end to end:
 | Discovery | `skills/builtin.py` | `builtin/<collection>/<name>/SKILL.md` is parsed **strictly**. A malformed frontmatter is a deployment error, not a skip. |
 | Validation | `skills/models.py` | `name` ≤64 chars and must equal the directory name; `description` ≤1024 chars, non-empty, **no angle brackets** (it lands in a system prompt); `grid-cards` is checked against the live card catalog and a typo raises at parse time. |
 | Resolution | `skills/resolver.py` | Per run: every non-`grid-catalog: curated` builtin, plus the org's rows from the BFF (which shadow builtins by name), then filtered by `grid-agents`. Fails **open** to the builtin set. |
-| Level 1 | Deep Agents' `SkillsMiddleware`, our `skills/runtime.py::SKILLS_PROMPT` | Renders `## Skills` + per skill `` - **name**: description `` and the line `` -> Read `/skills/<source>/<name>/SKILL.md` for full instructions ``. Piloti puts it in the turn context (`state.skills_block`); deep research's subagents get it in their system prompt (ADR-0135). |
+| Level 1 | Deep Agents' `SkillsMiddleware`, our `skills/runtime.py::SKILLS_PROMPT` | Renders `## Skills` + per skill `` - **name**: description `` and the line `` -> Read `/skills/<source>/<name>/SKILL.md` for full instructions ``. ARCHOS puts it in the turn context (`state.skills_block`); deep research's subagents get it in their system prompt (ADR-0135). |
 | Level 2 | `skills/backend.py::SkillsBackend.read` | The model calls `read_file` on the `SKILL.md`. **The model must call it.** Nothing else loads a body, except the one the turn-start decision pins. |
 | Forcing | — | There is none. A pinned body (ADR-0064) is still an offer the model may read past; a `/name` in the composer is a mention in the message text, which the model reads like any other part of the question. |
 
@@ -147,7 +147,7 @@ Two categories to look for specifically:
 
 | Failure | What it looks like | Guard |
 |---|---|---|
-| **Teaching a call that does not exist** | The skill taught `` view: "section" `` and a chain ending in `overhang` before `overhang` existed. The model spends a turn on an error it cannot fix, then invents the number. | `tests/aiq_agent/skills/test_ifc_spatial_skill.py` pins every backticked identifier and every `param: "value"` against the tools' real enums — now for **both** `ifc_measure` and `ifc_query`, including which tool each operation belongs to. |
+| **Teaching a call that does not exist** | The skill taught `` view: "section" `` and a chain ending in `overhang` before `overhang` existed. The model spends a turn on an error it cannot fix, then invents the number. | `packages/agent/tests/skills/test_ifc_spatial_skill.py` pins every backticked identifier and every `param: "value"` against the tools' real enums — now for **both** `ifc_measure` and `ifc_query`, including which tool each operation belongs to. |
 | **Vague description** | Capability summary, no user vocabulary. Never fires. | Read the rendered L1 block; check the words a real user would type are in it. |
 | **Duplicating the tool description** | Half the body is already in context. Dilutes the new material. | Diff the skill against `_TOOL_DESCRIPTION` before shipping. |
 | **Missing gotchas** | The model reports a correct number under the wrong name. | Grep the operators for `caveat=` and the battery for its assertions. |
@@ -159,7 +159,7 @@ Two categories to look for specifically:
 
 Before shipping a skill in this repo:
 
-- [ ] `uv run python -m pytest tests/aiq_agent/skills/ -q` green (strict parse,
+- [ ] `uv run python -m pytest packages/agent/tests/skills/ -q` green (strict parse,
       name/dir match, `grid-cards` against the live catalog).
 - [ ] Rendered L1 block read by eye, for the agent that will carry the skill.
 - [ ] Description: one sentence, ≤1024 chars, no angle brackets, what the skill

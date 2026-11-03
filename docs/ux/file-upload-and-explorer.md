@@ -361,7 +361,7 @@ Two things changed, and the order matters:
   card. A skeleton is close to the height of the sentence it stands in for but
   never exactly it, and a two-line summary next to a one-line one has the same
   problem — so the row still needs the block to grow. The same block in
-  `DocumentGridCard`'s unresolved tile got the same treatment, for the same
+  `DocumentAnswerCard`'s unresolved tile got the same treatment, for the same
   reason. This is a property of the shared card, so the Büroablage (which draws the same `FileCard`, with its gold kind chip passed in) is fixed by the same change.
 
 **The second half of the same moment:** the thumbnail cache treated "no
@@ -760,8 +760,8 @@ time.
 | A folder's description: the line, the dialog, the edit (`describe`) | `src/features/documents/components/folder-description-dialog.tsx`; `src/features/documents/hooks/use-folder-tree.ts` |
 | Piloti's filing suggestion: the chip and its popover, the highlight, the filing bar, the shelf's open suggestions | `src/features/documents/components/filing-suggestion.tsx`; `src/features/documents/components/filing-bar.tsx`; the kit: `src/components/ui/filing-chip.tsx`, `path-change.tsx`, `suggestion-panel.tsx`, `highlight.ts`; `src/features/documents/hooks/use-filing-suggestions.ts`; `src/features/documents/lib/filing-suggestions.ts` |
 | The folder brief: a folder's subtree tally, the brief, what each count selects | `src/features/documents/lib/folder-knowledge.ts`; `src/features/documents/components/folder-brief.tsx` |
-| Revision series read from file names (TS twin of `sources/knowledge_layer/src/revision_series.py`) | `src/lib/documents/revision-series.ts` |
-| The preview's Fassungen und Freigabe section; the timeline rule; the lifecycle data; the link request | `src/features/documents/components/document-revisions.tsx`; `src/features/documents/lib/revision-timeline.ts`; `src/features/documents/hooks/use-document-lifecycle.ts`; `src/features/documents/lib/revision-request.ts` |
+| Revision series read from file names (TS twin of `packages/knowledge-layer/src/revision_series.py`) | `src/lib/documents/revision-series.ts` |
+| The preview's Fassungen und Freigabe section; the timeline rule; the lifecycle data; the link request | `src/features/documents/components/document-revisions.tsx`; `src/lib/documents/revision-timeline.ts`; `src/features/documents/hooks/use-document-lifecycle.ts`; `src/features/documents/lib/revision-request.ts` |
 | A folder's read state: the dot on its tile, the dot and phrase on its list-view row | `src/features/documents/components/folder-read-state.tsx` |
 | Bulk re-read, four requests at a time, and the one request each sends | `src/features/documents/hooks/use-bulk-reingest.ts`; `src/features/documents/lib/reingest-request.ts` |
 | The missing list, shared with the agent's prompt | `src/lib/document-roles/prompt-loader.ts` (`loadMissingDocuments`); `src/features/documents/hooks/use-missing-documents.ts` |
@@ -815,7 +815,7 @@ therefore no longer able to drift: `useLevelListing` and `useShelfSummary`
 now the fallback), `useFolderTree` (load, create, rename,
 move, delete, with the `files` strings), `useDocumentMoves`, `useShelfUpload`
 (the plan, the ensure request, moves of unchanged documents, `folderIdFor`),
-`useFolderParam` (`?folder=`), `useViewPreference` (`grid.files.view`),
+`useFolderParam` (`?folder=`), `useViewPreference` (`files.view`),
 `useFileSearch` (takes the shelf's search route), `usePreviewChannel` and
 `useDocParamSync` (`?doc=`), `useModelStage` (`?model=`), and the one row mapper
 `toFileItem`.

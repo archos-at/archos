@@ -111,7 +111,7 @@ class TestTheQuestionSet:
         """
         import json
 
-        index_path = REPO_ROOT / "frontends" / "benchmarks" / "oib_retrieval" / "fixtures" / "clause_index.json"
+        index_path = REPO_ROOT / "evals" / "oib-retrieval" / "fixtures" / "clause_index.json"
         index = json.loads(index_path.read_text(encoding="utf-8"))
         unknown = [
             (q.id, q.family, q.clause)
@@ -451,11 +451,11 @@ class TestTheCli:
         assert "rounds" in capsys.readouterr().out
 
 
-WIRE = REPO_ROOT / "shared" / "wire" / "v2"
+WIRE = REPO_ROOT / "contracts" / "wire" / "v2"
 
 
 def _recorded(name: str) -> list[dict]:
-    """A recorded wire v2 turn (`shared/wire/v2/`), one event per line."""
+    """A recorded wire v2 turn (`contracts/wire/v2/`), one event per line."""
     import json
 
     return [json.loads(line) for line in (WIRE / name).read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -470,7 +470,7 @@ class TestTheSocket:
     """
 
     def _fold(self, name: str):
-        from aiq_agent.common import wire_v2
+        from agent.common import wire_v2
 
         events = [wire_v2.WIRE_EVENT.validate_python(raw) for raw in _recorded(name)]
         turn = loop_eval.SocketTurn(message_id=events[0].turn_id)
@@ -496,7 +496,7 @@ class TestTheSocket:
         assert retrieval["payload"]["values"]["query"] == "Fluchtweglänge GK 4"
 
     def test_a_question_the_turn_stops_to_ask_is_skipped_in_a_valid_client_message(self):
-        from aiq_agent.common import wire_v2
+        from agent.common import wire_v2
 
         turn, replies = self._fold("turn-hitl-handoff.jsonl")
 
@@ -514,7 +514,7 @@ class TestTheSocket:
             self._fold("turn-error.jsonl")
 
     def test_an_event_of_another_turn_is_not_folded(self):
-        from aiq_agent.common import wire_v2
+        from agent.common import wire_v2
 
         other = loop_eval.SocketTurn(message_id="someone-else")
         for raw in _recorded("turn-answered.jsonl"):
@@ -524,7 +524,7 @@ class TestTheSocket:
         assert other.result is None
 
     def test_a_round_that_reached_a_passage_an_earlier_round_had_is_a_cross_round_fetch(self):
-        from aiq_agent.common import wire_v2
+        from agent.common import wire_v2
 
         turn = loop_eval.SocketTurn(message_id="t")
         for index in (0, 1):
@@ -554,7 +554,7 @@ class TestTheSocket:
 
         from websockets.sync.server import serve
 
-        from aiq_agent.common import wire_v2
+        from agent.common import wire_v2
 
         received: list[object] = []
 

@@ -4,15 +4,16 @@
  *
  * The rule of the codebase:
  *   - Something an operator tunes per environment → a `grid-oib:` config key,
- *     declared and defaulted in `config.ts`, set in `Pulumi.<stack>.yaml`.
+ *     declared and defaulted in `config/<concern>.ts`, set in `Pulumi.<stack>.yaml`.
  *   - Something that is a fixed platform decision (a port, a UID, a resource
  *     envelope for a helper, a shared timeout) → a NAMED constant here, with
  *     the reasoning attached. No inline magic numbers in the modules.
  *
  * If you are looking for "where do I configure X": first `Pulumi.<stack>.yaml`
- * (your values), then `config.ts` (every knob + default), then this file
+ * (your values), then `config/` (every knob + default), then this file
  * (fixed decisions). The full knob reference lives in README.md.
  */
+import { objectName } from "./names";
 
 /** Container UIDs baked into the images (verified against the Dockerfiles). */
 export const UID = {
@@ -22,11 +23,11 @@ export const UID = {
    * it writes is on the data PVC (owned via `fsGroup`) or an emptyDir.
    */
   qdrant: 1000,
-  /** Backend image (`deploy/Dockerfile`): `USER 1000:1000`. */
+  /** Backend image (`apps/agent-host/Dockerfile`): `USER 1000:1000`. */
   backend: 1000,
-  /** Frontend image (`frontends/ui/deploy/Dockerfile`): user `nextjs` = 1001. */
+  /** Frontend image (`apps/workspace/deploy/Dockerfile`): user `nextjs` = 1001. */
   frontend: 1001,
-  /** Web (landing/blog) image (`frontends/web/Dockerfile`): user `piloti` = 1001. */
+  /** Web (website + blog) image (`apps/website/Dockerfile`): user `website` = 1001. */
   web: 1001,
   /** Gotenberg image (upstream `build/Dockerfile`): user `gotenberg` = 1001. */
   gotenberg: 1001,
@@ -36,13 +37,6 @@ export const UID = {
    * volume writable to it.
    */
   geocoder: 1000,
-  /**
-   * ClamAV (`clamav/clamav`, Alpine): user `clamav` = 100, group `clamav` = 101.
-   * The image's entrypoint starts as root to chown and drop privileges; the pod
-   * skips it and starts clamd and freshclam as this user directly.
-   */
-  clamav: 100,
-  clamavGroup: 101,
 } as const;
 
 /** Service/container ports. One definition; Services, probes, env and
@@ -50,7 +44,7 @@ export const UID = {
 export const PORT = {
   backend: 8000,
   frontend: 3000,
-  /** Astro Node standalone adapter default port (`frontends/web/Dockerfile`). */
+  /** Astro Node standalone adapter default port (`apps/website/Dockerfile`). */
   web: 4321,
   redis: 6379,
   postgres: 5432,
@@ -88,9 +82,7 @@ export const PORT = {
   clickhouseMetrics: 9363,
   /** Gotenberg API (office → PDF, ADR-0070). Upstream default. */
   gotenberg: 3000,
-  /** clamd, the malware scanner behind `GRID_MALWARE_SCAN_URL` (ADR-0139). Upstream default. */
-  clamav: 3310,
-  /** Photon, the address search behind `GRID_GEOCODER_URL` (ADR-0120). Upstream default. */
+  /** Photon, the address search behind `GEOCODER_URL` (ADR-0120). Upstream default. */
   geocoder: 2322,
   /** Qdrant REST API: clients, probes and the snapshot CronJob. Upstream default. */
   qdrantHttp: 6333,
@@ -302,7 +294,7 @@ export const DATA_RESOURCES = {
 /**
  * Langfuse (ADR-0044) — the fixed parts of the LLM-observability tier.
  *
- * What is a knob (`config.ts` → `langfuse`): the hostname, the images, the
+ * What is a knob (`config/langfuse.ts`): the hostname, the images, the
  * storage sizes, and every credential. What is here: the names and layout that
  * several modules must agree on, and the resource envelopes.
  */
@@ -326,7 +318,7 @@ export const LANGFUSE = {
    * `SEAWEED_FILER_DB` is not: it is referenced from the CNPG `managed.roles`
    * entry, the `Database` CR and the DSN, and those three must agree exactly.
    *
-   * Its own database and its own login rather than a schema in `grid_app`:
+   * Its own database and its own login rather than a schema in `app`:
    * Langfuse runs its own Prisma migrations as the database owner, so handing
    * it the application role would hand a third-party image DDL rights over
    * every tenant table in the product.
@@ -362,7 +354,7 @@ export const LANGFUSE = {
    * HTTPRoute name. The SecurityPolicy attaches to it by name, so the two are
    * one decision.
    */
-  routeName: "grid-langfuse",
+  routeName: objectName("langfuseRoute"),
   /** Gateway listener name for the Langfuse hostname. */
   listenerName: "https-langfuse",
   /**
@@ -386,7 +378,7 @@ export const LANGFUSE = {
 /**
  * Edge rate limiting (ADR-0040, layer L1) — the fixed parts.
  *
- * The per-route budgets themselves are knobs (`config.ts` → `rateLimit.limits`)
+ * The per-route budgets themselves are knobs (`config/dragonfly.ts` → `rateLimit.limits`)
  * because they are the numbers an operator retunes from observed traffic. What
  * lives here is the machinery that must not drift: where the counter store is,
  * how long Envoy waits for a verdict, and the path prefixes the rules select on.
@@ -406,7 +398,7 @@ export const EDGE_RATE_LIMIT = {
    * How long Envoy waits for the rate limit service before giving up. Short on
    * purpose: this sits in front of EVERY request, so a slow store must cost
    * milliseconds, not seconds. Combined with fail-open (see `failClosed` in
-   * `config.ts`), a dead store degrades to "not limited", never to "down".
+   * `config/dragonfly.ts`), a dead store degrades to "not limited", never to "down".
    */
   timeout: "250ms",
   /** Request-path prefixes the per-route rules select on. */
@@ -414,7 +406,7 @@ export const EDGE_RATE_LIMIT = {
     /** Session/login endpoints — the credential-stuffing surface. */
     auth: "/api/auth",
     /**
-     * The chat WebSocket (`frontends/ui/server.js` upgrade handler). One upgrade
+     * The chat WebSocket (`apps/workspace/server.js` upgrade handler). One upgrade
      * here fans out into agent runs — and it is the LAST thing the edge sees of
      * that session, because every later turn rides the open socket (ADR-0009).
      */
@@ -424,8 +416,8 @@ export const EDGE_RATE_LIMIT = {
 
 /**
  * The geocoder (ADR-0120): a self-hosted Photon over the Austrian OSM extract,
- * behind the project creation dialog's address search (`GRID_GEOCODER_URL`,
- * `frontends/ui/src/lib/geocoding/photon.ts`).
+ * behind the project creation dialog's address search (`GEOCODER_URL`,
+ * `apps/workspace/bff/geocoding/photon.ts`).
  *
  * Upstream publishes no Photon image, and a community one would put a third
  * party's build between client addresses and us. So the pod runs two official,
@@ -474,53 +466,6 @@ export const GEOCODER = {
 } as const;
 
 /**
- * ClamAV (ADR-0139): clamd, the malware scanner behind `GRID_MALWARE_SCAN_URL`,
- * with freshclam beside it. Off by default (`malwareScanEnabled`).
- *
- * The image is a knob (`malwareScanImage`, digest-pinned); the name, the port,
- * the paths and the signature age are fixed, because the frontend's URL, the
- * NetworkPolicy, the Compose service and the BFF's own freshness rule
- * (`frontends/ui/src/lib/malware-scan/config.ts`) all have to agree with them.
- */
-export const CLAMAV = {
-  /** Deployment/Service name and `app.kubernetes.io/name`. */
-  name: "clamav",
-  /**
-   * The age past which the loaded signature database is refused: the BFF fails
-   * every scan with `stale-signatures`, and the readiness probe fails, so the
-   * pod is taken out of the Service and shows as not ready. Equal to the BFF's
-   * `MAX_SIGNATURE_AGE_MS` (asserted in `clamav.spec.ts`).
-   */
-  maxSignatureAgeHours: 48,
-  /**
-   * Where clamd.conf and freshclam.conf are mounted, the image's own path.
-   * Both files live in `deploy/compose/clamav/`, one source for both deploy paths.
-   */
-  configPath: "/etc/clamav",
-  /** The signature database: an emptyDir both containers share, seeded from the image. */
-  databasePath: "/var/lib/clamav",
-  /**
-   * clamd holds the whole database in memory, and while it loads a new one
-   * (`ConcurrentDatabaseReload yes`) it holds two: about 1 GiB each for 1.5.
-   * The request is what it needs steadily, the limit what a reload needs.
-   */
-  resources: {
-    requests: { cpu: "250m", memory: "2Gi" },
-    limits: { cpu: "2", memory: "4Gi" },
-  },
-  /** freshclam: a download and a signature check every two hours. */
-  freshclamResources: {
-    requests: { cpu: "10m", memory: "64Mi" },
-    limits: { cpu: "500m", memory: "512Mi" },
-  },
-  /** The init container that seeds the database from the image: one `cp`. */
-  seedResources: {
-    requests: { cpu: "10m", memory: "32Mi" },
-    limits: { cpu: "500m", memory: "128Mi" },
-  },
-} as const;
-
-/**
  * Gotenberg (ADR-0070) — the office → PDF converter behind the document viewer.
  *
  * The image is a knob (`gotenbergImage`); the name, the flags and the envelope
@@ -533,7 +478,7 @@ export const GOTENBERG = {
   /**
    * The container args. Only the LibreOffice route is used, by the frontend
    * BFF alone; every other way Gotenberg can reach the network is switched off:
-   *   - The `-libreoffice` image (config.ts) has no Chromium, so the HTML/URL
+   *   - The `-libreoffice` image (config/workers.ts) has no Chromium, so the HTML/URL
    *     → PDF routes, the SSRF surface, do not exist. That binary also rejects
    *     every `--chromium-*` flag at boot, so none belongs here.
    *   - download-from / webhooks: it never fetches an input from a URL nor
@@ -574,16 +519,16 @@ export const GOTENBERG = {
 
 /**
  * The read-only Postgres login KEDA's `postgresql` scaler counts the queues with
- * (ADR-0079). It is the one name the Cluster's managed roles, the grants Job and
- * the DSNs in `grid-secrets` must agree on. Its password is
- * `postgres.scalerPassword` (`config.ts`).
+ * (ADR-0079): the one name the rename Jobs (`data/postgres-rename.ts`), the grants
+ * Job and the DSNs in `grid-secrets` agree on; `grid_keda_scaler` before ADR-0145. Its password is
+ * `postgres.scalerPassword` (`config/postgres.ts`).
  */
-export const KEDA_SCALER_ROLE = "grid_keda_scaler";
+export const KEDA_SCALER_ROLE = "keda_scaler";
 
 /**
  * `CONNECTION LIMIT` on {@link KEDA_SCALER_ROLE}: the operator opens one
  * connection per poll, and the role's own cap is the most it can ever hold.
- * Declared on the Cluster's managed role and counted in the pooler budget's
+ * Set by the rename Jobs and counted in the pooler budget's
  * direct-connection reserve (`pgConnectionBudget`), so the two cannot disagree.
  */
 export const KEDA_SCALER_CONNECTION_LIMIT = 8;
@@ -637,7 +582,7 @@ export const POSTGRES_TUNING = {
    * session advisory locks and open transactions) for 16 to 55 minutes in the
    * 2026-10 incident, stalling ingestion and the api's start-up behind locks
    * nobody would release. A live client that sits idle on purpose, such as a
-   * session-lock holder on `AIQ_LOCK_DB_URL`, answers the probes at the kernel
+   * session-lock holder on `LOCK_DB_URL`, answers the probes at the kernel
    * level and is not affected. All three are user-level settings, so a change
    * is a reload, not a restart.
    */
@@ -658,11 +603,11 @@ export const POSTGRES_TUNING = {
 /**
  * The transaction pooler in front of the pooled DSNs (ADR-0083). The two sizes
  * that differ per stack (`pgPoolerInstances`, `pgPoolerPoolSize`) are knobs in
- * `config.ts`; these are fixed.
+ * `config/postgres.ts`; these are fixed.
  */
 export const POSTGRES_POOLER = {
   /** The CNPG `Pooler` resource, and the Service the pooled DSNs name. */
-  name: "grid-pg-pooler-rw",
+  name: objectName("pgPoolerRw"),
   /** Client connections one PgBouncer accepts. A few KB each, so far above what every tier opens. */
   maxClientConn: "2000",
   /**
@@ -704,12 +649,12 @@ export const POSTGRES_POOLER = {
  * pooled env vars in `grid-secrets` and fails when the two differ, so a new
  * pooled DSN cannot be added without paying for it here.
  *
- * `app` is the owner login (`pgAppUser`), `runtime` is `grid_app_rw` (ADR-0041).
+ * `app` is the owner login (`pgAppUser`), `runtime` is `app_rw` (ADR-0041).
  */
 export const POOLED_POOLS = [
-  { database: "aiq_jobs", login: "app" },
-  { database: "aiq_checkpoints", login: "app" },
-  { database: "grid_app", login: "runtime" },
+  { database: "jobs", login: "app" },
+  { database: "checkpoints", login: "app" },
+  { database: "app", login: "runtime" },
 ] as const;
 
 /**
@@ -730,7 +675,7 @@ export const POSTGRES_DIRECT_RESERVE = {
    */
   cnpg: 6,
   /**
-   * `AIQ_LISTEN_DB_URL`: one asyncpg connection per open job SSE stream, held for
+   * `LISTEN_DB_URL`: one asyncpg connection per open job SSE stream, held for
    * as long as the job runs, by the `api` role (the chat role serves no job
    * stream, ADR-0082). So the bound is the jobs and their viewers, not the number
    * of api pods: scaling `aiq-api` out spreads the streams, it adds none. Running jobs are bounded by the research tier
@@ -740,7 +685,7 @@ export const POSTGRES_DIRECT_RESERVE = {
    */
   sseListen: 20,
   /**
-   * Session advisory locks (`AIQ_LOCK_DB_URL`) that are not tied to ingest
+   * Session advisory locks (`LOCK_DB_URL`) that are not tied to ingest
    * volume: the ghost-job reaper, the collection TTL cleanup, and an api
    * replica's own re-ingest. One connection each, held for the length of a cycle.
    * The ingest tier adds one `keyed_lock` per job in flight, counted separately.
@@ -748,7 +693,7 @@ export const POSTGRES_DIRECT_RESERVE = {
   sessionLocksBackground: 4,
   /**
    * Migration and bootstrap Jobs on the owner DSN: `pg-init-tables` (one psql at a
-   * time), `grid-migrate` (`ensure-rls-roles` plus drizzle-kit) and the queue
+   * time), `migrate` (`ensure-rls-roles` plus drizzle-kit) and the queue
    * scaler's grants. They overlap on a first deploy, so this is their sum rather
    * than their largest.
    */
@@ -770,7 +715,7 @@ export const POSTGRES_DIRECT_RESERVE = {
 /**
  * Qdrant (ADR-0115) — the fixed parts of the vector store that replaces Chroma.
  *
- * What is a knob (`config.ts` → `qdrant`): the image, the replica count, the
+ * What is a knob (`config/qdrant.ts`): the image, the replica count, the
  * envelope, the volume size, the snapshot schedule and retention, and every
  * credential. What is here: the names that the StatefulSet, the Services, the
  * NetworkPolicies, the S3 identity catalogue and the snapshot CronJob must all
@@ -812,10 +757,10 @@ export const QDRANT = {
    * listener's `certificateRefs`, so each of these is one decision.
    */
   dashboard: {
-    routeName: "grid-qdrant-dashboard",
+    routeName: objectName("qdrantDashboardRoute"),
     listenerName: "https-qdrant",
-    tlsSecret: "grid-qdrant-tls", // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
-    policyName: "grid-qdrant-dashboard-auth",
+    tlsSecret: objectName("qdrantTls"), // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
+    policyName: objectName("qdrantDashboardAuth"),
     /** Holds the platform Connect application's client secret, key `client-secret`. */
     oidcSecret: "qdrant-dashboard-oidc", // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
     /** Where the Qdrant server serves the dashboard's static files. */
@@ -835,7 +780,7 @@ export const QDRANT = {
   s3Identity: "grid-qdrant",
   /**
    * Shards and replicas of the tenant collection on a cluster, fixed when the
-   * backend creates it (`AIQ_QDRANT_SHARD_NUMBER`, `AIQ_QDRANT_REPLICATION_FACTOR`).
+   * backend creates it (`QDRANT_SHARD_NUMBER`, `QDRANT_REPLICATION_FACTOR`).
    * Open-source Qdrant cannot reshard, so 6 fits 1, 2, 3 and 6 nodes. With RF 2
    * a lost peer keeps every shard readable and the 3-peer Raft quorum intact,
    * and writes keep going: the backend creates the collection with write
@@ -862,8 +807,8 @@ export const QDRANT = {
 /**
  * The one-shot move of the retired Chroma store into Qdrant (ADR-0115,
  * `app/chroma-migration-job.ts`). Fixed parts only; whether it runs, how much
- * scratch it gets and how long the deploy waits for it are knobs (`config.ts`
- * → `chromaMigration`). Remove with the Job once every stack has run it.
+ * scratch it gets and how long the deploy waits for it are knobs
+ * (`config/qdrant.ts` → `chromaMigration`). Remove with the Job once every stack has run it.
  */
 export const CHROMA_MIGRATION = {
   /** Job name and `app.kubernetes.io/name` of its pod: a named caller in `allow-app-to-qdrant`. */

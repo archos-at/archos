@@ -20,17 +20,17 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
+from knowledge_layer.browse import file_row
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import render_listing
+from knowledge_layer.browse import select_files
 from knowledge_layer.llamaindex import adapter
 from knowledge_layer.llamaindex import revisions
 from knowledge_layer.llamaindex import visual_analysis as va
 from knowledge_layer.llamaindex import visual_domains as vd
 
-from aiq_agent.knowledge.document_metadata_store import DocumentMetadataStore
-from aiq_agent.knowledge.schema import AvailableDocument
-from sources.knowledge_layer.src.browse import file_row
-from sources.knowledge_layer.src.browse import file_rows
-from sources.knowledge_layer.src.browse import render_listing
-from sources.knowledge_layer.src.browse import select_files
+from agent.knowledge.document_metadata_store import DocumentMetadataStore
+from agent.knowledge.schema import AvailableDocument
 
 
 @pytest.fixture
@@ -355,11 +355,11 @@ class TestStorage:
             DocumentMetadataStore.dispose_engine(db_url)
 
     def test_the_factory_seam_writes_and_the_available_documents_carry_it(self):
-        from aiq_agent.knowledge import configure_summary_db
-        from aiq_agent.knowledge import factory
-        from aiq_agent.knowledge import get_available_documents
-        from aiq_agent.knowledge import register_summary
-        from aiq_agent.knowledge import set_document_revision_facts
+        from agent.knowledge import configure_summary_db
+        from agent.knowledge import factory
+        from agent.knowledge import get_available_documents
+        from agent.knowledge import register_summary
+        from agent.knowledge import set_document_revision_facts
 
         with tempfile.TemporaryDirectory() as tmpdir:
             url = f"sqlite:///{Path(tmpdir) / 'factory_facts.db'}"
@@ -382,7 +382,7 @@ class TestStorage:
 
 @pytest.fixture
 def job_store(monkeypatch):
-    from aiq_agent.knowledge import ingest_status_store
+    from agent.knowledge import ingest_status_store
 
     monkeypatch.setattr(ingest_status_store, "in_flight_files", lambda collections: {})
     monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
@@ -397,7 +397,7 @@ def _row(name, facts=None, **kwargs) -> AvailableDocument:
 class TestSuggestionByNumber:
     @pytest.fixture
     def stored(self, monkeypatch):
-        from aiq_agent import knowledge
+        from agent import knowledge
 
         calls = []
         monkeypatch.setattr(knowledge, "set_document_revision_suggestion", lambda *args: calls.append(args) or True)
@@ -464,7 +464,7 @@ class TestSuggestionByNumber:
         assert stored == []
 
     def test_a_held_file_with_the_same_number_is_not_a_candidate(self, monkeypatch, stored):
-        from aiq_agent.knowledge import ingest_status_store
+        from agent.knowledge import ingest_status_store
 
         monkeypatch.setattr(ingest_status_store, "in_flight_files", lambda collections: {"coll": ["gehalten.pdf"]})
         monkeypatch.setattr(ingest_status_store, "collection_jobs", lambda collection, within: [])
@@ -625,11 +625,11 @@ class TestListFiles:
 # Wired into the ingest: the facts are stored beside the summary and decide the suggestion
 # ---------------------------------------------------------------------------
 
-from tests.knowledge_layer_tests.test_revision_ingestion import _documents  # noqa: E402
-from tests.knowledge_layer_tests.test_revision_ingestion import _ingest  # noqa: E402
-from tests.knowledge_layer_tests.test_revision_ingestion import live_ingestor  # noqa: E402, F401
-from tests.knowledge_layer_tests.test_revision_ingestion import model  # noqa: E402, F401
-from tests.knowledge_layer_tests.test_revision_ingestion import stores  # noqa: E402, F401
+from knowledge_layer_testing.revision_ingestion import _documents  # noqa: E402
+from knowledge_layer_testing.revision_ingestion import _ingest  # noqa: E402
+from knowledge_layer_testing.revision_ingestion import live_ingestor  # noqa: E402, F401
+from knowledge_layer_testing.revision_ingestion import model  # noqa: E402, F401
+from knowledge_layer_testing.revision_ingestion import stores  # noqa: E402, F401
 
 
 @pytest.fixture

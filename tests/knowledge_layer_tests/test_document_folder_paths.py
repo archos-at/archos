@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from aiq_agent.knowledge.document_metadata_store import DocumentMetadataStore
+from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def store():
                     disposed = engine.dispose()
                     if asyncio.iscoroutine(disposed):
                         asyncio.run(disposed)
-                except (RuntimeError, OSError):
+                except RuntimeError, OSError:
                     pass
         DocumentMetadataStore._tables_initialized.discard(db_url)
 

@@ -5,7 +5,7 @@ Auth is handled by **WorkOS AuthKit v4** with session cookies. The `REQUIRE_AUTH
 ## Sign-in flow
 
 1. A request for a protected page with no session reaches the Next.js proxy
-   (`frontends/ui/src/proxy.ts`), which asks AuthKit. For an initial document
+   (`apps/workspace/proxy.ts`), which asks AuthKit. For an initial document
    navigation, AuthKit mints the PKCE verifier cookie and redirects to WorkOS in
    the same response.
 2. A client-side (RSC) navigation or a client fetch cannot receive that cookie —
@@ -57,7 +57,7 @@ a user's access token"; the feature-flag runtime client evaluates flags without
 the claim but does not stop WorkOS minting it (workos/authkit-nextjs#404, open).
 
 So the cookie is split, the way Auth.js and `@supabase/ssr` keep theirs: a bun
-patch on AuthKit (`frontends/ui/patches/@workos-inc%2Fauthkit-nextjs@4.6.2.patch`,
+patch on AuthKit (`apps/workspace/patches/@workos-inc%2Fauthkit-nextjs@4.6.2.patch`,
 module `session-cookie.js`) reads and writes the session through every path
 AuthKit has (the proxy's refresh, `saveSession`, `refreshSession` behind the
 client's token refresh and `switchToOrganization`, the callback, sign-out). A
@@ -67,6 +67,26 @@ becomes chunks of 3,800 bytes, and every write expires the form it replaced.
 upgrade that leaves the patch behind fails there. When AuthKit is upgraded,
 `bun install` refuses a patch that no longer applies: re-create it with
 `bun patch @workos-inc/authkit-nextjs`, or delete it if upstream has closed #404.
+
+## The website's `signed_in` cookie
+
+The public website shows "App öffnen" / "Open app" instead of "Login" while the
+browser has a session in the app. It cannot see AuthKit's cookie (host-only on
+the app's host, and HttpOnly), so the proxy (`apps/workspace/proxy.ts`,
+`signedInCookieFor`) keeps a second cookie in step: `signed_in=1` on the
+website's domain (`LANDING_URL`'s host, the app's parent), `Path=/`,
+`SameSite=Lax`, `Secure` on HTTPS, not HttpOnly, as long-lived as the session
+cookie (`WORKOS_COOKIE_MAX_AGE`, else 400 days). The value is always `1`: no
+user, organization or session id. It is set when a request arrives with a
+session AuthKit kept, and cleared, with the same Domain and Path, when one
+arrives without a session, when AuthKit expires the session, or when AuthKit
+sends it to sign in; sign-out returns to `/`, which is such a request. It is
+written only when that differs from what the browser sent, so an ordinary
+request carries no extra `Set-Cookie`. With auth off, or a website that is not
+on the app's parent domain, nothing is written and the website keeps "Login".
+A stale cookie costs nothing: both buttons go to the website's `/sign-in`,
+which hands over to the app's `/?sign-in`, and that opens the app or signs in.
+The website side: `apps/website/README.md`, "Signed in".
 
 ## Switching organization
 
@@ -87,13 +107,13 @@ dropdown also cannot nest in our menu.
 
 ## Session resolution
 
-`getGridSession()` in `frontends/ui/src/lib/auth/session.ts:38` reads the current session using `withAuth()` from AuthKit:
+`getUserSession()` in `apps/workspace/bff/auth/session.ts:38` reads the current session using `withAuth()` from AuthKit:
 
 ```typescript
-export async function getGridSession(): Promise<GridSession | null>
+export async function getUserSession(): Promise<UserSession | null>
 ```
 
-It returns a `GridSession` with these fields:
+It returns a `UserSession` with these fields:
 
 | Field | Source |
 |---|---|
@@ -106,28 +126,44 @@ It returns a `GridSession` with these fields:
 | `role` | `auth.role` or from JWT claims |
 | `permissions` | `auth.permissions` (from WorkOS FGA) |
 
-When no session exists, `getGridSession()` returns `null`.
+When no session exists, `getUserSession()` returns `null`.
 
 ## Auth guards
 
-### requireGridSession()
+### requireUserSession()
 
-`frontends/ui/src/lib/auth/require-auth.ts:18`
+`apps/workspace/bff/auth/session.ts`
 
-Requires any valid session. Throws `Error('Unauthorized: Grid session required')` if no session is present.
+Requires any valid session. Throws `SessionRequiredError` (`lib/api/errors`, an
+`UnauthorizedError`) if no session is present.
 
 ### requireAuthorizedSession()
 
-`frontends/ui/src/lib/auth/require-auth.ts:18`
+`apps/workspace/bff/auth/require-auth.ts`
 
-Extends `requireGridSession()` and additionally requires an `organizationId`. If the user has not selected an organization, it redirects to `/onboarding/organization`. Returns `AuthorizedSession` (guarantees `organizationId`, `orgMembershipId`, `role`, `permissions` are non-null).
+Extends `requireUserSession()` and additionally requires an `organizationId`.
+Without one it throws `NoOrganizationError` (a `ForbiddenError`); the page
+variant, `requireAuthorizedPageSession()`, redirects to
+`/app/onboarding/organization` instead. Returns `AuthorizedSession` (guarantees
+`organizationId`, `orgMembershipId`, `role`, `permissions` are non-null).
+
+### What a refusal is answered
+
+Server code tells an authorization refusal by type: `isAuthzRefusal`
+(`lib/api/errors`) is any `ApiError` with status 401, 403 or 404. The route
+wrapper (`apiRoute`) answers both session guards `403 { error: 'Forbidden',
+code: 'FORBIDDEN' }`, the answer they had while they were plain `Error`s
+matched by message; HTTP would say 401 for no session, and moving to it is its
+own decision. Every other `ApiError` is answered with its own status. The
+client error boundary (`app/error.tsx`) still classifies by message, because a
+server-thrown class does not survive the RSC boundary.
 
 ## Anonymous mode
 
 When `REQUIRE_AUTH=false`:
 
-- **Server-side**: `getGridSession()` still works (returns null if no cookie), but is not called by BFF routes. `resolveSession()` in the v1 proxy returns `null`. No Authorization headers are forwarded.
-- **Client-side**: `useAuth()` in `frontends/ui/src/adapters/auth/use-auth.ts:73` short-circuits and returns `DEFAULT_USER`:
+- **Server-side**: `getUserSession()` still works (returns null if no cookie), but is not called by BFF routes. `resolveSession()` in the v1 proxy returns `null`. No Authorization headers are forwarded.
+- **Client-side**: `useAuth()` in `apps/workspace/ui/adapters/auth/use-auth.ts:73` short-circuits and returns `DEFAULT_USER`:
 
 ```typescript
 {
@@ -157,34 +193,37 @@ The `buildCollectionScopeFromRequest()` helper constructs the collection scope f
 
 ## Python JWT validation
 
-`src/aiq_agent/auth/workos_validator.py` creates a `JWTValidator` configured for WorkOS:
+`apps/agent-host/src/agent_host/auth/workos_validator.py` creates a `JWTValidator` configured for WorkOS,
+and the `agent_host.validators` entry point in `apps/agent-host/pyproject.toml` hands it to the
+middleware (ADR-0002: another package can register its own):
 
 ```python
 JWTValidator(
-    issuer_url="https://api.workos.com",
+    issuer_url=f"https://api.workos.com/user_management/{client_id}",
     jwks_uri=f"https://api.workos.com/sso/jwks/{client_id}",
-    audience=client_id,
+    audience=None,  # AuthKit access tokens carry no `aud`
     algorithms=["RS256"],
+    verify_iss=True,
 )
 ```
 
-`JWTValidator` (`frontends/aiq_api/src/aiq_api/auth/jwt_validator.py:39`) uses `PyJWT[cryptography]` to verify RS256 signatures:
+`JWTValidator` (`apps/agent-host/src/agent_host/auth/jwt_validator.py:39`) uses `PyJWT[cryptography]` to verify RS256 signatures:
 
 1. Fetches JWKS from WorkOS (cached for 6 hours, cache-busted on kid miss)
 2. Extracts the signing key matching the JWT `kid`
-3. Verifies signature, `exp`, `iss`, and `aud`
+3. Verifies signature, `exp` and `iss`; `aud` only when an audience is configured, which the WorkOS validator does not
 4. Returns a dict with claims (`type: "jwt"`, `sub`, `email`, `name`, `token`) on success
 5. Returns error code `token_expired` or `token_invalid` on failure
 
-The validated principal is accessible in Python via `get_current_principal()` from `src/aiq_agent/auth/utils.py:200`, which reads the `aiq_api.auth.middleware` context.
+The validated principal is accessible in Python via `get_current_principal()` from `packages/agent/src/agent/auth/utils.py`, which reads the caller identity the middleware binds in `agent.auth.request_identity`.
 
 ## Token retrieval chain
 
-`get_auth_token()` in `src/aiq_agent/auth/utils.py:149` returns a token from the first available source, checked in priority order:
+`get_auth_token()` in `packages/agent/src/agent/auth/utils.py` returns a token from the first available source, checked in priority order:
 
 1. **Registered token fetchers** — custom fetchers registered via `register_token_fetcher(fn, priority)`, sorted high-to-low
-2. **NAT Context cookies** — `idToken` cookie from the NAT context (browser / web-UI mode)
-3. **NAT Context Authorization header** — `Authorization: Bearer <jwt>` from the NAT context (API callers)
+2. **Runtime context cookies** — `idToken` cookie from the runtime context (browser / web-UI mode)
+3. **Runtime context Authorization header** — `Authorization: Bearer <jwt>` from the runtime context (API callers)
 4. Returns `None` if no source yields a token
 
 ## WebSocket auth
@@ -192,7 +231,7 @@ The validated principal is accessible in Python via `get_current_principal()` fr
 During WebSocket upgrade, `server.js:199` intercepts `/websocket` connections:
 
 1. Calls `/api/auth/websocket-scope` (internal BFF endpoint)
-2. This resolves the session via `getGridSession()`, checks project access, builds the collection scope
+2. This resolves the session via `getUserSession()`, checks project access, builds the collection scope
 3. If auth is required and no session, returns 401/403 and the socket is rejected
 4. On success, the response includes `organizationId`, `userId`, and `accessToken`
 5. `server.js` forwards these as `X-Grid-Organization-Id`, `X-Grid-User-Id`, and `Authorization: Bearer <token>` to the Python backend's WebSocket route
