@@ -52,12 +52,13 @@ Every door leads with what the address is for
 (`features/inbound-mail/components/inbound-mail-address.tsx`). The dialog
 (from „Per E-Mail senden …“ and „Adresse“) is titled „E-Mail-Adresse des
 Projekts“, says „So landet die Korrespondenz im Projekt, ohne dass jemand sie
-von Hand abspeichert.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
+aus dem Mailprogramm herunterlädt und wieder hochlädt.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
 Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
 E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
-weiter.“, „Was jemand mit Schreibrecht im Projekt von der eigenen Adresse
-sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere
-wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage lang.“
+weiter.“, „Was jemand, der im Projekt ablegen darf, von der eigenen
+Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles
+andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage
+lang.“
 Then the address, which a press copies (`CopyableValue`: a copy glyph beside
 it, its name „Kopieren: {Adresse}“, „Kopiert“ announced; `EmailAddress` marks
 where it may wrap: after
@@ -122,7 +123,7 @@ abgeschlossen“. A mail that names a member whose domain did not confirm it is
 phrased for its reader (`mailClaimOf`, `lib/sender.ts`): the member reads
 „Haben Sie sie gesendet? Bestätigen Sie es“, a colleague „Wartet auf {Name}“
 under „Wartet auf andere“. A verified writer's mail direct filing left
-(`waitReason: 'not_filed'`) reads „Nicht von selbst abgelegt · {what it needs}“.
+(`waitReason: 'not_filed'`) reads „Nicht direkt abgelegt · {what it needs}“.
 
 Thread groups are split by readiness: a conversation's ready replies are one
 group under „Bereit“ with „Alle {n} ablegen (wird Fassung {a}–{b})“ (or „Die
@@ -169,7 +170,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    address always together), the trust („Domain bestätigt: {domain}“ with its
    ⓘ toggletip; trust is never folded), the received time and „Details ▾“. The
    sender's flags („An andere Empfänger adressiert“, …), why it waits
-   (`SenderWaitLine`, one sentence ending on the reader's next step) and, for a
+   (`SenderWaitLine`, one sentence ending on the reader's next step; for a
+   colleague of a claimed mail, `waitReason.signature`, `replay` and
+   `automatic` name only whom it waits for and why, because `ClaimedMailBar`
+   right below already says „Sie können sie verwerfen.“, design principle 9)
+   and, for a
    forward, „Von {Autor} · Domain nicht bestätigt · weitergeleitet von {Name}“
    (the Verlauf's and the provenance line's words) stay visible under it. „Details“ opens Gesendet,
    Eingegangen, every recipient (An, Cc, Antwort an), „Wartet bis {Datum},
@@ -266,7 +271,7 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   exactly as the document cites it; „ab Fassung N · eingegangen {Zeit}“; trust
   in three words: „Domain bestätigt: {domain}“ once per run of consecutive
   mails from the same confirmed domain, on the newest (`entriesSayingTrust`);
-  „Domain nicht bestätigt“ with the warning glyph and „Aus dem E-Mail-Archiv ·
+  „Domain nicht bestätigt“ with the warning glyph and „Aus dem Outlook-Archiv ·
   nicht geprüft“ on every mail. The heading wraps between date, name and
   domain, never inside the date, and is still exactly what the document
   prints; „ab Fassung N“ and „eingegangen …“ wrap as two units. Preview:
@@ -278,7 +283,7 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 - **Row actions**: „Original (.eml)“ (a 409 `original_not_clean` replaces the
   button with „Das Original enthält Schadsoftware und kann nicht
   heruntergeladen werden“; an archive entry says „Kein Original: aus dem
-  E-Mail-Archiv übernommen“; a running scan says so), „Vergleichen“ (this mail's
+  Outlook-Archiv übernommen“; a running scan says so), „Vergleichen“ (this mail's
   Fassung against the one before, inline), ⋯ „Herauslösen …“ (only for whoever
   may file, never on the thread's only mail).
 - **Herauslösen** (`detach-dialog.tsx`): „Fassung {a} bis {b} behalten diese
