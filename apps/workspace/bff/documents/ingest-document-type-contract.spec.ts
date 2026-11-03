@@ -29,7 +29,7 @@ const read = (...path: string[]): string => readFileSync(join(REPO_ROOT, ...path
 const SERVICE = read('apps', 'workspace', 'bff', 'documents', 'ingest-dispatch.ts')
 const REQUESTS = read('apps', 'agent-host', 'src', 'agent_host', 'models', 'requests.py')
 const ROUTE = read('apps', 'agent-host', 'src', 'agent_host', 'routes', 'ingest.py')
-const ADAPTER = read('packages', 'knowledge-layer', 'src', 'llamaindex', 'chosen_document_type.py')
+const ADAPTER = read('packages', 'knowledge-layer', 'src', 'ingest', 'chosen_document_type.py')
 const FIELD = read('apps', 'agent-host', 'src', 'agent_host', 'models', 'document_type_tag.py')
 const VOCABULARY = read('packages', 'agent', 'src', 'agent', 'knowledge', 'document_classification.py')
 
