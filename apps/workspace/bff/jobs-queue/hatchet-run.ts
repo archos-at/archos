@@ -33,10 +33,12 @@ import {
   killJob,
   listJobsToDispatch,
   purgeDeadJobs,
+  releaseJobs,
   saveJobProgress,
   takeJob,
 } from './repository'
 import { runHandler, UnknownJobKindError } from './run'
+import type { BffJobRow } from '@/lib/db/schema/bff-job-queue'
 
 const LOG = '[bff-jobs]'
 
@@ -97,11 +99,54 @@ async function nothingToTake(jobId: string, retryCount: number): Promise<BffJobT
   return { job_id: jobId, outcome: 'skipped' }
 }
 
+/** The rows this process holds right now, by holder: what a stopping pod gives back ({@link releaseInFlightJobs}). */
+const inFlight = new Map<string, string>()
+
+/**
+ * The pod is stopping and its drain budget is spent: give back every row an
+ * attempt in this process still holds, so the run Hatchet retries or the sweep
+ * dispatches takes it at once instead of after the stale window. Called once
+ * the worker has stopped taking runs (`./slice-entry.ts`), right before the
+ * process exits, so the slices cut off here end with it; a write any of them
+ * still makes to its row is refused, because it no longer holds it. Never
+ * throws: when the release fails, the rows go stale as before.
+ */
+export async function releaseInFlightJobs(): Promise<number> {
+  const held = Array.from(inFlight, ([holder, jobId]) => ({ jobId, holder }))
+  if (held.length === 0) return 0
+  try {
+    const released = await platform('give back the rows of a stopping pod', () => releaseJobs(held))
+    for (const { holder } of held) inFlight.delete(holder)
+    console.warn(`${LOG} stopping: gave back ${released} of ${held.length} row(s) still running`)
+    return released
+  } catch (error) {
+    console.error(`${LOG} stopping: could not give back ${held.length} row(s); they are taken over once stale:`, error)
+    return 0
+  }
+}
+
 async function runTaken(input: BffJobTaskInput, context: BffJobRunContext, runs: BffJobRuns, env: Env): Promise<BffJobTaskOutput> {
   const jobId = input.job_id
   const holder = holderOf(context)
   const row = await platform('take the row this run was started for', () => takeJob(jobId, holder, { staleSeconds: staleSeconds(env) }))
   if (!row) return nothingToTake(jobId, context.retryCount)
+  inFlight.set(holder, jobId)
+  try {
+    return await runHeld(input, row, holder, context, runs, env)
+  } finally {
+    inFlight.delete(holder)
+  }
+}
+
+async function runHeld(
+  input: BffJobTaskInput,
+  row: BffJobRow,
+  holder: string,
+  context: BffJobRunContext,
+  runs: BffJobRuns,
+  env: Env
+): Promise<BffJobTaskOutput> {
+  const jobId = input.job_id
   const limit = maxAttempts(env)
   if (row.attempts > limit) {
     const reason = `worker lost on its last attempt (${limit} attempts)`

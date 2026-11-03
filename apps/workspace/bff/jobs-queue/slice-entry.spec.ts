@@ -4,7 +4,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('./hatchet', () => ({ startBffJobWorker: vi.fn() }))
-vi.mock('./hatchet-run', () => ({ runBffJobTask: vi.fn(), dispatchStrandedJobs: vi.fn() }))
+const releaseInFlightJobs = vi.fn(async () => 0)
+vi.mock('./hatchet-run', () => ({ runBffJobTask: vi.fn(), dispatchStrandedJobs: vi.fn(), releaseInFlightJobs: () => releaseInFlightJobs() }))
 const shutdownPosthogServer = vi.fn()
 vi.mock('@/lib/analytics/posthog-server', () => ({ shutdownPosthogServer: () => shutdownPosthogServer() }))
 const bootstrapPlatformModelDefaults = vi.fn()
@@ -28,9 +29,13 @@ describe('the host around the job worker', () => {
     expect(bootstrapPlatformModelDefaults).toHaveBeenCalledTimes(1)
   })
 
-  it('flushes PostHog at shutdown', async () => {
+  it('gives back the rows still running, then flushes PostHog, at shutdown', async () => {
+    const order: string[] = []
+    releaseInFlightJobs.mockImplementationOnce(async () => (order.push('release'), 1))
+    shutdownPosthogServer.mockImplementationOnce(async () => order.push('flush'))
+
     await shutdownSliceHost()
 
-    expect(shutdownPosthogServer).toHaveBeenCalledTimes(1)
+    expect(order).toEqual(['release', 'flush'])
   })
 })

@@ -15,7 +15,7 @@ import { bootstrapPlatformModelDefaults } from '@/lib/model-config/bootstrap-def
 import { shutdownPosthogServer } from '@/lib/analytics/posthog-server'
 import { schedulingTasks } from '@/lib/scheduling/tasks'
 import { startBffJobWorker } from './hatchet'
-import { dispatchStrandedJobs, runBffJobTask } from './hatchet-run'
+import { dispatchStrandedJobs, releaseInFlightJobs, runBffJobTask } from './hatchet-run'
 
 /**
  * What `instrumentation.ts` `register()` does for a Next server, minus what a
@@ -33,8 +33,14 @@ export async function initSliceHost(): Promise<void> {
   }
 }
 
-/** Flush what the runs queued for PostHog, as `server.js` does with `__appShutdownHooks`. */
+/**
+ * The pod's last step after the worker stopped (or its drain budget ran out):
+ * give back the rows of the slices still running, so another pod takes them at
+ * once, then flush what the runs queued for PostHog, as `server.js` does with
+ * `__appShutdownHooks`.
+ */
 export async function shutdownSliceHost(): Promise<void> {
+  await releaseInFlightJobs()
   await shutdownPosthogServer()
 }
 

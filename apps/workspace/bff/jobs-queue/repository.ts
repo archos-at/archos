@@ -256,6 +256,24 @@ export async function heartbeatJob(jobId: string, holder: string): Promise<boole
   return rows.length > 0
 }
 
+/**
+ * The pod is stopping with these attempts still running: queue their rows
+ * again at once, so the next run takes each without waiting out the stale
+ * window. One UPDATE, guarded per row on its holder, so a row another attempt
+ * took over meanwhile is left alone and a second call is no change. The
+ * attempt stays counted: a slice that is cut off at every drain still runs out
+ * of attempts. How many rows went back.
+ */
+export async function releaseJobs(held: ReadonlyArray<{ jobId: string; holder: string }>): Promise<number> {
+  if (held.length === 0) return 0
+  const rows = await getDb()
+    .update(bffJobQueue)
+    .set({ status: 'queued', claimedBy: null, heartbeatAt: null })
+    .where(or(...held.map(({ jobId, holder }) => heldBy(jobId, holder))))
+    .returning({ jobId: bffJobQueue.jobId })
+  return rows.length
+}
+
 /** The job is done: its row goes. Whether this holder still held it. */
 export async function finishJob(jobId: string, holder: string): Promise<boolean> {
   const rows = await getDb().delete(bffJobQueue).where(heldBy(jobId, holder)).returning({ jobId: bffJobQueue.jobId })
