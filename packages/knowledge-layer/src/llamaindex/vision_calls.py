@@ -23,11 +23,12 @@ Three things this module owns, each a decision:
   (``common/prompt_caching.py``). A call now carries the key
   ``prompt_caching.prompt_cache_key`` builds from the organization, the model and
   the prompt's identity (its schema version and vocabulary fingerprint, never
-  the page or any tenant text). A zero-data-retention organization keeps the
-  EU-first ``provider.order`` on its page reads, by the owner's decision on
-  2026-11-03, and so caches less: OpenRouter does not route a request with a
-  manual order stickily. An organization without ZDR sends no order, and its
-  page reads stay on their cache's shard.
+  the page or any tenant text). A zero-data-retention organization's page reads
+  are EU-only through ``provider.only`` with no non-EU fallback
+  (``DataPolicy.for_page_reads``), which keeps OpenRouter's sticky routing and
+  lets the provider's cache hit, where the EU-first ``provider.order`` switched
+  it off. Decided 2026-11-03. When no EU endpoint can take a call, the refusal
+  waits in place like the in-flight 402 (:func:`retry_wait`).
 * **The trace.** Each call is one ``ingest-vision`` generation, nested under its
   file's ``ingest-file`` trace by the context the vision pools copy.
 """
@@ -189,13 +190,21 @@ def is_in_flight_credit_402(error: Exception) -> bool:
     return credit_retry.is_transient_credit_402(402, text.encode("utf-8", "replace"))
 
 
+def waits_out(error: Exception) -> bool:
+    """Whether a failed page read waits within the budget: the in-flight 402, or no allowed EU endpoint now."""
+    from agent.knowledge.ingest_failures import no_allowed_provider
+
+    return is_in_flight_credit_402(error) or no_allowed_provider(None, error)
+
+
 def retry_wait(error: Exception, *, rate_limited: int, credit_waits: int, spent: float) -> float | None:
     """Seconds to wait before the next attempt of a failed page read, or None when it is final. Pure but for jitter.
 
     ``rate_limited`` and ``credit_waits`` are the 429 and 402 retries so far;
     ``spent`` is how much of :data:`CREDIT_WAIT_BUDGET_SECONDS` the read has used.
-    A 429 is counted (``VLM_RATE_LIMIT_RETRIES``); an in-flight 402 is bounded by
-    the budget, so a call that has waited the budget out fails as it would have.
+    A 429 is counted (``VLM_RATE_LIMIT_RETRIES``); an in-flight 402, and a refusal
+    because no allowed (EU) endpoint can take the call now, are bounded by the
+    budget, so a call that has waited the budget out fails as it would have.
     """
     stated = _rate_limited_for(error)
     if stated is not None:
@@ -203,7 +212,7 @@ def retry_wait(error: Exception, *, rate_limited: int, credit_waits: int, spent:
             return None
         wait = stated or min(_VLM_BACKOFF_CAP_SECONDS, 2.0 ** (rate_limited + 1))
         return wait * (0.8 + 0.4 * random.random())
-    if not is_in_flight_credit_402(error):
+    if not waits_out(error):
         return None
     remaining = CREDIT_WAIT_BUDGET_SECONDS - spent
     wait = min(remaining, credit_retry.delay_seconds(credit_waits + _CREDIT_FIRST_STEP))
@@ -231,11 +240,11 @@ def _vlm_create_fairly(client, **request):
             wait = retry_wait(error, rate_limited=rate_limited, credit_waits=credit_waits, spent=spent)
             if wait is None:
                 raise
-            credit = is_in_flight_credit_402(error)
+            credit = waits_out(error)
             credit_waits += credit
             rate_limited += not credit
             logger.info(
-                "VLM call %s; retrying in %.1fs", "waiting for in-flight credits" if credit else "rate-limited", wait
+                "VLM call %s; retrying in %.1fs", "waiting for the provider" if credit else "rate-limited", wait
             )
             waited += wait
             time.sleep(wait)
@@ -246,11 +255,11 @@ def _vlm_client(base_url: str, api_key: str, *, role: str = USAGE_ROLE_INGEST_VI
 
     The ingest job enters ``openrouter.data_policy_scope`` for its organization;
     anything that reaches here without one (the base corpus sync, a thread that
-    lost the context) is pinned to zero-data-retention endpoints. A ZDR policy
-    keeps its EU-first ``provider.order``, which switches off the sticky routing
-    the cache key drives: ZDR organizations cache less, by the owner's decision
-    on 2026-11-03 (EU hosting preferred over the cache). Each call's usage is
-    recorded under ``role`` in the job's tracker (``_ingest_cost_scope``).
+    lost the context) is pinned to zero-data-retention endpoints. A ZDR page read
+    is EU-only (``provider.only``, no fallback, no ``order``: ``for_page_reads``),
+    so the sticky routing the cache key drives stays on; decided 2026-11-03.
+    Each call's usage is recorded under ``role`` in the job's tracker
+    (``_ingest_cost_scope``).
     """
     from agent.common.openrouter import openai_client
     from agent.common.openrouter import scoped_data_policy
@@ -259,7 +268,7 @@ def _vlm_client(base_url: str, api_key: str, *, role: str = USAGE_ROLE_INGEST_VI
         openai_client(
             base_url=base_url,
             api_key=api_key,
-            policy=scoped_data_policy(),
+            policy=scoped_data_policy().for_page_reads(),
             timeout=VLM_REQUEST_TIMEOUT_SECONDS,
             max_retries=1,
         ),

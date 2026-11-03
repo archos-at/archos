@@ -44,6 +44,12 @@ def test_a_failure_is_classified_by_its_class_and_never_carries_its_message(erro
     assert failure.text == f"{type(error).__name__} ({category})"
 
 
+def test_no_allowed_eu_endpoint_is_retried_by_the_engine():
+    error = _ProviderError(404)
+    error.args = ("Error code: 404 - No allowed providers are available for the selected model.",)
+    assert task_failures.classify(error).transient
+
+
 def test_a_wrapper_of_a_database_error_is_transient():
     try:
         try:

@@ -175,10 +175,14 @@ still unread after that is counted in the coverage, and a standalone image, whos
 only content is that reading, fails with `not_read: 1` (`vision_failed`) on its trace
 and job status. Every vision call carries a sticky-routing prompt-cache key built
 from the organization, the model and the prompt's identity (never the page). A
-zero-data-retention organization keeps the EU-first `provider.order` on its page
-reads, which switches OpenRouter's sticky routing off, so it caches less: the
-owner's decision on 2026-11-03, EU hosting over the cache. An organization without
-ZDR sends no order, and its page reads stay on their cache's shard. A standalone
+zero-data-retention organization's page reads are EU-only via `provider.only`
+(the `OPENROUTER_PREFERRED_PROVIDERS` slugs) with `allow_fallbacks: false` and no
+non-EU fallback (`DataPolicy.for_page_reads`), which keeps OpenRouter's sticky
+routing and lets the provider's cache hit; decided 2026-11-03. Every other call
+keeps the EU-first `order` with fallbacks. When no EU endpoint can take a page read
+(OpenRouter's 404 or 503 "no allowed providers"), it waits in place within the same
+60 s and is then classified `transient` (`ingest_failures.no_allowed_provider`), so
+Hatchet retries it. A standalone
 image's reading is screened once it exists, like a scan's transcription: `partial`
 when clean, quarantined on a match, and its thumbnail drawn only after that. A file whose
 read failed for a passing reason (`transient`: an interruption, a timeout, a download

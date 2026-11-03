@@ -79,8 +79,8 @@ class TestThePromptCacheKey:
         request = _read(Client(base_url="https://vlm.test/v1"))
         assert "extra_body" not in request
 
-    def test_a_zdr_client_keeps_the_eu_first_order(self, monkeypatch):
-        """The owner's decision on 2026-11-03: ZDR organizations keep the order, and cache less."""
+    def test_a_zdr_page_read_is_eu_only_and_keeps_sticky_routing(self, monkeypatch):
+        """Decided 2026-11-03: `only` the EU slugs, no fallback, no `order` (which turns sticky routing off)."""
         built = {}
         monkeypatch.setattr(openrouter, "openai_client", lambda **kwargs: built.update(kwargs) or Client())
         monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
@@ -88,10 +88,13 @@ class TestThePromptCacheKey:
         with openrouter.data_policy_scope(openrouter.ZERO_DATA_RETENTION):
             vision_calls._vlm_client(OPENROUTER, "k")
 
-        assert built["policy"] == openrouter.ZERO_DATA_RETENTION
-        provider = built["policy"].apply({})["provider"]
+        body = built["policy"].apply({"model": "m"})
+        provider = body["provider"]
         assert provider["zdr"] is True and provider["data_collection"] == "deny"
-        assert provider["order"][0] == "azure/eu"
+        assert provider["only"] == list(openrouter.preferred_providers())
+        assert provider["allow_fallbacks"] is False
+        assert "order" not in provider
+        assert openrouter.ZERO_DATA_RETENTION.is_applied_to(body), "the ZDR guarantee checks still hold"
 
     def test_an_organization_without_zdr_sends_no_order(self, monkeypatch):
         built = {}
@@ -124,6 +127,25 @@ class _Recorder:
 
     def finish(self, output, *, failed=None):
         self.output = output
+
+
+class TestNoAllowedEuEndpoint:
+    """An EU-only page read the provider cannot place now waits, like the in-flight 402."""
+
+    class NoProvider(Exception):
+        def __init__(self, status: int) -> None:
+            super().__init__(f"Error code: {status} - No allowed providers are available for the selected model.")
+            self.status_code = status
+            self.response = SimpleNamespace(headers={}, status_code=status)
+
+    def test_it_waits_within_the_budget(self):
+        for status in (404, 503):
+            assert vision_calls.retry_wait(self.NoProvider(status), rate_limited=0, credit_waits=0, spent=0.0)
+
+    def test_a_data_policy_refusal_is_not_waited_out(self):
+        error = self.NoProvider(404)
+        error.args = ("Error code: 404 - No endpoints found matching your data policy",)
+        assert vision_calls.retry_wait(error, rate_limited=0, credit_waits=0, spent=0.0) is None
 
 
 class TestTheJobStatusCarriesTheMeasures:

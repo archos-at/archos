@@ -168,6 +168,25 @@ _PREFIX = re.compile(r"^([a-z][a-z_]*):")
 #: flight have reserved them: capacity, freed as those calls finish. A 402 that
 #: does not say so ("insufficient credits") is the account, and stays refused.
 _IN_FLIGHT_CREDITS = re.compile(r"\bcredits?\b.*\bin[\s-]?flight\b|\bin[\s-]?flight\b.*\bcredits?\b", re.I | re.S)
+#: OpenRouter's refusal when none of the endpoints a request allows can take it
+#: (a page read is EU-only: ``DataPolicy.for_page_reads``): a 404 or 503 that
+#: passes when an EU endpoint is back. Not the data-policy 404 (the model has no
+#: ZDR endpoint at all), which is the deployment's to fix.
+_NO_ALLOWED_PROVIDER = re.compile(
+    r"no allowed providers?|no endpoints? (?:found|available)(?! matching your data policy)", re.I
+)
+
+
+def no_allowed_provider(error: str | None, exc: BaseException | None = None) -> bool:
+    """Whether a failure is the provider refusing because no endpoint the request allows can serve it now."""
+    for candidate in (exc, getattr(exc, "__cause__", None)):
+        if (
+            candidate is not None
+            and _status_of(candidate) in (404, 503)
+            and _NO_ALLOWED_PROVIDER.search(str(candidate))
+        ):
+            return True
+    return bool(error) and _NO_ALLOWED_PROVIDER.search(error or "") is not None
 
 
 def classify_failure(error: str | None, exc: BaseException | None = None) -> FailureVerdict:
@@ -243,6 +262,8 @@ def _from_status_code(exc: BaseException) -> FailureCategory | None:
         return TRANSIENT
     if status == 402 and _IN_FLIGHT_CREDITS.search(str(exc)):
         return TRANSIENT
+    if status == 404 and _NO_ALLOWED_PROVIDER.search(str(exc)):
+        return TRANSIENT
     if status in (401, 403, 404):
         # 404: a misnamed model or a wrong base URL. The deployment, not the
         # bytes: once it is fixed the same file reads.
@@ -254,7 +275,7 @@ def _from_status_code(exc: BaseException) -> FailureCategory | None:
 def _from_text(message: str) -> FailureCategory | None:
     if not message:
         return None
-    if _TRANSIENT_TEXT.search(message) or _IN_FLIGHT_CREDITS.search(message):
+    if _TRANSIENT_TEXT.search(message) or _IN_FLIGHT_CREDITS.search(message) or _NO_ALLOWED_PROVIDER.search(message):
         return TRANSIENT
     if _DETERMINISTIC_TEXT.search(message):
         return DETERMINISTIC

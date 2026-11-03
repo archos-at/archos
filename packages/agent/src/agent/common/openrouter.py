@@ -53,6 +53,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import dataclasses
 import json
 import logging
 import os
@@ -144,14 +145,37 @@ class DataPolicy:
     """What a model provider may keep of a request."""
 
     zdr: bool = False
+    #: EU-only routing (``provider.only``, no fallback) instead of the EU-first ``order``.
+    #: Set by :meth:`for_page_reads`; see there.
+    eu_only: bool = False
+
+    def for_page_reads(self) -> DataPolicy:
+        """This policy for a page read (a drawing, an image, a scan): EU-only, so its prompt cache can hit.
+
+        A ZDR page read goes to the preferred EU endpoints and nowhere else:
+        ``provider.only`` with ``allow_fallbacks: false``, and no ``order``.
+        OpenRouter does not use sticky routing for a request with a manual
+        ``order``, so the EU-first order kept every page read off its prompt
+        cache's shard; ``only`` filters the endpoints and leaves the sticky
+        routing on. Decided 2026-11-03, on ``azure/eu`` serving both vision
+        models with cached-read pricing. When no EU endpoint can take the call,
+        OpenRouter refuses it, and the refusal is transient
+        (``ingest_failures``): the page read waits and retries, it never falls
+        back outside the EU. An empty preferred list (the env var set to
+        nothing) leaves the policy as it is. The ZDR routing itself
+        (:data:`ZDR_PROVIDER_ROUTING`) is unchanged, so :meth:`is_applied_to`
+        holds. Every other call keeps the EU-first ``order`` with fallbacks.
+        """
+        return dataclasses.replace(self, eu_only=True) if self.zdr else self
 
     def apply(self, body: Mapping[str, Any] | None) -> dict[str, Any]:
         """Return a NEW request body carrying this policy's provider routing.
 
         Adds the EU-first ``order`` (:func:`preferred_providers`) unless the body
-        already names one. Non-destructive: other ``provider`` keys and every
-        other field survive. A fresh dict, so a shared build-time body is never
-        mutated. Without ZDR it is a plain copy.
+        already names one, or for :meth:`for_page_reads` the EU-only ``only``.
+        Non-destructive: other ``provider`` keys and every other field survive.
+        A fresh dict, so a shared build-time body is never mutated. Without ZDR
+        it is a plain copy.
         """
         merged: dict[str, Any] = dict(body) if isinstance(body, Mapping) else {}
         if not self.zdr:
@@ -160,7 +184,10 @@ class DataPolicy:
         provider = dict(existing) if isinstance(existing, Mapping) else {}
         provider.update(ZDR_PROVIDER_ROUTING)
         order = preferred_providers()
-        if order and "order" not in provider:
+        if self.eu_only and order and not {"order", "only"} & provider.keys():
+            provider["only"] = list(order)
+            provider["allow_fallbacks"] = False
+        elif order and "order" not in provider:
             provider["order"] = list(order)
             provider.setdefault("allow_fallbacks", True)
         merged["provider"] = provider
