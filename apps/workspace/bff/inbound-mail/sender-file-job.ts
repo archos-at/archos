@@ -35,11 +35,15 @@ import 'server-only'
  *
  * Whatever waits afterwards, the whole mail when a step refused, is announced
  * as any held mail is (`inbound_mail.waiting`, to the sender per D9), so a
- * verified writer's mail is never left untold. The run's log line names the
- * mail and an outcome code, never a sender, subject or address.
+ * verified writer's mail is never left untold. Every run that ends (filed, left
+ * waiting with its reason, or failed) is one `inbound_mail_sender_filed`
+ * PostHog event and one info line, naming the mail and an outcome code, never
+ * a sender, subject or address: the share of verified writers' mail that is
+ * filed, and why the rest waits, is the number that says whether direct
+ * filing works.
  */
 
-import { captureServer } from '@/lib/analytics/posthog-server'
+import { captureServer, type ServerEventProperties } from '@/lib/analytics/posthog-server'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { resolvePinnedRequesterSessionStrict } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -109,17 +113,33 @@ export async function runInboundMailSenderFile(
   try {
     outcome = await fileAsSender(organizationId, payload)
   } catch (error) {
+    const name = error instanceof Error ? error.name : 'unknown'
+    console.warn(`[inbound-mail] sender filing of mail ${payload.mailId}: failed (${name})${attempt.last ? ', last attempt' : ''}`)
+    captureOutcome(organizationId, { outcome: 'failed', last_attempt: attempt.last })
     // The last attempt leaves the mail waiting, and someone must hear that it does.
     if (attempt.last) await tellWaiting(await findMailForReceive(payload.mailId))
     throw error
   }
-  console.debug(
-    `[inbound-mail] sender filing of mail ${payload.mailId}: ${outcome.kind}${'reason' in outcome ? `:${outcome.reason}` : ''}`,
-  )
+  if (outcome.kind !== 'later') {
+    console.info(
+      `[inbound-mail] sender filing of mail ${payload.mailId}: ${outcome.kind}${'reason' in outcome ? `:${outcome.reason}` : ''}`,
+    )
+    captureOutcome(
+      organizationId,
+      outcome.kind === 'filed'
+        ? { outcome: 'filed', files: outcome.parts, left: outcome.left, waits_for_suggestion: payload.waits }
+        : { outcome: 'waits', reason: outcome.reason, waits_for_suggestion: payload.waits },
+    )
+  }
   if (outcome.kind === 'later') {
     return { done: false, payload: { ...payload, waits: payload.waits + 1 }, notBefore: new Date(Date.now() + SENDER_FILE_WAIT_MS) }
   }
   return { done: true, payload }
+}
+
+/** One run's end, as `inbound_mail_sender_filed`: codes and counts only, personless (the job acts, not a person). */
+function captureOutcome(organizationId: string, properties: ServerEventProperties): void {
+  captureServer({ event: 'inbound_mail_sender_filed', distinctId: null, organizationId, properties })
 }
 
 /** Steps 1–6 of the module header. Exported for its spec. */
@@ -196,7 +216,7 @@ async function fileDecision(
     } catch (error) {
       const partId = refusedPart(error)
       if (!partId) return refusedWhole(mail, error)
-      console.debug(`[inbound-mail] sender filing of mail ${mail.id}: a part waits (${refusalCode(error)})`)
+      console.info(`[inbound-mail] sender filing of mail ${mail.id}: a part waits (${refusalCode(error)})`)
       decision = withoutPart(decision, partId)
     }
   }
@@ -219,7 +239,7 @@ async function refusedWhole(mail: InboundMailRow, error: unknown): Promise<Sende
   if (error instanceof MailChangedError || error instanceof PartNotWaitingError) return waits('changed')
   if (error instanceof ConflictError && refusalCode(error) === 'stale') return waits('changed')
   if (error instanceof ConflictError || error instanceof NotFoundError || error instanceof ForbiddenError || isProjectClosedError(error)) {
-    console.debug(`[inbound-mail] sender filing of mail ${mail.id}: refused (${refusalCode(error)})`)
+    console.info(`[inbound-mail] sender filing of mail ${mail.id}: refused (${refusalCode(error)})`)
     return told(mail, 'refused')
   }
   throw error
