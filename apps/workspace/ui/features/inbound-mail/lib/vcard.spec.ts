@@ -34,7 +34,7 @@ describe('contactCard', () => {
 
 describe('contactCardFileName', () => {
   it('is a latin slug of the project', () => {
-    expect(contactCardFileName('Bauplatz 12 – Wohnbau Seestadt')).toBe('bauplatz-12-wohnbau-seestadt.vcf')
+    expect(contactCardFileName('Bauplatz 12 – Wohnbau Seestadt')).toBe(`${fileSlug(PRODUCT_NAME)}-bauplatz-12-wohnbau-seestadt.vcf`)
     expect(contactCardFileName('工程')).toMatch(new RegExp(`^${fileSlug(PRODUCT_NAME)}-.+\\.vcf$`))
   })
 })

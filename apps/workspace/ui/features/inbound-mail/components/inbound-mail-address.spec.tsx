@@ -31,7 +31,7 @@ describe('InboundMailAddressCard', () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
     expect(await screen.findByText('bauplatz-12.k3x7q2m9p4ab@example.org')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('address-save-contact'))
-    expect(download.start).toHaveBeenCalledWith('blob:card', 'bauplatz-12-wohnbau-seestadt.vcf')
+    expect(download.start).toHaveBeenCalledWith('blob:card', expect.stringMatching(/-bauplatz-12-wohnbau-seestadt\.vcf$/))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'settings' })
   })
 

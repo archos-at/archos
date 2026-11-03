@@ -7,6 +7,7 @@
  * and says a refusal in the dialog; a link scrolling to its entry.
  */
 
+import { PRODUCT_NAME } from '@/lib/brand'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -62,7 +63,7 @@ describe('MailThreadTab', () => {
     expect(rows.map((row) => within(row).getByTestId('mail-thread-entry-from').textContent)).toEqual(['from revision 3', 'from revision 2', 'from revision 1'])
     expect(within(rows[0]).getByTestId('mail-thread-entry-heading')).toHaveTextContent('14.10.2026, 09:12 · Mag. Huber (ma37.wien.gv.at)')
     expect(within(rows[0]).getByTestId('mail-thread-entry-trust')).toHaveTextContent('Domain verified: ma37.wien.gv.at')
-    expect(within(rows[0]).getByTestId('mail-thread-entry-via')).toHaveTextContent('Filed on the agent’s suggestion')
+    expect(within(rows[0]).getByTestId('mail-thread-entry-via')).toHaveTextContent(`Filed on ${PRODUCT_NAME}’s suggestion`)
     expect(screen.getByTestId('mail-thread-waiting')).toHaveTextContent('2 mails of this mail thread wait in Project mail')
   })
 

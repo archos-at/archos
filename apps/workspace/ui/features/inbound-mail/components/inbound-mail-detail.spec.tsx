@@ -6,6 +6,7 @@
  * filed text offers the follow, only where it could ever hold.
  */
 
+import { PRODUCT_NAME } from '@/lib/brand'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -123,7 +124,7 @@ describe('InboundMailDetail', () => {
     renderDetail('impersonation')
     const warning = screen.getByTestId('impersonation-warning')
     expect(warning).toHaveTextContent('Careful: this mail poses as Miriam Huber. Its signature is invalid or was rejected by the domain.')
-    expect(warning).toHaveTextContent('The agent suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.')
+    expect(warning).toHaveTextContent(`${PRODUCT_NAME} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.`)
     // Above the header, before anything can be checked.
     expect(warning.compareDocumentPosition(screen.getByTestId('mail-header')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))

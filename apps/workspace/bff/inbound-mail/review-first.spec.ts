@@ -25,27 +25,39 @@ import { dirname, join, relative, resolve } from 'node:path'
 import ts from 'typescript-api'
 import { describe, expect, it } from 'vitest'
 
-const SRC = join(process.cwd(), 'src')
+/** The workspace root (apps/workspace); paths below are relative to it. */
+const SRC = process.cwd()
+
+/** The `@/` aliases of `tsconfig.json`, longest first, so `@/lib/…` resolves to `bff/…`. */
+const ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ['@/lib/', 'bff/'],
+  ['@/features/', 'ui/features/'],
+  ['@/components/', 'ui/components/'],
+  ['@/hooks/', 'ui/hooks/'],
+  ['@/adapters/', 'ui/adapters/'],
+  ['@/styles/', 'ui/styles/'],
+  ['@/', ''],
+]
 
 /** The receive side. Each must exist: a rename must not walk out of the ratchet. */
 const RECEIVE_ENTRIES = [
   'app/api/internal/signed/inbound-mail/route.ts',
-  'lib/inbound-mail/receive.ts',
-  'lib/inbound-mail/receive-job.ts',
-  'lib/inbound-mail/announce.ts',
+  'bff/inbound-mail/receive.ts',
+  'bff/inbound-mail/receive-job.ts',
+  'bff/inbound-mail/announce.ts',
 ]
 
 /** Receive-side modules later packages of the same change add; walked as soon as they exist. */
-const LATER_ENTRIES = ['lib/inbound-mail/suggest.ts', 'lib/inbound-mail/suggest-job.ts', 'lib/inbound-mail/sweep.ts']
+const LATER_ENTRIES = ['bff/inbound-mail/suggest.ts', 'bff/inbound-mail/suggest-job.ts', 'bff/inbound-mail/sweep.ts']
 
 /** Modules that file, by path. */
 const FILING_MODULES = [
-  'lib/documents/shelf-upload.ts',
-  'lib/mail-thread/append.ts',
-  'lib/inbound-mail/file-job.ts',
-  'lib/inbound-mail/follow-job.ts',
+  'bff/documents/shelf-upload.ts',
+  'bff/mail-thread/append.ts',
+  'bff/inbound-mail/file-job.ts',
+  'bff/inbound-mail/follow-job.ts',
   // The job table imports every job, the filing and follow jobs among them.
-  'lib/jobs-queue/handlers.ts',
+  'bff/jobs-queue/handlers.ts',
 ]
 
 /** Functions that file a document; a module that exports one is filing code wherever it lives. */
@@ -55,7 +67,8 @@ const CANDIDATE_EXTENSIONS = ['.ts', '.tsx', '.js', '.mjs', '/index.ts', '/index
 
 function resolveImport(from: string, specifier: string): string | null {
   let base: string
-  if (specifier.startsWith('@/')) base = join(SRC, specifier.slice(2))
+  const alias = ALIASES.find(([prefix]) => specifier.startsWith(prefix))
+  if (alias) base = join(SRC, alias[1] + specifier.slice(alias[0].length))
   else if (specifier.startsWith('.')) base = resolve(dirname(from), specifier)
   else return null
   if (/\.(tsx?|m?js)$/.test(base) && existsSync(base)) return base
@@ -102,7 +115,7 @@ function sourceFiles(dir: string): string[] {
 /** Every module that files: the named ones and any that exports a filing function. */
 const FILING = new Set([
   ...FILING_MODULES.map((path) => join(SRC, path)),
-  ...sourceFiles(join(SRC, 'lib')).filter((file) => FILING_EXPORTS.test(readFileSync(file, 'utf8'))),
+  ...sourceFiles(join(SRC, 'bff')).filter((file) => FILING_EXPORTS.test(readFileSync(file, 'utf8'))),
 ])
 
 /** The filing modules reachable from `entries`, each with the import chain that reaches it. */
@@ -124,7 +137,7 @@ describe('review first: the receive side imports no filing code', () => {
 
   it('walks deep enough to mean it: the receive side reaches its own parsers and the database', () => {
     const parents = reachable(entries)
-    for (const path of ['lib/inbound-mail/mime.ts', 'lib/inbound-mail/sender-auth.ts', 'lib/db/index.ts']) {
+    for (const path of ['bff/inbound-mail/mime.ts', 'bff/inbound-mail/sender-auth.ts', 'bff/db/index.ts']) {
       expect(parents.has(join(SRC, path)), path).toBe(true)
     }
     expect(parents.size).toBeGreaterThan(100)
@@ -133,9 +146,9 @@ describe('review first: the receive side imports no filing code', () => {
   it('knows the filing code by what it exports, and would catch a path to it', () => {
     // The upload funnel exists under the name the ratchet looks for…
     expect([...FILING].map((file) => relative(SRC, file))).toEqual(
-      expect.arrayContaining(['lib/documents/shelf-upload.ts', 'lib/documents/service.ts']),
+      expect.arrayContaining(['bff/documents/shelf-upload.ts', 'bff/documents/document-dispatch.ts']),
     )
     // …and a module that does import it is found, with its chain: the job table.
-    expect(filingReachedFrom(['lib/jobs-queue/handlers.ts']).join('\n')).toContain('lib/documents/')
+    expect(filingReachedFrom(['bff/jobs-queue/handlers.ts']).join('\n')).toContain('bff/documents/')
   })
 })
