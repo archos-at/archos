@@ -80,11 +80,14 @@ project open), builds the member's own view of the mail and files what that
 view offers checked, as „Ablegen“ unchanged would (`sender-filing.ts`): an
 attachment offered checked with no risk flag and a name, as the next Fassung of
 its earlier document when the sender vouches for it, else into the agent's
-suggested folder, and with neither it waits; the text, offered checked with no
-content finding, into the pre-selected Verlauf, else a new one named after the
-subject in the suggested text folder, else the first correspondence folder the
-sender may write, else the root (`CORRESPONDENCE_FOLDER` in `review-defaults.ts`,
-shared with the UI's draft); a text without a subject waits. Every check of a
+suggested folder, else (no suggestion: switched off, out of budget, its job
+failed) where the text's new Verlauf would go; the text, offered checked with
+no content finding, into the pre-selected Verlauf, else a new one named after
+the subject in the suggested text folder, else the first correspondence folder
+the sender may write, else the root (`CORRESPONDENCE_FOLDER` in
+`review-defaults.ts`, shared with the UI's draft); a text without a subject
+waits. A direct filing therefore never depends on the model having answered,
+and the risk-flag and name checks hold either way. Every check of a
 person's decision applies (`planMailDecision`, `requireDecisionRights`); a part
 the review refuses by id waits and the rest goes. The decisions are written
 `via = 'sender'`, `decided_by` = the sender, other parts left waiting

@@ -12,7 +12,8 @@ import 'server-only'
  * 2. **The suggestion.** While the agent's suggestion for the mail is still
  *    queued or running, the run waits for it (`notBefore`), at most
  *    {@link SENDER_FILE_MAX_WAITS} times: the attachments go where the review
- *    would put them, and that is the suggestion's folder.
+ *    would put them, and that is the suggestion's folder. Without one they
+ *    go where the text's new Verlauf would (`./sender-filing.ts`).
  * 3. **The sender, resolved now, strictly** (a directory that does not answer
  *    retries; only WorkOS's "not a member" is "left"), and their rights asked
  *    again: the office's `inbound-mail` entitlement, `project:documents:write`
