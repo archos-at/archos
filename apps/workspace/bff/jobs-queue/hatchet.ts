@@ -32,9 +32,11 @@ import {
 } from '@hatchet-dev/typescript-sdk/v1'
 import {
   bffJobTaskSpec,
+  failureText,
   PermanentJobError,
   RetryLaterError,
   RUN_PRIORITY,
+  type BffJobRunContext,
   type BffJobRuns,
   type BffJobTaskInput,
   type BffJobTaskOutput,
@@ -52,7 +54,11 @@ export interface BffJobDeclaration {
 /** The run's context, as much of the SDK's `Context` as the task reads. */
 export interface BffJobContext {
   taskRunExternalId(): string
+  /** Which attempt of the run this is: the SDK's `action.retryCount`, 0 for the first. */
   retryCount(): number
+  /** Aborted by the SDK when the engine cancels the attempt (its execution timeout, a cancel) or the worker stops. */
+  readonly abortController: AbortController
+  readonly worker: { id(): string | undefined }
 }
 
 /** What this module passes to `hatchet.task(...)`. */
@@ -68,7 +74,7 @@ export interface BffJobTaskOptions {
 
 /** What a run does and what the sweep does (`./hatchet-run.ts`), handed in by the pod that works. */
 export interface BffJobWork {
-  run(input: BffJobTaskInput, context: { run: string; retryCount: number }, runs: BffJobRuns): Promise<BffJobTaskOutput>
+  run(input: BffJobTaskInput, context: BffJobRunContext, runs: BffJobRuns): Promise<BffJobTaskOutput>
   sweep(runs: BffJobRuns): Promise<{ dispatched: number; failed: number; purged: number }>
 }
 
@@ -124,6 +130,22 @@ function runsOf(declaration: BffJobDeclaration, now: () => number): BffJobRuns {
   }
 }
 
+/**
+ * What Hatchet is told about a failed run. Never the error's own message or
+ * stack: those can carry a file name or a URL, and Hatchet keeps what it is
+ * told (ADR-0150: ids and ciphertext only). Our errors already carry only
+ * `failureText`; anything else is logged here, on the pod, and replaced by
+ * its class.
+ */
+export function toHatchetError(error: unknown): Error {
+  if (error instanceof PermanentJobError) return new NonRetryableError(error.message)
+  if (error instanceof RetryLaterError) {
+    return error.afterSeconds > 0 ? new RetryAfterError(error.message, { after: `${error.afterSeconds}s` }) : new Error(error.message)
+  }
+  console.error('[bff-jobs] a run failed:', error)
+  return new Error(failureText('run-failed', error))
+}
+
 /** The task's options from its spec, with the SDK's errors around the run. */
 export function bffJobTaskOptions(spec: BffJobTaskSpec, runs: () => BffJobRuns, work: () => BffJobWork): BffJobTaskOptions {
   return {
@@ -138,14 +160,16 @@ export function bffJobTaskOptions(spec: BffJobTaskSpec, runs: () => BffJobRuns, 
     },
     idempotency: spec.idempotency,
     fn: async (input, ctx) => {
+      const context: BffJobRunContext = {
+        run: ctx.taskRunExternalId(),
+        retryCount: ctx.retryCount(),
+        workerId: ctx.worker.id(),
+        signal: ctx.abortController.signal,
+      }
       try {
-        return await work().run(input, { run: ctx.taskRunExternalId(), retryCount: ctx.retryCount() }, runs())
+        return await work().run(input, context, runs())
       } catch (error) {
-        if (error instanceof PermanentJobError) throw new NonRetryableError(error.message)
-        if (error instanceof RetryLaterError && error.afterSeconds > 0) {
-          throw new RetryAfterError(error.message, { after: `${error.afterSeconds}s` })
-        }
-        throw error
+        throw toHatchetError(error)
       }
     },
   }
