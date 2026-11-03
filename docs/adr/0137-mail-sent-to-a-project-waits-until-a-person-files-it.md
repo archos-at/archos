@@ -667,8 +667,10 @@ scanner (ADR-0150) and the upload path like any other file.
   the step that holds the mail, and frozen afterwards. No application path
   can file a stranger's mail without a person.
 - **The sender learns why.** A member whose mail waits sees, in the app, why
-  ("the signature did not match", "you have no write rights here"), not
-  silence.
+  ("the signature did not match"; "signed, but addressed to others, oddly
+  dated or already known"; "sent automatically"; "you have no write rights
+  here"), not silence: `waitReason` on the views, `senderWaitReason` in
+  `lib/inbound-mail/sender-class.ts`.
 
 ### What this gives up, stated plainly
 

@@ -110,6 +110,12 @@ export const inboundMail = {
   waitReason: {
     signature: 'Waiting: the signature does not match the member’s address. Only that member can file it; anyone can dismiss it.',
     signatureOwn: 'Did you send this mail? The signature does not match your address, so it was not filed directly. Only you can file it.',
+    replay:
+      'Waiting: the mail is signed, but addressed to others, oddly dated or already known. A mail sent again by someone else looks like this. Only that member can file it; anyone can dismiss it.',
+    replayOwn:
+      'Did you send this mail to the project? It is signed, but addressed to others, oddly dated or already known, so it was not filed directly. Only you can file it.',
+    automatic: 'Waiting: the mail was sent automatically, so it was not filed directly. Only that member can file it; anyone can dismiss it.',
+    automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
     no_write_rights: 'Waiting: the sender may not file in this project.',
     outside_office: 'Waiting: the sender is outside the office. If nobody files it, it is discarded after {days} days.',
   },

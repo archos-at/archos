@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
-import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput } from './sender-class'
+import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
 
 const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
 
@@ -88,12 +88,30 @@ describe('senderClassOf', () => {
 })
 
 describe('what the class means to a reader', () => {
+  const held = (overrides: Partial<WaitReasonInput> = {}): WaitReasonInput => ({
+    senderClass: 'unverified_writer',
+    senderTrust: 'member_verified',
+    senderFlags: [],
+    automatic: false,
+    ...overrides,
+  })
+
   it('says why a mail waits', () => {
-    expect(senderWaitReason('verified_writer')).toBeNull()
-    expect(senderWaitReason('unverified_writer')).toBe('signature')
-    expect(senderWaitReason('office_member')).toBe('no_write_rights')
-    expect(senderWaitReason('external')).toBe('outside_office')
-    expect(senderWaitReason(null)).toBeNull()
+    expect(senderWaitReason(held({ senderClass: 'verified_writer' }))).toBeNull()
+    expect(senderWaitReason(held({ senderTrust: 'member_unverified' }))).toBe('signature')
+    expect(senderWaitReason(held({ senderClass: 'office_member' }))).toBe('no_write_rights')
+    expect(senderWaitReason(held({ senderClass: 'external', senderTrust: 'external_verified' }))).toBe('outside_office')
+    expect(senderWaitReason(held({ senderClass: null, senderTrust: null }))).toBeNull()
+  })
+
+  it('names what held a signed writer’s mail: a replay or date flag, or automatic sending, never “the signature did not match”', () => {
+    for (const flag of ['stale_date', 'date_out_of_range', 'message_id_reused', 'already_filed', 'not_addressed_to_project'] as const) {
+      expect(senderWaitReason(held({ senderFlags: [flag] })), flag).toBe('replay')
+    }
+    expect(senderWaitReason(held({ senderFlags: ['not_addressed_to_project', 'bcc_own'] }))).toBe('replay')
+    expect(senderWaitReason(held({ automatic: true }))).toBe('automatic')
+    // A subdomain's key is a signature that did not come from the address's own domain.
+    expect(senderWaitReason(held({ senderFlags: ['relaxed_alignment'] }))).toBe('signature')
   })
 
   it('lets only the claimed writer release a mail that claims them', () => {

@@ -138,17 +138,21 @@ export function SenderTrustLine({ sender, impersonation }: { sender: InboundMail
   )
 }
 
+/** The reasons a writer's own mail waits for them: each is asked of that writer as „Haben Sie das gesendet?“. */
+const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic'])
+
 /**
  * Why the mail waits, by who its sender is to the project (ADR-0137's
- * amendment): a writer's address whose signature did not hold (asked of that
- * writer as „Haben Sie das gesendet?“), a member who may not write here, or
- * someone outside the office. Nothing for a verified writer's mail, nor once
- * nothing of it waits.
+ * amendment): a writer's mail that was not filed directly, because their
+ * domain did not sign it, it reads as re-sent or misdated, or it was sent
+ * automatically (asked of that writer as „Haben Sie das gesendet?“), a member
+ * who may not write here, or someone outside the office. Nothing for a
+ * verified writer's mail, nor once nothing of it waits.
  */
 export function SenderWaitLine({ view }: { view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   if (view.status !== 'waiting' || !view.waitReason) return null
-  const key = view.waitReason === 'signature' && !view.onlySenderReleases ? 'signatureOwn' : view.waitReason
+  const key = ASKED_OF_THE_WRITER.has(view.waitReason) && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
   return (
     <p className="text-muted-foreground flex items-center gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
       <Info className="size-3.5 shrink-0" aria-hidden />

@@ -116,6 +116,12 @@ export const inboundMail: typeof en.inboundMail = {
   waitReason: {
     signature: 'Wartet: Die Signatur passt nicht zur Adresse des Mitglieds. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
     signatureOwn: 'Haben Sie diese E-Mail gesendet? Die Signatur passt nicht zu Ihrer Adresse, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    replay:
+      'Wartet: Die E-Mail ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    replayOwn:
+      'Haben Sie diese E-Mail an das Projekt gesendet? Sie ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    automatic: 'Wartet: Die E-Mail wurde automatisch versandt und deshalb nicht direkt abgelegt. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
     no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, wird nach {days} Tagen verworfen.',
   },

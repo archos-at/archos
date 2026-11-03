@@ -57,17 +57,39 @@ export function senderClassOf(input: SenderClassInput): InboundMailSenderClass {
   return isVerifiedWriterEvidence(input) ? 'verified_writer' : 'unverified_writer'
 }
 
+/** What the wait reason reads of a held mail: its class and the verdict it was judged from. */
+export interface WaitReasonInput {
+  senderClass: InboundMailSenderClass | null
+  senderTrust: InboundSenderTrust | null
+  senderFlags: readonly SenderFlag[]
+  automatic: boolean
+}
+
 /**
- * Why a held mail waits, as the E-Mail-Eingang and the Postfach say it: the
- * signature did not hold for a writer's address, the member may not write
- * here, or the sender is outside the office. Null for a verified writer's
- * mail, which waits only for what its sender's filing left (a flagged part, a
- * part with no folder).
+ * Why a writer's mail was not filed directly, in the order a reader can act
+ * on: no signature by the address's own domain (`signature`, a subdomain's
+ * key included), a signed mail that reads as re-sent or misdated (`replay`:
+ * addressed to others, a Bcc copy included, or a replay or date flag), or one
+ * sent automatically (`automatic`).
  */
-export function senderWaitReason(senderClass: InboundMailSenderClass | null): InboundMailWaitReason | null {
-  switch (senderClass) {
+function unverifiedWriterReason(mail: WaitReasonInput): InboundMailWaitReason {
+  if (mail.senderTrust !== 'member_verified' || mail.senderFlags.includes('relaxed_alignment')) return 'signature'
+  if (mail.senderFlags.includes('not_addressed_to_project') || mail.senderFlags.some((flag) => REPLAY_FLAGS.includes(flag))) return 'replay'
+  if (mail.automatic) return 'automatic'
+  return 'signature'
+}
+
+/**
+ * Why a held mail waits, as the E-Mail-Eingang and the Postfach say it: a
+ * writer's mail that was not filed directly (see {@link unverifiedWriterReason}),
+ * a member who may not write here, or a sender outside the office. Null for a
+ * verified writer's mail, which waits only for what its sender's filing left
+ * (a flagged part, a part with no folder).
+ */
+export function senderWaitReason(mail: WaitReasonInput): InboundMailWaitReason | null {
+  switch (mail.senderClass) {
     case 'unverified_writer':
-      return 'signature'
+      return unverifiedWriterReason(mail)
     case 'office_member':
       return 'no_write_rights'
     case 'external':
