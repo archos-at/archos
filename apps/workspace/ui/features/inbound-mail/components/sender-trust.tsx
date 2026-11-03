@@ -139,7 +139,7 @@ export function SenderTrustLine({ sender, impersonation }: { sender: InboundMail
 }
 
 /** The reasons a writer's own mail waits for them: each is asked of that writer as „Haben Sie das gesendet?“. */
-const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic'])
+const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic', 'paused'])
 
 /**
  * Why the mail waits, by who its sender is to the project (ADR-0137's

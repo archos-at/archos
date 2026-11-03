@@ -187,7 +187,8 @@ export interface InboundMailSenderRiskView {
    * Why it waits, for the line under the sender: `signature` (it claims a
    * writer whose own domain did not sign it), `replay` (signed, but addressed
    * to others or misdated: it may have been re-sent), `automatic` (signed, but
-   * sent automatically), `no_write_rights` (an office member who may not write
+   * sent automatically), `paused` (direct filing was switched off when it
+   * arrived), `no_write_rights` (an office member who may not write
    * here), `outside_office`; null for a verified writer's mail.
    */
   waitReason: InboundMailWaitReason | null
@@ -196,7 +197,7 @@ export interface InboundMailSenderRiskView {
 }
 
 /** Why a held mail waits, by its sender's class (`./sender-class.ts`, `senderWaitReason`). */
-export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'no_write_rights', 'outside_office'] as const
+export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'no_write_rights', 'outside_office'] as const
 export type InboundMailWaitReason = (typeof INBOUND_MAIL_WAIT_REASONS)[number]
 
 // ------------------------------------------------------------ the list

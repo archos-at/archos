@@ -4,7 +4,8 @@
  * database holds the same rule (`inbound_mails_verified_writer_evidence`,
  * `scripts/rls-test-db.sh`); this is the code that must never ask it for more.
  */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
 import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
 
@@ -78,6 +79,25 @@ describe('senderClassOf', () => {
   it('anyone outside the office is external, however well their domain signed', () => {
     expect(senderClassOf(input({ trust: 'external_verified', senderUserId: null }))).toBe('external')
     expect(senderClassOf(input({ trust: 'external_unverified', reason: 'dkim_none', senderUserId: null, flags: ['claims_member_name'] }))).toBe('external')
+  })
+
+  describe('the kill switch (INBOUND_MAIL_DIRECT_FILING)', () => {
+    afterEach(() => vi.unstubAllEnvs())
+
+    it('is on unless set to false', () => {
+      expect(directFilingEnabled({})).toBe(true)
+      expect(directFilingEnabled({ INBOUND_MAIL_DIRECT_FILING: 'true' })).toBe(true)
+      expect(directFilingEnabled({ INBOUND_MAIL_DIRECT_FILING: ' FALSE ' })).toBe(false)
+    })
+
+    it('off, a verified writer’s mail waits for its member like a claimed one, and says why', () => {
+      expect(senderClassOf(input({ directFiling: false }))).toBe('unverified_writer')
+      vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'false')
+      expect(senderClassOf(input())).toBe('unverified_writer')
+      expect(senderWaitReason({ senderClass: 'unverified_writer', senderTrust: 'member_verified', senderFlags: [], automatic: false })).toBe('paused')
+      vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'true')
+      expect(senderClassOf(input())).toBe('verified_writer')
+    })
   })
 
   it('names the evidence the database asks for, and nothing more', () => {

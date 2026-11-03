@@ -97,6 +97,17 @@ describe('the sender’s own filing', () => {
     expect(announceWaiting).not.toHaveBeenCalled()
   })
 
+  it('files nothing while direct filing is switched off, and says the mail waits', async () => {
+    vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'false')
+    try {
+      expect(await fileAsSender(ORG, payload)).toEqual({ kind: 'waits', reason: 'direct_filing_off' })
+    } finally {
+      vi.unstubAllEnvs()
+    }
+    expect(writeMailDecisions).not.toHaveBeenCalled()
+    expect(announceWaiting).toHaveBeenCalledOnce()
+  })
+
   it('files only a verified writer’s mail, and nothing a person decided first', async () => {
     vi.mocked(findMailForReceive).mockResolvedValueOnce(heldMail({ senderClass: 'unverified_writer', senderTrust: 'member_unverified', senderReason: 'dkim_fail' }))
     expect(await fileAsSender(ORG, payload)).toEqual({ kind: 'waits', reason: 'not_verified_writer' })

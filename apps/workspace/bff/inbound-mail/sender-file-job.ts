@@ -8,7 +8,9 @@ import 'server-only'
  * filing without a click (`./follow-job.ts`). Per run:
  *
  * 1. **The mail.** Still waiting, still a verified writer's (the class is
- *    frozen at the hold, migration 0194).
+ *    frozen at the hold, migration 0194), and direct filing still switched
+ *    on (`./direct-filing.ts`): a job queued before the switch went off
+ *    files nothing.
  * 2. **The suggestion.** While the agent's suggestion for the mail is still
  *    queued or running, the run waits for it (`notBefore`), at most
  *    {@link SENDER_FILE_MAX_WAITS} times: the attachments go where the review
@@ -50,6 +52,7 @@ import { requesterOf, type InboundMailSenderFilePayload, type JobAttempt, type J
 import { isProjectClosedError } from '@/lib/projects/project-status'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { requireMailReviewer } from './access'
+import { directFilingEnabled } from './direct-filing'
 import { announceWaiting } from './announce'
 import { auditDecisions } from './audit'
 import { mailIfMatch, planMailDecision, requireDecisionRights, type DecisionContext } from './decision'
@@ -70,6 +73,8 @@ export const SENDER_FILE_WAIT_REASONS = [
   'not_waiting',
   /** Not a verified writer's mail (the receive job queues this job for no other). */
   'not_verified_writer',
+  /** Direct filing is switched off (`INBOUND_MAIL_DIRECT_FILING=false`, `./direct-filing.ts`). */
+  'direct_filing_off',
   /** The sender is no longer a member of the office. */
   'sender_left',
   /** The office's `inbound-mail` entitlement is off for the sender. */
@@ -124,6 +129,7 @@ export async function fileAsSender(organizationId: string, payload: InboundMailS
     return waits('not_waiting')
   }
   if (mail.senderClass !== 'verified_writer' || !mail.senderUserId) return told(mail, 'not_verified_writer')
+  if (!directFilingEnabled()) return told(mail, 'direct_filing_off')
   if (payload.waits < SENDER_FILE_MAX_WAITS && (await suggestionPending(organizationId, mail.id))) return { kind: 'later' }
 
   const session = await resolvePinnedRequesterSessionStrict({ userId: mail.senderUserId, email: null, organizationId })

@@ -72,6 +72,12 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
 
+**The kill switch** of direct filing alone is `INBOUND_MAIL_DIRECT_FILING=false`
+(Pulumi `inboundMailDirectFiling`, `lib/inbound-mail/direct-filing.ts`): the hold
+then classes a verified writer's mail `unverified_writer` (wait reason
+`paused`) and queues no sender job, and a sender job already queued files
+nothing (`direct_filing_off`). Receipt is unchanged; `INBOUND_MAIL_PAUSED` stops it.
+
 **The sender's filing** (`lib/inbound-mail/sender-file-job.ts`, a sliced job
 as the system that resolves the sender itself, strictly): it waits for the
 agent's suggestion while that job is still queued (30 s, at most ten times),

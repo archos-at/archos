@@ -122,6 +122,8 @@ export const inboundMail: typeof en.inboundMail = {
       'Haben Sie diese E-Mail an das Projekt gesendet? Sie ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
     automatic: 'Wartet: Die E-Mail wurde automatisch versandt und deshalb nicht direkt abgelegt. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
     automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    paused: 'Wartet: Als sie einging, war die direkte Ablage ausgeschaltet. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    pausedOwn: 'Haben Sie diese E-Mail gesendet? Als sie einging, war die direkte Ablage ausgeschaltet, deshalb wartet sie auf Sie. Nur Sie können sie ablegen.',
     no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, wird nach {days} Tagen verworfen.',
   },
