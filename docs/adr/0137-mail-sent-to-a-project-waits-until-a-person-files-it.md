@@ -515,7 +515,7 @@ placement review and no document check.
   `lib/inbound-mail/sweep.integration.spec.ts` (every sweep, a held and an
   unheld project).
 - Exposure: `exposure.config.spec.ts` and `tests/fixtures/exposure.json` hold
-  the originals `withheld: evidence`, the held text and bytes `piloti: false`,
+  the originals `withheld: evidence`, the held text and bytes `agent: false`,
   and `mail-thread-follow` `control`-sensitive.
 - `lib/inbound-mail/batch-effects.spec.ts` holds the "who hears what" table;
   `announce.spec.ts` feeds canaries through every notice and push.
