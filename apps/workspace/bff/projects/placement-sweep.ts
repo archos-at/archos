@@ -76,7 +76,7 @@ export async function sweepCollectionPlacement(): Promise<PlacementSweepResult> 
     cursor = projectId
     result.checked += 1
     try {
-      const placed = await retryProjectPlacement(organizationId, projectId)
+      const placed = await retryProjectPlacement(organizationId, projectId, 'sweep')
       result.moved += placed.moved
       result.pending += placed.failed.length + placed.pending
     } catch (error) {

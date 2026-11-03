@@ -79,7 +79,7 @@ export const AnswerOutline: FC<{
     // settle would remount the prose it holds.
     <OutlineProvider value={offered ? () => setOpen(true) : null}>
       {offered && (
-      <button
+      <button data-attr="outline-entry"
         type="button"
         onClick={() => setOpen(true)}
         data-testid="outline-entry"
@@ -111,7 +111,7 @@ export const AnswerOutline: FC<{
           <ol className="flex flex-col">
             {headings.map((heading) => (
               <li key={heading.id}>
-                <button
+                <button data-attr="chat-jump"
                   type="button"
                   onClick={() => jump(heading.id)}
                   className={cn(

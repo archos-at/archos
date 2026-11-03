@@ -319,7 +319,7 @@ export function Presence({
         return (
           <Tooltip key={person.userId}>
             <TooltipTrigger asChild>
-              <button
+              <button data-attr="review-peer"
                 type="button"
                 data-testid="review-peer"
                 aria-pressed={on}
@@ -457,7 +457,7 @@ function Elsewhere({
       data-over-card={overCard || undefined}
     >
       {here.map(({ state, at }) => (
-        <button
+        <button data-attr="review-elsewhere"
           key={state.peer.userId}
           type="button"
           data-testid="review-elsewhere"

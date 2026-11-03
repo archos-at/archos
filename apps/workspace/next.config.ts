@@ -25,6 +25,14 @@ const requestBodyLimitMB = Math.ceil(requestBodyLimitBytes(process.env) / (1024 
 export const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  // Version skew protection (Next guides/self-hosting, "Version Skew"). A tab
+  // opened before a deploy posts server action ids the new build does not know
+  // ("Failed to find Server Action", 16 a month). With a deployment id the client
+  // sends it, sees the server's differ, and reloads the page instead of posting a
+  // stale action. The commit the image is built from (`GIT_SHA`, a build arg of
+  // `deploy/Dockerfile`); unset in a local build, which then has no skew to guard.
+  deploymentId: process.env.GIT_SHA?.trim() || undefined,
+
   // `next dev` rewrites AGENTS.md when it detects a coding agent: it upserts a
   // managed block whose heading level differs from ours, so every dev start in an
   // agent session dirtied a tracked file (docs/contributing/gotchas.md, "next dev

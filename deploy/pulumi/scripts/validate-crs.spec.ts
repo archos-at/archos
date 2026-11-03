@@ -8,7 +8,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { loadConfig } from '../src/config'
 import { KEDA_CHART_VERSION } from "../src/platform/keda";
 import { installIngestWorker } from "../src/app/ingest-worker";
-import { installJobsQueueAuth } from "../src/app/jobs-queue-auth";
+import { installHatchetQueueAuth } from "../src/app/hatchet-queue-auth";
 import { baseStackConfig } from "../src/test-support/stack-config";
 
 const ROOT = mkdtempSync(join(__dirname, "..", ".validate-crs-test-"));
@@ -111,6 +111,7 @@ function workspace(): string {
   // constant, so the copy needs the real file beside it.
   mkdirSync(join(dir, "src", "platform"), { recursive: true });
   copyFileSync(join(__dirname, "..", "src", "platform", "keda.ts"), join(dir, "src", "platform", "keda.ts"));
+  copyFileSync(join(__dirname, "..", "src", "platform", "rabbitmq.ts"), join(dir, "src", "platform", "rabbitmq.ts"));
   writeFileSync(join(dir, "fetch.mjs"), `
 import { readFileSync } from "node:fs";
 const releases = JSON.parse(readFileSync(new URL("./releases.json", import.meta.url), "utf8"));
@@ -166,8 +167,8 @@ beforeAll(async () => {
     imagePullSecrets: [],
   };
   // The ScaledObject names a TriggerAuthentication the program creates once for
-  // both claim-queue tiers; both resources are what the validator is shown.
-  const auth = installJobsQueueAuth(wiring, []);
+  // every worker tier; both resources are what the validator is shown.
+  const auth = installHatchetQueueAuth(wiring, pulumi.output("postgresql://fixture"), []);
   const worker = installIngestWorker(wiring, cfg, { secret, checksum: pulumi.output("fixture-checksum") }, [auth]);
   await new Promise((done) => auth.urn.apply(done));
   await new Promise((done) => worker.scaledObject.urn.apply(done));

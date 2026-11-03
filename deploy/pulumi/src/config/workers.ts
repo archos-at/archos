@@ -3,7 +3,7 @@
  */
 import * as pulumi from "@pulumi/pulumi";
 import { GEOCODER } from "../constants";
-import { GOTENBERG_SLOTS_PER_REPLICA, bffJobsMode } from "../rendition-sizing";
+import { GOTENBERG_SLOTS_PER_REPLICA } from "../rendition-sizing";
 import { bool, num, positiveInt } from "./readers";
 import type { ResourceSpec } from "./resources";
 
@@ -93,13 +93,6 @@ export interface BffJobsConfig {
   drainSeconds: number;
   /** Most jobs one organisation may run fleet-wide at once; 0 = no cap (the claim is fair regardless). */
   maxPerOrg: number;
-  /**
-   * Where a slice runs (`BFF_JOBS_MODE`): `http`, in a `node server.js`
-   * the pod spawns, or `inprocess`, in the supervisor from the bundled
-   * services (`dist-jobs/slice.mjs`, ADR-0079 amendment 1). `http` until the
-   * in-process host has run in every environment.
-   */
-  mode: "http" | "inprocess";
   /**
    * Office conversions ONE pod runs at Gotenberg at once (`GOTENBERG_MAX_
    * CONCURRENCY` in the pod). The fleet's ceiling is this times `maxReplicas`
@@ -210,7 +203,6 @@ export function loadWorkers(
       concurrency: Math.max(1, num(cfg, "bffJobsConcurrency", 2)),
       drainSeconds: Math.max(15, num(cfg, "bffJobsDrainSeconds", 60)),
       maxPerOrg: Math.max(0, num(cfg, "bffJobsMaxPerOrg", 0)),
-      mode: bffJobsMode(cfg.get("bffJobsMode")),
       // One: LibreOffice converts one document at a time, and the second slot
       // Gotenberg is sized for is the next job waiting behind it. A pod running
       // two jobs at once still converts one file at a time.

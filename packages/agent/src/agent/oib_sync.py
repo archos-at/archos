@@ -5,16 +5,15 @@ The corpus is the ``oib_corpus_files`` table plus the objects it points at
 from its current bytes by the current chunking pipeline
 (``FileRow.needs_ingestion``).
 
-Ingestion is never run here. A file that needs it becomes ONE job on the durable
-ingest queue (ADR-0076): the same queue ``POST /v1/ingest`` uses, in the platform
-lane at ``bulk`` priority, claimed and run by the ingest workers (the only
-process that claims), with the queue's attempts, dead rows, fairness and drain
-behaviour. There is no in-process fallback: when the queue
-cannot take the job, the call that wanted it raises.
+Ingestion is never run here. A file that needs it becomes ONE run of Hatchet's
+``ingest-document`` task (ADR-0150): the same task ``POST /v1/ingest`` uses, in the
+platform lane at ``bulk`` priority, run by the ingest workers, with the task's
+retries, fairness and drain behaviour. There is no in-process fallback: when
+Hatchet cannot take the job, the call that wanted it raises.
 
 The job's id is a function of the file's name, hash and chunk-format version, so
 asking twice is asking once: a second cycle, or an upload racing a cycle, finds
-the job there and queues nothing. The job downloads the object itself
+the job live and starts nothing (the task is idempotent on the job id). The job downloads the object itself
 (``corpus_store.CorpusObjectDownload``) and ingests it like any file: summary,
 Dokumentart, display title and the replacement of the previous version are the
 ingestor's own. What the worker does not do is write to the corpus table. A sync
@@ -28,7 +27,7 @@ Two callers drive it: an admin upload stores the file and queues its job at once
 admin's "run it now") records what finished, then queues every file that still
 needs a job.
 
-The queue write itself is the API tier's (``agent_host.jobs.ingest_dispatch.enqueue_only``:
+The hand-over to Hatchet is the API tier's (``agent_host.jobs.ingest_dispatch.enqueue_only``:
 it encrypts the payload, which carries URLs). The API routes that drive this module hand it
 in as ``enqueue``, so the dependency runs from the API tier to this one and never back.
 """
@@ -45,7 +44,7 @@ from enum import StrEnum
 from typing import Any
 
 from agent import corpus_store
-from agent.knowledge import ingest_queue
+from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
 from agent.knowledge.factory import get_ingestor
 from agent.knowledge.factory import unregister_summary
@@ -55,8 +54,8 @@ from agent.knowledge.schema import JobState
 
 logger = logging.getLogger(__name__)
 
-#: Stores a prepared ingest job in the durable queue, never running it; whether this call stored it
-#: (an id the queue already holds stores nothing). Raises when the queue cannot take the job.
+#: Hands a prepared ingest job to Hatchet, never running it; whether this call started its run
+#: (an id whose run is live starts nothing). Raises when Hatchet cannot take the job.
 EnqueueIngestJob = Callable[[Any], bool]
 
 COLLECTION_NAME = os.environ.get("OIB_COLLECTION_NAME") or os.environ.get("COLLECTION_NAME") or "oib_knowledge"
@@ -275,10 +274,22 @@ def settle(rows: dict[str, corpus_store.FileRow]) -> Settled:
 
 
 def _drop_job(row: corpus_store.FileRow) -> None:
-    """Forget the job for ``row``'s bytes (its status and its queue row), so its id can be used again."""
+    """Forget the job for ``row``'s bytes (its status, and its run if one is live), so its id can be used again."""
     job_id = job_id_for(row)
+    run_id = ingest_run_hold.run_id_of(job_id)
     ingest_status_store.delete(job_id)
-    ingest_queue.mark_done(job_id)
+    if run_id is not None:
+        _cancel_run(job_id, run_id)
+
+
+def _cancel_run(job_id: str, run_id: str) -> None:
+    """Cancel the job's Hatchet run; a run that already ended ignores it. Best effort."""
+    from agent.knowledge import ingest_hatchet
+
+    try:
+        ingest_hatchet.cancel_run(run_id)
+    except Exception as error:  # noqa: BLE001 - the status is gone; a run that still starts finds no row to resume
+        logger.warning("Could not cancel the run of corpus job %s: %s", job_id, type(error).__name__)
 
 
 def _request_locked(name: str, doc_class: str | None, enqueue: EnqueueIngestJob) -> bool:
@@ -347,8 +358,8 @@ def remove_document(name: str) -> bool:
     Returns False when neither the table nor the index knows the name (route
     -> 404). A name only the index knows, chunks left behind by a half-finished
     delete or a restored vector store, is removed the same way; the table and
-    object steps are then no-ops. A job queued or running for the file is cancelled first:
-    a worker that lost its claim stops before it writes.
+    object steps are then no-ops. A job waiting or running for the file is cancelled first:
+    its run stops at its next check, before it writes.
     """
     if not corpus_store.is_valid_name(name):
         return False

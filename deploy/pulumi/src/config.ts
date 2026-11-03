@@ -12,6 +12,7 @@ import { type ImagesConfig, loadImages } from "./config/images";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
+import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
   type ChromaMigrationConfig,
@@ -42,7 +43,7 @@ import {
   loadAppServices,
 } from "./config/app-services";
 import { type IngressConfig, loadIngress } from "./config/ingress";
-export { GOTENBERG_SLOTS_PER_REPLICA, bffJobsMode, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
+export { GOTENBERG_SLOTS_PER_REPLICA, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
 
 /**
  * Typed configuration for the Grid OIB Kubernetes deployment.
@@ -115,6 +116,9 @@ export interface DeployConfig {
   rateLimit: RateLimitConfig;
 
   postgres: PostgresConfig;
+
+  /** Hatchet and its own Postgres, `background-work-pg` (ADR-0150, `config/background-work.ts`). */
+  backgroundWork: BackgroundWorkConfig;
 
   dragonfly: DragonflyConfig;
 
@@ -513,6 +517,8 @@ export function loadConfig(): DeployConfig {
     dns,
 
     postgres,
+
+    backgroundWork: loadBackgroundWork(cfg),
 
     ...dragonflyStores,
 

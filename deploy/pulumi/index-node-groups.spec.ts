@@ -69,6 +69,7 @@ function nodeSelectors(): Record<string, unknown[]> {
 const DATA = [
   "grid-pg",
   "grid-pg-pooler-rw",
+  "background-work-pg",
   "qdrant",
   "seaweedfs",
   "clickhouse",

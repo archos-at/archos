@@ -4,7 +4,6 @@ import { DeployConfig } from '../config'
 import { backendAutoscaled } from '../config/chat-tier'
 import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GEOCODER, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
-import { CLUSTER_NAME as POSTGRES_CLUSTER } from "../data/postgres";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 
 /**
@@ -374,22 +373,13 @@ export function installNetworkPolicies(
       })
     : undefined;
 
-  // 14-15. KEDA (its own namespace) reaches exactly the two kinds of target its
-  //     triggers name, and nothing else in `grid`. The caller is the OPERATOR pod,
-  //     not the namespace: the operator runs every scaler (the metrics server and
-  //     the admission webhooks in `keda` ask it, they poll nothing), so those two
-  //     have no reason to open a connection into the app or data tier.
+  // 14-15. KEDA (its own namespace) reaches the one target its triggers name in
+  //     `grid`, and nothing else. The caller is the OPERATOR pod, not the
+  //     namespace: the operator runs every scaler. Rule 14 (the queues' depth on
+  //     this cluster's Postgres) is gone with the claim queues: the worker tiers
+  //     scale on Hatchet's backlog in `background-work-pg`, admitted by that
+  //     namespace's own policies (`hatchet-network-policies.ts`).
   const kedaOperator = [{ ...nsLabel(KEDA_NAMESPACE), podSelector: { matchLabels: { ...KEDA_OPERATOR_LABEL } } }];
-
-  // 14. The queues' depth, to scale the ingest-worker and agent-worker tiers
-  //     (ADR-0076, ADR-0079) and the bff_job_queue's, to scale the bff-jobs pool:
-  //     Postgres only, port 5432 only. The operator runs one COUNT(*) there as the
-  //     read-only scaler login.
-  const kedaToPostgres = mk("allow-keda-to-postgres", {
-    podSelector: { matchLabels: { "cnpg.io/cluster": POSTGRES_CLUSTER } },
-    policyTypes: ["Ingress"],
-    ingress: [{ from: kedaOperator, ports: [{ protocol: "TCP", port: 5432 }] }],
-  });
 
   // 15. The fleet's running turns, from the backend's internal occupancy route,
   //     to scale the chat tier (ADR-0080). The backend port only, on the backend
@@ -527,7 +517,6 @@ export function installNetworkPolicies(
     deny,
     intra,
     cnpg,
-    ...(kedaToPostgres ? [kedaToPostgres] : []),
     ...(kedaToBackend ? [kedaToBackend] : []),
     edgeFrontend,
     edgeS3,
