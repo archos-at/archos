@@ -12,7 +12,7 @@
 import 'server-only'
 import { v5 as uuidv5 } from 'uuid'
 import { DOCUMENT_WRITE_PERMISSIONS } from '@/lib/authz/folder-access-rule'
-import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { userHoldsProjectPermissionStrict } from '@/lib/authz/project-membership'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
@@ -23,6 +23,7 @@ import {
   type InboundMailSenderClass,
   type SenderFlag,
 } from './inbound-mail-vocabulary'
+import { DependencyFaultError } from './receive-faults'
 import type { SenderVerdict } from './sender-auth'
 import { senderClassOf } from './sender-class'
 
@@ -35,27 +36,48 @@ export function inboundMailJobId(kind: 'suggest' | 'follow' | 'sender', mailId: 
  * Step 11's class (`./sender-class.ts`) and the window it gives: whether the
  * From's member may write in the project, asked of WorkOS as the person's
  * project access asks it (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project
- * none), and an outsider's shorter wait. A check that fails reads as no write
- * right: the mail then waits for the project's writers instead of filing.
+ * none), and an outsider's shorter wait.
+ *
+ * A write check WorkOS does not answer is a fault (`./receive-faults.ts`), never
+ * a "no": the job tries again later, and only `degraded` (its budget spent)
+ * holds the mail without the answer, flagged `sender_unchecked`, for the
+ * project's writers. A `sender_unchecked` mail waits the full 30 days even when
+ * no member could be named: it may be a member's (migration 0196 holds it).
+ * The flags it returns are the ones to store.
  */
 export async function classified(
   mail: InboundMailRow,
   verdict: SenderVerdict,
   flags: readonly SenderFlag[],
   automatic: boolean,
-): Promise<{ senderClass: InboundMailSenderClass; expiresAt: Date }> {
-  const writes = verdict.senderUserId ? await writesInProject(mail, verdict.senderUserId) : false
-  const senderClass = senderClassOf({ trust: verdict.trust, reason: verdict.reason, senderUserId: verdict.senderUserId, flags, automatic, writes })
-  const days = senderClass === 'external' ? INBOUND_MAIL_EXTERNAL_WAIT_DAYS : INBOUND_MAIL_WAIT_DAYS
-  return { senderClass, expiresAt: new Date(new Date(mail.receivedAt).getTime() + days * 86_400_000) }
+  degraded: boolean,
+): Promise<{ senderClass: InboundMailSenderClass; expiresAt: Date; senderFlags: SenderFlag[] }> {
+  const writes = verdict.senderUserId ? await writesInProject(mail, verdict.senderUserId, degraded) : false
+  const senderFlags = [...new Set<SenderFlag>([...flags, ...(writes === null ? (['sender_unchecked'] as const) : [])])]
+  const senderClass = senderClassOf({
+    trust: verdict.trust,
+    reason: verdict.reason,
+    senderUserId: verdict.senderUserId,
+    flags: senderFlags,
+    automatic,
+    writes: writes === true,
+  })
+  const outsider = senderClass === 'external' && !senderFlags.includes('sender_unchecked')
+  const days = outsider ? INBOUND_MAIL_EXTERNAL_WAIT_DAYS : INBOUND_MAIL_WAIT_DAYS
+  return { senderClass, expiresAt: new Date(new Date(mail.receivedAt).getTime() + days * 86_400_000), senderFlags }
 }
 
-async function writesInProject(mail: InboundMailRow, userId: string): Promise<boolean> {
-  for (const permission of DOCUMENT_WRITE_PERMISSIONS) {
-    const holds = await userHoldsProjectPermission({ organizationId: mail.organizationId }, mail.projectId, userId, permission).catch(() => false)
-    if (holds) return true
+/** Whether the member may write in the project; null when WorkOS did not answer and the budget is spent. */
+async function writesInProject(mail: InboundMailRow, userId: string, degraded: boolean): Promise<boolean | null> {
+  try {
+    for (const permission of DOCUMENT_WRITE_PERMISSIONS) {
+      if (await userHoldsProjectPermissionStrict({ organizationId: mail.organizationId }, mail.projectId, userId, permission)) return true
+    }
+    return false
+  } catch (error) {
+    if (!degraded) throw new DependencyFaultError('write_check', error)
+    return null
   }
-  return false
 }
 
 /**
@@ -82,7 +104,7 @@ export async function announceHeldMail(mail: InboundMailRow & { senderTrust: Non
  * job runs as the sender, re-checks their rights and files as them, or leaves
  * the mail waiting and says so (`./sender-file-job.ts`).
  */
-export async function queueSenderFiling(mail: InboundMailRow): Promise<void> {
+export async function queueSenderFiling(mail: Pick<InboundMailRow, 'id' | 'organizationId' | 'projectId'>): Promise<void> {
   await insertJobIfAbsent({
     kind: 'inbound_mail_sender_file',
     organizationId: mail.organizationId,

@@ -31,7 +31,14 @@ import 'server-only'
 import { and, eq, isNull, lt, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { inboundMailAddresses, inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
-import type { InboundMailCapNotice, InboundSenderTrust, SenderFlag } from './inbound-mail-vocabulary'
+import type {
+  InboundMailCapNotice,
+  InboundMailContentFinding,
+  InboundMailSenderClass,
+  InboundSenderTrust,
+  PartRiskFlag,
+  SenderFlag,
+} from './inbound-mail-vocabulary'
 import type { StoredScan } from './repository'
 import { DAY_MS, mailProjectFree, select } from './sweep-sql'
 
@@ -328,6 +335,102 @@ export async function recordRawRescan(mailId: string, scan: StoredScan): Promise
       updatedAt: new Date(),
     })
     .where(and(eq(inboundMails.id, mailId), eq(inboundMails.rawScanStatus, 'failed'), eq(inboundMails.status, 'waiting')))
+    .returning({ id: inboundMails.id })
+  return rows.length === 1
+}
+
+// ---------------------------------------------------------------------------
+// Sweep 15: texts the reader did not answer for
+// ---------------------------------------------------------------------------
+
+/** How long after the reader last failed a text is read again. */
+export const REREAD_AFTER_MS = 15 * 60 * 1000
+
+/** A waiting mail whose text the Python reader did not answer for (`reader_fault_at`, migration 0196). */
+export interface UnreadText {
+  id: string
+  organizationId: string
+  projectId: string
+  addressId: string
+  stagingBucket: string
+  rawStorageKey: string
+  readerFaultAt: Date
+  senderClass: InboundMailSenderClass | null
+}
+
+/**
+ * Waiting mails, within their window, whose text waits unread because the
+ * reader did not answer, last tried before `REREAD_AFTER_MS` ago, with the raw
+ * message still staged and the text still waiting. Platform scope.
+ */
+export async function findUnreadTexts(now: Date, limit: number): Promise<UnreadText[]> {
+  const due = new Date(now.getTime() - REREAD_AFTER_MS).toISOString()
+  const rows = await select<UnreadText>(sql`
+    SELECT m.id, m.organization_id AS "organizationId", m.project_id AS "projectId", m.address_id AS "addressId",
+           m.staging_bucket AS "stagingBucket", m.raw_storage_key AS "rawStorageKey",
+           m.reader_fault_at AS "readerFaultAt", m.sender_class AS "senderClass"
+      FROM inbound_mails m
+     WHERE m.status = 'waiting' AND m.reader_fault_at IS NOT NULL AND m.reader_fault_at < ${due}::timestamptz
+       AND m.expires_at > ${now.toISOString()}::timestamptz AND m.raw_storage_key IS NOT NULL
+       AND EXISTS (SELECT 1 FROM inbound_mail_parts p WHERE p.mail_id = m.id AND p.kind = 'message' AND p.state = 'waiting')
+     ORDER BY m.reader_fault_at
+     LIMIT ${limit}`)
+  return rows.map((row) => ({ ...row, readerFaultAt: new Date(row.readerFaultAt) }))
+}
+
+/** What a re-read gives the text part and the mail. */
+export interface RereadText {
+  readStorageKey: string
+  sha256: string
+  sizeBytes: number
+  riskFlags: PartRiskFlag[]
+  contentFindings: InboundMailContentFinding[]
+}
+
+/**
+ * The text read at last: the mail's `read.json` and its text part, in one
+ * transaction, compare-and-set on the fault the find saw and on the part
+ * still waiting. False when a person decided first or another run read it.
+ */
+export async function recordReread(mail: UnreadText, text: RereadText): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    const now = new Date()
+    const read = await tx
+      .update(inboundMails)
+      .set({ readStorageKey: text.readStorageKey, readerFaultAt: null, updatedAt: now })
+      .where(and(eq(inboundMails.id, mail.id), eq(inboundMails.status, 'waiting'), faultSeen(mail)))
+      .returning({ id: inboundMails.id })
+    if (read.length === 0) return false
+    const part = await tx
+      .update(inboundMailParts)
+      .set({ sha256: text.sha256, sizeBytes: text.sizeBytes, riskFlags: text.riskFlags, contentFindings: text.contentFindings, updatedAt: now })
+      .where(and(eq(inboundMailParts.mailId, mail.id), eq(inboundMailParts.kind, 'message'), eq(inboundMailParts.state, 'waiting')))
+      .returning({ id: inboundMailParts.id })
+    // Thrown, not `tx.rollback()`, which throws the driver's own error (`LostCompareAndSwap` in documents/version-repository).
+    if (part.length === 0) throw new TextNoLongerWaiting()
+    return true
+  }).catch((error: unknown) => {
+    if (error instanceof TextNoLongerWaiting) return false
+    throw error
+  })
+}
+
+/** The text part was decided between the find and the write: the mail's half rolls back with it. */
+class TextNoLongerWaiting extends Error {}
+
+/**
+ * The fault the find saw, to the millisecond: Postgres keeps microseconds and a
+ * `Date` milliseconds, so a plain equality never matches what was read back.
+ */
+const faultSeen = (mail: UnreadText) =>
+  sql`date_trunc('milliseconds', ${inboundMails.readerFaultAt}) = ${mail.readerFaultAt.toISOString()}::timestamptz`
+
+/** The reader did not answer again: tried again after `REREAD_AFTER_MS`. */
+export async function postponeReread(mail: UnreadText, now: Date): Promise<boolean> {
+  const rows = await getDb()
+    .update(inboundMails)
+    .set({ readerFaultAt: now, updatedAt: now })
+    .where(and(eq(inboundMails.id, mail.id), eq(inboundMails.status, 'waiting'), faultSeen(mail)))
     .returning({ id: inboundMails.id })
   return rows.length === 1
 }

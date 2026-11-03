@@ -25,6 +25,7 @@ import 'server-only'
  * | 4 | five days left: `inbound_mail.expiring`, once per mail | day 25, an outsider's day 9 | — |
  * | 6 | dismissed and expired parts past 7 days, and an outsider's expired parts at once: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days, or the next tick | deferred |
  * | 7 | failed scans: scanned again, hourly, up to 24 times | 1 h | — |
+ * | 15 | texts the reader did not answer for (`reader_fault_at`): read again, while the mail waits (`./receive-reread.ts`) | 15 min | — |
  * | 10 | erasures a hold deferred, once it is released | — | the point |
  * | 8 | settled and dropped rows past their keep, with no live document and nothing owed to the trail: deleted | 30 days | skipped |
  * | 12 | follows past their end or whose document is gone: ended, audited; five days left: `mail_thread.follow_expiring`, once | 60 days, day 55 | — |
@@ -61,6 +62,7 @@ import { projectIsHeld } from './filing-repository'
 import type { InboundMailCapNotice } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
 import { INBOUND_MAIL_ADDRESS_STAGED_BYTES, INBOUND_MAIL_ORGANIZATION_STAGED_BYTES } from './receive'
+import { rereadHeldText } from './receive-reread'
 import { queueReceiveJob } from './repository'
 import { eraseStagedObjects, readStagedObject } from './staging'
 import * as sweeps from './sweep-repository'
@@ -95,6 +97,7 @@ export interface InboundMailSweepResult {
   expiring: SweepCounts
   endedParts: SweepCounts
   rescans: SweepCounts
+  rereads: SweepCounts
   releasedErasures: SweepCounts
   keptMails: SweepCounts
   follows: SweepCounts
@@ -319,6 +322,16 @@ export async function sweepFailedScans(now: Date): Promise<SweepCounts> {
   return result
 }
 
+/** Sweep 15: texts the Python reader did not answer for, read again while their mail waits. */
+export async function sweepUnreadTexts(now: Date): Promise<SweepCounts> {
+  const result = counts('read', 'later', 'gone')
+  const rows = await discover('texts the reader did not answer for', () => sweeps.findUnreadTexts(now, SWEEP_BATCH))
+  await eachRow(rows, result, (row) => `the re-read of mail ${row.id}`, async (row) => {
+    result[await rereadHeldText(row, now)] += 1
+  })
+  return result
+}
+
 /**
  * Sweep 10: what a hold deferred, erased once the hold is released. Each row
  * is taken first, under the find's whole condition with the hold included, and
@@ -471,6 +484,7 @@ const ORDER: ReadonlyArray<[keyof InboundMailSweepResult, (now: Date) => Promise
   ['expiring', sweepExpiringMails],
   ['endedParts', sweepEndedParts],
   ['rescans', sweepFailedScans],
+  ['rereads', sweepUnreadTexts],
   ['releasedErasures', sweepReleasedErasures],
   ['keptMails', sweepKeptMails],
   ['follows', sweepFollows],

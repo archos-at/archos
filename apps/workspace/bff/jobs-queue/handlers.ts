@@ -210,8 +210,9 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   revision_notice: systemHandler(revisionNoticePayloadSchema, runRevisionNotice),
   // Sliced: start the turn, then wait for its answer; the person is resolved in each slice.
   document_check: systemSliceHandler(documentCheckPayloadSchema, runDocumentCheckSlice),
-  // As the system: it reads, scans, labels and holds; it never files (`review-first.spec.ts`).
-  inbound_mail_receive: systemHandler(inboundMailReceivePayloadSchema, runInboundMailReceive),
+  // As the system: it reads, scans, labels and holds; it never files (`review-first.spec.ts`). Sliced only to
+  // wait out a dependency that does not answer without spending an attempt (`inbound-mail/receive-faults.ts`).
+  inbound_mail_receive: systemSliceHandler(inboundMailReceivePayloadSchema, runInboundMailReceive),
   // As the system, metadata only (D21): it fails open, and it imports no filing code (`review-first.spec.ts`).
   inbound_mail_suggest: systemHandler(inboundMailSuggestPayloadSchema, runInboundMailSuggest),
   // As the person who decided: what a person decided, filed through their own

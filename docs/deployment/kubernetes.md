@@ -678,6 +678,18 @@ Record of runs: none yet.
   `unavailable` (storage or database), `cap_reached`, and no `received` for
   24 hours on a deployment that usually receives mail. The receive log line per
   delivery carries ids, sizes and the outcome code only.
+- **A dependency that does not answer delays mail, it does not degrade it.**
+  The receive job gives a WorkOS, DNS, reader, object-store or database fault
+  back to the queue without spending an attempt and tries again after 1, 2, 4,
+  8, 16 and 32 minutes, then hourly, about six hours in all
+  (`lib/inbound-mail/receive-faults.ts`). Each wait is a `bff-jobs` warning
+  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of 11)`. Past
+  the budget the mail is held anyway: a sender WorkOS could not place is
+  flagged `sender_unchecked` (30 days, for the writers, never filed directly),
+  a text the reader did not answer for keeps `reader_fault_at` and sweep 15
+  reads it again every 15 minutes while the mail waits. Alert on the warning
+  rate, and on any `sender_unchecked` or `reader_fault_at` row
+  (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
 - **Retention sweeps** run in the scheduler's background-work call, one log
   line per sweep that acted (§6.3c).
 - **The scanner's image.** The ClamAV pin lives in `deploy/pulumi/src/config.ts`

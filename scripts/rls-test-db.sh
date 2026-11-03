@@ -3271,3 +3271,44 @@ check_in original_0195 "SELECT count(*) FROM pg_proc WHERE proname = 'inbound_ma
 apply_in original_0195 0195_original_author.sql
 check_in original_0195 "SELECT count(*) FROM pg_indexes WHERE indexname IN ('inbound_mails_original_message_id_idx', 'mail_thread_entries_author_message_id_idx')" "2" "0195 applies again after its down"
 echo "==> 0195 original author and its down migration verified"
+# Migration 0196: a dependency that does not answer leaves no frozen guess
+# (ADR-0137; B3 of the 2026-11 ship review).
+#
+# On a database of its own, migrated through 0196: the `sender_unchecked` flag
+# is known, never a verified writer's and never shorter than 30 days, and
+# `reader_fault_at` is a held mail's only; the down refuses while a mail
+# carries the flag (0194 freezes it), and 0196 applies again after it.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0196 receive faults and its down migration on faults_0196"
+migrate_until faults_0196 0196_receive_faults
+U196="user_01J0MA1LUSERA00000000000A1"
+sql_in faults_0196 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES
+  ('a0000000-0000-4000-8000-000000000196', 'org_0196_a', 'Faults A', '$U196', 'proj_0196_a');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES
+  ('aa000000-0000-4000-8000-000000000196', 'org_0196_a', 'a0000000-0000-4000-8000-000000000196', 'aaaaaaaaaaad', '', '$U196');
+SQL
+M196="INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, received_at, expires_at, sender_address, sender_trust, sender_reason, sender_flags, sender_class, reader_fault_at, raw_storage_key)"
+A196="'org_0196_a', 'a0000000-0000-4000-8000-000000000196', 'aa000000-0000-4000-8000-000000000196'"
+# A mail the directory could not place: an outsider's label, a member's 30 days, said so.
+sql_in faults_0196 <<<"$M196 VALUES (gen_random_uuid(), $A196, 'waiting', repeat('1', 64), 1, 'b', 'clean', now(), now(), now() + interval '30 days', 'anna@buero.at', 'external_verified', 'dkim_pass', '{sender_unchecked}', 'external', NULL, NULL);"
+check_in faults_0196 "SELECT sender_class || ',' || array_to_string(sender_flags, ',') FROM inbound_mails WHERE delivery_key = repeat('1', 64)" "external,sender_unchecked" "0196: a held mail whose sender could not be checked"
+refused_in faults_0196 "$M196 VALUES (gen_random_uuid(), $A196, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now(), now() + interval '14 days', 'anna@buero.at', 'external_verified', 'dkim_pass', '{sender_unchecked}', 'external', NULL, NULL)" "inbound_mails_sender_unchecked_full_window" "an unchecked sender's mail given an outsider's 14 days"
+refused_in faults_0196 "$M196 VALUES (gen_random_uuid(), $A196, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now(), now() + interval '30 days', 'anna@buero.at', 'external_verified', 'dkim_pass', '{sender_known_somehow}', 'external', NULL, NULL)" "inbound_mails_sender_flags_known" "an unknown sender flag"
+refused_in faults_0196 "$M196 VALUES ('c2000000-0000-4000-8000-000000000196', $A196, 'received', repeat('2', 64), 1, 'b', 'clean', now(), now(), now() + interval '30 days', NULL, NULL, NULL, '{}', NULL, now(), 'org/org_0196_a/project/a0000000-0000-4000-8000-000000000196/_inbound-mail/c2000000-0000-4000-8000-000000000196/raw.eml')" "inbound_mails_reader_fault_held" "a reader fault on a mail not yet held"
+# The hold's compare-and-set may not make an unchecked sender a verified writer.
+sql_in faults_0196 <<<"$M196 VALUES ('c3000000-0000-4000-8000-000000000196', $A196, 'received', repeat('3', 64), 1, 'b', 'clean', now(), now(), now() + interval '30 days', NULL, NULL, NULL, '{}', NULL, NULL, 'org/org_0196_a/project/a0000000-0000-4000-8000-000000000196/_inbound-mail/c3000000-0000-4000-8000-000000000196/raw.eml');"
+refused_in faults_0196 "UPDATE inbound_mails SET status = 'waiting', sender_address = 'anna@buero.at', sender_trust = 'member_verified', sender_user_id = '$U196', sender_reason = 'dkim_pass', sender_flags = '{sender_unchecked}', sender_class = 'verified_writer' WHERE delivery_key = repeat('3', 64)" "inbound_mails_sender_unchecked_not_direct" "a verified writer's mail no directory confirmed"
+sql_in faults_0196 <<<"UPDATE inbound_mails SET status = 'waiting', sender_address = 'anna@buero.at', sender_trust = 'member_verified', sender_user_id = '$U196', sender_reason = 'dkim_pass', sender_flags = '{sender_unchecked}', sender_class = 'office_member', reader_fault_at = now() WHERE delivery_key = repeat('3', 64);"
+check_in faults_0196 "SELECT sender_class || ',' || (reader_fault_at IS NOT NULL)::text FROM inbound_mails WHERE delivery_key = repeat('3', 64)" "office_member,true" "0196: held unchecked for the writers, its text waiting for the reader"
+check_in faults_0196 "SELECT count(*) FROM pg_indexes WHERE indexname = 'inbound_mails_reader_fault_idx'" "1" "0196: the re-read sweep's index"
+# Down: refused while a mail carries the flag; clean once none does; 0196 applies again.
+apply_in faults_0196 0196_receive_faults.sql
+refused_in faults_0196 "$(cat migrations/0196_receive_faults.down.sql)" "reverse 0196 refused" "the down while a mail carries sender_unchecked"
+sql_in faults_0196 <<<"DELETE FROM inbound_mails WHERE 'sender_unchecked' = ANY (sender_flags);"
+apply_in faults_0196 0196_receive_faults.down.sql
+check_in faults_0196 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'inbound_mails' AND column_name = 'reader_fault_at'" "0" "0196 down drops reader_fault_at"
+refused_in faults_0196 "INSERT INTO inbound_mails (organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, expires_at, sender_address, sender_trust, sender_reason, sender_flags, sender_class) VALUES ($A196, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), now() + interval '30 days', 'anna@buero.at', 'external_verified', 'dkim_pass', '{sender_unchecked}', 'external')" "inbound_mails_sender_flags_known" "the flag once 0196 is reverted"
+apply_in faults_0196 0196_receive_faults.sql
+check_in faults_0196 "SELECT count(*) FROM pg_constraint WHERE conname IN ('inbound_mails_sender_unchecked_not_direct', 'inbound_mails_sender_unchecked_full_window', 'inbound_mails_reader_fault_held')" "3" "0196 applies again after its down"
+echo "==> 0196 receive faults and its down migration verified"

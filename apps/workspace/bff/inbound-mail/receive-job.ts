@@ -23,12 +23,12 @@
  *     its key (a legal hold defers that). List and bulk mail is kept, marked
  *     `automatic`. A forward records its original's author (`./receive-original`);
  *     its original's Message-ID is the sender's word and never drops a delivery.
- *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a transient verdict retries.
+ *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a transient verdict is a fault.
  *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
  *     find the member by exact address, or an outsider's display name that
  *     claims a member's (`claims_member_name`), and whether that member may
- *     write in the project (`project:documents:write`; a failed check reads
- *     as no: the mail then waits for the project's writers).
+ *     write in the project (`project:documents:write`). A directory or write
+ *     check WorkOS does not answer is a fault, never a "no".
  *  6. The Namensprüfung on each attachment's name and the base subject.
  *  7. Scan each attachment.
  *  8. The Python reader (`/v1/mail/read`): own text, quotes, invitations; the
@@ -50,9 +50,14 @@
  *     suggestion unless `suggestionSkipReason` says otherwise (an unconfirmed
  *     sender, an impersonation, automatic mail).
  *
- * A failure retries through the queue. On the last attempt the mail is held
- * anyway, flagged `unreadable`, with a text part whose original can be
- * downloaded once its scan is clean: mail is never lost to a parser bug.
+ * A dependency that does not answer (WorkOS, DNS for DKIM, the reader, the
+ * object store, the database) spends no attempt: the job waits it out for
+ * about six hours and only then holds the mail with what it could not learn,
+ * flagged, never guessed (`./receive-faults.ts`). Any other failure retries
+ * through the queue, and on the last attempt the mail is held anyway, flagged
+ * `unreadable`, with a text part whose original can be downloaded once its scan
+ * is clean: mail is never lost to a parser bug. Its sender keeps the class the
+ * evidence gave before the failure, or `sender_unchecked` when there was none.
  */
 
 import 'server-only'
@@ -66,11 +71,11 @@ import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbo
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
-import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt } from '@/lib/jobs-queue/types'
-import { baseSubject, clampSentAt, domainOf, matchThread } from '@/lib/mail-thread/mail-threading'
+import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
+import { baseSubject, clampSentAt, matchThread } from '@/lib/mail-thread/mail-threading'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
-import { asciiLower, inboundMailDomain, redactProjectAddresses } from './address'
+import { inboundMailDomain, redactProjectAddresses } from './address'
 import { classifyAutomaticMail } from './automatic-mail'
 import { judgeFollow } from './follow-candidate'
 import { NULL_SENDER } from './contract'
@@ -79,13 +84,22 @@ import {
   type InboundMailContentFinding,
   type InboundMailIgnoredCounts,
   type InboundMailNotStaged,
-  type MailParticipant,
   type PartRiskFlag,
   type SenderFlag,
 } from './inbound-mail-vocabulary'
 import { scanForStorage } from './malware-scan'
-import { rawHeaderFields, readMime, type MailAttachment, type MailHeaders, type NotStagedPart } from './mime'
-import { MailReadRefusedError, readMail, redactRead, unreadableRead, type MailRead } from './read-client'
+import { rawHeaderFields, readMime, type MailAttachment, type NotStagedPart } from './mime'
+import { redactRead, unreadableRead, type MailRead } from './read-client'
+import { mailParticipants, participantDomainsOf, recipientCountOf } from './receive-participants'
+import {
+  dependencyOf,
+  DependencyFaultError,
+  fromObjectStore,
+  nextFaultTry,
+  readHeldText,
+  RECEIVE_FAULT_BUDGET,
+  senderIdentityFor,
+} from './receive-faults'
 import { recordOriginal } from './receive-original'
 import {
   dropMail,
@@ -105,19 +119,39 @@ import {
 } from './repository'
 import { mailScreeningFor, type MailScreening } from './screening'
 import { authenticateSender, dateHeaderOf, isTransientReason, judgeSender, type SenderVerdict } from './sender-auth'
-import { claimsMemberName } from './sender-risk'
-import { eraseStagedObjects, putStagedObject, readStagedObject, stagedObjectUrlForBackend } from './staging'
+import { eraseStagedObjects, putStagedObject, readStagedObject } from './staging'
 import { suggestionSkipReason } from './suggest'
 import { announceHeldMail, classified, inboundMailJobId, queueSenderFiling } from './receive-sender'
 
 export { inboundMailJobId } from './receive-sender'
 
-/** The job's step (`systemHandler`): throws to retry, holds the mail anyway on its last attempt. */
+/**
+ * The job's slice (`systemSliceHandler`): one run, done, or given back while a
+ * dependency does not answer (`./receive-faults.ts`). Throws to retry a bug;
+ * holds the mail anyway on its last attempt.
+ */
 export async function runInboundMailReceive(
   organizationId: string,
   payload: InboundMailReceivePayload,
   attempt: JobAttempt,
-): Promise<void> {
+): Promise<JobSliceResult<InboundMailReceivePayload>> {
+  const faults = payload.faults ?? 0
+  try {
+    await receive(organizationId, payload, attempt, faults >= RECEIVE_FAULT_BUDGET)
+    return { done: true, payload }
+  } catch (error) {
+    const dependency = dependencyOf(error)
+    const notBefore = dependency ? nextFaultTry(faults, new Date()) : null
+    if (!dependency || !notBefore) throw error
+    console.warn(
+      `[inbound-mail] mail ${payload.mailId}: the ${dependency} did not answer (${faults + 1} of ${RECEIVE_FAULT_BUDGET}); again at ${notBefore.toISOString()}`,
+    )
+    return { done: false, payload: { ...payload, faults: faults + 1 }, notBefore }
+  }
+}
+
+/** One run. `degraded`: the fault budget is spent, so what a dependency could not answer is held as unknown. */
+async function receive(organizationId: string, payload: InboundMailReceivePayload, attempt: JobAttempt, degraded: boolean): Promise<void> {
   const mail = await findMailForReceive(payload.mailId)
   if (!mail || mail.projectId !== payload.projectId || mail.organizationId !== organizationId) return
   const domain = inboundMailDomain()
@@ -129,7 +163,8 @@ export async function runInboundMailReceive(
   }
   if (mail.status !== 'received' || !mail.rawStorageKey) return
 
-  const raw = await readStagedObject(mail.stagingBucket, mail.rawStorageKey)
+  const rawKey = mail.rawStorageKey
+  const raw = await fromObjectStore(() => readStagedObject(mail.stagingBucket, rawKey))
   if (mail.rawScanStatus === 'pending') await recordRawScan(mail.id, await scanForStorage(raw))
 
   const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
@@ -137,13 +172,16 @@ export async function runInboundMailReceive(
   // A forward: who wrote the original (`./receive-original`). Never a reason to drop: anyone can write its Message-ID.
   await recordOriginal(mail, raw, domain)
 
+  // What the run learned of the sender before anything failed: a mail held unreadable keeps it.
+  const evidence: SenderEvidence = {}
   let held: boolean
   try {
-    held = await readAndHold(mail, raw, domain, automatic.automatic, attempt)
+    held = await readAndHold(mail, raw, domain, automatic.automatic, degraded, evidence)
   } catch (error) {
-    if (!attempt.last) throw error
+    const fault = dependencyOf(error) !== null
+    if (fault ? !degraded : !attempt.last) throw error
     console.error(`[inbound-mail] mail ${mail.id} could not be read (${errorName(error)}); holding it as unreadable`)
-    held = await holdUnreadable(mail, raw, automatic.automatic)
+    held = await holdUnreadable(mail, raw, automatic.automatic, evidence)
   }
   if (held) await afterHold(mail.id, domain, raw)
 }
@@ -179,39 +217,47 @@ async function drop(mail: InboundMailRow, reason: NonNullable<InboundMailRow['dr
 // Steps 4-11: read, label, hold
 // ---------------------------------------------------------------------------
 
-/** A transient answer a later attempt may change: the queue retries it. */
-class RetryLaterError extends Error {}
+/** The sender as far as a run judged it: the verdict and the flags it carries. */
+interface SenderEvidence {
+  verdict?: SenderVerdict
+  flags?: SenderFlag[]
+}
 
 async function readAndHold(
   mail: InboundMailRow,
   raw: Uint8Array,
   domain: string,
   automatic: boolean,
-  attempt: JobAttempt,
+  degraded: boolean,
+  evidence: SenderEvidence,
 ): Promise<boolean> {
   const token = await findAddressToken(mail.addressId)
   if (!token) throw new Error(`the address of mail ${mail.id} is gone`)
   const authentication = await authenticateSender(raw, { projectToken: token, inboundDomain: domain, envelopeFrom: mail.envelopeFrom })
-  if (isTransientReason(authentication.reason) && !attempt.last) {
-    throw new RetryLaterError(`sender authentication was inconclusive (${authentication.reason})`)
+  if (isTransientReason(authentication.reason) && !degraded) {
+    throw new DependencyFaultError('dkim_dns', new Error(`sender authentication was inconclusive (${authentication.reason})`))
   }
   const mime = await readMime(raw, { acceptedTypes: await acceptedTypesForOrganization(mail.organizationId) })
   const fromName = mime.kind === 'read' ? (mime.headers.from?.name ?? null) : null
-  const identity = await senderIdentityFor(mail.organizationId, authentication.fromAddress, fromName, attempt)
+  const identity = await senderIdentityFor(mail.organizationId, authentication.fromAddress, fromName, degraded)
   const sentAtHeader = mime.kind === 'read' ? mime.headers.sentAtHeader : dateHeaderOf(raw)
-  const verdict = judgeSender(authentication, { ...identity, receivedAt: mail.receivedAt, sentAtHeader })
-  if (mime.kind === 'unreadable') return holdUnreadable(mail, raw, automatic, verdict)
+  const { memberUserId, claimsMemberName } = identity
+  const verdict = judgeSender(authentication, { memberUserId, claimsMemberName, receivedAt: mail.receivedAt, sentAtHeader })
+  evidence.verdict = verdict
+  evidence.flags = [...verdict.flags, ...(identity.unchecked ? (['sender_unchecked'] as const) : [])]
+  if (mime.kind === 'unreadable') return holdUnreadable(mail, raw, automatic, evidence)
 
   const screening = await mailScreeningFor(mail.organizationId, mail.projectId)
   const scans = await Promise.all(mime.attachments.map((attachment) => scanForStorage(attachment.content)))
-  const read = redactRead(await readText(mail, attempt), (text) => redactProjectAddresses(text, domain, token))
+  const text = await readHeldText(mail, degraded)
+  const read = redactRead(text.read, (text) => redactProjectAddresses(text, domain, token))
   const redact = (text: string) => redactProjectAddresses(text, domain, token)
   const subject = mime.headers.subject === null ? null : redact(mime.headers.subject)
   const participants = mailParticipants(mime.headers, domain, redact)
   const base = baseSubject(subject)
   const ownTextSha256 = sha256Hex(read.ownText)
 
-  const flags: SenderFlag[] = [...verdict.flags, ...(await messageIdFlags(mail.projectId, mime.headers.messageId, ownTextSha256))]
+  const flags: SenderFlag[] = [...evidence.flags, ...(await messageIdFlags(mail.projectId, mime.headers.messageId, ownTextSha256))]
   const candidates = await findThreadCandidates(mail.projectId, {
     messageIds: [mime.headers.messageId, ...mime.headers.inReplyTo, ...mime.headers.references].filter((id): id is string => !!id),
     threadIndexGuid: mime.headers.threadIndexGuid,
@@ -235,16 +281,18 @@ async function readAndHold(
   const attachmentParts = await attachmentPartsOf(mail, mime.attachments, scans, screening)
   for (const [index, attachment] of mime.attachments.entries()) {
     const key = attachmentParts[index].storageKey as string
-    await putStagedObject(mail.stagingBucket, key, attachment.content, attachmentParts[index].contentType)
+    await fromObjectStore(() => putStagedObject(mail.stagingBucket, key, attachment.content, attachmentParts[index].contentType))
   }
   const readKey = inboundMailStagingKey(owner, mail.id, 'read.json')
-  await putStagedObject(mail.stagingBucket, readKey, Buffer.from(JSON.stringify(read)), 'application/json')
+  await fromObjectStore(() => putStagedObject(mail.stagingBucket, readKey, Buffer.from(JSON.stringify(read)), 'application/json'))
 
   const messagePart = textPartOf(mail, read, ownTextSha256, screening.contentFindings(read.ownText))
   const fields: HeldMailFields = {
     ...senderFields(verdict, flags, mail, mime.headers.from?.address ?? null),
-    ...(await classified(mail, verdict, flags, automatic)),
+    ...(await classified(mail, verdict, flags, automatic, degraded)),
     readStorageKey: readKey,
+    // The reader did not answer for the whole budget: the sweep reads the text again (`./receive-reread.ts`).
+    readerFaultAt: text.readerFault ? new Date() : null,
     messageId: mime.headers.messageId,
     inReplyTo: mime.headers.inReplyTo.slice(0, 5),
     referenceIds: mime.headers.references.slice(0, 50),
@@ -260,93 +308,6 @@ async function readAndHold(
     ...notStagedFields(mime.notStaged, mime.notStagedOverflow, redact),
   }
   return holdMail(mail.id, fields, [messagePart, ...attachmentParts])
-}
-
-/**
- * Who the From is in the office's directory: the member whose address it is,
- * exact after ASCII lower-casing (display names never make a member, D4), and
- * whether an outsider's display name claims a member's name
- * (`claims_member_name`, `./sender-risk`). An unreadable directory reads as an
- * empty one, which would label a member's mail as a stranger's and miss every
- * claimed name: retried, and on the last attempt taken as "no member, no
- * claim" (the label then stays as unconfirmed as the signature says).
- */
-async function senderIdentityFor(
-  organizationId: string,
-  fromAddress: string | null,
-  fromName: string | null,
-  attempt: JobAttempt,
-): Promise<{ memberUserId: string | null; claimsMemberName: boolean }> {
-  if (!fromAddress) return { memberUserId: null, claimsMemberName: false }
-  const directory = await loadOrganizationDirectory(organizationId)
-  if (directory.size === 0 && !attempt.last) throw new RetryLaterError('the member directory could not be read')
-  const wanted = asciiLower(fromAddress.trim())
-  for (const person of directory.values()) {
-    if (person.email && asciiLower(person.email.trim()) === wanted) return { memberUserId: person.userId, claimsMemberName: false }
-  }
-  return { memberUserId: null, claimsMemberName: claimsMemberName(fromName, [...directory.values()].map((person) => person.name)) }
-}
-
-/** Step 8: the Python reader. A refusal is permanent and reads as unreadable; any other fault retries until the last attempt. */
-async function readText(mail: InboundMailRow, attempt: JobAttempt): Promise<MailRead> {
-  try {
-    return await readMail(await stagedObjectUrlForBackend(mail.stagingBucket, mail.rawStorageKey as string))
-  } catch (error) {
-    if (error instanceof MailReadRefusedError) {
-      console.error(`[inbound-mail] the reader refused mail ${mail.id}; its text is held as unreadable`)
-      return unreadableRead('failed')
-    }
-    if (!attempt.last) throw error
-    return unreadableRead('failed')
-  }
-}
-
-/**
- * The participants a person is shown: From, Reply-To, To and Cc (the Sender
- * field is the mailbox that submitted it, not a party), the project addresses
- * of this deployment taken out (B8: they are not people), every display name
- * redacted.
- */
-function mailParticipants(headers: MailHeaders, domain: string, redact: (text: string) => string): MailParticipant[] {
-  const participants: MailParticipant[] = []
-  for (const participant of headers.participants) {
-    if (participant.role === 'sender') continue
-    if (isOurDomain(participant.domain, domain)) continue
-    participants.push({
-      role: participant.role,
-      name: participant.name ? redact(participant.name).slice(0, 300) : null,
-      address: participant.address.slice(0, 320),
-    })
-  }
-  return participants
-}
-
-/**
- * The To/Cc recipients the mail names, the project addresses taken out as
- * `mailParticipants` takes them out, at most 1000 (the CHECK). Exact while the
- * participant cap kept every recipient; past it, a project address the cap cut
- * is still counted, so the count only errs high: condition 5 of a follow
- * (`followEligibility`) refuses a mail with more recipients than it checked.
- */
-function recipientCountOf(headers: MailHeaders, domain: string): number {
-  const own = headers.participants.filter(
-    (participant) => (participant.role === 'to' || participant.role === 'cc') && isOurDomain(participant.domain, domain),
-  ).length
-  return Math.min(Math.max(headers.recipientCount - own, 0), 1000)
-}
-
-function isOurDomain(candidate: string | null, domain: string): boolean {
-  return candidate !== null && (candidate === domain || candidate.endsWith(`.${domain}`))
-}
-
-/** Distinct participant domains in one form (`domainOf`), at most 50 (the CHECK). */
-function participantDomainsOf(participants: readonly MailParticipant[]): string[] {
-  const domains = new Set<string>()
-  for (const participant of participants) {
-    const domain = domainOf(participant.address)
-    if (domain) domains.add(domain)
-  }
-  return [...domains].slice(0, 50)
 }
 
 /**
@@ -485,34 +446,38 @@ function notStagedFields(
 /**
  * The mail held without being read (the last attempt failed, or the parser
  * refused the message): one text part flagged `unreadable`, the sender as the
- * verdict knows it or else unverified, the Date clamped. The original is
+ * run judged it before it failed. A sender it never judged is not called an
+ * outsider: unverified, nobody's member, flagged `sender_unchecked`, so it
+ * waits the full 30 days for the project's writers. The original is
  * downloadable once its scan is clean; a raw scan that never ran counts as
  * `failed` and the sweep scans it again.
  */
-async function holdUnreadable(mail: InboundMailRow, raw: Uint8Array, automatic: boolean, known?: SenderVerdict): Promise<boolean> {
+async function holdUnreadable(mail: InboundMailRow, raw: Uint8Array, automatic: boolean, evidence: SenderEvidence): Promise<boolean> {
   const current = await findMailForReceive(mail.id)
   if (!current || current.status !== 'received') return false
   if (current.rawScanStatus === 'pending') {
     await recordRawScan(mail.id, { status: 'failed', engine: null, signature: null, scannedAt: new Date() })
   }
-  const verdict = known ?? unverifiedVerdict(mail.receivedAt, dateHeaderOf(raw))
+  const verdict = evidence.verdict ?? uncheckedVerdict(mail.receivedAt, dateHeaderOf(raw))
+  const flags = evidence.flags ?? verdict.flags
   const read = unreadableRead('failed')
   const fields: HeldMailFields = {
-    ...senderFields(verdict, verdict.flags, mail, null),
-    ...(await classified(mail, verdict, verdict.flags, automatic)),
+    ...senderFields(verdict, flags, mail, null),
+    // No retry is left to wait for a write check here: one WorkOS does not answer is held unchecked.
+    ...(await classified(mail, verdict, flags, automatic, true)),
     readStorageKey: null,
     automatic,
   }
   return holdMail(mail.id, fields, [textPartOf(mail, read, sha256Hex(''), [])])
 }
 
-/** The verdict of a mail whose sender could not be checked at all: unverified, nobody's member. */
-function unverifiedVerdict(receivedAt: Date, sentAtHeader: Date | null): SenderVerdict {
+/** The verdict of a mail whose sender could not be checked at all: unverified, nobody's member, and said so. */
+function uncheckedVerdict(receivedAt: Date, sentAtHeader: Date | null): SenderVerdict {
   const clamped = clampSentAt(sentAtHeader, receivedAt)
   return {
     trust: 'external_unverified',
     senderUserId: null,
-    flags: clamped.outOfRange ? ['date_out_of_range'] : [],
+    flags: [...(clamped.outOfRange ? (['date_out_of_range'] as const) : []), 'sender_unchecked'],
     reason: 'verifier_error',
     signerDomain: null,
     signedHeaders: [],

@@ -166,6 +166,12 @@ export const inboundMails = pgTable(
     erasureDeferredAt: timestamp('erasure_deferred_at', { withTimezone: true }),
     originalMovePendingAt: timestamp('original_move_pending_at', { withTimezone: true }),
     /**
+     * The Python reader did not answer while the receive job held the mail
+     * (migration 0196): its text waits unreadable, and the sweep reads it
+     * again from this time on while the mail waits. Null once read.
+     */
+    readerFaultAt: timestamp('reader_fault_at', { withTimezone: true }),
+    /**
      * The original message a forward carried (`lib/inbound-mail/original-message.ts`,
      * migration 0195): who wrote it, when, about what. Attribution, never
      * verified; the author and subject are cleared when the mail ends (trigger).
@@ -216,6 +222,9 @@ export const inboundMails = pgTable(
     erasureDeferredIdx: index('inbound_mails_erasure_deferred_idx')
       .on(table.erasureDeferredAt)
       .where(sql`${table.erasureDeferredAt} IS NOT NULL`),
+    readerFaultIdx: index('inbound_mails_reader_fault_idx')
+      .on(table.readerFaultAt)
+      .where(sql`${table.readerFaultAt} IS NOT NULL AND ${table.status} = 'waiting'`),
     originalMoveIdx: index('inbound_mails_original_move_idx')
       .on(table.originalMovePendingAt)
       .where(sql`${table.originalMovePendingAt} IS NOT NULL`),

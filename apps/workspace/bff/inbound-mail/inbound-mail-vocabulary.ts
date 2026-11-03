@@ -157,6 +157,11 @@ export type SenderReason = (typeof SENDER_REASONS)[number]
  *   `claimsMemberName`): „Miriam Huber <miriam.huber@mail.example>“. The
  *   classic payment-diversion mail. Only on an `external_*` mail (the database
  *   holds the pairing): a member's own address is a `member_*` mail.
+ * - `sender_unchecked`: the receive job could not ask WorkOS who the sender
+ *   is to the project (the directory or the write check did not answer for
+ *   its whole fault budget, `./receive-faults`). Never a verified writer's,
+ *   and never an outsider's 14 days: it waits the full 30 (migration 0196
+ *   holds both), and the E-Mail-Eingang says it could not be checked.
  */
 export const SENDER_FLAGS = [
   'not_addressed_to_project',
@@ -166,6 +171,7 @@ export const SENDER_FLAGS = [
   'message_id_reused',
   'already_filed',
   'claims_member_name',
+  'sender_unchecked',
 ] as const
 export type SenderFlag = (typeof SENDER_FLAGS)[number]
 

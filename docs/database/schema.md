@@ -1047,19 +1047,20 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
 | `signer_domain` | `text` | ≤ 253 | |
 | `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
-| `sender_flags` | `text[]` | `<@` `not_addressed_to_project`, `bcc_own`, `stale_date`, `date_out_of_range`, `message_id_reused`, `already_filed`, `claims_member_name` | `bcc_own` only with `not_addressed_to_project` on `member_verified` (`inbound_mails_bcc_own_paired`); `claims_member_name` only on `external_*` (`inbound_mails_member_name_claim_external`) |
+| `sender_flags` | `text[]` | `<@` `not_addressed_to_project`, `bcc_own`, `stale_date`, `date_out_of_range`, `message_id_reused`, `already_filed`, `claims_member_name`, `sender_unchecked` (0196) | `bcc_own` only with `not_addressed_to_project` on `member_verified` (`inbound_mails_bcc_own_paired`); `claims_member_name` only on `external_*` (`inbound_mails_member_name_claim_external`); `sender_unchecked` (WorkOS did not answer for the receive job's whole fault budget, or the sender was never judged) never on a `verified_writer` (`inbound_mails_sender_unchecked_not_direct`) and never with less than 30 days (`inbound_mails_sender_unchecked_full_window`) |
 | `authentication_results` | `text` | ≤ 4096, never containing `spf=` (`inbound_mails_authentication_results_shape`) | Our RFC 8601 line from DKIM and DMARC only |
 | `automatic` | `boolean` | NOT NULL, default false | List, bulk or auto-generated mail: held, announced collapsed, no model spend |
 | `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`; set exactly when `dropped` | A forward is never dropped for its original (0195, below) |
 | `sent_at`, `sent_at_header` | `timestamptz` | | The clamped Date and the sender's claim |
 | `received_at` | `timestamptz` | NOT NULL | |
-| `expires_at` | `timestamptz` | NOT NULL, after `received_at` | 30 days at receipt; the hold sets 14 for an `external` mail (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`); a restore may move it later |
+| `expires_at` | `timestamptz` | NOT NULL, after `received_at` | 30 days at receipt; the hold sets 14 for an `external` mail (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) unless it is `sender_unchecked`; a restore may move it later |
 | `settled_at` | `timestamptz` | set exactly when `settled` | |
 | `notified_at`, `expiring_notified_at` | `timestamptz` | | Told once |
 | `not_staged` | `jsonb` | array ≤ 100 | `[{ filename, reason }]` while waiting |
 | `ignored` | `jsonb` | object | Counts by reason after settling |
 | `erasure_deferred_at` | `timestamptz` | | A hold stopped the erasure; sweep 10 retries after release |
 | `original_move_pending_at` | `timestamptz` | | The raw message is moving to a filed entry's original; sweep 13 finishes a stopped move |
+| `reader_fault_at` | `timestamptz` | only on `waiting` or `settled` (`inbound_mails_reader_fault_held`) | Migration 0196. The Python reader did not answer for the receive job's whole fault budget: the text waits `unreadable` and sweep 15 reads it again from this time on while the mail waits; NULL once read. A text the reader answered for (a refusal, a timeout inside it) never carries it |
 | `original_author_address` (≤ 320), `original_author_name` (≤ 300), `original_subject` (≤ 998) | `text` | `inbound_mails_original_lengths`; NULL once the mail ends (trigger `inbound_mails_scrub_original`, CHECK `inbound_mails_original_scrubbed`) | Migration 0195. Who wrote the original a forward carried (`original-message.ts`, read by `receive-original.ts`): attribution, never verified; the `sender_*` columns stay the forwarder's |
 | `original_sent_at` | `timestamptz` | | When the original was written, as the forward said; never after the forward arrived |
 | `original_message_id` | `text` | 1..998; only with source `attachment` (`inbound_mails_original_message_id_attached`); never unique | Kept after the mail ends. What the attached `.eml` says, the sender's word: it drops and merges no delivery, and filing reads it against `mail_thread_entries.author_message_id` (below) |
@@ -1100,7 +1101,8 @@ Indexes: `inbound_mails_waiting_idx` (org, project, received_at; waiting),
 `_expiry_idx`, `_receiving_idx` (updated_at; receiving or received),
 `_settled_idx`, `_dropped_idx`, `_message_id_idx` (project, message_id),
 `_erasure_deferred_idx`, `_original_move_idx`, `_original_message_id_idx`
-(project, original_message_id; set).
+(project, original_message_id; set), `_reader_fault_idx` (reader_fault_at; set,
+`waiting`; 0196).
 
 ### inbound_mail_parts
 
@@ -1239,7 +1241,7 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 | `sender_address`, `sender_name`, `sender_domain`, `signer_domain` | `text` | lengths | |
 | `sender_trust` | `text` | the four inbound labels or `not_checked`; `not_checked` exactly for `archive` | |
 | `authentication_results` | `text` | ≤ 4096, no `spf=` | |
-| `author_address` (≤ 320), `author_name` (≤ 300), `author_sent_at`, `author_message_id` (1..998) | | `mail_thread_entries_author_lengths`; only on `inbound`, and only with a name or an address (`mail_thread_entries_author_named`) | Migration 0195. Who wrote a forwarded message, from the mail's `original_*`: the heading names the author at `author_sent_at` with „Domain nicht bestätigt“, the line „Weitergeleitet von“ names the sender. another mail's forward of the same original is then filed as its forwarder's own message, never as the original's second section |
+| `author_address` (≤ 320), `author_name` (≤ 300), `author_sent_at`, `author_message_id` (1..998) | | `mail_thread_entries_author_lengths`; only on `inbound`, and only with a name or an address (`mail_thread_entries_author_named`) | Migration 0195. Who wrote a forwarded message, from the mail's `original_*`: the heading names the author at `author_sent_at` with „Domain nicht bestätigt“, the line „Weitergeleitet von“ names the sender. Another mail's forward of the same original is then filed as its forwarder's own message, never as the original's second section |
 | `participants` (≤ 50), `quoted` (≤ 50), `calendar` (≤ 20), `masked_spans` (≤ 1000 or NULL) | `jsonb` | arrays | `masked_spans` set when the person chose „Unkenntlich ablegen“ |
 | `own_text` | `text` | ≤ 524288 bytes | |
 | `first_version_id` | `uuid` | FK `(first_version_id, project_id)` → `document_versions (id, project_id)`, SET NULL on the one column | The first Fassung that holds it, whoever wrote that Fassung; always a Fassung of this project's |

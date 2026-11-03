@@ -82,7 +82,11 @@ vi.mock('@/lib/inbound-mail/sender-auth', async (importOriginal) => {
 vi.mock('@/lib/documents/accepted-types', () => ({
   acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md']),
 }))
-vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn() }))
+// The receive job asks the strict form (a failed read is a fault, `receive-faults.ts`); both answer the same here.
+vi.mock('@/lib/sharing/directory', () => {
+  const loadOrganizationDirectory = vi.fn()
+  return { loadOrganizationDirectory, loadOrganizationDirectoryStrict: loadOrganizationDirectory }
+})
 vi.mock('@/lib/upload-screening/service', async (importOriginal) => {
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
   return {
@@ -112,7 +116,10 @@ vi.mock('@/lib/authz/folder-access', async (importOriginal) => ({
 }))
 // The replying member may not write in the project: their reply waits, and the follow is what appends it.
 // (A writer's own signed reply is filed as them instead: `review-first.e2e.spec.ts`.)
-vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermission: vi.fn(async () => false) }))
+vi.mock('@/lib/authz/project-membership', () => {
+  const userHoldsProjectPermission = vi.fn(async () => false)
+  return { userHoldsProjectPermission, userHoldsProjectPermissionStrict: userHoldsProjectPermission }
+})
 vi.mock('@/lib/inbound-mail/announce', () => ({
   announceWaiting: vi.fn(async () => true),
   announceAppended: vi.fn(async () => true),

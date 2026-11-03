@@ -24,6 +24,7 @@ const repository = vi.hoisted(() => {
     findEndedPartBytes: empty(),
     findMailsToSettle: empty(),
     findFailedScans: empty(),
+    findUnreadTexts: empty(),
     findReleasedErasures: empty(),
     findKeptMails: empty(),
     deleteKeptMails: empty(),
@@ -43,6 +44,7 @@ vi.mock('./audit', () => ({ auditDecisions: vi.fn() }))
 vi.mock('./filing-repository', () => ({ projectIsHeld: vi.fn() }))
 vi.mock('./malware-scan', () => ({ scanForStorage: vi.fn() }))
 vi.mock('./repository', () => ({ queueReceiveJob: vi.fn() }))
+vi.mock('./receive-reread', () => ({ rereadHeldText: vi.fn() }))
 vi.mock('./staging', () => ({ eraseStagedObjects: vi.fn(), readStagedObject: vi.fn() }))
 vi.mock('./receive', () => ({
   INBOUND_MAIL_ADDRESS_STAGED_BYTES: 1024 * 1024 * 1024,
@@ -75,8 +77,8 @@ describe('the order the sweeps run in', () => {
     expect(at('follows')).toBeLessThan(at('threads'))
   })
 
-  it('runs every sweep of DECISION §5, and the caps, once', () => {
-    expect(new Set(SWEEP_ORDER).size).toBe(14)
+  it('runs every sweep of DECISION §5, the caps and the re-reads, once', () => {
+    expect(new Set(SWEEP_ORDER).size).toBe(15)
   })
 })
 
