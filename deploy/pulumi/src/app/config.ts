@@ -530,10 +530,9 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // The corpus export (`/api/internal/oib-corpus`). No caller since the
     // answer-suite CI workflow was removed; unset disables it.
     sref("CORPUS_EXPORT_TOKEN"),
-    // Project mail (ADR-0138). The key map is always wired, and empty fails
-    // closed. The domain is absent rather than empty while the feature is off
-    // or switched off, which is what hides the address in the UI; the pause
-    // makes the webhook answer 503, the Worker's own pause aside.
+    // Project mail (ADR-0138). The key map is always wired; empty fails closed. The domain is
+    // absent while the feature is off, which hides the address in the UI; the pause makes the
+    // webhook answer 503, the Worker's own pause aside.
     sref("INBOUND_MAIL_SIGNING_KEYS"),
     ...(cfg.inboundMail.enabled
       ? [

@@ -20,6 +20,8 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        # The forward fixtures are what mail programs write, trailing spaces included.
+        exclude: ^apps/workspace/bff/inbound-mail/__fixtures__/forwards/
 
   - repo: local
     hooks:

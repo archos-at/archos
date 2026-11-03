@@ -5,7 +5,6 @@
  */
 
 import * as pulumi from "@pulumi/pulumi";
-import type { DeployConfig } from "../config";
 import { bool, requireSecretsTogether } from "./readers";
 
 /** The keyid shape the BFF accepts (`usableSigningKeys`, `apps/workspace/bff/internal-auth.ts`). */
@@ -16,6 +15,64 @@ const SIGNING_KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
  * `p+<slug>.<token>@<domain>`. `DEFAULT_LOCAL_PART` in the BFF's `address.ts`
  * and `localPart` in `contracts/inbound-address.json` say the same.
  */
+/**
+ * Project mail (ADR-0138, `platform/inbound-mail.ts`): Cloudflare Email
+ * Routing on `domain` (a subdomain such as `inbox.example.org`), whose one
+ * literal rule `<localPart>@<domain>` hands the Email Worker every
+ * `<localPart>+<slug>.<token>@<domain>` through subaddressing. The Worker
+ * signs each message (RFC 9421) and posts it to the BFF's
+ * `/api/internal/signed/inbound-mail`.
+ *
+ * Three states, outermost switch first:
+ *   - **unset** (`inboundMailDomain` absent): nothing at Cloudflare, no
+ *     `INBOUND_MAIL_DOMAIN` on the frontend (the UI shows no address),
+ *     an empty key map (the route answers 503).
+ *   - **on**: routing, the rule pointing at the Worker, the Worker.
+ *   - **managed off** (`inboundMailEnabled: false`, the domain kept): the
+ *     rule stays declared but disabled, so Cloudflare refuses the addresses
+ *     at SMTP time and the sender learns to write elsewhere; the Worker is
+ *     deleted once the rule no longer names it. Removing the feature for
+ *     good is this first, then the domain (Email Routing itself is kept,
+ *     `retainOnDelete`).
+ *
+ * `paused` is the incident lever inside "on": every delivery fails
+ * temporarily and senders retry for days; nothing bounces, nothing is lost.
+ */
+export interface InboundMailConfig {
+  /** `inboundMailDomain` is set: Email Routing and the rule are this stack's. */
+  configured: boolean;
+  /** Configured and not switched off: the Worker runs and the rule points at it. */
+  enabled: boolean;
+  /** Every delivery is answered with a temporary failure (`inboundMailPaused`). */
+  paused: boolean;
+  /**
+   * The receiving domain, inside the zone `zoneId` names: a subdomain of the
+   * app zone (`inbox.example.org`, the recommended setup, which leaves the
+   * apex's MX to the company's mail provider) or a domain of its own. The
+   * BFF's `INBOUND_MAIL_DOMAIN`, the Worker's `ADDRESS_DOMAIN`.
+   */
+  domain: string;
+  /**
+   * The local part of the one routing rule and of every project address,
+   * in front of the `+` (`inboundMailLocalPart`, default `p`). The BFF's
+   * `INBOUND_MAIL_LOCAL_PART`, the Worker's `ADDRESS_LOCAL_PART`.
+   */
+  localPart: string;
+  /** Cloudflare zone `domain` lives in; `dns.zoneId` when `domain` is `dns.zoneName` or under it. */
+  zoneId: string;
+  /**
+   * The BFF's key map, `INBOUND_MAIL_SIGNING_KEYS`: JSON, keyid →
+   * base64 secret, one or two entries. Empty while not enabled.
+   */
+  signingKeys: pulumi.Output<string>;
+  /** The keyid the Worker signs with, a key of `signingKeys`. */
+  signingKeyId: string;
+  /** Its secret, base64, bound to the Worker as `SIGNING_KEY`. */
+  signingKey: pulumi.Output<string>;
+  /** The same `cloudflareApiToken` DNS uses, with the scopes `platform/inbound-mail.ts` lists. */
+  apiToken: pulumi.Output<string>;
+}
+
 export const DEFAULT_INBOUND_MAIL_LOCAL_PART = "p";
 
 /** The BFF's `LOCAL_PART_PATTERN`: no `+`, no dot, nothing a client would quote. */
@@ -86,7 +143,7 @@ export interface InboundMailZoneContext {
  * sender retries for days, then bounces), and a domain without the zone has
  * nowhere to enable routing.
  */
-export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneContext): DeployConfig["inboundMail"] {
+export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneContext): InboundMailConfig {
   const domain = (cfg.get("inboundMailDomain") ?? "").trim().toLowerCase().replace(/\.$/, "");
   const localPart = (cfg.get("inboundMailLocalPart") ?? DEFAULT_INBOUND_MAIL_LOCAL_PART).trim().toLowerCase();
   // On the app zone (the recommended setup: a subdomain of the product's own
