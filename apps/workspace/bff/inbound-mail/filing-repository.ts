@@ -183,9 +183,10 @@ export async function markAttachmentFiled(
       lastFailure: null,
       documentId: filed.documentId,
       documentVersionId: filed.versionId,
+      // The suggestion names a file and goes with its bytes (`inbound_mail_parts_suggestion_with_bytes`).
       ...(filed.erasureDeferred
         ? { erasureDeferredAt: now }
-        : { storageKey: null, filename: null }),
+        : { storageKey: null, filename: null, suggestion: null }),
       updatedAt: now,
     })
     .where(claimed(partId, decisionId))
