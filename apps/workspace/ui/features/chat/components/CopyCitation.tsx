@@ -155,7 +155,7 @@ export const CopySourceCitationButton: FC<{ citation: CitationRef }> = ({ citati
 
   return (
     <>
-      <button
+      <button data-attr="chat-copy"
         type="button"
         onClick={() => void handleCopy()}
         aria-label={t('answerSources.copyCitationAria', { label: citation.document.title })}

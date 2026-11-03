@@ -22,7 +22,9 @@ import {
   toEpochMs,
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
-import { announceIngestsFinished, type SettledBy } from '@/lib/analytics/ingest-events'
+import type { SettledBy } from '@/lib/analytics/ingest-events'
+import { announceSettledIngests } from './announce-settled'
+import { timingOf, type IngestTiming } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
   reportsQuarantine,
@@ -128,8 +130,6 @@ export interface ReconcilableDocument {
    * leaves it out is enriched from the TTL cache exactly as before.
    */
   updatedAt?: Date | string | null
-  /** Dispatches so far (`documents.ingest_attempts`): the `attempt` of `document_ingest_finished`, when the row carries it. */
-  ingestAttempts?: number | null
 }
 
 /**
@@ -188,6 +188,8 @@ export interface TerminalResolution {
    * resolution built elsewhere (a spec, an older caller) writes none.
    */
   failure?: IngestFailureFacts
+  /** The job's own clock, for the analytics event: time queued and time worked. Absent without a job. */
+  timing?: IngestTiming
 }
 
 /** What a resolution says when the backend said nothing about the failure. */
@@ -317,6 +319,12 @@ export const cancelledResolution = (): TerminalResolution => ({
 })
 
 const resolveFromJobStatus = (job: BackendJobStatus | null | undefined): JobResolution => {
+  const resolved = resolveJobOutcome(job)
+  if (resolved.kind !== 'terminal' || !job) return resolved
+  return { kind: 'terminal', resolution: { ...resolved.resolution, timing: timingOf(job) } }
+}
+
+const resolveJobOutcome = (job: BackendJobStatus | null | undefined): JobResolution => {
   if (job === undefined || job === null) return { kind: 'unknown' }
 
   if (job.status === 'cancelled') {
@@ -902,8 +910,6 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   const now = Date.now()
   const interrupted = rows.filter((row) => isRecheckableInterruption(row, now))
   const cancelled = rows.filter((row) => isRecheckableCancellation(row, now))
-  // Kept past the status pass: the event below reads each settled job's start and finish.
-  let seenJobs: Map<string, BackendJobStatus | null> | null = null
   if (inFlight.length > 0 || interrupted.length > 0 || cancelled.length > 0) {
     // One batch call for every job id asked about (previously one GET per row).
     const jobIds = [
@@ -914,7 +920,6 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
       ),
     ]
     const jobStatuses = await fetchJobStatuses(jobIds)
-    seenJobs = jobStatuses
 
     // An interrupted row is healed from its job alone. The collection file
     // list is no evidence about THIS dispatch: a previous version's `success`
@@ -1090,36 +1095,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   // rows `settled` names: the ones THIS read moved, so a concurrent read that
   // lost the race announces nothing (`lib/analytics/ingest-events.ts`).
   const rowsById = new Map(rows.map((row) => [row.id, row]))
-  announceIngestsFinished(
-    organizationId,
-    settled.flatMap(([id, resolution]) => {
-      const row = rowsById.get(id)
-      if (!row || resolution.status === 'pending') return []
-      // A stop is not an ingest result: nothing was read, so there is no
-      // duration to report (the row's own write is the settle, not the
-      // dispatch) and no outcome the funnel can use. The person's act is the
-      // record; this event stays what it says it is — a read that came to rest.
-      if (resolution.status === 'cancelled') return []
-      const meta = metaByRow.get(id)
-      const job = seenJobs?.get(extractIngestJobId(row.metadata) ?? '')
-      return [
-        {
-          documentId: id,
-          filename: row.filename,
-          updatedAt: row.updatedAt,
-          status: resolution.status,
-          screening: 'screeningOutcome' in resolution ? resolution.screeningOutcome : undefined,
-          pageCount: meta?.pageCount,
-          chunkCount: meta?.chunkCount,
-          attempt: row.ingestAttempts,
-          failureCategory: resolution.failure?.category,
-          jobStartedAt: job?.started_at,
-          jobCompletedAt: job?.completed_at,
-        },
-      ]
-    }),
-    settledBy
-  )
+  await announceSettledIngests(organizationId, settled, rowsById, metaByRow, settledBy)
 
   return rows.map((row) => {
     const resolution = resolutions.get(row.id)

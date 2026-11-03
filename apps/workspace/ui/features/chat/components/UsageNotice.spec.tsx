@@ -30,6 +30,8 @@ describe('UsageNotice', () => {
     const status = screen.getByRole('status')
     expect(status).toHaveTextContent('The office’s daily budget is 82% used')
     expect(status).toHaveTextContent(/It renews at/)
+    // A member who cannot change the limit is told who can, even before it is spent.
+    expect(status).toHaveTextContent('An admin can raise the limit.')
     expect(screen.getByRole('link', { name: 'See usage' })).toHaveAttribute('href', '/app/organization/budgets')
     expect(screen.queryByRole('link', { name: 'Raise the limit' })).toBeNull()
   })
@@ -78,6 +80,7 @@ describe('UsageNotice', () => {
     expect(screen.getByRole('status')).toHaveTextContent('This project’s monthly budget is almost used up (96%)')
     expect(screen.getByRole('status')).toHaveTextContent('A long research run may stop before it finishes.')
     expect(screen.getByRole('link', { name: 'Raise the limit' })).toHaveAttribute('href', '/app/projects/p1/settings/usage')
+    expect(screen.getByRole('status')).not.toHaveTextContent('An admin can raise the limit.')
     expect(screen.queryByRole('link', { name: 'See usage' })).toBeNull()
   })
 

@@ -344,6 +344,7 @@ export function installLangfuse(
    * once rather than kept in sync by hand.
    */
   const sharedEnv: k8s.types.input.core.v1.EnvVar[] = [
+    { name: "NEXTAUTH_URL", value: publicUrl }, // the worker's PostHog export builds `langfuse_url` from it
     { name: "DATABASE_URL", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.databaseUrl) },
     { name: "SALT", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.salt) },
     { name: "ENCRYPTION_KEY", valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.encryptionKey) },
@@ -529,7 +530,6 @@ export function installLangfuse(
                   ...initEnv,
                   { name: "PORT", value: String(PORT.langfuseWeb) },
                   { name: "HOSTNAME", value: "0.0.0.0" },
-                  { name: "NEXTAUTH_URL", value: publicUrl },
                   {
                     name: "NEXTAUTH_SECRET",
                     valueFrom: fromSecret(LANGFUSE_SECRET_KEYS.nextAuthSecret),

@@ -31,6 +31,7 @@ export function SaveIntakeButton({ working, saved, label }: { working: boolean; 
   return (
     <Button
       type="submit"
+      data-attr="intake-save"
       aria-disabled={working || saved || undefined}
       aria-busy={(working && !saved) || undefined}
       className="aria-disabled:cursor-default min-w-36 max-sm:flex-1"
@@ -138,7 +139,7 @@ export function ModuleList({
         const complete = counts !== undefined && counts.total > 0 && counts.answered === counts.total
         return (
           <li key={stage.id}>
-            <button
+            <button data-attr="project-select"
               type="button"
               onClick={() => onSelect(index)}
               aria-current={state === 'current' ? 'step' : undefined}
@@ -216,7 +217,7 @@ export function ModulePicker({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button
+        <button data-attr="intake-module-picker"
           type="button"
           data-testid="intake-module-picker"
           aria-label={t('intake.modulePickerAria', { module: stage.id, title: stage.title })}

@@ -69,7 +69,7 @@ export function ValueEvidence({
               size="sm"
               aria-label={t(open ? 'excerpt.hideAria' : 'excerpt.showAria', { name: cited.fileName, page: cited.page })}
             >
-              <button type="button" data-testid="page-excerpt-toggle">
+              <button data-attr="page-excerpt-toggle" type="button" data-testid="page-excerpt-toggle">
                 <ScanSearch aria-hidden />
                 <ChipLabel>{t('excerpt.show')}</ChipLabel>
               </button>

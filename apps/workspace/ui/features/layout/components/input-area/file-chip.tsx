@@ -162,7 +162,7 @@ export const FileChip: FC<{
       title={`${file.fileName} — ${statusTitle}`}
     >
       {isSuccess ? (
-        <button
+        <button data-attr="chat-open"
           type="button"
           onClick={() => onOpen(file)}
           aria-label={t('inputArea.openFile', { name: file.fileName })}
@@ -180,7 +180,7 @@ export const FileChip: FC<{
         </span>
       )}
       {isFailed && !readOnly && (
-        <button
+        <button data-attr="chat-retry"
           type="button"
           onClick={() => onRetry(file.id)}
           aria-label={t('inputArea.retryUpload')}
@@ -194,7 +194,7 @@ export const FileChip: FC<{
         </button>
       )}
       {!readOnly && (
-        <button
+        <button data-attr="chat-remove"
           type="button"
           onClick={() => onRemove(file.id)}
           aria-label={t('inputArea.removeFile', { name: file.fileName })}

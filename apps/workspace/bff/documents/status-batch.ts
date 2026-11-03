@@ -7,6 +7,8 @@
  * unreachable backend and left every row alone: a bulk upload of more than
  * this many documents stayed `pending` for good, whatever its jobs had done.
  */
+import type { JobClock } from './ingest-timing'
+
 export const BATCH_STATUS_MAX_IDS = 200
 
 /**
@@ -48,20 +50,16 @@ export interface BackendJobFile {
   retryable?: boolean | null
 }
 
-/** One job, as the batch status endpoint reports it (`IngestionJobStatus.model_dump`). */
-export interface BackendJobStatus {
+/**
+ * One job, as the batch status endpoint reports it (`IngestionJobStatus.model_dump`).
+ * Its clock (`JobClock`) is parsed by `timingOf` for `document_ingest_finished`.
+ */
+export interface BackendJobStatus extends JobClock {
   status?: string
   error_message?: string | null
   /** `queue_ahead`: the backend's count for a job still in the durable queue. */
   metadata?: { queue_ahead?: unknown } | null
   /** The reader that ran the job (`INGEST_READER_VERSION`); null until a worker started it. */
   reader_version?: string | null
-  /**
-   * When a worker started the job and when it ended: ISO strings in naive UTC
-   * (`datetime.utcnow()`). Raw here; `document_ingest_finished` parses them for
-   * `processing_ms` (`lib/analytics/ingest-events.ts`).
-   */
-  started_at?: unknown
-  completed_at?: unknown
   file_details?: BackendJobFile[]
 }

@@ -245,7 +245,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
       <div className="flex flex-wrap items-center gap-3 px-4 py-2.5">
         <TrayGlyph summary={summary} offline={isWaitingForNetwork} />
 
-        <button
+        <button data-attr="files-toggle-expanded"
           type="button"
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}
@@ -304,7 +304,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
           )}
           </div>
         )}
-        <button
+        <button data-attr="files-toggle-expanded"
           type="button"
           onClick={() => setIsExpanded((open) => !open)}
           aria-expanded={isExpanded}

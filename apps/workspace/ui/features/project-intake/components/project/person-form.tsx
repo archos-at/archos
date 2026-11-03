@@ -56,7 +56,7 @@ export function FunctionField({
           const label = t(`people.functions.${key}`)
           return (
             <Chip key={key} asChild size="sm" variant={value === label ? 'default' : 'outline'} interactive>
-              <button type="button" aria-pressed={value === label} onClick={() => onChange(label)}>
+              <button data-attr="intake-change" type="button" aria-pressed={value === label} onClick={() => onChange(label)}>
                 {label}
               </button>
             </Chip>

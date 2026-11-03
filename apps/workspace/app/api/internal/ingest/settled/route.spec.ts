@@ -20,6 +20,10 @@ vi.mock('@/lib/documents/repository', async (original) => ({
   ...(await original<typeof import('@/lib/documents/repository')>()),
   listInFlightDocumentsForIngestJobs: vi.fn(),
   setDocumentReconciledStatus: vi.fn(),
+  // The attempt the event joins is read after the settle; every row here is its first dispatch.
+  findIngestAnnouncementFacts: vi.fn(
+    async (_organizationId: string, ids: string[]) => new Map(ids.map((id) => [id, { attempt: 1, uploadBatchId: null }]))
+  ),
 }))
 vi.mock('@/lib/upload-batches/settle', () => ({ onDocumentsSettled: vi.fn().mockResolvedValue(undefined) }))
 const captureServer = vi.hoisted(() => vi.fn(() => true))

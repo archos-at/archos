@@ -596,7 +596,7 @@ export function DocumentRevisions({
             uppercase ones. */}
         <SectionLabel as="h3" className="px-3 font-medium tracking-[0.05em]">
           <CollapsibleTrigger asChild>
-            <button
+            <button data-attr="document-revisions-toggle"
               type="button"
               className="touch-target duration-snap hover:text-foreground focus-visible:ring-ring flex min-h-5 w-full items-center gap-1.5 text-left tracking-[inherit] transition-colors ease-out outline-none [text-transform:inherit] focus-visible:ring-2 focus-visible:ring-offset-1 motion-reduce:transition-none"
               data-testid="document-revisions-toggle"

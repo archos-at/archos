@@ -43,7 +43,6 @@ export type ListedDocument = Omit<
   | 'ingestFailureCategory'
   | 'ingestRetryable'
   | 'ingestReaderVersion'
-  | 'ingestAttempts'
   | 'quarantine'
 > &
   DocumentMetadata & {
@@ -129,7 +128,6 @@ export async function toListedDocuments(
       ingestFailureCategory,
       ingestRetryable,
       ingestReaderVersion,
-      ingestAttempts: _attempts,
       quarantine,
       ...row
     }) => ({

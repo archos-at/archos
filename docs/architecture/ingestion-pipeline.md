@@ -161,6 +161,7 @@ What fails the file, and what only makes it poorer:
 |---|---|---|
 | Download, unreadable PDF, binary or empty content, Word without rendition, no vision key for an image or a scan | the **file** fails, its partial points are discarded, a previous version stays | "Fehlgeschlagen" with a reason; "Erneut lesen" is offered by `retry-policy.ts` |
 | Screening match | the file is held in quarantine | the uploader and reviewers see it; nobody else does |
+| Metadata header over the chunk size | the long keys leave the embedded header, longest first; last of all the always-rendered ones such as `file_name` (`chunk_metadata._fit_rendered_metadata`). All stay stored. The splitter would otherwise raise `Metadata length (n) is longer than chunk size` and fail the whole file | nothing; a warning in the log names the keys |
 | One OCR page, one vision page, one embedded raster | that **page** is skipped; the file goes on | the file's coverage says how many pages were not fully read, and why |
 | Summary, tags, topics, dossier, permit, Fassung, thumbnail | skipped after a 30 s (60 s, 90 s, 45 s) bound | a file with no summary, no tags or no dossier |
 | Pages over the render cap (20) or the raster cap (64) | counted on the file and in its coverage, not read | "n Seiten nicht vollständig gelesen" |

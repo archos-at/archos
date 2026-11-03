@@ -15,7 +15,7 @@ vi.mock('@/lib/upload-batches/settle', () => ({ onDocumentsSettled: vi.fn().mock
 // What PostHog hears is `lib/analytics/ingest-events.spec.ts`'s subject; here it is the
 // call reconciliation makes for the rows it moved.
 const captureServer = vi.hoisted(() => vi.fn(() => true))
-vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer }))
+vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer, getPosthogServer: () => null }))
 
 // The live channel's own subject is `shelf-live.spec.ts`; here it is which
 // shelves a reconciliation announces.
@@ -25,6 +25,14 @@ vi.mock('./shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 // it is which readings reconciliation hands over, and when.
 vi.mock('@/lib/search/facets-projector', () => ({ projectReadings: vi.fn().mockResolvedValue(0) }))
 vi.mock('@/lib/search/facets-repository', () => ({ listCollectionDocumentsForProjection: vi.fn().mockResolvedValue([]) }))
+
+// The attempt and upload batch the event joins are read after the settle
+// (`findIngestAnnouncementFacts`); the table is mocked, so a case says them.
+const findIngestAnnouncementFacts = vi.hoisted(() => vi.fn(async () => new Map<string, { attempt: number | null; uploadBatchId: string | null }>()))
+vi.mock('./repository', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./repository')>()),
+  findIngestAnnouncementFacts,
+}))
 
 import { getDb } from '@/lib/db'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
@@ -1412,6 +1420,27 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('plan')
   })
 
+  it('splits the job’s queue wait from its processing time, and says screening did not run', async () => {
+    makeDbMock()
+    backend({
+      status: 'completed',
+      submitted_at: '2026-11-02T12:00:00Z',
+      started_at: '2026-11-02T12:00:30Z',
+      completed_at: '2026-11-02T12:02:00Z',
+      file_details: [{ file_name: 'plan.pdf', status: 'success' }],
+    })
+
+    await reconcileDocumentStatuses([makeRow({ updatedAt: new Date(Date.now() - 1000) })], 'org-1', 'read')
+
+    const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
+    expect(sent.properties).toMatchObject({
+      document_id: expect.any(String),
+      queue_wait_ms: 30_000,
+      processing_ms: 90_000,
+      screening: 'not_run',
+    })
+  })
+
   it('reports a failure by its status and carries nothing of the error text', async () => {
     makeDbMock()
     backend({ status: 'failed', error_message: 'could not read secret-plan.pdf', file_details: [] })
@@ -1419,7 +1448,9 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     await reconcileDocumentStatuses([makeRow()], 'org-1', 'read')
 
     expect(captureServer).toHaveBeenCalledWith(
-      expect.objectContaining({ properties: expect.objectContaining({ status: 'failed' }) })
+      expect.objectContaining({
+        properties: expect.objectContaining({ status: 'failed', document_id: 'doc-1', error_reason: 'unknown' }),
+      })
     )
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('secret')
   })
@@ -1433,16 +1464,19 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
       file_details: [{ file_name: 'plan.pdf', status: 'success' }],
     })
 
-    await reconcileDocumentStatuses([makeRow({ ingestAttempts: 3 })], 'org-1', 'push')
+    findIngestAnnouncementFacts.mockResolvedValueOnce(new Map([['doc-1', { attempt: 3, uploadBatchId: 'batch-1' }]]))
+
+    await reconcileDocumentStatuses([makeRow()], 'org-1', 'push')
 
     const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
     expect(sent.properties).toMatchObject({
       document_id: 'doc-1',
       attempt: 3,
+      upload_id: 'batch-1',
       processing_ms: 42_500,
       settled_by: 'push',
     })
-    expect(sent.properties.failure_category).toBeUndefined()
+    expect(sent.properties.error_category).toBeUndefined()
   })
 
   it('sends the failure category the job reported, the one the row stores', async () => {
@@ -1458,7 +1492,7 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     await reconcileDocumentStatuses([makeRow()], 'org-1', 'sweep')
 
     const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
-    expect(sent.properties).toMatchObject({ status: 'failed', failure_category: 'deterministic', settled_by: 'sweep' })
+    expect(sent.properties).toMatchObject({ status: 'failed', error_category: 'deterministic', settled_by: 'sweep' })
     expect(sent.properties.processing_ms).toBeUndefined()
   })
 

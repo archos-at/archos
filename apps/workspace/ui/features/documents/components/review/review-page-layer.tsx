@@ -1091,7 +1091,7 @@ export function ReviewPageLayer({
               style={box(ask.region.x, ask.region.y, ask.region.w, ask.region.h)}
             />
             {ask.id !== openAsk?.id && focused && (
-              <button
+              <button data-attr="agent-ask-reopen"
                 type="button"
                 data-testid="agent-ask-reopen"
                 aria-label={t('review.piloti.reopen')}

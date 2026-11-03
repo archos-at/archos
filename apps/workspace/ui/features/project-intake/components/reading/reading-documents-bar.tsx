@@ -65,7 +65,7 @@ export function AddDocuments({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           {className ? (
-            <button type="button" className={className} aria-busy={uploading || undefined} data-testid="reading-add-documents">
+            <button data-attr="reading-add-documents" type="button" className={className} aria-busy={uploading || undefined} data-testid="reading-add-documents">
               {uploading ? t('documents.uploading') : t('documents.add')}
             </button>
           ) : (

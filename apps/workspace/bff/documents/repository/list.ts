@@ -112,8 +112,6 @@ export interface DocumentListRow {
   ingestFailureCategory?: IngestFailureCategory | null
   ingestRetryable?: boolean | null
   ingestReaderVersion?: string | null
-  /** Dispatches so far: the `attempt` a reconcile reports to PostHog. Dropped by `toListedDocuments`. */
-  ingestAttempts?: number | null
   /**
    * Why the content gate held it (migration 0148), as stored. Turned into the
    * reader's verdict by `toListedDocuments` (`quarantineVerdictOf`) and only
@@ -222,7 +220,6 @@ export const documentListColumns = {
   ingestFailureCategory: documents.ingestFailureCategory,
   ingestRetryable: documents.ingestRetryable,
   ingestReaderVersion: documents.ingestReaderVersion,
-  ingestAttempts: documents.ingestAttempts,
 }
 
 /**

@@ -555,6 +555,28 @@ class TestExtractProviderUsage:
         assert usage is not None
         assert usage["cost_usd"] is None
 
+    def test_responses_path_ingests_the_carried_provider_cost(self):
+        """No provider usage object on the Responses path: the cost carrier's ``cost`` is the span's cost."""
+        import json
+
+        from agent.common.cost_tracking import RESPONSES_ACCOUNTING_KEY
+        from agent.observability.langfuse_trace_attributes import extract_provider_usage
+
+        message = {
+            "usage_metadata": {
+                "input_tokens": 1000,
+                "output_tokens": 50,
+                "total_tokens": 1050,
+                "input_token_details": {"cache_read": 800},
+            },
+            "response_metadata": {RESPONSES_ACCOUNTING_KEY: {"cost": 0.0123, "is_byok": False}},
+        }
+        usage = extract_provider_usage(json.dumps({"chat_responses": [{"message": message}]}))
+
+        assert usage is not None
+        assert usage["cost_usd"] == 0.0123
+        assert usage["cached_tokens"] == 800
+
     def test_no_usage_object_is_absent_not_zeroed(self):
         from agent.observability.langfuse_trace_attributes import extract_provider_usage
 
