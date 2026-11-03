@@ -7,6 +7,7 @@ import { requireMailReviewer } from '@/lib/inbound-mail/access'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { resolveProjectSettingsAccess } from '@/lib/projects/settings-access'
 import { DocumentsSettings } from '@/features/projects/components/settings/documents-settings'
+import { InboundMailAddressCard } from '@/features/inbound-mail/components/inbound-mail-address'
 import { getTranslations } from '@/i18n/server'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 
@@ -40,7 +41,7 @@ export default async function ProjectDocumentsSettingsPage({
         currentUserId={session.userId}
         canReindex={access.writeDocuments}
         showKnowledgeLink={isProjectKnowledgePageEnabled(session)}
-        inboundMail={project ? { projectName: project.name } : undefined}
+        inboundMailAddress={project ? <InboundMailAddressCard projectId={id} projectName={project.name} /> : undefined}
       />
     )
   })

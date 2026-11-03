@@ -18,7 +18,7 @@ import type { JSX } from 'react'
 import { use, useMemo } from 'react'
 import { I18nProvider } from '@/i18n'
 import { InboundMailWorkspace } from '@/features/inbound-mail/components/inbound-mail-workspace'
-import type { InboundMailPaths } from '@/features/inbound-mail/lib/paths'
+import type { InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { ADDRESS_VARIANTS, DETAIL_BY_ID, FIXTURE_NOW, FOLDERS, LIST_VARIANTS, PROJECT_ID, PROJECT_NAME, fixtureAddressClient, fixtureClient, listPage } from './fixtures'
 import { DevVariantStrip } from './dev-chrome'
 

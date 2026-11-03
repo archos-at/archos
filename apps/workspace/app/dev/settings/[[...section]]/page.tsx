@@ -25,6 +25,7 @@ import { SectionNav } from '@/components/shell/section-nav'
 import { Brain, FileStack, Gauge, GitCompareArrows, LayoutDashboard, Users } from 'lucide-react'
 import { DocumentsSettings } from '@/features/projects/components/settings/documents-settings'
 import { ProjectOverview } from '@/features/projects/components/overview/project-overview'
+import { InboundMailAddressTile } from '@/features/inbound-mail/components/inbound-mail-address'
 import { MembersSettings } from '@/features/projects/components/settings/members-settings'
 import { MemorySettings } from '@/features/projects/components/settings/memory-settings'
 import {
@@ -293,7 +294,9 @@ export default function SettingsDevPage({
               }}
               projectRecord={{ ...projectRecord, canEdit: admin, canErase: admin }}
               // The project's mail address, as a reader who may decide its mail sees it (here: whoever administers).
-              inboundMail={admin ? { projectName: 'Wohnbau Mariahilf', client: ADDRESS_CLIENT } : undefined}
+              inboundMailAddress={
+                admin ? <InboundMailAddressTile projectId={OVERVIEW_DATA.id} projectName="Wohnbau Mariahilf" client={ADDRESS_CLIENT} /> : undefined
+              }
               similar={
                 <SimilarProjectsTile
                   page={SIMILAR_PAGE}

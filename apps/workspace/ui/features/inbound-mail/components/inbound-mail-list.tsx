@@ -36,7 +36,7 @@ import {
 import { cn } from '@/lib/utils'
 import { isReady } from '../lib/completeness'
 import type { ListSection } from '../lib/list-sections'
-import { INBOUND_MAIL_READY_ANCHOR } from '../lib/paths'
+import { INBOUND_MAIL_READY_ANCHOR } from '@/lib/inbound-mail/paths'
 import { InboundMailRow } from './inbound-mail-row'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 

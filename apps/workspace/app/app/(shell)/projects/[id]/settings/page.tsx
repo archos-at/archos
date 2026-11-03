@@ -17,6 +17,7 @@ import { getProjectRecord } from '@/lib/projects/project-record-service'
 import { getSimilarProjects } from '@/lib/references/service'
 import { BentoCell } from '@/components/ui/bento'
 import { Skeleton } from '@/components/ui/skeleton'
+import { InboundMailAddressTile } from '@/features/inbound-mail/components/inbound-mail-address'
 import { ProjectOverview } from '@/features/projects/components/overview/project-overview'
 import { SimilarProjectsTile } from '@/features/projects/components/overview/similar-projects-tile'
 import { settingsSectionHref } from '@/features/projects/lib/settings-sections'
@@ -85,7 +86,7 @@ export default async function ProjectOverviewPage({ params }: PageProps): Promis
             <SimilarProjectsSlot projectId={id} />
           </Suspense>
         }
-        inboundMail={mailReviewer ? { projectName: data.name } : undefined}
+        inboundMailAddress={mailReviewer ? <InboundMailAddressTile projectId={id} projectName={data.name} /> : undefined}
         access={{
           manage: access.manage,
           changeStatus: access.changeStatus,

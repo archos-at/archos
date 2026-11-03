@@ -33,7 +33,7 @@ import {
   fixtureClient,
   listPage,
 } from '@/app/dev/inbound-mail/fixtures'
-import { resetInboundMailWaitingForTests } from '../hooks/use-inbound-mail-waiting'
+import { resetInboundMailWaitingForTests } from '@/hooks/use-inbound-mail-waiting'
 import { InboundMailWorkspace } from './inbound-mail-workspace'
 
 function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof InboundMailWorkspace>[0]> = {}) {

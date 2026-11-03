@@ -16,8 +16,8 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { File as FileIcon } from 'lucide-react'
-import { documentParameters, loadPdfjs } from '@/features/knowledge/lib/pdfjs-runtime'
-import { FileExtChip } from '@/features/documents/components/file-ext-chip'
+import { documentParameters, loadPdfjs } from '@/features/knowledge'
+import { FileExtChip } from '@/features/documents'
 import { cn } from '@/lib/utils'
 
 /** The thumbnail's longer edge, in CSS pixels; drawn at twice that for a sharp image on a dense screen. */

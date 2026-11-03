@@ -20,7 +20,7 @@ import { resolveDocumentLifecyclePermissions } from '@/lib/documents/lifecycle-p
 import { toDocumentWireRow, toFolderWireRow } from '@/lib/documents/list-projection'
 import { getTranslations } from '@/i18n/server'
 import { navCopy } from '@/i18n/namespaces/nav'
-import { ProjectFileWorkspace } from '@/features/documents/components/project-file-workspace'
+import { ProjectFilesClient } from './project-files-client'
 
 interface FilesPageProps {
   params: Promise<{ id: string }>
@@ -123,7 +123,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
     ])
 
     return (
-      <ProjectFileWorkspace
+      <ProjectFilesClient
         lifecyclePermissions={lifecyclePermissions}
         projectId={id}
         initialFolders={initialFolders.map(toFolderWireRow)}

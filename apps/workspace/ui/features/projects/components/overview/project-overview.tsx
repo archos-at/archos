@@ -34,8 +34,6 @@ import {
   Trash2,
 } from 'lucide-react'
 import { ActionMenu } from '@/components/ui/action-menu'
-import { InboundMailAddressTile } from '@/features/inbound-mail/components/inbound-mail-address'
-import type { InboundMailAddressClient } from '@/features/inbound-mail/lib/client'
 import { BentoCell, BentoGrid, BentoTile, type BentoSpan } from '@/components/ui/bento'
 import { Button } from '@/components/ui/button'
 import { ProjectStatusMark } from '@/components/projects/project-status'
@@ -98,10 +96,12 @@ export interface ProjectOverviewProps {
   setupProgress?: OverviewSetupProgress
   access: ProjectOverviewAccess
   /**
-   * The project's mail address tile (ADR-0137), for a reader who may decide the
-   * project's held mail; it draws itself once an address is active. Absent: no tile.
+   * The project's mail address tile (ADR-0137, `InboundMailAddressTile`), for a
+   * reader who may decide the project's held mail; it draws itself once an
+   * address is active. Absent: no tile. The route passes it in, so the projects
+   * feature never imports the inbound-mail feature (module-seams.md).
    */
-  inboundMail?: { projectName: string; client?: InboundMailAddressClient }
+  inboundMailAddress?: ReactNode
 }
 
 export function ProjectOverview({
@@ -113,7 +113,7 @@ export function ProjectOverview({
   setupOpen = false,
   setupProgress,
   access,
-  inboundMail,
+  inboundMailAddress,
 }: ProjectOverviewProps): JSX.Element {
   const id = data.id
   // Documents and Memory stack beside the hero, so every reader's first two
@@ -143,7 +143,7 @@ export function ProjectOverview({
         />
         <MemoryTile projectId={id} href={settingsSectionHref(id, 'memory')} />
         {/* Where people look at the project, so the address is handed out where the work starts (WOW §3.5). A row of its own. */}
-        {inboundMail && <InboundMailAddressTile projectId={id} projectName={inboundMail.projectName} client={inboundMail.client} />}
+        {inboundMailAddress}
         {usage && (
           <UsageTile usage={usage} href={settingsSectionHref(id, 'usage')} span={usageSpan} />
         )}

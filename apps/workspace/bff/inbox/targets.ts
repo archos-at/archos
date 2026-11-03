@@ -45,7 +45,7 @@ import {
 import { findOwnUploadBatch } from '@/lib/upload-batches/service'
 import { getOwnProductFeedback } from '@/lib/product-feedback/repository'
 import { feedbackThreadHref } from '@/lib/product-feedback/types'
-import { inboundMailPaths, inboundMailReadyPath } from '@/features/inbound-mail/lib/paths'
+import { inboundMailPaths, inboundMailReadyPath } from '@/lib/inbound-mail/paths'
 
 /** Row-level context a deep link may use. */
 export interface InboxTargetLinkContext {

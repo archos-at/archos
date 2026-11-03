@@ -11,7 +11,7 @@
 import type { JSX } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { FileExtChip } from '@/features/documents/components/file-ext-chip'
+import { FileExtChip } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { useAttachmentThumbnail } from './attachment-thumbnail'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
