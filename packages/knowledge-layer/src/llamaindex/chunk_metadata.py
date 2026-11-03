@@ -122,6 +122,11 @@ def _rendered_metadata_tokens(document: Any) -> int:
     return max(len(tokenizer(document.get_metadata_str(mode=mode))) for mode in (MetadataMode.EMBED, MetadataMode.LLM))
 
 
+def _is_rendered(document: Any, key: str) -> bool:
+    """Whether ``key`` still reaches the embed or the LLM rendering of the document's header."""
+    return key not in document.excluded_embed_metadata_keys or key not in document.excluded_llm_metadata_keys
+
+
 def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
     """Stop rendering the longest free-text keys until the metadata header fits ``limit`` tokens.
 
@@ -132,8 +137,10 @@ def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
     filtering; it only leaves the embedded header, and the chunk body already starts
     with the same breadcrumb. Returns the keys dropped, for the caller to log.
 
-    The header can stay over ``limit`` when only ``_ALWAYS_RENDERED_METADATA_KEYS``
-    remain; the caller measures and reports that (``stamp_chunk_metadata``).
+    The always-rendered keys go last, longest first, and only when everything else is
+    gone and the header is still over ``limit``. The header can stay over ``limit`` only
+    if no key is left to drop (a single value past the whole budget cannot be cut here);
+    the caller measures and reports that (``stamp_chunk_metadata``).
     """
     if limit <= 0:
         raise ValueError(f"Metadata token budget must be positive, got {limit}")
@@ -143,8 +150,16 @@ def _fit_rendered_metadata(document: Any, limit: int) -> list[str]:
             key
             for key in document.metadata
             if key not in _ALWAYS_RENDERED_METADATA_KEYS
-            and (key not in document.excluded_embed_metadata_keys or key not in document.excluded_llm_metadata_keys)
+            and _is_rendered(document, key)
         ]
+        if not rendered:
+            # Only the always-rendered keys are left (typically a very long file
+            # name). Failing the file for a header is worse than a header without
+            # it: the keys stay STORED, which is what finds and deletes a file's
+            # chunks, and only leave the embedded text.
+            rendered = [
+                key for key in document.metadata if key in _ALWAYS_RENDERED_METADATA_KEYS and _is_rendered(document, key)
+            ]
         if not rendered:
             break
         key = max(rendered, key=lambda name: len(str(document.metadata[name])))
@@ -165,7 +180,7 @@ def stamp_chunk_metadata(
     ``_ingest_job`` also sets on ``Settings``), not the ingestor's default: budgeted
     against a larger default, a header passes here and still fails the file in the
     splitter. Logs once per file, not once per page: the keys left out of the header,
-    and a header still over budget with only the always-rendered keys left.
+    and a header still over budget although every key is out.
     """
     limit = chunk_size // 2
     unrendered: set[str] = set()
@@ -184,11 +199,10 @@ def stamp_chunk_metadata(
         # "tokens" here are tokenizer counts; the line logs a file name and integers only.
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning(
-            "Metadata header of %s stays at %d tokens with only %s rendered, over its %d-token budget "
+            "Metadata header of %s stays at %d tokens with every key left out, over its %d-token budget "
             "(chunk size %d); past the chunk size the splitter fails the file",
             file_name,
             longest,
-            ", ".join(sorted(_ALWAYS_RENDERED_METADATA_KEYS)),
             limit,
             chunk_size,
         )

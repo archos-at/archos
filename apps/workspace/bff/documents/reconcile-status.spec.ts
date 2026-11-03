@@ -1404,6 +1404,27 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('plan')
   })
 
+  it('splits the job’s queue wait from its processing time, and says screening did not run', async () => {
+    makeDbMock()
+    backend({
+      status: 'completed',
+      submitted_at: '2026-11-02T12:00:00Z',
+      started_at: '2026-11-02T12:00:30Z',
+      completed_at: '2026-11-02T12:02:00Z',
+      file_details: [{ file_name: 'plan.pdf', status: 'success' }],
+    })
+
+    await reconcileDocumentStatuses([makeRow({ updatedAt: new Date(Date.now() - 1000) })], 'org-1')
+
+    const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
+    expect(sent.properties).toMatchObject({
+      document_id: expect.any(String),
+      queue_wait_ms: 30_000,
+      processing_ms: 90_000,
+      screening: 'not_run',
+    })
+  })
+
   it('reports a failure by its status and carries nothing of the error text', async () => {
     makeDbMock()
     backend({ status: 'failed', error_message: 'could not read secret-plan.pdf', file_details: [] })

@@ -127,6 +127,19 @@ describe('captureServer', () => {
     expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.dev.piloti.at' })
   })
 
+  test('a blank service name falls back, and app_host comes from the MCP resource URL when the redirect URI is unset', () => {
+    enable()
+    vi.stubEnv('GIT_SHA', 'abc1234')
+    vi.stubEnv('OTEL_SERVICE_NAME', '  ')
+    vi.stubEnv('WORKOS_REDIRECT_URI', '')
+    vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', '')
+    vi.stubEnv('MCP_RESOURCE_URL', 'https://app.piloti.at/api/mcp')
+
+    getPosthogServer()
+
+    expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.piloti.at' })
+  })
+
   test('omits organization_id when the event has no organization', () => {
     enable()
 

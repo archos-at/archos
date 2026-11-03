@@ -44,7 +44,7 @@ import {
   type Dossier,
   type ReadingCoverage,
 } from './dossier'
-import { setDocumentReconciledStatus } from './repository'
+import { findIngestAnnouncementFacts, setDocumentReconciledStatus } from './repository'
 import { documentShelf } from './shelf'
 import { publishShelfChanged } from './shelf-live'
 import { projectReadings } from '@/lib/search/facets-projector'
@@ -186,6 +186,20 @@ export interface TerminalResolution {
    * resolution built elsewhere (a spec, an older caller) writes none.
    */
   failure?: IngestFailureFacts
+  /** The job's own clock, for the analytics event: time queued and time worked. Absent without a job. */
+  timing?: IngestTiming
+}
+
+/** Milliseconds from submission to start, and from start to completion; null where the job recorded no time. */
+export interface IngestTiming {
+  queueWaitMs: number | null
+  processingMs: number | null
+}
+
+const gapMs = (from: string | null | undefined, to: string | null | undefined): number | null => {
+  if (!from || !to) return null
+  const ms = new Date(to).getTime() - new Date(from).getTime()
+  return Number.isFinite(ms) ? Math.max(0, ms) : null
 }
 
 /** What a resolution says when the backend said nothing about the failure. */
@@ -255,6 +269,10 @@ interface BackendJobStatus {
   metadata?: { queue_ahead?: unknown } | null
   /** The reader that ran the job (`INGEST_READER_VERSION`); null until a worker started it. */
   reader_version?: string | null
+  /** `IngestionJobStatus.submitted_at` / `started_at` / `completed_at`, ISO timestamps. */
+  submitted_at?: string | null
+  started_at?: string | null
+  completed_at?: string | null
   file_details?: BackendJobFile[]
 }
 
@@ -342,6 +360,13 @@ export const cancelledResolution = (): TerminalResolution => ({
 })
 
 const resolveFromJobStatus = (job: BackendJobStatus | null | undefined): JobResolution => {
+  const resolved = resolveJobOutcome(job)
+  if (resolved.kind !== 'terminal' || !job) return resolved
+  const timing = { queueWaitMs: gapMs(job.submitted_at, job.started_at), processingMs: gapMs(job.started_at, job.completed_at) }
+  return { kind: 'terminal', resolution: { ...resolved.resolution, timing } }
+}
+
+const resolveJobOutcome = (job: BackendJobStatus | null | undefined): JobResolution => {
   if (job === undefined || job === null) return { kind: 'unknown' }
 
   if (job.status === 'cancelled') {
@@ -1110,25 +1135,32 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   // rows `settled` names: the ones THIS read moved, so a concurrent read that
   // lost the race announces nothing (`lib/analytics/ingest-events.ts`).
   const rowsById = new Map(rows.map((row) => [row.id, row]))
+  // A stop is not an ingest result: nothing was read, so there is no duration
+  // to report (the row's own write is the settle, not the dispatch) and no
+  // outcome the funnel can use. The person's act is the record; this event
+  // stays what it says it is — a read that came to rest.
+  const announced = settled.filter(([id, resolution]) => rowsById.has(id) && resolution.status !== 'pending' && resolution.status !== 'cancelled')
+  const facts = await findIngestAnnouncementFacts(organizationId, announced.map(([id]) => id))
   announceIngestsFinished(
     organizationId,
-    settled.flatMap(([id, resolution]) => {
+    announced.flatMap(([id, resolution]) => {
       const row = rowsById.get(id)
-      if (!row || resolution.status === 'pending') return []
-      // A stop is not an ingest result: nothing was read, so there is no
-      // duration to report (the row's own write is the settle, not the
-      // dispatch) and no outcome the funnel can use. The person's act is the
-      // record; this event stays what it says it is — a read that came to rest.
-      if (resolution.status === 'cancelled') return []
+      if (!row || resolution.status === 'pending' || resolution.status === 'cancelled') return []
       const meta = metaByRow.get(id)
       return [
         {
+          documentId: id,
           filename: row.filename,
           updatedAt: row.updatedAt,
           status: resolution.status,
           screening: 'screeningOutcome' in resolution ? resolution.screeningOutcome : undefined,
           pageCount: meta?.pageCount,
           chunkCount: meta?.chunkCount,
+          attempt: facts.get(id)?.attempt,
+          uploadId: facts.get(id)?.uploadBatchId,
+          errorReason: 'failure' in resolution ? resolution.failure?.category : undefined,
+          queueWaitMs: 'timing' in resolution ? resolution.timing?.queueWaitMs : undefined,
+          processingMs: 'timing' in resolution ? resolution.timing?.processingMs : undefined,
         },
       ]
     })

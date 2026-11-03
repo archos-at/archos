@@ -23,15 +23,33 @@
 import { captureServer } from './posthog-server'
 
 export interface FinishedIngest {
+  /** Our own row id, so an attempt can be joined to its document and to its retries. */
+  documentId?: string
   filename: string
   /** When the row was last written: the dispatch time for a row that was in flight. */
   updatedAt?: Date | string | null
   status: 'completed' | 'failed' | 'quarantined'
-  /** What the content gate concluded (ADR-0086), when it ran. */
+  /**
+   * What the content gate concluded (ADR-0086), when it ran. Absent is sent as
+   * `not_run`: the job carried no rules (the office's screening is off, or a
+   * reviewer released the bytes), which is a different fact from `unchecked`.
+   */
   screening?: string
   pageCount?: number
   chunkCount?: number
+  /** Dispatches of the row so far, this one included. */
+  attempt?: number | null
+  /** The upload gesture (batch) that wrote the bytes. */
+  uploadId?: string | null
+  /** The backend's failure class (`transient`, `configuration`, `deterministic`, `quarantined`, `unknown`). */
+  errorReason?: string | null
+  /** From the job's own clock: submitted to started, and started to completed. */
+  queueWaitMs?: number | null
+  processingMs?: number | null
 }
+
+/** The screening value for an ingest whose job reported none. */
+export const SCREENING_NOT_RUN = 'not_run'
 
 const EXTENSION = /^[a-z0-9]{1,8}$/
 
@@ -63,13 +81,50 @@ export function announceIngestsFinished(organizationId: string, finished: Finish
       distinctId: null,
       organizationId,
       properties: {
+        document_id: ingest.documentId,
+        upload_id: ingest.uploadId ?? undefined,
+        attempt: ingest.attempt ?? undefined,
         status: ingest.status,
-        screening: ingest.screening,
+        screening: ingest.screening ?? SCREENING_NOT_RUN,
+        error_reason: ingest.errorReason ?? undefined,
         file_type: fileTypeOf(ingest.filename),
         page_count: ingest.pageCount,
         chunk_count: ingest.chunkCount,
+        // Dispatch to the read that noticed: includes every poll gap, and days
+        // when nothing read the row. The two below are the job's own clock.
         duration_ms: durationSince(ingest.updatedAt, now),
+        queue_wait_ms: ingest.queueWaitMs ?? undefined,
+        processing_ms: ingest.processingMs ?? undefined,
       },
     })
   }
+}
+
+/** Where a stored document came from, as far as the server can tell. */
+export type UploadSource = 'web' | 'mail' | 'chat'
+
+/**
+ * `document_uploaded` from the server, once per file it stored (`file_count` is 1):
+ * the browser's own event is one per batch and is lost to ad blockers and closed
+ * tabs, and a file that arrives by the mail import never touches a browser.
+ * Filtering on `source` tells the two apart; `web_batch` is the browser's.
+ */
+export function announceDocumentUploaded(
+  organizationId: string,
+  userId: string,
+  upload: { source: UploadSource; filename: string; documentId: string; uploadId?: string | null; replaced?: boolean }
+): void {
+  captureServer({
+    event: 'document_uploaded',
+    distinctId: userId,
+    organizationId,
+    properties: {
+      source: upload.source,
+      file_count: 1,
+      document_id: upload.documentId,
+      upload_id: upload.uploadId ?? undefined,
+      file_type: fileTypeOf(upload.filename),
+      replaced: upload.replaced ?? false,
+    },
+  })
 }

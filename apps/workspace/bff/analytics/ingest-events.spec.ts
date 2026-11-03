@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const captureServer = vi.hoisted(() => vi.fn(() => true))
 vi.mock('./posthog-server', () => ({ captureServer }))
 
-import { announceIngestsFinished, fileTypeOf } from './ingest-events'
+import { announceDocumentUploaded, announceIngestsFinished, fileTypeOf } from './ingest-events'
 
 describe('fileTypeOf', () => {
   it('keeps a plain extension, lower-cased, and nothing of the name', () => {
@@ -40,12 +40,18 @@ describe('announceIngestsFinished', () => {
       distinctId: null,
       organizationId: 'org-1',
       properties: {
+        document_id: undefined,
+        upload_id: undefined,
+        attempt: undefined,
         status: 'completed',
         screening: 'clean',
+        error_reason: undefined,
         file_type: 'pdf',
         page_count: 3,
         chunk_count: 9,
         duration_ms: undefined,
+        queue_wait_ms: undefined,
+        processing_ms: undefined,
       },
     })
     expect(captureServer).toHaveBeenNthCalledWith(
@@ -77,5 +83,64 @@ describe('announceIngestsFinished', () => {
     announceIngestsFinished('org-1', [])
 
     expect(captureServer).not.toHaveBeenCalled()
+  })
+
+  it('joins the attempt to its document, batch and failure class, and splits queueing from work', () => {
+    announceIngestsFinished('org-1', [
+      {
+        documentId: 'doc-1',
+        filename: 'a.pdf',
+        status: 'failed',
+        attempt: 2,
+        uploadId: 'batch-1',
+        errorReason: 'transient',
+        queueWaitMs: 4_000,
+        processingMs: 9_000,
+      },
+    ])
+
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          document_id: 'doc-1',
+          attempt: 2,
+          upload_id: 'batch-1',
+          error_reason: 'transient',
+          queue_wait_ms: 4_000,
+          processing_ms: 9_000,
+        }),
+      })
+    )
+  })
+
+  it('says not_run when the job carried no screening, instead of leaving the value out', () => {
+    announceIngestsFinished('org-1', [{ filename: 'a.pdf', status: 'completed' }])
+
+    expect(captureServer).toHaveBeenCalledWith(
+      expect.objectContaining({ properties: expect.objectContaining({ screening: 'not_run' }) })
+    )
+  })
+})
+
+describe('announceDocumentUploaded', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('sends one event per stored file, as the uploader, with its source and no name', () => {
+    announceDocumentUploaded('org-1', 'user-1', { source: 'mail', filename: 'Plan.PDF', documentId: 'doc-1', uploadId: null })
+
+    expect(captureServer).toHaveBeenCalledWith({
+      event: 'document_uploaded',
+      distinctId: 'user-1',
+      organizationId: 'org-1',
+      properties: {
+        source: 'mail',
+        file_count: 1,
+        document_id: 'doc-1',
+        upload_id: undefined,
+        file_type: 'pdf',
+        replaced: false,
+      },
+    })
+    expect(JSON.stringify(captureServer.mock.calls)).not.toContain('Plan')
   })
 })

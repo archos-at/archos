@@ -624,6 +624,10 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         if (uploadedTypes.length > 0) {
           capturePosthog('document_uploaded', {
             count: uploadedTypes.length,
+            // Per batch, from the browser; the server sends one per file with
+            // `source` web, mail or chat (`announceDocumentUploaded`).
+            source: 'web_batch',
+            file_count: uploadedTypes.length,
             types: [...new Set(uploadedTypes)].sort().join(','),
             shelf,
           })

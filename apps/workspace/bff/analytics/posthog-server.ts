@@ -56,6 +56,7 @@ export type ServerEvent =
   | 'job_run_started'
   | 'job_run_finished'
   | 'document_ingest_finished'
+  | 'document_uploaded'
   | 'bim_query_executed'
   | 'budget_blocked'
   | 'budget_threshold_crossed'
@@ -95,10 +96,13 @@ export const isPosthogServerEnabled = (): boolean => posthogServerSettings() !==
  * way `$host` does for the browser's. Absent when the deployment pins no origin.
  */
 export const serverSuperProperties = (): { release: string; service: string; app_host?: string } => {
-  const origin = configuredAppOrigin()
+  // The MCP resource URL is pinned per deployment too, so a process that was
+  // given it but not the redirect URI still names its deployment.
+  const origin = configuredAppOrigin() ?? configuredAppOrigin({ WORKOS_REDIRECT_URI: process.env.MCP_RESOURCE_URL })
   return {
     release: deployedSha(),
-    service: process.env.OTEL_SERVICE_NAME ?? 'grid-ui',
+    // `||`, not `??`: a blank variable (a template that renders it empty) is no name.
+    service: process.env.OTEL_SERVICE_NAME?.trim() || 'grid-ui',
     ...(origin ? { app_host: new URL(origin).host } : {}),
   }
 }

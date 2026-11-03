@@ -1,7 +1,7 @@
 /** Stuck, transient and failed ingest documents. */
 
 import 'server-only'
-import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { documentShelf } from '../shelf'
@@ -140,4 +140,41 @@ export async function markDocumentIngestFailed(
   // extraction that failed, a row stuck in processing): the badge turns red
   // for everyone reading the shelf, not only for a tab that happens to poll it.
   if (row) publishShelfChanged(organizationId, documentShelf(row))
+}
+
+/** What `document_ingest_finished` says about a row beyond the reconcile's own view. */
+export interface IngestAnnouncementFacts {
+  /** Dispatches of the row so far (`ingest_attempts`); null on a row from before the column. */
+  attempt: number | null
+  /** The upload gesture that wrote the bytes, or null. */
+  uploadBatchId: string | null
+}
+
+/**
+ * The attempt count and upload batch of the rows a read just settled, by id.
+ * Fail-open: analytics must not fail a status read, so a failed read answers with no facts.
+ */
+export async function findIngestAnnouncementFacts(
+  organizationId: string,
+  documentIds: string[],
+): Promise<Map<string, IngestAnnouncementFacts>> {
+  const facts = new Map<string, IngestAnnouncementFacts>()
+  if (documentIds.length === 0) return facts
+  try {
+    const rows = await withTenant({ organizationId }, () =>
+      getDb()
+        .select({ id: documents.id, attempts: documents.ingestAttempts, uploadBatchId: documents.uploadBatchId })
+        .from(documents)
+        .where(and(eq(documents.organizationId, organizationId), inArray(documents.id, documentIds))),
+    )
+    for (const row of rows) {
+      facts.set(row.id, {
+        attempt: row.attempts === null || row.attempts === undefined ? null : Number(row.attempts),
+        uploadBatchId: row.uploadBatchId ?? null,
+      })
+    }
+  } catch (error) {
+    console.debug('[posthog] could not read ingest facts', error)
+  }
+  return facts
 }
