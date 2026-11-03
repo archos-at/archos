@@ -31,8 +31,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import processing
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import processing
 
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 
@@ -820,8 +820,8 @@ class TestScopedReconcile:
 
 def test_module_under_test_importable():
     """Guard against accidental import-time breakage in the touched modules."""
-    assert "knowledge_layer.llamaindex.adapter" in sys.modules
-    assert "knowledge_layer.llamaindex.processing" in sys.modules
+    assert "knowledge_layer.ingest.adapter" in sys.modules
+    assert "knowledge_layer.ingest.processing" in sys.modules
 
 
 # =============================================================================

@@ -10,10 +10,10 @@ sentence the model reads, before the search.
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.knowledge_search import SearchArgs
-from knowledge_layer.knowledge_search import parse_args
-from knowledge_layer.knowledge_search import scoped_filters
-from knowledge_layer.qdrant.scope import translate
+from knowledge_layer.search import SearchArgs
+from knowledge_layer.search import parse_args
+from knowledge_layer.search import scoped_filters
+from knowledge_layer.vector_store import translate
 
 
 def _parse(filters: dict | None, shelf: str | None = None) -> SearchArgs | str:

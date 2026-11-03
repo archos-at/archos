@@ -16,10 +16,10 @@ whole and runs them from `/app/apps/agent-host/`.
 |---|---|---|
 | Add a route | Put it in `src/agent_host/routes/` and register it in exactly one role's list in `plugin.py`: `api_routers` / `API_APP_REGISTRARS` for `api`, `CHAT_ROUTERS` for `chat` (ADR-0082). Almost every route is `api`'s; `chat` serves the socket and what KEDA reads from it | `tests/test_roles.py`: a router under `routes/` that no role mounts, or both do, fails it. Without the list, the route exists and nothing serves it |
 | Accept a request | Authenticate through `auth/middleware.py`; the validator is resolved from the `agent_host.validators` entry point, not imported | The WorkOS validator is pluggable on purpose (ADR-0002). A direct import hard-wires identity into the API tier |
-| Add a job phase | Emit it through `jobs/phase_events.py` so the SSE stream and the event store agree. A research job's own steps (claim, prepare, run, persist, finish) are functions in `jobs/agent_job.py`, `agent_job_setup.py` and `job_outcome.py`; a new step is a new function there, not a branch in `run_agent_job` | The UI's progress display and the stored history diverge, and only one of them is replayable |
+| Add a job phase | Emit it through `jobs/phase_events.py` so the SSE stream and the event store agree. A research job's own steps (start, prepare, run, persist, finish) are functions in `jobs/agent_job.py`, `agent_job_setup.py` and `job_outcome.py`; a new step is a new function there, not a branch in `run_agent_job` | The UI's progress display and the stored history diverge, and only one of them is replayable |
 | Store job payloads | Go through `jobs/payload_crypto.py` | Job payloads carry tenant content into a shared store |
-| Remove or rename a `run_agent_job` parameter | Name the old key in `RETIRED_PAYLOAD_KEYS` (`jobs/worker.py`) in the same change, and change its field on `JobRequest` (`jobs/agent_job.py`) with it. Rows queued, and jobs running, at the upgrade replay the old payload | Every job in flight at the upgrade fails with a TypeError. `tests/test_retired_payload_keys.py` binds replays to the real signature, and `tests/test_agent_job_phases.py` fails a parameter `JobRequest` lacks |
-| Change how a research job runs | Keep the one path: `jobs/submit.py` persists the job and its queue row, a `jobs/worker.py` replica claims and runs it, and the cancel route flips `job_info` to INTERRUPTED for the worker's `CancellationMonitor` to poll (ADR-0021). The `chat` role submits and the `api` role streams and cancels (ADR-0082), so the queue is the only place a job can live | A second execution path forks cancel, reclaim and the reaper, and only one of them gets tested |
+| Remove or rename a `run_agent_job` parameter | Name the old key in `RETIRED_PAYLOAD_KEYS` (`jobs/worker.py`) in the same change, and change its field on `JobRequest` (`jobs/agent_job.py`) with it. Runs waiting on Hatchet, and runs retried after a lost worker, at the upgrade replay the old payload | Every job in flight at the upgrade fails with a TypeError. `tests/test_retired_payload_keys.py` binds replays to the real signature, and `tests/test_agent_job_phases.py` fails a parameter `JobRequest` lacks |
+| Change how a research job runs | Keep the one path: `jobs/submit.py` persists the job and starts its `research-run` on Hatchet (`jobs/research_workflow.py`, the only research module that imports `hatchet_sdk`), the `agent-worker` tier runs it through `worker.run_stored_job`, and the cancel route flips `job_info` to INTERRUPTED for the run's `CancellationMonitor` to poll and cancels the Hatchet run by its id (ADR-0021, ADR-0150). The `chat` role submits and the `api` role streams and cancels (ADR-0082) | A second execution path forks cancel, retries and the reaper, and only one of them gets tested. `tests/test_research_workflow.py` fakes Hatchet at `orchestrator_client.reset_for_tests` and asserts what is handed to the SDK |
 
 ## Rules that need more than a row
 
@@ -28,25 +28,37 @@ validates the JWT and reads the context headers; it does not look up who you
 are. The BFF decided that (ADR-0003, ADR-0007). Anything that needs to *decide*
 access belongs in the BFF, not here.
 
-**Job workers are claimed in the database, not assigned.** Both queues are
-tables on one claim, `agent.common.claim_queue` (ADR-0079): fewest running in
-the lane (the organization) fleet-wide first, then the lane served longest ago,
-then the lane with the oldest job, then the lane name; inside the lane
-`interactive` before `bulk`, then oldest. Priority never picks the lane. It also
-holds the heartbeat, the reclaim of stale claims, `release_claims` on a drain (no
-attempt spent), and `dead` rows kept as a trace instead of a `DELETE`. A change to the order, the heartbeat or the dead
-rows is made there, once. `jobs/queue.py` and `jobs/worker.py` are research's
-table, encrypted payload and poison verdict on it; the reaper and the checkpoint
-retention sweep assume it. Ingestion claims from its own table,
-`agent.knowledge.ingest_queue`; `jobs/ingest_dispatch.py` puts jobs there and
-`jobs/ingest_worker.py` is its dedicated tier, the only process that claims
-(ADR-0076): the `chat` and `api` roles enqueue and never claim. New work of either kind
-joins by claiming through its queue, never by an in-process pool alone.
+**Background work runs on Hatchet, not on our own claim queues** (ADR-0150, runbook
+[`docs/deployment/hatchet.md`](../../docs/deployment/hatchet.md)).
+A research job is a `research-run` task: concurrency `GROUP_ROUND_ROBIN` on
+`input.organization_id` capped at `MAX_ACTIVE_JOBS_PER_ORG`, `interactive` at
+`Priority.HIGH` before `bulk` at `Priority.LOW`, retries after a lost worker or a
+transient failure (the job database away, a timeout, a provider 5xx or 429:
+`agent.common.task_failures`; a run that fails on its own, and an unreadable
+payload, raise `NonRetryableException`), and an on-failure task that writes
+FAILURE unless a verdict stands. What a task raises to Hatchet is the
+exception's class and category, `from None`: the message and its chained
+cause, which may name a file or a URL, go to our own logs only. Hatchet delivers at least once, so a copy takes the job in
+`jobs/run_ownership.py` before it runs the agent (`submitted` to `running`, or a
+`running` job silent past the ghost reaper's window) and a losing copy runs
+nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends
+as FAILURE (`agent_job._finish_cancelled`). The run's id is kept in
+`research_orchestrator_runs` (`jobs/orchestrator_runs.py`) for the cancel.
+Ingestion is the `ingest-document` workflow (`agent.knowledge.ingest_workflow`,
+steps `index` then `settle`): `jobs/ingest_dispatch.py` starts a run per job and
+`jobs/ingest_worker.py` is the only process that serves it; the `chat` and `api`
+roles dispatch and never run a job. Every task input carries ids, the priority
+and the `payload_crypto` ciphertext, never plaintext; without `JOB_PAYLOAD_KEK` a
+submit is refused. The old `research_job_queue` and `ingest_job_queue` tables stay
+until a later migration drops them; `python -m agent_host.jobs.requeue_legacy` and
+`python -m agent.knowledge.ingest_cutover` start what they still held at the
+cutover. New background work joins as a Hatchet task, never as an in-process pool
+alone or a table of our own.
 
 **Research waits, it is not refused.** Capacity never makes `jobs/submit.py`
-raise: `MAX_ACTIVE_JOBS_PER_ORG` is the claim's per-lane cap (read by the
-worker), and the one 429 left is `MAX_QUEUED_JOBS_PER_ORG`, abuse protection on how
-many jobs one organization may have waiting. A scheduled fire is `bulk`. Do not
+raise: `MAX_ACTIVE_JOBS_PER_ORG` is the `research-run` concurrency cap per
+organization, and the one 429 left is `MAX_QUEUED_JOBS_PER_ORG`, abuse protection on how
+many jobs one organization may have waiting (`submitted` in `job_info`). A scheduled fire is `bulk`. Do not
 turn a full cluster back into a refusal: a scheduled task that meets one is
 skipped, not retried.
 
@@ -56,7 +68,8 @@ one, the requester's signed request-context envelope the BFF minted, so the
 tools that act as a person behave as on a chat turn. The envelope is kept at
 submit only when it verifies for the run's requester (`jobs/run_envelope.py`,
 `capture_request_envelope`), travels in the encrypted payload, and is renewed
-by the BFF at claim once it is an hour old. This tier verifies and forwards; it
+by the BFF when the run starts once it is an hour old (`agent_job_setup`, inside
+`run_agent_job`, so a run that waited on Hatchet starts with a fresh one). This tier verifies and forwards; it
 never builds or signs one, and never logs one. Any refusal or failure means the
 run acts as nobody and those tools refuse.
 

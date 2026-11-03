@@ -16,14 +16,14 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import visual_analysis
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.llamaindex.adapter import _build_image_caption_document
-from knowledge_layer.llamaindex.adapter import _looks_like_image
-from knowledge_layer.llamaindex.adapter import _read_image_as_jpeg
-from knowledge_layer.llamaindex.adapter import _strip_visual_marker
-from knowledge_layer_testing.qdrant import FakeEmbedder
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import visual_analysis
+from knowledge_layer.ingest.adapter import _build_image_caption_document
+from knowledge_layer.ingest.adapter import _looks_like_image
+from knowledge_layer.ingest.adapter import _read_image_as_jpeg
+from knowledge_layer.ingest.adapter import _strip_visual_marker
+from knowledge_layer_testing.vector_store import FakeEmbedder
 from PIL import ExifTags
 from PIL import Image
 

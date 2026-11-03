@@ -62,40 +62,41 @@ def _count_connects(monkeypatch) -> list[int]:
 
 
 def test_the_page_text_presign_retries_a_refused_connect(monkeypatch):
-    from knowledge_layer.llamaindex import page_text_store
+    from knowledge_layer.ingest import PAGES_PART
+    from knowledge_layer.ingest import request_slot
 
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", f"http://127.0.0.1:{_closed_port()}")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
     connects = _count_connects(monkeypatch)
-    assert page_text_store.request_slot("d1", "proj_1", page_text_store.PAGES_PART) is None
+    assert request_slot("d1", "proj_1", PAGES_PART) is None
     assert len(connects) == CONNECT_RETRIES + 1
 
 
 def test_the_page_text_put_retries_a_refused_connect(monkeypatch):
-    from knowledge_layer.llamaindex import page_text_store
+    from knowledge_layer.ingest import put_part
 
     connects = _count_connects(monkeypatch)
     with pytest.raises(httpx.ConnectError):
-        page_text_store.put_part(f"http://127.0.0.1:{_closed_port()}/pages.md", b"x", "text/markdown")
+        put_part(f"http://127.0.0.1:{_closed_port()}/pages.md", b"x", "text/markdown")
     assert len(connects) == CONNECT_RETRIES + 1
 
 
 def test_the_image_put_retries_a_refused_connect(monkeypatch):
-    from knowledge_layer.llamaindex import image_store
+    from knowledge_layer.ingest import put_raster
 
     connects = _count_connects(monkeypatch)
     with pytest.raises(httpx.ConnectError):
-        image_store.put_raster(f"http://127.0.0.1:{_closed_port()}/0.jpg", b"x")
+        put_raster(f"http://127.0.0.1:{_closed_port()}/0.jpg", b"x")
     assert len(connects) == CONNECT_RETRIES + 1
 
 
 def test_the_presence_check_retries_a_refused_connect(monkeypatch):
-    from knowledge_layer.llamaindex import document_presence
+    from knowledge_layer.ingest import document_still_exists
 
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", f"http://127.0.0.1:{_closed_port()}")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
     connects = _count_connects(monkeypatch)
-    assert document_presence.document_still_exists("d1", "proj_1") is None
+    assert document_still_exists("d1", "proj_1") is None
     assert len(connects) == CONNECT_RETRIES + 1
 
 

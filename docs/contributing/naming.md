@@ -43,6 +43,17 @@ Which rules govern which text:
 | Public release notes | Plain words for architects | `PUBLIC_JARGON` in `scripts/release_notes.py`; [`release-notes.md`](release-notes.md) |
 | Comments, docstrings, engineering docs | English; a German domain word appears with its code name | The `unslop` skill, and [House words](#house-words) below |
 
+## No technology in a name
+
+A module, folder, workflow, task or test is named for what it does, never for
+the library or service that does it: `ingest/`, not `llamaindex/`;
+`ingest_workflow.py`, not `ingest_workflow.py`; `vector_store/`, not `qdrant/`.
+The technology changes and the job does not, and a reader looking for the job
+should find it by its name. Exceptions: a vendor's own variable or config key
+(`HATCHET_CLIENT_TOKEN`), and infrastructure that deploys that product itself
+(`deploy/pulumi/src/platform/hatchet.ts`). Confining a client to one module is
+an import-linter contract, which needs no vendor in the module's name.
+
 ## No brand in a name
 
 Decided in [ADR-0149](../adr/0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md).

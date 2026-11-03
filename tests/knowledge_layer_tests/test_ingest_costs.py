@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from knowledge_layer.llamaindex import adapter
+from knowledge_layer.ingest import adapter
 
 from agent.common.cost_tracking import cost_tracker_var
 from agent.common.cost_tracking import record_usage_event

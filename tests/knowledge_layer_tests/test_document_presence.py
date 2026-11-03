@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from knowledge_layer.llamaindex import document_presence
+from knowledge_layer.ingest import document_presence
 
 
 @pytest.fixture()

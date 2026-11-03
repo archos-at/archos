@@ -56,6 +56,15 @@ function kedaVersion() {
 }
 const KEDA_VERSION = kedaVersion();
 
+/** The RabbitMQ Cluster Operator release the program applies (`RABBITMQ_OPERATOR_VERSION`, `src/platform/rabbitmq.ts`). */
+function rabbitmqOperatorVersion() {
+  const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/platform/rabbitmq.ts"), "utf8");
+  const version = /RABBITMQ_OPERATOR_VERSION = "(\d+\.\d+\.\d+)"/.exec(source)?.[1];
+  if (!version) throw new Error("RABBITMQ_OPERATOR_VERSION not found in src/platform/rabbitmq.ts");
+  return version;
+}
+const RABBITMQ_OPERATOR_VERSION = rabbitmqOperatorVersion();
+
 const RELEASE_SCHEMAS = {
   [CNPG_GROUP]: {
     name: "CNPG",
@@ -69,6 +78,13 @@ const RELEASE_SCHEMAS = {
     prefix: "keda",
     url: `https://github.com/kedacore/keda/releases/download/v${KEDA_VERSION}/keda-${KEDA_VERSION}-crds.yaml`,
     kinds: new Set(["TriggerAuthentication", "ClusterTriggerAuthentication", "ScaledObject", "ScaledJob"]),
+  },
+  // The operator's release manifest carries its CRDs; it is the file the program applies.
+  "rabbitmq.com/v1beta1": {
+    name: "RabbitMQ",
+    prefix: "rabbitmq",
+    url: `https://github.com/rabbitmq/cluster-operator/releases/download/v${RABBITMQ_OPERATOR_VERSION}/cluster-operator.yml`,
+    kinds: new Set(["RabbitmqCluster"]),
   },
 };
 

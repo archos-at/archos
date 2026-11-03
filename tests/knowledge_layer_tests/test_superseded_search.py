@@ -12,6 +12,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -84,7 +85,7 @@ def search(monkeypatch):
     """Install a scope (base + project, optionally the Büroablage), the pools, and the store's replaced files."""
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
 
@@ -102,7 +103,7 @@ def search(monkeypatch):
         monkeypatch.setattr("agent.knowledge.get_superseded_files", get_superseded_files)
         store = _Store(pools)
         set_turn_documents(documents)
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: store)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: store)
         store.asked = asked
         return store
 

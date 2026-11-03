@@ -22,7 +22,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from knowledge_layer.llamaindex import adapter
+from knowledge_layer.ingest import adapter
 from knowledge_layer_testing import pdf_fixtures
 
 _SHEETS = 4

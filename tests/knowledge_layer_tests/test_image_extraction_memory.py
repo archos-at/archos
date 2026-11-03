@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import pypdfium2 as pdfium
 import pytest
-from knowledge_layer.llamaindex import adapter
+from knowledge_layer.ingest import adapter
 from PIL import Image
 
 # =============================================================================

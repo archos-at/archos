@@ -3,7 +3,7 @@
 ``permit_records`` and ``permit_requirements`` live in the BFF's Postgres, which this
 process never reads or writes (ADR-0055). The ingest pipeline and the backfill hand the
 record over ``POST /api/internal/permit-records``, service-token guarded, the transport
-``knowledge_layer/llamaindex/document_presence.py`` uses for ``document-exists``.
+``knowledge_layer/ingest/document_presence.py`` uses for ``document-exists``.
 
 Fail-open the same way: no BFF configured, a timeout, a non-200 or an unreadable answer
 is ``False`` and a WARNING, never an exception. A record that did not land costs the

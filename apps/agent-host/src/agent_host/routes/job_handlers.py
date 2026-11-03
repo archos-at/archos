@@ -174,7 +174,7 @@ async def list_data_sources() -> DataSourcesResponse:
     failure reports ``vlm_available=False`` (fail-closed, no false offer).
     """
     try:
-        from knowledge_layer.llamaindex.adapter import vlm_configured
+        from knowledge_layer.ingest import vlm_configured
 
         vlm_available = vlm_configured()
     except Exception:  # noqa: BLE001 — capability probe must never break the listing

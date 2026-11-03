@@ -86,7 +86,6 @@ vi.mock('@/lib/tasks/repository', () => ({
   insertDefinition: vi.fn(),
   listDefinitionPage: vi.fn(),
   findDefinition: vi.fn(),
-  findDefinitionById: vi.fn(),
   updateDefinition: vi.fn(),
   deleteDefinition: vi.fn(),
   touchDefinitionLastRun: vi.fn(),

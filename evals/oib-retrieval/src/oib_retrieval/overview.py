@@ -12,7 +12,7 @@ Which of the CURRENT retrieval's deterministic channels fire for each query
 shape, and whether the expected corpus files are among what fired:
 
 * the exact channel: ``agent.common.legal_terms.extract_exact_terms``,
-  then ``knowledge_layer.llamaindex.hybrid.selective_terms`` (the retriever's
+  then ``knowledge_layer.search.hybrid.selective_terms`` (the retriever's
   document-frequency ceiling), then a case-sensitive substring match over
   ``file_name + text`` — the offline mirror of Chroma
   ``where_document {"$contains": term}``, which ``german_text``'s docstring
@@ -78,7 +78,7 @@ THE ARTEFACT THIS HARNESS PRODUCED, AND THE TWO GUARDS AGAINST A REPEAT
 -----------------------------------------------------------------------
 Scoring two channels of three, it once read a regression as a 4x win: a change
 that widened the exact channel to a term matching most of the corpus (see
-``knowledge_layer.llamaindex.hybrid.selective_terms`` for the measurement) took
+``knowledge_layer.search.hybrid.selective_terms`` for the measurement) took
 overview from 0.150 to 0.583. Nothing was retrieved. All six "oib N" questions
 produced ONE ranking, the corpus in filename order, and each score was only
 where that question's labels fell in it. Reversing the fixture order moved the
@@ -530,7 +530,7 @@ def exact_files_for(terms: list[str], docs: list[FixtureDoc]) -> list[str]:
 
     Two production halves, both imported rather than restated: the substring test is
     the case-sensitive byte match Chroma's ``where_document`` runs, and the document
-    frequency ceiling is ``knowledge_layer.llamaindex.hybrid.selective_terms``, the
+    frequency ceiling is ``knowledge_layer.search.hybrid.selective_terms``, the
     same rule and constants the retriever applies before it spends a pass on a term.
 
     The ceiling half is what keeps this a mirror. Without it a term the retriever
@@ -539,7 +539,7 @@ def exact_files_for(terms: list[str], docs: list[FixtureDoc]) -> list[str]:
     """
     if not terms:
         return []
-    from knowledge_layer.llamaindex.hybrid import selective_terms
+    from knowledge_layer.search import selective_terms
 
     haystacks = [f"{doc.file_name}\n{doc.text}" for doc in docs]
     frequencies = {term: sum(1 for hay in haystacks if term in hay) for term in terms}
@@ -613,7 +613,7 @@ def fuse_file_channels(channels: list[list[str]]) -> list[str]:
     """
     from types import SimpleNamespace
 
-    from knowledge_layer.llamaindex.hybrid import fuse_with_ranks
+    from knowledge_layer.search import fuse_with_ranks
 
     doubles = [[SimpleNamespace(chunk_id=name) for name in channel] for channel in channels]
     return [chunk.chunk_id for chunk, _, _ in fuse_with_ranks(doubles)]

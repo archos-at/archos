@@ -1,6 +1,6 @@
 ---
-status: proposed
-date: 2026-10-06
+status: superseded by ADR-0150
+date: 2026-11-03
 decision-makers: Grid engineering
 consulted: product owner
 informed: everyone working in this repo

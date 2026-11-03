@@ -59,10 +59,6 @@ def statuses(monkeypatch) -> list[str]:
     for module in (agent_job, job_outcome):
         monkeypatch.setattr(module, "_update_status_if_not_terminal", update)
 
-    async def not_lost(*_args):
-        return False
-
-    monkeypatch.setattr(job_outcome, "_lost_claim", not_lost)
     monkeypatch.setattr("nat.front_ends.fastapi.async_jobs.job_store.JobStore", lambda **_kw: object())
     return written
 
@@ -72,11 +68,7 @@ def released(monkeypatch) -> list[str]:
     """Record the release and the checkpoint purge, which run on every path."""
     seen: list[str] = []
 
-    async def purge(_db_url, job_id, _owner):
-        seen.append(f"purge:{job_id}")
-        return True
-
-    monkeypatch.setattr(agent_job, "_purge_deep_checkpoint_unless_reclaimed", purge)
+    monkeypatch.setattr(agent_job, "_purge_deep_checkpoint", lambda job_id: seen.append(f"purge:{job_id}"))
     monkeypatch.setattr(agent_job.AgentEventCallback, "cleanup_job_urls", lambda job_id: seen.append(f"urls:{job_id}"))
     return seen
 

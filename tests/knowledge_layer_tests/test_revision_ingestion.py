@@ -1,4 +1,4 @@
-"""The two ingestion hooks that read Fassungen (``llamaindex/revisions.py``, wired in ``adapter.py``).
+"""The two ingestion hooks that read Fassungen (``ingest/revisions.py``, wired in ``adapter.py``).
 
 A NEW file name may be a newer Fassung of another document: the summary model reads
 a few candidates from the same collection and its answer is stored as a SUGGESTION.
@@ -17,9 +17,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter as adapter_module
-from knowledge_layer.llamaindex import revisions
-from knowledge_layer.llamaindex.adapter import _PreviousVersion
+from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest import revisions
+from knowledge_layer.ingest.adapter import _PreviousVersion
 from knowledge_layer_testing import revision_ingestion as harness
 from knowledge_layer_testing.revision_ingestion import _documents
 from knowledge_layer_testing.revision_ingestion import _ingest

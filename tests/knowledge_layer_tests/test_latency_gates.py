@@ -12,16 +12,18 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import knowledge_layer.requery as requery_mod
+import knowledge_layer.search.requery as requery_mod
 import pytest
-from knowledge_layer.requery import _has_narrow_anchor
-from knowledge_layer.requery import claim_requery_slot
-from knowledge_layer.requery import is_known_entity_lookup
-from knowledge_layer.requery import requery_already_fired
-from knowledge_layer.requery import reset_requery_slot
-from knowledge_layer.requery import reset_requery_slot_for_turn
-from knowledge_layer.requery import scores_decisively_strong
-from knowledge_layer.requery import should_skip_judge
+from knowledge_layer import register as register_module
+from knowledge_layer.search import claim_requery_slot
+from knowledge_layer.search import is_known_entity_lookup
+from knowledge_layer.search import requery_already_fired
+from knowledge_layer.search import reset_requery_slot
+from knowledge_layer.search import reset_requery_slot_for_turn
+from knowledge_layer.search import results as results_module
+from knowledge_layer.search import scores_decisively_strong
+from knowledge_layer.search import should_skip_judge
+from knowledge_layer.search.requery import _has_narrow_anchor
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -208,7 +210,7 @@ class TestSlotResetPerTurn:
         reset_requery_slot_for_turn(turn_id="turn-1")
         assert claim_requery_slot() is True
         # Stamp path without a turn id: 1 keeps the spent cap, 0 opens a new one.
-        import knowledge_layer.requery as requery_mod
+        import knowledge_layer.search.requery as requery_mod
 
         original = requery_mod._current_turn_id
         requery_mod._current_turn_id = lambda: None
@@ -221,7 +223,7 @@ class TestSlotResetPerTurn:
             requery_mod._current_turn_id = original
 
     def test_unstamped_caller_gets_a_slot(self):
-        import knowledge_layer.requery as requery_mod
+        import knowledge_layer.search.requery as requery_mod
 
         original = requery_mod._current_turn_id
         requery_mod._current_turn_id = lambda: None
@@ -291,10 +293,11 @@ class _FakeRetriever:
 @pytest.fixture
 def loop_harness(monkeypatch):
     def install(retriever, judge):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr(
-            "knowledge_layer.search_results.format_results",
+            results_module,
+            "format_results",
             # The real renderer carries every decoration inside its bytes; the fake does too.
             lambda merged, query, notice="", trailer="", preamble_note="", opened_files=frozenset(), **_: (
                 notice + preamble_note + ("|".join(c.chunk_id for c in merged.chunks) or "no results") + trailer
@@ -362,7 +365,7 @@ class TestGateSkipsTheJudge:
         # Two sequential searches in one turn (same turn id): the first fires,
         # the second stays one-shot even though its judge would also have asked
         # for more.
-        import knowledge_layer.requery as requery_mod
+        import knowledge_layer.search.requery as requery_mod
 
         monkeypatch.setattr(requery_mod, "_current_turn_id", lambda: "turn-1")
         first = [_chunk("a", "a")]
@@ -391,7 +394,7 @@ class TestGateSkipsTheJudge:
     async def test_unstamped_searches_each_get_a_slot(self, loop_harness, monkeypatch):
         # No turn id, no round stamp: each caller gets a slot rather than
         # inheriting the previous search's spent cap.
-        import knowledge_layer.requery as requery_mod
+        import knowledge_layer.search.requery as requery_mod
 
         monkeypatch.setattr(requery_mod, "_current_turn_id", lambda: None)
         retriever = _FakeRetriever(
@@ -417,7 +420,7 @@ class TestGateSkipsTheJudge:
     async def test_empty_pool_widens_once_despite_lookup_shape(self, loop_harness, monkeypatch):
         # Empty pool forces the judge even for a lookup-shaped query: the
         # first pool is nothing, so the loop still tries one reformulation.
-        import knowledge_layer.requery as requery_mod
+        import knowledge_layer.search.requery as requery_mod
 
         monkeypatch.setattr(requery_mod, "_current_turn_id", lambda: None)
         retriever = _FakeRetriever(
@@ -437,12 +440,12 @@ class TestGateSkipsTheJudge:
 
 class TestSpanEnrichment:
     def test_normalized_query_folds_whitespace_and_case(self):
-        from knowledge_layer.search_span import normalized_query_for_span
+        from knowledge_layer.search import normalized_query_for_span
 
         assert normalized_query_for_span("  FluchtWEG   GK4\n") == "fluchtweg gk4"
 
     def test_citation_key_prefers_the_stored_display_citation(self):
-        from knowledge_layer.search_span import citation_key_for_span
+        from knowledge_layer.search import citation_key_for_span
 
         chunk = SimpleNamespace(display_citation="oib-rl_2.pdf p.12", file_name="x.pdf", page_number=5)
         assert citation_key_for_span(chunk) == "oib-rl_2.pdf p.12"

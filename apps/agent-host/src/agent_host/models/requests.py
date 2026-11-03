@@ -54,7 +54,7 @@ class ScreeningPolicy(BaseModel):
     """What an ingest job screens the document's locally extracted text for, before any model sees it.
 
     A match fails the file and records why on ``FileProgress.quarantine``, the
-    typed verdict (``knowledge_layer.llamaindex.screening``, ADR-0113). Terms match case-, umlaut- and
+    typed verdict (``knowledge_layer.ingest.screening``, ADR-0113). Terms match case-, umlaut- and
     whitespace-insensitively at a word start, in the text as a person reads it
     (invisible characters left out, a hyphen at a line break joined); the
     detectors count checksum-valid matches only, a card only in a printed layout.
@@ -175,6 +175,9 @@ class IngestRequest(BaseModel):
     file_ref: str = Field(..., description="Presigned URL or file reference to download")
     collection: str = Field(..., description="Target collection name")
     document_id: str | None = Field(None, description="Optional document tracking ID")
+    byte_size: int | None = Field(
+        None, ge=0, description="The original's bytes: from `INGEST_HEAVY_FILE_BYTES` on, read on the high-memory pool."
+    )
     project_id: str | None = Field(
         None,
         max_length=120,
@@ -295,13 +298,9 @@ class IngestRequest(BaseModel):
         ),
     )
     approved_by: str | None = Field(
-        None,
-        description="Display name of the person who released an agent-authored document.",
+        None, description="Display name of the person who released an agent-authored document."
     )
-    approved_at: str | None = Field(
-        None,
-        description="ISO timestamp of that release.",
-    )
+    approved_at: str | None = Field(None, description="ISO timestamp of that release.")
     producer: str | None = Field(
         None,
         description="Which pipeline wrote an agent-authored document (`documents.authored_by_producer`).",
@@ -338,7 +337,7 @@ class SimilarityWeights(BaseModel):
     work_type: float = Field(0, ge=0, le=100, validation_alias=AliasChoices("work_type", "vorhabensart"))
 
     def to_store(self) -> dict[str, float]:
-        """The weights as ``knowledge_layer.qdrant.boost`` names them: the wire names."""
+        """The weights as ``knowledge_layer.vector_store.boost`` names them: the wire names."""
         return self.model_dump()
 
 

@@ -19,8 +19,8 @@ All offline: no PDFs, no ChromaDB, no embeddings, no network.
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.llamaindex.clause_chunking import clause_documents
-from knowledge_layer.llamaindex.clause_chunking import guideline_key
+from knowledge_layer.ingest import clause_documents
+from knowledge_layer.ingest import guideline_key
 
 
 def _pages(*texts: str) -> list[dict]:
@@ -319,7 +319,7 @@ def test_every_chunk_opens_with_the_clause_it_claims_to_be() -> None:
 
 
 def test_ingestion_cuts_a_numbered_document_on_its_outline() -> None:
-    from knowledge_layer.llamaindex.adapter import text_documents_for_pages
+    from knowledge_layer.ingest import text_documents_for_pages
 
     docs = text_documents_for_pages(_pages(COVER, BODY, MORE), "oib-rl_2_ausgabe_mai_2023.pdf", 1234)
     assert {doc.metadata.get("chunking") for doc in docs} == {"clause", "page"}
@@ -332,7 +332,7 @@ def test_ingestion_falls_back_to_one_document_per_page_for_everything_else() -> 
     The fallback is the whole reason the chunker may be enabled by default: it can
     only ever improve a document whose structure it recognises.
     """
-    from knowledge_layer.llamaindex.adapter import text_documents_for_pages
+    from knowledge_layer.ingest import text_documents_for_pages
 
     prose = _pages("Ein Angebot ohne Nummerierung.", "Noch eine Seite Fliesstext.")
     docs = text_documents_for_pages(prose, "angebot.pdf", 99)
@@ -357,8 +357,8 @@ def test_the_chunker_works_under_the_deployed_import_path() -> None:
         [
             sys.executable,
             "-c",
-            "from knowledge_layer.llamaindex.clause_chunking import clause_documents;"
-            "from knowledge_layer.llamaindex.chunk_metadata import apply_metadata_exclusions;"
+            "from knowledge_layer.ingest.clause_chunking import clause_documents;"
+            "from knowledge_layer.ingest.chunk_metadata import apply_metadata_exclusions;"
             "print('ok')",
         ],
         capture_output=True,

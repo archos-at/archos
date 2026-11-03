@@ -33,7 +33,7 @@ WHO WRITES WHAT. The backend holds a read-only object credential
 (``agent.common.seaweed_s3``), so it reads objects itself and asks the BFF to
 write them: ``POST /api/internal/base-corpus/upload-url`` returns a presigned PUT,
 ``DELETE /api/internal/base-corpus/<name>`` removes the object. Same internal
-channel and token header as ``knowledge_layer.llamaindex.image_store``. A
+channel and token header as ``knowledge_layer.ingest.image_store``. A
 presigned URL is a live bearer credential and is never logged, nor is any
 exception text that could carry it.
 
@@ -477,7 +477,7 @@ class CorpusObjectDownload:
     carries the object's key and hash instead, and the worker, which holds the same
     read credential as every backend process (``agent.common.seaweed_s3``),
     downloads it when it reaches the file, to a temp file the job then owns and
-    deletes (``knowledge_layer.deferred_files``: any zero-argument callable that
+    deletes (``knowledge_layer.ingest.deferred_files``: any zero-argument callable that
     returns a path). The bytes are checked against the hash the job was made for, so a
     file replaced while the job waited fails here, as a failed download, instead of
     being indexed under the wrong hash.

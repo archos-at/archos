@@ -289,7 +289,7 @@ def get_scoped_collections_from_context_or(
     scope = get_scoped_collections_from_context()
     if scope:
         return scope
-    from knowledge_layer.search_scope import resolve_scoped_collections
+    from knowledge_layer.search import resolve_scoped_collections
 
     return resolve_scoped_collections(config, session_id)
 

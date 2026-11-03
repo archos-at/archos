@@ -9,7 +9,7 @@ three file tools over the fixture, the ``files`` set runs the REAL ``list_files`
 - the vector store (``QDRANT_URL``): each file cut by the ingest job's own chunkers
   (``adapter.text_chunks_for_pages``: the section chunker's breadcrumbs and its overlap across page
   breaks, the per-page splitter where a file has no headings), written through the adapter's own
-  write path (``knowledge_layer.qdrant.writes.write_chunks``) and embedded by the deployment's
+  write path (``knowledge_layer.vector_store.writes.write_chunks``) and embedded by the deployment's
   embedder, with ``page_label``, ``chunk_ordinal``, ``folder_path`` and ``grid_document_id`` as an
   ingest job writes them;
 - the metadata store (``SUMMARY_DB``): each document registered, filed, typed and given its
@@ -126,7 +126,7 @@ def chunk_specs(project: FilesProject, file: FixtureFile) -> list[dict[str, Any]
 
 
 def _ingested_specs(project: FilesProject, file: FixtureFile, digest: str) -> list[dict[str, Any]]:
-    from knowledge_layer.llamaindex.adapter import text_chunks_for_pages
+    from knowledge_layer.ingest import text_chunks_for_pages
     from llama_index.core.schema import MetadataMode
 
     pages = [{"page_number": number, "text": text} for number, text in enumerate(file.pages, start=1)]
@@ -160,11 +160,11 @@ def seed(project: FilesProject | None = None, *, embed: Any = None) -> dict[str,
     ``embed`` is texts -> vectors (default: the deployment's embedder, as ``production_embedder`` builds it).
     """
     from fixture_bff import production_embedder
-    from knowledge_layer.llamaindex.embedding import embed_fingerprint_metadata
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
-    from knowledge_layer.qdrant.payload import ChunkRecord
-    from knowledge_layer.qdrant.store import get_store
-    from knowledge_layer.qdrant.writes import write_chunks
+    from knowledge_layer.embedding import embed_fingerprint_metadata
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import ChunkRecord
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import write_chunks
 
     from agent.knowledge.document_metadata_store import DocumentMetadataStore
 

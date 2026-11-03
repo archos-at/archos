@@ -146,6 +146,8 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         # Who is waiting on it: the durable queue claims by it inside an
         # organisation, and the provider limiter ranks the job's model calls by it.
         "priority": request.priority,
+        # The original's size: a large file reads on the high-memory pool (`ingest_dispatch.original_bytes`).
+        "original_bytes": request.byte_size,
     }
     if request.thumbnail_upload_url:
         # Gated in _assert_request_urls before anything was requested.
@@ -157,13 +159,11 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     # The folder this document was filed into, as the BFF's materialised path
     # (ADR-0049), stamped onto the metadata row: a folder is part of what the
     # agent must know about a document, not only of how the object is keyed.
-    folder_path = (request.folder_path or "").strip()
-    if folder_path:
+    if folder_path := (request.folder_path or "").strip():
         config["folder_path"] = folder_path
     # A person's choice at upload: this file replaces that one (CONTEXT.md,
     # "Fassung"). The job writes the confirmed link once the file has been read.
-    revision_of = (request.revision_of or "").strip()
-    if revision_of:
+    if revision_of := (request.revision_of or "").strip():
         config["revision_of"] = revision_of
     # The org id, so the detached ingest thread resolves the tenant's BYOK
     # VLM credential and runtime model override.
@@ -182,7 +182,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         config["project_facts"] = request.project_facts.facts.to_store()
         config["project_status"] = request.project_facts.status
     # The document's id, so the pipeline can ask the BFF for a PUT slot per
-    # raster it extracts (`knowledge_layer.llamaindex.image_store`). Without
+    # raster it extracts (`knowledge_layer.ingest.image_store`). Without
     # it the captions are indexed and the rasters discarded, which is what
     # every caller that sends no id (the OIB corpus sync) gets.
     if request.document_id:
@@ -191,7 +191,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     # every human document, which is what the parser expects
     # (agent.common.provenance.parse_agent_provenance).
     config.update(_provenance_config(request))
-    # The office's upload screening (`knowledge_layer.llamaindex.screening`),
+    # The office's upload screening (`knowledge_layer.ingest.screening`),
     # as plain data so it rides the durable queue's JSON payload unchanged.
     # An empty policy is no policy: the file's `screening` outcome stays null.
     if request.screening is not None and not request.screening.is_empty:
@@ -295,7 +295,7 @@ class DeferredObjectDownload:
     request and the job id is a false failure waiting to happen. The original
     (``file_ref``) and its PDF rendition (``extraction_ref``, ADR-0071) are
     each up to tens of megabytes, so the route gates both URLs and hands the
-    job this object instead of the bytes (``knowledge_layer.deferred_files``).
+    job this object instead of the bytes (``knowledge_layer.ingest.deferred_files``).
 
     The URL is a presigned GET, a bearer credential: it lives in a private slot
     and never in ``repr``, so a job config that is logged, printed or shown in

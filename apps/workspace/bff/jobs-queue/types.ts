@@ -4,7 +4,7 @@
  *
  * A payload is the job's whole state. It carries what was asked for AND how far
  * the job has got, because a job outlives the process that started it: the
- * runner saves the payload after every slice, and whichever worker claims the
+ * run saves the payload on the job's row after every slice, and whichever run takes the
  * job next resumes from the stored one. A payload is therefore read back from a
  * database row, never trusted, and every kind states its shape as a schema.
  */
@@ -504,7 +504,7 @@ export interface JobSliceResult<TPayload> {
   done: boolean
   payload: TPayload
   /**
-   * Not done, and nothing to do before then: the runner gives the claim back
+   * Not done, and nothing to do before then: the run saves the job back
    * WITHOUT spending an attempt and the job is not claimed again before this
    * moment. For a job that waits on something outside it (a wake whose
    * person's thread is busy), not for a failure, which throws.

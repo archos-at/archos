@@ -1,7 +1,7 @@
 """Folder cards, tier 1: a written abstract per folder, built bottom-up only when something changed (ADR-0127).
 
 Tier 0 (counts, Dokumentart mix, current Fassung) is computed live by
-``knowledge_layer.browse.folder_cards`` and costs nothing. Tier 1 is this package:
+``knowledge_layer.browse.tool.folder_cards`` and costs nothing. Tier 1 is this package:
 
 * :func:`mark_files` / :func:`mark_folders` are the hooks. ``knowledge/factory.py``
   calls them where every change to a document's facts already arrives

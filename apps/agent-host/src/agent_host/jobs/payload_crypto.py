@@ -82,6 +82,22 @@ def serialize(payload: dict[str, Any]) -> str:
     return _ENC_PREFIX + base64.b64encode(nonce + ciphertext).decode("ascii")
 
 
+def serialize_encrypted(payload: dict[str, Any]) -> str:
+    """:func:`serialize`, refusing the plaintext fallback: for a store that is not ours (ADR-0150).
+
+    A payload handed to the orchestrator lands in its database, which must never
+    hold tenant content in the clear, so without a KEK there is nothing to send.
+    """
+    require_kek()
+    return serialize(payload)
+
+
+def require_kek() -> None:
+    """Raise unless a valid KEK is configured: nothing is sent to the orchestrator in the clear."""
+    if _kek() is None:
+        raise PayloadKeyError("JOB_PAYLOAD_KEK is not set; a research payload never leaves this tier unencrypted")
+
+
 def deserialize(stored: str) -> dict[str, Any]:
     """Inverse of :func:`serialize`. Handles encrypted, wrapped-plaintext, and
     legacy raw-JSON forms — except when a KEK is configured, where only

@@ -632,7 +632,7 @@ functions:
     _type: read_passage
     knowledge_search: knowledge_search
 
-  # The file browser (packages/knowledge-layer/src/browse.py): `ls` over the
+  # The file browser (packages/knowledge-layer/src/browse/tool.py): `ls` over the
   # reader's own shelves — every file, by folder, name, Dokumentart and upload
   # date, paged. The prompt inventory stops at a few dozen names; this does
   # not. Deterministic, no LLM, and it reads only the scope `knowledge_search`

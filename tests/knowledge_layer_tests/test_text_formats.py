@@ -1,4 +1,4 @@
-"""Markdown, text and CSV files with locators and lossless decoding (``llamaindex/text_formats``).
+"""Markdown, text and CSV files with locators and lossless decoding (``ingest/text_formats``).
 
 These went through ``SimpleDirectoryReader``: one Document per file with no locator (the
 file was citable only as a whole, and ``read_passage`` could not open any part of it),
@@ -9,8 +9,8 @@ umlaut and ß without a trace.
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.llamaindex.text_formats import decode_text
-from knowledge_layer.llamaindex.text_formats import extract_text_format_documents
+from knowledge_layer.ingest import decode_text
+from knowledge_layer.ingest import extract_text_format_documents
 
 DIGEST = """# BIM-Modell: Wohnanlage Musterstraße
 
@@ -184,9 +184,9 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def ingestor(tmp_path, monkeypatch, qdrant_store):
-    from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-    from knowledge_layer_testing.qdrant import FakeEmbedder
-    from knowledge_layer_testing.qdrant import capture_indexed_documents
+    from knowledge_layer.ingest import LlamaIndexIngestor
+    from knowledge_layer_testing.vector_store import FakeEmbedder
+    from knowledge_layer_testing.vector_store import capture_indexed_documents
 
     ing = LlamaIndexIngestor({"generate_summary": False})
     ing._embed_model = FakeEmbedder()
@@ -231,7 +231,7 @@ class TestThroughTheIngestJob:
         self, tmp_path, ingestor, summary_db, monkeypatch
     ):
         openpyxl = pytest.importorskip("openpyxl")
-        from knowledge_layer.llamaindex import office_extractors
+        from knowledge_layer.ingest import office_extractors
 
         monkeypatch.setattr(office_extractors, "MAX_TABLE_ROWS", 10)
         workbook = openpyxl.Workbook()
