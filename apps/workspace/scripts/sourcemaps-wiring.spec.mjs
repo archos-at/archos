@@ -100,7 +100,8 @@ describe('the image build wiring', () => {
     expect(buildStep).toMatch(
       /if find \.next\/static \.next\/server -name '\*\.map' \| grep -q \.; then .*exit 1/
     )
-    expect(buildStep).toMatch(/grep -rlq 'chunkId=' .*exit 1/s)
+    // Every map-bearing chunk kept aside carries an id, and there is at least one.
+    expect(buildStep).toContain("[ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .")
   })
 
   it('deletes the CLI binary it fetched, which the production install would not prune', () => {

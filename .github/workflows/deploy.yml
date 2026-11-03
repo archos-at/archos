@@ -478,11 +478,11 @@ jobs:
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           # The stack the plan step selected.
-          # One rollback command only when all three services ran the same tag:
-          # a rollback pins all three to one tag. Otherwise the summary names
-          # each service's ref and no command.
+          # One rollback command only when all three services had a ref and ran
+          # the same tag: a rollback pins all three to one tag. Otherwise the
+          # summary names the refs there were and no command.
           deployed="$(pulumi stack output deployedImages --json)"
-          tags="$(jq -r '[.backend, .frontend, .web] | map(select(. != null) | sub("^.*:"; "")) | unique | join(" ")' <<<"$deployed")"
+          tags="$(jq -r '[.backend, .frontend, .web] | if any(. == null or . == "") then "" else map(sub("^.*:"; "")) | unique | join(" ") end' <<<"$deployed")"
           refs="$(jq -r '[.backend, .frontend, .web] | map(select(. != null)) | join(", ")' <<<"$deployed")"
           case "$tags" in *" "*|"") echo "tag=" >> "$GITHUB_OUTPUT" ;; *) echo "tag=$tags" >> "$GITHUB_OUTPUT" ;; esac
           echo "refs=$refs" >> "$GITHUB_OUTPUT"
@@ -779,11 +779,11 @@ jobs:
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           # The stack the plan step selected.
-          # One rollback command only when all three services ran the same tag:
-          # a rollback pins all three to one tag. Otherwise the summary names
-          # each service's ref and no command.
+          # One rollback command only when all three services had a ref and ran
+          # the same tag: a rollback pins all three to one tag. Otherwise the
+          # summary names the refs there were and no command.
           deployed="$(pulumi stack output deployedImages --json)"
-          tags="$(jq -r '[.backend, .frontend, .web] | map(select(. != null) | sub("^.*:"; "")) | unique | join(" ")' <<<"$deployed")"
+          tags="$(jq -r '[.backend, .frontend, .web] | if any(. == null or . == "") then "" else map(sub("^.*:"; "")) | unique | join(" ") end' <<<"$deployed")"
           refs="$(jq -r '[.backend, .frontend, .web] | map(select(. != null)) | join(", ")' <<<"$deployed")"
           case "$tags" in *" "*|"") echo "tag=" >> "$GITHUB_OUTPUT" ;; *) echo "tag=$tags" >> "$GITHUB_OUTPUT" ;; esac
           echo "refs=$refs" >> "$GITHUB_OUTPUT"

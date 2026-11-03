@@ -125,10 +125,10 @@ RUN rm -f .env .env.local .env.*.local .env.development .env.production 2>/dev/n
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Source maps for PostHog error tracking, on every build, with no key and no
-# network: `next build` emits them (EMIT_SOURCE_MAPS, next.config.ts), and the
-# PostHog CLI injects a chunk id into each shipped chunk and its map. Without a
-# release name it contacts nobody; it only insists that credentials exist, so
+# Source maps for PostHog error tracking, on every build, with no key: `next
+# build` emits them (EMIT_SOURCE_MAPS, next.config.ts), and the PostHog CLI
+# injects a chunk id into each shipped chunk and its map. Without a release
+# name the injection contacts nobody; it only insists that credentials exist, so
 # placeholders stand in (measured on 0.18.11: with `--release-*` it calls the
 # API, without them it logs "injecting chunk ids only" and is done). The ids are
 # UUIDv5 of the chunk's content, so an unchanged chunk keeps its id.
@@ -140,8 +140,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # built with the key differed from one built without it; now both are the same
 # build. Then every map leaves the served trees, with the `sourceMappingURL`
 # comments that would point at them (Next serves `.next/static` to anyone, and
-# a map carries the original source), and the build fails if a map survives or
-# a chunk carries no id. The CLI's npm package fetches its binary on first use;
+# a map carries the original source), and the build fails if a map survives,
+# if no map-bearing chunk was kept, or if any kept chunk carries no id. The CLI's npm package fetches its binary on first use;
 # it is deleted after, because the production install below does not prune an
 # existing node_modules and would ship it.
 ARG GIT_SHA=""
@@ -159,8 +159,8 @@ RUN EMIT_SOURCE_MAPS=1 bun run build \
     && find .next/static .next/server -name '*.map' -type f -delete \
     && find .next/static .next/server -name '*.js' -type f -exec sed -i '/^\/\/# sourceMappingURL=/d' {} + \
     && if find .next/static .next/server -name '*.map' | grep -q .; then echo "error: a source map would ship" >&2; exit 1; fi \
-    && if ! grep -rlq 'chunkId=' --include='*.js' .next/static; then \
-      echo "error: no PostHog chunk id was injected; no stack frame could be matched" >&2; exit 1; fi
+    && if [ ! -d /sourcemaps/static ] || grep -rL 'chunkId=' --include='*.js' /sourcemaps | grep -q .; then \
+      echo "error: a source-mapped chunk carries no PostHog chunk id; its stack frames could not be matched" >&2; exit 1; fi
 
 # The deploy-time WorkOS Jobs (deploy/pulumi/src/app/workos-authz-jobs.ts) run
 # TypeScript scripts, and the runner keeps neither bun nor tsx. Bundle each to
