@@ -5,7 +5,13 @@ import * as pulumi from "@pulumi/pulumi";
 import { bool } from "./readers";
 
 /** The roles Langfuse accepts for `LANGFUSE_DEFAULT_ORG_ROLE` (its `env.mjs` enum). */
-export const LANGFUSE_ORG_ROLES = ["OWNER", "ADMIN", "MEMBER", "VIEWER", "NONE"] as const;
+export const LANGFUSE_ORG_ROLES = [
+  "OWNER",
+  "ADMIN",
+  "MEMBER",
+  "VIEWER",
+  "NONE",
+] as const;
 
 export type LangfuseOrgRole = (typeof LANGFUSE_ORG_ROLES)[number];
 
@@ -18,7 +24,9 @@ function langfuseOrgRole(value: string | undefined): LangfuseOrgRole {
   if (value === undefined || value.trim() === "") return "VIEWER";
   const role = LANGFUSE_ORG_ROLES.find((known) => known === value.trim());
   if (role) return role;
-  throw new Error(`langfuseDefaultRole must be one of ${LANGFUSE_ORG_ROLES.join(", ")}, not "${value}"`);
+  throw new Error(
+    `langfuseDefaultRole must be one of ${LANGFUSE_ORG_ROLES.join(", ")}, not "${value}"`,
+  );
 }
 
 /**
@@ -200,13 +208,17 @@ export function loadLangfuse(
   const missingLangfuseDeps = [
     ...langfuseSecretKeys.filter((key) => (cfg.get(key) ?? "").trim() === ""),
     ...missingOidcDeps,
-    observabilityFlag ? undefined : "observabilityEnabled (Langfuse is fed by the collector)",
+    observabilityFlag
+      ? undefined
+      : "observabilityEnabled (Langfuse is fed by the collector)",
   ].filter((k): k is string => k !== undefined);
   const langfuseEnabled = langfuseFlag && missingLangfuseDeps.length === 0;
   if (langfuseFlag && !langfuseEnabled) {
     pulumi.log.warn(
       "Langfuse (ADR-0044) not deployed: missing " +
-        missingLangfuseDeps.map((k) => (k.includes(" ") ? k : `grid-oib:${k}`)).join(", ") +
+        missingLangfuseDeps
+          .map((k) => (k.includes(" ") ? k : `grid-oib:${k}`))
+          .join(", ") +
         ". Set them to deploy the durable trace store, or set " +
         "grid-oib:langfuseEnabled=false to silence this.",
     );
@@ -265,7 +277,9 @@ export function loadLangfuse(
     // breaks today: a blocklist has to be right about every future
     // interpolation site, and this value crosses a shell, a query string and a
     // Go URL parser before it reaches ClickHouse.
-    const clickhousePasswordRaw = (cfg.get("langfuseClickhousePassword") ?? "").trim();
+    const clickhousePasswordRaw = (
+      cfg.get("langfuseClickhousePassword") ?? ""
+    ).trim();
     if (!/^[A-Za-z0-9._~-]+$/.test(clickhousePasswordRaw)) {
       throw new Error(
         "grid-oib:langfuseClickhousePassword must contain only URL-safe characters " +
@@ -312,8 +326,14 @@ export function loadLangfuse(
     const langfuseS3SecretRaw = (cfg.get("langfuseS3SecretKey") ?? "").trim();
     const s3Collides = [
       ["seaweedfsSecretKey", cfg.get("seaweedfsSecretKey")],
-      ["seaweedfsBackendReadSecretKey", cfg.get("seaweedfsBackendReadSecretKey")],
-      ["seaweedfsTenantAdminSecretKey", cfg.get("seaweedfsTenantAdminSecretKey")],
+      [
+        "seaweedfsBackendReadSecretKey",
+        cfg.get("seaweedfsBackendReadSecretKey"),
+      ],
+      [
+        "seaweedfsTenantAdminSecretKey",
+        cfg.get("seaweedfsTenantAdminSecretKey"),
+      ],
     ].find(([, other]) => (other ?? "").trim() === langfuseS3SecretRaw);
     if (s3Collides) {
       throw new Error(
@@ -323,14 +343,14 @@ export function loadLangfuse(
       );
     }
   }
-      return {
+  return {
     enabled: langfuseEnabled,
     domain: langfuseDomain,
     // Digest-pinned on the same terms as the ADR-0029 images, and scanned by
-    // the same trivy gate: langfuse 4.71.0 (web + worker, which MUST be the
+    // the same trivy gate: langfuse 4.74.0 (web + worker, which MUST be the
     // same version) and ClickHouse 26.8.33.10 LTS, which v4 needs (>= 25.12).
-    // The langfuse digests are what GHCR's `4.71.0` tags resolve to (multi-arch
-    // index, read anonymously from the registry on 2026-10-27); `26.8` is a moving tag upstream and this is the digest
+    // The langfuse digests are what GHCR's `4.74.0` tags resolve to (multi-arch
+    // index, read anonymously from the registry on 2026-11-03); `26.8` is a moving tag upstream and this is the digest
     // it resolved to when pinned (2026-10-22, 26.8.33.10; moved within the
     // 26.8 line off 26.8.15.10, whose Ubuntu 22.04 base had OpenSSL
     // 3.0.2-0ubuntu1.29, CVE-2026-84782; 26.8.33.10 carries 0ubuntu1.30, read
@@ -344,7 +364,10 @@ export function loadLangfuse(
     // package manifests and build info by a local trivy scan, not from
     // release notes. 4.68.0 also turns on project API key permissions by
     // default (API_AUTH_MIGRATION=enforce); keys without a role assignment are
-    // backfilled with their legacy role on first use. It moved 4.68.0 -> 4.71.0
+    // backfilled with their legacy role on first use. It moved 4.71.0 -> 4.74.0 on 2026-11-03 because both 4.71.0 images
+    // bundled follow-redirects 1.16.1 (CVE-2026-116689, HIGH, fixed 1.16.2) and
+    // dd-trace 5.109.0 (CVE-2026-116693), which kept develop's trivy gate red;
+    // a local trivy 0.61.1 scan of the 4.74.0 digests finds neither. It moved 4.68.0 -> 4.71.0
     // on 2026-10-27 because the 4.68.0 images failed the promotion's trivy
     // gate: ca-certificates on the UBI 9 base (CVE-2026-114406, CRITICAL),
     // body-parser 2.3.0 (CVE-2026-111181) and @sentry/nextjs 10.64.0
@@ -354,10 +377,10 @@ export function loadLangfuse(
     // next/og RCE (GHSA-vcvr-r3jv-pc5j) no 3.x release fixes.
     webImage:
       cfg.get("langfuseWebImage") ??
-      "ghcr.io/langfuse/langfuse@sha256:1e600bc28c40fa0c028b9ed313e51d421132fe423ba84986fb9242fc40b7cd42",
+      "ghcr.io/langfuse/langfuse@sha256:f409386b80aa7a77d15b16cf250118d05dab0f4535174f2d4a310ebcf1d7bfc1",
     workerImage:
       cfg.get("langfuseWorkerImage") ??
-      "ghcr.io/langfuse/langfuse-worker@sha256:8e7cfec29f6322a8aff64e8ff4f9194c5c8181d4286514be0e3727b199605949",
+      "ghcr.io/langfuse/langfuse-worker@sha256:d9cf97c0ae7da19f9c4c417d4740d8b3cefc5151722772638f4c17c4b5b67ead",
     clickhouseImage:
       cfg.get("clickhouseImage") ??
       "clickhouse/clickhouse-server@sha256:1c0b76ac42e16b4eeb0be84013c67269b660701971d29bab9ad0d01b0ba6c10d",
@@ -374,10 +397,12 @@ export function loadLangfuse(
     queueMemoryLimit: cfg.get("langfuseQueueMemoryLimit") ?? "1Gi",
     queuePassword: cfg.getSecret("langfuseQueuePassword") ?? pulumi.output(""),
     databasePassword: cfg.getSecret("langfuseDbPassword") ?? pulumi.output(""),
-    clickhousePassword: cfg.getSecret("langfuseClickhousePassword") ?? pulumi.output(""),
+    clickhousePassword:
+      cfg.getSecret("langfuseClickhousePassword") ?? pulumi.output(""),
     salt: cfg.getSecret("langfuseSalt") ?? pulumi.output(""),
     encryptionKey: langfuseEncryptionKey ?? pulumi.output(""),
-    nextAuthSecret: cfg.getSecret("langfuseNextAuthSecret") ?? pulumi.output(""),
+    nextAuthSecret:
+      cfg.getSecret("langfuseNextAuthSecret") ?? pulumi.output(""),
     publicKey: langfusePublicKey ?? pulumi.output(""),
     secretKey: langfuseSecretKey ?? pulumi.output(""),
     // Stable identifiers, not secrets, and deliberately not derived from the
@@ -387,8 +412,10 @@ export function loadLangfuse(
     orgId: cfg.get("langfuseOrgId") ?? "grid",
     projectId: cfg.get("langfuseProjectId") ?? "grid-oib",
     defaultRole: langfuseOrgRole(cfg.get("langfuseDefaultRole")),
-    initUserEmail: cfg.get("langfuseInitUserEmail") ?? cfg.get("letsEncryptEmail") ?? "",
-    initUserPassword: cfg.getSecret("langfuseInitUserPassword") ?? pulumi.output(""),
+    initUserEmail:
+      cfg.get("langfuseInitUserEmail") ?? cfg.get("letsEncryptEmail") ?? "",
+    initUserPassword:
+      cfg.getSecret("langfuseInitUserPassword") ?? pulumi.output(""),
     s3AccessKey: cfg.get("langfuseS3AccessKey") ?? "grid-langfuse",
     s3SecretKey: cfg.getSecret("langfuseS3SecretKey") ?? pulumi.output(""),
   };

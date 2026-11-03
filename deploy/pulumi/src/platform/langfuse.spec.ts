@@ -281,6 +281,23 @@ describe("with the Langfuse tier enabled", () => {
     });
   });
 
+  describe("images", () => {
+    // Digests are opaque, so this cannot prove web and worker are one Langfuse
+    // version; it proves each Deployment runs the default it is meant to.
+    it.each([
+      ["langfuse-web", "webImage"],
+      ["langfuse-worker", "workerImage"],
+    ] as const)("runs %s on its pinned %s", async (name, key) => {
+      const spec = (await resolve(
+        find("kubernetes:apps/v1:Deployment", name).inputs.spec,
+      )) as any;
+      const images = spec.template.spec.containers.map((c: { image: string }) => c.image);
+
+      expect(images).toContain(loadConfig().langfuse[key]);
+      expect(loadConfig().langfuse[key]).toMatch(/^ghcr\.io\/langfuse\/langfuse(-worker)?@sha256:[0-9a-f]{64}$/);
+    });
+  });
+
   describe("runtime user", () => {
     // Both Dockerfiles build their runtime user at `ARG UID=1001` and chown
     // /app to it. `runAsUser` OVERRIDES the image's USER, so 1000 — the value
