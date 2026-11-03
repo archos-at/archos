@@ -278,7 +278,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `agentWorkerRequestsCpu/Memory`, `agentWorkerLimitsCpu/Memory` | 1 / 2Gi / 4 / 8Gi | Worker sizing |
 | `agentWorkerMinReplicas` / `agentWorkerMaxReplicas` | 1 / 8 | KEDA bounds for the worker tier, which scales on the `research-run` backlog in Hatchet (not CPU). 0 lets it idle while nothing waits; dev sets 0 |
 | `agentWorkerConcurrency` | `1` | Jobs per worker process; KEDA asks for one replica per this many open jobs |
-| `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing already-claimed research jobs (`RESEARCH_WORKER_DRAIN_SECONDS`); the grace period is this plus 30 s. A job still running when it ends is requeued without costing an attempt and started over by another worker, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
+| `agentWorkerDrainSeconds` | `600` | Seconds a terminating worker may spend finishing the research runs it holds (the Hatchet SDK waits for them on SIGTERM; no env variable carries it); the grace period is this plus 30 s. A run still going when it ends is a lost worker's, which Hatchet assigns again, so the budget decides how much work a deploy repeats. Costs deploy latency — workers roll one at a time. Floor 30 |
 | **The api tier** (ADR-0082): `aiq-api`, every backend HTTP route but the chat socket, which `BACKEND_URL` names | | |
 | `apiMinReplicas` / `apiMaxReplicas` | 2 / 4 (prod 1 / 3, dev 1 / 2) | Bounds of its CPU HPA. A ceiling below the floor fails the plan |
 | `apiHpaCpuTargetPercent` | `70` | HPA target average CPU, as a percentage of requests (`apiRequestsCpu`) |
@@ -310,6 +310,8 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `webHpaCpuTargetPercent` | `70` | HPA target |
 | **LLM / models** | | |
 | 🔒 **`openrouterApiKey`** / 🔒 **`tavilyApiKey`** | — | Provider keys |
+| 🔒 `openrouterChatKey` / 🔒 `openrouterResearchKey` / 🔒 `openrouterIngestKey` | `openrouterApiKey` | One OpenRouter key per workload, each with its own credit limit in OpenRouter: chat, api and the frontend; the agent-worker; the ingest-worker. Each pod gets only its own, as `OPENROUTER_API_KEY` (and `EMBED_API_KEY`, `VLM_API_KEY`). Runbook: `docs/deployment/kubernetes.md` §6.3e |
+| `pgBackupEndpoint` / `pgBackupBucket` / `pgBackupAccessKey` / 🔒 `pgBackupSecretKey` | in-cluster SeaweedFS, `grid-pg-backups` | The app cluster's PITR archive. An external endpoint needs its own key pair; on `prod`, once any off-cluster backup endpoint is set, the in-cluster SeaweedFS is refused. Runbook: `docs/deployment/kubernetes.md`, "Moving the app archive off-cluster" |
 | `embedModel` / `embedBaseUrl` | text-embedding-3-large / OpenRouter | Embeddings |
 | `vlmModel` / `vlmBaseUrl` | gpt-6-luna / OpenRouter | Vision model |
 | **Auth / platform** | | |

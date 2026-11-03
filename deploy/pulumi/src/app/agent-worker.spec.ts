@@ -151,23 +151,24 @@ describe("the agent-worker tier", () => {
     expect(spec.strategy.rollingUpdate.maxUnavailable).toBe(0);
   });
 
-  it("hands the worker the same drain budget it derives the grace period from", () => {
-    const drain = env.find((e) => e.name === "RESEARCH_WORKER_DRAIN_SECONDS");
-
-    expect(drain?.value).toBe(String(drainSeconds));
-    // A name the Python worker does not read would leave it on its default.
-    expect(read("apps", "agent-host", "src", "agent_host", "jobs", "worker.py")).toContain(
-      '"RESEARCH_WORKER_DRAIN_SECONDS"',
-    );
+  it("emits no drain variable the Hatchet worker does not read; its drain is the grace period", () => {
+    // The Hatchet SDK waits for held runs on SIGTERM until the kubelet's kill,
+    // so the budget reaches the worker only as terminationGracePeriodSeconds.
+    const hatchetLayer = read("apps", "agent-host", "src", "agent_host", "jobs", "research_hatchet.py");
+    expect(hatchetLayer).not.toContain("RESEARCH_WORKER_DRAIN_SECONDS");
+    expect(env.find((e) => e.name === "RESEARCH_WORKER_DRAIN_SECONDS")).toBeUndefined();
+    expect(drainSeconds).toBeGreaterThan(0);
   });
 
-  it("emits the per-organization caps the queue's claim and admission read", () => {
+  it("emits the per-organization caps the Hatchet concurrency and the admission read", () => {
     const names = new Set([...env, ...backendEnvVars].map((e) => e.name));
-    const queue = read("apps", "agent-host", "src", "agent_host", "jobs", "queue.py");
+    const jobs = ["research_hatchet.py", "orchestrator_runs.py"]
+      .map((file) => read("apps", "agent-host", "src", "agent_host", "jobs", file))
+      .join("\n");
 
     for (const name of ["MAX_ACTIVE_JOBS_PER_ORG", "MAX_QUEUED_JOBS_PER_ORG"]) {
       expect(names.has(name), name).toBe(true);
-      expect(queue).toContain(`"${name}"`);
+      expect(jobs).toContain(`"${name}"`);
     }
   });
 
