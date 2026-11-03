@@ -114,7 +114,7 @@ def classified(monkeypatch):
 
 @pytest.fixture()
 def ingestor(qdrant_store, classified):
-    from sources.knowledge_layer.tests.qdrant_testing import FakeEmbedder
+    from knowledge_layer_testing.qdrant import FakeEmbedder
 
     ing = LlamaIndexIngestor({"generate_summary": True, "summary_llm": _SummaryModel()})
     ing._embed_model = FakeEmbedder()
