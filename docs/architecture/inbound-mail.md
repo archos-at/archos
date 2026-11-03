@@ -68,7 +68,7 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
 | Class | When | What happens | Window |
 |---|---|---|---|
 | `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a check WorkOS does not answer is waited out within the fault budget, then the mail is held `sender_unchecked`, never classed on a "no"), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for any of the project's writers (`not_filed`); with direct filing switched off, the whole mail waits for them (`paused`) | 30 days |
-| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it. Nobody else can release it, the member gone from the office included (the database cannot see WorkOS): the colleague's dismiss confirmation (`ClaimedMailBar`) and the help page tell the others to download the original first and forward it themselves; nothing on the screen says the member has left, since no view carries that | 30 days |
+| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe diese E-Mail gesendet. Ablegen“); anyone else gets `sender_only` and may dismiss it. Nobody else can file it, the member gone from the office included (the database cannot see WorkOS): the colleague's dismiss confirmation (`ClaimedMailBar`) and the help page tell the others to download the original first and forward it themselves; nothing on the screen says the member has left, since no view carries that | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
 
@@ -80,7 +80,7 @@ counts `inbound_mail_sender_filed` (`waits`, `direct_filing_off`). The mail
 waits for any of the project's writers, as all mail did before direct filing
 (wait reason `paused`, read from the live switch), and a sender job already
 queued files nothing (`direct_filing_off`). Never stricter than the rule it
-switches off: nothing becomes releasable by its member alone. Mail held while
+switches off: nothing becomes fileable by its member alone. Mail held while
 it was off is not filed when it goes back on. Receipt is unchanged;
 `INBOUND_MAIL_PAUSED` stops it.
 
@@ -183,7 +183,7 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    (`receive-original.ts`, migration 0195): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on
-   the row (`original_*`), project addresses redacted. **An original's
+   the row (`original_*`), project mail addresses redacted. **An original's
    Message-ID never drops a delivery**: it is whatever the attached `.eml`
    says, written by the delivery's sender before anyone checked who that is,
    so an outsider could claim the id of a mail they sent the architect and
@@ -639,7 +639,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | `inbound-mail-address-get`, `-create`, `-delete`, `-rotate` | yes | yes |
 | `inbound-mail-list`, `-get` (metadata only) | yes | yes |
 | `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` | yes | no |
-| `inbound-mail-file` (also the member's release of mail that claims them: `acknowledgeSender`), `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only (a card carries no `acknowledgeSender`, so it never releases a claimed mail) |
+| `inbound-mail-file` (also the member's filing of mail that claims them: `acknowledgeSender`), `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only (a card carries no `acknowledgeSender`, so it never files a claimed mail) |
 | `inbound-mail-restore` | yes | yes |
 | `inbound-mail-original-get`, `mail-thread-entry-original-get` | withheld (`evidence`) | withheld |
 | `mail-thread-list`, `-get`, `mail-thread-entry-detach` | yes | yes (detach as a card) |
@@ -661,7 +661,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | Redaction of other projects' addresses | receive job | — | another tenant's token learned (the original stays unredacted and gated) |
 | `project:documents:write`, candidates for the viewer | service | 404 | a non-writer reads held mail, or a writer learns restricted names |
 | Per-target folder write, type, scan, acknowledgements, `ifMatch` | `decision.ts` | 409 / 403 | a filing the decider was not entitled to |
-| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0194's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail released only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
+| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0194's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail filed only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
 | `requiresPersonConfirmation` | door | refused with a link | an injected outside agent cannot file |
 | Filing as the decider (or follower) | job | `last_failure` | nothing past an ordinary upload by that person |
 | Static ratchet | `review-first.spec.ts` | CI | — |

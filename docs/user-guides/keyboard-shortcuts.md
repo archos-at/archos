@@ -103,8 +103,6 @@ Listed in the cheatsheet only for offices with project mail:
 | **E** | File as shown („Wie gezeigt ablegen“) |
 | **⌫** | Dismiss the mail |
 
-<!-- W1: the UI rework may change these keys; update from handoffs/W1-to-D17.md. -->
-
 ## The command palette
 
 ⌘K opens a searchable list of everything the UI can already do: jump to one of

@@ -226,9 +226,9 @@ The exact place a statement is pinned to: a Punkt, a section, a page.
 **E-Mail-Eingang** (Project mail):
 Where mail sent to a project's e-mail address waits until a person files it
 (ADR-0137). A member who may file in the project and whose domain signed their
-own mail has it *direkt abgelegt*, as them, without a click (the amendment of
+own mail has it **direkt abgelegt**, as them, without a click (the amendment of
 2026-11-03); a mail that only carries such a member's address waits for that
-member, who alone releases it („Haben Sie das gesendet?“). Each part of a mail, its own text and each attachment, is
+member, who alone files or restores it (**Haben Sie diese E-Mail gesendet?**). Each part of a mail, its own text and each attachment, is
 *abgelegt* (into a folder the person chooses, under a name and a Dokumentart,
 possibly as a new Fassung; the text usually into its **E-Mail-Verlauf**) or
 not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
@@ -238,7 +238,7 @@ files it, nothing of a mail is a document: nothing indexes it and no model of
 ARCHOS's reads it. Anyone may write to the address; each mail says whether its
 sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
 bestätigt“), which shapes what is suggested; only a signed mail of a member
-who may file is filed by itself.
+who may file is filed directly.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
 default. Attachments are checked for malware before anyone can file them. Who
 may add documents to the project decides; the folder's write right still
@@ -249,11 +249,54 @@ Intake; „annehmen“, „ablehnen“, „freigeben“, „zulassen“, „prü
 and **Zurückgehalten** own those); „übernehmen“ for a mail; „anhängen“ (collides
 with Anhänge); „Abgelegt“ as a mail's state; Quarantäne; „Nachricht“ for an
 e-mail („3 neue E-Mails“); „Absender bestätigt“ (DKIM proves a domain, not a
-person).
+person); „Kollege“ for the member a mail names (say *Mitglied*); „mit
+Schreibrecht“ (say *wer im Projekt ablegen darf*); “release” for filing a
+held mail (**Zurückgehalten** owns it).
 _Code_: `inbound mail` (`lib/inbound-mail`, `inbound_mails`, operations
 `inbound-mail-*`, route `files/mail`); the verbs `file`, `dismiss`, `restore`;
 the states `waiting`, `settled`, `filed`, `dismissed`, `expired`; never
 `inbox` or `intake`.
+
+**Direkt abgelegt** (filed directly):
+A mail the project's own member filed by sending it: their domain signed it
+(aligned with the From address), the signed To or Cc names the project's
+address, it is not flagged as re-sent, misdated or automatic, and the member
+may file in the project. It is filed as that member, with the defaults and
+suggestions a person would have accepted; a part that needs a look or has no
+place still waits. The Postfach tells the member („Ihre E-Mail an … wurde
+direkt abgelegt“), and its E-Mail-Verlauf marks it („Direkt abgelegt: …“).
+The operators can switch it off for the whole deployment; a writer's mail
+then waits for anyone who may file („Die direkte Ablage ist ausgeschaltet“).
+A mail it left waiting reads „Nicht direkt abgelegt“.
+_Avoid_: „von selbst“, „automatisch abgelegt“ (automatic mail is a sender
+flag, see below), “by itself”.
+_Code_: the sender class `verified_writer`; the decision's `via = 'sender'`;
+`waitReason: 'not_filed'` and `'paused'`.
+
+**Haben Sie diese E-Mail gesendet?** (did you send this mail?):
+The question a mail that carries a member's address, but does not prove the
+member sent it, puts to that member alone: their domain did not confirm it,
+it is their Bcc copy, it reads as re-sent or misdated, or it was sent
+automatically. Only that member files it („Ja, ich habe diese E-Mail
+gesendet. Ablegen“) or restores it; the project's other members see it under
+„Wartet auf andere“ („Wartet auf {Name}“) and may only dismiss it. A mail whose
+domain *rejected* it is not asked about but shown as an impersonation
+(„Gibt sich als … aus“), to the member it names in their own words.
+_Avoid_: „Haben Sie das gesendet?“; „freigeben“, “release”.
+_Code_: the sender class `unverified_writer`; `acknowledgeSender`,
+`onlySenderReleases`, the refusal `sender_only`, `mailClaimOf`
+(`own` / `colleague`).
+
+**Absender** (sender, as the E-Mail-Eingang classes it):
+Who the sender is to the project, judged once when the mail is held: a member
+who may file whose mail is proved (*direkt abgelegt*), a member who may file
+whose mail is not (*Haben Sie diese E-Mail gesendet?*), a member who may only
+read the project (their mail waits for those who may file, and they are told
+why), or someone outside the office (*von außerhalb des Büros*: the mail
+waits 14 days, then it is gone, and a dismissed one whose domain is not
+confirmed is gone at once).
+_Code_: `INBOUND_MAIL_SENDER_CLASSES`: `verified_writer`, `unverified_writer`,
+`office_member`, `external` (`inbound_mails.sender_class`).
 
 **E-Mail-Adresse des Projekts** (project mail address):
 The address `<name>.<token>@example.org` a project receives mail at. Whoever
