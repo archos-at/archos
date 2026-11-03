@@ -11,7 +11,9 @@
  * is rare enough elsewhere for that to hold; an UNBROKEN one is not (article,
  * order, meter and file numbers, table cells a PDF glued together). So an
  * unbroken number is a card only with a card's word within `CARD_CONTEXT_REACH`
- * code points of it, and 4-6-5 and 4-6-4 count only in their network's range.
+ * code points of it or a column's label (`CARD_PAGE_LABELS`) on the page; 4-6-5
+ * and 4-6-4 count only in their network's range, and a row of four-digit groups
+ * that all end in 0 or 5 is a dimension chain.
  *
  * Pure and client-safe: the composer runs it.
  */
@@ -62,6 +64,17 @@ export const CARD_CONTEXT_WORDS: readonly string[] = [
 ]
 /** How many code points of the reading before and after an unbroken number are searched for a card's word. */
 export const CARD_CONTEXT_REACH = 48
+/**
+ * Labels that make every unbroken number on the page a candidate, wherever they
+ * stand: a list of the office's cards names its column once, in the header.
+ */
+export const CARD_PAGE_LABELS: readonly string[] = [
+  'kartennummer',
+  'kartennr',
+  'kreditkartennummer',
+  'card number',
+  'cardnumber',
+]
 
 const LETTER = /\p{L}/u
 
@@ -116,6 +129,16 @@ function networkFits(sizes: readonly number[], digits: string): boolean {
   return !prefixes || prefixes.includes(digits.slice(0, 2))
 }
 
+/**
+ * Whether every group of four ends in 0 or 5: a dimension chain in millimetres
+ * (`3500 4200 3800 1250`), which passes Luhn in a card's range one time in
+ * twenty, where a card's four groups all end so one time in 625.
+ */
+function measures(groups: readonly string[]): boolean {
+  const fours = groups.filter((group) => group.length === 4)
+  return fours.length >= 3 && fours.every((group) => group.endsWith('0') || group.endsWith('5'))
+}
+
 /** Whether the groups `first` to `last` are not cut out of a longer number printed in fours. */
 function standsAlone(groups: readonly string[], first: number, last: number): boolean {
   const before = first === 0 || groups[first - 1].length !== 4
@@ -145,6 +168,7 @@ export function* cardsIn(
         layout(sizes) &&
         networkFits(sizes, digits) &&
         standsAlone(digitsOf, first, last) &&
+        (sizes.length === 1 || !measures(digitsOf.slice(first, last))) &&
         validCard(digits)
       ) {
         yield {
@@ -161,9 +185,9 @@ export function* cardsIn(
   }
 }
 
-/** Whether a card's word (`CARD_CONTEXT_WORDS`) starts a word somewhere in `folded`, which begins at a word start. */
-export function hasCardWord(folded: string): boolean {
-  return CARD_CONTEXT_WORDS.some((word) => {
+/** Whether one of `words` starts a word somewhere in `folded`, which begins at a word start. */
+export function hasWord(folded: string, words: readonly string[]): boolean {
+  return words.some((word) => {
     for (let at = folded.indexOf(word); at !== -1; at = folded.indexOf(word, at + 1)) {
       if (at === 0 || !LETTER.test(charBefore(folded, at))) return true
     }

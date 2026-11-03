@@ -52,13 +52,16 @@
 
 import {
   CARD_CONTEXT_REACH,
+  CARD_CONTEXT_WORDS,
+  CARD_PAGE_LABELS,
   cardsIn,
   type DigitGroup,
-  hasCardWord,
+  hasWord,
   maskCard,
   wrappedCardLayout,
 } from './card-numbers'
 import { foldForScreening } from './name-screen'
+import { maskSvnr, printedAsSvnr, SVNR_LABELS, SVNR_MARKS, SVNR_START, validAtSvnr } from './svnr-numbers'
 import { SCREENING_DETECTORS, type ScreeningDetector, type UploadScreeningPolicy } from './policy'
 import { SCREENING_IGNORABLE, SPLIT_TERM_MIN, splitTermEnd, TERM_FRAGMENT } from './reading'
 
@@ -70,6 +73,7 @@ export type ContentScreenKind = ScreeningDetector | 'term'
  * holds both to the same strings.
  */
 export { luhnValid } from './card-numbers'
+export { validAtSvnr } from './svnr-numbers'
 
 export const SCREENING_PLACEHOLDERS: Readonly<Record<ContentScreenKind, string>> = {
   iban: '[IBAN entfernt]',
@@ -535,10 +539,6 @@ export const IBAN_LENGTHS: ReadonlyMap<string, number> = new Map(
  * precision. The parse is `ibanAt`.
  */
 const IBAN_START = /(?<!\p{Nd})[A-Za-z](?=[A-Za-z])/gu
-/** Where a social-security number may start: a digit not right after another. */
-const SVNR_START = /(?<!\p{Nd})\p{Nd}/gu
-const SVNR_WEIGHTS = [3, 7, 9, 0, 5, 8, 4, 2, 1, 6]
-const SVNR_MARKS = '-./'
 /**
  * A maximal run of digit groups joined by spaces (never a tab: that is a table
  * cell), one `-` or `.`: where a card may be printed.
@@ -617,17 +617,6 @@ function maskIban(compact: string): string {
   return [compact.slice(0, 4), ...Array<string>(hidden).fill(MASK), compact.slice(-4)].join(' ')
 }
 
-export function validAtSvnr(digits: string): boolean {
-  if (!/^[0-9]{10}$/.test(digits) || digits[0] === '0') return false
-  let sum = 0
-  for (let i = 0; i < 10; i += 1) sum += Number(digits[i]) * SVNR_WEIGHTS[i]
-  const check = sum % 11
-  if (check === 10 || check !== Number(digits[3])) return false
-  const day = Number(digits.slice(4, 6))
-  const month = Number(digits.slice(6, 8))
-  return day >= 1 && day <= 31 && month >= 1 && month <= 15
-}
-
 /**
  * The social-security number printed at `start`: `SSSS DDMMYY`, with or without
  * a separator after the serial; the date's own parts are either all joined
@@ -640,7 +629,8 @@ function svnrAt(
 ): { digits: string; end: number } | null {
   const serial = digitsAt(text, start, 4)
   if (!serial) return null
-  const day = digitsAt(text, skipSeparator(text, serial.end, SVNR_MARKS), 2)
+  const dayAt = skipSeparator(text, serial.end, SVNR_MARKS)
+  const day = digitsAt(text, dayAt, 2)
   if (!day) return null
   const monthAt = skipSeparator(text, day.end, SVNR_MARKS)
   const split = monthAt !== day.end
@@ -651,7 +641,20 @@ function svnrAt(
   const year = digitsAt(text, yearAt, 2)
   if (!year || digitTouches(text, year.end, soft)) return null
   const digits = serial.digits + day.digits + month.digits + year.digits
-  return validAtSvnr(digits) ? { digits, end: year.end } : null
+  const separators = [separatorKind(text, day.end, monthAt), separatorKind(text, month.end, yearAt)] as const
+  const timeFollows = text[year.end] === ':' && digitAt(text, year.end + 1) !== null
+  if (!validAtSvnr(digits) || !printedAsSvnr(separators, timeFollows)) return null
+  const unbroken = dayAt === serial.end && !split
+  return unbroken && !pageSays(text, SVNR_LABELS) ? null : { digits, end: year.end }
+}
+
+/** What joins two parts of a number: `''`, `' '` for any whitespace, or the mark itself. */
+const separatorKind = (text: string, start: number, end: number): string =>
+  start === end ? '' : isWhitespace(text[start]) ? ' ' : text[start]
+
+/** Whether one of `labels` stands anywhere in `text`, at a word start. */
+function pageSays(text: string, labels: readonly string[]): boolean {
+  return hasWord(foldContent(text), labels)
 }
 
 /** The digit groups of a run (ASCII digits, start, end). */
@@ -720,7 +723,7 @@ function* svnrSpans(text: string, soft: ReadonlySet<number>): Generator<ContentS
       kind: 'at_svnr',
       start,
       end: found.end,
-      sample: `${MASK} ${MASK}${found.digits.slice(-2)}`,
+      sample: maskSvnr(found.digits),
     }
   }
 }
@@ -784,7 +787,7 @@ function hasCardContext(text: string, start: number, end: number): boolean {
   while (begin > 0 && LETTER.test(codePointBefore(text, begin))) begin -= codePointBefore(text, begin).length
   let stop = end
   for (let step = 0; step < CARD_CONTEXT_REACH && stop < text.length; step += 1) stop += codePointAt(text, stop).length
-  return hasCardWord(foldContent(text.slice(begin, stop)))
+  return hasWord(foldContent(text.slice(begin, stop)), CARD_CONTEXT_WORDS) || pageSays(text, CARD_PAGE_LABELS)
 }
 
 function* wrappedCards(text: string): Generator<DigitGroup> {

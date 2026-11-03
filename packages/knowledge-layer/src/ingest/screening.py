@@ -54,12 +54,12 @@ from agent.common.content_screen import ScreeningRules
 from agent.common.content_screen import Span
 from agent.common.content_screen import find_spans
 from agent.common.content_screen import fold
-from agent.common.content_screen import mask_at_svnr
 from agent.common.content_screen import mask_iban
-from agent.common.content_screen import valid_at_svnr
 from agent.common.content_screen import valid_iban
 from agent.common.page_text import running_furniture
 from agent.common.page_text import without_furniture
+from agent.common.svnr_numbers import mask_at_svnr
+from agent.common.svnr_numbers import valid_at_svnr
 from agent.knowledge.schema import QuarantineReason
 from agent.knowledge.schema import QuarantineVerdict
 

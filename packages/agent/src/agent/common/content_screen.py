@@ -88,7 +88,11 @@ and a label may stand right against it (``SV-Nr1237010180``, ``IBAN:AT61…``,
   groups: a run of whitespace (line breaks too) or one ``-`` or ``.``. Mod 97.
 * ``at_svnr``: four digits, then the birth date DDMMYY, optionally separated
   from it (whitespace, ``-``, ``.`` or ``/``), optionally with the date's own
-  parts separated. The check digit, the first digit and the date must hold.
+  parts separated by one and the same separator. The check digit, the first
+  digit and the date must hold, no ``:`` may follow (a time), and an unbroken
+  number needs a social-security label on the page
+  (:mod:`agent.common.svnr_numbers`): a timestamp and a customer number pass the
+  checksum too.
 * ``credit_card``: digit groups joined by spaces, ``-`` or ``.`` (not a tab:
   that is a table cell). Somewhere in such a run, consecutive groups that have a
   card's layout (one unbroken number of 13-19 digits, 4-4-4-4 with a last group
@@ -140,10 +144,16 @@ from dataclasses import replace
 from typing import Literal
 
 from agent.common.card_numbers import CARD_CONTEXT_REACH
+from agent.common.card_numbers import CARD_CONTEXT_WORDS
+from agent.common.card_numbers import CARD_PAGE_LABELS
 from agent.common.card_numbers import cards_in
-from agent.common.card_numbers import has_card_word
+from agent.common.card_numbers import has_word
 from agent.common.card_numbers import mask_card
 from agent.common.card_numbers import wrapped_card_layout
+from agent.common.svnr_numbers import SVNR_LABELS
+from agent.common.svnr_numbers import mask_at_svnr
+from agent.common.svnr_numbers import printed_as_svnr
+from agent.common.svnr_numbers import valid_at_svnr
 
 logger = logging.getLogger(__name__)
 
@@ -507,7 +517,6 @@ _IBAN_AT = re.compile(r"[A-Za-z](?=[A-Za-z])")
 #: Where a social-security number may start: a digit not right after another.
 _SVNR_START = re.compile(r"(?<!\d)\d")
 _SVNR_AT = re.compile(r"\d")
-_SVNR_WEIGHTS = (3, 7, 9, 0, 5, 8, 4, 2, 1, 6)
 _SVNR_MARKS = "-./"
 #: What may join the groups of a card number: spaces, never a tab (a tab is a
 #: table cell), one ``-`` or ``.``.
@@ -584,21 +593,6 @@ def mask_iban(compact: str) -> str:
     return " ".join([compact[:4], *([MASK] * hidden), compact[-4:]])
 
 
-def valid_at_svnr(digits: str) -> bool:
-    """An Austrian social-security number: check digit, first digit, birth day and month. Pure.
-
-    The check digit (4th) is the weighted sum of the other nine mod 11; a sum
-    giving 10 is never issued. Months 13-15 stand for an unknown birth month.
-    """
-    if len(digits) != 10 or not digits.isascii() or not digits.isdigit() or digits[0] == "0":
-        return False
-    check = sum(int(d) * w for d, w in zip(digits, _SVNR_WEIGHTS, strict=True)) % 11
-    if check == 10 or check != int(digits[3]):
-        return False
-    day, month = int(digits[4:6]), int(digits[6:8])
-    return 1 <= day <= 31 and 1 <= month <= 15
-
-
 def _digits_at(text: str, index: int, count: int) -> str | None:
     """``count`` digits from ``index`` on, as ASCII; ``None`` unless every one is a digit."""
     digits = ""
@@ -627,11 +621,22 @@ def _svnr_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int] | N
     if (split and year_at == month_at + 2) or any(part is None for part in parts) or _digit_touches(text, end, soft):
         return None
     digits = "".join(part or "" for part in parts)
-    return (digits, end) if valid_at_svnr(digits) else None
+    separators = (_separator_kind(text, day_at + 2, month_at), _separator_kind(text, month_at + 2, year_at))
+    time_follows = text[end : end + 1] == ":" and _digit_at(text, end + 1) is not None
+    unbroken = day_at == start + 4 and not split
+    if not valid_at_svnr(digits) or not printed_as_svnr(separators, time_follows):
+        return None
+    return None if unbroken and not _page_says(text, SVNR_LABELS) else (digits, end)
 
 
-def mask_at_svnr(digits: str) -> str:
-    return f"{MASK} {MASK}{digits[-2:]}"
+def _separator_kind(text: str, start: int, end: int) -> str:
+    """What joins two parts of a number: ``""``, ``" "`` for any whitespace, or the mark itself."""
+    return "" if start == end else (" " if text[start] in WHITESPACE else text[start])
+
+
+def _page_says(text: str, labels: tuple[str, ...]) -> bool:
+    """Whether one of ``labels`` stands anywhere in ``text``, at a word start."""
+    return has_word(fold(text), labels, _is_letter)
 
 
 def _digit_groups(run: str) -> list[tuple[str, int, int]]:
@@ -734,7 +739,8 @@ def _has_card_context(text: str, start: int, end: int) -> bool:
     begin = max(0, start - CARD_CONTEXT_REACH)
     while begin > 0 and _is_letter(text[begin - 1]):
         begin -= 1
-    return has_card_word(fold(text[begin : end + CARD_CONTEXT_REACH]), _is_letter)
+    near = fold(text[begin : end + CARD_CONTEXT_REACH])
+    return has_word(near, CARD_CONTEXT_WORDS, _is_letter) or _page_says(text, CARD_PAGE_LABELS)
 
 
 def _wrapped_cards(text: str) -> Iterator[tuple[str, int, int]]:

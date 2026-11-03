@@ -262,6 +262,10 @@ class TestAustrianSocialSecurityNumber:
             "91237010180",  # inside a longer digit run
             "1237 0101801",  # inside a longer digit run
             "1237 01 0180",  # the date is either joined or separated throughout
+            "2026-09-12 10:17:51",  # a timestamp: serial 2026, date 09-12 10, mixed separators
+            "1237 01.01 80",  # the date's parts split by different separators
+            "1237 01 01 80:15",  # a time follows
+            "Kundennummer 1237010180",  # unbroken, and nothing on the page says SV-Nr.
         ],
     )
     def test_an_invalid_or_embedded_number_does_not(self, text):

@@ -1400,7 +1400,7 @@
         "at_svnr",
         "credit_card"
       ],
-      "text": "AT61 1904 3002 3457 3201\u200B1237010180",
+      "text": "AT61 1904 3002 3457 3201\u200B1237010180 (SV-Nr.)",
       "matches": [
         {
           "kind": "iban",
@@ -1411,7 +1411,7 @@
           "text": "1237010180"
         }
       ],
-      "masked": "[IBAN entfernt]\u200B[SV-Nummer entfernt]",
+      "masked": "[IBAN entfernt]\u200B[SV-Nummer entfernt] (SV-Nr.)",
       "findings": [
         {
           "kind": "iban",
@@ -1776,6 +1776,104 @@
       "matches": [],
       "masked": "4111 111111 11116 und 4111 111111 1114",
       "findings": []
+    },
+    {
+      "name": "a timestamp in a spreadsheet cell is no social-security number, though its digits pass",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "| 2026-09-12 10:17:51.065000 | 2026-10-05 00:00:00 | 40 |",
+      "matches": [],
+      "masked": "| 2026-09-12 10:17:51.065000 | 2026-10-05 00:00:00 | 40 |",
+      "findings": []
+    },
+    {
+      "name": "a social-security number printed unbroken counts only with a label on the page",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Kundennummer 1237010180",
+      "matches": [],
+      "masked": "Kundennummer 1237010180",
+      "findings": []
+    },
+    {
+      "name": "a staff list's header labels the unbroken numbers in its rows",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "| Name | SV-Nr | Eintritt |\n|---|---|---|\n| Huber | 1237010180 | 2024-03-01 |",
+      "matches": [
+        {
+          "kind": "at_svnr",
+          "text": "1237010180"
+        }
+      ],
+      "masked": "| Name | SV-Nr | Eintritt |\n|---|---|---|\n| Huber | [SV-Nummer entfernt] | 2024-03-01 |",
+      "findings": [
+        {
+          "kind": "at_svnr",
+          "count": 1,
+          "sample": "•••• ••••80"
+        }
+      ]
+    },
+    {
+      "name": "a card list's header labels the unbroken numbers in its rows",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "| Inhaber | Kartennummer | Limit |\n|---|---|---|\n| Huber | 5555555555554444 | 5000 |",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "5555555555554444"
+        }
+      ],
+      "masked": "| Inhaber | Kartennummer | Limit |\n|---|---|---|\n| Huber | [Kartennummer entfernt] | 5000 |",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 1,
+          "sample": "•••• 4444"
+        }
+      ]
+    },
+    {
+      "name": "a dimension chain in millimetres is no card number, though it passes Luhn",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "5215 4080 5475 3640 und 4000 0000 0000 0002",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "4000 0000 0000 0002"
+        }
+      ],
+      "masked": "5215 4080 5475 3640 und [Kartennummer entfernt]",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 1,
+          "sample": "•••• 0002"
+        }
+      ]
     }
   ],
   "unicode": {

@@ -75,7 +75,7 @@
     "apps/workspace/bff/storage/bucket.ts": 630,
     "apps/workspace/bff/tasks/delegation.ts": 727,
     "apps/workspace/bff/tasks/repository.ts": 658,
-    "apps/workspace/bff/upload-screening/content-screen.ts": 922,
+    "apps/workspace/bff/upload-screening/content-screen.ts": 921,
     "apps/workspace/server.js": 795,
     "apps/workspace/shared/components/MarkdownRenderer/MarkdownRenderer.tsx": 1093,
     "apps/workspace/shared/components/MarkdownRenderer/answer-atoms.tsx": 913,

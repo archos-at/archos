@@ -19,8 +19,10 @@ one. So an unbroken number is a card only with a card's word within
 :data:`CARD_CONTEXT_REACH` characters of it (:data:`CARD_CONTEXT_WORDS`), the
 way commercial DLP classifiers raise a bare checksum match only with a keyword
 beside it. The words are matched in the folded text at a word start and may run
-on (``card`` finds ``Cardnumber``, ``karte`` finds ``Kartennr.``). The 4-6-5
-and 4-6-4 layouts are each one network's, so they count only in its range.
+on (``card`` finds ``Cardnumber``, ``karte`` finds ``Kartennr.``); a column's
+label (:data:`CARD_PAGE_LABELS`) counts anywhere on the page. The 4-6-5 and
+4-6-4 layouts are each one network's, so they count only in its range, and a
+row of four-digit groups that all end in 0 or 5 is a dimension chain.
 """
 
 from __future__ import annotations
@@ -65,6 +67,9 @@ CARD_CONTEXT_WORDS: tuple[str, ...] = (
 )
 #: How many characters of the reading before and after an unbroken number are searched for a card's word.
 CARD_CONTEXT_REACH = 48
+#: Labels that make every unbroken number on the page a candidate, wherever they stand: a list
+#: of the office's cards names its column once, in the header, out of the reach above.
+CARD_PAGE_LABELS: tuple[str, ...] = ("kartennummer", "kartennr", "kreditkartennummer", "card number", "cardnumber")
 
 
 def luhn_valid(digits: str) -> bool:
@@ -103,6 +108,17 @@ def _network_fits(sizes: tuple[int, ...], digits: str) -> bool:
     return prefixes is None or digits[:2] in prefixes
 
 
+def _measures(groups: list[str]) -> bool:
+    """Whether every group of four ends in 0 or 5: a dimension chain in millimetres, not a card.
+
+    A drawing's text layer prints its dimension chains as rows of four-digit
+    millimetre values (``3500 4200 3800 1250``), which pass Luhn in a card's
+    range one time in twenty. A card's four groups all end so one time in 625.
+    """
+    fours = [group for group in groups if len(group) == 4]
+    return len(fours) >= 3 and all(group[-1] in "05" for group in fours)
+
+
 def _stands_alone(groups: list[str], first: int, last: int) -> bool:
     """Whether the groups ``first`` to ``last`` are not cut out of a longer number printed in fours."""
     before = first == 0 or len(groups[first - 1]) != 4
@@ -133,6 +149,7 @@ def cards_in(
                 layout(sizes)
                 and _network_fits(sizes, digits)
                 and _stands_alone(digits_of, first, last)
+                and (len(sizes) == 1 or not _measures(digits_of[first:last]))
                 and valid_card(digits)
             ):
                 yield digits, groups[first][1], groups[last - 1][2], len(sizes) == 1
@@ -141,13 +158,13 @@ def cards_in(
         first += 1
 
 
-def has_card_word(folded: str, is_letter: Callable[[str], bool]) -> bool:
-    """Whether a card's word (:data:`CARD_CONTEXT_WORDS`) starts a word somewhere in ``folded``. Pure.
+def has_word(folded: str, words: tuple[str, ...], is_letter: Callable[[str], bool]) -> bool:
+    """Whether one of ``words`` starts a word somewhere in ``folded``. Pure.
 
     ``folded`` begins at a word start. ``is_letter`` is the screen's own
     letter test, so a word inside another (``Ricardo``) does not count.
     """
-    for word in CARD_CONTEXT_WORDS:
+    for word in words:
         at = folded.find(word)
         while at != -1:
             if at == 0 or not is_letter(folded[at - 1]):
