@@ -10,7 +10,7 @@
  * (`via = 'sender'`), made by a job that runs AS them (`sender-file-job.ts`).
  * The guarantee has three layers: the database refuses a filed part without a
  * person's `file` decision, and a decision without a click unless the mail's
- * frozen class names its decider (migrations 0193, 0194); the dynamic spec runs
+ * frozen class names its decider (migrations 0194, 0195); the dynamic spec runs
  * a mail of each class to idle and counts the documents (`review-first.e2e.spec.ts`);
  * and this one, which fails before anything runs: the webhook, the receive job,
  * the suggestion and the sweeps must not import, at any depth, a module that

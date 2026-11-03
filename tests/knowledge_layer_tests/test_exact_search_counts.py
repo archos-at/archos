@@ -22,14 +22,15 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.browse import group_matches
 from knowledge_layer.browse import match_snippets
 from knowledge_layer.browse import phrase_pattern
 from knowledge_layer.chunk_positions import own_texts
 from knowledge_layer.chunk_positions import split_prefix
-from knowledge_layer.qdrant import retrieval
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.vector_store import retrieval
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -73,7 +74,7 @@ def _as_chunks(name: str) -> list[Chunk]:
 
 def _clause_chunks() -> list[Chunk]:
     """A small Richtlinie through ``clause_documents``, the OIB corpus's chunker."""
-    from knowledge_layer.llamaindex.clause_chunking import clause_documents
+    from knowledge_layer.ingest import clause_documents
 
     pages = [
         "OIB-Richtlinie 2\nBrandschutz\n",
@@ -291,8 +292,8 @@ def search_with(monkeypatch):
     )
 
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -328,7 +329,7 @@ class TestThroughTheTool:
 
     async def test_a_capped_scan_that_read_only_breadcrumbs_is_not_a_no(self, search_with, monkeypatch):
         # Not reachable before the count read only a chunk's own text: then every capped scan had a match.
-        from knowledge_layer import browse
+        from knowledge_layer.browse import tool as browse
 
         monkeypatch.setattr(browse, "MAX_MATCH_CHUNKS", 2)
         subsections = [c for c in _as_chunks(REPORT) if c.metadata.get("clause_id") in ("3.1", "3.2")]
@@ -339,9 +340,9 @@ class TestThroughTheTool:
 
 def test_the_adapter_hands_the_search_each_chunks_place_in_its_file(monkeypatch):
     """``chunk_ordinal`` is store-only metadata; without it on the hit no overlap could be found."""
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
-    from knowledge_layer.qdrant import retrieval as adapter_retrieval
-    from knowledge_layer.qdrant.search import Hit
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import Hit
+    from knowledge_layer.vector_store import retrieval as adapter_retrieval
 
     payload = {"text": "x", "chunk_id": "a", "file_name": "a.pdf", "page_label": "2", "chunk_ordinal": 7}
     monkeypatch.setattr(adapter_retrieval, "find_text", lambda *a, **k: [Hit("a", "x", payload, 0.0, 1.0)])

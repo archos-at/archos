@@ -9,7 +9,7 @@ skipped, and a held or in-flight name is never named; when the job store cannot 
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.llamaindex import revisions
+from knowledge_layer.ingest import revisions
 
 from agent.knowledge.schema import AvailableDocument
 from agent.knowledge.schema import FileInfo

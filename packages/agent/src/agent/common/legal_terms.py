@@ -114,7 +114,7 @@ def _is_casefold_identifier(token: str, following: str) -> bool:
     not to the string: ``oib 2`` emits a bare ``OIB`` here, which on one corpus names a
     handful of documents and on another names all of them. The retriever measures each
     term against the live collection and drops what cannot filter
-    (``knowledge_layer.llamaindex.hybrid.selective_terms``). Adding a shape here widens
+    (``knowledge_layer.search.hybrid.selective_terms``). Adding a shape here widens
     what CAN be searched; it never claims the search will find anything, and a non-empty
     return is not retrieval.
     """

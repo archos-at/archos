@@ -30,7 +30,7 @@ SCOPE = (
     "packages/agent/src/agent/knowledge/folder_cards/*.py",
     "apps/workspace/workers/*.js",
     "apps/workspace/purger/*.js",
-    "apps/workspace/scheduler/*.js",
+    "apps/workspace/bff/scheduling/*.ts",
     "apps/workspace/bff/jobs-queue/*.ts",
     "apps/workspace/bff/mail-import/*.ts",
 )

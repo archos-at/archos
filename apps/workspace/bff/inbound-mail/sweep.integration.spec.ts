@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The E-Mail-Eingang's retention sweeps (`./sweep.ts`, DECISION §5) against a
- * REAL Postgres with migration 0193, through the restricted runtime role
+ * REAL Postgres with migration 0194, through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -170,9 +170,9 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     status?: 'receiving' | 'received' | 'waiting' | 'settled' | 'dropped'
     trust?: 'external_verified' | 'external_unverified' | 'member_verified'
     senderUserId?: string | null
-    /** The class a seed held mail carries (migration 0194); by default what its trust allows short of a writer. */
+    /** The class a seed held mail carries (migration 0195); by default what its trust allows short of a writer. */
     senderClass?: 'office_member' | 'external' | 'unverified_writer'
-    /** The sender flags a seed held mail carries, e.g. `sender_unchecked` (migration 0196). */
+    /** The sender flags a seed held mail carries, e.g. `sender_unchecked` (migration 0197). */
     senderFlags?: readonly string[]
     raw?: boolean
     read?: boolean
@@ -199,7 +199,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     const trust = shown ? (seed.trust ?? 'external_verified') : null
     const reason = trust === null ? null : trust.endsWith('_verified') ? 'dkim_pass' : 'dkim_none'
     const userId = trust === 'member_verified' ? (seed.senderUserId ?? MANAGER) : null
-    // Inserted held, as only a seed does: a verified writer's class is the hold's alone (migration 0194).
+    // Inserted held, as only a seed does: a verified writer's class is the hold's alone (migration 0195).
     const senderClass = trust === null ? null : (seed.senderClass ?? (trust.startsWith('member_') ? 'office_member' : 'external'))
     const raw = seed.raw ?? status !== 'settled'
     const read = seed.read ?? open
@@ -417,7 +417,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         { job_id: orphan, status: 'queued', kind: 'inbound_mail_receive' },
       ])
       expect(result.requeued).toBeGreaterThanOrEqual(1)
-      // The queue reported the dead job when it died; the sweep says nothing more of it, tick after tick (R11).
+      // The queue reported the dead job when it died; the sweep says nothing more of it, run after run (R11).
       expect(error.mock.calls.flat().join('\n')).not.toContain(dead)
       // A second run finds a live job and queues nothing.
       expect((await sweep.sweepOrphanedReceptions(now())).requeued).toBe(0)
@@ -480,7 +480,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       const notYet = await seedMail({ receivedAgo: '10 days' })
       await seedPart(notYet)
 
-      // Two scheduler replicas at once: both find the mail, one tells.
+      // Two sweep runs at once: both find the mail, one tells.
       await Promise.all([sweep.sweepExpiringMails(now()), sweep.sweepExpiringMails(now())])
       await sweep.sweepExpiringMails(now())
 
@@ -634,7 +634,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(await partRow(file)).toMatchObject({ state: 'waiting', storage_key: stagingKey(project, mail, '1') })
     })
 
-    it('puts the key back when the store could not erase the bytes, for the next tick', async () => {
+    it('puts the key back when the store could not erase the bytes, for the next run', async () => {
       const mail = await seedMail()
       await seedPart(mail, { kind: 'message', state: 'waiting' })
       const file = await seedPart(mail, { state: 'dismissed', endedAgo: '8 days' })
@@ -787,7 +787,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       }
     })
 
-    it('puts back the keys the store kept, and the deferral, for the next tick', async () => {
+    it('puts back the keys the store kept, and the deferral, for the next run', async () => {
       const { projectId: failing, addressId } = await newProject(`Release failure ${STAMP}`)
       const mail = await seedMail({ projectId: failing, addressId, status: 'settled', raw: true, read: true, erasureDeferred: true })
       const part = await seedPart(mail, { state: 'dismissed', endedAgo: '9 days', deferred: true })
@@ -874,7 +874,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, created_at, expires_at)
         VALUES (${ORG}, ${project}::uuid, ${thread}::uuid, ${FOLLOWER}, now() - interval '57 days', now() + interval '3 days') RETURNING id`)
 
-      // Two scheduler replicas at once: both find the follows, one ends and one asks.
+      // Two sweep runs at once: both find the follows, one ends and one asks.
       await Promise.all([sweep.sweepFollows(now()), sweep.sweepFollows(now())])
       await sweep.sweepFollows(now())
 
@@ -1068,7 +1068,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
                'org/' || ${ORG} || '/project/' || ${projectId}::text || '/_inbound-mail/' || ids.id::text || '/raw.eml', now(), now() + interval '30 days'
           FROM (SELECT gen_random_uuid() AS id FROM generate_series(1, 32)) ids`)
 
-      // Two scheduler replicas at once: both find the address, one tells.
+      // Two sweep runs at once: both find the address, one tells.
       await Promise.all([sweep.sweepCaps(now()), sweep.sweepCaps(now())])
       await sweep.sweepCaps(now())
 

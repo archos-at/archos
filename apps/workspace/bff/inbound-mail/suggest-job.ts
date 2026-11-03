@@ -5,7 +5,7 @@
  *
  * Runs AS THE SYSTEM, one step, bulk. The receive job queues it with a job id
  * derived from the mail (`inboundMailJobId('suggest', mailId)`, uuid5), never
- * the mail's id itself, which is the receive job's: `insertJobIfAbsent` would
+ * the mail's id itself, which is the receive job's: `enqueueJobIfAbsent` would
  * otherwise find the receive job and skip this one.
  *
  * In order, each a reason to ask nothing:

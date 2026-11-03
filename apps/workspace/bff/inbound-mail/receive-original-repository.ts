@@ -1,5 +1,5 @@
 /**
- * SQL for a forward's original (`./receive-original`, migration 0195): the
+ * SQL for a forward's original (`./receive-original`, migration 0196): the
  * columns the receive job writes on a `received` mail. No authorization: the
  * job runs as the system in the mail's organization, and row-level security is
  * the backstop.

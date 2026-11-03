@@ -15,7 +15,7 @@ import { captureServer } from '@/lib/analytics/posthog-server'
 import { DOCUMENT_WRITE_PERMISSIONS } from '@/lib/authz/folder-access-rule'
 import { userHoldsProjectPermissionStrict } from '@/lib/authz/project-membership'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { announceHeld, announceWaiting } from './announce'
 import {
@@ -45,7 +45,7 @@ export function inboundMailJobId(kind: 'suggest' | 'follow' | 'sender', mailId: 
  * a "no": the job tries again later, and only `degraded` (its budget spent)
  * holds the mail without the answer, flagged `sender_unchecked`, for the
  * project's writers. A `sender_unchecked` mail waits the full 30 days even when
- * no member could be named: it may be a member's (migration 0196 holds it).
+ * no member could be named: it may be a member's (migration 0197 holds it).
  * The flags it returns are the ones to store.
  */
 export async function classified(
@@ -116,7 +116,7 @@ export async function announceHeldMail(mail: InboundMailRow & { senderTrust: Non
  */
 export async function queueSenderFiling(mail: Pick<InboundMailRow, 'id' | 'organizationId' | 'projectId'>): Promise<void> {
   if (!directFilingEnabled()) return leaveForTheWriters(mail.id)
-  await insertJobIfAbsent({
+  await enqueueJobIfAbsent({
     kind: 'inbound_mail_sender_file',
     organizationId: mail.organizationId,
     priority: BFF_JOB_PRIORITY.interactive,

@@ -106,7 +106,7 @@ export async function claimOrphanedThread(
   return row ? (row.originals ?? []) : null
 }
 
-/** Sweep 9 could not erase an original: the lease goes, and the next tick asks again. */
+/** Sweep 9 could not erase an original: the lease goes, and the next run asks again. */
 export async function releaseOrphanedThread(id: string, holder: string): Promise<void> {
   await getDb().execute(sql`
     UPDATE mail_threads SET render_lease_holder = NULL, render_lease_until = NULL

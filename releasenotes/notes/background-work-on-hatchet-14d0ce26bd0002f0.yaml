@@ -1,0 +1,16 @@
+---
+fixes:
+  - >
+    A document now shows as ready as soon as it has been read, instead of only
+    after someone next opened the file list, and a file whose upload hit a
+    passing storage hiccup is read again within seconds instead of failing.
+improvements:
+  - >
+    When many offices upload at once, each office's documents take turns, so a
+    single file is never stuck behind another office's large folder.
+operators:
+  - >
+    Background work (document reading, research runs, the BFF's jobs and the
+    scheduled automations) runs on a self-hosted Hatchet engine with RabbitMQ
+    and its own Postgres cluster. The scheduler service is gone. Apply the
+    platform, deploy, then run the cutover commands in docs/deployment/hatchet.md.

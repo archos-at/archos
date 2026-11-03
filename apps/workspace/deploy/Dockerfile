@@ -162,10 +162,10 @@ RUN for script in provision-workos-authz migrate-folder-grants-to-workos; do \
         --outfile="dist-scripts/$script.mjs" || exit 1; \
     done
 
-# The `bff-jobs` slice entry, the same way: our services inlined, packages left
-# to the production node_modules. `workers/jobs/index.js` imports it when
-# `BFF_JOBS_MODE=inprocess`, and then spawns no `node server.js` (ADR-0079
-# amendment 1). Its own script, for the shims Next would otherwise provide.
+# The `bff-jobs` entry, the same way: our services inlined, packages left to
+# the production node_modules. `workers/jobs/index.js` imports it and runs the
+# Hatchet worker in process (`bff-job` and the scheduling tasks, ADR-0150). Its
+# own script, for the shims Next would otherwise provide.
 RUN bun scripts/build-jobs-bundle.ts
 
 # Remove devDependencies — keeps dev-only packages out of the production image
@@ -209,10 +209,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
 COPY --from=builder --chown=nextjs:nodejs /app/purger ./purger
-COPY --from=builder --chown=nextjs:nodejs /app/scheduler ./scheduler
 COPY --from=builder --chown=nextjs:nodejs /app/observability ./observability
-# Shared by purger/ and scheduler/ — both require ../workers/platform-scope to
-# step up to the BYPASSRLS role (ADR-0041). Without it neither worker starts.
+# Shared by purger/ and the bff-jobs worker — both require workers/platform-scope
+# to step up to the BYPASSRLS role (ADR-0041). Without it neither worker starts.
 COPY --from=builder --chown=nextjs:nodejs /app/workers ./workers
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts

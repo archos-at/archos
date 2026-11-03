@@ -7,7 +7,7 @@
  *   seal    → the browser, after its last request (`POST …/[id]/seal`)
  *   settle  → reconciliation, once no document of a sealed batch is in flight
  *             (`./settle`), which tells the uploader in their inbox — unless
- *             the batch was opened quiet (its effects, migration 0192)
+ *             the batch was opened quiet (its effects, migration 0193)
  *   summary → what arrived, where, what it is, what was held back and why
  *
  * The summary is the uploader's. It names what the office's screening kept on
@@ -417,7 +417,7 @@ export async function getUploadSummary(session: AuthorizedSession, batchId: stri
   if (!batch) throw new NotFoundError('Upload not found')
   const rows = await listBatchDocuments(session.organizationId, batchId, memberReader(session.userId))
   const view = await readerView(session, batch, rows)
-  const enriched = await reconcileDocumentStatuses(view.rows, session.organizationId)
+  const enriched = await reconcileDocumentStatuses(view.rows, session.organizationId, 'read')
   const folderIds = [...new Set(enriched.map((row) => row.folderId).filter((id): id is string => !!id))]
   const folderPaths =
     batch.projectId && folderIds.length > 0

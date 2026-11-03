@@ -51,25 +51,26 @@ export interface CollectorConsumers {
   langfuseEnabled: boolean;
   posthogLogsEnabled: boolean;
   posthogMetricsEnabled: boolean;
+  posthogTracesEnabled: boolean;
 }
 
 export function loadObservability(
   cfg: pulumi.Config,
   observabilityFlag: boolean,
   { otelOidcIssuer, otelOidcClientId, otelOidcClientSecret }: PlatformOidc,
-  { langfuseEnabled, posthogLogsEnabled, posthogMetricsEnabled }: CollectorConsumers,
+  { langfuseEnabled, posthogLogsEnabled, posthogMetricsEnabled, posthogTracesEnabled }: CollectorConsumers,
 ): ObservabilityConfig {
   // ── The collector: deployed when something consumes what it forwards ──────
-  // Three consumers, any of which is enough: Langfuse (traces), PostHog logs
-  // and PostHog metrics. With none it would receive OTLP from every producer
+  // Four consumers, any of which is enough: Langfuse (LLM traces), PostHog
+  // logs, PostHog metrics and PostHog request traces. With none it would receive OTLP from every producer
   // and forward it nowhere, and each producer would carry an endpoint pointing
   // at a pod that does nothing.
-  const collectorEnabled = observabilityFlag && (langfuseEnabled || posthogLogsEnabled || posthogMetricsEnabled);
+  const collectorEnabled = observabilityFlag && (langfuseEnabled || posthogLogsEnabled || posthogMetricsEnabled || posthogTracesEnabled);
   if (observabilityFlag && !collectorEnabled) {
     pulumi.log.warn(
       "OTel Collector (ADR-0029) not deployed: nothing consumes it. Enable Langfuse " +
-        "(it also needs the otelOidc* application), grid-oib:posthogLogsEnabled or " +
-        "grid-oib:posthogMetricsEnabled, or set " +
+        "(it also needs the otelOidc* application) or one of the stack keys " +
+        "posthogLogsEnabled, posthogMetricsEnabled and posthogTracesEnabled, or set " +
         "grid-oib:observabilityEnabled=false to silence this.",
     );
   }

@@ -52,6 +52,7 @@ describe('reconcileStalePending', () => {
       [expect.objectContaining({ kind: 'tenant', organizationId: 'org_2' }), ['b']],
     ])
     expect(result).toEqual({ checked: 3, organizations: 2, errors: 0 })
+    expect(vi.mocked(reconcileDocumentStatuses).mock.calls.map((call) => call[2])).toEqual(['sweep', 'sweep'])
   })
 
   it('goes on to the next organization when one throws', async () => {

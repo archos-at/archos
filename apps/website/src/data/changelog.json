@@ -36,8 +36,54 @@
       "summary": null,
       "sections": [
         {
+          "key": "features",
+          "notes": [
+            {
+              "en": "When you set up a new project, the address field now suggests matching Austrian addresses as you type, and choosing one fills in the municipality and federal state for you.",
+              "de": "Wenn Sie ein neues Projekt anlegen, schlägt das Adressfeld während der Eingabe passende österreichische Adressen vor. Wenn Sie eine auswählen, werden Gemeinde und Bundesland automatisch ergänzt."
+            },
+            {
+              "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
+              "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
+            },
+            {
+              "en": "Uploading a new version of a document while the old one is still being read now stops the old reading and reads only the new file. The old one is not shown as failed or as stopped by you.",
+              "de": "Wenn Sie eine neue Version eines Dokuments hochladen, während die alte noch gelesen wird, wird das Lesen der alten Datei jetzt beendet und nur die neue Datei gelesen. Die alte Version wird weder als fehlgeschlagen noch als von Ihnen gestoppt angezeigt."
+            }
+          ]
+        },
+        {
+          "key": "improvements",
+          "notes": [
+            {
+              "en": "When many offices upload at once, each office's documents take turns, so a single file is never stuck behind another office's large folder.",
+              "de": "Wenn viele Büros gleichzeitig Uploads durchführen, werden die Dokumente der einzelnen Büros der Reihe nach verarbeitet, sodass eine einzelne Datei nie hinter einem großen Ordner eines anderen Büros warten muss."
+            },
+            {
+              "en": "A newly uploaded document can be found in search sooner: its content is searchable as soon as it is read, while its summary, tags and topics are still being written. It shows as finished once those are done too.",
+              "de": "Ein neu hochgeladenes Dokument ist schneller über die Suche auffindbar: Sein Inhalt ist durchsuchbar, sobald er eingelesen wurde, während Zusammenfassung, Tags und Themen noch erstellt werden. Das Dokument wird als abgeschlossen angezeigt, sobald auch diese fertig sind."
+            },
+            {
+              "en": "Photos and other images are now checked against your office's upload screening by what was read off them, like scanned documents. An image that matches is held for review instead of being added, and its preview appears only once it has passed.",
+              "de": "Fotos und andere Bilder werden jetzt wie gescannte Dokumente anhand der ausgelesenen Inhalte mit der Upload-Prüfung Ihres Büros abgeglichen. Ein passendes Bild wird zur Überprüfung zurückgehalten, statt hinzugefügt zu werden. Die Vorschau erscheint erst, wenn es die Prüfung bestanden hat."
+            },
+            {
+              "en": "Large files with drawings and scanned pages are read faster: their scanned pages and their drawings are now read at the same time, and many more of them at once, instead of a few at a time one kind after the other.",
+              "de": "Große Dateien mit Plänen und gescannten Seiten werden schneller ausgelesen: Gescannte Seiten und Zeichnungen werden jetzt gleichzeitig und in deutlich größerer Anzahl ausgelesen, statt jeweils nur wenige eines Typs nach dem anderen."
+            },
+            {
+              "en": "When reading a large PDF has to be tried again, for example after an interruption, it finishes sooner: the text and tables already taken from that same file are reused instead of being read out of the PDF a second time.",
+              "de": "Wenn ein großes PDF erneut eingelesen werden muss, etwa nach einer Unterbrechung, ist der Vorgang schneller abgeschlossen: Der bereits aus derselben Datei extrahierte Text sowie die Tabellen werden wiederverwendet, statt das PDF ein zweites Mal auszulesen."
+            }
+          ]
+        },
+        {
           "key": "fixes",
           "notes": [
+            {
+              "en": "A document now shows as ready as soon as it has been read, instead of only after someone next opened the file list, and a file whose upload hit a passing storage hiccup is read again within seconds instead of failing.",
+              "de": "Ein Dokument wird jetzt als bereit angezeigt, sobald es gelesen wurde, statt erst, wenn jemand die Dateiliste erneut öffnet, und eine Datei, deren Upload durch eine vorübergehende Speicherstörung unterbrochen wurde, wird innerhalb von Sekunden erneut gelesen, statt fehlzuschlagen."
+            },
             {
               "en": "The budget warning in the chat now tells members who cannot change the limit that an admin can raise it, not only once the budget is spent.",
               "de": "Die Budgetwarnung im Chat informiert Mitglieder, die das Limit nicht ändern können, jetzt darüber, dass ein Admin es erhöhen kann – auch bevor das Budget aufgebraucht ist."
@@ -45,6 +91,18 @@
             {
               "en": "Uploading hundreds of files at once no longer makes a share of them fail to be read and wait several minutes for a second try.",
               "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
+            },
+            {
+              "en": "A brief connection hiccup while a file was being read no longer leaves it without its page previews, images or thumbnail. Large drawings and long documents no longer lose the document type and key facts {productName} reads from them.",
+              "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
+            },
+            {
+              "en": "A file whose pictures are read while many other files are being read no longer fails for that: its reading waits a minute and carries on.",
+              "de": "Eine Datei, deren Bilder gelesen werden, während viele andere Dateien eingelesen werden, schlägt deshalb nicht mehr fehl: Das Einlesen wartet eine Minute und wird dann fortgesetzt."
+            },
+            {
+              "en": "Drawings, photos and scanned pages are read even when many uploads arrive at once: a page that could not be read at first is tried again a moment later instead of being left out, and a photo no longer fails for that reason. A page that still cannot be read is counted as not fully read.",
+              "de": "Pläne, Fotos und eingescannte Seiten werden auch dann ausgelesen, wenn viele Uploads gleichzeitig eingehen: Eine Seite, die zunächst nicht gelesen werden kann, wird kurz darauf erneut ausgelesen, statt ausgelassen zu werden, und Fotos scheitern aus diesem Grund nicht mehr. Eine Seite, die weiterhin nicht gelesen werden kann, wird als nicht vollständig gelesen gewertet."
             }
           ]
         }

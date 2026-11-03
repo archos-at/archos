@@ -68,7 +68,7 @@ CI = load("ci.yml")
 JOBS = CI["jobs"]
 PLAN = JOBS["changes"]
 STEPS = {step["id"]: step for step in PLAN["steps"] if "id" in step}
-TIERS = ["backend", "workspace", "site", "infra", "packages", "sast"]
+TIERS = ["backend", "workspace", "site", "infra", "packages", "sast", "hatchet"]
 BUILD = json.dumps([{"name": "backend"}])
 
 
@@ -353,6 +353,30 @@ def test_the_commit_is_tagged_only_after_every_check_on_its_push_passed():
     assert "!contains(needs.*.result, 'cancelled')" in condition
     # And the gate waits for it, so a green push run means tagged images.
     assert "publish" in JOBS["ci-ok"]["needs"]
+
+
+# --- The Hatchet engine -------------------------------------------------------------
+
+
+def test_the_engine_suites_run_on_the_engine_production_runs():
+    # The engine tests prove the SDK against one engine; a CI pin that drifts
+    # from production's proves it against another.
+    root = WORKFLOWS.parents[1]
+    production = re.search(
+        r'HATCHET_IMAGE_TAG = "([^"]+)"', (root / "deploy/pulumi/src/config/background-work.ts").read_text()
+    )
+    pins = {
+        path: re.findall(r"hatchet-lite:(v[\w.]+)", (root / path).read_text())
+        for path in ("ci/hatchet_engine.sh", "deploy/compose/docker-compose.yaml")
+    }
+
+    assert production
+    assert pins == dict.fromkeys(pins, [production[1]])
+
+
+def test_the_engine_job_runs_on_its_own_tier():
+    assert JOBS["hatchet"]["if"] == "needs.changes.outputs.hatchet == 'true'"
+    assert not runs("hatchet", event="pull_request", outputs=plan(event="pull_request") | {"hatchet": "false"})
 
 
 # --- Release notes ------------------------------------------------------------------

@@ -61,7 +61,7 @@ builds the graph with grimp, which sees imports inside functions too.
 |---|---|---|
 | `agent-api-seam` | `agent` importing `agent_host`, directly or through a chain. What the agent needs from a request is owned in `agent` and written by `agent_host` (`auth/request_identity.py`, `auth/errors.py`), or handed in by the API-tier caller (`oib_sync`'s `enqueue`) | nothing |
 | `agent-knowledge-port` | `agent` importing `knowledge_layer` directly | `knowledge/factory.py`, the BaseRetriever/BaseIngestor port (ADR-0072); sixteen known bypasses, each listed |
-| `qdrant-client-confined` | Any of the three packages importing `qdrant_client` directly | `knowledge_layer.qdrant` |
+| `qdrant-client-confined` | Any of the three packages importing `qdrant_client` directly | `knowledge_layer.vector_store` |
 
 An `ignore_imports` entry whose import no longer exists fails the run
 (import-linter's default), so a bypass routed through the port has to leave the

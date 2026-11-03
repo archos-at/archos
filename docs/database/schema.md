@@ -45,8 +45,8 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `tasks.ts` | `tasks` — LEGACY since 0086, same |
 | `task-model.ts` | `task_definitions`, `task_runs` — the collapsed model (migration 0086) |
 | `bff-job-queue.ts` | `bff_job_queue`, `bff_job_lane_turns` — the BFF's durable background work (migration 0104, ADR-0079) |
-| `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0193, ADR-0137) |
-| `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0193, ADR-0137) |
+| `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0194, ADR-0137) |
+| `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0194, ADR-0137) |
 | `mail-imports.ts` | `mail_imports` — the Outlook archive import ([`mail-import.md`](../architecture/mail-import.md); its Verlauf counts below) |
 
 Two things drizzle's schema builder cannot declare live only in the migration
@@ -667,8 +667,10 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   `schedule_timezone`, `next_run_at` — *when the due scan should next look at
   this row*, which is the cron's next occurrence on a `schedule`, the `due_at`
   on a pending `once`, and NULL on a `manual` one, on anything paused, and on a
-  one-shot that has already fired (0090) — `due_at` (live only on `once`),
-  `budget_usd`, `last_run_at`, `created_at`, `updated_at`.
+  one-shot that has already fired (0090) — `scheduled_run_id` (0192: the
+  Hatchet scheduled run that fires the row at `next_run_at`, NULL when none is
+  known), `due_at` (live only on `once`), `budget_usd`, `last_run_at`,
+  `created_at`, `updated_at`.
 - `task_runs`: `id`, `organization_id`, `project_id`, `definition_id`
   (nullable, `ON DELETE SET NULL` via the composite FK below — history outlives
   the arrangement), the frozen `kind` /
@@ -695,11 +697,10 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   constraints copied from 0075). `kind` has NO check, deliberately, as in 0075.
 - **Indexes:** `idx_task_definitions_project_created`,
   `idx_task_definitions_organization_id`, and the PARTIAL `idx_task_definitions_due`
-  on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scheduler's
-  due-scan, the successor of `idx_jobs_due`. 0090 moved that predicate off the
-  trigger and onto `next_run_at` so ONE index and ONE claim query serve both a
-  recurring task and a one-shot; the claim's WHERE clause must keep matching it
-  or the scan degrades to a sequential one over every definition. A claimed
+  on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scan of the
+  repair sweep (`schedule-repair`, ADR-0150), which gives an overdue row a
+  Hatchet scheduled run; its WHERE clause must keep matching the predicate or
+  the scan degrades to a sequential one over every definition. A fired
   one-shot has its `next_run_at` NULLED rather than advanced, which is what
   makes it at-most-once — and `enabled` is deliberately left alone, because it
   is the person's pause switch and a finished task is not a paused one. On runs:
@@ -921,13 +922,13 @@ who started it ([`mail-import.md`](../architecture/mail-import.md#what-the-perso
 | `sealed_at` | `timestamptz` | | The uploader's last request is done; a batch no file has come into for 30 min (counted from its newest document, or its opening) is sealed by the sweep |
 | `completed_at` | `timestamptz` | CHECK: only after `sealed_at` | Every document is terminal; set once, by a guarded UPDATE, which is what makes the inbox item exactly-once |
 | `created_at` | `timestamptz(3)` | NOT NULL, `defaultNow()` | |
-| `announces_completion` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: the settle sends no `upload.completed` |
-| `reviews_filing` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: neither filing review is queued, the name review at the seal nor the content review at the settle (`lib/filing/trigger.ts`) |
-| `starts_intake` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: the batch starts no intake reading (`lib/project-intake/trigger.ts`, ADR-0111) |
-| `revision_notice` | `text` | NOT NULL, default `'all'`, CHECK `all`/`marks_only` | **Migration `0192`**. Who hears about a new Fassung a document of this batch makes: `marks_only` reaches only the people on an open mark it leaves behind ([`revisions.md`](../architecture/revisions.md#notifications)) |
-| `runs_document_check` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: no settled document of the batch is checked against the project (`document_check`, ADR-0130, where the office switched it on), so an E-Mail-Verlauf's next Fassung buys no model call |
+| `announces_completion` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: the settle sends no `upload.completed` |
+| `reviews_filing` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: neither filing review is queued, the name review at the seal nor the content review at the settle (`lib/filing/trigger.ts`) |
+| `starts_intake` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: the batch starts no intake reading (`lib/project-intake/trigger.ts`, ADR-0111) |
+| `revision_notice` | `text` | NOT NULL, default `'all'`, CHECK `all`/`marks_only` | **Migration `0193`**. Who hears about a new Fassung a document of this batch makes: `marks_only` reaches only the people on an open mark it leaves behind ([`revisions.md`](../architecture/revisions.md#notifications)) |
+| `runs_document_check` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: no settled document of the batch is checked against the project (`document_check`, ADR-0130, where the office switched it on), so an E-Mail-Verlauf's next Fassung buys no model call |
 
-The five effect columns (migration 0192) say what settling the batch sets
+The five effect columns (migration 0193) say what settling the batch sets
 off. Their defaults are a person's upload, and only a server-side caller sets
 them (`OpenUploadBatchInput.effects` in `lib/upload-batches/service.ts`): the
 route's body has no field for them, so no browser or agent opens a quiet batch.
@@ -951,13 +952,13 @@ sends it once and a failed write is not retried.
 
 ---
 
-## Project mail (migration 0193, ADR-0137)
+## Project mail (migration 0194, ADR-0137)
 
-`apps/workspace/migrations/0193_inbound_mail.sql` (schema files
+`apps/workspace/migrations/0194_inbound_mail.sql` (schema files
 `inbound-mail.ts`, `mail-thread.ts`): mail sent to a project waits until a
 person files it, a conversation is one document, its originals are evidence,
 and a person may follow it. The migration's header says why each rule exists;
-`scripts/rls-test-db.sh` (section "Migration 0193") proves each refusal with a
+`scripts/rls-test-db.sh` (section "Migration 0194") proves each refusal with a
 violating statement. The flow: [`inbound-mail.md`](../architecture/inbound-mail.md).
 
 Nine tables, one job each:
@@ -1043,14 +1044,14 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `recipient_count` | `integer` | 0..1000 | To and Cc recipients, the project addresses not counted; more than the To/Cc `participants` kept means the 200 cap cut some, and a follow refuses the mail (condition 5, `recipients_unchecked`) |
 | `sender_trust` | `text` | `member_verified`/`member_unverified`/`external_verified`/`external_unverified`; required when `waiting` or `settled` | A label and a condition on defaults, never a gate |
 | `sender_user_id` | `text` | set exactly when the trust is `member_*` (`inbound_mails_member_has_user`); person-shaped | Read only under the notice rules |
-| `sender_class` | `text` | migration 0194: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`/`relaxed_alignment`, never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
+| `sender_class` | `text` | migration 0195: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`/`relaxed_alignment`, never `not_addressed_to_project` (a Bcc copy included), not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
 | `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
 | `signer_domain` | `text` | ≤ 253 | |
 | `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
-| `sender_flags` | `text[]` | `<@` `not_addressed_to_project`, `bcc_own`, `stale_date`, `date_out_of_range`, `message_id_reused`, `already_filed`, `claims_member_name`, `relaxed_alignment` (0194), `sender_unchecked` (0196) | `bcc_own` only with `not_addressed_to_project` on `member_verified` (`inbound_mails_bcc_own_paired`); `claims_member_name` only on `external_*` (`inbound_mails_member_name_claim_external`); `relaxed_alignment` only on `*_verified` (`inbound_mails_relaxed_alignment_verified`); `sender_unchecked` (WorkOS did not answer for the receive job's whole fault budget, or the sender was never judged) never on a `verified_writer` (`inbound_mails_sender_unchecked_not_direct`) and never with less than 30 days (`inbound_mails_sender_unchecked_full_window`) |
+| `sender_flags` | `text[]` | `<@` `not_addressed_to_project`, `bcc_own`, `stale_date`, `date_out_of_range`, `message_id_reused`, `already_filed`, `claims_member_name`, `relaxed_alignment` (0195), `sender_unchecked` (0197) | `bcc_own` only with `not_addressed_to_project` on `member_verified` (`inbound_mails_bcc_own_paired`); `claims_member_name` only on `external_*` (`inbound_mails_member_name_claim_external`); `relaxed_alignment` only on `*_verified` (`inbound_mails_relaxed_alignment_verified`); `sender_unchecked` (WorkOS did not answer for the receive job's whole fault budget, or the sender was never judged) never on a `verified_writer` (`inbound_mails_sender_unchecked_not_direct`) and never with less than 30 days (`inbound_mails_sender_unchecked_full_window`) |
 | `authentication_results` | `text` | ≤ 4096, never containing `spf=` (`inbound_mails_authentication_results_shape`) | Our RFC 8601 line from DKIM and DMARC only |
 | `automatic` | `boolean` | NOT NULL, default false | List, bulk or auto-generated mail: held, announced collapsed, no model spend |
-| `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`; set exactly when `dropped` | A forward is never dropped for its original (0195, below) |
+| `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`; set exactly when `dropped` | A forward is never dropped for its original (0196, below) |
 | `sent_at`, `sent_at_header` | `timestamptz` | | The clamped Date and the sender's claim |
 | `received_at` | `timestamptz` | NOT NULL | |
 | `expires_at` | `timestamptz` | NOT NULL, after `received_at` | 30 days at receipt; the hold sets 14 for an `external` mail (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) unless it is `sender_unchecked`; a restore may move it later |
@@ -1060,9 +1061,9 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `ignored` | `jsonb` | object | Counts by reason after settling |
 | `erasure_deferred_at` | `timestamptz` | | A hold stopped the erasure; sweep 10 retries after release |
 | `original_move_pending_at` | `timestamptz` | | The raw message is moving to a filed entry's original; sweep 13 finishes a stopped move |
-| `reader_fault_at` | `timestamptz` | only on `waiting` or `settled` (`inbound_mails_reader_fault_held`) | Migration 0196. The Python reader did not answer for the receive job's whole fault budget: the text waits `unreadable` and sweep 15 reads it again from this time on while the mail waits; NULL once read. A text the reader answered for (a refusal, a timeout inside it) never carries it |
-| `receive_progress` | `jsonb` | only on `received` (`inbound_mails_receive_progress_received`) | Migration 0196. What a receive run learned before a dependency fault gave its claim back, for the next run of the same mail: the sender's authentication (unless transient) and each attachment's scan by SHA-256 (a `failed` one is scanned again). Cleared by the hold and the drop (`receive-progress.ts`) |
-| `original_author_address` (≤ 320), `original_author_name` (≤ 300), `original_subject` (≤ 998) | `text` | `inbound_mails_original_lengths`; NULL once the mail ends (trigger `inbound_mails_scrub_original`, CHECK `inbound_mails_original_scrubbed`) | Migration 0195. Who wrote the original a forward carried (`original-message.ts`, read by `receive-original.ts`): attribution, never verified; the `sender_*` columns stay the forwarder's |
+| `reader_fault_at` | `timestamptz` | only on `waiting` or `settled` (`inbound_mails_reader_fault_held`) | Migration 0197. The Python reader did not answer for the receive job's whole fault budget: the text waits `unreadable` and sweep 15 reads it again from this time on while the mail waits; NULL once read. A text the reader answered for (a refusal, a timeout inside it) never carries it |
+| `receive_progress` | `jsonb` | only on `received` (`inbound_mails_receive_progress_received`) | Migration 0197. What a receive run learned before a dependency fault gave its claim back, for the next run of the same mail: the sender's authentication (unless transient) and each attachment's scan by SHA-256 (a `failed` one is scanned again). Cleared by the hold and the drop (`receive-progress.ts`) |
+| `original_author_address` (≤ 320), `original_author_name` (≤ 300), `original_subject` (≤ 998) | `text` | `inbound_mails_original_lengths`; NULL once the mail ends (trigger `inbound_mails_scrub_original`, CHECK `inbound_mails_original_scrubbed`) | Migration 0196. Who wrote the original a forward carried (`original-message.ts`, read by `receive-original.ts`): attribution, never verified; the `sender_*` columns stay the forwarder's |
 | `original_sent_at` | `timestamptz` | | When the original was written, as the forward said; never after the forward arrived |
 | `original_message_id` | `text` | 1..998; only with source `attachment` (`inbound_mails_original_message_id_attached`); never unique | Kept after the mail ends. What the attached `.eml` says, the sender's word: it drops and merges no delivery, and filing reads it against `mail_thread_entries.author_message_id` (below) |
 | `original_source` | `text` | `attachment`/`inline` (`inbound_mails_original_source_known`); required with any original column (`inbound_mails_original_with_source`) | An inline block has no Message-ID |
@@ -1073,13 +1074,13 @@ The scrub is a CHECK (`inbound_mails_ended_is_scrubbed`): a `settled` or
 participants or `not_staged`, and no staged key unless `erasure_deferred_at`
 (or, for the raw key only, `original_move_pending_at`). A mail is never
 `waiting` before its raw message was scanned (`inbound_mails_waiting_is_scanned`).
-The original's author, name and subject (0195) are cleared by a `BEFORE INSERT
+The original's author, name and subject (0196) are cleared by a `BEFORE INSERT
 OR UPDATE` trigger as the row ends, since the ending paths predate them, and
 `inbound_mails_original_scrubbed` holds it.
 
 **Why an original's Message-ID is not unique.** It is read out of the `.eml`
 a delivery carries, written by whoever sent the delivery, before anyone checked
-who that is. Unique per project (as 0195 first had it), it let an outsider
+who that is. Unique per project (as 0196 first had it), it let an outsider
 suppress mail: a junk mail attaching a fake `.eml` with the Message-ID of a
 mail they had sent the architect made the architect's real forward of it a
 silent drop, and once the junk was filed, every later forward for the
@@ -1090,7 +1091,7 @@ another mail's entry in the project already holds the original
 (`author_message_id`), the forward is filed as its forwarder's own message, not
 as a second section under the original's author.
 
-Trigger `inbound_mails_sender_verdict_guard` (0194): the verdict (`sender_class`,
+Trigger `inbound_mails_sender_verdict_guard` (0195): the verdict (`sender_class`,
 `sender_trust`, `sender_user_id`, `sender_reason`, `sender_flags`,
 `signer_domain`, `signed_headers`, `automatic`, `received_at`) changes only in
 the `received → waiting` transition (`inbound_mails_sender_verdict_frozen`); a
@@ -1103,7 +1104,7 @@ Indexes: `inbound_mails_waiting_idx` (org, project, received_at; waiting),
 `_settled_idx`, `_dropped_idx`, `_message_id_idx` (project, message_id),
 `_erasure_deferred_idx`, `_original_move_idx`, `_original_message_id_idx`
 (project, original_message_id; set), `_reader_fault_idx` (reader_fault_at; set,
-`waiting`; 0196).
+`waiting`; 0197).
 
 ### inbound_mail_parts
 
@@ -1162,7 +1163,7 @@ sent from here.
 | `part_id` | `uuid` | FK `(part_id, mail_id, project_id, organization_id)` → `inbound_mail_parts` CASCADE; unique `(id, part_id)` | |
 | `action` | `text` | `file`/`dismiss`/`restore` | |
 | `decided_by` | `text` | NOT NULL, person-shaped (`inbound_mail_decisions_decider_is_person`) | Always a person |
-| `via` | `text` | `app`/`agent`/`agent_proposal`/`follow`/`sender`, default `app` | `sender` (0194): a verified writer's own mail, filed as them without a click |
+| `via` | `text` | `app`/`agent`/`agent_proposal`/`follow`/`sender`, default `app` | `sender` (0195): a verified writer's own mail, filed as them without a click |
 | `proposal_id` | `uuid` | exactly with `agent_proposal` | |
 | `follow_id` | `uuid` | exactly with `follow`; FK `(follow_id, mail_thread_id, decided_by, organization_id)` → `mail_thread_follows (id, thread_id, user_id, organization_id)` CASCADE | The decider is the follower |
 | `decided_at` | `timestamptz` | | |
@@ -1178,13 +1179,13 @@ CHECKs: `inbound_mail_decisions_agent_cards_file_clean` (an agent's card carries
 no release and no acknowledgement); `…_follow_appends_text_only` (a follow is
 `file` + `append` with no release or acknowledgement); `…_destination_when_filing`,
 `…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`;
-`…_sender_files_clean` (0194: a `sender` decision files, and acknowledges or
+`…_sender_files_clean` (0195: a `sender` decision files, and acknowledges or
 releases nothing).
 
 Trigger `inbound_mail_decisions_guard`:
 - INSERT: a follow files a text, never an attachment
   (`inbound_mail_decisions_follow_files_text`); a thread is chosen for a filed
-  text and only for it (`…_thread_for_text`). From 0194: `via = 'sender'` only
+  text and only for it (`…_thread_for_text`). From 0195: `via = 'sender'` only
   on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
   `clean`, the part without risk flags or content findings
   (`…_sender_files_own_verified_mail`); a `file` or `restore` on an
@@ -1242,7 +1243,7 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 | `sender_address`, `sender_name`, `sender_domain`, `signer_domain` | `text` | lengths | |
 | `sender_trust` | `text` | the four inbound labels or `not_checked`; `not_checked` exactly for `archive` | |
 | `authentication_results` | `text` | ≤ 4096, no `spf=` | |
-| `author_address` (≤ 320), `author_name` (≤ 300), `author_sent_at`, `author_message_id` (1..998) | | `mail_thread_entries_author_lengths`; only on `inbound`, and only with a name or an address (`mail_thread_entries_author_named`) | Migration 0195. Who wrote a forwarded message, from the mail's `original_*`: the heading names the author at `author_sent_at` with „Domain nicht bestätigt“, the line „Weitergeleitet von“ names the sender. Another mail's forward of the same original is then filed as its forwarder's own message, never as the original's second section |
+| `author_address` (≤ 320), `author_name` (≤ 300), `author_sent_at`, `author_message_id` (1..998) | | `mail_thread_entries_author_lengths`; only on `inbound`, and only with a name or an address (`mail_thread_entries_author_named`) | Migration 0196. Who wrote a forwarded message, from the mail's `original_*`: the heading names the author at `author_sent_at` with „Domain nicht bestätigt“, the line „Weitergeleitet von“ names the sender. Another mail's forward of the same original is then filed as its forwarder's own message, never as the original's second section |
 | `participants` (≤ 50), `quoted` (≤ 50), `calendar` (≤ 20), `masked_spans` (≤ 1000 or NULL) | `jsonb` | arrays | `masked_spans` set when the person chose „Unkenntlich ablegen“ |
 | `own_text` | `text` | ≤ 524288 bytes | |
 | `first_version_id` | `uuid` | FK `(first_version_id, project_id)` → `document_versions (id, project_id)`, SET NULL on the one column | The first Fassung that holds it, whoever wrote that Fassung; always a Fassung of this project's |
@@ -1315,23 +1316,23 @@ sweep 12.
 ### mail_imports: the archive's Verlauf counts
 
 The Outlook archive import ([`mail-import.md`](../architecture/mail-import.md))
-renders into the same Verläufe. 0193 adds three counters to `mail_imports`,
+renders into the same Verläufe. 0194 adds three counters to `mail_imports`,
 `threads_created`, `threads_appended` and `already_in_project` (integer, NOT
 NULL, default 0, CHECK `mail_imports_thread_counts_non_negative`), counted when
 the cursor passes a mail, so a retried mail counts once.
 
-### Reversing 0194
+### Reversing 0195
 
-`0194_sender_class.down.sql` **refuses** (`object_in_use`) while any decision
+`0195_sender_class.down.sql` **refuses** (`object_in_use`) while any decision
 says `via = 'sender'` or any entry `filed_via = 'sender'`: they are the record
 of a filing and are not rewritten. Otherwise it drops the verdict guard and
-0194's CHECKs, restores 0193's two guard functions and `via` lists, deletes the
-`inbound_mail_sender_file` jobs and the four inbox types 0194's build writes,
+0195's CHECKs, restores 0194's two guard functions and `via` lists, deletes the
+`inbound_mail_sender_file` jobs and the four inbox types 0195's build writes,
 and drops `sender_class`.
 
-### Reversing 0193
+### Reversing 0194
 
-`0193_inbound_mail.down.sql` **refuses** (`object_in_use`) while any row still
+`0194_inbound_mail.down.sql` **refuses** (`object_in_use`) while any row still
 names a staged object or a kept original: the rows are the only record of
 those keys. Its header lists the queries to find them; erase each object by its
 key, set the column NULL (as the platform role, with the feature paused), and
@@ -1481,8 +1482,8 @@ UPDATE and any DELETE except by the platform role, which is the retention sweep.
 
 Retention: `organizations.settings.downloadLogRetentionDays` (30–365; absent,
 malformed or out of range means 365), written only by
-`PUT /api/organization/download-log/retention`. The scheduler
-(`scheduler/db.js`, `pruneDownloadLog`) deletes once a day, in batches of 1000
+`PUT /api/organization/download-log/retention`. The daily
+`download-log-retention` task (`workers/maintenance-sql.js`, `pruneDownloadLog`) deletes once a day, in batches of 1000
 and at most 50 batches a run: first everything older than 365 days, then each
 organization's own shorter cutoff. Proven against Postgres in
 `lib/download-log/download-log.integration.spec.ts`, constraints and guard
@@ -1948,10 +1949,19 @@ split is stated explicitly).
 
 ---
 
-## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079)
+## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079; kept until the cutover drains them)
 
-The BFF's durable background work: one row is one job a `bff-jobs` replica
-claims and runs (project reindex, failed-ingestion rescan, the sort of a shelf's root
+The BFF's background work runs on Hatchet (ADR-0150): one `bff-job` run per
+job, the kind in its input, fair across offices by a `GROUP_ROUND_ROBIN`
+concurrency key on `input.organization_id` and ordered inside an office by run
+priority ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)). These two
+tables are the claim queue it replaced. Nothing new is written to them; they are
+kept until the cutover drains them (hatchet.md, "Cutover from the claim
+queues"), and a later migration drops them. What follows describes the rows
+still in them.
+
+Under the claim queue, one row was one job a `bff-jobs` replica
+claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's root
 `root_sort`, ADR-0121, the re-read of the documents collection placement moved
 `placement_reingest`; and, one step each,
 IFC extraction `bim_extract`, office conversion `office_rendition` and research
@@ -1970,8 +1980,8 @@ bulk), then oldest, with `FOR UPDATE SKIP LOCKED`.
 | `payload` | jsonb | The job's whole state: what was asked and how far it got (a keyset cursor, the counts). Saved after every slice and read back by whichever worker claims it next. Holds the requester's identity, permissions and feature flags, never an access token. A `file_research_report` job carries the finished report itself (the backend forgets a run after a day), so it is the one payload that can be large. |
 | `status` | text | `queued`, `claimed` or `dead` (CHECK). A finished job is **deleted**; a job that failed every attempt is `dead` and stays, with its reason, until `BFF_JOBS_DEAD_RETENTION_DAYS` after `dead_at`. When a row goes dead its `payload` is reduced to `runId`, `projectId`, `documentId` and `taskRunId` (`KEPT_PAYLOAD_KEYS`): the sweeps match a dead job by them, and nothing else of the report, requester or storage keys outlives the attempt. |
 | `attempts` | integer | Claims spent. A drain or a cap gives a claim back without spending one. |
-| `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK); a claim silent for `BFF_JOBS_STALE_SECONDS` is claimed again. |
-| `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. A slice that defers (not done, with a `notBefore`) sets it to the time asked without spending an attempt. |
+| `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK). The holder is one attempt of a Hatchet run (`run/retry@worker`); a claim silent for `BFF_JOBS_STALE_SECONDS`, by the newer of `heartbeat_at` and `claimed_at`, is claimed again. |
+| `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. A slice that is not done saves its progress without spending an attempt (`attempts` back to 0) and, when it waits, sets `not_before` to the time it asked; its next run is triggered for then (`saveJobProgress`, `bff/jobs-queue/task-run.ts`). |
 | `dead_at` | timestamptz | Migration 0104. Set when the row goes dead (CHECK `bff_job_queue_dead_stamped`: a dead row always has one), and what the retention counts from. |
 | `created_at`, `last_error` | timestamptz, text | |
 
@@ -1991,13 +2001,13 @@ RLS: both are tenant tables whose predicate compares `lane` (not an
 `organization_id` column) to `current_org()`, so a request enqueues and
 reads only its own organization's jobs. The runner is cross-tenant by nature
 and steps up to `app_platform` per transaction
-(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA counts
-the table as `keda_scaler`, a login with SELECT on this table's `status`
-column and nothing else (a leaked scaler DSN cannot read a payload); it crosses the tenant boundary by a second policy,
-`grid_keda_scaler_count` (`FOR SELECT TO keda_scaler USING (true)`), which
-the Pulumi grants Job (`deploy/pulumi/src/app/queue-scaler-grants.ts`) creates
-after the migrations, not a migration: the role exists only where CloudNativePG
-declares it. `tenant_isolation` is untouched.
+(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA no
+longer counts this table: the `bff-jobs` tier scales on its Hatchet backlog in
+`background-work-pg` (`hatchetBacklogQuery`, `deploy/pulumi/src/app/keda-scaling.ts`),
+read by that cluster's own `keda_scaler` login. A database that ran the claim
+queue may still carry the scaler's `grid_keda_scaler_count` policy
+(`FOR SELECT TO keda_scaler USING (true)`, a policy a Pulumi Job created, never a
+migration); it goes with the tables. `tenant_isolation` is untouched.
 
 ---
 

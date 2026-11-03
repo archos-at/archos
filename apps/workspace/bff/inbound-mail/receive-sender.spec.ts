@@ -8,14 +8,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/jobs-queue/repository', () => ({ insertJobIfAbsent: vi.fn(async () => true) }))
+vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJobIfAbsent: vi.fn(async () => true) }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn(() => true) }))
 vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true), announceHeld: vi.fn(async () => false) }))
 vi.mock('./receive-repository', () => ({ findMailForReceive: vi.fn() }))
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { announceHeld, announceWaiting } from './announce'
 import { findMailForReceive } from './receive-repository'
 import { inboundMailJobId, queueSenderFiling } from './receive-sender'
@@ -45,7 +45,7 @@ describe('queueSenderFiling and the kill switch (INBOUND_MAIL_DIRECT_FILING)', (
   it('queues the sender’s filing by name while direct filing is on, and tells nobody yet', async () => {
     await queueSenderFiling(MAIL)
 
-    expect(insertJobIfAbsent).toHaveBeenCalledWith(
+    expect(enqueueJobIfAbsent).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'inbound_mail_sender_file', jobId: inboundMailJobId('sender', MAIL.id) }),
     )
     expect(announceWaiting).not.toHaveBeenCalled()
@@ -57,7 +57,7 @@ describe('queueSenderFiling and the kill switch (INBOUND_MAIL_DIRECT_FILING)', (
 
     await queueSenderFiling(MAIL)
 
-    expect(insertJobIfAbsent).not.toHaveBeenCalled()
+    expect(enqueueJobIfAbsent).not.toHaveBeenCalled()
     expect(announceWaiting).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL.id, senderTrust: 'member_verified' }))
     expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ senderClass: 'verified_writer' }))
     expect(captureServer).toHaveBeenCalledWith(
@@ -71,7 +71,7 @@ describe('queueSenderFiling and the kill switch (INBOUND_MAIL_DIRECT_FILING)', (
 
     await queueSenderFiling(MAIL)
 
-    expect(insertJobIfAbsent).not.toHaveBeenCalled()
+    expect(enqueueJobIfAbsent).not.toHaveBeenCalled()
     expect(announceWaiting).not.toHaveBeenCalled()
   })
 })

@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The SQL that writes an E-Mail-Verlauf, against a REAL Postgres with migration
- * 0193, through the restricted runtime role (`scripts/rls-test-db.sh`):
+ * 0194, through the restricted runtime role (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/mail-thread/append.integration.spec.ts
@@ -16,7 +16,7 @@
  * columns under the entry's own key, and the raw forgotten; a detach that
  * MOVES the row (no DELETE grant) with its Message-IDs and ends the follows;
  * which mail brought a document, only through a thread the reader may read;
- * an original another mail's entry holds, found (migration 0195);
+ * an original another mail's entry holds, found (migration 0196);
  * and the filing job's claim, outcomes and settle as compare-and-sets.
  */
 
@@ -365,7 +365,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
     })
   })
 
-  describe('an original filed once (B2, migration 0195)', () => {
+  describe('an original filed once (B2, migration 0196)', () => {
     it('is found from another mail of the project, never from the mail its own entry came from', async () => {
       const mail = await heldMail()
       const thread = await document('Bescheid.md')

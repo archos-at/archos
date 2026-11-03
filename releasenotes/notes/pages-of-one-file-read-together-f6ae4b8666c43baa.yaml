@@ -1,0 +1,6 @@
+---
+improvements:
+  - >
+    Large files with drawings and scanned pages are read faster: their scanned
+    pages and their drawings are now read at the same time, and many more of
+    them at once, instead of a few at a time one kind after the other.

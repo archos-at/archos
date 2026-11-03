@@ -10,6 +10,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -40,8 +41,8 @@ def offline(monkeypatch):
         "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("proj_1", Shelf.PROJECT)],
     )
-    monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: MagicMock())
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_get_retriever", lambda config: MagicMock())
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
 

@@ -15,7 +15,9 @@ retries from them (``apps/workspace/bff/documents/retry-policy.ts``):
 category        retryable  what it means
 ==============  =========  ====================================================
 transient       yes        interrupted, timed out, a download, a dispatch or an
-                           upstream call failed. The same bytes may read now.
+                           upstream call failed, or the provider's credits were
+                           held by requests in flight (a 402 that says so).
+                           The same bytes may read now.
 configuration   yes        the deployment lacks something (a vision model), or
                            the job's screening policy could not be applied.
                            The same bytes read once it is configured.
@@ -162,6 +164,29 @@ _TRANSIENT_TEXT = re.compile(
     re.IGNORECASE,
 )
 _PREFIX = re.compile(r"^([a-z][a-z_]*):")
+#: OpenRouter's 402 when the account HAS credits but the requests already in
+#: flight have reserved them: capacity, freed as those calls finish. A 402 that
+#: does not say so ("insufficient credits") is the account, and stays refused.
+_IN_FLIGHT_CREDITS = re.compile(r"\bcredits?\b.*\bin[\s-]?flight\b|\bin[\s-]?flight\b.*\bcredits?\b", re.I | re.S)
+#: OpenRouter's refusal when none of the endpoints a request allows can take it
+#: (a page read is EU-only: ``DataPolicy.for_page_reads``): a 404 or 503 that
+#: passes when an EU endpoint is back. Not the data-policy 404 (the model has no
+#: ZDR endpoint at all), which is the deployment's to fix.
+_NO_ALLOWED_PROVIDER = re.compile(
+    r"no allowed providers?|no endpoints? (?:found|available)(?! matching your data policy)", re.I
+)
+
+
+def no_allowed_provider(error: str | None, exc: BaseException | None = None) -> bool:
+    """Whether a failure is the provider refusing because no endpoint the request allows can serve it now."""
+    for candidate in (exc, getattr(exc, "__cause__", None)):
+        if (
+            candidate is not None
+            and _status_of(candidate) in (404, 503)
+            and _NO_ALLOWED_PROVIDER.search(str(candidate))
+        ):
+            return True
+    return bool(error) and _NO_ALLOWED_PROVIDER.search(error or "") is not None
 
 
 def classify_failure(error: str | None, exc: BaseException | None = None) -> FailureVerdict:
@@ -206,15 +231,38 @@ def _from_exception(exc: BaseException) -> FailureCategory | None:
     return _from_status_code(exc)
 
 
-def _from_status_code(exc: BaseException) -> FailureCategory | None:
-    """An upstream HTTP answer: openai's ``status_code``, httpx's ``response.status_code``."""
+def _status_of(exc: BaseException) -> int | None:
+    """An upstream HTTP answer's status: openai's ``status_code``, httpx's ``response.status_code``."""
     status = getattr(exc, "status_code", None)
     if not isinstance(status, int):
-        response = getattr(exc, "response", None)
-        status = getattr(response, "status_code", None)
-    if not isinstance(status, int) or status < 400:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+    return status if isinstance(status, int) else None
+
+
+def credits_in_flight(error: str | None, exc: BaseException | None = None) -> bool:
+    """Whether a failure is the provider's 402 for credits that requests in flight hold.
+
+    A ``transient`` failure like any other to :func:`classify_failure`, but the
+    one whose cure is known: wait until those calls finish. The orchestrator
+    waits for it instead of spending an ordinary retry (``ingest_workflow``).
+    ``exc`` is asked first, then the exception it wraps, then ``error``.
+    """
+    for candidate in (exc, getattr(exc, "__cause__", None)):
+        if candidate is not None and _status_of(candidate) == 402 and _IN_FLIGHT_CREDITS.search(str(candidate)):
+            return True
+    return bool(error) and _IN_FLIGHT_CREDITS.search(error or "") is not None
+
+
+def _from_status_code(exc: BaseException) -> FailureCategory | None:
+    """An upstream HTTP answer: openai's ``status_code``, httpx's ``response.status_code``."""
+    status = _status_of(exc)
+    if status is None or status < 400:
         return None
     if status >= 500 or status in (408, 409, 425, 429):
+        return TRANSIENT
+    if status == 402 and _IN_FLIGHT_CREDITS.search(str(exc)):
+        return TRANSIENT
+    if status == 404 and _NO_ALLOWED_PROVIDER.search(str(exc)):
         return TRANSIENT
     if status in (401, 403, 404):
         # 404: a misnamed model or a wrong base URL. The deployment, not the
@@ -227,7 +275,7 @@ def _from_status_code(exc: BaseException) -> FailureCategory | None:
 def _from_text(message: str) -> FailureCategory | None:
     if not message:
         return None
-    if _TRANSIENT_TEXT.search(message):
+    if _TRANSIENT_TEXT.search(message) or _IN_FLIGHT_CREDITS.search(message) or _NO_ALLOWED_PROVIDER.search(message):
         return TRANSIENT
     if _DETERMINISTIC_TEXT.search(message):
         return DETERMINISTIC

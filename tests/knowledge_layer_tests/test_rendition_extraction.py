@@ -6,7 +6,7 @@ path) of ``_render.pdf``. The pipeline reads every byte from the rendition
 through its PDF path, identity (``file_name``) stays the original's, and a pptx
 original adds its speaker notes. Without a rendition such a file fails with
 ``office_rendition_required``: there is no second way to read it. Layers: the
-notes companion; ``knowledge_layer.renditions``; ``_run_ingestion`` end to end
+notes companion; ``knowledge_layer.ingest.renditions``; ``_run_ingestion`` end to end
 with the heavy collaborators (embedder, vector index, VLM, pdfplumber) mocked.
 """
 
@@ -19,14 +19,14 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import office_extractors
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.renditions import OFFICE_RENDITION_REQUIRED
-from knowledge_layer.renditions import align_extraction_paths
-from knowledge_layer.renditions import requires_rendition
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import capture_indexed_documents
+from knowledge_layer.ingest import OFFICE_RENDITION_REQUIRED
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import align_extraction_paths
+from knowledge_layer.ingest import office_extractors
+from knowledge_layer.ingest import requires_rendition
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
 
@@ -247,7 +247,7 @@ def pdf_pipeline(monkeypatch):
     monkeypatch.setattr(adapter, "_extract_text_from_pdf", _text)
     monkeypatch.setattr(adapter, "_extract_image_records", _images)
     monkeypatch.setattr(adapter, "analyze_visual", lambda *a, **k: ("image", "Ein Schnitt A-A.", {}))
-    import knowledge_layer.llamaindex.processing as processing_module
+    import knowledge_layer.ingest.processing as processing_module
 
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", _pages)
     return read
@@ -426,7 +426,7 @@ class TestDeferredDownloads:
 
 
 # =============================================================================
-# The original, downloaded by the job (knowledge_layer.deferred_files)
+# The original, downloaded by the job (knowledge_layer.ingest.deferred_files)
 # =============================================================================
 
 _SIGNED_ORIGINAL = "http://seaweed/bucket/doc/object?X-Amz-Signature=secret-original"
@@ -497,7 +497,7 @@ class TestDeferredOriginal:
     def test_a_failed_download_fails_the_file_with_a_stable_reason(
         self, tmp_path, ingestor, summary_db, pdf_pipeline, caplog
     ):
-        from knowledge_layer.deferred_files import ORIGINAL_DOWNLOAD_FAILED
+        from knowledge_layer.ingest import ORIGINAL_DOWNLOAD_FAILED
 
         rendition_calls: list[str] = []
 

@@ -1,5 +1,5 @@
 /**
- * The vocabulary of the E-Mail-Verlauf (ADR-0137, migration 0193), free of
+ * The vocabulary of the E-Mail-Verlauf (ADR-0137, migration 0194), free of
  * drizzle and of zod: the tuples the `mail_thread*` tables CHECK, their bounds,
  * and the shapes of the JSON a filed message carries.
  *
@@ -66,7 +66,7 @@ export type MailThreadEntrySource = (typeof MAIL_THREAD_ENTRY_SOURCES)[number]
 /**
  * How a message was filed: decided in the app, by an outside agent as the
  * person, through an agent's card, by a follow, by the person's archive import,
- * or directly as its verified sender's own (`sender`, migration 0194).
+ * or directly as its verified sender's own (`sender`, migration 0195).
  * An archive entry is always `archive_import`, and only an archive entry is.
  */
 export const MAIL_THREAD_FILED_VIA = ['app', 'agent', 'agent_proposal', 'follow', 'archive_import', 'sender'] as const

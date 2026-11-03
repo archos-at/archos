@@ -27,9 +27,9 @@ export const RESTORE_WINDOW_MS = 7 * DAY_MS
  * or at once for a dismissed part of mail from an unconfirmed outside domain
  * (D8: nobody vouched for it, and somebody said no), and at once for an
  * outsider's part that ran out (ADR-0137's amendment: an outsider's mail is
- * discarded after its 14 days, with no restore window; migration 0194 refuses
+ * discarded after its 14 days, with no restore window; migration 0195 refuses
  * the restore too, `inbound_mail_decisions_external_expiry_final`). Not a mail
- * whose sender could not be checked (`sender_unchecked`, migration 0196): it is
+ * whose sender could not be checked (`sender_unchecked`, migration 0197): it is
  * classed `external` for want of a member, may be a member's, and keeps a
  * member's seven days.
  */
@@ -82,7 +82,7 @@ export async function takeEndedPartBytes(part: { partId: string; storageKey: str
   return rows.length === 1
 }
 
-/** The store could not erase what `takeEndedPartBytes` took: the key comes back, so the next tick tries again. */
+/** The store could not erase what `takeEndedPartBytes` took: the key comes back, so the next run tries again. */
 export async function returnEndedPartKey(part: { partId: string; storageKey: string }, now: Date): Promise<void> {
   await getDb()
     .update(inboundMailParts)
@@ -307,7 +307,7 @@ export async function takeReleasedErasure(row: DeferredErasure, now: Date): Prom
 
 /**
  * The store kept some of what `takeReleasedErasure` took: those keys, and the
- * deferral, come back, so the next tick tries again. A key the store did
+ * deferral, come back, so the next run tries again. A key the store did
  * erase stays forgotten.
  */
 export async function returnReleasedErasure(row: DeferredErasure, kept: readonly string[], now: Date): Promise<void> {

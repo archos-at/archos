@@ -7,7 +7,7 @@
  * following, the acknowledgements a decision needs) and, since ADR-0137's
  * amendment of 2026-11-03, the evidence of a direct filing: a member's mail
  * whose verdict is `member_verified`, `dkim_pass`, strictly aligned and
- * unflagged is classed `verified_writer` (`./sender-class`, migration 0194's
+ * unflagged is classed `verified_writer` (`./sender-class`, migration 0195's
  * `inbound_mails_verified_writer_evidence`) and filed as that member without a
  * click. A mistake here therefore files, so every rule below errs towards
  * unverified. DKIM proves a domain, not a person, so `verified` never means

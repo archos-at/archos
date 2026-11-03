@@ -1,5 +1,5 @@
 /**
- * The receive job's step for a forward (migration 0195): who wrote the mail a
+ * The receive job's step for a forward (migration 0196): who wrote the mail a
  * colleague forwarded, recorded beside who forwarded it.
  *
  * `originalMessage` (`./original-message`) reads the original out of the raw

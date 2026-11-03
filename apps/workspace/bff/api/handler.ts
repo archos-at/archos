@@ -77,6 +77,7 @@ import {
 } from './errors'
 import { requestBodyLimitBytes } from '@/shared/config/request-body-limit'
 import { REQUEST_ID_HEADER, resolveRequestId } from './request-id'
+import { tagSpanWithBrowserSession } from './trace-session'
 import { databaseUnavailableCode } from '@/lib/db/errors'
 import { captureUpstreamError, upstreamContext } from '@/lib/analytics/upstream-error'
 import {
@@ -430,6 +431,7 @@ export function apiRoute<TParams = Record<string, string | string[]>>(
 ) {
   const permission = 'permission' in options.authz ? options.authz.permission : null
   return async (request: Request, context?: NextRouteContext): Promise<Response> => {
+    tagSpanWithBrowserSession(request)
     // Open an empty, request-scoped tenant slot for `getUserSession()` to fill.
     // `run()` bounds it, so this request cannot inherit a tenant from the
     // previous request on the same keep-alive socket, nor leave one behind.

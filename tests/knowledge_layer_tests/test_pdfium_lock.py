@@ -3,7 +3,7 @@
 PDFium is not thread-safe, and this process calls it from the ingest pool's
 workers (the route no longer renders a thumbnail itself: the job draws it after
 the file's screening, ADR-0086). Every call site goes
-through ``knowledge_layer.llamaindex.pdfium_lock``; these tests run the call
+through ``knowledge_layer.ingest.pdfium_lock``; these tests run the call
 sites concurrently over a fake PDFium that records how many threads are inside
 it at once.
 """
@@ -16,9 +16,9 @@ import threading
 import time
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import pdfium_lock as pdfium_lock_module
-from knowledge_layer.llamaindex import processing
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import pdfium_lock as pdfium_lock_module
+from knowledge_layer.ingest import processing
 from PIL import Image
 
 pdfium = pytest.importorskip("pypdfium2")
@@ -176,3 +176,15 @@ def test_a_detached_image_outlives_its_bitmap():
 
     assert image.size == (200, 300)
     assert image.getpixel((10, 10)) is not None
+
+
+def test_close_bitmap_frees_a_foreign_bitmap_without_the_unsafe_close_warning(caplog) -> None:
+    """An embedded image's get_bitmap() is pdfium-allocated; pypdfium2 warns on every explicit close of one."""
+    bitmap = pdfium.PdfBitmap.new_foreign(8, 8, pdfium.raw.FPDFBitmap_BGRA)
+    assert bitmap.warn_on_close  # the warning this helper exists to switch off
+
+    with caplog.at_level("WARNING", logger="pypdfium2"):
+        pdfium_lock_module.close_bitmap(bitmap)
+
+    assert bitmap.raw is None
+    assert "potentially unsafe" not in caplog.text

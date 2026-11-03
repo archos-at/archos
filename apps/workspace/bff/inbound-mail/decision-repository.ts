@@ -13,7 +13,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbTransaction } from '@/lib/db/executor'
 import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type InboundMailPartRow, type InboundMailRow, type NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { findMailParts, OPEN_PART_STATES } from './review-read-repository'
 import { expiryIsFinal } from './sender-class'
@@ -53,7 +53,7 @@ export interface MailDecisionWrite {
 /** Who decided and how, the same for every row of one request. */
 export interface DecisionActor {
   decidedBy: string
-  /** `sender`: a verified writer's own mail, filed as them without a click (migration 0194). */
+  /** `sender`: a verified writer's own mail, filed as them without a click (migration 0195). */
   via: 'app' | 'agent' | 'agent_proposal' | 'sender'
   proposalId: string | null
 }
@@ -85,7 +85,7 @@ export interface DecisionsWritten {
  *    has the job that files it and a job never reads a decision that is not there.
  *
  * The database holds the rest: a claim needs a `file` decision about that very
- * part, a clean scan, a person's id (migration 0193).
+ * part, a clean scan, a person's id (migration 0194).
  */
 export async function writeMailDecisions(
   writes: readonly MailDecisionWrite[],
@@ -119,7 +119,7 @@ export async function writeMailDecisions(
       await tx.update(inboundMails).set({ updatedAt: now }).where(eq(inboundMails.id, write.mailId))
     }
     if (job) {
-      await insertJobIfAbsent(
+      await enqueueJobIfAbsent(
         { kind: 'inbound_mail_file', organizationId: job.organizationId, priority: BFF_JOB_PRIORITY.interactive, jobId: job.jobId, payload: job.payload },
         tx,
       )
@@ -223,7 +223,7 @@ export async function restoreMailParts(
     const restorable = (await findMailParts([mailId], tx)).filter(
       (part) =>
         (part.state === 'dismissed' || part.state === 'expired') &&
-        // An outsider's mail that ran out is discarded, never restored (migration 0194 refuses it too).
+        // An outsider's mail that ran out is discarded, never restored (migration 0195 refuses it too).
         !(part.state === 'expired' && expiryIsFinal(mail)) &&
         part.endedAt !== null &&
         new Date(part.endedAt) > restorableAfter &&

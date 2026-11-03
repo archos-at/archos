@@ -14,11 +14,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.document_groups import document_key
-from knowledge_layer.document_groups import group_by_document
-from knowledge_layer.document_groups import render_document_groups
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import document_key
+from knowledge_layer.search import group_by_document
+from knowledge_layer.search import render_document_groups
 
 from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture
@@ -139,7 +140,7 @@ class _Retriever:
 def retriever(monkeypatch):
     monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
     monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
-    monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+    monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
     monkeypatch.setattr("agent.knowledge.get_superseded_files", lambda collection: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
         monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
@@ -157,7 +158,7 @@ def retriever(monkeypatch):
         _chunk("Brandschutz.pdf", 2, document_id="d-bs"),
     ]
     fake = _Retriever(pool)
-    monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: fake)
+    monkeypatch.setattr(register_module, "_get_retriever", lambda config: fake)
     yield fake
     set_turn_documents(None)
 

@@ -7,7 +7,7 @@ import 'server-only'
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { endFollowsOnProjectClose } from '@/lib/mail-thread/follows'
-import { rearmOneShotsSkippedWhileParked } from '@/lib/tasks/repository'
+import { rearmOneShotsSkippedWhileParked } from '@/lib/scheduling/scheduled-runs'
 
 /**
  * Closing ends every follow of the project's E-Mail-Verläufe (`project_closed`,

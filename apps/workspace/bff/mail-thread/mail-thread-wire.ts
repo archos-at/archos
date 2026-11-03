@@ -33,7 +33,7 @@ const uuid = z.string().uuid()
 const isoDateTime = z.string().datetime({ offset: true })
 
 // The tuples, bounds and JSON shapes the `mail_thread*` tables CHECK and type
-// are the vocabulary's (migration 0193); the schemas below parse that JSON.
+// are the vocabulary's (migration 0194); the schemas below parse that JSON.
 export {
   MAIL_THREAD_ATTACHMENT_DISPOSITIONS,
   MAIL_THREAD_ATTACHMENT_NOT_FILED_REASONS,
@@ -252,7 +252,7 @@ export interface MailThreadEntryView {
   senderTrust: SenderTrust
   /**
    * Who forwarded the message to the project, when the heading names its
-   * original author (migration 0195): the sender's name and domain, which the
+   * original author (migration 0196): the sender's name and domain, which the
    * trust fields above are about. Null for a message that was not forwarded.
    */
   forwardedBy: { name: string | null; domain: string | null } | null

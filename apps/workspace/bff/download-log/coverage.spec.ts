@@ -1,4 +1,4 @@
-// @disk-inputs: app/**, bff/**, i18n.ts, i18n.tsx, i18n/**, shared/**, test-utils.ts, test-utils.tsx, tests/fixtures/backend-tools.schema.json.ts, tests/fixtures/backend-tools.schema.json.tsx, tests/fixtures/backend-tools.schema.json/index.ts, tests/fixtures/backend-tools.schema.json/index.tsx, tests/mocks/server.ts, tests/test-utils/index.ts, tests/test-utils/index.tsx, types/**, ui/**, utils/**, workers/database-unavailable.js.ts, workers/database-unavailable.js.tsx, workers/database-unavailable.js/index.ts, workers/database-unavailable.js/index.tsx
+// @disk-inputs: app/**, bff/**, i18n.ts, i18n.tsx, i18n/**, shared/**, test-utils.ts, test-utils.tsx, tests/fixtures/backend-tools.schema.json.ts, tests/fixtures/backend-tools.schema.json.tsx, tests/fixtures/backend-tools.schema.json/index.ts, tests/fixtures/backend-tools.schema.json/index.tsx, tests/mocks/server.ts, tests/test-utils/index.ts, tests/test-utils/index.tsx, types/**, ui/**, utils/**, workers/app-database.js.ts, workers/app-database.js.tsx, workers/app-database.js/index.ts, workers/app-database.js/index.tsx, workers/database-unavailable.js.ts, workers/database-unavailable.js.tsx, workers/database-unavailable.js/index.ts, workers/database-unavailable.js/index.tsx, workers/job-queue.js.ts, workers/job-queue.js.tsx, workers/job-queue.js/index.ts, workers/job-queue.js/index.tsx, workers/langfuse-traces.js.ts, workers/langfuse-traces.js.tsx, workers/langfuse-traces.js/index.ts, workers/langfuse-traces.js/index.tsx, workers/maintenance-sql.js.ts, workers/maintenance-sql.js.tsx, workers/maintenance-sql.js/index.ts, workers/maintenance-sql.js/index.tsx
 /**
  * @vitest-environment node
  */
@@ -125,7 +125,7 @@ const OBJECT_READERS: Record<string, Disposition> = {
       'reads a held mail’s staged objects (its raw message, `read.json`, an attachment) and a filed message’s original (ADR-0137): never a document. A person receives such bytes only through the held-attachment and the two original routes, each audited in its own trail (`inbound_mail.part_read`, `inbound_mail.original_read`, `mail_thread.original_read`), scanned before they leave; filed, an attachment is a document, logged when a person opens it.',
   },
   'lib/inbound-mail/staging.ts::streamStagedObject': {
-    exempt: 'streams a staged mail object to the malware scanner, a machine (ADR-0150). Nobody receives the bytes.',
+    exempt: 'streams a staged mail object to the malware scanner, a machine (ADR-0152). Nobody receives the bytes.',
   },
   'lib/inbound-mail/staging.ts::stagedObjectUrlForBackend': {
     exempt: 'presigns the staged raw message for the Python mail reader, a machine (`POST /v1/mail/read`). Nobody downloads it.',

@@ -637,7 +637,7 @@ to the folder's files before retrieval and is checked again post-merge
 alongside `doc_class` / `title_contains` / `file_name`, so it works uniformly
 across the base, session and project layers, and it covers the **subtree**:
 `Brandschutz` also reads `Brandschutz/Fluchtwege`. The narrowing is a payload
-condition on `folder_ancestors` inside the search (`qdrant/prefilter.py`). `_format_results` emits an `Ordner:` line
+condition on `folder_ancestors` inside the search (`vector_store/prefilter.py`). `_format_results` emits an `Ordner:` line
 per hit so a cited passage can say where its document lives. The store read
 (`_resolve_folder_paths`) is one batched query per in-scope collection and fails
 open to an empty map — which means "at the root", so a `folder=`-scoped search
@@ -783,7 +783,7 @@ their own listing block: those agents route and plan, they never emit
 citations.
 
 **Silent summary-row loss on double LLM failure — fixed 2026-07-16**:
-ingestion (`packages/knowledge-layer/src/llamaindex/adapter.py`, ~lines
+ingestion (`packages/knowledge-layer/src/ingest/adapter.py`, ~lines
 1795–1965) runs summary generation and tag classification as two concurrent
 calls to the same `summary_llm`; both independently swallow
 exceptions/timeouts and return `None` on failure. Previously the
@@ -882,8 +882,9 @@ document summary:
 **Phase 2 — concurrent VLM enrichment:**
 
 All image bytes (from track 3) and rendered page bitmaps (from track 4) are
-passed to `processing.enrich_vlm_batch`, which runs every VLM caption call in a
-single `ThreadPoolExecutor` (`VLM_BATCH_WORKERS`, default 4) per file, with
+passed to `processing.enrich_vlm_batch`, which runs every VLM caption call on
+the file's page-read pool (`page_reads`, `INGEST_PAGE_READ_PARALLELISM`, default
+16, shared with the scan transcriptions and streamed without batch barriers), with
 **content-hash caching** via the shared Dragonfly/Redis store (ADR-0020). The
 cache key is `vlm:caption:{model}:{prompt_type}:{sha256(image_bytes)}` with a
 30-day TTL — the model is part of the identity, so a model switch (deployment-
@@ -1079,7 +1080,7 @@ index prints documents' own lines, so it is fenced too.
 The hit is now a record and the text is its rendering.
 `common/grounding_block.py` holds `GroundingHit`, `GroundingBlock` and the one
 renderer, `render_grounding_block`. Both producers build records and call it:
-`knowledge_layer.search_results.format_results` turns chunks into hits
+`knowledge_layer.search.results.format_results` turns chunks into hits
 (`_grounding_hit`, which is also where the Trace-Lanes fan-out reads a hit's
 shelf, Dokumentart and title from, so the header and the fan-out cannot
 disagree), and `ris_adapter.lookup.render.format_passages` turns `Passage`
@@ -1133,7 +1134,7 @@ worker that has read a Gliederung and knows the Punkt it needs was still asking
 the corpus to find that passage by similarity, and every batch spent that way is
 a round the run does not get back.
 
-`read_passage` (`packages/knowledge-layer/src/read_passage.py`) is that lookup:
+`read_passage` (`packages/knowledge-layer/src/read_passage/tool.py`) is that lookup:
 `document` (exact indexed name, stored display title, or the derived OIB title)
 plus `clause` (the `clause_id` the Punkt chunker verified against the corpus's own
 contents pages) or `page` (`punkt` is accepted as the former name of `clause` for one release). `document` with neither is the **outline**: the
@@ -1211,7 +1212,7 @@ countable in a trace.
 ### Agentic retrieval quality package (ADR-0039)
 
 Five retrieval-quality improvements sit in the knowledge layer's ranked search
-(`knowledge_search.py`, `ranked_search.py`, `fusion.py`) and `llamaindex` package, all
+(`search/`: `knowledge_search.py`, `ranked_search.py`, `fusion.py`, the retriever), all
 **fail-open** (any error degrades to the previous plain behavior, never raises):
 
 1. **Agentic filters** — `knowledge_search` is the evidence tool (read/cite).
@@ -1223,7 +1224,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    `top_k` candidates so the filters still leave ≥ `top_k` results. `doc_class`
    (and `folder`, and the superseded exclusion) run inside the vector search
    as payload conditions, so only `title_contains` and `file_name` still
-   over-fetch (`qdrant/prefilter.py`). `doc_class`
+   over-fetch (`vector_store/prefilter.py`). `doc_class`
    and titles are **store-authoritative**: `_resolve_doc_classes` /
    `_resolve_display_titles` build `(collection, file_name) → value` maps via
    `agent.knowledge.factory` (`get_document_doc_classes` /
@@ -1244,7 +1245,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    exact term (`extract_exact_terms`, token-based, shared utility in
    `packages/agent/src/agent/common/legal_terms.py` — deliberately **no regex**; up to
    three technical tokens) the dense ranking restricted to chunks containing
-   it (`qdrant/search.py`). The channels are fused server-side by **reciprocal
+   it (`vector_store/search.py`). The channels are fused server-side by **reciprocal
    rank fusion** (`k=60`). This fixes
    exact-keyword misses (e.g. a norm number or a precise term that the embedding
    model did not weight) without an embedding re-index.
@@ -1252,7 +1253,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
 3. **Reranker** — a cross-encoder first, the LLM judge as its fallback.
    `reranker_provider` (config field, env default `RERANKER_PROVIDER`; the
    reference config sets `openrouter`, model `cohere/rerank-v3.5`) names
-   OpenRouter's reranking endpoint (`knowledge_layer/cross_encoder.py`; a
+   OpenRouter's reranking endpoint (`knowledge_layer/search/cross_encoder.py`; a
    self-hosted reranker speaking the same shape fits through
    `RERANKER_BASE_URL`) that scores each
    (query, passage) pair over the full chunk in ~100ms, bounded by
@@ -1270,7 +1271,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
 
 3a. **The retrieval loop** — optional `requery_llm` (the reference config points
    it at the same `rerank_llm`) and `requery_max_queries` (default 2). The
-   judge (`knowledge_layer/requery.py`) reads the head of the fused pool beside
+   judge (`knowledge_layer/search/requery.py`) reads the head of the fused pool beside
    the reranker and says whether it contains the governing statement the
    question needs; a sufficient pool costs no extra latency. An insufficient
    one gets the judge's alternative formulations, each retrieved from every
@@ -1342,7 +1343,7 @@ Five retrieval-quality improvements sit in the knowledge layer's ranked search
    directly; and **stored embedded rasters** — the images
    `_extract_images_from_pdf` cuts out of a PDF are no longer discarded after
    captioning. For a document the BFF dispatched (one with a `document_id` in
-   the ingest body), `llamaindex/image_store.py` asks the BFF for one presigned
+   the ingest body), `ingest/image_store.py` asks the BFF for one presigned
    PUT per raster (`POST /api/internal/document-image-upload-url`; the backend
    holds a read-only object-store credential, so it writes the way the
    thumbnail is written) and stores it as `<doc dir>/_img/<index>.jpg`, at most
@@ -1439,7 +1440,7 @@ Austria's). The org-Archiv stratum (ADR-0024) sits beside these unchanged.
   config (a `file_name NOT IN [...]` filter on the base collection only —
   session/project collections are never filtered). The same base-collection
   filter always carries `chunking != "page"`
-  (`_NON_EVIDENCE_CHUNKING` in the knowledge layer's `search_scope.py`): the Punkt
+  (`_NON_EVIDENCE_CHUNKING` in the knowledge layer's `search/scope.py`): the Punkt
   chunker emits each Richtlinie's cover page and Impressum as per-page chunks,
   they are the only chunks still carrying the running title, and a title-shaped
   query therefore returned four cover pages at page 1 and nothing citable. `$ne`
@@ -1774,8 +1775,8 @@ run (the runner holds a `run_id`), because then the 404 means the BFF has not
 yet written the backend job id onto the row. The ledger client keeps its single
 short attempt; a lost terminal op is settled by the reconciler below.
 What the retry does not heal the BFF's run reconciler does
-(`apps/workspace/bff/runs/reconcile.ts`, driven by the `skill-scheduler`
-tick): it asks the job store for the verdict of every run still active after
+(`apps/workspace/bff/runs/reconcile.ts`, driven by the `runs-reconcile`
+Hatchet task every minute): it asks the job store for the verdict of every run still active after
 ten minutes without a check (`GET /v1/internal/jobs/{id}/outcome`, service
 token, tenant checked against `job_access`), which also hands back the run
 message rebuilt by `run_message_for_outcome`, and closes the run through the
@@ -1808,16 +1809,15 @@ LangGraph checkpointing for the deep-research graph, configured via
 `deep_research_agent.checkpoint_db` (env `DEEP_CHECKPOINT_DB`; unset by
 default) — see §9's "Async deep-research jobs are not restart-safe" bullet
 for the full mechanism and its manual-resubmit resume contract. A run's rows
-(`thread_id == job_id`) are purged when it ends, by the runner's `finally`
-(`_purge_deep_checkpoint_unless_reclaimed`) and again by the DB worker. Both skip
-the purge when another worker now holds the job's claim: the rows are keyed by
-job, so after a reclaim they are the new owner's resume point.
+(`thread_id == job_id`) are purged when it ends, by `run_agent_job`'s
+`finally`. A worker Hatchet lost never reaches it, so the retry Hatchet starts
+resumes from those rows (ADR-0150).
 
 **Agent Skills and Jobs (ADR-0046)**: project-level **jobs** — a prompt on a
 timer, with a skill optionally attached — can fire this same async pipeline on
-a cron schedule. A dedicated `skill-scheduler` container claims due `jobs` rows
-in `app` (`FOR UPDATE SKIP LOCKED`) and fires through the BFF's internal
-endpoint into `POST /v1/internal/skills/submit` (internal-token-guarded wrapper
+a cron schedule. A Hatchet scheduled run per due definition fires the
+`fire-task-definition` task of the `bff-jobs` worker (ADR-0150), which takes
+the occurrence in `app` and submits into `POST /v1/internal/skills/submit` (internal-token-guarded wrapper
 around `submit_agent_job`, so admission control and cost tracking apply
 unchanged). The agent follows the job's `output` (`chat` →
 `researcher`, `deep-research` → `deep_researcher`). The attached skill reaches

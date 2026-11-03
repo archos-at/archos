@@ -97,7 +97,7 @@ describe('one sweep failing', () => {
 
     const result = await sweepInboundMail(new Date())
 
-    expect(result.expired).toEqual({ checked: 0, errors: 1 })
+    expect(result.expired).toEqual({ checked: 0, errors: 1, failed: 1 })
     expect(Object.keys(result)).toEqual([...SWEEP_ORDER])
     // The sweeps after it still ran.
     expect(repository.findKeptMails).toHaveBeenCalledTimes(1)

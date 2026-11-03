@@ -3,7 +3,7 @@
 The BFF sends it as `document_type` (`dispatchIngest`, `ShelfUploadInput.documentType`);
 the route's part is to refuse a value outside the controlled vocabulary and let a
 known one reach the job config untouched, where the ingest job stores it as the
-person's type tag (`knowledge_layer.llamaindex.adapter._keep_chosen_document_type`).
+person's type tag (`knowledge_layer.ingest.chosen_document_type`).
 The BFF twin is `ingest-document-type-contract.spec.ts`.
 
 The values are read from the vocabulary rather than spelled here, so a rename of

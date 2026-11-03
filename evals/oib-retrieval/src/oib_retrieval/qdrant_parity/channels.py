@@ -1,6 +1,6 @@
 """The rankings measured, each produced by the production code that serves it.
 
-* :func:`qdrant_bm25` — the BM25 prefetch of ``qdrant/search.py`` on its own: the
+* :func:`qdrant_bm25` — the BM25 prefetch of ``vector_store/search.py`` on its own: the
   same ``Document`` (``store.bm25``, so ``BM25_OPTIONS``), the same ``lexical_query.bm25_text``
   input, the same per-scope IDF, the same scope filter. It is the only query here
   that drives ``qdrant_client`` directly, because production never runs BM25 alone;
@@ -43,11 +43,11 @@ def qdrant_bm25(retriever: Any, query: str, depth: int, filters: dict[str, Any] 
     question's terms priced against the collection), so an empty text, and an
     empty result, is the channel staying silent as it would in production.
     """
-    from knowledge_layer.qdrant.schema import LEXICAL
-    from knowledge_layer.qdrant.scope import scope_condition
-    from knowledge_layer.qdrant.scope import scope_filter
-    from knowledge_layer.qdrant.store import bm25
-    from knowledge_layer.qdrant.store import get_store
+    from knowledge_layer.vector_store import LEXICAL
+    from knowledge_layer.vector_store import bm25
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import scope_condition
+    from knowledge_layer.vector_store import scope_filter
     from qdrant_client import models
 
     store = get_store()
@@ -105,9 +105,9 @@ def regex_oracle(chunks: Iterable[Any], phrase: str) -> set[str]:
 
 def phrase_index_matches(phrase: str, filters: dict[str, Any] | None) -> set[str]:
     """Chunk ids the full-text index's ``MatchPhrase`` alone admits (design Q3: can it serve exact mode?)."""
-    from knowledge_layer.qdrant.scope import scope_filter
-    from knowledge_layer.qdrant.search import phrase as phrase_condition
-    from knowledge_layer.qdrant.store import get_store
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import phrase as phrase_condition
+    from knowledge_layer.vector_store import scope_filter
 
     store = get_store()
     found: set[str] = set()

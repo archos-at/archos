@@ -4,15 +4,18 @@ import 'server-only'
  * sweeps“): what a restart, a dead job, a running-out window or a released
  * legal hold leaves for somebody to finish, finished by the clock.
  *
- * One more part of `reconcile-background-work`, which the job scheduler posts
- * every tick (`scheduler/index.js`), so there is no cron of its own. Each
+ * Run every minute by the `inbound-mail-sweep` Hatchet cron task of the
+ * `bff-jobs` worker (`lib/scheduling/tasks.ts`, ADR-0150), which never
+ * overlaps itself. Each
  * sweep lists what is due across every organization (platform scope, ids
  * only), then acts on each row in that row's own tenant scope, compare-and-set
  * on what it saw, so a person or a job that moved a row in between wins. Rows
  * are deleted as the platform role (DELETE is revoked from the runtime role).
- * Safe on several scheduler replicas at once and more often than needed:
- * every step finds what the step before it left. A sweep that throws costs
- * its own turn, never the others'; each row's failure is counted, not thrown.
+ * Safe on two runs at once and more often than needed (a run past its
+ * timeout, an engine that delivers twice): every step finds what the step
+ * before it left. A sweep that throws costs its own turn, never the others',
+ * and fails the task's run once all have run; each row's failure is counted,
+ * not thrown.
  *
  * | # | Sweep | Window | Hold |
  * |---|---|---|---|
@@ -23,7 +26,7 @@ import 'server-only'
  * | 11 | decisions owed to the audit trail: send them (before 8 and 9, RT-S8) | 1 min | — |
  * | 3 | `waiting` past its end: parts `expired` (restorable 7 days; an outsider's never), audited; its member told (`inbound_mail.expired`) | 30 days, an outsider's 14 | — |
  * | 4 | five days left: `inbound_mail.expiring`, once per mail | day 25, an outsider's day 9 | — |
- * | 6 | dismissed and expired parts past 7 days, and an outsider's expired parts at once: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days, or the next tick | deferred |
+ * | 6 | dismissed and expired parts past 7 days, and an outsider's expired parts at once: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days, or the next run | deferred |
  * | 7 | failed scans: scanned again, hourly, up to 24 times; a verified writer's mail scanned clean gets its sender's filing again | 1 h | — |
  * | 15 | texts the reader did not answer for (`reader_fault_at`): leased, then read again while the mail waits (`./receive-reread.ts`); five a run, within 45 s | 15 min | — |
  * | 10 | erasures a hold deferred, once it is released | — | the point |
@@ -68,7 +71,7 @@ import { queueReceiveJob } from './repository'
 import { eraseStagedObjects, readStagedObject } from './staging'
 import * as sweeps from './sweep-repository'
 
-/** Rows one sweep takes per run; the rest wait for the next tick (30 s). */
+/** Rows one sweep takes per run; the rest wait for the next run (a minute). */
 export const SWEEP_BATCH = 50
 
 /** A reception older than this died half way (D8: 15 minutes). */
@@ -87,7 +90,7 @@ export interface SweepCounts {
   [outcome: string]: number
 }
 
-/** Every sweep's counts, by name, for the scheduler's log line. */
+/** Every sweep's counts, by name, for the task's log lines (`sweepProjectMail`). */
 export interface InboundMailSweepResult {
   staleReceptions: SweepCounts
   orphanedReceptions: SweepCounts
@@ -333,9 +336,11 @@ export async function sweepFailedScans(now: Date): Promise<SweepCounts> {
 /** Texts sweep 15 reads in one run: each read may take a while, so the batch is small. */
 export const REREAD_BATCH = 5
 /**
- * How long sweep 15 may read in one run, well under the scheduler's 120 s
- * call (`RECONCILE_TIMEOUT_MS`, `scheduler/index.js`) and leaving the sweeps
- * after it their turn; what it did not reach waits for the next tick.
+ * How long sweep 15 may read in one run. The `inbound-mail-sweep` task runs
+ * every minute and drops a run that comes due while the last one still goes
+ * (`CANCEL_NEWEST`, `lib/scheduling/tasks.ts`), so the reads leave the sweeps
+ * after them their turn inside that minute; what it did not reach waits for
+ * the next run.
  */
 export const REREAD_BUDGET_MS = 45_000
 /** A read is not started with less than this left: the reader takes up to 20 s for one. */
@@ -346,7 +351,7 @@ export const REREAD_MIN_MS = 20_000
  * mail waits. Each is leased before it is read (`leaseReread`), so a run
  * beside this one never reads the same text, and each read is cut to what is
  * left of {@link REREAD_BUDGET_MS}. Up to fifty reads of 90 s each ran in one
- * call before, and every overlapping tick ran them again (R3 of the second
+ * call before, and every overlapping call ran them again (R3 of the second
  * 2026-11 ship review).
  */
 export async function sweepUnreadTexts(now: Date, clock: () => number = Date.now): Promise<SweepCounts> {
@@ -524,9 +529,10 @@ const ORDER: ReadonlyArray<[keyof InboundMailSweepResult, (now: Date) => Promise
 ]
 
 /**
- * Run every sweep once, in order. A sweep that throws is counted (`errors: 1`)
- * and logged, and the next one runs: one store or database fault in one part
- * never costs the others their turn. Never throws.
+ * Run every sweep once, in order. A sweep that throws is counted (`errors: 1,
+ * failed: 1`) and logged, and the next one runs: one store or database fault in
+ * one part never costs the others their turn. Never throws; the task that runs
+ * it fails its run on a `failed` sweep (`sweepProjectMail`).
  */
 export async function sweepInboundMail(now: Date = new Date()): Promise<InboundMailSweepResult> {
   const result = {} as InboundMailSweepResult
@@ -535,7 +541,8 @@ export async function sweepInboundMail(now: Date = new Date()): Promise<InboundM
       result[name] = await sweep(now)
     } catch (error) {
       console.error(`[inbound-mail] the ${name} sweep failed`, error)
-      result[name] = { ...counts(), errors: 1 }
+      // `failed` marks the sweep that threw whole, which fails the task's run (`sweepProjectMail`).
+      result[name] = { ...counts(), errors: 1, failed: 1 }
     }
   }
   return result

@@ -246,9 +246,10 @@ A project purge runs the same step for every chat the project holds (step 2b of
 Only a retry or a project purge goes through the purger. A
 `DELETE /api/conversations/[id]` that finishes erases in the BFF
 (`eraseMarkedConversation`), closes its own queue row as `purged`, and the
-purger never sees it. So the scheduler (`scheduler/index.js`,
-`sweepConversationTraces`, on every tick) reads those rows
-(`findConversationsAwaitingTraceErasure`, `scheduler/db.js`): `entity_type =
+purger never sees it. So the `conversation-trace-erasure` Hatchet task of the `bff-jobs` worker
+(`sweepConversationTraces`, `apps/workspace/bff/scheduling/sweeps.ts`, every
+minute) reads those rows (`findConversationsAwaitingTraceErasure`,
+`workers/maintenance-sql.js`): `entity_type =
 'conversation'`, `status = 'purged'`, `purged_at` within the last 35 days and at
 least 15 minutes ago (a turn that was still streaming exports spans for a
 little after the delete), no `payload.langfuseTracesErasedAt` yet, and not
@@ -267,8 +268,8 @@ such a chat go within the hour, not at once; a span that arrives after the stamp
 is removed by the retention sweep.
 
 **Trace retention.** Langfuse's own retention is Enterprise-only, so the
-scheduler (`scheduler/index.js`, `sweepTraceRetention`) does it once a day, the
-first run on its first tick: it lists root observations that started before
+daily `trace-retention` Hatchet task (`sweepTraceRetention`,
+`apps/workspace/bff/scheduling/sweeps.ts`) does it: it lists root observations that started before
 `now - TRACE_RETENTION_DAYS` (default 30, never below Langfuse's
 own minimum of 3) and deletes their traces in batches of 1,000. A run sends at
 most 50 batches, reads at most 100 pages and stops after two minutes, so a

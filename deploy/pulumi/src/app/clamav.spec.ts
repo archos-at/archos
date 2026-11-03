@@ -11,7 +11,7 @@ import { LEGACY_PROJECT, objectName } from "../names";
 const NAMESPACE = objectName("namespace", LEGACY_PROJECT);
 
 /**
- * ClamAV, the malware scanner (ADR-0150).
+ * ClamAV, the malware scanner (ADR-0152).
  *
  * Every mistake worth catching here plans clean and runs green, while the
  * scanner quietly vouches for bytes it never inspected:

@@ -324,12 +324,13 @@ class TestCancelRoute:
         assert EventStore.get_events(db_url, "job-1") == []
 
     @pytest.mark.asyncio
-    async def test_db_mode_cancel_of_an_unclaimed_job_drops_it_and_reports(self, cancel_app, db_url, monkeypatch):
-        """No worker ever claimed it, so no runner will ever report it."""
-        from agent_host.jobs import queue
+    async def test_cancel_of_a_waiting_job_cancels_its_hatchet_run_and_reports(
+        self, cancel_app, db_url, hatchet, monkeypatch
+    ):
+        """No worker ever started it, so no runner will ever report it; its Hatchet run is cancelled by id."""
+        from agent_host.jobs import orchestrator_runs
 
-        queue.ensure_research_queue_table(db_url)
-        queue.enqueue(db_url, "job-1", {"input_text": "x"})
+        orchestrator_runs.record(db_url, "job-1", "run-abc")
         app, job_store = cancel_app
         job_store.get_job.return_value = _job("submitted")
 
@@ -337,7 +338,8 @@ class TestCancelRoute:
             response = client.post("/v1/jobs/async/job/job-1/cancel")
 
         assert response.status_code == 200
-        assert queue.claim_next(db_url, "worker-A", 30, 3) is None
+        hatchet.runs.aio_cancel.assert_awaited_once_with("run-abc")
+        assert orchestrator_runs.run_id_for(db_url, "job-1") is None
         job_store.notify.assert_awaited_once_with(job_id="job-1", db_url=db_url, status="interrupted")
 
 

@@ -5,7 +5,7 @@
  * Runs AS THE SYSTEM (`SYSTEM_ACTORS.inboundMail`), one step, bulk. It decides
  * nothing a person would and it cannot file: it imports no filing code
  * (`review-first.spec.ts`), and the database refuses a filed part without a
- * person's decision (migrations 0193, 0194). What it leaves is a `waiting` mail
+ * person's decision (migrations 0194, 0195). What it leaves is a `waiting` mail
  * with its parts and its sender's class (`./sender-class.ts`), and at most two
  * jobs queued for later: The agent's suggestion (metadata only, D21) and
  * either the sender's own filing (`inbound_mail_sender_file`, for a verified
@@ -74,7 +74,7 @@ import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt, type JobSliceResult } from '@/lib/jobs-queue/types'
 import { baseSubject, clampSentAt, matchThread } from '@/lib/mail-thread/mail-threading'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
@@ -606,7 +606,7 @@ export function sizeBucket(bytes: number): string {
 
 /** The agent's suggestion (D21), queued once per mail; the job reads the budget and the names itself. */
 async function queueSuggestion(mail: InboundMailRow): Promise<void> {
-  await insertJobIfAbsent({
+  await enqueueJobIfAbsent({
     kind: 'inbound_mail_suggest',
     organizationId: mail.organizationId,
     priority: BFF_JOB_PRIORITY.bulk,
@@ -641,7 +641,7 @@ async function queueFollowIfEligible(
   // A follower who left the organization appends nothing; the follow job, which
   // ends such a follow, is not needed for that: the mail simply waits.
   if (!session) return false
-  return insertJobIfAbsent({
+  return enqueueJobIfAbsent({
     kind: 'inbound_mail_follow',
     organizationId: mail.organizationId,
     priority: BFF_JOB_PRIORITY.interactive,

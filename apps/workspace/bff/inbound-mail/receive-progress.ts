@@ -1,6 +1,6 @@
 /**
  * What a receive run learned that the next run of the same mail reuses
- * (`receive_progress`, migration 0196; R10 of the second 2026-11 ship review).
+ * (`receive_progress`, migration 0197; R10 of the second 2026-11 ship review).
  *
  * A dependency fault gives the claim back for up to eleven waits
  * (`./receive-faults.ts`), and each run used to authenticate the sender and

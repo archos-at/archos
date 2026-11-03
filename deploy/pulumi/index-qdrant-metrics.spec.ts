@@ -91,7 +91,9 @@ describe("Qdrant metrics through the collector", () => {
       exporters: ["prometheus"],
     });
     // The OTLP pipelines keep their receivers; the scrape feeds metrics only.
-    expect(collector.service.pipelines.traces.receivers).toEqual(["otlp"]);
+    const traces = Object.entries(collector.service.pipelines).filter(([name]) => name.split("/")[0] === "traces");
+    expect(traces.length).toBeGreaterThan(0);
+    for (const [, p] of traces) expect(p.receivers).toEqual(["otlp"]);
     const ports = (find("kubernetes:core/v1:Service", "otel-collector").spec as { ports: Array<{ port: number; name: string }> }).ports;
     expect(ports).toContainEqual(expect.objectContaining({ port: 8889, name: "metrics" }));
   });

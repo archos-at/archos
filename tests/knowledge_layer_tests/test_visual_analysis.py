@@ -15,9 +15,9 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import visual_analysis as va
-from knowledge_layer.llamaindex import visual_domains as vd
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import visual_analysis as va
+from knowledge_layer.ingest import visual_domains as vd
 
 
 @pytest.fixture
@@ -362,7 +362,7 @@ class TestParsing:
         import logging
 
         segments = [{"domain": "general", "segment_type": "photo", "summary": f"p{i}"} for i in range(15)]
-        with caplog.at_level(logging.WARNING, logger="knowledge_layer.llamaindex.visual_analysis"):
+        with caplog.at_level(logging.WARNING, logger="knowledge_layer.ingest.visual_analysis"):
             analysis = va.parse_visual_analysis(_reply(segments), registry)
         assert analysis is not None
         assert len(analysis["segments"]) == va._MAX_SEGMENTS
@@ -560,7 +560,7 @@ class TestOneAnalysisForEverySource:
         assert "Floor plan — EG (scale 1:100)" in caption
 
     def test_embedded_raster_and_rendered_page_run_the_same_analyser(self, monkeypatch, registry):
-        from knowledge_layer.llamaindex import processing
+        from knowledge_layer.ingest import processing
 
         seen: list[bytes] = []
 
@@ -589,7 +589,7 @@ class TestOneAnalysisForEverySource:
         assert pages[0]["fields"]["analysis"] == images[0][0]["fields"]["analysis"]
 
     def test_an_embedded_raster_yields_per_segment_chunks(self, monkeypatch, registry):
-        from knowledge_layer.llamaindex import processing
+        from knowledge_layer.ingest import processing
 
         monkeypatch.setattr(adapter, "_analyze_drawing_page_with_vlm", lambda *a, **k: ("c", self._fields(registry)))
         record = {

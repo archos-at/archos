@@ -21,14 +21,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.read_passage import _MAX_PASSAGE_CHUNKS
-from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
 from knowledge_layer.read_passage import ReadPassageConfig
-from knowledge_layer.read_passage import _clause_sort_key
-from knowledge_layer.read_passage import _document_names
-from knowledge_layer.read_passage import _matches
-from knowledge_layer.read_passage import _passage_filters
 from knowledge_layer.read_passage import read_passage
+from knowledge_layer.read_passage.tool import _MAX_PASSAGE_CHUNKS
+from knowledge_layer.read_passage.tool import _READ_PASSAGE_DESCRIPTION
+from knowledge_layer.read_passage.tool import _clause_sort_key
+from knowledge_layer.read_passage.tool import _document_names
+from knowledge_layer.read_passage.tool import _matches
+from knowledge_layer.read_passage.tool import _passage_filters
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf
@@ -304,8 +304,8 @@ class TestTheFilterIsTheAnswer:
     def test_a_long_tables_row_groups_come_back_in_order(self):
         """Every row group of a table shares page and ``clause_id`` and its chunk
         id is a random uuid: "Teil 1 von N" … "Teil N von N" came back shuffled."""
-        from knowledge_layer.llamaindex.captioned_tables import PageTable
-        from knowledge_layer.llamaindex.clause_chunking import clause_documents
+        from knowledge_layer.ingest import PageTable
+        from knowledge_layer.ingest import clause_documents
 
         body = "\n".join(f"{n} Punkt Nummer {n}\nText zu Punkt {n}, lang genug um zu zählen." for n in range(1, 8))
         rows = [[f"{n} Bauteil mit einer längeren Bezeichnung", "REI 60", "REI 90"] for n in range(120)]
@@ -350,7 +350,7 @@ class TestFormatParity:
     """The block is the search's block. Nothing downstream learns a second shape."""
 
     async def test_the_located_passage_renders_exactly_as_a_searched_one(self, store):
-        from knowledge_layer.search_results import format_results
+        from knowledge_layer.search import format_results
 
         out = await _read(document=OIB, clause="3.5.2")
 

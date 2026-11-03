@@ -1,0 +1,7 @@
+---
+operators:
+  - >
+    Request traces from the web app now go to PostHog Tracing, linked to the
+    session replay, switched by the stack key posthogTracesEnabled (default on);
+    LLM traces stay in Langfuse. They share the 10 GB logs allowance and are kept
+    14 days.

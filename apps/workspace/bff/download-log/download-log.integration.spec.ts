@@ -490,7 +490,7 @@ describe.skipIf(!url)('the download log against Postgres', () => {
         BAD_ORG
       )
 
-      const { pruneDownloadLog } = await import('../../scheduler/db.js')
+      const { pruneDownloadLog } = await import('../../workers/maintenance-sql.js')
       const client = postgres(url as string, { prepare: false, max: 1 })
       try {
         const result = await pruneDownloadLog(client)
@@ -510,7 +510,7 @@ describe.skipIf(!url)('the download log against Postgres', () => {
       await clear()
       for (let i = 0; i < 5; i += 1) await insertRaw({ at: `2024-01-0${i + 1}T10:00:00Z` })
 
-      const { pruneDownloadLog } = await import('../../scheduler/db.js')
+      const { pruneDownloadLog } = await import('../../workers/maintenance-sql.js')
       const client = postgres(url as string, { prepare: false, max: 1 })
       try {
         const first = await pruneDownloadLog(client, { batch: 2, maxBatches: 2 })

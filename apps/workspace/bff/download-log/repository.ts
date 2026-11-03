@@ -2,8 +2,8 @@
  * `document_access_log` repository: SQL only (ADR-0017). Every list is bounded.
  *
  * The table is append-only for the application: the only writer is
- * {@link insertAccessLogEntry}, and the retention sweep deletes from the
- * scheduler (`scheduler/db.js`), not from here.
+ * {@link insertAccessLogEntry}, and the `download-log-retention` sweep deletes
+ * through `workers/maintenance-sql.js`, not through here.
  */
 
 import 'server-only'

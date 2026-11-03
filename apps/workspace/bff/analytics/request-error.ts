@@ -24,6 +24,13 @@
  *   one that reaches here anyway (a `try` around a redirect) is navigation.
  * - **A browser that left mid-stream is not an error.** React aborts the render
  *   with "The destination stream closed early." when the response closes.
+ * - **A form body the client abandoned or mangled is not an error either.**
+ *   Next reads a multipart POST's body itself, before any of our code runs, and
+ *   undici throws "Failed to parse body as FormData." when the stream ends
+ *   mid-part or the boundary is wrong. The caller sent it, so it is the same
+ *   class as a browser that left: a client fault with no defect on our side.
+ *   Our own upload routes read the body through `parseFormData` and answer 400
+ *   or 413; this covers the reads Next makes that no route answers.
  * - **Neither is the refusal of a write into a closed project**, however many
  *   copies of the error class the bundles hold.
  * - **A form post naming no action we have is not an error either.** Next
@@ -117,6 +124,12 @@ const isUnknownActionError = (error: unknown): boolean =>
 const isClientDisconnect = (error: unknown): boolean =>
   error instanceof Error && error.message === CLIENT_DISCONNECT_MESSAGE
 
+/** undici's message when a multipart body cannot be parsed (truncated, aborted, or malformed). */
+const FORM_BODY_PARSE_MESSAGE = 'Failed to parse body as FormData.'
+
+const isUnparseableFormBody = (error: unknown): boolean =>
+  error instanceof Error && error.message === FORM_BODY_PARSE_MESSAGE
+
 /**
  * The refusal of a write into a closed project, matched by its marker rather
  * than its class: the instrumentation bundle can hold its own copy of
@@ -138,6 +151,7 @@ export const beforeCapture = (
   if (isFrameworkControlFlow(capture.error)) return false
   if (isUnknownActionError(capture.error)) return false
   if (isClientDisconnect(capture.error)) return false
+  if (isUnparseableFormBody(capture.error)) return false
   if (isProjectClosedRefusal(capture.error)) return false
   if (limiter.consumeRateLimit(fingerprintOf(capture))) return false
   // The package's client is not ours to `register` on, so the super

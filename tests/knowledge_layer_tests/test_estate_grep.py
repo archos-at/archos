@@ -21,8 +21,8 @@ import re
 import pytest
 from knowledge_layer import stored_pages
 from knowledge_layer.browse import FileRow
-from knowledge_layer.estate_grep import GrepRefused
-from knowledge_layer.estate_grep import compile_query
+from knowledge_layer.estate import GrepRefused
+from knowledge_layer.estate import compile_query
 from knowledge_layer_testing.estate_grep import COLLECTION
 from knowledge_layer_testing.estate_grep import OFFICE
 from knowledge_layer_testing.estate_grep import PROJECT

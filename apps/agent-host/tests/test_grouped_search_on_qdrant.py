@@ -54,9 +54,9 @@ def stack(monkeypatch):
         if os.environ.get("CI"):
             pytest.fail("QDRANT_TEST_URL is unset on CI: the Qdrant service container is missing")
         pytest.skip("QDRANT_TEST_URL not set")
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
-    from knowledge_layer.qdrant import schema
-    from knowledge_layer.qdrant import store as store_module
+    from knowledge_layer.search import LlamaIndexRetriever
+    from knowledge_layer.vector_store import schema
+    from knowledge_layer.vector_store import store as store_module
 
     suffix = uuid.uuid4().hex[:8]
     monkeypatch.setitem(schema.ALIASES, schema.Physical.CORPUS, f"route_corpus_{suffix}")
@@ -85,7 +85,7 @@ def stack(monkeypatch):
 
 
 def _put(store, scope: str, *files: tuple[str, float]) -> None:
-    from knowledge_layer.qdrant.payload import ChunkRecord
+    from knowledge_layer.vector_store import ChunkRecord
 
     store.upsert(
         scope,

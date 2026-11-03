@@ -43,7 +43,7 @@ import type { ThreadMatch } from '@/lib/mail-thread/mail-thread-vocabulary'
 import { projects } from './projects'
 
 /**
- * The E-Mail-Eingang (ADR-0137, migration 0193): a project's mail address, the
+ * The E-Mail-Eingang (ADR-0137, migration 0194): a project's mail address, the
  * mail that reached it, its parts, and what a person decided about each part.
  * Nothing that arrives is a document; a part becomes one only when a person
  * files it, and the mail's text becomes a section of its E-Mail-Verlauf
@@ -139,7 +139,7 @@ export const inboundMails = pgTable(
     /** The member the From address belongs to; read only under D9's notice rules. */
     senderUserId: text('sender_user_id'),
     /**
-     * Who the sender is to the project (migration 0194): written by the hold with
+     * Who the sender is to the project (migration 0195): written by the hold with
      * the trust, frozen after it. NULL exactly while `senderTrust` is.
      */
     senderClass: text('sender_class').$type<InboundMailSenderClass>(),
@@ -167,19 +167,19 @@ export const inboundMails = pgTable(
     originalMovePendingAt: timestamp('original_move_pending_at', { withTimezone: true }),
     /**
      * The Python reader did not answer while the receive job held the mail
-     * (migration 0196): its text waits unreadable, and the sweep reads it
+     * (migration 0197): its text waits unreadable, and the sweep reads it
      * again from this time on while the mail waits. Null once read.
      */
     readerFaultAt: timestamp('reader_fault_at', { withTimezone: true }),
     /**
      * What a receive run learned that the next run of the same mail reuses: the
-     * sender's authentication and each attachment's scan (migration 0196,
+     * sender's authentication and each attachment's scan (migration 0197,
      * `lib/inbound-mail/receive-progress.ts`). Only a `received` mail carries it.
      */
     receiveProgress: jsonb('receive_progress').$type<Record<string, unknown>>(),
     /**
      * The original message a forward carried (`lib/inbound-mail/original-message.ts`,
-     * migration 0195): who wrote it, when, about what. Attribution, never
+     * migration 0196): who wrote it, when, about what. Attribution, never
      * verified; the author and subject are cleared when the mail ends (trigger).
      */
     originalAuthorAddress: text('original_author_address'),
@@ -241,7 +241,7 @@ export const inboundMails = pgTable(
  * The mail's own text, or one attachment, and where it stands. NOTE: the
  * composite keys to `documents`, `document_versions` and `mail_thread_entries`
  * set only their own column NULL, and the key to the part's decision is added
- * after both tables exist; all four live in migration 0193 alone.
+ * after both tables exist; all four live in migration 0194 alone.
  */
 export const inboundMailParts = pgTable(
   'inbound_mail_parts',
@@ -323,7 +323,7 @@ export const inboundMailParts = pgTable(
  * (`auditedAt`). Only `auditedAt` ever changes, once. NOTE: the composite key
  * that makes a follow decision the follower's own references
  * `mail_thread_follows`, declared in `./mail-thread.ts`; it lives in migration
- * 0193 alone so this file does not import that one.
+ * 0194 alone so this file does not import that one.
  */
 export const inboundMailDecisions = pgTable(
   'inbound_mail_decisions',

@@ -100,7 +100,7 @@ export async function getDocumentStatus(session: AuthorizedSession, documentId: 
 
   // Pending rows are lazily reconciled with the backend's ingestion state;
   // without this they would stay 'pending' forever (no completion callback).
-  const [reconciled] = await reconcileDocumentStatuses([doc], session.organizationId)
+  const [reconciled] = await reconcileDocumentStatuses([doc], session.organizationId, 'read')
   // The rule again, on the row the reconcile handed back (ADR-0086): a file
   // re-read under an earlier pass can come back `quarantined`, and the read
   // above only let it through on that earlier verdict.

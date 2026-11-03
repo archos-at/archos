@@ -23,8 +23,14 @@ const AUSTRIA_BBOX = '9.53,46.37,17.16,49.02'
 /** Photon answers in well under a second; an autocomplete that waits longer is useless. */
 const PHOTON_TIMEOUT_MS = 4_000
 
-/** A proxy in front of a self-hosted Photon may redirect (http to https, a trailing slash). */
+/** A proxy in front of a Photon may redirect (http to https, a trailing slash). */
 const MAX_REDIRECTS = 2
+
+/**
+ * komoot's public instance (ADR-0151) asks callers to name themselves and
+ * blocks anonymous heavy use. Product-neutral, no contact address.
+ */
+export const PHOTON_USER_AGENT = 'architecture-workspace-address-search/1.0'
 
 /**
  * `A2_land` options that name a Land, read off the wizard's own question so
@@ -165,7 +171,7 @@ async function fetchSameOrigin(url: URL, signal: AbortSignal, fetchImpl: typeof 
   let target = url
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const response = await fetchImpl(target, {
-      headers: { accept: 'application/json' },
+      headers: { accept: 'application/json', 'user-agent': PHOTON_USER_AGENT },
       redirect: 'manual',
       signal,
     })
@@ -180,8 +186,8 @@ async function fetchSameOrigin(url: URL, signal: AbortSignal, fetchImpl: typeof 
 
 /**
  * Search Photon at `baseUrl`. Never throws: any failure (timeout, refusal,
- * bad JSON, a redirect off the host) is logged and answers `[]`, so the
- * dialog falls back to choosing the federal state by hand.
+ * bad JSON, a redirect off the host, the public instance throttling us) is
+ * logged and answers `[]`, so the dialog keeps the typed line as the address.
  */
 export async function searchPhoton(
   baseUrl: string,

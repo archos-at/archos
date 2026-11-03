@@ -102,6 +102,25 @@ def test_a_missing_model_or_endpoint_is_configuration_not_the_bytes():
     assert _verdict(HTTPStatusError(404)) == ("configuration", True)
 
 
+class _NoAllowedProvider(_StatusError):
+    def __init__(self, status_code: int):
+        super().__init__(status_code)
+        self.args = (f"Error code: {status_code} - No allowed providers are available for the selected model.",)
+
+
+@pytest.mark.parametrize("status", [404, 503])
+def test_no_allowed_eu_endpoint_now_is_transient(status):
+    """An EU-only page read (`DataPolicy.for_page_reads`) the provider cannot place passes when an endpoint is back."""
+    assert _verdict(_NoAllowedProvider(status)) == ("transient", True)
+    assert _verdict(RuntimeError("x"), "Error code: 404 - No allowed providers are available") == ("transient", True)
+
+
+def test_a_model_without_a_zdr_endpoint_stays_configuration():
+    error = _StatusError(404)
+    error.args = ("Error code: 404 - No endpoints found matching your data policy",)
+    assert _verdict(error) == ("configuration", True)
+
+
 def test_an_upstream_answer_that_fails_its_model_is_not_blamed_on_the_file():
     """pydantic's ValidationError is a ValueError, and it is the answer's shape, not the bytes."""
     from pydantic import BaseModel
@@ -146,3 +165,29 @@ def test_the_image_paths_ambiguous_sentence_is_not_a_verdict_on_the_bytes():
 @pytest.mark.parametrize("category", FAILURE_CATEGORIES)
 def test_only_lasting_categories_refuse_a_retry(category):
     assert verdict_for(category).retryable is (category not in ("deterministic", "quarantined"))
+
+
+class _PaymentRequired(Exception):
+    """OpenRouter's 402 as the openai SDK raises it: the status and the provider's sentence."""
+
+    def __init__(self, message: str):
+        super().__init__(f"Error code: 402 - {{'error': {{'message': '{message}', 'code': 402}}}}")
+        self.status_code = 402
+
+
+_IN_FLIGHT = "Request would exceed your available credits given your current in-flight requests"
+
+
+def test_a_402_for_credits_held_by_requests_in_flight_is_capacity_not_the_file():
+    """2026-11: a burst of vision calls reserved the credits; the next call got 402
+    and its file was failed for good, though the same call passes once they finish."""
+    assert _verdict(_PaymentRequired(_IN_FLIGHT)) == ("transient", True)
+
+
+def test_the_in_flight_402_is_transient_from_its_message_alone():
+    assert classify_failure(f"Error code: 402 - {_IN_FLIGHT}").category == "transient"
+
+
+@pytest.mark.parametrize("message", ["Insufficient credits", "This request requires more credits"])
+def test_a_402_for_an_account_out_of_credits_stays_refused(message):
+    assert _verdict(_PaymentRequired(message)) == ("deterministic", False)

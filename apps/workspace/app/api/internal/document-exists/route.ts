@@ -6,7 +6,7 @@
  * re-ingest, or one landing after the upload recorded its version and before
  * the dispatch ran) would otherwise stay indexed with no row behind it. On
  * `exists: false` the pipeline takes back out the chunks that attempt
- * inserted (`knowledge_layer/llamaindex/document_presence.py`).
+ * inserted (`knowledge_layer/ingest/document_presence.py`).
  *
  * Always 200 with `{ exists }`, never a 404 for a missing row: the backend
  * discards on a definite "no" only, and a 404 is also what a BFF that predates

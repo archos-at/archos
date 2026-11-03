@@ -47,6 +47,7 @@ import { DELEGATABLE_TASK_KINDS } from '@/lib/db/schema/tasks'
 import { createTaskThread, submitAgentRun } from '@/lib/jobs/service'
 import { JobSubmitError, JobSubmitSkippedError } from '@/lib/jobs/backend-client'
 import { minIntervalMinutesFromEnv, nextOccurrence, validateCron } from '@/lib/jobs/schedule'
+import { syncScheduledRun } from '@/lib/scheduling/scheduled-runs'
 import { AGENT_RUN_INPUT_MAX_CHARS, emptySkillSnapshot } from '@/lib/jobs/types'
 import { formatCount } from '@/lib/format'
 import { isEmptyPlanDocuments, type PlanDocuments } from '@/lib/runs/plan-documents'
@@ -365,10 +366,10 @@ export async function delegateTask(
     dueAt: input.cadence ? null : (input.dueAt ?? null),
   }
 
-  // A cadence is a STANDING definition: nothing runs until the scheduler
-  // claims it, and the requester's chat answer has to say exactly that.
+  // A cadence is a STANDING definition: nothing runs until it is due, and the chat answer says so.
   if (input.cadence) {
     const definition = await repository.insertDefinition(definitionValues)
+    await syncScheduledRun(definition)
     await recordAuditEvent({
       organizationId: session.organizationId,
       actor: { userId: session.userId, email: session.email },

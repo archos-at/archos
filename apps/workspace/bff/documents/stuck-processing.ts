@@ -19,9 +19,8 @@
  * the listing joins on the job id the row remembers, so a backlog of thousands
  * of waiting rows never crowds the lost ones out of a batch.
  *
- * The caller is the job scheduler (`scheduler/index.js`), the same clock that
- * drives the run reconciler, through `POST /api/internal/
- * maintenance/reconcile-background-work`. Safe to run from several replicas at once and more
+ * The caller is the `reconcile-background-work` Hatchet task
+ * (`bff/scheduling/sweeps.ts`), every minute beside the run reconciler. Safe to run from several replicas at once and more
  * often than needed: a row it recovers is no longer stranded, and a second
  * dispatch for one object returns the job the first one queued.
  */

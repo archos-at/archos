@@ -254,6 +254,10 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--update", action="store_true", help="Lower and remove baseline entries; never raise one.")
     mode.add_argument("--rebaseline", action="store_true", help="Record the tree as it is, growth included.")
     args = parser.parse_args(argv)
+    if sys.version_info < (3, 14):
+        # An older ast measures 3.14 syntax wrong, and --update would write it in.
+        print("check_file_size.py needs Python 3.14: run .venv/bin/python scripts/check_file_size.py", file=sys.stderr)
+        return 2
 
     root = Path.cwd()
     current = measure(root, tracked_sources(root))

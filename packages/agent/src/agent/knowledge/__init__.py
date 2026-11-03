@@ -12,8 +12,9 @@ Architecture:
     └── factory.py               # Registry + factory pattern
 
     packages/knowledge-layer/src/ # Backend implementations
-    ├── llamaindex/              # LlamaIndex readers and chunking, OpenRouter embeddings
-    └── qdrant/                  # The vector store (ADR-0115): every chunk, every read
+    ├── ingest/                  # Reading a file: LlamaIndex readers and chunking, OpenRouter embeddings
+    ├── search/                  # Finding passages: the retriever, fusion, rerank, the requery judge
+    └── vector_store/            # The vector store (ADR-0115): every chunk, every read
 
 Usage:
     from agent.knowledge import Chunk, BaseRetriever, get_retriever

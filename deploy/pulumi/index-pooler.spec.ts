@@ -16,7 +16,7 @@ import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-c
  * not keep, and no notification ever arrives. Neither raises an error.
  *
  * In the split topology with Langfuse on, so every consumer of a DSN is built:
- * the filer's store, Langfuse's Prisma, KEDA's two scaler DSNs.
+ * the filer's store, Langfuse's Prisma, Hatchet's and KEDA's DSNs on background-work-pg.
  */
 
 type Inputs = Record<string, unknown>;
@@ -41,7 +41,7 @@ pulumi.runtime.setMocks(
 const NAMESPACE = "grid";
 const DIRECT = "grid-pg-rw";
 const POOLER = "grid-pg-pooler-rw";
-const KEDA_DIRECT = `${DIRECT}.${NAMESPACE}.svc.cluster.local`;
+const BACKGROUND_WORK_DIRECT = "background-work-pg-rw.background-work.svc.cluster.local";
 
 /**
  * The route of every Postgres DSN the program emits, by `<resource>/<key>`.
@@ -59,17 +59,15 @@ const EXPECTED_HOSTS: Record<string, string> = {
   "grid-secrets/LISTEN_DB_URL": DIRECT,
   "grid-secrets/LOCK_DB_URL": DIRECT,
   "grid-secrets/APP_MIGRATION_DATABASE_URL": DIRECT,
-  // KEDA polls from another namespace, so by FQDN, and straight to the primary.
-  "grid-keda-scaler/KEDA_JOBS_QUEUE_DB_URL": KEDA_DIRECT,
-  "grid-keda-scaler/KEDA_BFF_QUEUE_DB_URL": KEDA_DIRECT,
-  // The init and grants Jobs.
+  // The init Job.
   "pg-init-dsns/JOBS_DSN": DIRECT,
   "pg-init-dsns/CHECKPOINTS_DSN": DIRECT,
   "pg-init-dsns/SEAWEED_FILER_DSN": DIRECT,
-  "keda-scaler-grants-dsns/JOBS_DSN": DIRECT,
-  "keda-scaler-grants-dsns/APP_DSN": DIRECT,
-  "keda-scaler-grants-dsns/NAT_JOB_STORE_DB_URL": DIRECT,  // pragma: allowlist secret
-  "keda-scaler-grants-dsns/SUMMARY_DB": DIRECT,
+  // Hatchet's own cluster (ADR-0150): no pooler, every client in another
+  // namespace (Hatchet's, KEDA's), so by FQDN.
+  "hatchet-database/DATABASE_URL": BACKGROUND_WORK_DIRECT,
+  "background-work-pg-grants-dsn/OWNER_DSN": BACKGROUND_WORK_DIRECT,
+  "background-work-keda-scaler/KEDA_BACKGROUND_WORK_DB_URL": BACKGROUND_WORK_DIRECT,
   // Prisma migrates under a session advisory lock of its own.
   "langfuse-secrets/database-url": DIRECT,
 };

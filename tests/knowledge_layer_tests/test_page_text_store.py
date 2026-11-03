@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from knowledge_layer.llamaindex import page_text_store as store
-from knowledge_layer.llamaindex.page_text_store import PageText
+from knowledge_layer.ingest import PageText
+from knowledge_layer.ingest import page_text_store as store
 
 
 def _render(pages, **overrides):

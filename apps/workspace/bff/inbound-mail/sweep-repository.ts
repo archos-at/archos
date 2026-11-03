@@ -10,7 +10,7 @@
  *   compare-and-set on the state discovery saw, so a person or a job that
  *   moved the row in between wins and the sweep changes nothing.
  * - **Deletes** (`delete…`) run as the platform role, because DELETE is revoked
- *   from the runtime role on these tables (migration 0193, „Ending is a
+ *   from the runtime role on these tables (migration 0194, „Ending is a
  *   state“). Each repeats its whole condition, the legal hold included.
  *
  * **Legal hold is a filter, the trigger the backstop (RT-S20).** Every set
@@ -127,11 +127,13 @@ export interface OrphanedReception {
 /**
  * `received` rows not touched since `before` that have no job (its id is the
  * mail's). A mail whose job is dead is not one: the dead row keeps the id
- * until the queue's retention prunes it, nothing can queue it again before
- * that, and the queue reported it once when it died (`[bff-jobs] … now
- * dead`). Listing those first, as this did, let fifty of them fill every
+ * until `purgeDeadJobs` deletes it (`BFF_JOBS_DEAD_RETENTION_DAYS`), nothing
+ * can queue it again before that, and the pod reported it once when it died
+ * (`[bff-jobs] … now dead`). Nor is a mail whose Hatchet run ended without
+ * touching its row: the row is still `queued` or held, and the dispatch sweep
+ * starts it again (`lib/jobs-queue/task-run.ts`). Listing those first, as this did, let fifty of them fill every
  * batch, so a real orphan was never re-queued, and logged an error for each
- * every tick (R11 of the second 2026-11 ship review). Platform scope.
+ * every run (R11 of the second 2026-11 ship review). Platform scope.
  */
 export async function findReceivedWithoutJob(before: Date, limit: number): Promise<OrphanedReception[]> {
   return select<OrphanedReception>(sql`
@@ -354,7 +356,7 @@ export async function recordRawRescan(mailId: string, scan: StoredScan): Promise
 /** How long after the reader last failed a text is read again. */
 export const REREAD_AFTER_MS = 15 * 60 * 1000
 
-/** A waiting mail whose text the Python reader did not answer for (`reader_fault_at`, migration 0196). */
+/** A waiting mail whose text the Python reader did not answer for (`reader_fault_at`, migration 0197). */
 export interface UnreadText {
   id: string
   organizationId: string
@@ -436,8 +438,8 @@ const faultSeen = (mail: UnreadText) =>
 /**
  * Lease one text for a re-read before it is read: `reader_fault_at` moves to
  * `leasedAt`, compare-and-set on the fault the find saw. A sweep running
- * beside this one (the scheduler aborts its call at 120 s, the handler runs
- * on) found the same row and loses the set, so no two runs read one text
+ * beside this one (a run past its execution timeout is aborted but its handler
+ * runs on, and Hatchet delivers at least once) found the same row and loses the set, so no two runs read one text
  * (R3 of the second 2026-11 ship review). A read that fails leaves the lease
  * as the time it was last tried: read again after `REREAD_AFTER_MS`. The
  * leased text, or null when another run or a person came first.

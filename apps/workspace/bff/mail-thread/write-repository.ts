@@ -6,7 +6,7 @@ import 'server-only'
  * filing job, the follow job and the detach service decide who may, and
  * row-level security is the backstop. Every list is bounded.
  *
- * The rules the rows keep are the migration's (0193): an entry is a person's,
+ * The rules the rows keep are the migration's (0194): an entry is a person's,
  * its heading unique in its thread, its original under exactly its own key;
  * what came with a message is frozen once written (the guard on
  * `mail_thread_entry_attachments`); DELETE is revoked, so a detach MOVES an
@@ -183,7 +183,7 @@ export async function findEntryOfMail(
 
 /**
  * Whether ANOTHER mail's entry in the project holds this original
- * (`author_message_id`, migration 0195). The mail's own entry does not count,
+ * (`author_message_id`, migration 0196). The mail's own entry does not count,
  * so a retry of its filing renders the same section again.
  */
 export async function isOriginalFiledByAnother(

@@ -1,7 +1,7 @@
 /**
  * The sender rule (ADR-0137, amendment of 2026-11-03): who a held mail's
  * sender is to its project, judged once by the receive job when it holds the
- * mail (`inbound_mails.sender_class`, migration 0194), and what each class
+ * mail (`inbound_mails.sender_class`, migration 0195), and what each class
  * means to the person reading it.
  *
  * | Class | When | What happens |
@@ -123,7 +123,7 @@ export function senderWaitReason(mail: WaitReasonInput): InboundMailWaitReason |
 
 /**
  * Whether the mail's expiry is final: an outsider's mail that ran out is
- * discarded, with no restore window (migration 0194,
+ * discarded, with no restore window (migration 0195,
  * `inbound_mail_decisions_external_expiry_final`). Not one whose sender could
  * not be checked (`sender_unchecked`): it is classed `external` for want of a
  * member, may be a member's, and keeps a member's seven days to restore.

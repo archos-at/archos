@@ -8,50 +8,32 @@ import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduli
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { agentWorkerRollout, gracefulShutdown, secretChecksumAnnotations, surgeRollout } from "../platform/rollout";
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
-import { AppSecrets, AppWiring, BFF_QUEUE_DSN_KEY, SCALER_SECRET_NAME } from "./config";
+import { AppSecrets, AppWiring } from "./config";
 import { bffJobsEnv } from "./bff-jobs-env";
-import { installQueueScaledObject, installTriggerAuth, queueDepthQuery } from "./keda-scaling";
+import { installQueueScaledObject } from "./keda-scaling";
 import { PORT, UID } from "../constants";
 
-/** The durable queue the pool drains (`apps/workspace/migrations/0104_bff_job_queue.sql`). */
-export const QUEUE_TABLE = "bff_job_queue";
-
-/** The column a job waits on before it may be claimed: a backoff, or a dependency fault waited out (`workers/job-queue.js`). */
-export const QUEUE_PARKED_UNTIL = "not_before";
+/** The Hatchet workflow the pool runs (ADR-0150), one task with the job kind in its input. */
+export const WORKFLOW = "bff-job";
 
 /**
- * KEDA's measure of the pool's work: every job a worker could still run or is
- * running, retired rows (dead, cancelled) left out (`queueDepthQuery`): a job
- * that failed every attempt waits for an operator, and counting it would hold a
- * replica up forever for work nothing will ever claim. A job parked until a
- * later `not_before` is left out too, until that time comes.
- */
-export const BFF_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE, { parkedUntil: QUEUE_PARKED_UNTIL });
-
-/**
- * The BFF's background pool (ADR-0079): replicas of the FRONTEND image that run
- * `workers/jobs/index.js`. Each is a supervisor around two things: the BFF
- * itself (`node server.js`) and a claim loop that takes jobs from
- * `bff_job_queue`, fairly across organizations (fewest running first,
- * fleet-wide), and has that BFF run them a bounded slice at a time. So the heavy
- * work lands here, never on the user-facing frontend pods that proxy chat.
- * With `bffJobsMode: inprocess` there is no BFF in the pod: the supervisor runs
- * the slices from the bundled services (`dist-jobs/slice.mjs`) and answers the
- * probes' `/api/healthz` itself, so the probes below hold in both modes
- * (ADR-0079 amendment 1).
+ * The BFF's background pool (ADR-0079, ADR-0150): replicas of the FRONTEND image that run
+ * `workers/jobs/index.js`: the Hatchet worker of the `bff-job` task, running
+ * the BFF's services bundled at image build (`dist-jobs/slice.mjs`) in its own
+ * process, a bounded slice per run. Hatchet hands the runs out, fairly across
+ * organizations. So the heavy work lands here, never on the user-facing
+ * frontend pods that proxy chat. The process answers the probes'
+ * `/api/healthz` itself.
  *
- * INTERNAL ONLY. No Service and no HTTPRoute: nothing routes to these pods, and
- * the one caller of their BFF is the claim loop on the pod's own loopback
- * (`bff-jobs.spec.ts` asserts both). The intra-namespace network policy is
- * therefore not a surface here, and the internal route is token-guarded anyway.
+ * INTERNAL ONLY. No Service and no HTTPRoute: nothing routes to these pods;
+ * the worker dials out to Hatchet (`bff-jobs.spec.ts` asserts both).
  *
- * One container, not a BFF and a sidecar, because shutdown has an order: on
- * SIGTERM the loop stops claiming, lets the slice in hand finish, gives each
- * claim back WITHOUT spending an attempt (the next worker resumes from the
- * progress it saved), and only then stops the BFF. Two containers would be
- * signalled together and the BFF would vanish under the slice still using it.
+ * On SIGTERM the worker takes no new run and lets the ones in hand finish for
+ * the drain budget; a run cut off is retried by Hatchet on another pod, from
+ * the progress its row saved.
  *
- * SCALED ON THE QUEUE, NOT ON CPU: KEDA counts the open jobs and asks for
+ * SCALED ON THE BACKLOG, NOT ON CPU: KEDA counts the `bff-job` runs Hatchet
+ * holds queued or running (`hatchetBacklogQuery`) and asks for
  * ceil(depth / concurrency) replicas between `minReplicas` and `maxReplicas`. A
  * lane is one organization, so a burst from one office fans out across the
  * pool and a lone job from another still takes the next free slot.
@@ -140,17 +122,6 @@ export function installBffJobs(
     },
   );
 
-  // How KEDA reads the queue: the read-only scaler login's DSN on the app
-  // database, from the scaler's own Secret (`buildScalerSecret`).
-  const auth = installTriggerAuth(w, {
-    name: "bff-jobs-queue-auth",
-    parameter: "connection",
-    secretName: SCALER_SECRET_NAME,
-    key: BFF_QUEUE_DSN_KEY,
-    labels,
-    dependsOn,
-  });
-
   const scaledObject = installQueueScaledObject(w, {
     name: "bff-jobs",
     deployment,
@@ -158,10 +129,8 @@ export function installBffJobs(
     minReplicas: cfg.bffJobs.minReplicas,
     maxReplicas: cfg.bffJobs.maxReplicas,
     concurrency: cfg.bffJobs.concurrency,
-    table: QUEUE_TABLE,
-    parkedUntil: QUEUE_PARKED_UNTIL,
-    authName: auth.metadata.name,
-    dependsOn: [auth, ...dependsOn],
+    workflow: WORKFLOW,
+    dependsOn,
   });
 
   const pdb = installPdb("bff-jobs", w.namespace, w.provider, labels, [deployment]);

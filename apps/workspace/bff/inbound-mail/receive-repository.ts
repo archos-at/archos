@@ -339,7 +339,7 @@ export async function findThreadFollowContext(projectId: string, threadId: strin
 /**
  * What the receive job writes onto the mail when it is held: what it read, the
  * verdict on the sender and, with it, the sender's class and the window that
- * class gives (migration 0194 freezes all three after this write).
+ * class gives (migration 0195 freezes all three after this write).
  */
 export type HeldMailFields = HeldMailColumns & { senderClass: InboundMailSenderClass; expiresAt: Date }
 

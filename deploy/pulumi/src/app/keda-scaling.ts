@@ -1,6 +1,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { AppWiring } from "./config";
+import { hatchetNamespace } from "./hatchet-env";
 
 /**
  * What every ScaledObject in the program has in common (ADR-0079), so the four
@@ -9,14 +10,17 @@ import { AppWiring } from "./config";
  * it polls, how it scales in, what it does when its trigger cannot be read, and
  * how it authenticates.
  *
- * The three queue tiers differ only in the table they count, the Deployment they
- * move and the jobs one replica takes, so {@link installQueueScaledObject} takes
- * exactly those. The chat tier's trigger is not a queue and it carries a cpu
+ * The three queue tiers differ only in the Hatchet workflow whose backlog they
+ * count, the Deployment they move and the runs one replica takes, so
+ * {@link installQueueScaledObject} takes exactly those. The chat tier's trigger is not a queue and it carries a cpu
  * trigger beside it, so it builds its own spec and shares the pieces below.
  */
 
 /** Seconds between two polls of a trigger. */
 export const SCALER_POLLING_SECONDS = 15;
+
+/** The TriggerAuthentication every worker tier's ScaledObject names (`hatchet-queue-auth.ts`). */
+export const HATCHET_QUEUE_AUTH = "hatchet-queue-auth";
 
 /**
  * Consecutive failed polls after which KEDA stops trusting a trigger and holds
@@ -35,36 +39,25 @@ export const SCALER_FALLBACK_FAILURES = 3;
  */
 export const SCALER_COOLDOWN_SECONDS = 300;
 
-/** The status of a row a queue gave up on (`agent.common.claim_queue.DEAD`, `bff_job_queue`). */
-export const DEAD_STATUS = "dead";
-
-/** The status of a row a person stopped (`agent.common.claim_queue.CANCELLED`). */
-export const CANCELLED_STATUS = "cancelled";
-
 /**
- * The statuses a queue never runs again: dead (gave up), cancelled (stopped).
- * Both are kept as traces and are never work, so the depth must not count them.
+ * KEDA's measure of a worker tier's work on Hatchet (ADR-0150): every run of
+ * `workflow` waiting for a worker slot (`v1_queue_item`) or held by a worker
+ * (`v1_task_runtime`), in this stack's Hatchet namespace. Counting held runs
+ * keeps a tier from scaling in underneath the runs it is executing. A run held
+ * back by its organisation's concurrency limit is in neither table, so it asks
+ * for no replica it could not use. The SDKs name an action
+ * `<namespace>_<workflow>:<task>`, lower-cased, so a prefix match covers every
+ * task of the workflow; `starts_with` because `_` is a LIKE wildcard. The
+ * tables and columns are Hatchet's (`SCALER_COLUMNS`, `background-work-pg.ts`),
+ * read through the read-only scaler login.
  */
-export const RETIRED_STATUSES = [DEAD_STATUS, CANCELLED_STATUS] as const;
-
-/**
- * KEDA's measure of a claim queue's work: every row a worker could still run or
- * is running. Counting claimed rows keeps a tier from scaling in underneath the
- * jobs it is running. A RETIRED row (dead or cancelled) is kept as a trace and is
- * never work: counting it would hold replicas up for a job nobody will run. A
- * finished job's row is deleted, so it needs no clause.
- *
- * `parkedUntil` names the column of a queue whose jobs can wait for a time
- * (`bff_job_queue.not_before`: a backoff, or a receive job waiting out a
- * dependency fault for up to an hour). A row parked in the future is no work
- * yet: counting it held `bff-jobs` at its ceiling, idle, through a six-hour
- * outage, and kept dev from scaling to 0 (R4 of the 2026-11 ship review). A
- * claim clears the column, so a running job is never left out.
- */
-export function queueDepthQuery(table: string, options: { parkedUntil?: string } = {}): string {
-  const retired = RETIRED_STATUSES.map((status) => `'${status}'`).join(", ");
-  const parked = options.parkedUntil ? ` AND (${options.parkedUntil} IS NULL OR ${options.parkedUntil} <= now())` : "";
-  return `SELECT COUNT(*) FROM ${table} WHERE status NOT IN (${retired})${parked}`;
+export function hatchetBacklogQuery(namespace: string, workflow: string): string {
+  const prefix = `${namespace}_${workflow}:`.toLowerCase().replace(/'/g, "''");
+  return (
+    `SELECT (SELECT COUNT(*) FROM v1_queue_item WHERE starts_with(action_id, '${prefix}')) + ` +
+    "(SELECT COUNT(*) FROM v1_task_runtime r JOIN v1_task t ON t.id = r.task_id AND t.inserted_at = r.task_inserted_at " +
+    `WHERE starts_with(t.action_id, '${prefix}'))`
+  );
 }
 
 /**
@@ -147,14 +140,10 @@ export interface QueueScaledTier {
   labels: pulumi.Input<Record<string, string>>;
   minReplicas: number;
   maxReplicas: number;
-  /** Jobs one replica runs at once: the trigger's target, so replicas = ceil(depth / concurrency). */
+  /** Runs one replica executes at once: the trigger's target, so replicas = ceil(backlog / concurrency). */
   concurrency: number;
-  /** The table the trigger counts (`queueDepthQuery`). */
-  table: string;
-  /** The column a job waits on before it may be claimed, when the queue has one (`queueDepthQuery`). */
-  parkedUntil?: string;
-  /** The TriggerAuthentication carrying the scaler's DSN. */
-  authName: pulumi.Input<string>;
+  /** The Hatchet workflow whose backlog the trigger counts (`hatchetBacklogQuery`). */
+  workflow: string;
   /**
    * An HPA of this name that a stack may still hold from before the tier moved
    * to KEDA, for the ScaledObject to take over (`transfer-hpa-ownership`).
@@ -174,9 +163,10 @@ export interface QueueScaledTier {
 }
 
 /**
- * The ScaledObject of a worker pool that claims jobs from a Postgres queue
- * (ADR-0076, ADR-0079): one `postgresql` trigger counting the queue, one replica
- * per `concurrency` open jobs between the tier's floor and ceiling.
+ * The ScaledObject of a worker pool that runs a Hatchet workflow (ADR-0150): one
+ * `postgresql` trigger counting the workflow's backlog in `background-work-pg`
+ * as the read-only scaler login, one replica per `concurrency` open runs
+ * between the tier's floor and ceiling.
  *
  * The Deployment keeps `ignoreChanges: ["spec.replicas"]` at its own definition,
  * because KEDA owns the count once this exists.
@@ -214,11 +204,11 @@ export function installQueueScaledObject(w: AppWiring, tier: QueueScaledTier): k
             // default of the scaler that a version could change.
             metricType: "AverageValue",
             metadata: {
-              query: queueDepthQuery(tier.table, { parkedUntil: tier.parkedUntil }),
+              query: hatchetBacklogQuery(hatchetNamespace(), tier.workflow),
               targetQueryValue: String(tier.concurrency),
               activationTargetQueryValue: "0",
             },
-            authenticationRef: { name: tier.authName },
+            authenticationRef: { name: HATCHET_QUEUE_AUTH },
           },
         ],
       },

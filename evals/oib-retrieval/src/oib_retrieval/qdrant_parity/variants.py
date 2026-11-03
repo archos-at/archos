@@ -2,7 +2,7 @@
 
 ``task be:eval:qdrant-parity -- --variants all`` runs it after the gates, over the
 collection the gates just built, so every variant reads the same points and the
-same index. Each variant swaps ``knowledge_layer.qdrant.search.RANKING`` for the
+same index. Each variant swaps ``knowledge_layer.vector_store.search.RANKING`` for the
 duration of its run and reads through ``LlamaIndexRetriever._retrieve_sync``, the
 production path, so a variant measures exactly what production would serve with
 those settings.
@@ -43,7 +43,7 @@ REPEAT = "baseline_repeat"
 
 def plain(**settings: Any) -> Any:
     """A ``search.Ranking`` without the cosine tie-break: production's ranking before the sweep, plus ``settings``."""
-    from knowledge_layer.qdrant.search import Ranking
+    from knowledge_layer.vector_store import Ranking
 
     return Ranking(cosine_tie_break=False, **settings)
 
@@ -51,7 +51,7 @@ def plain(**settings: Any) -> Any:
 def catalogue() -> dict[str, Any]:
     """Every named variant: a ``search.Ranking``, None for dense alone (the adapter's ``hybrid_search`` off),
     or a ``decompound.Variant``."""
-    from knowledge_layer.qdrant.search import Ranking
+    from knowledge_layer.vector_store import Ranking
 
     return {
         BASELINE: plain(),
@@ -99,7 +99,7 @@ def select(names: str) -> dict[str, Any]:
 @contextlib.contextmanager
 def ranking(retriever: Any, setting: Any) -> Iterator[None]:
     """``search.RANKING`` set to ``setting`` for the block; None turns the lexical channels off instead."""
-    from knowledge_layer.qdrant import search
+    from knowledge_layer.vector_store import search
 
     saved, saved_hybrid = search.RANKING, retriever.hybrid_search
     if setting is None:

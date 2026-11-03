@@ -24,8 +24,9 @@ import time
 import uuid
 
 import pytest
-from knowledge_layer.llamaindex import chosen_document_type
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest import LlamaIndexIngestor
+from knowledge_layer.ingest import filed_document_type
+from knowledge_layer.ingest import with_document_type
 from langchain_core.messages import AIMessage
 
 from agent.knowledge.document_classification import DISCIPLINE_TAGS
@@ -46,20 +47,20 @@ class TestWithDocumentType:
     def test_the_chosen_type_replaces_every_classified_type_and_leads(self):
         tags = [CLASSIFIED_TYPE, CLASSIFIED_DISCIPLINE, SECOND_CLASSIFIED_TYPE]
 
-        assert chosen_document_type.with_document_type(tags, CHOSEN_TYPE) == [CHOSEN_TYPE, CLASSIFIED_DISCIPLINE]
+        assert with_document_type(tags, CHOSEN_TYPE) == [CHOSEN_TYPE, CLASSIFIED_DISCIPLINE]
 
     def test_no_tags_at_all_is_the_chosen_type_alone(self):
-        assert chosen_document_type.with_document_type(None, CHOSEN_TYPE) == [CHOSEN_TYPE]
-        assert chosen_document_type.with_document_type([], CHOSEN_TYPE) == [CHOSEN_TYPE]
+        assert with_document_type(None, CHOSEN_TYPE) == [CHOSEN_TYPE]
+        assert with_document_type([], CHOSEN_TYPE) == [CHOSEN_TYPE]
 
     def test_the_chosen_type_is_never_stored_twice(self):
-        assert chosen_document_type.with_document_type([CHOSEN_TYPE, CLASSIFIED_DISCIPLINE], CHOSEN_TYPE) == [
+        assert with_document_type([CHOSEN_TYPE, CLASSIFIED_DISCIPLINE], CHOSEN_TYPE) == [
             CHOSEN_TYPE,
             CLASSIFIED_DISCIPLINE,
         ]
 
     def test_the_tag_cap_holds(self):
-        result = chosen_document_type.with_document_type(list(DISCIPLINE_TAGS), CHOSEN_TYPE)
+        result = with_document_type(list(DISCIPLINE_TAGS), CHOSEN_TYPE)
 
         assert result[0] == CHOSEN_TYPE
         assert len(result) == MAX_TAGS
@@ -68,14 +69,14 @@ class TestWithDocumentType:
 class TestChosenDocumentType:
     @pytest.mark.parametrize("document_type", DOCUMENT_TYPE_TAGS)
     def test_a_type_of_the_vocabulary_is_honoured(self, document_type):
-        assert chosen_document_type.chosen({"document_type": document_type}) == document_type
+        assert filed_document_type({"document_type": document_type}) == document_type
 
     @pytest.mark.parametrize("config", [{}, {"document_type": None}, {"document_type": ""}])
     def test_no_choice_is_none(self, config):
-        assert chosen_document_type.chosen(config) is None
+        assert filed_document_type(config) is None
 
     def test_a_queued_value_outside_the_vocabulary_is_dropped_not_stored(self, caplog):
-        assert chosen_document_type.chosen({"document_type": DISCIPLINE_TAGS[0]}) is None
+        assert filed_document_type({"document_type": DISCIPLINE_TAGS[0]}) is None
         assert "outside the vocabulary" in caplog.text
 
 

@@ -2,12 +2,12 @@
  * What each kind of job does when a worker hands it a slice (ADR-0079).
  *
  * A handler reads the job's saved state, does one bounded step of the work and
- * returns the state to save. It never claims, heartbeats or finishes: the runner
- * owns the queue, this owns the work. That split is why a job survives a
+ * returns the state to save. It never takes, saves or finishes the row: the
+ * `bff-job` run owns that (`./task-run.ts`), this owns the work. That split is why a job survives a
  * restart: nothing a handler holds in memory matters, only what it returned.
  *
  * A walk (`reindex_project`, `reingest_failed`, `restore_folder_bin`) runs as
- * the person who asked, in the job's organization. The runner has no session,
+ * the person who asked, in the job's organization. A run has no session,
  * so the session is built here, and built from what the identity provider says
  * NOW: the payload names who asked, but a job can wait in the queue and a walk
  * spans many slices, and a person who lost their role or left the organization
@@ -81,12 +81,15 @@ import {
 
 /**
  * One bounded step of a job: the state it was saved with in, the state to save out.
- * `attempts` is the claims spent so far, this one included.
+ * `attempts` is the claims spent so far, this one included. `signal` aborts when
+ * Hatchet gives the attempt up (its timeout, a cancel): a handler that can stop
+ * early passes it on to what it waits for, because nothing else can stop it.
  */
 export type JobHandler = (job: {
   organizationId: string
   payload: unknown
   attempts: number
+  signal?: AbortSignal
 }) => Promise<JobSliceResult<object>>
 
 /**

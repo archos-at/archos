@@ -109,6 +109,38 @@ None of this is a licence to rewrite a file you are passing through. Touch a
 function, leave it meeting the bar; leave the neighbours alone unless the
 change needs them.
 
+### A package is imported by its surface
+
+The knowledge layer is laid out by job: `knowledge_layer.ingest`, `.search`,
+`.read_passage`, `.browse`, `.estate` and `.vector_store`. Each package's
+`__init__.py` exports what code outside it uses, as a `_LAZY` map
+(`agent.lazy_exports`, `cache=False`): a name loads on first use and is read
+from its submodule every time, so a test that patches the submodule is seen
+through the package too. Outside the package, import the name from the
+package:
+
+```python
+from knowledge_layer.search import RankedSearch  # yes
+from knowledge_layer.search.ranked_search import RankedSearch  # no: the file's path is now a contract
+```
+
+Before the surfaces, laying the layer out by job rewrote nearly a thousand
+references, most in tests, and the dotted patch strings among them
+(`patch("knowledge_layer.….name")`) failed only when the test ran. So:
+
+- **A name outside code needs goes in `_LAZY` and `__all__`**, never a name a
+  submodule also has (`tests/test_import_weight.py`).
+- **A patch is on the module object**, `monkeypatch.setattr(results, "format_results", …)`
+  or `patch.object(scope, "resolve_scoped_collections", …)` with the module
+  imported, never a dotted string: a move then fails at import, where a
+  rewrite tool sees it. Patch where the name is looked up, which is the
+  submodule, not the package.
+- **What still names a submodule from outside** (a private helper a test
+  calls, a module a test patches, a logger name) is counted per file in
+  `ci/package_surface_baseline.json` by `scripts/check_package_surfaces.py`
+  (the `package-surfaces` hook), and may only shrink: `--update` lowers it.
+  A new package with a surface joins `PACKAGES` there.
+
 ## TypeScript
 
 ### `any` is not a type we accept, in production code or in tests

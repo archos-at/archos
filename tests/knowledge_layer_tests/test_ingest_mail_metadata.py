@@ -8,10 +8,10 @@ it (``norm_registry.lane_for_hit``); the records go on the ROW, which the listin
 
 from __future__ import annotations
 
-from knowledge_layer.llamaindex.chunk_metadata import EMBED_EXCLUDED_METADATA_KEYS
-from knowledge_layer.llamaindex.chunk_metadata import stamp_chunk_metadata
-from knowledge_layer.llamaindex.filed_mail import source_format_from_config
-from knowledge_layer.llamaindex.filed_mail import store_mail_facts
+from knowledge_layer.ingest import EMBED_EXCLUDED_METADATA_KEYS
+from knowledge_layer.ingest import source_format_from_config
+from knowledge_layer.ingest import stamp_chunk_metadata
+from knowledge_layer.ingest import store_mail_facts
 from llama_index.core import Document
 
 THREAD = {"latest_sent_at": "2026-05-14T14:40:00Z", "message_count": 5, "locale": "de"}
