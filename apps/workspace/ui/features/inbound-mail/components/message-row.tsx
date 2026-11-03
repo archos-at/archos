@@ -15,11 +15,12 @@
 
 import type { JSX } from 'react'
 import { useId, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FolderInput, Loader2, Mail, MailCheck, ShieldAlert, ShieldQuestion } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FolderInput, Mail, MailCheck, ShieldAlert, ShieldQuestion, Timer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FilingChip } from '@/components/ui/filing-chip'
 import { Input } from '@/components/ui/input'
+import { Item } from '@/components/ui/item'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { FolderPickerSheet } from '@/features/documents'
@@ -75,7 +76,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
   // A text that is not waiting any more says what became of it.
   if (part && part.state !== 'waiting') {
     return (
-      <div className="flex items-start gap-3 px-3 py-3 sm:px-4" data-testid="message-row" data-status={part.state}>
+      <Item className="items-start px-3 sm:px-4" data-testid="message-row" data-status={part.state}>
         <Mail className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm font-medium">{t('message.label')}</p>
@@ -85,7 +86,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
             <FactLine icon={Mail}>{t(`attachments.status.${part.state}`)}</FactLine>
           )}
         </div>
-      </div>
+      </Item>
     )
   }
 
@@ -98,7 +99,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
   }
 
   return (
-    <div className="flex items-start gap-3 px-3 py-3 sm:px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
+    <Item className="items-start px-3 sm:px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
       <div className="flex h-5 items-center pointer-coarse:h-11">
         <Checkbox
           checked={selectable && draft.checked}
@@ -129,7 +130,8 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
           </FactLine>
         )}
         {view.rawScan === 'pending' && (
-          <FactLine icon={Loader2} testId="message-scan-pending" className="[&>svg]:motion-safe:animate-spin">
+          // A still glyph, as the original's scan in the header: the detail's „Wird abgelegt …“ is its one spinner.
+          <FactLine icon={Timer} testId="message-scan-pending">
             {t('message.rawScan.pending')}
           </FactLine>
         )}
@@ -252,6 +254,6 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
           onChange({ target: { ...target, folder: folder ? targetForPath(folder.path, folders, folder.id) : targetForPath('', folders), folderSuggested: false } })
         }}
       />
-    </div>
+    </Item>
   )
 }

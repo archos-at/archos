@@ -5,53 +5,27 @@
  * once so the list, the detail and the decision bar are made of the same
  * material (`design-language.md`, „Component layers“).
  *
- * - `FactLine`: one fact about a mail or a part, a glyph and words. Muted by
- *   default; `warning` for what must be seen before filing, `danger` for
- *   what makes filing impossible. Never colour without the glyph and words.
+ * - `FactLine` (from the kit, `components/ui/fact-line.tsx`): one fact about a
+ *   mail or a part, a glyph and words; `warning` and `danger` colour the
+ *   glyph, never the words.
  * - `CheckLine`: a checkbox with its sentence, for the person's explicit yes
- *   („Trotzdem ablegen“). The whole line is the label, 44px under a finger.
+ *   („Trotzdem ablegen“). The whole line is the label (the kit's `Label`),
+ *   44px under a finger.
+ * - `PinnedBar`: the decision's edge, pinned to the bottom of the detail and
+ *   padded past the home indicator; the decision bar and the claimed-mail bar
+ *   both stand on it.
+ * - `QuietPanel`: a block that belongs together inside the detail (the
+ *   address, the „Details“ of a mail, a calendar invitation, what can be
+ *   restored): a quiet tint and one hairline on the surface radius.
  */
 
-import type { JSX, ReactNode } from 'react'
+import type { HTMLAttributes, JSX, ReactNode } from 'react'
 import { useId } from 'react'
-import type { LucideIcon } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-export type FactTone = 'muted' | 'default' | 'warning' | 'danger'
-
-/**
- * The warning gold is a signal for a glyph, not for small text: at 12px it
- * measures 4.48:1 on paper, under the 4.5:1 WCAG AA asks. So a warning line
- * draws its glyph in the warning tone and its words in ink, a step heavier.
- */
-const FACT_TONE: Record<FactTone, string> = {
-  muted: 'text-muted-foreground',
-  default: 'text-foreground',
-  warning: 'text-foreground font-medium [&>svg]:text-warning',
-  danger: 'text-error',
-}
-
-export function FactLine({
-  icon: Icon,
-  tone = 'muted',
-  children,
-  className,
-  testId,
-}: {
-  icon: LucideIcon
-  tone?: FactTone
-  children: ReactNode
-  className?: string
-  testId?: string
-}): JSX.Element {
-  return (
-    <p className={cn('flex min-w-0 items-start gap-1.5 text-xs leading-snug', FACT_TONE[tone], className)} data-testid={testId} data-tone={tone}>
-      <Icon className="mt-px size-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
-    </p>
-  )
-}
+export { FactLine, type FactTone } from '@/components/ui/fact-line'
 
 export function CheckLine({
   checked,
@@ -79,9 +53,28 @@ export function CheckLine({
         data-testid={testId}
         className="mt-px pointer-coarse:mt-0"
       />
-      <label htmlFor={id} className={cn('cursor-pointer select-none leading-snug', disabled && 'cursor-not-allowed opacity-60')}>
+      <Label htmlFor={id} className="cursor-pointer text-xs leading-snug font-normal">
         {children}
-      </label>
+      </Label>
     </div>
   )
+}
+
+/** The bottom edge of the detail: pinned, on the page's paper, the home indicator's inset below it. */
+export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
+  return (
+    <div
+      className={cn(
+        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 border-t px-3 pt-3 backdrop-blur sm:px-4',
+        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+/** A block of the detail that belongs together: a quiet tint, one hairline, the surface radius. */
+export function QuietPanel({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
+  return <div className={cn('bg-muted/40 rounded-surface flex flex-col gap-2 border p-3', className)} {...props} />
 }

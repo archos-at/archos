@@ -20,6 +20,7 @@ import { useId, useState } from 'react'
 import { toast } from 'sonner'
 import { Archive, Download, ShieldAlert, Timer } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
+import { FactLine } from '@/components/ui/fact-line'
 import { useTranslations } from '@/i18n'
 import type { MailThreadEntryView } from '@/lib/mail-thread/mail-thread-wire'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
@@ -68,19 +69,18 @@ export function EntryOriginal({ entry, download }: EntryOriginalProps): JSX.Elem
 
   if (state === 'not_clean') {
     return (
-      <p className="text-error flex min-w-0 items-start gap-1.5 text-xs leading-snug" data-testid="mail-entry-original" data-state="not_clean">
-        <ShieldAlert className="mt-px size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0">{t('original.notClean')}</span>
-      </p>
+      // It cannot be had: the signal red on the glyph, the words in ink.
+      <FactLine icon={ShieldAlert} tone="danger" testId="mail-entry-original" data-state="not_clean">
+        {t('original.notClean')}
+      </FactLine>
     )
   }
   if (state === 'gone' || state === 'scanning') {
     const Icon = state === 'gone' ? Archive : Timer
     return (
-      <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 text-xs leading-snug" data-testid="mail-entry-original" data-state={state}>
-        <Icon className="mt-px size-3.5 shrink-0" aria-hidden />
-        <span className="min-w-0">{t(state === 'gone' ? 'original.gone' : 'original.scanning')}</span>
-      </p>
+      <FactLine icon={Icon} testId="mail-entry-original" data-state={state}>
+        {t(state === 'gone' ? 'original.gone' : 'original.scanning')}
+      </FactLine>
     )
   }
   return (

@@ -10,6 +10,7 @@
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Mail } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { SuggestionPanel } from '@/components/ui/suggestion-panel'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -27,9 +28,9 @@ export function InboundMailWaitingLine({ href, count, more }: { href: string; co
         <span aria-hidden className="text-muted-foreground">
           ·
         </span>
-        <Link href={href} className="text-foreground underline-offset-2 hover:underline touch-target">
-          {t('inboundMail.view')}
-        </Link>
+        <Button asChild variant="inline" className="touch-target">
+          <Link href={href}>{t('inboundMail.view')}</Link>
+        </Button>
       </p>
     </SuggestionPanel>
   )

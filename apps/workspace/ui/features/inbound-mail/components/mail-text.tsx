@@ -17,12 +17,13 @@ import { CalendarDays, EyeOff, FileWarning, Scissors } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
+import { Quote } from '@/components/ui/quote'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailTextView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { formatAbsoluteTime, formatCalendarDate } from '@/lib/format'
 import { textPreview, textRuns, tidyText } from '../lib/mail-text'
-import { FactLine } from './inbound-mail-atoms'
+import { FactLine, QuietPanel } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export type MailTextState = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; text: InboundMailTextView }
@@ -96,7 +97,7 @@ export function MailText({ state, onRetry }: { state: MailTextState; onRetry: ()
           <FactLine icon={Scissors}>{t('text.truncated')}</FactLine>
         )}
         {text.calendar.map((event, index) => (
-          <div key={index} className="bg-muted/40 flex flex-col gap-0.5 rounded-md border px-3 py-2 text-xs">
+          <QuietPanel key={index} className="gap-0.5 px-3 py-2 text-xs">
             <FactLine icon={CalendarDays} tone="default">
               {t('text.calendar', { summary: event.summary ?? '—' })}
             </FactLine>
@@ -111,7 +112,7 @@ export function MailText({ state, onRetry }: { state: MailTextState; onRetry: ()
               </p>
             )}
             {event.location && <p className="text-muted-foreground pl-5 [overflow-wrap:anywhere]">{t('text.calendarLocation', { location: event.location })}</p>}
-          </div>
+          </QuietPanel>
         ))}
         {text.quoted.length > 0 && (
           <div className="flex flex-col items-start gap-2">
@@ -120,12 +121,14 @@ export function MailText({ state, onRetry }: { state: MailTextState; onRetry: ()
             </Button>
             {quotedOpen &&
               text.quoted.map((quote, index) => (
-                <blockquote key={index} className="border-l-2 pl-3" data-testid="mail-text-quote">
-                  {quote.header && <p className="text-muted-foreground mb-1 text-xs [overflow-wrap:anywhere]">{quote.header}</p>}
-                  <p className={`${PROSE} text-muted-foreground`}>
+                // Someone else's words: the kit's `Quote`, indented and italic, no rule down its edge.
+                <Quote key={index} data-testid="mail-text-quote">
+                  {quote.header && <p className="text-muted-foreground mb-1 text-xs not-italic [overflow-wrap:anywhere]">{quote.header}</p>}
+                  {/* The quote's muted ink, the prose's measure. */}
+                  <p className="max-w-[72ch] whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">
                     <InertText text={tidyText(quote.text)} />
                   </p>
-                </blockquote>
+                </Quote>
               ))}
           </div>
         )}

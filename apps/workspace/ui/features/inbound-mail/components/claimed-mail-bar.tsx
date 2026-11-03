@@ -22,7 +22,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useTranslations } from '@/i18n'
 import { INBOUND_MAIL_RESTORE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { cn } from '@/lib/utils'
-import { FactLine } from './inbound-mail-atoms'
+import { FactLine, PinnedBar } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface ClaimedMailBarProps {
@@ -49,14 +49,7 @@ export function ClaimedMailBar({
 }: ClaimedMailBarProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   return (
-    <div
-      data-testid="claimed-mail-bar"
-      className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 border-t px-3 pt-3 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-4',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-        className
-      )}
-    >
+    <PinnedBar data-testid="claimed-mail-bar" className={cn('sm:flex-row sm:items-center sm:justify-between', className)}>
       <FactLine icon={Lock} tone="default" testId="claimed-mail-line">
         {t('bar.claimed.line', { name: member.name })}
       </FactLine>
@@ -72,7 +65,7 @@ export function ClaimedMailBar({
         {t('bar.claimed.dismiss')}
       </BusyButton>
       <ClaimedDismissConfirm member={member} open={confirmOpen} onOpenChange={onConfirmOpenChange} onConfirm={onDismiss} />
-    </div>
+    </PinnedBar>
   )
 }
 

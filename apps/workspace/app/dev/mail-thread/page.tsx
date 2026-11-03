@@ -98,7 +98,7 @@ function Provenance({ worst }: { worst: boolean }): JSX.Element {
       {/* The preview header's row, as the pane draws it under the header. */}
       <section className="@container bg-card overflow-hidden rounded-lg border" aria-label="Header">
         <div className="flex items-center gap-2 border-b px-3.5 py-3.5 @md:px-5">
-          <span className="min-w-0 truncate text-sm font-semibold">{worst ? 'Einreichplan_Hofseite_Stellplätze_Variante_3_final_INDEX_C.pdf' : 'S-101_C.pdf'}</span>
+          <span className="min-w-0 truncate text-sm font-medium">{worst ? 'Einreichplan_Hofseite_Stellplätze_Variante_3_final_INDEX_C.pdf' : 'S-101_C.pdf'}</span>
         </div>
         <MailProvenanceRow projectId={PROJECT_ID} documentId="doc" client={rowClient} />
       </section>

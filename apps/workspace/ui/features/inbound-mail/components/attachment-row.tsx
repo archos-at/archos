@@ -27,16 +27,17 @@ import {
   FolderInput,
   Forward,
   Image as ImageIcon,
-  Loader2,
   Lock,
   ShieldAlert,
   ShieldQuestion,
+  Timer,
   Undo2,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FilingChip } from '@/components/ui/filing-chip'
+import { Item } from '@/components/ui/item'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { AgentGlyph } from '@/components/ui/agent-glyph'
 import { SuggestionReason } from '@/components/ui/suggestion-panel'
@@ -116,9 +117,9 @@ export function AttachmentRow({
           <FactLine key="duplicate" icon={Copy} testId="note-duplicate">
             {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
             {' · '}
-            <Link className="text-foreground underline underline-offset-2 hover:no-underline" href={documentFilesHref(projectId, note.documentId)}>
-              {t('attachments.open')}
-            </Link>
+            <Button asChild variant="inline">
+              <Link href={documentFilesHref(projectId, note.documentId)}>{t('attachments.open')}</Link>
+            </Button>
           </FactLine>
         )
       case 'revision':
@@ -178,7 +179,8 @@ export function AttachmentRow({
     switch (status) {
       case 'scan_pending':
         return (
-          <FactLine icon={Loader2} testId="status-scan-pending" className="[&>svg]:motion-safe:animate-spin">
+          // A still glyph: a spinner on every row would be as many loops on one screen (one ambient loop at a time).
+          <FactLine icon={Timer} testId="status-scan-pending">
             {t('attachments.status.scan_pending')}
           </FactLine>
         )
@@ -202,7 +204,8 @@ export function AttachmentRow({
         )
       case 'filing':
         return (
-          <FactLine icon={Loader2} testId="status-filing" className="[&>svg]:motion-safe:animate-spin">
+          // Still, like the scan: the detail's own „Wird abgelegt …“ line is the one spinner.
+          <FactLine icon={Timer} testId="status-filing">
             {t('attachments.status.filing')}
           </FactLine>
         )
@@ -225,12 +228,10 @@ export function AttachmentRow({
   const showTarget = selectable && draft.checked
 
   return (
-    <li
-      className={cn(
-        'flex items-start gap-3 px-3 py-3 transition-colors duration-snap ease-out motion-reduce:transition-none sm:px-4',
-        focused && 'bg-accent/40',
-        !draft.checked && status === 'waiting' && !readOnly && 'bg-muted/20'
-      )}
+    <Item
+      as="li"
+      className={cn('items-start px-3 sm:px-4', !draft.checked && status === 'waiting' && !readOnly && 'bg-muted/20')}
+      data-cursor={focused || undefined}
       data-testid={`attachment-${part.id}`}
       data-status={status}
       data-checked={draft.checked || undefined}
@@ -267,7 +268,7 @@ export function AttachmentRow({
         {showTarget && (
           <div className="mt-1 flex flex-col gap-1.5" data-testid="attachment-target">
             {anySuggested && (
-              <p className="text-muted-foreground flex items-center gap-1.5 text-[11px] font-medium">
+              <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                 <AgentGlyph size="xs" className="size-4" />
                 {t('suggestion.label')}
               </p>
@@ -354,6 +355,6 @@ export function AttachmentRow({
         draft={draft}
         onApply={(change) => onChange(change)}
       />
-    </li>
+    </Item>
   )
 }

@@ -19,6 +19,7 @@ import Link from 'next/link'
 import { ChevronDown, CheckCircle2, History, Inbox as InboxGlyph, MailOpen, Repeat2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { CountPill } from '@/components/ui/count-pill'
 import { EmptyState } from '@/components/ui/empty-state'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -261,7 +262,7 @@ function ListBody({
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left"
+                    className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left pointer-coarse:h-auto pointer-coarse:min-h-11"
                     busy={fileGroupBusy === groupKey}
                     busyLabel={t('bulk.fileSuggestedBusy')}
                     onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
@@ -277,7 +278,7 @@ function ListBody({
                 ) : (
                   // Every mail of this half needs the person, so no press files it: the way in is its first mail. No
                   // Fassung range either, which would depend on what is filed before it.
-                  <Button asChild size="sm" variant="outline" className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left">
+                  <Button asChild size="sm" variant="outline" className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left pointer-coarse:h-auto pointer-coarse:min-h-11">
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
                       {t('group.reviewInOrder')}
                     </Link>
@@ -289,24 +290,22 @@ function ListBody({
           )
         }
         return (
-          <section key="quiet" className="border-b" data-testid="quiet-group">
-            <button
-              type="button"
-              className="text-muted-foreground hover:bg-accent/40 flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 sm:px-4 pointer-coarse:min-h-11"
-              aria-expanded={quietOpen}
-              onClick={() => onQuietOpenChange(!quietOpen)}
-              data-testid="quiet-group-toggle"
-            >
-              <ChevronDown className={cn('size-3.5 transition-transform duration-quick motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />
-              {t('group.quiet', { count: section.mails.length })}
-            </button>
-            {quietOpen && (
-              <>
+          // More of this list, in place: the design language's `Collapsible`.
+          <Collapsible key="quiet" open={quietOpen} onOpenChange={onQuietOpenChange} asChild>
+            <section className="border-b" data-testid="quiet-group">
+              <CollapsibleTrigger
+                className="text-muted-foreground hover:bg-accent/40 flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none sm:px-4 pointer-coarse:min-h-11"
+                data-testid="quiet-group-toggle"
+              >
+                <ChevronDown className={cn('size-3.5 transition-transform duration-quick ease-out motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />
+                {t('group.quiet', { count: section.mails.length })}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
                 <p className="text-muted-foreground px-3 pb-2 text-xs sm:px-4">{t('group.quietHint')}</p>
                 <ul className="divide-y border-t">{section.mails.map((mail) => row(mail))}</ul>
-              </>
-            )}
-          </section>
+              </CollapsibleContent>
+            </section>
+          </Collapsible>
         )
       })}
       {state.nextCursor && (

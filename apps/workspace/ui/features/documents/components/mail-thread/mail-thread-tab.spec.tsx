@@ -242,6 +242,9 @@ describe('MailThreadTab', () => {
     const focused = rows.find((row) => row.dataset.focused)
     expect(focused?.dataset.entryId).toBe(fixture.focusEntryId)
     expect(focused).toHaveAttribute('aria-current', 'location')
+    // Marked as the list's current row (`Item`), never by a bar down its edge (design language, „Emphasis without a stripe“).
+    expect(focused).toHaveAttribute('data-current', 'true')
+    expect(focused?.className).not.toMatch(/border-l/)
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
     await waitFor(() => expect(document.activeElement).toBe(focused))
   })

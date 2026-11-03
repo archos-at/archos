@@ -202,7 +202,8 @@ export function FilesHeaderControls({
             data-testid="files-inbound-mail"
             aria-label={
               inboundMail.waiting
-                ? `${t('inboundMail.open')}, ${t('inboundMail.waitingAria', { count: inboundMail.waiting })}`
+                ? // The visible words first and in order („E-Mail-Eingang 3 …“): WCAG 2.5.3, label in name.
+                  `${t('inboundMail.open')} ${t('inboundMail.waitingAria', { count: inboundMail.waiting })}`
                 : undefined
             }
           >

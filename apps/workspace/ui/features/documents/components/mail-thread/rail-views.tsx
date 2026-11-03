@@ -14,6 +14,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import { ListTree, Mail } from 'lucide-react'
+import { CountPill } from '@/components/ui/count-pill'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTranslations } from '@/i18n'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
@@ -40,9 +41,8 @@ export function ThreadRailViews({ mail, mailCount, value, onValueChange, details
         <TabsTrigger value="mail" className="text-xs" data-testid="file-rail-tab-mail">
           <Mail aria-hidden className="size-3.5" />
           {t('tab.label')}
-          <span className="tabular-nums" aria-hidden>
-            {mailCount}
-          </span>
+          {/* The quiet number beside a tab label is the kit's muted pill; the words are for a screen reader. */}
+          <CountPill count={mailCount} tone="muted" aria-hidden />
           <span className="sr-only">({t('tab.count', { count: mailCount })})</span>
         </TabsTrigger>
         <TabsTrigger value="details" className="text-xs" data-testid="file-rail-tab-details">

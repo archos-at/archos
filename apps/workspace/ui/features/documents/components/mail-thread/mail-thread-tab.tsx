@@ -22,6 +22,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Inbox } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { Skeleton } from '@/components/ui/skeleton'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
@@ -148,27 +151,19 @@ export function MailThreadTab({
             <Inbox className="text-muted-foreground mt-px size-3.5 shrink-0" aria-hidden />
             <span className="min-w-0">{t('tab.waiting', { count: view.waitingCount })}</span>
           </span>
-          <Link
-            href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}
-            className="touch-target rounded-sm font-medium underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/60"
-          >
-            {t('tab.waitingOpen')}
-          </Link>
+          <Button asChild variant="inline" className="touch-target">
+            <Link href={inboundMailPaths(projectId).list({ status: 'waiting', outcome: null })}>{t('tab.waitingOpen')}</Link>
+          </Button>
         </p>
       )}
 
       <FollowControl projectId={projectId} view={view} viewerUserId={viewerUserId} client={client} onChanged={() => void read()} />
 
       {entries.length === 0 ? (
-        <p className="text-muted-foreground text-xs" data-testid="mail-thread-empty">
-          {t('tab.empty')}
-        </p>
+        <EmptyState icon={Inbox} title={t('tab.empty')} data-testid="mail-thread-empty" />
       ) : (
-        <ol
-          className="bg-card divide-border/60 flex flex-col divide-y overflow-hidden rounded-lg border"
-          aria-label={t('tab.timeline')}
-          data-testid="mail-thread-entries"
-        >
+        // A rail section sets its rows on a card: muted text straight on the sunken rail is 4.41:1.
+        <ItemList as="ol" className="bg-card" aria-label={t('tab.timeline')} data-testid="mail-thread-entries">
           {entries.map((entry) => (
             <MailThreadEntryItem
               key={entry.id}
@@ -184,7 +179,7 @@ export function MailThreadTab({
               client={client}
             />
           ))}
-        </ol>
+        </ItemList>
       )}
 
       {detaching && (

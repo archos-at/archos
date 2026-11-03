@@ -31,14 +31,15 @@ import Link from 'next/link'
 import { Archive, Bot, FileText, Forward, MailCheck, MoreHorizontal, Paperclip, Repeat2, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
-import { Spinner } from '@/components/ui/spinner'
+import { FactLine } from '@/components/ui/fact-line'
+import { Item } from '@/components/ui/item'
+import { usePrefersReducedMotion } from '@/components/motion'
 import { useLocale, useTranslations } from '@/i18n'
 import { formatAbsoluteTime } from '@/lib/format'
 import type { DocumentVersionView } from '@/lib/documents/lifecycle-types'
 import type { MailThreadEntryView, MailThreadFiledVia } from '@/lib/mail-thread/mail-thread-wire'
-import { cn } from '@/lib/utils'
 import { documentFilesHref } from '../../lib/document-question'
-import { DocumentVersionDiff } from '../document-version-diff'
+import { TextComparisonView, type TextComparison } from '../revision-text-comparison'
 import type { MailThreadClient } from './client'
 import { EntryOriginal } from './entry-original'
 import { attachmentLines, comparedVersions, filedSenderTrust, headingParts, type AttachmentLine } from './mail-thread-model'
@@ -53,11 +54,6 @@ const FILED_VIA_ICON: Partial<Record<MailThreadFiledVia, typeof Bot>> = {
   // Filed by the sender's own verified mail, with nobody deciding in the app: the one filing a reader would not guess.
   sender: MailCheck,
 }
-
-type Comparison =
-  | { status: 'loading' }
-  | { status: 'failed' }
-  | { status: 'done'; from: { versionNumber: number; content: string }; to: { versionNumber: number; content: string } }
 
 export interface MailThreadEntryItemProps {
   projectId: string
@@ -79,7 +75,9 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
   const t = useTranslations(mailThreadCopy)
   const { locale } = useLocale()
   const ref = useRef<HTMLLIElement>(null)
-  const [comparison, setComparison] = useState<Comparison | null>(null)
+  // The revision timeline's own comparison, so a Fassung compared here reads as it does there.
+  const [comparison, setComparison] = useState<TextComparison | null>(null)
+  const reduceMotion = usePrefersReducedMotion()
   const trust = filedSenderTrust(entry.senderTrust)
   const compared = versions ? comparedVersions(entry, versions) : null
   const ViaIcon = FILED_VIA_ICON[entry.filedVia]
@@ -89,10 +87,9 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
   useEffect(() => {
     if (!focused || !ref.current) return
     // Instant when the reader asked for less motion; the focus moves with it, so a screen reader lands here too.
-    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    ref.current.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' })
+    ref.current.scrollIntoView?.({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' })
     ref.current.focus({ preventScroll: true })
-  }, [focused])
+  }, [focused, reduceMotion])
 
   const compare = async (): Promise<void> => {
     if (!compared) return
@@ -100,16 +97,17 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
       setComparison(null)
       return
     }
-    setComparison({ status: 'loading' })
+    setComparison({ rowKey: entry.id, status: 'loading' })
     try {
       const diff = await client.diff(documentId, compared.from.id, compared.to.id)
       setComparison({
+        rowKey: entry.id,
         status: 'done',
-        from: { versionNumber: compared.from.number, content: diff.from.content },
-        to: { versionNumber: compared.to.number, content: diff.to.content },
+        from: { number: compared.from.number, content: diff.from.content },
+        to: { number: compared.to.number, content: diff.to.content },
       })
     } catch {
-      setComparison({ status: 'failed' })
+      setComparison({ rowKey: entry.id, status: 'failed' })
     }
   }
 
@@ -126,23 +124,24 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
   })()
 
   return (
-    <li
+    // The linked entry is the list's current row (`Item`'s `data-current`): lifted, the selected hairline all round,
+    // never a bar down its edge.
+    <Item
+      as="li"
       ref={ref}
       tabIndex={-1}
       id={`mail-entry-${entry.id}`}
       data-testid="mail-thread-entry"
       data-entry-id={entry.id}
       data-focused={focused || undefined}
+      data-current={focused || undefined}
       aria-current={focused ? 'location' : undefined}
-      className={cn(
-        'flex flex-col gap-2 border-l-2 border-transparent px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring/60',
-        focused && 'border-l-foreground bg-card',
-      )}
+      className="flex-col items-stretch gap-2 px-3 hover:bg-transparent"
     >
       <div className="flex min-w-0 items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {/* The heading as the document prints it, wrapping between its date, name and domain, never inside the date. */}
-          <h4 className="text-foreground text-[13px] font-medium leading-snug" data-testid="mail-thread-entry-heading">
+          <h4 className="text-foreground text-sm font-medium leading-snug" data-testid="mail-thread-entry-heading">
             {heading.when && <span className="whitespace-nowrap tabular-nums">{heading.when}</span>}
             <span className="[overflow-wrap:anywhere]">{heading.who}</span>
             {/* The space stays outside the block, where a line may break; the parenthesis keeps its domain. */}
@@ -185,30 +184,21 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
       </div>
 
       {entry.forwardedBy && (entry.forwardedBy.name || entry.forwardedBy.domain) && (
-        <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 text-xs leading-snug" data-testid="mail-thread-entry-forwarded-by">
-          <Forward className="mt-px size-3.5 shrink-0" aria-hidden />
-          <span className="min-w-0 [overflow-wrap:anywhere]">
-            {t('entry.forwardedBy', {
-              name: [entry.forwardedBy.name, entry.forwardedBy.domain && `(${entry.forwardedBy.domain})`].filter(Boolean).join(' '),
-            })}
-          </span>
-        </p>
+        <FactLine icon={Forward} testId="mail-thread-entry-forwarded-by">
+          {t('entry.forwardedBy', {
+            name: [entry.forwardedBy.name, entry.forwardedBy.domain && `(${entry.forwardedBy.domain})`].filter(Boolean).join(' '),
+          })}
+        </FactLine>
       )}
       {showTrust && (
-        <p
-          className={cn('flex min-w-0 items-start gap-1.5 text-xs leading-snug', trust === 'unverified' ? 'text-foreground font-medium' : 'text-muted-foreground')}
-          data-testid="mail-thread-entry-trust"
-          data-trust={trust}
-        >
-          <trustLine.Icon className={cn('mt-px size-3.5 shrink-0', trust === 'unverified' && 'text-warning')} aria-hidden />
-          <span className="min-w-0 [overflow-wrap:anywhere]">{trustLine.words}</span>
-        </p>
+        <FactLine icon={trustLine.Icon} tone={trust === 'unverified' ? 'warning' : 'muted'} testId="mail-thread-entry-trust" data-trust={trust}>
+          {trustLine.words}
+        </FactLine>
       )}
       {ViaIcon && (
-        <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 text-xs leading-snug" data-testid="mail-thread-entry-via">
-          <ViaIcon className="mt-px size-3.5 shrink-0" aria-hidden />
-          <span className="min-w-0">{t(`entry.filedVia.${entry.filedVia}`)}</span>
-        </p>
+        <FactLine icon={ViaIcon} testId="mail-thread-entry-via">
+          {t(`entry.filedVia.${entry.filedVia}`)}
+        </FactLine>
       )}
 
       {attachments.length > 0 && (
@@ -243,23 +233,12 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
         )}
       </div>
 
-      {comparison?.status === 'loading' && (
-        <p className="text-muted-foreground flex items-center gap-2 text-xs" role="status">
-          <Spinner className="size-3.5" />
-          {t('entry.comparing')}
-        </p>
-      )}
-      {comparison?.status === 'failed' && (
-        <p className="text-error text-xs" data-testid="mail-thread-entry-compare-failed">
-          {t('entry.compareFailed')}
-        </p>
-      )}
-      {comparison?.status === 'done' && (
-        <div data-testid="mail-thread-entry-comparison">
-          <DocumentVersionDiff from={comparison.from} to={comparison.to} />
+      {comparison && (
+        <div data-testid="mail-thread-entry-comparison" data-state={comparison.status}>
+          <TextComparisonView comparison={comparison} />
         </div>
       )}
-    </li>
+    </Item>
   )
 }
 
@@ -277,7 +256,8 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     line.kind !== 'not_filed' && line.documentId ? (
       <Link
         href={documentFilesHref(projectId, line.documentId)}
-        className="text-foreground inline-flex min-h-6 min-w-0 items-center gap-1 rounded-sm underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/60"
+        // The kit's inline underline (at rest, firming on hover); a file name wraps, so not the inline Button.
+        className="text-foreground decoration-foreground/40 hover:decoration-foreground rounded-inline inline-flex min-h-6 min-w-0 items-center gap-1 underline underline-offset-[3px] outline-none transition-colors duration-quick ease-out focus-visible:ring-2 focus-visible:ring-ring/60 motion-reduce:transition-none"
         data-testid="mail-thread-attachment-link"
       >
         <FileText className="mt-px size-3.5 shrink-0" aria-hidden />

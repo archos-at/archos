@@ -31,7 +31,7 @@ describe('FilesHeaderControls › E-Mail-Eingang', () => {
     render(<FilesHeaderControls {...props({ inboundMail: { href: '/app/projects/p/files/mail', waiting: 3 } })} />)
     const link = screen.getByTestId('files-inbound-mail')
     expect(link).toHaveAttribute('href', '/app/projects/p/files/mail')
-    expect(link).toHaveAccessibleName('Project mail, 3 mails waiting to be filed')
+    expect(link).toHaveAccessibleName('Project mail 3 mails waiting to be filed')
     expect(link.querySelector('[data-slot="count-pill"], .tabular-nums')).not.toBeNull()
   })
 
