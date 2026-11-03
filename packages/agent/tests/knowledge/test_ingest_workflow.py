@@ -589,3 +589,15 @@ def _null():
     import contextlib
 
     return contextlib.nullcontext()
+
+
+def test_a_trigger_before_any_worker_registered_the_workflow_is_refused_not_lost(hatchet, db):
+    # The engine answers such a trigger with a run id and creates nothing.
+    hatchet.workflows.registered = False
+    with pytest.raises(ingest_workflow.WorkflowNotRegistered):
+        ingest_workflow.trigger("job-early", "org-a", "interactive", "sealed")
+    assert hatchet.workflow_runs == []
+
+    hatchet.workflows.registered = True
+    assert ingest_workflow.trigger("job-early", "org-a", "interactive", "sealed")
+    assert [run.input.job_id for run in hatchet.workflow_runs] == ["job-early"]

@@ -343,6 +343,34 @@ def workflow_for(byte_size: int | None) -> bool:
     return bool(threshold) and byte_size is not None and byte_size >= threshold
 
 
+class WorkflowNotRegistered(RuntimeError):
+    """No worker has registered the workflow yet: a run triggered now would be dropped, not queued."""
+
+
+#: The client each workflow was last seen registered on; a registration outlives the worker that made it.
+_registered: dict[bool, object] = {}
+
+
+def require_registered(heavy: bool) -> None:
+    """Raise ``WorkflowNotRegistered`` unless a worker registered the workflow (asked once per process).
+
+    The engine answers a trigger of a workflow it does not know with a run id
+    and then creates nothing, so a job sent before the first ingest worker came
+    up would wait for a run that never was. The caller treats the refusal as
+    Hatchet being away (``ingest_dispatch`` runs the job itself).
+    """
+    ingest_workflow(heavy)
+    client = orchestrator_client.client()
+    if _registered.get(heavy) is client:
+        return
+    name = HEAVY_WORKFLOW_NAME if heavy else WORKFLOW_NAME
+    listed = orchestrator_client.within_rest_timeout(lambda: client.workflows.list(workflow_name=name))
+    wanted = client.config.apply_namespace(name)
+    if not any(workflow.name == wanted for workflow in listed.rows or []):
+        raise WorkflowNotRegistered(f"no worker has registered {wanted} yet")
+    _registered[heavy] = client
+
+
 def trigger(
     job_id: str,
     organization_id: str | None,
@@ -358,10 +386,12 @@ def trigger(
     ``byte_size`` (the original's, as the BFF stated it) picks the workflow;
     ``document_id`` is what a later upload of the document supersedes. The run's
     metadata carries the trigger span's ``traceparent`` (``orchestrator_tracing``).
-    Raises when Hatchet cannot be reached; the caller decides what that costs.
+    Raises when Hatchet cannot be reached or no worker registered the workflow
+    yet; the caller decides what that costs.
     """
     rank = priority if priority in PRIORITIES else "interactive"
     heavy = workflow_for(byte_size)
+    require_registered(heavy)
     run_input = IngestDocumentInput(
         job_id=job_id,
         organization_id=lane_of(organization_id),

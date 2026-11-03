@@ -11,6 +11,7 @@ from __future__ import annotations
 import itertools
 from dataclasses import dataclass
 from dataclasses import field
+from types import SimpleNamespace
 from typing import Any
 
 from agent.common import orchestrator_client
@@ -109,11 +110,32 @@ class FakeRateLimits:
         self.put_calls.append((key, limit, duration))
 
 
+class FakeWorkflows(list):
+    """The declared workflows, which also answer ``workflows.list`` as the engine would once a worker registered them.
+
+    ``registered = False`` is an engine no worker has registered anything on yet.
+    """
+
+    registered = True
+
+    def list(self, workflow_name: str | None = None, **_: Any) -> SimpleNamespace:
+        names = [w.options["name"] for w in self] if self.registered else []
+        return SimpleNamespace(rows=[SimpleNamespace(name=n) for n in names if workflow_name in (None, n)])
+
+
+class FakeConfig:
+    namespace = ""
+
+    def apply_namespace(self, name: str) -> str:
+        return name
+
+
 class FakeHatchet:
     """What ``hatchet_sdk.Hatchet`` offers that our code calls."""
 
     def __init__(self) -> None:
-        self.workflows: list[FakeWorkflow] = []
+        self.workflows: FakeWorkflows = FakeWorkflows()
+        self.config = FakeConfig()
         self.runs = FakeRuns()
         self.workers: list[FakeWorker] = []
         self.rate_limits = FakeRateLimits()
