@@ -18,9 +18,9 @@ All tests are offline: no ChromaDB, no embeddings, no network.
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.fusion import apply_diversity_cap
-from knowledge_layer.fusion import merge_results
-from knowledge_layer.llamaindex.hybrid import fuse_with_ranks
+from knowledge_layer.search import apply_diversity_cap
+from knowledge_layer.search import fuse_with_ranks
+from knowledge_layer.search import merge_results
 
 from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType

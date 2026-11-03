@@ -1,0 +1,588 @@
+{
+  "apps/agent-host/src/agent_host/routes/document_search.py": {
+    "knowledge_layer.vector_store.prefilter": 2
+  },
+  "apps/agent-host/src/agent_host/routes/documents.py": {
+    "knowledge_layer.ingest.revisions": 2
+  },
+  "apps/agent-host/src/agent_host/routes/maintenance.py": {
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "apps/agent-host/src/agent_host/routes/project_facts.py": {
+    "knowledge_layer.vector_store.retrieval": 1
+  },
+  "apps/agent-host/tests/test_grouped_search_on_qdrant.py": {
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "apps/agent-host/tests/test_ingest_screening.py": {
+    "knowledge_layer.ingest.screening": 1
+  },
+  "apps/agent-host/tests/test_maintenance_refresh_document_facts.py": {
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "apps/agent-host/tests/test_project_facts_route.py": {
+    "knowledge_layer.vector_store.retrieval": 1
+  },
+  "apps/agent-host/tests/test_similar_passages.py": {
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "evals/oib-retrieval/src/oib_retrieval/corpus.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/decompound.py": {
+    "knowledge_layer.vector_store.retrieval": 1
+  },
+  "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/stores.py": {
+    "knowledge_layer.vector_store.schema": 2,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "evals/oib-retrieval/src/oib_retrieval/qdrant_parity/variants.py": {
+    "knowledge_layer.vector_store.search": 1
+  },
+  "evals/oib-retrieval/src/oib_retrieval/structure.py": {
+    "knowledge_layer.ingest.clause_chunking": 3
+  },
+  "evals/oib-retrieval/tests/test_oib_corpus_cache.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "packages/agent/src/agent/knowledge/collection_pages.py": {
+    "knowledge_layer.vector_store.reads": 1
+  },
+  "packages/agent/src/agent/knowledge/factory.py": {
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "packages/agent/src/agent/knowledge/folder_cards/worker.py": {
+    "knowledge_layer.vector_store.folders": 3
+  },
+  "packages/agent/src/agent/knowledge/schema.py": {
+    "knowledge_layer.ingest.reader_version": 1
+  },
+  "packages/agent/src/agent/oib_sync.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "packages/agent/tests/common/test_citation_pipeline_contract.py": {
+    "knowledge_layer.search.grounding_hits": 1
+  },
+  "packages/agent/tests/common/test_turn_status.py": {
+    "knowledge_layer.read_passage.tool": 1
+  },
+  "packages/agent/tests/knowledge/test_collection_pages.py": {
+    "knowledge_layer.vector_store.store": 1
+  },
+  "packages/agent/tests/knowledge/test_scoping.py": {
+    "knowledge_layer.search.scope": 1
+  },
+  "packages/agent/tests/test_deepagents_contract.py": {
+    "knowledge_layer.estate.backend": 1
+  },
+  "packages/agent/tests/testing/agent_testing/look.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "packages/agent/tests/tools/look/test_question.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "packages/knowledge-layer/src/browse/tool.py": {
+    "knowledge_layer.read_passage.tool": 1,
+    "knowledge_layer.search.hit_metadata": 1,
+    "knowledge_layer.vector_store.prefilter": 1
+  },
+  "packages/knowledge-layer/src/chat_binding.py": {
+    "knowledge_layer.browse.tool": 1
+  },
+  "packages/knowledge-layer/src/estate/backend.py": {
+    "knowledge_layer.browse.tool": 4,
+    "knowledge_layer.read_passage.tool": 5
+  },
+  "packages/knowledge-layer/src/estate/grep.py": {
+    "knowledge_layer.browse.tool": 4
+  },
+  "packages/knowledge-layer/src/estate/listing.py": {
+    "knowledge_layer.browse.tool": 1
+  },
+  "packages/knowledge-layer/src/estate/render.py": {
+    "knowledge_layer.search.grounding_hits": 4
+  },
+  "packages/knowledge-layer/src/ingest/adapter.py": {
+    "knowledge_layer.vector_store.reads": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "packages/knowledge-layer/src/register.py": {
+    "knowledge_layer.browse.tool": 2,
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.read_passage.tool": 2,
+    "knowledge_layer.search.folder_channel": 2,
+    "knowledge_layer.search.requery": 2,
+    "knowledge_layer.search.retriever": 1
+  },
+  "packages/knowledge-layer/src/search/knowledge_search.py": {
+    "knowledge_layer.browse.tool": 1
+  },
+  "packages/knowledge-layer/src/search/lexical_query.py": {
+    "knowledge_layer.vector_store.retrieval": 1
+  },
+  "packages/knowledge-layer/src/search/ranked_search.py": {
+    "knowledge_layer.vector_store.prefilter": 2
+  },
+  "packages/knowledge-layer/src/search/retriever.py": {
+    "knowledge_layer.vector_store.reads": 1,
+    "knowledge_layer.vector_store.retrieval": 6
+  },
+  "packages/knowledge-layer/src/view_image.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.pdfium_lock": 1
+  },
+  "packages/knowledge-layer/testing/knowledge_layer_testing/estate_grep.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.search.scope": 1
+  },
+  "packages/knowledge-layer/testing/knowledge_layer_testing/estate_listing.py": {
+    "knowledge_layer.estate.backend": 1
+  },
+  "packages/knowledge-layer/testing/knowledge_layer_testing/vector_store.py": {
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "packages/knowledge-layer/tests/test_action_rows.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.read_passage.tool": 1,
+    "knowledge_layer.search.fusion": 1
+  },
+  "packages/knowledge-layer/tests/test_deferred_download_retry.py": {
+    "knowledge_layer.ingest.deferred_files": 1
+  },
+  "packages/knowledge-layer/tests/test_family_overview.py": {
+    "knowledge_layer.read_passage.tool": 1,
+    "knowledge_layer.search.family_branch": 2
+  },
+  "packages/knowledge-layer/tests/test_ingestor_registry.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "packages/knowledge-layer/tests/test_metadata_filters.py": {
+    "knowledge_layer.search.retriever": 1
+  },
+  "packages/knowledge-layer/tests/test_read_passage_outline.py": {
+    "knowledge_layer.read_passage.tool": 1
+  },
+  "packages/knowledge-layer/tests/test_read_passage_suggestions.py": {
+    "knowledge_layer.read_passage.tool": 1
+  },
+  "packages/knowledge-layer/tests/test_register_hit_regions.py": {
+    "knowledge_layer.search.grounding_hits": 1
+  },
+  "packages/knowledge-layer/tests/test_register_hyde.py": {
+    "knowledge_layer.search.fusion": 1,
+    "knowledge_layer.search.hyde": 1
+  },
+  "packages/knowledge-layer/tests/test_register_metadata_resolvers.py": {
+    "knowledge_layer.search.hit_metadata": 1
+  },
+  "packages/knowledge-layer/tests/test_register_norm_filters.py": {
+    "knowledge_layer.search.scope": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_adapter.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.vector_store.retrieval": 6,
+    "knowledge_layer.vector_store.store": 2,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_adapter_deletes.py": {
+    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_bm25_tuning.py": {
+    "knowledge_layer.vector_store.folders": 1,
+    "knowledge_layer.vector_store.rebuild": 1,
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_boost.py": {
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_datetime_fields.py": {
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_legacy_payload.py": {
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_metadata_prefix.py": {
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_prefilter.py": {
+    "knowledge_layer.search.hit_metadata": 1,
+    "knowledge_layer.vector_store.prefilter": 1,
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_ranking.py": {
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.search": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_rebuild.py": {
+    "knowledge_layer.vector_store.rebuild": 1,
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_scope_kind.py": {
+    "knowledge_layer.search.folder_channel": 1,
+    "knowledge_layer.vector_store.folders": 1,
+    "knowledge_layer.vector_store.reads": 1,
+    "knowledge_layer.vector_store.retrieval": 1,
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_scope_ranges.py": {
+    "knowledge_layer.vector_store.reads": 1,
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.scope": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_stemmed_search.py": {
+    "knowledge_layer.vector_store.retrieval": 1,
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_store.py": {
+    "knowledge_layer.vector_store.retrieval": 1,
+    "knowledge_layer.vector_store.schema": 3,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "packages/knowledge-layer/tests/test_vector_store_structural_fetch.py": {
+    "knowledge_layer.read_passage.tool": 1,
+    "knowledge_layer.vector_store.reads": 1,
+    "knowledge_layer.vector_store.schema": 1,
+    "knowledge_layer.vector_store.store": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "packages/ris-adapter/src/lookup/grammar.py": {
+    "knowledge_layer.search.grounding_hits": 1
+  },
+  "packages/ris-adapter/src/lookup/render.py": {
+    "knowledge_layer.search.trace_lanes": 1
+  },
+  "scripts/build_clause_index.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "scripts/import_vectors.py": {
+    "knowledge_layer.vector_store.import_vectors": 1
+  },
+  "scripts/intake_eval/fixture.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.read_passage.tool": 1
+  },
+  "scripts/qdrant_chunk_length_stats.py": {
+    "knowledge_layer.vector_store.rebuild": 1,
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "scripts/qdrant_rebuild.py": {
+    "knowledge_layer.vector_store.rebuild": 1,
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "scripts/qdrant_rename_payload_keys.py": {
+    "knowledge_layer.vector_store.rebuild": 1
+  },
+  "scripts/turn_census/startup_probe.py": {
+    "knowledge_layer.search.retriever": 1
+  },
+  "tests/knowledge_layer_tests/run_collections_api.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_agent_filters.py": {
+    "knowledge_layer.search.hit_metadata": 1
+  },
+  "tests/knowledge_layer_tests/test_browse.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "tests/knowledge_layer_tests/test_browse_revisions_of.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "tests/knowledge_layer_tests/test_browse_tree.py": {
+    "knowledge_layer.browse.tool": 1
+  },
+  "tests/knowledge_layer_tests/test_captioned_tables.py": {
+    "knowledge_layer.ingest.adapter": 3
+  },
+  "tests/knowledge_layer_tests/test_chunk_identity.py": {
+    "knowledge_layer.ingest.chunk_identity": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "tests/knowledge_layer_tests/test_chunk_noise.py": {
+    "knowledge_layer.search.chunk_noise": 1
+  },
+  "tests/knowledge_layer_tests/test_citation_key_scope.py": {
+    "knowledge_layer.search.grounding_hits": 1
+  },
+  "tests/knowledge_layer_tests/test_clause_chunking.py": {
+    "knowledge_layer.ingest.chunk_metadata": 1,
+    "knowledge_layer.ingest.clause_chunking": 1
+  },
+  "tests/knowledge_layer_tests/test_cross_encoder.py": {
+    "knowledge_layer.search.cross_encoder": 2
+  },
+  "tests/knowledge_layer_tests/test_decisions_in_retrieval.py": {
+    "knowledge_layer.search.decisions": 1
+  },
+  "tests/knowledge_layer_tests/test_delete_file_filename_matching.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_derived_suggestions.py": {
+    "knowledge_layer.ingest.revisions": 1
+  },
+  "tests/knowledge_layer_tests/test_document_presence.py": {
+    "knowledge_layer.ingest.document_presence": 1
+  },
+  "tests/knowledge_layer_tests/test_enrichment_after_write.py": {
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "tests/knowledge_layer_tests/test_estate_action_rows.py": {
+    "knowledge_layer.estate.grep": 1,
+    "knowledge_layer.estate.listing": 1
+  },
+  "tests/knowledge_layer_tests/test_estate_read.py": {
+    "knowledge_layer.estate.backend": 1
+  },
+  "tests/knowledge_layer_tests/test_exact_search_counts.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.vector_store.retrieval": 2
+  },
+  "tests/knowledge_layer_tests/test_exact_search_regex.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.search.grounding_hits": 2,
+    "knowledge_layer.vector_store.retrieval": 1
+  },
+  "tests/knowledge_layer_tests/test_extraction_defaults.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.processing": 1
+  },
+  "tests/knowledge_layer_tests/test_file_state_across_processes.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_first_look.py": {
+    "knowledge_layer.ingest.first_look": 1
+  },
+  "tests/knowledge_layer_tests/test_folder_channel.py": {
+    "knowledge_layer.search.folder_channel": 1
+  },
+  "tests/knowledge_layer_tests/test_folder_scoped_retrieval.py": {
+    "knowledge_layer.search.hit_metadata": 1
+  },
+  "tests/knowledge_layer_tests/test_heavy_document_memory.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_image_extraction_memory.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_image_ingestion.py": {
+    "knowledge_layer.ingest.adapter": 5,
+    "knowledge_layer.ingest.visual_analysis": 1
+  },
+  "tests/knowledge_layer_tests/test_image_store.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.image_store": 1,
+    "knowledge_layer.ingest.processing": 1
+  },
+  "tests/knowledge_layer_tests/test_ingest_costs.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_ingest_failure_categories.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_ingest_perf_log.py": {
+    "knowledge_layer.ingest.adapter": 2
+  },
+  "tests/knowledge_layer_tests/test_ingest_pipeline_hardening.py": {
+    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.processing": 2
+  },
+  "tests/knowledge_layer_tests/test_ingest_reading.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_ingest_robustness.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.captioned_tables": 1,
+    "knowledge_layer.ingest.processing": 1
+  },
+  "tests/knowledge_layer_tests/test_ingest_screen_before_tables.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.processing": 1,
+    "knowledge_layer.ingest.screening": 1,
+    "knowledge_layer.ingest.transcription": 1,
+    "knowledge_layer.vector_store.store": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "tests/knowledge_layer_tests/test_latency_gates.py": {
+    "knowledge_layer.search.requery": 7,
+    "knowledge_layer.search.results": 1
+  },
+  "tests/knowledge_layer_tests/test_layered_retrieval.py": {
+    "knowledge_layer.search.scope": 1
+  },
+  "tests/knowledge_layer_tests/test_multi_content_sheet.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.processing": 1,
+    "knowledge_layer.ingest.visual_analysis": 1,
+    "knowledge_layer.ingest.visual_domains": 1
+  },
+  "tests/knowledge_layer_tests/test_office_extractors.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.office_extractors": 1
+  },
+  "tests/knowledge_layer_tests/test_page_chunk_exclusion.py": {
+    "knowledge_layer.vector_store.store": 1
+  },
+  "tests/knowledge_layer_tests/test_page_read_pool.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.page_reads": 1,
+    "knowledge_layer.ingest.page_triage": 1,
+    "knowledge_layer.ingest.processing": 1,
+    "knowledge_layer.ingest.transcription": 1
+  },
+  "tests/knowledge_layer_tests/test_page_read_routing_and_measures.py": {
+    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.measures": 1,
+    "knowledge_layer.ingest.processing": 1,
+    "knowledge_layer.ingest.vision_calls": 1
+  },
+  "tests/knowledge_layer_tests/test_page_text_store.py": {
+    "knowledge_layer.ingest.page_text_store": 1
+  },
+  "tests/knowledge_layer_tests/test_page_triage.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.page_triage": 1,
+    "knowledge_layer.ingest.processing": 1,
+    "knowledge_layer.ingest.transcription": 1
+  },
+  "tests/knowledge_layer_tests/test_parsed_store.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.page_text_store": 1,
+    "knowledge_layer.ingest.page_triage": 1,
+    "knowledge_layer.ingest.parsed_store": 1,
+    "knowledge_layer.vector_store.writes": 1
+  },
+  "tests/knowledge_layer_tests/test_pdfium_lock.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.pdfium_lock": 1,
+    "knowledge_layer.ingest.processing": 1
+  },
+  "tests/knowledge_layer_tests/test_permit_record_ingest.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_platform_retrieval_settings.py": {
+    "knowledge_layer.search.results": 1
+  },
+  "tests/knowledge_layer_tests/test_quarantine_verdict_contract.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_query_warm_up.py": {
+    "knowledge_layer.search.query_embeddings": 1,
+    "knowledge_layer.search.retriever": 1
+  },
+  "tests/knowledge_layer_tests/test_read_passage.py": {
+    "knowledge_layer.read_passage.tool": 6
+  },
+  "tests/knowledge_layer_tests/test_read_passage_ranges.py": {
+    "knowledge_layer.read_passage.tool": 4
+  },
+  "tests/knowledge_layer_tests/test_read_passage_revisions.py": {
+    "knowledge_layer.read_passage.tool": 1
+  },
+  "tests/knowledge_layer_tests/test_reingest_replaces_versions.py": {
+    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.deferred_files": 1,
+    "knowledge_layer.ingest.document_presence": 1,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "tests/knowledge_layer_tests/test_rendered_metadata_budget.py": {
+    "knowledge_layer.ingest.chunk_metadata": 3
+  },
+  "tests/knowledge_layer_tests/test_rendition_extraction.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.office_extractors": 1,
+    "knowledge_layer.ingest.processing": 1
+  },
+  "tests/knowledge_layer_tests/test_requery.py": {
+    "knowledge_layer.search.decisions": 1,
+    "knowledge_layer.search.requery": 2,
+    "knowledge_layer.search.results": 1
+  },
+  "tests/knowledge_layer_tests/test_rerank.py": {
+    "knowledge_layer.search.rerank": 4
+  },
+  "tests/knowledge_layer_tests/test_restricted_reads.py": {
+    "knowledge_layer.browse.tool": 2,
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.read_passage.tool": 1,
+    "knowledge_layer.search.results": 1
+  },
+  "tests/knowledge_layer_tests/test_retrieval_scoring_and_identity.py": {
+    "knowledge_layer.search.cross_encoder": 1
+  },
+  "tests/knowledge_layer_tests/test_revision_facts.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.revisions": 1,
+    "knowledge_layer.ingest.visual_analysis": 1,
+    "knowledge_layer.ingest.visual_domains": 1
+  },
+  "tests/knowledge_layer_tests/test_revision_ingestion.py": {
+    "knowledge_layer.ingest.adapter": 2,
+    "knowledge_layer.ingest.revisions": 1
+  },
+  "tests/knowledge_layer_tests/test_section_chunking.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.section_chunking": 1
+  },
+  "tests/knowledge_layer_tests/test_text_formats.py": {
+    "knowledge_layer.ingest.office_extractors": 1
+  },
+  "tests/knowledge_layer_tests/test_text_pass_memory.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_trace_lanes.py": {
+    "knowledge_layer.search.trace_lanes": 1
+  },
+  "tests/knowledge_layer_tests/test_upload_screening.py": {
+    "knowledge_layer.ingest.screening": 1
+  },
+  "tests/knowledge_layer_tests/test_upload_screening_ingestion.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.document_presence": 1,
+    "knowledge_layer.ingest.office_extractors": 2,
+    "knowledge_layer.ingest.page_triage": 1,
+    "knowledge_layer.ingest.processing": 1,
+    "knowledge_layer.ingest.screening": 1,
+    "knowledge_layer.ingest.text_formats": 1,
+    "knowledge_layer.ingest.transcription": 1
+  },
+  "tests/knowledge_layer_tests/test_vector_store_reading_payload.py": {
+    "knowledge_layer.vector_store.schema": 1
+  },
+  "tests/knowledge_layer_tests/test_view_image.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.pdfium_lock": 1
+  },
+  "tests/knowledge_layer_tests/test_view_image_region.py": {
+    "knowledge_layer.ingest.adapter": 1
+  },
+  "tests/knowledge_layer_tests/test_visual_analysis.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.processing": 2,
+    "knowledge_layer.ingest.visual_analysis": 2,
+    "knowledge_layer.ingest.visual_domains": 1
+  },
+  "tests/knowledge_layer_tests/test_visual_page_ingestion.py": {
+    "knowledge_layer.ingest.adapter": 5,
+    "knowledge_layer.ingest.processing": 9,
+    "knowledge_layer.vector_store.store": 1
+  },
+  "tests/knowledge_layer_tests/test_vlm_rate_limits.py": {
+    "knowledge_layer.ingest.adapter": 1,
+    "knowledge_layer.ingest.vision_calls": 1
+  },
+  "tests/test_import_weight.py": {
+    "knowledge_layer.browse.tool": 1,
+    "knowledge_layer.read_passage.tool": 1
+  }
+}

@@ -88,9 +88,10 @@ Body: { projectId: string, file: File }
 
 Two kinds of file skip steps 6 and 7 and return `processing` with no ingest
 job id: an IFC model (`beginModelExtraction`) and, when `GOTENBERG_URL` is set,
-an office file. Each is queued as a `bim_extract` or `office_rendition` job on
-`bff_job_queue` (ADR-0079, [`kubernetes.md`](../deployment/kubernetes.md) §6.3c)
-and the row remembers the queue job as `metadata.bffJobId`. Without a converter,
+an office file. Each becomes a `bim_extract` or `office_rendition` BFF job, a
+`bff-job` run on Hatchet (ADR-0150, [`kubernetes.md`](../deployment/kubernetes.md) §6.3c;
+`bff_job_queue` is kept until the cutover drains it), and the row remembers the
+job as `metadata.bffJobId`. Without a converter,
 a Word, presentation, `.xls` or `.ods` file returns `failed` at once.
 
 ### Office files: convert, then ingest
@@ -131,8 +132,7 @@ original, only without a thumbnail. The re-ingest action („Erneut lesen“,
 `POST /api/documents/{id}/reingest`) takes the same path and converts again. A
 process restart during a conversion gives the claim back and another pod runs
 it. A row left at `processing` without a live job (from before the jobs, or one
-whose job died) is found by the sweep `POST /api/internal/maintenance/
-reconcile-background-work`, which the scheduler worker calls every tick: a row
+whose job died) is found by the `reconcile-background-work` Hatchet task, every minute: a row
 with no job gets a new one, a row whose job is dead is failed with its reason.
 
 **SeaweedFS config** (`apps/workspace/bff/s3.ts`):
@@ -202,7 +202,7 @@ The ingestion route delegates to the active ingestor singleton, which is set up 
 
 ## Step 4: Background Ingestion (`LlamaIndex`)
 
-**File**: `packages/knowledge-layer/src/llamaindex/adapter.py`
+**File**: `packages/knowledge-layer/src/ingest/adapter.py`
 
 The `LlamaIndexIngestor.submit_job()` creates a job with `JobState.PENDING` and hands `_run_ingestion()` to the bounded ingest pool. An entry of `file_paths` is a local path (the multipart upload, the OIB sync) or a deferred download (`/v1/ingest`); the latter is kept unchecked, since nothing is on disk yet.
 
@@ -210,7 +210,7 @@ The `LlamaIndexIngestor.submit_job()` creates a job with `JobState.PENDING` and 
 
 For each file:
 
-0. **Download and thumbnail** — a deferred original is downloaded first (`knowledge_layer.deferred_files.resolve_original`): one GET without redirects, into a temp file whose suffix comes from the response's `Content-Type` (the object path as fallback, scrubbed), owned and deleted by the job whether or not `cleanup_files` is set. A failed download fails the file with the stable error `original_download_failed: …` and nothing else is fetched for it, the rendition included; the log names the error class and HTTP status, never the URL. Then the rendition, when there is one. The 400px card thumbnail is drawn later, once the file's upload screen has passed (ADR-0086): from the rendition or a PDF original after its text screen, from an image once it passes on its name, from a spreadsheet's `preview_paths` rendition after its extracted text is screened. A quarantined file has none
+0. **Download and thumbnail** — a deferred original is downloaded first (`knowledge_layer.ingest.deferred_files.resolve_original`): one GET without redirects, into a temp file whose suffix comes from the response's `Content-Type` (the object path as fallback, scrubbed), owned and deleted by the job whether or not `cleanup_files` is set. A failed download fails the file with the stable error `original_download_failed: …` and nothing else is fetched for it, the rendition included; the log names the error class and HTTP status, never the URL. Then the rendition, when there is one. The 400px card thumbnail is drawn later, once the file's upload screen has passed (ADR-0086): from the rendition or a PDF original after its text screen, from an image once it passes on its name, from a spreadsheet's `preview_paths` rendition after its extracted text is screened. A quarantined file has none
 1. **Text extraction** — a PDF is read per page with pdfplumber, recording each line's font size and weight (`line_styles`). `.xlsx`/`.xlsm` go through `office_extractors`; `.md`, `.txt`, `.csv` and `.tsv` through `text_formats`, which decodes without dropping a byte (BOM, else strict UTF-8, else cp1252, else Latin-1; the encoding is stored as `source_encoding`). Any other extension falls to `SimpleDirectoryReader`. When the job carries an extraction path for the file, the PDF rendition is read instead and every later step treats it as a PDF: pages, tables, images and visual pages. For a `.pptx` or `.pptm` a companion reads the speaker notes from the original, one unit per slide labelled with its rendition page, because a PDF export drops them. On a job whose config carries `screening`, the [upload screen](#upload-screening-before-the-first-model-call) runs on this extracted text before anything below
    **Chunking.** Every text chunk carries a locator a citation and `read_passage(clause=…)` can use:
 
@@ -228,15 +228,15 @@ For each file:
 2. **Table extraction** (PDF only, optional) — Uses `pdfplumber` to extract the tables the text pass did not already index as captioned tables; each becomes row groups that repeat the header row (`content_type: "table"`, `table_part` orders them), so the splitter never cuts a table into header-less rows. The tables are read right after the text, before the upload screen, and screened with it: the table pass opens the PDF on its own and also reads a page the text pass lost
 3. **Image extraction** (PDF only, optional) — Uses `pypdfium2` to extract the embedded rasters worth a caption, at least 100×100 px by the image object's own metadata, so an icon is filtered without being decoded. Every candidate is sized from metadata (`PdfImage.get_px_size()`, no pixels read), the per-document cap `MAX_IMAGES_PER_DOCUMENT` (64) is applied right there — largest first, everything past it never decoded — and only the kept rasters are decoded, one at a time, each downscaled to `VLM_MAX_IMAGE_DIM` before it is held. Peak memory is one raster instead of the document's, which is the bound that keeps an ingest pod inside its limit on a plan set ([ingest memory runbook](../deployment/ingest-memory-runbook.md)). Each kept raster is sent to the VLM API (default: `openai/gpt-6-luna` via OpenRouter — image input verified, caption quality on OIB drawings still open, see the Configuration table) for classification (chart vs image) and captioning; captions become `Document` objects with `content_type: "chart"` or `"image"` metadata
 
-   Every PDFium call in the process (page triage, page renders, image extraction, thumbnails, `look`) is serialized through `pdfium_lock` in `knowledge_layer/llamaindex/pdfium_lock.py`, because PDFium is not thread-safe; the lock is held for the PDFium work alone — reading a page's objects, decoding one raster — and image encoding happens after it is released.
+   Every PDFium call in the process (page triage, page renders, image extraction, thumbnails, `look`) is serialized through `pdfium_lock` in `knowledge_layer/ingest/pdfium_lock.py`, because PDFium is not thread-safe; the lock is held for the PDFium work alone — reading a page's objects, decoding one raster — and image encoding happens after it is released.
 
 4. **Summarization** (optional) — If `generate_summary` is enabled, the first and last chunks are combined and sent, as two **concurrent** calls to the same `summary_model` LLM, for a one-sentence summary and a tag classification (document type + OIB discipline; see "Backfilling tags" below). Both calls independently swallow exceptions/timeouts and return nothing on failure. A deterministic, text-derived fallback summary now fires whenever the LLM summary is missing — for any reason, independent of whether tag classification succeeded — so a document that finishes ingestion always gets a `document_metadata` row (see "Silent summary-row loss" below for the fix and the reconciliation backstop).
-5. **Indexing** — All `Document` objects are cut by a `SentenceSplitter` with the job's chunk size and overlap, embedded with the ingestor's embedder (OpenRouter, `openai/text-embedding-3-large` by default; see "Embedding-model changes" below — stored vectors only match query vectors from the same model) and written to Qdrant by `qdrant/writes.write_chunks`, which puts the office, project, document, folder, project facts, `indexed_at` and the facts people set on every point. A write Qdrant refuses fails the file (ADR-0115)
+5. **Indexing** — All `Document` objects are cut by a `SentenceSplitter` with the job's chunk size and overlap, embedded with the ingestor's embedder (OpenRouter, `openai/text-embedding-3-large` by default; see "Embedding-model changes" below — stored vectors only match query vectors from the same model) and written to Qdrant by `vector_store/writes.write_chunks`, which puts the office, project, document, folder, project facts, `indexed_at` and the facts people set on every point. A write Qdrant refuses fails the file (ADR-0115)
 6. **Job completion** — Status updated to `JobState.COMPLETED` with metadata about chunks, tables, charts, and images created
 
 ### Upload screening, before the first model call
 
-A job whose config carries `screening` (the organization's policy, sent by the BFF on `POST /v1/ingest`; see the [endpoint contract](../api/python-endpoints.md)) checks each file's locally extracted text, read as a person reads it (invisible characters left out, a hyphen at a line break joined, a PDF's pages also joined without their running headers and footers), against the office's terms and detectors (`packages/knowledge-layer/src/llamaindex/screening.py`) before any of it is sent to a model. A match fails the file with its typed verdict on `file_details[].quarantine` (`{"reasons":[…],"checked":…}`, plus `"omitted":N` when the verdict leaves N reasons out; `QuarantineVerdict`, ADR-0113), the same verdict in the legacy `error_message` `quarantined:{…}` for one release, and the loop moves to the next file; nothing of a quarantined file is transcribed, captioned, summarised or embedded. The job without a policy (the OIB corpus sync) runs exactly as before. A policy that is present but cannot be applied (malformed, or naming no rule this build knows; `content_screen.screening_config_unusable`) fails closed: every file of the job fails with `screening_unavailable:` before it is read, category `configuration` (retryable, the next dispatch sends the policy afresh), and waits held like any file without a verdict. A PDF whose scanned pages were transcribed is screened again on the transcript before anything else reads it; a match there is held with `after_transcription: true`, since the vision model saw those pages.
+A job whose config carries `screening` (the organization's policy, sent by the BFF on `POST /v1/ingest`; see the [endpoint contract](../api/python-endpoints.md)) checks each file's locally extracted text, read as a person reads it (invisible characters left out, a hyphen at a line break joined, a PDF's pages also joined without their running headers and footers), against the office's terms and detectors (`packages/knowledge-layer/src/ingest/screening.py`) before any of it is sent to a model. A match fails the file with its typed verdict on `file_details[].quarantine` (`{"reasons":[…],"checked":…}`, plus `"omitted":N` when the verdict leaves N reasons out; `QuarantineVerdict`, ADR-0113), the same verdict in the legacy `error_message` `quarantined:{…}` for one release, and the loop moves to the next file; nothing of a quarantined file is transcribed, captioned, summarised or embedded. The job without a policy (the OIB corpus sync) runs exactly as before. A policy that is present but cannot be applied (malformed, or naming no rule this build knows; `content_screen.screening_config_unusable`) fails closed: every file of the job fails with `screening_unavailable:` before it is read, category `configuration` (retryable, the next dispatch sends the policy afresh), and waits held like any file without a verdict. A PDF whose scanned pages were transcribed is screened again on the transcript before anything else reads it; a match there is held with `after_transcription: true`, since the vision model saw those pages.
 
 Where it sits, per file, against the five places ingestion sends content out:
 
@@ -257,7 +257,7 @@ Each file of a screened job gets `file_details[].screening` on its job status: `
 
 ### Fassungen across file names (ADR-0099)
 
-Two steps run per file after its summary row is written, on the same `summary_llm` (`packages/knowledge-layer/src/llamaindex/revisions.py`, the prompts and parsers in `agent/knowledge/document_revisions.py`). Both are bounded by `REVISION_TIMEOUT_SECONDS`, fail-open, skipped for the base corpus (it replaces through its own hash registry) and skipped when summarising is off. Neither links, hides or re-files anything: only a person's `PUT /v1/collections/{collection}/revision` writes `superseded_by`.
+Two steps run per file after its summary row is written, on the same `summary_llm` (`packages/knowledge-layer/src/ingest/revisions.py`, the prompts and parsers in `agent/knowledge/document_revisions.py`). Both are bounded by `REVISION_TIMEOUT_SECONDS`, fail-open, skipped for the base corpus (it replaces through its own hash registry) and skipped when summarising is off. Neither links, hides or re-files anything: only a person's `PUT /v1/collections/{collection}/revision` writes `superseded_by`.
 
 | The file's name is | Step | Stored on the file's own row |
 |---|---|---|
@@ -371,8 +371,9 @@ the release's reading.
 
 A file that fails after some of its chunks were inserted (an embedding batch
 timing out halfway through a long PDF) takes those chunks back out:
-`_discard_partial_version` deletes exactly the ids this attempt sent to Qdrant.
-They are fresh node ids, so the kept version's chunks are never among them. Left in, they sat
+`_discard_partial_version` deletes the ids this attempt sent to Qdrant, minus
+any the kept version also holds: ids are deterministic (`chunk_identity.chunk_id`),
+so a re-read of the same bytes writes over the kept chunks with the same text. Left in, they sat
 beside the kept version as part of a version nobody published.
 
 The lock (`keyed_lock` in `agent/knowledge/leader_lock.py`) is held from
@@ -404,7 +405,7 @@ stay retrievable, with no row behind it.
 So once a file is in the vector store, and before its predecessor is retired,
 the ingestor asks the BFF whether the document it was dispatched for still
 exists: `GET /api/internal/document-exists?documentId=&collection=[&organizationId=]`
-with the service token (`knowledge_layer/llamaindex/document_presence.py`,
+with the service token (`knowledge_layer/ingest/document_presence.py`,
 `_deleted_while_indexing` in the adapter). The job config carries the
 `document_id` and `organization_id` that `/v1/ingest` received. On
 `{ "exists": false }` the file:
@@ -488,7 +489,7 @@ Session-scoped collections (`s_*`) are automatically reaped by a background thre
 ### Fixed: silent summary-row loss on double LLM failure (2026-07-16)
 
 The summary and tag-classification calls in Step 4 above run concurrently
-against the same `summary_llm` (`packages/knowledge-layer/src/llamaindex/adapter.py`,
+against the same `summary_llm` (`packages/knowledge-layer/src/ingest/adapter.py`,
 ~lines 1795–1965) and both fail open (log a warning, return `None`) on
 error/timeout. `register_summary()` — the only call that writes a row into
 the `document_metadata` table — only runs when a summary value exists. Previously the
@@ -626,7 +627,7 @@ settle the job terminal `cancelled` (`settle_cancelled`,
 
 A terminal job also says *why* each file failed (`agent/knowledge/ingest_failures.py`):
 `FileProgress.failure_category` and `retryable`, and the job's `reader_version`
-(`packages/knowledge-layer/src/reader_version.py`). Step 2 writes them onto the row
+(`packages/knowledge-layer/src/ingest/reader_version.py`). Step 2 writes them onto the row
 (`ingest_failure_category`, `ingest_retryable`, `ingest_reader_version`, migration 0134),
 and `lib/documents/retry-policy.ts` (`canRetry`) decides from them whether reading the
 file again can come out differently:

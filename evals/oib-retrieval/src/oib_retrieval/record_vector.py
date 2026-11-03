@@ -79,7 +79,7 @@ def resolve_api_key(base_url: str, model: str) -> str:
     checkout that has not installed the knowledge layer.
     """
     try:
-        from knowledge_layer.llamaindex.embedding import resolve_embed_api_key
+        from knowledge_layer.embedding import resolve_embed_api_key
 
         key = resolve_embed_api_key(base_url, model)
         if key:

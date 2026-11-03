@@ -56,7 +56,7 @@ def _backend(rows=ROWS) -> EstateBackend:
 
 @pytest.fixture(autouse=True)
 def _no_in_flight(monkeypatch):
-    from knowledge_layer import estate
+    from knowledge_layer.estate import backend as estate
 
     async def none(_files):
         return []

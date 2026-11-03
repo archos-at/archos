@@ -19,9 +19,9 @@ Two joins are pinned here, and only these two:
 import json
 from typing import Any
 
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import visual_analysis as va
-from knowledge_layer.llamaindex import visual_domains as vd
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import visual_analysis as va
+from knowledge_layer.ingest import visual_domains as vd
 
 
 def two_plan_sheet_pdf() -> bytes:
@@ -103,7 +103,7 @@ def _two_floor_plan_analysis(registry: vd.DomainRegistry) -> dict[str, Any]:
 class TestMultiContentSheetDetection:
     def test_a_two_depiction_sheet_renders_as_one_visual_page(self, tmp_path) -> None:
         """The #440 shape must reach the VLM: sparse text, vector linework."""
-        from knowledge_layer.llamaindex import processing as _processing
+        from knowledge_layer.ingest import processing as _processing
 
         pdf = tmp_path / "zwei-grundrisse.pdf"
         pdf.write_bytes(two_plan_sheet_pdf())

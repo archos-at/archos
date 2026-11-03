@@ -349,6 +349,7 @@ export const projects = {
       searching: 'Searching…',
       suggestions: 'Address suggestions',
       keepTyped: 'Or leave it as it is: {productName} takes the address as you type it.',
+      attribution: '© OpenStreetMap contributors',
     },
     sameAddress: {
       heading: 'There is already a project at this address',

@@ -16,9 +16,9 @@ from __future__ import annotations
 import builtins
 
 import pytest
-from knowledge_layer.llamaindex.dependencies import ensure_retrieval_dependencies
-from knowledge_layer.llamaindex.dependencies import retrieval_dependency_error
-from knowledge_layer.llamaindex.dependencies import retrieval_dependency_report
+from knowledge_layer.dependencies import ensure_retrieval_dependencies
+from knowledge_layer.dependencies import retrieval_dependency_error
+from knowledge_layer.dependencies import retrieval_dependency_report
 
 #: The exact failure production hit: the namespace package resolves, the piece
 #: we need does not, and the error is an ImportError rather than a
@@ -130,7 +130,7 @@ def test_the_retriever_raise_site_chains_the_original_import_error(break_import)
     is whatever `_initialize_components` raises, so that is what this pins --
     including `__cause__`, which is the frame naming the import that broke.
     """
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     break_import("llama_index.core", _BROKEN_CORE)
 
@@ -148,7 +148,7 @@ def test_the_retriever_raise_site_chains_the_original_import_error(break_import)
 
 def test_the_ingestor_raise_site_preflights_the_same_way(break_import) -> None:
     """Both entry points, or the guarantee is only half true."""
-    from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest import LlamaIndexIngestor
 
     break_import("qdrant_client", _BROKEN_CORE)
 

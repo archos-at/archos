@@ -1,14 +1,41 @@
-/** Stuck, transient and failed ingest documents. */
+/** Stuck, transient, failed and just-finished ingest documents. */
 
 import 'server-only'
 import { and, asc, eq, getTableColumns, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
+import { columnStatuses, IN_FLIGHT_DOCUMENT_STATUSES } from '../document-status'
 import { documentShelf } from '../shelf'
 import { publishShelfChanged } from '../shelf-live'
 import { bffJobQueue } from '@/lib/db/schema/bff-job-queue'
 import { documents, type Document } from '@/lib/db/schema/documents'
 import { notQuarantined } from './mutations'
+
+/**
+ * The in-flight documents dispatched as the ingest jobs `jobIds`, in every
+ * organization: the settle push (`/api/internal/ingest/settled`) names jobs,
+ * not documents or tenants. Discovery only, under platform access; the caller
+ * reconciles each row inside its own organization. A job id no row carries
+ * finds nothing, and a row that already came to rest is not in flight, so a
+ * second push for the same job finds nothing either. Bounded by the ids: one
+ * dispatch records one job id on one row (`setDocumentIngestJob`).
+ */
+export async function listInFlightDocumentsForIngestJobs(jobIds: readonly string[]): Promise<Document[]> {
+  if (jobIds.length === 0) return []
+  const db = getDb()
+  return withPlatformAccess('settle push: finding the documents of ingest jobs that ended', () =>
+    db
+      .select()
+      .from(documents)
+      .where(
+        and(
+          inArray(documents.status, columnStatuses(IN_FLIGHT_DOCUMENT_STATUSES)),
+          inArray(sql`${documents.metadata} ->> 'ingestJobId'`, [...jobIds]),
+        ),
+      )
+      .limit(jobIds.length),
+  )
+}
 
 /** A document left at `processing` with no live job behind it. */
 export interface StuckProcessingDocument {
@@ -67,48 +94,6 @@ export async function listStuckProcessingDocuments(
     jobStatus: row.jobStatus === 'dead' ? 'dead' : null,
     lastError: row.lastError ?? null,
   }))
-}
-
-/** A failed document the transient-retry sweep may send back: its id, its organization, how often it was sent. */
-export interface TransientFailureDocument {
-  id: string
-  organizationId: string
-  attempts: number
-}
-
-/**
- * Failed documents whose failure the backend called `transient` (an interruption, a timeout, a download
- * or upstream error), sent fewer than `maxAttempts` times, and whose last attempt is older than its backoff:
- * `firstBackoffMinutes` after the first attempt, doubling with each further one. Oldest first, bounded.
- * Discovery across every organization, like {@link listStuckProcessingDocuments}; each row is retried
- * inside its own. A person's document only (`authored_by = 'user'`), with stored bytes, not in the bin.
- */
-export async function listTransientFailures(
-  now: Date,
-  options: { maxAttempts: number; firstBackoffMinutes: number; maxAgeHours: number; limit: number },
-): Promise<TransientFailureDocument[]> {
-  const db = getDb()
-  const attempts = sql`greatest(coalesce(${documents.ingestAttempts}, 1), 1)`
-  const rows = await withPlatformAccess('document sweep: finding transient ingest failures to retry', () =>
-    db
-      .select({ id: documents.id, organizationId: documents.organizationId, attempts: documents.ingestAttempts })
-      .from(documents)
-      .where(
-        and(
-          eq(documents.status, 'failed'),
-          eq(documents.ingestFailureCategory, 'transient'),
-          eq(documents.authoredBy, 'user'),
-          sql`${documents.storageKey} IS NOT NULL`,
-          sql`coalesce(${documents.ingestAttempts}, 1) < ${options.maxAttempts}`,
-          sql`${documents.updatedAt} < ${now.toISOString()}::timestamptz - make_interval(mins => ${options.firstBackoffMinutes} * power(2, ${attempts} - 1)::int)`,
-          sql`${documents.updatedAt} > ${now.toISOString()}::timestamptz - make_interval(hours => ${options.maxAgeHours})`,
-          sql`NOT EXISTS (SELECT 1 FROM project_folders f WHERE f.id = ${documents.folderId} AND f.deleted_at IS NOT NULL)`,
-        ),
-      )
-      .orderBy(asc(documents.updatedAt))
-      .limit(options.limit),
-  )
-  return rows.map((row) => ({ id: row.id, organizationId: row.organizationId, attempts: Number(row.attempts ?? 1) }))
 }
 
 /**

@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
 from knowledge_layer.browse import MAX_TREE_CARDS
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import file_rows
@@ -14,6 +13,7 @@ from knowledge_layer.browse import list_files
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import render_tree
 from knowledge_layer.browse import select_files
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf

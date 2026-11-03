@@ -21,6 +21,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -32,7 +33,7 @@ from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType
 from agent.knowledge.schema import RetrievalResult
 
-rp = importlib.import_module("knowledge_layer.read_passage")
+rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
 BASE = "oib_knowledge"
 MEMBERS = {
@@ -129,8 +130,8 @@ def corpus(monkeypatch):
         async def _documents(collection: str):
             return [SimpleNamespace(file_name=name, display_title=None) for name in members.values()]
 
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: store)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: store)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.get_active_retriever", lambda: store)
         monkeypatch.setattr("agent.knowledge.factory.get_available_documents_async", _documents)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
@@ -505,7 +506,7 @@ def _ranked_many() -> list[Chunk]:
 class TestTheOverviewIsNotBuriedInRankedHits:
     async def test_only_a_few_ranked_passages_ride_beside_the_overview(self, corpus):
         """The overview answers; sixteen ranked passages beside it were half the block."""
-        family = importlib.import_module("knowledge_layer.family_branch")
+        family = importlib.import_module("knowledge_layer.search.family_branch")
         corpus(MEMBERS, ranked=_ranked_many())
 
         out = await _search()
@@ -516,7 +517,7 @@ class TestTheOverviewIsNotBuriedInRankedHits:
 
     async def test_the_ranked_passages_left_out_are_counted_on_the_span(self, corpus, monkeypatch):
         """The cap and the floor record what they drop; so does the family budget."""
-        family = importlib.import_module("knowledge_layer.family_branch")
+        family = importlib.import_module("knowledge_layer.search.family_branch")
         corpus(MEMBERS, ranked=_ranked_many())
         span: dict = {}
 

@@ -10,7 +10,7 @@ around them: ask the BFF where the document lives (``GET
 ingest-time captioning used.
 
 **Nothing is stored per page.** Ingestion keeps the rasters it cut out of a PDF
-(``llamaindex/image_store``) and one thumbnail per document, not a render of
+(``ingest/image_store``) and one thumbnail per document, not a render of
 every page, so a page is rendered from the original on demand, exactly as
 ``look`` does it. Those helpers are used as they are, so a
 change to how a page is rendered lands in both places.

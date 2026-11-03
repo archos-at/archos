@@ -223,6 +223,37 @@ class TestObservedSpan:
         assert parent.attributes["langfuse.trace.metadata.file_type"] == "pdf"
         assert parent.attributes["langfuse.trace.metadata.seconds_vision"] == 25.4
 
+    def test_a_nested_generation_never_claims_its_files_trace(self, exporter):
+        """Langfuse reads trace attributes off any span: a child that wrote them renamed the file's trace."""
+        with direct_trace.observed_span("ingest-file", metadata={"job_id": "job-1"}):
+            with direct_trace.observed_generation("ingest-vision", model="m", messages=[]) as generation:
+                generation.finish({"choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}]})
+
+        spans = {span.name: span for span in _spans(exporter)}
+        child, parent = spans["ingest-vision"].attributes, spans["ingest-file"].attributes
+        assert not [key for key in child if key.startswith("langfuse.trace.")], dict(child)
+        assert "langfuse.session.id" not in child
+        assert child["langfuse.observation.metadata.feature"] == "ingest-vision"
+        assert child["langfuse.observation.metadata.finish_reason"] == "stop"
+        assert parent["langfuse.trace.name"] == "ingest-file"
+
+    def test_a_generation_on_a_pool_thread_that_copied_the_context_nests(self, exporter):
+        import contextvars
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _read_page():
+            with direct_trace.observed_generation("ingest-vision", model="m", messages=[]) as generation:
+                generation.finish({})
+
+        with direct_trace.observed_span("ingest-file"), ThreadPoolExecutor(2) as pool:
+            list(pool.map(lambda ctx: ctx.run(_read_page), [contextvars.copy_context() for _ in range(3)]))
+
+        spans = _spans(exporter)
+        (parent,) = [span for span in spans if span.name == "ingest-file"]
+        children = [span for span in spans if span.name == "ingest-vision"]
+        assert len(children) == 3
+        assert all(child.parent is not None and child.parent.span_id == parent.context.span_id for child in children)
+
     def test_a_failed_unit_is_marked_error(self, exporter):
         with direct_trace.observed_span("ingest-file") as span:
             span.finish({"status": "failed"}, failed="original_download_failed")

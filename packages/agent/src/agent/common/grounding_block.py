@@ -2,7 +2,7 @@
 
 Every evidence tool answers in one grammar: a preamble, a run of
 ``--- Result N ---`` blocks, and a ``## Trace-Lanes`` object. Two packages used
-to write that grammar by hand (``knowledge_layer.search_results.format_results`` and
+to write that grammar by hand (``knowledge_layer.search.results.format_results`` and
 ``ris_adapter.lookup.render``) and a third read it back with eleven regexes on
 every live turn. Three copies of one layout, in three repositories' worth of
 review.
@@ -64,7 +64,7 @@ class SourceRegion:
     SHOWS IT: a whole rendered PDF page, or a whole uploaded image, top-left
     origin. That is the frame the visual analysis read the picture in, so the
     box needs no conversion, and it is why a region is only ever produced for
-    those two frames (``knowledge_layer.grounding_hits._hit_regions``). An embedded
+    those two frames (``knowledge_layer.search.grounding_hits._hit_regions``). An embedded
     raster's box is relative to the raster, whose placement on the page is not
     stored, so it gets none rather than a box in the wrong place.
 
@@ -252,7 +252,7 @@ class GroundingBlock(BaseModel):
     #: these bytes itself fell back to the text parser.
     trailer: str = ""
     #: Why the hits do NOT answer the question, when a judge that read them
-    #: against it said so (``knowledge_layer.requery.judge_coverage``). Rendered
+    #: against it said so (``knowledge_layer.search.requery.judge_coverage``). Rendered
     #: as the ``Coverage: insufficient — …`` line under the preamble, so the
     #: model reads the verdict before the passages rather than inferring it
     #: from a score. The reason names how many hits were judged, and the claim

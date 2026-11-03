@@ -4,7 +4,7 @@ PURE module: no database, no I/O, no state. It owns the two halves of the German
 lexical channel that must never disagree — how a chunk's text becomes lexemes,
 and how a user's question becomes a query over those lexemes. Retrieval prices
 its BM25 terms with :func:`select_terms` against Qdrant's own counts
-(``knowledge_layer.llamaindex.lexical_query.lexical_inputs``); the retrieval benchmark
+(``knowledge_layer.search.lexical_query.lexical_inputs``); the retrieval benchmark
 (``oib_retrieval.lexical``) runs the whole channel offline.
 
 WHY THIS EXISTS
@@ -55,7 +55,7 @@ Both agree on ``ß`` -> ``ss``, which is the measured case that matters
 (``Geschoß``/``Geschoss``). The residual gap — a user typing ``Tuerbreite`` for
 ``Türbreite`` — is not closed by folding, which cannot tell a digraph from two
 letters („Michael“). The BM25 channel closes it on the query side instead: it
-asks both spellings (:func:`umlaut_spellings`, ``qdrant/retrieval.bm25_candidates``)
+asks both spellings (:func:`umlaut_spellings`, ``vector_store/retrieval.bm25_candidates``)
 and lets document frequency drop the one no chunk holds.
 
 STEMMING IS AN APPROXIMATION, AND ONLY FOR SQLITE

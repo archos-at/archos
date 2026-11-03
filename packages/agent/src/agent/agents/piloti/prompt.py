@@ -247,7 +247,7 @@ def focus_file_path(state: Any, tool_names: Sequence[str]) -> str | None:
     """The estate path of the turn's subject, when the turn reads the estate by path; else None.
 
     The folder is left out: inside one shelf the leaf names the document, and
-    ``read_file`` resolves it wherever it is filed (``knowledge_layer.estate.resolve_in``).
+    ``read_file`` resolves it wherever it is filed (``knowledge_layer.estate.backend.resolve_in``).
     """
     file_name = getattr(state, "focus_file_name", None)
     shelf = getattr(state, "focus_shelf", None)

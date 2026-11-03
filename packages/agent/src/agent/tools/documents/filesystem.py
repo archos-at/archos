@@ -5,7 +5,7 @@ and replaces the result text where the text is evidence:
 
 * the backend is a ``CompositeBackend``: ``/drafts/`` routes to the conversation's
   draft store (:class:`DraftBackend`, unchanged, write-once), everything else to
-  the read-only estate backend (``knowledge_layer.estate.EstateBackend``);
+  the read-only estate backend (``knowledge_layer.estate.backend.EstateBackend``);
 * ``write_file`` and ``edit_file`` are the stock tools, so a draft is written and
   edited exactly as before, and the tool-level permissions keep both inside
   ``/drafts/``;
@@ -199,7 +199,7 @@ class EstateReadFileSchema(BaseModel):
     conclusion: str = Field(default="", description=CONCLUSION_DESCRIPTION)
 
 
-#: A coroutine of one estate call: returns a ``knowledge_layer.estate.ToolOutput``.
+#: A coroutine of one estate call: returns a ``knowledge_layer.estate.backend.ToolOutput``.
 EstateCall = Callable[[], Awaitable[Any]]
 
 

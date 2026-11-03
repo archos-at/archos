@@ -106,7 +106,7 @@ export async function shelfFolders(session: AuthorizedSession, shelf: DocumentSh
 /** Which Dokumentart lands in which folder of a shelf, from its screened, filed documents. */
 export async function shelfDocTypes(organizationId: string, shelf: DocumentShelf, folders: ShelfFolders) {
   const sample = await listFiledDocuments(organizationId, shelf, SCREENED_ONLY)
-  const enriched = await reconcileDocumentStatuses(sample, organizationId)
+  const enriched = await reconcileDocumentStatuses(sample, organizationId, 'read')
   const samples: FiledSample[] = enriched
     .filter((row) => hasPassedScreening(row) && !folders.isRestricted(row.folderId))
     .map((row) => ({ folderPath: folders.pathOf(row.folderId), tags: row.tags }))
@@ -154,7 +154,7 @@ async function batchDocuments(
     return { judged: all.filter((row) => row.status !== 'quarantined'), all }
   }
   const screened = await listBatchDocuments(session.organizationId, batch.id, SCREENED_ONLY)
-  const enriched = await reconcileDocumentStatuses(screened, session.organizationId)
+  const enriched = await reconcileDocumentStatuses(screened, session.organizationId, 'read')
   return {
     judged: enriched.filter((row) => hasPassedScreening(row) && surfaceStateOf(row.status) === 'citable'),
     all,

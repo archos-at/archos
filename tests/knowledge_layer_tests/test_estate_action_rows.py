@@ -18,8 +18,8 @@ What is pinned, per outcome:
 from __future__ import annotations
 
 import pytest
-from knowledge_layer import estate_grep
-from knowledge_layer import estate_listing
+from knowledge_layer.estate import grep as estate_grep
+from knowledge_layer.estate import listing as estate_listing
 from knowledge_layer_testing import estate_grep as grep_suite
 from knowledge_layer_testing import estate_listing as listing_suite
 from knowledge_layer_testing import estate_read as read_suite

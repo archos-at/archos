@@ -6,7 +6,7 @@ lookup needs the bytes unchanged. The records also ride on the message itself,
 so a reader that holds the message and not the turn's capture (an evicted
 result, a replayed message whose text was trimmed) still has them:
 
-* the producer (``knowledge_layer.estate``) calls :func:`note_citations` with
+* the producer (``knowledge_layer.estate.backend``) calls :func:`note_citations` with
   the hits it rendered;
 * the tool wrapper opens :func:`collect_citations` around the call and puts what
   was collected on the result's ``artifact`` (:func:`artifact_for`);

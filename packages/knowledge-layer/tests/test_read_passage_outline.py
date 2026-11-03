@@ -33,7 +33,7 @@ from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType
 from agent.knowledge.scoping import ScopedCollection
 
-rp = importlib.import_module("knowledge_layer.read_passage")
+rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
 OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
 PLAN = "Brandschutzkonzept.pdf"
@@ -510,7 +510,7 @@ class TestWhatTheStoreIsAsked:
         """The dialect is the store's, not this module's opinion of it: an
         operator or field it cannot translate raises at the tool boundary
         rather than silently over-retrieving."""
-        from knowledge_layer.qdrant.scope import translate
+        from knowledge_layer.vector_store import translate
 
         assert translate(rp._outline_filters(OIB)) is not None
         assert translate(rp._whole_document_filters(OIB)) is not None
@@ -518,7 +518,7 @@ class TestWhatTheStoreIsAsked:
 
 class TestADocumentWhosePageLabelIsNotAPage:
     """`page_label` is whatever the extractor wrote: the WORKSHEET NAME for
-    .xlsx/.xlsm (`llamaindex/office_extractors`). The fallback used to filter
+    .xlsx/.xlsm (`ingest/office_extractors`). The fallback used to filter
     `page_label $in ("1", "2", "3")`, so an indexed spreadsheet matched nothing
     and the outline told the model the store held no chunk of it."""
 

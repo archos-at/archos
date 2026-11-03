@@ -22,10 +22,10 @@ import argparse
 import logging
 import sys
 
-from knowledge_layer.qdrant import rebuild
-from knowledge_layer.qdrant import schema
-from knowledge_layer.qdrant.schema import Physical
-from knowledge_layer.qdrant.store import make_client
+from knowledge_layer.vector_store import Physical
+from knowledge_layer.vector_store import make_client
+from knowledge_layer.vector_store import rebuild
+from knowledge_layer.vector_store import schema
 
 logger = logging.getLogger("qdrant_chunk_length_stats")
 

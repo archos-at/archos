@@ -8,7 +8,7 @@
  * window or behind 25 newer open ones, an office that went home) stayed
  * `pending` until somebody next opened its shelf: 6 hours in one office on
  * 2026-11-02, days in another on 2026-10-28. This is the clock behind them, run
- * from `POST /api/internal/maintenance/reconcile-background-work`.
+ * every minute by the `reconcile-background-work` Hatchet task (`bff/scheduling/sweeps.ts`).
  *
  * Safe from several replicas at once: a status write is guarded by the status it
  * read, and a settled row is never selected again.
@@ -39,7 +39,7 @@ export async function reconcileStalePending(now: Date = new Date()): Promise<Sta
   const result: StalePendingSweepResult = { checked: rows.length, organizations: byOrganization.size, errors: 0 }
   for (const [organizationId, group] of byOrganization) {
     try {
-      await withTenant({ organizationId }, () => reconcileDocumentStatuses(group, organizationId))
+      await withTenant({ organizationId }, () => reconcileDocumentStatuses(group, organizationId, 'sweep'))
     } catch (error) {
       console.error('[documents] could not read back pending ingests of', organizationId, error)
       result.errors += 1

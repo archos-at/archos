@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from typing import Any
 from typing import Literal
 
-from knowledge_layer.knowledge_search import KnowledgeSearch
+from knowledge_layer.search import KnowledgeSearch
 from pydantic import Field
 from pydantic import model_validator
 
@@ -331,9 +331,9 @@ class KnowledgeRetrievalConfig(FunctionBaseConfig, name="knowledge_retrieval"):
 
 def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tuple[str, dict]:
     """
-    Import the llamaindex adapter and build its configuration.
+    Import the llamaindex ingestor and retriever and build their configuration.
 
-    Importing the adapter module triggers the @register_retriever/@register_ingestor
+    Importing the two modules triggers the @register_ingestor/@register_retriever
     decorators, which register the adapter classes with the factory.
 
     Args:
@@ -343,7 +343,8 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
     Returns:
         Tuple of (backend_name, backend_config_dict)
     """
-    import knowledge_layer.llamaindex.adapter  # noqa: F401
+    import knowledge_layer.ingest.adapter  # noqa: F401
+    import knowledge_layer.search.retriever  # noqa: F401
 
     backend_config: dict = {
         "generate_summary": config.generate_summary,
@@ -363,10 +364,10 @@ def _setup_backend(config: KnowledgeRetrievalConfig, summary_llm_obj=None) -> tu
 #: 2026-10-27) off the first turn. ``_warm_search_path_sync`` imports each by a
 #: literal statement; the test holds the two lists together.
 _SEARCH_PATH_MODULES = (
-    "knowledge_layer.browse",
-    "knowledge_layer.folder_channel",
-    "knowledge_layer.read_passage",
-    "knowledge_layer.requery",
+    "knowledge_layer.browse.tool",
+    "knowledge_layer.search.folder_channel",
+    "knowledge_layer.read_passage.tool",
+    "knowledge_layer.search.requery",
     "agent.observability.retrieval_trace",
 )
 
@@ -375,10 +376,10 @@ def _warm_search_path_sync(retriever: Any) -> None:
     warm = getattr(retriever, "warm_components", None)
     if callable(warm):
         warm()
-    import knowledge_layer.browse  # noqa: F401 - warm-up import
-    import knowledge_layer.folder_channel  # noqa: F401 - warm-up import
-    import knowledge_layer.read_passage  # noqa: F401 - warm-up import
-    import knowledge_layer.requery  # noqa: F401 - warm-up import
+    import knowledge_layer.browse.tool  # noqa: F401 - warm-up import
+    import knowledge_layer.read_passage.tool  # noqa: F401 - warm-up import
+    import knowledge_layer.search.folder_channel  # noqa: F401 - warm-up import
+    import knowledge_layer.search.requery  # noqa: F401 - warm-up import
 
     import agent.observability.retrieval_trace  # noqa: F401 - warm-up import
 
@@ -489,7 +490,7 @@ def _cross_encoder(config: KnowledgeRetrievalConfig):
     never authenticate anything is one this returns None for.
     """
     try:
-        from knowledge_layer.cross_encoder import resolve_cross_encoder
+        from knowledge_layer.search import resolve_cross_encoder
 
         return resolve_cross_encoder(config.reranker_provider, model=config.reranker_model)
     except Exception as e:

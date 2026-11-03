@@ -109,7 +109,8 @@ async function writableFacts(session: AuthorizedSession, projectId: string): Pro
   const rows = await listAllDocuments(projectId, session.organizationId, [...access.hiddenFolderIds], reader)
   const reconciled = await reconcileDocumentStatuses(
     rows.filter((row) => access.isVisible(row.folderId) && access.levelOf(row.folderId) === 'write'),
-    session.organizationId
+    session.organizationId,
+    'read'
   )
   // Narrowed again after the reconcile, which can turn a row `quarantined`
   // (the verdict travels with the status). A quarantined file is not proposed

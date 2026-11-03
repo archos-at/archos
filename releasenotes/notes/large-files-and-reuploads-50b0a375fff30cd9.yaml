@@ -1,0 +1,13 @@
+---
+features:
+  - >
+    A large file (40 MB or more) is now read with more memory and on its own,
+    so it no longer fails part way while other uploads are read beside it.
+  - >
+    Uploading a new version of a document while the old one is still being
+    read now stops the old reading and reads only the new file. The old one
+    is not shown as failed or as stopped by you.
+fixes:
+  - >
+    A file whose pictures are read while many other files are being read no
+    longer fails for that: its reading waits a minute and carries on.

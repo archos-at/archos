@@ -14,11 +14,11 @@ import json
 from pathlib import Path
 
 import pytest
-from knowledge_layer.llamaindex.adapter import _file_info_from_job
-from knowledge_layer.llamaindex.screening import QUARANTINED_PREFIX
-from knowledge_layer.llamaindex.screening import ScreeningRules
-from knowledge_layer.llamaindex.screening import quarantine_error
-from knowledge_layer.llamaindex.screening import screen_pages
+from knowledge_layer.ingest import QUARANTINED_PREFIX
+from knowledge_layer.ingest import ScreeningRules
+from knowledge_layer.ingest import quarantine_error
+from knowledge_layer.ingest import screen_pages
+from knowledge_layer.ingest.adapter import _file_info_from_job
 
 from agent.knowledge.schema import FileProgress
 from agent.knowledge.schema import FileStatus

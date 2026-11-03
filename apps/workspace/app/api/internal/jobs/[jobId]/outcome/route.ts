@@ -1,7 +1,7 @@
 /**
  * INTERNAL service endpoint — the worker reports how a background run ended.
  *
- * The scheduler fires a definition through `/api/internal/skills/fire`; the run
+ * A definition fires through `fire-task-definition` (`bff/scheduling/`); the run
  * then lives entirely in the Python job store, and until this route existed the
  * BFF never learned that it finished. The worker calls here from its terminal
  * arms (success, failure, interrupted) with the one id it holds — the backend

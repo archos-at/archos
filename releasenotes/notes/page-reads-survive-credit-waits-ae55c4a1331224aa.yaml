@@ -1,0 +1,13 @@
+---
+fixes:
+  - >
+    Drawings, photos and scanned pages are read even when many uploads arrive
+    at once: a page that could not be read at first is tried again a moment
+    later instead of being left out, and a photo no longer fails for that
+    reason. A page that still cannot be read is counted as not fully read.
+improvements:
+  - >
+    Photos and other images are now checked against your office's upload
+    screening by what was read off them, like scanned documents. An image that
+    matches is held for review instead of being added, and its preview appears
+    only once it has passed.

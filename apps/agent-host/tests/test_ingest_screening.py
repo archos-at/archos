@@ -2,7 +2,7 @@
 
 The BFF sends ``screening`` for an organization that configured terms or
 detectors; the job screens the locally extracted text against it before any
-model call (``knowledge_layer.llamaindex.screening``). These pin the crossing:
+model call (``knowledge_layer.ingest.screening``). These pin the crossing:
 the request model's bounds, that ``_job_config`` copies a non-empty policy as
 plain data and drops an empty one, that it survives the durable queue's
 payload, and that the per-file outcome reaches the status response. The job
@@ -20,7 +20,7 @@ from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
 from httpx import AsyncClient
-from knowledge_layer.llamaindex import screening as job_screening
+from knowledge_layer.ingest import screening as job_screening
 from pydantic import ValidationError
 
 from agent.knowledge.base import PreparedIngestJob

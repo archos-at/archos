@@ -348,6 +348,7 @@ describe('buildPageTextStorageKey (ADR-0134)', () => {
     expect(buildPageTextPrefix(key)).toBe('org/org-1/project/proj-1/doc/doc-1/v2/_text/')
     expect(buildPageTextStorageKey(key, 'pages.md')).toBe('org/org-1/project/proj-1/doc/doc-1/v2/_text/pages.md')
     expect(buildPageTextStorageKey(key, 'index.json')).toBe('org/org-1/project/proj-1/doc/doc-1/v2/_text/index.json')
+    expect(buildPageTextStorageKey(key, 'parsed.json')).toBe('org/org-1/project/proj-1/doc/doc-1/v2/_text/parsed.json')
   })
 
   it('mints nothing but the two parts', () => {

@@ -10,7 +10,7 @@ import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-c
  * A `secretKeyRef` to a key the Secret lacks is not a plan error, and Pulumi's
  * await does not catch it: the pod sits in `CreateContainerConfigError`
  * (`couldn't find key … in Secret …`) while the rest of the update goes green.
- * `bff-jobs`, `purger` and `skill-scheduler` waited eight days on a renamed
+ * `bff-jobs`, `purger` and the since-retired `skill-scheduler` waited eight days on a renamed
  * database URL key that way. This builds the whole program and checks
  * each reference of every pod template (Deployment, StatefulSet, DaemonSet, Job,
  * CronJob, Pod, init containers too) against the keys the program puts there.

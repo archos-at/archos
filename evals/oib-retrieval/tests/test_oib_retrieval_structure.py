@@ -2,7 +2,7 @@
 
 Everything here runs without a network, an API key, a PDF or a model download: the
 documents are synthetic page dicts of the exact shape
-``knowledge_layer.llamaindex.adapter._extract_text_from_pdf`` returns, and the dense arm is
+``knowledge_layer.ingest.adapter._extract_text_from_pdf`` returns, and the dense arm is
 the deterministic hashed embedder. The real corpus run and the real model live in
 ``runner.py`` behind an explicit flag, deliberately outside CI.
 """

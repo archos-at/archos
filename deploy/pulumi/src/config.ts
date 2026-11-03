@@ -12,6 +12,8 @@ import { type ImagesConfig, loadImages } from "./config/images";
 import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./config/langfuse";
 import { type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
+import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
+import { refuseInClusterAppArchive } from "./config/barman-backups";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
   type ChromaMigrationConfig,
@@ -26,7 +28,6 @@ import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
 import {
   type BffJobsConfig,
-  type GeocoderConfig,
   type GotenbergConfig,
   type IngestWorkerConfig,
   type KedaConfig,
@@ -42,7 +43,7 @@ import {
   loadAppServices,
 } from "./config/app-services";
 import { type IngressConfig, loadIngress } from "./config/ingress";
-export { GOTENBERG_SLOTS_PER_REPLICA, bffJobsMode, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
+export { GOTENBERG_SLOTS_PER_REPLICA, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
 
 /**
  * Typed configuration for the Grid OIB Kubernetes deployment.
@@ -116,6 +117,9 @@ export interface DeployConfig {
 
   postgres: PostgresConfig;
 
+  /** Hatchet and its own Postgres, `background-work-pg` (ADR-0150, `config/background-work.ts`). */
+  backgroundWork: BackgroundWorkConfig;
+
   dragonfly: DragonflyConfig;
 
   /**
@@ -172,11 +176,12 @@ export interface DeployConfig {
   gotenberg: GotenbergConfig;
 
   /**
-   * The self-hosted address search (ADR-0120, `data/geocoder.ts`): Photon over
-   * the Austrian OSM extract. The frontend gets `GEOCODER_URL` exactly
-   * when this is on; off, the project dialog's address stays a plain text field.
+   * The Photon geocoder behind the project dialog's address search, passed to
+   * the frontend as `GEOCODER_URL` (ADR-0151): komoot's public instance unless a
+   * stack names another. Empty switches address search off, and the dialog's
+   * address stays a plain text field.
    */
-  geocoder: GeocoderConfig;
+  geocoderUrl: string;
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant
@@ -252,8 +257,8 @@ export interface DeployConfig {
   /**
    * What the shared OpenRouter key is asked to carry (ADR-0076, ADR-0081), as
    * the backend image's environment. The four numbers are one budget:
-   * {@link vlmPeakCalls} is held to `vlmFleetConcurrency` where the ingest tier
-   * is sized (`assertVlmPeakFitsCeiling`), and `vlmFleetConcurrency` is held to
+   * the ingest tier's documents and each file's page-read pool are held to
+   * `vlmFleetConcurrency`, which caps the calls (`assertVlmPeakFitsCeiling`), and `vlmFleetConcurrency` is held to
    * both ceilings a vision call passes: the key-wide `limitCeiling` and the
    * vision model's own `modelLimitCeiling` (a call takes a slot in each pool).
    */
@@ -428,6 +433,7 @@ export function loadConfig(): DeployConfig {
   const seaweedfs = loadSeaweedfs(cfg);
 
   const postgres = loadPostgres(cfg);
+  refuseInClusterAppArchive(cfg, postgres.backups, { stack: pulumi.getStack(), seaweedPublicHost: s3Domain });
 
   const dragonflyStores = loadDragonfly(cfg);
 
@@ -495,6 +501,7 @@ export function loadConfig(): DeployConfig {
       langfuseEnabled: langfuse.enabled,
       posthogLogsEnabled: posthog.logsEnabled,
       posthogMetricsEnabled: posthog.metricsEnabled,
+      posthogTracesEnabled: posthog.tracesEnabled,
     },
   );
 
@@ -514,6 +521,8 @@ export function loadConfig(): DeployConfig {
 
     postgres,
 
+    backgroundWork: loadBackgroundWork(cfg),
+
     ...dragonflyStores,
 
     networkPolicies: bool(cfg, "networkPolicies", true),
@@ -527,6 +536,8 @@ export function loadConfig(): DeployConfig {
     },
 
     ...loadWorkers(cfg),
+
+    geocoderUrl: loadGeocoderUrl(cfg),
 
     chromaMigration: loadChromaMigration(cfg),
 
@@ -558,4 +569,16 @@ export function loadConfig(): DeployConfig {
 
     langfuse,
   };
+}
+
+/** komoot's public Photon (ADR-0151): no account, no key, Austria asked for by the adapter's `bbox`. */
+export const PUBLIC_GEOCODER_URL = "https://photon.komoot.io";
+
+/** `geocoderUrl`: an http(s) URL, or empty for no address search. A typo is refused, not served as "off". */
+function loadGeocoderUrl(cfg: pulumi.Config): string {
+  const url = (cfg.get("geocoderUrl") ?? PUBLIC_GEOCODER_URL).trim();
+  if (url !== "" && !/^https?:\/\/[^\s/]+/.test(url)) {
+    throw new Error(`${pulumi.getProject()}:geocoderUrl must be an http(s) URL or empty (got "${url}").`);
+  }
+  return url;
 }

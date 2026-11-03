@@ -26,10 +26,10 @@ skill.
 This doc is the whole subsystem: the backend half (where skills come from, how
 they are selected per run, how the model is told about them) and the BFF half
 (the org toolbox, project jobs, the fire path, the conversation a chat job
-lands in, the scheduler worker and the UI). It replaces
+lands in, the scheduling on Hatchet and the UI). It replaces
 `docs/architecture/workflows.md` — the Workflows feature (ADR-0023) was
-removed, and this is its successor: the `skill-scheduler` container is the
-workflow scheduler, and a job is what a saved research brief used to be. API
+removed, and this is its successor: a job is what a saved research brief used
+to be. API
 surfaces are tabulated in `docs/api/python-endpoints.md` and
 `docs/api/bff-routes.md`.
 
@@ -843,16 +843,6 @@ backend 429 comes back as a `skipped` run rather than an error.
 Internal (shared-token, `internalApiRoute`, unreachable from outside the
 compose network):
 
-- `POST /api/internal/skills/fire` — body `{scheduleId}`; the scheduler's
-  entry point. The path and the field keep their pre-jobs spelling on purpose:
-  the scheduler container and the BFF deploy separately, so renaming the wire
-  contract would fail every scheduled run in the window between the two
-  deploys. `scheduleId` names a `jobs.id`. The route loads the job with no
-  session (platform access, narrowly scoped to that lookup — everything the run
-  then does is one organization's work and runs as that organization),
-  re-checks `enabled` and the org's `skills` gate under flag enforcement
-  (fail-closed, so a revoked flag pauses jobs with visible `skipped` runs),
-  then fires.
 - `GET /api/internal/skills/resolve?organization_id=…&agent=…` — the backend
   resolver's source for org skills. Note the **snake_case** query contract and
   that `agent` is optional but must be non-empty when present.
@@ -1101,96 +1091,88 @@ block on the fire prompt (`previousDecisionsBlock`), so what a person told
 Piloti "no" about reaches the run rather than a log line.
 `GET /api/projects/[id]/tasks` lists a project's tasks, newest first.
 
-## Scheduler worker (`apps/workspace/scheduler/`)
+## Scheduler worker (Hatchet, `apps/workspace/bff/scheduling/`)
 
-Plain-Node worker (purger idiom: CommonJS, `postgres` client, `.spec.mjs`
-tests), compose service `skill-scheduler` (container `grid-skill-scheduler`)
-running `node scheduler/index.js` off the frontend image. It claims and fires
-every due schedule (steps 1–3 below); there is no deployment gate. The BFF's
-fire endpoint (`fireScheduledJob`) checks the organization's `skills` WorkOS
-flag and records a `skipped` run when it is off, the same per-organization
-answer the Automation section reads, so the UI and the worker cannot disagree.
-The container is also the clock of the two sweeps (steps 4 and 5), because runs
-exist without Agent Skills — a chat question escalated to deep research is a
-`task_runs` row with no definition behind it (ADR-0062).
+There is no scheduler container any more (ADR-0150). Firing a definition and
+the maintenance sweeps are Hatchet tasks the `bff-jobs` worker registers
+(`schedulingTasks()`, `bff/scheduling/tasks.ts`), and they call the BFF's
+functions in process instead of POSTing to its internal routes.
 
-Tick (default 30 s), with a reentrancy guard so a slow tick never overlaps the
-next interval:
+**Firing a definition.** The due time stays ours: `bff/jobs/schedule.ts`
+computes the next occurrence in the definition's own time zone and stores it in
+`next_run_at`. Hatchet crons are UTC with no time zone, so a recurring
+definition is not a Hatchet cron, which would drift by an hour at every
+daylight-saving change. Instead:
 
-1. Claim, in one transaction:
-   `SELECT id, schedule_cron, schedule_timezone FROM task_definitions WHERE
-   trigger = 'schedule' AND enabled AND schedule_cron IS NOT NULL AND
-   next_run_at <= now() ORDER BY next_run_at LIMIT $batch FOR UPDATE SKIP
-   LOCKED`, compute each row's next occurrence **strictly in the future**
-   (`cron-parser`, per-row timezone; misfires coalesce — no backfill) and
-   `UPDATE task_definitions SET next_run_at = $next`. Commit.
-   The WHERE clause must keep matching the predicate of the partial index
-   `idx_task_definitions_due` for the due-scan to stay an index scan. A row
-   whose cron is unparseable — impossible in principle, since cron is validated
-   at save time — is disabled with a loud error and skipped, so one bad row can
-   never wedge every subsequent due-scan.
-2. THEN fire each claimed row: `POST
-   {FRONTEND_INTERNAL_URL}/api/internal/skills/fire` with the shared internal
-   token (`x-grid-internal-token`), concurrently (rows cluster on popular slots
-   like daily-at-9, and sequential 30 s-timeout fires would let one slow BFF
-   hop stall the tick). A 200 is not always a fire — the BFF answers
-   `{fired:false, reason}` for disabled or gated rows, and those are logged as
-   skips so operators see them. Fire failures are logged loudly and swallowed;
-   the BFF records run rows, and if the BFF itself was unreachable the
-   occurrence is missed once and the next occurrence heals it (ADR-0023 risks).
-3. Retention: `DELETE FROM task_runs WHERE created_at < now() - interval
-   '$SKILL_RUNS_RETENTION_DAYS days'` (batched by id-subselect so each
-   statement locks a bounded set). The definition survives its pruned runs, so
-   a schedule keeps firing after its oldest attempts age out.
-4. Run reconciler, every tick and whatever the gate says: `POST
-   {FRONTEND_INTERNAL_URL}/api/internal/runs/reconcile`. The BFF does the work
-   (`lib/runs/reconcile.ts`): it claims up to 25 still-`queued`/`running` runs
-   nothing has checked for `RUN_RECONCILE_STALE_MINUTES` (default 10),
-   stamping `reconcile_checked_at` in the same statement (`FOR UPDATE SKIP
-   LOCKED`, migration 0096), asks the job store for each job's real verdict
-   (`GET /v1/internal/jobs/{id}/outcome`, service token), and for a finished job
-   fills an empty run message (`writeRunReport`) and closes the row and settles
-   its block's ledger (`recordRunOutcome` with `onlyIfActive`) — the same
-   functions the worker's own writes reach. A job the
-   store cannot find, or a run that never got a backend job id, is closed as
-   failed once it is older than `RUN_RECONCILE_UNKNOWN_GRACE_MINUTES`
-   (default 120). The same sweep then heals up to 100 CLOSED runs nothing has
-   looked at since they ended (`claimClosedRunsToHeal`, migration 0099): a block
-   still reading „läuft" takes the ending its row records (`settleRunLedger`).
-   The container logs a sweep only when it closed, healed or failed
-   something. See the run section of
-   [`backend-deep-dive.md`](backend-deep-dive.md) and ADR-0062.
-5. Background-work sweep, also every tick and whatever the gate says: `POST
-   {FRONTEND_INTERNAL_URL}/api/internal/maintenance/reconcile-background-work`
-   (ADR-0079). The BFF gives a document that has sat at `processing` for 15
-   minutes with no live `bff_job_queue` job (`lib/documents/stuck-processing.ts`)
-   a new job, or fails it with the reason when its job is dead, and ends a
-   report filing left `queued` whose job is gone (`lib/tasks/filing-sweep.ts`).
-   A row whose job is queued or running is left alone. The container logs a
-   sweep only when it changed or failed something.
+1. Each enabled definition with a `next_run_at` has exactly one Hatchet
+   scheduled run of `fire-task-definition` at that time; its id is
+   `task_definitions.scheduled_run_id` (migration 0192). Creating, editing,
+   pausing, deleting or re-arming a definition replaces or deletes it
+   (`syncScheduledRun`, `bff/scheduling/scheduled-runs.ts`). The input carries
+   `definition_id`, `organization_id` and `due_at`, nothing an office wrote.
+2. When it fires, `fireTaskDefinition` (`bff/scheduling/fire-definition.ts`)
+   first takes the occurrence: in one transaction it locks the row if it is
+   enabled and still due at exactly `due_at`, and moves `next_run_at` on
+   (`nextDue`: a cron's next occurrence strictly after now, a one-shot NULL, an
+   unparseable cron disables the row loudly). A second fire of the same
+   occurrence finds `next_run_at` moved and records nothing, so a fire is
+   idempotent per definition and due time.
+3. It schedules the next run, then calls `fireScheduledJob`, which re-checks
+   the project's status and the organization's `skills` WorkOS flag and records
+   a `skipped` run when either says no, so the UI and the fire cannot disagree.
+   Taking the occurrence before the work is what makes a run at-most-once: a
+   crash in between misses one occurrence rather than spending somebody's
+   budget twice. The task has no retries for the same reason.
 
-**What the worker logs at ERROR.** ERROR is what err2issue files as a GitHub
-issue (ADR-0031), so a failure that heals itself on the next tick is a WARN.
-A claim or prune the database refuses because it is unreachable
-(`workers/database-unavailable.js`, the code set the BFF uses too), and a
-reconcile POST that fails in transport or gets a 404, 502, 503 or 504 (an old
-frontend pod mid-rollout, the BFF answering a database outage), each log a
-WARN per tick. When the same failure has lasted about five minutes (10 ticks
-at the 30 s default, `escalationTicks` in `workers/failure-streak.js`) it logs
-one fixed ERROR line, `… still failing after 10 consecutive ticks: <kind>`,
-and the first good tick after it logs `… recovered after <n> failed ticks`.
-No line carries an HTML body: a Next.js error page holds per-build asset
-hashes, which gave every deploy a new issue fingerprint (#785, #793). A failed
-fire (step 2), a 401 or 500 from the reconcile POST, and any claim error that
-is not an outage stay ERROR at once: a missed fire is not brought back by a
-later tick.
+`fire-task-definition` is fair across offices: concurrency `GROUP_ROUND_ROBIN`
+on `input.organization_id`, at most 5 at once per organization.
 
-Claiming advances the job **before** firing, which is what makes a run
-at-most-once per occurrence across replicas and crashes.
+**Missed fires and repair.** Misfires coalesce as before: the next due time is
+computed from now, so a definition that was due during an outage fires once and
+jumps to its next future slot, never backfilling. The `schedule-repair` sweep
+(every 5 min, up to 500 definitions a run) gives every enabled definition more
+than 3 minutes past its `next_run_at` a scheduled run due now, and every enabled
+definition with no `scheduled_run_id` its run at `next_run_at`, however far
+ahead (`repairSchedules`). That heals a Hatchet call that failed when the
+definition was saved and a fire that timed out in Hatchet's queue while no
+worker was up, and it gives the definitions that existed before the cutover
+(migration 0192 has no backfill) their runs in the first repair or two, so they
+fire on time rather than a repair late. The scan matches the partial index
+`idx_task_definitions_due`.
 
-The container, its compose service (`skill-scheduler`) and its environment
-variables keep their skill-era names. They were never product surface, and
-renaming them is a deployment change with no user-visible gain.
+**The sweeps.** Each is a Hatchet cron task (UTC, minute granularity) with a
+constant concurrency key, `maxRuns: 1` and `CANCEL_NEWEST`, so a run that comes
+due while the previous one is still going is dropped and two never overlap. A
+failure throws and is recorded on the Hatchet run with its error; the next cron
+run tries again (the daily ones also retry a few times with backoff).
+
+| Task | Cron (UTC) | What it calls |
+|---|---|---|
+| `runs-reconcile` | every minute | `reconcileStaleRuns` (`lib/runs/reconcile.ts`): closes the runs whose ending never reached the BFF, and settles the block of a closed run that still reads „läuft" |
+| `reconcile-background-work` | every minute | `recoverStuckProcessing`, `recoverStuckFilings`, `sweepStaleMailImports`, `reconcileStalePending` (ADR-0079) |
+| `upload-sweep` | every minute | `sweepUploadBatches` (ADR-0086). The route `/api/internal/upload-batches/sweep` stays for the operator's `?windowDays=` catch-up |
+| `folder-placement-sweep` | every minute | `sweepCollectionPlacement` (ADR-0087) |
+| `conversation-trace-erasure` | every minute | deletes the Langfuse traces of chats the BFF erased in the delete request |
+| `schedule-repair` | `*/5 * * * *` | see above |
+| `task-runs-prune` | hourly | deletes `task_runs` older than `SKILL_RUNS_RETENTION_DAYS` |
+| `usage-export` | `*/10 * * * *` | `exportUsageToPosthog`, again at once while it is behind on history |
+| `trace-retention` | daily 02:17 | deletes Langfuse traces older than `TRACE_RETENTION_DAYS` (ADR-0044) |
+| `download-log-retention` | daily 02:37 | purges the download log past its retention (migration 0114) |
+| `frist-reminder` | `45 * * * *` | `enqueueDueReminders`, only on the run that is 06:45 in Vienna |
+
+The sweeps that ticked every 30 s now run every minute: Hatchet crons have no
+seconds. The cross-tenant SQL of the prune, the trace erasure and the download
+log lives in `workers/maintenance-sql.js`.
+
+**The Frist reminder and daylight saving.** 06:45 in Vienna is 05:45 UTC in
+winter and 04:45 UTC in summer, so no UTC cron stays on it. The task runs at
+minute 45 of every hour and `isFristReminderHour` (`bff/scheduling/office-clock.ts`)
+lets through only the run whose hour in Vienna is 6. Vienna's offset is a whole
+hour, so exactly one run a day passes, on the days the clocks change too (they
+change at 02:00 and 03:00). A repeat the same day, such as a retry, queues
+nothing new, because each organization's job id is the organization and the
+office's day. A day whose 06:45 run never ran (the engine down across it) is
+not caught up later: the next morning's reminder includes the overdue marks.
 
 ## Cron semantics
 
@@ -1208,14 +1190,12 @@ renaming them is a deployment change with no user-visible gain.
 |---|---|---|---|
 | `RUN_RECONCILE_STALE_MINUTES` | frontend | `10` | A still-active run is asked about once nothing has checked it for this long |
 | `RUN_RECONCILE_UNKNOWN_GRACE_MINUTES` | frontend | `120` | A run whose job cannot be found is closed as failed once this old |
-| `SKILL_SCHEDULER_POLL_MS` | skill-scheduler | `30000` | Tick interval |
-| `SKILL_SCHEDULER_BATCH` | skill-scheduler | `20` | Max claims per tick |
 | `SKILL_MIN_INTERVAL_MINUTES` | frontend | `15` | Minimum cron cadence accepted at save time |
-| `SKILL_RUNS_RETENTION_DAYS` | skill-scheduler | `90` | Run-history retention |
+| `SKILL_RUNS_RETENTION_DAYS` | bff-jobs | `90` | Run-history retention (`task-runs-prune`) |
 | `SKILLS_CACHE_TTL_SECONDS` | aiq-agent | `60` | Backend org-skill resolution cache TTL (ADR-0020) |
 
-(Existing: `APP_DATABASE_URL`, `FRONTEND_INTERNAL_URL`,
-`INTERNAL_API_TOKEN`, `BACKEND_URL` are reused, not new.)
+(Existing: `APP_DATABASE_URL`, `INTERNAL_API_TOKEN`, `BACKEND_URL` and the
+Hatchet connection, `HATCHET_CLIENT_*`, are reused, not new.)
 
 The workflow-era names (`WORKFLOWS_ENABLED`,
 `GRID_WORKFLOW_SCHEDULER_POLL_MS`, `GRID_WORKFLOW_SCHEDULER_BATCH`,
@@ -1348,8 +1328,15 @@ history surfaces, and the run-history link and job-glyph rendering that
 - The feature-gate spec (`isSkillsEnabled` / `requireSkillsEnabled`, including
   the dark-launch property) covers both surfaces: jobs ride the same `skills`
   flag.
-- Scheduler: `.spec.mjs` unit tests for next-occurrence computation, misfire
-  coalescing, claim/advance SQL (mocked sql), and the start gate.
+- Scheduling (`bff/scheduling/`): `next-due.spec.ts` (the next run after a
+  fire, misfire coalescing) and `office-clock.spec.ts` (the 06:45 Vienna gate
+  across daylight saving) as plain logic; `tasks.spec.ts`, the one wiring spec
+  with a fake client; `repository.integration.spec.ts` (an occurrence is taken
+  once, however many fires race, under `task db:test:rls`); and
+  `orchestrator.integration.spec.ts` against a real engine (a scheduled fire that
+  re-arms, replace and delete on a definition change, a sweep that does not
+  overlap itself), run when `HATCHET_CLIENT_TOKEN` and `HATCHET_CLIENT_HOST_PORT`
+  are set.
 - Backend pytest: `test_skill_submit.py` (token guard 403/503 dev-default,
   payload validation including the `output`/`execution` window, admission-error
   mapping, `submit_agent_job` call shape, external allowlist non-exposure),
