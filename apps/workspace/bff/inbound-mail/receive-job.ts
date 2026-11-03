@@ -21,7 +21,8 @@
  *     anything else: a mail is never `waiting` unscanned (CHECK).
  *  3. Drop auto-replies, delivery reports and loops, erasing the raw message by
  *     its key (a legal hold defers that). List and bulk mail is kept, marked
- *     `automatic`.
+ *     `automatic`. A forward records its original's author (`./receive-original`);
+ *     a second forward of an original the project holds is dropped the same way.
  *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a
  *     transient verdict retries.
  *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
@@ -86,6 +87,7 @@ import {
 import { scanForStorage } from './malware-scan'
 import { rawHeaderFields, readMime, type MailAttachment, type MailHeaders, type NotStagedPart } from './mime'
 import { MailReadRefusedError, readMail, redactRead, unreadableRead, type MailRead } from './read-client'
+import { recordOriginal } from './receive-original'
 import {
   dropMail,
   findAddressToken,
@@ -133,6 +135,8 @@ export async function runInboundMailReceive(
 
   const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
   if (automatic.outcome === 'drop') return drop(mail, automatic.reason, attempt)
+  // A forward: who wrote the original, and a second forward of one the project holds is dropped (`./receive-original`).
+  if ((await recordOriginal(mail, raw, domain)) === 'duplicate') return drop(mail, 'duplicate_original', attempt)
 
   let held: boolean
   try {

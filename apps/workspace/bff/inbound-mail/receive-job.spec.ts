@@ -126,6 +126,7 @@ vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.
 vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true), announceHeld: vi.fn(async () => true) }))
 // Whether the From's member may write in the project (the sender rule): no, unless a test says so.
 vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermission: vi.fn(async () => false) }))
+vi.mock('./receive-original', () => ({ recordOriginal: vi.fn(async () => 'none') }))
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
@@ -154,6 +155,7 @@ import {
 import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { announceHeld, announceWaiting } from './announce'
 import { readMail, type MailRead } from './read-client'
+import { recordOriginal } from './receive-original'
 import { inboundMailJobId, runInboundMailReceive } from './receive-job'
 
 const ORG = 'org_01RECEIVEJOB'
@@ -244,6 +246,12 @@ function receivedRow(overrides: Partial<InboundMailRow> = {}): InboundMailRow {
     ignored: {},
     erasureDeferredAt: null,
     originalMovePendingAt: null,
+    originalAuthorAddress: null,
+    originalAuthorName: null,
+    originalSentAt: null,
+    originalSubject: null,
+    originalMessageId: null,
+    originalSource: null,
     createdAt: RECEIVED,
     updatedAt: RECEIVED,
     ...overrides,
@@ -449,6 +457,18 @@ describe('automatic mail', () => {
     expect(state.erased).toEqual([RAW_KEY])
     expect(announceWaiting).not.toHaveBeenCalled()
     expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'auto_reply' } }))
+  })
+
+  it('drops a second forward of an original the project holds, silently, like a redelivery', async () => {
+    vi.mocked(recordOriginal).mockResolvedValueOnce('duplicate')
+    receive(message(BODY, { Subject: 'WG: Bescheid' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', droppedReason: 'duplicate_original', rawStorageKey: null })
+    expect(state.erased).toEqual([RAW_KEY])
+    expect(announceWaiting).not.toHaveBeenCalled()
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'duplicate_original' } }))
   })
 
   it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {

@@ -321,6 +321,38 @@ describe('headings by source and trust', () => {
   })
 })
 
+describe('a forwarded message (migration 0195)', () => {
+  // A colleague of the office forwards the Behörde's letter of six weeks earlier.
+  const FORWARD = entry({
+    id: '00000000-0000-4000-8000-000000000195',
+    sentAt: at('2026-10-14T07:12:00Z'),
+    author: { name: 'Mag. Anna Huber', address: 'huber@ma37.wien.gv.at', sentAt: at('2026-09-01T08:00:00Z') },
+  })
+
+  it('heads the section by its author, at the time they wrote it, their domain unconfirmed', () => {
+    expect(FORWARD.heading).toBe('01.09.2026 10:00 · Mag. Anna Huber (ma37.wien.gv.at, Domain nicht bestätigt)')
+  })
+
+  it('names the forwarder under the heading, by the rule of a sender', () => {
+    const section = sectionsOf(render([FORWARD]).markdown).get(`## ${FORWARD.heading}`)
+    expect(section).toContain('- **Weitergeleitet von:** DI Eva Berger (berger-architektur.at), 14.10.2026 09:12')
+  })
+
+  it('never lets the forwarder’s signature confirm the author (RT-S2)', () => {
+    const signed = entry({ ...FORWARD, heading: undefined, signerDomain: 'ma37.wien.gv.at' })
+    expect(signed.heading).toContain('(ma37.wien.gv.at, Domain nicht bestätigt)')
+  })
+
+  it('takes the forward’s time for an author who gave none', () => {
+    const undated = entry({ ...FORWARD, heading: undefined, author: { ...FORWARD.author!, sentAt: null } })
+    expect(undated.heading).toBe('14.10.2026 09:12 · Mag. Anna Huber (ma37.wien.gv.at, Domain nicht bestätigt)')
+  })
+
+  it('renders a message that is no forward exactly as before', () => {
+    expect(entry({ ...FORWARD, heading: undefined, author: null }).heading).toBe('14.10.2026 09:12 · DI Eva Berger (berger-architektur.at)')
+  })
+})
+
 describe('the date clamp in a section', () => {
   it('places a future-dated mail at its receipt and says so', () => {
     const future = entry({ id: 'f', sentAt: at('2027-03-01T00:00:00Z'), receivedAt: at('2026-10-16T10:00:00Z') })

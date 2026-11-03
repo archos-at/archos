@@ -53,14 +53,19 @@ export type InboundMailCapNotice = (typeof INBOUND_MAIL_CAP_NOTICES)[number]
  * - `received`: staged whole, the receive job has not read it yet.
  * - `waiting`: a person's turn (only after the whole message was scanned).
  * - `settled`: no part waits or is being filed; the row is scrubbed to ids.
- * - `dropped`: an auto-reply, a delivery report or a loop; counted, never shown.
+ * - `dropped`: an auto-reply, a delivery report, a loop, or a second forward of
+ *   an original the project already holds; counted, never shown.
  */
 export const INBOUND_MAIL_STATUSES = ['receiving', 'received', 'waiting', 'settled', 'dropped'] as const
 export type InboundMailStatus = (typeof INBOUND_MAIL_STATUSES)[number]
 
-/** Why a mail was accepted and then dropped unseen (`./automatic-mail`, `dropped_reason`). */
-export const DROPPED_REASONS = ['auto_reply', 'delivery_report', 'self_loop'] as const
+/** Why a mail was accepted and then dropped unseen (`./automatic-mail`, `./receive-original`, `dropped_reason`). */
+export const DROPPED_REASONS = ['auto_reply', 'delivery_report', 'self_loop', 'duplicate_original'] as const
 export type DroppedReason = (typeof DROPPED_REASONS)[number]
+
+/** Where a forward's original was read (migration 0195): an attached message, or the header block of an inline forward. */
+export const ORIGINAL_MESSAGE_SOURCES = ['attachment', 'inline'] as const
+export type OriginalMessageSource = (typeof ORIGINAL_MESSAGE_SOURCES)[number]
 
 /**
  * A sender's trust (DECISION D4): an aligned DKIM pass or not, a directory

@@ -73,6 +73,17 @@ const MIN_FOLD_CHARS = 20
 /** What a folded quote may hold besides the entries it reproduces: the quote header a client writes per message. */
 const FOLD_RESIDUE_PER_ENTRY = 200
 
+/**
+ * Who wrote a forwarded message, as the forward said (migration 0195): the
+ * heading names them, and the sender becomes the line „Weitergeleitet von“.
+ */
+export interface MailThreadAuthor {
+  name: string | null
+  address: string | null
+  /** When they wrote it; null when the forward gave no date, and the heading takes the forward's. */
+  sentAt: Date | null
+}
+
 /** What the renderer reads of a heading's sender. Every field is fixed when the entry is inserted. */
 export interface MailThreadHeadingFields {
   source: MailThreadEntrySource
@@ -83,6 +94,8 @@ export interface MailThreadHeadingFields {
   senderDomain: string | null
   signerDomain: string | null
   senderTrust: SenderTrust
+  /** The original's author when the message was forwarded to the project. */
+  author?: MailThreadAuthor | null
 }
 
 /** One `mail_thread_entries` row, its JSON columns parsed through the wire schemas. */
@@ -155,12 +168,31 @@ export function mailThreadEntryHeading(
  * `… ({from domain}, Domain nicht bestätigt)` for an unverified one and
  * `… ({from domain}, aus dem Outlook-Archiv)` for an archive entry (D11).
  * The time is the clamped send time, in Vienna.
+ *
+ * A forwarded message is headed by its author, at the time they wrote it
+ * (never after it arrived), and their domain is never confirmed: the
+ * forwarder's signature covers the forward, not what it quotes (RT-S2). The
+ * forwarder is named in the line under it ({@link forwardedByLine}).
  */
 export function entryHeadingBase(fields: MailThreadHeadingFields, locale: Locale): string {
   const copy = MAIL_THREAD_RENDER_COPY[locale]
   const at = clampSentAt(fields.sentAt, fields.receivedAt).sentAt
+  const author = fields.author
+  if (author && (author.name || author.address)) {
+    const written = author.sentAt && author.sentAt <= fields.receivedAt ? author.sentAt : at
+    const domain = cleanDomain(author.address ? author.address.slice(author.address.lastIndexOf('@') + 1) : null)
+    const authority = [domain, copy.unverifiedDomain].filter(Boolean).join(', ')
+    return `${copy.dateTime(written)} · ${displayName(author.name, author.address, copy)} (${authority})`
+  }
   const who = displayName(fields.senderName, fields.senderAddress, copy)
   return `${copy.dateTime(at)} · ${who} (${headingAuthority(fields, copy)})`
+}
+
+/** `{name} ({authority}), {date time}`: who forwarded an authored message, by the rule of a sender's heading. */
+function forwardedByLine(entry: MailThreadHeadingFields, copy: MailThreadRenderCopy): string {
+  const who = displayName(entry.senderName, entry.senderAddress, copy)
+  const at = clampSentAt(entry.sentAt, entry.receivedAt).sentAt
+  return `${who} (${headingAuthority(entry, copy)}), ${copy.dateTime(at)}`
 }
 
 function headingAuthority(fields: MailThreadHeadingFields, copy: MailThreadRenderCopy): string {
@@ -266,7 +298,7 @@ function section(
   return parts.join('\n\n')
 }
 
-/** The bulleted lines under a heading: what it answers, who it went to, invitations, attachments. */
+/** The bulleted lines under a heading: who forwarded it, what it answers, who it went to, invitations, attachments. */
 function factLines(
   entry: MailThreadRenderEntry,
   answered: MailThreadRenderEntry | undefined,
@@ -274,6 +306,7 @@ function factLines(
 ): string[] {
   const lines: string[] = []
   const fact = (label: string, value: string) => lines.push(`- **${escapeInline(label)}:** ${escapeInline(value)}`)
+  if (entry.author && (entry.author.name || entry.author.address)) fact(copy.forwardedBy, forwardedByLine(entry, copy))
   if (answered) fact(copy.replyTo, oneLine(answered.heading))
   for (const role of ['to', 'cc'] as const) {
     const names = entry.participants.filter((p) => p.role === role).map((p) => recipient(p, copy))

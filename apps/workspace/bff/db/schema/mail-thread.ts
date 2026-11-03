@@ -154,6 +154,16 @@ export const mailThreadEntries = pgTable(
     signerDomain: text('signer_domain'),
     senderTrust: text('sender_trust').$type<SenderTrust>().notNull(),
     authenticationResults: text('authentication_results'),
+    /**
+     * Who wrote a forwarded message (its original's From and Date), as the
+     * forward said; the `sender*` columns stay the forwarder's. Attribution,
+     * never verified (migration 0195).
+     */
+    authorAddress: text('author_address'),
+    authorName: text('author_name'),
+    authorSentAt: timestamp('author_sent_at', { withTimezone: true }),
+    /** The original's Message-ID: a later forward of it is a duplicate. */
+    authorMessageId: text('author_message_id'),
     participants: jsonb('participants').$type<MailThreadParticipant[]>().notNull().default([]),
     ownText: text('own_text').notNull().default(''),
     /** Set when the person chose „Unkenntlich ablegen“ (D13); NULL is unmasked. */
@@ -189,6 +199,9 @@ export const mailThreadEntries = pgTable(
     messageIdIdx: index('mail_thread_entries_message_id_idx')
       .on(table.projectId, table.messageId)
       .where(sql`${table.messageId} IS NOT NULL`),
+    authorMessageIdIdx: index('mail_thread_entries_author_message_id_idx')
+      .on(table.projectId, table.authorMessageId)
+      .where(sql`${table.authorMessageId} IS NOT NULL`),
     threadSentIdx: index('mail_thread_entries_thread_sent_idx').on(table.threadId, table.sentAt),
     inboundMailIdx: index('mail_thread_entries_inbound_mail_idx')
       .on(table.inboundMailId)

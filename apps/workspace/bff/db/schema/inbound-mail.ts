@@ -34,6 +34,7 @@ import type {
   InboundSenderTrust,
   MailParticipant,
   MalwareScanStatus,
+  OriginalMessageSource,
   PartRiskFlag,
   SenderFlag,
   SenderReason,
@@ -164,6 +165,18 @@ export const inboundMails = pgTable(
     ignored: jsonb('ignored').$type<InboundMailIgnoredCounts>().notNull().default({}),
     erasureDeferredAt: timestamp('erasure_deferred_at', { withTimezone: true }),
     originalMovePendingAt: timestamp('original_move_pending_at', { withTimezone: true }),
+    /**
+     * The original message a forward carried (`lib/inbound-mail/original-message.ts`,
+     * migration 0195): who wrote it, when, about what. Attribution, never
+     * verified; the author and subject are cleared when the mail ends (trigger).
+     */
+    originalAuthorAddress: text('original_author_address'),
+    originalAuthorName: text('original_author_name'),
+    originalSentAt: timestamp('original_sent_at', { withTimezone: true }),
+    originalSubject: text('original_subject'),
+    /** An attached original's Message-ID: unique per project among open mails. */
+    originalMessageId: text('original_message_id'),
+    originalSource: text('original_source').$type<OriginalMessageSource>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -193,6 +206,9 @@ export const inboundMails = pgTable(
     messageIdIdx: index('inbound_mails_message_id_idx')
       .on(table.projectId, table.messageId)
       .where(sql`${table.messageId} IS NOT NULL`),
+    openOriginal: uniqueIndex('uniq_inbound_mails_open_original')
+      .on(table.organizationId, table.projectId, table.originalMessageId)
+      .where(sql`${table.originalMessageId} IS NOT NULL AND ${table.status} IN ('received', 'waiting')`),
     erasureDeferredIdx: index('inbound_mails_erasure_deferred_idx')
       .on(table.erasureDeferredAt)
       .where(sql`${table.erasureDeferredAt} IS NOT NULL`),

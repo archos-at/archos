@@ -3178,3 +3178,93 @@ check_in sender_0194 "SELECT count(*) FROM pg_proc WHERE proname = 'inbound_mail
 apply_in sender_0194 0194_sender_class.sql
 check_in sender_0194 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%' OR conname LIKE 'mail_thread_entries%'" "$AFTER_0194" "0194 applies again after its down"
 echo "==> 0194 sender rule and its down migration verified"
+# Migration 0195: who wrote a forwarded mail, beside who forwarded it, and two
+# forwards of one original are one mail (ADR-0137, amendment of 2026-11-03).
+#
+# On a database of its own, migrated through 0195, with two organizations: the
+# original's CHECKs, the unique refusal of a second OPEN forward of the same
+# original in one project (and none across projects or organizations, nor
+# against a settled or dropped one), the scrub trigger and the CHECK behind it,
+# the entry's author columns, the runtime role under the deploy's role names,
+# and the down: refused while a mail was dropped as a duplicate, clean after.
+# ---------------------------------------------------------------------------
+echo "==> verifying the 0195 original author and its down migration on original_0195"
+migrate_until original_0195 0195_original_author
+U195="user_01J0MA1LUSERA00000000000A1"
+sql_in original_0195 <<SQL
+INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES
+  ('a0000000-0000-4000-8000-000000000195', 'org_0195_a', 'Forward A', '$U195', 'proj_0195_a'),
+  ('a1000000-0000-4000-8000-000000000195', 'org_0195_a', 'Forward A2', '$U195', 'proj_0195_a2'),
+  ('b0000000-0000-4000-8000-000000000195', 'org_0195_b', 'Forward B', '$U195', 'proj_0195_b');
+INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES
+  ('aa000000-0000-4000-8000-000000000195', 'org_0195_a', 'a0000000-0000-4000-8000-000000000195', 'aaaaaaaaaaab', '', '$U195'),
+  ('ab000000-0000-4000-8000-000000000195', 'org_0195_a', 'a1000000-0000-4000-8000-000000000195', 'aaaaaaaaaaac', '', '$U195'),
+  ('ac000000-0000-4000-8000-000000000195', 'org_0195_b', 'b0000000-0000-4000-8000-000000000195', 'bbbbbbbbbbbc', '', '$U195');
+INSERT INTO mail_threads (id, organization_id, project_id, document_id, base_subject, participant_domains, locale, created_by) VALUES
+  ('ea000000-0000-4000-8000-000000000195', 'org_0195_a', 'a0000000-0000-4000-8000-000000000195', NULL, 'Bescheid', '{}', 'de', '$U195');
+SQL
+# A waiting mail of project A, with the original's columns as the receive job writes them.
+M195="INSERT INTO inbound_mails (organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket, raw_scan_status, raw_scanned_at, expires_at, original_author_address, original_author_name, original_sent_at, original_subject, original_message_id, original_source, sender_address, sender_trust, sender_reason)"
+A195="'org_0195_a', 'a0000000-0000-4000-8000-000000000195', 'aa000000-0000-4000-8000-000000000195'"
+sql_in original_0195 <<<"$M195 VALUES ($A195, 'waiting', repeat('1', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', 'Mag. Huber', now() - interval '40 days', 'Bescheid', 'orig-1@ma37.wien.gv.at', 'attachment', 'x@fwd.at', 'external_unverified', 'dkim_none');"
+check_in original_0195 "SELECT original_author_name || ',' || original_source FROM inbound_mails WHERE original_message_id = 'orig-1@ma37.wien.gv.at'" "Mag. Huber,attachment" "0195: a held mail records its original's author"
+refused_in original_0195 "$M195 VALUES ($A195, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'x@y.at', NULL, NULL, NULL, NULL, 'quoted', 'x@fwd.at', 'external_unverified', 'dkim_none')" "inbound_mails_original_source_known" "an unknown original source"
+refused_in original_0195 "$M195 VALUES ($A195, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'x@y.at', NULL, NULL, NULL, NULL, NULL, 'x@fwd.at', 'external_unverified', 'dkim_none')" "inbound_mails_original_with_source" "an original that says not where it was read"
+refused_in original_0195 "$M195 VALUES ($A195, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'x@y.at', NULL, NULL, NULL, 'made-up@y.at', 'inline', 'x@fwd.at', 'external_unverified', 'dkim_none')" "inbound_mails_original_message_id_attached" "a Message-ID on an inline block, which has none"
+refused_in original_0195 "$M195 VALUES ($A195, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now() + interval '1 day', repeat('x', 321), NULL, NULL, NULL, NULL, 'inline', 'x@fwd.at', 'external_unverified', 'dkim_none')" "inbound_mails_original_lengths" "an author address past 320 characters"
+# Two forwards of one original into one project are one mail ...
+refused_in original_0195 "$M195 VALUES ($A195, 'waiting', repeat('2', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', 'Huber', NULL, NULL, 'orig-1@ma37.wien.gv.at', 'attachment', 'x@fwd.at', 'external_unverified', 'dkim_none')" "uniq_inbound_mails_open_original" "a second open forward of the same original"
+# ... but not across projects, nor across organizations.
+sql_in original_0195 <<<"$M195 VALUES ('org_0195_a', 'a1000000-0000-4000-8000-000000000195', 'ab000000-0000-4000-8000-000000000195', 'waiting', repeat('3', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', NULL, NULL, NULL, 'orig-1@ma37.wien.gv.at', 'attachment', 'x@fwd.at', 'external_unverified', 'dkim_none');"
+sql_in original_0195 <<<"$M195 VALUES ('org_0195_b', 'b0000000-0000-4000-8000-000000000195', 'ac000000-0000-4000-8000-000000000195', 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', NULL, NULL, NULL, 'orig-1@ma37.wien.gv.at', 'attachment', 'x@fwd.at', 'external_unverified', 'dkim_none');"
+check_in original_0195 "SELECT count(*) FROM inbound_mails WHERE original_message_id = 'orig-1@ma37.wien.gv.at'" "3" "0195: one original in three projects of two organizations is three mails"
+# Inline forwards carry no Message-ID and are never refused as duplicates.
+sql_in original_0195 <<<"$M195 VALUES ($A195, 'waiting', repeat('5', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', 'Huber', NULL, 'Bescheid', NULL, 'inline', 'x@fwd.at', 'external_unverified', 'dkim_none');"
+sql_in original_0195 <<<"$M195 VALUES ($A195, 'waiting', repeat('6', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', 'Huber', NULL, 'Bescheid', NULL, 'inline', 'x@fwd.at', 'external_unverified', 'dkim_none');"
+# The duplicate is dropped; ending a mail clears the author and subject (trigger), and keeps the id and date.
+sql_in original_0195 <<<"UPDATE inbound_mails SET status = 'dropped', dropped_reason = 'duplicate_original', envelope_from = NULL, sender_address = NULL WHERE delivery_key = repeat('6', 64);"
+check_in original_0195 "SELECT coalesce(original_author_address, '-') || ',' || coalesce(original_author_name, '-') || ',' || coalesce(original_subject, '-') || ',' || original_source FROM inbound_mails WHERE delivery_key = repeat('6', 64)" "-,-,-,inline" "0195: a dropped mail keeps no author or subject"
+sql_in original_0195 <<<"UPDATE inbound_mails SET status = 'settled', settled_at = now(), sender_address = NULL WHERE delivery_key = repeat('1', 64);"
+check_in original_0195 "SELECT coalesce(original_author_name, '-') || ',' || original_message_id || ',' || (original_sent_at IS NOT NULL)::text FROM inbound_mails WHERE delivery_key = repeat('1', 64)" "-,orig-1@ma37.wien.gv.at,true" "0195: a settled mail keeps the original's id and date, not its author"
+# A settled first mail (dismissed or expired) blocks no later forward.
+sql_in original_0195 <<<"$M195 VALUES ($A195, 'waiting', repeat('7', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', 'Huber', NULL, NULL, 'orig-1@ma37.wien.gv.at', 'attachment', 'x@fwd.at', 'external_unverified', 'dkim_none');"
+check_in original_0195 "SELECT count(*) FROM inbound_mails WHERE project_id = 'a0000000-0000-4000-8000-000000000195' AND original_message_id = 'orig-1@ma37.wien.gv.at'" "2" "0195: a forward after the first settled is a mail again"
+# The CHECK behind the trigger: no path that bypasses it keeps an ended mail's author.
+sql_in original_0195 <<<"ALTER TABLE inbound_mails DISABLE TRIGGER inbound_mails_scrub_original;"
+refused_in original_0195 "UPDATE inbound_mails SET status = 'dropped', dropped_reason = 'duplicate_original', envelope_from = NULL, sender_address = NULL WHERE delivery_key = repeat('5', 64)" "inbound_mails_original_scrubbed" "an ended mail that keeps its original's author"
+sql_in original_0195 <<<"ALTER TABLE inbound_mails ENABLE TRIGGER inbound_mails_scrub_original;"
+refused_in original_0195 "UPDATE inbound_mails SET status = 'dropped', dropped_reason = 'duplicate', sender_address = NULL WHERE delivery_key = repeat('5', 64)" "inbound_mails_dropped_reason_known" "an unknown drop reason"
+# The entry: an inbound entry names its author; an archive entry has none.
+E195="INSERT INTO mail_thread_entries (organization_id, project_id, thread_id, source, inbound_mail_id, mail_import_id, sent_at, received_at, heading, sender_trust, filed_by, filed_via, author_address, author_name, author_sent_at, author_message_id) VALUES ('org_0195_a', 'a0000000-0000-4000-8000-000000000195', 'ea000000-0000-4000-8000-000000000195'"
+sql_in original_0195 <<<"$E195, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'member_verified', '$U195', 'app', 'huber@ma37.wien.gv.at', 'Mag. Huber', now() - interval '40 days', 'orig-1@ma37.wien.gv.at');"
+refused_in original_0195 "$E195, 'archive', NULL, gen_random_uuid(), now(), now(), 'h2', 'not_checked', '$U195', 'archive_import', 'a@b.at', NULL, NULL, NULL)" "mail_thread_entries_author_named" "an archive entry with an author"
+refused_in original_0195 "$E195, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h3', 'member_verified', '$U195', 'app', NULL, NULL, now(), 'orig-2@y.at')" "mail_thread_entries_author_named" "an author id with nobody named"
+refused_in original_0195 "$E195, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h4', 'member_verified', '$U195', 'app', NULL, repeat('n', 301), NULL, NULL)" "mail_thread_entries_author_lengths" "an author name past 300 characters"
+# The runtime role, under the deploy's names: its organization's rows, and the same refusal.
+rename_rls_roles
+RW195=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d original_0195 -qtA \
+  -c "SET grid.organization_id = 'org_0195_b'" \
+  -c "SELECT coalesce(string_agg(DISTINCT organization_id, ','), '') FROM inbound_mails WHERE original_message_id IS NOT NULL" 2>&1)
+if [ "$RW195" != "org_0195_b" ]; then
+  echo "MIGRATION ASSERTION FAILED on original_0195: the runtime role in org_0195_b saw originals of '$RW195'" >&2
+  exit 1
+fi
+RWDUP195=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d original_0195 -qtA -v ON_ERROR_STOP=1 \
+  -c "SET grid.organization_id = 'org_0195_b'" \
+  -c "$M195 VALUES ('org_0195_b', 'b0000000-0000-4000-8000-000000000195', 'ac000000-0000-4000-8000-000000000195', 'waiting', repeat('8', 64), 1, 'b', 'clean', now(), now() + interval '1 day', 'huber@ma37.wien.gv.at', NULL, NULL, NULL, 'orig-1@ma37.wien.gv.at', 'attachment', 'x@fwd.at', 'external_unverified', 'dkim_none')" 2>&1 || true)
+if ! grep -q "uniq_inbound_mails_open_original" <<<"$RWDUP195"; then
+  echo "MIGRATION ASSERTION FAILED on original_0195: the runtime role wrote a second open forward of one original ($RWDUP195)" >&2
+  exit 1
+fi
+restore_rls_role_names
+# Down: refused while a mail was dropped as a duplicate; clean once none was; 0195 applies again.
+apply_in original_0195 0195_original_author.sql
+check_in original_0195 "SELECT count(*) FROM inbound_mails WHERE original_source IS NOT NULL" "6" "0195 re-applied keeps every original"
+refused_in original_0195 "$(cat migrations/0195_original_author.down.sql)" "reverse 0195 refused" "the down while a mail was dropped as duplicate_original"
+sql_in original_0195 <<<"DELETE FROM inbound_mails WHERE dropped_reason = 'duplicate_original';"
+apply_in original_0195 0195_original_author.down.sql
+check_in original_0195 "SELECT count(*) FROM information_schema.columns WHERE (table_name = 'inbound_mails' AND column_name LIKE 'original\_%' AND column_name <> 'original_move_pending_at') OR (table_name = 'mail_thread_entries' AND column_name LIKE 'author\_%')" "0" "0195 down drops the original's and the author's columns"
+check_in original_0195 "SELECT count(*) FROM pg_proc WHERE proname = 'inbound_mails_scrub_original'" "0" "0195 down drops the scrub function"
+apply_in original_0195 0195_original_author.sql
+check_in original_0195 "SELECT count(*) FROM pg_indexes WHERE indexname IN ('uniq_inbound_mails_open_original', 'mail_thread_entries_author_message_id_idx')" "2" "0195 applies again after its down"
+echo "==> 0195 original author and its down migration verified"

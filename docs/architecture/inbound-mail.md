@@ -164,7 +164,18 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    (`message.rawScan` in the dictionaries: still being checked, check failed
    and repeated, or malware);
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
-   list and bulk mail `automatic`;
+   list and bulk mail `automatic`. Then **the original of a forward**
+   (`receive-original.ts`, migration 0195): `original-message.ts` reads an
+   attached original (`message/rfc822`, an `.eml`) or an inline forward's
+   header block, and its author, date, subject, Message-ID and source go on
+   the row (`original_*`), project addresses redacted. A second forward of an
+   original the project holds is dropped as `duplicate_original`, silently and
+   audited like the other drops, never bounced: while the first is open the
+   partial unique index `uniq_inbound_mails_open_original` refuses it, and once
+   the first was filed its entry's `author_message_id` does. A dismissed or
+   expired first mail blocks nothing after it settles. An inline forward has no
+   Message-ID and is never a duplicate: its header block is the forwarder's
+   text;
 4. **authenticate the sender** (`sender-auth.ts`, mailauth 8 without an IP, so
    SPF is never read): trust, reason, signer domain, signed headers, flags;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
@@ -349,6 +360,18 @@ never its name, since that name became no document (RT-S13).
 A binned, deleted or archived Verlauf document is `last_failure:
 thread_document_gone`. A thread at 200 entries or 2 MiB refuses an append
 (`thread_full`).
+
+**A forwarded message is cited by its author.** When the mail carried an
+original (0195), the entry keeps its author (`author_*`), its heading names the
+author at the time they wrote it with „Domain nicht bestätigt“ (the forwarder's
+signature covers the forward, not what it quotes, RT-S2), and the line
+„Weitergeleitet von“ names the sender by the usual rule. An attachment's
+`mail_origin` does the same: `from_*` and `sent_at` are the author's,
+`forwarded_by_name`, `forwarded_by_domain` and `forwarded_at` the forwarder's
+(`ingest-facts.ts`, `agent_host/models/mail_facts.py`, printed by
+`agent/knowledge/mail_facts.py`). The document's „kam mit der E-Mail“ line in
+the UI (`mail-origins.ts`, `MailOriginView`) still names the sender, whose
+trust it shows.
 
 The knowledge layer reads a Verlauf like any Markdown document, one chunk
 section per message (`source_format: mail`, lane `project_mail`, label
@@ -580,7 +603,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | What | Code |
 |---|---|
 | Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `apps/workspace/bff/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
-| Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts` |
+| Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts`; a forward's original `lib/inbound-mail/{original-message,receive-original,receive-original-repository}.ts` |
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
 | The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |

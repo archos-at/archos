@@ -23,7 +23,7 @@ import { OFFICE_TIME_ZONE } from '@/lib/format'
 import type { Locale } from '@/i18n/config'
 
 /** The rendition's format version. A change to this table or to `render.ts`'s layout bumps it. */
-export const MAIL_THREAD_RENDER_VERSION = 1
+export const MAIL_THREAD_RENDER_VERSION = 2
 
 export interface MailThreadRenderCopy {
   /** The heading suffix for an inbound sender whose domain no signature confirmed. */
@@ -45,6 +45,8 @@ export interface MailThreadRenderCopy {
   /** Said when the mail's own Date was not believed and the receipt orders it. */
   dateOutOfRange: string
   replyTo: string
+  /** The line under a forwarded message's heading, which names its author: who forwarded it to the project. */
+  forwardedBy: string
   to: string
   cc: string
   /** More names than a line lists. */
@@ -112,6 +114,7 @@ export const MAIL_THREAD_RENDER_COPY: Readonly<Record<Locale, MailThreadRenderCo
     },
     dateOutOfRange: 'Das Datum der E-Mail war nicht plausibel; sie ist nach dem Eingang eingeordnet.',
     replyTo: 'Antwort auf',
+    forwardedBy: 'Weitergeleitet von',
     to: 'An',
     cc: 'Cc',
     more: (count) => `und ${count} weitere`,
@@ -139,6 +142,7 @@ export const MAIL_THREAD_RENDER_COPY: Readonly<Record<Locale, MailThreadRenderCo
     received: (at) => `received ${isoDateTime(at)}`,
     dateOutOfRange: "The mail's date was not plausible; it is placed by its receipt.",
     replyTo: 'Reply to',
+    forwardedBy: 'Forwarded by',
     to: 'To',
     cc: 'Cc',
     more: (count) => `and ${count} more`,

@@ -56,6 +56,40 @@ describe('mail_origin', () => {
     expect(facts).not.toHaveProperty('thread_document_id')
   })
 
+  it('attributes a forward to its author at the time they wrote it, and names the forwarder beside them', () => {
+    const facts = mailOriginIngestFacts(
+      message({
+        senderName: 'Max Muster',
+        senderDomain: 'buero.at',
+        signerDomain: 'buero.at',
+        senderTrust: 'member_verified',
+        // Written six weeks before it was forwarded: no receipt window applies to the author's date.
+        author: { name: 'Mag. Anna Huber', address: 'huber@ma37.wien.gv.at', sentAt: new Date('2026-09-01T08:00:00Z') },
+      }),
+      { threadDocumentId: null, locale: 'de' }
+    )
+    expect(facts).toEqual({
+      sent_at: '2026-09-01T08:00:00Z',
+      received_at: '2026-10-14T07:14:00Z',
+      from_name: 'Mag. Anna Huber',
+      from_domain: 'ma37.wien.gv.at',
+      signer_domain: 'buero.at',
+      sender_trust: 'member_verified',
+      forwarded_by_name: 'Max Muster',
+      forwarded_by_domain: 'buero.at',
+      forwarded_at: '2026-10-14T07:12:30Z',
+      locale: 'de',
+    })
+    expect(mailOriginIngestFactsSchema.parse(facts)).toEqual(facts)
+  })
+
+  it('takes the forward’s time for an author who gave none, or a time after it arrived', () => {
+    const author = { name: 'Huber', address: 'huber@ma37.wien.gv.at', sentAt: new Date('2027-01-01T00:00:00Z') }
+    const options = { threadDocumentId: null, locale: 'de' } as const
+    expect(mailOriginIngestFacts(message({ author }), options).sent_at).toBe('2026-10-14T07:12:30Z')
+    expect(mailOriginIngestFacts(message({ author: { ...author, sentAt: null } }), options).sent_at).toBe('2026-10-14T07:12:30Z')
+  })
+
   it('clamps a send time after the receipt to the receipt', () => {
     expect(
       mailOriginIngestFacts(message({ sentAt: new Date('2027-01-01T00:00:00Z') }), {

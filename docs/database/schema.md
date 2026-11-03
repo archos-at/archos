@@ -1050,7 +1050,7 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `sender_flags` | `text[]` | `<@` `not_addressed_to_project`, `bcc_own`, `stale_date`, `date_out_of_range`, `message_id_reused`, `already_filed`, `claims_member_name` | `bcc_own` only with `not_addressed_to_project` on `member_verified` (`inbound_mails_bcc_own_paired`); `claims_member_name` only on `external_*` (`inbound_mails_member_name_claim_external`) |
 | `authentication_results` | `text` | ≤ 4096, never containing `spf=` (`inbound_mails_authentication_results_shape`) | Our RFC 8601 line from DKIM and DMARC only |
 | `automatic` | `boolean` | NOT NULL, default false | List, bulk or auto-generated mail: held, announced collapsed, no model spend |
-| `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`; set exactly when `dropped` | |
+| `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`/`duplicate_original` (0195); set exactly when `dropped` | `duplicate_original`: a second forward of an original the project holds open or filed |
 | `sent_at`, `sent_at_header` | `timestamptz` | | The clamped Date and the sender's claim |
 | `received_at` | `timestamptz` | NOT NULL | |
 | `expires_at` | `timestamptz` | NOT NULL, after `received_at` | 30 days at receipt; the hold sets 14 for an `external` mail (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`); a restore may move it later |
@@ -1060,6 +1060,10 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `ignored` | `jsonb` | object | Counts by reason after settling |
 | `erasure_deferred_at` | `timestamptz` | | A hold stopped the erasure; sweep 10 retries after release |
 | `original_move_pending_at` | `timestamptz` | | The raw message is moving to a filed entry's original; sweep 13 finishes a stopped move |
+| `original_author_address` (≤ 320), `original_author_name` (≤ 300), `original_subject` (≤ 998) | `text` | `inbound_mails_original_lengths`; NULL once the mail ends (trigger `inbound_mails_scrub_original`, CHECK `inbound_mails_original_scrubbed`) | Migration 0195. Who wrote the original a forward carried (`original-message.ts`, read by `receive-original.ts`): attribution, never verified; the `sender_*` columns stay the forwarder's |
+| `original_sent_at` | `timestamptz` | | When the original was written, as the forward said; never after the forward arrived |
+| `original_message_id` | `text` | 1..998; only with source `attachment` (`inbound_mails_original_message_id_attached`); unique per (org, project) among `received`/`waiting` mails (`uniq_inbound_mails_open_original`) | Kept after the mail ends. A second open forward of one original is dropped as `duplicate_original` |
+| `original_source` | `text` | `attachment`/`inline` (`inbound_mails_original_source_known`); required with any original column (`inbound_mails_original_with_source`) | An inline block has no Message-ID and is never deduplicated |
 | `created_at`, `updated_at` | | | |
 
 The scrub is a CHECK (`inbound_mails_ended_is_scrubbed`): a `settled` or
@@ -1067,6 +1071,17 @@ The scrub is a CHECK (`inbound_mails_ended_is_scrubbed`): a `settled` or
 participants or `not_staged`, and no staged key unless `erasure_deferred_at`
 (or, for the raw key only, `original_move_pending_at`). A mail is never
 `waiting` before its raw message was scanned (`inbound_mails_waiting_is_scanned`).
+The original's author, name and subject (0195) are cleared by a `BEFORE INSERT
+OR UPDATE` trigger as the row ends, since the ending paths predate them, and
+`inbound_mails_original_scrubbed` holds it.
+
+**Why the original's unique index covers open mails only.** A `settled` mail's
+parts were filed, dismissed or expired. A dismissed or expired first forward
+must not swallow a later one for the 30 days the settled row is kept; a filed
+one is caught by its entry instead (`mail_thread_entries.author_message_id`,
+which the receive job reads), and lives as long as the Verlauf. A first mail
+still `waiting` with its text dismissed is within its seven days of restore,
+so the duplicate is dropped and the first can be brought back.
 
 Trigger `inbound_mails_sender_verdict_guard` (0194): the verdict (`sender_class`,
 `sender_trust`, `sender_user_id`, `sender_reason`, `sender_flags`,
@@ -1079,7 +1094,8 @@ evidence of a direct filing: the hold's compare-and-set.
 Indexes: `inbound_mails_waiting_idx` (org, project, received_at; waiting),
 `_expiry_idx`, `_receiving_idx` (updated_at; receiving or received),
 `_settled_idx`, `_dropped_idx`, `_message_id_idx` (project, message_id),
-`_erasure_deferred_idx`, `_original_move_idx`.
+`_erasure_deferred_idx`, `_original_move_idx`, `uniq_inbound_mails_open_original`
+(org, project, original_message_id; set, `received` or `waiting`).
 
 ### inbound_mail_parts
 
@@ -1218,6 +1234,7 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 | `sender_address`, `sender_name`, `sender_domain`, `signer_domain` | `text` | lengths | |
 | `sender_trust` | `text` | the four inbound labels or `not_checked`; `not_checked` exactly for `archive` | |
 | `authentication_results` | `text` | ≤ 4096, no `spf=` | |
+| `author_address` (≤ 320), `author_name` (≤ 300), `author_sent_at`, `author_message_id` (1..998) | | `mail_thread_entries_author_lengths`; only on `inbound`, and only with a name or an address (`mail_thread_entries_author_named`) | Migration 0195. Who wrote a forwarded message, from the mail's `original_*`: the heading names the author at `author_sent_at` with „Domain nicht bestätigt“, the line „Weitergeleitet von“ names the sender. `author_message_id` makes a later forward of a filed original a duplicate |
 | `participants` (≤ 50), `quoted` (≤ 50), `calendar` (≤ 20), `masked_spans` (≤ 1000 or NULL) | `jsonb` | arrays | `masked_spans` set when the person chose „Unkenntlich ablegen“ |
 | `own_text` | `text` | ≤ 524288 bytes | |
 | `first_version_id` | `uuid` | FK `(first_version_id, project_id)` → `document_versions (id, project_id)`, SET NULL on the one column | The first Fassung that holds it, whoever wrote that Fassung; always a Fassung of this project's |
@@ -1228,6 +1245,7 @@ Indexes: `uniq_mail_threads_document`, `mail_threads_thread_index_idx`,
 | `original_scanned_at` | `timestamptz` | only with a decided scan | |
 
 Indexes: `mail_thread_entries_message_id_idx` (project, message_id),
+`mail_thread_entries_author_message_id_idx` (project, author_message_id; set),
 `(thread_id, sent_at)`, `(inbound_mail_id)`, `(mail_import_id)`. Legal-hold
 trigger `mail_thread_entries_legal_hold_guard`.
 
