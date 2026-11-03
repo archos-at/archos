@@ -4,7 +4,7 @@
 import type { LangfuseConfig } from "./langfuse";
 import type { PostgresConfig } from "./postgres";
 import type { SeaweedfsConfig } from "./seaweedfs";
-import type { BffJobsConfig, IngestWorkerConfig } from "./workers";
+import { ingestJobsAtCeiling, type BffJobsConfig, type IngestWorkerConfig } from "./workers";
 import { BACKGROUND_WORK } from "./background-work";
 import {
   KEDA_SCALER_CONNECTION_LIMIT,
@@ -39,7 +39,7 @@ export function pgConnectionBudget(cfg: PgBudgetInputs): PgConnectionBudget {
   const { instances, poolSize } = cfg.postgres.pooler;
   const pooled = instances * (POOLED_POOLS.length * poolSize + POSTGRES_POOLER.authConnections);
   const filerOnPostgres = cfg.seaweedfs.topology === "split" && cfg.seaweedfs.filerStore === "postgres";
-  const ingestJobsInFlight = cfg.ingestWorker.maxReplicas * cfg.ingestWorker.concurrency;
+  const ingestJobsInFlight = ingestJobsAtCeiling(cfg.ingestWorker);
   const reserve = [
     { name: "superuser_reserved_connections", connections: POSTGRES_DIRECT_RESERVE.superuser },
     { name: "CloudNativePG (instance manager, exporter, backup)", connections: POSTGRES_DIRECT_RESERVE.cnpg },

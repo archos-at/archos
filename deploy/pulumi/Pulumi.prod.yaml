@@ -357,13 +357,17 @@ config:
   # Two files a pod, because pdfplumber parses on one core (the GIL): a third
   # thread adds no parse speed, another pod does, and one OOM kill then costs
   # two jobs an attempt, not three. 1 CPU requested for that core.
-  # Ceilings it is held to: vision 8 x 2 x 4 = 64 <= 2 x vlmFleetConcurrency
-  # (assertVlmPeakFitsCeiling); Postgres 16 ingest locks, 157 of 200
-  # (assertPgConnectionBudget, below).
+  # Seven, not eight, since the high-memory pool (`ingest-worker-heavy`, one
+  # 12Gi pod, one file of 40 MiB or more at a time, defaults in
+  # config/workers.ts) took the eighth pod's place: 7 x 6 + 12 = 54 GB still fits
+  # one batch node, and the fleet still runs 7 x 2 + 1 = 15 documents at once.
+  # Ceilings it is held to: vision (7 x 2 + 1 x 1) x 4 = 60 <= 2 x
+  # vlmFleetConcurrency (assertVlmPeakFitsCeiling); Postgres 15 ingest locks,
+  # 156 of 200 (assertPgConnectionBudget, below).
   # Watch `[ingest-mem] file:released` and `kubectl top` after a large file;
   # raise the memory before the ceiling if a pod nears 6Gi.
   grid-oib:ingestWorkerMinReplicas: "1"
-  grid-oib:ingestWorkerMaxReplicas: "8"
+  grid-oib:ingestWorkerMaxReplicas: "7"
   grid-oib:ingestWorkerRequestsCpu: "1"
   grid-oib:ingestWorkerRequestsMemory: 6Gi
   grid-oib:ingestWorkerLimitsCpu: "2"
@@ -542,8 +546,8 @@ config:
   # ── Postgres pooler (ADR-0083) ──
   # Two PgBouncers, spread across nodes, so a drain takes one. Budget against the
   # primary's max_connections of 200 (assertPgConnectionBudget): 2 x (3 pooled
-  # database/role pairs x pgPoolerPoolSize 12 + 1 auth session) = 74, plus 83 held
-  # for the direct connections (see POSTGRES_DIRECT_RESERVE) = 157, 43 to spare.
+  # database/role pairs x pgPoolerPoolSize 12 + 1 auth session) = 74, plus 82 held
+  # for the direct connections (see POSTGRES_DIRECT_RESERVE) = 156, 44 to spare.
   grid-oib:pgPoolerInstances: "2"
   # ── The api tier (ADR-0082 step B) ── every backend HTTP route but the chat
   # socket, behind the aiq-api Service (BACKEND_URL). Sized like the frontend.

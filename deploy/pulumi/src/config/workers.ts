@@ -79,6 +79,45 @@ export interface IngestWorkerConfig {
    * embedded raster.
    */
   maxImagePixels: number;
+  /** The high-memory pool (`ingest-worker-heavy`) that runs `ingest-document-heavy`. */
+  heavy: IngestHeavyConfig;
+}
+
+/**
+ * The high-memory ingest pool: a file of `fileBytes` or more (the original's
+ * size, which the BFF states) runs on it, one at a time per pod, with the whole
+ * pod's memory (the `index` step's `slot_cost` is the pod's slots).
+ */
+export interface IngestHeavyConfig {
+  /** Off: no pool, and `INGEST_HEAVY_FILE_BYTES` is 0 on the dispatching tiers, so every file runs standard. */
+  enabled: boolean;
+  resources: ResourceSpec;
+  /** Floor; 0 (the default) lets the pool scale to nothing while no heavy file waits. */
+  minReplicas: number;
+  maxReplicas: number;
+  /** Heavy files one pod runs at once (`INGEST_HEAVY_WORKER_SLOTS`), and KEDA's target. */
+  concurrency: number;
+  /** `INGEST_HEAVY_FILE_BYTES`: the size from which a file runs here. */
+  fileBytes: number;
+}
+
+/**
+ * Ingest jobs the two pools run at once at their ceilings: what each holds of
+ * the vision pool (`vlm-ceiling.ts`) and of Postgres's session locks
+ * (`pg-connection-budget.ts`). The heavy pool counts only when it exists.
+ */
+export function ingestJobsAtCeiling(ingest: IngestWorkerConfig): number {
+  const heavy = ingest.heavy?.enabled ? ingest.heavy.maxReplicas * ingest.heavy.concurrency : 0;
+  return ingest.maxReplicas * ingest.concurrency + heavy;
+}
+
+/**
+ * `INGEST_HEAVY_FILE_BYTES` for the dispatching tiers: from this size on a file runs
+ * on the high-memory pool, and 0 while the stack has none, so nothing waits for a
+ * worker that is not there.
+ */
+export function heavyFileBytesEnv(ingest: IngestWorkerConfig): number {
+  return ingest.heavy.enabled ? ingest.heavy.fileBytes : 0;
 }
 
 export interface BffJobsConfig {
@@ -202,6 +241,26 @@ export function loadWorkers(
       // 256 MP). 268_435_456 is adapter.py's own default: 256 MP admits an A0
       // sheet at 400 dpi and refuses a 20000x20000 px pavement.
       maxImagePixels: Math.max(0, num(cfg, "ingestWorkerMaxImagePixels", 268_435_456)),
+      // The high-memory pool. 12Gi a pod, request equal to limit like the
+      // standard pool: twice a standard pod, for ONE file where that one holds
+      // two in 6Gi. Two 26-29 MB plan sets crossed 12 GiB before the text pass
+      // held one page (ingest-memory-runbook.md); 12Gi is that high-water mark.
+      heavy: {
+        enabled: bool(cfg, "ingestWorkerHeavyEnabled", true),
+        resources: {
+          requestsCpu: cfg.get("ingestWorkerHeavyRequestsCpu") ?? "1",
+          requestsMemory: cfg.get("ingestWorkerHeavyRequestsMemory") ?? "12Gi",
+          limitsCpu: cfg.get("ingestWorkerHeavyLimitsCpu") ?? "2",
+          limitsMemory: cfg.get("ingestWorkerHeavyLimitsMemory") ?? "12Gi",
+        },
+        minReplicas: Math.max(0, num(cfg, "ingestWorkerHeavyMinReplicas", 0)),
+        maxReplicas: Math.max(1, num(cfg, "ingestWorkerHeavyMaxReplicas", 1)),
+        concurrency: Math.max(1, num(cfg, "ingestWorkerHeavyConcurrency", 1)),
+        // 40 MiB: above the largest files measured on the standard pool (the
+        // 26-29 MB plan sets), below the 100 MB upload cap. The reasoning is in
+        // docs/deployment/environment-variables.md, `INGEST_HEAVY_FILE_BYTES`.
+        fileBytes: Math.max(1, num(cfg, "ingestHeavyFileBytes", 41_943_040)),
+      },
     },
     bffJobs: {
       // A reindex or a rescan only pages and POSTs, but an IFC model is parsed
