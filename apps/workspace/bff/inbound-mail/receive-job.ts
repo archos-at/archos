@@ -23,8 +23,7 @@
  *     its key (a legal hold defers that). List and bulk mail is kept, marked
  *     `automatic`. A forward records its original's author (`./receive-original`);
  *     a second forward of an original the project holds is dropped the same way.
- *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a
- *     transient verdict retries.
+ *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a transient verdict retries.
  *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
  *     find the member by exact address, or an outsider's display name that
  *     claims a member's (`claims_member_name`), and whether that member may
