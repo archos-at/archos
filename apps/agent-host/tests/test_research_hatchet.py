@@ -160,6 +160,7 @@ def replayed(monkeypatch) -> list:
         calls.append(kwargs)
 
     monkeypatch.setattr(worker_mod, "run_agent_job", _bind_like_the_real_one)
+    monkeypatch.setattr(worker_mod.run_ownership, "take_ownership", _owns)  # ownership: test_run_ownership.py
     return calls
 
 
@@ -168,7 +169,7 @@ async def test_the_task_runs_the_payload_and_forgets_its_run_id(db_url, replayed
 
     result = await research_hatchet.run_task(_input(_stored()))
 
-    assert result == {"job_id": "job-1"}
+    assert result == {"job_id": "job-1", "ran": "yes"}
     assert [kwargs["input_text"] for kwargs in replayed] == [SECRET_QUESTION]
     assert orchestrator_runs.run_id_for(db_url, "job-1") is None
 
@@ -315,3 +316,7 @@ async def test_the_cutover_starts_every_live_row_once_and_empties_the_old_queue(
     with EventStore._get_or_create_sync_engine(db_url).connect() as conn:
         left = [row[0] for row in conn.execute(text("SELECT job_id FROM research_job_queue ORDER BY job_id"))]
     assert left == ["job-c", "job-d"]
+
+
+async def _owns(*_args) -> bool:
+    return True

@@ -10,7 +10,8 @@ its ``input_text`` says what to do:
 * ``ok`` finishes at once;
 * ``sleep:<seconds>`` runs that long (a cancel lands here);
 * ``exit-once:<marker path>`` kills its worker process on the first attempt, so
-  Hatchet must run the job again on another worker.
+  Hatchet must run the job again on another worker, which takes the job over
+  once the dead attempt has been silent past ``run_ownership.STALE_SECONDS``.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import time
 from pathlib import Path
 
 from agent_host.jobs import research_hatchet
+from agent_host.jobs import run_ownership
 from agent_host.jobs import worker
 from agent_host.jobs.event_store import EventStore
 from agent_host.jobs.runner import _update_status_if_not_terminal
@@ -49,4 +51,9 @@ async def stand_in_agent(*, job_id: str, db_url: str, input_text: str, **_payloa
 
 if __name__ == "__main__":
     worker.run_agent_job = stand_in_agent
+    # The stand-in emits no heartbeats, and a test cannot wait the production
+    # window (the ghost reaper's 300 s) for a dead attempt to age out.
+    run_ownership.STALE_SECONDS = 10
+    run_ownership.WAIT_SECONDS = 40
+    run_ownership._POLL_SECONDS = 2
     research_hatchet.run_worker()

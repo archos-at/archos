@@ -61,6 +61,7 @@ from .runner import _JOB_PROFILE_NAMES
 from .runner import CancellationMonitor
 from .runner import _bound_card_registry
 from .runner import _create_agent_instance
+from .runner import _current_job_status
 from .runner import _finalize_cancelled_run
 from .runner import _load_agent_class
 from .runner import _purge_deep_checkpoint
@@ -215,8 +216,34 @@ async def run_agent_job(
         await asyncio.to_thread(_purge_deep_checkpoint, request.job_id)
 
 
+class RunStoppedError(TimeoutError):
+    """The orchestrator stopped a run nobody cancelled: its execution timeout (``RESEARCH_RUN_TIMEOUT_SECONDS``)."""
+
+    def __init__(self) -> None:
+        # "wall-clock" is the marker ``sanitize_job_error`` turns into the time-limit message.
+        super().__init__("wall-clock: the research run exceeded its execution timeout")
+
+
+async def _cancelled_by_a_person(scope: JobScope, request: JobRequest) -> bool:
+    """Whether the cancel route (or the platform kill) recorded this cancel: it writes INTERRUPTED first."""
+    from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
+    from nat.front_ends.fastapi.async_jobs.job_store import JobStore
+
+    store = scope.job_store or JobStore(scheduler_address="", db_url=request.db_url)
+    return await _current_job_status(store, request.job_id) == JobStatus.INTERRUPTED.value
+
+
 async def _finish_cancelled(scope: JobScope, request: JobRequest) -> None:
-    """Record a run that was cancelled: its INTERRUPTED verdict, notice and ``job.cancelled`` event."""
+    """Record a run that was cancelled: a person's cancel is INTERRUPTED, any other stop a FAILURE.
+
+    A person's cancel reaches the run after the cancel route wrote INTERRUPTED,
+    through the ``CancellationMonitor`` or Hatchet's cancel. A cancellation with
+    no INTERRUPTED recorded is Hatchet ending the run at its execution timeout:
+    that is a FAILURE with the time-limit message, never "cancelled by user".
+    """
+    if not await _cancelled_by_a_person(scope, request):
+        await finish_failed(scope, request, RunStoppedError())
+        return
     scope.event_store = await _finalize_cancelled_run(
         job_store=scope.job_store,
         db_url=request.db_url,

@@ -155,20 +155,23 @@ def _db_url() -> str:
     return os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
 
 
-async def run_task(run: ResearchRunInput) -> dict[str, str]:
+async def run_task(run: ResearchRunInput, attempt: int | None = None) -> dict[str, str]:
     """One attempt of a research run: the run path, its failures mapped to Hatchet's terms."""
     db_url = _db_url()
+    ran = True
     try:
-        await worker.run_stored_job(db_url, run.job_id, run.payload)
+        ran = await worker.run_stored_job(db_url, run.job_id, run.payload, attempt)
     except worker.PoisonPayloadError as exc:
         raise NonRetryableException(str(exc)) from exc
     except Exception as exc:
         logger.exception("Job %s failed on Hatchet", run.job_id)
         raise NonRetryableException(f"research run failed: {type(exc).__name__}") from exc
     finally:
-        # A cancel ends the run too: only a lost worker leaves the id for its retry.
-        await asyncio.to_thread(orchestrator_runs.forget, db_url, run.job_id)
-    return {"job_id": run.job_id}
+        # A cancel ends the run too: only a lost worker leaves the id for its retry,
+        # and a duplicate copy leaves it to the copy that runs.
+        if ran:
+            await asyncio.to_thread(orchestrator_runs.forget, db_url, run.job_id)
+    return {"job_id": run.job_id, "ran": "yes" if ran else "duplicate"}
 
 
 async def record_failure(run: ResearchRunInput) -> None:
@@ -201,7 +204,7 @@ def research_run(hatchet: Hatchet) -> Any:
     )
     async def _run(run: ResearchRunInput, ctx: Context) -> dict[str, str]:
         logger.info("Hatchet run %s: job %s, attempt %s", ctx.workflow_run_id, run.job_id, ctx.attempt_number)
-        return await run_task(run)
+        return await run_task(run, ctx.attempt_number)
 
     @workflow.on_failure_task(name="record-failure")
     async def _on_failure(run: ResearchRunInput, ctx: Context) -> None:
