@@ -3046,6 +3046,9 @@ refused_in sender_0194 "${V194}$HOLD194('member_verified', 'dkim_pass', '$W194',
 held194 "$M8" "'member_verified', 'dkim_pass', '$W194', '{not_addressed_to_project,bcc_own}', false, 'unverified_writer'"
 check_in sender_0194 "SELECT sender_class FROM inbound_mails WHERE id = '$M8'" "unverified_writer" "0194: a member's own Bcc copy of their signed mail waits for that member"
 received194 "$M9"; held194 "$M9" "'member_verified', 'dkim_pass', '$W194', '{}', false, 'verified_writer'"
+# A subdomain's key (a newsletter service's) aligns relaxed: the label stays verified, the mail waits for its member.
+MS="1c000000-0000-4000-8000-000000000194"
+received194 "$MS"; held194 "$MS" "'member_verified', 'dkim_pass', '$W194', '{relaxed_alignment}', false, 'unverified_writer'"
 received194 "$MR"
 received194 "$MB" org_0194_b "$PB194" ab000000-0000-4000-8000-000000000194
 held194 "$MB" "'member_verified', 'dkim_pass', '$W194', '{}', false, 'verified_writer'"
@@ -3057,6 +3060,9 @@ refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{stal
 refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{message_id_reused}', false, 'verified_writer') WHERE id = '$MR'" "inbound_mails_verified_writer_evidence" "a verified writer's mail whose Message-ID was used before"
 refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{already_filed}', false, 'verified_writer') WHERE id = '$MR'" "inbound_mails_verified_writer_evidence" "a verified writer's mail already filed"
 refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{}', true, 'verified_writer') WHERE id = '$MR'" "inbound_mails_verified_writer_evidence" "a verified writer's automatic mail"
+refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{relaxed_alignment}', false, 'verified_writer') WHERE id = '$MR'" "inbound_mails_verified_writer_evidence" "a verified writer's mail signed by a subdomain's key only (relaxed alignment)"
+refused_in sender_0194 "$HOLD194('member_unverified', 'dkim_fail', '$W194', '{relaxed_alignment}', false, 'unverified_writer') WHERE id = '$MR'" "inbound_mails_relaxed_alignment_verified" "relaxed alignment on a mail no signature verified"
+refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{trusted}', false, 'unverified_writer') WHERE id = '$MR'" "inbound_mails_sender_flags_known" "an unknown sender flag, after 0194 widened the list"
 refused_in sender_0194 "$HOLD194('member_verified', 'dkim_pass', '$W194', '{}', false, 'external') WHERE id = '$MR'" "inbound_mails_sender_class_member" "a member's mail classed as an outsider's"
 refused_in sender_0194 "$HOLD194('external_verified', 'dkim_pass', NULL, '{}', false, 'office_member') WHERE id = '$MR'" "inbound_mails_sender_class_member" "an outsider's mail classed as a member's"
 refused_in sender_0194 "$HOLD194('external_verified', 'dkim_pass', NULL, '{}', false, NULL) WHERE id = '$MR'" "inbound_mails_sender_class_with_trust" "a judged mail with no class"
@@ -3090,7 +3096,7 @@ SQL
 T1="21000000-0000-4000-8000-000000000194"; T2="22000000-0000-4000-8000-000000000194"; T3="23000000-0000-4000-8000-000000000194"
 T4="24000000-0000-4000-8000-000000000194"; T5="25000000-0000-4000-8000-000000000194"; T6="26000000-0000-4000-8000-000000000194"
 T7="27000000-0000-4000-8000-000000000194"; A1="3a000000-0000-4000-8000-000000000194"; AM="3b000000-0000-4000-8000-000000000194"
-check_in sender_0194 "SELECT count(*) FROM inbound_mail_parts" "14" "0194: every held mail has its text (MR is not held, the older outsider's has none), M1 two attachments, MB one"
+check_in sender_0194 "SELECT count(*) FROM inbound_mail_parts" "15" "0194: every held mail has its text (MR is not held, the older outsider's has none), M1 two attachments, MB one"
 DEC194="INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text, screening_release, acknowledged_sender, acknowledged_risk) VALUES"
 # A text filed as a new thread, an attachment filed into the root, a dismissal and a restore.
 text194() { echo "$DEC194 (${6:-gen_random_uuid()}, 'org_0194_a', '$P194', '$1', '$2', 'file', '$3', '$4', '', 'Verlauf', 'create', 'full', false, $5, false)"; }
@@ -3113,6 +3119,7 @@ refused_in sender_0194 "${V194}$(text194 "$M6" "$T6" "$W194" sender false)" "$OW
 refused_in sender_0194 "${V194}$(file194 "$M1" "$AM" "$W194" sender false)" "$OWN194" "a direct filing of a part with a macro"
 refused_in sender_0194 "${V194}$(text194 "$M7" "$T7" "$W194" sender false)" "$OWN194" "a direct filing of a mail whose raw message did not scan clean"
 refused_in sender_0194 "${V194}$(text194 "$M8" "28000000-0000-4000-8000-000000000194" "$W194" sender false)" "$OWN194" "a direct filing of a member's Bcc copy, which a recipient's replay looks like"
+refused_in sender_0194 "${V194}$(text194 "$MS" "2c000000-0000-4000-8000-000000000194" "$W194" sender false)" "$OWN194" "a direct filing of a mail a subdomain's key signed"
 refused_in sender_0194 "${V194}$(text194 "$M1" "$T1" "system:inbound_mail" sender false)" "$OWN194" "a direct filing by a system actor"
 refused_in sender_0194 "$(act194 "$M1" "$A1" dismiss "$W194" sender)" "inbound_mail_decisions_sender_files_clean" "a direct dismissal"
 refused_in sender_0194 "$(file194 "$M1" "$A1" "$W194" sender false true)" "inbound_mail_decisions_sender_files_clean" "a direct filing that releases the name check"
@@ -3185,6 +3192,7 @@ apply_in sender_0194 0194_sender_class.down.sql
 check_in sender_0194 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'inbound_mails' AND column_name = 'sender_class'" "0" "0194 down drops the class"
 check_in sender_0194 "SELECT count(*) FROM pg_proc WHERE proname = 'inbound_mails_sender_verdict_guard'" "0" "0194 down drops the verdict guard"
 check_in sender_0194 "SELECT count(*) FROM pg_proc WHERE proname = 'inbound_mail_decisions_guard' AND prosrc LIKE '%sender%'" "0" "0194 down restores 0193's decision guard"
+check_in sender_0194 "SELECT count(*) FROM pg_constraint WHERE conname = 'inbound_mails_sender_flags_known' AND pg_get_constraintdef(oid) LIKE '%relaxed_alignment%'" "0" "0194 down restores 0193's flag list"
 apply_in sender_0194 0194_sender_class.sql
 check_in sender_0194 "SELECT string_agg(conname, ',' ORDER BY conname) FROM pg_constraint WHERE conname LIKE 'inbound_mail%' OR conname LIKE 'mail_thread_entries%'" "$AFTER_0194" "0194 applies again after its down"
 echo "==> 0194 sender rule and its down migration verified"

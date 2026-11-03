@@ -31,6 +31,7 @@ import {
   judgeSender,
   type SenderAuthentication,
 } from './sender-auth'
+import { senderClassOf } from './sender-class'
 import { senderNeedsAcknowledgement } from './sender-risk'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -66,6 +67,21 @@ describe('authenticateSender: what verifies', () => {
   it('verifies relaxed alignment: a subdomain signs for the From domain', async () => {
     const raw = await sign(message(), { domain: `mail.${MEMBER_DOMAIN}` })
     expect(await verify(raw, keyFor(`mail.${MEMBER_DOMAIN}`))).toBe('dkim_pass')
+  })
+
+  it('labels a subdomain’s signature verified, but files nothing directly with it: strict alignment only', async () => {
+    // A key for news.<domain>, as a newsletter service holds one, signs a member's From address.
+    const raw = await sign(message(), { domain: `news.${MEMBER_DOMAIN}` })
+    const auth = await authenticate(raw, keyFor(`news.${MEMBER_DOMAIN}`))
+    const verdict = judgeSender(auth, { memberUserId: 'user_1', receivedAt: RECEIVED, sentAtHeader: SENT })
+    expect(verdict).toMatchObject({ trust: 'member_verified', reason: 'dkim_pass', signerDomain: `news.${MEMBER_DOMAIN}` })
+    expect(verdict.flags).toEqual(['relaxed_alignment'])
+    const { trust, reason, senderUserId, flags } = verdict
+    expect(senderClassOf({ trust, reason, senderUserId, flags, automatic: false, writes: true })).toBe('unverified_writer')
+
+    const own = judgeSender(await authenticate(await sign(message())), { memberUserId: 'user_1', receivedAt: RECEIVED, sentAtHeader: SENT })
+    expect(own.flags).toEqual([])
+    expect(senderClassOf({ ...own, automatic: false, writes: true })).toBe('verified_writer')
   })
 
   it('verifies without any DMARC record, and a failing _dmarc lookup changes nothing', async () => {

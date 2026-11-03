@@ -66,6 +66,10 @@ describe('senderClassOf', () => {
     expect(senderClassOf(input({ automatic: true }))).toBe('unverified_writer')
   })
 
+  it('a writer’s mail signed by a parent or subdomain only (relaxed alignment) waits for that writer', () => {
+    expect(senderClassOf(input({ flags: ['relaxed_alignment'] }))).toBe('unverified_writer')
+  })
+
   it('an office member without write rights is an office member, signed or not', () => {
     expect(senderClassOf(input({ writes: false }))).toBe('office_member')
     expect(senderClassOf(input({ writes: false, trust: 'member_unverified', reason: 'dkim_fail' }))).toBe('office_member')

@@ -10,7 +10,8 @@
 --   SELECT id, inbound_mail_id, filed_by FROM mail_thread_entries WHERE filed_via = 'sender';
 --
 -- Lossy, even then: the class goes, and every mail waits for a person again,
--- an outsider's for its 30 days from receipt as 0193 fixed it.
+-- an outsider's for its 30 days from receipt as 0193 fixed it; the flag
+-- `relaxed_alignment` goes too.
 
 DO $$
 BEGIN
@@ -113,6 +114,21 @@ ALTER TABLE "inbound_mails"
   DROP CONSTRAINT IF EXISTS "inbound_mails_sender_class_known";
 --> statement-breakpoint
 ALTER TABLE "inbound_mails" DROP COLUMN IF EXISTS "sender_class";
+--> statement-breakpoint
+-- 0193 knows no `relaxed_alignment`: the flag goes (lossy; the stored
+-- `signer_domain` still names who signed), and 0193's list comes back.
+ALTER TABLE "inbound_mails"
+  DROP CONSTRAINT IF EXISTS "inbound_mails_relaxed_alignment_verified",
+  DROP CONSTRAINT IF EXISTS "inbound_mails_sender_flags_known";
+--> statement-breakpoint
+UPDATE "inbound_mails" SET "sender_flags" = array_remove("sender_flags", 'relaxed_alignment')
+ WHERE 'relaxed_alignment' = ANY ("sender_flags");
+--> statement-breakpoint
+ALTER TABLE "inbound_mails"
+  ADD CONSTRAINT "inbound_mails_sender_flags_known"
+    CHECK ("sender_flags" <@ ARRAY['not_addressed_to_project', 'bcc_own', 'stale_date',
+                                   'date_out_of_range', 'message_id_reused', 'already_filed',
+                                   'claims_member_name']::text[]);
 --> statement-breakpoint
 COMMENT ON TABLE "inbound_mails" IS
   'One delivery to a project mail address, held until a person files or dismisses its parts (ADR-0137). Holds what a reviewer needs to decide until it settles, then only ids, counts and the member it came from; the message itself is a staged object named by its key. Deleted after the retention window. Tenant data (migration 0193).';

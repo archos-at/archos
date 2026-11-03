@@ -36,6 +36,13 @@
  * 5. is not rsa-sha1 and its key has at least 1024 bits (RFC 8301; mailauth
  *    enforces both, and they are re-checked here).
  *
+ * Relaxed alignment (a `d=` that is a parent or a subdomain of the From
+ * domain) earns the verified label and the flag `relaxed_alignment`: a key for
+ * `news.buero.at`, often held by a newsletter service, aligns with
+ * `miriam@buero.at`. A direct filing as a member needs `d=` to be the From
+ * domain exactly (`./sender-class`): the trust the office places in its own
+ * mail system, and nobody else's.
+ *
  * Before any of that, the raw header block must hold exactly one From with one
  * plain ASCII mailbox, no duplicated singleton field (RFC 5322 §3.6) and at
  * most {@link MAX_DKIM_SIGNATURES} signatures, counted over the raw bytes,
@@ -459,6 +466,7 @@ export function judgeSender(authentication: SenderAuthentication, input: JudgeSe
   if (verified && age !== null && age > STALE_DATE_MS) flags.push('stale_date')
   if (clamped.outOfRange) flags.push('date_out_of_range')
   if (!member && input.claimsMemberName) flags.push('claims_member_name')
+  if (verified && authentication.signerDomain !== authentication.fromDomain) flags.push('relaxed_alignment')
   return {
     trust,
     senderUserId: member ? input.memberUserId : null,

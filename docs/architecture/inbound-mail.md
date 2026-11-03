@@ -67,7 +67,7 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
 
 | Class | When | What happens | Window |
 |---|---|---|---|
-| `verified_writer` | an aligned DKIM pass, the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them | 30 days |
+| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them | 30 days |
 | `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
@@ -264,7 +264,9 @@ DMARC only; a CHECK refuses one containing `spf=`.
 
 Flags: `not_addressed_to_project` (no signed To or Cc names the token on the
 inbound domain; a look-alike domain such as `example.org.evil.example` does not
-count), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
+count), `relaxed_alignment` (verified, but the admitting signature's `d=` is a
+parent or a subdomain of the From domain, not the domain itself: the label stays,
+a direct filing needs strict alignment), `bcc_own` (a `member_verified` mail with a signed Date within 24 h of
 receipt: the member's own Bcc copy, or a recipient re-sending it, which is why it never files directly), `stale_date` (signed Date more than 7 days
 before receipt), `date_out_of_range` (the Date outside `[received − 30 days,
 received + 15 minutes]`; the receipt time is used), `message_id_reused`,

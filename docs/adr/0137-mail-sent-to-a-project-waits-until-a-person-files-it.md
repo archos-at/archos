@@ -611,7 +611,7 @@ sender once, when the mail is held (`inbound_mails.sender_class`, migration
 
 | Class | When | What happens |
 |---|---|---|
-| `verified_writer` | DKIM passes aligned with the From domain (DMARC alignment), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address in To or Cc, and no replay or date flag is set. A member's own Bcc copy does not qualify: its flag (`bcc_own`) is told apart from a recipient re-sending the member's signed mail to the project by time alone, and time does not tell them apart | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
+| `verified_writer` | DKIM passes signed by the From domain itself (DMARC's strict alignment: a parent's or a subdomain's key, such as one a newsletter service holds for `news.<domain>`, keeps the verified label but is flagged `relaxed_alignment` and waits), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address in To or Cc, and no replay or date flag is set. A member's own Bcc copy does not qualify: its flag (`bcc_own`) is told apart from a recipient re-sending the member's signed mail to the project by time alone, and time does not tell them apart | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
 | `unverified_writer` | The From address is such a member, but the signature fails, is absent, does not name the project (a Bcc copy included), or carries a replay or date flag | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
 | `office_member` | The From address is an office member without write rights on the project | Held for the project's writers |
 | `external` | The From address is outside the office | Held for the project's writers; discarded after 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`), with no restore window |
@@ -669,7 +669,9 @@ scanner (ADR-0150) and the upload path like any other file.
 
 - DKIM proves a domain, not a person. Whoever can send as a member's address
   inside the member's own mail domain gets mail filed as that member. That is
-  the same trust the office already places in its own mail system.
+  the same trust the office already places in its own mail system, and only
+  that: the signing domain must be the From domain exactly, so a key delegated
+  to a subdomain (a newsletter service's, say) files nothing directly.
 - A forger now causes an in-app notice to the member they impersonated
   ("Did you send this?"). That reverses "whoever forged a member's address
   never reaches that member through us" in "Who hears what": the member is the

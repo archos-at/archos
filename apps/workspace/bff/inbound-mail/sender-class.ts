@@ -6,8 +6,8 @@
  *
  * | Class | When | What happens |
  * |---|---|---|
- * | `verified_writer` | aligned DKIM pass, From = a member who may write in the project, the signed To or Cc names the project, no replay or date flag, not automatic | filed directly, as that member (`./sender-file-job.ts`) |
- * | `unverified_writer` | From = such a member, but no aligned pass, or not addressed to the project (their own Bcc copy included), or a replay or date flag, or automatic | held; only that member releases it, saying they sent it |
+ * | `verified_writer` | DKIM pass by the From domain itself (strict alignment), From = a member who may write in the project, the signed To or Cc names the project, no replay or date flag, not automatic | filed directly, as that member (`./sender-file-job.ts`) |
+ * | `unverified_writer` | From = such a member, but no aligned pass, or one by a parent or subdomain only (`relaxed_alignment`), or not addressed to the project (their own Bcc copy included), or a replay or date flag, or automatic | held; only that member releases it, saying they sent it |
  * | `office_member` | From = a member without write rights in the project | held for the project's writers |
  * | `external` | From = nobody in the office | held for the project's writers; discarded after 14 days |
  *
@@ -44,6 +44,8 @@ export interface SenderClassInput {
 export function isVerifiedWriterEvidence(input: Omit<SenderClassInput, 'writes'>): boolean {
   if (input.trust !== 'member_verified' || input.reason !== 'dkim_pass' || !input.senderUserId || input.automatic) return false
   if (input.flags.some((flag) => REPLAY_FLAGS.includes(flag))) return false
+  // Strict alignment only: a subdomain's or a parent's key (a newsletter service's, often) does not file as a member.
+  if (input.flags.includes('relaxed_alignment')) return false
   // A Bcc copy (`bcc_own`) is no exception: see the module header.
   return !input.flags.includes('not_addressed_to_project')
 }
