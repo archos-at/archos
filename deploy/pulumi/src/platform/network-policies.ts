@@ -38,6 +38,7 @@ export const QDRANT_CALLERS = [
   "agent-worker",
   "ingest-worker",
   "ingest-worker-heavy",
+  "ingest-page-reader",
   QDRANT.snapshotJob,
   CHROMA_MIGRATION.name,
   QDRANT.opsLabel,

@@ -476,11 +476,15 @@ def enrich_vlm_batch(
         # this asks the model again. Most failures are passing (a timeout, a provider
         # hiccup the 429 waits do not cover), and a page dropped here is a page nobody
         # can search; a second pass costs only the pages that failed.
+        # A page a page task already tried to its last retry (``page_reads``) is not asked again.
+        settled = [item for item in failed if reads.settled_image(item[1]["image_bytes"])]
+        failed = [item for item in failed if not reads.settled_image(item[1]["image_bytes"])]
         if failed and VLM_SECOND_PASS_DELAY_SECONDS >= 0:
             logger.info("VLM batch: %d item(s) failed; trying them once more", len(failed))
             time.sleep(VLM_SECOND_PASS_DELAY_SECONDS)
             more, failed = _vision_pass(reads, failed, vision)
             done += more
+        failed += settled
     if failed:
         logger.warning("VLM batch: %d/%d item(s) failed twice and were skipped (not indexed)", len(failed), len(work))
     images = [result for kind, result in done if kind == "image"]

@@ -482,6 +482,20 @@ How Hatchet holds it:
   (hatchet-dev/hatchet#4237), so a constant-key cap must sit on the task that makes
   every vision call.
 
+**The page fan-out, behind a switch** (`INGEST_PAGE_FAN_OUT`, off; ADR-0151, proposed).
+With it on, the standard `ingest-document` is declared in steps: `extract`
+(`llamaindex/extract.py`: download, text, tables, triage, the screen's pre-verdict,
+`parsed.json` stored), one `read-page` task per page that needs a model
+(`llamaindex/read_page.py`, waited for by a durable `read-pages`, its answers stored as
+`_text/page-reads/<n>.json`), `assemble-write` (the pipeline of section 3 inside
+`llamaindex/assembly.py`, which hands it those answers so it calls no model for them),
+then the summary, tags, topics and dossier as steps of their own (`llamaindex/enrich.py`)
+and `settle`. Measured on the 52-page harness file with every model call stubbed to 1 s:
+8.85 s and searchable at 6.55 s with the switch off, 10.25 s and 7.35 s on with one
+page-read worker; a crash after 26 page answers costs a 5.9 s retry off and about 0.5 s
+on. The numbers, the projection for two workers and why it stays proposed are in the
+ADR; the runbook is [`hatchet.md`](../deployment/hatchet.md#the-page-fan-out-ingest_page_fan_out-adr-0151-proposed).
+
 A job that reaches a terminal status calls
 `POST /api/internal/ingest/settled` with its job id. The BFF runs its reconcile for
 those documents at once, which emits `document_ingest_finished` with `settled_by:

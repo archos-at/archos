@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as pulumi from "@pulumi/pulumi";
-import { HEAVY_POOL, HEAVY_WORKFLOW, WORKFLOW } from "./ingest-worker";
+import { HEAVY_POOL, HEAVY_WORKFLOW, PAGE_READ_POOL, PAGE_READER_TIER, READ_PAGE_WORKFLOW, WORKFLOW } from "./ingest-worker";
 import { hatchetBacklogQuery } from "./keda-scaling";
 import { baseStackConfig } from "../test-support/stack-config";
 
@@ -42,6 +42,8 @@ const pythonSources = [
   read("packages", "agent", "src", "agent", "knowledge", "ingest_scheduler.py"),
   // The heavy pool's size threshold and slots, read where the workflows are declared.
   read("packages", "agent", "src", "agent", "knowledge", "ingest_hatchet.py"),
+  // The page fan-out's switch and the page-read pool's slots, beside the steps (ADR-0151).
+  read("packages", "agent", "src", "agent", "knowledge", "ingest_steps.py"),
   // The in-process pool's size, read by the knowledge layer's adapter.
   read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
   // One file's page-read pool, OCR and vision together.
@@ -120,6 +122,37 @@ describe("the ingest-worker tier", () => {
     const { heavyFileBytesEnv } = await import("../config/workers");
     expect(heavyFileBytesEnv(cfg.ingestWorker)).toBe(0);
     expect(configSource).toContain('{ name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) }');
+  });
+
+  it("adds no page-read pool and leaves the fan-out off by default", async () => {
+    const cfg = await load();
+    const { installIngestPageReader } = await import("./ingest-worker");
+    expect(cfg.ingestWorker.pageFanOut.enabled).toBe(false);
+    expect(installIngestPageReader({} as never, cfg, {} as never, [])).toBeUndefined();
+    expect(configSource).toContain(
+      '{ name: "INGEST_PAGE_FAN_OUT", value: cfg.ingestWorker.pageFanOut.enabled ? "on" : "off" }',
+    );
+  });
+
+  it("runs the page tasks on a pool of their own that scales on the read-page backlog (ADR-0151)", async () => {
+    const cfg = await load({ ingestPageFanOut: "true" });
+    expect(cfg.ingestWorker.pageFanOut).toMatchObject({ enabled: true, minReplicas: 0, maxReplicas: 2, slots: 16 });
+    // The prefix is its own: no standard or heavy run is counted, and no page task on their pools.
+    expect(hatchetBacklogQuery("prod", READ_PAGE_WORKFLOW)).toContain("'prod_read-page:'");
+    expect("prod_read-page:read-page".startsWith("prod_ingest-document:")).toBe(false);
+    const python = read("packages", "agent", "src", "agent", "knowledge", "ingest_hatchet.py");
+    expect(python).toContain(`READ_PAGE_WORKFLOW_NAME = "${READ_PAGE_WORKFLOW}"`);
+    expect(python).toContain(`PAGE_READ_POOL = "${PAGE_READ_POOL}"`);
+    expect(python).toContain(`PAGE_READER_NAME = "${PAGE_READER_TIER}"`);
+    const source = read("deploy", "pulumi", "src", "app", "ingest-worker.ts");
+    expect(source).toContain("workflow: READ_PAGE_WORKFLOW");
+    expect(source).toContain('{ name: "INGEST_PAGE_READ_SLOTS", value: slots }');
+  });
+
+  it("refuses a page-read pod with more slots than the fleet may run page tasks", async () => {
+    const cfg = await load({ ingestPageFanOut: "true", ingestPageReaderSlots: "40" });
+    const { installIngestPageReader } = await import("./ingest-worker");
+    expect(() => installIngestPageReader({} as never, cfg, {} as never, [])).toThrow(/ingestPageReaderSlots \(40\)/);
   });
 
   it("runs the role the entrypoint knows", () => {

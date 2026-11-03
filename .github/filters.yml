@@ -303,6 +303,7 @@ infra:
   - 'packages/agent/src/agent/common/provider_limiter.py'
   - 'packages/agent/src/agent/knowledge/ingest_hatchet.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
+  - 'packages/agent/src/agent/knowledge/ingest_steps.py'
   - 'packages/knowledge-layer/src/llamaindex/adapter.py'
   - 'packages/knowledge-layer/src/llamaindex/embedding.py'
   - 'packages/knowledge-layer/src/llamaindex/page_reads.py'
@@ -352,6 +353,8 @@ hatchet:
   - 'packages/agent/src/agent/knowledge/ingest_*.py'
   - 'packages/agent/tests/knowledge/test_ingest_hatchet_engine.py'
   - 'packages/agent/tests/testing/agent_testing/hatchet_engine_worker.py'
+  - 'packages/agent/tests/knowledge/test_ingest_page_fan_out_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/hatchet_page_fan_out_worker.py'
   # The research run: submit, the worker, cancel, and the job store it shares.
   - 'apps/agent-host/src/agent_host/jobs/**'
   - 'apps/agent-host/src/agent_host/routes/job_kill.py'

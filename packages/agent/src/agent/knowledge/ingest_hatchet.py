@@ -1,75 +1,49 @@
-"""The ``ingest-document`` workflows: ingestion jobs on Hatchet (ADR-0150).
+"""The ``ingest-document`` workflows: ingestion jobs on Hatchet (ADR-0150, ADR-0151).
 
 The thin layer between the orchestrator and the job, and the only module of
-ingestion that imports ``hatchet_sdk``. It declares the workflows, triggers a
-run for each accepted job (``trigger``), cancels one (``cancel_run``) and serves
-them on the ingest-worker tiers (``serve``).
+ingestion that imports ``hatchet_sdk``: it declares the workflows, triggers a run
+per accepted job (``trigger``), cancels one (``cancel_run``) and serves them
+(``serve``). What a run does is ``ingest_execution``'s and ``ingest_steps``'s;
+Temporal, the documented exit, would replace this file and nothing below it.
+The runbook is ``docs/deployment/hatchet.md``.
 
-Two workflows, the same steps: ``ingest-document`` on the standard pool and
-``ingest-document-heavy`` on the high-memory pool (``pool=highmem``), whose
-``index`` costs a whole worker (``slot_cost``). ``trigger`` picks by the
-original's size (``INGEST_HEAVY_FILE_BYTES``), which the BFF states at dispatch.
-
-Each is a DAG of two steps, so a crash repeats only the step it happened in:
-
-* ``index``: fetch, read, summarise, embed and write the job's files
-  (``ingest_execution.run_job``). Its output is the job id and the status it
-  ended with, nothing of the document.
-* ``settle`` (after ``index``): tell the BFF (``ingest_execution.settle``), with
-  retries of its own, so a BFF that is away for a moment costs a retried call,
-  never a re-indexed file. ``settle-failed``, the workflow's failure handler,
-  tells it the same about a job that failed for good.
-
-``index`` is one step because the adapter holds a file's pages, text and chunks
-in memory from the download to the write (``LlamaIndexIngestor._ingest_job``).
-Its costly middle, reading the pages, is already persisted: every vision and
-transcription result is cached by content hash in Dragonfly for 30 days
-(``knowledge_layer.llamaindex.processing``), so a repeated ``index`` reads its
-pages from the cache. What a run does is ``ingest_execution``'s; Temporal, the
-documented exit, would replace this file and nothing below it.
-
-What Hatchet holds of a job is its id, its document's id, its organisation (the
-fairness key), its priority and the payload the API tier already encrypted
-(``payload_crypto``, ``JOB_PAYLOAD_KEK``): never a file name or a byte of a document.
-
-* **Fairness:** one tenant-scoped concurrency limit, ``ingest-org``, keyed on
-  ``input.organization_id`` with ``GROUP_ROUND_ROBIN`` and shared by both
-  workflows: each organisation runs at most ``max_runs_per_org()`` jobs
-  fleet-wide, heavy or not, and a free slot goes to the organisations in turn.
-  A job with no organisation runs in ``PLATFORM_LANE``.
-* **A re-upload supersedes:** a second tenant-scoped limit, ``ingest-supersede``,
-  ``CANCEL_IN_PROGRESS`` with one run per ``input.document_id``: a newer upload
-  of a document cancels the run still indexing the old bytes, which records
-  itself superseded (``ingest_execution.settle_superseded``), never as a
-  person's cancel and never as a failure. A job carries one document (one
-  ``file_ref`` per ``POST /v1/ingest``, one corpus file per job); one without a
-  document id is keyed on its own job id, so it supersedes nothing.
-* **Priority:** ``interactive`` runs as ``Priority.HIGH``, ``bulk`` as
-  ``Priority.LOW``, inside the organisation's turn.
-* **Retries:** per step, with exponential backoff: ``RETRIES`` more attempts of
-  ``index`` for a failure that may pass, ``SETTLE_RETRIES`` of ``settle``. A
-  failure of the bytes raises ``NonRetryableException``. What a step raises
-  reaches Hatchet as the exception's class and failure category only, ``from
-  None`` (``task_failures``); the message is logged here and nowhere else.
-* **Credits in flight:** the provider's 402 for credits that requests in flight
-  hold is waited out, not retried at once: the attempt pauses new ``index``
-  starts for ``CREDIT_PAUSE`` (the rate-limit key ``ingest-provider-credits``,
-  which every ``index`` consumes) and raises ``RetryAfterException`` for
-  ``CREDIT_WAIT``. Those count against the step's retries (the SDK says so), so
-  ``index`` has ``CREDIT_WAIT_RETRIES`` more of them, and an ordinary failure is
-  final after ``ORDINARY_ATTEMPTS`` attempts however many retries remain.
-* **Idempotency:** one live run per job id, so asking twice for the base
-  corpus's deterministic ids starts one run.
+* ``ingest-document`` on the standard pool, ``ingest-document-heavy`` on the
+  high-memory one (``pool=highmem``, its ``index`` takes the worker's slots),
+  picked by the original's size (``INGEST_HEAVY_FILE_BYTES``).
+* Two steps, ``index`` (``ingest_execution.run_job``) then ``settle`` (the BFF
+  push, retried on its own), with ``settle-failed`` as the failure handler. Under
+  ``INGEST_PAGE_FAN_OUT`` the standard ``ingest-document`` is declared in steps
+  instead (``_declare_fan_out``, ``ingest_steps``): ``extract``, a ``read-page``
+  task per page that needs a model, waited for by a durable ``read-pages``,
+  ``assemble-write``, the enrichment steps, ``settle``.
+* A run's input holds ids, the organisation, the priority and the payload the
+  API tier encrypted (``payload_crypto``), never a file name or document text.
+* **Fairness and supersede:** ``ingest-org`` (``GROUP_ROUND_ROBIN`` on
+  ``input.organization_id``, ``max_runs_per_org()``) and ``ingest-supersede``
+  (``CANCEL_IN_PROGRESS`` on ``input.document_id``), named and tenant-scoped,
+  so one limit spans both workflows. A superseded run records itself so
+  (``ingest_execution.settle_superseded``). ``read-page`` has its own two:
+  ``ingest-page-read-fleet`` at ``VLM_FLEET_CONCURRENCY`` and
+  ``ingest-page-read-org``.
+* **Priority:** ``interactive`` is ``Priority.HIGH``, ``bulk`` ``Priority.LOW``.
+* **Retries:** per step with backoff; a failure of the bytes raises
+  ``NonRetryableException``; what reaches Hatchet is the class and category only
+  (``task_failures``). The provider's 402 for credits in flight pauses new
+  ``index`` starts (``ingest-provider-credits``) and retries after
+  ``CREDIT_WAIT``, ``CREDIT_WAIT_RETRIES`` times; an ordinary failure is final
+  after ``ORDINARY_ATTEMPTS``.
+* **Idempotency:** one live run per job id.
 """
 
 from __future__ import annotations
 
+import contextlib
 import logging
-import os
 import threading
 import time
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
+from contextlib import AbstractContextManager
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -80,8 +54,10 @@ from hatchet_sdk import ConcurrencyExpression
 from hatchet_sdk import ConcurrencyLimitStrategy
 from hatchet_sdk import Context
 from hatchet_sdk import DesiredWorkerLabel
+from hatchet_sdk import DurableContext
 from hatchet_sdk import IdempotencyCollisionError
 from hatchet_sdk import NonRetryableException
+from hatchet_sdk import ParentCondition
 from hatchet_sdk import Priority
 from hatchet_sdk import RateLimit
 from hatchet_sdk import RateLimitDuration
@@ -98,11 +74,22 @@ from agent.observability import hatchet_tracing
 from . import ingest_execution
 from . import ingest_run_hold
 from . import ingest_status_store
+from . import ingest_steps
 from .base import BaseIngestor
 from .base import PreparedIngestJob
-from .ingest_failures import credits_in_flight
 from .ingest_scheduler import lane_of
-from .ingest_scheduler import per_org_cap_from_env
+from .ingest_steps import DEFAULT_MAX_RUNS_PER_ORG  # noqa: F401 - named here, where the limit is declared
+from .ingest_steps import ReadPageInput
+from .ingest_steps import _credits_in_flight
+from .ingest_steps import _stopped
+from .ingest_steps import fleet_vision_cap
+from .ingest_steps import heavy_worker_slots
+from .ingest_steps import max_job_seconds
+from .ingest_steps import max_runs_per_org
+from .ingest_steps import page_read_slots
+from .ingest_steps import page_runs
+from .ingest_steps import workflow_for
+from .page_fan_out_port import PageNotRead
 from .schema import JobState
 
 logger = logging.getLogger(__name__)
@@ -121,12 +108,22 @@ HEAVY_POOL = "highmem"
 #: The tenant-scoped concurrency limits both workflows share, in this order in both.
 ORG_LIMIT = "ingest-org"
 SUPERSEDE_LIMIT = "ingest-supersede"
+#: The page fan-out (``INGEST_PAGE_FAN_OUT``, ADR-0151): its steps, its page task and that task's pool and limits.
+EXTRACT_STEP = "extract"
+READ_PAGES_STEP = "read-pages"
+ASSEMBLE_STEP = "assemble-write"
+PERMIT_STEP = "enrich-permit"
+WRITE_ROWS_STEP = "enrich-write"
+READ_PAGE_WORKFLOW_NAME = "read-page"
+PAGE_READ_POOL = "page-read"
+PAGE_READER_NAME = "ingest-page-reader"
+PAGE_FLEET_LIMIT = "ingest-page-read-fleet"
+PAGE_ORG_LIMIT = "ingest-page-read-org"
+READ_PAGE_RETRIES = 2
+READ_PAGE_TIMEOUT = timedelta(minutes=5)
+EXTRACT_TIMEOUT = timedelta(minutes=30)
+ENRICH_TIMEOUT = timedelta(minutes=3)
 
-#: Jobs one organisation may run at once, fleet-wide, when ``INGEST_MAX_PER_ORG``
-#: is 0. Sixteen is the prod fleet's document slots (8 ingest pods at 2 each), so
-#: an office alone may still use the whole fleet, as it could on the claim queue
-#: without a cap; round robin hands the next free slot to the next office.
-DEFAULT_MAX_RUNS_PER_ORG = 16
 RETRIES = 2
 #: Attempts an ordinary failure (a dropped worker, a timeout, a transient file failure) gets.
 ORDINARY_ATTEMPTS = RETRIES + 1
@@ -149,8 +146,6 @@ BACKOFF_MAX_SECONDS = 600
 #: How long a run may wait for a worker before Hatchet gives it up: the life of
 #: the presigned download URL the BFF signs (24 h), after which it could not read.
 SCHEDULE_TIMEOUT = timedelta(hours=24)
-#: The original's size from which a job runs on the high-memory pool.
-DEFAULT_HEAVY_FILE_BYTES = 40 * 1024 * 1024
 
 PRIORITIES: dict[str, Priority] = {"interactive": Priority.HIGH, "bulk": Priority.LOW}
 
@@ -166,42 +161,6 @@ class IngestDocumentInput(BaseModel):
     document_id: str | None = None
     priority: Literal["interactive", "bulk"] = "interactive"
     payload: str
-
-
-def _int_env(name: str, default: int, floor: int) -> int:
-    try:
-        value = int(os.environ.get(name, "").strip() or default)
-    except ValueError:
-        return default
-    return value if value >= floor else default
-
-
-# @environment_variable INGEST_MAX_JOB_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 7200
-# @required false
-# The longest one attempt of an ingestion job may run: the `execution_timeout` of
-# the `index` step of the `ingest-document` workflows. Past it Hatchet cancels the attempt, the job stops at
-# its next check, and the next attempt starts (the last one settles `interrupted`).
-def max_job_seconds() -> int:
-    """``INGEST_MAX_JOB_SECONDS``; unset, not a number or below one is the default."""
-    return _int_env("INGEST_MAX_JOB_SECONDS", 7200, floor=1)
-
-
-def heavy_file_bytes() -> int:
-    """``INGEST_HEAVY_FILE_BYTES``: the original's size from which a job runs heavy; 0 is never."""
-    return _int_env("INGEST_HEAVY_FILE_BYTES", DEFAULT_HEAVY_FILE_BYTES, floor=0)
-
-
-def heavy_worker_slots() -> int:
-    """``INGEST_HEAVY_WORKER_SLOTS``: a high-memory worker's slots, all of which its ``index`` takes."""
-    return _int_env("INGEST_HEAVY_WORKER_SLOTS", 1, floor=1)
-
-
-def max_runs_per_org() -> int:
-    """The per-organisation ``max_runs``: ``INGEST_MAX_PER_ORG``, or ``DEFAULT_MAX_RUNS_PER_ORG``."""
-    return per_org_cap_from_env() or DEFAULT_MAX_RUNS_PER_ORG
 
 
 def hold_seconds() -> int:
@@ -279,19 +238,32 @@ def settle_options() -> dict[str, Any]:
 
 _lock = threading.Lock()
 #: Each workflow as declared on the client that declared it; rebuilt when the client changes (a test's fake).
-_declared: dict[bool, tuple[object, Any]] | None = None
+_declared: dict[str, tuple[object, Any]] | None = None
 
 
-def ingest_workflow(heavy: bool = False) -> Any:
-    """The ``ingest-document`` (or ``-heavy``) workflow on this process's Hatchet client."""
+def _declared_on(shape: str, declare: Callable[[Any], Any]) -> Any:
     global _declared
     client = hatchet_client.client()
     with _lock:
         if _declared is None:
             _declared = {}
-        if heavy not in _declared or _declared[heavy][0] is not client:
-            _declared[heavy] = (client, _declare(client, heavy))
-        return _declared[heavy][1]
+        if shape not in _declared or _declared[shape][0] is not client:
+            _declared[shape] = (client, declare(client))
+        return _declared[shape][1]
+
+
+def ingest_workflow(heavy: bool = False) -> Any:
+    """``ingest-document`` (in steps under ``INGEST_PAGE_FAN_OUT``), or ``-heavy``, on this process's client."""
+    if heavy:
+        return _declared_on("heavy", lambda client: _declare(client, True))
+    if ingest_steps.page_fan_out():
+        return _declared_on("fan-out", _declare_fan_out)
+    return _declared_on("standard", lambda client: _declare(client, False))
+
+
+def read_page_task() -> Any:
+    """``read-page``, the page fan-out's task for one page, on this process's client."""
+    return _declared_on(READ_PAGE_WORKFLOW_NAME, _declare_read_page)
 
 
 def _declare(client: Any, heavy: bool) -> Any:
@@ -310,6 +282,156 @@ def _declare(client: Any, heavy: bool) -> Any:
         return settle_step(input.job_id)
 
     return workflow
+
+
+# ---------------------------------------------------------------- the page fan-out (ADR-0151)
+
+
+def read_page_concurrency() -> list[ConcurrencyExpression]:
+    """The fleet's vision cap on page tasks (``VLM_FLEET_CONCURRENCY``), then the organizations in turn inside it."""
+    cap = fleet_vision_cap()
+    limits = ((PAGE_FLEET_LIMIT, "'fleet'"), (PAGE_ORG_LIMIT, "input.organization_id"))
+    return [
+        ConcurrencyExpression(
+            name=name,
+            expression=expression,
+            max_runs=cap,
+            limit_strategy=ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN,
+            is_tenant_scoped=True,
+        )
+        for name, expression in limits
+    ]
+
+
+def _declare_read_page(client: Any) -> Any:
+    @client.task(
+        name=READ_PAGE_WORKFLOW_NAME,
+        input_validator=ReadPageInput,
+        concurrency=read_page_concurrency(),
+        execution_timeout=READ_PAGE_TIMEOUT,
+        schedule_timeout=SCHEDULE_TIMEOUT,
+        retries=READ_PAGE_RETRIES,
+        backoff_factor=2.0,
+        backoff_max_seconds=60,
+    )
+    def read_page(input: ReadPageInput, ctx: Context) -> dict[str, Any]:
+        return read_page_attempt(input, ctx)
+
+    return read_page
+
+
+def read_page_attempt(run: ReadPageInput, ctx: Context) -> dict[str, Any]:
+    """One attempt of a page: a page not read is tried again, and its last attempt records it unread."""
+    final = ctx.attempt_number >= ctx.max_attempts
+    try:
+        return ingest_steps.read_page(
+            run.payload, page=run.page, kind=run.kind, content_hash=run.content_hash, final=final
+        )
+    except PageNotRead as not_read:
+        raise RuntimeError(f"page {run.page} of job {run.job_id} not read ({not_read}); tried again") from None
+    except Exception as error:
+        raise _sanitized(run.job_id, error, retry=not final) from None
+
+
+def _fan_out_step(timeout: timedelta, **options: Any) -> dict[str, Any]:
+    return {"execution_timeout": timeout, "retries": RETRIES, "backoff_factor": 2.0, **options}
+
+
+def _declare_fan_out(client: Any) -> Any:
+    """``ingest-document`` in steps. The tenant-scoped limits sit on ``extract`` and ``assemble-write``.
+
+    The engine refuses a tenant-scoped limit at the level of a workflow of
+    several tasks, so ``ingest-org`` and ``ingest-supersede`` (``concurrency()``,
+    in the same order) hold the two steps that do a file's work; named, they are
+    one limit across both.
+    """
+    options = workflow_options(False)
+    options.pop("concurrency", None)
+    workflow = client.workflow(**options)
+    index = {**index_options(rate_limit_key=credit_rate_limit_key(client)), "concurrency": concurrency()}
+
+    @workflow.task(**_fan_out_step(EXTRACT_TIMEOUT, name=EXTRACT_STEP, concurrency=concurrency()))
+    def extract(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return ingest_steps.extract(input.payload)
+
+    # Durable: it waits on a durable slot, never on one its page tasks need, and may be evicted while it waits.
+    @workflow.durable_task(
+        name=READ_PAGES_STEP,
+        parents=[extract],
+        execution_timeout=index["execution_timeout"],
+        skip_if=[ParentCondition(parent=extract, expression="output.fan_out == false")],
+    )
+    async def read_pages(input: IngestDocumentInput, ctx: DurableContext) -> dict[str, Any]:
+        task = read_page_task()
+        items = [
+            task.create_bulk_run_item(input=page, key=f"{input.job_id}:{page.page}")
+            for page in page_runs(input, ctx.task_output(extract))
+        ]
+        results = await task.aio_run_many(items, return_exceptions=True) if items else []
+        return ingest_steps.summarize_reads(list(results))
+
+    @workflow.task(**{**index, "name": ASSEMBLE_STEP, "parents": [extract, read_pages]})
+    def assemble_write(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return assemble_attempt(input, ctx, ctx.task_output(extract))
+
+    _declare_after_write(workflow, extract, assemble_write)
+    return workflow
+
+
+def _declare_after_write(workflow: Any, extract: Any, assemble_write: Any) -> None:
+    """The enrichment steps (skipped when the write did not defer them), the permit after the tags, then ``settle``."""
+    stored = ParentCondition(parent=assemble_write, expression="output.enrichment_stored == 0")
+    calls = [
+        _declare_enrichment(workflow, name, [extract, assemble_write], stored, extract)
+        for name in ingest_steps.ENRICHMENTS
+    ]
+    tags = calls[ingest_steps.ENRICHMENTS.index("tags")]
+
+    @workflow.task(
+        **_fan_out_step(
+            ENRICH_TIMEOUT,
+            name=PERMIT_STEP,
+            parents=[extract, tags],
+            skip_if=[ParentCondition(parent=tags, expression="output.permit == false")],
+        )
+    )
+    def enrich_permit(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return ingest_steps.permit(input.payload, ctx.task_output(extract).get("content_hash"))
+
+    @workflow.task(**_fan_out_step(ENRICH_TIMEOUT, name=WRITE_ROWS_STEP, parents=[extract, *calls]))
+    def enrich_write(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return ingest_steps.write_rows(input.payload, ctx.task_output(extract).get("content_hash"))
+
+    @workflow.task(name=SETTLE_STEP, parents=[enrich_write, enrich_permit], **settle_options())
+    def settle(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return settle_step(input.job_id)
+
+    @workflow.on_failure_task(name=SETTLE_FAILED_STEP, **settle_options())
+    def settle_failed(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return settle_step(input.job_id)
+
+
+def _declare_enrichment(workflow: Any, name: str, parents: list[Any], skip: Any, extract: Any) -> Any:
+    @workflow.task(**_fan_out_step(ENRICH_TIMEOUT, name=f"enrich-{name}", parents=parents, skip_if=[skip]))
+    def enrich_one(input: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
+        return ingest_steps.enrich(input.payload, name, ctx.task_output(extract).get("content_hash"))
+
+    return enrich_one
+
+
+def assemble_attempt(run: IngestDocumentInput, ctx: Context, extracted: dict[str, Any]) -> dict[str, Any]:
+    """``index``'s attempt over the page answers; its output adds the assembly's counts (references only)."""
+    counts: dict[str, int] = {"answers": 0, "pages_read_here": 0, "enrichment_stored": 0}
+    return {**execute(run, ctx, scope=ingest_steps.assembly(extracted, counts)), **counts}
+
+
+def served_workflows(pool: str) -> list[Any]:
+    """What a pool's worker registers: its workflow, and the page tasks on the standard pool under the fan-out."""
+    if pool == HEAVY_POOL:
+        return [ingest_workflow(True)]
+    if pool == PAGE_READ_POOL:
+        return [read_page_task()]
+    return [ingest_workflow(False), *([read_page_task()] if ingest_steps.page_fan_out() else [])]
 
 
 def settle_step(job_id: str) -> dict[str, Any]:
@@ -335,12 +457,6 @@ def _sanitized(job_id: str, error: Exception, *, retry: bool = True) -> Exceptio
     failure = task_failures.classify(error)
     logger.error("Ingestion job %s failed on Hatchet: %s", job_id, failure.text, exc_info=error)
     return hatchet_client.task_error(failure, retry=retry)
-
-
-def workflow_for(byte_size: int | None) -> bool:
-    """Whether a job whose original is ``byte_size`` bytes runs heavy; an unknown size does not."""
-    threshold = heavy_file_bytes()
-    return bool(threshold) and byte_size is not None and byte_size >= threshold
 
 
 def trigger(
@@ -400,8 +516,16 @@ _runtime = _Runtime()
 _monotonic = time.monotonic
 
 
-def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
-    """One attempt of the ``index`` step (see the module docstrings here and in ``ingest_execution``)."""
+def execute(
+    run: IngestDocumentInput,
+    ctx: Context,
+    scope: Callable[[PreparedIngestJob], AbstractContextManager[Any]] | None = None,
+) -> dict[str, Any]:
+    """One attempt of the ``index`` step (see the module docstrings here and in ``ingest_execution``).
+
+    ``scope`` wraps the run: the page fan-out's ``assemble-write`` runs it with the
+    page answers read back and the enrichment deferred (``ingest_steps.assembly``).
+    """
     ingestor, decode = _runtime.ingestor, _runtime.decode
     if ingestor is None or decode is None:
         raise RuntimeError("the ingest-document workflow runs only in a process that serves it")
@@ -418,7 +542,7 @@ def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
     started = _monotonic()
     metadata = getattr(ctx, "additional_metadata", None)
     try:
-        with direct_trace.continued_from(hatchet_tracing.traceparent_of(metadata)):
+        with direct_trace.continued_from(hatchet_tracing.traceparent_of(metadata)), (scope or _no_scope)(prepared):
             status = ingest_execution.run_job(ingestor, prepared, still_owner=lambda: not ctx.is_cancelled)
     except Exception as error:
         if task_failures.classify(error).credits_in_flight and _may_wait(ctx):
@@ -427,6 +551,10 @@ def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
     if ctx.is_cancelled:
         return _stopped(run.job_id, _monotonic() - started, final)
     return _ended(prepared, status, ctx, final)
+
+
+def _no_scope(_prepared: PreparedIngestJob) -> AbstractContextManager[None]:
+    return contextlib.nullcontext()
 
 
 def _settled_before(job_id: str, attempt: int) -> dict[str, Any] | None:
@@ -461,23 +589,6 @@ def _wait_for_credits(prepared: PreparedIngestJob, failed: Any, ctx: Context) ->
     return RetryAfterException("ProviderCreditsInFlight (transient)", after=CREDIT_WAIT)
 
 
-def _stopped(job_id: str, elapsed: float, final: bool) -> dict[str, Any]:
-    """The run was cancelled: by its timeout, by a person (``ingest_dispatch.cancel``), or by a newer upload."""
-    if elapsed >= max_job_seconds() - 1:
-        logger.error("Ingestion job %s ran past %ds and was stopped", job_id, max_job_seconds())
-        if final:
-            ingest_execution.settle_timed_out(job_id)
-        return {"job_id": job_id, "status": "timed_out"}
-    if not ingest_run_hold.stopped_by_person(job_id):
-        # The engine cancelled it for a newer run of the same document (``SUPERSEDE_LIMIT``).
-        ingest_execution.settle_superseded(job_id)
-        return {"job_id": job_id, "status": "superseded"}
-    # A person stopped it. The cancel settled the row; the run may have written
-    # it live again before it saw the cancel, so settle it once more.
-    ingest_status_store.settle_cancelled(job_id)
-    return {"job_id": job_id, "status": "cancelled"}
-
-
 def _ended(prepared: PreparedIngestJob, status, ctx: Context, final: bool) -> dict[str, Any]:
     outcome = ingest_execution.outcome_of(status)
     if outcome.state == "live":
@@ -491,12 +602,6 @@ def _ended(prepared: PreparedIngestJob, status, ctx: Context, final: bool) -> di
         # Failed for good; ``settle-failed`` tells the BFF. The category only: a message may name the file.
         raise NonRetryableException(f"ingestion job {prepared.job_id} failed for good")
     return {"job_id": prepared.job_id, "status": status.status.value}
-
-
-def _credits_in_flight(status) -> bool:
-    """Whether the job's failure is the provider's in-flight credit 402, on a failed file or the job."""
-    messages = [d.error_message for d in status.file_details if d.retryable] or [status.error_message]
-    return any(credits_in_flight(message) for message in messages)
 
 
 def serve(
@@ -517,6 +622,8 @@ def serve(
     _runtime.decode = decode
     heavy = pool == HEAVY_POOL
     client = hatchet_client.client()
+    if pool == PAGE_READ_POOL:
+        slots = page_read_slots()
 
     async def worker_lifespan():
         async with lifespan() as ingestor:
@@ -530,10 +637,10 @@ def serve(
     # A static key must exist before a step consumes it; it is only ever paused.
     client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
     worker = client.worker(
-        f"{WORKER_NAME}-heavy" if heavy else WORKER_NAME,
+        {HEAVY_POOL: f"{WORKER_NAME}-heavy", PAGE_READ_POOL: PAGE_READER_NAME}.get(pool, WORKER_NAME),
         slots=heavy_worker_slots() if heavy else max(1, slots),
         labels={POOL_LABEL: pool},
-        workflows=[ingest_workflow(heavy)],
+        workflows=served_workflows(pool),
         lifespan=worker_lifespan,
     )
     worker.start()

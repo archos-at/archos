@@ -81,6 +81,26 @@ export interface IngestWorkerConfig {
   maxImagePixels: number;
   /** The high-memory pool (`ingest-worker-heavy`) that runs `ingest-document-heavy`. */
   heavy: IngestHeavyConfig;
+  /** The page fan-out (`INGEST_PAGE_FAN_OUT`, ADR-0151) and its page-read pool (`ingest-page-reader`). */
+  pageFanOut: IngestPageFanOutConfig;
+}
+
+/**
+ * The page fan-out, one deploy's comparison against the one-step read (ADR-0151): with it on,
+ * a standard file is `ingest-document` in steps, and each page that needs a model is a
+ * `read-page` task. The page-read pool runs those tasks only, `slots` at a time a pod, and
+ * KEDA scales it on the `read-page` backlog. Hatchet holds the tasks to `vlmFleetConcurrency`
+ * fleet-wide (`ingest-page-read-fleet`), so slots past it only wait.
+ */
+export interface IngestPageFanOutConfig {
+  /** `INGEST_PAGE_FAN_OUT` on every backend tier; off (the default) leaves the pool out too. */
+  enabled: boolean;
+  resources: ResourceSpec;
+  /** Floor; 0 (the default) lets the pool scale to nothing while no page waits. */
+  minReplicas: number;
+  maxReplicas: number;
+  /** Page tasks one pod runs at once (`INGEST_PAGE_READ_SLOTS`), and KEDA's target. */
+  slots: number;
 }
 
 /**
@@ -263,6 +283,20 @@ export function loadWorkers(
         // 26-29 MB plan sets), below the 100 MB upload cap. The reasoning is in
         // docs/deployment/environment-variables.md, `INGEST_HEAVY_FILE_BYTES`.
         fileBytes: Math.max(1, num(cfg, "ingestHeavyFileBytes", 41_943_040)),
+      },
+      // A page task holds one rendered page and one model call: a fraction of a
+      // standard pod's memory. Two pods of 16 slots fill the default fleet cap (32).
+      pageFanOut: {
+        enabled: bool(cfg, "ingestPageFanOut", false),
+        resources: {
+          requestsCpu: cfg.get("ingestPageReaderRequestsCpu") ?? "250m",
+          requestsMemory: cfg.get("ingestPageReaderRequestsMemory") ?? "2Gi",
+          limitsCpu: cfg.get("ingestPageReaderLimitsCpu") ?? "1",
+          limitsMemory: cfg.get("ingestPageReaderLimitsMemory") ?? "2Gi",
+        },
+        minReplicas: Math.max(0, num(cfg, "ingestPageReaderMinReplicas", 0)),
+        maxReplicas: Math.max(1, num(cfg, "ingestPageReaderMaxReplicas", 2)),
+        slots: Math.max(1, num(cfg, "ingestPageReaderSlots", 16)),
       },
     },
     bffJobs: {

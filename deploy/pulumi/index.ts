@@ -52,7 +52,7 @@ import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
 import { installWorkers } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
-import { installIngestWorker, installIngestWorkerHeavy } from "./src/app/ingest-worker";
+import { installIngestPageReader, installIngestWorker, installIngestWorkerHeavy } from "./src/app/ingest-worker";
 import { installHatchetQueueAuth } from "./src/app/hatchet-queue-auth";
 import { installBffJobs } from "./src/app/bff-jobs";
 import { installBackgroundWorkPostgres } from "./src/data/background-work-pg";
@@ -419,7 +419,8 @@ const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
 
 // The high-memory ingest pool: `ingest-document-heavy`, the files of
 // `ingestHeavyFileBytes` or more, one a pod, scaled by KEDA on that backlog.
-installIngestWorkerHeavy(wiring, cfg, secrets, [
+// The page-read pool (ADR-0151): the `read-page` tasks while `ingestPageFanOut` is on.
+const ingestPoolDeps = [
   postgres.initJob,
   postgres.pooler,
   dragonfly.service,
@@ -427,7 +428,9 @@ installIngestWorkerHeavy(wiring, cfg, secrets, [
   qdrant.service,
   ...queueScalerDeps,
   ...afterChromaMigration,
-]);
+];
+installIngestWorkerHeavy(wiring, cfg, secrets, ingestPoolDeps);
+installIngestPageReader(wiring, cfg, secrets, ingestPoolDeps);
 
 // BFF background pool (ADR-0079) — runs `bff-job` on Hatchet (ADR-0150), fairly across
 // organisations and runs project reindex and rescan jobs in its own BFF,

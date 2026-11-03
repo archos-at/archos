@@ -37,6 +37,7 @@ export const HATCHET_CALLERS = [
   "agent-worker",
   "ingest-worker",
   "ingest-worker-heavy",
+  "ingest-page-reader",
   "frontend",
   "bff-jobs",
 ] as const;

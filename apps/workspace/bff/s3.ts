@@ -365,6 +365,20 @@ export const PAGE_TEXT_PARTS = ['pages.md', 'index.json', 'parsed.json'] as cons
 export type PageTextPart = (typeof PAGE_TEXT_PARTS)[number]
 
 /**
+ * What the steps of a page fan-out (`INGEST_PAGE_FAN_OUT`, ADR-0151) hand each other beside
+ * `parsed.json` (`llamaindex/step_outputs.py`): one page's reading, `page-reads/<n>.json`; the
+ * enrichment's inputs, `enrichment.json`; one enrichment call's answer, `enrichment/<name>.json`.
+ * A closed pattern, mirrored by `PART_PATTERN` there, so nothing else is minted under the prefix.
+ */
+export const STEP_OUTPUT_PART_PATTERN =
+  /^(?:page-reads\/[1-9][0-9]{0,4}\.json|enrichment\.json|enrichment\/(?:summary|tags|topics|dossier)\.json)$/
+
+/** Whether `part` is a part of a version's `_text/` directory the presign route may mint. */
+export function isPageTextPart(part: string): boolean {
+  return (PAGE_TEXT_PARTS as readonly string[]).includes(part) || STEP_OUTPUT_PART_PATTERN.test(part)
+}
+
+/**
  * The directory a version's stored page text lives in, beside the version's file:
  * `<dir>/_text/`. A prefix, like `_img/`, so a delete can sweep it without a list.
  */
@@ -376,11 +390,12 @@ export function buildPageTextPrefix(storageKey: string): string | null {
 
 /**
  * Storage key of one part of a version's stored page text: `<dir>/_text/pages.md`,
- * `<dir>/_text/index.json` or `<dir>/_text/parsed.json`. Built from the document's own key and a part from
- * {@link PAGE_TEXT_PARTS}, never from a caller's path; null for anything else.
+ * `<dir>/_text/index.json`, `<dir>/_text/parsed.json` or a step output. Built from the document's own key
+ * and a part from {@link PAGE_TEXT_PARTS} or {@link STEP_OUTPUT_PART_PATTERN}, never from a caller's path;
+ * null for anything else.
  */
 export function buildPageTextStorageKey(storageKey: string, part: string): string | null {
-  if (!(PAGE_TEXT_PARTS as readonly string[]).includes(part)) return null
+  if (!isPageTextPart(part)) return null
   const prefix = buildPageTextPrefix(storageKey)
   return prefix ? `${prefix}${part}` : null
 }

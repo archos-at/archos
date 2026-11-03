@@ -31,6 +31,7 @@ class FakeStep:
     options: dict[str, Any]
     fn: Any
     on_failure: bool = False
+    durable: bool = False
 
     @property
     def name(self) -> str:
@@ -62,12 +63,15 @@ class FakeWorkflow:
     def task(self, **options):
         return self._declare(options, on_failure=False)
 
+    def durable_task(self, **options):
+        return self._declare(options, on_failure=False, durable=True)
+
     def on_failure_task(self, **options):
         return self._declare(options, on_failure=True)
 
-    def _declare(self, options: dict[str, Any], *, on_failure: bool):
+    def _declare(self, options: dict[str, Any], *, on_failure: bool, durable: bool = False):
         def declare(fn):
-            step = FakeStep(options, fn, on_failure)
+            step = FakeStep(options, fn, on_failure, durable)
             self.steps.append(step)
             return step
 
@@ -75,6 +79,32 @@ class FakeWorkflow:
 
     def step(self, name: str) -> FakeStep:
         return next(step for step in self.steps if step.name == name)
+
+
+@dataclass
+class FakeStandalone:
+    """A standalone task as ``Hatchet.task`` declared it, and the bulk runs started of it."""
+
+    options: dict[str, Any]
+    fn: Any
+    bulk: list[list[Any]] = field(default_factory=list)
+    #: What ``aio_run_many`` answers per item, in order; each item's input when unset.
+    answers: Any = None
+
+    @property
+    def name(self) -> str:
+        return self.options.get("name") or self.fn.__name__
+
+    def __call__(self, *args, **kwargs):
+        return self.fn(*args, **kwargs)
+
+    def create_bulk_run_item(self, input=None, key=None, **options):
+        return {"input": input, "key": key, **options}
+
+    async def aio_run_many(self, items, return_exceptions=False, wait_for_result=True):
+        self.bulk.append(list(items))
+        answer = self.answers or (lambda item: {"read": True, "stored": True, "page": item["input"].page})
+        return [answer(item) for item in items]
 
 
 class FakeRuns:
@@ -117,11 +147,20 @@ class FakeHatchet:
         self.runs = FakeRuns()
         self.workers: list[FakeWorker] = []
         self.rate_limits = FakeRateLimits()
+        self.standalone: list[FakeStandalone] = []
 
     def workflow(self, **options) -> FakeWorkflow:
         workflow = FakeWorkflow(options)
         self.workflows.append(workflow)
         return workflow
+
+    def task(self, **options):
+        def declare(fn):
+            task = FakeStandalone(options, fn)
+            self.standalone.append(task)
+            return task
+
+        return declare
 
     def worker(self, name, slots=None, durable_slots=None, labels=None, workflows=None, lifespan=None):
         worker = FakeWorker(name, slots, list(workflows or []), lifespan, dict(labels or {}))
@@ -144,13 +183,24 @@ class FakeContext:
     """The ``Context`` a task function gets: the attempt, whether the run was cancelled, its metadata."""
 
     def __init__(
-        self, *, attempt: int = 1, max_attempts: int = 3, cancelled: bool = False, metadata: dict | None = None
+        self,
+        *,
+        attempt: int = 1,
+        max_attempts: int = 3,
+        cancelled: bool = False,
+        metadata: dict | None = None,
+        outputs: dict[str, Any] | None = None,
     ) -> None:
         self.attempt_number = attempt
         self.max_attempts = max_attempts
         self.is_cancelled = cancelled
         self.additional_metadata = dict(metadata or {})
         self.paused: list[tuple[str, Any]] = []
+        #: Each parent step's output, by step name (``task_output``).
+        self.outputs = dict(outputs or {})
+
+    def task_output(self, task: Any) -> Any:
+        return self.outputs[task.name]
 
     def pause_rate_limit(self, key: str, until: Any) -> Any:
         self.paused.append((key, until))

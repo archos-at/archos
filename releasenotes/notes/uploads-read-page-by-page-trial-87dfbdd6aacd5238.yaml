@@ -1,0 +1,9 @@
+---
+operators:
+  - >
+    INGEST_PAGE_FAN_OUT (Pulumi ingestPageFanOut, off) reads a standard file
+    in steps, one read-page task per page that needs a model, on the new
+    ingest-page-reader pool (ADR-0151, proposed); flip it only with no ingest
+    run in flight. It is kept for one deployment as the comparison, and the next
+    change deletes the losing shape, the one-step path included if ADR-0151 is
+    accepted.

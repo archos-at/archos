@@ -9,7 +9,8 @@
  * Service-to-service only, like `document-image-upload-url`: `INTERNAL_API_TOKEN`
  * via `internalApiRoute`, the row addressed by the dispatched `documentId` AND its
  * collection, and the key built from the row's own storage key and a part from a
- * closed list (`PAGE_TEXT_PARTS`), so nothing else can be minted under the prefix.
+ * closed list (`PAGE_TEXT_PARTS`) or the page fan-out's closed pattern of step outputs
+ * (`STEP_OUTPUT_PART_PATTERN`), so nothing else can be minted under the prefix.
  * The answer carries the row's id, version and content hash, which `index.json` repeats.
  */
 
@@ -17,13 +18,13 @@ import { z } from 'zod'
 import { internalApiRoute, parseJsonBody } from '@/lib/api/handler'
 import { withOptionalTenant } from '@/lib/db/tenant-context'
 import { NotFoundError } from '@/lib/api/errors'
-import { PAGE_TEXT_PARTS } from '@/lib/s3'
+import { isPageTextPart } from '@/lib/s3'
 import { presignDocumentPageTextUpload } from '@/lib/documents/document-storage-keys'
 
 const bodySchema = z.object({
   documentId: z.guid(),
   collection: z.string().min(1),
-  part: z.enum(PAGE_TEXT_PARTS),
+  part: z.string().refine(isPageTextPart, 'not a part of the stored page text'),
   organizationId: z.string().min(1).optional(),
 })
 

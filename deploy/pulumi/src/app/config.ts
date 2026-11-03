@@ -336,6 +336,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     { name: "INGEST_MAX_WORKERS", value: String(cfg.backend.ingestMaxWorkers) },
     { name: "INGEST_MAX_PER_ORG", value: String(cfg.ingestWorker.maxPerOrg) },
     { name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) },
+    { name: "INGEST_PAGE_FAN_OUT", value: cfg.ingestWorker.pageFanOut.enabled ? "on" : "off" }, // ADR-0151, every tier
     // No env for the base corpus: it lives in SeaweedFS and the knowledge
     // database (ADR-0082 step A2), and the per-replica cache defaults to
     // /tmp/base-corpus (BASE_CORPUS_CACHE_DIR), a place the pod may lose.
@@ -347,9 +348,8 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     { name: "EMBED_BASE_URL", value: cfg.llm.embedBaseUrl },
     { name: "VLM_MODEL", value: cfg.llm.vlmModel },
     { name: "VLM_BASE_URL", value: cfg.llm.vlmBaseUrl },
-    // What the OpenRouter keys are asked to carry (ADR-0076, ADR-0081). Set
-    // from the stack so the budget is read where `ingestWorkerMaxReplicas` is:
-    // `assertVlmPeakFitsCeiling` holds the two together.
+    // What the OpenRouter keys are asked to carry (ADR-0076, ADR-0081). Set from the stack so the budget is
+    // read where `ingestWorkerMaxReplicas` is: `assertVlmPeakFitsCeiling` holds the two together.
     { name: "VLM_FLEET_CONCURRENCY", value: String(cfg.providerLimits.vlmFleetConcurrency) },
     { name: "INGEST_PAGE_READ_PARALLELISM", value: String(cfg.providerLimits.pageReadParallelism) },
     { name: "PROVIDER_LIMIT_CEILING", value: String(cfg.providerLimits.limitCeiling) },
