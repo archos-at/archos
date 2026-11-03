@@ -5,12 +5,13 @@
  * `./mime.ts` lists both. `file-type` sniffs; this module owns the verdicts.
  */
 
+import { INBOUND_MAIL_MAX_MESSAGE_BYTES } from './inbound-mail-vocabulary'
 import type { Attachment, Email } from 'postal-mime'
 import type { NotStagedReason, PartRiskFlag } from './contract'
 import { asBuffer } from './mime-header-block'
 
 /** One part may be at most this large. The whole message is at most 26 MiB, so this rarely binds. */
-export const MAX_PART_BYTES = 25 * 1024 * 1024
+export const MAX_PART_BYTES = INBOUND_MAIL_MAX_MESSAGE_BYTES
 
 /** A PDF's encryption dictionary is looked for in this many bytes at its end, where the trailer is. */
 const PDF_TRAILER_BYTES = 1024 * 1024

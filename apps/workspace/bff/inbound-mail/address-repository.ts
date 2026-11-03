@@ -7,6 +7,7 @@
  * are CHECKs in the migration (`./repository.ts`).
  */
 
+import { INBOUND_MAIL_ADDRESS_STATS_DAYS } from './inbound-mail-vocabulary'
 import 'server-only'
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
@@ -146,7 +147,7 @@ export async function addressActivity(projectId: string): Promise<{ lastReceived
   const [row] = await getDb()
     .select({
       lastReceivedAt: sql<string | null>`max(${inboundMails.receivedAt})`,
-      dropped: sql<string>`count(*) filter (where ${inboundMails.status} = 'dropped' and ${inboundMails.receivedAt} > now() - interval '30 days')`,
+      dropped: sql<string>`count(*) filter (where ${inboundMails.status} = 'dropped' and ${inboundMails.receivedAt} > now() - make_interval(days => ${INBOUND_MAIL_ADDRESS_STATS_DAYS}))`,
     })
     .from(inboundMails)
     .where(and(eq(inboundMails.projectId, projectId), sql`${inboundMails.status} <> 'receiving'`))
@@ -172,7 +173,7 @@ export async function ownDomainVerifiedShare(organizationId: string): Promise<nu
       and(
         eq(inboundMails.organizationId, organizationId),
         inArray(inboundMails.senderTrust, ['member_verified', 'member_unverified']),
-        sql`${inboundMails.receivedAt} > now() - interval '30 days'`,
+        sql`${inboundMails.receivedAt} > now() - make_interval(days => ${INBOUND_MAIL_ADDRESS_STATS_DAYS})`,
       ),
     )
   const members = Number(row?.members ?? 0)
