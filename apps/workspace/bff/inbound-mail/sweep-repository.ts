@@ -116,27 +116,29 @@ export async function deleteStaleReception(id: string, before: Date): Promise<bo
 // Sweep 2: received mail whose job is gone
 // ---------------------------------------------------------------------------
 
-/** A received mail with no job reading it; `deadJob` when its job gave up and is still on the queue. */
+/** A received mail with no job reading it. */
 export interface OrphanedReception {
   id: string
   organizationId: string
   projectId: string
-  deadJob: boolean
 }
 
 /**
- * `received` rows not touched since `before` whose job (its id is the mail's)
- * is gone or dead. A dead job keeps its id until the queue's retention prunes
- * it, and only then can the same id be queued again. Platform scope.
+ * `received` rows not touched since `before` that have no job (its id is the
+ * mail's). A mail whose job is dead is not one: the dead row keeps the id
+ * until the queue's retention prunes it, nothing can queue it again before
+ * that, and the queue reported it once when it died (`[bff-jobs] … now
+ * dead`). Listing those first, as this did, let fifty of them fill every
+ * batch, so a real orphan was never re-queued, and logged an error for each
+ * every tick (R11 of the second 2026-11 ship review). Platform scope.
  */
 export async function findReceivedWithoutJob(before: Date, limit: number): Promise<OrphanedReception[]> {
   return select<OrphanedReception>(sql`
-    SELECT m.id, m.organization_id AS "organizationId", m.project_id AS "projectId",
-           (j.status = 'dead') AS "deadJob"
+    SELECT m.id, m.organization_id AS "organizationId", m.project_id AS "projectId"
       FROM inbound_mails m
       LEFT JOIN bff_job_queue j ON j.job_id = m.id
      WHERE m.status = 'received' AND m.updated_at < ${before.toISOString()}::timestamptz
-       AND (j.job_id IS NULL OR j.status = 'dead')
+       AND j.job_id IS NULL
      ORDER BY m.updated_at
      LIMIT ${limit}`)
 }
@@ -430,14 +432,22 @@ class TextNoLongerWaiting extends Error {}
 const faultSeen = (mail: UnreadText) =>
   sql`date_trunc('milliseconds', ${inboundMails.readerFaultAt}) = ${mail.readerFaultAt.toISOString()}::timestamptz`
 
-/** The reader did not answer again: tried again after `REREAD_AFTER_MS`. */
-export async function postponeReread(mail: UnreadText, now: Date): Promise<boolean> {
+/**
+ * Lease one text for a re-read before it is read: `reader_fault_at` moves to
+ * `leasedAt`, compare-and-set on the fault the find saw. A sweep running
+ * beside this one (the scheduler aborts its call at 120 s, the handler runs
+ * on) found the same row and loses the set, so no two runs read one text
+ * (R3 of the second 2026-11 ship review). A read that fails leaves the lease
+ * as the time it was last tried: read again after `REREAD_AFTER_MS`. The
+ * leased text, or null when another run or a person came first.
+ */
+export async function leaseReread(mail: UnreadText, leasedAt: Date): Promise<UnreadText | null> {
   const rows = await getDb()
     .update(inboundMails)
-    .set({ readerFaultAt: now, updatedAt: now })
+    .set({ readerFaultAt: leasedAt, updatedAt: leasedAt })
     .where(and(eq(inboundMails.id, mail.id), eq(inboundMails.status, 'waiting'), faultSeen(mail)))
     .returning({ id: inboundMails.id })
-  return rows.length === 1
+  return rows.length === 1 ? { ...mail, readerFaultAt: leasedAt } : null
 }
 
 // ---------------------------------------------------------------------------

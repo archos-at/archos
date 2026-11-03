@@ -16,13 +16,17 @@ import { PORT, UID } from "../constants";
 /** The durable queue the pool drains (`apps/workspace/migrations/0104_bff_job_queue.sql`). */
 export const QUEUE_TABLE = "bff_job_queue";
 
+/** The column a job waits on before it may be claimed: a backoff, or a dependency fault waited out (`workers/job-queue.js`). */
+export const QUEUE_PARKED_UNTIL = "not_before";
+
 /**
  * KEDA's measure of the pool's work: every job a worker could still run or is
  * running, retired rows (dead, cancelled) left out (`queueDepthQuery`): a job
  * that failed every attempt waits for an operator, and counting it would hold a
- * replica up forever for work nothing will ever claim.
+ * replica up forever for work nothing will ever claim. A job parked until a
+ * later `not_before` is left out too, until that time comes.
  */
-export const BFF_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
+export const BFF_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE, { parkedUntil: QUEUE_PARKED_UNTIL });
 
 /**
  * The BFF's background pool (ADR-0079): replicas of the FRONTEND image that run
@@ -155,6 +159,7 @@ export function installBffJobs(
     maxReplicas: cfg.bffJobs.maxReplicas,
     concurrency: cfg.bffJobs.concurrency,
     table: QUEUE_TABLE,
+    parkedUntil: QUEUE_PARKED_UNTIL,
     authName: auth.metadata.name,
     dependsOn: [auth, ...dependsOn],
   });

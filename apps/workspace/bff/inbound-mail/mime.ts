@@ -59,7 +59,7 @@ import { singleLine, truncateGraphemes } from '@/lib/text/graphemes'
 import { uploadExtensionOf } from '@/shared/config/file-upload'
 import { asciiLower } from './address'
 import type { NotStagedReason, PartRiskFlag } from './contract'
-import { NameLedger, safeFilename } from './mime-names'
+import { NameLedger, safeFilename, safeMediaType } from './mime-names'
 import { ARCHIVE_EXTENSIONS, isEncryptedMessage, type MessageContext, riskFlagsOf, structuralSkip } from './mime-part-kinds'
 
 export {
@@ -69,7 +69,7 @@ export {
   MAX_HEADER_BLOCK_BYTES,
   rawHeaderFields,
 } from './mime-header-block'
-export { safeFilename } from './mime-names'
+export { safeFilename, safeMediaType } from './mime-names'
 export { MAX_PART_BYTES } from './mime-part-kinds'
 
 /** Forwarded mails are opened this many levels deep. */
@@ -150,7 +150,7 @@ export interface MailAttachment {
   filename: string | null
   /** The extension the upload reads (`.pdf`), from the name or else from the bytes; null when neither says. */
   extension: string | null
-  /** The Content-Type as sent, lowercased. Never trusted. */
+  /** The Content-Type as sent, lowercased and without parameters, or `application/octet-stream` when it is no well-formed media type (`safeMediaType`). Never trusted. */
   declaredType: string
   /** What `file-type` found, or null. */
   sniffedType: string | null
@@ -385,7 +385,7 @@ async function selectPart(attachment: Attachment, context: MessageContext, selec
     position: selection.attachments.length + 1,
     filename,
     extension,
-    declaredType: attachment.mimeType.toLowerCase(),
+    declaredType: safeMediaType(attachment.mimeType),
     sniffedType: sniffed,
     size: bytes.byteLength,
     sha256: digest,

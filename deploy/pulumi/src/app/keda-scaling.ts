@@ -53,10 +53,18 @@ export const RETIRED_STATUSES = [DEAD_STATUS, CANCELLED_STATUS] as const;
  * jobs it is running. A RETIRED row (dead or cancelled) is kept as a trace and is
  * never work: counting it would hold replicas up for a job nobody will run. A
  * finished job's row is deleted, so it needs no clause.
+ *
+ * `parkedUntil` names the column of a queue whose jobs can wait for a time
+ * (`bff_job_queue.not_before`: a backoff, or a receive job waiting out a
+ * dependency fault for up to an hour). A row parked in the future is no work
+ * yet: counting it held `bff-jobs` at its ceiling, idle, through a six-hour
+ * outage, and kept dev from scaling to 0 (R4 of the 2026-11 ship review). A
+ * claim clears the column, so a running job is never left out.
  */
-export function queueDepthQuery(table: string): string {
+export function queueDepthQuery(table: string, options: { parkedUntil?: string } = {}): string {
   const retired = RETIRED_STATUSES.map((status) => `'${status}'`).join(", ");
-  return `SELECT COUNT(*) FROM ${table} WHERE status NOT IN (${retired})`;
+  const parked = options.parkedUntil ? ` AND (${options.parkedUntil} IS NULL OR ${options.parkedUntil} <= now())` : "";
+  return `SELECT COUNT(*) FROM ${table} WHERE status NOT IN (${retired})${parked}`;
 }
 
 /**
@@ -143,6 +151,8 @@ export interface QueueScaledTier {
   concurrency: number;
   /** The table the trigger counts (`queueDepthQuery`). */
   table: string;
+  /** The column a job waits on before it may be claimed, when the queue has one (`queueDepthQuery`). */
+  parkedUntil?: string;
   /** The TriggerAuthentication carrying the scaler's DSN. */
   authName: pulumi.Input<string>;
   /**
@@ -204,7 +214,7 @@ export function installQueueScaledObject(w: AppWiring, tier: QueueScaledTier): k
             // default of the scaler that a version could change.
             metricType: "AverageValue",
             metadata: {
-              query: queueDepthQuery(tier.table),
+              query: queueDepthQuery(tier.table, { parkedUntil: tier.parkedUntil }),
               targetQueryValue: String(tier.concurrency),
               activationTargetQueryValue: "0",
             },

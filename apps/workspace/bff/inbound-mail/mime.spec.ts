@@ -32,6 +32,7 @@ import {
   rawHeaderFields,
   readMime,
   safeFilename,
+  safeMediaType,
   type MimeRead,
 } from './mime'
 
@@ -326,6 +327,43 @@ describe('readMime: risk flags', () => {
   it('flags a binary called .txt, and leaves real text alone', async () => {
     const raw = message(multipart('mixed', [BODY, attachment('notes.txt', 'text/plain', pdf('x')), attachment('real.txt', 'text/plain', bytes('hello'))]))
     expect((await read(raw)).attachments.map((part) => part.riskFlags)).toEqual([['type_mismatch'], []])
+  })
+})
+
+describe('readMime: the media type a part is staged with (R1)', () => {
+  it('keeps a well-formed type, lowercased and without its parameters', async () => {
+    const raw = message(multipart('mixed', [BODY, attachment('Plan.pdf', 'Application/PDF; x-mac-type="50444620"', pdf('p'))]))
+    expect((await read(raw)).attachments[0].declaredType).toBe('application/pdf')
+  })
+
+  it('stages a type that is no RFC 6838 media type as application/octet-stream, never as sent', async () => {
+    const raw = message(
+      multipart('mixed', [
+        BODY,
+        attachment('Schnee.pdf', 'application/pdf☃', pdf('snow')),
+        attachment('Leer.pdf', 'application/', pdf('empty')),
+        attachment('Klammer.pdf', 'application/(pdf)', pdf('paren')),
+      ])
+    )
+    const mail = await read(raw)
+    expect(mail.attachments.map((part) => part.declaredType)).toEqual([
+      'application/octet-stream',
+      'application/octet-stream',
+      'application/octet-stream',
+    ])
+  })
+})
+
+describe('safeMediaType', () => {
+  it('accepts only type/subtype of the restricted-name set', () => {
+    expect(safeMediaType('image/svg+xml')).toBe('image/svg+xml')
+    expect(safeMediaType(' TEXT/Plain ; charset=utf-8')).toBe('text/plain')
+    expect(safeMediaType('application/vnd.openxmlformats-officedocument.wordprocessingml.document')).toBe(
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    )
+    for (const hostile of ['application/pdf☃', 'pdf', '', '/pdf', 'a/b/c', 'text/plain\r\nX-Evil: 1', `a/${'b'.repeat(128)}`]) {
+      expect(safeMediaType(hostile), hostile).toBe('application/octet-stream')
+    }
   })
 })
 

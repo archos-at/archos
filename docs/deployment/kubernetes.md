@@ -725,14 +725,20 @@ Record of runs: none yet.
   delivery carries ids, sizes and the outcome code only.
 - **A dependency that does not answer delays mail, it does not degrade it.**
   The receive job gives a WorkOS, DNS, reader, object-store or database fault
-  back to the queue without spending an attempt and tries again after 1, 2, 4,
+  (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends
+  an attempt) back to the queue without spending an attempt and tries again after 1, 2, 4,
   8, 16 and 32 minutes, then hourly, about six hours in all
-  (`lib/inbound-mail/receive-faults.ts`). Each wait is a `bff-jobs` warning
-  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of 11)`. Past
+  (`lib/inbound-mail/receive-faults.ts`); DNS for DKIM waits only 2 and 10
+  minutes, since a sender's own nameserver can fail at will, and then its
+  transient reason stands. Each wait is a `bff-jobs` warning
+  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of <budget>)`
+  (11, or 2 for `dkim_dns`). A `mail <id>: the verifier threw` error is a
+  mailauth exception on that message, held unverified at once. Past
   the budget the mail is held anyway: a sender WorkOS could not place is
   flagged `sender_unchecked` (30 days, for the writers, never filed directly),
   a text the reader did not answer for keeps `reader_fault_at` and sweep 15
-  reads it again every 15 minutes while the mail waits. Alert on the warning
+  reads it again every 15 minutes while the mail waits, five a tick within 45 s
+  (`rereads: … deferred <n>` in its log line counts those left for the next). Alert on the warning
   rate, and on any `sender_unchecked` or `reader_fault_at` row
   (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
 - **Retention sweeps** run in the scheduler's background-work call, one log
@@ -1539,7 +1545,8 @@ died half way left no record of which half. Both are now jobs:
   also a `[bff-jobs] … now dead` ERROR line.
 - **KEDA scales it on the queue.** A `postgresql` trigger (its own
   TriggerAuthentication, on the app database) counts the rows whose status is
-  not `dead` and asks for ceil(jobs / `bffJobsConcurrency`) replicas between
+  not `dead`, leaving out a job parked until a later `not_before` (it is no work
+  until then), and asks for ceil(jobs / `bffJobsConcurrency`) replicas between
   `bffJobsMinReplicas` and `bffJobsMaxReplicas` (prod 1 to 4, dev 0 to 2).
   Out at once, in a pod a minute. The scaler connects as `keda_scaler`, a
   read-only login that sees every lane of the row-level secured queue through a
@@ -1624,8 +1631,11 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   (declared with the other roles on the Cluster, `data/postgres.ts`), a login with
   nothing but `LOGIN` whose rights are SELECT on the `status` column (the one its
   `COUNT(*) … WHERE status NOT IN ('dead', 'cancelled')` reads, so a leaked DSN cannot read a
-  payload) of `ingest_job_queue` and `research_job_queue` in `jobs` and of
-  `bff_job_queue` in `app`. That last table is secured per organisation, so the role reads it through a policy of
+  payload) of `ingest_job_queue` and `research_job_queue` in `jobs`, and on `status` and
+  `not_before` of `bff_job_queue` in `app`: that queue's count also leaves out a job parked
+  until a later `not_before` (a backoff, or a receive job waiting out a dependency fault for
+  up to an hour), which is no work yet and held `bff-jobs` at its ceiling, idle, through an
+  outage. That last table is secured per organisation, so the role reads it through a policy of
   its own (`FOR SELECT TO keda_scaler`), not through `BYPASSRLS`. Its password
   is `pgScalerPassword`, or an HMAC of `pgAppPassword` when unset, and its DSNs sit
   in the `grid-keda-scaler` Secret, which no pod references: rotating it restarts

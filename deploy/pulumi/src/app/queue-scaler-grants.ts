@@ -14,7 +14,7 @@ import {
 } from "../constants";
 import { AppWiring } from "./config";
 import { QUEUE_TABLE as RESEARCH_TABLE } from "./agent-worker";
-import { QUEUE_TABLE as BFF_TABLE } from "./bff-jobs";
+import { QUEUE_PARKED_UNTIL, QUEUE_TABLE as BFF_TABLE } from "./bff-jobs";
 import { QUEUE_TABLE as INGEST_TABLE } from "./ingest-worker";
 import { APP_DB, JOBS_DB } from "../data/postgres-rename";
 
@@ -38,11 +38,12 @@ import { APP_DB, JOBS_DB } from "../data/postgres-rename";
  *      their schema, and the upgrade path of an older table) before anything is
  *      granted. The bff_job_queue's table is the migrations Job's, which this Job
  *      runs after.
- *   2. THE GRANTS. SELECT on the one column the count reads, `status`, on each
- *      table, per database. A table-wide SELECT would let a leaked scaler DSN
+ *   2. THE GRANTS. SELECT on the columns the count reads, per database: `status`
+ *      on each table, and on `bff_job_queue` also `not_before`, the time a parked
+ *      job waits for. A table-wide SELECT would let a leaked scaler DSN
  *      read every tenant's `payload` (a research report, a requester's email and
  *      permissions, storage keys and, on the Python queues, presigned URLs): the
- *      count never needs them, and `COUNT(*)` needs only one readable column. An
+ *      count never needs them, and `COUNT(*)` needs only the columns it filters on. An
  *      earlier version of this Job granted the whole table, so each run REVOKEs
  *      that first. `bff_job_queue` is row level secured per organisation and the
  *      scaler's one read crosses every lane, so it also gets a policy of its own,
@@ -68,31 +69,34 @@ export function jobsDatabaseTables(): string[] {
 /** What the scaler may read of a queue table: the column its `COUNT(*) ... WHERE status NOT IN ('dead', 'cancelled')` filters on. */
 export const SCALER_READABLE_COLUMNS = ["status"] as const;
 
+/** What it may read of `bff_job_queue`, whose count also leaves out jobs parked until a later time (`BFF_QUEUE_DEPTH_QUERY`). */
+export const BFF_SCALER_READABLE_COLUMNS = [...SCALER_READABLE_COLUMNS, QUEUE_PARKED_UNTIL] as const;
+
 /**
  * The rights the scaler holds on `tables`: the table-wide SELECT an earlier
- * version granted is taken back, then SELECT on `SCALER_READABLE_COLUMNS` only.
+ * version granted is taken back, then SELECT on the `columns` its count reads only.
  */
-function scalerTableGrants(tables: string): string {
+function scalerTableGrants(tables: string, columns: readonly string[]): string {
   return (
     `REVOKE SELECT ON ${tables} FROM ${KEDA_SCALER_ROLE};\n` +
-    `GRANT SELECT (${SCALER_READABLE_COLUMNS.join(", ")}) ON ${tables} TO ${KEDA_SCALER_ROLE};\n`
+    `GRANT SELECT (${columns.join(", ")}) ON ${tables} TO ${KEDA_SCALER_ROLE};\n`
   );
 }
 
 /** The `GRANT` for the Python queues, as run against `jobs`. */
 export function jobsGrantsSql(tables: string[]): string {
-  return scalerTableGrants(tables.join(", "));
+  return scalerTableGrants(tables.join(", "), SCALER_READABLE_COLUMNS);
 }
 
 /**
- * The grants for the BFF queue, as run against `app`: SELECT on `status`, and the one
+ * The grants for the BFF queue, as run against `app`: SELECT on `status` and `not_before`, and the one
  * policy that lets the scaler's read cross the organisation boundary. Dropped
  * first so a re-run replaces it rather than failing on it.
  */
 export function appGrantsSql(): string {
   const policy = "keda_scaler_count";
   return (
-    scalerTableGrants(BFF_TABLE) +
+    scalerTableGrants(BFF_TABLE, BFF_SCALER_READABLE_COLUMNS) +
     `DROP POLICY IF EXISTS ${policy} ON ${BFF_TABLE};\n` +
     `CREATE POLICY ${policy} ON ${BFF_TABLE} FOR SELECT TO ${KEDA_SCALER_ROLE} USING (true);\n`
   );

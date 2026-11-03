@@ -402,7 +402,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       const dead = await seedMail({ status: 'received', updatedAgo: '10 minutes' })
       await rows(sql`INSERT INTO bff_job_queue (job_id, kind, lane, payload, status, dead_at)
                      VALUES (${dead}::uuid, 'inbound_mail_receive', ${ORG}, '{}'::jsonb, 'dead', now())`)
-      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {})
 
       const result = await sweep.sweepOrphanedReceptions(now())
 
@@ -414,9 +414,27 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         { job_id: orphan, status: 'queued', kind: 'inbound_mail_receive' },
       ])
       expect(result.requeued).toBeGreaterThanOrEqual(1)
-      expect(result.dead).toBeGreaterThanOrEqual(1)
+      // The queue reported the dead job when it died; the sweep says nothing more of it, tick after tick (R11).
+      expect(error.mock.calls.flat().join('\n')).not.toContain(dead)
       // A second run finds a live job and queues nothing.
       expect((await sweep.sweepOrphanedReceptions(now())).requeued).toBe(0)
+    })
+
+    it('re-queues a real orphan however many mails with a dead job came before it (R11)', async () => {
+      const dead = await Promise.all(Array.from({ length: 3 }, () => seedMail({ status: 'received', updatedAgo: '2 hours' })))
+      for (const id of dead) {
+        await rows(sql`INSERT INTO bff_job_queue (job_id, kind, lane, payload, status, dead_at)
+                       VALUES (${id}::uuid, 'inbound_mail_receive', ${ORG}, '{}'::jsonb, 'dead', now())`)
+      }
+      const orphan = await seedMail({ status: 'received', updatedAgo: '10 minutes' })
+
+      const listed = await withTenant({ organizationId: ORG }, async () => {
+        const { findReceivedWithoutJob } = await import('./sweep-repository')
+        return findReceivedWithoutJob(new Date(), dead.length)
+      })
+
+      expect(listed.map((row) => row.id)).toContain(orphan)
+      expect(listed.map((row) => row.id).filter((id) => dead.includes(id))).toEqual([])
     })
   })
 
@@ -671,6 +689,21 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(staging.written.has(stagingKey(project, due.mail, 'read.json'))).toBe(true)
       for (const left of [tooSoon, ranOut, decided]) expect(await faultOf(left.mail)).not.toBeNull()
       expect(result.read).toBe(1)
+      vi.unstubAllEnvs()
+    })
+
+    it('leases a text before it reads it: two runs side by side read it once (R3)', async () => {
+      vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
+      const { readMail } = await import('@/lib/inbound-mail/read-client')
+      const text = await unreadText({ faultAgo: '1 hour' })
+      vi.mocked(readMail).mockClear()
+
+      const [first, second] = await Promise.all([sweep.sweepUnreadTexts(now()), sweep.sweepUnreadTexts(now())])
+
+      const readsOf = vi.mocked(readMail).mock.calls.filter(([ref]) => ref.includes(text.mail))
+      expect(readsOf).toHaveLength(1)
+      expect(first.read + second.read).toBe(1)
+      expect(await faultOf(text.mail)).toBeNull()
       vi.unstubAllEnvs()
     })
 

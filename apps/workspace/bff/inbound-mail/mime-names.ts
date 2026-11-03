@@ -1,7 +1,7 @@
 /**
  * The names a staged part is filed under (ADR-0137): safe to file and to
- * download, and distinct within one mail. Part of reading a message
- * (`./mime.ts`).
+ * download, and distinct within one mail, and the media type it is staged
+ * with. Part of reading a message (`./mime.ts`).
  */
 
 import { splitDocumentName, MAX_DOCUMENT_NAME_LENGTH } from '@/lib/documents/display-name'
@@ -37,6 +37,26 @@ export function safeFilename(raw: string): string {
   const head = kept ? stem : clean
   if (head.length + kept.length <= MAX_DOCUMENT_NAME_LENGTH) return clean
   return truncateGraphemes(head, MAX_DOCUMENT_NAME_LENGTH - kept.length).replace(/[.\s]+$/, '') + kept
+}
+
+/**
+ * An RFC 6838 media type (§4.2 `restricted-name`, lowercased): `type/subtype`,
+ * each starting with a letter or digit, at most 127 characters of the
+ * restricted set. Parameters are not kept: nothing reads them.
+ */
+const MEDIA_TYPE = /^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/
+
+/**
+ * The Content-Type a part is staged and filed with: the sender's, when it is a
+ * well-formed media type, else `application/octet-stream`. The sender writes it,
+ * and it goes out as an HTTP header (the object store's `Content-Type`, a
+ * download's): a character Node refuses in a header (`application/pdf☃`
+ * threw `ERR_INVALID_CHAR` at staging) or a CR/LF must never reach one (R1 of
+ * the second 2026-11 ship review).
+ */
+export function safeMediaType(declared: string): string {
+  const type = (declared.split(';', 1)[0] ?? '').trim().toLowerCase()
+  return MEDIA_TYPE.test(type) ? type : 'application/octet-stream'
 }
 
 /**

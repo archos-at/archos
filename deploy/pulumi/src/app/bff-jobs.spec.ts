@@ -197,11 +197,16 @@ describe("the bff-jobs pool", () => {
     expect(read("apps", "workspace", "workers", "job-queue.js")).toContain(`FROM ${table}`);
     // The retired set is shared by every tier, so `cancelled` is named here too.
     // This queue never writes it, and the clause is true on either status.
+    // A job parked until a later `not_before` (a backoff, a receive job waiting out a
+    // dependency fault) is no work yet: counting it held the pool at its ceiling, idle.
     expect(BFF_QUEUE_DEPTH_QUERY).toBe(
-      `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('dead', 'cancelled')`,
+      `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('dead', 'cancelled') AND (not_before IS NULL OR not_before <= now())`,
     );
-    // The status this queue does retire on is one the schema allows.
+    // The status this queue does retire on is one the schema allows, and the column it parks on exists.
     expect(migration).toMatch(/"status" IN \('queued', 'claimed', 'dead'\)/);
+    expect(read("apps", "workspace", "migrations", "0106_bff_job_queue_backoff_and_dead_retention.sql")).toMatch(/not_before/);
+    // The claim loop claims a parked job only once its time came, the same condition the count asks.
+    expect(read("apps", "workspace", "workers", "job-queue.js")).toContain("(q.not_before IS NULL OR q.not_before <= now())");
   });
 
   it("asks KEDA for one replica per `concurrency` open jobs, within the configured bounds", async () => {

@@ -203,23 +203,25 @@ describe("the program's ScaledObjects", () => {
     });
 
     it("count their own table, leave dead rows out and ask for one replica per `concurrency` jobs", async () => {
-      const tables: Record<string, [string, number]> = {
-        "ingest-worker": ["ingest_job_queue", cfg.ingestWorker.concurrency],
-        "agent-worker": ["research_job_queue", cfg.agentWorker.concurrency],
-        "bff-jobs": ["bff_job_queue", cfg.bffJobs.concurrency],
+      // Only the BFF queue parks a job until a later time (`not_before`); the Python queues have no such column.
+      const parked = " AND (not_before IS NULL OR not_before <= now())";
+      const tables: Record<string, [string, number, string | undefined]> = {
+        "ingest-worker": ["ingest_job_queue", cfg.ingestWorker.concurrency, undefined],
+        "agent-worker": ["research_job_queue", cfg.agentWorker.concurrency, undefined],
+        "bff-jobs": ["bff_job_queue", cfg.bffJobs.concurrency, "not_before"],
       };
-      for (const [tier, [table, concurrency]] of Object.entries(tables)) {
+      for (const [tier, [table, concurrency, parkedUntil]] of Object.entries(tables)) {
         const [trigger] = (await scaled(tier)).triggers;
         expect(trigger.type, tier).toBe("postgresql");
         // The type `fallback` requires, and the one that reads as jobs per replica.
         expect(trigger.metricType, tier).toBe("AverageValue");
         expect(trigger.metadata, tier).toEqual({
-          query: queueDepthQuery(table),
+          query: queueDepthQuery(table, { parkedUntil }),
           targetQueryValue: String(concurrency),
           activationTargetQueryValue: "0",
         });
         expect(trigger.metadata.query, tier).toBe(
-          `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('dead', 'cancelled')`,
+          `SELECT COUNT(*) FROM ${table} WHERE status NOT IN ('dead', 'cancelled')${parkedUntil ? parked : ""}`,
         );
       }
     });
@@ -330,7 +332,7 @@ describe("the program's ScaledObjects", () => {
           "GRANT SELECT (status) ON ingest_job_queue, research_job_queue TO keda_scaler;\n",
       );
       expect(app).toContain("REVOKE SELECT ON bff_job_queue FROM keda_scaler;");
-      expect(app).toContain("GRANT SELECT (status) ON bff_job_queue TO keda_scaler;");
+      expect(app).toContain("GRANT SELECT (status, not_before) ON bff_job_queue TO keda_scaler;");
       for (const sql of [jobs, app]) {
         expect(sql).not.toMatch(/INSERT|UPDATE|DELETE|TRUNCATE|ALL PRIVILEGES|BYPASSRLS/i);
         // Never table-wide: a payload (reports, requester emails, presigned URLs) must stay unreadable to the scaler.
@@ -339,12 +341,24 @@ describe("the program's ScaledObjects", () => {
     });
 
     it("cover the column every depth query filters on, and no other", async () => {
-      const { SCALER_READABLE_COLUMNS } = await import("./queue-scaler-grants");
+      const { BFF_SCALER_READABLE_COLUMNS, SCALER_READABLE_COLUMNS } = await import("./queue-scaler-grants");
       const { queueDepthQuery } = await import("./keda-scaling");
+      const { BFF_QUEUE_DEPTH_QUERY } = await import("./bff-jobs");
 
       expect(SCALER_READABLE_COLUMNS).toEqual(["status"]);
       expect(queueDepthQuery("any_queue")).toBe(
         "SELECT COUNT(*) FROM any_queue WHERE status NOT IN ('dead', 'cancelled')",
+      );
+      // The BFF queue's count also reads `not_before`; a column it reads and may not would fail every poll.
+      expect(BFF_SCALER_READABLE_COLUMNS).toEqual(["status", "not_before"]);
+      for (const column of BFF_SCALER_READABLE_COLUMNS) expect(BFF_QUEUE_DEPTH_QUERY).toContain(column);
+    });
+
+    it("leave out a job parked until a later time, and only on the queue that parks", async () => {
+      const { queueDepthQuery } = await import("./keda-scaling");
+
+      expect(queueDepthQuery("any_queue", { parkedUntil: "not_before" })).toBe(
+        "SELECT COUNT(*) FROM any_queue WHERE status NOT IN ('dead', 'cancelled') AND (not_before IS NULL OR not_before <= now())",
       );
     });
 

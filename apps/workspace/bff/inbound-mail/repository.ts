@@ -55,6 +55,7 @@ export {
   findThreadFollowContext,
   type HeldMailFields,
   holdMail,
+  keepReceiveProgress,
   markNotified,
   type PartSummary,
   recordRawScan,

@@ -172,6 +172,12 @@ export const inboundMails = pgTable(
      */
     readerFaultAt: timestamp('reader_fault_at', { withTimezone: true }),
     /**
+     * What a receive run learned that the next run of the same mail reuses: the
+     * sender's authentication and each attachment's scan (migration 0196,
+     * `lib/inbound-mail/receive-progress.ts`). Only a `received` mail carries it.
+     */
+    receiveProgress: jsonb('receive_progress').$type<Record<string, unknown>>(),
+    /**
      * The original message a forward carried (`lib/inbound-mail/original-message.ts`,
      * migration 0195): who wrote it, when, about what. Attribution, never
      * verified; the author and subject are cleared when the mail ends (trigger).

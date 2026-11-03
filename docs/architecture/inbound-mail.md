@@ -191,7 +191,9 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    inline forward has no Message-ID: its header block is the forwarder's text;
 4. **authenticate the sender** (`sender-auth.ts`, mailauth 8 without an IP, so
    SPF is never read): trust, reason, signer domain, signed headers, flags; a
-   transient verdict is a dependency fault (below);
+   DNS fault (`dkim_temperror`, `verifier_timeout`) is waited out briefly
+   (below), and a verifier that threw (`verifier_error`) is a verdict: no
+   aligned pass, logged by the mail's id;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
    office's accepted types; find the member by exact address, or an outsider's
    display name that is a member's (`claims_member_name`);
@@ -248,9 +250,17 @@ the reader, and 0194 freezes the verdict a hold writes: a member's mail held on
 an unreadable directory became a stranger's, discarded after 14 days, and a
 writer's mail with an unanswered write check became read-only. Now a directory
 read, a write check (`userHoldsProjectPermissionStrict`), a transient DKIM
-verdict, the reader, the object store or an unreachable database gives the
-claim back (`notBefore`, the attempt not spent) and the job tries again after
-1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Past that budget
+verdict, the reader, an object store that does not answer (a network error, a
+timeout, a 5xx, 408 or 429: `isObjectStoreFault`) or an unreachable database
+gives the claim back (`notBefore`, the attempt not spent) and the job tries again after
+1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Before it gives
+the claim back, a run keeps what it learned on the row (`receive_progress`,
+`receive-progress.ts`, migration 0196): the sender's authentication unless its
+reason was transient, and each attachment's scan by SHA-256. The next run reuses
+both and scans again only what `failed`, so a reader outage no longer costs
+eleven scans of every attachment, and a DKIM pass cannot turn into a DNS
+timeout between runs (R10 of the second review). Only a `received` mail carries
+it; the hold and the drop clear it. Past that budget
 the mail is held with what was not learned, said, never guessed:
 
 - the directory or the write check: flag `sender_unchecked`, held for the
@@ -260,14 +270,27 @@ the mail is held with what was not learned, said, never guessed:
   says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
   is still an outsider's (no restore window), since the database cannot tell
   it is a member's;
-- DKIM: the verifier's transient reason (`dkim_temperror`, `verifier_timeout`)
-  stands as the verdict, so a member's mail is `unverified_writer` and waits
-  for their one press;
+- DKIM: DNS has a budget of its own, two waits of 2 and 10 minutes
+  (`DKIM_DNS_FAULT_WAITS_MS`, counted as `dkimFaults` in the payload), because
+  the sender's nameserver is the sender's: a domain whose DNS never answers made
+  each of its mails run eleven times over six hours (R2 of the second review).
+  Then the transient reason (`dkim_temperror`, `verifier_timeout`) stands as the
+  verdict, so a member's mail is `unverified_writer` and waits for their one
+  press. A canary lookup to tell our resolver from theirs was the alternative;
+  it is one more dependency, and a cached answer says nothing about a resolver
+  that just died. `verifier_error` is not waited for at all: mailauth throws the
+  same on every try;
 - the reader: the text is held `unreadable` with `reader_fault_at`, and sweep 15
   (`receive-reread.ts`) reads it again every 15 minutes while the mail waits,
   then queues a verified writer's sender filing again, by name.
 
-Any other failure is a bug and retries through the queue. On the last attempt
+Any other failure is a bug and retries through the queue: an object store that
+answers 4xx, or a request Node refuses to send, fails the same on every try, so
+waiting six hours for it only re-ran every scan (R1 of the second review). For
+the same reason the Content-Type an attachment is staged with is the sender's
+only when it is a well-formed RFC 6838 media type, else `application/octet-stream`
+(`safeMediaType`, `mime-names.ts`): `application/pdf☃` made Node throw
+`ERR_INVALID_CHAR` on the store's header. On the last attempt
 the mail is held anyway, flagged `unreadable`, with a text part whose original
 can be downloaded once its scan is clean: mail is never lost to a parser bug.
 Its sender keeps the verdict the run reached before it failed; a sender it never
@@ -500,7 +523,7 @@ In the order they run:
 | # | Name | What | Window | Legal hold |
 |---|---|---|---|---|
 | 1 | `staleReceptions` | `receiving` untouched: object erased by key, row deleted | 15 min | project hold: skipped |
-| 2 | `orphanedReceptions` | `received` with no job: queued again (a dead job is counted `dead`) | 5 min | — |
+| 2 | `orphanedReceptions` | `received` with no job: queued again. One whose job is dead is not listed: the queue logged it once when it died (`[bff-jobs] … now dead`), and it is queued again once the queue's retention prunes the dead row. Listing those first let fifty fill every batch and logged an error for each every tick (R11 of the second review) | 5 min | — |
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
@@ -508,7 +531,7 @@ In the order they run:
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
 | 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
-| 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0196), the mail waiting and within its window, the text part waiting: read again, redacted and checked, `read.json` and the part written in one compare-and-set; a verified writer's mail gets its sender filing queued again by name; a reader still down moves `reader_fault_at` on | 15 min | — |
+| 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0196), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it, which the scheduler's 120 s abort leaves running, never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |
 | 12 | `follows` | running follows past `expires_at` end `expired`, those whose document is gone end `document_gone`, those in a closed project end `project_closed`; five days before the end `mail_thread.follow_expiring`, once | 60 days, day 55 | — |

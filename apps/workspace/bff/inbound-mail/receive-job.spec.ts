@@ -68,7 +68,7 @@ vi.mock('./repository', () => ({
     state.calls.push('hold')
     if (!state.row || state.row.status !== 'received') return false
     if (state.row.rawScanStatus === 'pending') throw new Error('CHECK inbound_mails_waiting_is_scanned')
-    Object.assign(state.row, fields, { status: 'waiting' })
+    Object.assign(state.row, fields, { status: 'waiting', receiveProgress: null })
     state.parts = parts
     return true
   }),
@@ -78,6 +78,10 @@ vi.mock('./repository', () => ({
   markNotified: vi.fn(async () => {
     state.calls.push('notified')
     if (state.row) state.row.notifiedAt = new Date()
+  }),
+  keepReceiveProgress: vi.fn(async (_id: string, progress: Record<string, unknown>) => {
+    // As jsonb would: the Dates come back as strings.
+    if (state.row?.status === 'received') state.row.receiveProgress = JSON.parse(JSON.stringify(progress))
   }),
 }))
 vi.mock('./staging', () => ({
@@ -263,6 +267,7 @@ function receivedRow(overrides: Partial<InboundMailRow> = {}): InboundMailRow {
     originalMessageId: null,
     originalSource: null,
     readerFaultAt: null,
+    receiveProgress: null,
     createdAt: RECEIVED,
     updatedAt: RECEIVED,
     ...overrides,
@@ -928,12 +933,53 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
     state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
     receive(await sign(message()))
 
-    expect(await run(LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(await run(LAST)).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
     expect(heldRow().status).toBe('received')
 
     state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) })
-    await run(LAST, 1)
+    await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, LAST)
     expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+  })
+
+  it('DNS for DKIM down: two short waits of its own, then the transient reason stands, the long budget untouched (R2)', async () => {
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
+    receive(await sign(message()))
+    const before = Date.now()
+
+    const first = await run(NOT_LAST)
+    expect(first).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
+    expect((first as { payload: { faults?: number } }).payload.faults).toBeUndefined()
+    const wait = (first as { notBefore: Date }).notBefore.getTime() - before
+    expect(wait).toBeGreaterThanOrEqual(2 * 60_000)
+    expect(wait).toBeLessThan(3 * 60_000)
+    expect(await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, NOT_LAST)).toMatchObject({
+      done: false,
+      payload: { dkimFaults: 2 },
+    })
+    expect(heldRow().status).toBe('received')
+
+    expect(await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 2 }, NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'dkim_temperror', senderClass: 'unverified_writer' })
+  })
+
+  it('a verifier that throws is a verdict, not a fault: held unverified at once, and logged by the mail’s id (R2)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    vi.mocked(authenticateSender).mockResolvedValueOnce({
+      fromAddress: 'anna@buero-muster.at',
+      fromDomain: 'buero-muster.at',
+      verified: false,
+      reason: 'verifier_error',
+      signerDomain: null,
+      signedHeaders: [],
+      signedRecipientNamesProject: false,
+      authenticationResults: '',
+    })
+    receive(await sign(message()))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'verifier_error' })
+    expect(heldRow().senderClass).not.toBe('verified_writer')
+    expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain(`mail ${MAIL}: the verifier threw`)
   })
 
   it('the reader down: waited out; past the budget the text waits unreadable with reader_fault_at, the class kept', async () => {
@@ -966,5 +1012,86 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
 
     expect(await run(LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
     expect(heldRow().status).toBe('received')
+  })
+
+  it('a run after a fault reuses the sender’s authentication and each scan, and scans again only what failed (R10)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    vi.mocked(readMail).mockRejectedValueOnce(new Error('the mail reader answered 503'))
+    vi.mocked(scanForMalware)
+      .mockResolvedValueOnce(CLEAN) // the raw message
+      .mockResolvedValueOnce(CLEAN)
+      .mockResolvedValueOnce({ status: 'failed', failure: 'unavailable', detail: null, engine: null })
+    receive(
+      await sign(
+        message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C')), attachment('S-102_A.pdf', 'application/pdf', pdf('S-102 A'))])),
+      ),
+    )
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(scanForMalware)).toHaveBeenCalledTimes(3)
+    expect(heldRow().receiveProgress).toMatchObject({ authentication: { reason: 'dkim_pass' } })
+
+    expect(await run(NOT_LAST, 1)).toMatchObject({ done: true })
+    // DKIM is not asked again; of the attachments only the one whose scan failed is scanned again.
+    expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(scanForMalware)).toHaveBeenCalledTimes(4)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer', receiveProgress: null })
+    expect(state.parts.filter((part) => part.kind === 'attachment').map((part) => part.scanStatus)).toEqual(['clean', 'clean'])
+  })
+
+  it('asks DNS for DKIM again after a fault when its verdict was transient, never reusing it (R10)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
+    receive(await sign(message()))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
+    expect(heldRow().receiveProgress).not.toHaveProperty('authentication')
+
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) })
+    await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, NOT_LAST)
+    expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(2)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'dkim_pass' })
+  })
+
+  it('a store that answers 5xx or times out is a fault; one that answers 4xx, or a request Node refuses to send, is not (R1)', async () => {
+    const { isObjectStoreFault } = await import('./receive-faults')
+    const status = (code: number) => Object.assign(new Error('store'), { $metadata: { httpStatusCode: code } })
+    expect([500, 502, 503, 408, 429].map((code) => isObjectStoreFault(status(code)))).toEqual([true, true, true, true, true])
+    expect(isObjectStoreFault(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))).toBe(true)
+    expect(isObjectStoreFault(new Error('wrapped', { cause: Object.assign(new Error('x'), { code: 'ECONNREFUSED' }) }))).toBe(true)
+
+    expect([400, 403, 404, 411].map((code) => isObjectStoreFault(status(code)))).toEqual([false, false, false, false])
+    expect(isObjectStoreFault(Object.assign(new TypeError('Invalid character in header content'), { code: 'ERR_INVALID_CHAR' }))).toBe(false)
+    expect(isObjectStoreFault(new Error('a bug'))).toBe(false)
+  })
+
+  it('a store that refuses one object spends attempts, not six hours, and the last one holds the mail (R1)', async () => {
+    const { putStagedObject } = await import('./staging')
+    const refused = () => Object.assign(new Error('Bad Request'), { name: 'InvalidArgument', $metadata: { httpStatusCode: 400 } })
+    vi.mocked(putStagedObject).mockRejectedValueOnce(refused()).mockRejectedValueOnce(refused())
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('Bad Request')
+    expect(heldRow().status).toBe('received')
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+    expect(state.parts[0]).toMatchObject({ kind: 'message', riskFlags: ['unreadable'] })
+  })
+
+  it('stages an attachment whose Content-Type Node would refuse as a header as application/octet-stream (R1)', async () => {
+    const { validateHeaderValue } = await import('node:http')
+    const { putStagedObject } = await import('./staging')
+    // The real client sends the type as a header; Node throws ERR_INVALID_CHAR on `☃`.
+    vi.mocked(putStagedObject).mockImplementation(async (_bucket, key, body, contentType) => {
+      validateHeaderValue('content-type', contentType)
+      state.objects.set(key, body)
+    })
+    receive(await sign(message(multipart('mixed', [BODY, attachment('Schnee.pdf', 'application/pdf☃', pdf('snow'))]))))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow().status).toBe('waiting')
+    expect(state.parts[1]).toMatchObject({ kind: 'attachment', filename: 'Schnee.pdf', contentType: 'application/octet-stream' })
   })
 })

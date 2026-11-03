@@ -17,7 +17,7 @@ import 'server-only'
  * | # | Sweep | Window | Hold |
  * |---|---|---|---|
  * | 1 | `receiving` left behind: erase its object by key, delete the row | 15 min | skipped |
- * | 2 | `received` with no live job: queue it again (job id = mail id) | 5 min | — |
+ * | 2 | `received` with no job: queue it again (job id = mail id); one whose job is dead waits for the queue's retention | 5 min | — |
  * | 5 | `filing` past its claim: waits again (`unavailable`), the decider told | the claim | — |
  * | 13 | an original's move that stopped: finish it (copy proven, then the raw erased) | 15 min | a move erases nothing |
  * | 11 | decisions owed to the audit trail: send them (before 8 and 9, RT-S8) | 1 min | — |
@@ -25,7 +25,7 @@ import 'server-only'
  * | 4 | five days left: `inbound_mail.expiring`, once per mail | day 25, an outsider's day 9 | — |
  * | 6 | dismissed and expired parts past 7 days, and an outsider's expired parts at once: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days, or the next tick | deferred |
  * | 7 | failed scans: scanned again, hourly, up to 24 times; a verified writer's mail scanned clean gets its sender's filing again | 1 h | — |
- * | 15 | texts the reader did not answer for (`reader_fault_at`): read again, while the mail waits (`./receive-reread.ts`) | 15 min | — |
+ * | 15 | texts the reader did not answer for (`reader_fault_at`): leased, then read again while the mail waits (`./receive-reread.ts`); five a run, within 45 s | 15 min | — |
  * | 10 | erasures a hold deferred, once it is released | — | the point |
  * | 8 | settled and dropped rows past their keep, with no live document and nothing owed to the trail: deleted | 30 days | skipped |
  * | 12 | follows past their end or whose document is gone: ended, audited; five days left: `mail_thread.follow_expiring`, once | 60 days, day 55 | — |
@@ -150,18 +150,16 @@ export async function sweepStaleReceptions(now: Date): Promise<SweepCounts> {
   return result
 }
 
-/** Sweep 2: received mail whose job is gone gets it again; a dead job is left for the queue's retention, loudly. */
+/**
+ * Sweep 2: received mail whose job is gone gets it again. A mail whose job is
+ * dead is not listed: the queue reported it when it died, and it is queued
+ * again here once the queue's retention prunes the dead row.
+ */
 export async function sweepOrphanedReceptions(now: Date): Promise<SweepCounts> {
-  const result = counts('requeued', 'dead')
+  const result = counts('requeued')
   const before = new Date(now.getTime() - ORPHANED_RECEPTION_MS)
   const rows = await discover('received mail without a job', () => sweeps.findReceivedWithoutJob(before, SWEEP_BATCH))
   await eachRow(rows, result, (row) => `the received mail ${row.id}`, async (row) => {
-    if (row.deadJob) {
-      // Every attempt was spent and the last one could not even hold it unreadable: an operator's to look at.
-      result.dead += 1
-      console.error(`[inbound-mail] mail ${row.id} is received, and its job gave up; it is queued again once the dead job is pruned`)
-      return
-    }
     if (await queueReceiveJob({ mailId: row.id, organizationId: row.organizationId, projectId: row.projectId })) result.requeued += 1
   })
   return result
@@ -332,12 +330,35 @@ export async function sweepFailedScans(now: Date): Promise<SweepCounts> {
   return result
 }
 
-/** Sweep 15: texts the Python reader did not answer for, read again while their mail waits. */
-export async function sweepUnreadTexts(now: Date): Promise<SweepCounts> {
-  const result = counts('read', 'later', 'gone')
-  const rows = await discover('texts the reader did not answer for', () => sweeps.findUnreadTexts(now, SWEEP_BATCH))
+/** Texts sweep 15 reads in one run: each read may take a while, so the batch is small. */
+export const REREAD_BATCH = 5
+/**
+ * How long sweep 15 may read in one run, well under the scheduler's 120 s
+ * call (`RECONCILE_TIMEOUT_MS`, `scheduler/index.js`) and leaving the sweeps
+ * after it their turn; what it did not reach waits for the next tick.
+ */
+export const REREAD_BUDGET_MS = 45_000
+/** A read is not started with less than this left: the reader takes up to 20 s for one. */
+export const REREAD_MIN_MS = 20_000
+
+/**
+ * Sweep 15: texts the Python reader did not answer for, read again while their
+ * mail waits. Each is leased before it is read (`leaseReread`), so a run
+ * beside this one never reads the same text, and each read is cut to what is
+ * left of {@link REREAD_BUDGET_MS}. Up to fifty reads of 90 s each ran in one
+ * call before, and every overlapping tick ran them again (R3 of the second
+ * 2026-11 ship review).
+ */
+export async function sweepUnreadTexts(now: Date, clock: () => number = Date.now): Promise<SweepCounts> {
+  const result = counts('read', 'later', 'gone', 'deferred')
+  const deadline = clock() + REREAD_BUDGET_MS
+  const rows = await discover('texts the reader did not answer for', () => sweeps.findUnreadTexts(now, REREAD_BATCH))
   await eachRow(rows, result, (row) => `the re-read of mail ${row.id}`, async (row) => {
-    result[await rereadHeldText(row, now)] += 1
+    const left = deadline - clock()
+    if (left < REREAD_MIN_MS) return void (result.deferred += 1)
+    const leased = await sweeps.leaseReread(row, new Date(clock()))
+    if (!leased) return void (result.gone += 1)
+    result[await rereadHeldText(leased, left)] += 1
   })
   return result
 }
