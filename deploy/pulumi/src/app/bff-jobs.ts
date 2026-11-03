@@ -18,26 +18,19 @@ export const WORKFLOW = "bff-job";
 
 /**
  * The BFF's background pool (ADR-0079, ADR-0150): replicas of the FRONTEND image that run
- * `workers/jobs/index.js`. Each is a supervisor around two things: the BFF
- * itself (`node server.js`) and a claim loop that takes jobs from
- * `bff_job_queue`, fairly across organizations (fewest running first,
- * fleet-wide), and has that BFF run them a bounded slice at a time. So the heavy
- * work lands here, never on the user-facing frontend pods that proxy chat.
- * With `bffJobsMode: inprocess` there is no BFF in the pod: the supervisor runs
- * the slices from the bundled services (`dist-jobs/slice.mjs`) and answers the
- * probes' `/api/healthz` itself, so the probes below hold in both modes
- * (ADR-0079 amendment 1).
+ * `workers/jobs/index.js`: the Hatchet worker of the `bff-job` task, running
+ * the BFF's services bundled at image build (`dist-jobs/slice.mjs`) in its own
+ * process, a bounded slice per run. Hatchet hands the runs out, fairly across
+ * organizations. So the heavy work lands here, never on the user-facing
+ * frontend pods that proxy chat. The process answers the probes'
+ * `/api/healthz` itself.
  *
- * INTERNAL ONLY. No Service and no HTTPRoute: nothing routes to these pods, and
- * the one caller of their BFF is the claim loop on the pod's own loopback
- * (`bff-jobs.spec.ts` asserts both). The intra-namespace network policy is
- * therefore not a surface here, and the internal route is token-guarded anyway.
+ * INTERNAL ONLY. No Service and no HTTPRoute: nothing routes to these pods;
+ * the worker dials out to Hatchet (`bff-jobs.spec.ts` asserts both).
  *
- * One container, not a BFF and a sidecar, because shutdown has an order: on
- * SIGTERM the loop stops claiming, lets the slice in hand finish, gives each
- * claim back WITHOUT spending an attempt (the next worker resumes from the
- * progress it saved), and only then stops the BFF. Two containers would be
- * signalled together and the BFF would vanish under the slice still using it.
+ * On SIGTERM the worker takes no new run and lets the ones in hand finish for
+ * the drain budget; a run cut off is retried by Hatchet on another pod, from
+ * the progress its row saved.
  *
  * SCALED ON THE BACKLOG, NOT ON CPU: KEDA counts the `bff-job` runs Hatchet
  * holds queued or running (`hatchetBacklogQuery`) and asks for

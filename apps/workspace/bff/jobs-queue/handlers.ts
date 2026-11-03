@@ -2,12 +2,12 @@
  * What each kind of job does when a worker hands it a slice (ADR-0079).
  *
  * A handler reads the job's saved state, does one bounded step of the work and
- * returns the state to save. It never claims, heartbeats or finishes: the runner
- * owns the queue, this owns the work. That split is why a job survives a
+ * returns the state to save. It never takes, saves or finishes the row: the
+ * `bff-job` run owns that (`./hatchet-run.ts`), this owns the work. That split is why a job survives a
  * restart: nothing a handler holds in memory matters, only what it returned.
  *
  * A walk (`reindex_project`, `reingest_failed`, `restore_folder_bin`) runs as
- * the person who asked, in the job's organization. The runner has no session,
+ * the person who asked, in the job's organization. A run has no session,
  * so the session is built here, and built from what the identity provider says
  * NOW: the payload names who asked, but a job can wait in the queue and a walk
  * spans many slices, and a person who lost their role or left the organization

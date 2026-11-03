@@ -169,11 +169,9 @@ What fails the file, and what only makes it poorer:
 
 A 429 or a timeout inside a vision call is retried in place (A:2274). A file whose
 read failed for a passing reason (`transient`: an interruption, a timeout, a download
-or provider error) is sent back by the background-work sweep
-(`apps/workspace/bff/documents/transient-retry.ts`): at `bulk` priority, at most
-three attempts in all, 5 minutes after the first failure and doubling, and only for a
-failure of the last 24 hours, so a deploy never re-reads an old backlog. Every other
-failure waits for a person or the `reingest_failed` job.
+or provider error) is retried by its Hatchet task (`ingest-document`, with backoff);
+a deterministic failure is not retried. Every other failure waits for a person or
+the `reingest_failed` job.
 
 ## 4. Where the time goes
 

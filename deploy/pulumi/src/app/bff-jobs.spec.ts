@@ -151,19 +151,13 @@ describe("the bff-jobs pool", () => {
 
     expect(emitted.length).toBeGreaterThan(2);
     expect(emitted.filter((name) => !readByRunner.has(name))).toEqual([]);
-    // What the runner and the BFF in its pod cannot start without.
+    // What the worker and the services in its pod cannot start without.
     const names = env.map((e) => e.name);
-    expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "INTERNAL_API_TOKEN"]));
+    expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "HATCHET_CLIENT_TOKEN", "HATCHET_CLIENT_HOST_PORT"]));
   });
 
-  it("runs slices in a spawned BFF unless told otherwise, and refuses a mode the runner does not know", async () => {
-    const { bffJobsMode } = await import("../config");
-
-    expect(env.find((e) => e.name === "BFF_JOBS_MODE")?.value).toBe("http");
-    expect(bffJobsMode("inprocess")).toBe("inprocess");
-    expect(() => bffJobsMode("in-process")).toThrow(/bffJobsMode/);
-    // The runner's own list of modes is the one this mirrors.
-    expect(read("apps", "workspace", "workers", "jobs", "index.js")).toMatch(/const MODES = .*\['http', 'inprocess'\]/);
+  it("sets no host mode: the pod runs the Hatchet worker in process, always (ADR-0150)", () => {
+    expect(env.find((e) => e.name === "BFF_JOBS_MODE")).toBeUndefined();
   });
 
   it("carries the Web Push key pair and contact: this pool is the one that sends (ADR-0112)", async () => {

@@ -457,7 +457,6 @@ export function ingestWorkerEnv(w: AppWiring, livenessFile: string): EnvVar[] {
     // What one embedded raster may allocate before it is refused (adapter.py).
     // Set from the stack where the tier's memory is, because it is a memory bound.
     { name: "MAX_IMAGE_PIXELS", value: String(w.cfg.ingestWorker.maxImagePixels) },
-    { name: "INGEST_WORKER_DRAIN_SECONDS", value: String(w.cfg.ingestWorker.drainSeconds) },
     { name: "WORKER_LIVENESS_FILE", value: livenessFile },
   ];
 }

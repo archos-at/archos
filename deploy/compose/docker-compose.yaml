@@ -274,7 +274,6 @@ services:
       PROCESS_ROLE: ingest-worker
       # Ingestion jobs this process runs at once (K8s: ingestWorker.concurrency).
       INGEST_MAX_WORKERS: ${INGEST_MAX_WORKERS:-${GRID_INGEST_MAX_WORKERS:-${AIQ_INGEST_MAX_WORKERS:-2}}}
-      INGEST_WORKER_DRAIN_SECONDS: ${INGEST_WORKER_DRAIN_SECONDS:-${GRID_INGEST_WORKER_DRAIN_SECONDS:-600}}
       WORKER_LIVENESS_FILE: /tmp/ingest-worker.alive
     volumes:
       - ../../configs:/app/configs:ro

@@ -44,7 +44,7 @@ import {
   loadAppServices,
 } from "./config/app-services";
 import { type IngressConfig, loadIngress } from "./config/ingress";
-export { GOTENBERG_SLOTS_PER_REPLICA, bffJobsMode, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
+export { GOTENBERG_SLOTS_PER_REPLICA, gotenbergCapacity, renditionCeiling } from "./rendition-sizing";
 
 /**
  * Typed configuration for the Grid OIB Kubernetes deployment.

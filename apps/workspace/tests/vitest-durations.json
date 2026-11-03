@@ -105,7 +105,6 @@
  "app/api/internal/folder-cards/route.spec.ts": 50,
  "app/api/internal/health/route.spec.ts": 10,
  "app/api/internal/jobs/[jobId]/outcome/route.spec.ts": 30,
- "app/api/internal/jobs/run/route.spec.ts": 30,
  "app/api/internal/maintenance/reconcile-background-work/route.spec.ts": 20,
  "app/api/internal/maintenance/reconcile-vectors/route.spec.ts": 30,
  "app/api/internal/memory/digest/route.spec.ts": 50,
@@ -1201,7 +1200,6 @@
  "bff/jobs-queue/attempts.spec.ts": 10,
  "bff/jobs-queue/handlers.intake.spec.ts": 10,
  "bff/jobs-queue/handlers.root-sort.spec.ts": 10,
- "bff/jobs-queue/queue.integration.spec.ts": 10,
  "bff/jobs-queue/repository.integration.spec.ts": 10,
  "bff/jobs-queue/run.spec.ts": 40,
  "bff/jobs/backend-client.spec.ts": 110,
@@ -1548,8 +1546,5 @@
  "workers/database-unavailable.spec.mjs": 430,
  "workers/failure-streak.spec.mjs": 50,
  "workers/housekeeping-clock.spec.mjs": 10,
- "workers/jobs/queue-metrics.spec.mjs": 30,
- "workers/jobs/runner.integration.spec.mjs": 10,
- "workers/jobs/runner.spec.mjs": 190,
  "workers/langfuse-traces.spec.mjs": 50
 }
