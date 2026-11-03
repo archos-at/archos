@@ -315,6 +315,7 @@ infra:
   - 'apps/workspace/bff/malware-scan/config.ts'
   - 'apps/workspace/deploy/Dockerfile'
   - 'apps/workspace/migrations/0104_bff_job_queue.sql'
+  - 'apps/workspace/migrations/0106_bff_job_queue_backoff_and_dead_retention.sql'
   - 'apps/workspace/server.js'
   - 'apps/workspace/workers/app-database.js'
   - 'apps/workspace/workers/housekeeping-clock.js'
