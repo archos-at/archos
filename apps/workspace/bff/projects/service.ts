@@ -9,7 +9,6 @@
 
 import 'server-only'
 import { getWorkOS } from '@/lib/workos/client'
-import { endFollowsOnProjectClose } from '@/lib/mail-thread/follows'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
 import { CHAT_PERMISSIONS } from '@/lib/authz/chat'
 import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
@@ -22,6 +21,7 @@ import {
 } from '@/lib/conversations/repository'
 import { countDocumentsByProject } from '@/lib/documents/repository'
 import { waitingMailCounts } from '@/lib/inbound-mail/waiting-counts'
+import { endFollowsOfClosedProject, rearmParkedOneShots } from './status-effects'
 import { computePurgeAfter, projectGraceDays } from '@/lib/deletion/policy'
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -40,7 +40,6 @@ import { currentMonth, dateToMonth, isMonth, monthToDate, type Month } from './m
 import type { ProjectSetup } from './create-project-schema'
 import { startProjectIntake } from './intake-seed'
 import type { GeocodeResult } from '@/lib/geocoding/types'
-import { rearmOneShotsSkippedWhileParked } from '@/lib/tasks/repository'
 import { nextOffsetCursor, type OffsetPage } from '@/lib/api/offset-page'
 import { deriveProjectStandards, toStandardWire } from '@/lib/oib/project-standards'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
@@ -569,33 +568,6 @@ export async function setProjectStatus(
     request,
   })
   return project
-}
-
-/**
- * Closing ends every follow of the project's E-Mail-Verläufe (`project_closed`,
- * ADR-0137): a standing decision to file replies ends with the work. After the
- * close committed, so a failure is logged, never an error for a close that
- * happened; sweep 12 ends what this missed.
- */
-async function endFollowsOfClosedProject(session: AuthorizedSession, projectId: string, now: Date): Promise<void> {
-  try {
-    await endFollowsOnProjectClose(session, projectId, now)
-  } catch (error) {
-    console.error('[projects] ending the follows of a closed project failed; sweep 12 ends them:', error)
-  }
-}
-
-/**
- * The dated one-shots a pause or close retired, due again now that the project
- * runs (ADR-0098). After the move has committed, so a failure here is logged,
- * not turned into an error for a move that happened.
- */
-async function rearmParkedOneShots(projectId: string, organizationId: string): Promise<void> {
-  try {
-    await rearmOneShotsSkippedWhileParked(projectId, organizationId)
-  } catch (error) {
-    console.error('[projects] re-arming one-shots skipped while the project was not active failed:', error)
-  }
 }
 
 /** The Abschluss a close names, or a 400: a month within `closingBounds`, so not after this month unless the Beginn is, and never before the Beginn. */

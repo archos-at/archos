@@ -1,4 +1,3 @@
-import 'server-only'
 /**
  * The E-Mail-Eingang as a person (or an agent acting as one) reads and decides
  * it (ADR-0137, DECISION §6 "Decide", §7). The routes under
@@ -24,6 +23,7 @@ import 'server-only'
  *   and no release (RT-S5).
  */
 
+import 'server-only'
 import { v5 as uuidv5 } from 'uuid'
 import { actingProposalId, actingReaderIsAgent, currentActingSession } from '@/lib/agent-api/acting-session'
 import { captureServer } from '@/lib/analytics/posthog-server'
@@ -35,56 +35,27 @@ import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { contentDisposition } from '@/lib/documents/content-disposition'
 import { decodeDocumentListCursor, encodeDocumentListCursor } from '@/lib/documents/list-cursor'
 import { requesterOf } from '@/lib/jobs-queue/types'
-import { domainOf } from '@/lib/mail-thread/mail-threading'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
-import { chatScreeningRules, maskText, type ContentScreenRules } from '@/lib/upload-screening/content-screen'
+import { maskText } from '@/lib/upload-screening/content-screen'
 import { screenUploadName } from '@/lib/upload-screening/name-screen'
 import { gatePolicy } from '@/lib/upload-screening/service'
 import { requireMailReviewer } from './access'
 import { announceDecided, settleFilingFailed, settleProjectNotices } from './announce'
 import { auditDecisions } from './audit'
 import { partStatesOf } from './notice-repository'
-import { candidatesFor, type ViewerCandidates } from './candidates'
+import { candidatesFor } from './candidates'
 import { mailIfMatch, planMailDecision, refusal, requireDecisionRights, type DecisionContext } from './decision'
 import { forwardedOrigin } from './forwarded'
-import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-mail-vocabulary'
-import type {
-  DismissInboundMailsBody,
-  FileInboundMailsBody,
-  InboundMailDecisionResultView,
-  InboundMailListQuery,
-  InboundMailListStatus,
-  InboundMailListView,
-  InboundMailOutcome,
-  InboundMailSummaryView,
-  InboundMailTextView,
-  InboundMailView,
-} from './inbound-mail-wire'
+import { INBOUND_MAIL_RESTORE_DAYS } from './inbound-mail-vocabulary'
+import type { DismissInboundMailsBody, FileInboundMailsBody, InboundMailDecisionResultView, InboundMailListQuery, InboundMailListView, InboundMailTextView, InboundMailView } from './inbound-mail-wire'
 import { scanForStorage } from './malware-scan'
 import { mailReadSchema } from './read-client'
-import {
-  dismissMails,
-  findCandidateDocuments,
-  findFollowDeciders,
-  findLiveFolders,
-  findMailParts,
-  findProjectMail,
-  findThreadDocuments,
-  hasOpenParts,
-  listProjectMails,
-  MailChangedError,
-  PartNotWaitingError,
-  restoreMailParts,
-  writeMailDecisions,
-  type DecisionActor,
-  type DecisionsWritten,
-} from './repository'
-import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
+import { dismissMails, findCandidateDocuments, findLiveFolders, findMailParts, findProjectMail, findThreadDocuments, hasOpenParts, listProjectMails, MailChangedError, PartNotWaitingError, restoreMailParts, writeMailDecisions, type DecisionActor, type DecisionsWritten } from './repository'
 import { senderFactsOf, senderRiskLevel } from './sender-risk'
 import { readStagedObject } from './staging'
-import { readSuggestion, suggestionSkipReason } from './suggest'
 import { scoreMailDecision } from './suggest-scores'
 import { threadGroupsOf } from './thread-groups'
+import { groupParts, loadMailViews, mailViews, masked, maskRulesFor, summaryView } from './mail-views'
 
 /** How long a claim on a part holds before the sweep hands it back (D8: the proposals' apply claim, reused). */
 export const FILING_CLAIM_MS = 5 * 60 * 1000
@@ -106,176 +77,6 @@ export function decisionActor(session: AuthorizedSession): DecisionActor {
   if (proposalId) return { decidedBy: session.userId, via: 'agent_proposal', proposalId }
   if (currentActingSession() && actingReaderIsAgent()) return { decidedBy: session.userId, via: 'agent', proposalId: null }
   return { decidedBy: session.userId, via: 'app', proposalId: null }
-}
-
-// ---------------------------------------------------------------------------
-// Views
-// ---------------------------------------------------------------------------
-
-/** The office's content check for this project, as a reader's mask: the same rules a chat attachment is screened with. */
-async function maskRulesFor(organizationId: string, projectId: string): Promise<ContentScreenRules | null> {
-  return chatScreeningRules(await gatePolicy(organizationId, projectId))
-}
-
-const masked = (text: string | null, rules: ContentScreenRules | null): string | null =>
-  text === null ? null : maskText(text, rules).text
-
-const iso = (value: Date | string | null): string | null => (value === null ? null : new Date(value).toISOString())
-
-/** Whether anything of the mail still waits for a person: the waiting list's, else the handled list's. */
-function listStatusOf(mail: InboundMailRow, parts: readonly InboundMailPartRow[]): InboundMailListStatus {
-  const open = parts.some((part) => part.state === 'waiting' || part.state === 'filing')
-  return mail.status === 'waiting' && open ? 'waiting' : 'handled'
-}
-
-/** Until when a dismissed or expired part can be restored: only while the mail is held and its bytes are there. */
-function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: number): string | null {
-  if (mail.status !== 'waiting' || (part.state !== 'dismissed' && part.state !== 'expired') || !part.endedAt) return null
-  if (part.kind === 'attachment' && part.storageKey === null) return null
-  const until = new Date(part.endedAt).getTime() + INBOUND_MAIL_RESTORE_DAYS * DAY_MS
-  return until > now ? new Date(until).toISOString() : null
-}
-
-function partView(mail: InboundMailRow, part: InboundMailPartRow, candidates: ViewerCandidates, now: number): InboundMailPartBase {
-  const matched = candidates.part(part)
-  return {
-    id: part.id,
-    kind: part.kind,
-    position: part.position,
-    filename: part.filename,
-    contentType: part.contentType,
-    sizeBytes: part.sizeBytes,
-    state: part.state,
-    scan: part.scanStatus,
-    scannedAt: iso(part.scannedAt),
-    riskFlags: part.riskFlags,
-    nameStopTerms: part.nameStopTerms,
-    contentFindings: part.contentFindings,
-    offered: part.kind === 'message' || !part.riskFlags.includes('type_not_accepted'),
-    lastFailure: part.lastFailure,
-    documentId: part.documentId && candidates.readsDocument(part.documentId) ? part.documentId : null,
-    filedAs: candidates.filedAs(part),
-    duplicateOf: matched.duplicateOf,
-    revisionCandidate: matched.revisionCandidate,
-    revisionCandidateHidden: matched.revisionCandidateHidden,
-    // A mail the agent does not suggest for shows none, even one stored before the rule said so (an impersonation).
-    suggestion: suggestionSkipReason(mail) === null ? readSuggestion(part.suggestion) : null,
-    restorableUntil: restorableUntil(mail, part, now),
-  }
-}
-
-/** One mail as `inbound-mail-get` answers it. */
-function mailView(
-  mail: InboundMailRow,
-  parts: readonly InboundMailPartRow[],
-  candidates: ViewerCandidates,
-  context: { closed: boolean; rules: ContentScreenRules | null; followedBy: string | null; now: number },
-): InboundMailView {
-  const threads = candidates.threads(mail)
-  return withReviewDefaults({
-    id: mail.id,
-    projectId: mail.projectId,
-    status: listStatusOf(mail, parts),
-    projectClosed: context.closed,
-    ifMatch: mailIfMatch(mail, parts),
-    subject: masked(mail.subject, context.rules),
-    sender:
-      mail.senderAddress && mail.senderTrust && mail.senderReason
-        ? {
-            name: mail.senderName,
-            address: mail.senderAddress,
-            domain: domainOf(mail.senderAddress),
-            signerDomain: mail.signerDomain,
-            trust: mail.senderTrust,
-            reason: mail.senderReason,
-            flags: mail.senderFlags,
-          }
-        : null,
-    participants: mail.participants,
-    sentAt: iso(mail.sentAt),
-    receivedAt: new Date(mail.receivedAt).toISOString(),
-    expiresAt: new Date(mail.expiresAt).toISOString(),
-    automatic: mail.automatic,
-    rawScan: mail.rawScanStatus,
-    originalHeld: mail.rawStorageKey !== null,
-    notStaged: mail.notStaged,
-    parts: parts.map((part) => partView(mail, part, candidates, context.now)),
-    threadCandidates: threads.shown,
-    hiddenThreadCandidates: threads.hidden,
-    followedBy: context.followedBy,
-    updatedAt: new Date(mail.updatedAt).toISOString(),
-  })
-}
-
-/** What a list row shows of a mail: read off the mail's own view, so the row and the detail never disagree. */
-function summaryView(mail: InboundMailRow, parts: readonly InboundMailPartRow[], view: InboundMailView, now: number): InboundMailSummaryView {
-  const count = (state: InboundMailOutcome) => parts.filter((part) => part.state === state).length
-  const until = parts
-    .map((part) => restorableUntil(mail, part, now))
-    .filter((value): value is string => value !== null)
-    .sort()
-  const [best] = view.threadCandidates
-  return {
-    id: mail.id,
-    projectId: mail.projectId,
-    status: view.status,
-    subject: view.subject,
-    senderName: mail.senderName,
-    senderDomain: domainOf(mail.senderAddress),
-    senderTrust: (mail.senderTrust as InboundSenderTrust | null) ?? null,
-    senderFlags: mail.senderFlags,
-    automatic: mail.automatic,
-    receivedAt: new Date(mail.receivedAt).toISOString(),
-    expiresAt: new Date(mail.expiresAt).toISOString(),
-    attachments: parts.filter((part) => part.kind === 'attachment').length,
-    waitingParts: parts.filter((part) => part.state === 'waiting').length,
-    outcomes: { filed: count('filed'), dismissed: count('dismissed'), expired: count('expired') },
-    restorableUntil: until.at(-1) ?? null,
-    thread: best
-      ? { threadId: best.threadId, name: best.name, nextVersion: best.nextVersion, preselected: best.preselected }
-      : null,
-    riskLevel: view.riskLevel,
-    impersonation: view.impersonation,
-    incompleteReason: view.incompleteReason,
-    followedBy: view.followedBy,
-    updatedAt: view.updatedAt,
-  }
-}
-
-const groupParts = (parts: readonly InboundMailPartRow[]): Map<string, InboundMailPartRow[]> => {
-  const byMail = new Map<string, InboundMailPartRow[]>()
-  for (const part of parts) byMail.set(part.mailId, [...(byMail.get(part.mailId) ?? []), part])
-  return byMail
-}
-
-/** These mails as the viewer reads them, with one load of parts, candidates, followers and the mask for all of them. */
-async function loadMailViews(
-  session: AuthorizedSession,
-  projectId: string,
-  mails: readonly InboundMailRow[],
-  closed: boolean,
-): Promise<Array<{ mail: InboundMailRow; parts: InboundMailPartRow[]; view: InboundMailView }>> {
-  const parts = await findMailParts(mails.map((mail) => mail.id))
-  const [candidates, rules, followers] = await Promise.all([
-    candidatesFor(session, projectId, mails, parts),
-    maskRulesFor(session.organizationId, projectId),
-    findFollowDeciders(mails.map((mail) => mail.id)),
-  ])
-  const byMail = groupParts(parts)
-  const now = Date.now()
-  return mails.map((mail) => {
-    const own = byMail.get(mail.id) ?? []
-    return { mail, parts: own, view: mailView(mail, own, candidates, { closed, rules, followedBy: followers.get(mail.id) ?? null, now }) }
-  })
-}
-
-async function mailViews(
-  session: AuthorizedSession,
-  projectId: string,
-  mails: readonly InboundMailRow[],
-  closed: boolean,
-): Promise<InboundMailView[]> {
-  return (await loadMailViews(session, projectId, mails, closed)).map((entry) => entry.view)
 }
 
 // ---------------------------------------------------------------------------
