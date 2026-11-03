@@ -23,7 +23,7 @@ import { describe, expect, it } from 'vitest'
 import { DOCUMENT_TYPE_TAGS } from './tag-vocabulary'
 
 /** Repo root, from this spec's own location. */
-const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..')
+const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
 const read = (...path: string[]): string => readFileSync(join(REPO_ROOT, ...path), 'utf8')
 
 const SERVICE = read('apps', 'workspace', 'bff', 'documents', 'ingest-dispatch.ts')
