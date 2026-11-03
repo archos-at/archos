@@ -3784,6 +3784,10 @@
     "de": "Das Hochladen einer neuen Datei über eine Datei, die aufgrund ihres Inhalts zurückgehalten wird, wird nicht mehr als fehlgeschlagener Upload angezeigt. Die neue Datei wird ebenfalls als zurückgehalten angezeigt, mit dem Hinweis, dass sie auf die Datei wartet, die sie ersetzen soll. Die Person, die sie hochgeladen hat, kann direkt dort eine Überprüfung der zu ersetzenden Datei anfordern."
   },
   {
+    "en": "Uploading hundreds of files at once no longer makes a share of them fail to be read and wait several minutes for a second try.",
+    "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
+  },
+  {
     "en": "Uploading the same file twice no longer reads it again when nothing has changed.",
     "de": "Wird dieselbe Datei zweimal hochgeladen, wird sie nicht erneut gelesen, wenn sich nichts geändert hat."
   },
