@@ -4410,7 +4410,20 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             if held:
                                 continue
                         # Scans and garbled pages are transcribed here, one vision call
-                        # each: on a scanned file this is most of the wall time.
+                        # each, while the drawings the triage knows are already read on
+                        # the same pool (`page_reads`): the vision batch below gets them.
+                        from knowledge_layer.llamaindex import page_reads
+
+                        reads = file_scope.enter_context(page_reads.file_page_reads())
+                        vision = {"vlm_model": vlm_model, "vlm_base_url": vlm_base_url, "vlm_api_key": vlm_api_key}
+                        if RENDER_VISUAL_PAGES and vlm_api_key:
+                            reads.read_drawings_ahead(
+                                screen.triage,
+                                source_path,
+                                cap=MAX_RENDERED_PAGES,
+                                max_dim=PAGE_RENDER_MAX_DIM,
+                                vision={**vision, "extract_charts": extract_charts},
+                            )
                         with _stage(stages, "ocr"):
                             page_routes = _transcription.route_pdf_pages(
                                 source_path,
@@ -4560,11 +4573,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         total_tables += len(tables)
                         logger.info(f"  Table extraction: {len(tables)} tables")
 
-                    # 3+4. Combined image + drawing extraction with concurrent VLM
-                    # enrichment. Replaces the old sequential per-image and per-page
-                    # VLM loops with a single batch that runs ALL VLM calls for the
-                    # file concurrently (4 workers), with content-hash caching so a
-                    # re-ingest or cross-document duplicate skips the API call.
+                    # 3+4. Images and drawings: one batch of every vision call of the
+                    # file, on its page-read pool, content-hash cached.
                     if is_pdf:
                         from knowledge_layer.llamaindex import processing as _processing
 
@@ -4675,78 +4685,19 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 organization_id=organization_id,
                             )
 
-                        # Build image/chart/drawing documents. An embedded raster
-                        # now goes through the SAME analysis as a rendered page,
-                        # so a scanned plan placed inside a PDF is indexed per
-                        # drawing rather than as one paragraph — the `drawing`
-                        # content type is reachable from this branch too.
-                        file_charts = 0
-                        file_images = 0
-                        for record, content_type, caption in image_results:
-                            caption = _scrub_watermark_phrases(caption) or "[Image - no describable content]"
+                        from knowledge_layer.llamaindex.pdf_visuals import visual_documents_for_pdf
 
-                            content_type = indexed_visual_type(
-                                content_type, extract_images=extract_images, extract_charts=extract_charts
-                            )
-                            if content_type is None:
-                                continue
-                            is_chart = content_type == "chart"
-
-                            all_documents.extend(
-                                visual_documents(
-                                    content_type,
-                                    caption,
-                                    record.get("fields") or {},
-                                    file_name=file_name,
-                                    file_size=file_size,
-                                    page_number=record["page_number"],
-                                    extra_metadata={
-                                        "image_index": record["image_index"],
-                                        "image_format": record["format"],
-                                        "image_width": record["width"],
-                                        "image_height": record["height"],
-                                        # Present only when the raster was stored.
-                                        **{
-                                            key: record[key]
-                                            for key in ("image_key", "stored_image_index")
-                                            if key in record
-                                        },
-                                    },
-                                )
-                            )
-                            if is_chart:
-                                file_charts += 1
-                            else:
-                                file_images += 1
-
-                        total_charts += file_charts
-                        total_images += file_images
-                        if file_charts or file_images:
-                            logger.info(f"  Visual extraction: {file_charts} charts, {file_images} images")
-
-                        # Build rendered-page documents through the same builder
-                        # the embedded rasters above use. A rendered page is
-                        # nearly always a drawing, but the analysis types it —
-                        # a rendered photo page is not forced to claim it is a
-                        # plan just because of where its bytes came from.
-                        for page in drawing_pages:
-                            all_documents.extend(
-                                visual_documents(
-                                    page.get("content_type") or "drawing",
-                                    page.get("caption", ""),
-                                    page.get("fields") or {},
-                                    file_name=file_name,
-                                    file_size=file_size,
-                                    page_number=page["page_number"],
-                                    extra_metadata={
-                                        "image_width": page.get("width", 0),
-                                        "image_height": page.get("height", 0),
-                                    },
-                                )
-                            )
-                        total_images += len(drawing_pages)
-                        if drawing_pages:
-                            logger.info(f"  Drawing extraction: {len(drawing_pages)} rendered page(s)")
+                        visuals = visual_documents_for_pdf(
+                            image_results,
+                            drawing_pages,
+                            file_name=file_name,
+                            file_size=file_size,
+                            extract_images=extract_images,
+                            extract_charts=extract_charts,
+                        )
+                        all_documents.extend(visuals.documents)
+                        total_charts += visuals.charts
+                        total_images += visuals.images
 
                     # Start summary + tag classification (if enabled). For a
                     # text-sparse drawing PDF the rendered-page descriptions are

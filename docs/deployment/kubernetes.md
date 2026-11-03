@@ -1327,9 +1327,13 @@ one core (the GIL): another pod adds parse speed where a third thread does
 not, and an OOM kill costs two jobs an attempt rather than three. Raise the
 memory before the ceiling if `[ingest-mem]` shows a pod near 6Gi. The ceiling
 is also bounded from the other side:
-`ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` × `vlmBatchWorkers` is the
-tier's peak of vision calls, and the program fails the deploy when that is more
-than twice `vlmFleetConcurrency` (§6.3d). Prod's 8 × 2 × 4 is 64, exactly 2 × 32: more pods only wait for a vision slot, so the next lever for drawing-heavy files is the provider pool, not the ceiling.
+`ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` is the documents read at
+once, and the program fails the deploy when that is more than
+`vlmFleetConcurrency`, the lease pool that caps vision calls (§6.3d). Each file
+streams its OCR and vision calls through `ingestPageReadParallelism` (16)
+threads, which bound its threads and memory, not the calls. Prod's 8 × 2 is 16
+documents against 32 slots: more pods only wait for a vision slot, so the next
+lever for drawing-heavy files is the provider pool, not the ceiling.
 
 ### 6.3c BFF background jobs — a pool of frontend-image pods running `bff-job` (ADR-0079, ADR-0150)
 
@@ -1479,12 +1483,14 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   (`DRAIN_GIVE_BACK_SECONDS`, `agentWorkerRollout`), so the claims a drain did not
   finish are released without an attempt before the kubelet's SIGKILL.
 - **The ingest ceiling is held to the provider budget.** `vlmFleetConcurrency`,
-  `vlmBatchWorkers`, `providerLimitCeiling` and `providerModelLimitCeiling` are
+  `ingestPageReadParallelism`, `providerLimitCeiling` and `providerModelLimitCeiling` are
   stack config (and reach the pods as `VLM_FLEET_CONCURRENCY`,
-  `VLM_BATCH_WORKERS`, `PROVIDER_LIMIT_CEILING`,
-  `PROVIDER_MODEL_LIMIT_CEILING`). `assertVlmPeakFitsCeiling` fails the plan
-  when `ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` × `vlmBatchWorkers`
-  is more than twice `vlmFleetConcurrency`, or when the vision pool is larger
+  `INGEST_PAGE_READ_PARALLELISM`, `PROVIDER_LIMIT_CEILING`,
+  `PROVIDER_MODEL_LIMIT_CEILING`). The lease pool caps the calls; a file's
+  page-read pool bounds its threads and memory. `assertVlmPeakFitsCeiling` fails the plan
+  when `ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` documents
+  outnumber `vlmFleetConcurrency`'s slots, when `ingestPageReadParallelism` is
+  above it, or when the vision pool is larger
   than the key-wide limit or than the vision model's own limit
   (`providerModelLimitCeiling`: every vision call holds a slot in both pools, so
   a pool above either never fills). Replicas beyond that only wait for a slot. Prod went

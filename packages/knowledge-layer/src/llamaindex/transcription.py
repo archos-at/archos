@@ -20,10 +20,8 @@ same scan costs nothing and a prompt change never serves the old reply.
 from __future__ import annotations
 
 import base64
-import contextvars
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
@@ -202,15 +200,18 @@ def transcribe_pdf_pages(
     api_key: str,
     max_pages: int,
     max_dim: int,
-    workers: int,
+    workers: int | None = None,
 ) -> TranscriptionOutcome:
     """Render and transcribe ``page_numbers`` of ``pdf_path``, at most ``max_pages`` of them.
 
-    Pages past the cap are listed in ``over_cap``, never dropped quietly. Pages
-    are rendered a batch at a time, so a 500-page scan never holds 500 JPEGs in
-    memory.
+    Pages past the cap are listed in ``over_cap``, never dropped quietly. The
+    pages stream through the file's page-read pool (``page_reads``): each is
+    submitted as soon as it is rendered, with no batch waiting for its slowest
+    call, and at most twice the pool's size of rendered pages are held at once,
+    so a 500-page scan never holds 500 JPEGs. ``workers`` sizes a private pool
+    when no file pool is open (a direct call).
     """
-    from knowledge_layer.llamaindex import processing as _processing
+    from knowledge_layer.llamaindex import page_reads
 
     wanted = sorted(page_numbers)
     outcome = TranscriptionOutcome(over_cap=wanted[max_pages:])
@@ -221,32 +222,50 @@ def transcribe_pdf_pages(
             pdf_path,
             len(outcome.over_cap),
         )
-
     to_run = wanted[:max_pages]
-    batch_size = max(1, workers) * 2
-    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
-        for start in range(0, len(to_run), batch_size):
-            batch = to_run[start : start + batch_size]
-            # Rendered here, on the calling thread, a batch at a time so a
-            # 500-page scan stays out of memory. The render takes PDFium through
-            # `pdfium_lock` (see that module); the pool's threads only call the VLM.
-            rendered = _processing.render_pdf_pages(pdf_path, batch, max_dim=max_dim)
-            outcome.failed.extend(number for number in batch if number not in rendered)
-            jobs = [(number, rendered[number]) for number in batch if number in rendered]
-            # One copy of THIS thread's context per page, taken here rather than
-            # in the pool thread, so the ingest job's data-policy scope
-            # (`openrouter.data_policy_scope`) and its cost tracker reach the call.
-            contexts = [contextvars.copy_context() for _ in jobs]
-            replies = pool.map(
-                lambda job, ctx: ctx.run(transcribe_image, job[1], model=model, base_url=base_url, api_key=api_key),
-                jobs,
-                contexts,
-            )
-            for (number, _image), reply in zip(jobs, replies, strict=True):
-                _classify_reply(outcome, number, reply)
+    if to_run:
+        with page_reads.pool_for_this_call(workers) as reads:
+            futures = _submit_transcriptions(reads, pdf_path, to_run, max_dim, model, base_url, api_key, outcome)
+            for number, reply in page_reads.ordered_results(futures):
+                _classify_reply(outcome, number, reply if isinstance(reply, str) else "")
+    outcome.failed.sort()
     if outcome.failed:
         logger.warning("Transcription failed on %d page(s) of %s", len(outcome.failed), pdf_path)
     return outcome
+
+
+def _submit_transcriptions(
+    reads: Any,
+    pdf_path: str,
+    numbers: list[int],
+    max_dim: int,
+    model: str,
+    base_url: str,
+    api_key: str,
+    outcome: TranscriptionOutcome,
+) -> list[tuple[int, Any]]:
+    """Render each page on this thread (under ``pdfium_lock``) and submit its transcription at once."""
+    from knowledge_layer.llamaindex import processing as _processing
+
+    doc = _processing._open_pdf(pdf_path, "Page render")
+    if doc is None:
+        outcome.failed.extend(numbers)
+        return []
+    futures: list[tuple[int, Any]] = []
+    try:
+        for number in numbers:
+            with reads.room() as hand:
+                image = _processing._render_numbered_page(doc, number, max_dim, pdf_path)
+                if image is None:
+                    outcome.failed.append(number)
+                    continue
+                image_bytes = _processing._encode_jpeg(image)[0]
+                future = reads.submit(transcribe_image, image_bytes, model=model, base_url=base_url, api_key=api_key)
+                hand(future)
+            futures.append((number, future))
+    finally:
+        _processing._close_pdf(doc)
+    return futures
 
 
 # ---------------------------------------------------------------------------
@@ -339,7 +358,6 @@ def route_pdf_pages(
     unmeasurable, as it does from ``triage_pdf``.
     """
     from knowledge_layer.llamaindex import page_triage
-    from knowledge_layer.llamaindex import processing as _processing
 
     if triage is _UNMEASURED:
         triage = page_triage.triage_pdf(pdf_path, page_texts, min_text_chars=min_text_chars, min_paths=min_paths)
@@ -366,7 +384,7 @@ def route_pdf_pages(
             api_key=vlm_api_key,
             max_pages=max_ocr_pages,
             max_dim=max_dim,
-            workers=workers or _processing.VLM_BATCH_WORKERS,
+            workers=workers,
         )
         routes.drawing_pages.update(routes.outcome.drawings)
     routes.garbled_kept = _merge_transcriptions(

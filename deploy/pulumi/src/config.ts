@@ -257,8 +257,8 @@ export interface DeployConfig {
   /**
    * What the shared OpenRouter key is asked to carry (ADR-0076, ADR-0081), as
    * the backend image's environment. The four numbers are one budget:
-   * {@link vlmPeakCalls} is held to `vlmFleetConcurrency` where the ingest tier
-   * is sized (`assertVlmPeakFitsCeiling`), and `vlmFleetConcurrency` is held to
+   * the ingest tier's documents and each file's page-read pool are held to
+   * `vlmFleetConcurrency`, which caps the calls (`assertVlmPeakFitsCeiling`), and `vlmFleetConcurrency` is held to
    * both ceilings a vision call passes: the key-wide `limitCeiling` and the
    * vision model's own `modelLimitCeiling` (a call takes a slot in each pool).
    */

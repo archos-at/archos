@@ -29,12 +29,14 @@ export const WORKFLOW = "ingest-document";
  * `maxReplicas`: a thousand-document reindex fans out across the tier, and an
  * empty queue shrinks it back to the floor (zero, if the floor is zero).
  *
- * The ceiling that matters is not this one: replicas × concurrency ×
- * `VLM_BATCH_WORKERS` VLM calls are in flight at the peak, all on the shared
- * provider key. `assertVlmPeakFitsCeiling` fails the deploy when that product is
- * more than twice `VLM_FLEET_CONCURRENCY` (itself held to the limiter ceilings,
- * the vision model's own included), so `ingestWorkerMaxReplicas` cannot be raised
- * past what the provider budget can feed.
+ * The ceiling that matters is not this one: every vision call holds a slot of
+ * `VLM_FLEET_CONCURRENCY`, the fleet's lease pool on the shared provider key, and
+ * each file's `INGEST_PAGE_READ_PARALLELISM` threads only bound its own threads
+ * and memory. `assertVlmPeakFitsCeiling` fails the deploy when replicas ×
+ * concurrency documents outnumber the pool's slots, or a file's pool is larger
+ * than it (the pool itself held to the limiter ceilings, the vision model's own
+ * included), so `ingestWorkerMaxReplicas` cannot be raised past what the
+ * provider budget can feed.
  *
  * Rollout is the research tier's (`agentWorkerRollout`): surge first, then give
  * each draining worker its `drainSeconds` to finish what it claimed, plus time to

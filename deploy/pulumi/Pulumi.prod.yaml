@@ -339,9 +339,9 @@ config:
 
   # `ingestWorkerConcurrency` jobs waiting or running. The web tier stops
 
-  # claiming. Peak VLM calls in flight = replicas × concurrency × 4
+  # claiming. VLM calls in flight are capped by vlmFleetConcurrency, the
 
-  # (VLM_BATCH_WORKERS), all on the shared OpenRouter key; the
+  # fleet's lease pool on the shared OpenRouter key; the
 
   # cluster-autoscaler adds nodes for Pending replicas up to the worker group's
 
@@ -357,8 +357,8 @@ config:
   # Two files a pod, because pdfplumber parses on one core (the GIL): a third
   # thread adds no parse speed, another pod does, and one OOM kill then costs
   # two jobs an attempt, not three. 1 CPU requested for that core.
-  # Ceilings it is held to: vision 8 x 2 x 4 = 64 <= 2 x vlmFleetConcurrency
-  # (assertVlmPeakFitsCeiling); Postgres 16 ingest locks, 157 of 200
+  # Ceilings it is held to: vision 8 x 2 = 16 documents <= vlmFleetConcurrency
+  # (32) slots (assertVlmPeakFitsCeiling); Postgres 16 ingest locks, 157 of 200
   # (assertPgConnectionBudget, below).
   # Watch `[ingest-mem] file:released` and `kubectl top` after a large file;
   # raise the memory before the ceiling if a pod nears 6Gi.
@@ -521,12 +521,11 @@ config:
   # What the one OpenRouter key is asked to carry, written down here instead of
   # left to the backend image's defaults (these ARE those defaults). Vision calls
   # are held to vlmFleetConcurrency fleet-wide whatever the replica count, so the
-  # ingest tier's ceiling is sized against it: ingestWorkerMaxReplicas (3) x
-  # ingestWorkerConcurrency (3) x vlmBatchWorkers (4) = 36, within 2 x 32. Node
-  # memory, not this budget, holds it at 3 (see the ingestion tier above); the
-  # budget alone would allow 5. The
-  # program refuses a stack past 2x (assertVlmPeakFitsCeiling), because replicas
-  # beyond it only queue on the pool. It was 12 replicas (144), then 8 (96 against
+  # ingest tier's ceiling is sized against it: ingestWorkerMaxReplicas x
+  # ingestWorkerConcurrency documents may not outnumber its slots, and one file's
+  # page-read pool (ingestPageReadParallelism, 16 by default: OCR and vision
+  # together) may not be larger than it (assertVlmPeakFitsCeiling). The pool
+  # caps the calls; a file's pool only bounds its threads and memory. It was 12 replicas (144), then 8 (96 against
   # a pool of 48), before this: a vision call also holds a slot in its model's own
   # pool (providerModelLimitCeiling, 32), so 48 was never reachable, and the three
   # replicas it paid for could never have run a vision call. The program also
@@ -534,7 +533,7 @@ config:
   # providerModelLimitCeiling and vlmFleetConcurrency together (and the provider's
   # own limit with them) first, then the replicas.
   grid-oib:vlmFleetConcurrency: "32"
-  grid-oib:vlmBatchWorkers: "4"
+  grid-oib:ingestPageReadParallelism: "16"
   # Model calls in flight fleet-wide: all models together (the key's limit), and
   # any one model. The adaptive limiter starts at these and halves on a 429.
   grid-oib:providerLimitCeiling: "128"

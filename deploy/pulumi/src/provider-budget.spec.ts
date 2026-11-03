@@ -9,10 +9,11 @@ import { baseStackConfig } from "./test-support/stack-config";
  * The one OpenRouter key's budget (ADR-0076, ADR-0081), as the stack files state it.
  *
  * Vision calls are held to `VLM_FLEET_CONCURRENCY` fleet-wide whatever the
- * replica count, so an ingest tier sized past that number only queues: replicas
- * that hold memory and wait for a slot, and a wait that can outlast the client's
- * own timeout. The two numbers are set in different places and neither looks
- * wrong alone, so the program refuses the combination.
+ * replica count: the lease pool caps the calls, and each file's page-read pool
+ * (`INGEST_PAGE_READ_PARALLELISM`) bounds only its threads and memory. An ingest
+ * tier with more documents at once than the pool has slots only queues: replicas
+ * that hold memory and wait. The numbers are set in different places and neither
+ * looks wrong alone, so the program refuses the combination.
  */
 
 pulumi.runtime.setMocks(
@@ -51,12 +52,17 @@ function stackKnob(stack: "dev" | "prod", key: string): string | undefined {
 }
 
 describe("the ingest tier's peak vision calls", () => {
-  it("are replicas x concurrency x the files' own parallelism", async () => {
-    const { vlmPeakCalls } = await load();
+  it("are the page-read threads that ask, capped by the fleet's lease pool", async () => {
+    const { vlmPeakCalls, vlmPageReadThreads } = await load();
+    const tier = (pool: number) =>
+      ({
+        ingestWorker: { maxReplicas: 5, concurrency: 3 },
+        providerLimits: { pageReadParallelism: 16, vlmFleetConcurrency: pool },
+      }) as never;
 
-    expect(
-      vlmPeakCalls({ ingestWorker: { maxReplicas: 5, concurrency: 3 }, providerLimits: { vlmBatchWorkers: 4 } } as never),
-    ).toBe(60);
+    expect(vlmPageReadThreads(tier(32))).toBe(240);
+    expect(vlmPeakCalls(tier(32))).toBe(32);
+    expect(vlmPeakCalls(tier(0))).toBe(240);
   });
 
   it.each(["dev", "prod"] as const)("fit the %s stack's fleet pool, which fails the deploy when they do not", async (stack) => {
@@ -65,7 +71,7 @@ describe("the ingest tier's peak vision calls", () => {
         "ingestWorkerMaxReplicas",
         "ingestWorkerConcurrency",
         "vlmFleetConcurrency",
-        "vlmBatchWorkers",
+        "ingestPageReadParallelism",
         "providerLimitCeiling",
         "providerModelLimitCeiling",
       ]
@@ -73,45 +79,48 @@ describe("the ingest tier's peak vision calls", () => {
         .filter(([, value]) => value !== undefined)
         .map(([key, value]) => [`grid-oib:${key}`, value as string]),
     );
-    const { cfg, assertVlmPeakFitsCeiling, vlmPeakCalls, VLM_OVERSUBSCRIPTION } = await load(knobs);
+    const { cfg, assertVlmPeakFitsCeiling, vlmPeakCalls } = await load(knobs);
 
     expect(() => assertVlmPeakFitsCeiling(cfg)).not.toThrow();
-    expect(vlmPeakCalls(cfg)).toBeLessThanOrEqual(VLM_OVERSUBSCRIPTION * cfg.providerLimits.vlmFleetConcurrency);
+    expect(vlmPeakCalls(cfg)).toBeLessThanOrEqual(cfg.providerLimits.vlmFleetConcurrency);
   });
 
   it("hold the defaults too, for a stack that sets none of the knobs", async () => {
     const { cfg, assertVlmPeakFitsCeiling } = await load();
 
+    expect(cfg.providerLimits.pageReadParallelism).toBe(16);
     expect(() => assertVlmPeakFitsCeiling(cfg)).not.toThrow();
   });
 
-  it("fail a tier sized past twice the pool, naming every number and what to change", async () => {
+  it("fail a tier with more documents at once than the pool has slots, naming every number and what to change", async () => {
     const { cfg, assertVlmPeakFitsCeiling } = await load({ "grid-oib:ingestWorkerMaxReplicas": "12" });
 
     expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(
-      /ingestWorkerMaxReplicas \(12\) x ingestWorkerConcurrency \(3\) x vlmBatchWorkers \(4\) = 144 vision calls at the peak, more than 2x vlmFleetConcurrency \(32\) = 64/,
+      /ingestWorkerMaxReplicas \(12\) x ingestWorkerConcurrency \(3\) = 36 documents read at once, more than vlmFleetConcurrency \(32\) vision slots/,
     );
-    expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(/Lower ingestWorkerMaxReplicas to 5 or less, or raise vlmFleetConcurrency/);
+    expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(/Lower ingestWorkerMaxReplicas to 10 or less, or raise vlmFleetConcurrency/);
   });
 
-  it("are allowed twice the pool, no more", async () => {
-    const at = await load({ "grid-oib:ingestWorkerMaxReplicas": "5" });
-    const over = await load({ "grid-oib:ingestWorkerMaxReplicas": "6" });
+  it("allow documents up to the pool's slots, no more", async () => {
+    const at = await load({ "grid-oib:ingestWorkerMaxReplicas": "10" });
+    const over = await load({ "grid-oib:ingestWorkerMaxReplicas": "11" });
 
     expect(() => at.assertVlmPeakFitsCeiling(at.cfg)).not.toThrow();
-    expect(() => over.assertVlmPeakFitsCeiling(over.cfg)).toThrow(/= 72 vision calls/);
+    expect(() => over.assertVlmPeakFitsCeiling(over.cfg)).toThrow(/= 33 documents/);
   });
 
-  it("follow the pool when it is raised, and the files' parallelism when it is", async () => {
+  it("follow the pool when it is raised, and refuse a file's pool larger than it", async () => {
     const raised = await load({
       "grid-oib:ingestWorkerMaxReplicas": "12",
       "grid-oib:vlmFleetConcurrency": "72",
       "grid-oib:providerModelLimitCeiling": "72",
     });
-    const deeper = await load({ "grid-oib:vlmBatchWorkers": "8" });
+    const wider = await load({ "grid-oib:ingestPageReadParallelism": "48" });
 
     expect(() => raised.assertVlmPeakFitsCeiling(raised.cfg)).not.toThrow();
-    expect(() => deeper.assertVlmPeakFitsCeiling(deeper.cfg)).toThrow(/vlmBatchWorkers \(8\) = 120/);
+    expect(() => wider.assertVlmPeakFitsCeiling(wider.cfg)).toThrow(
+      /ingestPageReadParallelism \(48\) is above vlmFleetConcurrency \(32\)/,
+    );
   });
 
   it("are not held to a pool that is switched off", async () => {
@@ -158,7 +167,7 @@ describe("the budget reaches the pods that spend it", () => {
   it("is emitted from the stack's numbers, under the names the Python modules read", async () => {
     const { cfg } = await load({
       "grid-oib:vlmFleetConcurrency": "40",
-      "grid-oib:vlmBatchWorkers": "5",
+      "grid-oib:ingestPageReadParallelism": "5",
       "grid-oib:providerLimitCeiling": "100",
       "grid-oib:providerModelLimitCeiling": "20",
     });
@@ -175,7 +184,7 @@ describe("the budget reaches the pods that spend it", () => {
     };
     const expected = {
       VLM_FLEET_CONCURRENCY: "40",
-      VLM_BATCH_WORKERS: "5",
+      INGEST_PAGE_READ_PARALLELISM: "5",
       PROVIDER_LIMIT_CEILING: "100",
       PROVIDER_MODEL_LIMIT_CEILING: "20",
     };
@@ -186,8 +195,8 @@ describe("the budget reaches the pods that spend it", () => {
     }
 
     const sources = [
-      read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
-      read("packages", "knowledge-layer", "src", "llamaindex", "processing.py"),
+      read("packages", "knowledge-layer", "src", "llamaindex", "vision_calls.py"),
+      read("packages", "knowledge-layer", "src", "llamaindex", "page_reads.py"),
       read("packages", "agent", "src", "agent", "common", "provider_limiter.py"),
     ].join("\n");
     for (const name of Object.keys(expected)) expect(sources, name).toContain(`"${name}"`);
@@ -198,10 +207,10 @@ describe("the budget reaches the pods that spend it", () => {
     const python = (path: string[], pattern: RegExp) => Number(read(...path).match(pattern)?.[1]);
 
     expect(cfg.providerLimits.vlmFleetConcurrency).toBe(
-      python(["packages", "knowledge-layer", "src", "llamaindex", "adapter.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
+      python(["packages", "knowledge-layer", "src", "llamaindex", "vision_calls.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
     );
-    expect(cfg.providerLimits.vlmBatchWorkers).toBe(
-      python(["packages", "knowledge-layer", "src", "llamaindex", "processing.py"], /os\.environ\.get\("VLM_BATCH_WORKERS", "(\d+)"\)/),
+    expect(cfg.providerLimits.pageReadParallelism).toBe(
+      python(["packages", "knowledge-layer", "src", "llamaindex", "page_reads.py"], /env_int\("INGEST_PAGE_READ_PARALLELISM", (\d+)/),
     );
     expect(cfg.providerLimits.limitCeiling).toBe(
       python(["packages", "agent", "src", "agent", "common", "provider_limiter.py"], /^_DEFAULT_CEILING = (\d+)$/m),

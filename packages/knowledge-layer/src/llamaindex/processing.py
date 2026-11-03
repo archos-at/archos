@@ -2,8 +2,8 @@
 
 Provides a DRY, extensible extraction pipeline that:
 - Runs VLM captioning concurrently for embedded images AND rendered drawing pages
-  within a single file (biggest latency win: a 20-page plan set goes from 20+
-  serial round-trips to 4 concurrent workers per file).
+  within a single file, on the file's page-read pool (``page_reads``), which its
+  transcriptions share.
 - Content-hash caches every VLM result via ``agent.common.cache`` so a
   re-ingest or cross-document duplicate image skips the API call entirely. The
   VLM model is part of the cache identity, so a model switch never serves
@@ -39,14 +39,11 @@ Typical usage (inside ``_run_ingestion``)::
 
 from __future__ import annotations
 
-import contextvars
 import hashlib
 import io
 import logging
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import as_completed
 from dataclasses import dataclass
 from typing import Any
 
@@ -61,17 +58,6 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-# @environment_variable VLM_BATCH_WORKERS
-# @category Knowledge Layer
-# @type int
-# @default 4
-# @required false
-# Max concurrent VLM workers per file. Kept modest to avoid saturating the
-# provider rate-limit or the process socket pool — architectural plan sets
-# typically have 5-20 visual pages and 0-10 embedded images, so 4 workers
-# cuts a 20-page serial loop to ~5 rounds.
-VLM_BATCH_WORKERS = max(1, int(os.environ.get("VLM_BATCH_WORKERS", "4")))
 
 # Content-hash cache TTL: 30 days. Long enough that re-ingesting a changed PDF
 # (but with many unchanged images) still hits the cache for the stable images.
@@ -154,6 +140,20 @@ def _cached_vlm_call(
     from cache without ever calling the VLM again.
     """
     key = vlm_cache_key(image_bytes, prompt_type, model)
+    from knowledge_layer.llamaindex import page_reads
+
+    reads = page_reads.current()
+    if reads is None:
+        return _cached_or_live(key, live_call, args, kwargs)
+    # One call per bytes and prompt for the file: the drawings read ahead of the
+    # vision batch (`page_reads`) are the batch's own calls, not a second one.
+    return reads.single_flight(
+        key, lambda: _cached_or_live(key, live_call, args, kwargs), _result_carries_failed_caption
+    )
+
+
+def _cached_or_live(key: str, live_call, args: tuple, kwargs: dict):
+    """The cached result under ``key``, else ``live_call``'s, stored unless it is a failure placeholder."""
     try:
         cached = get_json(key)
     except Exception:
@@ -190,6 +190,8 @@ class _PageRead:
     image: Any = None
     capped: bool = False
     failed: bool = False
+    #: ``(jpeg, width, height)`` of a page the file's page reads rendered already.
+    jpeg: tuple[bytes, int, int] | None = None
 
 
 def _pdfium_page_text(page: Any) -> str:
@@ -296,6 +298,10 @@ def _page_is_visual(
 def _read_visual_page(doc: Any, page_num: int, *, can_render: bool, max_dim: int, criteria: dict) -> _PageRead:
     """Judge one page and render it when it is visual; all of it under the PDFium lock."""
     pdf_path = criteria["pdf_path"]
+    rendered = criteria["prefetched"].get(page_num + 1)
+    if rendered is not None and rendered["max_dim"] == max_dim and page_num + 1 in (criteria["only_pages"] or ()):
+        jpeg = (rendered["image_bytes"], rendered["width"], rendered["height"])
+        return _PageRead(jpeg=jpeg) if can_render else _PageRead(capped=True)
     with pdfium_lock():
         # Guarded separately, and this is the defect the guard exists for:
         # `doc[page_num]` raises on a damaged page and used to sit OUTSIDE the
@@ -321,6 +327,13 @@ def _read_visual_page(doc: Any, page_num: int, *, can_render: bool, max_dim: int
             page.close()
 
 
+def _prefetched_renders() -> dict[int, dict[str, Any]]:
+    from knowledge_layer.llamaindex import page_reads
+
+    reads = page_reads.current()
+    return reads.rendered() if reads is not None else {}
+
+
 def render_visual_pages_no_vlm(
     pdf_path: str,
     max_dim: int = 2048,
@@ -332,8 +345,8 @@ def render_visual_pages_no_vlm(
 ) -> list[dict[str, Any]]:
     """Detect and render drawing pages WITHOUT calling the VLM.
 
-    Returns rendered JPEG bytes instead of captioned results so the caller can
-    batch VLM calls concurrently.
+    Returns rendered JPEG bytes so the caller can batch VLM calls concurrently;
+    a page the file's page reads rendered ahead (``page_reads``) is not rendered twice.
 
     ``page_texts`` (1-based page number → text) lets the caller hand in the
     text it already extracted — in ``_run_ingestion`` that is the
@@ -352,11 +365,9 @@ def render_visual_pages_no_vlm(
       ``{"image_bytes": bytes, "page_number": int, "width": int, "height": int}``.
     Empty list when pypdfium2 is unavailable or the PDF has no visual pages.
     """
-    # Opening is its own step so the failure can say what it actually means. A PDF
-    # pdfium cannot parse is NOT a failed ingestion: the text layer is read by
-    # pdfplumber on a separate path, so the document still ingests and simply
-    # contributes no visual pages. Logging that at ERROR filed a GitHub issue for
-    # every unusual PDF in the corpus while the ingest it described succeeded.
+    # Opening is its own step: a PDF pdfium cannot parse is NOT a failed ingestion
+    # (pdfplumber reads its text on a separate path), so it contributes no visual
+    # pages. Logged at ERROR it filed a GitHub issue for every unusual PDF.
     doc = _open_pdf(pdf_path, "Visual-page rendering (text ingestion is unaffected)")
     if doc is None:
         return []
@@ -367,6 +378,7 @@ def render_visual_pages_no_vlm(
         "min_paths": min_paths,
         "page_texts": page_texts,
         "only_pages": only_pages,
+        "prefetched": _prefetched_renders(),
     }
     results: list[dict[str, Any]] = []
     skipped_pages = 0
@@ -389,9 +401,9 @@ def render_visual_pages_no_vlm(
                     pdf_path,
                 )
                 break
-            if read.image is None:
+            if read.image is None and read.jpeg is None:
                 continue
-            image_bytes, width, height = _encode_jpeg(read.image)
+            image_bytes, width, height = read.jpeg or _encode_jpeg(read.image)
             results.append({"image_bytes": image_bytes, "page_number": page_num + 1, "width": width, "height": height})
     except Exception as e:
         # Whatever is left: a failure of the document itself rather than of one
@@ -434,109 +446,85 @@ def enrich_vlm_batch(
     extract_charts: bool = True,
 ):
     """Run ALL VLM calls for a file concurrently — embedded images AND rendered
-    drawing pages — with content-hash caching.
+    drawing pages — with content-hash caching, on the file's page-read pool
+    (``page_reads``: shared with its transcriptions, streaming, no batch barrier).
 
-    Args:
-        image_records: Output of ``_extract_images_from_pdf`` (raw bytes, no VLM yet).
-        drawing_pages: Output of ``render_visual_pages_no_vlm`` (rendered JPEG, no VLM).
-        vlm_model: VLM model name.
-        vlm_base_url: VLM endpoint base URL.
-        vlm_api_key: Resolved VLM API key (BYOK-aware).
-        extract_charts: Whether to use the chart-aware prompt for images.
-
-    Returns:
-        ``(image_results, drawing_pages)`` where:
-        - ``image_results`` is a list of ``(record, content_type, caption)`` tuples.
-        - ``drawing_pages`` is the input list enriched with ``"caption"`` and
-          ``"fields"`` keys.
-
-        Items whose VLM analysis failed (exception OR placeholder caption) are
-        omitted entirely and logged — a failure placeholder is never indexed.
+    Returns ``(image_results, drawing_pages)``: ``(record, content_type, caption)``
+    tuples in page and image order, and the input pages enriched with
+    ``"caption"``, ``"fields"`` and ``"content_type"``, in page order. Items whose
+    VLM analysis failed twice (exception OR placeholder caption) are omitted
+    and logged: a failure placeholder is never indexed.
     """
     if not image_records and not drawing_pages:
         return [], []
     if not vlm_api_key:
         logger.warning("VLM not configured; skipping batch enrichment")
         return [], []
-
-    from knowledge_layer.llamaindex import adapter as _adapter
-
-    # Embedded rasters and rendered pages run the SAME analysis. They differ in
-    # where the bytes came from and therefore in which metadata the adapter
-    # attaches — never in how the image is understood. ``analyze_visual`` owns
-    # the caching (keyed on the schema version) and the degradation ladder.
-    def _analyze(image_bytes: bytes) -> tuple[str, str, dict]:
-        return _adapter.analyze_visual(
-            image_bytes,
-            vlm_model=vlm_model,
-            vlm_base_url=vlm_base_url,
-            vlm_api_key=vlm_api_key,
-            extract_charts=extract_charts,
-        )
-
-    def _enrich_one_image(record: dict) -> tuple:
-        content_type, caption, fields = _analyze(record["image_bytes"])
-        record["fields"] = fields
-        return (record, content_type, caption)
-
-    def _enrich_one_drawing(page: dict) -> dict:
-        content_type, caption, fields = _analyze(page["image_bytes"])
-        page["caption"] = caption
-        page["fields"] = fields
-        page["content_type"] = content_type
-        return page
-
-    total_tasks = len(image_records) + len(drawing_pages)
+    vision = {
+        "vlm_model": vlm_model,
+        "vlm_base_url": vlm_base_url,
+        "vlm_api_key": vlm_api_key,
+        "extract_charts": extract_charts,
+    }
     work: list[tuple[str, dict]] = [("image", record) for record in image_records]
     work += [("drawing", page) for page in drawing_pages]
-    run = {"image": _enrich_one_image, "drawing": _enrich_one_drawing}
+    from knowledge_layer.llamaindex import page_reads
 
-    def _pass(items: list[tuple[str, dict]]) -> tuple[list[tuple], list[dict], list[tuple[str, dict]]]:
-        """One concurrent pass: the images and drawings read, and the items that failed."""
-        images: list[tuple] = []
-        drawings: list[dict] = []
-        failed: list[tuple[str, dict]] = []
-        with ThreadPoolExecutor(max_workers=min(VLM_BATCH_WORKERS, len(items) or 1)) as pool:
-            # Each task runs in a copy of this thread's context, so the ingest job's
-            # data-policy scope (`openrouter.data_policy_scope`), cost tracker
-            # (`_ingest_cost_scope`) and file trace all reach the VLM call.
-            futures = {pool.submit(contextvars.copy_context().run, run[kind], obj): (kind, obj) for kind, obj in items}
-            for future in as_completed(futures):
-                kind, obj = futures[future]
-                try:
-                    result = future.result()
-                except Exception as e:
-                    logger.warning("VLM enrichment failed for %s on page %s: %s", kind, obj.get("page_number"), e)
-                    failed.append((kind, obj))
-                    continue
-                # Fail-open placeholder captions (provider error, empty response) carry no
-                # retrievable content and would pollute the vector store as real chunks.
-                caption = result[2] if kind == "image" else result.get("caption")
-                if is_failed_caption(caption):
-                    logger.warning(
-                        "VLM analysis failed for %s on page %s: %s", kind, obj.get("page_number"), (caption or "")[:120]
-                    )
-                    failed.append((kind, obj))
-                    continue
-                (images if kind == "image" else drawings).append(result)
-        return images, drawings, failed
+    with page_reads.pool_for_this_call() as reads:
+        done, failed = _vision_pass(reads, work, vision)
+        # One more pass for what failed, after a pause: a failed reply is never cached, so
+        # this asks the model again. Most failures are passing (a timeout, a provider
+        # hiccup the 429 waits do not cover), and a page dropped here is a page nobody
+        # can search; a second pass costs only the pages that failed.
+        if failed and VLM_SECOND_PASS_DELAY_SECONDS >= 0:
+            logger.info("VLM batch: %d item(s) failed; trying them once more", len(failed))
+            time.sleep(VLM_SECOND_PASS_DELAY_SECONDS)
+            more, failed = _vision_pass(reads, failed, vision)
+            done += more
+    if failed:
+        logger.warning("VLM batch: %d/%d item(s) failed twice and were skipped (not indexed)", len(failed), len(work))
+    images = [result for kind, result in done if kind == "image"]
+    images.sort(key=lambda item: (item[0].get("page_number") or 0, item[0].get("image_index") or 0))
+    drawings = [result for kind, result in done if kind == "drawing"]
+    drawings.sort(key=lambda page: page.get("page_number") or 0)
+    return images, drawings
 
-    image_results, enriched_drawings, failed = _pass(work)
-    # One more pass for what failed, after a pause: a failed reply is never cached, so
-    # this asks the model again. Most failures are passing (a timeout, a provider
-    # hiccup the 429 waits do not cover), and a page dropped here is a page nobody
-    # can search; a second pass costs only the pages that failed.
-    if failed and VLM_SECOND_PASS_DELAY_SECONDS >= 0:
-        logger.info("VLM batch: %d item(s) failed; trying them once more", len(failed))
-        time.sleep(VLM_SECOND_PASS_DELAY_SECONDS)
-        more_images, more_drawings, failed = _pass(failed)
-        image_results += more_images
-        enriched_drawings += more_drawings
-    skipped = len(failed)
 
-    if skipped:
-        logger.warning("VLM batch: %d/%d item(s) failed twice and were skipped (not indexed)", skipped, total_tasks)
-    # Page order, whatever order the passes finished in.
-    enriched_drawings.sort(key=lambda page: page.get("page_number") or 0)
+def _analyze_item(kind: str, obj: dict, vision: dict[str, Any]) -> Any:
+    """One image or drawing through ``analyze_visual``: embedded rasters and rendered pages run the SAME analysis."""
+    from knowledge_layer.llamaindex import adapter as _adapter
 
-    return image_results, enriched_drawings
+    content_type, caption, fields = _adapter.analyze_visual(obj["image_bytes"], **vision)
+    obj["fields"] = fields
+    if kind == "image":
+        return (obj, content_type, caption)
+    obj["caption"] = caption
+    obj["content_type"] = content_type
+    return obj
+
+
+def _vision_pass(
+    reads: Any, items: list[tuple[str, dict]], vision: dict[str, Any]
+) -> tuple[list[tuple[str, Any]], list[tuple[str, dict]]]:
+    """One streaming pass over ``items``: ``(kind, result)`` of those read, and the items that failed."""
+    futures = [(kind, obj, reads.submit(_analyze_item, kind, obj, vision)) for kind, obj in items]
+    done: list[tuple[str, Any]] = []
+    failed: list[tuple[str, dict]] = []
+    for kind, obj, future in futures:
+        try:
+            result = future.result()
+        except Exception as e:  # noqa: BLE001 - one item's failure costs that item
+            logger.warning("VLM enrichment failed for %s on page %s: %s", kind, obj.get("page_number"), e)
+            failed.append((kind, obj))
+            continue
+        # Fail-open placeholder captions (provider error, empty response) carry no
+        # retrievable content and would pollute the vector store as real chunks.
+        caption = result[2] if kind == "image" else result.get("caption")
+        if is_failed_caption(caption):
+            logger.warning(
+                "VLM analysis failed for %s on page %s: %s", kind, obj.get("page_number"), (caption or "")[:120]
+            )
+            failed.append((kind, obj))
+            continue
+        done.append((kind, result))
+    return done, failed

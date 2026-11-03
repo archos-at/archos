@@ -40,6 +40,8 @@ const pythonSources = [
   read("packages", "agent", "src", "agent", "knowledge", "ingest_scheduler.py"),
   // The in-process pool's size, read by the knowledge layer's adapter.
   read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
+  // One file's page-read pool, OCR and vision together.
+  read("packages", "knowledge-layer", "src", "llamaindex", "page_reads.py"),
 ].join("\n");
 const configSource = read("deploy", "pulumi", "src", "app", "config.ts");
 

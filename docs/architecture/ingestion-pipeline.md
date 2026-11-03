@@ -137,11 +137,13 @@ flowchart TB
   SC -- match --> QU[quarantine: file FAILED with verdict]:::stop
   SC --> TB[tables, pdfplumber<br/>not on drawings vision reads]:::cpu
   TB --> TR[page triage<br/>text / scan / garbled / drawing]:::cpu
-  TR --> OCR[transcribe scans + garbled pages<br/>1 vision call per page, cap 500]:::model
+  TR --> AH[read the triage's drawings ahead<br/>on the file's page-read pool]:::model
+  TR --> OCR[transcribe scans + garbled pages<br/>1 vision call per page, cap 500<br/>same pool, streamed]:::model
   OCR --> TH[thumbnail -> presigned PUT]:::cpu
   TH --> CH[chunk: sections, OIB clauses, or pages]:::cpu
   CH --> RD[render drawing pages<br/>cap 20 per file, A:361]:::cpu
-  RD --> VI[analyze_visual per drawing page<br/>and per embedded raster, cap 64<br/>4 threads, fleet slot each]:::model
+  AH -. same call .-> VI
+  RD --> VI[analyze_visual per drawing page<br/>and per embedded raster, cap 64<br/>16 threads per file, fleet slot each]:::model
   VI --> SUM[summary + tags + topics<br/>first and last chunk, 4000 chars]:::model
   VI --> DS[dossier: one strict call<br/>over a digest of every page]:::model
   VI --> CV[coverage: pages read and why not]:::cpu
@@ -154,6 +156,24 @@ flowchart TB
   CV --> MD
   MD --> FA[Fassung: confirm, change summary<br/>or suggestion, 45 s bound]:::model
 ```
+
+**One page-read pool per file** (`llamaindex/page_reads.py`,
+`INGEST_PAGE_READ_PARALLELISM`, 16). Every page read of a file, a scan's
+transcription and a drawing's, an image's or a raster's analysis, is one call
+on the same pool, submitted as soon as its page is rendered: no batch waits for
+its slowest call, and at most twice the pool's size of rendered pages are held.
+The drawings the triage already knows are rendered and read on the pool before
+the scans are transcribed, so the two run at once; the vision batch later asks
+for the same bytes and gets that call (`FilePageReads.single_flight`), and its
+renderer takes the page already rendered. The answer is the one the serial
+order gave; only a page the transcription itself calls a drawing (`[ZEICHNUNG]`)
+still waits for the transcription. Results come back in page order. The pool
+bounds a file's threads and memory; the calls in flight are capped by the
+fleet's lease pool (`VLM_FLEET_CONCURRENCY`), whose slots are shared fairly
+between offices. One consequence: a file the screen of its transcribed text
+holds may already have had its triage drawings read (their results are dropped
+with the file, and what has not started is cancelled); those pixels were never
+screenable, like an embedded raster's.
 
 What fails the file, and what only makes it poorer:
 
@@ -217,19 +237,24 @@ gantt
   section CPU
   text + tables + triage        :a1, 0, 8s
   render 20 pages               :a2, after a1, 6s
-  section Vision (4 threads)
-  pages 1-4                     :v1, after a2, 25s
-  pages 5-8                     :v2, after v1, 25s
-  pages 9-12                    :v3, after v2, 25s
-  pages 13-16                   :v4, after v3, 25s
-  pages 17-20 (one truncation)  :v5, after v4, 56s
+  section Vision (16 threads, one pool with OCR)
+  pages 1-16, read ahead         :v1, after a1, 25s
+  pages 17-20 (one truncation)   :v2, after v1, 56s
   section After
   summary, tags, topics         :s1, after v5, 4s
   embed + write                 :s2, after s1, 5s
 ```
 
-The vision phase is about 80 % of a drawing set's time, and it is serial in rounds
-of four. The fleet sees it differently: **every one of those 20 calls holds one of
+The vision phase is most of a drawing set's time. It used to be serial in rounds of
+four, after the OCR phase, which ran in batches of eight that each waited for their
+slowest call: on 2026-11-02 a 458 s file made 115 vision calls summing 1,219 s, an
+effective parallelism of 2.7, while 25 of the fleet's 32 slots were free. Since the
+page-read pool, OCR and vision stream through one pool of 16, and the triage's
+drawings start before the first scan is transcribed. Measured with the model call
+stubbed to a fixed 1 s, on a 52-page PDF of 12 CAD sheets and 40 scanned pages
+built from the test fixtures (`build_drawing_sheets_pdf`, a scan of rasters): 14.9 s
+before, 4.3 s after, for the same 52 calls (16 in flight at the peak, 4 before). The
+fleet sees it differently: **every one of those 20 calls holds one of
 the 32 slots every office shares**. At 25 s a call, the whole platform reads about
 4,600 drawing pages an hour, and at most 16 documents are in flight at once in
 production (8 pods × 2 jobs, `Pulumi.prod.yaml`; the code default in

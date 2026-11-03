@@ -56,10 +56,10 @@ export interface IngestWorkerConfig {
   minReplicas: number;
   /**
    * Ceiling. The real ceiling is the model provider's rate limit on the
-   * shared key: replicas × concurrency × `VLM_BATCH_WORKERS` is the
-   * peak number of VLM calls in flight, and `assertVlmPeakFitsCeiling` fails
-   * the deploy when that is more than twice `vlmFleetConcurrency`, which is
-   * itself held to the provider ceilings.
+   * shared key, which the fleet's lease pool (`vlmFleetConcurrency`) holds:
+   * `assertVlmPeakFitsCeiling` fails the deploy when replicas × concurrency
+   * (documents read at once) is more than that pool, which is itself held to
+   * the provider ceilings.
    */
   maxReplicas: number;
   /** Jobs one replica runs at once (`INGEST_MAX_WORKERS`); also KEDA's jobs-per-replica target. */
@@ -107,8 +107,11 @@ export interface KedaConfig { install: boolean }
 export interface ProviderLimitsConfig {
   /** `VLM_FLEET_CONCURRENCY`: vision calls in flight across every ingest process at once. */
   vlmFleetConcurrency: number;
-  /** `VLM_BATCH_WORKERS`: vision calls one file runs at once. */
-  vlmBatchWorkers: number;
+  /**
+   * `INGEST_PAGE_READ_PARALLELISM`: threads one file's page reads (OCR and vision
+   * together) share. Bounds a file's threads and memory; the fleet pool caps the calls.
+   */
+  pageReadParallelism: number;
   /** `PROVIDER_LIMIT_CEILING`: model calls in flight fleet-wide, all models together. */
   limitCeiling: number;
   /** `PROVIDER_MODEL_LIMIT_CEILING`: model calls in flight fleet-wide to one model. */
@@ -192,8 +195,8 @@ export function loadWorkers(
         limitsMemory: cfg.get("ingestWorkerLimitsMemory") ?? "6Gi",
       },
       minReplicas: Math.max(0, num(cfg, "ingestWorkerMinReplicas", 1)),
-      // 5 x 3 x `VLM_BATCH_WORKERS` (4) = 60, within 2 x the vision pool (32): the
-      // most the default budget can feed (`assertVlmPeakFitsCeiling`).
+      // 5 x 3 = 15 documents at once, within the vision pool (32): every one can
+      // hold a slot (`assertVlmPeakFitsCeiling`).
       maxReplicas: Math.max(1, num(cfg, "ingestWorkerMaxReplicas", 5)),
       concurrency: Math.max(1, num(cfg, "ingestWorkerConcurrency", 3)),
       drainSeconds: Math.max(30, num(cfg, "ingestWorkerDrainSeconds", 600)),
@@ -230,7 +233,7 @@ export function loadWorkers(
     // default, is where the fleet's budget is read and changed.
     providerLimits: {
       vlmFleetConcurrency: Math.max(0, num(cfg, "vlmFleetConcurrency", 32)),
-      vlmBatchWorkers: Math.max(1, num(cfg, "vlmBatchWorkers", 4)),
+      pageReadParallelism: Math.max(1, num(cfg, "ingestPageReadParallelism", 16)),
       limitCeiling: Math.max(1, num(cfg, "providerLimitCeiling", 128)),
       modelLimitCeiling: Math.max(1, num(cfg, "providerModelLimitCeiling", 32)),
     },

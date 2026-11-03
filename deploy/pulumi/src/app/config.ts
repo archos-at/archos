@@ -349,7 +349,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     // from the stack so the budget is read where `ingestWorkerMaxReplicas` is:
     // `assertVlmPeakFitsCeiling` holds the two together.
     { name: "VLM_FLEET_CONCURRENCY", value: String(cfg.providerLimits.vlmFleetConcurrency) },
-    { name: "VLM_BATCH_WORKERS", value: String(cfg.providerLimits.vlmBatchWorkers) },
+    { name: "INGEST_PAGE_READ_PARALLELISM", value: String(cfg.providerLimits.pageReadParallelism) },
     { name: "PROVIDER_LIMIT_CEILING", value: String(cfg.providerLimits.limitCeiling) },
     { name: "PROVIDER_MODEL_LIMIT_CEILING", value: String(cfg.providerLimits.modelLimitCeiling) },
     // No EXTRACT_* here: tables, images and charts are on in code and a

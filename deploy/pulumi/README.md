@@ -298,7 +298,7 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `installKeda` | `true` | Install KEDA (chart pinned in `src/platform/keda.ts`, the release the plan's CRDs are validated against). `false` when the cluster already runs one, which must then be the same release |
 | **Provider budget** (ADR-0076, ADR-0081) | | |
 | `vlmFleetConcurrency` | `32` | `VLM_FLEET_CONCURRENCY`: vision calls in flight across every ingest process at once (0 = off). Held to `providerModelLimitCeiling` and `providerLimitCeiling`: a vision call holds a slot in both pools, so a larger pool never fills |
-| `vlmBatchWorkers` | `4` | `VLM_BATCH_WORKERS`: vision calls one file runs at once. With the ingest tier's replicas and concurrency it sets the peak that `vlmFleetConcurrency` is checked against |
+| `ingestPageReadParallelism` | `16` | `INGEST_PAGE_READ_PARALLELISM`: threads one file's page reads (OCR and vision together) share. It bounds a file's threads and memory; `vlmFleetConcurrency` caps the calls, and the plan fails when this is larger than it |
 | `providerLimitCeiling` / `providerModelLimitCeiling` | 128 / 32 | `PROVIDER_LIMIT_CEILING` / `PROVIDER_MODEL_LIMIT_CEILING`: model calls in flight fleet-wide, all models together and any one model; where the adaptive limiter starts and what it recovers to |
 | **Frontend** | | |
 | `frontendRequestsCpu/Memory`, `frontendLimitsCpu/Memory` | 100m / 256Mi / 1 / 1Gi | Sizing |

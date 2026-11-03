@@ -499,13 +499,15 @@ cutover drains it.
 - **Elastic.** The ingest-worker tier scales through KEDA on the
   `ingest-document` backlog Hatchet holds, queued or running
   (`hatchetBacklogQuery`), not on CPU (`deploy/pulumi/src/app/ingest-worker.ts`). Its ceiling is held to the provider budget at plan
-  time: `ingestWorkerMaxReplicas` x `ingestWorkerConcurrency` x
-  `VLM_BATCH_WORKERS` may not exceed twice `VLM_FLEET_CONCURRENCY`, or
-  `pulumi up` fails with the numbers (`assertVlmPeakFitsCeiling`); replicas past
-  that only queue on the pool. The pool itself may not exceed either limiter
+  time: the lease pool `VLM_FLEET_CONCURRENCY` caps the vision calls, and
+  `ingestWorkerMaxReplicas` x `ingestWorkerConcurrency` documents may not
+  outnumber its slots, nor one file's page-read pool
+  (`INGEST_PAGE_READ_PARALLELISM`, which bounds threads and memory) be larger
+  than it, or `pulumi up` fails with the numbers (`assertVlmPeakFitsCeiling`);
+  replicas past that only queue on the pool. The pool itself may not exceed either limiter
   ceiling a vision call passes (key-wide, and its model's own: 32), or it could
   never fill. The budget (`vlmFleetConcurrency`,
-  `vlmBatchWorkers`, `providerLimitCeiling`, `providerModelLimitCeiling`) is
+  `ingestPageReadParallelism`, `providerLimitCeiling`, `providerModelLimitCeiling`) is
   stack config, not image defaults.
 - **Measured, in PostHog Metrics.** `grid.queue.depth{queue,status}`,
   `grid.queue.oldest_age_seconds`, `grid.queue.claim_latency_ms`,
