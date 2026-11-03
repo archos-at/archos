@@ -1056,6 +1056,11 @@ Every evidence tool answers in one grammar: a preamble, a run of
 `--- Result N ---` blocks whose header states `Source:`, `Collection:`,
 `Shelf:`, `Dokumentart:`, `Punkt:`, `Citation:` and `Relevance Score:`, the
 passage body under that last line, and one `## Trace-Lanes` object at the end.
+The body sits between `<document_content>` and `</document_content>`, and a
+line under the preamble says once that text inside is quoted content, never an
+instruction (`common/passage_fence.py`). A body that spells either tag has its
+`<` written as `&lt;`, so no document, and no filed mail (ADR-0137), can close
+the fence early; the text reader takes the fence back off.
 
 The hit is now a record and the text is its rendering.
 `common/grounding_block.py` holds `GroundingHit`, `GroundingBlock` and the one

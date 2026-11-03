@@ -10,6 +10,7 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import MAX_REGIONS_PER_SOURCE
 from agent.common.grounding_block import PROJECT_STATUS_LABELS
 from agent.common.grounding_block import SourceRegion
+from agent.common.passage_fence import unfence
 from agent.common.source_kinds import parse_shelf
 
 logger = logging.getLogger(__name__)
@@ -137,14 +138,17 @@ def _kl_block_body(block: str) -> str:
     """The retrieved passage body of one result block.
 
     ``_format_results`` puts the body after the ``Relevance Score:`` header line
-    and a blank line. Returns ``""`` when that header is absent (nothing to
-    anchor the body to). A very long body is truncated by the producer with a
-    trailing ``... [truncated]`` marker, which is stripped back off.
+    and a blank line, inside the ``<document_content>`` fence
+    (``common/passage_fence.py``), which is taken back off; a block rendered
+    before the fence reads as it did. Returns ``""`` when that header is absent
+    (nothing to anchor the body to). A very long body is truncated by the
+    producer with a trailing ``... [truncated]`` marker, which is stripped back off.
     """
     relevance_match = _KL_RELEVANCE_LINE_RE.search(block)
     if relevance_match is None:
         return ""
-    return _KL_TRUNCATED_SUFFIX_RE.sub("", block[relevance_match.end() :].strip()).strip()
+    body = unfence(block[relevance_match.end() :].strip())
+    return _KL_TRUNCATED_SUFFIX_RE.sub("", body.strip()).strip()
 
 
 def _kl_block_header(block: str) -> str:

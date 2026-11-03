@@ -419,7 +419,9 @@ carry the project's name, a count and a code.
   client that cannot ask the person is refused with a link to the mail's page.
 - **Originals are withheld from every door** (`evidence`).
 - After filing, a Verlauf is third-party evidence in the grounding block, never
-  instructions; `mail_origin.senderTrust` travels with it, so the agent cites an
+  instructions: its body is fenced as `<document_content>` like every passage,
+  content cannot close the fence, and the block says what the tags mean
+  (`agent/common/passage_fence.py`); `mail_origin.senderTrust` travels with it, so the agent cites an
   unconfirmed sender as unconfirmed („laut E-Mail von … vom …“).
 
 ### Windows
@@ -622,7 +624,10 @@ subject or sender text.
 
 The approval view shows the extracted text and the list of attachments, never
 the rendered HTML. Mail enters retrieval as data in the project lane of the
-`project` SourceKind, never as instructions; attachments go through the
+`project` SourceKind (the fine lane `project_mail` is a sub-label; an office
+shelf's thread is `office_mail` in the `office` kind), never as instructions:
+the grounding block fences every passage body as `<document_content>` and
+says once that text inside is not an instruction (`agent/common/passage_fence.py`); attachments go through the
 scanner (ADR-0150) and the upload path like any other file.
 
 ### Why

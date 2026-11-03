@@ -39,6 +39,8 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 from agent.common.action_rows import current_action_call
+from agent.common.passage_fence import DATA_NOTE
+from agent.common.passage_fence import fence
 from agent.common.provenance import AGENT_AUTHOR
 from agent.common.provenance import AgentProvenance
 from agent.common.provenance import provenance_label
@@ -206,11 +208,9 @@ class GroundingHit(BaseModel):
     #: Last page of a passage that runs over a page break, when it is later than :attr:`page`. Rendered
     #: as the range ``Page: 4–5``; the citation key keeps the start page, which is its identity.
     page_end: int | None = None
-    #: The document's FORMAT when it states one: ``mail`` for a filed E-Mail-Verlauf, whose
-    #: sections are messages headed by their sender, date and whether the sender's domain was
-    #: confirmed (``source_kinds.MAIL_SOURCE_FORMAT``). Rendered as ``Format: mail — E-Mail``, so
-    #: the model reads a passage as one party's message and not as the document's finding, and
-    #: ``lane_for_hit`` places it in the mail lane. ``None`` for every other document: no line.
+    #: ``mail`` for a filed E-Mail-Verlauf (``source_kinds.MAIL_SOURCE_FORMAT``): sections headed by sender, date and
+    #: whether the domain was confirmed. The ``Format: mail — E-Mail`` line makes a passage one party's message, not the
+    #: document's finding, and ``lane_for_hit`` files it in the mail lane. ``None`` for every other document: no line.
     source_format: str | None = None
     #: Where the model reads this document again (ADR-0133): its absolute estate path,
     #: ``/project/Gutachten/Brandschutzkonzept.pdf.md``. Rendered as the ``Path:`` line, so
@@ -332,7 +332,7 @@ def render_grounding_block(block: GroundingBlock) -> str:
     lines: list[str] = block.preamble.split("\n") if block.preamble else []
     if block.coverage_gap:
         lines.append(f"{COVERAGE_GAP_LABEL} {_line(block.coverage_gap).rstrip('.')}. {COVERAGE_GAP_NOTE}")
-    lines.append("")
+    lines.extend([DATA_NOTE, ""] if block.hits else [""])
     for index, hit in enumerate(block.hits, 1):
         lines.extend(_hit_lines(index, hit))
     lines.append("## Trace-Lanes")
@@ -420,9 +420,9 @@ def _lanes_line(lanes: tuple[TraceLane, ...]) -> str:
 
 
 def _hit_lines(index: int, hit: GroundingHit) -> list[str]:
-    """One ``--- Result N ---`` block: header, blank line, body, blank line."""
+    """One ``--- Result N ---`` block: header, blank line, the fenced body (``common/passage_fence.py``), blank line."""
     body = (hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body
-    return [f"--- Result {index} ---", *_header_lines(hit), "", body, ""]
+    return [f"--- Result {index} ---", *_header_lines(hit), "", fence(body), ""]
 
 
 def _header_lines(hit: GroundingHit) -> Iterator[str]:
