@@ -34,7 +34,11 @@ job is a `research-run` task (ADR-0150): concurrency `GROUP_ROUND_ROBIN` on
 `Priority.HIGH` before `bulk` at `Priority.LOW`, retries only after a lost worker
 (a run that fails on its own, and an unreadable payload, raise
 `NonRetryableException`), and an on-failure task that writes FAILURE unless a
-verdict stands. Its input carries ids, the priority and the `payload_crypto`
+verdict stands. Hatchet delivers at least once, so a copy takes the job in
+`jobs/run_ownership.py` before it runs the agent (`submitted` to `running`, or a
+`running` job silent past the ghost reaper's window) and a losing copy runs
+nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends
+as FAILURE (`agent_job._finish_cancelled`). Its input carries ids, the priority and the `payload_crypto`
 ciphertext, never plaintext; without `JOB_PAYLOAD_KEK` a submit is refused. The
 run's id is kept in `research_orchestrator_runs` (`jobs/orchestrator_runs.py`)
 for the cancel. The old `research_job_queue` table stays until a later migration

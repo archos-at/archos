@@ -257,6 +257,7 @@ def replayed(monkeypatch) -> list[dict[str, Any]]:
         calls.append(kwargs)
 
     monkeypatch.setattr(worker_mod, "run_agent_job", _bind_like_the_real_one)
+    monkeypatch.setattr(worker_mod.run_ownership, "take_ownership", _owns)  # ownership: test_run_ownership.py
     return calls
 
 
@@ -589,3 +590,7 @@ class TestTheRunKnowsWhoItIsFor:
     def test_an_envelope_that_does_not_verify_names_nobody(self):
         assert _run_user_info(None, _sign(requester=self.ANNA, secret="another-secret")) is None
         assert _run_user_info(None, None) is None
+
+
+async def _owns(*_args) -> bool:
+    return True

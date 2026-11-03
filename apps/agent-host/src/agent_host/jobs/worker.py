@@ -28,6 +28,7 @@ import os
 from agent.knowledge.leader_lock import require_direct_dsns
 
 from . import payload_crypto
+from . import run_ownership
 from .agent_job import run_agent_job
 from .outcome_notify import notify_job_outcome_from_access
 from .runner import _update_status_if_not_terminal
@@ -71,14 +72,16 @@ def decode_payload(stored: str) -> dict:
     return payload
 
 
-async def run_stored_job(db_url: str, job_id: str, stored: str) -> None:
-    """Decrypt a stored payload and run it: the ``research-run`` task's whole body.
+async def run_stored_job(db_url: str, job_id: str, stored: str, attempt: int | None = None) -> bool:
+    """Decrypt a stored payload and run it: the ``research-run`` task's whole body. Whether it ran.
 
     Raises :class:`PoisonPayloadError` once the verdict is recorded, and lets any
     other failure of the run path propagate. Both are deterministic: running the
-    same payload again fails the same way. ``run_agent_job`` owns its own
-    ``job_info`` transitions, telemetry, the envelope renewal at its start
-    (ADR-0108) and the purge of its durable checkpoint once terminal.
+    same payload again fails the same way. A copy that does not own the job
+    (``run_ownership``: another copy runs it, or it is over) returns False
+    without running the agent. ``run_agent_job`` owns its own ``job_info``
+    transitions, telemetry, the envelope renewal at its start (ADR-0108) and the
+    purge of its durable checkpoint once terminal.
     """
     try:
         payload = decode_payload(stored)
@@ -87,7 +90,10 @@ async def run_stored_job(db_url: str, job_id: str, stored: str) -> None:
         logger.error("Job %s payload unreadable (%s); not run", job_id, type(exc).__name__, exc_info=True)
         await record_poison_verdict(db_url, job_id, detail)
         raise PoisonPayloadError(detail) from exc
+    if not await run_ownership.take_ownership(db_url, job_id, attempt):
+        return False
     await run_agent_job(**_replay_kwargs(payload))
+    return True
 
 
 def _job_store(db_url: str):

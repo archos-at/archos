@@ -65,6 +65,7 @@ def replayed(monkeypatch) -> list:
         calls.append(kwargs)
 
     monkeypatch.setattr(worker_mod, "run_agent_job", _bind_like_the_real_one)
+    monkeypatch.setattr(worker_mod.run_ownership, "take_ownership", _owns)  # ownership: test_run_ownership.py
     return calls
 
 
@@ -125,3 +126,7 @@ def test_only_the_named_retired_keys_are_dropped():
 def test_no_retired_key_is_a_parameter_again():
     """A retired name that comes back as a parameter would be silently dropped from every payload."""
     assert not worker_mod.RETIRED_PAYLOAD_KEYS & set(inspect.signature(run_agent_job).parameters)
+
+
+async def _owns(*_args) -> bool:
+    return True
