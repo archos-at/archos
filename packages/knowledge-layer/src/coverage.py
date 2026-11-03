@@ -66,3 +66,20 @@ def reading_coverage(
         "not_read": min(page_count, sum(reasons.values())),
         "reasons": reasons,
     }
+
+
+def image_coverage(*, read: bool) -> dict[str, Any]:
+    """The coverage record of a standalone image: one page, read by the vision model or not at all. Pure.
+
+    An image has no text layer, so a failed read leaves nothing of it: the record
+    says so (``vision_failed``) rather than the file only vanishing from the index.
+    """
+    return {
+        "pages": 1,
+        "text": 0,
+        "transcribed": 0,
+        "drawings": 1,
+        "drawings_read": 1 if read else 0,
+        "not_read": 0 if read else 1,
+        "reasons": {} if read else {"vision_failed": 1},
+    }

@@ -123,6 +123,35 @@ describe('announceIngestsFinished', () => {
     expect([propertiesOf(1).queue_wait_ms, propertiesOf(1).processing_ms]).toEqual([undefined, undefined])
   })
 
+  it('sends where the worked time went and how much was read, flat like the durations', () => {
+    announceIngestsFinished(
+      'org-1',
+      [
+        ingest({
+          status: 'failed',
+          stageSeconds: { text: 1.2, vision: 25.4, dossier: 3 },
+          reading: { pages: 1, pagesFullyRead: 0, pagesNotRead: 1, pagesOverRenderCap: 0, rastersOverCap: 2 },
+        }),
+        ingest({ pageCount: 12 }),
+      ],
+      'push'
+    )
+
+    expect(propertiesOf(0)).toMatchObject({
+      text_s: 1.2,
+      vision_s: 25.4,
+      dossier_s: 3,
+      pages_fully_read: 0,
+      pages_not_read: 1,
+      pages_over_render_cap: 0,
+      rasters_over_cap: 2,
+      // A failed file has no listing; its page count comes from the job's coverage.
+      page_count: 1,
+    })
+    expect(propertiesOf(0)).not.toHaveProperty('ocr_s')
+    expect(propertiesOf(1)).toMatchObject({ page_count: 12, pages_not_read: undefined })
+  })
+
   it('measures the duration from the row’s last write, and omits it when there is none', () => {
     const now = Date.parse('2026-10-10T12:00:00Z')
 

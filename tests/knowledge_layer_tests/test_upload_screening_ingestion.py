@@ -254,14 +254,43 @@ class TestTheGateIsConditional:
 
 
 class TestOutcomes:
-    def test_an_image_is_unchecked_and_still_ingested(self, tmp_path, calls):
+    def test_an_image_is_screened_by_what_the_model_read_and_still_ingested(self, tmp_path, calls):
         path = tmp_path / "foto.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
 
         detail = _ingest(calls, path, "foto.png", _TERMS)
 
-        assert detail.screening == "unchecked"
+        # Nothing of an image is readable before the model call, so a clean reading is partial.
+        assert detail.status == FileStatus.SUCCESS
+        assert detail.screening == "partial"
         assert calls["image_caption"] == ["foto.png"]
+
+    def test_an_image_whose_reading_matches_is_quarantined_before_any_summary_or_embedding(
+        self, tmp_path, calls, monkeypatch
+    ):
+        from llama_index.core import Document
+
+        payslip = [Document(text="Gehaltsabrechnung Oktober", metadata={"content_type": "image"})]
+        monkeypatch.setattr(
+            adapter, "_build_image_documents", lambda *a, **k: calls["image_caption"].append(1) or payslip
+        )
+        path = tmp_path / "scan.jpg"
+        path.write_bytes(b"\xff\xd8\xff" + b"\0" * 64)
+
+        detail = _ingest(calls, path, "scan.jpg", _TERMS)
+
+        assert detail.status == FileStatus.FAILED
+        assert detail.screening == "quarantined"
+        assert detail.error_message.startswith(QUARANTINED_PREFIX)
+        # The vision model saw it, and the verdict says so; nothing after it ran.
+        assert detail.quarantine.after_transcription is True
+        assert _external_calls(calls) | {"image_caption": 0} == {
+            "ocr": 0,
+            "image_caption": 0,
+            "vlm": 0,
+            "summary_and_tags": 0,
+            "embeddings": 0,
+        }
 
     def test_pages_sent_to_a_model_unscreened_make_it_partial(self, tmp_path, calls, monkeypatch):
         scan = page_triage.PdfTriage({1: page_triage.PageKind.TEXT, 2: page_triage.PageKind.SCAN})
@@ -492,14 +521,14 @@ class TestNoThumbnailBeforeTheVerdict:
 
         assert thumbnails == [f"thumbnail:{path}"]
 
-    def test_an_image_passes_on_its_name_and_gets_its_thumbnail(self, tmp_path, calls, thumbnails):
+    def test_an_image_gets_its_thumbnail_after_its_reading_is_screened(self, tmp_path, calls, thumbnails):
         path = tmp_path / "foto.png"
         path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 64)
 
         detail = _ingest(calls, path, "foto.png", _TERMS, **_THUMB)
 
-        assert detail.screening == "unchecked"
-        assert thumbnails == [f"thumbnail:{path}"]
+        assert detail.screening == "partial"
+        assert thumbnails == ["screen", f"thumbnail:{path}"]
 
     def test_a_quarantined_spreadsheet_never_downloads_its_preview(self, tmp_path, calls, thumbnails):
         openpyxl = pytest.importorskip("openpyxl")
