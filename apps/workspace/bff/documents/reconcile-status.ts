@@ -22,7 +22,8 @@ import {
   toEpochMs,
 } from './lost-job'
 import { getBackendUrl } from '@/lib/backend-url'
-import { announceIngestsFinished } from '@/lib/analytics/ingest-events'
+import { announceSettledIngests } from './announce-settled'
+import { timingOf, type IngestTiming, type JobClock } from './ingest-timing'
 import { onDocumentsSettled } from '@/lib/upload-batches/settle'
 import {
   reportsQuarantine,
@@ -186,6 +187,8 @@ export interface TerminalResolution {
    * resolution built elsewhere (a spec, an older caller) writes none.
    */
   failure?: IngestFailureFacts
+  /** The job's own clock, for the analytics event: time queued and time worked. Absent without a job. */
+  timing?: IngestTiming
 }
 
 /** What a resolution says when the backend said nothing about the failure. */
@@ -248,7 +251,7 @@ interface BackendJobFile {
   retryable?: boolean | null
 }
 
-interface BackendJobStatus {
+interface BackendJobStatus extends JobClock {
   status?: string
   error_message?: string | null
   /** `queue_ahead`: the backend's count for a job still in the durable queue. */
@@ -342,6 +345,12 @@ export const cancelledResolution = (): TerminalResolution => ({
 })
 
 const resolveFromJobStatus = (job: BackendJobStatus | null | undefined): JobResolution => {
+  const resolved = resolveJobOutcome(job)
+  if (resolved.kind !== 'terminal' || !job) return resolved
+  return { kind: 'terminal', resolution: { ...resolved.resolution, timing: timingOf(job) } }
+}
+
+const resolveJobOutcome = (job: BackendJobStatus | null | undefined): JobResolution => {
   if (job === undefined || job === null) return { kind: 'unknown' }
 
   if (job.status === 'cancelled') {
@@ -1110,29 +1119,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   // rows `settled` names: the ones THIS read moved, so a concurrent read that
   // lost the race announces nothing (`lib/analytics/ingest-events.ts`).
   const rowsById = new Map(rows.map((row) => [row.id, row]))
-  announceIngestsFinished(
-    organizationId,
-    settled.flatMap(([id, resolution]) => {
-      const row = rowsById.get(id)
-      if (!row || resolution.status === 'pending') return []
-      // A stop is not an ingest result: nothing was read, so there is no
-      // duration to report (the row's own write is the settle, not the
-      // dispatch) and no outcome the funnel can use. The person's act is the
-      // record; this event stays what it says it is — a read that came to rest.
-      if (resolution.status === 'cancelled') return []
-      const meta = metaByRow.get(id)
-      return [
-        {
-          filename: row.filename,
-          updatedAt: row.updatedAt,
-          status: resolution.status,
-          screening: 'screeningOutcome' in resolution ? resolution.screeningOutcome : undefined,
-          pageCount: meta?.pageCount,
-          chunkCount: meta?.chunkCount,
-        },
-      ]
-    })
-  )
+  await announceSettledIngests(organizationId, settled, rowsById, metaByRow)
 
   return rows.map((row) => {
     const resolution = resolutions.get(row.id)

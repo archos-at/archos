@@ -10,10 +10,9 @@ import 'server-only'
  *    observability platform's view of the same call, beside the chat turns it
  *    belongs to.
  *
- * Properties are scalars the catalog and the route already know. The text of an
- * agent's request never goes in: an agent quotes documents and names, and the
- * server events are non-personal by rule, so `agent_operation_missing` sends
- * the length of the description only.
+ * Properties are scalars the catalog and the route already know. No free text:
+ * `agent_operation_missing` sends the description's length, never its words,
+ * because an agent's report can quote a document or a name.
  */
 
 import { captureServer } from '@/lib/analytics/posthog-server'
@@ -74,6 +73,19 @@ function doorOf({ principal, door }: McpCallContext): CallDoor {
   return principal.actor === 'external_agent' ? 'mcp' : 'piloti'
 }
 
+/**
+ * Who is behind a call, to keep automation out of usage numbers: `ui` when
+ * the in-product agent works in a person's chat, `mcp` when an outside agent holds an OAuth
+ * client's token, `script` when an outside agent's token names no client (a
+ * bare token in a script).
+ */
+export type SessionSource = 'ui' | 'mcp' | 'script'
+
+export function sessionSourceOf({ principal }: Pick<McpCallContext, 'principal'>): SessionSource {
+  if (principal.actor !== 'external_agent') return 'ui'
+  return principal.clientId ? 'mcp' : 'script'
+}
+
 export function recordOperationCalled(
   ctx: McpCallContext,
   call: {
@@ -111,6 +123,7 @@ export function recordOperationCalled(
       operation: call.operation,
       domain: call.domain,
       door: doorOf(ctx),
+      session_source: sessionSourceOf(ctx),
       mode,
       decision: call.decision,
       ...(ctx.decisionSource ? { decision_source: ctx.decisionSource } : {}),
@@ -121,16 +134,17 @@ export function recordOperationCalled(
   })
 }
 
-export function recordOperationMissing(ctx: McpCallContext, descriptionLength: number, category: string): void {
+export function recordOperationMissing(ctx: McpCallContext, description: string, category: string): void {
   const { principal, mode } = ctx
   captureServer({
     event: 'agent_operation_missing',
     distinctId: principal.session.userId,
     organizationId: principal.session.organizationId,
     properties: {
-      description_length: descriptionLength,
+      description_length: description.length,
       category,
       door: doorOf(ctx),
+      session_source: sessionSourceOf(ctx),
       mode,
       client_id: principal.clientId,
     },

@@ -8,7 +8,7 @@
  * The authenticated handshake carries only identity, scope and policy. Prompt blocks are
  * loaded by the authenticated per-turn POST /api/internal/turn-context route,
  * never here: base64 expansion alone can exceed the upstream header-line limit.
- * Anonymous upgrades retain their legacy inline prompt blocks.
+ * No upgrade carries them inline: an anonymous one has no tenant to read them in.
  *
  * Every project-scoped lookup uses the EFFECTIVE project id (the authorized
  * scope's project, falling back to the query param) — never the raw query

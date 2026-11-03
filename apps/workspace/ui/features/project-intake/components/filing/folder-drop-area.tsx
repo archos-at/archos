@@ -66,7 +66,7 @@ export function FolderDropArea({
   return (
     <div className="space-y-4" data-testid="intake-upload-zone">
       <FolderDropTarget onFiles={onFiles} disabled={disabled}>
-        <button
+        <button data-attr="intake-pick-folder"
           type="button"
           onClick={onPickFolder}
           disabled={disabled}
@@ -80,7 +80,7 @@ export function FolderDropArea({
         </button>
       </FolderDropTarget>
       <p className="text-center">
-        <button
+        <button data-attr="intake-pick-files"
           type="button"
           onClick={onPickFiles}
           disabled={disabled}

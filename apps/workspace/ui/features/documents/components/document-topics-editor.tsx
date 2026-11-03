@@ -93,7 +93,7 @@ export function DocumentTopicsEditor({
             className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-control px-2 py-0.5 text-xs font-medium"
           >
             {topic}
-            <button
+            <button data-attr="files-persist"
               type="button"
               onClick={() => void persist(topics.filter((existing) => existing !== topic), topics)}
               disabled={saving}

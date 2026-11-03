@@ -40,8 +40,10 @@ environment and the service are the client's super properties, on every event,
 and the release is the SDK's ``$release_id``, read from ``POSTHOG_RELEASE_ID``,
 which the deploy sets to the PostHog release it resolved for the backend image.
 
-The event is personless: the log record names no user, and looking one up on an
-error path would be a second thing that can fail. Tenant text never travels:
+The event is filed by ``posthog_client.resolve_identity``: the run's signed user
+and office when the error happened inside a request or a job (read from the
+context, a lookup that cannot raise), else the office's stable id or ``system``,
+personless. Release, environment and service are the client's super properties. Tenant text never travels:
 the message is scrubbed of presigned URLs, and the SDK client scrubs the
 exception text again (``posthog_client._scrub_event``) because
 ``str(httpx.HTTPStatusError)`` embeds the request URL.

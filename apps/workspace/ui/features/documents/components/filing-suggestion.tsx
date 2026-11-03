@@ -372,6 +372,7 @@ function FilingDecisionBody({
             aria-disabled={decision.busy !== null}
             onClick={decision.apply}
             data-testid="filing-suggestion-apply"
+            data-attr="files-filing-move"
           >
             {moveLabel}
           </SuggestionButton>

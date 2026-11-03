@@ -185,7 +185,7 @@ function ChangeRowButton({
   const sentenceId = `compare-change-${number}-sentence`
   return (
     <li>
-      <button
+      <button data-attr="compare-change"
         type="button"
         data-testid="compare-change"
         data-change={number}

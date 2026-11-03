@@ -1824,8 +1824,10 @@ VISION_GENERATION_NAME = "ingest-vision"
 
 def _observed_vlm_call(client: Any, request: dict[str, Any]) -> Any:
     """One vision call, as a Langfuse generation under the file's trace (images redacted from the span)."""
+    from agent.common.openrouter import vision_extra_body
     from agent.observability.direct_trace import observed_generation
 
+    request = {**vision_extra_body(client), **request}
     with observed_generation(
         VISION_GENERATION_NAME, model=request.get("model"), messages=request.get("messages")
     ) as generation:
@@ -1976,11 +1978,9 @@ def _vlm_chat_create(client, *, model: str, messages: list, max_tokens: int, tem
             retry_client = client
     try:
         with _vlm_slot():
-            response = retry_client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=max_tokens * 2,
-                temperature=temperature,
+            response = _observed_vlm_call(
+                retry_client,
+                {"model": model, "messages": messages, "max_tokens": max_tokens * 2, "temperature": temperature},
             )
     except Exception as exc:
         logger.warning("VLM truncation retry failed (%s); keeping the truncated caption", exc)

@@ -16,6 +16,8 @@ vi.mock('@/lib/analytics/posthog-server', () => ({
   isPosthogServerEnabled: () => enabled.value,
 }))
 
+vi.mock('@/lib/organizations/service', () => ({ getOrganizationDisplayName: async () => 'Büro Muster' }))
+
 const getBudgetUtilisation = vi.hoisted(() => vi.fn())
 vi.mock('./service', () => ({ getBudgetUtilisation }))
 
@@ -87,9 +89,19 @@ describe('thresholdReached', () => {
 })
 
 describe('announceBudgetBlocked', () => {
-  const blocked = { organizationId: 'org_1', userId: 'user_1', scope: 'member', unit: 'credit' } as const
+  const blocked = {
+    organizationId: 'org_1',
+    userId: 'user_1',
+    userRole: 'member',
+    scope: 'member',
+    unit: 'credit',
+  } as const
 
-  it('sends budget_blocked as the refused person, with the scope and unit only', async () => {
+  it('sends budget_blocked as the refused person, with scope, unit, role, office, limit and use', async () => {
+    getBudgetUtilisation.mockResolvedValue([
+      usage({ scope: 'member', subjectId: 'user_1', window: 'day', limit: 500, used: 500 }),
+      usage({ scope: 'organization', limit: 9000, used: 10 }),
+    ])
     await announceBudgetBlocked(blocked)
 
     expect(captureServer).toHaveBeenCalledTimes(1)
@@ -97,7 +109,15 @@ describe('announceBudgetBlocked', () => {
       event: 'budget_blocked',
       distinctId: 'user_1',
       organizationId: 'org_1',
-      properties: { blocked_scope: 'member', unit: 'credit' },
+      properties: {
+        blocked_scope: 'member',
+        unit: 'credit',
+        organization_name: 'Büro Muster',
+        user_role: 'member',
+        limit: 500,
+        used: 500,
+        window: 'day',
+      },
     })
   })
 
@@ -168,7 +188,18 @@ describe('announceBudgetThresholds', () => {
       event: 'budget_threshold_crossed',
       distinctId: null,
       organizationId: 'org_1',
-      properties: { scope: 'organization', window: 'month', pct: 80, unit: 'credit', subject_id: undefined },
+      properties: {
+        scope: 'organization',
+        window: 'month',
+        pct: 80,
+        unit: 'credit',
+        limit: 1000,
+        used: 850,
+        blocked_scope: 'organization',
+        organization_name: 'Büro Muster',
+        user_role: 'system',
+        subject_id: undefined,
+      },
     })
   })
 

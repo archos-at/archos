@@ -175,7 +175,7 @@ export function ComposerSubjectBar({
             <span className="text-xs leading-snug opacity-80">{t('assignment.subjectHint')}</span>
           </span>
           {onShowFile && (
-            <button
+            <button data-attr="composer-show-file"
               type="button"
               // The peek hands focus here when the reader dismisses it — this
               // is the undo for the move they just made. See `PeekToolbar`.
@@ -189,7 +189,7 @@ export function ComposerSubjectBar({
               {t('assignment.showFile')}
             </button>
           )}
-          <button
+          <button data-attr="files-clear"
             type="button"
             onClick={onClear}
             aria-label={t('assignment.subjectClear')}

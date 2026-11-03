@@ -249,7 +249,7 @@ export const WorkRowView: FC<{
       className="flex min-w-0 flex-col"
     >
       {linkable && linking ? (
-        <button
+        <button data-attr="work-row-link"
           type="button"
           data-testid="work-row-link"
           aria-pressed={pressed}
@@ -267,7 +267,7 @@ export const WorkRowView: FC<{
         </button>
       ) : place ? (
         <>
-          <button
+          <button data-attr="work-row-open"
             type="button"
             data-testid="work-row-open"
             aria-label={t('thinking.work.open', { target: sentence })}
@@ -347,7 +347,7 @@ export const RoundCalls: FC<{
       ))}
       {round.more.length > 0 && (
         <li className="border-base flex border-t">
-          <button
+          <button data-attr="work-round-more"
             type="button"
             data-testid="work-round-more"
             aria-expanded={showMore}
