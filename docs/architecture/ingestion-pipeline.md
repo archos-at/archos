@@ -144,14 +144,17 @@ flowchart TB
   CH --> RD[render drawing pages<br/>cap 20 per file, A:361]:::cpu
   AH -. same call .-> VI
   RD --> VI[analyze_visual per drawing page<br/>and per embedded raster, cap 64<br/>16 threads per file, fleet slot each]:::model
-  VI --> SUM[summary + tags + topics<br/>first and last chunk, 4000 chars]:::model
-  VI --> DS[dossier: one strict call<br/>over a digest of every page]:::model
+  VI --> SUM[summary + tags + topics<br/>first and last chunk, 4000 chars<br/>started, not awaited]:::model
+  VI --> DS[dossier: one strict call<br/>over a digest of every page<br/>started, not awaited]:::model
   VI --> CV[coverage: pages read and why not]:::cpu
-  SUM --> PM[permit extraction<br/>only when tagged Bescheid]:::model
-  DS --> RF[references: norms, laws,<br/>plans, documents, no model]:::cpu
-  PM --> EM[embed: 1024-token chunks<br/>batches of 64, not cached]:::model
-  EM --> WR[upsert into Qdrant<br/>then retire the previous version]:::cpu
-  WR --> MD[document_metadata rows:<br/>summary, tags, topics, Plankopf, capture,<br/>dossier, doc_references, coverage]:::cpu
+  VI --> EM[embed: 1024-token chunks<br/>batches of 64, not cached]:::model
+  EM --> WR[upsert into Qdrant<br/>then retire the previous version<br/>searchable from here]:::cpu
+  WR --> CO[collect summary, tags, topics, dossier<br/>ingest_enrichment]:::cpu
+  SUM -.-> CO
+  DS -.-> CO
+  CO --> PM[permit extraction<br/>only when tagged Bescheid]:::model
+  CO --> RF[references: norms, laws,<br/>plans, documents, no model]:::cpu
+  PM --> MD[document_metadata rows:<br/>summary, tags, topics, Plankopf, capture,<br/>dossier, doc_references, coverage<br/>tags copied onto the points]:::cpu
   RF --> MD
   CV --> MD
   MD --> FA[Fassung: confirm, change summary<br/>or suggestion, 45 s bound]:::model
@@ -174,6 +177,18 @@ between offices. One consequence: a file the screen of its transcribed text
 holds may already have had its triage drawings read (their results are dropped
 with the file, and what has not started is cancelled); those pixels were never
 screenable, like an embedded raster's.
+
+**Searchable before it is described.** The summary, tags, topics, dossier and a
+base-corpus Dokumentart suggestion start once the text and visuals are read, and the
+chunks are embedded and written while they run (`llamaindex/ingest_enrichment.py`):
+no chunk carries them (`stamp_chunk_metadata` reads only the Dokumentart and the
+provenance). They are collected after the write, within their own bounds, and their
+rows are registered then; the tags reach the points through `register_summary`'s copy
+(`writes.refresh_facts`), the way a person's edit does. The permit extraction, which
+needs the tags, follows them. The job's terminal status, and so the settle push, comes
+only once all of it is done, so the coverage and the status are unchanged. Measured with
+each enrichment call stubbed to 2 s on the offline test harness: the write landed
+3.7 s after the job started before, 0.9 s after; the job settled at the same 4.3 s.
 
 What fails the file, and what only makes it poorer:
 
@@ -241,8 +256,8 @@ gantt
   pages 1-16, read ahead         :v1, after a1, 25s
   pages 17-20 (one truncation)   :v2, after v1, 56s
   section After
-  summary, tags, topics         :s1, after v5, 4s
-  embed + write                 :s2, after s1, 5s
+  embed + write (searchable)     :s2, after v2, 5s
+  summary, tags, topics, dossier :s1, after v2, 4s
 ```
 
 The vision phase is most of a drawing set's time. It used to be serial in rounds of

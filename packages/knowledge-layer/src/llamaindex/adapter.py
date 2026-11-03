@@ -4555,16 +4555,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # what the document says first.
                     all_documents.extend(companions)
 
-                    # Summary + tag classification are started AFTER visual
-                    # extraction (below) so that for text-sparse drawing PDFs the
-                    # rendered-page descriptions — not a watermark — feed the
-                    # summary. Rendered visual/vector pages accumulate here.
-                    summary_future = None
-                    dossier_future = None
-                    tags_future = None
-                    topics_future = None
-                    doc_class_future = None
-                    executor = None
+                    # Rendered visual/vector pages accumulate here; the summary reads them
+                    # for a text-sparse drawing PDF (`ingest_enrichment.summary_input`).
                     drawing_pages: list[dict[str, Any]] = []
 
                     # 2. Tables (PDF only), read and screened with the text above
@@ -4699,143 +4691,28 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         total_charts += visuals.charts
                         total_images += visuals.images
 
-                    # Start summary + tag classification (if enabled). For a
-                    # text-sparse drawing PDF the rendered-page descriptions are
-                    # the document's real content, so feed those to the LLM
-                    # instead of the near-empty (watermark-stripped) page text —
-                    # otherwise the summary describes nothing or a watermark. Both
-                    # LLM calls run concurrently on a 2-worker pool and are fully
-                    # fail-open below.
-                    if self.generate_summary_enabled and (text_documents or drawing_pages):
-                        from agent.knowledge.document_classification import classify_document_tags
+                    # The summary, tags, topics and dossier start now and are collected after
+                    # the write (`ingest_enrichment`): no chunk carries them, so the document
+                    # is searchable without waiting for them. Closed with the file.
+                    from knowledge_layer.llamaindex import ingest_enrichment
 
-                        first = text_documents[0].get_content() if text_documents else ""
-                        last = text_documents[-1].get_content() if len(text_documents) > 1 else ""
-                        text_source = f"{first}\n...\n{last}" if last else first
-                        drawing_source = "\n\n".join(p["caption"] for p in drawing_pages)
-                        if drawing_pages and len(text_source.strip()) < VISUAL_PAGE_MIN_TEXT_CHARS:
-                            llm_input = drawing_source or text_source
-                        else:
-                            llm_input = text_source
-                        executor = ThreadPoolExecutor(max_workers=4)
-                        # In the job's context, so the summary and the tags
-                        # land on its cost ledger (`_ingest_cost_scope`).
-                        from agent.common.cost_tracking import submit_in_context
+                    from agent.knowledge.document_classification import DEFAULT_DOC_CLASS
 
-                        summary_future = submit_in_context(
-                            executor, _generate_document_summary, llm_input, file_name, self.summary_llm
-                        )
-                        # The dossier reads the WHOLE document (a digest of every
-                        # page), beside the one-sentence summary that reads its first
-                        # and last chunk. Not for the base corpus: a Richtlinie is not
-                        # a project document, and its structure is read by the clauses.
-                        if not base_corpus:
-                            from agent.knowledge.dossier import build_digest
-                            from agent.knowledge.dossier import write_dossier
-
-                            digest = build_digest(
-                                _digest_passages(all_documents),
-                                file_name=file_name,
-                                title_block=revisions.revision_facts_from_documents(all_documents),
-                            )
-                            dossier_future = submit_in_context(
-                                executor, write_dossier, digest, self.summary_llm, file_name=file_name
-                            )
-                        tags_future = submit_in_context(
-                            executor,
-                            classify_document_tags,
-                            llm_input,
-                            file_name,
-                            self.summary_llm,
-                            organization_id=organization_id,
-                        )
-                        # The model's own topics beside the controlled tags, told the
-                        # project's existing ones first so its spellings hold.
-                        from agent.knowledge import get_topic_vocabulary
-                        from agent.knowledge.document_classification import suggest_topics
-
-                        topics_future = submit_in_context(
-                            executor,
-                            suggest_topics,
-                            llm_input,
-                            file_name,
-                            self.summary_llm,
-                            existing=get_topic_vocabulary(collection_name),
-                        )
-                        # A base-corpus file whose name gives no OIB hint lands in
-                        # `sonstiges`; the decision model proposes a Dokumentart
-                        # for the platform owner to accept (ADR-0064, use 8).
-                        from agent.knowledge.document_classification import DEFAULT_DOC_CLASS
-
-                        if (
-                            stored_doc_class is None
-                            and explicit_doc_class is None
-                            and base_corpus
-                            and doc_class == DEFAULT_DOC_CLASS
-                        ):
-                            from agent.knowledge.document_classification import suggest_doc_class
-
-                            doc_class_future = submit_in_context(
-                                executor, suggest_doc_class, llm_input, file_name, organization_id=organization_id
-                            )
-
-                    # Wait for summary if started. The summary/tag/topic calls were
-                    # started earlier and ran alongside the vision batch; this is
-                    # the time left to collect them.
-                    with _stage(stages, "summary"):
-                        summary = None
-                        if summary_future:
-                            try:
-                                summary = summary_future.result(timeout=30)
-                            except TimeoutError:
-                                logger.warning("Summary generation timed out for %s", file_name)
-                            except Exception as e:
-                                logger.warning("Summary generation failed for %s: %s", file_name, e)
-
-                        # Wait for tags if started (independent timeout, fail-open —
-                        # a tag failure never affects the summary or the ingestion).
-                        tags = None
-                        if tags_future:
-                            try:
-                                tags = tags_future.result(timeout=30)
-                            except TimeoutError:
-                                logger.warning("Tag classification timed out for %s", file_name)
-                            except Exception as e:
-                                logger.warning("Tag classification failed for %s: %s", file_name, e)
-
-                        topics = _future_result(topics_future, "Topic suggestion", file_name)
-                    with _stage(stages, "dossier"):  # its own seconds: it reads every page
-                        dossier = _future_result(dossier_future, "Dossier", file_name, timeout=DOSSIER_TIMEOUT_SECONDS)
-                    # Written from every page rather than the first and last chunk.
-                    if dossier and dossier.get("summary"):
-                        summary = dossier["summary"]
-                    if executor:
-                        executor.shutdown(wait=False)
-
-                    # The vision model saw the pixels; the classifier only read
-                    # its caption. A photograph is a Foto whatever it shows.
-                    if is_image and text_documents:
-                        from agent.knowledge.document_classification import reconcile_image_tags
-
-                        tags = reconcile_image_tags(
-                            tags,
-                            content_type=text_documents[0].metadata.get("content_type"),
-                            segment_types=(doc.metadata.get("drawing_type") or "" for doc in text_documents),
-                        )
-
-                    self._remember_permit(config, collection_name, file_name, tags, text_documents)
-
-                    # Standalone images must appear in the per-turn
-                    # available_documents list to be usable in chat (summaries
-                    # are the ONLY per-turn file visibility). If summarization is
-                    # disabled or failed, fall back to the VLM caption itself so
-                    # the image is never silently invisible.
-                    if is_image and not summary and text_documents:
-                        # Scrub any licence/watermark stamp out of the caption
-                        # before it becomes the summary; if scrubbing empties it,
-                        # leave summary as None rather than emit an empty summary.
-                        caption_text = _scrub_watermark_phrases(_strip_visual_marker(text_documents[0].get_content()))
-                        summary = caption_text[:500] or None
+                    enrichment = ingest_enrichment.start_enrichment(
+                        self,
+                        text_documents=text_documents,
+                        drawing_pages=drawing_pages,
+                        all_documents=all_documents,
+                        file_name=file_name,
+                        collection_name=collection_name,
+                        organization_id=organization_id,
+                        base_corpus=base_corpus,
+                        suggest_class=stored_doc_class is None
+                        and explicit_doc_class is None
+                        and base_corpus
+                        and doc_class == DEFAULT_DOC_CLASS,
+                    )
+                    file_scope.callback(enrichment.close)
 
                     valid_documents = [
                         doc for doc in all_documents if not _looks_like_raw_pdf_or_binary(doc.get_content())
@@ -4928,6 +4805,35 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # name later in this job finds THIS version as its previous.
                     self._retire_previous_version(collection_name, file_name, previous)
                     retired = True
+
+                    # Searchable from here; what describes the file lands on its row now.
+                    found = ingest_enrichment.collect_enrichment(enrichment, stages, file_name)
+                    summary, tags, topics, dossier = found.summary, found.tags, found.topics, found.dossier
+
+                    # The vision model saw the pixels; the classifier only read
+                    # its caption. A photograph is a Foto whatever it shows.
+                    if is_image and text_documents:
+                        from agent.knowledge.document_classification import reconcile_image_tags
+
+                        tags = reconcile_image_tags(
+                            tags,
+                            content_type=text_documents[0].metadata.get("content_type"),
+                            segment_types=(doc.metadata.get("drawing_type") or "" for doc in text_documents),
+                        )
+
+                    self._remember_permit(config, collection_name, file_name, tags, text_documents)
+
+                    # Standalone images must appear in the per-turn
+                    # available_documents list to be usable in chat (summaries
+                    # are the ONLY per-turn file visibility). If summarization is
+                    # disabled or failed, fall back to the VLM caption itself so
+                    # the image is never silently invisible.
+                    if is_image and not summary and text_documents:
+                        # Scrub any licence/watermark stamp out of the caption
+                        # before it becomes the summary; if scrubbing empties it,
+                        # leave summary as None rather than emit an empty summary.
+                        caption_text = _scrub_watermark_phrases(_strip_visual_marker(text_documents[0].get_content()))
+                        summary = caption_text[:500] or None
 
                     # Drawing PDFs (text-sparse) whose LLM summary failed fall
                     # back to a deterministic, watermark-free summary synthesised
@@ -5031,7 +4937,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         # here too: that row goes when its version is retired.
                         if row_doc_class is None or explicit_doc_class is not None:
                             set_document_doc_class(collection_name, file_name, doc_class)
-                        suggestion = _future_result(doc_class_future, "Dokumentart suggestion", file_name)
+                        suggestion = _future_result(enrichment.doc_class, "Dokumentart suggestion", file_name)
                         # A replaced version's row is kept under the same
                         # name, so its old suggestion is cleared rather than
                         # left standing for a document it no longer describes.
