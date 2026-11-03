@@ -395,7 +395,12 @@ through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-e
 From address names now hears why their mail waits and what became of it, forged
 or not (`inbound_mail.held`, `.held_for_writers`, `.rejected`, `.expired`, and
 `.decided` with `direct` for a mail filed as them): eleven types. Rows still
-carry the project's name, a count and a code.
+carry the project's name, a count and a code. That a mail waits
+(`inbound_mail.waiting`, `.expiring`) goes to the sender only when they may
+write in the project, so may file it; otherwise to the project's writers, who
+are the people the E-Mail-Eingang lets file it, not the managers. A read-only
+member's signed mail thereby reaches someone who can act on it, and its member
+hears `held_for_writers`.
 
 ### Exposure
 

@@ -7,7 +7,7 @@ import 'server-only'
  *
  * | Type | Told to | Row | Settled |
  * |---|---|---|---|
- * | `inbound_mail.waiting` | the sender per D9, else the managers | per project | nothing waits |
+ * | `inbound_mail.waiting` | the sender per D9 when they may write here, else the project's writers | per project | nothing waits |
  * | `inbound_mail.expiring` | the same, once per mail (sweep 4) | per project | nothing told about waits |
  * | `inbound_mail.held` | the member a mail claims whose signature did not hold („Haben Sie das gesendet?“) | per mail | the mail is decided or expires |
  * | `inbound_mail.held_for_writers` | the member without write rights whose mail waits for the writers | per mail | the mail is decided or expires |
@@ -21,8 +21,11 @@ import 'server-only'
  *
  * Who is told about a mail (D9, RT-S14, and the amendment):
  * - that it waits: the sender, when the mail is `member_verified`, addressed to
- *   the project (or the member's own Bcc copy, D4) and the member may read the
- *   project; otherwise the project's managers (`project:manage`);
+ *   the project (or the member's own Bcc copy, D4) and the member may write in
+ *   the project, so may file it; otherwise the project's writers (any of
+ *   `DOCUMENT_WRITE_PERMISSIONS`), who are the ones the E-Mail-Eingang lets
+ *   file it. A signed mail from a member who may only read the project goes to
+ *   the writers; its member hears why it waits (`held_for_writers`);
  * - why it waits, and what became of it: the member the From address names,
  *   whenever there is one and they may read the project, the forged case
  *   included. A forger thereby causes a notice to the member they
@@ -42,8 +45,9 @@ import 'server-only'
  * runs, and a lost row costs a notification, never the mail.
  */
 
-import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { PERMISSION_CHECKS_AT_ONCE, userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { isFolderVisibleToMember } from '@/lib/authz/folder-access'
+import { DOCUMENT_WRITE_PERMISSIONS } from '@/lib/authz/folder-access-rule'
 import type { InboxItemType } from '@/lib/db/schema/inbox'
 import { memberReader } from '@/lib/documents/document-reader'
 import type {
@@ -65,6 +69,7 @@ import {
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findThreadRow } from '@/lib/mail-thread/write-repository'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
+import { inPool } from '@/lib/utils/in-pool'
 import { filedFolderIds, projectNoticeState } from './notice-repository'
 import { findLiveFolders } from './repository'
 
@@ -93,8 +98,8 @@ export interface WaitingMail {
 
 /**
  * Whether the mail's own sender is the one to tell (D9): a verified member's
- * mail to the project, or their own Bcc copy. Pure; whether they may read the
- * project is asked by {@link waitingRecipients}.
+ * mail to the project, or their own Bcc copy. Pure; whether they may write in
+ * the project, and so file it, is asked by {@link waitingRecipients}.
  */
 export function notifiesSender(mail: Pick<WaitingMail, 'senderTrust' | 'senderUserId' | 'senderFlags'>): boolean {
   if (mail.senderTrust !== 'member_verified' || !mail.senderUserId) return false
@@ -106,8 +111,32 @@ export function isUnconfirmed(mail: Pick<WaitingMail, 'senderTrust' | 'automatic
   return mail.automatic || mail.senderTrust === 'external_unverified' || mail.senderTrust === 'member_unverified'
 }
 
-const holds = (organizationId: string, projectId: string, userId: string, permission: 'project:view' | 'project:manage') =>
+type AskedPermission = 'project:view' | 'project:manage' | (typeof DOCUMENT_WRITE_PERMISSIONS)[number]
+
+const holds = (organizationId: string, projectId: string, userId: string, permission: AskedPermission) =>
   userHoldsProjectPermission({ organizationId }, projectId, userId, permission).catch(() => false)
+
+/** Whether the member may write in the project (any of `DOCUMENT_WRITE_PERMISSIONS`), as the E-Mail-Eingang asks before a filing. */
+async function writes(organizationId: string, projectId: string, userId: string): Promise<boolean> {
+  for (const permission of DOCUMENT_WRITE_PERMISSIONS) {
+    if (await holds(organizationId, projectId, userId, permission)) return true
+  }
+  return false
+}
+
+/**
+ * Every member who may write in the project, so may file its mail: the people
+ * a held mail waits for. Asked a few at a time, as a throttled check fails
+ * closed. An unreadable directory tells nobody, and says so in the log.
+ */
+export async function projectWriters(organizationId: string, projectId: string, label: string): Promise<string[]> {
+  const directory = await loadOrganizationDirectory(organizationId)
+  if (directory.size === 0) console.warn(`[inbound-mail] nobody to tell about ${label}: the directory is empty`)
+  const verdicts = await inPool([...directory.keys()], PERMISSION_CHECKS_AT_ONCE, async (userId) =>
+    (await writes(organizationId, projectId, userId)) ? userId : null,
+  )
+  return verdicts.filter((userId): userId is string => userId !== null)
+}
 
 /**
  * Every member who manages the project (`project:manage`). The directory is
@@ -124,10 +153,10 @@ export async function projectManagers(organizationId: string, projectId: string,
 
 type SenderFacts = Pick<WaitingMail, 'organizationId' | 'projectId' | 'senderTrust' | 'senderUserId' | 'senderFlags'>
 
-/** The sender, when they are the one told about the mail (D9) and may still read the project; else null. */
+/** The sender, when they are the one told about the mail (D9) and may write in the project, so file it; else null. */
 async function senderToTell(mail: SenderFacts): Promise<string | null> {
   if (!notifiesSender(mail) || !mail.senderUserId) return null
-  return (await holds(mail.organizationId, mail.projectId, mail.senderUserId, 'project:view')) ? mail.senderUserId : null
+  return (await writes(mail.organizationId, mail.projectId, mail.senderUserId)) ? mail.senderUserId : null
 }
 
 /**
@@ -198,10 +227,15 @@ export async function announceExpired(mail: Pick<WaitingMail, 'organizationId' |
   return emit(`${INBOUND_MAIL_EXPIRED} for mail ${mail.mailId}`, mail.organizationId, () => memberRow(INBOUND_MAIL_EXPIRED, mail))
 }
 
-/** Who is told about this mail: its sender (see {@link notifiesSender}) when they may read the project, else its managers. */
+/**
+ * Who is told that this mail waits: its sender (see {@link notifiesSender})
+ * when they may write in the project, else the project's writers. Never only a
+ * reader who cannot file it: a read-only member's signed mail would otherwise
+ * tell nobody who can act, and run out unseen.
+ */
 export async function waitingRecipients(mail: WaitingMail): Promise<string[]> {
   const sender = await senderToTell(mail)
-  return sender ? [sender] : projectManagers(mail.organizationId, mail.projectId, `mail ${mail.mailId}`)
+  return sender ? [sender] : projectWriters(mail.organizationId, mail.projectId, `mail ${mail.mailId}`)
 }
 
 /** The rows for one held mail: one per recipient, folding into the project's row. Null when the project is gone. */
