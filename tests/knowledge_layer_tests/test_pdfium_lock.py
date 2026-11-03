@@ -176,3 +176,15 @@ def test_a_detached_image_outlives_its_bitmap():
 
     assert image.size == (200, 300)
     assert image.getpixel((10, 10)) is not None
+
+
+def test_close_bitmap_frees_a_foreign_bitmap_without_the_unsafe_close_warning(caplog) -> None:
+    """An embedded image's get_bitmap() is pdfium-allocated; pypdfium2 warns on every explicit close of one."""
+    bitmap = pdfium.PdfBitmap.new_foreign(8, 8, pdfium.raw.FPDFBitmap_BGRA)
+    assert bitmap.warn_on_close  # the warning this helper exists to switch off
+
+    with caplog.at_level("WARNING", logger="pypdfium2"):
+        pdfium_lock_module.close_bitmap(bitmap)
+
+    assert bitmap.raw is None
+    assert "potentially unsafe" not in caplog.text

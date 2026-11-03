@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import os
 import signal
+import sqlite3
 import subprocess
 import sys
 import time
@@ -59,6 +60,12 @@ class Engine:
 
         # The runtime's start-up creates job_info in production; nothing here runs it.
         Base.metadata.create_all(EventStore._get_or_create_sync_engine(self.db_url))
+        # The test reads the store while every worker writes it. In SQLite's default
+        # journal a reader blocks a writer, and a blocked event write is dropped after
+        # its busy wait (a run that finished with no "started"). WAL lets them overlap;
+        # the mode is kept in the file, so every process opening it gets it.
+        with sqlite3.connect(tmp_path / "jobs.db") as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
         self.workers: list[subprocess.Popen] = []
 
     def start_worker(self, **env: str) -> subprocess.Popen:

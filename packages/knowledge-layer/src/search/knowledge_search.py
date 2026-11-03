@@ -33,6 +33,46 @@ EMPTY_QUERY_REFUSAL = (
 LITERAL_MODES = frozenset({"exact", "regex"})
 
 
+def _filter_fields(node: Any) -> set[str]:
+    """Every field a metadata filter names, through its ``$and``/``$or`` groups. Pure."""
+    if isinstance(node, list):
+        return set().union(*(_filter_fields(child) for child in node))
+    if not isinstance(node, dict):
+        return set()
+    fields: set[str] = set()
+    for key, value in node.items():
+        fields |= _filter_fields(value) if key in {"$and", "$or"} else {key}
+    return fields
+
+
+def scoped_filters(filters: dict | None, shelf: str | None) -> tuple[dict | None, str | None] | str:
+    """``filters`` with a top-level ``shelf`` moved onto the argument, or the sentence that refuses them. Pure.
+
+    ``shelf`` picks which collections a search reads; no stored point carries it, so a
+    model that writes ``filters={"shelf": "project"}`` means ``shelf="project"`` and gets
+    it. Any other field the store has no index on is refused here, in words the model
+    can act on, instead of failing deep in the store as an unindexed filter.
+    """
+    from knowledge_layer.vector_store import INDEXED_FIELDS
+    from knowledge_layer.vector_store import TEXT_FIELDS
+
+    if not filters:
+        return filters, shelf
+    if "shelf" in filters:
+        named = filters["shelf"]
+        filters = {key: value for key, value in filters.items() if key != "shelf"}
+        if shelf is None and not isinstance(named, str):
+            return '`shelf` is an argument, not a filter: pass `shelf="project"`, "office" or "base".'
+        shelf = shelf or named
+    unknown = sorted(_filter_fields(filters) - (INDEXED_FIELDS - set(TEXT_FIELDS)))
+    if unknown:
+        return (
+            f"`filters` cannot filter on {', '.join(map(repr, unknown))}: no such indexed field. "
+            "Use `doc_class`, `file_name`, `folder`, `shelf` or `document_type` to narrow the search."
+        )
+    return filters or None, shelf
+
+
 @dataclass(frozen=True, slots=True)
 class SearchArgs:
     """A call's arguments, trimmed and checked."""
@@ -72,6 +112,10 @@ def parse_args(
     query = (query or "").strip()
     if not query:
         return EMPTY_QUERY_REFUSAL
+    scoped = scoped_filters(filters, shelf)
+    if isinstance(scoped, str):
+        return scoped
+    filters, shelf = scoped
     if doc_class is not None:
         from agent.knowledge.document_classification import DOCUMENT_CLASSES
         from agent.knowledge.document_classification import canonical_doc_class

@@ -61,15 +61,15 @@ def store_permit_record(
     if document_id:
         body["documentId"] = document_id
     try:
-        import httpx
+        from agent.common.connect_retry import connect_retrying_client
 
-        # No redirect following (httpx's default): the token must not follow a 3xx elsewhere.
-        response = httpx.post(
-            f"{base_url.rstrip('/')}{_PERMIT_RECORDS_PATH}",
-            json=body,
-            headers={"x-internal-token": token},
-            timeout=_HTTP_TIMEOUT_SECONDS,
-        )
+        # No redirect following: the token must not follow a 3xx elsewhere.
+        with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}{_PERMIT_RECORDS_PATH}",
+                json=body,
+                headers={"x-internal-token": token},
+            )
         if response.status_code != 200:
             logger.warning(
                 "permit_records: the BFF refused the record for document %s (HTTP %d)",

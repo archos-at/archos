@@ -31,6 +31,8 @@ from __future__ import annotations
 import logging
 import os
 
+from agent.common.connect_retry import connect_retrying_client
+
 logger = logging.getLogger(__name__)
 
 _FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
@@ -54,14 +56,12 @@ def document_still_exists(document_id: str, collection: str, organization_id: st
     if organization_id:
         params["organizationId"] = organization_id
     try:
-        import httpx
-
-        response = httpx.get(
-            f"{base_url.rstrip('/')}{_EXISTS_PATH}",
-            params=params,
-            headers={"x-internal-token": token},
-            timeout=_HTTP_TIMEOUT_SECONDS,
-        )
+        with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            response = client.get(
+                f"{base_url.rstrip('/')}{_EXISTS_PATH}",
+                params=params,
+                headers={"x-internal-token": token},
+            )
         if response.status_code != 200:
             logger.warning(
                 "document_presence: no answer for document %s (HTTP %d); treating it as present",

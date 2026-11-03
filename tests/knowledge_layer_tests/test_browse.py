@@ -433,10 +433,10 @@ class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
 
     async def test_the_callers_filters_reach_the_base_collection_only(self, search_with):
         store = search_with(_TextStore([]))
-        await _exact(query="BA-03", filters={"doc_type": "richtlinie"})
+        await _exact(query="BA-03", filters={"content_type": "text"})
         by_collection = {call["collection"]: call["filters"] for call in store.calls}
         assert by_collection["proj_1"] is None and by_collection["archiv_1"] is None
-        assert {"doc_type": "richtlinie"} in by_collection["oib_knowledge"]["$and"]
+        assert {"content_type": "text"} in by_collection["oib_knowledge"]["$and"]
         assert {"chunking": {"$ne": "page"}} in by_collection["oib_knowledge"]["$and"]
 
 

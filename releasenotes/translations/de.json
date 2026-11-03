@@ -56,6 +56,10 @@
     "de": "Ein Hintergrundauftrag arbeitet jetzt mit demselben Wissen wie der Chat: Er kennt das Projektgedächtnis, schreibt eigene Notizen und gleicht seinen Bericht mit dem ab, was das Projekt schon weiß."
   },
   {
+    "en": "A brief connection hiccup while a file was being read no longer leaves it without its page previews, images or thumbnail. Large drawings and long documents no longer lose the document type and key facts {productName} reads from them.",
+    "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
+  },
+  {
     "en": "A cancelled, crashed or never-started run no longer shows as running forever in the task list. It now closes with its real outcome, and whoever started it is told.",
     "de": "Ein abgebrochener, abgestürzter oder nie gestarteter Lauf steht in der Aufgabenliste nicht mehr endlos auf „läuft“. Er schließt jetzt mit seinem tatsächlichen Ergebnis, und wer ihn angestoßen hat, erfährt davon."
   },
