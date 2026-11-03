@@ -16,6 +16,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/button'
 import { CheckCircle2, Repeat2 } from 'lucide-react'
 import { documentFilesHref } from '@/features/documents'
 import { useTranslations } from '@/i18n'
@@ -51,13 +52,14 @@ export function FiledTo({
       {part.documentId && (
         <>
           {' · '}
-          <Link
-            className="underline underline-offset-2 hover:no-underline"
-            href={documentFilesHref(projectId, part.documentId)}
-            onClick={() => capturePosthog('inbound_mail_filed_outcome_opened', { kind: part.kind })}
-          >
-            {t('attachments.open')}
-          </Link>
+          <Button asChild variant="inline">
+            <Link
+              href={documentFilesHref(projectId, part.documentId)}
+              onClick={() => capturePosthog('inbound_mail_filed_outcome_opened', { kind: part.kind })}
+            >
+              {t('attachments.open')}
+            </Link>
+          </Button>
         </>
       )}
     </FactLine>

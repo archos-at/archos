@@ -216,6 +216,18 @@ export function ProjectDocCount({ count, className }: { count: number; className
  * it grows rather than overhanging (`touch-target` would overlap the row's own
  * link, and the later element in the DOM would win the tap).
  */
+/**
+ * The material of a link layered above the card's stretched link (the
+ * overview shortcut, the mail waiting): quiet ink, a tint on hover, the
+ * control radius, its own focus ring. One string, so the two cannot drift
+ * apart (they had: the mail link took the surface radius).
+ */
+const LAYERED_LINK =
+  'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-accent hover:text-foreground focus-visible:outline-none motion-reduce:transition-none'
+
+/** Its labelled size: 32px on a mouse, 44px under a finger. */
+const LAYERED_LINK_LABELLED = 'h-8 px-2.5 text-xs pointer-coarse:h-11 pointer-coarse:px-3'
+
 export function ProjectOverviewLink({
   project,
   showLabel = false,
@@ -232,8 +244,8 @@ export function ProjectOverviewLink({
       href={`/app/projects/${project.id}/settings`}
       aria-label={t('card.overviewAria', { name: project.name })}
       className={cn(
-        'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-accent hover:text-foreground focus-visible:outline-none motion-reduce:transition-none',
-        showLabel ? 'h-8 px-2.5 text-xs pointer-coarse:h-11 pointer-coarse:px-3' : 'size-8 pointer-coarse:size-11',
+        LAYERED_LINK,
+        showLabel ? LAYERED_LINK_LABELLED : 'size-8 pointer-coarse:size-11',
         FOCUS_RING,
         className,
       )}
@@ -270,7 +282,8 @@ export function ProjectMailWaiting({
       aria-label={t('card.mailWaitingAria', { count, name: project.name })}
       data-testid="project-mail-waiting"
       className={cn(
-        'relative z-10 inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors duration-quick ease-out hover:bg-accent hover:text-foreground focus-visible:outline-none motion-reduce:transition-none pointer-coarse:h-11 pointer-coarse:px-3',
+        LAYERED_LINK,
+        LAYERED_LINK_LABELLED,
         FOCUS_RING,
         className,
       )}

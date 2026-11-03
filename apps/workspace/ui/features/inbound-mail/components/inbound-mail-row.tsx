@@ -3,7 +3,9 @@
 /**
  * One mail in the E-Mail-Eingang's list (`InboundMailRow`, DECISION §9).
  *
- * Connected, never a pill: the list owns the hairlines and the corners. A
+ * Connected, never a pill: an `Item`, so the list owns the hairlines and the
+ * corners, and the open row (`data-current`) and the keyboard's row
+ * (`data-cursor`) take the kit's marks rather than a bar down the edge. A
  * leading checkbox for bulk work, visible on hover and focus and always under
  * a finger; then the sender's disc, the subject with its „AW:“/„WG:“ chain
  * stripped (the full subject is in the title), the time, and one muted line:
@@ -31,6 +33,8 @@ import { Bot, CircleDashed, FileInput, Paperclip, Repeat2, ShieldAlert } from 'l
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { FactLine } from '@/components/ui/fact-line'
+import { Item } from '@/components/ui/item'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -104,24 +108,17 @@ export function InboundMailRow({
   const offerFile = waiting && reason === null && !inGroup && onFileAsSuggested !== undefined
 
   return (
-    <li
-      className={cn(
-        'group/row relative flex items-start gap-3 px-3 py-3 transition-colors duration-snap ease-out motion-reduce:transition-none sm:px-4',
-        'hover:bg-accent/40 pointer-coarse:min-h-11',
-        // The open row lifts to the card surface and wears the ink bar: a tinted fill
-        // took its muted lines under 4.5:1.
-        open && 'bg-card hover:bg-card',
-        focused && !open && 'bg-accent/40'
-      )}
+    <Item
+      as="li"
+      className="group/row relative items-start px-3 sm:px-4 pointer-coarse:min-h-11"
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}
       data-focused={focused || undefined}
+      // The open row lifts to the card with the selected hairline; the keyboard's row wears its ring (`Item`).
+      data-current={open || undefined}
+      data-cursor={(focused && !open) || undefined}
     >
-      {/* The open row and the keyboard's row are marked by a bar of ink on the leading edge, never by chroma. */}
-      {(focused || open) && (
-        <span aria-hidden className={cn('absolute inset-y-2 left-0 w-0.5 rounded-full', open ? 'bg-foreground' : 'bg-foreground/40')} />
-      )}
       {/* Above the link's full-row press area, so a tap on the box selects instead of opening. */}
       <div className="relative z-10 flex h-8 w-4 shrink-0 items-center">
         {bulkSelectable(mail) && (
@@ -131,7 +128,7 @@ export function InboundMailRow({
             aria-label={t('row.select', { subject })}
             data-testid="inbound-mail-row-checkbox"
             className={cn(
-              'transition-opacity duration-quick',
+              'transition-opacity duration-quick ease-out motion-reduce:transition-none',
               !selecting && !checked && 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100'
             )}
           />
@@ -171,11 +168,11 @@ export function InboundMailRow({
                 </span>
               )}
             </p>
+            {/* A stop: the signal red on the glyph, the words in ink (`FactLine`), and never cut off. */}
             {waiting && impersonating && (
-              <p className="text-error flex min-w-0 items-center gap-1 text-xs font-medium" data-testid="inbound-mail-row-impersonation">
-                <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate">{claim === 'own' ? t('row.impersonationOwn') : t('row.impersonation', { name: who })}</span>
-              </p>
+              <FactLine icon={ShieldAlert} tone="danger" testId="inbound-mail-row-impersonation">
+                {claim === 'own' ? t('row.impersonationOwn') : t('row.impersonation', { name: who })}
+              </FactLine>
             )}
             {waiting && reasonLine && !impersonating && (
               <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-reason" data-reason={reasonLine.key}>
@@ -214,7 +211,8 @@ export function InboundMailRow({
               type="button"
               size="sm"
               variant="outline"
-              className="h-7 px-2.5 text-xs pointer-coarse:h-9"
+              // `h-7` on a mouse; under a finger the kit's 44px, as the row's link sits right behind it.
+              className="h-7 px-2.5 text-xs"
               busy={filingAsSuggested}
               busyLabel={t('bulk.fileSuggestedBusy')}
               icon={<FileInput aria-hidden />}
@@ -227,6 +225,6 @@ export function InboundMailRow({
           </div>
         )}
       </div>
-    </li>
+    </Item>
   )
 }

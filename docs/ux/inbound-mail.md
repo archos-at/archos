@@ -35,7 +35,7 @@ English copy calls the place „Project mail“.
 - The project overview (Einstellungen › Übersicht): a full-width tile
   „E-Mail-Adresse des Projekts“, „In Cc gesetzt, bringt sie die Antworten von
   Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum
-  Ablegen.“, the address with „Kopieren“, „Als Kontakt sichern“ and the footer
+  Ablegen.“, the address (a press copies it), „Als Kontakt sichern“ and the footer
   link „Zum E-Mail-Eingang“. Only for whoever may decide the project's mail and
   only while an address is active; creating one stays in Einstellungen ›
   Dokumente.
@@ -52,13 +52,16 @@ Every door leads with what the address is for
 (`features/inbound-mail/components/inbound-mail-address.tsx`). The dialog
 (from „Per E-Mail senden …“ and „Adresse“) is titled „E-Mail-Adresse des
 Projekts“, says „So landet die Korrespondenz im Projekt, ohne dass jemand sie
-von Hand abspeichert.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
+aus dem Mailprogramm herunterlädt und wieder hochlädt.“, then three lines: „Setzen Sie sie in Cc, wenn Sie an
 Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
 E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
-weiter.“, „Was jemand mit Schreibrecht im Projekt von der eigenen, signierten
-Adresse sendet, wird direkt abgelegt. Alles andere wartet, bis jemand es
-ablegt; E-Mails von außerhalb des Büros 14 Tage lang.“ Then the address with
-„Kopieren“ (`CopyableValue`; `EmailAddress` marks where it may wrap: after
+weiter.“, „Was jemand, der im Projekt ablegen darf, von der eigenen
+Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles
+andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage
+lang.“
+Then the address, which a press copies (`CopyableValue`: a copy glyph beside
+it, its name „Kopieren: {Adresse}“, „Kopiert“ announced; `EmailAddress` marks
+where it may wrap: after
 the `+`, before the token's dot and before the `@`, so a phone never splits
 the domain, as `break-all` once did), „Als Kontakt sichern“ (a vCard), when mail last
 arrived, how many automatic replies were dropped in 30 days, the size line
@@ -81,7 +84,7 @@ the project ends.
 
 The never-used list says „Noch keine E-Mails an dieses Projekt“ and „Setzen Sie
 die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft
-schreiben. Was Sie selbst von Ihrer signierten Adresse senden, wird direkt
+schreiben. Was Sie selbst so senden und Ihre Domain bestätigt, wird direkt
 abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.“
 
 ## The E-Mail-Eingang
@@ -120,7 +123,7 @@ abgeschlossen“. A mail that names a member whose domain did not confirm it is
 phrased for its reader (`mailClaimOf`, `lib/sender.ts`): the member reads
 „Haben Sie sie gesendet? Bestätigen Sie es“, a colleague „Wartet auf {Name}“
 under „Wartet auf andere“. A verified writer's mail direct filing left
-(`waitReason: 'not_filed'`) reads „Nicht von selbst abgelegt · {what it needs}“.
+(`waitReason: 'not_filed'`) reads „Nicht direkt abgelegt · {what it needs}“.
 
 Thread groups are split by readiness: a conversation's ready replies are one
 group under „Bereit“ with „Alle {n} ablegen (wird Fassung {a}–{b})“ (or „Die
@@ -131,7 +134,8 @@ its rows do not repeat it. A row whose text a follow already appended shows no
 thread line; its attachments still wait.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
-row reads „Gibt sich als {Name} aus · nicht ablegen“ in red and has neither
+row reads „Gibt sich als {Name} aus · nicht ablegen“ (a red glyph, the words
+in ink) and has neither
 the one-press button nor a checkbox: it can never join a bulk decision, nor by
 the keyboard's X. The
 detail opens with a full-width warning above the header („Vorsicht: Diese
@@ -166,7 +170,11 @@ The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confir
    address always together), the trust („Domain bestätigt: {domain}“ with its
    ⓘ toggletip; trust is never folded), the received time and „Details ▾“. The
    sender's flags („An andere Empfänger adressiert“, …), why it waits
-   (`SenderWaitLine`, one sentence ending on the reader's next step) and, for a
+   (`SenderWaitLine`, one sentence ending on the reader's next step; for a
+   colleague of a claimed mail, `waitReason.signature`, `replay` and
+   `automatic` name only whom it waits for and why, because `ClaimedMailBar`
+   right below already says „Sie können sie verwerfen.“, design principle 9)
+   and, for a
    forward, „Von {Autor} · Domain nicht bestätigt · weitergeleitet von {Name}“
    (the Verlauf's and the provenance line's words) stay visible under it. „Details“ opens Gesendet,
    Eingegangen, every recipient (An, Cc, Antwort an), „Wartet bis {Datum},
@@ -226,8 +234,8 @@ Verwerfen“, enabled only when every selected mail is complete
 with a dialog grouped by destination.
 
 **States**, each with its own copy: empty (never received / nothing waits /
-nothing handled), loading, load error, suggestion pending („The agent liest noch
-…“), no suggestion, decided by someone else, partial failure, quota full,
+nothing handled), loading, load error, suggestion pending („{productName} liest
+noch …“), no suggestion, decided by someone else, partial failure, quota full,
 closed project („Projekt ist abgeschlossen – wieder öffnen, um abzulegen“,
 dismiss possible), expired and dismissed („… · wiederherstellbar bis {Datum}“),
 original not clean, feature off (`notFound()`).
@@ -263,7 +271,7 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   exactly as the document cites it; „ab Fassung N · eingegangen {Zeit}“; trust
   in three words: „Domain bestätigt: {domain}“ once per run of consecutive
   mails from the same confirmed domain, on the newest (`entriesSayingTrust`);
-  „Domain nicht bestätigt“ with the warning glyph and „Aus dem E-Mail-Archiv ·
+  „Domain nicht bestätigt“ with the warning glyph and „Aus dem Outlook-Archiv ·
   nicht geprüft“ on every mail. The heading wraps between date, name and
   domain, never inside the date, and is still exactly what the document
   prints; „ab Fassung N“ and „eingegangen …“ wrap as two units. Preview:
@@ -275,7 +283,7 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
 - **Row actions**: „Original (.eml)“ (a 409 `original_not_clean` replaces the
   button with „Das Original enthält Schadsoftware und kann nicht
   heruntergeladen werden“; an archive entry says „Kein Original: aus dem
-  E-Mail-Archiv übernommen“; a running scan says so), „Vergleichen“ (this mail's
+  Outlook-Archiv übernommen“; a running scan says so), „Vergleichen“ (this mail's
   Fassung against the one before, inline), ⋯ „Herauslösen …“ (only for whoever
   may file, never on the thread's only mail).
 - **Herauslösen** (`detach-dialog.tsx`): „Fassung {a} bis {b} behalten diese
@@ -284,8 +292,9 @@ one, a `.md` file or Dokumentart *Korrespondenz*, with one `mail-thread-list
   another thread or „Als neuen E-Mail-Verlauf“ (name, same folder). Refusals are
   said in the dialog (`MAIL_THREAD_REFUSALS` and a closed project).
 - **Links**: `/app/projects/{id}/files?doc={threadDocumentId}&mailEntry={entryId}`
-  opens the Verlauf with „E-Mails“ up and the entry scrolled to and marked (ink
-  bar, `aria-current="location"`, focus moves). Closing or switching the
+  opens the Verlauf with „E-Mails“ up and the entry scrolled to and marked (the
+  `Item`'s current state: lifted to the card with the selected hairline all
+  round, `aria-current="location"`, focus moves; no bar down its edge). Closing or switching the
   preview drops `mailEntry`. A chat citation does not carry the section heading
   on the wire yet, so a citation opens the Verlauf without scrolling to its
   entry.
@@ -304,9 +313,15 @@ that a mail brought carries the same line (`document-revisions.tsx`).
 `--warning` text measures 4.48:1 on paper and 4.2:1 inside the kit's
 `Alert variant="warning"` at 12–14px, under WCAG AA. The E-Mail-Eingang draws
 warnings as a gold glyph with ink words (`FactLine tone="warning"`,
-`inbound-mail-atoms.tsx`) and the default Alert with a gold icon; a selected
-row lifts to `bg-card` with an ink bar instead of a tint (`bg-accent/70` behind
-muted 12px text is 4.33:1). The kit's warning Alert is a known AA gap of the
+`components/ui/fact-line.tsx`) and the default Alert with a gold icon, and what
+makes filing impossible as a red glyph with ink words (`tone="danger"`). The
+open row lifts to `bg-card` with the selected hairline inset all round instead
+of a tint (`bg-accent/70` behind muted 12px text is 4.33:1), and the keyboard's
+row (J/K) wears the keyboard's ring, inset: `Item`'s `data-current` and
+`data-cursor`. Neither is a bar down the row's edge (design language,
+„Emphasis without a stripe“). Each attachment's „Wird auf Schadsoftware
+geprüft …“ and „Wird abgelegt …“ is a still glyph; the detail's own „Wird
+abgelegt …“ line is the one spinner (one ambient loop per screen). The kit's warning Alert is a known AA gap of the
 design system ([`design-language.md`](../design/design-language.md)).
 
 ## Not built yet

@@ -162,7 +162,7 @@ export function SenderTrustLine({
 
 /**
  * The reasons a writer's own mail waits for them: each is asked of that writer
- * as „Haben Sie das gesendet?“. Not `paused`: with direct filing switched off a
+ * as „Haben Sie diese E-Mail gesendet?“. Not `paused`: with direct filing switched off a
  * verified writer's mail waits for any of the project's writers.
  */
 const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay', 'automatic'])
@@ -171,11 +171,15 @@ const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay',
  * Why the mail waits, by who its sender is to the project (ADR-0137's
  * amendment): a writer's mail that was not filed directly, because their
  * domain did not confirm it, it reads as re-sent or misdated, or it was sent
- * automatically (asked of that writer as „Haben Sie das gesendet?“, and said
+ * automatically (asked of that writer as „Haben Sie diese E-Mail gesendet?“, and said
  * to a colleague as whom it waits for), direct filing switched off (`paused`,
  * any writer files it), a verified writer's mail direct filing left waiting
  * (`not_filed`, any writer files it), a member who may not write here, or
- * someone outside the office; each line ends on what the reader can do.
+ * someone outside the office. Each line ends on what the reader can do, with
+ * one exception: the colleague's lines of a claimed mail (`signature`,
+ * `replay`, `automatic`) say only whom it waits for and why, because
+ * `ClaimedMailBar` right below already says „Sie können sie verwerfen.“ and a
+ * second time would only repeat it (`design-language.md`, principle 9).
  * Nothing once nothing of it waits, or under an impersonation's warning,
  * which already says why and what to do.
  */

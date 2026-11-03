@@ -159,7 +159,7 @@ function state(variant: string): UseMailImports {
 export default function MailImportPreview() {
   const variant = useSearchParams()?.get('variant') ?? 'default'
   return (
-    <main className="min-h-screen bg-background p-8" data-testid="mail-import-preview">
+    <main className="min-h-dvh bg-background p-8" data-testid="mail-import-preview">
       <MailImportDialogView projectId={PROJECT} open onOpenChange={() => {}} state={state(variant)} />
     </main>
   )

@@ -20,6 +20,8 @@
 
 import type { JSX, ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { FOCUS_RING } from '@/components/ui/focus-ring'
+import { PRESSABLE } from '@/components/ui/press'
 import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { useTranslations } from '@/i18n'
 import { bimCopy } from '@/i18n/namespaces/bim'
@@ -58,7 +60,10 @@ export function CopyableValue({ value, className, onCopied, children }: Copyable
         onClick={copy}
         aria-label={t('properties.copyValue', { value })}
         className={cn(
-          'focus-visible:ring-ring/60 hover:bg-muted duration-quick -mx-1 inline-flex max-w-full items-start gap-1.5 rounded px-1 text-right text-xs outline-none transition-colors ease-out focus-visible:ring-2',
+          // A copy press is a pressable like any other (`design-language.md`, „One press“): the kit's press and ring.
+          'hover:bg-muted rounded-control -mx-1 inline-flex max-w-full items-start gap-1.5 px-1 text-right text-xs outline-none',
+          PRESSABLE,
+          FOCUS_RING,
           children === undefined ? 'break-all' : '[overflow-wrap:anywhere]',
           // The value stays a few pixels tall on a desktop; under a finger the
           // row grows to the floor rather than overhanging its neighbour.

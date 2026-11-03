@@ -7,6 +7,8 @@
  */
 
 import type { JSX } from 'react'
+import { AlertTriangle } from 'lucide-react'
+import { FactLine } from '@/components/ui/fact-line'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -28,7 +30,7 @@ export function TextComparisonView({ comparison }: { comparison: TextComparison 
   const t = useTranslations(filesCopy)
   if (comparison.status === 'loading') {
     return (
-      <p className="text-muted-foreground flex items-center gap-2 text-xs">
+      <p className="text-muted-foreground flex items-center gap-2 text-xs" role="status">
         <Spinner className="size-3.5" />
         {t('lifecycle.versions.comparing')}
       </p>
@@ -36,9 +38,10 @@ export function TextComparisonView({ comparison }: { comparison: TextComparison 
   }
   if (comparison.status === 'failed') {
     return (
-      <p className="text-destructive text-xs" data-testid="document-version-compare-failed">
+      // A red glyph and ink words: red words on paper sit at the edge of the 4.5:1 AA asks.
+      <FactLine icon={AlertTriangle} tone="danger" testId="document-version-compare-failed">
         {t('lifecycle.versions.compareFailed')}
-      </p>
+      </FactLine>
     )
   }
   return (

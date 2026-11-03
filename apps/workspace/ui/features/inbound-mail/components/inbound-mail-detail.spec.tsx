@@ -149,6 +149,9 @@ describe('InboundMailDetail', () => {
     expect(warning).toHaveTextContent(`${PRODUCT_NAME} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.`)
     // Above the header, before anything can be checked.
     expect(warning.compareDocumentPosition(screen.getByTestId('mail-header')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // A stop on its full hairline, never a rule down its leading edge (design language, „Emphasis without a stripe“).
+    expect(warning.className).toMatch(/\bborder-danger\b/)
+    expect(warning.className).not.toMatch(/border-l/)
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
     await userEvent.click(screen.getByTestId('message-checkbox'))
     expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('I checked that the mail is genuine. File it anyway')

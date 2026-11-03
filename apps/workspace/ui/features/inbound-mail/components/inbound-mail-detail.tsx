@@ -25,7 +25,7 @@ import { AlertTriangle, ArchiveRestore, Loader2, Lock, Users, X } from 'lucide-r
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Button } from '@/components/ui/button'
-import { ItemList } from '@/components/ui/item'
+import { Item, ItemList } from '@/components/ui/item'
 import { LoadError } from '@/components/ui/load-error'
 import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -58,7 +58,7 @@ import { ContentFindingChoice } from './content-finding-choice'
 import { DecisionBar } from './decision-bar'
 import { FollowOffer } from './follow-offer'
 import { ImpersonationWarning } from './impersonation-warning'
-import { FactLine } from './inbound-mail-atoms'
+import { FactLine, QuietPanel } from './inbound-mail-atoms'
 import { MailHeader } from './mail-header'
 import { MailText, type MailTextState } from './mail-text'
 import { MessageRow } from './message-row'
@@ -401,7 +401,7 @@ export function InboundMailDetail({
           </FactLine>
         )}
         {waitingParts.length === 0 && dismissedOrExpired.length > 0 && restorableUntil && (
-          <div className="bg-muted/40 flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between" data-testid="detail-restorable">
+          <QuietPanel className="sm:flex-row sm:items-center sm:justify-between" data-testid="detail-restorable">
             <p className="text-sm">
               {/* A mail of which something was filed was not thrown away: say how many parts were, not „Verworfen“. */}
               {anyFiled
@@ -425,7 +425,7 @@ export function InboundMailDetail({
             >
               {t('state.restore')}
             </BusyButton>
-          </div>
+          </QuietPanel>
         )}
 
         {/* Above the header, before anything can be checked: the owner's rule for a mail posing as someone. */}
@@ -613,18 +613,19 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
         <Skeleton className="h-3.5 w-11/12" />
         <Skeleton className="h-3.5 w-9/12" />
       </div>
-      <div className="flex flex-col divide-y rounded-lg border">
+      {/* The attachments' own list, so the rows land where their skeletons stood. */}
+      <ItemList className="bg-card">
         {[0, 1, 2].map((row) => (
-          <div key={row} className="flex items-center gap-3 p-3">
+          <Item key={row} className="px-3 sm:px-4">
             <Skeleton className="size-4" />
-            <Skeleton className="size-10 rounded-md" />
+            <Skeleton className="size-10 rounded-control" />
             <div className="flex flex-1 flex-col gap-1.5">
               <Skeleton className="h-3.5 w-1/2" />
               <Skeleton className="h-3 w-1/3" />
             </div>
-          </div>
+          </Item>
         ))}
-      </div>
+      </ItemList>
     </div>
   )
 }

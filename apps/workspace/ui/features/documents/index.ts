@@ -21,3 +21,5 @@ export { FileUploadZone } from './components/FileUploadZone'
 export { FolderPickerSheet } from './components/folder-picker-sheet'
 export { FileExtChip } from './components/file-ext-chip'
 export { documentFilesHref } from './lib/document-question'
+// The E-Mail-Eingang offers to follow a Verlauf on the same card as the Verlauf's own tab.
+export { FollowCard, FollowCardHint } from './components/mail-thread/follow-card'

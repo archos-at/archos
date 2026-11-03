@@ -33,7 +33,7 @@ import type { ForwardedOrigin } from '@/lib/inbound-mail/forwarded'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { expiryShownInline } from '../lib/evidence'
 import { mailClaimOf, senderDisplayName } from '../lib/sender'
-import { FactLine } from './inbound-mail-atoms'
+import { FactLine, QuietPanel } from './inbound-mail-atoms'
 import { SenderFlagLines, SenderTrustLine, SenderWaitLine } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -134,7 +134,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           </FactLine>
         )}
         <CollapsibleContent data-testid="mail-details">
-          <div className="bg-muted/40 mt-1 flex flex-col gap-3 rounded-lg border p-3 text-xs">
+          <QuietPanel className="mt-1 gap-3 text-xs">
             <dl className="text-muted-foreground grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5">
               {view.sentAt && (
                 <>
@@ -184,7 +184,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
             {view.originalHeld && (view.rawScan === 'pending' || view.rawScan === 'failed') && (
               <FactLine icon={Timer}>{t('header.originalScanning')}</FactLine>
             )}
-          </div>
+          </QuietPanel>
         </CollapsibleContent>
       </header>
     </Collapsible>

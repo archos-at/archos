@@ -24,6 +24,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Mail, ShieldAlert, ShieldCheck, ShieldQuestion } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useLocale, useTranslations } from '@/i18n'
 import { formatCalendarDate } from '@/lib/format'
 import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -124,16 +125,18 @@ export function MailOriginLine({ origins, onOpen, variant = 'timeline', classNam
         <span className="min-w-0 [overflow-wrap:anywhere]">{trustWords}</span>
       </span>
       {onOpen && (
-        <button
+        // The kit's inline action, its catchment grown where the line has room (`touch-target`).
+        <Button
           type="button"
+          variant="inline"
           onClick={() => void open()}
           disabled={opening}
           aria-label={t('provenance.openLabel', { date })}
-          className="text-foreground touch-target rounded-sm font-medium underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-60"
+          className="touch-target"
           data-testid="mail-origin-open"
         >
           {t('provenance.open')}
-        </button>
+        </Button>
       )}
     </div>
   )

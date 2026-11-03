@@ -200,15 +200,17 @@ export function FilesHeaderControls({
           <Link
             href={inboundMail.href}
             data-testid="files-inbound-mail"
-            aria-label={
-              inboundMail.waiting
-                ? `${t('inboundMail.open')}, ${t('inboundMail.waitingAria', { count: inboundMail.waiting })}`
-                : undefined
-            }
           >
             <Mail />
             {t('inboundMail.open')}
-            {inboundMail.waiting ? <CountPill count={inboundMail.waiting} tone="muted" aria-hidden /> : null}
+            {/* The name is the content, the visible words first (WCAG 2.5.3, label in name): an aria-label over
+                „E-Mail-Eingang“ and the pill's figure never matched the text a speech user reads off the screen. */}
+            {inboundMail.waiting ? (
+              <>
+                <CountPill count={inboundMail.waiting} tone="muted" aria-hidden />
+                <span className="sr-only"> {t('inboundMail.waitingAria', { count: inboundMail.waiting })}</span>
+              </>
+            ) : null}
           </Link>
         </Button>
       )}

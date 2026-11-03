@@ -26,7 +26,7 @@ import { BusyButton } from '@/components/ui/busy-button'
 import { useTranslations } from '@/i18n'
 import { cn } from '@/lib/utils'
 import type { DraftBlocker, DraftSummary } from '../lib/draft'
-import { CheckLine, FactLine } from './inbound-mail-atoms'
+import { CheckLine, FactLine, PinnedBar } from './inbound-mail-atoms'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface DecisionBarProps {
@@ -94,14 +94,7 @@ export function DecisionBar({
   const messages = blockers.map((blocker) => blockerText(blocker, t)).filter((text): text is string => text !== null)
 
   return (
-    <div
-      data-testid="decision-bar"
-      className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 border-t px-3 pt-3 backdrop-blur sm:px-4',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-        className
-      )}
-    >
+    <PinnedBar data-testid="decision-bar" className={className}>
       {offersFiling && (summary.needsSenderAcknowledgement || messages.length > 0 || (summary.originalErased && !nothing)) && (
         <div className="flex flex-col gap-1.5">
           {summary.needsSenderAcknowledgement && (
@@ -156,6 +149,6 @@ export function DecisionBar({
           </BusyButton>
         )}
       </div>
-    </div>
+    </PinnedBar>
   )
 }

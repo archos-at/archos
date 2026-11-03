@@ -59,7 +59,7 @@ import { refusalOf } from '../lib/refusal'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
 import { contactCard, contactCardFileName } from '../lib/vcard'
 import { useInboundMailAddress, type AddressState } from '../hooks/use-inbound-mail-address'
-import { FactLine } from './inbound-mail-atoms'
+import { FactLine, QuietPanel } from './inbound-mail-atoms'
 import { OwnDomainDkimLine } from './own-domain-dkim-line'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 import { settingsCopy } from '@/i18n/namespaces/settings'
@@ -152,14 +152,11 @@ export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; on
   return (
     <p className="text-muted-foreground text-xs" data-testid="address-size-limit">
       {t('address.sizeLimit', { limit: mebibytes(INBOUND_MAIL_MAX_MESSAGE_BYTES), attachments: mebibytes(INBOUND_MAIL_MAX_ATTACHMENT_BYTES) })}{' '}
-      <Link
-        href={inboundMailPaths(projectId).files}
-        onClick={onLeave}
-        className="text-foreground underline underline-offset-2 hover:no-underline"
-        data-testid="address-upload-instead"
-      >
-        {t('address.uploadInstead')}
-      </Link>
+      <Button asChild variant="inline">
+        <Link href={inboundMailPaths(projectId).files} onClick={onLeave} data-testid="address-upload-instead">
+          {t('address.uploadInstead')}
+        </Link>
+      </Button>
     </p>
   )
 }
@@ -190,7 +187,7 @@ export function InboundMailAddressBlock({
   return (
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
-      <div className="bg-muted/40 flex flex-col gap-2 rounded-lg border p-3">
+      <QuietPanel>
         {/* The eyebrow names the value; in the dialog its title already does. */}
         {surface !== 'dialog' && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         <AddressValue value={value} surface={surface} className="w-full justify-between" />
@@ -205,20 +202,17 @@ export function InboundMailAddressBlock({
             <> · {t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
           )}
         </p>
-      </div>
+      </QuietPanel>
       <AddressSizeLimit projectId={projectId} onLeave={onLeave} />
       {guideUrl && (
-        <a
-          href={guideUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-foreground inline-flex w-fit items-center gap-1.5 text-xs underline underline-offset-2 hover:no-underline touch-target"
-        >
-          <BookOpen className="size-3.5" aria-hidden />
-          {t('address.guide')}
-          <ExternalLink className="text-muted-foreground size-3" aria-hidden />
-          <span className="sr-only">{t('address.newTab')}</span>
-        </a>
+        <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">
+          <a href={guideUrl} target="_blank" rel="noopener noreferrer">
+            <BookOpen className="size-3.5" aria-hidden />
+            {t('address.guide')}
+            <ExternalLink className="text-muted-foreground size-3" aria-hidden />
+            <span className="sr-only">{t('address.newTab')}</span>
+          </a>
+        </Button>
       )}
     </div>
   )

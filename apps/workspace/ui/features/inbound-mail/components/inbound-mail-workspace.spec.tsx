@@ -221,7 +221,11 @@ describe('InboundMailWorkspace', () => {
     renderWorkspace('one')
     const id = DETAIL_VARIANTS['member-verified'].view.id
     fireEvent.keyDown(window, { key: 'j' })
-    expect(await screen.findByTestId(`inbound-mail-row-${id}`)).toHaveAttribute('data-focused', 'true')
+    const row = await screen.findByTestId(`inbound-mail-row-${id}`)
+    expect(row).toHaveAttribute('data-focused', 'true')
+    // The keyboard's row wears the kit's cursor ring (`Item`), not a bar down its leading edge.
+    expect(row).toHaveAttribute('data-cursor', 'true')
+    expect(row.querySelector('[aria-hidden].absolute.left-0')).toBeNull()
     fireEvent.keyDown(window, { key: 'x' })
     expect(within(screen.getByTestId(`inbound-mail-row-${id}`)).getByTestId('inbound-mail-row-checkbox')).toBeChecked()
     expect(await screen.findByTestId('inbound-mail-selection-bar')).toHaveTextContent('1 selected')

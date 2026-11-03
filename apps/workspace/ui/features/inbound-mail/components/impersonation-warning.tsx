@@ -18,8 +18,10 @@
  * someone poses as Miriam, beside „Haben Sie sie gesendet?“, taught the one
  * click a forger wants.
  *
- * A stop, not a caution: the signal red on the glyph and the leading rule,
- * the words in ink. Not the kit's `Alert variant="destructive"`, whose red
+ * A stop, not a caution: the signal red on the glyph and on the Alert's full
+ * hairline (`border-danger`), the words in ink. No rule down its leading edge:
+ * the owner prefers boxes without side stripes (`design-language.md`,
+ * „Emphasis without a stripe“, 2026-10-27). Not the kit's `Alert variant="destructive"`, whose red
  * text on its tint measures 4.08:1 (axe, 2026-10-22), under the 4.5:1 WCAG
  * AA asks; for the same reason no gold either (`design-language.md`,
  * „Warning gold is a glyph colour“).
@@ -42,7 +44,7 @@ export function ImpersonationWarning({ warning, own = false }: { warning: Warnin
         : t('impersonationWarning.rejectedSignature', { name: warning.name })
   return (
     <Alert
-      className="border-l-4 border-l-[color:var(--color-signal-error)] [&>svg]:text-error"
+      className="border-danger [&>svg]:text-error"
       data-testid="impersonation-warning"
       data-basis={warning.basis}
       data-own={own || undefined}

@@ -22,13 +22,13 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Repeat2, UserRound } from 'lucide-react'
+import { UserRound } from 'lucide-react'
 import { BusyButton } from '@/components/ui/busy-button'
 import { useLocale, useTranslations } from '@/i18n'
 import { formatCalendarDate } from '@/lib/format'
 import type { MailThreadFollowView, MailThreadView } from '@/lib/mail-thread/mail-thread-wire'
-import { cn } from '@/lib/utils'
 import type { MailThreadClient } from './client'
+import { FollowCard, FollowCardHint } from './follow-card'
 import { mayEndFollow, mayWrite, otherFollows, viewerFollow } from './mail-thread-model'
 import { refusalKey } from './refusal'
 import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
@@ -116,29 +116,29 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
   if (own.kind === 'none' && !canFollow && others.length === 0) return null
 
   return (
-    <section className={cn('bg-card flex flex-col gap-2.5 rounded-lg border p-3', className)} data-testid="mail-thread-follow" data-following={own.kind === 'following' || undefined}>
-      <div className="flex min-w-0 items-start gap-2.5">
-        <Repeat2 className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-sm font-medium [overflow-wrap:anywhere]" data-testid="mail-thread-follow-state">
-            {own.kind === 'following'
-              ? own.follow
-                ? t('follow.following', { date: date(own.follow.expiresAt) })
-                : t('follow.followingUndated')
-              : t('follow.offer')}
-          </p>
-          {own.kind === 'none' && canFollow && <p className="text-muted-foreground text-xs leading-snug">{t('follow.explain')}</p>}
-          {own.kind === 'following' && own.follow && !own.renewable && (
-            <p className="text-muted-foreground text-xs leading-snug" data-testid="mail-thread-follow-limit">
-              {t('follow.renewLimit')}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {(canFollow || own.kind === 'following') && (
-        <div className="flex flex-wrap gap-2">
-          {/* The line above says what this is; the button only what the press does. */}
+    <FollowCard
+      className={className}
+      data-testid="mail-thread-follow"
+      data-following={own.kind === 'following' || undefined}
+      titleTestId="mail-thread-follow-state"
+      title={
+        own.kind === 'following'
+          ? own.follow
+            ? t('follow.following', { date: date(own.follow.expiresAt) })
+            : t('follow.followingUndated')
+          : t('follow.offer')
+      }
+      hint={
+        own.kind === 'none' && canFollow ? (
+          <FollowCardHint>{t('follow.explain')}</FollowCardHint>
+        ) : own.kind === 'following' && own.follow && !own.renewable ? (
+          <FollowCardHint testId="mail-thread-follow-limit">{t('follow.renewLimit')}</FollowCardHint>
+        ) : undefined
+      }
+      // The line above says what this is; the buttons only what the press does.
+      actions={
+        canFollow || own.kind === 'following' ? (
+          <>
           {canFollow && (
             <BusyButton type="button" size="sm" variant="outline" busy={pending === 'follow'} busyLabel={t('follow.start')} onClick={() => void follow()} data-testid="mail-thread-follow-start">
               {t('follow.start')}
@@ -154,8 +154,10 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
               {t('follow.unfollow')}
             </BusyButton>
           )}
-        </div>
-      )}
+          </>
+        ) : undefined
+      }
+    >
 
       {others.length > 0 && !view.managesFollows && (
         <p className="text-muted-foreground text-xs" data-testid="mail-thread-follow-others">
@@ -197,6 +199,6 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
           </ul>
         </div>
       )}
-    </section>
+    </FollowCard>
   )
 }
