@@ -71,12 +71,15 @@ import {
 
 /**
  * One bounded step of a job: the state it was saved with in, the state to save out.
- * `attempts` is the claims spent so far, this one included.
+ * `attempts` is the claims spent so far, this one included. `signal` aborts when
+ * Hatchet gives the attempt up (its timeout, a cancel): a handler that can stop
+ * early passes it on to what it waits for, because nothing else can stop it.
  */
 export type JobHandler = (job: {
   organizationId: string
   payload: unknown
   attempts: number
+  signal?: AbortSignal
 }) => Promise<JobSliceResult<object>>
 
 /**

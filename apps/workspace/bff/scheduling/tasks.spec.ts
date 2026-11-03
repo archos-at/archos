@@ -48,4 +48,20 @@ describe('the scheduling tasks', () => {
       })
     }
   })
+
+  it('tells Hatchet only the category and the class of a failure, and logs the whole error on the pod', async () => {
+    const { reportingOnlyTheClass } = await import('./tasks')
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const secret = 'Bauantrag Seestadt D12.pdf at https://files.example/k/plan.pdf'
+
+    const sent = (await reportingOnlyTheClass('upload-sweep', 'sweep-failed', async () => {
+      throw new TypeError(secret)
+    }).catch((error: unknown) => error)) as Error
+
+    expect(sent.message).toBe('sweep-failed: TypeError')
+    expect(`${sent.message}\n${sent.stack}`).not.toContain('Seestadt')
+    expect(logged.mock.calls.flat().map(String).join(' ')).toContain(secret)
+    expect(await reportingOnlyTheClass('upload-sweep', 'sweep-failed', async () => 7)).toBe(7)
+    logged.mockRestore()
+  })
 })

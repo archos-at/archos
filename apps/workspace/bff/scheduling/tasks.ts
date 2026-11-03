@@ -22,9 +22,10 @@
 import 'server-only'
 import { ConcurrencyLimitStrategy, type HatchetClient } from '@hatchet-dev/typescript-sdk/v1'
 import { hatchetClient } from '@/lib/jobs-queue/hatchet'
+import { failureText } from '@/lib/jobs-queue/hatchet-task'
 import { runAsJobSlice } from '@/lib/jobs-queue/slice-scope'
 import { runWithTenantSlot, withPlatformAccess } from '@/lib/db/tenant-context'
-import { fireTaskDefinition, repairOverdueSchedules } from './fire-definition'
+import { fireTaskDefinition, repairSchedules } from './fire-definition'
 import { FIRE_TASK_DEFINITION, type FireTaskDefinitionInput } from './scheduled-runs'
 import * as sweeps from './sweeps'
 
@@ -37,6 +38,20 @@ export type TaskDeclarer = Pick<HatchetClient, 'task'>
 /** Like a job slice: no request, no tenant inherited from the run before (`slice-scope.ts`). */
 function inWorkerScope<T>(fn: () => Promise<T>): Promise<T> {
   return runWithTenantSlot(() => runAsJobSlice(fn))
+}
+
+/**
+ * Run a task's work; a failure is logged whole on the pod and reaches Hatchet as
+ * `category: ErrorClass` only (`failureText`). A sweep's error can name a
+ * document or a URL, and Hatchet keeps what it is told (ADR-0150).
+ */
+export async function reportingOnlyTheClass<T>(task: string, category: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (error) {
+    console.error(`[scheduling] ${task} failed:`, error)
+    throw new Error(failureText(category, error))
+  }
 }
 
 export interface SweepSpec {
@@ -59,7 +74,9 @@ export function sweepTask(hatchet: TaskDeclarer, spec: SweepSpec) {
     retries: spec.retries ?? 0,
     backoff: { factor: 2, maxSeconds: 60 },
     fn: async () => {
-      await inWorkerScope(() => withPlatformAccess(`${spec.name}: ${spec.reason}`, spec.run))
+      await reportingOnlyTheClass(spec.name, 'sweep-failed', () =>
+        inWorkerScope(() => withPlatformAccess(`${spec.name}: ${spec.reason}`, spec.run)),
+      )
     },
   })
 }
@@ -98,8 +115,8 @@ const SWEEPS: SweepSpec[] = [
   {
     name: 'schedule-repair',
     cron: '*/5 * * * *',
-    reason: 'finds the task definitions of every organization whose due time passed without a fire',
-    run: repairOverdueSchedules,
+    reason: 'finds the task definitions of every organization whose due time passed without a fire, or that have no scheduled run',
+    run: repairSchedules,
   },
   {
     name: 'task-runs-prune',
@@ -150,7 +167,7 @@ export function fireTask(hatchet: TaskDeclarer) {
     executionTimeout: '5m',
     retries: 0,
     fn: async (input: FireTaskDefinitionInput) => {
-      const outcome = await inWorkerScope(() => fireTaskDefinition(input))
+      const outcome = await reportingOnlyTheClass(FIRE_TASK_DEFINITION, 'fire-failed', () => inWorkerScope(() => fireTaskDefinition(input)))
       return { fired: outcome.fired, reason: outcome.reason ?? '' }
     },
   })

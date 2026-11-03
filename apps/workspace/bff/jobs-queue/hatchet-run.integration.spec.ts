@@ -16,6 +16,7 @@
 import { randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { handled } from '@/test-utils/scripted-job-handlers'
 
 vi.mock('server-only', () => ({}))
 vi.mock('./handlers', async () => ({ JOB_HANDLERS: (await import('@/test-utils/scripted-job-handlers')).SCRIPTED_HANDLERS }))
@@ -49,6 +50,7 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   beforeEach(() => {
     triggered.length = 0
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   afterAll(async () => {
@@ -67,8 +69,16 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
     )
     return Array.from(rows)[0] ?? null
   }
-  const run = (jobId: string, retryCount = 0, kind = 'inbox_push') =>
-    work.runBffJobTask(inputFor(jobId, kind), { run: `run-${jobId}`, retryCount }, runs, ENV)
+  const run = (jobId: string, retryCount = 0, kind = 'inbox_push', signal?: AbortSignal) =>
+    work.runBffJobTask(inputFor(jobId, kind), { run: `run-${jobId}`, retryCount, workerId: 'w-1', signal }, runs, ENV)
+  const claimed = async (jobId: string) => (await rowOf(jobId))?.status === 'claimed'
+  const until = async (check: () => Promise<boolean>) => {
+    const deadline = Date.now() + 10_000
+    while (!(await check())) {
+      if (Date.now() > deadline) throw new Error('timed out waiting')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
 
   it('runs a job to its end and deletes its row', async () => {
     const jobId = await enqueue({ id: 'ok', mode: 'ok' })
@@ -93,7 +103,8 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   it('queues a failed attempt behind its backoff, then makes the last one dead with ids only', async () => {
     const jobId = await enqueue({ id: 'fail', mode: 'fail-always', projectId: 'p-1' })
 
-    await expect(run(jobId)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 30 })
+    // Hatchet is told the category and the class; the row keeps the message.
+    await expect(run(jobId)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 30, message: 'attempt-failed: Error' })
     expect(await rowOf(jobId)).toMatchObject({ status: 'queued', attempts: 1 })
 
     // The retry is the same run; the backoff is over by the time it comes.
@@ -112,19 +123,73 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   it('makes a kind nobody knows dead at once, without a retry', async () => {
     const jobId = await enqueue({ id: 'coffee' }, 'make_coffee')
 
-    await expect(run(jobId, 0, 'make_coffee')).rejects.toBeInstanceOf(task.PermanentJobError)
+    await expect(run(jobId, 0, 'make_coffee')).rejects.toMatchObject({ name: 'PermanentJobError', message: 'unknown-kind: UnknownJobKindError' })
     expect(await rowOf(jobId)).toMatchObject({ status: 'dead', last_error: 'No handler for job kind "make_coffee"' })
   })
 
-  it('asks once more for a row it cannot see yet, then lets a second run of a held row be', async () => {
+  it('looks again for a row it cannot see yet, every ten seconds a few times, then leaves it to the sweep', async () => {
     const missing = randomUUID()
-    await expect(run(missing)).rejects.toMatchObject({ name: 'RetryLaterError' })
-    expect(await run(missing, 1)).toEqual({ job_id: missing, outcome: 'skipped' })
+    for (let retry = 0; retry < task.UNCOMMITTED_LOOKS; retry += 1) {
+      await expect(run(missing, retry)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 10, message: 'not-committed' })
+    }
+    expect(await run(missing, task.UNCOMMITTED_LOOKS)).toEqual({ job_id: missing, outcome: 'skipped' })
+    // Hatchet has the retries for the looks on top of the row's attempts.
+    expect(task.bffJobTaskSpec(ENV).retries).toBe(2 + task.UNCOMMITTED_LOOKS)
+  })
 
+  it('runs the job of a transaction that commits after its run came, on the next look', async () => {
+    const jobId = randomUUID()
+    await expect(run(jobId)).rejects.toMatchObject({ name: 'RetryLaterError', afterSeconds: 10 })
+
+    await context.withTenant({ organizationId: ORG }, () =>
+      repo.insertJob({ kind: 'inbox_push', organizationId: ORG, priority: 0, payload: { id: 'late', mode: 'ok' }, jobId }),
+    )
+
+    expect(await run(jobId, 1)).toEqual({ job_id: jobId, outcome: 'done' })
+  })
+
+  it('does not look again for a row that is there but held: it leaves it be', async () => {
     const jobId = await enqueue({ id: 'held', mode: 'ok' })
     await context.withPlatformAccess('test: another run holds it', () => repo.takeJob(jobId, 'run-other', { staleSeconds: 600 }))
-    expect(await run(jobId, 1)).toEqual({ job_id: jobId, outcome: 'skipped' })
+
+    expect(await run(jobId, 0)).toEqual({ job_id: jobId, outcome: 'skipped' })
     expect(await rowOf(jobId)).toMatchObject({ status: 'claimed' })
+  })
+
+  it('never runs a slice twice at once: a retry of the same run leaves the row to the attempt still running', async () => {
+    const jobId = await enqueue({ id: 'hung', mode: 'ok', ms: 1_500 })
+
+    // Attempt 0 runs past its timeout: Hatchet retries the run while it still runs.
+    const first = run(jobId, 0)
+    await until(() => claimed(jobId))
+    const retry = await run(jobId, 1)
+
+    expect(retry).toEqual({ job_id: jobId, outcome: 'skipped' })
+    expect(await first).toEqual({ job_id: jobId, outcome: 'done' })
+    expect(handled.filter((call) => call.id === 'hung')).toHaveLength(1)
+  })
+
+  it('takes over an attempt only once it is silent past the stale window, and refuses the old attempt’s writes', async () => {
+    const jobId = await enqueue({ id: 'taken-over', mode: 'ok' })
+    const old = work.holderOf({ run: `run-${jobId}`, retryCount: 0, workerId: 'w-1' })
+    await context.withPlatformAccess('test: attempt 0 took it', () => repo.takeJob(jobId, old, { staleSeconds: 600 }))
+    await context.withPlatformAccess('test: attempt 0 went silent past the window', () =>
+      db.execute(sql`UPDATE bff_job_queue SET claimed_at = now() - interval '1 hour', heartbeat_at = now() - interval '1 hour' WHERE job_id = ${jobId}::uuid`),
+    )
+
+    expect(await run(jobId, 1)).toEqual({ job_id: jobId, outcome: 'done' })
+    expect(await context.withPlatformAccess('test: the old attempt finishes', () => repo.finishJob(jobId, old))).toBe(false)
+  })
+
+  it('does not start a slice whose attempt Hatchet has already given up', async () => {
+    const jobId = await enqueue({ id: 'aborted', mode: 'ok' })
+    const aborted = new AbortController()
+    aborted.abort()
+
+    await expect(run(jobId, 0, 'inbox_push', aborted.signal)).rejects.toMatchObject({ name: 'RetryLaterError', message: 'attempt-failed: SliceAbortedError' })
+
+    expect(handled.filter((call) => call.id === 'aborted')).toHaveLength(0)
+    expect(await rowOf(jobId)).toMatchObject({ status: 'queued', attempts: 1 })
   })
 
   it('dispatches a row whose run never came, keyed on the take it resumes', async () => {

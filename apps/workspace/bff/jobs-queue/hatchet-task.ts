@@ -22,6 +22,15 @@
  *   is retried by Hatchet after `BFF_JOBS_RETRY_BACKOFF_SECONDS`, doubling, at
  *   most 15 minutes; a kind nobody knows is not retried at all.
  *   `BFF_JOBS_SLICE_TIMEOUT_MS` bounds a run.
+ * - ONE COPY AT A TIME. Hatchet retries a slice past its timeout, and
+ *   reassigns a lost worker's run, while the first copy may still run: no
+ *   JavaScript can kill it. So the row is held by one attempt (`holderOf`,
+ *   `./hatchet-run.ts`), which heartbeats while it runs, and is taken from it
+ *   only once it is silent past {@link staleSeconds}, never by a retry that
+ *   merely shares its run id.
+ * - NO TEXT. Hatchet stores what a run throws. A failure reaches it as our
+ *   category and the error's class ({@link failureText}); the message stays on
+ *   the row and in the pod's log.
  * - A SLICE IS A RUN. A job that is not done saves its progress on its row and
  *   triggers the next run (at `notBefore` when it waits), so each slice queues
  *   again behind other organizations' work and a drained pod loses nothing.
@@ -95,18 +104,43 @@ export function bffJobTaskSpec(env: Env = process.env): BffJobTaskSpec {
     name: BFF_JOB_TASK,
     concurrency: { expression: 'input.organization_id', maxRuns: perOrg || slots, limitStrategy: 'GROUP_ROUND_ROBIN' },
     idempotency: { strategy: 'status', expression: "input.job_id + '/' + string(input.generation)", fallbackTtlMs: RETENTION_MS },
-    // The row decides when a job is dead; one spare retry is for a run that came before its enqueue committed.
-    retries: maxAttempts(env),
-    executionTimeoutMs: toInt(env.BFF_JOBS_SLICE_TIMEOUT_MS, 300_000),
+    // The row decides when a job is dead; the spare retries are for a run that came before its enqueue committed.
+    retries: maxAttempts(env) + UNCOMMITTED_LOOKS,
+    executionTimeoutMs: sliceTimeoutMs(env),
     scheduleTimeout: '336h',
     slots,
   }
 }
 
-/** A run silent this long has lost its row: never shorter than a run may legitimately take. */
+/**
+ * A run whose row is not there yet (its enqueue's transaction has not
+ * committed) looks again after this long, at most {@link UNCOMMITTED_LOOKS}
+ * times, through Hatchet's retry-after; then the dispatch sweep has it.
+ */
+export const UNCOMMITTED_RETRY_SECONDS = 10
+export const UNCOMMITTED_LOOKS = 3
+
+/** How often a running slice refreshes its row's heartbeat, the interval of the claim loop before Hatchet. */
+export const HEARTBEAT_SECONDS = 15
+
+/** `BFF_JOBS_SLICE_TIMEOUT_MS`: Hatchet's execution timeout for one slice. */
+export function sliceTimeoutMs(env: Env = process.env): number {
+  return toInt(env.BFF_JOBS_SLICE_TIMEOUT_MS, 300_000)
+}
+
+/** What a holder may stay silent past its slice timeout before its row is taken from it. */
+const STALE_MARGIN_SECONDS = 60
+
+/**
+ * A holder silent this long (by the newer of its heartbeat and its take) has
+ * lost its row. Never shorter than a slice may legitimately take plus a margin,
+ * so a slice still running past its timeout is not run a second time beside
+ * itself, and never within reach of the heartbeat interval, so neither a slice
+ * on Hatchet nor the claim loop before it is called dead while it beats.
+ */
 export function staleSeconds(env: Env = process.env): number {
-  const timeoutSeconds = Math.ceil(toInt(env.BFF_JOBS_SLICE_TIMEOUT_MS, 300_000) / 1000)
-  return Math.max(toInt(env.BFF_JOBS_STALE_SECONDS, 180), timeoutSeconds + 60)
+  const timeoutSeconds = Math.ceil(sliceTimeoutMs(env) / 1000)
+  return Math.max(toInt(env.BFF_JOBS_STALE_SECONDS, 180), timeoutSeconds + STALE_MARGIN_SECONDS, HEARTBEAT_SECONDS * 4)
 }
 
 /** How long a job waits after its `attempts`-th attempt failed: the claim queue's backoff, to the second. */
@@ -115,21 +149,49 @@ export function retryDelaySeconds(attempts: number, env: Env = process.env): num
   return Math.min(base * 2 ** Math.max(attempts - 1, 0), MAX_RETRY_BACKOFF_SECONDS)
 }
 
+/** What a run knows of itself: Hatchet's run id, its retry, the worker it is on, and the signal Hatchet aborts it with. */
+export interface BffJobRunContext {
+  run: string
+  retryCount: number
+  workerId?: string
+  signal?: AbortSignal
+}
+
 /** The one seam to Hatchet: start a `bff-job` run, now or at `notBefore`, and return. */
 export interface BffJobRuns {
   trigger(input: BffJobTaskInput, options: { notBefore?: Date }): Promise<void>
 }
 
-/** A failure no attempt will change; the SDK layer makes it Hatchet's non-retryable error. */
-export class PermanentJobError extends Error {
-  override name = 'PermanentJobError'
+/** An error's class, when its name is one: never its message, which can carry a file name or a URL. */
+function errorClass(error: unknown): string {
+  const name = error instanceof Error ? error.name : typeof error
+  return /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name) ? name : 'Error'
 }
 
-/** Try this run again after `afterSeconds`; the SDK layer makes it Hatchet's retry-after error. */
+/**
+ * The only text about a failure that Hatchet is given: our category and the
+ * error's class (`dead: TypeError`). Hatchet stores it, with the stack of the
+ * error that carries it, in its database and shows it on its dashboard, where
+ * ids and ciphertext are all an office's work may leave behind (ADR-0150). The
+ * full error is logged on the pod, never sent.
+ */
+export function failureText(category: string, error?: unknown): string {
+  return error === undefined ? category : `${category}: ${errorClass(error)}`
+}
+
+/** A failure no attempt will change; the SDK layer makes it Hatchet's non-retryable error. Its message is {@link failureText}. */
+export class PermanentJobError extends Error {
+  override name = 'PermanentJobError'
+  constructor(category: string, error?: unknown) {
+    super(failureText(category, error))
+  }
+}
+
+/** Try this run again after `afterSeconds`; the SDK layer makes it Hatchet's retry-after error. Its message is {@link failureText}. */
 export class RetryLaterError extends Error {
   override name = 'RetryLaterError'
-  constructor(message: string, readonly afterSeconds: number) {
-    super(message)
+  constructor(category: string, readonly afterSeconds: number, error?: unknown) {
+    super(failureText(category, error))
   }
 }
 

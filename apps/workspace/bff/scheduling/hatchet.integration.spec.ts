@@ -30,7 +30,7 @@ const advanceDueDefinition = vi.fn()
 vi.mock('./repository', () => ({
   setScheduledRunId: (id: string, org: string, run: string | null) => setScheduledRunId(id, org, run),
   advanceDueDefinition: (...args: unknown[]) => advanceDueDefinition(...args),
-  findOverdueDefinitions: vi.fn(async () => []),
+  findDefinitionsToRepair: vi.fn(async () => []),
 }))
 const fireScheduledJob = vi.fn(async (_definition: TaskDefinition) => ({ fired: true }))
 vi.mock('@/lib/jobs/service', () => ({ fireScheduledJob: (definition: TaskDefinition) => fireScheduledJob(definition) }))

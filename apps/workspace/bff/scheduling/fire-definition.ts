@@ -19,7 +19,7 @@ import { withTenant } from '@/lib/db/tenant-context'
 import { fireScheduledJob } from '@/lib/jobs/service'
 import { nextDue } from './next-due'
 import { report } from './log'
-import { advanceDueDefinition, findOverdueDefinitions } from './repository'
+import { advanceDueDefinition, findDefinitionsToRepair } from './repository'
 import { syncScheduledRun, type FireTaskDefinitionInput } from './scheduled-runs'
 
 export type FireDefinitionOutcome = Awaited<ReturnType<typeof fireScheduledJob>> | { fired: false; reason: 'not-due' | 'invalid' }
@@ -39,19 +39,28 @@ export function fireTaskDefinition(input: FireTaskDefinitionInput, now: Date = n
 
 /** How long past its due time a definition may go unfired before the repair steps in. */
 export const REPAIR_GRACE_MINUTES = 3
-const REPAIR_BATCH = 50
+/**
+ * Definitions one repair schedules. A cutover leaves every enabled definition
+ * without a scheduled run (0192 has no backfill), so one or two repairs must
+ * cover an installation's schedules; each is one Hatchet call, well inside the
+ * sweep's 10-minute timeout.
+ */
+export const REPAIR_BATCH = 500
 
 /**
- * Give every definition that is overdue a scheduled run due now. This is how
- * a Hatchet call that failed at save time heals, how a fire that timed out in
- * Hatchet's queue while no worker was up comes back, and how the definitions
- * that existed before the cutover get their first run. Returns how many.
+ * Give every enabled definition with a due time the scheduled run it lacks:
+ * one that is overdue (a Hatchet call that failed at save time, a fire that
+ * timed out in Hatchet's queue while no worker was up) gets a run due now, and
+ * one with no scheduled run at all (every definition from before the cutover)
+ * gets its run at its due time, however far ahead that is, so it fires on
+ * time instead of a repair late. Idempotent: a definition it gave a run, and
+ * that is not overdue, is not found again. Returns how many.
  */
-export async function repairOverdueSchedules(now: Date = new Date()): Promise<number> {
-  const overdue = await findOverdueDefinitions(REPAIR_GRACE_MINUTES, REPAIR_BATCH)
-  for (const definition of overdue) {
+export async function repairSchedules(now: Date = new Date()): Promise<number> {
+  const missing = await findDefinitionsToRepair(REPAIR_GRACE_MINUTES, REPAIR_BATCH)
+  for (const definition of missing) {
     await withTenant({ organizationId: definition.organizationId }, () => syncScheduledRun(definition, now))
   }
-  if (overdue.length > 0) report(`schedule repair: rescheduled ${overdue.length} overdue definition(s)`)
-  return overdue.length
+  if (missing.length > 0) report(`schedule repair: scheduled ${missing.length} definition(s) that were overdue or had no scheduled run`)
+  return missing.length
 }

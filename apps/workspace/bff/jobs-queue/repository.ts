@@ -170,10 +170,14 @@ function matchingJobs(query: { kind: string; organizationId: string; matching: R
 
 /*
  * A run's lifecycle. The caller opens the platform scope (`./hatchet-task.ts`):
- * a run has no tenant, and the row tells it which one it works in. Every write
- * after the take is conditional on `claimed_by = run`, so a run that lost the
- * row (it went silent past `staleSeconds` and a later run took it over) can
- * neither finish nor save what is no longer its own.
+ * a run has no tenant, and the row tells it which one it works in. The row is
+ * held by one ATTEMPT, not by a run: `holder` names the Hatchet run, its retry
+ * and the worker (`./hatchet-run.ts`, `holderOf`), because a retry or a
+ * reassigned copy of a run may start while the attempt before it still runs
+ * (JavaScript cannot kill a slice past its timeout). Every write after the
+ * take is conditional on `claimed_by = holder`, so an attempt that lost the row
+ * can neither finish nor save what is no longer its own, and a take of a held
+ * row waits until the holder is silent past `staleSeconds`.
  */
 
 /** Stored text of a failure, so one runaway message cannot bloat the row. */
@@ -192,20 +196,34 @@ const scrubbedPayload = sql`(
 const describeError = (error: unknown): string =>
   (error instanceof Error ? error.message : String(error)).slice(0, MAX_ERROR_CHARS)
 
-const heldBy = (jobId: string, run: string) =>
-  and(eq(bffJobQueue.jobId, jobId), eq(bffJobQueue.claimedBy, run), eq(bffJobQueue.status, 'claimed'))
+const heldBy = (jobId: string, holder: string) =>
+  and(eq(bffJobQueue.jobId, jobId), eq(bffJobQueue.claimedBy, holder), eq(bffJobQueue.status, 'claimed'))
 
 /**
- * Take the job for `run`: a row that waits and is due, one this run held
- * already (its retry), or one whose run went silent for `staleSeconds`.
- * `attempts` counts the take. Null when there is nothing to take: the job is
- * gone (finished, purged, its enqueue rolled back or not committed yet), held
- * by a live run, dead, or not due.
+ * When the holder of a claimed row was last known alive: the newer of its
+ * heartbeat and its take. The claim loop before Hatchet held one take across
+ * many slices and refreshed only `heartbeat_at`, so `claimed_at` alone would
+ * call a row it is still working on stale.
  */
-export async function takeJob(jobId: string, run: string, options: { staleSeconds: number }): Promise<BffJobRow | null> {
+const lastAlive = sql`coalesce(greatest(${bffJobQueue.heartbeatAt}, ${bffJobQueue.claimedAt}), ${bffJobQueue.createdAt})`
+
+/** A claimed row whose holder has been silent for `staleSeconds`. */
+const silentClaim = (staleSeconds: number) =>
+  and(eq(bffJobQueue.status, 'claimed'), lt(lastAlive, sql`now() - make_interval(secs => ${staleSeconds})`))
+
+/**
+ * Take the job for `holder`: a row that waits and is due, or one whose holder
+ * went silent for `staleSeconds` (which the caller keeps above the slice
+ * timeout, `./hatchet-task.ts`). Never a row another attempt holds and may
+ * still be running, not even one held under the same name. `attempts` counts
+ * the take. Null when there is nothing to take: the job is gone (finished,
+ * purged, its enqueue rolled back or not committed yet), held by a live
+ * attempt, dead, or not due.
+ */
+export async function takeJob(jobId: string, holder: string, options: { staleSeconds: number }): Promise<BffJobRow | null> {
   const [row] = await getDb()
     .update(bffJobQueue)
-    .set({ status: 'claimed', claimedBy: run, claimedAt: sql`now()`, heartbeatAt: sql`now()`, attempts: sql`${bffJobQueue.attempts} + 1` })
+    .set({ status: 'claimed', claimedBy: holder, claimedAt: sql`now()`, heartbeatAt: sql`now()`, attempts: sql`${bffJobQueue.attempts} + 1` })
     .where(
       and(
         eq(bffJobQueue.jobId, jobId),
@@ -214,10 +232,7 @@ export async function takeJob(jobId: string, run: string, options: { staleSecond
             eq(bffJobQueue.status, 'queued'),
             or(isNull(bffJobQueue.notBefore), lte(bffJobQueue.notBefore, sql`now() + make_interval(secs => ${EARLY_TOLERANCE_SECONDS})`))
           ),
-          and(
-            eq(bffJobQueue.status, 'claimed'),
-            or(eq(bffJobQueue.claimedBy, run), lt(bffJobQueue.claimedAt, sql`now() - make_interval(secs => ${options.staleSeconds})`))
-          )
+          silentClaim(options.staleSeconds)
         )
       )
     )
@@ -225,9 +240,43 @@ export async function takeJob(jobId: string, run: string, options: { staleSecond
   return row ?? null
 }
 
-/** The job is done: its row goes. Whether this run still held it. */
-export async function finishJob(jobId: string, run: string): Promise<boolean> {
-  const rows = await getDb().delete(bffJobQueue).where(heldBy(jobId, run)).returning({ jobId: bffJobQueue.jobId })
+/** Whether the job's row exists at all, whatever its state: what tells "not committed yet" from "held". */
+export async function jobExists(jobId: string): Promise<boolean> {
+  const rows = await getDb().select({ jobId: bffJobQueue.jobId }).from(bffJobQueue).where(eq(bffJobQueue.jobId, jobId)).limit(1)
+  return rows.length > 0
+}
+
+/** The holder is still at work on the job. Whether it still held it. */
+export async function heartbeatJob(jobId: string, holder: string): Promise<boolean> {
+  const rows = await getDb()
+    .update(bffJobQueue)
+    .set({ heartbeatAt: sql`now()` })
+    .where(heldBy(jobId, holder))
+    .returning({ jobId: bffJobQueue.jobId })
+  return rows.length > 0
+}
+
+/**
+ * The pod is stopping with these attempts still running: queue their rows
+ * again at once, so the next run takes each without waiting out the stale
+ * window. One UPDATE, guarded per row on its holder, so a row another attempt
+ * took over meanwhile is left alone and a second call is no change. The
+ * attempt stays counted: a slice that is cut off at every drain still runs out
+ * of attempts. How many rows went back.
+ */
+export async function releaseJobs(held: ReadonlyArray<{ jobId: string; holder: string }>): Promise<number> {
+  if (held.length === 0) return 0
+  const rows = await getDb()
+    .update(bffJobQueue)
+    .set({ status: 'queued', claimedBy: null, heartbeatAt: null })
+    .where(or(...held.map(({ jobId, holder }) => heldBy(jobId, holder))))
+    .returning({ jobId: bffJobQueue.jobId })
+  return rows.length
+}
+
+/** The job is done: its row goes. Whether this holder still held it. */
+export async function finishJob(jobId: string, holder: string): Promise<boolean> {
+  const rows = await getDb().delete(bffJobQueue).where(heldBy(jobId, holder)).returning({ jobId: bffJobQueue.jobId })
   return rows.length > 0
 }
 
@@ -236,11 +285,11 @@ export async function finishJob(jobId: string, run: string): Promise<boolean> {
  * (not before `notBefore` when it waits on something), its attempts back to
  * none, because it made progress. `claimed_at` stays: it names this take, and
  * so the next run's key (`./hatchet-task.ts`, `generation`). Null when this
- * run no longer held it.
+ * holder no longer held it.
  */
 export async function saveJobProgress(
   jobId: string,
-  run: string,
+  holder: string,
   payload: object,
   notBefore: Date | null
 ): Promise<{ claimedAt: Date | null } | null> {
@@ -254,7 +303,7 @@ export async function saveJobProgress(
       claimedBy: null,
       heartbeatAt: null,
     })
-    .where(heldBy(jobId, run))
+    .where(heldBy(jobId, holder))
     .returning({ claimedAt: bffJobQueue.claimedAt })
   return row ? { claimedAt: row.claimedAt ? new Date(row.claimedAt) : null } : null
 }
@@ -262,11 +311,11 @@ export async function saveJobProgress(
 /**
  * The attempt went wrong: queued again, not before `retryInSeconds`, while it
  * has attempts left, or `dead` (its payload reduced to ids) when this was its
- * last. The reason is kept either way. Null when this run no longer held it.
+ * last. The reason is kept either way. Null when this holder no longer held it.
  */
 export async function failJob(
   jobId: string,
-  run: string,
+  holder: string,
   error: unknown,
   options: { maxAttempts: number; retryInSeconds: number }
 ): Promise<'queued' | 'dead' | null> {
@@ -282,18 +331,18 @@ export async function failJob(
       heartbeatAt: null,
       lastError: describeError(error),
     })
-    .where(heldBy(jobId, run))
+    .where(heldBy(jobId, holder))
     .returning({ status: bffJobQueue.status })
   if (!row) return null
   return row.status === 'dead' ? 'dead' : 'queued'
 }
 
 /** Mark the job dead whatever its attempts: no run will do it (a kind nobody knows, a run lost on its last attempt). */
-export async function killJob(jobId: string, run: string, reason: string): Promise<void> {
+export async function killJob(jobId: string, holder: string, reason: string): Promise<void> {
   await getDb()
     .update(bffJobQueue)
     .set({ status: 'dead', deadAt: sql`now()`, payload: scrubbedPayload, claimedBy: null, heartbeatAt: null, lastError: describeError(reason) })
-    .where(heldBy(jobId, run))
+    .where(heldBy(jobId, holder))
 }
 
 /** A row the dispatch sweep starts a run for. */
@@ -303,7 +352,10 @@ export type JobToDispatch = Pick<BffJobRow, 'jobId' | 'kind' | 'lane' | 'priorit
  * Rows no run is coming for, oldest first: queued and due for longer than
  * `graceSeconds` (an enqueue whose trigger failed or ran before its transaction
  * committed, a row from before Hatchet, an `insertJobIfAbsent`), or claimed by
- * a run silent for `staleSeconds` (its pod died on the last retry).
+ * a holder silent for `staleSeconds` (its pod died on the last retry, or a
+ * retry found it still held and left it). Silent by the newer of heartbeat
+ * and take, so a row the claim loop before Hatchet is still working on is not
+ * one.
  */
 export async function listJobsToDispatch(options: {
   graceSeconds: number
@@ -323,7 +375,7 @@ export async function listJobsToDispatch(options: {
     .where(
       or(
         and(eq(bffJobQueue.status, 'queued'), lt(due, sql`now() - make_interval(secs => ${options.graceSeconds})`)),
-        and(eq(bffJobQueue.status, 'claimed'), lt(bffJobQueue.claimedAt, sql`now() - make_interval(secs => ${options.staleSeconds})`))
+        silentClaim(options.staleSeconds)
       )
     )
     .orderBy(asc(bffJobQueue.createdAt))

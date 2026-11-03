@@ -16,8 +16,10 @@
  * this process's event loop is turning.
  *
  * On SIGTERM the worker stops taking runs and lets the ones in hand finish for
- * up to `BFF_JOBS_DRAIN_SECONDS`; a slice cut off then is retried by Hatchet on
- * another pod, from the progress its row saved.
+ * up to `BFF_JOBS_DRAIN_SECONDS`; the row of a slice cut off then is given back
+ * (`shutdownSliceHost`, `releaseInFlightJobs`), and the run is retried by
+ * Hatchet on another pod, which takes the row at once, from the progress it
+ * saved. A give-back that fails leaves the row to the stale window.
  *
  * Environment (the BFF's own, `frontendEnv`, plus):
  *   HATCHET_CLIENT_TOKEN, HATCHET_CLIENT_HOST_PORT, HATCHET_CLIENT_TLS_STRATEGY,

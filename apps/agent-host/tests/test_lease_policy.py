@@ -9,7 +9,11 @@ import pytest
 
 from agent_host.jobs import lease_policy
 
-_BFF_RUNNER = Path(__file__).resolve().parents[3] / "apps" / "workspace" / "workers" / "jobs" / "index.js"
+_WORKSPACE = Path(__file__).resolve().parents[3] / "apps" / "workspace"
+# Where each BFF default is read since the claim loop moved to Hatchet (ADR-0150).
+_BFF_RUNNER = _WORKSPACE / "workers" / "jobs" / "index.js"
+_BFF_ATTEMPTS = _WORKSPACE / "bff" / "jobs-queue" / "attempts.ts"
+_BFF_TASK = _WORKSPACE / "bff" / "jobs-queue" / "hatchet-task.ts"
 
 
 @pytest.mark.parametrize(
@@ -43,15 +47,21 @@ def test_the_liveness_marker_is_written_and_a_failed_write_does_not_raise(tmp_pa
     assert "Could not write the liveness file" in caplog.text
 
 
-def _bff_default(name: str) -> int:
-    declared = re.search(rf"toInt\(env\.{name},\s*([\d_]+)\)", _BFF_RUNNER.read_text())
-    assert declared, f"{name} has no default in {_BFF_RUNNER}"
+def _bff_default(source: Path, name: str) -> int:
+    declared = re.search(rf"toInt\(env\.{name},\s*([\d_]+)\)", source.read_text())
+    assert declared, f"{name} has no default in {source}"
     return int(declared.group(1))
 
 
-def test_the_bff_claim_loop_shares_the_lease_defaults_that_are_meant_to_be_shared():
+def _bff_max_attempts() -> int:
+    declared = re.search(r"const DEFAULT_MAX_ATTEMPTS = ([\d_]+)", _BFF_ATTEMPTS.read_text())
+    assert declared, f"BFF_JOBS_MAX_ATTEMPTS has no default in {_BFF_ATTEMPTS}"
+    return int(declared.group(1))
+
+
+def test_the_bff_jobs_share_the_lease_defaults_that_are_meant_to_be_shared():
     """Max attempts and dead retention are one policy. The drain is not: a BFF slice is a minute, a run ten."""
-    assert _bff_default("BFF_JOBS_MAX_ATTEMPTS") == lease_policy.MAX_ATTEMPTS
-    assert _bff_default("BFF_JOBS_DEAD_RETENTION_DAYS") == lease_policy.DEAD_RETENTION_DAYS
-    assert _bff_default("BFF_JOBS_DRAIN_SECONDS") == 60
+    assert _bff_max_attempts() == lease_policy.MAX_ATTEMPTS
+    assert _bff_default(_BFF_TASK, "BFF_JOBS_DEAD_RETENTION_DAYS") == lease_policy.DEAD_RETENTION_DAYS
+    assert _bff_default(_BFF_RUNNER, "BFF_JOBS_DRAIN_SECONDS") == 60
     assert lease_policy.DRAIN_SECONDS == 600

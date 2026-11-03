@@ -119,11 +119,26 @@ describe.skipIf(!url)('taking a due occurrence against Postgres', () => {
   it('finds an overdue row across organizations, and records the scheduled run it is given', async () => {
     const id = await insertDefinition('schedule', new Date(Date.now() - 10 * 60_000))
 
-    const overdue = await repo.findOverdueDefinitions(3, 500)
+    const overdue = await repo.findDefinitionsToRepair(3, 500)
     expect(overdue.map((row) => row.id)).toContain(id)
 
     await inTenant(() => repo.setScheduledRunId(id, ORG, 'run_1'))
     const [row] = await inTenant(() => db.execute<{ scheduled_run_id: string }>(sql`SELECT scheduled_run_id FROM task_definitions WHERE id = ${id}::uuid`))
     expect(row?.scheduled_run_id).toBe('run_1')
+    // Still overdue with a run on record: the repair schedules it again.
+    expect((await repo.findDefinitionsToRepair(3, 500)).map((row) => row.id)).toContain(id)
+  })
+
+  it('finds a definition with no scheduled run however far ahead it is due, and not once it has one', async () => {
+    const ahead = await insertDefinition('schedule', new Date(Date.now() + 7 * 86_400_000))
+    const paused = await insertDefinition('schedule', new Date(Date.now() + 86_400_000))
+    await inTenant(() => db.execute(sql`UPDATE task_definitions SET enabled = false WHERE id = ${paused}::uuid`))
+
+    const found = (await repo.findDefinitionsToRepair(3, 500)).map((row) => row.id)
+    expect(found).toContain(ahead)
+    expect(found).not.toContain(paused)
+
+    await inTenant(() => repo.setScheduledRunId(ahead, ORG, 'run_ahead'))
+    expect((await repo.findDefinitionsToRepair(3, 500)).map((row) => row.id)).not.toContain(ahead)
   })
 })
