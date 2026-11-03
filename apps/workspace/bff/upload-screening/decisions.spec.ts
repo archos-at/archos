@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('./review', () => ({ releaseQuarantinedDocument: vi.fn() }))
+vi.mock('./review', () => ({ releaseQuarantinedDocument: vi.fn(), settleReleaseRequests: vi.fn() }))
 vi.mock('./quarantine-reviewers', () => ({ mayReviewQuarantine: vi.fn() }))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
 vi.mock('@/lib/documents/document-edits', () => ({ deleteDocument: vi.fn() }))
@@ -16,7 +16,7 @@ import { makeDocument } from '@/test-utils/db-fixtures'
 import { decideQuarantinedDocuments } from './decisions'
 import { quarantineDecisionsSchema, QUARANTINE_DECISION_LIMIT } from './decisions-wire'
 import { mayReviewQuarantine } from './quarantine-reviewers'
-import { releaseQuarantinedDocument } from './review'
+import { releaseQuarantinedDocument, settleReleaseRequests } from './review'
 
 const reviewer: AuthorizedSession = {
   userId: 'user-admin',
@@ -82,6 +82,8 @@ describe('decideQuarantinedDocuments', () => {
     ])
     expect(deleteDocument).toHaveBeenCalledWith(reviewer, 'p', request)
     expect(deleteSessionDocument).toHaveBeenCalledWith(reviewer, 's', request)
+    // The uploader's ask about each is answered: it leaves the reviewers' inboxes.
+    expect(settleReleaseRequests).toHaveBeenCalledWith('org-1', 'p')
   })
 
   it('deletes nothing that is no longer held, nor what the session does not review', async () => {

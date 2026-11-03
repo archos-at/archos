@@ -71,6 +71,7 @@ export const uploadBatches: typeof en.uploadBatches = {
       // wo er von ihr erfährt (ADR-0086): eine Prüfung irrt, eine Auftragsnummer
       // sieht aus wie eine Kartennummer.
       allowAnyway: 'Trotzdem zulassen',
+      viewFinding: 'Fundstelle ansehen',
       allowAnywayTitle: '„{name}“ trotzdem zulassen?',
       allowAnywayDescription:
         'Sehen Sie sich zuerst die Fundstelle an. Ist sie keine echte Kartennummer, IBAN oder Sozialversicherungsnummer, lassen Sie die Datei zu: {productName} liest sie dann wie jeden anderen Upload, und Sprachmodelle sehen ihren Inhalt. Ihre Entscheidung wird mit Ihrem Namen protokolliert.',

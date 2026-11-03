@@ -14,8 +14,9 @@
  * Rows can be picked and decided together, filtered by what held them
  * (`./quarantine-selection`): the server takes the selection as one request and
  * answers per file. Release sends the file to the models like any other
- * upload, so it asks first. Delete goes through the shelf's own delete route. A row leaves the
- * list only once the server said yes.
+ * upload, so it asks first. Delete goes through the same decision route, which
+ * deletes only a file that is still held and answers the uploader's request
+ * for a review. A row leaves the list only once the server said yes.
  *
  * „Ansehen" opens the file where it is filed, in the project's Files view or
  * the Büroablage, on its preview, which opens at the first finding and offers
@@ -33,7 +34,6 @@ import { ApiRequestError } from '@/adapters/api/api-error'
 import { listProjects } from '@/adapters/api/projects-client'
 import {
   decideQuarantinedDocuments,
-  deleteQuarantinedDocument,
   listQuarantineQueue,
   releaseQuarantinedDocument,
   type QuarantineQueueItem,
@@ -177,16 +177,21 @@ export const QuarantineQueue: FC = () => {
     }
   }
 
+  // Through the decision route, as a selection's delete: it deletes only what
+  // is still held, and answers the uploader's „Prüfung anfragen".
   const remove = async (item: QuarantineQueueItem): Promise<void> => {
-    try {
-      await deleteQuarantinedDocument(item)
+    const outcome = await decideQuarantinedDocuments('delete', [item.id])
+      .then((results) => results[0]?.outcome ?? 'failed')
+      .catch(() => 'failed' as const)
+    if (outcome === 'deleted') {
       drop(item.id)
       toast.success(t('quarantine.deleted', { name: item.filename }))
-    } catch (error) {
-      const notInChat = item.scope === 'session' && error instanceof ApiRequestError && error.status === 404
-      toast.error(notInChat ? t('quarantine.deleteErrorSession') : t('quarantine.deleteError'))
-      void load()
+      return
     }
+    // A chat attachment is not found for a reviewer who is not in that chat.
+    const notInChat = item.scope === 'session' && outcome === 'not_found'
+    toast.error(notInChat ? t('quarantine.deleteErrorSession') : outcome === 'changed' ? t('quarantine.changed') : t('quarantine.deleteError'))
+    void load()
   }
 
   if (failed) {

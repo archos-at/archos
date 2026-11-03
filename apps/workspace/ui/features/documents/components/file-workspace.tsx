@@ -368,7 +368,6 @@ export function FileWorkspace({
     reloadFilesRef.current = reloadAll
   }, [reloadAll])
 
-
   const upload = shelf.useUpload({
     collectionName,
     folderId: selectedFolderId ?? undefined,
@@ -949,6 +948,7 @@ export function FileWorkspace({
         onCancel={upload.cancelFile}
         onCancelAll={upload.cancelUpload}
         onDismiss={upload.dismissFiles}
+        onOpenDocument={handlers.onOpenDocument}
       />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

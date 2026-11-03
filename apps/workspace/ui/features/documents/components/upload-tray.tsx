@@ -61,6 +61,8 @@ interface UploadTrayProps {
   onCancelAll?: () => void
   /** Take rows off the tray. Dismissing a NOTICE — never a document delete. */
   onDismiss?: (ids: string[]) => void
+  /** Open one of the shelf's documents in the preview, where the surface has one. */
+  onOpenDocument?: (documentId: string) => void
 }
 
 /** Phases that belong on a live upload surface. */
@@ -112,7 +114,7 @@ function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, readOnline, serverOnline)
 }
 
-export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }: UploadTrayProps) {
+export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument }: UploadTrayProps) {
   // Height and opacity are not covered by MotionConfig's reduced motion.
   const foldTransition = useMotionToken(motionBase)
   const t = useTranslations(filesCopy)
@@ -359,6 +361,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
                   onRetry={onRetry}
                   onCancel={onCancel}
                   onDismiss={onDismiss}
+                  onOpenDocument={onOpenDocument}
                 />
               ))}
             </AnimatePresence>
@@ -515,12 +518,8 @@ function UploadRow({
   onRetry,
   onCancel,
   onDismiss,
-}: {
-  file: TrackedFile
-  onRetry: (id: string) => void
-  onCancel?: (id: string) => void
-  onDismiss?: (ids: string[]) => void
-}) {
+  onOpenDocument,
+}: Pick<UploadTrayProps, 'onRetry' | 'onCancel' | 'onDismiss' | 'onOpenDocument'> & { file: TrackedFile }) {
   const t = useTranslations(filesCopy)
   const tc = useTranslations(commonCopy)
   const { locale } = useLocale()
@@ -739,6 +738,7 @@ function UploadRow({
                   documentId={reviewableId}
                   name={file.fileName}
                   onReleased={reviewableId === file.serverFileId ? () => readAllowedRowAgain(file.id) : undefined}
+                  onView={onOpenDocument && (() => onOpenDocument(reviewableId))}
                   className="mt-2 h-7 px-2 text-xs"
                   askTestId="upload-row-request-review"
                   allowTestId="upload-row-allow"

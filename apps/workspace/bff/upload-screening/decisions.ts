@@ -24,7 +24,7 @@ import type {
   QuarantineDecisions,
 } from './decisions-wire'
 import { mayReviewQuarantine } from './quarantine-reviewers'
-import { releaseQuarantinedDocument } from './review'
+import { releaseQuarantinedDocument, settleReleaseRequests } from './review'
 
 export async function decideQuarantinedDocuments(
   session: AuthorizedSession,
@@ -65,6 +65,7 @@ async function remove(
   if (!isHeldAtRest(doc)) return 'changed'
   if (doc.scope === 'session') await deleteSessionDocument(session, id, request)
   else await deleteDocument(session, id, request)
+  await settleReleaseRequests(session.organizationId, id)
   return 'deleted'
 }
 

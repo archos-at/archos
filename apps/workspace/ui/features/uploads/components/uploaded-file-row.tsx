@@ -17,6 +17,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import type { UploadSummary, UploadSummaryDocument } from '@/adapters/api/upload-batches-client'
 import { Chip } from '@/components/ui/chip'
@@ -40,12 +41,14 @@ const SUMMARY_LINES = 2
  * „Trotzdem zulassen" for whoever may decide, „Prüfung anfragen" for the
  * uploader who may not (ADR-0086), as the tray and the Files preview offer it.
  */
-function HeldFileDecision({ documentId, name }: { documentId: string; name: string }): JSX.Element {
+function HeldFileDecision({ documentId, name, href }: { documentId: string; name: string; href: string | null }): JSX.Element {
+  const router = useRouter()
   return (
-    <div>
+    <div className="flex flex-wrap gap-1.5">
       <HeldUploadDecision
         documentId={documentId}
         name={name}
+        onView={href ? () => router.push(href) : undefined}
         askTestId={`upload-file-request-release-${documentId}`}
         allowTestId={`upload-file-allow-${documentId}`}
       />
@@ -148,7 +151,7 @@ export function UploadedFileRow({
               verdict={document.quarantine ?? null}
               testId={`upload-file-findings-${document.id}`}
             />
-            <HeldFileDecision documentId={document.id} name={name} />
+            <HeldFileDecision documentId={document.id} name={name} href={href} />
           </div>
         )}
 
@@ -163,7 +166,7 @@ export function UploadedFileRow({
           // Its reading ended before the check had a verdict, so colleagues do
           // not see it until a reviewer releases it (ADR-0086); a retry of an
           // IFC too large to read fails the same way.
-          <HeldFileDecision documentId={document.id} name={name} />
+          <HeldFileDecision documentId={document.id} name={name} href={href} />
         )}
 
         {partlyChecked && document.outcome !== 'quarantined' && (

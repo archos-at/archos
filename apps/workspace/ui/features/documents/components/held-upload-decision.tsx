@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useState, type JSX } from 'react'
-import { ShieldCheck, ShieldOff } from 'lucide-react'
+import { Eye, ShieldCheck, ShieldOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { ApiRequestError } from '@/adapters/api/api-error'
@@ -40,6 +40,11 @@ export interface HeldUploadDecisionProps {
   name: string
   /** The file was allowed and sent to be read, with this status. */
   onReleased?: (status: string) => void
+  /**
+   * Open the file at its findings, where the surface can: deciding whether
+   * `4111 …` is a card number takes seeing it, which the masked sample hides.
+   */
+  onView?: () => void
   className?: string
   /** The test ids of the two buttons. */
   askTestId: string
@@ -50,6 +55,7 @@ export function HeldUploadDecision({
   documentId,
   name,
   onReleased,
+  onView,
   className,
   askTestId,
   allowTestId,
@@ -112,6 +118,19 @@ export function HeldUploadDecision({
 
   return (
     <>
+      {onView && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={className}
+          onClick={onView}
+          data-testid={`${allowTestId}-view`}
+        >
+          <Eye className="size-4" aria-hidden />
+          {t('summary.files.viewFinding')}
+        </Button>
+      )}
       <Button
         type="button"
         variant="outline"

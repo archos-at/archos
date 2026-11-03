@@ -7,8 +7,7 @@
  *   - access  → `GET     /api/documents/[id]/quarantine`
  *   - release → `POST    /api/documents/[id]/quarantine/release`
  *   - ask     → `POST    /api/documents/[id]/quarantine/request-release`
- *   - several → `POST    /api/quarantine/decisions` (allow or delete a selection)
- *   - delete  → each shelf's own delete route (project, Archiv, chat)
+ *   - decide  → `POST    /api/quarantine/decisions` (allow or delete one file or a selection)
  *
  * The queue's server type lives in `lib/upload-screening/review.ts`, which is
  * server-only, so its wire shape is declared here. The verdict is NOT
@@ -58,7 +57,6 @@ const QuarantineQueueSchema = z.object({ items: z.array(QuarantineQueueItemSchem
 
 export type UploadScreeningState = z.infer<typeof UploadScreeningResponseSchema>
 export type QuarantineQueueItem = z.infer<typeof QuarantineQueueItemSchema>
-export type QuarantineScope = QuarantineQueueItem['scope']
 
 async function requestError(response: Response, fallback: string): Promise<ApiRequestError> {
   const body: unknown = await response.json().catch(() => null)
@@ -136,26 +134,6 @@ export async function requestQuarantineRelease(documentId: string): Promise<{ no
   })
   if (!response.ok) throw await requestError(response, 'Failed to ask for the release')
   return ReleaseRequestSchema.parse(await response.json())
-}
-
-/** Where each shelf deletes one of its documents. */
-const DELETE_ROUTE: Record<QuarantineScope, (id: string) => string> = {
-  project: (id) => `/api/documents/${encodeURIComponent(id)}`,
-  office_shelf: (id) => `/api/documents/${encodeURIComponent(id)}`,
-  session: (id) => `/api/session/documents/${encodeURIComponent(id)}`,
-}
-
-/**
- * Delete one quarantined document through its shelf's delete route.
- *
- * Unlike the shelves' own helpers, a 404 is a failure here. The row was just
- * listed as reviewable, so "not found" means this session may not delete it
- * (a chat attachment answers 404 to anyone who is not in that chat), and
- * dropping the row would claim a delete that did not happen.
- */
-export async function deleteQuarantinedDocument(item: Pick<QuarantineQueueItem, 'id' | 'scope'>): Promise<void> {
-  const response = await fetch(DELETE_ROUTE[item.scope](item.id), { method: 'DELETE' })
-  if (!response.ok) throw await requestError(response, 'Failed to delete the document')
 }
 
 /**

@@ -33,7 +33,7 @@ import { resolveDocumentFolderPath } from '@/lib/documents/folder-path'
 import { documentShelf } from '@/lib/documents/shelf'
 import { publishShelfChanged } from '@/lib/documents/shelf-live'
 import { inboxGroupKey } from '@/lib/inbox/registry'
-import { emitInboxItems } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
 import { quarantineReviewersOf } from '@/lib/upload-batches/settle'
 import { quarantineNoticePayload, quarantineVerdictOf, type QuarantineVerdict } from './quarantine'
 import { mayReviewQuarantine } from './quarantine-reviewers'
@@ -87,6 +87,7 @@ export async function releaseQuarantinedDocument(
   if (!took) throw new ConflictError('The document changed while it was being released; open it again')
   // Released: on its shelf for everyone who may read it, from now on.
   publishShelfChanged(session.organizationId, documentShelf(doc))
+  await settleReleaseRequests(session.organizationId, doc.id)
 
   const { jobId, status } = await dispatchDocument({
     organizationId: session.organizationId,
@@ -122,6 +123,15 @@ export async function releaseQuarantinedDocument(
     request,
   })
   return { id: doc.id, status, jobId }
+}
+
+/**
+ * The uploader's „Prüfung anfragen" about this document is answered: it was
+ * allowed or deleted. Its rows leave every reviewer's inbox, so nobody opens
+ * the queue for a file someone already decided about.
+ */
+export async function settleReleaseRequests(organizationId: string, documentId: string): Promise<void> {
+  await resolveInboxItemsAnchoredOn({ organizationId, types: ['document.release_requested'], anchorId: documentId })
 }
 
 export interface ReleaseRequestResult {

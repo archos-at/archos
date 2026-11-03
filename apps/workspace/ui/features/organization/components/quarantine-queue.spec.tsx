@@ -132,22 +132,23 @@ describe('QuarantineQueue', () => {
     expect(screen.getByTestId('quarantine-row-doc-2')).toBeInTheDocument()
   })
 
-  it.each([
-    ['doc-1', '/api/documents/doc-1'],
-    ['doc-2', '/api/documents/doc-2'],
-    ['doc-3', '/api/session/documents/doc-3'],
-  ])('delete of %s goes through its shelf route %s and removes the row', async (id, route) => {
-    stubApi()
-    render(<QuarantineQueue />)
-    fireEvent.click(await screen.findByTestId(`quarantine-delete-${id}`))
-    fireEvent.click(screen.getByTestId('quarantine-delete-confirm'))
-    await waitFor(() => expect(screen.queryByTestId(`quarantine-row-${id}`)).not.toBeInTheDocument())
-    expect(calledWith(route, 'DELETE')).toBe(true)
-  })
+  it.each(['doc-1', 'doc-2', 'doc-3'])(
+    'delete of %s goes through the decision route, which deletes only what is still held, and removes the row',
+    async (id) => {
+      stubApi(ITEMS, (url) =>
+        url === '/api/quarantine/decisions' ? Response.json({ results: [{ id, outcome: 'deleted' }] }) : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId(`quarantine-delete-${id}`))
+      fireEvent.click(screen.getByTestId('quarantine-delete-confirm'))
+      await waitFor(() => expect(screen.queryByTestId(`quarantine-row-${id}`)).not.toBeInTheDocument())
+      expect(calledWith('/api/quarantine/decisions', 'POST')).toBe(true)
+    }
+  )
 
   it('keeps the row when the delete is refused, and says why for a chat attachment', async () => {
-    stubApi(ITEMS, (url, init) =>
-      init?.method === 'DELETE' && url.startsWith('/api/session/') ? new Response(null, { status: 404 }) : undefined
+    stubApi(ITEMS, (url) =>
+      url === '/api/quarantine/decisions' ? Response.json({ results: [{ id: 'doc-3', outcome: 'not_found' }] }) : undefined
     )
     render(<QuarantineQueue />)
     fireEvent.click(await screen.findByTestId('quarantine-delete-doc-3'))
