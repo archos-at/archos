@@ -76,8 +76,9 @@ starts: check any change of bank details by phone, never by replying.
 Other lines you may see: „An andere Empfänger adressiert“ (the project was not
 among the signed recipients), „Datum liegt mehr als 7 Tage vor dem Eingang“,
 „Liegt schon in einem E-Mail-Verlauf“ (this mail's text is filed already), and
-„Ursprünglich von … · nicht geprüft“ for a forwarded mail, read from the
-forwarded text and checked by nobody.
+„Von … · Domain nicht bestätigt · weitergeleitet von …“ for a forwarded mail:
+who wrote it is read from the forwarded text and checked by nobody, since the
+domain confirms only the forward.
 
 The mail's text is shown as plain text: links are not opened, and nothing from
 outside is loaded. Long text folds; „Zitierten Text anzeigen“ shows what the
@@ -85,7 +86,7 @@ sender quoted.
 
 ## Bereit and Braucht Sie
 
-The waiting mails stand under two headings. **Bereit** means the sender's
+The waiting mails stand under two headings, and a third when a colleague's mail waits for them. **Bereit** means the sender's
 domain is confirmed, every part has a suggested place, and nothing needs
 checking. „Wie vorgeschlagen ablegen“ on such a row files it in one press,
 without a confirmation; the mail is read again first, and if it changed
@@ -93,9 +94,14 @@ meanwhile („Anhang wird noch geprüft …“) nothing is filed and you are tol
 why. With two or more ready mails, „Alle {n} wie vorgeschlagen ablegen“ files
 them after a confirmation grouped by destination (at most 20 at a time).
 
-Under **Braucht Sie** each mail says what it needs: „Absender prüfen“, „Anhang
-prüfen“, „Anhang wird noch geprüft …“, „E-Mail-Verlauf wählen“, „Ordner
-wählen“ or „Projekt ist abgeschlossen“. A mail that poses as someone never gets
+Under **Braucht Sie** each mail says what it needs: „Haben Sie sie gesendet?
+Bestätigen Sie es“ (your own mail your domain did not confirm), „Absender
+prüfen“, „Anhang prüfen“, „Anhang wird noch geprüft …“, „E-Mail-Verlauf
+wählen“, „Ordner wählen“ or „Projekt ist abgeschlossen“. „Nicht von selbst
+abgelegt“ marks a colleague's verified mail that direct filing left for a
+person. Under **Wartet auf andere** stand mails with a colleague's address
+that only that colleague can file („Wartet auf {Name}“): you can dismiss them,
+and then only they can restore them. A mail that poses as someone never gets
 the button. Mail from an unconfirmed domain and automatic mail sit below, in a
 folded group. „Bearbeitet“ lists what was filed, dismissed or expired, each row
 saying which. The Postfach's „E-Mails warten“ opens the list at „Bereit“.

@@ -94,8 +94,10 @@ list and the detail while the component's own box is wider than 48rem
 
 **The list** („Wartet auf Ablage · Bearbeitet“; `lib/list-sections.ts`,
 `lib/completeness.ts`, `inbound-mail-list.tsx`, `inbound-mail-row.tsx`).
-„Wartet auf Ablage“ has two headings: „Bereit ({n})“ first, „Braucht Sie
-({n})“ second, then the collapsed quiet group „Domain nicht bestätigt oder
+„Wartet auf Ablage“ has up to three headings: „Bereit ({n})“ first, „Braucht Sie
+({n})“ second, „Wartet auf andere ({n})“ third (mail only another member may
+file, `onlySenderReleases`, never an impersonation: dismissing a forgery is the
+reader's to do), then the collapsed quiet group „Domain nicht bestätigt oder
 automatisch ({n})“ (mail from an unconfirmed domain and automatic mail).
 „Bereit“ means the server's `incompleteReason` is null and the mail does not
 read as an impersonation (the client refuses an impersonation on its own side
@@ -114,7 +116,11 @@ the press: „1 E-Mail wird wie vorgeschlagen abgelegt“ with the destinations
 („In E-Mail-Verlauf „Verfahren MA 37“: 1 · In „Behörde“: 1“). A row under
 „Braucht Sie“ says what it needs: „Absender prüfen“, „Anhang prüfen“, „Anhang
 wird noch geprüft …“, „E-Mail-Verlauf wählen“, „Ordner wählen“, „Projekt ist
-abgeschlossen“.
+abgeschlossen“. A mail that names a member whose domain did not confirm it is
+phrased for its reader (`mailClaimOf`, `lib/sender.ts`): the member reads
+„Haben Sie sie gesendet? Bestätigen Sie es“, a colleague „Wartet auf {Name}“
+under „Wartet auf andere“. A verified writer's mail direct filing left
+(`waitReason: 'not_filed'`) reads „Nicht von selbst abgelegt · {what it needs}“.
 
 Thread groups are split by readiness: a conversation's ready replies are one
 group under „Bereit“ with „Alle {n} ablegen (wird Fassung {a}–{b})“ (or „Die
@@ -134,14 +140,35 @@ Mitglied, die Adresse {Adresse} nicht.“, then „So beginnen Betrugsversuche m
 Kontoänderungen. …“). „Verwerfen“ is the primary button; the filing controls
 fold behind „Trotzdem ablegen …“ („Nur wenn Sie telefonisch geprüft haben, dass
 die E-Mail echt ist.“), and filing still needs „Ich habe geprüft, dass die
-E-Mail echt ist. Trotzdem ablegen“.
+E-Mail echt ist. Trotzdem ablegen“. Once opened the button reads „Ablage
+schließen“.
+
+One voice per reader. The member a rejected mail claims (`mailClaimOf` is
+`own`) never reads a fraud warning about themself: the warning says „Diese
+E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt.“ and to dismiss
+it unless they sent it, the trust reads „Ihre Adresse · von Ihrer Domain
+abgelehnt“, the row „Mit Ihrer Adresse, von Ihrer Domain abgelehnt · prüfen“,
+the fold's hint „Nur wenn Sie diese E-Mail selbst gesendet haben.“ and the yes
+„Ja, ich habe diese E-Mail gesendet. Ablegen“. No wait line stands under an
+impersonation's warning: the warning says why and what to do.
+
+**A mail only another member may file** (`onlySenderReleases`, the reader is a
+colleague) is shown, never decided: its parts carry no checkbox, no target and
+no „Ändern“, the text has no filing row, and „Trotzdem ablegen …“ is not
+offered. The bar is `ClaimedMailBar`: „Nur {Name} kann diese E-Mail ablegen
+oder wiederherstellen. Sie können sie verwerfen.“ and „Verwerfen …“, whose
+confirmation names the member and their address and says only they can restore
+it (the server refuses a colleague's filing and restore alike, `sender_only`).
+The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confirmation.
 
 **The detail** opens on the mail (`mail-header.tsx`), top to bottom:
 1. The header: the subject, then ONE line „{Name} ‹{Adresse}›“ (name and
    address always together), the trust („Domain bestätigt: {domain}“ with its
    ⓘ toggletip; trust is never folded), the received time and „Details ▾“. The
-   sender's flags („An andere Empfänger adressiert“, …) and „Ursprünglich von …
-   · nicht geprüft“ stay visible under it. „Details“ opens Gesendet,
+   sender's flags („An andere Empfänger adressiert“, …), why it waits
+   (`SenderWaitLine`, one sentence ending on the reader's next step) and, for a
+   forward, „Von {Autor} · Domain nicht bestätigt · weitergeleitet von {Name}“
+   (the Verlauf's and the provenance line's words) stay visible under it. „Details“ opens Gesendet,
    Eingegangen, every recipient (An, Cc, Antwort an), „Wartet bis {Datum},
    danach läuft sie ab“ and „Original (.eml) herunterladen“ with „Öffnet sich
    im Mailprogramm; Bilder von außen werden dort geladen.“, or the original's
@@ -165,8 +192,10 @@ E-Mail echt ist. Trotzdem ablegen“.
    nicht ablegen“ still show.
 5. The decision bar, pinned and safe-area padded: „Verwerfen“ left; right
    „{n} Dateien und den E-Mail-Text ablegen“ / „E-Mail-Text ablegen“ /
-   „Nichts ablegen“; „Domain nicht bestätigt. Trotzdem ablegen“ only where the
-   server asks for `acknowledgeSender`.
+   „Nichts ablegen“; „Domain nicht bestätigt. Trotzdem ablegen“ (the member's
+   own: „Ja, ich habe diese E-Mail gesendet. Ablegen“) only where the server
+   asks for `acknowledgeSender`. A colleague of a claimed mail gets
+   `ClaimedMailBar` instead (above).
 6. After filing, the follow offer: „Diesem E-Mail-Verlauf folgen“ with one line
    of what it does and the button „Folgen“, only when the sender would qualify.
 

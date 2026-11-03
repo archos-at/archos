@@ -67,8 +67,8 @@ when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
 
 | Class | When | What happens | Window |
 |---|---|---|---|
-| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a check WorkOS does not answer is waited out within the fault budget, then the mail is held `sender_unchecked`, never classed on a "no"), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them; with direct filing switched off, the whole mail waits for any of the project's writers (`paused`) | 30 days |
-| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it. Nobody else can release it, the member gone from the office included (the database cannot see WorkOS): the wait line and the `sender_only` copy tell the others to dismiss it or forward the original themselves | 30 days |
+| `verified_writer` | a DKIM pass by the From domain itself (strict alignment: `d=` equals the From domain; a parent's or a subdomain's pass is `relaxed_alignment` and waits as `unverified_writer`), the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a check WorkOS does not answer is waited out within the fault budget, then the mail is held `sender_unchecked`, never classed on a "no"), a signed To or Cc naming the project (never a Bcc copy: `bcc_own` is told from a recipient's replay of the member's mail by time alone), no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for any of the project's writers (`not_filed`); with direct filing switched off, the whole mail waits for them (`paused`) | 30 days |
+| `unverified_writer` | the From is such a member, but the signature failed or is absent, or the mail is not addressed to the project (their Bcc copy included), or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it. Nobody else can release it, the member gone from the office included (the database cannot see WorkOS): the colleague's dismiss confirmation (`ClaimedMailBar`) and the help page tell the others to download the original first and forward it themselves; nothing on the screen says the member has left, since no view carries that | 30 days |
 | `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
 | `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
 
@@ -377,8 +377,13 @@ job. A mail that claims another member (`unverified_writer`) is refused with
 `sender_only` for anyone but that member (`onlySenderReleases` on the views);
 its member files it with `acknowledgeSender`, which every `unverified_writer`
 mail needs (`senderNeedsAcknowledgement`). The E-Mail-Eingang says why a mail
-waits under its sender (`waitReason`: `signature`, `no_write_rights`,
-`outside_office`; `SenderWaitLine`).
+waits under its sender (`waitReason`: `signature`, `replay`, `automatic`,
+`paused`, `not_filed`, `no_write_rights`, `outside_office`,
+`sender_unchecked`; `SenderWaitLine`), phrased for its reader: the claimed
+member is asked, a colleague told whom it waits for (`mailClaimOf`). The list
+summary carries `waitReason` and `onlySenderReleases` too, so a row says the
+same (`inbound-mail-row.tsx`) and a colleague's claimed mail stands under
+„Wartet auf andere“ (`lib/list-sections.ts`).
 
 Defaults, completeness and thread groups are the server's
 (`review-defaults.ts`, `thread-groups.ts`, `forwarded.ts`): a part is
@@ -566,6 +571,14 @@ backstop, never the filter.
 `{ subject: <project name>, variant?, related? }`: no sender, subject or file
 name reaches a row or a push. Mail from an unconfirmed domain or automatic mail
 adds the variant `unconfirmed`.
+
+**A title carries the whole notice.** The Postfach page lists rows with
+`InboxQueueList`, „one quiet line each“: it draws a row's title and caption,
+never its body (`inboxItemCopy(...).title` only). The body reaches the push and
+`InboxItemRow`. So each title names the action itself, `held` with both answers
+(„Haben Sie eine E-Mail an das Projekt „…“ gesendet? Sonst verwerfen“, since a
+forger causes it too), `decided` `direct` with „direkt“, and a title never says
+„diese E-Mail“: with no subject in the payload it points at nothing.
 
 | Type | Told to | Row | Link | Push | Settled |
 |---|---|---|---|---|---|

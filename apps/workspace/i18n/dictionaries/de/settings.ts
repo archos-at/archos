@@ -132,7 +132,7 @@ export const settings: typeof en.settings = {
       knowledgeLink: 'Wissensbasis öffnen',
       inboundMailTitle: 'E-Mail-Adresse des Projekts',
       inboundMailDescription:
-        'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben, oder leiten Sie Unterlagen an sie weiter. Die E-Mails warten im E-Mail-Eingang unter Dateien; {productName} schlägt für jeden Anhang Ordner, Namen und Dokumentart vor. Abgelegt wird nur, was eine Person bestätigt.',
+        'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben, oder leiten Sie Unterlagen an sie weiter. Was jemand mit Schreibrecht im Projekt von der eigenen Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere wartet im E-Mail-Eingang unter Dateien, bis jemand es ablegt; {productName} schlägt für jeden Anhang Ordner, Namen und Dokumentart vor.',
     },
   },
 }

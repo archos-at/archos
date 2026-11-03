@@ -7,17 +7,23 @@ features:
     the Behörde's letter and it is in the project, with anything lacking a
     clear place or carrying a warning waiting for you in the E-Mail-Eingang.
   - >
-    A mail carrying your address that could not be filed directly (its
-    signature did not match, it is your Bcc copy, it reads as re-sent or
+    A mail carrying your address that could not be filed directly (your
+    domain did not confirm it, it is your Bcc copy, it reads as re-sent or
     misdated, or it was sent automatically) waits for you alone, and the
-    Postfach asks „Haben Sie diese E-Mail gesendet?“. Anyone in the project
-    can still dismiss it.
+    Postfach asks „Haben Sie diese E-Mail gesendet?“. If your domain rejected
+    it outright, the E-Mail-Eingang says so in your own words.
   - >
-    Each waiting mail says why it waits: a signature that did not match, a
-    mail that may have been re-sent or sent automatically, a sender who may
-    not file in the project, or a sender outside the office. Mail from
-    outside the office waits 14 days instead of 30, and nobody outside the
-    office is ever told anything about it.
+    Your colleagues see such a mail under „Wartet auf andere“, with your name,
+    and can only dismiss it. The confirmation tells them that only you can
+    restore it.
+  - >
+    Each waiting mail says why it waits and what to do next, in the detail
+    and on its row. Mail from outside the office waits 14 days instead of 30,
+    then expires for good, and nobody outside the office is told anything.
+  - >
+    The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's
+    origin names who wrote it and who forwarded it. The project settings, the
+    address dialog and the guide on the website describe direct filing.
   - >
     The Postfach tells you when your own mail to a project waits, was filed,
     was dismissed or expired, and tells the project's writers when a mail
