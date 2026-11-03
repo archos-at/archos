@@ -83,6 +83,8 @@ HISTORY = (
     ":!apps/workspace/migrations/",
     # The secret scan walks full history, so its allowlist names the paths the fixtures lived at then.
     ":!.gitleaks.toml",
+    # Its fingerprints name a commit and the path the file had in that commit.
+    ":!.gitleaksignore",
     # Dated audits, research reports and records: what was true when they were written.
     ":!docs/product/seo-geo-audit-2026-09.md",
     ":!docs/roadmap/continuous-improvement-ledger.md",
