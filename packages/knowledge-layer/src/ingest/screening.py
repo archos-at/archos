@@ -41,6 +41,9 @@ from dataclasses import field
 from dataclasses import replace
 from typing import Literal
 
+from agent.common.card_numbers import luhn_valid
+from agent.common.card_numbers import mask_card
+from agent.common.card_numbers import valid_card
 from agent.common.content_screen import DETECTORS
 from agent.common.content_screen import IBAN_LENGTHS
 from agent.common.content_screen import MAX_TERM_CHARS
@@ -51,12 +54,9 @@ from agent.common.content_screen import ScreeningRules
 from agent.common.content_screen import Span
 from agent.common.content_screen import find_spans
 from agent.common.content_screen import fold
-from agent.common.content_screen import luhn_valid
 from agent.common.content_screen import mask_at_svnr
-from agent.common.content_screen import mask_card
 from agent.common.content_screen import mask_iban
 from agent.common.content_screen import valid_at_svnr
-from agent.common.content_screen import valid_card
 from agent.common.content_screen import valid_iban
 from agent.common.page_text import running_furniture
 from agent.common.page_text import without_furniture

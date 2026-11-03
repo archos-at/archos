@@ -38,8 +38,9 @@
  *    Luhn in a card network's issuer range); the shapes around the checksum are wide (any case, any whitespace
  *    run, `-` or `.` between groups, a label against the number; an IBAN in
  *    groups of four or two). A card is found by layout inside a run of digit
- *    groups (`cardsIn`), never across a tab; across one line break only as four
- *    groups of four.
+ *    groups (`cardsIn`, `./card-numbers`), never across a tab; across one line
+ *    break only as four groups of four. An unbroken number is a card only with
+ *    a card's word within reach (`Kreditkarte`, `Visa`, `CVC`).
  *    The digits of an IBAN are not also a card or a social-security number.
  *  - Placeholders are protected: a match overlapping one does not count, so
  *    masking a masked text changes nothing. Masking repeats until a pass finds
@@ -49,6 +50,14 @@
  * Pure and client-safe. Offsets are UTF-16 indices into the text given.
  */
 
+import {
+  CARD_CONTEXT_REACH,
+  cardsIn,
+  type DigitGroup,
+  hasCardWord,
+  maskCard,
+  wrappedCardLayout,
+} from './card-numbers'
 import { foldForScreening } from './name-screen'
 import { SCREENING_DETECTORS, type ScreeningDetector, type UploadScreeningPolicy } from './policy'
 import { SCREENING_IGNORABLE, SPLIT_TERM_MIN, splitTermEnd, TERM_FRAGMENT } from './reading'
@@ -60,6 +69,8 @@ export type ContentScreenKind = ScreeningDetector | 'term'
  * Python (`content_screen.PLACEHOLDERS`) and mirrored here; the shared fixture
  * holds both to the same strings.
  */
+export { luhnValid } from './card-numbers'
+
 export const SCREENING_PLACEHOLDERS: Readonly<Record<ContentScreenKind, string>> = {
   iban: '[IBAN entfernt]',
   at_svnr: '[SV-Nummer entfernt]',
@@ -537,9 +548,6 @@ const CARD_RUN = /\p{Nd}(?:(?:[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]+|[-.]
 const WRAPPED_CARD_RUN =
   /\p{Nd}(?:(?:[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]+|[-.]|[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]*(?:\r\n|[\n\v\f\r\x85\u2028\u2029])[ \xa0\u1680\u2000-\u200a\u202f\u205f\u3000]*)?\p{Nd})*/gu
 const DIGIT_GROUP = /\p{Nd}+/gu
-/** Layouts a card is printed in besides 4-4-4-4 and one unbroken number. */
-const CARD_SPLITS = ['4,6,5', '4,6,4']
-const CARD_MAX_GROUPS = 5
 const IBAN_CHARS = /^[0-9A-Za-z]+$/
 
 export function validIban(compact: string): boolean {
@@ -646,62 +654,6 @@ function svnrAt(
   return validAtSvnr(digits) ? { digits, end: year.end } : null
 }
 
-export function luhnValid(digits: string): boolean {
-  let total = 0
-  const reversed = [...digits].reverse()
-  for (let index = 0; index < reversed.length; index += 1) {
-    const value = Number(reversed[index]) * (index % 2 ? 2 : 1)
-    total += value > 9 ? value - 9 : value
-  }
-  return total % 10 === 0
-}
-
-/**
- * The card networks' issuer ranges, on a number's first four digits (Python's
- * `_CARD_PREFIXES`): Mir, Mastercard, Diners, Amex, JCB, Visa, Maestro,
- * Discover, UnionPay. No card begins 2000-2199, the years a table prints in rows.
- */
-const CARD_PREFIXES: ReadonlyArray<readonly [number, number]> = [
-  [2200, 2204],
-  [2221, 2720],
-  [3000, 3099],
-  [3400, 3999],
-  [4000, 6999],
-]
-
-function validCard(digits: string): boolean {
-  if (digits.length < 13 || digits.length > 19 || !luhnValid(digits)) return false
-  const prefix = Number(digits.slice(0, 4))
-  return CARD_PREFIXES.some(([low, high]) => low <= prefix && prefix <= high)
-}
-
-/** Whether groups of these sizes are how a card number is printed: unbroken, 4-4-4-4 (the last group 1-4), 4-6-5 or 4-6-4. */
-function cardLayout(sizes: readonly number[]): boolean {
-  if (sizes.length === 1) return sizes[0] >= 13 && sizes[0] <= 19
-  if (CARD_SPLITS.includes(sizes.join(','))) return true
-  const last = sizes[sizes.length - 1]
-  return (
-    sizes.length >= 4 &&
-    sizes.slice(0, -1).every((size) => size === 4) &&
-    last >= 1 &&
-    last <= 4 &&
-    sizes.reduce((sum, size) => sum + size, 0) <= 19
-  )
-}
-
-/** Whether the groups `first` to `last` are not cut out of a longer number printed in fours. */
-function standsAlone(groups: readonly string[], first: number, last: number): boolean {
-  const before = first === 0 || groups[first - 1].length !== 4
-  const after = last === groups.length || groups[last].length !== 4 || last === groups.length - 1
-  return before && after
-}
-
-interface DigitGroup {
-  digits: string
-  start: number
-  end: number
-}
-
 /** The digit groups of a run (ASCII digits, start, end). */
 function digitGroups(run: string): DigitGroup[] {
   return [...run.matchAll(DIGIT_GROUP)].map((match) => ({
@@ -721,36 +673,6 @@ function cutRuns(run: string, cuts: readonly number[]): DigitGroup[][] {
       end: group.end + bounds[i],
     }))
   )
-}
-
-/**
- * Each card among a run's digit groups: its digits and where it starts and ends
- * in the run. A card is some consecutive groups that have a card's layout and
- * pass its checksum; the leftmost start wins and takes the longest such
- * stretch. What stands before it (a position) or after it (an expiry, a
- * security code) is not part of it. A group of four digits beside it is,
- * though: it makes the card a piece of a longer number printed in fours, which
- * is judged as a whole, so a table of years gets no sliding window. The last
- * group may be four digits long: it is the security code.
- */
-function* cardsIn(
-  groups: readonly DigitGroup[],
-  layout: (sizes: readonly number[]) => boolean = cardLayout
-): Generator<DigitGroup> {
-  const digitsOf = groups.map((group) => group.digits)
-  let first = 0
-  while (first < groups.length) {
-    for (let last = Math.min(groups.length, first + CARD_MAX_GROUPS); last > first; last -= 1) {
-      const digits = digitsOf.slice(first, last).join('')
-      const sizes = digitsOf.slice(first, last).map((group) => group.length)
-      if (layout(sizes) && standsAlone(digitsOf, first, last) && validCard(digits)) {
-        yield { digits, start: groups[first].start, end: groups[last - 1].end }
-        first = last - 1
-        break
-      }
-    }
-    first += 1
-  }
 }
 
 /** Where a number may start: where `pattern` finds it, and right after an invisible character between digits. */
@@ -803,9 +725,6 @@ function* svnrSpans(text: string, soft: ReadonlySet<number>): Generator<ContentS
   }
 }
 
-/** A card wrapped at a line end counts in one layout only, four groups of four: table rows are not cards. */
-const wrappedCardLayout = (sizes: readonly number[]): boolean => sizes.join(',') === '4,4,4,4'
-
 const hasLineBreak = (text: string): boolean => [...text].some((char) => LINE_BREAKS.includes(char))
 
 const overlapsCard = (card: DigitGroup, others: readonly DigitGroup[]): boolean =>
@@ -825,7 +744,7 @@ function* cardSpans(text: string, soft: ReadonlySet<number>): Generator<ContentS
       kind: 'credit_card',
       start: card.start,
       end: card.end,
-      sample: `${MASK} ${card.digits.slice(-4)}`,
+      sample: maskCard(card.digits),
     }
   }
 }
@@ -838,17 +757,34 @@ function* unwrappedCards(text: string, soft: ReadonlySet<number>): Generator<Dig
     const inside = cuts
       .filter((cut) => cut > match.index && cut < runEnd)
       .map((cut) => cut - match.index)
-    const found = [...cardsIn(digitGroups(run))]
+    const found = [...cardsSaid(text, match.index, digitGroups(run))]
     if (inside.length > 0) {
       const joined = [...found]
       for (const groups of cutRuns(run, inside)) {
-        for (const card of cardsIn(groups)) if (!overlapsCard(card, joined)) found.push(card)
+        for (const card of cardsSaid(text, match.index, groups)) if (!overlapsCard(card, joined)) found.push(card)
       }
     }
     for (const card of found) {
       yield { digits: card.digits, start: match.index + card.start, end: match.index + card.end }
     }
   }
+}
+
+/** The cards among a run's groups (`cardsIn`), an unbroken one only with a card's word beside it. */
+function* cardsSaid(text: string, offset: number, groups: readonly DigitGroup[]): Generator<DigitGroup> {
+  for (const card of cardsIn(groups)) {
+    if (!card.unbroken || hasCardContext(text, offset + card.start, offset + card.end)) yield card
+  }
+}
+
+/** Whether a card's word stands within `CARD_CONTEXT_REACH` code points of `text[start, end)`. */
+function hasCardContext(text: string, start: number, end: number): boolean {
+  let begin = start
+  for (let step = 0; step < CARD_CONTEXT_REACH && begin > 0; step += 1) begin -= codePointBefore(text, begin).length
+  while (begin > 0 && LETTER.test(codePointBefore(text, begin))) begin -= codePointBefore(text, begin).length
+  let stop = end
+  for (let step = 0; step < CARD_CONTEXT_REACH && stop < text.length; step += 1) stop += codePointAt(text, stop).length
+  return hasCardWord(foldContent(text.slice(begin, stop)))
 }
 
 function* wrappedCards(text: string): Generator<DigitGroup> {

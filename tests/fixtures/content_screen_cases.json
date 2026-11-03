@@ -1709,6 +1709,73 @@
           "sample": "•••• 0004"
         }
       ]
+    },
+    {
+      "name": "an unbroken number with nothing that says card is not one, though it passes Luhn",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Auftrag 5555555555554444, Artikel 4006381333932",
+      "matches": [],
+      "masked": "Auftrag 5555555555554444, Artikel 4006381333932",
+      "findings": []
+    },
+    {
+      "name": "an unbroken number with a card's word beside it is a card",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Kreditkarte: 5555555555554444 (Visa 4111111111111111)",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "5555555555554444"
+        },
+        {
+          "kind": "credit_card",
+          "text": "4111111111111111"
+        }
+      ],
+      "masked": "Kreditkarte: [Kartennummer entfernt] (Visa [Kartennummer entfernt])",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 2,
+          "sample": "•••• 4444"
+        }
+      ]
+    },
+    {
+      "name": "a card's word inside another word, or out of reach, does not make a number a card",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Ricardo 4111111111111111. Danach steht noch ein langer Satz ohne Bezug, erst dann die Karte.",
+      "matches": [],
+      "masked": "Ricardo 4111111111111111. Danach steht noch ein langer Satz ohne Bezug, erst dann die Karte.",
+      "findings": []
+    },
+    {
+      "name": "the Amex and Diners layouts count only in their own network's range",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "4111 111111 11116 und 4111 111111 1114",
+      "matches": [],
+      "masked": "4111 111111 11116 und 4111 111111 1114",
+      "findings": []
     }
   ],
   "unicode": {
