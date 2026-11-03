@@ -275,7 +275,7 @@ describe('C2: each rule, failing alone', () => {
     expect(codeOf(() => plan(mail, decision(mail), context({ bulk: true })))).toBe('passes')
   })
 
-  it('refuses an agent's card that carries an acknowledgement or a release (RT-S5)', () => {
+  it('refuses an agent’s card that carries an acknowledgement or a release (RT-S5)', () => {
     const mail = heldMail()
     const card = context({ actor: { decidedBy: PERSON, via: 'agent_proposal', proposalId: '6f1c2b8e-3d4a-4b6c-8d7e-9f0a1b2c3d4e' } })
     expect(codeOf(() => plan(mail, { ...decision(mail), acknowledgeSender: true }, card))).toBe('card_carries_acknowledgement')

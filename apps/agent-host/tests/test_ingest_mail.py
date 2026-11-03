@@ -23,8 +23,8 @@ from agent.knowledge.mail_facts import MAIL_LOCALES
 from agent.knowledge.mail_facts import SENDER_TRUSTS
 from agent.knowledge.mail_facts import normalise_mail_origin
 from agent.knowledge.mail_facts import normalise_mail_thread
-from agent_host.models.requests import MailLocale
-from agent_host.models.requests import SenderTrust
+from agent_host.models.mail_facts import MailLocale
+from agent_host.models.mail_facts import SenderTrust
 from agent_host.routes.ingest import add_ingest_routes
 
 BODY = {

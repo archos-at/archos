@@ -189,7 +189,7 @@ export const IMPERSONATION_BASES = ['rejected_signature', 'member_name'] as cons
 export type ImpersonationBasis = (typeof IMPERSONATION_BASES)[number]
 
 /**
- * A malware scan's outcome (ADR-0139, `lib/malware-scan`). Only `clean` lets a
+ * A malware scan's outcome (ADR-0150, `lib/malware-scan`). Only `clean` lets a
  * part be filed or a file be served; `failed` is scanned again.
  */
 export const MALWARE_SCAN_STATUSES = ['pending', 'clean', 'infected', 'failed'] as const

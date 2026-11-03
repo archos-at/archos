@@ -26,18 +26,22 @@ import { SENDER_TRUSTS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { MAIL_THREAD_LOCALES } from '@/lib/mail-thread/mail-thread-vocabulary'
 
 /** Repo root, from this spec's own location. */
-const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..')
+const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
 const read = (...path: string[]): string => readFileSync(join(REPO_ROOT, ...path), 'utf8')
 
-const SERVICE = read('apps', 'workspace', 'bff', 'documents', 'service.ts')
-const REQUESTS = read('apps', 'agent-host', 'src', 'agent_host', 'models', 'requests.py')
+const SERVICE = read('apps', 'workspace', 'bff', 'documents', 'ingest-dispatch.ts')
+/** The ingest request and the mail models it nests, which live beside it. */
+const REQUESTS = [
+  read('apps', 'agent-host', 'src', 'agent_host', 'models', 'mail_facts.py'),
+  read('apps', 'agent-host', 'src', 'agent_host', 'models', 'requests.py'),
+].join('\n')
 
 /** The body of a top-level Python class, up to the next top-level definition. */
 const pythonClass = (name: string): string => {
   const body = new RegExp(`^class ${name}\\(BaseModel\\):\\n([\\s\\S]*?)(?=^\\S)`, 'm').exec(
     REQUESTS
   )
-  expect(body, `class ${name} not found in requests.py`).not.toBeNull()
+  expect(body, `class ${name} not found in the request models`).not.toBeNull()
   return body![1]!
 }
 
@@ -47,10 +51,10 @@ const fieldsOf = (name: string): string[] =>
     .map((match) => match[1]!)
     .filter((field) => field !== 'model_config')
 
-/** The values of a `Literal[...]` alias in requests.py. */
+/** The values of a `Literal[...]` alias in the request models. */
 const literal = (alias: string): string[] => {
   const found = new RegExp(`^${alias} = Literal\\[([^\\]]+)\\]`, 'm').exec(REQUESTS)
-  expect(found, `${alias} not found in requests.py`).not.toBeNull()
+  expect(found, `${alias} not found in the request models`).not.toBeNull()
   return [...found![1]!.matchAll(/"([^"]+)"/g)].map((match) => match[1]!)
 }
 

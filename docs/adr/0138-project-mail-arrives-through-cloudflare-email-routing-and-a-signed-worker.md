@@ -209,7 +209,7 @@ would make every holder of it (every backend pod) able to post mail.
 `/api/internal/signed/*` is excluded from the Next proxy matcher, so a body is
 never buffered against `proxyClientMaxBodySize`; the route streams it. At the
 edge it is its own HTTPRoute (`grid-app-signed`, `SIGNED_INTERNAL_ROUTE` in
-`deploy/pulumi/src/constants.ts`) with:
+`deploy/pulumi/src/signed-route-constants.ts`) with:
 
 - **no edge rate limit**: every tenant's mail arrives from Cloudflare's shared
   egress, so a per-client bucket would let other Cloudflare traffic defer an
@@ -302,7 +302,7 @@ inside it.
 4. Per project: the address switched off or rotated.
 
 `loadConfig` refuses an inbound domain without `malwareScanEnabled`: every
-part of a mail is scanned before it can be filed (ADR-0139). The operator's
+part of a mail is scanned before it can be filed (ADR-0150). The operator's
 runbook, with the owner gates and the launch gates G0–G9:
 [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138).
 

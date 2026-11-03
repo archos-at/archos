@@ -54,7 +54,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SectionLabel } from '@/components/ui/section-label'
 import { InspectorGroup } from '@/components/ui/inspector-group'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Spinner } from '@/components/ui/spinner'
 import { StageTrack } from '@/components/ui/stage-track'
 import { useLocale, useTranslations, type Translator } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -101,7 +100,7 @@ import {
 import { requestRevisionLink } from '../lib/revision-request'
 import { DocumentArchiveAction } from './document-archive-action'
 import { DocumentReviewControls, type DocumentReviewControlsProps } from './document-review-controls'
-import { DocumentVersionDiff } from './document-version-diff'
+import { TextComparisonView, type TextComparison } from './revision-text-comparison'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { useRevisionCompare, type SourceLoader } from './revision-compare'
 import type { CompareFile } from './revision-compare/types'
@@ -138,17 +137,6 @@ export interface DocumentRevisionsProps {
   openMarks?: DocumentReviewControlsProps['openMarks']
   className?: string
 }
-
-/** One side of a text comparison: the number the timeline gives it, and its text. */
-interface ComparedText {
-  number: number
-  content: string
-}
-
-type TextComparison =
-  | { rowKey: string; status: 'loading' }
-  | { rowKey: string; status: 'failed' }
-  | { rowKey: string; status: 'done'; from: ComparedText; to: ComparedText }
 
 /** Row states worth a word on an OLDER row. Every older row is replaced; saying „Ersetzt" five times is a stripe, not information. */
 const NOTABLE_ROW_STATES: ReadonlySet<DocumentVersionView['state']> = new Set([
@@ -870,32 +858,4 @@ function rowHasContent(row: TimelineRow, hasChange: boolean): boolean {
   }
   if (row.kind === 'head') return hasChange
   return true
-}
-
-/** The line comparison of two Fassungen, under the row it was asked from, numbered as the timeline numbers them. */
-function TextComparisonView({ comparison }: { comparison: TextComparison }): JSX.Element {
-  const t = useTranslations(filesCopy)
-  if (comparison.status === 'loading') {
-    return (
-      <p className="text-muted-foreground flex items-center gap-2 text-xs">
-        <Spinner className="size-3.5" />
-        {t('lifecycle.versions.comparing')}
-      </p>
-    )
-  }
-  if (comparison.status === 'failed') {
-    return (
-      <p className="text-destructive text-xs" data-testid="document-version-compare-failed">
-        {t('lifecycle.versions.compareFailed')}
-      </p>
-    )
-  }
-  return (
-    <div data-testid="document-version-comparison">
-      <DocumentVersionDiff
-        from={{ versionNumber: comparison.from.number, content: comparison.from.content }}
-        to={{ versionNumber: comparison.to.number, content: comparison.to.content }}
-      />
-    </div>
-  )
 }

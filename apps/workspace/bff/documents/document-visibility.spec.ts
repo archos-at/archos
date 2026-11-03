@@ -127,9 +127,9 @@ const SEES_EVERY_ROW: Record<string, string> = {
  */
 const KEYED_BY_A_READ_DOCUMENT: Record<string, string> = {
   // --- The E-Mail-Eingang's candidates (ADR-0137): the next version's number of the row read ----
-  'lib/inbound-mail/repository.ts#findThreadDocuments|documentVersions':
+  'lib/inbound-mail/review-read-repository.ts#findThreadDocuments|documentVersions':
     'A correlated count beside the thread document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
-  'lib/inbound-mail/repository.ts#findCandidateDocuments|documentVersions':
+  'lib/inbound-mail/review-read-repository.ts#findCandidateDocuments|documentVersions':
     'A correlated count beside the document the same query lets through `documentVisibleTo(SCREENED_ONLY)`. A number, no fact.',
   // --- Versions: keyed by a document the caller already read ----------------
   'lib/documents/version-repository.ts#listDocumentVersions|documentVersions':
@@ -253,7 +253,7 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
     makes: ['internal:identity'],
     why: "Idempotency of Piloti's filing by its run reference, which a unique index answers over every row.",
   },
-  'lib/inbound-mail/repository.ts#findDocumentIdByStoredName': {
+  'lib/inbound-mail/review-read-repository.ts#findDocumentIdByStoredName': {
     makes: ['internal:identity'],
     why: 'Whether a held mail’s part would be filed under a name the project already has: identity, over every row (ADR-0137, C2 `name_taken`). The id never leaves the service.',
   },

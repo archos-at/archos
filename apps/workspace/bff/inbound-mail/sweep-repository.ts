@@ -1,4 +1,3 @@
-import 'server-only'
 /**
  * SQL of the E-Mail-Eingang's retention sweeps (ADR-0137, DECISION §5, `./sweep.ts`).
  *
@@ -21,36 +20,56 @@ import 'server-only'
  * the set, or its erasure is deferred (`erasure_deferred_at`), so one held
  * project never makes a batch fail for every tenant; the triggers
  * (`GLH01`) still refuse whatever a later change forgets to filter.
+ *
+ * Callers import every statement from here. The erasing sweeps (6, 8 and 10)
+ * live in `./sweep-erasure-repository.ts`, the thread and follow sweeps (9 and
+ * 12) in `./sweep-thread-repository.ts`, and the hold filters all of them share
+ * in `./sweep-sql.ts`.
  */
 
-import { and, eq, inArray, isNull, lt, sql, type SQL } from 'drizzle-orm'
+import 'server-only'
+import { and, eq, isNull, lt, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import { inboundMailAddresses, inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type InboundMailRow } from '@/lib/db/schema/inbound-mail'
-import { mailThreadFollows } from '@/lib/db/schema/mail-thread'
-import { ignoredCounts } from './filing-repository'
-import type {
-  InboundMailCapNotice,
-  InboundSenderTrust,
-  SenderFlag,
-} from './inbound-mail-vocabulary'
+import { inboundMailAddresses, inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
+import type { InboundMailCapNotice, InboundSenderTrust, SenderFlag } from './inbound-mail-vocabulary'
 import type { StoredScan } from './repository'
+import { DAY_MS, mailProjectFree, select } from './sweep-sql'
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
-/** No legal hold covers the mail's project: what every erasing or deleting set asks (`m` is `inbound_mails`). */
-const mailProjectFree = sql`NOT legal_hold_blocks('project', m.project_id::text, m.organization_id)`
-
-/** No custodian hold covers the member the mail came from: its bytes are theirs to keep. */
-const mailSenderFree = sql`(m.sender_user_id IS NULL OR NOT legal_hold_blocks('user', m.sender_user_id, m.organization_id))`
-
-/** Both: the mail's bytes may be erased now. */
-const mailErasable = sql`${mailProjectFree} AND ${mailSenderFree}`
-
-const rowsOf = <T>(result: Iterable<unknown>): T[] => Array.from(result) as T[]
-
-async function select<T>(statement: SQL): Promise<T[]> {
-  return rowsOf<T>(await getDb().execute(statement))
-}
+export {
+  deferPartErasure,
+  type DeferredErasure,
+  deleteKeptMails,
+  DROPPED_KEEP_MS,
+  type EndedPartBytes,
+  findEndedPartBytes,
+  findKeptMails,
+  findMailRow,
+  findMailsToSettle,
+  findReleasedErasures,
+  type MailToSettle,
+  RESTORE_WINDOW_MS,
+  returnEndedPartKey,
+  returnReleasedErasure,
+  SETTLED_KEEP_MS,
+  settleEndedMail,
+  takeEndedPartBytes,
+  takeReleasedErasure,
+} from './sweep-erasure-repository'
+export {
+  ABANDONED_RENDER_AFTER_MS,
+  claimFollowExpiringNotice,
+  claimOrphanedThread,
+  deleteOrphanedThread,
+  type DueFollow,
+  findEndingFollows,
+  findExpiringFollows,
+  findOrphanedThreads,
+  FOLLOW_EXPIRING_BEFORE_MS,
+  type FollowEndingReason,
+  ORPHANED_THREAD_AFTER_MS,
+  type OrphanedThread,
+  releaseOrphanedThread,
+} from './sweep-thread-repository'
 
 // ---------------------------------------------------------------------------
 // Sweep 1: receptions that never finished
@@ -239,156 +258,6 @@ export async function returnLapsedClaim(claim: LapsedClaim, now: Date): Promise<
 }
 
 // ---------------------------------------------------------------------------
-// Sweep 6: dismissed and expired parts past their seven days; settling
-// ---------------------------------------------------------------------------
-
-/** How long a dismissed or expired part can be restored (D8). */
-export const RESTORE_WINDOW_MS = 7 * DAY_MS
-
-/**
- * A dismissed or expired part is past restoring: seven days after it ended,
- * or at once for a dismissed part of mail from an unconfirmed outside domain
- * (D8: nobody vouched for it, and somebody said no).
- */
-const pastRestore = (cutoff: Date) => sql`(p.ended_at < ${cutoff.toISOString()}::timestamptz
-  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified'))`
-
-/** A staged object to erase, and whether a hold defers that. */
-export interface EndedPartBytes {
-  partId: string
-  mailId: string
-  organizationId: string
-  stagingBucket: string
-  storageKey: string
-  held: boolean
-}
-
-/** Dismissed or expired parts past restoring that still hold bytes, not deferred yet. Platform scope. */
-export async function findEndedPartBytes(now: Date, limit: number): Promise<EndedPartBytes[]> {
-  return select<EndedPartBytes>(sql`
-    SELECT p.id AS "partId", p.mail_id AS "mailId", p.organization_id AS "organizationId",
-           m.staging_bucket AS "stagingBucket", p.storage_key AS "storageKey", NOT (${mailErasable}) AS held
-      FROM inbound_mail_parts p
-      JOIN inbound_mails m ON m.id = p.mail_id
-     WHERE p.state IN ('dismissed', 'expired') AND p.storage_key IS NOT NULL AND p.erasure_deferred_at IS NULL
-       AND ${pastRestore(new Date(now.getTime() - RESTORE_WINDOW_MS))}
-     ORDER BY p.ended_at
-     LIMIT ${limit}`)
-}
-
-const endedOrFiled = inArray(inboundMailParts.state, ['dismissed', 'expired', 'filed'])
-
-/**
- * Sweep 6, before the erasure: the part forgets its bytes' key (and the name
- * and suggestion that go with them) only while every condition of the find
- * still holds: still dismissed or expired, past restoring, the same key, no
- * deferral, no hold. True when it did; the caller erases the object only then,
- * so a restore or a hold that landed after the find erases nothing.
- */
-export async function takeEndedPartBytes(part: { partId: string; storageKey: string }, now: Date): Promise<boolean> {
-  const rows = await select<{ id: string }>(sql`
-    UPDATE inbound_mail_parts p
-       SET storage_key = NULL, filename = NULL, suggestion = NULL, suggestion_trace_id = NULL, updated_at = ${now.toISOString()}::timestamptz
-      FROM inbound_mails m
-     WHERE p.id = ${part.partId}::uuid AND m.id = p.mail_id
-       AND p.state IN ('dismissed', 'expired') AND p.storage_key = ${part.storageKey} AND p.erasure_deferred_at IS NULL
-       AND ${pastRestore(new Date(now.getTime() - RESTORE_WINDOW_MS))}
-       AND ${mailErasable}
-    RETURNING p.id`)
-  return rows.length === 1
-}
-
-/** The store could not erase what `takeEndedPartBytes` took: the key comes back, so the next tick tries again. */
-export async function returnEndedPartKey(part: { partId: string; storageKey: string }, now: Date): Promise<void> {
-  await getDb()
-    .update(inboundMailParts)
-    .set({ storageKey: part.storageKey, updatedAt: now })
-    .where(and(eq(inboundMailParts.id, part.partId), isNull(inboundMailParts.storageKey), endedOrFiled))
-}
-
-/** A hold stopped the erasure of a part's bytes: sweep 10 erases them once it is released. */
-export async function deferPartErasure(partId: string, now: Date): Promise<void> {
-  await getDb()
-    .update(inboundMailParts)
-    .set({ erasureDeferredAt: now, updatedAt: now })
-    .where(and(eq(inboundMailParts.id, partId), endedOrFiled, isNull(inboundMailParts.erasureDeferredAt)))
-}
-
-/** A held mail nothing of which can be decided or restored any more: settled and scrubbed next. */
-export interface MailToSettle {
-  id: string
-  organizationId: string
-  projectId: string
-  held: boolean
-}
-
-/**
- * `waiting` mail with no part waiting or being filed, and none still
- * restorable (sweep 6). Includes mail every part of which was filed but whose
- * settle did not run. Platform scope.
- */
-export async function findMailsToSettle(now: Date, limit: number): Promise<MailToSettle[]> {
-  const cutoff = new Date(now.getTime() - RESTORE_WINDOW_MS)
-  return select<MailToSettle>(sql`
-    SELECT m.id, m.organization_id AS "organizationId", m.project_id AS "projectId", NOT (${mailErasable}) AS held
-      FROM inbound_mails m
-     WHERE m.status = 'waiting'
-       AND EXISTS (SELECT 1 FROM inbound_mail_parts p WHERE p.mail_id = m.id)
-       AND NOT EXISTS (
-         SELECT 1 FROM inbound_mail_parts p
-          WHERE p.mail_id = m.id
-            AND (p.state IN ('waiting', 'filing')
-                 OR (p.state IN ('dismissed', 'expired') AND NOT ${pastRestore(cutoff)})))
-     ORDER BY m.updated_at
-     LIMIT ${limit}`)
-}
-
-/** The row as the settle reads it. */
-export async function findMailRow(mailId: string): Promise<InboundMailRow | null> {
-  const [row] = await getDb().select().from(inboundMails).where(eq(inboundMails.id, mailId)).limit(1)
-  return row ?? null
-}
-
-/**
- * Settle a mail nothing of which waits or can be restored: scrubbed to ids
- * (`inbound_mails_ended_is_scrubbed`), its staged objects forgotten (the
- * caller erased them by key first), unless a hold deferred the erasure, which
- * keeps the keys for sweep 10. A raw message still moving to its entry's
- * original is the move's (sweep 13). Only from `waiting`, and only while
- * nothing waits or is being filed; whether this call settled it.
- */
-export async function settleEndedMail(mail: InboundMailRow, erasureDeferred: boolean, now: Date): Promise<boolean> {
-  const rows = await getDb()
-    .update(inboundMails)
-    .set({
-      status: 'settled',
-      settledAt: now,
-      senderAddress: null,
-      senderName: null,
-      subject: null,
-      baseSubject: null,
-      envelopeFrom: null,
-      participants: [],
-      participantDomains: [],
-      notStaged: [],
-      ignored: ignoredCounts(mail.notStaged, mail.ignored),
-      ...(erasureDeferred
-        ? { erasureDeferredAt: now }
-        : { readStorageKey: null, ...(mail.originalMovePendingAt ? {} : { rawStorageKey: null }) }),
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(inboundMails.id, mail.id),
-        eq(inboundMails.status, 'waiting'),
-        sql`NOT EXISTS (SELECT 1 FROM ${inboundMailParts} p WHERE p.mail_id = ${inboundMails.id} AND p.state IN ('waiting', 'filing'))`,
-      ),
-    )
-    .returning({ id: inboundMails.id })
-  return rows.length === 1
-}
-
-// ---------------------------------------------------------------------------
 // Sweep 7: scans that failed
 // ---------------------------------------------------------------------------
 
@@ -464,280 +333,6 @@ export async function recordRawRescan(mailId: string, scan: StoredScan): Promise
 }
 
 // ---------------------------------------------------------------------------
-// Sweep 8: rows past their keep
-// ---------------------------------------------------------------------------
-
-/** How long a settled mail's ids are kept once none of its files lives, and a dropped mail's (D8). */
-export const SETTLED_KEEP_MS = 30 * DAY_MS
-export const DROPPED_KEEP_MS = 30 * DAY_MS
-
-/**
- * Settled and dropped mail past its keep that may be deleted now (`m` is
- * `inbound_mails`): a settled mail only once no filed part names a live
- * document, any mail only once it names no object, none of its decisions is
- * still owed to the audit trail (RT-S8; sweep 11 runs first), and no hold
- * covers its project or its member.
- */
-const mailDeletable = (now: Date) => {
-  const settledBefore = new Date(now.getTime() - SETTLED_KEEP_MS).toISOString()
-  const droppedBefore = new Date(now.getTime() - DROPPED_KEEP_MS).toISOString()
-  return sql`((m.status = 'settled' AND m.settled_at < ${settledBefore}::timestamptz
-               AND NOT EXISTS (SELECT 1 FROM inbound_mail_parts p WHERE p.mail_id = m.id AND p.document_id IS NOT NULL))
-           OR (m.status = 'dropped' AND m.received_at < ${droppedBefore}::timestamptz))
-    AND m.raw_storage_key IS NULL AND m.read_storage_key IS NULL
-    AND m.erasure_deferred_at IS NULL AND m.original_move_pending_at IS NULL
-    AND NOT EXISTS (SELECT 1 FROM inbound_mail_parts p WHERE p.mail_id = m.id AND p.storage_key IS NOT NULL)
-    AND NOT EXISTS (SELECT 1 FROM inbound_mail_decisions d WHERE d.mail_id = m.id AND d.audited_at IS NULL)
-    AND ${mailErasable}`
-}
-
-/** Settled and dropped mail past its keep (sweep 8). Platform scope. */
-export async function findKeptMails(now: Date, limit: number): Promise<Array<{ id: string; organizationId: string }>> {
-  return select<{ id: string; organizationId: string }>(sql`
-    SELECT m.id, m.organization_id AS "organizationId" FROM inbound_mails m
-     WHERE ${mailDeletable(now)}
-     ORDER BY coalesce(m.settled_at, m.received_at)
-     LIMIT ${limit}`)
-}
-
-/**
- * Delete these mails, as the platform role (sweep 8), each only if it still
- * may be: its parts and its (audited) decisions go with it. The ids deleted.
- */
-export async function deleteKeptMails(ids: readonly string[], now: Date): Promise<string[]> {
-  if (ids.length === 0) return []
-  const rows = await select<{ id: string }>(sql`
-    DELETE FROM inbound_mails m
-     WHERE m.id IN (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)}) AND ${mailDeletable(now)}
-    RETURNING m.id`)
-  return rows.map((row) => row.id)
-}
-
-// ---------------------------------------------------------------------------
-// Sweep 9: threads whose document is gone
-// ---------------------------------------------------------------------------
-
-/** How long a thread without a document is left alone: one being written gets its document in the same commit. */
-export const ORPHANED_THREAD_AFTER_MS = 60 * 60 * 1000
-/**
- * How long an archive Verlauf may wait for its first Fassung (`render_pending_at`)
- * once no import that wrote into it is open any more: past the import's stall
- * horizon and its backoff ladder, an import whose starter left never renders it.
- */
-export const ABANDONED_RENDER_AFTER_MS = 24 * 60 * 60 * 1000
-
-/**
- * A thread may be deleted now (`t` is `mail_threads`): its document is gone
- * (deleted for good, so it is not in a bin either: a binned document keeps its
- * row), no archive slice is about to render it (an archive Verlauf waits for
- * its first Fassung with `render_pending_at`; one whose import is no longer
- * open and that waited a day is abandoned, D11), no writer holds its lease, no
- * hold covers its project, no follow of it is still running (sweep 12 ends
- * them first, audited), and no decision a follow of it made, nor any other
- * decision about a part such a decision filed, is still owed to the trail (the
- * cascade from its follows would take them along, RT-S8).
- */
-const threadDeletable = (now: Date, leaseHolder: string | null = null) => sql`
-  t.document_id IS NULL
-  AND (t.render_pending_at IS NULL
-       OR (t.render_pending_at < ${new Date(now.getTime() - ABANDONED_RENDER_AFTER_MS).toISOString()}::timestamptz
-           AND NOT EXISTS (
-             SELECT 1 FROM mail_thread_entries e JOIN mail_imports i ON i.id = e.mail_import_id
-              WHERE e.thread_id = t.id AND i.status IN ('uploading', 'queued', 'importing'))))
-  AND ${
-    leaseHolder === null
-      ? sql`(t.render_lease_until IS NULL OR t.render_lease_until < ${now.toISOString()}::timestamptz)`
-      : sql`t.render_lease_holder = ${leaseHolder}::uuid`
-  }
-  AND NOT legal_hold_blocks('project', t.project_id::text, t.organization_id)
-  AND NOT EXISTS (SELECT 1 FROM mail_thread_follows f WHERE f.thread_id = t.id AND f.ended_at IS NULL)
-  AND NOT EXISTS (
-    SELECT 1 FROM mail_thread_follows f
-      JOIN inbound_mail_decisions d ON d.follow_id = f.id
-      JOIN inbound_mail_decisions owed ON owed.part_id = d.part_id
-     WHERE f.thread_id = t.id AND owed.audited_at IS NULL)`
-
-/** A thread to delete, and the originals its entries keep. */
-export interface OrphanedThread {
-  id: string
-  organizationId: string
-  originals: Array<{ bucket: string; key: string }>
-}
-
-/** Threads whose document is gone, past the grace, that may be deleted now. Platform scope. */
-export async function findOrphanedThreads(now: Date, limit: number): Promise<OrphanedThread[]> {
-  const before = new Date(now.getTime() - ORPHANED_THREAD_AFTER_MS).toISOString()
-  const rows = await select<{ id: string; organizationId: string; originals: Array<{ bucket: string; key: string }> | null }>(sql`
-    SELECT t.id, t.organization_id AS "organizationId",
-           (SELECT json_agg(json_build_object('bucket', e.original_bucket, 'key', e.original_storage_key))
-              FROM mail_thread_entries e
-             WHERE e.thread_id = t.id AND e.original_storage_key IS NOT NULL) AS originals
-      FROM mail_threads t
-     WHERE t.created_at < ${before}::timestamptz AND ${threadDeletable(now)}
-     ORDER BY t.created_at
-     LIMIT ${limit}`)
-  return rows.map((row) => ({ ...row, originals: row.originals ?? [] }))
-}
-
-/** How long sweep 9 holds a thread's render lease while it erases the originals: a writer's own lease. */
-const ORPHANED_THREAD_LEASE_MS = 5 * 60 * 1000
-
-/**
- * Sweep 9, before any erasure, as the platform role: the thread's render
- * lease, taken only while the whole condition holds (the legal hold
- * included), so no append lands while its originals go and a hold placed
- * after the find erases nothing. The originals to erase are read here, under
- * the lease, not from the find; null when it was not taken.
- */
-export async function claimOrphanedThread(
-  id: string,
-  holder: string,
-  now: Date,
-): Promise<Array<{ bucket: string; key: string }> | null> {
-  const until = new Date(now.getTime() + ORPHANED_THREAD_LEASE_MS).toISOString()
-  const rows = await select<{ originals: Array<{ bucket: string; key: string }> | null }>(sql`
-    UPDATE mail_threads t SET render_lease_holder = ${holder}::uuid, render_lease_until = ${until}::timestamptz
-     WHERE t.id = ${id}::uuid AND ${threadDeletable(now)}
-    RETURNING (SELECT json_agg(json_build_object('bucket', e.original_bucket, 'key', e.original_storage_key))
-                 FROM mail_thread_entries e
-                WHERE e.thread_id = t.id AND e.original_storage_key IS NOT NULL) AS originals`)
-  const [row] = rows
-  return row ? (row.originals ?? []) : null
-}
-
-/** Sweep 9 could not erase an original: the lease goes, and the next tick asks again. */
-export async function releaseOrphanedThread(id: string, holder: string): Promise<void> {
-  await getDb().execute(sql`
-    UPDATE mail_threads SET render_lease_holder = NULL, render_lease_until = NULL
-     WHERE id = ${id}::uuid AND render_lease_holder = ${holder}::uuid`)
-}
-
-/**
- * Delete a thread whose originals were erased (sweep 9), as the platform role,
- * under the lease `claimOrphanedThread` took: the cascade takes its entries,
- * what came with them, its message ids, its ended follows and their audited
- * decisions. Repeats the whole condition; the number of entries it took, or
- * null when it was not deleted.
- */
-export async function deleteOrphanedThread(id: string, holder: string, now: Date): Promise<number | null> {
-  const rows = await select<{ entries: number | string }>(sql`
-    WITH gone AS (
-      DELETE FROM mail_threads t WHERE t.id = ${id}::uuid AND ${threadDeletable(now, holder)} RETURNING t.id)
-    SELECT (SELECT count(*) FROM mail_thread_entries e WHERE e.thread_id IN (SELECT id FROM gone)) AS entries,
-           (SELECT count(*) FROM gone) AS deleted`)
-  const [row] = rows as Array<{ entries: number | string; deleted: number | string }>
-  return row && Number(row.deleted) === 1 ? Number(row.entries) : null
-}
-
-// ---------------------------------------------------------------------------
-// Sweep 10: erasures a hold deferred, once it is released
-// ---------------------------------------------------------------------------
-
-/**
- * A deferred erasure no hold stops any more: a part's bytes (`storageKey`), or
- * an ended mail's staged objects (`readKey`, and `rawKey` unless the raw
- * message is still moving to its entry's original, sweep 13). The keys as the
- * find saw them; `keys` is what is to be erased.
- */
-export interface DeferredErasure {
-  id: string
-  kind: 'part' | 'mail'
-  organizationId: string
-  stagingBucket: string
-  storageKey: string | null
-  readKey: string | null
-  rawKey: string | null
-  keys: string[]
-}
-
-/** The raw message sweep 10 erases: none while it is still moving to its entry's original (sweep 13). */
-const erasableRawKey = sql`CASE WHEN m.original_move_pending_at IS NULL THEN m.raw_storage_key END`
-
-/** Deferred erasures whose hold was released. Platform scope. */
-export async function findReleasedErasures(limit: number): Promise<DeferredErasure[]> {
-  const rows = await select<Omit<DeferredErasure, 'keys'>>(sql`
-    (SELECT p.id, 'part' AS kind, p.organization_id AS "organizationId", m.staging_bucket AS "stagingBucket",
-            p.storage_key AS "storageKey", NULL::text AS "readKey", NULL::text AS "rawKey"
-       FROM inbound_mail_parts p
-       JOIN inbound_mails m ON m.id = p.mail_id
-      WHERE p.erasure_deferred_at IS NOT NULL AND p.state IN ('filed', 'dismissed', 'expired') AND ${mailErasable}
-      ORDER BY p.erasure_deferred_at
-      LIMIT ${limit})
-    UNION ALL
-    (SELECT m.id, 'mail' AS kind, m.organization_id AS "organizationId", m.staging_bucket AS "stagingBucket",
-            NULL::text AS "storageKey", m.read_storage_key AS "readKey", ${erasableRawKey} AS "rawKey"
-       FROM inbound_mails m
-      WHERE m.erasure_deferred_at IS NOT NULL AND m.status IN ('settled', 'dropped') AND ${mailErasable}
-      ORDER BY m.erasure_deferred_at
-      LIMIT ${limit})`)
-  return rows.map((row) => ({
-    ...row,
-    keys: [row.storageKey, row.readKey, row.rawKey].filter((key): key is string => key !== null),
-  }))
-}
-
-/**
- * Sweep 10, before the erasure: the row forgets the keys and the deferral only
- * while every condition of the find still holds: still deferred, still ended,
- * the same keys, and no hold (project or custodian). True when it did; the
- * caller erases the objects only then, so a hold placed after the find erases
- * nothing. A part also forgets the name and suggestion that went with its
- * bytes; a raw message still moving to its entry's original stays the move's.
- */
-export async function takeReleasedErasure(row: DeferredErasure, now: Date): Promise<boolean> {
-  const at = now.toISOString()
-  const rows = await select<{ id: string }>(
-    row.kind === 'part'
-      ? sql`
-    UPDATE inbound_mail_parts p
-       SET storage_key = NULL, filename = NULL, suggestion = NULL, suggestion_trace_id = NULL,
-           erasure_deferred_at = NULL, updated_at = ${at}::timestamptz
-      FROM inbound_mails m
-     WHERE p.id = ${row.id}::uuid AND m.id = p.mail_id
-       AND p.erasure_deferred_at IS NOT NULL AND p.state IN ('filed', 'dismissed', 'expired')
-       AND p.storage_key IS NOT DISTINCT FROM ${row.storageKey}::text
-       AND ${mailErasable}
-    RETURNING p.id`
-      : sql`
-    UPDATE inbound_mails m
-       SET read_storage_key = NULL, raw_storage_key = CASE WHEN m.original_move_pending_at IS NULL THEN NULL ELSE m.raw_storage_key END,
-           erasure_deferred_at = NULL, updated_at = ${at}::timestamptz
-     WHERE m.id = ${row.id}::uuid
-       AND m.erasure_deferred_at IS NOT NULL AND m.status IN ('settled', 'dropped')
-       AND m.read_storage_key IS NOT DISTINCT FROM ${row.readKey}::text
-       AND ${erasableRawKey} IS NOT DISTINCT FROM ${row.rawKey}::text
-       AND ${mailErasable}
-    RETURNING m.id`,
-  )
-  return rows.length === 1
-}
-
-/**
- * The store kept some of what `takeReleasedErasure` took: those keys, and the
- * deferral, come back, so the next tick tries again. A key the store did
- * erase stays forgotten.
- */
-export async function returnReleasedErasure(row: DeferredErasure, kept: readonly string[], now: Date): Promise<void> {
-  const keptKey = (key: string | null) => (key !== null && kept.includes(key) ? key : null)
-  if (row.kind === 'part') {
-    await getDb()
-      .update(inboundMailParts)
-      .set({ storageKey: keptKey(row.storageKey), erasureDeferredAt: now, updatedAt: now })
-      .where(and(eq(inboundMailParts.id, row.id), isNull(inboundMailParts.storageKey), isNull(inboundMailParts.erasureDeferredAt), endedOrFiled))
-    return
-  }
-  await getDb()
-    .update(inboundMails)
-    .set({
-      readStorageKey: keptKey(row.readKey),
-      rawStorageKey: sql`COALESCE(${inboundMails.rawStorageKey}, ${keptKey(row.rawKey)}::text)`,
-      erasureDeferredAt: now,
-      updatedAt: now,
-    })
-    .where(and(eq(inboundMails.id, row.id), isNull(inboundMails.erasureDeferredAt), inArray(inboundMails.status, ['settled', 'dropped'])))
-}
-
-// ---------------------------------------------------------------------------
 // Sweep 11: decisions still owed to the audit trail
 // ---------------------------------------------------------------------------
 
@@ -749,72 +344,6 @@ export async function findUnauditedDecisions(before: Date, limit: number): Promi
     .where(and(isNull(inboundMailDecisions.auditedAt), lt(inboundMailDecisions.decidedAt, before)))
     .orderBy(inboundMailDecisions.decidedAt)
     .limit(limit)
-}
-
-// ---------------------------------------------------------------------------
-// Sweep 12: follows
-// ---------------------------------------------------------------------------
-
-/** A running follow due to end, or to be asked to renew. */
-export interface DueFollow {
-  id: string
-  organizationId: string
-  projectId: string
-  threadId: string
-  userId: string
-  threadDocumentId: string | null
-}
-
-const followFacts = sql`f.id, f.organization_id AS "organizationId", f.project_id AS "projectId",
-  f.thread_id AS "threadId", f.user_id AS "userId", t.document_id AS "threadDocumentId"`
-
-/** Why sweep 12 ends a running follow. */
-export type FollowEndingReason = 'expired' | 'document_gone' | 'project_closed'
-
-/**
- * Running follows past their end, whose thread's document is gone, or in a
- * closed project (closing ends them, `endFollowsOnProjectClose`; this catches
- * a close whose ending failed after it committed). Platform scope.
- */
-export async function findEndingFollows(now: Date, limit: number): Promise<Array<DueFollow & { reason: FollowEndingReason }>> {
-  return select<DueFollow & { reason: FollowEndingReason }>(sql`
-    SELECT ${followFacts},
-           CASE WHEN t.document_id IS NULL THEN 'document_gone'
-                WHEN p.status = 'closed' THEN 'project_closed'
-                ELSE 'expired' END AS reason
-      FROM mail_thread_follows f
-      JOIN mail_threads t ON t.id = f.thread_id
-      JOIN projects p ON p.id = f.project_id
-     WHERE f.ended_at IS NULL
-       AND (f.expires_at < ${now.toISOString()}::timestamptz OR t.document_id IS NULL OR p.status = 'closed')
-     ORDER BY f.expires_at
-     LIMIT ${limit}`)
-}
-
-/** How long before its end a follower is asked to renew: day 55 of 60 (D31). */
-export const FOLLOW_EXPIRING_BEFORE_MS = 5 * DAY_MS
-
-/** Running follows within five days of their end, not asked yet, on a live thread. Platform scope. */
-export async function findExpiringFollows(now: Date, limit: number): Promise<DueFollow[]> {
-  const from = new Date(now.getTime() + FOLLOW_EXPIRING_BEFORE_MS).toISOString()
-  return select<DueFollow>(sql`
-    SELECT ${followFacts}
-      FROM mail_thread_follows f
-      JOIN mail_threads t ON t.id = f.thread_id
-     WHERE f.ended_at IS NULL AND f.expiring_notified_at IS NULL AND t.document_id IS NOT NULL
-       AND f.expires_at <= ${from}::timestamptz AND f.expires_at > ${now.toISOString()}::timestamptz
-     ORDER BY f.expires_at
-     LIMIT ${limit}`)
-}
-
-/** Mark a follow asked to renew, once: whether this call marked it (the caller then asks). */
-export async function claimFollowExpiringNotice(followId: string, now: Date): Promise<boolean> {
-  const rows = await getDb()
-    .update(mailThreadFollows)
-    .set({ expiringNotifiedAt: now })
-    .where(and(eq(mailThreadFollows.id, followId), isNull(mailThreadFollows.endedAt), isNull(mailThreadFollows.expiringNotifiedAt)))
-    .returning({ id: mailThreadFollows.id })
-  return rows.length === 1
 }
 
 // ---------------------------------------------------------------------------

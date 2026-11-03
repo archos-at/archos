@@ -11,7 +11,8 @@ import type { IRetry } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy
 import type { IRateLimitRule } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/RateLimitRule";
 import type { IRateLimitSpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/RateLimitSpec";
 import { GATEWAY_NAME } from "../platform/gateway";
-import { EDGE_RATE_LIMIT, EDGE_RETRY, EDGE_TIMEOUT, PORT, SIGNED_INTERNAL_ROUTE } from "../constants";
+import { EDGE_RATE_LIMIT, EDGE_RETRY, EDGE_TIMEOUT, PORT } from "../constants";
+import { SIGNED_INTERNAL_ROUTE } from "../signed-route-constants";
 import { logicalName, objectName } from "../names";
 import { formerDomainRedirects, formerDomainRouteSpec } from "./former-domain";
 

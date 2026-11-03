@@ -575,9 +575,9 @@ sender ─SMTP─▶ Cloudflare Email Routing (MX of inbox.<domain>) ─rule p@�
 
 Pieces: `deploy/pulumi/src/platform/{inbound-mail,email-routing}.ts` and the
 Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
-`SIGNED_INTERNAL_ROUTE` in `src/constants.ts`; the frontend's
+`SIGNED_INTERNAL_ROUTE` in `src/signed-route-constants.ts`; the frontend's
 `INBOUND_MAIL_{DOMAIN,LOCAL_PART,PAUSED,SIGNING_KEYS}`; the in-cluster ClamAV
-(`malwareScanEnabled`, ADR-0139). Config keys and their meaning:
+(`malwareScanEnabled`, ADR-0150). Config keys and their meaning:
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md) („Project mail“ rows).
 
 ### Prerequisites
@@ -664,7 +664,7 @@ probes are held mail in the TEST office, never a customer's):
 | G3 | 24 MiB is held, 26 MiB refused by Cloudflare, a truncated body gives `body-truncated`, unsigned and unknown-key requests 401 |
 | G4 | While paused, a temporary failure; after the unpause the mail is delivered |
 | G5 | Worker CPU time for a 25 MiB message (Workers Paid; Free allows 10 ms). A failure blocks the launch: there is no fallback that drops the digest |
-| G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0139) |
+| G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0150) |
 | G7 | The one literal rule `p@<domain>` → the Worker, and no other rule on the receiving domain |
 | G8 | G1 and G2 again after any `COMPATIBILITY_DATE` bump of the Worker (a spec fails once the date is a year old) |
 | G9 | The aligned-DKIM share of a pilot office's real project mail, counted offline from an archive's `Authentication-Results` (`dkim-share`). It sets expectations for the trust labels and following |

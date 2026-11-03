@@ -50,7 +50,7 @@ and its becoming part of the project, what it becomes, and who may decide.
   not a person. A verdict decides what is suggested and pre-selected, never
   whether a mail is held.
 * **Strangers' bytes are checked before anyone acts on them**, in the cluster
-  (ADR-0139).
+  (ADR-0150).
 
 ## Considered Options
 
@@ -516,7 +516,7 @@ placement review and no document check.
   `lib/inbound-mail/sweep.integration.spec.ts` (every sweep, a held and an
   unheld project).
 - Exposure: `exposure.config.spec.ts` and `tests/fixtures/exposure.json` hold
-  the originals `withheld: evidence`, the held text and bytes `piloti: false`,
+  the originals `withheld: evidence`, the held text and bytes `agent: false`,
   and `mail-thread-follow` `control`-sensitive.
 - `lib/inbound-mail/batch-effects.spec.ts` holds the "who hears what" table;
   `announce.spec.ts` feeds canaries through every notice and push.
@@ -572,7 +572,7 @@ placement review and no document check.
   basis of this record (the project-mail work, DECISION v2 of 2026-10-22).
   Owner answers: four PRs; keep the original as evidence (B); the archive into
   the same Verläufe (C); ship „Verlauf folgen“ under the hijack conditions (D).
-- Transport: ADR-0138. Scanner: ADR-0139. Amended here: ADR-0085 (archive into
+- Transport: ADR-0138. Scanner: ADR-0150. Amended here: ADR-0085 (archive into
   Verläufe), ADR-0086 (the name flag on mail), ADR-0122 (`evidence`,
   `requiresPersonConfirmation`).
 - Revisit when: an office needs a narrower decider than every
