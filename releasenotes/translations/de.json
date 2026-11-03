@@ -3172,6 +3172,10 @@
     "de": "Der Blog-Feed ist wieder unter den alten Adressen (/rss.xml und /en/rss.xml) verfügbar, sodass bestehende Abonnements weiterhin funktionieren."
   },
   {
+    "en": "The budget warning in the chat now tells members who cannot change the limit that an admin can raise it, not only once the budget is spent.",
+    "de": "Die Budgetwarnung im Chat informiert Mitglieder, die das Limit nicht ändern können, jetzt darüber, dass ein Admin es erhöhen kann – auch bevor das Budget aufgebraucht ist."
+  },
+  {
     "en": "The building model on a phone has labelled tools that fit on one bar, shows a selected element in a sheet that can be pulled up, and shows how much of the model has loaded, with a way to cancel and retry.",
     "de": "Das Gebäudemodell am Smartphone bietet beschriftete Werkzeuge, die auf eine Leiste passen, zeigt ausgewählte Elemente in einem nach oben ziehbaren Bereich an und zeigt den Ladefortschritt des Modells mit der Möglichkeit zum Abbrechen und erneuten Versuch an."
   },
