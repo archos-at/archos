@@ -503,9 +503,8 @@ export function installNetworkPolicies(
           {
             from: [
               { podSelector: { matchLabels: { "app.kubernetes.io/name": "frontend" } } },
-              ...(cfg.bffJobs.enabled
-                ? [{ podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } }]
-                : []),
+              // The bff-jobs pool always runs (a plan without it fails, `loadWorkers`).
+              { podSelector: { matchLabels: { "app.kubernetes.io/name": "bff-jobs" } } },
             ],
             ports: [{ protocol: "TCP", port: CLAMAV.port }],
           },
