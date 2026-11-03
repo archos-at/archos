@@ -618,6 +618,41 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
   until the first deploy with the feature they are simply missing in WorkOS.
   The authz catalog Job works the same way.
 
+### The migration's lock on `document_versions` (0193)
+
+0193 adds `UNIQUE (id, project_id)` to `document_versions`, so a filed
+message's entry can point at its Fassung with the project (the 0067 shape).
+`ALTER TABLE … ADD CONSTRAINT … UNIQUE` builds the index under an `ACCESS
+EXCLUSIVE` lock, and `drizzle-kit migrate` runs every pending migration in one
+transaction (0039, 0149), so the lock is held until 0193 to 0196 all commit:
+every read and write of any document's versions waits for the build (uploads,
+the viewer, retrieval's version reads). `CONCURRENTLY` cannot run in that
+transaction, and the runner has no non-transactional step.
+
+Measure before the deploy, on the production database:
+
+```sql
+SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
+       (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
+```
+
+The lock lasts as long as the index build. To know it rather than guess, time
+the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
+below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
+Longer, build the index online first, outside any transaction, as the owner:
+
+```sql
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
+  ON "document_versions" ("id", "project_id");
+-- Check it is valid; an interrupted build leaves an INVALID index: DROP INDEX CONCURRENTLY it and build again.
+SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
+```
+
+0193 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
+lock only for a catalog change. Either way, deploy outside office hours: the
+migrate Job runs before the new pods take traffic, and a document request that
+waits on the lock times out at Envoy after its route timeout.
+
 ### Setup: the first promote is paused
 
 1. In the Cloudflare dashboard, switch on subaddressing for the zone (Email

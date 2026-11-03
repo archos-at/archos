@@ -2958,6 +2958,16 @@ apply_in inbound_0193 0193_inbound_mail.sql
 check_in inbound_0193 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "9" "0193 applies again after its down"
 check_in inbound_0193 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'mail_imports' AND column_name IN ('threads_created', 'threads_appended', 'already_in_project')" "3" "0193 adds the import's Verlauf counts again after its down"
 echo "==> 0193 inbound mail, threads and follows and their down migration verified"
+# S9: on a large document_versions the operator builds the key's index online
+# first; 0193 adopts a valid one (USING INDEX) instead of building it under the
+# lock, on a clone taken just before 0193.
+migrate_before prebuilt_0193 0193_inbound_mail
+$PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d prebuilt_0193 -v ON_ERROR_STOP=1 -q \
+  -c 'CREATE UNIQUE INDEX CONCURRENTLY "document_versions_id_project_id_key" ON "document_versions" ("id", "project_id")' >/dev/null
+PREBUILT_OID=$($PGBIN/psql -h "$WORKDIR" -p "$PORT" -U "$OWNER" -d prebuilt_0193 -tAc "SELECT 'document_versions_id_project_id_key'::regclass::oid")
+apply_in prebuilt_0193 0193_inbound_mail.sql
+check_in prebuilt_0193 "SELECT conindid::text FROM pg_constraint WHERE conname = 'document_versions_id_project_id_key'" "$PREBUILT_OID" "0193 adopts the index an operator built online"
+echo "==> 0193 adopts a pre-built document_versions key"
 
 # ---------------------------------------------------------------------------
 # Migration 0194: the sender rule (ADR-0137, amendment of 2026-11-03), and the
