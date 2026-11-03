@@ -49,6 +49,10 @@
             {
               "en": "Uploading a new version of a document while the old one is still being read now stops the old reading and reads only the new file. The old one is not shown as failed or as stopped by you.",
               "de": "Wenn Sie eine neue Version eines Dokuments hochladen, während die alte noch gelesen wird, wird das Lesen der alten Datei jetzt beendet und nur die neue Datei gelesen. Die alte Version wird weder als fehlgeschlagen noch als von Ihnen gestoppt angezeigt."
+            },
+            {
+              "en": "In the quarantine you can now filter held files by what was found, select several or all shown files (up to 50 at a time), and allow, delete or check them again with the current rules in one step.",
+              "de": "In der Quarantäne können Sie zurückgehaltene Dateien jetzt nach den gefundenen Inhalten filtern, mehrere oder alle angezeigten Dateien (bis zu 50 auf einmal) auswählen und sie mit einem Schritt freigeben, löschen oder mit den aktuellen Regeln erneut prüfen."
             }
           ]
         },
@@ -70,6 +74,14 @@
             {
               "en": "Large files with drawings and scanned pages are read faster: their scanned pages and their drawings are now read at the same time, and many more of them at once, instead of a few at a time one kind after the other.",
               "de": "Große Dateien mit Plänen und gescannten Seiten werden schneller ausgelesen: Gescannte Seiten und Zeichnungen werden jetzt gleichzeitig und in deutlich größerer Anzahl ausgelesen, statt jeweils nur wenige eines Typs nach dem anderen."
+            },
+            {
+              "en": "When a file is not uploaded because its name contains a sensitive term, the message now offers to upload it anyway; its content is still checked.",
+              "de": "Wenn eine Datei nicht hochgeladen wird, weil ihr Name einen sensiblen Begriff enthält, bietet die Meldung nun an, sie trotzdem hochzuladen; der Inhalt wird weiterhin geprüft."
+            },
+            {
+              "en": "If you may review a held upload, you can view the finding and allow it right in the upload message instead of going to the quarantine first.",
+              "de": "Wenn Sie einen zurückgehaltenen Upload prüfen dürfen, können Sie den Befund direkt in der Upload-Nachricht ansehen und den Upload freigeben, ohne zuerst zur Quarantäne zu wechseln."
             },
             {
               "en": "When reading a large PDF has to be tried again, for example after an interruption, it finishes sooner: the text and tables already taken from that same file are reused instead of being read out of the PDF a second time.",
@@ -103,6 +115,14 @@
             {
               "en": "Drawings, photos and scanned pages are read even when many uploads arrive at once: a page that could not be read at first is tried again a moment later instead of being left out, and a photo no longer fails for that reason. A page that still cannot be read is counted as not fully read.",
               "de": "Pläne, Fotos und eingescannte Seiten werden auch dann ausgelesen, wenn viele Uploads gleichzeitig eingehen: Eine Seite, die zunächst nicht gelesen werden kann, wird kurz darauf erneut ausgelesen, statt ausgelassen zu werden, und Fotos scheitern aus diesem Grund nicht mehr. Eine Seite, die weiterhin nicht gelesen werden kann, wird als nicht vollständig gelesen gewertet."
+            },
+            {
+              "en": "Dates with times in spreadsheets, long order or article numbers and dimension chains in drawings are no longer held as social security or card numbers.",
+              "de": "Datumsangaben mit Uhrzeiten in Tabellen, lange Bestell- oder Artikelnummern und Maßketten in Plänen werden nicht mehr als Sozialversicherungs- oder Kartennummern erkannt."
+            },
+            {
+              "en": "File names such as Lüftungssteuerung, Personalraum or Feuchtegehalt are no longer stopped as sensitive in offices that use the suggested list.",
+              "de": "Dateinamen wie Lüftungssteuerung, Personalraum oder Feuchtegehalt werden in Büros, die die vorgeschlagene Liste verwenden, nicht mehr als sensibel blockiert."
             }
           ]
         }
