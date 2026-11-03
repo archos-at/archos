@@ -152,11 +152,16 @@ const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay',
 export function SenderWaitLine({ view }: { view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   if (view.status !== 'waiting' || !view.waitReason) return null
-  const key = ASKED_OF_THE_WRITER.has(view.waitReason) && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
+  const askedOfWriter = ASKED_OF_THE_WRITER.has(view.waitReason)
+  const key = askedOfWriter && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
   return (
     <p className="text-muted-foreground flex items-center gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
       <Info className="size-3.5 shrink-0" aria-hidden />
-      <span>{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}</span>
+      <span>
+        {t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}
+        {/* Only the member it names can release it; when they have left, say what is left to do (the database allows nobody else). */}
+        {askedOfWriter && view.onlySenderReleases ? ` ${t('waitReason.memberLeft')}` : null}
+      </span>
     </p>
   )
 }

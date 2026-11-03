@@ -130,6 +130,8 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
   it('tells another writer only the member can file it, and blocks filing while leaving dismissal', () => {
     renderDetail('claimed-by-colleague')
     expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
+    // A member who has left can release nothing: the line says what is left to do.
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('If that member has left the office, nobody can file it')
     expect(screen.queryByTestId('acknowledge-sender')).toBeNull()
     expect(screen.getByTestId('decision-dismiss')).toBeEnabled()
   })

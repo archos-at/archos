@@ -118,6 +118,8 @@ export const inboundMail = {
     automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
     paused: 'Waiting: direct filing was switched off when it arrived. Only that member can file it; anyone can dismiss it.',
     pausedOwn: 'Did you send this mail? Direct filing was switched off when it arrived, so it waits for you. Only you can file it.',
+    // Under the line when only the member it names can release the mail (the database lets nobody else).
+    memberLeft: 'If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
     no_write_rights: 'Waiting: the sender may not file in this project.',
     outside_office: 'Waiting: the sender is outside the office. If nobody files it, it is discarded after {days} days.',
   },
@@ -316,7 +318,8 @@ export const inboundMail = {
     originalErased: 'The original of the mail is deleted after filing',
     blockers: {
       project_closed: 'The project is closed – reopen it to file',
-      sender_only: 'This mail carries another member’s address. Only that member can file it; you can dismiss it.',
+      sender_only:
+        'This mail carries another member’s address. Only that member can file it; you can dismiss it. If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
       folder_missing: '{count, plural, one {Choose a folder for # attachment.} other {Choose a folder for # attachments.}}',
       name_stop: '{count, plural, one {Confirm the name check for # attachment.} other {Confirm the name check for # attachments.}}',
       risk: '{count, plural, one {Confirm the warning for # part.} other {Confirm the warning for # parts.}}',
@@ -398,7 +401,8 @@ export const inboundMail = {
     name_stop: 'The name check stopped a name. Confirm it with “File anyway”, or choose another name.',
     risk_not_acknowledged: 'Confirm the warning before filing.',
     sender_not_acknowledged: 'Confirm the unverified domain before filing.',
-    sender_only: 'This mail carries another member’s address. Only that member can file or restore it; you can dismiss it.',
+    sender_only:
+      'This mail carries another member’s address. Only that member can file or restore it; you can dismiss it. If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
     acknowledgement_in_bulk: 'This mail needs a confirmation of yours. Open it on its own.',
     card_carries_acknowledgement: 'This needs a confirmation only you can give. Open the mail.',
     name_taken: 'A document of this name is already in the project. File it as its next revision, or rename it.',

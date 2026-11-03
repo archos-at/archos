@@ -687,6 +687,13 @@ scanner (ADR-0150) and the upload path like any other file.
   ("Did you send this?"). That reverses "whoever forged a member's address
   never reaches that member through us" in "Who hears what": the member is the
   one person who can answer.
+- An `unverified_writer` mail whose member has left the office, or lost
+  their write right, can be released by nobody: the database lets only that
+  member file or restore it (`inbound_mail_decisions_claimed_sender_releases`),
+  and it cannot see WorkOS to tell that they left. Any writer may dismiss it,
+  or download the original and forward it to the project from their own
+  address, which files it as theirs. The E-Mail-Eingang says so under the
+  wait reason. A manager's audited release is a follow-up, not built.
 - Write rights live in WorkOS, which the database cannot see; the class
   records the app's check at receipt. A wrong class can only file as the
   authenticated sender, whose upload is authorized again in their own session.
