@@ -34,9 +34,8 @@ start() {
   wait_until "Postgres to accept connections" \
     docker exec hatchet-postgres pg_isready -q -d hatchet -U hatchet
 
-  # Every address is 127.0.0.1, never localhost: Python tries ::1 first, the
-  # runner's ::1 hangs rather than refusing, and each REST call then waits out the
-  # OS connect timeout (about two minutes) before it falls back to IPv4.
+  # Every address is 127.0.0.1, one address family whatever a host's resolver
+  # makes of localhost.
   # The environment is deploy/compose's hatchet-lite, which follows
   # https://docs.hatchet.run/self-hosting/hatchet-lite, with every address the
   # runner's own: the tests and their workers run on the host, not on the
