@@ -17,6 +17,7 @@ its ``input_text`` says what to do:
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from pathlib import Path
@@ -50,6 +51,8 @@ async def stand_in_agent(*, job_id: str, db_url: str, input_text: str, **_payloa
 
 
 if __name__ == "__main__":
+    # Warnings reach the job log: a dropped event write (`EventStore.store`) is otherwise silent.
+    logging.basicConfig(level=logging.WARNING)
     worker.run_agent_job = stand_in_agent
     # The stand-in emits no heartbeats, and a test cannot wait the production
     # window (the ghost reaper's 300 s) for a dead attempt to age out.
