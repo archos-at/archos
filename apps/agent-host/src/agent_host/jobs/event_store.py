@@ -184,13 +184,13 @@ class EventStore:
             from sqlalchemy.ext.asyncio import create_async_engine
 
             normalized_url = _normalize_db_url(db_url, async_mode=True)
+
             engine = create_async_engine(
                 normalized_url,
                 pool_pre_ping=True,
                 pool_size=5,
                 max_overflow=10,
                 pool_recycle=1800,
-                connect_args={"timeout": 30} if normalized_url.startswith("sqlite") else {},  # the sync engine's wait
             )
             cls._async_engine_cache[db_url] = (engine, time.monotonic())
             logger.debug("Created async engine for %s", redact_db_url(db_url))
