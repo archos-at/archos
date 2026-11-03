@@ -36,7 +36,8 @@
 -- later UPDATE can turn a stranger's mail into a writer's.
 --
 -- Write rights live in WorkOS, which the database cannot see: the class records
--- the app's check at receipt (`userHoldsProjectPermission`). A wrong class can
+-- the app's check at receipt (`userHoldsProjectPermissionStrict`; one WorkOS
+-- does not answer is waited out, then held `sender_unchecked`, 0196). A wrong class can
 -- only file AS the authenticated sender, whose upload the filing job authorizes
 -- again in their own session. A forged or unsigned From never reaches
 -- `via = 'sender'`, whatever the app does.
