@@ -262,6 +262,11 @@ config:
 
   # the ciphertext they open.
   grid-oib:seaweedfsTopology: single
+  # 4Gi, not the old 1Gi: on 2026-11-02 eight ingest pods downloading at once
+  # took the one `weed server` to 1,062 MB of 1 GiB and it restarted five times in
+  # 15 minutes, failing 109 files. Applying this restarts the only storage server.
+  grid-oib:seaweedfsSingleRequestsMemory: 1Gi
+  grid-oib:seaweedfsSingleLimitsMemory: 4Gi
   grid-oib:seaweedfsStorageSize: 20Gi
   grid-oib:seaweedfsBucket: grid-documents
   grid-oib:seaweedfsAccessKey: grid

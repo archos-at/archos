@@ -35,7 +35,7 @@ flowchart LR
   subgraph API["agent_host"]
     IN[/v1/ingest<br/>idempotent per document/]
   end
-  subgraph Worker["ingest-worker tier (KEDA, 1 to 5 pods x 3 jobs)"]
+  subgraph Worker["ingest-worker tier (KEDA; prod 1 to 8 pods x 2 jobs)"]
     CL[claim_next<br/>fairest lane first]
     PL[_ingest_job A:4674<br/>the per-file pipeline]
   end
@@ -217,8 +217,9 @@ gantt
 The vision phase is about 80 % of a drawing set's time, and it is serial in rounds
 of four. The fleet sees it differently: **every one of those 20 calls holds one of
 the 32 slots every office shares**. At 25 s a call, the whole platform reads about
-4,600 drawing pages an hour, and at most 15 documents are in flight at once
-(5 pods × 3 jobs, `ingestWorker` in `deploy/pulumi/src/config/workers.ts`). That is the number to watch
+4,600 drawing pages an hour, and at most 16 documents are in flight at once in
+production (8 pods × 2 jobs, `Pulumi.prod.yaml`; the code default in
+`deploy/pulumi/src/config/workers.ts` is 5 × 3). That is the number to watch
 when many offices upload at the same time, and why a cheaper first look at every
 page is the first move in the roadmap.
 
@@ -233,8 +234,14 @@ What is measured in production today:
   vision, summary, embedding, write (A:2931).
 - `llm_usage_events` with `activity = ingest` per job: the one queryable cost
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).
-- `document_ingest_finished` in PostHog with `duration_ms`, accurate to one poll
-  interval because it is measured when the BFF notices.
+- `document_ingest_finished` in PostHog with `duration_ms`. It is **not** a
+  processing time: it is `now − documents.updated_at` at the read that first
+  noticed the change (`bff/analytics/ingest-events.ts`), so it includes the queue
+  wait and every hour nobody looked. A rename, move or other write to the row
+  during the ingest moves `updated_at`, and the value then starts there. On 2026-11-02, 59 PDFs read in 18 s each
+  (p50 of their `ingest-file` traces) reported about 21,600 s, because no read
+  reconciled them until a chat turn six hours later. For processing time use the
+  `ingest-file` trace latency (mirrored into PostHog as `langfuse observation`).
 - `grid.queue.job_duration_seconds` and claim latency (OTel).
 
 ## 5. What is stored, and who reads it
