@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Any
 from typing import NamedTuple
 
+from agent.common.connect_retry import connect_retrying_client
 from agent.knowledge import ingest_status_store
 from agent.knowledge.base import BaseIngestor
 from agent.knowledge.base import PreparedIngestJob
@@ -77,6 +78,7 @@ from .env import env_switch
 from .ingest_measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
 from .ingest_measures import file_trace as _file_trace
 from .ingest_measures import finish_file as _finish_file_trace
+from .pdfium_lock import close_bitmap
 from .pdfium_lock import detached_pil
 from .pdfium_lock import pdfium_lock
 from .vision_calls import VISION_GENERATION_NAME  # noqa: F401 - re-exported, the generation's name
@@ -592,13 +594,6 @@ def _image_candidates(
     return candidates, over_budget
 
 
-def _close_bitmap(bitmap: Any) -> None:
-    """Close a bitmap this module opened; a test double standing in for one may have no ``close``."""
-    close = getattr(bitmap, "close", None)
-    if close is not None:
-        close()
-
-
 def _image_pixel_size(obj: Any) -> tuple[int, int]:
     """An image object's pixel size, read from metadata wherever the library offers it.
 
@@ -618,7 +613,7 @@ def _image_pixel_size(obj: Any) -> tuple[int, int]:
     try:
         return bitmap.width, bitmap.height
     finally:
-        _close_bitmap(bitmap)
+        close_bitmap(bitmap)
 
 
 def _image_objects(page: Any) -> list[Any]:
@@ -690,7 +685,7 @@ def _downscaled_raster(obj: Any) -> Any:
             image = image.copy()
         return image
     finally:
-        _close_bitmap(bitmap)
+        close_bitmap(bitmap)
 
 
 def _rss_mib() -> float | None:
@@ -3697,7 +3692,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         """
         import io
 
-        import httpx
         from PIL import Image
         from PIL import ImageOps
 
@@ -3740,7 +3734,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         thumbnail_bytes = buf.getvalue()
 
         try:
-            with httpx.Client() as client:
+            with connect_retrying_client(read_timeout=5.0) as client:
                 resp = client.put(
                     thumbnail_upload_url,
                     content=thumbnail_bytes,

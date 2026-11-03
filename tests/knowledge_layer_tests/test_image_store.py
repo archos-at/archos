@@ -139,7 +139,7 @@ def test_request_upload_slot_fail_open(monkeypatch):
 
     state = {"response": _Response(200, {"uploadUrl": "http://seaweed/put", "storageKey": "org/o1/_img/0.jpg"})}
 
-    def _post(url, *, json, headers, timeout):
+    def _post(self, url, *, json, headers):
         assert url == "http://frontend:3000/api/internal/document-image-upload-url"
         assert headers["x-internal-token"] == "tok"
         calls.append(json)
@@ -147,7 +147,7 @@ def test_request_upload_slot_fail_open(monkeypatch):
 
     monkeypatch.setenv("FRONTEND_INTERNAL_URL", "http://frontend:3000/")
     monkeypatch.setenv("INTERNAL_API_TOKEN", "tok")
-    monkeypatch.setattr(httpx, "post", _post)
+    monkeypatch.setattr(httpx.Client, "post", _post)
 
     assert image_store.request_upload_slot("d1", "proj_1", 2) == ("http://seaweed/put", "org/o1/_img/0.jpg")
     assert calls[-1] == {"documentId": "d1", "collection": "proj_1", "imageIndex": 2}
@@ -162,10 +162,10 @@ def test_request_upload_slot_fail_open(monkeypatch):
     state["response"] = _Response(200, {"uploadUrl": "", "storageKey": "k"})
     assert image_store.request_upload_slot("d1", "proj_1", 0) is None
 
-    def _boom(*_a, **_k):
+    def _boom(self, *_a, **_k):
         raise httpx.ConnectError("down")
 
-    monkeypatch.setattr(httpx, "post", _boom)
+    monkeypatch.setattr(httpx.Client, "post", _boom)
     assert image_store.request_upload_slot("d1", "proj_1", 0) is None
 
 
