@@ -103,12 +103,12 @@ def resolve_ocr_model(vlm_model: str, org_override: str | None = None) -> str:
 
 def _transcribe_live(image_bytes: bytes, *, ocr_model: str, base_url: str, api_key: str) -> str:
     """One transcription call. Returns the reply, or a failure placeholder (never cached)."""
-    from knowledge_layer.llamaindex import adapter as _adapter
+    from knowledge_layer.llamaindex import vision_calls
 
     try:
-        client = _adapter._vlm_client(base_url, api_key, role=USAGE_ROLE_INGEST_TRANSCRIPTION)
+        client = vision_calls._vlm_client(base_url, api_key, role=USAGE_ROLE_INGEST_TRANSCRIPTION)
         image_b64 = base64.b64encode(image_bytes).decode("ascii")
-        reply = _adapter._vlm_chat_create(
+        reply = vision_calls._vlm_chat_create(
             client,
             model=ocr_model,
             messages=[
@@ -122,6 +122,7 @@ def _transcribe_live(image_bytes: bytes, *, ocr_model: str, base_url: str, api_k
             ],
             max_tokens=_MAX_TOKENS,
             temperature=0.0,
+            prompt_id=cache_prompt_type(),
         )
     except Exception as exc:  # noqa: BLE001 - one page's failure costs that page
         logger.warning("Page transcription failed (%s: %s)", type(exc).__name__, str(exc)[:120])

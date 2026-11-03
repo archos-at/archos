@@ -32,7 +32,6 @@ import hashlib
 import json
 import logging
 import os
-import random
 import re
 import threading
 import time
@@ -48,8 +47,6 @@ from pathlib import Path
 from typing import Any
 from typing import NamedTuple
 
-from agent.common.cost_tracking import USAGE_ROLE_INGEST_VISION
-from agent.common.cost_tracking import meter_openai_client
 from agent.knowledge import ingest_status_store
 from agent.knowledge.base import BaseIngestor
 from agent.knowledge.base import PreparedIngestJob
@@ -77,8 +74,18 @@ from .embedding import embed_fingerprint_metadata
 from .env import env_float
 from .env import env_int
 from .env import env_switch
+from .ingest_measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
+from .ingest_measures import file_trace as _file_trace
+from .ingest_measures import finish_file as _finish_file_trace
 from .pdfium_lock import detached_pil
 from .pdfium_lock import pdfium_lock
+from .vision_calls import VISION_GENERATION_NAME  # noqa: F401 - re-exported, the generation's name
+from .vision_calls import VLM_FLEET_CONCURRENCY  # noqa: F401 - re-exported
+from .vision_calls import VLM_RATE_LIMIT_RETRIES  # noqa: F401 - re-exported
+from .vision_calls import VLM_REQUEST_TIMEOUT_SECONDS  # noqa: F401 - re-exported
+from .vision_calls import _observed_vlm_call  # noqa: F401 - re-exported
+from .vision_calls import _vlm_chat_create
+from .vision_calls import _vlm_client
 
 logger = logging.getLogger(__name__)
 
@@ -213,50 +220,6 @@ MAX_OCR_PAGES = env_int("MAX_OCR_PAGES", 500, minimum=0)
 # file's job status (`pages_read_without_layout`). 0 lifts the ceiling.
 PDF_PAGE_MAX_OBJECTS = env_int("PDF_PAGE_MAX_OBJECTS", 50_000, minimum=0)
 
-# @environment_variable VLM_TIMEOUT_SECONDS
-# @category Knowledge Layer
-# @type int
-# @default 180
-# @required false
-# Per-request timeout for VLM captioning calls. The OpenAI SDK default (~600s,
-# with 2 built-in retries) lets one hung provider pin an enrichment worker for
-# up to ~20 minutes; 180s with a single retry bounds a hung request to ~6
-# minutes. ``_vlm_chat_create`` may issue one extra request when the first
-# response comes back truncated, but that retry runs with SDK retries disabled,
-# so the ceiling for one caption is ~9 minutes — and only on the path where the
-# provider answered once and then hung. Retries are kept (rather than dropped to
-# 0) because a transient 429/5xx now costs an indexed chunk: failure
-# placeholders are skipped, not embedded. Clamped like the sibling knobs: a
-# misconfigured 0 or negative value would fail every VLM request immediately and
-# silently disable captioning altogether.
-VLM_REQUEST_TIMEOUT_SECONDS = max(1, env_int("VLM_TIMEOUT_SECONDS", 180))
-
-# @environment_variable VLM_FLEET_CONCURRENCY
-# @category Knowledge Layer
-# @type int
-# @default 32
-# @required false
-# Vision-model calls in flight across EVERY ingest process at once (a lease pool
-# on the shared cache, `common.lease_slots`); a call waits for a slot. This, not
-# the number of ingest workers, is what the provider sees, so scaling the ingest
-# tier out queues calls here instead of turning into upstream 429s. 0 disables.
-# Every vision call also holds a slot in its model's own provider-limiter pool
-# (`PROVIDER_MODEL_LIMIT_CEILING`, 32), so a pool above that never fills:
-# keep the two together.
-VLM_FLEET_CONCURRENCY = env_int("VLM_FLEET_CONCURRENCY", 32)
-
-# @environment_variable VLM_RATE_LIMIT_RETRIES
-# @category Knowledge Layer
-# @type int
-# @default 4
-# @required false
-# Retries of a vision-model call the provider rate-limited (HTTP 429), with
-# exponential backoff or the provider's Retry-After, before the caption fails.
-VLM_RATE_LIMIT_RETRIES = max(0, env_int("VLM_RATE_LIMIT_RETRIES", 4))
-
-_VLM_SLOT_KEY = "ingest:vlm:inflight"
-_VLM_BACKOFF_CAP_SECONDS = 60.0
-
 
 # pypdfium2 page-object type constants (the C API values are not always exposed
 # as Python attributes across versions).
@@ -318,8 +281,6 @@ PERMIT_RECORD_TIMEOUT_SECONDS = 90
 #: How long storing a version's page text may take (two presigns, two PUTs).
 PAGE_TEXT_TIMEOUT_SECONDS = 30
 
-#: The Langfuse trace one file's ingest is recorded under (``_file_trace``).
-INGEST_TRACE_NAME = "ingest-file"
 
 #: How long the document's dossier may take (``agent.knowledge.dossier``). It runs
 #: beside the summary, the tags and the topics, after the vision batch, and writes a
@@ -1789,208 +1750,6 @@ def _ingest_cost_scope(job_id: str, config: dict[str, Any]):
     )
 
 
-def _vlm_slot():
-    """One of the fleet's ``VLM_FLEET_CONCURRENCY`` vision-call slots, for as long as the call may last.
-
-    Shared fairly between organisations (``lease_slots.FAIR_ACQUIRE_LUA``): an
-    office's 300-sheet upload takes every slot while it is alone, and gives one
-    up to the next office's first page as soon as that office waits. The lane is
-    the organisation on the job's cost ledger (``_ingest_cost_scope``), which the
-    vision pool's threads inherit; a call outside a job has none and is unlaned.
-    """
-    from agent.common import lease_slots
-
-    return lease_slots.hold(
-        _VLM_SLOT_KEY,
-        VLM_FLEET_CONCURRENCY,
-        lease_seconds=VLM_REQUEST_TIMEOUT_SECONDS + 30,
-        max_wait_seconds=VLM_REQUEST_TIMEOUT_SECONDS * 3,
-        lane=_vision_lane(),
-    )
-
-
-def _vision_lane() -> str | None:
-    """The organisation the running ingest job reads for, or ``None`` outside one."""
-    from agent.common.cost_tracking import cost_tracker_var
-
-    tracker = cost_tracker_var.get()
-    organization_id = getattr(tracker, "organization_id", None)
-    return str(organization_id) if organization_id else None
-
-
-#: The Langfuse name of one vision call made by an ingest (a drawing page, an image, a raster).
-VISION_GENERATION_NAME = "ingest-vision"
-
-
-def _observed_vlm_call(client: Any, request: dict[str, Any]) -> Any:
-    """One vision call, as a Langfuse generation under the file's trace (images redacted from the span)."""
-    from agent.common.openrouter import vision_extra_body
-    from agent.observability.direct_trace import observed_generation
-
-    request = {**vision_extra_body(client), **request}
-    with observed_generation(
-        VISION_GENERATION_NAME, model=request.get("model"), messages=request.get("messages")
-    ) as generation:
-        response = client.chat.completions.create(**request)
-        dump = getattr(response, "model_dump", None)
-        generation.finish(dump() if callable(dump) else {})
-        return response
-
-
-def _file_trace(file_name: str, config: dict[str, Any], job_id: str):
-    """The Langfuse trace one file's ingest runs under: ids and the file type, never its text."""
-    from agent.observability.direct_trace import observed_span
-
-    return observed_span(
-        INGEST_TRACE_NAME,
-        metadata={
-            "job_id": job_id,
-            "organization_id": config.get("organization_id"),
-            "project_id": config.get("project_id"),
-            "document_id": config.get("document_id"),
-            "file_type": Path(file_name).suffix.lower().lstrip(".") or "none",
-            "priority": config.get("priority") or "interactive",
-        },
-    )
-
-
-def _finish_file_trace(
-    recorder: Any, job: Any, index: int, stages: dict[str, float], coverage: dict[str, Any] | None = None
-) -> None:
-    """Write the file's outcome on its trace: status, every stage's seconds, pages, chunks. Never raises."""
-    try:
-        detail = job.file_details[index] if index < len(job.file_details) else None
-        status = getattr(getattr(detail, "status", None), "value", None)
-        error = getattr(detail, "error_message", None)
-        output: dict[str, Any] = {
-            "status": status,
-            **{f"seconds_{name}": round(value, 3) for name, value in stages.items()},
-        }
-        output["seconds_total"] = round(sum(stages.values()), 3)
-        for key in ("pages", "drawings", "drawings_read", "transcribed", "not_read"):
-            if coverage and key in coverage:
-                output[f"pages_{key}" if key != "pages" else "pages"] = coverage[key]
-        recorder.finish(output, failed=error if status == FileStatus.FAILED.value else None)
-    except Exception:  # noqa: BLE001 - telemetry never fails an ingest
-        logger.debug("Could not finish the ingest trace", exc_info=True)
-
-
-def _rate_limited_for(error: Exception) -> float | None:
-    """Seconds to wait before retrying a call the provider rate-limited; None when it was not a 429."""
-    if getattr(error, "status_code", None) != 429 and "rate_limit" not in str(error).lower():
-        return None
-    headers = getattr(getattr(error, "response", None), "headers", None) or {}
-    try:
-        stated = float(headers.get("retry-after", ""))
-    except TypeError, ValueError:
-        return 0.0
-    return min(max(stated, 0.0), _VLM_BACKOFF_CAP_SECONDS)
-
-
-def _vlm_create_fairly(client, **request):
-    """``client.chat.completions.create`` inside a fleet slot, waiting out the provider's 429s.
-
-    The OpenAI SDK retries a 429 once on its own (``max_retries=1``); a burst of
-    ingest workers outlasts that. Each further attempt waits OUTSIDE the slot
-    (Retry-After when the provider states it, else 2, 4, 8 … s with jitter), so
-    a rate-limited call never holds capacity another call could use once the
-    limit lifts.
-    """
-    for attempt in range(VLM_RATE_LIMIT_RETRIES + 1):
-        try:
-            with _vlm_slot():
-                return _observed_vlm_call(client, request)
-        except Exception as error:
-            wait = _rate_limited_for(error)
-            if wait is None or attempt == VLM_RATE_LIMIT_RETRIES:
-                raise
-            wait = wait or min(_VLM_BACKOFF_CAP_SECONDS, 2.0 ** (attempt + 1))
-            logger.info("VLM call rate-limited; retrying in %.1fs (attempt %d)", wait, attempt + 1)
-            time.sleep(wait * (0.8 + 0.4 * random.random()))
-    raise AssertionError("unreachable")  # pragma: no cover
-
-
-def _vlm_client(base_url: str, api_key: str, *, role: str = USAGE_ROLE_INGEST_VISION):
-    """The vision client for one ingest call, under the ingest job's data policy and on its cost ledger.
-
-    The ingest job enters ``openrouter.data_policy_scope`` for its organization;
-    anything that reaches here without one (the base corpus sync, a thread that
-    lost the context) is pinned to zero-data-retention endpoints. Each call's
-    usage is recorded under ``role`` in the job's tracker (``_ingest_cost_scope``).
-    """
-    from agent.common.openrouter import openai_client
-    from agent.common.openrouter import scoped_data_policy
-
-    return meter_openai_client(
-        openai_client(
-            base_url=base_url,
-            api_key=api_key,
-            policy=scoped_data_policy(),
-            timeout=VLM_REQUEST_TIMEOUT_SECONDS,
-            max_retries=1,
-        ),
-        role=role,
-    )
-
-
-def _vlm_chat_create(client, *, model: str, messages: list, max_tokens: int, temperature: float = 0.2) -> str:
-    """One VLM chat completion with a single truncation retry.
-
-    A response clipped at ``max_tokens`` (``finish_reason == "length"``) loses
-    the trailing fields of the structured drawing format — exactly the
-    ZUSAMMENFASSUNG the document summary is built from — so retry ONCE with a
-    doubled budget. Returns the message content (possibly empty); a still-
-    truncated response is returned as-is with a warning rather than silently
-    treated as complete.
-
-    The retry is a best-effort improvement on a caption we ALREADY have, so it
-    is deliberately cheap and never destructive:
-
-    - It runs with the SDK retries disabled. The first call already spends the
-      client's ``max_retries`` budget, and letting the second call spend it
-      again would double the worst-case latency of a single caption on top of
-      an attempt that, by definition, already succeeded.
-    - A failure is swallowed and the truncated first caption is returned.
-      Raising here would discard usable content and — since failure placeholders
-      are no longer indexed — drop the chunk entirely over a partial success.
-    """
-    response = _vlm_create_fairly(
-        client,
-        model=model,
-        messages=messages,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
-    choice = response.choices[0]
-    if getattr(choice, "finish_reason", None) != "length":
-        return choice.message.content or ""
-
-    partial = choice.message.content or ""
-    logger.warning("VLM response truncated at %d tokens; retrying with %d", max_tokens, max_tokens * 2)
-    # ``with_options`` is the OpenAI SDK's per-call override; guarded because
-    # the drawing/image call sites are exercised with lightweight fake clients.
-    with_options = getattr(client, "with_options", None)
-    retry_client = client
-    if callable(with_options):
-        try:
-            retry_client = with_options(max_retries=0)
-        except Exception:  # pragma: no cover - defensive, SDK-shape dependent
-            retry_client = client
-    try:
-        with _vlm_slot():
-            response = _observed_vlm_call(
-                retry_client,
-                {"model": model, "messages": messages, "max_tokens": max_tokens * 2, "temperature": temperature},
-            )
-    except Exception as exc:
-        logger.warning("VLM truncation retry failed (%s); keeping the truncated caption", exc)
-        return partial
-    choice = response.choices[0]
-    if getattr(choice, "finish_reason", None) == "length":
-        logger.warning("VLM response still truncated at %d tokens; storing partial caption", max_tokens * 2)
-    return choice.message.content or partial
-
-
 def _analyze_image_with_vlm(
     image_bytes: bytes,
     vlm_model: str = DEFAULT_VLM_MODEL,
@@ -2070,16 +1829,12 @@ Provide a detailed, structured response."""
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_b64}",
-                            },
-                        },
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
                     ],
                 }
             ],
             max_tokens=512,
+            prompt_id=f"image:charts={extract_charts}",
         )
 
         logger.debug(f"VLM analysis: {caption[:100]}...")
@@ -2234,15 +1989,13 @@ def _analyze_drawing_page_with_vlm(
                     ],
                 }
             ],
-            # The JSON reply is bulkier than the legacy twelve-line format; a
-            # budget sized for that would truncate mid-object and forfeit the
-            # whole structure to the fallback parser on every multi-segment
-            # sheet. (_vlm_chat_create still doubles this once on truncation.)
-            # The retry starts the reply over, so a sheet over budget paid for
-            # both replies and waited for both: a dense multi-view sheet
-            # measured 56 s with the retry against 25 s for one under budget.
+            # The JSON reply is bulkier than the legacy twelve-line format, and a
+            # truncated one is asked again from the start (_vlm_chat_create): a dense
+            # multi-view sheet measured 56 s with the retry against 25 s under budget.
             # Unused budget costs nothing, so it is sized for the dense sheet.
             max_tokens=DRAWING_ANALYSIS_MAX_TOKENS,
+            # The cache key names the prompt (schema, vocabulary), never `context` or the page.
+            prompt_id=visual_analysis.cache_prompt_type(registry),
         ).strip()
         if not reply:
             return ("[Drawing - empty VLM response]", {})
@@ -2638,6 +2391,7 @@ _INGEST_PERF_ORDER = (
     "rasters",
     "vision",
     "summary",
+    "dossier",
     "embedding",
     "write",
 )
@@ -4691,49 +4445,28 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             continue
                         text_documents = text_documents_for_pages(text_pages, file_name, file_size)
                     elif is_image:
-                        # Standalone image: caption via the VLM into a single
-                        # Document. The VLM is a hard requirement here (there is
-                        # no text to fall back on), so a missing key fails the
-                        # file with a specific, machine-readable reason the
-                        # failed-doc UX can surface for retry. The key is the
-                        # org-aware resolved one (BYOK), not the deployment key.
-                        # Nothing of an image is readable here, so it is not screened:
-                        # it passes on its name, and its thumbnail may be drawn.
-                        self._record_screening(job, i, screening_rules, "unchecked")
-                        self._thumbnail_after_screen(thumbnail_upload_url, source_path)
-                        if not vlm_api_key:
-                            self._update_file_status(
-                                job,
-                                i,
-                                FileStatus.FAILED,
-                                error="vlm_not_configured: image ingestion requires VLM_API_KEY",
-                            )
-                            logger.warning("Image ingestion skipped (VLM not configured): %s", file_name)
-                            continue
+                        # Standalone image: read by the vision model (a hard requirement:
+                        # no text to fall back on), that reading screened, then its
+                        # thumbnail drawn. `image_ingest` writes the status of a file
+                        # that stops there; the key is the org-aware (BYOK) one.
+                        from knowledge_layer.llamaindex.image_ingest import read_standalone_image
 
-                        # From the ORIGINAL bytes: the re-encode below drops EXIF.
-                        from knowledge_layer.llamaindex.photo_facts import read_photo_facts
-
-                        photo = read_photo_facts(file_path)
-                        image_docs = _build_image_documents(
-                            file_path,
-                            file_name,
-                            file_size,
-                            image_format,
-                            vlm_model=vlm_model,
-                            vlm_base_url=vlm_base_url,
-                            vlm_api_key=vlm_api_key,
-                            extract_charts=extract_charts,
-                            photo=photo,
+                        vision = {"vlm_model": vlm_model, "vlm_base_url": vlm_base_url, "vlm_api_key": vlm_api_key}
+                        image = read_standalone_image(
+                            self,
+                            job,
+                            i,
+                            file_path=source_path,
+                            file_name=file_name,
+                            file_size=file_size,
+                            image_format=image_format,
+                            rules=screening_rules,
+                            thumbnail_upload_url=thumbnail_upload_url,
+                            vision={**vision, "extract_charts": extract_charts},
+                            stages=stages,
                         )
+                        photo, coverage, image_docs = image.photo, image.coverage, image.documents
                         if image_docs is None:
-                            self._update_file_status(
-                                job,
-                                i,
-                                FileStatus.FAILED,
-                                error="Image could not be decoded or captioned (corrupted file or VLM failure)",
-                            )
-                            logger.warning("Image could not be decoded or captioned: %s", file_name)
                             continue
                         text_documents = image_docs
                         # Keep the job-level visual counters accurate: the file
@@ -5120,14 +4853,13 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                                 logger.warning("Tag classification failed for %s: %s", file_name, e)
 
                         topics = _future_result(topics_future, "Topic suggestion", file_name)
+                    with _stage(stages, "dossier"):  # its own seconds: it reads every page
                         dossier = _future_result(dossier_future, "Dossier", file_name, timeout=DOSSIER_TIMEOUT_SECONDS)
-                        # Written from every page rather than the first and last chunk.
-                        if dossier and dossier.get("summary"):
-                            summary = dossier["summary"]
-
-                        # Clean up executor
-                        if executor:
-                            executor.shutdown(wait=False)
+                    # Written from every page rather than the first and last chunk.
+                    if dossier and dossier.get("summary"):
+                        summary = dossier["summary"]
+                    if executor:
+                        executor.shutdown(wait=False)
 
                     # The vision model saw the pixels; the classifier only read
                     # its caption. A photograph is a Foto whatever it shows.
