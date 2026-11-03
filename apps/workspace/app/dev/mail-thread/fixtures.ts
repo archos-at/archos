@@ -53,6 +53,7 @@ export function entry(overrides: Partial<MailThreadEntryView> & { key: string; v
     senderDomain: 'ma37.wien.gv.at',
     signerDomain: 'ma37.wien.gv.at',
     senderTrust: 'external_verified',
+    forwardedBy: null,
     sentAt: daysAgo(8),
     receivedAt: daysAgo(8),
     firstVersion: { id: fixtureId(`ver:thread:${version}`), number: version },
@@ -287,6 +288,36 @@ export const MAIL_THREAD_VARIANTS: Record<string, MailThreadFixture> = {
       ],
     }),
   }),
+  // Miriam's own mail, which her verified domain filed directly (`filedVia: 'sender'`), and a Bescheid she forwarded:
+  // headed by its author, the MA 37, never confirmed, with „Weitergeleitet von“ under it.
+  'direct-and-forwarded': fixture({
+    view: thread({
+      entries: [
+        ...threeMessages().slice(0, 1),
+        entry({
+          key: 'direct',
+          version: 2,
+          heading: '16.10.2026, 10:02 · Miriam Huber (huber-architektur.at)',
+          senderName: 'Miriam Huber',
+          senderDomain: 'huber-architektur.at',
+          signerDomain: 'huber-architektur.at',
+          senderTrust: 'member_verified',
+          filedVia: 'sender',
+        }),
+        entry({
+          key: 'forwarded',
+          version: 3,
+          heading: '20.10.2026, 14:02 · MA 37 – Baupolizei (ma37.wien.gv.at, Domain nicht bestätigt)',
+          senderName: 'Miriam Huber',
+          senderDomain: 'huber-architektur.at',
+          signerDomain: 'huber-architektur.at',
+          senderTrust: 'member_verified',
+          forwardedBy: { name: 'Miriam Huber', domain: 'huber-architektur.at' },
+          filedVia: 'sender',
+        }),
+      ],
+    }),
+  }),
   'archive-sections': fixture({
     view: thread({
       entries: threeMessages().map((item) => ({ ...item, source: 'archive', senderTrust: 'not_checked', original: null, filedVia: 'archive_import', signerDomain: null })),
@@ -314,6 +345,8 @@ export function origin(overrides: Partial<MailOriginView> = {}): MailOriginView 
     sentAt: daysAgo(13),
     receivedAt: daysAgo(13),
     fromName: 'DI Petra Weber',
+    forwardedByName: null,
+    forwarded: false,
     signerDomain: 'statik-weber.at',
     senderTrust: 'external_verified',
     ...overrides,
@@ -325,6 +358,8 @@ export const PROVENANCE_ORIGINS: Record<string, MailOriginView[]> = {
   unverified: [origin({ fromName: 'Mag. Huber', signerDomain: null, senderTrust: 'external_unverified' })],
   archive: [origin({ fromName: 'Statik Weber Büro', signerDomain: null, senderTrust: 'not_checked' })],
   anonymous: [origin({ fromName: null })],
+  // A Bescheid Miriam forwarded: named as the Verlauf heads it, its author first and never confirmed (S6).
+  forwarded: [origin({ fromName: 'MA 37 – Baupolizei', forwardedByName: 'Miriam Huber', forwarded: true, signerDomain: 'huber-architektur.at', senderTrust: 'member_verified' })],
   several: [origin(), origin({ entryId: fixtureId('entry:authority'), fromName: 'Mag. Huber', signerDomain: 'ma37.wien.gv.at' })],
   worst: [
     origin({

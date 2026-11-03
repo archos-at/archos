@@ -24,7 +24,7 @@ export const inboundMail = {
   empty: {
     neverTitle: 'No mail to this project yet',
     neverText:
-      'Put the address below in Cc when you write to the authority, the structural engineer or the client. What you send from your own signed address is filed directly; replies from others land here until someone files them.',
+      'Put the address below in Cc when you write to the authority, the structural engineer or the client. What you send so and your domain verifies is filed directly; replies from others land here until someone files them.',
     doneTitle: 'Nothing waits to be filed',
     doneText: 'New mail to the project mail address appears here.',
     showHandled: 'Show handled mail',
@@ -50,6 +50,13 @@ export const inboundMail = {
     thread: 'Mail thread “{name}” · becomes revision {version}',
     select: 'Select “{subject}”',
     impersonation: 'Poses as {name} · do not file',
+    // The reader's own address, rejected by their domain: said to them, never „poses as you“.
+    impersonationOwn: 'Your address, rejected by your domain · check it',
+    /** Who releases a mail that names a member whose domain did not verify it. */
+    claim: {
+      own: 'Did you send it? Confirm it',
+      colleague: 'Waiting for {name}',
+    },
     restorableUntil: 'can be restored until {date}',
     outcome: {
       filed: '{count, plural, one {# part filed} other {# parts filed}}',
@@ -67,11 +74,16 @@ export const inboundMail = {
       folder_missing: 'Choose a folder',
     },
     textFollowed: 'Text added to the mail thread (following)',
+    // A member who may file sent it from a verified domain, and direct filing did not file it all the same (`not_filed`).
+    notFiled: 'Not filed by itself · {need}',
+    notFiledReady: 'Not filed by itself',
   },
 
   readiness: {
     ready: 'Ready ({count})',
     needs_you: 'Needs you ({count})',
+    others: 'Waiting for others ({count})',
+    othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
     readyHint: 'Domain verified, a place for every part, nothing to check.',
     fileAll: 'File all {count} as suggested',
     fileFirst: 'File the first {count} as suggested',
@@ -91,6 +103,7 @@ export const inboundMail = {
     bccOwn: 'Your own mail (Bcc)',
     memberUnverified: 'Member · domain not verified',
     impersonation: 'Poses as {name}',
+    impersonationOwn: 'Your address · rejected by your domain',
     unverified: 'Domain not verified',
     explain: {
       verified:
@@ -98,30 +111,35 @@ export const inboundMail = {
       bccOwn: 'A copy of a mail you sent to someone else, with this project in Bcc. Your domain signed it.',
       memberUnverified:
         'The address is a member’s, but their domain did not sign this mail. Filing it needs your confirmation.',
+      memberUnverifiedOwn: 'The address is yours, but your domain did not sign this mail. File it only if you sent it yourself.',
+      memberUnverifiedClaimed: 'The address is {name}’s, but the domain did not sign this mail. Only {name} can file it; you can dismiss it.',
       impersonation:
         'The signature of this mail failed, or the domain’s policy refused it. Someone may be using this name. Filing it needs your confirmation.',
+      impersonationOwn:
+        'The mail carries your address, but your domain rejected it (DKIM or its policy). If you did not send it yourself, someone is using your address.',
       impersonationMemberName:
         'The name shown is a member’s, but the address is not theirs. Mails that try to divert a payment look like this. {productName} suggests nothing for it, and filing it needs your confirmation.',
       unverified: 'The sending domain did not sign this mail. {productName} suggests nothing for it and selects no mail thread.',
     },
   },
 
-  // Why a mail waits, by its sender (only signed mail from someone who may file in the project is filed directly).
+  // Why a mail waits, by its sender (only mail the domain of someone who may file in the project confirms is filed directly).
+  // One sentence per reason, ending on what the reader can do. „Own“: to the member it names; without: to everyone else, who can only dismiss it.
   waitReason: {
-    signature: 'Waiting: the signature does not match the member’s address. Only that member can file it; anyone can dismiss it.',
-    signatureOwn: 'Did you send this mail? The signature does not match your address, so it was not filed directly. Only you can file it.',
+    signature: 'Waiting for {name}: the domain did not verify this mail.',
+    signatureOwn: 'Did you send this mail? Your domain did not verify it, so it was not filed directly. Only you can file it.',
     replay:
-      'Waiting: the mail is signed, but addressed to others, oddly dated or already known. A mail sent again by someone else looks like this. Only that member can file it; anyone can dismiss it.',
+      'Waiting for {name}: the domain verified it, but it is addressed to others, oddly dated or already known. A mail sent again by someone else looks like this.',
     replayOwn:
-      'Did you send this mail to the project? It is signed, but addressed to others, oddly dated or already known, so it was not filed directly. Only you can file it.',
-    automatic: 'Waiting: the mail was sent automatically, so it was not filed directly. Only that member can file it; anyone can dismiss it.',
+      'Did you send this mail to the project? Your domain verified it, but it is addressed to others, oddly dated or already known, so it was not filed directly. Only you can file it.',
+    automatic: 'Waiting for {name}: the mail was sent automatically.',
     automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
     paused: 'Waiting: direct filing is switched off, so it was not filed directly. Anyone who may file in this project can file it.',
-    // Under the line when only the member it names can release the mail (the database lets nobody else).
-    memberLeft: 'If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
-    no_write_rights: 'Waiting: the sender may not file in this project.',
-    outside_office: 'Waiting: the sender is outside the office. If nobody files it, it is discarded after {days} days.',
-    sender_unchecked: 'Waiting: when it arrived, whether the sender belongs to the office and may file here could not be checked. Check before you file.',
+    // A mail the domain of a member who may file verified, and which waits all the same: direct filing did not file it (or not all of it).
+    not_filed: 'Waiting: {name} sent it and the domain verified it, but it was not filed by itself. Check it, then file or dismiss it.',
+    no_write_rights: 'Waiting: the sender may not file in this project. Check the mail and file what belongs in the project.',
+    outside_office: 'Waiting: the sender is outside the office. If nobody files it, it expires after {days} days and cannot be restored.',
+    sender_unchecked: 'Waiting: when it arrived, who the sender is in the office could not be checked. Check the address and the domain above before you file.',
   },
 
   flags: {
@@ -142,8 +160,9 @@ export const inboundMail = {
     to: 'To',
     cc: 'Cc',
     replyTo: 'Reply to',
-    forwardedFrom: 'Originally from {who} · not checked',
-    forwardedExplain: 'Read from the forwarded text. Nobody has checked this.',
+    // The mail thread's words for the same forward: who wrote it first, then who forwarded it.
+    forwardedFrom: 'From {who} · domain not verified · forwarded by {forwarder}',
+    forwardedExplain: 'Read from the forwarded text. The domain verifies only the forward, not who originally wrote the mail.',
     original: 'Download original (.eml)',
     originalHint: 'Opens in your mail program; images from outside are loaded there.',
     originalNotClean: 'The original contains malware and cannot be downloaded.',
@@ -296,12 +315,18 @@ export const inboundMail = {
 
   /** The warning above a mail that poses as someone (`riskLevel: 'impersonation'`). */
   impersonationWarning: {
-    rejectedSignature: 'Careful: this mail poses as {name}. Its signature is invalid or was rejected by the domain.',
+    rejectedSignature: 'Careful: this mail poses as {name}. The domain rejected it.',
+    // To the member whose address it carries: a question to them, not a warning about them.
+    own: 'This mail carries your address, but your domain rejected it.',
+    ownConsequence:
+      'If you did not send it yourself, dismiss it: this is how fraud with changed bank details begins. {productName} suggests nothing and nothing is preselected.',
     memberName: 'Careful: the name {name} belongs to a member, the address {address} does not.',
     consequence:
       'This is how fraud with changed bank details begins. {productName} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.',
     fileAnyway: 'File anyway …',
     fileAnywayHint: 'Only once you checked by phone that the mail is genuine.',
+    fileAnywayHintOwn: 'Only if you sent this mail yourself.',
+    fileAnywayClose: 'Close filing',
   },
   bar: {
     dismiss: 'Dismiss',
@@ -316,10 +341,19 @@ export const inboundMail = {
     acknowledgeSender: 'Domain not verified. File anyway',
     acknowledgeOwnMail: 'Yes, I sent this mail. File it',
     originalErased: 'The original of the mail is deleted after filing',
+    /** For everyone but the member whose address the mail carries: dismiss only, never file (`onlySenderReleases`). */
+    claimed: {
+      line: 'Only {name} can file or restore this mail. You can dismiss it.',
+      dismiss: 'Dismiss …',
+      confirmTitle: 'Dismiss this mail?',
+      confirmText:
+        'Afterwards only {name} ‹{address}› can restore it, for {days} days. If {name} has left the office, nobody will file it: download the original under “Details” first if you need it.',
+      confirm: 'Dismiss',
+      cancel: 'Cancel',
+    },
     blockers: {
       project_closed: 'The project is closed – reopen it to file',
-      sender_only:
-        'This mail carries another member’s address. Only that member can file it; you can dismiss it. If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
+      sender_only: 'Only the member whose address the mail carries can file it.',
       folder_missing: '{count, plural, one {Choose a folder for # attachment.} other {Choose a folder for # attachments.}}',
       name_stop: '{count, plural, one {Confirm the name check for # attachment.} other {Confirm the name check for # attachments.}}',
       risk: '{count, plural, one {Confirm the warning for # part.} other {Confirm the warning for # parts.}}',
@@ -445,11 +479,12 @@ export const inboundMail = {
     uses: {
       cc: 'Put it in Cc when you write to the authority, the structural engineer or the client: the replies land in project mail.',
       forward: 'Forward documents to it from your mail program.',
-      held: 'Mail someone who may file in the project sends from their own signed address is filed directly. Everything else waits until someone files it; mail from outside the office for 14 days.',
+      held: 'Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits until someone files it; mail from outside the office for {days} days.',
     },
     tileLead: 'Put in Cc, it brings the replies of the authority, the structural engineer and the client into project mail, ready to file.',
     openInbox: 'Open project mail',
     guide: 'Guide',
+    newTab: '(opens in a new tab)',
     none: 'This project has no mail address yet.',
     noneMember: 'Ask someone who manages the project to create it in the project settings.',
     create: 'Create address',

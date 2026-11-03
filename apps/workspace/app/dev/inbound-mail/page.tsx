@@ -5,7 +5,7 @@
  * workspace (`InboundMailWorkspace`) over the fixture client, one fixture per
  * state of the list:
  *
- * `?variant=empty|done|loading|error|one|many|thread-group|unverified-group|selected|bulk-blocked|settled|dismissed|expired|closed|followed|worst-case`
+ * `?variant=empty|done|loading|error|one|many|thread-group|unverified-group|selected|bulk-blocked|settled|dismissed|expired|closed|followed|claimed|own|worst-case`
  *
  * `&mail=<id>` opens a mail beside the list (the rows link there), `&status=`
  * and `&outcome=` filter, `&locale=en` switches the language, `&chrome=0`

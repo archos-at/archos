@@ -32,7 +32,7 @@ import { formatAbsoluteTime, formatCalendarDate } from '@/lib/format'
 import type { ForwardedOrigin } from '@/lib/inbound-mail/forwarded'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { expiryShownInline } from '../lib/evidence'
-import { senderDisplayName } from '../lib/sender'
+import { mailClaimOf, senderDisplayName } from '../lib/sender'
 import { FactLine } from './inbound-mail-atoms'
 import { SenderFlagLines, SenderTrustLine, SenderWaitLine } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -88,7 +88,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
               <span className="text-foreground min-w-0 text-sm [overflow-wrap:anywhere]" data-testid="mail-header-from">
                 {t('header.fromShort', { name: senderDisplayName(view.sender), address: view.sender.address })}
               </span>
-              <SenderTrustLine sender={view.sender} impersonation={view.impersonation} />
+              <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />
             </>
           )}
           <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
@@ -108,8 +108,10 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           <p className="text-muted-foreground flex items-start gap-1.5 text-xs" data-testid="mail-forwarded">
             <Forward className="mt-px size-3.5 shrink-0" aria-hidden />
             <span className="min-w-0 [overflow-wrap:anywhere]">
+              {/* The Verlauf's words for the same forward: its author first, never confirmed, the sender as the forwarder. */}
               {t('header.forwardedFrom', {
                 who: forwarded.name && forwarded.address ? `${forwarded.name} ‹${forwarded.address}›` : (forwarded.name ?? forwarded.address ?? ''),
+                forwarder: view.sender ? senderDisplayName(view.sender) : '',
               })}
             </span>
             <Toggletip>

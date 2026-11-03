@@ -12,6 +12,12 @@
  * nothing is pre-selected, and a payment or bank change is checked by phone,
  * never by replying. No dismiss: the one yes is the bar's acknowledgement.
  *
+ * The member whose own address a rejected mail carries reads it in their own
+ * voice (`own`): „Diese E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie
+ * abgelehnt“, and to dismiss it unless they sent it. Telling Miriam that
+ * someone poses as Miriam, beside „Haben Sie sie gesendet?“, taught the one
+ * click a forger wants.
+ *
  * A stop, not a caution: the signal red on the glyph and the leading rule,
  * the words in ink. Not the kit's `Alert variant="destructive"`, whose red
  * text on its tint measures 4.08:1 (axe, 2026-10-22), under the 4.5:1 WCAG
@@ -26,17 +32,24 @@ import { useTranslations } from '@/i18n'
 import type { ImpersonationWarning as Warning } from '../lib/impersonation'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
-export function ImpersonationWarning({ warning }: { warning: Warning }): JSX.Element {
+export function ImpersonationWarning({ warning, own = false }: { warning: Warning; own?: boolean }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
+  const title =
+    own && warning.basis === 'rejected_signature'
+      ? t('impersonationWarning.own')
+      : warning.basis === 'member_name'
+        ? t('impersonationWarning.memberName', { name: warning.name, address: warning.address })
+        : t('impersonationWarning.rejectedSignature', { name: warning.name })
   return (
-    <Alert className="border-l-4 border-l-[color:var(--color-signal-error)] [&>svg]:text-error" data-testid="impersonation-warning" data-basis={warning.basis}>
+    <Alert
+      className="border-l-4 border-l-[color:var(--color-signal-error)] [&>svg]:text-error"
+      data-testid="impersonation-warning"
+      data-basis={warning.basis}
+      data-own={own || undefined}
+    >
       <ShieldAlert aria-hidden />
-      <AlertTitle className="line-clamp-none font-medium [overflow-wrap:anywhere]">
-        {warning.basis === 'member_name'
-          ? t('impersonationWarning.memberName', { name: warning.name, address: warning.address })
-          : t('impersonationWarning.rejectedSignature', { name: warning.name })}
-      </AlertTitle>
-      <AlertDescription className="text-foreground">{t('impersonationWarning.consequence')}</AlertDescription>
+      <AlertTitle className="line-clamp-none font-medium [overflow-wrap:anywhere]">{title}</AlertTitle>
+      <AlertDescription className="text-foreground">{t(own ? 'impersonationWarning.ownConsequence' : 'impersonationWarning.consequence')}</AlertDescription>
     </Alert>
   )
 }

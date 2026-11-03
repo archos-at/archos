@@ -1686,6 +1686,8 @@ describe('listDocumentVersionViews — whether each version opens for this reade
       receivedAt: '2026-10-14T07:14:00.000Z',
       fromName: 'Ing. Paul Gruber',
       signerDomain: 'statik-weber.at',
+      forwardedByName: null,
+      forwarded: false,
       senderTrust: 'external_verified' as const,
     }
     vi.mocked(documentMailOrigins).mockResolvedValue([{ ...origin, documentVersionId: 'ver_2' }])

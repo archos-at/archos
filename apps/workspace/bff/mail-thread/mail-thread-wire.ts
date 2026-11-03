@@ -250,6 +250,12 @@ export interface MailThreadEntryView {
   senderDomain: string | null
   signerDomain: string | null
   senderTrust: SenderTrust
+  /**
+   * Who forwarded the message to the project, when the heading names its
+   * original author (migration 0195): the sender's name and domain, which the
+   * trust fields above are about. Null for a message that was not forwarded.
+   */
+  forwardedBy: { name: string | null; domain: string | null } | null
   sentAt: string
   receivedAt: string
   /** The Fassung the message first appeared in. */

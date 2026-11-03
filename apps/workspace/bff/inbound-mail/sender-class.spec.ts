@@ -98,7 +98,8 @@ describe('senderClassOf', () => {
       expect(senderWaitReason(held)).toBe('paused')
       expect(senderWaitReason({ ...held, directFiling: false })).toBe('paused')
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'true')
-      expect(senderWaitReason(held)).toBeNull()
+      // On, a verified writer's mail still waiting is one direct filing left: any writer files it, and the reader is told so.
+      expect(senderWaitReason(held)).toBe('not_filed')
       expect(senderClassOf(input())).toBe('verified_writer')
     })
   })
@@ -120,7 +121,8 @@ describe('what the class means to a reader', () => {
   })
 
   it('says why a mail waits', () => {
-    expect(senderWaitReason(held({ senderClass: 'verified_writer' }))).toBeNull()
+    expect(senderWaitReason(held({ senderClass: 'verified_writer', directFiling: true }))).toBe('not_filed')
+    expect(senderWaitReason(held({ senderClass: 'verified_writer', directFiling: false }))).toBe('paused')
     expect(senderWaitReason(held({ senderTrust: 'member_unverified' }))).toBe('signature')
     expect(senderWaitReason(held({ senderClass: 'office_member' }))).toBe('no_write_rights')
     expect(senderWaitReason(held({ senderClass: 'external', senderTrust: 'external_verified' }))).toBe('outside_office')

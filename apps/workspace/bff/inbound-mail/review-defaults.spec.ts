@@ -129,8 +129,13 @@ describe('incompleteReason (RT-X10)', () => {
     expect(reason(name)).toBe(expected)
   })
 
-  it('counts a member’s own Bcc copy with nothing attached as complete', () => {
-    expect(reason('bcc-own')).toBeNull()
+  it('counts a member’s own Bcc copy with nothing attached as complete once its sender is no question, and asks its writer first', () => {
+    // A writer's own Bcc copy is no direct filing's evidence: it waits for their „Ja, gesendet“ (`unverified_writer`).
+    expect(reason('bcc-own')).toBe('sender')
+    // A member who may only read the project: their Bcc copy waits for the writers, and starts its own thread.
+    const readOnly = mail({ key: 'bcc-read-only', sender: DETAIL_VARIANTS['bcc-own'].view.sender, reading: { writes: false, viewer: 'colleague' }, threadCandidates: [] })
+    expect(readOnly.senderClass).toBe('office_member')
+    expect(incompleteReason(readOnly)).toBeNull()
   })
 
   it('lets a duplicate stay behind: it is already in the project', () => {

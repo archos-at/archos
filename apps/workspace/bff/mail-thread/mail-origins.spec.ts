@@ -33,6 +33,8 @@ const row = (overrides: Partial<MailOriginRow> = {}): MailOriginRow => ({
   sentAt: new Date('2026-10-14T07:12:00.000Z'),
   receivedAt: received,
   senderName: 'Mag. Anna Huber',
+  authorName: null,
+  authorAddress: null,
   signerDomain: 'ma37.wien.gv.at',
   senderTrust: 'external_verified',
   ...overrides,
@@ -59,6 +61,8 @@ describe('the mails that brought a document', () => {
         sentAt: '2026-10-14T07:12:00.000Z',
         receivedAt: received.toISOString(),
         fromName: 'Mag. Anna Huber',
+        forwardedByName: null,
+        forwarded: false,
         signerDomain: 'ma37.wien.gv.at',
         senderTrust: 'external_verified',
         documentVersionId: 'ver-2',
@@ -70,6 +74,16 @@ describe('the mails that brought a document', () => {
         documentVersionId: null,
       }),
     ])
+  })
+
+  it('names a forward as the Verlauf heads it: its author, then who forwarded it, never an address (S6)', async () => {
+    vi.mocked(findMailOrigins).mockResolvedValueOnce([
+      row({ senderName: 'Miriam Huber', authorName: 'MA 37 – Baupolizei', authorAddress: 'post@ma37.wien.gv.at' }),
+      row({ entryId: 'entry-2', senderName: 'Miriam Huber', authorName: null, authorAddress: 'post@ma37.wien.gv.at' }),
+    ])
+    const [named, unnamed] = await documentMailOrigins(session, { id: 'doc-1', projectId: 'project-1' })
+    expect(named).toMatchObject({ fromName: 'MA 37 – Baupolizei', forwardedByName: 'Miriam Huber', forwarded: true })
+    expect(unnamed).toMatchObject({ fromName: 'ma37.wien.gv.at', forwardedByName: 'Miriam Huber', forwarded: true })
   })
 
   it('asks nothing for an Archiv document, or with the office’s entitlement off', async () => {
@@ -86,6 +100,8 @@ describe('the mails that brought a document', () => {
       sentAt: 's',
       receivedAt: 'r',
       fromName: null,
+      forwardedByName: null,
+      forwarded: false,
       signerDomain: null,
       senderTrust: 'not_checked' as const,
     }

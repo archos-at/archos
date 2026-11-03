@@ -1000,18 +1000,19 @@ export const collaboration = {
             titleRelated: 'Your mail to “{subject}” was dismissed',
             body: 'Dismissed by {actor}. It can be restored for seven days.',
           },
-          // Filed as you, without anyone pressing a button: your domain signed it and you may write in the project.
+          // Filed as you, without anyone looking at it: your domain verified it and you may write in the project.
           direct: {
-            title: 'Your mail to “{subject}” was filed',
-            titleRelated: 'Your mail to “{subject}” was filed in “{related}”',
-            body: 'Filed directly as you, because your domain signed it and you may file in this project.',
+            title: 'Your mail to “{subject}” was filed directly',
+            titleRelated: 'Your mail to “{subject}” was filed directly in “{related}”',
+            body: 'Nobody looked at it: your domain verified it and you may file in this project.',
           },
         },
       },
+      // A forger causes this row too, so the title names both answers. No subject: a stranger's words reach no row (RT-X1).
       inboundMailHeld: {
-        title: 'Did you send this mail to “{subject}”?',
-        titleResolved: 'The mail to “{subject}” in your name is decided',
-        body: 'It carries your address, but its signature did not match. Only you can file it; anyone in the project can dismiss it.',
+        title: 'Did you send a mail to the project “{subject}”? Otherwise dismiss it',
+        titleResolved: 'The mail with your address to “{subject}” is done',
+        body: 'It carries your address, but your domain did not verify it. Only you can file it. If you did not send it, dismiss it: this is how fraud begins.',
       },
       inboundMailHeldForWriters: {
         title: 'Your mail to “{subject}” waits to be filed',
@@ -1029,7 +1030,7 @@ export const collaboration = {
       },
       inboundMailExpired: {
         title: 'Your mail to “{subject}” was not filed in time',
-        body: 'Nobody filed it within its window, and it has expired.',
+        body: 'Nobody filed it within its window. For seven days it can be restored in Project mail under “Handled”: by you if you may file in the project, otherwise by someone who may.',
       },
       inboundMailFilingFailed: {
         title: 'A mail to “{subject}” was not filed completely',

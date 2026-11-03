@@ -52,7 +52,7 @@ export function FiledTo({
         <>
           {' · '}
           <Link
-            className="underline-offset-2 hover:underline"
+            className="underline underline-offset-2 hover:no-underline"
             href={documentFilesHref(projectId, part.documentId)}
             onClick={() => capturePosthog('inbound_mail_filed_outcome_opened', { kind: part.kind })}
           >

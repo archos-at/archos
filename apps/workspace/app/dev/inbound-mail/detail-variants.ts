@@ -28,13 +28,30 @@ const memberVerified = mail({
   },
   parts: [messagePart({ id: fixtureId('message:member') }), permitDecision()],
   threadCandidates: [thread()],
+  // Miriam may only read this project: her signed mail waits for its writers (`office_member`), who see it.
+  reading: { writes: false, viewer: 'colleague' },
 })
+
+/** Miriam's own address, as the office's directory knows it: every member fixture is from her. */
+const miriam = (overrides: Partial<NonNullable<InboundMailView['sender']>> = {}): NonNullable<InboundMailView['sender']> => ({
+  name: 'Miriam Huber',
+  address: 'm.huber@huber-architektur.at',
+  domain: 'huber-architektur.at',
+  signerDomain: 'huber-architektur.at',
+  trust: 'member_verified',
+  reason: 'dkim_pass',
+  flags: [],
+  ...overrides,
+})
+
+const unsigned = miriam({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_none' })
+const rejected = miriam({ signerDomain: null, trust: 'member_unverified', reason: 'dkim_fail' })
 
 const longName =
   'Einreichplanung_Stellplatznachweis_Tiefgarage_Ebene_-2_Brandabschnitte_und_Fluchtwege_überarbeitet_nach_Verhandlung_vom_14_10_2026_Index_F_final_final2.pdf'
 
 export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
-  // Miriam forwards the MA 37's Bescheid from her own, signed domain: the suggestion reads the file's name, never the sender.
+  // Miriam forwards the MA 37's Bescheid from her own, signed domain, but may only read the project: a writer files it.
   'member-verified': {
     view: memberVerified,
     text: text({ ownText: 'Zur Ablage: der Bescheid zum Stellplatznachweis ist gestern gekommen.\n\nlg Miriam', quoted: [] }),
@@ -49,15 +66,86 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Sehr geehrte Damen und Herren,\n\nanbei unser Angebot für die Fassadenreinigung.\n\nMfG' , quoted: [] }),
   },
+  // Miriam's own address, rejected by her own domain, as Miriam reads it: her question, in her own voice, „Verwerfen“ first.
   impersonation: {
     view: mail({
       key: 'impersonation',
       subject: 'Dringend: Kontoänderung Honorarnote',
-      sender: { name: 'Miriam Huber', address: 'm.huber@huber-architektur.at', domain: 'huber-architektur.at', signerDomain: null, trust: 'member_unverified', reason: 'dkim_fail', flags: [] },
+      sender: rejected,
       parts: [messagePart({ id: fixtureId('message:imp') }), part({ name: 'Honorarnote_neu.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })],
       threadCandidates: [],
     }),
     text: text({ ownText: 'Bitte überweisen Sie die offene Honorarnote ab sofort auf das neue Konto.', quoted: [] }),
+  },
+  // The same forgery as a colleague reads it: the warning, and „Verwerfen …“ as the only press (only Miriam may file it).
+  'impersonation-colleague': {
+    view: mail({
+      key: 'impersonation-colleague',
+      subject: 'Dringend: Kontoänderung Honorarnote',
+      sender: rejected,
+      reading: { viewer: 'colleague' },
+      parts: [messagePart({ id: fixtureId('message:imp-col') }), part({ name: 'Honorarnote_neu.pdf', riskFlags: ['name_stop'], nameStopTerms: ['Honorar'] })],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Bitte überweisen Sie die offene Honorarnote ab sofort auf das neue Konto.', quoted: [] }),
+  },
+  // Miriam's own mail her domain did not sign (a misconfigured server, mostly): „Ja, ich habe diese E-Mail gesendet. Ablegen“.
+  'own-unverified': {
+    view: mail({
+      key: 'own-unverified',
+      subject: 'Plan Tiefgarage Index G',
+      sender: unsigned,
+      parts: [messagePart({ id: fixtureId('message:own-unv') }), part({ name: 'TG_Index_G.pdf', suggestion: suggestion('Einreichung', 'Grundriss', 'Index G der Tiefgarage.') })],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Anbei Index G der Tiefgarage.', quoted: [] }),
+  },
+  // Signed by her domain, but sent automatically (a scanner, a rule): asked of Miriam.
+  'automatic-own': {
+    view: mail({
+      key: 'automatic-own',
+      subject: 'Scan vom Kopierer 3. OG',
+      sender: miriam(),
+      automatic: true,
+      parts: [messagePart({ id: fixtureId('message:auto') }), part({ name: 'Scan_2026-11-03_0912.pdf' })],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Gescannt am Kopierer 3. OG.', quoted: [] }),
+  },
+  // Direct filing was switched off when it arrived: Miriam's signed mail waits for any of the project's writers.
+  paused: {
+    view: mail({
+      key: 'paused',
+      subject: 'Protokoll Jour fixe 12',
+      sender: miriam(),
+      reading: { directFiling: false, viewer: 'colleague' },
+      parts: [messagePart({ id: fixtureId('message:paused') }), part({ name: 'Protokoll_JF_12.pdf', suggestion: suggestion('Protokolle', 'Sonstiges', 'Protokolle liegen in Protokolle.') })],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Anbei das Protokoll vom Jour fixe.', quoted: [] }),
+  },
+  // Direct filing was on and filed nothing of it: one attachment had no folder to go to. Any writer files it.
+  'not-filed': {
+    view: mail({
+      key: 'not-filed',
+      subject: 'Fotos Baustelle KW 45',
+      sender: miriam(),
+      reading: { viewer: 'colleague' },
+      parts: [messagePart({ id: fixtureId('message:not-filed') }), part({ name: 'Baustelle_KW45.pdf', suggestion: null })],
+      threadCandidates: [thread()],
+    }),
+    text: text({ ownText: 'Die Fotos von der Begehung.', quoted: [] }),
+  },
+  // Who the sender is in the office could not be asked at receipt: neither an outsider nor read-only, but unchecked.
+  'sender-unchecked': {
+    view: mail({
+      key: 'sender-unchecked',
+      subject: 'AW: Termin Bauverhandlung',
+      sender: miriam({ trust: 'external_verified', flags: ['sender_unchecked'] }),
+      parts: [messagePart({ id: fixtureId('message:unchecked') })],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Passt für mich, bis Dienstag.', quoted: [] }),
   },
   // An outsider whose display name is a member's: the address is not theirs (D8b `claims_member_name`).
   'member-name': {
@@ -75,13 +163,14 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'claimed-by-colleague',
       subject: 'Plan Tiefgarage Index G',
-      sender: { name: 'Miriam Huber', address: 'm.huber@huber-architektur.at', domain: 'huber-architektur.at', signerDomain: null, trust: 'member_unverified', reason: 'dkim_none', flags: [] },
-      onlySenderReleases: true,
+      sender: unsigned,
+      reading: { viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:claimed') }), part({ name: 'TG_Index_G.pdf' })],
       threadCandidates: [],
     }),
     text: text({ ownText: 'Anbei Index G der Tiefgarage.', quoted: [] }),
   },
+  // Miriam's own Bcc copy: signed, but no direct filing's evidence (anyone she wrote to could re-send it): asked of her.
   'bcc-own': {
     view: mail({
       key: 'bcc-own',
@@ -104,7 +193,9 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     view: mail({
       key: 'forwarded',
       subject: 'WG: Verhandlungsschrift Bauverhandlung 04.11.',
-      sender: { name: 'Miriam Huber', address: 'm.huber@huber-architektur.at', domain: 'huber-architektur.at', signerDomain: 'huber-architektur.at', trust: 'member_verified', reason: 'dkim_pass', flags: [] },
+      sender: miriam(),
+      // She may only read the project, so her forward waits for its writers.
+      reading: { writes: false, viewer: 'colleague' },
       parts: [messagePart({ id: fixtureId('message:fwd') }), permitDecision({ filename: 'Verhandlungsschrift_2026-11-04.pdf' })],
       threadCandidates: [],
     }),

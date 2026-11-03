@@ -27,7 +27,7 @@ export const inboundMail: typeof en.inboundMail = {
   empty: {
     neverTitle: 'Noch keine E-Mails an dieses Projekt',
     neverText:
-      'Setzen Sie die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Was Sie selbst von Ihrer signierten Adresse senden, wird direkt abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.',
+      'Setzen Sie die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Was Sie selbst so senden und Ihre Domain bestätigt, wird direkt abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.',
     doneTitle: 'Nichts wartet auf Ablage',
     doneText: 'Neue E-Mails an die E-Mail-Adresse des Projekts erscheinen hier.',
     showHandled: 'Bearbeitete anzeigen',
@@ -53,6 +53,13 @@ export const inboundMail: typeof en.inboundMail = {
     thread: 'E-Mail-Verlauf „{name}“ · wird Fassung {version}',
     select: '„{subject}“ auswählen',
     impersonation: 'Gibt sich als {name} aus · nicht ablegen',
+    // Die eigene Adresse des Lesers, von seiner Domain abgelehnt: an ihn selbst, nie „gibt sich als Sie aus“.
+    impersonationOwn: 'Mit Ihrer Adresse, von Ihrer Domain abgelehnt · prüfen',
+    /** Wer eine E-Mail freigibt, die ein Mitglied nennt, ohne dass seine Domain sie bestätigt hat. */
+    claim: {
+      own: 'Haben Sie sie gesendet? Bestätigen Sie es',
+      colleague: 'Wartet auf {name}',
+    },
     restorableUntil: 'wiederherstellbar bis {date}',
     outcome: {
       filed: '{count, plural, one {# Teil abgelegt} other {# Teile abgelegt}}',
@@ -60,6 +67,9 @@ export const inboundMail: typeof en.inboundMail = {
       expired: '{count, plural, one {# Teil abgelaufen} other {# Teile abgelaufen}}',
     },
     textFollowed: 'Text dem E-Mail-Verlauf angefügt (Verlauf folgen)',
+    // Die Domain eines Mitglieds mit Schreibrecht hat sie bestätigt, die direkte Ablage hat sie trotzdem nicht abgelegt (`not_filed`).
+    notFiled: 'Nicht von selbst abgelegt · {need}',
+    notFiledReady: 'Nicht von selbst abgelegt',
     fileAsSuggested: '„{subject}“ wie vorgeschlagen ablegen',
     /** Was eine E-Mail braucht, bevor sie wie vorgeschlagen abgelegt werden kann, in wenigen Worten (`incompleteReason`). */
     needs: {
@@ -77,6 +87,8 @@ export const inboundMail: typeof en.inboundMail = {
   readiness: {
     ready: 'Bereit ({count})',
     needs_you: 'Braucht Sie ({count})',
+    others: 'Wartet auf andere ({count})',
+    othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
     readyHint: 'Domain bestätigt, für jeden Teil ein Ziel, nichts zu prüfen.',
     fileAll: 'Alle {count} wie vorgeschlagen ablegen',
     fileFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
@@ -96,6 +108,7 @@ export const inboundMail: typeof en.inboundMail = {
     bccOwn: 'Ihre eigene E-Mail (Bcc)',
     memberUnverified: 'Mitglied · Domain nicht bestätigt',
     impersonation: 'Gibt sich als {name} aus',
+    impersonationOwn: 'Ihre Adresse · von Ihrer Domain abgelehnt',
     unverified: 'Domain nicht bestätigt',
     explain: {
       verified:
@@ -103,8 +116,12 @@ export const inboundMail: typeof en.inboundMail = {
       bccOwn: 'Eine Kopie einer E-Mail, die Sie an andere geschickt haben, mit diesem Projekt in Bcc. Ihre Domain hat sie signiert.',
       memberUnverified:
         'Die Adresse gehört einem Mitglied, aber dessen Domain hat diese E-Mail nicht signiert. Zum Ablegen braucht es Ihre Bestätigung.',
+      memberUnverifiedOwn: 'Die Adresse ist Ihre, aber Ihre Domain hat diese E-Mail nicht signiert. Legen Sie sie nur ab, wenn Sie sie selbst gesendet haben.',
+      memberUnverifiedClaimed: 'Die Adresse gehört {name}, aber die Domain hat diese E-Mail nicht signiert. Nur {name} kann sie ablegen; Sie können sie verwerfen.',
       impersonation:
-        'Die Signatur dieser E-Mail ist ungültig, oder die Richtlinie der Domain hat sie abgelehnt. Möglicherweise verwendet jemand diesen Namen. Zum Ablegen braucht es Ihre Bestätigung.',
+        'Die Domain hat diese E-Mail abgelehnt: Ihre DKIM-Prüfung ist fehlgeschlagen, oder die Richtlinie der Domain verbietet sie. Möglicherweise verwendet jemand diesen Namen. Zum Ablegen braucht es Ihre Bestätigung.',
+      impersonationOwn:
+        'Die E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt (DKIM oder ihre Richtlinie). Haben Sie sie nicht selbst gesendet, verwendet jemand Ihre Adresse.',
       impersonationMemberName:
         'Der angezeigte Name ist der eines Mitglieds, die Adresse gehört aber nicht zu ihm. So sehen E-Mails aus, die eine Zahlung umleiten wollen. {productName} schlägt dafür nichts vor, und zum Ablegen braucht es Ihre Bestätigung.',
       unverified:
@@ -112,22 +129,23 @@ export const inboundMail: typeof en.inboundMail = {
     },
   },
 
-  // Warum eine E-Mail wartet, nach ihrem Absender (die direkte Ablage gilt nur für signierte E-Mails von Personen mit Schreibrecht).
+  // Warum eine E-Mail wartet, nach ihrem Absender (die direkte Ablage gilt nur für E-Mails, die die Domain von Personen mit Schreibrecht bestätigt).
+  // Ein Satz je Grund, der mit dem endet, was der Leser tun kann. „Own“: an das Mitglied, das sie nennt; ohne: an alle anderen, die nur verwerfen können.
   waitReason: {
-    signature: 'Wartet: Die Signatur passt nicht zur Adresse des Mitglieds. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
-    signatureOwn: 'Haben Sie diese E-Mail gesendet? Die Signatur passt nicht zu Ihrer Adresse, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    signature: 'Wartet auf {name}: Die Domain hat diese E-Mail nicht bestätigt.',
+    signatureOwn: 'Haben Sie diese E-Mail gesendet? Ihre Domain hat sie nicht bestätigt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
     replay:
-      'Wartet: Die E-Mail ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+      'Wartet auf {name}: Die Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt. So sieht auch eine erneut gesendete E-Mail aus.',
     replayOwn:
-      'Haben Sie diese E-Mail an das Projekt gesendet? Sie ist signiert, aber an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
-    automatic: 'Wartet: Die E-Mail wurde automatisch versandt und deshalb nicht direkt abgelegt. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+      'Haben Sie diese E-Mail an das Projekt gesendet? Ihre Domain hat sie bestätigt, aber sie ist an andere adressiert, ungewöhnlich datiert oder schon bekannt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    automatic: 'Wartet auf {name}: Die E-Mail wurde automatisch versandt.',
     automaticOwn: 'Haben Sie diese E-Mail gesendet? Sie wurde automatisch versandt, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
     paused: 'Wartet: Die direkte Ablage ist ausgeschaltet, deshalb wurde sie nicht direkt abgelegt. Alle, die in diesem Projekt ablegen dürfen, können sie ablegen.',
-    // Unter der Zeile, wenn nur das genannte Mitglied die E-Mail freigeben kann (die Datenbank lässt niemand anderen).
-    memberLeft: 'Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
-    no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen.',
-    outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, wird nach {days} Tagen verworfen.',
-    sender_unchecked: 'Wartet: Beim Eingang war nicht zu prüfen, ob der Absender zum Büro gehört und hier ablegen darf. Bitte vor dem Ablegen prüfen.',
+    // Eine E-Mail, die die Domain eines Mitglieds mit Schreibrecht bestätigt hat und die trotzdem wartet: die direkte Ablage hat sie (ganz oder teilweise) nicht abgelegt.
+    not_filed: 'Wartet: {name} hat sie gesendet und die Domain hat sie bestätigt, aber sie wurde nicht von selbst abgelegt. Prüfen Sie sie und legen Sie sie ab oder verwerfen Sie sie.',
+    no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen. Prüfen Sie die E-Mail und legen Sie ab, was ins Projekt gehört.',
+    outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, läuft nach {days} Tagen ab und lässt sich danach nicht wiederherstellen.',
+    sender_unchecked: 'Wartet: Beim Eingang ließ sich nicht prüfen, wer der Absender im Büro ist. Prüfen Sie Adresse und Domain oben, bevor Sie ablegen.',
   },
 
   flags: {
@@ -148,8 +166,9 @@ export const inboundMail: typeof en.inboundMail = {
     to: 'An',
     cc: 'Cc',
     replyTo: 'Antwort an',
-    forwardedFrom: 'Ursprünglich von {who} · nicht geprüft',
-    forwardedExplain: 'Aus dem weitergeleiteten Text gelesen. Niemand hat diese Angabe geprüft.',
+    // Dieselben Worte wie der E-Mail-Verlauf: zuerst wer sie geschrieben hat, dann wer sie weitergeleitet hat.
+    forwardedFrom: 'Von {who} · Domain nicht bestätigt · weitergeleitet von {forwarder}',
+    forwardedExplain: 'Aus dem weitergeleiteten Text gelesen. Die Domain bestätigt nur die Weiterleitung, nicht, wer die E-Mail ursprünglich geschrieben hat.',
     original: 'Original (.eml) herunterladen',
     originalHint: 'Öffnet sich im Mailprogramm; Bilder von außen werden dort geladen.',
     originalNotClean: 'Das Original enthält Schadsoftware und kann nicht heruntergeladen werden.',
@@ -303,12 +322,18 @@ export const inboundMail: typeof en.inboundMail = {
 
   /** Die Warnung über einer E-Mail, die sich als jemand anderes ausgibt (`riskLevel: 'impersonation'`). */
   impersonationWarning: {
-    rejectedSignature: 'Vorsicht: Diese E-Mail gibt sich als {name} aus. Ihre Signatur ist ungültig oder wurde von der Domain abgelehnt.',
+    rejectedSignature: 'Vorsicht: Diese E-Mail gibt sich als {name} aus. Die Domain hat sie abgelehnt.',
+    // An das Mitglied, dessen Adresse sie trägt: eine Frage an es selbst, keine Warnung über es.
+    own: 'Diese E-Mail trägt Ihre Adresse, aber Ihre Domain hat sie abgelehnt.',
+    ownConsequence:
+      'Haben Sie sie nicht selbst gesendet, verwerfen Sie sie: So beginnen Betrugsversuche mit Kontoänderungen. {productName} macht keinen Vorschlag, nichts ist vorausgewählt.',
     memberName: 'Vorsicht: Der Name {name} gehört einem Mitglied, die Adresse {address} nicht.',
     consequence:
       'So beginnen Betrugsversuche mit Kontoänderungen. {productName} macht keinen Vorschlag, nichts ist vorausgewählt. Prüfen Sie Zahlungs- oder Kontoänderungen telefonisch, nicht per Antwort.',
     fileAnyway: 'Trotzdem ablegen …',
     fileAnywayHint: 'Nur wenn Sie telefonisch geprüft haben, dass die E-Mail echt ist.',
+    fileAnywayHintOwn: 'Nur wenn Sie diese E-Mail selbst gesendet haben.',
+    fileAnywayClose: 'Ablage schließen',
   },
   bar: {
     dismiss: 'Verwerfen',
@@ -323,10 +348,19 @@ export const inboundMail: typeof en.inboundMail = {
     acknowledgeSender: 'Domain nicht bestätigt. Trotzdem ablegen',
     acknowledgeOwnMail: 'Ja, ich habe diese E-Mail gesendet. Ablegen',
     originalErased: 'Das Original der E-Mail wird nach der Ablage gelöscht',
+    /** Für alle außer dem Mitglied, dessen Adresse die E-Mail trägt: nur verwerfen, nie ablegen (`onlySenderReleases`). */
+    claimed: {
+      line: 'Nur {name} kann diese E-Mail ablegen oder wiederherstellen. Sie können sie verwerfen.',
+      dismiss: 'Verwerfen …',
+      confirmTitle: 'E-Mail verwerfen?',
+      confirmText:
+        'Danach kann nur {name} ‹{address}› sie wiederherstellen, {days} Tage lang. Gehört {name} nicht mehr zum Büro, legt sie niemand mehr ab: Laden Sie vorher unter „Details“ das Original herunter, wenn Sie es brauchen.',
+      confirm: 'Verwerfen',
+      cancel: 'Abbrechen',
+    },
     blockers: {
       project_closed: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
-      sender_only:
-        'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen; Sie können sie verwerfen. Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
+      sender_only: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen.',
       folder_missing: '{count, plural, one {Wählen Sie für # Anhang einen Ordner.} other {Wählen Sie für # Anhänge einen Ordner.}}',
       name_stop: '{count, plural, one {Bestätigen Sie die Namensprüfung bei # Anhang.} other {Bestätigen Sie die Namensprüfung bei # Anhängen.}}',
       risk: '{count, plural, one {Bestätigen Sie die Warnung bei # Teil.} other {Bestätigen Sie die Warnung bei # Teilen.}}',
@@ -458,11 +492,12 @@ export const inboundMail: typeof en.inboundMail = {
     uses: {
       cc: 'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im E-Mail-Eingang.',
       forward: 'Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie weiter.',
-      held: 'Was jemand mit Schreibrecht im Projekt von der eigenen, signierten Adresse sendet, wird direkt abgelegt. Alles andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage lang.',
+      held: 'Was jemand mit Schreibrecht im Projekt von der eigenen Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros {days} Tage lang.',
     },
     tileLead: 'In Cc gesetzt, bringt sie die Antworten von Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum Ablegen.',
     openInbox: 'Zum E-Mail-Eingang',
     guide: 'Anleitung',
+    newTab: '(öffnet in neuem Tab)',
     none: 'Dieses Projekt hat noch keine E-Mail-Adresse.',
     noneMember: 'Bitten Sie jemanden, der das Projekt verwaltet, sie in den Projekteinstellungen zu erzeugen.',
     create: 'Adresse erzeugen',

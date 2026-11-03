@@ -81,7 +81,7 @@ const allMails = [
   v('authority-statement'),
   v('mixed-attachments'),
   v('unverified-thread'),
-  v('impersonation'),
+  v('impersonation-colleague'),
   v('name-stop'),
   ...quietMails,
 ]
@@ -133,6 +133,17 @@ export const LIST_VARIANTS: Record<string, ListFixture> = {
   expired: { status: 'handled', outcome: 'expired', items: [summaryOf(v('expired'))] },
   closed: { closed: true, items: [summaryOf(v('closed')), summaryOf(v('member-verified'))], open: v('closed').id },
   followed: { items: [summaryOf(v('followed')), summaryOf(v('revision'))] },
+  // The sender rule as a colleague of Miriam's reads it: her claimed mails wait for her, the forgery is theirs to dismiss,
+  // and the mails any writer may file say why they were not filed by themselves.
+  claimed: {
+    items: [v('member-verified'), v('not-filed'), v('paused'), v('impersonation-colleague'), v('claimed-by-colleague'), v('external-unverified')].map((view) => summaryOf(view)),
+    open: v('claimed-by-colleague').id,
+  },
+  // The same rule as Miriam reads her own mail: each asks „Haben Sie sie gesendet?“, the rejected one in her own voice.
+  own: {
+    items: [v('revision'), v('own-unverified'), v('bcc-own'), v('automatic-own'), v('impersonation')].map((view) => summaryOf(view)),
+    open: v('own-unverified').id,
+  },
   'worst-case': {
     items: [summaryOf(v('worst-case')), ...bulkMails.map((view, index) => summaryOf(view, { attachments: index * 11, senderName: index % 4 ? null : 'Jo' }))],
     nextCursor: 'more',

@@ -9,6 +9,7 @@ import type {
 } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import { partPreselected, withReviewDefaults, type InboundMailPartBase } from '@/lib/inbound-mail/review-defaults'
+import { onlySenderReleases, senderClassOf, senderWaitReason } from '@/lib/inbound-mail/sender-class'
 import type { InboundMailSuggestion } from '@/lib/inbound-mail/suggest'
 import { daysAhead, fixtureId, minutesAgo, PROJECT_ID } from './fixture-base'
 
@@ -79,20 +80,47 @@ export function thread(overrides: Partial<InboundMailThreadCandidateView> = {}):
   }
 }
 
-/**
- * The class a fixture's sender has when the variant names none: an outsider's
- * mail is `external`; a member's unsigned mail claims the reader (`unverified_writer`,
- * „Haben Sie das gesendet?“); a member's signed mail that waits is one the
- * member may not file (`office_member`), since a writer's would have been filed.
- */
-function fixtureClass(sender: InboundMailView['sender']): Pick<InboundMailView, 'senderClass' | 'waitReason'> {
-  if (!sender || sender.trust.startsWith('external_')) return { senderClass: 'external', waitReason: 'outside_office' }
-  if (sender.trust === 'member_unverified') return { senderClass: 'unverified_writer', waitReason: 'signature' }
-  return { senderClass: 'office_member', waitReason: 'no_write_rights' }
+/** The member every fixture mail from the office's own domain is from, and the reader of every preview unless it says otherwise. */
+const MEMBER_ID = 'user_01JMIRIAMHUBER00000000000'
+const COLLEAGUE_ID = 'user_01JPETRAHUBER000000000000'
+
+/** Who reads a fixture mail and what the hold asked about its sender: what the server's rule judges the class from. */
+export interface FixtureReading {
+  /** `sender`: the member the From names reads it (the default); `colleague`: another writer does. */
+  viewer?: 'sender' | 'colleague'
+  /** The From's member may write in the project (default true). */
+  writes?: boolean
+  /** Direct filing was on when it was held (default true). */
+  directFiling?: boolean
 }
 
-export function mail(overrides: Partial<InboundMailView> & { key?: string } = {}): InboundMailView {
-  const { key, ...rest } = overrides
+/**
+ * The class, wait reason and release of a fixture mail, judged by the
+ * server's own rule (`lib/inbound-mail/sender-class.ts`) from its sender's
+ * verdict, exactly as the receive job and `mail-views.ts` judge a held mail.
+ * A preview never states them by hand: the one that did showed a member's own
+ * Bcc copy as „Der Absender darf … nicht ablegen“.
+ */
+function judged(
+  sender: InboundMailView['sender'],
+  automatic: boolean,
+  reading: FixtureReading,
+): Pick<InboundMailView, 'senderClass' | 'waitReason' | 'onlySenderReleases'> {
+  const member = sender?.trust.startsWith('member_') ? MEMBER_ID : null
+  const directFiling = reading.directFiling ?? true
+  const senderClass = sender
+    ? senderClassOf({ trust: sender.trust, reason: sender.reason, senderUserId: member, flags: sender.flags, automatic, writes: reading.writes ?? true })
+    : 'external'
+  const facts = { senderClass, senderTrust: sender?.trust ?? null, senderFlags: sender?.flags ?? [], automatic, directFiling }
+  return {
+    senderClass,
+    waitReason: senderWaitReason(facts),
+    onlySenderReleases: onlySenderReleases({ senderClass, senderUserId: member }, reading.viewer === 'colleague' ? COLLEAGUE_ID : MEMBER_ID),
+  }
+}
+
+export function mail(overrides: Partial<InboundMailView> & { key?: string; reading?: FixtureReading } = {}): InboundMailView {
+  const { key, reading = {}, ...rest } = overrides
   const sender = rest.sender === undefined ? DEFAULT_SENDER : rest.sender
   return withReviewDefaults({
     id: fixtureId(`mail:${key ?? 'default'}`),
@@ -119,8 +147,7 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string } = {}
     hiddenThreadCandidates: 0,
     followedBy: null,
     updatedAt: minutesAgo(9),
-    ...fixtureClass(sender),
-    onlySenderReleases: false,
+    ...judged(sender, rest.automatic ?? false, reading),
     ...rest,
   })
 }

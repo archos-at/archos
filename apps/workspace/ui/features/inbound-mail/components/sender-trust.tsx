@@ -19,7 +19,7 @@ import { useTranslations } from '@/i18n'
 import type { InboundMailSenderView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { INBOUND_MAIL_EXTERNAL_WAIT_DAYS, INBOUND_MAIL_STALE_DATE_DAYS, type ImpersonationBasis, type InboundSenderTrust, type SenderFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { cn } from '@/lib/utils'
-import { senderFlagLines, senderTone, senderTrustLine, type SenderTrustLine } from '../lib/sender'
+import { senderDisplayName, senderFlagLines, senderTone, senderTrustLine, type MailClaim, type SenderTrustLine } from '../lib/sender'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 const KEY: Record<SenderTrustLine['kind'], string> = {
@@ -27,12 +27,21 @@ const KEY: Record<SenderTrustLine['kind'], string> = {
   bcc_own: 'bccOwn',
   member_unverified: 'memberUnverified',
   impersonation: 'impersonation',
+  own_rejected: 'impersonationOwn',
   unverified: 'unverified',
 }
 
-/** The toggletip's key: an impersonation says why it reads as one. */
-const explainKey = (line: SenderTrustLine): string =>
-  line.kind === 'impersonation' && line.basis === 'member_name' ? 'impersonationMemberName' : KEY[line.kind]
+/**
+ * The toggletip's key: an impersonation says why it reads as one, and a
+ * member's unconfirmed address says who may file it: the member themself
+ * („Own“), or only that member, to a colleague („Claimed“).
+ */
+const explainKey = (line: SenderTrustLine, claim: MailClaim): string => {
+  if (line.kind === 'impersonation' && line.basis === 'member_name') return 'impersonationMemberName'
+  if (line.kind === 'member_unverified' && claim === 'own') return 'memberUnverifiedOwn'
+  if (line.kind === 'member_unverified' && claim === 'colleague') return 'memberUnverifiedClaimed'
+  return KEY[line.kind]
+}
 
 export function useTrustLabel(): (line: SenderTrustLine) => string {
   const t = useTranslations(inboundMailCopy)
@@ -44,6 +53,8 @@ export function useTrustLabel(): (line: SenderTrustLine) => string {
         return t('trust.bccOwn')
       case 'impersonation':
         return t('trust.impersonation', { name: line.name })
+      case 'own_rejected':
+        return t('trust.impersonationOwn')
       case 'member_unverified':
         return t('trust.memberUnverified')
       case 'unverified':
@@ -68,10 +79,12 @@ export function SenderTrustGlyph({
   trust,
   flags,
   impersonation,
+  claim = null,
 }: {
   trust: InboundSenderTrust | null
   flags: SenderFlag[]
   impersonation: ImpersonationBasis | null
+  claim?: MailClaim
 }): JSX.Element | null {
   const label = useTrustLabel()
   const verified = trust === 'member_verified' || trust === 'external_verified'
@@ -83,7 +96,7 @@ export function SenderTrustGlyph({
     address: '',
     domain: null,
     signerDomain: null,
-  }, impersonation)
+  }, impersonation, claim)
   const tone = senderTone(line)
   if (tone === 'confirmed') return null
   return (
@@ -105,11 +118,20 @@ export function SenderTrustGlyph({
  * toggletip that says what they mean. Trust is never folded behind „Details“:
  * it is the one fact about the sender a person reads before the text.
  */
-export function SenderTrustLine({ sender, impersonation }: { sender: InboundMailSenderView; impersonation: ImpersonationBasis | null }): JSX.Element {
+export function SenderTrustLine({
+  sender,
+  impersonation,
+  claim = null,
+}: {
+  sender: InboundMailSenderView
+  impersonation: ImpersonationBasis | null
+  claim?: MailClaim
+}): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const label = useTrustLabel()
-  const line = senderTrustLine(sender, impersonation)
+  const line = senderTrustLine(sender, impersonation, claim)
   const tone = senderTone(line)
+  const explain = t(`trust.explain.${explainKey(line, claim)}`, { name: senderDisplayName(sender) })
   return (
     <span
       className={cn(
@@ -127,12 +149,12 @@ export function SenderTrustLine({ sender, impersonation }: { sender: InboundMail
           <button
             type="button"
             className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
-            aria-label={t(`trust.explain.${explainKey(line)}`)}
+            aria-label={explain}
           >
             <Info className="size-3.5" aria-hidden />
           </button>
         </TooltipTrigger>
-        <TooltipContent className="max-w-72">{t(`trust.explain.${explainKey(line)}`)}</TooltipContent>
+        <TooltipContent className="max-w-72">{explain}</TooltipContent>
       </Toggletip>
     </span>
   )
@@ -148,25 +170,28 @@ const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay',
 /**
  * Why the mail waits, by who its sender is to the project (ADR-0137's
  * amendment): a writer's mail that was not filed directly, because their
- * domain did not sign it, it reads as re-sent or misdated, or it was sent
- * automatically (asked of that writer as „Haben Sie das gesendet?“), direct
- * filing switched off (`paused`, any writer files it), a member who may not
- * write here, or someone outside the office. Nothing for a verified writer's
- * mail while direct filing is on, nor once nothing of it waits.
+ * domain did not confirm it, it reads as re-sent or misdated, or it was sent
+ * automatically (asked of that writer as „Haben Sie das gesendet?“, and said
+ * to a colleague as whom it waits for), direct filing switched off (`paused`,
+ * any writer files it), a verified writer's mail direct filing left waiting
+ * (`not_filed`, any writer files it), a member who may not write here, or
+ * someone outside the office; each line ends on what the reader can do.
+ * Nothing once nothing of it waits, or under an impersonation's warning,
+ * which already says why and what to do.
  */
-export function SenderWaitLine({ view }: { view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> }): JSX.Element | null {
+export function SenderWaitLine({
+  view,
+}: {
+  view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender'>>
+}): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
-  if (view.status !== 'waiting' || !view.waitReason) return null
-  const askedOfWriter = ASKED_OF_THE_WRITER.has(view.waitReason)
-  const key = askedOfWriter && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
+  if (view.status !== 'waiting' || !view.waitReason || view.riskLevel === 'impersonation') return null
+  const key = ASKED_OF_THE_WRITER.has(view.waitReason) && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
+  const name = view.sender ? senderDisplayName(view.sender) : ''
   return (
-    <p className="text-muted-foreground flex items-center gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
-      <Info className="size-3.5 shrink-0" aria-hidden />
-      <span>
-        {t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}
-        {/* Only the member it names can release it; when they have left, say what is left to do (the database allows nobody else). */}
-        {askedOfWriter && view.onlySenderReleases ? ` ${t('waitReason.memberLeft')}` : null}
-      </span>
+    <p className="text-muted-foreground flex items-start gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
+      <Info className="mt-px size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 [overflow-wrap:anywhere]">{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS, name })}</span>
     </p>
   )
 }

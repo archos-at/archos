@@ -184,12 +184,10 @@ export interface InboundMailSenderRiskView {
    */
   senderClass: InboundMailSenderClass | null
   /**
-   * Why it waits, for the line under the sender: `signature` (it claims a
-   * writer whose own domain did not sign it), `replay` (signed, but addressed
-   * to others or misdated: it may have been re-sent), `automatic` (signed, but
-   * sent automatically), `paused` (direct filing was switched off when it
-   * arrived), `no_write_rights` (an office member who may not write
-   * here), `outside_office`; null for a verified writer's mail.
+   * Why it waits, for the line under the sender (`INBOUND_MAIL_WAIT_REASONS`,
+   * `./sender-class.ts` `senderWaitReason`); null only for a mail with no
+   * class. A verified writer's mail that still waits is `not_filed`, or
+   * `paused` while direct filing is switched off: any writer files it.
    */
   waitReason: InboundMailWaitReason | null
   /** Only the member it claims may file or restore it (`sender_only`); the reader may dismiss it. */
@@ -201,7 +199,7 @@ export interface InboundMailSenderRiskView {
  * `senderWaitReason`), or `sender_unchecked` when who the sender is could not
  * be asked at receipt (`./receive-faults.ts`), whatever the class says.
  */
-export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'no_write_rights', 'outside_office', 'sender_unchecked'] as const
+export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'not_filed', 'no_write_rights', 'outside_office', 'sender_unchecked'] as const
 export type InboundMailWaitReason = (typeof INBOUND_MAIL_WAIT_REASONS)[number]
 
 // ------------------------------------------------------------ the list
@@ -615,7 +613,11 @@ export interface MailOriginView {
   entryId: string
   sentAt: string
   receivedAt: string
+  /** Who the Verlauf's heading names: a forward's author (never confirmed), else the sender. */
   fromName: string | null
+  /** A forward's forwarder, whose the trust fields then are (migration 0195); `forwarded` says it was one. */
+  forwardedByName: string | null
+  forwarded: boolean
   signerDomain: string | null
   senderTrust: SenderTrust
 }

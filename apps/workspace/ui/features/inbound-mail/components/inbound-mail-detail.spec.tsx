@@ -105,7 +105,8 @@ describe('InboundMailDetail', () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS.impersonation })
     const file = vi.spyOn(client, 'file')
     renderDetail('impersonation', client)
-    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Poses as Miriam Huber')
+    // Miriam reads her own address rejected by her domain: never „poses as Miriam Huber“ (B4).
+    expect(screen.getByTestId('sender-trust')).toHaveTextContent('Your address · rejected by your domain')
     // „Dringend: Kontoänderung Honorarnote“: filing is folded away; opening it is the first deliberate press.
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
     expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
@@ -115,15 +116,36 @@ describe('InboundMailDetail', () => {
     expect(button).toBeDisabled()
     await userEvent.click(screen.getByTestId('acknowledge-sender'))
     expect(button).toBeEnabled()
+    // Her yes is that she sent it, and the fold says so: „Only if you sent this mail yourself“.
+    expect(screen.getByTestId('acknowledge-sender').closest('div')).toHaveTextContent('Yes, I sent this mail. File it')
+    expect(screen.getByTestId('inbound-mail-detail')).toHaveTextContent('Only if you sent this mail yourself.')
+    expect(screen.getByTestId('impersonation-file-anyway')).toHaveTextContent('Close filing')
     await userEvent.click(button)
     await waitFor(() => expect(file).toHaveBeenCalled())
     expect(file.mock.calls[0][1].mails[0].acknowledgeSender).toBe(true)
   })
 
+  it('shows a colleague the forgery’s warning and „Dismiss …“ alone, with nothing to file and no way to try (B2, B4)', async () => {
+    const client = fixtureClient({ detail: DETAIL_VARIANTS['impersonation-colleague'] })
+    const dismiss = vi.spyOn(client, 'dismiss')
+    renderDetail('impersonation-colleague', client)
+    expect(screen.getByTestId('impersonation-warning')).toHaveTextContent('Careful: this mail poses as Miriam Huber. The domain rejected it.')
+    expect(screen.queryByTestId('impersonation-file-anyway')).toBeNull()
+    expect(screen.queryByTestId('decision-file')).toBeNull()
+    const discard = screen.getByTestId('decision-dismiss')
+    expect(discard.className).toContain('bg-primary')
+    await userEvent.click(discard)
+    // The confirmation names the one person who can take it back.
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Afterwards only Miriam Huber ‹m.huber@huber-architektur.at› can restore it, for 7 days.')
+    expect(dismiss).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    await waitFor(() => expect(dismiss).toHaveBeenCalled())
+  })
+
   it('warns above everything of a mail posing as a member, and its yes says the person checked it', async () => {
-    renderDetail('impersonation')
+    renderDetail('member-name')
     const warning = screen.getByTestId('impersonation-warning')
-    expect(warning).toHaveTextContent('Careful: this mail poses as Miriam Huber. Its signature is invalid or was rejected by the domain.')
+    expect(warning).toHaveTextContent('Careful: the name Miriam Huber belongs to a member, the address miriam.huber@mail.example does not.')
     expect(warning).toHaveTextContent(`${PRODUCT_NAME} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.`)
     // Above the header, before anything can be checked.
     expect(warning.compareDocumentPosition(screen.getByTestId('mail-header')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

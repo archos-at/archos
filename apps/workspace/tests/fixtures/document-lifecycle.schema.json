@@ -285,6 +285,15 @@
                   "null"
                 ]
               },
+              "forwardedByName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "forwarded": {
+                "type": "boolean"
+              },
               "signerDomain": {
                 "type": [
                   "string",
@@ -308,6 +317,8 @@
               "sentAt",
               "receivedAt",
               "fromName",
+              "forwardedByName",
+              "forwarded",
               "signerDomain",
               "senderTrust"
             ]
@@ -488,6 +499,15 @@
                         "null"
                       ]
                     },
+                    "forwardedByName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "forwarded": {
+                      "type": "boolean"
+                    },
                     "signerDomain": {
                       "type": [
                         "string",
@@ -511,6 +531,8 @@
                     "sentAt",
                     "receivedAt",
                     "fromName",
+                    "forwardedByName",
+                    "forwarded",
                     "signerDomain",
                     "senderTrust"
                   ]
@@ -706,6 +728,15 @@
                       "null"
                     ]
                   },
+                  "forwardedByName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "forwarded": {
+                    "type": "boolean"
+                  },
                   "signerDomain": {
                     "type": [
                       "string",
@@ -729,6 +760,8 @@
                   "sentAt",
                   "receivedAt",
                   "fromName",
+                  "forwardedByName",
+                  "forwarded",
                   "signerDomain",
                   "senderTrust"
                 ]

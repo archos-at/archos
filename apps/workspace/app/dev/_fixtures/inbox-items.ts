@@ -721,7 +721,7 @@ export const ITEMS: InboxItemView[] = [
 ]
 
 /**
- * The E-Mail-Eingang's seven types (ADR-0137, DECISION §9), served alone under
+ * The E-Mail-Eingang's types (ADR-0137, DECISION §9, and the sender rule's), served alone under
  * `?variant=mail`: what each row says, with the project's name and codes only
  * (no sender, no subject, no file name ever reaches a row or a push).
  */
@@ -772,15 +772,31 @@ const MAIL_ITEMS: InboxItemView[] = [
     href: '/app/projects/p1/files?folder=f-bescheide',
     updatedAt: ago(150),
   }),
-  mailRow('m-dismissed', 'inbound_mail.decided', {
+  // The sender rule's notices (ADR-0137, amendment of 2026-11-03), each to the member the From names.
+  mailRow('m-held', 'inbound_mail.held', { actionable: true, anchorId: 'mail-3', href: '/app/projects/p1/files/mail/mail-3', updatedAt: ago(2) }),
+  mailRow('m-held-done', 'inbound_mail.held', {
+    actionable: true,
+    state: 'resolved',
+    read: true,
+    anchorId: 'mail-4',
+    href: '/app/projects/p1/files/mail/mail-4',
+    updatedAt: ago(130),
+  }),
+  mailRow('m-held-writers', 'inbound_mail.held_for_writers', { anchorId: 'mail-5', href: '/app/projects/p1/files/mail/mail-5', updatedAt: ago(8) }),
+  mailRow('m-direct', 'inbound_mail.decided', {
+    variant: 'direct',
+    related: 'Behörde/Bescheide',
+    href: '/app/projects/p1/files?folder=f-bescheide',
+    updatedAt: ago(140),
+  }),
+  mailRow('m-rejected', 'inbound_mail.rejected', {
     actorName: 'Petra Huber',
     actorUserId: 'u-petra',
-    variant: 'dismissed',
     state: 'read',
-    count: 0,
     href: '/app/projects/p1/files',
     updatedAt: ago(170),
   }),
+  mailRow('m-expired', 'inbound_mail.expired', { state: 'read', href: '/app/projects/p1/files/mail?status=handled', updatedAt: ago(180) }),
   mailRow('m-appended', 'inbound_mail.appended', {
     resourceType: 'document',
     resourceId: 'd-verlauf',

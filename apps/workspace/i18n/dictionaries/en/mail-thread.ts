@@ -62,7 +62,10 @@ export const mailThread = {
       agent_proposal: 'Filed on {productName}’s suggestion',
       follow: 'Added because someone follows this mail thread',
       archive_import: 'Taken over from the mail archive',
+      sender: 'Filed directly: the domain of a member who may file verified it',
     },
+    /** Under the heading of a forwarded mail, which names its original sender. */
+    forwardedBy: 'Forwarded by {name}',
     compare: 'Compare',
     compareLabel: 'Compare revision {from} with revision {to}',
     comparing: 'Comparing …',
@@ -175,6 +178,9 @@ export const mailThread = {
     label: 'Origin',
     cameWith: 'Came with the mail from {name} on {date}',
     cameWithAnonymous: 'Came with a mail on {date}',
+    // The mail thread heading's words: who wrote it first, then who forwarded it.
+    cameWithForwarded: 'Came with the mail from {name}, forwarded by {forwarder}, on {date}',
+    cameWithForwardedAnonymous: 'Came with a forwarded mail on {date}',
     open: 'View in the mail thread',
     openLabel: 'View the mail from {date} in its mail thread',
     openFailed: 'The mail thread cannot be opened. You may no longer see it.',

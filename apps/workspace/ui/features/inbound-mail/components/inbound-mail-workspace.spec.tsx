@@ -40,7 +40,7 @@ function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof I
   const fixture = LIST_VARIANTS[variant]
   const client = fixtureClient({ list: fixture })
   const status = fixture.status ?? 'waiting'
-  render(
+  const rendered = render(
     <InboundMailWorkspace
       projectId={PROJECT_ID}
       projectName={PROJECT_NAME}
@@ -61,7 +61,7 @@ function renderWorkspace(variant: string, overrides: Partial<Parameters<typeof I
       {...overrides}
     />
   )
-  return { client }
+  return { client, unmount: rendered.unmount }
 }
 
 beforeEach(() => {
@@ -123,10 +123,31 @@ describe('InboundMailWorkspace', () => {
     const unvouched = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['unverified-thread'].view.id}`)
     expect(within(unvouched).getByTestId('inbound-mail-row-reason')).toHaveAttribute('data-reason', 'needs_person')
     // The forged mail says its stop in red instead, and is never one press away.
-    const forged = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS.impersonation.view.id}`)
+    const forged = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['impersonation-colleague'].view.id}`)
     expect(within(forged).queryByTestId('inbound-mail-row-reason')).toBeNull()
     expect(within(forged).queryByTestId('inbound-mail-row-file')).toBeNull()
     expect(within(nameStop).queryByTestId('inbound-mail-row-file')).toBeNull()
+  })
+
+  it('phrases a held writer’s row for its reader, and keeps a colleague’s claimed mail out of „Braucht Sie“ (B3)', () => {
+    const { unmount } = renderWorkspace('claimed')
+    const row = (variant: string) => screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS[variant].view.id}`)
+    const claimed = within(row('claimed-by-colleague')).getByTestId('inbound-mail-row-reason')
+    expect(claimed).toHaveAttribute('data-reason', 'claimed')
+    expect(claimed).toHaveTextContent('Waiting for Miriam Huber')
+    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others (1)')).toBeInTheDocument()
+    // The forgery stays where the reader acts on it: dismissing it is theirs to do.
+    expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
+    expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed by itself · Choose a folder')
+    unmount()
+    renderWorkspace('own')
+    const own = within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['own-unverified'].view.id}`)).getByTestId('inbound-mail-row-reason')
+    expect(own).toHaveAttribute('data-reason', 'own')
+    expect(own).toHaveTextContent('Did you send it? Confirm it')
+    expect(within(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS.impersonation.view.id}`)).getByTestId('inbound-mail-row-impersonation')).toHaveTextContent(
+      'Your address, rejected by your domain · check it'
+    )
+    expect(screen.queryByText('Check the sender')).toBeNull()
   })
 
   it('files a ready row in one press: the same request as bulk, no confirmation, and says where everything goes', async () => {
@@ -227,7 +248,7 @@ describe('InboundMailWorkspace', () => {
 
   it('never offers an impersonation for bulk filing: no checkbox, a red label, and X does not select it', async () => {
     renderWorkspace('many')
-    const row = await screen.findByTestId(`inbound-mail-row-${DETAIL_VARIANTS.impersonation.view.id}`)
+    const row = await screen.findByTestId(`inbound-mail-row-${DETAIL_VARIANTS['impersonation-colleague'].view.id}`)
     expect(within(row).queryByTestId('inbound-mail-row-checkbox')).toBeNull()
     expect(within(row).getByTestId('inbound-mail-row-impersonation')).toHaveTextContent('Poses as Miriam Huber · do not file')
     const other = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['member-verified'].view.id}`)
@@ -237,7 +258,7 @@ describe('InboundMailWorkspace', () => {
       fireEvent.keyDown(window, { key: 'j' })
       await waitFor(() => expect(screen.getAllByTestId(/^inbound-mail-row-/).some((candidate) => candidate.dataset.focused === 'true')).toBe(true))
     }
-    expect(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS.impersonation.view.id}`)).toHaveAttribute('data-focused', 'true')
+    expect(screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['impersonation-colleague'].view.id}`)).toHaveAttribute('data-focused', 'true')
     fireEvent.keyDown(window, { key: 'x' })
     expect(screen.queryByTestId('inbound-mail-selection-bar')).toBeNull()
   })

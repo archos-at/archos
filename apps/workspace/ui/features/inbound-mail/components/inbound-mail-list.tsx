@@ -240,6 +240,7 @@ function ListBody({
                 )}
               </div>
               {ready && <p className="text-muted-foreground text-xs">{t('readiness.readyHint')}</p>}
+              {section.readiness === 'others' && <p className="text-muted-foreground text-xs">{t('readiness.othersHint')}</p>}
             </div>
           )
         }

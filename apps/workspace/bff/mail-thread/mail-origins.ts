@@ -12,8 +12,9 @@ import 'server-only'
  * the document itself.
  *
  * What an origin says is what the Verlauf's heading says: when the message was
- * sent (clamped) and received, the sender's display name, the signing domain
- * and the sender's trust. Never an address.
+ * sent (clamped) and received, the display name the heading names (a forward's
+ * author, with its forwarder beside it), the signing domain and the sender's
+ * trust. Never an address.
  */
 
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -24,14 +25,25 @@ import { clampSentAt } from './mail-threading'
 import type { DocumentMailOriginView } from './mail-thread-wire'
 import { findMailOrigins, type MailOriginRow } from './repository'
 
-/** One row as the wire names it. */
+/** A forwarded author with no name is named by their domain, never their address. */
+const authorLabel = (row: Pick<MailOriginRow, 'authorName' | 'authorAddress'>): string | null =>
+  row.authorName?.trim() || (row.authorAddress?.includes('@') ? row.authorAddress.slice(row.authorAddress.lastIndexOf('@') + 1) : null)
+
+/**
+ * One row as the wire names it: the same person the Verlauf's heading names,
+ * so a forwarded Bescheid reads „Von MA 37 · weitergeleitet von Miriam Huber“
+ * here as there, never the forwarder as its author.
+ */
 export function mailOriginView(row: MailOriginRow): MailOriginView {
+  const forwarded = row.authorName !== null || row.authorAddress !== null
   return {
     threadId: row.threadId,
     entryId: row.entryId,
     sentAt: clampSentAt(row.sentAt, row.receivedAt).sentAt.toISOString(),
     receivedAt: row.receivedAt.toISOString(),
-    fromName: row.senderName,
+    fromName: forwarded ? authorLabel(row) : row.senderName,
+    forwardedByName: forwarded ? row.senderName : null,
+    forwarded,
     signerDomain: row.signerDomain,
     senderTrust: row.senderTrust,
   }

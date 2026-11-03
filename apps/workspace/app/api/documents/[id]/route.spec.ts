@@ -82,6 +82,8 @@ describe('GET /api/documents/[id]', () => {
       receivedAt: '2026-10-14T07:14:00.000Z',
       fromName: 'Mag. Anna Huber',
       signerDomain: 'ma37.wien.gv.at',
+      forwardedByName: null,
+      forwarded: false,
       senderTrust: 'external_verified' as const,
       documentVersionId: 'ver-2',
     }

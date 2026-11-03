@@ -16,7 +16,11 @@
  * `incompleteReason`). A ready row outside a thread group carries „Wie
  * vorgeschlagen ablegen“, one press through the same rule and request as the
  * bulk bar; a row that needs the person says what, in a few plain words. A
- * handled mail says what became of it and until when it can be restored.
+ * mail that names a member whose domain did not confirm it is phrased for its
+ * reader (`mailClaimOf`): the member is asked „Haben Sie sie gesendet?“, a
+ * colleague reads whom it waits for. A verified writer's mail direct filing
+ * left says so, beside what it still needs. A handled mail says what became
+ * of it and until when it can be restored.
  *
  * Metadata only: the list never carries a mail's text (D22).
  */
@@ -35,6 +39,7 @@ import { cn } from '@/lib/utils'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { fileableReason } from '../lib/completeness'
 import { bulkSelectable } from '../lib/impersonation'
+import { mailClaimOf } from '../lib/sender'
 import { SenderTrustGlyph } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -84,6 +89,18 @@ export function InboundMailRow({
   const impersonating = mail.riskLevel === 'impersonation'
   // Why it is not „Bereit“, the server's reason; null when one press files it as suggested.
   const reason = waiting ? fileableReason(mail) : null
+  const claim = mailClaimOf(mail)
+  // The reason line in the reader's terms: the claimed member's question, whom a colleague waits for, or what it needs.
+  const reasonLine =
+    claim === 'colleague'
+      ? { key: 'claimed', text: t('row.claim.colleague', { name: who }) }
+      : claim === 'own' && reason === 'sender'
+        ? { key: 'own', text: t('row.claim.own') }
+        : mail.waitReason === 'not_filed'
+          ? { key: 'not_filed', text: reason ? t('row.notFiled', { need: t(`row.needs.${reason}`) }) : t('row.notFiledReady') }
+          : reason !== null
+            ? { key: reason, text: t(`row.needs.${reason}`) }
+            : null
   const offerFile = waiting && reason === null && !inGroup && onFileAsSuggested !== undefined
 
   return (
@@ -141,7 +158,7 @@ export function InboundMailRow({
               <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />
             </div>
             <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
-              {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} />}
+              {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} />}
               <span className="min-w-0 truncate">
                 {who}
                 {mail.senderDomain && mail.senderName && <span> · {mail.senderDomain}</span>}
@@ -157,13 +174,13 @@ export function InboundMailRow({
             {waiting && impersonating && (
               <p className="text-error flex min-w-0 items-center gap-1 text-xs font-medium" data-testid="inbound-mail-row-impersonation">
                 <ShieldAlert className="size-3.5 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate">{t('row.impersonation', { name: who })}</span>
+                <span className="min-w-0 truncate">{claim === 'own' ? t('row.impersonationOwn') : t('row.impersonation', { name: who })}</span>
               </p>
             )}
-            {waiting && reason !== null && !impersonating && (
-              <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-reason" data-reason={reason}>
+            {waiting && reasonLine && !impersonating && (
+              <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-reason" data-reason={reasonLine.key}>
                 <CircleDashed className="size-3 shrink-0" aria-hidden />
-                <span className="min-w-0 truncate">{t(`row.needs.${reason}`)}</span>
+                <span className="min-w-0 truncate">{reasonLine.text}</span>
               </p>
             )}
             {waiting && mail.thread && !inGroup && !textFollowed && (

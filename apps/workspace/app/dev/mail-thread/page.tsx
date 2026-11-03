@@ -6,7 +6,7 @@
  * client, in a column as wide as the preview's rail (and the whole width on
  * a phone).
  *
- * `?variant=three-messages|same-sender|followed|renew-limit|manager-follows|member-sees-follows|unverified-section|archive-sections|original-infected|original-refused|detach-confirm|detach-refused|focused|loading|error|worst-case|provenance|provenance-worst`
+ * `?variant=three-messages|same-sender|followed|renew-limit|manager-follows|member-sees-follows|unverified-section|direct-and-forwarded|archive-sections|original-infected|original-refused|detach-confirm|detach-refused|focused|loading|error|worst-case|provenance|provenance-worst`
  *
  * Following, ending a follow and detaching work against the fixtures.
  * `&locale=en`, `&chrome=0` as on `/dev/inbound-mail`. Not linked from
@@ -86,7 +86,7 @@ function Tab({ variant }: { variant: string }): JSX.Element {
 }
 
 function Provenance({ worst }: { worst: boolean }): JSX.Element {
-  const keys = worst ? (['worst'] as const) : (['verified', 'unverified', 'archive', 'anonymous', 'several'] as const)
+  const keys = worst ? (['worst'] as const) : (['verified', 'unverified', 'archive', 'anonymous', 'several', 'forwarded'] as const)
   const rowClient = useMemo(() => {
     const fixture = MAIL_THREAD_VARIANTS['three-messages']
     const base = fixtureMailThreadClient(fixture)

@@ -12,6 +12,9 @@
  * Trotzdem ablegen“), what still blocks the press, and the one consequence a
  * person would not guess (without the text, the original is erased).
  *
+ * A mail only another member may file never gets this bar: a colleague reads
+ * `ClaimedMailBar`, which offers „Verwerfen …“ alone.
+ *
  * On a phone the bar is the bottom edge: the two buttons stack full width
  * with the primary nearest the thumb, and the home indicator's inset pads it.
  * Busy is not disabled: a pressed button keeps its focus and its width.
@@ -105,7 +108,8 @@ export function DecisionBar({
             <CheckLine checked={acknowledgeSender} onCheckedChange={onAcknowledgeSender} disabled={busy} testId="acknowledge-sender">
               <span className="text-foreground inline-flex items-center gap-1.5 font-medium">
                 <ShieldAlert className="text-warning size-3.5 shrink-0" aria-hidden />
-                {t(impersonation ? 'bar.acknowledgeImpersonation' : summary.ownClaimedMail ? 'bar.acknowledgeOwnMail' : 'bar.acknowledgeSender')}
+                {/* The member it claims answers for themself, under an impersonation too: „Ja, ich habe sie gesendet“. */}
+                {t(summary.ownClaimedMail ? 'bar.acknowledgeOwnMail' : impersonation ? 'bar.acknowledgeImpersonation' : 'bar.acknowledgeSender')}
               </span>
             </CheckLine>
           )}

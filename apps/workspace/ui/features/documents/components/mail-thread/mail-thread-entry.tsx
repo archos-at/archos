@@ -28,7 +28,7 @@
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Archive, Bot, FileText, MoreHorizontal, Paperclip, Repeat2, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles } from 'lucide-react'
+import { Archive, Bot, FileText, Forward, MailCheck, MoreHorizontal, Paperclip, Repeat2, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -50,6 +50,8 @@ const FILED_VIA_ICON: Partial<Record<MailThreadFiledVia, typeof Bot>> = {
   agent_proposal: Sparkles,
   follow: Repeat2,
   archive_import: Archive,
+  // Filed by the sender's own verified mail, with nobody deciding in the app: the one filing a reader would not guess.
+  sender: MailCheck,
 }
 
 type Comparison =
@@ -182,6 +184,16 @@ export function MailThreadEntryItem({ projectId, documentId, threadId, entry, ve
         )}
       </div>
 
+      {entry.forwardedBy && (entry.forwardedBy.name || entry.forwardedBy.domain) && (
+        <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 text-xs leading-snug" data-testid="mail-thread-entry-forwarded-by">
+          <Forward className="mt-px size-3.5 shrink-0" aria-hidden />
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            {t('entry.forwardedBy', {
+              name: [entry.forwardedBy.name, entry.forwardedBy.domain && `(${entry.forwardedBy.domain})`].filter(Boolean).join(' '),
+            })}
+          </span>
+        </p>
+      )}
       {showTrust && (
         <p
           className={cn('flex min-w-0 items-start gap-1.5 text-xs leading-snug', trust === 'unverified' ? 'text-foreground font-medium' : 'text-muted-foreground')}
@@ -265,7 +277,7 @@ function AttachmentItem({ projectId, line }: { projectId: string; line: Attachme
     line.kind !== 'not_filed' && line.documentId ? (
       <Link
         href={documentFilesHref(projectId, line.documentId)}
-        className="text-foreground inline-flex min-w-0 items-start gap-1 rounded-sm underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/60"
+        className="text-foreground inline-flex min-h-6 min-w-0 items-center gap-1 rounded-sm underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring/60"
         data-testid="mail-thread-attachment-link"
       >
         <FileText className="mt-px size-3.5 shrink-0" aria-hidden />

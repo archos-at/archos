@@ -70,7 +70,9 @@ export function MailOriginLine({ origins, onOpen, variant = 'timeline', classNam
   if (!origin) return null
   const date = formatCalendarDate(origin.receivedAt, locale)
   const name = origin.fromName?.trim()
-  const trust = filedSenderTrust(origin.senderTrust)
+  const forwarder = origin.forwardedByName?.trim()
+  // A forward is named as the Verlauf names it: its author, never confirmed, then who forwarded it (RT-S2).
+  const trust = origin.forwarded ? 'unverified' : filedSenderTrust(origin.senderTrust)
   const TrustIcon = trust === 'verified' ? ShieldCheck : trust === 'unverified' ? ShieldAlert : ShieldQuestion
   const trustWords =
     trust === 'verified'
@@ -104,7 +106,13 @@ export function MailOriginLine({ origins, onOpen, variant = 'timeline', classNam
       <span className="inline-flex min-w-0 items-start gap-1.5">
         <Mail className="mt-px size-3.5 shrink-0" aria-hidden />
         <span className="min-w-0 [overflow-wrap:anywhere]">
-          {name ? t('provenance.cameWith', { name, date }) : t('provenance.cameWithAnonymous', { date })}
+          {origin.forwarded && name && forwarder
+            ? t('provenance.cameWithForwarded', { name, forwarder, date })
+            : origin.forwarded
+              ? t('provenance.cameWithForwardedAnonymous', { date })
+              : name
+                ? t('provenance.cameWith', { name, date })
+                : t('provenance.cameWithAnonymous', { date })}
           {origins.length > 1 && <span className="text-muted-foreground"> {t('provenance.more', { count: origins.length - 1 })}</span>}
         </span>
       </span>

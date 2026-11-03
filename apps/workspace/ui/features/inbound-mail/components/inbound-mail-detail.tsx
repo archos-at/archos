@@ -49,10 +49,11 @@ import {
 import { filedLines, type FiledLine } from '../lib/filed'
 import { refusalNeedsReload, refusalOf, refusalTerms } from '../lib/refusal'
 import { guardImpersonation, impersonationWarningOf } from '../lib/impersonation'
-import { followOffered } from '../lib/sender'
+import { followOffered, mailClaimOf, senderDisplayName } from '../lib/sender'
 import { missingSuggestionReason } from '../lib/suggestion'
 import { AttachmentPreviewDialog } from './attachment-preview-dialog'
 import { AttachmentRow } from './attachment-row'
+import { ClaimedMailBar } from './claimed-mail-bar'
 import { ContentFindingChoice } from './content-finding-choice'
 import { DecisionBar } from './decision-bar'
 import { FollowOffer } from './follow-offer'
@@ -140,7 +141,12 @@ export function InboundMailDetail({
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   // An impersonation is a stop: its filing controls stay folded until the person opens „Trotzdem ablegen …“.
   const [filingOpen, setFilingOpen] = useState(false)
-  useEffect(() => setFilingOpen(false), [mailId])
+  // „Verwerfen …“ of a mail only another member may file asks first (`ClaimedMailBar`).
+  const [claimConfirmOpen, setClaimConfirmOpen] = useState(false)
+  useEffect(() => {
+    setFilingOpen(false)
+    setClaimConfirmOpen(false)
+  }, [mailId])
   const [preview, setPreview] = useState<string | null>(null)
   const [followTarget, setFollowTarget] = useState<{ threadId: string; name: string; followed: boolean } | null>(null)
   const alive = useRef(true)
@@ -250,7 +256,8 @@ export function InboundMailDetail({
   }
 
   const file = async (): Promise<void> => {
-    if (!view || !draft || !summary || filing || dismissing) return
+    // Only its member files a mail that claims them (`sender_only`): the reader's one press is „Verwerfen …“.
+    if (!view || !draft || !summary || filing || dismissing || view.onlySenderReleases) return
     if (summary.files === 0 && !summary.text) return dismiss()
     if (summary.blockers.length > 0) return
     setFiling(true)
@@ -298,7 +305,8 @@ export function InboundMailDetail({
       const result = await client.dismiss(projectId, { mailIds: [view.id] })
       const next = result.mails.find((mail) => mail.id === view.id)
       if (next && alive.current) setState({ kind: 'ready', view: next })
-      toast.success(t('toast.dismissed'), { action: { label: t('toast.undo'), onClick: () => void restore() } })
+      // A colleague cannot restore what only its member may (`sender_only`): no „Rückgängig“ that would be refused.
+      toast.success(t('toast.dismissed'), view.onlySenderReleases ? {} : { action: { label: t('toast.undo'), onClick: () => void restore() } })
       onChanged()
     } catch (error) {
       const code = refusalOf(error)
@@ -318,7 +326,7 @@ export function InboundMailDetail({
   if (actionsRef) {
     actionsRef.current = {
       file: () => void file(),
-      dismiss: () => void dismiss(),
+      dismiss: () => (view?.onlySenderReleases ? setClaimConfirmOpen(true) : void dismiss()),
       preview: () => previewable && setPreview(previewable.part.id),
     }
   }
@@ -344,6 +352,9 @@ export function InboundMailDetail({
   const previewEntry = attachments.find((entry) => entry.part.id === preview)
   const outcome = filingOutcome(view)
   const impersonation = impersonationWarningOf(view)
+  // One voice per reader: the member it claims is asked, a colleague may only dismiss it (`mailClaimOf`).
+  const claim = mailClaimOf(view)
+  const readOnly = claim === 'colleague'
   const stopped = impersonation !== null && !filingOpen
 
   return (
@@ -418,7 +429,7 @@ export function InboundMailDetail({
         )}
 
         {/* Above the header, before anything can be checked: the owner's rule for a mail posing as someone. */}
-        {impersonation && <ImpersonationWarning warning={impersonation} />}
+        {impersonation && <ImpersonationWarning warning={impersonation} own={claim === 'own'} />}
 
         <MailHeader
           view={view}
@@ -431,7 +442,7 @@ export function InboundMailDetail({
         <MailText state={text} onRetry={() => void loadText()} />
 
         {/* After the text, beside the choice it shapes: on a phone the mail itself is the first screen. */}
-        {!stopped && messagePart?.state === 'waiting' && messagePart.contentFindings.length > 0 && draft?.message?.findingChoice && (
+        {!stopped && !readOnly && messagePart?.state === 'waiting' && messagePart.contentFindings.length > 0 && draft?.message?.findingChoice && (
           <ContentFindingChoice
             findings={messagePart.contentFindings}
             value={draft.message.findingChoice}
@@ -441,7 +452,7 @@ export function InboundMailDetail({
         )}
 
         {/* The forged mail's way to filing is one deliberate press, never the page's default. */}
-        {impersonation && view.status === 'waiting' && waitingParts.length > 0 && (
+        {impersonation && !readOnly && view.status === 'waiting' && waitingParts.length > 0 && (
           <div className="flex flex-col items-start gap-1">
             <Button
               type="button"
@@ -451,13 +462,13 @@ export function InboundMailDetail({
               onClick={() => setFilingOpen((open) => !open)}
               data-testid="impersonation-file-anyway"
             >
-              {t('impersonationWarning.fileAnyway')}
+              {t(filingOpen ? 'impersonationWarning.fileAnywayClose' : 'impersonationWarning.fileAnyway')}
             </Button>
-            <p className="text-muted-foreground text-xs">{t('impersonationWarning.fileAnywayHint')}</p>
+            <p className="text-muted-foreground text-xs">{t(claim === 'own' ? 'impersonationWarning.fileAnywayHintOwn' : 'impersonationWarning.fileAnywayHint')}</p>
           </div>
         )}
 
-        {!stopped && messagePart && draft?.message && (
+        {!stopped && !readOnly && messagePart && draft?.message && (
           <section className="flex flex-col gap-2" aria-label={t('message.label')}>
             <ItemList className="bg-card">
               <MessageRow
@@ -490,6 +501,7 @@ export function InboundMailDetail({
                       folders={folders}
                       contentUrl={entry.previewable ? client.partContentUrl(projectId, view.id, entry.part.id) : null}
                       missingSuggestion={missing}
+                      readOnly={readOnly}
                       onChange={(change) => setDraft((current) => (current ? updateAttachment(current, entry.part.id, change) : current))}
                       onPreview={entry.previewable ? () => setPreview(entry.part.id) : undefined}
                     />
@@ -535,7 +547,17 @@ export function InboundMailDetail({
         )}
       </div>
 
-      {showBar && (
+      {showBar && readOnly && view.sender && (
+        <ClaimedMailBar
+          member={{ name: senderDisplayName(view.sender), address: view.sender.address }}
+          impersonation={impersonation !== null}
+          confirmOpen={claimConfirmOpen}
+          onConfirmOpenChange={setClaimConfirmOpen}
+          onDismiss={() => void dismiss()}
+          dismissing={dismissing}
+        />
+      )}
+      {showBar && !readOnly && (
         <DecisionBar
           summary={summary}
           acknowledgeSender={draft.acknowledgeSender}

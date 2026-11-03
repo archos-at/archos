@@ -72,7 +72,7 @@ function statusOf(part: InboundMailPartView): AttachmentStatus {
 
 export function attachmentCase(
   part: InboundMailPartView,
-  mail: Pick<InboundMailView, 'projectClosed' | 'sender'>,
+  mail: Pick<InboundMailView, 'projectClosed' | 'sender'> & Partial<Pick<InboundMailView, 'onlySenderReleases'>>,
 ): AttachmentCase {
   const status = statusOf(part)
   const notes: AttachmentNote[] = []
@@ -105,7 +105,8 @@ export function attachmentCase(
   if (part.riskFlags.includes('forwarded_inner')) notes.push({ kind: 'forwarded_inner' })
   if (isImageInMail(part)) notes.push({ kind: 'image_in_mail' })
 
-  const selectable = status === 'waiting' && !mail.projectClosed
+  // A mail only its member may file is no reader's to check (`sender_only`): nothing of it is selectable.
+  const selectable = status === 'waiting' && !mail.projectClosed && !mail.onlySenderReleases
   return {
     part,
     status,

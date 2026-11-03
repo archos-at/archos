@@ -17,10 +17,25 @@
  * and `needsSenderAcknowledgement`.
  */
 
-import type { InboundMailSenderView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
+import type { InboundMailSenderRiskView, InboundMailSenderView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
 import type { ImpersonationBasis, SenderFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { FOLLOW_REFUSING_FLAGS } from '@/lib/mail-thread/follow-eligibility'
 import { isOwnBccCopy } from '@/lib/mail-thread/mail-threading'
+
+/**
+ * Who the reader is to a mail that claims a writer it could not prove to be
+ * (`senderClass: 'unverified_writer'`): `own`, the member it claims, who is
+ * asked „Haben Sie diese E-Mail gesendet?“ and alone may file it;
+ * `colleague`, anyone else, who may only dismiss it (`onlySenderReleases`).
+ * Null for every other mail. Each viewer reads one message about it: the
+ * member the question, a colleague who must wait for that member.
+ */
+export type MailClaim = 'own' | 'colleague' | null
+
+export function mailClaimOf(view: Pick<InboundMailSenderRiskView, 'senderClass' | 'onlySenderReleases'>): MailClaim {
+  if (view.onlySenderReleases) return 'colleague'
+  return view.senderClass === 'unverified_writer' ? 'own' : null
+}
 
 /** The one line that says how far the sender is confirmed. */
 export type SenderTrustLine =
@@ -32,6 +47,8 @@ export type SenderTrustLine =
   | { kind: 'member_unverified' }
   /** The server reads the mail as someone pretending (a rejected signature, or a member's name on another address). */
   | { kind: 'impersonation'; name: string; basis: ImpersonationBasis }
+  /** The reader's own address, and their domain rejected the mail: said to them as theirs, never as „gibt sich als Sie aus“. */
+  | { kind: 'own_rejected' }
   /** Anyone else whose domain did not sign. */
   | { kind: 'unverified' }
 
@@ -42,11 +59,14 @@ export type SenderTone = 'confirmed' | 'neutral' | 'warning'
  * The line for this sender. An impersonation (`view.impersonation`, the
  * server's) outranks everything else: a member's name on an outsider's
  * address may well be „Domain bestätigt“ for the outsider's own domain, and
- * that line must not be the one a person reads.
+ * that line must not be the one a person reads. The member a rejected mail
+ * claims reads it as their own address (`own_rejected`), and a colleague
+ * never reads another member's Bcc copy as „Ihre eigene E-Mail“.
  */
-export function senderTrustLine(sender: InboundMailSenderView, impersonation: InboundMailView['impersonation']): SenderTrustLine {
+export function senderTrustLine(sender: InboundMailSenderView, impersonation: InboundMailView['impersonation'], claim: MailClaim = null): SenderTrustLine {
+  if (impersonation === 'rejected_signature' && claim === 'own') return { kind: 'own_rejected' }
   if (impersonation) return { kind: 'impersonation', name: sender.name?.trim() || sender.address, basis: impersonation }
-  if (isOwnBccCopy({ senderTrust: sender.trust, senderFlags: sender.flags })) {
+  if (claim !== 'colleague' && isOwnBccCopy({ senderTrust: sender.trust, senderFlags: sender.flags })) {
     return { kind: 'bcc_own', domain: sender.signerDomain ?? sender.domain }
   }
   if (sender.trust === 'member_verified' || sender.trust === 'external_verified') {
@@ -61,6 +81,7 @@ export function senderTone(line: SenderTrustLine): SenderTone {
     case 'bcc_own':
       return 'confirmed'
     case 'impersonation':
+    case 'own_rejected':
     case 'member_unverified':
       return 'warning'
     case 'unverified':

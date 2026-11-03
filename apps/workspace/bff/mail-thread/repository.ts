@@ -235,6 +235,9 @@ export interface MailOriginRow {
   sentAt: Date
   receivedAt: Date
   senderName: string | null
+  /** A forwarded message's original author (migration 0195); both null when it was not forwarded. */
+  authorName: string | null
+  authorAddress: string | null
   signerDomain: string | null
   senderTrust: MailThreadEntryRow['senderTrust']
 }
@@ -261,6 +264,8 @@ export async function findMailOrigins(
       sentAt: mailThreadEntries.sentAt,
       receivedAt: mailThreadEntries.receivedAt,
       senderName: mailThreadEntries.senderName,
+      authorName: mailThreadEntries.authorName,
+      authorAddress: mailThreadEntries.authorAddress,
       signerDomain: mailThreadEntries.signerDomain,
       senderTrust: mailThreadEntries.senderTrust,
     })

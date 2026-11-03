@@ -63,7 +63,10 @@ export const mailThread: typeof en.mailThread = {
       agent_proposal: 'Auf Vorschlag von {productName} abgelegt',
       follow: 'Angefügt, weil jemand diesem E-Mail-Verlauf folgt',
       archive_import: 'Aus dem E-Mail-Archiv übernommen',
+      sender: 'Direkt abgelegt: Die Domain eines Mitglieds mit Schreibrecht hat sie bestätigt',
     },
+    /** Unter der Überschrift einer weitergeleiteten E-Mail, die ihren ursprünglichen Absender nennt. */
+    forwardedBy: 'Weitergeleitet von {name}',
     compare: 'Vergleichen',
     compareLabel: 'Fassung {from} mit Fassung {to} vergleichen',
     comparing: 'Wird verglichen …',
@@ -176,6 +179,9 @@ export const mailThread: typeof en.mailThread = {
     label: 'Herkunft',
     cameWith: 'Kam mit der E-Mail von {name} am {date}',
     cameWithAnonymous: 'Kam mit einer E-Mail am {date}',
+    // Dieselben Worte wie die Überschrift im E-Mail-Verlauf: zuerst wer sie geschrieben hat, dann wer sie weitergeleitet hat.
+    cameWithForwarded: 'Kam mit der E-Mail von {name}, weitergeleitet von {forwarder}, am {date}',
+    cameWithForwardedAnonymous: 'Kam mit einer weitergeleiteten E-Mail am {date}',
     open: 'Im E-Mail-Verlauf ansehen',
     openLabel: 'E-Mail vom {date} im E-Mail-Verlauf ansehen',
     openFailed: 'Der E-Mail-Verlauf lässt sich nicht öffnen. Vielleicht sehen Sie ihn nicht mehr.',

@@ -34,6 +34,7 @@ import { BusyButton } from '@/components/ui/busy-button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LoadError } from '@/components/ui/load-error'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BentoTile } from '@/components/ui/bento'
 import { CopyableValue } from '@/components/ui/copyable-value'
@@ -45,6 +46,7 @@ import { startBrowserDownload } from '@/lib/browser-download'
 import type { InboundMailAddressView } from '@/lib/inbound-mail/inbound-mail-wire'
 import {
   INBOUND_MAIL_ADDRESS_STATS_DAYS,
+  INBOUND_MAIL_EXTERNAL_WAIT_DAYS,
   INBOUND_MAIL_MAX_ATTACHMENT_BYTES,
   INBOUND_MAIL_MAX_MESSAGE_BYTES,
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
@@ -90,7 +92,7 @@ function AddressUses(): JSX.Element {
       </li>
       <li>
         <FactLine icon={UserCheck} tone="default">
-          {t('address.uses.held')}
+          {t('address.uses.held', { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}
         </FactLine>
       </li>
     </ul>
@@ -153,7 +155,7 @@ export function AddressSizeLimit({ projectId, onLeave }: { projectId: string; on
       <Link
         href={inboundMailPaths(projectId).files}
         onClick={onLeave}
-        className="text-foreground underline-offset-2 hover:underline"
+        className="text-foreground underline underline-offset-2 hover:no-underline"
         data-testid="address-upload-instead"
       >
         {t('address.uploadInstead')}
@@ -189,7 +191,8 @@ export function InboundMailAddressBlock({
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
       <div className="bg-muted/40 flex flex-col gap-2 rounded-lg border p-3">
-        <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">{t('address.label')}</p>
+        {/* The eyebrow names the value; in the dialog its title already does. */}
+        {surface !== 'dialog' && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         <AddressValue value={value} surface={surface} className="w-full justify-between" />
         <div className="flex flex-wrap gap-2">
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
@@ -209,11 +212,12 @@ export function InboundMailAddressBlock({
           href={guideUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-foreground inline-flex w-fit items-center gap-1.5 text-sm underline-offset-2 hover:underline touch-target"
+          className="text-foreground inline-flex w-fit items-center gap-1.5 text-xs underline underline-offset-2 hover:no-underline touch-target"
         >
-          <BookOpen className="size-4" aria-hidden />
+          <BookOpen className="size-3.5" aria-hidden />
           {t('address.guide')}
           <ExternalLink className="text-muted-foreground size-3" aria-hidden />
+          <span className="sr-only">{t('address.newTab')}</span>
         </a>
       )}
     </div>

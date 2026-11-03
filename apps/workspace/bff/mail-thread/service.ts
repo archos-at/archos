@@ -102,6 +102,8 @@ function entryView(row: EntryRow, attachments: MailThreadAttachmentView[]): Mail
     senderDomain: entry.senderDomain,
     signerDomain: entry.signerDomain,
     senderTrust: entry.senderTrust,
+    // The heading names the original's author; the trust and this line are about who forwarded it.
+    forwardedBy: entry.authorName || entry.authorAddress ? { name: entry.senderName, domain: entry.signerDomain ?? entry.senderDomain } : null,
     sentAt: new Date(entry.sentAt).toISOString(),
     receivedAt: new Date(entry.receivedAt).toISOString(),
     firstVersion: row.firstVersion,

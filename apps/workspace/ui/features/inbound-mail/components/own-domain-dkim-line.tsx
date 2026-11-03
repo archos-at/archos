@@ -34,9 +34,10 @@ export function OwnDomainDkimLine({ share, className }: { share: number | null; 
       <p className={cn('text-foreground flex items-start gap-1.5 text-xs leading-snug', className)} data-testid="own-domain-dkim" data-state="missing">
         <ShieldAlert className="text-warning mt-px size-3.5 shrink-0" aria-hidden />
         {helpUrl ? (
-          <a href={helpUrl} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+          <a href={helpUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:no-underline">
             {t('address.ownDomain.missing')}
             <ExternalLink className="ml-1 inline size-3 align-[-1px]" aria-hidden />
+            <span className="sr-only">{t('address.newTab')}</span>
           </a>
         ) : (
           <span>{t('address.ownDomain.missing')}</span>

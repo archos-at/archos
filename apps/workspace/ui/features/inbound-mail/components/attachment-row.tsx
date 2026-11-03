@@ -67,6 +67,8 @@ export interface AttachmentRowProps {
   missingSuggestion: 'pending' | 'skipped' | 'none'
   /** The row has the keyboard's attention (Space previews it). */
   focused?: boolean
+  /** Shown, never decided: the mail is only its member's to file (`onlySenderReleases`). No checkbox, no target. */
+  readOnly?: boolean
   onChange: (change: Partial<Omit<AttachmentDraft, 'partId' | 'suggested'>>) => void
   onPreview?: () => void
 }
@@ -83,6 +85,7 @@ export function AttachmentRow({
   contentUrl,
   missingSuggestion,
   focused = false,
+  readOnly = false,
   onChange,
   onPreview,
 }: AttachmentRowProps): JSX.Element {
@@ -113,7 +116,7 @@ export function AttachmentRow({
           <FactLine key="duplicate" icon={Copy} testId="note-duplicate">
             {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
             {' · '}
-            <Link className="text-foreground underline-offset-2 hover:underline" href={documentFilesHref(projectId, note.documentId)}>
+            <Link className="text-foreground underline underline-offset-2 hover:no-underline" href={documentFilesHref(projectId, note.documentId)}>
               {t('attachments.open')}
             </Link>
           </FactLine>
@@ -226,21 +229,23 @@ export function AttachmentRow({
       className={cn(
         'flex items-start gap-3 px-3 py-3 transition-colors duration-snap ease-out motion-reduce:transition-none sm:px-4',
         focused && 'bg-accent/40',
-        !draft.checked && status === 'waiting' && 'bg-muted/20'
+        !draft.checked && status === 'waiting' && !readOnly && 'bg-muted/20'
       )}
       data-testid={`attachment-${part.id}`}
       data-status={status}
       data-checked={draft.checked || undefined}
     >
-      <div className="flex h-10 items-center pointer-coarse:h-12">
-        <Checkbox
-          checked={selectable && draft.checked}
-          disabled={!selectable}
-          onCheckedChange={(value) => onChange({ checked: value === true })}
-          aria-label={t('attachments.file', { name })}
-          data-testid="attachment-checkbox"
-        />
-      </div>
+      {!readOnly && (
+        <div className="flex h-10 items-center pointer-coarse:h-12">
+          <Checkbox
+            checked={selectable && draft.checked}
+            disabled={!selectable}
+            onCheckedChange={(value) => onChange({ checked: value === true })}
+            aria-label={t('attachments.file', { name })}
+            data-testid="attachment-checkbox"
+          />
+        </div>
+      )}
       <button
         type="button"
         onClick={onPreview}
@@ -252,7 +257,7 @@ export function AttachmentRow({
       </button>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex min-w-0 items-baseline gap-2">
-          <MiddleTruncate text={name} className={cn('min-w-0 text-sm font-medium', !selectable && status !== 'filed' && 'text-muted-foreground')} />
+          <MiddleTruncate text={name} className={cn('min-w-0 text-sm font-medium', !selectable && !readOnly && status !== 'filed' && 'text-muted-foreground')} />
         </div>
         {/* A clean scan is the normal case and says nothing: only a running, failed or infected scan has a line (`statusLine`). */}
         <p className="text-muted-foreground text-xs tabular-nums">{facts}</p>

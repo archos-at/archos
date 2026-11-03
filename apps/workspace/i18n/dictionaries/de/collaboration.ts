@@ -851,19 +851,20 @@ export const collaboration: typeof en.collaboration = {
             titleRelated: 'Ihre E-Mail an „{subject}“ wurde verworfen',
             body: 'Verworfen von {actor}. Sie kann sieben Tage lang wiederhergestellt werden.',
           },
-          // In Ihrem Namen abgelegt, ohne dass jemand bestätigt hat: Ihre Domain hat signiert, und Sie dürfen im Projekt ablegen.
+          // In Ihrem Namen abgelegt, ohne dass jemand sie angesehen hat: Ihre Domain hat sie bestätigt, und Sie dürfen im Projekt ablegen.
           direct: {
-            title: 'Ihre E-Mail an „{subject}“ wurde abgelegt',
-            titleRelated: 'Ihre E-Mail an „{subject}“ wurde in „{related}“ abgelegt',
-            body: 'Direkt in Ihrem Namen abgelegt, weil Ihre Domain sie signiert hat und Sie in diesem Projekt ablegen dürfen.',
+            title: 'Ihre E-Mail an „{subject}“ wurde direkt abgelegt',
+            titleRelated: 'Ihre E-Mail an „{subject}“ wurde direkt in „{related}“ abgelegt',
+            body: 'Niemand hat sie angesehen: Ihre Domain hat sie bestätigt, und Sie dürfen in diesem Projekt ablegen.',
           },
         },
       },
-      // Die E-Mail trägt die Adresse des Mitglieds, die Signatur passt nicht: nur es selbst kann sie freigeben.
+      // Die E-Mail trägt die Adresse des Mitglieds, seine Domain hat sie nicht bestätigt: nur es selbst kann sie freigeben.
+      // Auch ein Fälscher löst diese Zeile aus, deshalb nennt der Titel beide Antworten. Kein Betreff: fremde Worte erreichen keine Zeile (RT-X1).
       inboundMailHeld: {
-        title: 'Haben Sie diese E-Mail an „{subject}“ gesendet?',
-        titleResolved: 'Die E-Mail an „{subject}“ in Ihrem Namen ist entschieden',
-        body: 'Sie trägt Ihre Adresse, aber die Signatur passte nicht. Nur Sie können sie ablegen; verwerfen kann sie jede Person im Projekt.',
+        title: 'Haben Sie eine E-Mail an das Projekt „{subject}“ gesendet? Sonst verwerfen',
+        titleResolved: 'Die E-Mail mit Ihrer Adresse an „{subject}“ ist erledigt',
+        body: 'Sie trägt Ihre Adresse, aber Ihre Domain hat sie nicht bestätigt. Nur Sie können sie ablegen. Haben Sie sie nicht gesendet, verwerfen Sie sie: So beginnen Betrugsversuche.',
       },
       inboundMailHeldForWriters: {
         title: 'Ihre E-Mail an „{subject}“ wartet auf Ablage',
@@ -881,7 +882,7 @@ export const collaboration: typeof en.collaboration = {
       },
       inboundMailExpired: {
         title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',
-        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt, und sie ist abgelaufen.',
+        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt. Sieben Tage lang lässt sie sich im E-Mail-Eingang unter „Bearbeitet“ wiederherstellen: von Ihnen, wenn Sie im Projekt ablegen dürfen, sonst von jemandem, der es darf.',
       },
       inboundMailFilingFailed: {
         title: 'Eine E-Mail an „{subject}“ wurde nicht vollständig abgelegt',

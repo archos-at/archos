@@ -18,6 +18,9 @@
  *   then „Braucht Sie“, where each row names what it needs. A server thread
  *   group is split along the same line, so a conversation's ready mails go in
  *   one press even while one of its mails waits for a person;
+ * - last of the three, „Wartet auf andere“: mail only another member may file
+ *   (`onlySenderReleases`), so it does not claim to need the reader. Never an
+ *   impersonation: dismissing a forgery is the reader's to do;
  * - inside each, the server's order (newest first).
  *
  * Pure.
@@ -39,11 +42,22 @@ export type ListSection =
       mails: InboundMailSummaryView[]
     }
   | { kind: 'quiet'; mails: InboundMailSummaryView[] }
-  /** The heading over „Bereit“ or „Braucht Sie“, with every mail under it (thread groups included). */
+  /** The heading over „Bereit“, „Braucht Sie“ or „Wartet auf andere“, with every mail under it (thread groups included). */
   | { kind: 'readiness'; readiness: Readiness; mails: InboundMailSummaryView[] }
 
-/** The two halves of the waiting list: filing as suggested asks nothing (`ready`), or it asks the person (`needs_you`). */
-export type Readiness = 'ready' | 'needs_you'
+/**
+ * The parts of the waiting list: filing as suggested asks nothing (`ready`),
+ * it asks the person (`needs_you`), or only another member may file it (`others`).
+ */
+export type Readiness = 'ready' | 'needs_you' | 'others'
+
+const READINESS_ORDER: readonly Readiness[] = ['ready', 'needs_you', 'others']
+
+/** Which part of the waiting list a mail stands in. */
+export function readinessOf(mail: Pick<InboundMailSummaryView, 'status' | 'incompleteReason' | 'riskLevel' | 'onlySenderReleases'>): Readiness {
+  if (isReady(mail)) return 'ready'
+  return mail.onlySenderReleases && mail.riskLevel !== 'impersonation' ? 'others' : 'needs_you'
+}
 
 /** Mail the list keeps quiet: an unconfirmed stranger, or a machine; never an impersonation. */
 export function isQuietMail(mail: Pick<InboundMailSummaryView, 'senderTrust' | 'automatic' | 'riskLevel'>): boolean {
@@ -59,7 +73,6 @@ export function listSections(
   const quiet = mails.filter(isQuietMail)
   const loud = mails.filter((mail) => !isQuietMail(mail))
   const byId = new Map(loud.map((mail) => [mail.id, mail]))
-  const readinessOf = (mail: InboundMailSummaryView): Readiness => (isReady(mail) ? 'ready' : 'needs_you')
 
   // A server group is split by readiness first: one mail that needs a person must not hold
   // the rest of the conversation back from „Bereit“. Each half of two or more is a group of
@@ -68,7 +81,7 @@ export function listSections(
   const groupOf = new Map<string, ListSection & { kind: 'thread' }>()
   for (const group of options.groups ?? []) {
     const members = group.mails.map((entry) => byId.get(entry.mailId)).filter((mail): mail is InboundMailSummaryView => !!mail)
-    for (const readiness of ['ready', 'needs_you'] as const) {
+    for (const readiness of READINESS_ORDER) {
       const half = members.filter((mail) => readinessOf(mail) === readiness)
       if (half.length < 2) continue
       const section = {
@@ -84,7 +97,7 @@ export function listSections(
   }
 
   // A group stands where the first of its mails stands; a mail of it not on this page is not drawn.
-  const halves: Record<Readiness, ListSection[]> = { ready: [], needs_you: [] }
+  const halves: Record<Readiness, ListSection[]> = { ready: [], needs_you: [], others: [] }
   const placed = new Set<ListSection>()
   for (const mail of loud) {
     const group = groupOf.get(mail.id)
@@ -98,7 +111,7 @@ export function listSections(
   }
 
   const sections: ListSection[] = []
-  for (const readiness of ['ready', 'needs_you'] as const) {
+  for (const readiness of READINESS_ORDER) {
     if (halves[readiness].length === 0) continue
     sections.push({ kind: 'readiness', readiness, mails: halves[readiness].flatMap(mailsOf) })
     sections.push(...halves[readiness])

@@ -185,7 +185,7 @@ describe('InboundMailAddressDialog', () => {
     expect(uses).toHaveTextContent('Put it in Cc when you write to the authority, the structural engineer or the client')
     // The use comes before the address, and the promise is its last line.
     expect(uses.compareDocumentPosition(screen.getByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(uses.lastElementChild).toHaveTextContent('Mail someone who may file in the project sends from their own signed address is filed directly.')
+    expect(uses.lastElementChild).toHaveTextContent('Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits until someone files it; mail from outside the office for 14 days.')
     expect(get).toHaveBeenCalledTimes(1)
   })
 
