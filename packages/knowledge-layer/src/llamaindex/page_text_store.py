@@ -40,6 +40,8 @@ from datetime import UTC
 from datetime import datetime
 from typing import Any
 
+from agent.common.connect_retry import connect_retrying_client
+
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
@@ -160,17 +162,15 @@ def request_slot(document_id: str, collection: str, part: str, organization_id: 
     if not base_url or not token:
         return None
     try:
-        import httpx
-
         body: dict[str, Any] = {"documentId": document_id, "collection": collection, "part": part}
         if organization_id:
             body["organizationId"] = organization_id
-        response = httpx.post(
-            f"{base_url.rstrip('/')}{_PRESIGN_PATH}",
-            json=body,
-            headers={"x-internal-token": token},
-            timeout=_HTTP_TIMEOUT_SECONDS,
-        )
+        with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}{_PRESIGN_PATH}",
+                json=body,
+                headers={"x-internal-token": token},
+            )
         if response.status_code != 200:
             logger.info(
                 "page_text_store: no slot for %s of document %s (HTTP %d)", part, document_id, response.status_code
@@ -195,11 +195,8 @@ def request_slot(document_id: str, collection: str, part: str, organization_id: 
 
 def put_part(upload_url: str, body: bytes, content_type: str) -> None:
     """PUT one part to its presigned slot. Raises on any failure."""
-    import httpx
-
-    response = httpx.put(
-        upload_url, content=body, headers={"Content-Type": content_type}, timeout=_HTTP_TIMEOUT_SECONDS
-    )
+    with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        response = client.put(upload_url, content=body, headers={"Content-Type": content_type})
     response.raise_for_status()
 
 
