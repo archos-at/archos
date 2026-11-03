@@ -1,3 +1,4 @@
+import { isProjectClosedBody } from '@/lib/projects/project-status'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -493,6 +494,11 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
       })
       if (!res.ok) {
         if (res.status === 409) throw new Error(t('intake.errors.saveConflict'))
+        if (res.status === 403) {
+          // Say why the press did nothing: a closed project and a missing right are both refusals the button cannot fix.
+          const body: unknown = await res.json().catch(() => null)
+          throw new Error(isProjectClosedBody(body) ? t('intake.errors.saveClosed') : t('intake.errors.saveForbidden'))
+        }
         throw new Error('Failed to save')
       }
 
@@ -526,7 +532,8 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     } catch (e) {
       const isConflict = e instanceof Error && e.message === t('intake.errors.saveConflict')
       setConflict(isConflict)
-      setError(isConflict ? (e as Error).message : t('intake.errors.saveFailed'))
+      const known = [t('intake.errors.saveClosed'), t('intake.errors.saveForbidden')]
+      setError(isConflict || (e instanceof Error && known.includes(e.message)) ? (e as Error).message : t('intake.errors.saveFailed'))
       setSaving(false)
     }
   }, [

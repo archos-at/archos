@@ -66,6 +66,7 @@ export type ServerEvent =
   | 'annotation_due_reminders_sent'
   | 'annotation_created'
   | 'annotation_closed'
+  | 'annotation_reopened'
   | 'annotation_carried'
   | 'llm_usage_hourly'
   | 'organization_budget_snapshot'

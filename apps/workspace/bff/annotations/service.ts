@@ -473,7 +473,7 @@ function announce(
  */
 function markEvent(
   session: AuthorizedSession,
-  event: Extract<ServerEvent, 'annotation_created' | 'annotation_closed' | 'annotation_carried'>,
+  event: Extract<ServerEvent, 'annotation_created' | 'annotation_closed' | 'annotation_reopened' | 'annotation_carried'>,
   documentId: string,
   properties: Record<string, string | boolean>
 ): void {
@@ -1086,6 +1086,13 @@ export async function updateAnnotation(
       by: actor.kind,
       author_kind: existing.authorKind,
       was: existing.status,
+    })
+  }
+  if (moves && parsed.status === 'open' && (existing.status === 'resolved' || existing.status === 'dismissed')) {
+    markEvent(session, 'annotation_reopened', doc.id, {
+      was: existing.status,
+      by: actor.kind,
+      author_kind: existing.authorKind,
     })
   }
   traceMentioned(

@@ -10,10 +10,9 @@ import 'server-only'
  *    observability platform's view of the same call, beside the chat turns it
  *    belongs to.
  *
- * Properties are scalars the catalog and the route already know. The text of an
- * agent's request never goes in: an agent quotes documents and names, and the
- * server events are non-personal by rule, so `agent_operation_missing` sends
- * the length of the description only.
+ * Properties are scalars the catalog and the route already know. No free text:
+ * `agent_operation_missing` sends the description's length, never its words,
+ * because an agent's report can quote a document or a name.
  */
 
 import { captureServer } from '@/lib/analytics/posthog-server'
@@ -135,14 +134,14 @@ export function recordOperationCalled(
   })
 }
 
-export function recordOperationMissing(ctx: McpCallContext, descriptionLength: number, category: string): void {
+export function recordOperationMissing(ctx: McpCallContext, description: string, category: string): void {
   const { principal, mode } = ctx
   captureServer({
     event: 'agent_operation_missing',
     distinctId: principal.session.userId,
     organizationId: principal.session.organizationId,
     properties: {
-      description_length: descriptionLength,
+      description_length: description.length,
       category,
       door: doorOf(ctx),
       session_source: sessionSourceOf(ctx),

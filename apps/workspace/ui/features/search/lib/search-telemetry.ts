@@ -84,7 +84,16 @@ export interface IssuedSearch {
 
 type Properties = Record<string, string | number | boolean | null>
 
-export function searchIssuedProperties(surface: SearchTelemetrySurface, issued: IssuedSearch): Properties {
+/** An id for one answered question, so its `search_issued` and the `search_result_opened` that follows can be joined. */
+export function newSearchId(): string {
+  try {
+    return crypto.randomUUID()
+  } catch {
+    return `s_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
+  }
+}
+
+export function searchIssuedProperties(surface: SearchTelemetrySurface, issued: IssuedSearch, searchId: string | null = null): Properties {
   const text = issued.body.text?.trim() ?? ''
   const sections = Object.values(issued.response.sections)
   const total = sections.reduce((sum, section) => sum + (section?.total ?? 0), 0)
@@ -99,6 +108,8 @@ export function searchIssuedProperties(surface: SearchTelemetrySurface, issued: 
     kinds: issued.body.kinds ? [...issued.body.kinds].sort().join(',') : 'all',
     filter_dims: filterDimensions(issued.body, issued.extraDimensions).join(','),
     view: issued.view,
+    search_id: searchId,
+    result_count: total,
     results_total: total,
     zero_results: total === 0,
     content_partial: issued.response.contentPartial,
@@ -109,9 +120,10 @@ export function searchIssuedProperties(surface: SearchTelemetrySurface, issued: 
   }
 }
 
-export function searchResultOpenedProperties(surface: SearchTelemetrySurface, hit: SearchHit, rank: number, msSinceIssued: number | null): Properties {
+export function searchResultOpenedProperties(surface: SearchTelemetrySurface, hit: SearchHit, rank: number, msSinceIssued: number | null, searchId: string | null = null): Properties {
   return {
     surface,
+    search_id: searchId,
     kind: hit.kind,
     rank,
     matched_on: hit.kind === 'document' ? [...hit.matchedOn].sort().join(',') : null,
@@ -163,8 +175,9 @@ export interface SearchTrackerOptions {
  * reader acted on it, so it was settled.
  */
 export class SearchTracker {
-  private pending: { issued: IssuedSearch; timer: unknown } | null = null
+  private pending: { issued: IssuedSearch; searchId: string; timer: unknown } | null = null
   private issuedAt: number | null = null
+  private searchId: string | null = null
   private readonly capture: NonNullable<SearchTrackerOptions['capture']>
   private readonly settleMs: number
   private readonly now: () => number
@@ -186,22 +199,23 @@ export class SearchTracker {
   answered(issued: IssuedSearch): void {
     if (this.pending) this.clearTimer(this.pending.timer)
     this.issuedAt = this.now()
-    this.pending = { issued, timer: this.setTimer(() => this.flush(), this.settleMs) }
+    this.searchId = newSearchId()
+    this.pending = { issued, searchId: this.searchId, timer: this.setTimer(() => this.flush(), this.settleMs) }
   }
 
   /** The reader opened `hit`, at `rank` in its section. */
   opened(hit: SearchHit, rank: number): void {
     this.flush()
-    this.capture('search_result_opened', searchResultOpenedProperties(this.surface, hit, rank, this.issuedAt === null ? null : this.now() - this.issuedAt))
+    this.capture('search_result_opened', searchResultOpenedProperties(this.surface, hit, rank, this.issuedAt === null ? null : this.now() - this.issuedAt, this.searchId))
   }
 
   /** Send the held answer now, if there is one. */
   flush(): void {
     if (!this.pending) return
     this.clearTimer(this.pending.timer)
-    const { issued } = this.pending
+    const { issued, searchId } = this.pending
     this.pending = null
-    this.capture('search_issued', searchIssuedProperties(this.surface, issued))
+    this.capture('search_issued', searchIssuedProperties(this.surface, issued, searchId))
   }
 }
 

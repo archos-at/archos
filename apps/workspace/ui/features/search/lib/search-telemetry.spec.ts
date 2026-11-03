@@ -67,6 +67,8 @@ describe('search_issued', () => {
     expect(properties).toEqual({
       surface: 'page',
       session_source: 'ui',
+      search_id: null,
+      result_count: total,
       scope: 'office',
       has_text: true,
       text_tokens: 3,
@@ -111,8 +113,12 @@ describe('SearchTracker', () => {
     const hit = SEARCH_FIXTURE_DOCUMENTS[0]
     tracker.opened(hit, 2)
     expect(capture.mock.calls.map(([event]) => event)).toEqual(['search_issued', 'search_result_opened'])
+    const issuedProperties = capture.mock.calls[0][1]
+    expect(issuedProperties.search_id).toEqual(expect.any(String))
+    expect(issuedProperties.result_count).toBe(issuedProperties.results_total)
     expect(capture.mock.calls[1][1]).toEqual({
       surface: 'page',
+      search_id: issuedProperties.search_id,
       kind: 'document',
       rank: 2,
       matched_on: [...hit.matchedOn].sort().join(','),
