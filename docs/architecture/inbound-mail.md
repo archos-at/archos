@@ -81,7 +81,9 @@ waits for any of the project's writers, as all mail did before direct filing
 (wait reason `paused`, read from the live switch), and a sender job already
 queued files nothing (`direct_filing_off`). Never stricter than the rule it
 switches off: nothing becomes releasable by its member alone. Mail held while
-it was off is not filed when it goes back on. Receipt is unchanged;
+it was off is not filed when it goes back on, unless a re-scan or a re-read
+(sweeps 7 and 15) queues its sender's filing again after that, which runs the
+rule as it then stands. Receipt is unchanged;
 `INBOUND_MAIL_PAUSED` stops it.
 
 **The sender's filing** (`lib/inbound-mail/sender-file-job.ts`, a sliced job

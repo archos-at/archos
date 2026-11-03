@@ -314,7 +314,7 @@ and only once the Worker's `LANDING_URL` binding names the website (B1):
 |---|---|---|
 | PostHog, `inbound_mail_received` | mail held, by `sender_class` (`verified_writer`, `unverified_writer`, `office_member`, `external`) and `sender_trust` | arrives on working days |
 | PostHog, `inbound_mail_refused` | refusals by `reason` ([`posthog-events.md`](../observability/posthog-events.md)) | `unknown_address`, `too_large`, `switched_off` are senders' errors (bounces); `paused`, `misconfigured`, `body_truncated`, `bad_digest`, `unavailable`, `rate_limited`, `cap_reached` are ours (retries): any steady count is an incident |
-| PostHog, `inbound_mail_decided` | `via` (`sender` = filed directly, `app`, `agent`, `follow`), `left` (parts left waiting for the sender) | `via: sender` grows with offices whose domain signs |
+| PostHog, `inbound_mail_decided` | `via` (`sender` = filed directly, `app`, `agent`, `follow`), `left` (parts left waiting for the project's writers) | `via: sender` grows with offices whose domain signs |
 | PostHog, `inbound_mail_dropped` | auto-replies and delivery reports | a trickle |
 | Frontend log | `[inbound-mail] delivery outcome=… org=… address=… mail=… bytes=… ms=…` per delivery; `[inbound-mail] request signature refused reason=…` | no `bad-signature` (a key or `BFF_URL` mismatch), no `body-truncated`, no `unavailable` |
 | WorkOS audit log | `inbound_mail.received`, `.decided`, `.expired`, `.part_read`, `.original_read`; `inbound_mail_address.created`, `.rotated`, `.deleted`; `mail_thread.*` | who read and filed what, per office |
@@ -335,7 +335,9 @@ mail did before direct filing, saying „Die direkte Ablage ist ausgeschaltet“
 (wait reason `paused`), and its writers are told it waits. A sender's filing
 already queued files nothing. It is never stricter than before: colleagues can
 file the mail of a member on holiday or gone. Switched back on, what was held
-meanwhile keeps waiting for the writers; it is not filed retroactively.
+meanwhile keeps waiting for the writers; it is not filed retroactively, except
+a mail whose failed scan or unread text a sweep finishes after that (sweeps 7
+and 15 queue its sender's filing again, under the rule as it then stands).
 PostHog `inbound_mail_sender_filed` with `reason: direct_filing_off` counts
 those mails ([`kubernetes.md`](kubernetes.md#incidents), incident 0).
 
@@ -431,21 +433,26 @@ uploaded directly; a larger mail bounces at the sender.
 **Filed directly, without a click:** a mail sent by a member who may write in
 the project, from their own address, signed by their domain (an aligned DKIM
 signature: Google Workspace and Microsoft 365 with DKIM switched on do this),
-addressed to the project (To, Cc, or their own Bcc copy), not an automatic mail,
-and without a suspicious date or a reused Message-ID. Its text becomes the next
+addressed to the project in a signed To or Cc (their own Bcc copy waits for
+them), not an automatic mail, and without a suspicious date or a reused
+Message-ID. Its text becomes the next
 section of the conversation's E-Mail-Verlauf, its attachments go where the
 agent suggests (or become the next Fassung of a document the sender vouched
-for); anything that cannot be placed waits for that member. The member is told
+for); anything that cannot be placed waits in the E-Mail-Eingang for any of
+the project's writers. The member is told
 „Direkt in Ihrem Namen abgelegt, weil Ihre Domain sie signiert hat und Sie in
 diesem Projekt ablegen dürfen.“
 
 **Held for a person** in the project's E-Mail-Eingang (Dateien → E-Mail-Eingang):
-- a member's mail that is not signed, or is automatic: only that member may file
-  it („Haben Sie diese E-Mail gesendet?“), for 30 days;
+- a writer's mail that is not signed by their own domain, is their Bcc copy,
+  is automatic or carries a suspicious date: only that member may file it
+  („Haben Sie diese E-Mail gesendet?“), anyone may dismiss it, for 30 days;
 - a member's mail who may not write in the project: for the project's writers, 30 days;
 - everyone else's: for the project's writers, 14 days, then discarded.
 Five days before a mail runs out, the people it waits for are reminded.
-Dismissed parts can be restored for 7 days. A person may „Verlauf folgen“, so
+Dismissed parts can be restored for 7 days, except mail from an unconfirmed
+domain outside the office, which is erased at once; an outsider's mail that
+ran out is not restored. A person may „Verlauf folgen“, so
 that later replies' text is appended without a click, for 60 days.
 
 **Notices** are in the app and as push, never by e-mail. The sender is never

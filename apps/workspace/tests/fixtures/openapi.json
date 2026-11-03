@@ -9519,7 +9519,7 @@
       "post": {
         "operationId": "inbound-mail-dismiss",
         "summary": "Dismiss held email",
-        "description": "Restorable for seven days with inbound-mail-restore. Any reviewer may dismiss, mail that claims another member included. Runs only on the person’s own yes.",
+        "description": "Restorable for seven days with inbound-mail-restore, except mail from an unconfirmed domain outside the office, which is erased. Any reviewer may dismiss, mail that claims another member included. Runs only on the person’s own yes.",
         "tags": [
           "mail"
         ],
