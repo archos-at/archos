@@ -248,7 +248,7 @@ export const CitationOpenButton: FC<{
     )
   }
   return (
-    <button
+    <button data-attr="chat-open"
       type="button"
       onClick={onOpen}
       // The screenshot harness needs to walk peek → document the way a
@@ -319,7 +319,7 @@ const OlderRevisionLine: FC<{ current: RevisionRef }> = ({ current }) => {
     >
       <History aria-hidden="true" className="size-3.5 shrink-0 self-center" />
       <span>{t('citationPeek.olderRevision')}</span>
-      <button
+      <button data-attr="chat-open-current"
         type="button"
         onClick={() => void openCurrent(current)}
         aria-label={t('citationPeek.openCurrentRevisionAria', { name: current.filename })}

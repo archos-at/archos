@@ -69,7 +69,7 @@ export const FileCard: FC<FileCardProps> = ({ file }) => {
   return (
     <div className="flex flex-col overflow-hidden rounded-surface border bg-muted">
       {/* Header - always visible */}
-      <button
+      <button data-attr="chat-toggle-expanded"
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         aria-expanded={isExpanded}

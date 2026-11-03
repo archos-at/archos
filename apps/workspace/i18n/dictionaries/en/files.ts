@@ -131,6 +131,8 @@ export const files = {
     goneAction: 'Stop asking about it',
     goneCleared: 'No longer asking about that file.',
     goneUndo: 'Undo',
+    heldNoPreview:
+      "No preview is available while the file is held back. The reasons and the Request review button are in the details.",
     tryAgain: 'Try again',
     // An office file is shown through a PDF the BFF makes from it (ADR-0070).
     renditionPending: 'Creating PDF preview…',

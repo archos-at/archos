@@ -224,6 +224,14 @@ describe("with the Langfuse tier enabled", () => {
       }
     });
 
+    it("gives the worker the public URL, which its PostHog export builds langfuse_url from", async () => {
+      const web = await containerEnv("langfuse-web");
+      const worker = await containerEnv("langfuse-worker");
+
+      expect(worker.NEXTAUTH_URL).toBeTruthy();
+      expect(worker.NEXTAUTH_URL).toBe(web.NEXTAUTH_URL);
+    });
+
     it("gives them to exactly one container", async () => {
       const web = await containerEnv("langfuse-web");
       const worker = await containerEnv("langfuse-worker");

@@ -93,6 +93,7 @@ const TabsTrigger = React.forwardRef<
       ref={ref}
       value={value}
       data-slot="tabs-trigger"
+      data-attr={value === undefined ? undefined : `tab-${value}`}
       className={cn(
         // The active SURFACE lives on the shared-layout pill below, so the
         // trigger paints none of its own — no `data-[state=active]:bg-card`,

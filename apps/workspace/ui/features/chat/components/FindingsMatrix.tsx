@@ -198,7 +198,7 @@ const FindingRow: FC<{
               </Chip>
             )}
             {clearable && (
-              <button
+              <button data-attr="finding-commission"
                 type="button"
                 data-testid="finding-commission"
                 onClick={(event) => {

@@ -139,7 +139,7 @@ export function DocumentTagsEditor({
           >
             {labelOf(tag)}
             {!readOnly && (
-              <button
+              <button data-attr="files-remove-tag"
                 type="button"
                 onClick={() => removeTag(tag)}
                 disabled={isSaving}
@@ -216,7 +216,7 @@ export function DocumentTagsEditor({
           aria-label={t('preview.suggestionsLabel')}
         >
           {suggestions.map((tag) => (
-            <button
+            <button data-attr="files-add-tag"
               key={tag}
               type="button"
               // Keep the input focused so blur doesn't race the click.

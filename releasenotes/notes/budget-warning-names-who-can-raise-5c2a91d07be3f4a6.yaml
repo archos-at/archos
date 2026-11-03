@@ -1,0 +1,5 @@
+---
+fixes:
+  - >
+    The budget warning in the chat now tells members who cannot change the
+    limit that an admin can raise it, not only once the budget is spent.

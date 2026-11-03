@@ -37,6 +37,7 @@ describe('answerCompletionOf', () => {
       4200
     )
     expect(completion).toEqual({
+      message_id: undefined,
       outcome: 'ok',
       duration_ms: 4200,
       citation_count: 3,

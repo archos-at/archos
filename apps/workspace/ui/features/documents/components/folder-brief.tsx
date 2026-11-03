@@ -172,7 +172,7 @@ export function FolderBrief({
       <Collapsible open={open} onOpenChange={(next) => onCollapsedChange(!next)}>
         <h2 className="m-0">
           <CollapsibleTrigger asChild>
-            <button
+            <button data-attr="folder-brief-toggle"
               type="button"
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
@@ -277,7 +277,7 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
       {states.map((state) => (
-        <button
+        <button data-attr="files-select"
           key={state}
           type="button"
           onClick={() => onSelect({ kind: 'state', state })}
@@ -290,7 +290,7 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
         </button>
       ))}
       {hasUnindexedAside(tally) && (
-        <button
+        <button data-attr="folder-brief-state-unindexed"
           type="button"
           onClick={() => onSelect({ kind: 'state', state: 'unindexed' })}
           className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
@@ -354,7 +354,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
         <ChipFamily label={t('brief.topicsTitle')} testId="folder-brief-topics">
           {topics.map(({ label, count }) => (
             <Chip key={label} asChild interactive variant="muted" size="sm" className="text-foreground/80">
-              <button
+              <button data-attr="files-select"
                 type="button"
                 onClick={() => onSelect({ kind: 'topic', topic: label })}
                 title={t('brief.showTag', { tag: label })}
@@ -371,7 +371,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
         <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(' · ') })}</p>
       )}
       {photos && (
-        <button
+        <button data-attr="folder-brief-photos"
           type="button"
           onClick={() => onSelect({ kind: 'photos' })}
           className="text-muted-foreground hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 self-start rounded-control text-left text-xs underline underline-offset-2 decoration-muted-foreground/40 transition-colors duration-quick ease-out hover:decoration-current focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
@@ -498,7 +498,7 @@ function TagChip({
   const t = useTranslations(filesCopy)
   return (
     <Chip asChild interactive variant={variant} size="sm">
-      <button
+      <button data-attr="files-select"
         type="button"
         onClick={() => onSelect({ kind: 'tag', tag: label })}
         title={t('brief.showTag', { tag: tagLabel(label, t) })}
@@ -652,7 +652,7 @@ function HotspotSection({
       <ul className="-mx-1.5 flex flex-col">
         {hotspots.map(({ folder, trail, tally }) => (
           <li key={folder.id}>
-            <button
+            <button data-attr="files-open-folder"
               type="button"
               onClick={() => onOpenFolder(folder.id)}
               className="hover:bg-accent focus-visible:ring-ring touch-target group flex w-full min-w-0 items-center gap-2 rounded-control px-1.5 py-1 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"

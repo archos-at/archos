@@ -549,6 +549,26 @@ class TestVlmChatCreate:
         assert result == "part2"
         assert len(completions.calls) == 2  # exactly one retry, no loop
 
+    def test_openrouter_vision_calls_ask_for_low_reasoning(self):
+        completions = _FakeCompletions([("done", "stop")])
+        client = types.SimpleNamespace(
+            base_url="https://openrouter.ai/api/v1/", chat=types.SimpleNamespace(completions=completions)
+        )
+
+        adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+
+        assert completions.calls[0]["extra_body"] == {"reasoning": {"effort": "low"}}
+
+    def test_other_endpoints_get_no_reasoning_field(self):
+        completions = _FakeCompletions([("done", "stop")])
+        client = types.SimpleNamespace(
+            base_url="https://integrate.api.nvidia.com/v1", chat=types.SimpleNamespace(completions=completions)
+        )
+
+        adapter._vlm_chat_create(client, model="m", messages=[], max_tokens=512)
+
+        assert "extra_body" not in completions.calls[0]
+
     def test_complete_response_makes_one_call(self):
         completions = _FakeCompletions([("done", "stop")])
         client = types.SimpleNamespace(chat=types.SimpleNamespace(completions=completions))

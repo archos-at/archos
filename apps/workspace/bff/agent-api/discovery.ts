@@ -765,7 +765,7 @@ export function reportMissingOperation(ctx: McpCallContext, args: unknown): Call
     return failure(`report-missing-operation needs { description } of 1 to 2000 characters, and category one of ${FRICTION_CATEGORIES.join(', ')} when given.`)
   }
   // Only the length and the category leave this process: server events are non-personal by rule.
-  recordOperationMissing(ctx, parsed.data.description.length, parsed.data.category)
+  recordOperationMissing(ctx, parsed.data.description, parsed.data.category)
   return success({ status: 'recorded' })
 }
 

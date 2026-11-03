@@ -148,7 +148,7 @@ export function AgentAnswerCard({
           <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('review.piloti.quickLabel')}>
             {CANVAS_ASK_INTENTS.map((intent) => (
               <Chip key={intent} asChild interactive variant="outline" size="md">
-                <button
+                <button data-attr="files-send"
                   type="button"
                   data-testid={`agent-quick-${intent}`}
                   disabled={piloti.busy}

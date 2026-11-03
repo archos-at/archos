@@ -204,7 +204,7 @@ export const UserMessage: FC<UserMessageProps> = ({
             an input bubble identifiable at a glance. */}
         <div className="group relative w-[400px] max-w-full rounded-bubble rounded-tr-[4px] border border-input bg-card px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs pointer-coarse:pr-14">
           {body}
-          <button
+          <button data-attr="chat-copy-message"
             type="button"
             onClick={() => void handleCopyMessage()}
             aria-label={copied ? t('copyMessage.copied') : t('copyMessage.copy')}
@@ -293,7 +293,7 @@ export const UserMessage: FC<UserMessageProps> = ({
         )}
       >
         {body}
-        <button
+        <button data-attr="chat-copy-message"
           type="button"
           onClick={() => void handleCopyMessage()}
           aria-label={copied ? t('copyMessage.copied') : t('copyMessage.copy')}

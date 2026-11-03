@@ -3172,6 +3172,10 @@
     "de": "Der Blog-Feed ist wieder unter den alten Adressen (/rss.xml und /en/rss.xml) verfügbar, sodass bestehende Abonnements weiterhin funktionieren."
   },
   {
+    "en": "The budget warning in the chat now tells members who cannot change the limit that an admin can raise it, not only once the budget is spent.",
+    "de": "Die Budgetwarnung im Chat informiert Mitglieder, die das Limit nicht ändern können, jetzt darüber, dass ein Admin es erhöhen kann – auch bevor das Budget aufgebraucht ist."
+  },
+  {
     "en": "The building model on a phone has labelled tools that fit on one bar, shows a selected element in a sheet that can be pulled up, and shows how much of the model has loaded, with a way to cancel and retry.",
     "de": "Das Gebäudemodell am Smartphone bietet beschriftete Werkzeuge, die auf eine Leiste passen, zeigt ausgewählte Elemente in einem nach oben ziehbaren Bereich an und zeigt den Ladefortschritt des Modells mit der Möglichkeit zum Abbrechen und erneuten Versuch an."
   },
@@ -3782,6 +3786,10 @@
   {
     "en": "Uploading a new file over one that is held back for its content no longer shows as a failed upload. The new file is shown as held back too, says that it waits for the file it would replace, and its uploader can ask for that file's review right there.",
     "de": "Das Hochladen einer neuen Datei über eine Datei, die aufgrund ihres Inhalts zurückgehalten wird, wird nicht mehr als fehlgeschlagener Upload angezeigt. Die neue Datei wird ebenfalls als zurückgehalten angezeigt, mit dem Hinweis, dass sie auf die Datei wartet, die sie ersetzen soll. Die Person, die sie hochgeladen hat, kann direkt dort eine Überprüfung der zu ersetzenden Datei anfordern."
+  },
+  {
+    "en": "Uploading hundreds of files at once no longer makes a share of them fail to be read and wait several minutes for a second try.",
+    "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
   },
   {
     "en": "Uploading the same file twice no longer reads it again when nothing has changed.",

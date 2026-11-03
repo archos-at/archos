@@ -115,7 +115,7 @@ export function FilingStep({
   const chosenTop = choice ? accessFolders(choice.tree).filter((node) => !isFolderExcluded(choice.excluded, node.path)) : []
   const rows = accessRows(setup.folders, chosenTop)
   const skip = onNext && (
-    <button type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
+    <button data-attr="intake-next" type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
       {t('actions.skip')}
     </button>
   )

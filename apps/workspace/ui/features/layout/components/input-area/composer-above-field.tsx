@@ -101,7 +101,7 @@ export function ComposerAboveField({ controller }: { controller: InputAreaContro
                 of the gate left the whole write surface reachable on a phone while
                 the user guide said it was closed. */}
       {controller.attachedFilesCount > 0 && !controller.cannotContribute && (
-        <button
+        <button data-attr="chat-manage-files-open"
           type="button"
           onClick={() => controller.setManageFilesOpen(true)}
           className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 touch-target mb-2 self-start rounded-sm text-xs font-medium underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:outline-none sm:hidden"

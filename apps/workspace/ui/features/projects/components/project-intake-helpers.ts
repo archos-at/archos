@@ -10,6 +10,7 @@ import type { ProjectIntakeQuestion } from '@/lib/project-profile/intake-types'
 import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profile/types'
 
 import type { Translator } from '@/i18n'
+import { isProjectClosedBody } from '@/lib/projects/project-status'
 
 export type Answers = Record<string, ProjectPrimitiveValue>
 
@@ -87,4 +88,18 @@ export function validationMessage(question: ProjectIntakeQuestion, t: Translator
     default:
       return t('intake.validation.required')
   }
+}
+
+/** A refusal the person can read: the save was answered, and the message says why. */
+export class SaveRefused extends Error {}
+
+/**
+ * Why a profile save was refused (409 or 403). A conflict reads as one; a 403 says
+ * why the press did nothing: a closed project and a missing right are both
+ * refusals the button cannot fix.
+ */
+export async function saveRefusal(res: Response, t: Translator): Promise<Error> {
+  if (res.status === 409) return new SaveRefused(t('intake.errors.saveConflict'))
+  const body: unknown = await res.json().catch(() => null)
+  return new SaveRefused(isProjectClosedBody(body) ? t('intake.errors.saveClosed') : t('intake.errors.saveForbidden'))
 }

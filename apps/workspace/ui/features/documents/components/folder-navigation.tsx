@@ -189,7 +189,7 @@ export function FolderBreadcrumbRow({
                 null,
                 t('folders.allFiles'),
                 <BreadcrumbLink asChild>
-                  <button
+                  <button data-attr="files-navigate"
                     type="button"
                     onClick={() => onNavigate(null)}
                     className="hover:text-foreground transition-colors rounded px-1"
@@ -227,7 +227,7 @@ export function FolderBreadcrumbRow({
                         folder.id,
                         folder.name,
                         <BreadcrumbLink asChild>
-                          <button
+                          <button data-attr="files-navigate"
                             type="button"
                             className="max-w-48 truncate hover:text-foreground transition-colors px-1"
                             onClick={() => onNavigate(folder.id)}
@@ -748,7 +748,7 @@ function FolderCardFrame({
 }): JSX.Element {
   if (editing) return <div className="flex h-full w-full flex-col text-left phone:flex-row phone:items-center">{children}</div>
   return (
-    <button
+    <button data-attr="files-open"
       type="button"
       onClick={onOpen}
       aria-label={openLabel}
@@ -855,7 +855,7 @@ export function FolderRow({
       {...(onDropFolder && !readOnly ? folderDragProps(folder.id, folder.parentId ?? null) : {})}
       {...drop.dropProps}
     >
-      <button
+      <button data-attr="files-open"
         type="button"
         onClick={() => onOpen(folder.id)}
         aria-label={openLabel}
