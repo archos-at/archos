@@ -6,18 +6,19 @@ consulted: product owner
 informed: everyone working in this repo
 ---
 
-# Background work runs on self-hosted Hatchet, with fairness keyed on the organization, behind a flag per tier
+# Background work runs on self-hosted Hatchet, with fairness keyed on the organization, in place of our claim queues
 
 ## Context and Problem Statement
 
-Since ADR-0021, ADR-0076 and ADR-0079 we run every background path on queues we
+Since ADR-0021, ADR-0076 and ADR-0079 we ran every background path on queues we
 built ourselves: `ingest_job_queue`, `research_job_queue` and `bff_job_queue`,
 each with its own claim (`FOR UPDATE SKIP LOCKED`), heartbeats, stale-claim
 reaping, attempt limits and dead rows; a per-office fair claim order; a
 fleet-wide vision slot pool on Dragonfly (`common.lease_slots`); a sweep that
-retries transient failures; and status that the BFF pulls and reconciles when
-someone reads a list. That is a workflow engine, written and kept by us, in two
-languages (ADR-0079: "two implementations of one algorithm").
+retries transient failures; a scheduler container that ticked every 30 s; and
+status that the BFF pulls and reconciles when someone reads a list. That is a
+workflow engine, written and kept by us, in two languages (ADR-0079: "two
+implementations of one algorithm").
 
 The bulk upload of 2026-11-02 measured where it fails. One office uploaded 556
 files; production ran 16 concurrent ingest slots (8 `ingest-worker` pods x 2).
@@ -40,21 +41,19 @@ files; production ran 16 concurrent ingest slots (8 `ingest-worker` pods x 2).
   the balance to come back.
 
 Each of these is a gap in machinery a workflow engine ships: retry with backoff
-per step, a recorded failure per attempt, an event when a run ends. The
-question is which engine, and how to move onto it without a big-bang cutover.
+per step, a recorded failure per attempt, an event when a run ends, scheduled
+and cron runs. The question is which engine.
 
 ## Decision Drivers
 
-* Operating cost at our scale. Peak load is a few task starts per second; the
-  engine must not need more people or services than the work it replaces.
+* Operating cost at our scale. Peak load is a few task starts per second.
 * Fairness across offices: one office's 556 files must not delay another
   office's single upload (the property ADR-0076 bought).
 * One fleet-wide ceiling on vision calls, so more workers never mean more
   provider 429s (ADR-0076, ADR-0081).
-* Postgres only. We already run CloudNativePG; a broker is one more stateful
-  service to secure, back up and upgrade.
-* One engine for ingest, research runs and BFF jobs, so the algorithm exists
-  once and not per language.
+* One engine for ingest, research runs, BFF jobs and schedules, so the
+  algorithm exists once and not per language.
+* Less code of our own: the change should remove more than it adds.
 * No tenant content in a third party's database, even one we host.
 * A real exit: the pipeline must not be written in one engine's SDK.
 * AI-native (`docs/contributing/ai-native-tooling.md`): an agent can inspect,
@@ -62,174 +61,216 @@ question is which engine, and how to move onto it without a big-bang cutover.
 
 ## Considered Options
 
-1. **Hatchet, self-hosted** (Postgres-backed task queue and workflow engine).
+1. **Hatchet, self-hosted.**
 2. **Temporal, self-hosted.**
 3. **Temporal Cloud.**
-4. **DBOS** (durable workflows as a library over our own Postgres).
+4. **DBOS** (durable workflows as a library over Postgres).
 5. **The status quo**: keep and extend our claim queues.
 
 ## Decision Outcome
 
 Chosen option 1, Hatchet self-hosted, because at our load it covers fairness,
-the global ceiling, retries and run events with one engine on Postgres alone,
-and costs the fewest moving parts to run.
+retries, run events and schedules with one engine, and costs the fewest moving
+parts to run. It replaces the claim queues in this change; there is no flag and
+no second path.
 
-**Shape in production.**
+**Shape in production.** Runbook: [`docs/deployment/hatchet.md`](../deployment/hatchet.md).
 
-* The `hatchet-ha` Helm chart: API, gRPC engine, controllers and scheduler as
-  separate Deployments, 2 replicas each, each with a PodDisruptionBudget. The
-  image tag is pinned (`sharedConfig.image.tag`, Pulumi `hatchetImageTag`, with
-  `hatchetChartVersion`); `hatchet-lite` runs only in Compose and tests. The
-  platform installs only where Pulumi `hatchetEnabled` is true (default false).
-* The message queue is Postgres. RabbitMQ is added only once we sustain about
-  100 task starts per second, which is our threshold for re-measuring, not a
-  number Hatchet publishes.
-* Hatchet gets its own CloudNativePG cluster, `background-work-pg` (2 instances,
-  about 2 CPU and 4 GiB each, database and role `hatchet`), not the app cluster,
-  so engine load cannot slow the app's queries. Backups go off-cluster. Run
-  retention is 14 days (Hatchet's default is 30).
+* The `hatchet-ha` Helm chart 0.21.0 with engine v0.114.2 (`hatchetChartVersion`,
+  `hatchetImageTag`, through the chart's `sharedConfig.image.tag`): API, gRPC
+  engine, controllers and scheduler as separate Deployments, 2 replicas each,
+  each with a PodDisruptionBudget. `hatchet-lite` at the same tag runs only in
+  Compose and CI. SDKs: Python `hatchet-sdk` 1.44.0, TypeScript
+  `@hatchet-dev/typescript-sdk` 1.46.0.
+* It runs in its own namespace, `background-work`. The chart's setup and
+  worker-token Jobs add `SYS_PTRACE`, which the app namespace's `baseline` Pod
+  Security Standard rejects, and the chart's Role lets the API read every Secret
+  in its namespace. A Job copies the worker token into the app namespace.
+* The message queue is RabbitMQ, on the owner's decision: Hatchet's HA guide and
+  its production Compose both use it. It runs as `hatchet-rabbitmq`, a
+  three-node `RabbitmqCluster` under the official RabbitMQ Cluster Operator,
+  with a PDB, so it keeps quorum through one node's loss.
+* Hatchet's database is its own CloudNativePG cluster, `background-work-pg`
+  (2 instances, database and role `hatchet`), not the app cluster, so engine
+  load cannot slow the app's queries. Run retention is 14 days (Hatchet's
+  default is 30). Its PITR archive goes to an off-cluster bucket when a stack
+  turns it on (`backgroundWorkPgBackup*`, off by default).
 
-**Tasks.** Three, one per tier: `ingest-document`, `research-run` and `bff-job`
-(one task; the job kind is in the input). The worker pools keep their names:
-`ingest-worker`, `agent-worker`, `bff-jobs`.
+**Tasks.**
+
+* `ingest-document` is a two-step DAG, `index` then `settle`, with
+  `settle-failed` as its failure handler. `index` stays one step because the
+  adapter holds a file's pages, text and chunks in memory from download to write
+  (`LlamaIndexIngestor._ingest_job`), so "written" is the only boundary that
+  can be saved cheaply. A repeated `index` is cheap where it costs most: every
+  vision and transcription result is cached by content hash for 30 days.
+  `settle` has retries of its own, so a BFF that is away for a moment costs a
+  retried call, never a re-indexed file.
+* `research-run`: a compare-and-set on `job_info` takes ownership before the
+  agent runs (`jobs/run_ownership.py`), because Hatchet delivers at least once
+  and a lost worker's task can run twice. A run past its execution timeout, or
+  out of attempts, is recorded as FAILURE by the on-failure task.
+* `bff-job`: one task, the job kind in its input.
+* The scheduler container is gone. Each automation (`task_definitions`) has one
+  Hatchet scheduled run at its next due time, computed in the office's time
+  zone, because Hatchet crons take no time zone; migration 0192 adds
+  `task_definitions.scheduled_run_id`. A fire is idempotent per due time, and
+  `schedule-repair` re-schedules a definition whose run went missing. The
+  maintenance sweeps are Hatchet cron tasks on the `bff-jobs` worker, one each,
+  never overlapping; the 06:45 Vienna reminder runs hourly and gates itself on
+  the office clock, so it stays on 06:45 across daylight-saving changes.
+* The worker pools keep their names: `ingest-worker`, `agent-worker`,
+  `bff-jobs`. KEDA scales each on its workflow's backlog in Hatchet's tables:
+  the runs in `v1_queue_item` plus those in `v1_task_runtime`
+  (`hatchetBacklogQuery`, `app/keda-scaling.ts`). A run held back by its
+  organization's limit is in neither, so it asks for no replica it could not use.
 
 **Fairness and the ceiling.**
 
-* Each task carries a concurrency strategy `GROUP_ROUND_ROBIN` with the key
-  `input.organization_id`: when an office has more runs than its share, its
-  runs wait and the next free slot rotates to the next office. This replaces
-  the lane order of ADR-0076.
-* Interactive work goes before bulk inside an office through Hatchet run
-  priority, replacing the `interactive` / `bulk` column of ADR-0079.
-* The fleet-wide vision ceiling becomes a concurrency strategy with a constant
-  key and `max_runs` = the ceiling (32 today) on the task that reads pages.
-  Hatchet scopes a key to one task definition (hatchet-dev/hatchet#4237), so the
-  ceiling holds only while every vision call runs inside that one task. Until
-  page reading is its own task, the Dragonfly lease pool stays.
+* Each task carries `GROUP_ROUND_ROBIN` keyed on `input.organization_id`, with
+  `max_runs` per organization (`INGEST_MAX_PER_ORG`, `MAX_ACTIVE_JOBS_PER_ORG`):
+  a free slot goes to the organizations in turn. This replaces ADR-0076's lane
+  order.
+* Interactive work goes before bulk inside an organization through run
+  priority (`Priority.HIGH` and `LOW`), replacing ADR-0079's priority column.
+* The fleet-wide vision ceiling stays the Dragonfly lease pool. A constant
+  concurrency key would cap only one task definition
+  (hatchet-dev/hatchet#4237), and page reading is not its own task.
 
-**Inputs carry no tenant content.** A task input holds ids, the priority and
-our already-encrypted payload (`payload_crypto`, under `JOB_PAYLOAD_KEK`),
-never plaintext document text or file names. Hatchet's database, its dashboard
-and its backups therefore hold nothing an office wrote.
+**Inputs carry no tenant content.** A run input holds ids, the organization,
+the priority and our already-encrypted payload (`payload_crypto`, under
+`JOB_PAYLOAD_KEK`), never document text or file names. Hatchet's database, its
+dashboard and its backups hold nothing an office wrote.
 
 **The engine stays replaceable.** The pipeline's step functions never import
-`hatchet_sdk`. A thin layer per tier registers them as tasks, and only that
-layer and `agent.common.hatchet_client` import the SDK. Moving to Temporal
-means rewriting that layer, not the pipeline.
+`hatchet_sdk`. One thin layer per tier declares the tasks
+(`knowledge/ingest_hatchet.py`, `jobs/research_hatchet.py`,
+`bff/jobs-queue/hatchet*.ts`, `bff/scheduling/tasks.ts`), and the Python process
+builds its one client in `agent.common.hatchet_client`. Moving to Temporal means
+rewriting those layers, not the pipeline.
 
-**Rollout is a flag per tier, defaulting to the claim queue.**
-`INGEST_ORCHESTRATOR`, `RESEARCH_ORCHESTRATOR` and `BFF_JOBS_ORCHESTRATOR` take
-`claim_queue` (default) or `hatchet`. The connection is the SDK's own
-environment (`HATCHET_CLIENT_TOKEN`, `HATCHET_CLIENT_HOST_PORT`,
-`HATCHET_CLIENT_TLS_STRATEGY`, `HATCHET_CLIENT_NAMESPACE` per stack). Nothing
-switches until the platform is applied in a stack and the spike below has
-passed there. The claim queues stay until each tier has run on Hatchet in
-production; a later change deletes them.
+**Status is pushed.** When an ingest job ends, `settle` calls
+`POST /api/internal/ingest/settled` with the job ids (1 to 200). The BFF runs
+its existing reconcile for those documents, which emits
+`document_ingest_finished` once, with `processing_ms` and `settled_by` (`push`,
+`read` or `sweep`). The read and the sweep stay as fallbacks.
 
-**Status is pushed.** When an ingest job reaches a terminal status, the Python
-side calls `POST /api/internal/ingest/settled` with the job ids (1 to 200).
-The BFF runs its existing reconcile for those documents, which emits
-`document_ingest_finished` once, now with `processing_ms` and `settled_by`
-(`push`, `read` or `sweep`). The call is best effort and runs on both
-orchestrators; the sweep stays as the fallback. This closes the six-hour gap
-whichever engine runs the job.
+**Cutover.** Apply the platform, deploy, then run
+`python -m agent.knowledge.ingest_cutover` (it also runs when an ingest worker
+starts) and `python -m agent_host.jobs.requeue_legacy` to re-submit what the
+old ingest and research tables still hold. BFF jobs are re-dispatched by their
+own sweep, and automations by `schedule-repair`. The old tables are no longer
+written and stay until a later migration drops them. Rollback is reverting the
+change: the previous release still claims from those tables.
 
 ### Consequences
 
 * Good, because claim, heartbeat, reclaim, attempt limits, backoff and per-step
-  retries become the engine's, and each attempt's error is recorded on the run.
+  retries are the engine's, and each attempt's error is recorded on the run.
   A download that fails while the object store restarts is retried in seconds,
   not at the next sweep.
-* Good, because fairness and priority are one configuration on each task instead
-  of a ranking query in Python and another in TypeScript.
-* Good, because status reaches the document when the job ends, on either path.
+* Good, because fairness and priority are one declaration on each task instead
+  of a ranking query in Python and another in TypeScript, and the scheduler
+  container and its 30 s tick are gone.
+* Good, because status reaches the document when the job ends.
 * Good, because the dashboard and REST API show every run, its input, attempts
-  and timing, which today takes a `SELECT` on three tables.
-* Bad, because it is a new stateful platform to run: four Deployments, a second
-  Postgres cluster, its backups and its upgrades.
+  and timing, which took a `SELECT` on three tables before.
+* Bad, because it is a new stateful platform to run: four Deployments, a
+  three-node RabbitMQ, a second Postgres cluster, their backups and upgrades.
 * Bad, because Hatchet v1 dates from 2025. It is younger than Temporal, and an
-  engine bug is ours to diagnose. The flags are the mitigation: each tier can go
-  back to the claim queue with one value while both paths exist.
+  engine bug is ours to diagnose. There is no flag to fall back on: the way
+  back is reverting the release, and runs already started on Hatchet finish
+  only once a release that runs on Hatchet is back.
+* Bad, because the KEDA query reads Hatchet's internal tables, which can change
+  between releases. The image tag is pinned, and the query is checked against
+  the schema of that tag (`keda-scaling.spec.ts`); an upgrade re-checks it.
 * Bad, because a concurrency key is scoped to one task (hatchet-dev/hatchet#4237,
-  closed as not planned on 2026-09-23). A ceiling meant to span two task
-  definitions does not; whoever splits a task must keep the constant-key
-  strategy on the one task that makes the capped calls.
-* Bad, because there is no native KEDA scaler for Hatchet. The KEDA
-  `postgresql` trigger could count Hatchet's queue tables, but that couples our
-  scaling to an internal schema that changes between Hatchet releases. On
-  Hatchet the worker pools do not scale on queue depth under this decision;
-  how they scale is a follow-up decision (More Information).
-* Neutral: while both paths exist, the claim queue's code, tests and KEDA
-  ScaledObjects stay and are maintained. That is the price of a reversible
-  rollout, and it ends with the deletion PR.
+  closed as not planned on 2026-09-23). A limit meant to span two task
+  definitions does not; whoever splits a task must keep its strategies on the
+  task that does the capped work.
+* Bad, because Hatchet delivers at least once. Research guards with an
+  ownership compare-and-set; ingest relies on re-indexing replacing a file's
+  chunks, and on one live run per job id (status-based idempotency on
+  `input.job_id`).
+* Neutral: finer ingest steps and page fan-out are future work. They need the
+  parsed document persisted between steps, and they would undo ADR-0117's one
+  worker per document.
 * Neutral: ADR-0021 is superseded in part. Its submission writing a record,
   cancel as a status flip read by the `CancellationMonitor`, and event
   streaming from shared Postgres stand. Its claim, heartbeat and reclaim
-  (points 2 and 4) move to Hatchet once `RESEARCH_ORCHESTRATOR` flips. Its
-  status stays accepted.
+  (points 2 and 4) are Hatchet's. Its status stays accepted.
 * Neutral: ADR-0117 stands. "One document is one claim on one worker" reads as
   "one document is one `ingest-document` run"; its page pipeline runs inside
-  that run unchanged.
-* Neutral: ADR-0043 is unaffected; it is the fix for the object store's
-  memory, which this decision does not replace.
+  `index` unchanged.
+* Neutral: ADR-0043 is unaffected; it is the fix for the object store's memory.
 
 ### Confirmation
 
-* The flags: `packages/agent/tests/common/test_hatchet_client.py` holds the
-  default (`claim_queue`) and refuses an unknown value, so a typo cannot switch
-  a tier. Each tier's Hatchet layer lands with a test that its step functions
-  run without `hatchet_sdk` importable.
-* The settle push and the new `document_ingest_finished` properties land with
-  their BFF route spec.
-* The spike, run on staging before any tier's flag flips in production, with
-  its results recorded in the PR that flips it:
+* **The engine tests in CI.** The `Hatchet engine tests` job (`ci.yml`) starts
+  `hatchet-lite` v0.114.2 and runs the ingest workflow, the research run and
+  every `bff/*/hatchet.integration.spec.ts` (BFF jobs and scheduling) against
+  it, then fails if any suite was skipped (`ci/hatchet_engine.sh require-ran`),
+  because each suite skips without an engine.
+* **One version.** `tests/test_ci_workflows.py` holds the `hatchet-lite` tag in
+  `ci/hatchet_engine.sh` and Compose to `HATCHET_IMAGE_TAG`
+  (`deploy/pulumi/src/config/background-work.ts`), so CI tests the engine
+  production runs.
+* **Scaling.** `deploy/pulumi/src/app/keda-scaling.spec.ts` holds the backlog
+  query to Hatchet's tables and each pool's workflow.
+* **One client.** `agent.common.hatchet_client` is the only place a Python
+  process builds the SDK client; `test_hatchet_client.py` holds that tests
+  replace it there.
+* **Before the production cutover**, on staging, recorded in the PR or the
+  release that does it:
   1. Replay a 556-file burst from one office plus one single upload from
      another. The single upload starts within seconds.
   2. Page reading never runs more than 32 at once.
-  3. Killing a worker, or an engine replica, loses no file.
+  3. Killing a worker, an engine replica or a RabbitMQ node loses no file.
   4. `background-work-pg` CPU stays under 50 %.
   5. App latency is unchanged.
   6. Status arrives by push (`settled_by: push`).
-  7. `task be:eval:answer-suite` runs before and after, and the report is in
-     the PR.
-* Nothing enforces "no tenant content in a task input" mechanically yet; review
-  is the gate until each tier's layer has a test on its input shape.
+  7. `task be:eval:answer-suite` runs before and after, and the report is
+     attached.
+* Nothing enforces "no tenant content in a run input" mechanically; each
+  tier's input model holds ids and ciphertext only, and review is the gate.
 
 ## Pros and Cons of the Options
 
 ### Hatchet, self-hosted
 
 * Good, because `GROUP_ROUND_ROBIN` with a CEL key (`input.organization_id`) is
-  the per-office fairness we built by hand, and a constant key gives one
-  global limit (docs.hatchet.run/v1/concurrency, read 2026-11-03).
-* Good, because it runs on Postgres alone; RabbitMQ is optional
-  (docs.hatchet.run/self-hosting, read 2026-11-03). Its docs give "hundreds of
-  events and workflow runs per second" on a 4 CPU, 8 GB database
-  (docs.hatchet.run/self-hosting/improving-performance, read 2026-11-03),
-  about a hundred times our peak of a few tasks per second.
-* Good, because one engine and one SDK per language serves all three tiers.
+  the per-office fairness we built by hand
+  (docs.hatchet.run/v1/concurrency, read 2026-11-03).
+* Good, because its docs give "hundreds of events and workflow runs per
+  second" on a 4 CPU, 8 GB database
+  (docs.hatchet.run/self-hosting/improving-performance, read 2026-11-03), far
+  past our peak of a few task starts per second.
+* Good, because one engine and one SDK per language serves every tier,
+  scheduled runs and crons included.
 * Bad, because a concurrency key does not span task definitions (#4237).
 * Bad, because v1 is from 2025 and has a shorter production record than
   Temporal.
+* Bad, because its crons are UTC only, so a schedule in an office's time zone
+  is ours to compute.
 
 ### Temporal, self-hosted
 
 * Good, because it is the most mature option, with years of production use at a
   scale far past ours.
 * Bad, because it is four services (frontend, history, matching, worker) plus
-  its persistence, against Hatchet's engine and API on one Postgres.
+  its persistence.
 * Bad, because upgrades go one minor version at a time with a schema migration
   before each (docs.temporal.io/self-hosted-guide/upgrade-server, read
   2026-11-03), and the history shard count is fixed when the cluster is
   created.
-* Bad, because it has no global concurrency cap: the vision ceiling would stay
-  ours to build. Fairness keys have been generally available only since
-  2026-05-05 (temporal.io/changelog/priority-fairness-generally-available).
+* Bad, because it has no global concurrency cap, and fairness keys have been
+  generally available only since 2026-05-05
+  (temporal.io/changelog/priority-fairness-generally-available).
 * Premise of the rejection: the operating cost of four services and sequential
-  upgrades at a load of a few tasks per second, and the missing global cap. If
-  our load grows past what Hatchet handles on Postgres, or Temporal ships a
-  global cap, re-check. Temporal is the documented exit, which is why step
-  functions never import an SDK.
+  upgrades at a load of a few task starts per second. If our load grows past
+  what one Hatchet installation handles, or a Hatchet defect costs us more than
+  that operating cost, re-check. Temporal is the documented exit, which is why
+  step functions never import an SDK.
 
 ### Temporal Cloud
 
@@ -248,20 +289,29 @@ whichever engine runs the job.
   engine's load, or we run a second cluster anyway and gain little over an
   engine.
 * Bad, because we did not find, in its documentation read on 2026-11-03,
-  dispatch that rotates fairly across a group key together with a fleet-wide
-  cap as configuration. This was a reading, not a trial.
-* Premise of the rejection: that reading. If DBOS queues offer both, re-check;
-  it would remove the engine Deployments this decision adds.
+  dispatch that rotates fairly across a group key as configuration. This was a
+  reading, not a trial.
+* Premise of the rejection: that reading. If DBOS queues offer group-fair
+  dispatch, re-check; it would remove the engine Deployments this decision adds.
 
 ### The status quo
 
-* Good, because it is running, tested and known.
+* Good, because it was running, tested and known.
 * Bad, because every gap measured on 2026-11-02 (no reason on a failed run,
   retries only at the sweep, status only on read) is more machinery to write,
   twice, in Python and TypeScript.
 * Premise of the rejection: the cost of growing our own engine in two languages,
-  shown by the 2026-11-02 measurements. The claim queues stay until each tier
-  has run on Hatchet in production.
+  shown by the 2026-11-02 measurements.
+
+### Postgres as Hatchet's only message queue
+
+Hatchet can run without RabbitMQ (docs.hatchet.run/self-hosting, read
+2026-11-03, lists it as optional), and at our load that would spare three
+stateful pods. Rejected on the owner's decision, on the premise that Hatchet's
+HA guide (docs.hatchet.run/self-hosting/high-availability, read 2026-11-03)
+and its production Compose document RabbitMQ only, so a Postgres-only HA
+install is the less-trodden path. If Hatchet documents Postgres-only as its HA
+setup, re-check and drop RabbitMQ.
 
 ## More Information
 
@@ -277,19 +327,12 @@ whichever engine runs the job.
   [Temporal priority and fairness GA, 2026-05-05](https://temporal.io/changelog/priority-fairness-generally-available),
   [Temporal server upgrades](https://docs.temporal.io/self-hosted-guide/upgrade-server).
   The Postgres-only launch post (`hatchet.run/launch-week-01/pg-only-mode`)
-  answered 404 on 2026-11-03; the claim it was cited for (Postgres-only
-  operation is supported) rests on the self-hosting page instead. The HA page
-  documents RabbitMQ only; that the chart runs with the Postgres queue is to be
-  shown by the spike.
-* Worker scaling on Hatchet, open: (a) fixed replica counts per stack, sized as
-  today's `maxReplicas`; (b) KEDA's `postgresql` trigger on Hatchet's queue
-  tables, re-checked on every Hatchet upgrade; (c) a scaler fed by Hatchet's
-  REST API or metrics. The decision lands with the first tier that flips.
-* Revisit when: sustained task starts pass about 100 per second (add RabbitMQ,
-  or re-check Temporal); `background-work-pg` CPU passes 50 % at normal load;
-  Hatchet ships shared concurrency across tasks (#4237's request), which would
-  let the vision ceiling span tasks; or an engine defect costs a production
-  incident that the claim queue would not have had.
+  answered 404 on 2026-11-03.
+* Revisit when: `background-work-pg` CPU passes 50 % at normal load; RabbitMQ
+  queue depth stays over 1,000 (the `RabbitmqQueueDepth` rule); Hatchet ships
+  shared concurrency across tasks (#4237's request), which would let the vision
+  ceiling move into the engine; or an engine defect costs a production incident
+  the claim queues would not have had.
 
 ### AI-native check (2026-11-03)
 
@@ -297,17 +340,17 @@ whichever engine runs the job.
 |---|---|---|---|
 | 1 | Official agent surface | yes: a documented REST API and official SDKs (Python, TypeScript, Go); the Hatchet CLI ships a local MCP server over stdio (`hatchet mcp serve`) that triggers, inspects and replays runs and lists workers | docs.hatchet.run/reference/cli/mcp, 2026-11-03. The MCP server is not yet tried against our engine: unverified here |
 | 2 | Scoped credentials | partly: API tokens per tenant, revocable; the MCP server uses only CLI profiles explicitly granted. No read-only token role found | Hatchet docs, 2026-11-03 |
-| 3 | Schema and configuration as code | yes: the chart values and the cluster in `deploy/pulumi`; workflows, concurrency and priority are declared in our code and registered by the workers | |
+| 3 | Schema and configuration as code | yes: the chart values, RabbitMQ and the cluster in `deploy/pulumi`; tasks, concurrency, priority, schedules and crons are declared in our code and registered by the workers | |
 | 4 | Audit and rollback of agent edits | partly: every run and attempt is kept for the retention window (14 days on our setting) and a run can be replayed; there are no drafts, because a triggered run is the edit | |
 | 5 | Events | partly: run events through the API and SDK; our own push to `/api/internal/ingest/settled` carries what the BFF needs | |
 | 6 | CLI | yes: the Hatchet CLI | docs.hatchet.run/reference/cli, 2026-11-03 |
 | 7 | Exit | yes: the step functions do not import the SDK; Temporal is the named exit | this ADR |
 
-Round trip done by: nobody yet. It is part of the staging spike: connect the CLI's
+Round trip done by: nobody yet. It is part of the staging check: connect the CLI's
 MCP server to the staging engine with a granted profile, trigger an
 `ingest-document` run for a test office, inspect it, and replay it.
-Agent surfaces in use: the REST API and the SDKs for our workers; the dashboard
-and the CLI's MCP server for Claude Code.
+Agent surfaces in use: the SDKs for our workers; the dashboard (port-forward,
+runbook) and the CLI's MCP server for Claude Code.
 Exceptions: line 2 (no read-only role found) and line 4 (no draft step), accepted
 because agents operate this engine for us and hold no tenant content in it;
-re-check with the spike.
+re-check with the staging round trip.
