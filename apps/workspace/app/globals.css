@@ -648,6 +648,14 @@ body {
   outline-color: var(--border-color-brand);
 }
 
+/* The same hairline drawn inset all round a row: the selected row of a list
+   whose detail is open beside it (`Item`'s current state). Inset, because
+   `ItemList` clips its first and last row; an inset ring, not `ring`, so the
+   keyboard's focus ring still composes over it. */
+@utility inset-ring-strong {
+  --tw-inset-ring-color: var(--border-color-brand);
+}
+
 @utility tracking-display {
   letter-spacing: -0.04em;
 }
