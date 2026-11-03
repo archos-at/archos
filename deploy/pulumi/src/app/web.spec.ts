@@ -6,7 +6,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 
 /**
- * How the landing site starts (`app/web.ts` + `frontends/web/Dockerfile`).
+ * How the landing site starts (`app/web.ts` + `apps/website/Dockerfile`).
  *
  * The entry file is the image's business. When this program also named one,
  * the two had to change in lockstep across a boundary no test crossed: a new
@@ -14,7 +14,14 @@ import { baseStackConfig } from "../test-support/stack-config";
  * CrashLoopBackOff that plans clean.
  */
 
-type Container = { name: string; command?: string[]; env?: Array<{ name: string; value?: string }> };
+type Probe = { httpGet?: { path?: string; port?: number } };
+type Container = {
+  name: string;
+  command?: string[];
+  env?: Array<{ name: string; value?: string }>;
+  readinessProbe?: Probe;
+  livenessProbe?: Probe;
+};
 let container: Container | undefined;
 
 pulumi.runtime.setMocks(
@@ -32,7 +39,7 @@ pulumi.runtime.setMocks(
   false,
 );
 
-const webDir = join(__dirname, "..", "..", "..", "..", "frontends", "web");
+const webDir = join(__dirname, "..", "..", "..", "..", "apps", "website");
 
 describe("the web Deployment", () => {
   beforeAll(async () => {
@@ -47,6 +54,16 @@ describe("the web Deployment", () => {
   it("leaves the entry command to the image", () => {
     expect(container?.name).toBe("web");
     expect(container).not.toHaveProperty("command");
+  });
+
+  it("probes the health route the website's server answers, not a page", async () => {
+    const { WEB_HEALTH_PATH } = await import("./web");
+    const headers = readFileSync(join(webDir, "runtime", "security-headers.mjs"), "utf8");
+    expect(headers).toContain(`export const HEALTH_PATH = '${WEB_HEALTH_PATH}'`);
+    expect(container?.readinessProbe?.httpGet?.path).toBe(WEB_HEALTH_PATH);
+    expect(container?.livenessProbe?.httpGet?.path).toBe(WEB_HEALTH_PATH);
+    // The image's own HEALTHCHECK asks the same route.
+    expect(readFileSync(join(webDir, "Dockerfile"), "utf8")).toContain(`localhost:4321${WEB_HEALTH_PATH}`);
   });
 
   it("starts an image entry file that the image copies in", () => {
@@ -90,7 +107,7 @@ describe("the web Deployment's PostHog env", () => {
   });
 
   it("carries Piloti's project when the stack sets nothing", async () => {
-    const { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } = await import("../config");
+    const { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } = await import("../config/posthog");
     expect(await webEnv({})).toEqual([
       { name: "PUBLIC_POSTHOG_HOST", value: POSTHOG_DEFAULT_HOST },
       { name: "PUBLIC_POSTHOG_PROJECT_TOKEN", value: POSTHOG_DEFAULT_PROJECT_TOKEN },

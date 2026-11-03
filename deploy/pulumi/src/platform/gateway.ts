@@ -9,14 +9,16 @@ import type { IGatewaySpec } from "@kubernetes-models/gateway-api/gateway.networ
 import type { IGatewayClassSpec } from "@kubernetes-models/gateway-api/gateway.networking.k8s.io/v1/GatewayClassSpec";
 import type { IEnvoyProxySpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/EnvoyProxySpec";
 import type { IClientTrafficPolicySpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/ClientTrafficPolicySpec";
-import { GridConfig } from "../config";
+import { DeployConfig } from '../config'
 import { commonLabels } from "./namespaces";
 import { EDGE_SHUTDOWN, SURGE_ONLY_STRATEGY } from "./rollout";
 import { EDGE_RATE_LIMIT, EDGE_TIMEOUT, LANGFUSE, PLATFORM_RESOURCES, QDRANT } from "../constants";
+import { logicalName, objectName } from "../names";
+import { formerDomainListener, formerDomainRedirects } from "../app/former-domain";
 
 /** Stable names referenced by the cert-manager solver and the HTTPRoutes. */
-export const GATEWAY_NAME = "grid-gateway";
-export const GATEWAY_CLASS = "eg";
+export const GATEWAY_NAME = objectName("gateway");
+export const GATEWAY_CLASS = objectName("gatewayClass");
 
 /**
  * Edge on the **Gateway API** (not the legacy Ingress API, and not the retired
@@ -31,7 +33,7 @@ export const GATEWAY_CLASS = "eg";
  * then cert-manager, then the Gateway/GatewayClass resources.
  */
 export function installGatewayController(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
 ): k8s.helm.v3.Release {
   const ns = new k8s.core.v1.Namespace(
@@ -81,7 +83,7 @@ export function installGatewayController(
 }
 
 /** Secret (in `envoy-gateway-system`) holding the counter store's password. */
-const RATE_LIMIT_REDIS_AUTH_SECRET = "grid-ratelimit-redis-auth"; // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
+const RATE_LIMIT_REDIS_AUTH_SECRET = objectName("rateLimitRedisAuthSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 /**
  * Env var the upstream `envoyproxy/ratelimit` service reads its Redis password
  * from (`RedisAuth string \`envconfig:"REDIS_AUTH"\``). Also the Secret key, so
@@ -121,7 +123,7 @@ const RATE_LIMIT_REDIS_AUTH_KEY = "REDIS_AUTH"; // pragma: allowlist secret (env
  * unlimited while the ADR-0029 pane shows the errors. Worth knowing when
  * reading a "limits stopped enforcing" report.
  */
-function rateLimitConfig(cfg: GridConfig, withRedisAuth: boolean): Record<string, unknown> {
+function rateLimitConfig(cfg: DeployConfig, withRedisAuth: boolean): Record<string, unknown> {
   return {
     rateLimit: {
       backend: {
@@ -170,7 +172,7 @@ function rateLimitConfig(cfg: GridConfig, withRedisAuth: boolean): Record<string
  * `certificateRefs` secret.
  */
 export function installGatewayResources(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
   issuerName: pulumi.Input<string>,
@@ -180,7 +182,7 @@ export function installGatewayResources(
     controllerName: "gateway.envoyproxy.io/gatewayclass-controller",
   };
   const gatewayClass = new k8s.apiextensions.CustomResource(
-    "grid-gatewayclass",
+    logicalName("grid-gatewayclass"),
     {
       apiVersion: "gateway.networking.k8s.io/v1",
       kind: "GatewayClass",
@@ -249,11 +251,11 @@ export function installGatewayResources(
     shutdown: EDGE_SHUTDOWN,
   };
   const envoyProxyConfig = new k8s.apiextensions.CustomResource(
-    "grid-envoy-proxy-config",
+    logicalName("grid-envoy-proxy-config"),
     {
       apiVersion: "gateway.envoyproxy.io/v1alpha1",
       kind: "EnvoyProxy",
-      metadata: { name: "grid-envoy-proxy", namespace, labels: commonLabels("gateway") },
+      metadata: { name: objectName("envoyProxy"), namespace, labels: commonLabels("gateway") },
       spec: envoyProxySpec,
     },
     { provider, dependsOn },
@@ -269,7 +271,7 @@ export function installGatewayResources(
           port: 443,
           protocol: "HTTPS",
           hostname: cfg.langfuse.domain,
-          tls: { mode: "Terminate", certificateRefs: [{ name: "grid-langfuse-tls" }] },
+          tls: { mode: "Terminate", certificateRefs: [{ name: objectName("langfuseTls") }] },
           allowedRoutes: { namespaces: { from: "Same" } },
         },
       ]
@@ -295,7 +297,7 @@ export function installGatewayResources(
     gatewayClassName: GATEWAY_CLASS,
     // Attach the HA proxy-infrastructure config above.
     infrastructure: {
-      parametersRef: { group: "gateway.envoyproxy.io", kind: "EnvoyProxy", name: "grid-envoy-proxy" },
+      parametersRef: { group: "gateway.envoyproxy.io", kind: "EnvoyProxy", name: objectName("envoyProxy") },
     },
     listeners: [
       {
@@ -311,7 +313,7 @@ export function installGatewayResources(
         port: 443,
         protocol: "HTTPS",
         hostname: cfg.ingress.appDomain,
-        tls: { mode: "Terminate", certificateRefs: [{ name: "grid-app-tls" }] },
+        tls: { mode: "Terminate", certificateRefs: [{ name: objectName("appTls") }] },
         allowedRoutes: { namespaces: { from: "Same" } },
       },
       {
@@ -319,26 +321,28 @@ export function installGatewayResources(
         port: 443,
         protocol: "HTTPS",
         hostname: cfg.ingress.s3Domain,
-        tls: { mode: "Terminate", certificateRefs: [{ name: "grid-s3-tls" }] },
+        tls: { mode: "Terminate", certificateRefs: [{ name: objectName("s3Tls") }] },
         allowedRoutes: { namespaces: { from: "Same" } },
       },
       {
-        // Landing site (frontends/web) — apex host (e.g. dev.piloti.at).
+        // The public website (apps/website) — apex host (e.g. dev.piloti.at).
         name: "https-web",
         port: 443,
         protocol: "HTTPS",
         hostname: cfg.ingress.webDomain,
-        tls: { mode: "Terminate", certificateRefs: [{ name: "grid-web-tls" }] },
+        tls: { mode: "Terminate", certificateRefs: [{ name: objectName("webTls") }] },
         allowedRoutes: { namespaces: { from: "Same" } },
       },
       // Langfuse UI — only when that tier is deployed (ADR-0044).
       ...langfuseListeners,
       // Qdrant's dashboard — only when `qdrantDashboardEnabled`.
       ...qdrantListeners,
+      // The former domain's hosts during a domain move — only when `formerBaseDomain` is set.
+      ...formerDomainRedirects(cfg.ingress).map(formerDomainListener),
     ],
   };
   const gateway = new k8s.apiextensions.CustomResource(
-    "grid-gateway",
+    logicalName("grid-gateway"),
     {
       apiVersion: "gateway.networking.k8s.io/v1",
       kind: "Gateway",
@@ -393,11 +397,11 @@ export function installGatewayResources(
       : {}),
   };
   new k8s.apiextensions.CustomResource(
-    "grid-client-traffic-policy",
+    logicalName("grid-client-traffic-policy"),
     {
       apiVersion: "gateway.envoyproxy.io/v1alpha1",
       kind: "ClientTrafficPolicy",
-      metadata: { name: "grid-ws-timeouts", namespace, labels: commonLabels("gateway") },
+      metadata: { name: objectName("wsTimeouts"), namespace, labels: commonLabels("gateway") },
       spec: clientTrafficPolicySpec,
     },
     { provider, dependsOn: gateway },

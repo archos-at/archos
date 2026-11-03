@@ -173,8 +173,8 @@ class TestRouting:
 
 @pytest.fixture
 def summary_db(tmp_path):
-    from aiq_agent.knowledge import configure_summary_db
-    from aiq_agent.knowledge import factory
+    from agent.knowledge import configure_summary_db
+    from agent.knowledge import factory
 
     factory._document_metadata_store = None
     configure_summary_db(f"sqlite:///{tmp_path / 'summaries.db'}")
@@ -185,9 +185,8 @@ def summary_db(tmp_path):
 @pytest.fixture
 def ingestor(tmp_path, monkeypatch, qdrant_store):
     from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-
-    from sources.knowledge_layer.tests.qdrant_testing import FakeEmbedder
-    from sources.knowledge_layer.tests.qdrant_testing import capture_indexed_documents
+    from knowledge_layer_testing.qdrant import FakeEmbedder
+    from knowledge_layer_testing.qdrant import capture_indexed_documents
 
     ing = LlamaIndexIngestor({"generate_summary": False})
     ing._embed_model = FakeEmbedder()

@@ -1,6 +1,6 @@
 # LLM providers — the OpenAI-compatible, agnostic model
 
-> GRID is not tied to any LLM vendor. Any OpenAI-compatible endpoint is a valid
+> Piloti is not tied to any LLM vendor. Any OpenAI-compatible endpoint is a valid
 > provider, selected entirely by configuration. See also
 > [ADR-0010](../adr/0010-llm-agnostic-openai-compatible.md).
 
@@ -9,7 +9,7 @@
 No vendor is hard-coded in application logic. The active LLM and embedding
 provider is chosen in the **workflow config** (`configs/*.yml`) by setting an
 OpenAI-compatible `base_url`, a `model_name`, and an API-key env var. Because the
-NeMo Agent Toolkit's LLM/embedder providers speak the OpenAI wire format, this
+agent runtime's LLM/embedder providers (NeMo Agent Toolkit) speak the OpenAI wire format, this
 covers a wide range of backends with **no code change**:
 
 - Managed aggregators (OpenRouter)
@@ -55,7 +55,7 @@ Every agent names its models by `llms:` key, never by model id, so pointing a
 role at another model is a config edit and never a Python one. Each key must
 exist under `llms:`.
 
-Deep research (`deep_research_agent`, `src/aiq_agent/agents/deep_researcher/register.py`)
+Deep research (`deep_research_agent`, `packages/agent/src/agent/agents/deep_researcher/register.py`)
 binds one model per role:
 
 | Config field | `LLMRole` | Agent group an admin re-points |
@@ -68,9 +68,12 @@ binds one model per role:
 
 There is no generic `llm` field on deep research, so changing
 `orchestrator_llm` moves every role you did not set. Piloti reads `llm:`
-(`research_llm`). The clarify step is configured by the `clarifier:` block on
+(`research_llm`), and `claim_judge_llm` (`follow_ups_llm`) for the answer check
+that grades each answer against everything its turn registered (ADR-0139),
+resolved per turn on the `follow_ups` agent group and bound to temperature 0.
+The clarify step is configured by the `clarifier:` block on
 `chat_deepresearcher_agent` (`ClarifierSettings` in
-`src/aiq_agent/agents/piloti/clarify.py`): `llm` asks the questions and
+`packages/agent/src/agent/agents/piloti/clarify.py`): `llm` asks the questions and
 `planner_llm` writes the plan, falling back to `llm` when unset.
 
 ## Runtime per-org model overrides (ADR-0014)
@@ -97,19 +100,17 @@ bounded by per-org/member/project budgets — see
 - A blank or `${VAR}`-literal key (a common `env_file` interpolation mistake) is
   treated as **unset** by the config-validation guard, failing fast rather than
   sending unauthenticated requests.
-- The legacy Kimi config (`config_grid_oib.yml`) is **unmaintained/broken** — do
+- The legacy Kimi config is **unmaintained/broken** — do
   not use it as a starting point; base new configs on the OpenRouter reference.
-- No call site sets provider prompt-caching hints on static prompt prefixes
-  (orchestrator/planner/researcher/writer system prompts, tool registry,
-  source registry) — every LLM call resends them in full. See
-  [`scaling-review-2026-07.md`](scaling-review-2026-07.md) §6.1 for the cost
-  impact. On the deep-research graph specifically, provider caching used to
-  be further undercut by `ToolResultPruningMiddleware` shifting message
-  bytes on nearly every model call; that truncation is now monotonic
-  (2026-07-16, `0b5d29d`), removing that specific defeat — see
-  `src/aiq_agent/agents/deep_researcher/README.md` "Known limitations" — but
-  no provider caching hints are actually set yet, so this remains an open
-  cost lever regardless.
+- **Prompt caching** is set per call in `common/prompt_caching.py`, through
+  `llm_factory.prepare_request`, on every OpenRouter call of an agent: a
+  `session_id` + `prompt_cache_key` so a turn's calls land on the endpoint that
+  holds the cache, and for `anthropic/*` models a top-level `cache_control`,
+  because Claude caches nothing unless asked. Until 2026-10-27 that field was
+  missing and 60 M Claude prompt tokens in 30 days were all billed at full
+  price; the OpenAI models, which cache on their own, were at 51 %. Read the
+  share per model from `llm_usage_hourly` (`cached_tokens / prompt_tokens`);
+  the „Costs and budgets (prod)" alert fires when Claude's drops to near zero.
 - **LLM request timeouts — fixed 2026-07-16 (`590ba1a`).** Every `llms.*`
   block in `configs/config_oib_openrouter.yml` now sets `request_timeout`
   (60–180 s depending on role) and `max_retries: 2`, so an unresponsive
@@ -132,12 +133,12 @@ bounded by per-org/member/project budgets — see
   middleware) are still independent and uncoordinated (no shared budget or
   deadline), but the worst case per logical turn is now on the order of a
   handful of attempts, not ~33. See
-  [`scaling-review-2026-07.md`](scaling-review-2026-07.md) §6.3 for the
+  [`docs/audit/scaling-review-2026-07.md`](../audit/scaling-review-2026-07.md) §6.3 for the
   cross-run multiplication this still doesn't address (bounded fan-out, not
   a shared retry budget).
 - **`api_type: responses` is a per-ROLE opt-in, not a fleet default.**
   `LLMBaseConfig.api_type` (`chat_completion` | `responses`) is already
-  understood by NAT: `nat.plugins.langchain.llm.openai_langchain` builds
+  understood by the agent runtime: `nat.plugins.langchain.llm.openai_langchain` builds
   `ChatOpenAI(use_responses_api=True, use_previous_response_id=True)` when it
   is `responses`. The one app-side adjustment is
   `llm_factory.disable_previous_response_id`, which turns the response handle
@@ -159,13 +160,13 @@ bounded by per-org/member/project budgets — see
   off a turn without a project.
 - `reasoning_effort` is a **native** `ChatOpenAI` field
   (`langchain_openai`'s `BaseChatOpenAI.reasoning_effort`), not something
-  routed through `extra_body`: NAT's `OpenAIModelConfig` allows extra YAML
+  routed through `extra_body`: the runtime's `OpenAIModelConfig` allows extra YAML
   keys (`model_config = ConfigDict(..., extra="allow")`) and the LangChain
   client picks the field up directly, translating it to the provider's
   native `reasoning` payload shape where needed (e.g. OpenRouter). No app
   code shuttles it manually — worth knowing so it isn't mistaken for one of
   the `extra_body`-routed OpenRouter-specific knobs (see
-  `aiq_agent.common.llm_factory`).
+  `agent.common.llm_factory`).
 - **Reasoning-effort contract (2026-07-16, `590ba1a`).** Every shipped
   config's `reasoning_effort` value is now drawn from OpenRouter's *standard*
   vocabulary — `none`/`minimal`/`low`/`medium`/`high`/`xhigh` (the reference config

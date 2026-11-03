@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.astro/
+.env
+.env.*
+!.env.example
+
+# Screenshots from `bun run capture`
+.capture/

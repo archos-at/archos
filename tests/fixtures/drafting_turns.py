@@ -1,6 +1,6 @@
 """The three drafting turn shapes, and the one assertion both harnesses make.
 
-A drafting turn is the shape the Piloti-writes work added and nothing measured:
+A drafting turn is the shape the agent-writes work added and nothing measured:
 someone commissions a document, has it revised, and files it into the project.
 Ledger row 5 asked for the three against a live model; this module is what
 keeps that eval and the scripted one from drifting into two different tests.
@@ -22,9 +22,9 @@ a turn that has nothing to rule on.
 
 Used by:
 
-* ``tests/benchmarks/test_turn_shapes_live.py`` — the real model, stub
+* ``evals/turn-shapes/test_turn_shapes_live.py`` — the real model, stub
   retrieval, real working directory (skips without ``OPENROUTER_API_KEY``).
-* ``tests/aiq_agent/agents/piloti/test_agent.py`` — the same three through the
+* ``packages/agent/tests/agents/piloti/test_agent.py`` — the same three through the
   compiled graph on a scripted LLM, which is what runs in CI.
 """
 

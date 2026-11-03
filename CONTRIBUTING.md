@@ -44,11 +44,11 @@ TypeScript 6's view of the code.
   PR of a stack gets its gate before the one below it merges.
 - One logical change per branch.
 - One logical change per commit. When a feature trips over **correlated
-  substrate debt** (an extension point that is not actually generic), lift
+  debt in shared code** (an extension point that is not actually generic), lift
   that defect in its own commit *in the same change* — do not bolt the
-  feature onto the broken substrate and do not file the lift as later.
+  feature onto the broken shared code and do not file the lift as later.
   YAGNI does not cover known defects on your path. The rule:
-  [AGENTS.md](AGENTS.md) (“Correlated substrate debt…”) and
+  [AGENTS.md](AGENTS.md) (“Correlated debt in shared code…”) and
   [adding a shareable resource type](docs/architecture/adding-a-shareable-resource-type.md) §5.
 
 ## Release notes
@@ -83,11 +83,11 @@ tasks, so there is no second copy to drift:
 
 - First time here: `task setup` (backend venv, UI deps, Pulumi deps).
 - Python backend: `task be:lint`, `task be:test`.
-- Frontend: `task fe:lint`, `task fe:types`, `task fe:test`, `task fe:build` —
-  or all four as `task fe:verify`.
+- Frontend: `task workspace:lint`, `task workspace:types`, `task workspace:test`, `task workspace:build` —
+  or all four as `task workspace:verify`.
 - Infra: `task infra:types`.
 - Everything at once: `task verify` — this is the merge gate: repo lint plus the
-  same per-tier groups CI runs (`be:verify` with its coverage gate, `fe:verify`,
+  same per-tier groups CI runs (`be:verify` with its coverage gate, `workspace:verify`,
   `infra:types`). `task verify:fast` omits only the production build.
 - Repo-wide hooks: `task lint:repo` (`pre-commit run --all-files`) — ruff,
   markdown-link-check and more, configured in
@@ -113,7 +113,7 @@ just the commits.
 Every capability a person has in Piloti is an operation, and Piloti's MCP server
 offers agents what only Piloti has: the office's workspace, Piloti's domain
 knowledge and Piloti itself. A new route a person calls ships with its operation
-in `frontends/ui/src/lib/agent-api/catalog/` in the same change (marked
+in `apps/workspace/bff/agent-api/catalog/` in the same change (marked
 `withheld` when it is product configuration, a proxied service, model compute
 or screen state), or with a reason in `NOT_AN_AGENT_CAPABILITY`. Build the route, write the operation, then wire the
 UI. `agent-reachability.spec.ts` fails the PR otherwise. Checklist:

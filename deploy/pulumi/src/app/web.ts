@@ -1,19 +1,17 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import {
-  GridConfig,
-  appPullPolicy,
-  assertHpaTargetIsProportional,
-  assertMemoryFitsLimit,
-  toResourceRequirements,
-  webImage,
-} from "../config";
+import { DeployConfig } from '../config'
+import { appPullPolicy, webImage } from '../config/images'
+import { assertHpaTargetIsProportional, assertMemoryFitsLimit, toResourceRequirements } from '../config/resources'
 import { webPosthogEnv } from "./config";
 import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { ROLLOUT, gracefulShutdown, surgeRollout } from "../platform/rollout";
 import { PORT, UID } from "../constants";
+
+/** The website's health route, `HEALTH_PATH` in apps/website/runtime/security-headers.mjs (web.spec.ts holds the two together). */
+export const WEB_HEALTH_PATH = "/healthz";
 
 export interface Web {
   deployment: k8s.apps.v1.Deployment;
@@ -23,10 +21,9 @@ export interface Web {
 }
 
 /**
- * Landing site (frontends/web): Astro on the Node standalone adapter. The pages
- * are prerendered at build time (static HTML + assets served by the adapter),
- * with SSR routes for the Keystatic admin, the sign-in hand-off and the
- * analytics script, which read their settings from the env below per request.
+ * Public website (apps/website): Astro on the Node standalone adapter. The
+ * pages are prerendered at build time (static HTML + assets served by the
+ * adapter), with SSR routes for the sign-in hand-off and the analytics script, which read their settings from the env below per request.
  * No database, no app secrets, no
  * cross-service calls — so unlike the frontend tier this workload has no
  * dependency on `grid-secrets`. It DOES carry the registry imagePullSecrets:
@@ -35,7 +32,7 @@ export interface Web {
  * Runs HORIZONTALLY: stateless, HPA on CPU.
  */
 export function installWeb(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
   imagePullSecrets: { name: string }[],
@@ -83,7 +80,7 @@ export function installWeb(
                     // Where the landing site's "Anmelden" link hands off
                     // (/sign-in endpoint). Runtime, not baked: one web image
                     // serves every stack — this is the same per-stack host
-                    // derivation the app tier gets for GRID_LANDING_URL,
+                    // derivation the app tier gets for LANDING_URL,
                     // pointed the other way.
                     name: "PUBLIC_APP_URL",
                     value: `https://${cfg.ingress.appDomain}`,
@@ -96,13 +93,16 @@ export function installWeb(
                 ],
                 resources: toResourceRequirements(cfg.web.resources),
                 lifecycle: shutdown.lifecycle,
+                // `/healthz` is answered by the server process itself
+                // (apps/website/runtime/server.mjs), uncached and never a page view;
+                // the Dockerfile's HEALTHCHECK uses the same path.
                 readinessProbe: {
-                  httpGet: { path: "/", port: PORT.web },
+                  httpGet: { path: WEB_HEALTH_PATH, port: PORT.web },
                   initialDelaySeconds: 5,
                   periodSeconds: 10,
                 },
                 livenessProbe: {
-                  httpGet: { path: "/", port: PORT.web },
+                  httpGet: { path: WEB_HEALTH_PATH, port: PORT.web },
                   initialDelaySeconds: 15,
                   periodSeconds: 15,
                   failureThreshold: 5,

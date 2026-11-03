@@ -8,7 +8,7 @@ and what a person still has to click.
 The PostHog project is **EU Cloud, project 269895** (`https://eu.posthog.com`,
 ingestion `https://eu.i.posthog.com`). It is on by default in every Pulumi
 stack, staging and production alike: the host and the public project token
-are the program's defaults (`deploy/pulumi/src/config.ts`). The browser's
+are the program's defaults (`deploy/pulumi/src/config/posthog.ts`). The browser's
 `$host` and the server's `app_host` tell the two apart; `APP_ENV` is
 `production` in both stacks, so the Python tiers' `environment` does not. A stack opts out with an empty
 `grid-oib:posthogHost`.
@@ -17,7 +17,7 @@ are the program's defaults (`deploy/pulumi/src/config.ts`). The browser's
 
 | Today | Where it goes | How | State |
 |---|---|---|---|
-| LLM traces in Langfuse (NAT spans, the 7 direct routes, `retrieve.*`, `decide.*`) | Stay in Langfuse **and** reach PostHog as `langfuse observation` events | Langfuse's PostHog integration, hourly, no backfill. Our code emits no `$ai_*` events (`tests/test_posthog_boundaries.py`) | Integration to enable, see [checklist](#checklist) |
+| LLM traces in Langfuse (agent-runtime spans, the 7 direct routes, `retrieve.*`, `decide.*`) | Stay in Langfuse **and** reach PostHog as `langfuse observation` events | Langfuse's PostHog integration, hourly, no backfill. Our code emits no `$ai_*` events (`tests/test_posthog_boundaries.py`) | Integration to enable, see [checklist](#checklist) |
 | 20 Langfuse scores (`SCORE_DEFINITIONS`), user votes, review and judge scores | Stay in Langfuse **and** reach PostHog as `langfuse score` events | Same integration | Same |
 | Session ↔ trace | PostHog `$session_id` on the exported observations | Browser session id → chat turn → trace metadata `$posthog_session_id` | Code in this change |
 | Browser analytics (15 events, off in both stacks) | PostHog product analytics | `posthog-js`, identify by WorkOS user id only, `organization_id` as a property | Code in this change; on by default in both stacks |
@@ -122,7 +122,7 @@ date.
 - [ ] **Survey translations** (English) and launch, after the events they target
   arrive.
 - [ ] **Legal copy** before replay or the landing site is instrumented:
-  `frontends/ui/src/lib/legal/content/{de,en}.ts`, `frontends/web/src/i18n/ui.ts`,
+  `apps/workspace/bff/legal/content/{de,en}.ts`, `apps/website/src/i18n/pages/privacy.ts`,
   and PostHog's DPA signed.
 - [x] **WorkOS source** (connected 2026-09-09): reads the **Production** WorkOS
   environment through PostHog's webhook endpoint there (`user.*`,
@@ -165,8 +165,8 @@ date.
    Either stop writing free text into the score and keep it in Postgres, or add
    PostHog person and event deletion to the erasure pipeline.
 6. **Replay link needs two flags.** The browser's session id only reaches the
-   trace with `GRID_WIRE_V2_ADDITIVE_FIELDS` on, its default (the hello withholds
-   `accepts` when it is set off) and `GRID_TRACE_IDENTITY_ATTRIBUTES` on.
+   trace with `WIRE_V2_ADDITIVE_FIELDS` on, its default (the hello withholds
+   `accepts` when it is set off) and `TRACE_IDENTITY_ATTRIBUTES` on.
 7. **Support replies.** The BFF opens a PostHog Support ticket for every
    feedback report, in the reporter's widget session (ADR-0118), so a reply
    reaches the member only through PostHog's own widget, which adds its own

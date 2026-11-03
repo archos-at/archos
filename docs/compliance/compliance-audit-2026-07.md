@@ -7,17 +7,17 @@
   **not legal advice**; have counsel review before relying on it.
 - **Companion documents:** [`external-dependencies.md`](external-dependencies.md)
   (full third-party register + model-switching statement), the legal pages shipped at
-  `frontends/ui/src/lib/legal/content/{de,en}.ts` (served at `/legal/*`).
+  `apps/workspace/bff/legal/content/{de,en}.ts` (served at `/legal/*`).
 - **Status since the audit (checked 2026-10-22):** the text below is the July
   state. Still open: the Art. 30 record, TOMs, the AVV/DPA template and the
   DPIA (roadmap 5; no such document exists in the repo); organization and user
   erasure and any export (roadmap 2); the audit trail still sends the actor's
   email, client IP and user agent to WorkOS (`lib/audit/service.ts`,
   `requestContext` and `actor.name`). Partly closed: the purger erases projects,
-  folders and conversations (`frontends/ui/purger/index.js`,
+  folders and conversations (`apps/workspace/purger/index.js`,
   [`deletion-pipeline.md`](../architecture/deletion-pipeline.md)); chat
   checkpoints idle past 14 days are deleted
-  (`GRID_CHAT_CHECKPOINT_RETENTION_SECONDS`, `aiq_api/routes/jobs.py`).
+  (`CHAT_CHECKPOINT_RETENTION_SECONDS`, `agent_host/routes/jobs.py`).
 
 ## Executive summary
 
@@ -57,11 +57,11 @@ Full persona report highlights (severity · finding · key evidence):
 |---|---|---|
 | Crit | Third-country transfer of all prompts via OpenRouter; recipient set changes per org-admin click; no ZDR/provider pinning, no transfer safeguards documented | `configs/config_oib_openrouter.yml:52-56`; ADR-0014; no `provider.data_collection` anywhere |
 | Crit | No privacy policy / Impressum / terms (Art. 12–14; ECG §5) | *(fixed in this branch — placeholders must be completed)* |
-| Crit | Art. 15/17/20 not implemented for users: purgers for document/conversation/org/user are "later phases"; no export endpoint; no account deletion UI | `frontends/ui/purger/index.js:47-50`; `app/api/documents/[id]/` (no DELETE) |
+| Crit | Art. 15/17/20 not implemented for users: purgers for document/conversation/org/user are "later phases"; no export endpoint; no account deletion UI | `apps/workspace/purger/index.js:47-50`; `app/api/documents/[id]/` (no DELETE) |
 | Crit | Conversation delete removes only DB rows; LangGraph checkpoints (full content) persist indefinitely | `lib/conversations/repository.ts:87-92`; `docs/architecture/deletion-pipeline.md` (self-acknowledged) |
-| High | Chat prompts logged cleartext at INFO | `src/aiq_agent/agents/chat_researcher/register.py:518` |
+| High | Chat prompts logged cleartext at INFO | `packages/agent/src/agent/agents/chat_researcher/register.py:518` |
 | High | WorkOS EU data residency unverified (own ADR); audit events ship email + client IP + doc filenames to WorkOS; no DPA evidence | ADR-0002 Open Questions; `lib/audit/service.ts:56-93` |
-| High | Document content flows to NVIDIA US API by config default (embeddings/VLM) | `sources/knowledge_layer/src/llamaindex/adapter.py:583-591` |
+| High | Document content flows to NVIDIA US API by config default (embeddings/VLM) | `packages/knowledge-layer/src/llamaindex/adapter.py:583-591` |
 | High | `REQUIRE_AUTH=false` default (Art. 25(2) violation); anon mode has known cross-tenant memory-write gap (S3) | `deploy/.env.example`; `docs/architecture/memory-reflection-audit.md` |
 | High | No retention limits for `messages`, `llm_usage_events` (deliberately survive purge, user-attributed), `project_memory`, checkpoints, WorkOS audit logs | schema comments in `lib/db/schema/budgets.ts` |
 | Med | Memory reflection persists LLM distillates without PII filter (open finding S4); Tavily & co. receive prompt-derived queries undocumented; weak dev credentials/open ports in dev compose; optional tracing exfiltrates prompts; legal holds lack expiry/review | respective audit files |
@@ -158,7 +158,7 @@ audit retention must be contractually confirmed; the audit emitter is non-throwi
    deep-research reports (incl. machine-readable marking + model id per Art. 50(2));
    AI-literacy guide linked from chat first-run and model-config page.
 4. **Prompt hygiene:** remove prompt fulltext from INFO logs; define log retention;
-   forbid `AIQ_TRACE_USER_IDENTITY_MODE=full` and LangSmith/W&B tracing in prod
+   forbid `TRACE_USER_IDENTITY_MODE=full` and LangSmith/W&B tracing in prod
    without a DPA.
 5. **Contracts & records:** DPA/AVV template with sub-processor list, records of
    processing (Art. 30), TOMs, DPIA, breach process; confirm WorkOS DPA + residency;
