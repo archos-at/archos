@@ -10,8 +10,8 @@ import { LEGACY_PROJECT } from "../names";
  * Project mail on Cloudflare (`platform/inbound-mail.ts`).
  *
  * Every field below is a string the Cloudflare API accepts whatever it says: a
- * catch-all naming a script that does not exist, a binding under the wrong
- * name, routing enabled on a domain the catch-all does not cover. None of
+ * rule naming a script that does not exist, a binding under the wrong name,
+ * routing enabled on a domain the rule does not cover. None of
  * those fail `pulumi up`; each one bounces or loses real mail. So the
  * assertions read the exact inputs sent.
  */
@@ -21,7 +21,8 @@ const RESOURCES: Recorded[] = [];
 const CALLS: Array<{ token: string; inputs: Record<string, unknown> }> = [];
 
 const ZONE_ID = "zone-mail-1";
-const DOMAIN = "post.example.test";
+const DOMAIN = "inbox.example.test";
+const ZONE_NAME = "example.test";
 const CONTRACT = JSON.parse(
   readFileSync(join(__dirname, "../../../../contracts/inbound-mail-contract.json"), "utf8"),
 ) as { path: string };
@@ -44,7 +45,7 @@ pulumi.runtime.setMocks(
     call: (args: pulumi.runtime.MockCallArgs) => {
       CALLS.push({ token: args.token, inputs: args.inputs });
       if (args.token === "cloudflare:index/getZone:getZone") {
-        return { id: args.inputs.zoneId, name: DOMAIN, account: { id: "account-1", name: "Office" } };
+        return { id: args.inputs.zoneId, name: ZONE_NAME, account: { id: "account-1", name: "Office" } };
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
         return { results: MX_RECORDS };
@@ -80,7 +81,7 @@ async function install(values: Record<string, string>, mx: typeof MX_RECORDS = [
   const cfg = loadConfig();
   const result = installInboundMail(cfg, installInboundMailZone(cfg));
   if (result) {
-    const ids = [result.zone.routing.id, result.catchAll.id, ...(result.script ? [result.script.id] : [])];
+    const ids = [result.zone.routing.id, result.rule.id, ...(result.script ? [result.script.id] : [])];
     await Promise.all(ids.map((id) => new Promise((resolve) => id.apply(resolve))));
   }
   return result;
@@ -94,7 +95,10 @@ const one = (type: string): Recorded => {
 };
 
 const SCRIPT = "cloudflare:index/workersScript:WorkersScript";
+const RULE = "cloudflare:index/emailRoutingRule:EmailRoutingRule";
 const CATCH_ALL = "cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll";
+const SETTINGS = "cloudflare:index/emailRoutingSettings:EmailRoutingSettings";
+const LITERAL = [{ type: "literal", field: "to", value: `p@${DOMAIN}` }];
 const ROUTING = "cloudflare:index/emailRoutingDns:EmailRoutingDns";
 
 type Binding = { name: string; type: string; text: string };
@@ -129,7 +133,7 @@ describe("project mail on Cloudflare", () => {
     // whose default export's `email` handler Email Routing invokes.
     expect(script.inputs.content).toContain("async email(message, env)");
     expect(script.inputs.content).toContain(`INBOUND_MAIL_PATH = "${CONTRACT.path}"`);
-    // The zone lookup is what gates the account id, i.e. the apex check ran.
+    // The zone lookup is what gates the account id, i.e. the zone check ran.
     expect(CALLS.map((c) => c.token)).toContain("cloudflare:index/getZone:getZone");
   });
 
@@ -149,7 +153,7 @@ describe("project mail on Cloudflare", () => {
     expect(ageDays, "bump COMPATIBILITY_DATE and re-run launch gates G1 and G2 (G8)").toBeLessThan(365);
   });
 
-  it("binds the BFF origin, the key and the pause under the names the Worker reads", async () => {
+  it("binds the BFF origin, the key, the pause and the address shape under the names the Worker reads", async () => {
     await install(mailConfig());
     const bindings = reveal(one(SCRIPT).inputs.bindings);
     // The key makes the whole list a secret in state, which is the point.
@@ -161,7 +165,16 @@ describe("project mail on Cloudflare", () => {
       // with Workers read access to the account.
       { name: "SIGNING_KEY", type: "secret_text", text: SIGNING_SECRET },
       { name: "PAUSED", type: "plain_text", text: "false" },
+      { name: "ADDRESS_DOMAIN", type: "plain_text", text: DOMAIN },
+      { name: "ADDRESS_LOCAL_PART", type: "plain_text", text: "p" },
     ]);
+  });
+
+  it("binds the configured local part", async () => {
+    await install(mailConfig({ [`${LEGACY_PROJECT}:inboundMailLocalPart`]: "Projekt" }));
+    const bindings = reveal(one(SCRIPT).inputs.bindings).value as Binding[];
+    expect(bindings.find((b) => b.name === "ADDRESS_LOCAL_PART")?.text).toBe("projekt");
+    expect(one(RULE).inputs.matchers).toEqual([{ type: "literal", field: "to", value: `projekt@${DOMAIN}` }]);
   });
 
   it("signs with the key the stack names during a rotation", async () => {
@@ -183,34 +196,44 @@ describe("project mail on Cloudflare", () => {
     expect(bindings.find((b) => b.name === "PAUSED")?.text).toBe("true");
   });
 
-  it("enables Email Routing on the inbound domain itself", async () => {
+  it("enables Email Routing on the receiving subdomain itself, not the zone apex", async () => {
     await install(mailConfig());
     expect(one(ROUTING).inputs).toMatchObject({ zoneId: ZONE_ID, name: DOMAIN });
   });
 
-  it("sends every address to the Worker through the zone's catch-all", async () => {
+  it("sends p@ and, through subaddressing, every p+<detail>@ to the Worker with ONE literal rule", async () => {
     await install(mailConfig());
-    expect(one(CATCH_ALL).inputs).toMatchObject({
+    expect(one(RULE).inputs).toMatchObject({
       zoneId: ZONE_ID,
       enabled: true,
-      matchers: [{ type: "all" }],
+      matchers: LITERAL,
       actions: [{ type: "worker", values: ["inbound-mail-test"] }],
     });
   });
 
-  it("reads the apex's MX records before creating anything", async () => {
+  it("declares no catch-all (apex-only) and no EmailRoutingSettings (its create onboards the apex)", async () => {
+    await install(mailConfig());
+    expect(byType(CATCH_ALL)).toEqual([]);
+    expect(byType(SETTINGS)).toEqual([]);
+  });
+
+  it("reads the receiving domain's MX records before creating anything", async () => {
     await install(mailConfig());
     const lookup = CALLS.find((c) => c.token === "cloudflare:index/getDnsRecords:getDnsRecords");
     expect(lookup?.inputs).toMatchObject({ zoneId: ZONE_ID, type: "MX", name: { exact: DOMAIN } });
   });
 
   it.each([
-    ["a fresh apex with no MX records (the first run)", []],
-    ["an apex that holds only Cloudflare's MX (every later run)", CLOUDFLARE_MX],
+    ["a fresh subdomain with no MX records (the first run)", []],
+    ["a subdomain that holds only Cloudflare's MX (every later run)", CLOUDFLARE_MX],
+    [
+      "a subdomain whose apex receives mail at Google Workspace",
+      [{ name: ZONE_NAME, content: "aspmx.l.google.com", type: "MX" }],
+    ],
   ])("creates the routing on %s", async (_label, mx) => {
     await install(mailConfig(), mx);
     one(ROUTING);
-    one(CATCH_ALL);
+    one(RULE);
   });
 
   it("uses a provider of its own, holding the configured token", async () => {
@@ -226,45 +249,29 @@ describe("project mail, switched off (inboundMailEnabled: false)", () => {
   const off = () =>
     mailConfig({ [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false", [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: "" });
 
-  it("keeps the catch-all, disabled, so Cloudflare refuses at SMTP time", async () => {
+  it("keeps the rule, disabled, so Cloudflare refuses at SMTP time", async () => {
     // Disabled, not Drop: Drop accepts and discards, and the sender never
     // learns the mail was lost.
     const result = await install(off());
     expect(result?.script).toBeUndefined();
     expect(byType(SCRIPT)).toEqual([]);
-    const catchAll = one(CATCH_ALL);
-    expect(catchAll.inputs).toMatchObject({ zoneId: ZONE_ID, enabled: false, matchers: [{ type: "all" }] });
-    expect(catchAll.inputs.actions).toEqual([{ type: "drop" }]);
-    expect(JSON.stringify(catchAll.inputs)).not.toContain("inbound-mail-test");
+    const rule = one(RULE);
+    expect(rule.inputs).toMatchObject({ zoneId: ZONE_ID, enabled: false, matchers: LITERAL });
+    expect(rule.inputs.actions).toEqual([{ type: "drop" }]);
+    expect(JSON.stringify(rule.inputs)).not.toContain("inbound-mail-test");
   });
 
-  it("is the same Pulumi resource as the live catch-all, so the switch is an update, not a delete", async () => {
-    // A delete of the catch-all is a no-op at Cloudflare: it would stay
-    // pointed at the Worker this `up` deletes.
+  it("is the same Pulumi resource as the live rule, so the switch is an update, not a delete", async () => {
+    // Deleting the rule first would leave a window in which nothing names the
+    // Worker's replacement; an in-place update never does.
     await install(mailConfig());
-    const onName = one(CATCH_ALL).name;
+    const onName = one(RULE).name;
     await install(off());
-    expect(one(CATCH_ALL).name).toBe(onName);
+    expect(one(RULE).name).toBe(onName);
   });
 
-  it("keeps Email Routing on the zone, which company addresses depend on", async () => {
+  it("keeps Email Routing on the domain", async () => {
     await install(off());
     one(ROUTING);
-  });
-});
-
-describe("the zone apex check", () => {
-  const KEY = `${LEGACY_PROJECT}:inboundMailDomain`;
-
-  it("accepts the zone's own apex", async () => {
-    const { assertZoneApex } = await import("./email-routing");
-    expect(() => assertZoneApex(KEY, DOMAIN, ZONE_ID, DOMAIN)).not.toThrow();
-  });
-
-  it("refuses a subdomain of the zone, because the catch-all would not cover it", async () => {
-    const { assertZoneApex } = await import("./email-routing");
-    expect(() => assertZoneApex(KEY, `mail.${DOMAIN}`, ZONE_ID, DOMAIN)).toThrow(
-      /inboundMailDomain.*must be the zone's apex/,
-    );
   });
 });

@@ -7,71 +7,63 @@ import { appOrigin } from "../app/config";
 import type { MailZone } from "./email-routing";
 
 /**
- * Project mail (ADR-0138): the catch-all of `inboundMailDomain`'s zone, handing
- * every unclaimed address to one Email Worker (`inbound-mail-worker.js`),
- * which signs project addresses' mail for the BFF and refuses the rest.
+ * Project mail (ADR-0138): ONE literal routing rule on `inboundMailDomain`,
+ * `<inboundMailLocalPart>@<domain>` (`p@inbox.example.org`), handing its mail
+ * to one Email Worker (`inbound-mail-worker.js`), which signs project
+ * addresses' mail for the BFF and refuses the rest.
  *
- * Email Routing on the zone (the provider, the guards, the enablement) is
+ * Email Routing on the domain (the provider, the guards, the enablement) is
  * `installInboundMailZone` in `email-routing.ts`. Nothing here runs in the
  * cluster; the in-cluster parts are the frontend's env (`app/config.ts`) and
  * the signed route at the edge (`app/httproutes.ts`, `SIGNED_INTERNAL_ROUTE`).
  *
+ * ## One rule, and subaddressing
+ *
+ * A project's address is `p+<slug>.<token>@inbox.example.org`. With the zone's
+ * subaddressing setting on, Cloudflare matches `p+<anything>@…` against the
+ * rule for `p@…` and keeps the `+detail` in `message.to`, where the Worker
+ * reads the token. So one rule serves every project, and minting an address
+ * needs no Cloudflare call and no credential in the BFF.
+ *
+ * Subaddressing is a dashboard setting this program cannot set (the provider's
+ * only handle on it onboards the zone apex; `email-routing.ts` says why), and
+ * whether it applies to a SUBDOMAIN's rules is the one thing ADR-0138 has us
+ * prove with a test address before the first unpause. If it does not, the
+ * documented fallback is a dedicated mail domain with an apex catch-all.
+ *
+ * ## Why a subdomain, and not the product's apex
+ *
+ *   - The apex's MX belongs to the company's mail provider (Google
+ *     Workspace), and Email Routing needs exclusive control of the MX of the
+ *     domain it routes.
+ *   - Cloudflare's catch-all exists only for a zone's apex ("Catch-all rules
+ *     are only available for the apex domain", developers.cloudflare.com
+ *     /email-service/configuration/subdomains/, last updated 2026-10-15), so a
+ *     subdomain gets literal rules only.
+ *   - A literal rule per project does not scale: 200 routing rules per domain,
+ *     and the BFF would need a Cloudflare credential to mint an address.
+ *
  * ## On, managed off, paused
  *
- *   - **On** (`inboundMailDomain` set): the Worker, and the catch-all enabled
- *     and pointing at it.
- *   - **Managed off** (`inboundMailEnabled: false`): the catch-all is updated
- *     in place to disabled, so Cloudflare refuses every unclaimed address at
- *     SMTP time and the sender sees a bounce, rather than Drop, which accepts
- *     and discards and so loses mail silently. Pulumi then deletes the Worker:
- *     deletions run after every update in a `pulumi up`, so the catch-all
- *     stops naming the Worker before the Worker is gone. Unsetting the domain
- *     instead would delete the catch-all resource, which the provider does not
- *     undo at Cloudflare, leaving it pointed at a deleted Worker.
+ *   - **On** (`inboundMailDomain` set): the Worker, and the rule enabled and
+ *     pointing at it.
+ *   - **Managed off** (`inboundMailEnabled: false`): the rule is updated in
+ *     place to disabled, so no rule matches and Cloudflare refuses the address
+ *     at SMTP time ("Address does not exist"); the sender sees a bounce,
+ *     rather than Drop, which accepts and discards and so loses mail silently.
+ *     Pulumi then deletes the Worker: deletions run after every update in a
+ *     `pulumi up`, so the rule stops naming the Worker before the Worker is
+ *     gone.
  *   - **Paused** (`inboundMailPaused`): the Worker answers every project
  *     address with a temporary failure before reading the message, and the
  *     BFF answers 503. Senders retry for days; the first promote with a domain
- *     is paused, and launch gates G1–G9 run before the unpause.
- *
- * ## The product's own apex, with the Worker as the router
- *
- * Project addresses live on the product domain (`<slug>.<token>@example.org`).
- * The zone's catch-all sends every address that no literal rule claims to the
- * Worker. Cloudflare matches literal rules first, so a company address given a
- * rule of its own (`postmaster@`, `abuse@`, set up in the dashboard before the
- * first promote, gate G7) never reaches it. The Worker checks the recipient's
- * shape against `contracts/inbound-address.json` and refuses everything that is
- * not a project address itself.
- *
- * The cost: the product domain's mail has to stay on Cloudflare Email Routing.
- * Moving it to another provider means moving project mail to a domain of its
- * own (still supported: point `inboundMailDomain`/`inboundMailZoneId` at
- * another zone's apex) and giving every project a new address.
- *
- * ## Why an apex, not a subdomain
- *
- * Cloudflare's catch-all exists only for a zone's apex:
- *
- *   - Cloudflare's Email Service docs, "Subdomains" (last updated 2026-09-25):
- *     "Catch-all rules are only available for the apex domain."
- *     developers.cloudflare.com/email-service/configuration/subdomains/
- *   - The API agrees: the catch-all is one object per ZONE
- *     (`/zones/{zone_id}/email/routing/rules/catch_all`, no domain field, and
- *     `matchers` accepts only `all`).
- *   - A child zone for the subdomain ("subdomain setup") is Enterprise-only.
- *
- * Literal rules per project address do not scale (200 routing rules per
- * domain, and the BFF would need a Cloudflare credential to mint an address).
- * `loadConfig` refuses the subdomain-of-the-DNS-zone case statically; the zone
- * lookup in `installInboundMailZone` refuses every other mismatch at preview.
+ *     is paused, and launch gates G0–G9 run before the unpause.
  *
  * ## One stack per inbound zone
  *
- * The catch-all is a singleton per zone. Two stacks pointed at the same zone do
- * not conflict in any way Cloudflare reports: the later `pulumi up` rewrites
- * the catch-all to its own Worker. `loadConfig` ties project mail on the app
- * zone to the stack that owns the zone (`dnsZoneBaseline`);
- * `stack-files.spec.ts` checks the committed stacks.
+ * Email Routing's enablement and its subaddressing are zone-level. `loadConfig`
+ * ties project mail on the app zone to the stack that owns the zone
+ * (`dnsZoneBaseline`); `stack-files.spec.ts` checks the committed stacks.
  *
  * ## Secrets
  *
@@ -90,11 +82,11 @@ import type { MailZone } from "./email-routing";
  * ## Cloudflare API token scopes (on `cloudflareApiToken`)
  *
  *   - Account · Workers Scripts · Edit (the Worker)
- *   - Zone · Email Routing Rules · Edit (the catch-all), on the inbound zone
+ *   - Zone · Email Routing Rules · Edit (the rule), on the inbound zone
  *   - Zone · Zone Settings · Edit (enabling routing, `email/routing/dns`)
- *   - Zone · DNS · Edit (routing adds and locks its MX and SPF records; the
- *     MX guard reads them)
- *   - Zone · Zone · Read (`getZone`: the apex check and the account id)
+ *   - Zone · DNS · Edit (routing adds and locks the domain's MX and SPF
+ *     records; the MX guard reads them)
+ *   - Zone · Zone · Read (`getZone`: the zone check and the account id)
  */
 
 /**
@@ -112,7 +104,13 @@ export interface InboundMail {
   zone: MailZone;
   /** Absent while switched off. */
   script?: cloudflare.WorkersScript;
-  catchAll: cloudflare.EmailRoutingCatchAll;
+  /** The one literal rule, `<localPart>@<domain>`. */
+  rule: cloudflare.EmailRoutingRule;
+}
+
+/** The rule's address: the base every project address is a subaddress of. */
+export function ruleAddress(localPart: string, domain: string): string {
+  return `${localPart}@${domain}`;
 }
 
 /** The Worker's script name. Per stack, because scripts are per ACCOUNT and stacks may share one. */
@@ -130,26 +128,28 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
   const opts = { provider: zone.provider };
   const scriptName = workerScriptName(pulumi.getStack());
 
+  const matchers = [{ type: "literal", field: "to", value: ruleAddress(mail.localPart, mail.domain) }];
+
   if (!mail.enabled) {
-    const catchAll = new cloudflare.EmailRoutingCatchAll(
-      "inbound-mail-catch-all",
+    const rule = new cloudflare.EmailRoutingRule(
+      "inbound-mail-rule",
       {
         zoneId: zone.zoneId,
         name: "Project mail (switched off)",
-        // Disabled, not Drop: Cloudflare then refuses unclaimed addresses at
-        // SMTP time. The action is required by the API and inert while
-        // disabled; it no longer names the Worker, which this `up` deletes.
+        // Disabled, not Drop: no rule then matches, and Cloudflare refuses the
+        // address at SMTP time. The action is required by the API and inert
+        // while disabled; it no longer names the Worker, which this `up` deletes.
         enabled: false,
-        matchers: [{ type: "all" }],
+        matchers,
         actions: [{ type: "drop" }],
       },
       { ...opts, dependsOn: [zone.routing] },
     );
-    return { zone, catchAll };
+    return { zone, rule };
   }
 
   // `zone.accountId` comes out of the guarded zone lookup, so the Worker is
-  // not registered unless the apex and MX guards passed.
+  // not registered unless the zone and MX guards passed.
   const script = new cloudflare.WorkersScript(
     "inbound-mail-worker",
     {
@@ -165,22 +165,26 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
         { name: "SIGNING_KEY_ID", type: "plain_text", text: mail.signingKeyId },
         { name: "SIGNING_KEY", type: "secret_text", text: mail.signingKey },
         { name: "PAUSED", type: "plain_text", text: String(mail.paused) },
+        // The address shape, the same values the BFF reads as
+        // INBOUND_MAIL_DOMAIN and INBOUND_MAIL_LOCAL_PART.
+        { name: "ADDRESS_DOMAIN", type: "plain_text", text: mail.domain },
+        { name: "ADDRESS_LOCAL_PART", type: "plain_text", text: mail.localPart },
       ],
     },
     opts,
   );
 
-  const catchAll = new cloudflare.EmailRoutingCatchAll(
-    "inbound-mail-catch-all",
+  const rule = new cloudflare.EmailRoutingRule(
+    "inbound-mail-rule",
     {
       zoneId: zone.zoneId,
       name: `Project mail (${scriptName})`,
       enabled: true,
-      matchers: [{ type: "all" }],
+      matchers,
       actions: [{ type: "worker", values: [script.scriptName] }],
     },
     { ...opts, dependsOn: [script, zone.routing] },
   );
 
-  return { zone, script, catchAll };
+  return { zone, script, rule };
 }

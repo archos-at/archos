@@ -49,7 +49,7 @@ function mail(overrides: Partial<FollowCandidateMail> = {}): FollowCandidateMail
       'weber@statik-weber.at',
       'berger@berger-architektur.at',
       'Huber@MA37.wien.gv.at',
-      'bauplatz-12.k3x7q2m9p4ab@example.org',
+      'p+bauplatz-12.k3x7q2m4p4ab@example.org',
     ],
     match: { threadId: THREAD_ID, strength: 'reference', headers: ['in-reply-to', 'references'] },
     subjectNameStops: [],

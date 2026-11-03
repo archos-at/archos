@@ -515,7 +515,7 @@ describe("malwareScan", () => {
 describe("project mail (ADR-0138)", () => {
   const mail = {
     ...mailStackConfig(),
-    [`${LEGACY_PROJECT}:inboundMailDomain`]: "post.example.test",
+    [`${LEGACY_PROJECT}:inboundMailDomain`]: "inbox.post.example.test",
     [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-mail-1",
   };
   const keys = (map: Record<string, unknown>) => ({ ...mail, [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: JSON.stringify(map) });
@@ -532,7 +532,8 @@ describe("project mail (ADR-0138)", () => {
       configured: true,
       enabled: true,
       paused: false,
-      domain: "post.example.test",
+      domain: "inbox.post.example.test",
+      localPart: "p",
       signingKeyId: SIGNING_KEY_ID,
     });
   });
@@ -595,25 +596,38 @@ describe("project mail (ADR-0138)", () => {
     expect(loadWith(mail, [`${LEGACY_PROJECT}:inboundMailZoneId`])?.message).toMatch(/inboundMailZoneId is required/);
   });
 
+  it("reads the local part, lowercased", () => {
+    expect(loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailLocalPart`]: "Projekt" }).inboundMail.localPart).toBe("projekt");
+  });
+
+  it.each(["p+x", "p.x", "-p", "p-", "ä", "a".repeat(33)])("refuses %s as a local part, which no address could match", (localPart) => {
+    expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailLocalPart`]: localPart })?.message).toMatch(
+      /inboundMailLocalPart must be/,
+    );
+  });
+
   it.each(["https://post.example.test", "inbox@post.example.test", "post"])("refuses %s as a domain", (domain) => {
     expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailDomain`]: domain })?.message).toMatch(
       /must be a bare domain name/,
     );
   });
 
-  it("refuses a subdomain of the DNS zone, which the catch-all cannot cover", () => {
+  it("refuses the DNS zone's id for a domain outside that zone", () => {
     const error = loadWith({
       ...mail,
-      [`${LEGACY_PROJECT}:inboundMailDomain`]: "mail.example.test",
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: "inbox.example.org",
       [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-dns-1",
       [`${LEGACY_PROJECT}:dnsZoneId`]: "zone-dns-1",
       [`${LEGACY_PROJECT}:dnsZoneName`]: "example.test",
     });
-    expect(error?.message).toMatch(/is not the apex of its zone/);
+    expect(error?.message).toMatch(/is not in its zone \("example\.test"\)/);
   });
 
-  it("takes the app zone when the domain is its apex and no zone is given", () => {
-    const values = { ...appZoneStackConfig(), ...mailStackConfig(), [`${LEGACY_PROJECT}:inboundMailDomain`]: APP_ZONE };
+  it.each([
+    ["a subdomain of it (the recommended setup)", `inbox.${APP_ZONE}`],
+    ["its apex", APP_ZONE],
+  ])("takes the app zone when the domain is %s and no zone is given", (_label, domain) => {
+    const values = { ...appZoneStackConfig(), ...mailStackConfig(), [`${LEGACY_PROJECT}:inboundMailDomain`]: domain };
     expect(loadWith(values)).toBeNull();
     expect(loadValues(values).inboundMail.zoneId).toBe(APP_ZONE_ID);
   });
@@ -622,12 +636,12 @@ describe("project mail (ADR-0138)", () => {
     [`${LEGACY_PROJECT}:dnsZoneBaseline`, "false"],
     [`${LEGACY_PROJECT}:dnsEnabled`, "false"],
   ])("refuses project mail on the app zone unless this stack owns it (%s=%s)", (key, value) => {
-    // The catch-all is one object per zone: a second stack's `up` would
-    // silently repoint it at its own Worker.
+    // Email Routing's enablement and subaddressing are zone-level: a second
+    // stack would fight over them.
     const error = loadWith({
       ...appZoneStackConfig(),
       ...mail,
-      [`${LEGACY_PROJECT}:inboundMailDomain`]: APP_ZONE,
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: `inbox.${APP_ZONE}`,
       [`${LEGACY_PROJECT}:inboundMailZoneId`]: APP_ZONE_ID,
       // The apex-serving stack must itself be the baseline; serve a subdomain
       // so that the only refusal left is project mail's.

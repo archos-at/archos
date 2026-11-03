@@ -92,8 +92,8 @@ describe('readMail', () => {
 })
 
 describe('redactRead (B8)', () => {
-  const OTHER = 'nachbar.zzzzzzzzzzzz@example.org'
-  const OWN = 'wohnbau.abcdefgh2345@example.org'
+  const OTHER = 'p+nachbar.zzzzzzzzzzzz@example.org'
+  const OWN = 'p+wohnbau.abcdefgh2345@example.org'
 
   it('redacts another project’s token in the text, every quote and its header, and the invitation; keeps the receiving one', async () => {
     fetchMock.mockResolvedValue(
@@ -108,7 +108,7 @@ describe('redactRead (B8)', () => {
 
     expect(JSON.stringify(read)).not.toContain('zzzzzzzzzzzz')
     expect(read.ownText).toContain(OWN)
-    expect(read.quoted[0].header).toBe('Von: nachbar.…@example.org')
+    expect(read.quoted[0].header).toBe('Von: p+nachbar.…@example.org')
   })
 })
 

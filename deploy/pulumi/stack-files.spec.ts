@@ -72,21 +72,22 @@ describe("committed stack files", () => {
 
   /**
    * The zone a stack's project mail routes on, as `loadConfig` resolves it:
-   * `inboundMailZoneId`, or `dnsZoneId` when the domain is the app zone's apex.
+   * `inboundMailZoneId`, or `dnsZoneId` when the domain is the app zone's
+   * apex or a subdomain of it.
    */
   function inboundZone(config: StackConfig): string | undefined {
     const domain = str(config, "inboundMailDomain");
     if (domain === undefined) return undefined;
-    return (
-      str(config, "inboundMailZoneId") ??
-      (domain === str(config, "dnsZoneName") ? str(config, "dnsZoneId") : undefined)
-    );
+    const zoneName = str(config, "dnsZoneName");
+    const inZone = zoneName !== undefined && (domain === zoneName || domain.endsWith(`.${zoneName}`));
+    return str(config, "inboundMailZoneId") ?? (inZone ? str(config, "dnsZoneId") : undefined);
   }
 
   it("give each project-mail zone at most one stack", () => {
-    // The Email Routing catch-all is one object per zone. A second stack on the
-    // same zone is no API error: its `up` repoints the catch-all at its own
-    // Worker, and from then on every mail lands in that stack's database.
+    // Email Routing's enablement is one object per zone (the provider keys it
+    // by zone id), and its subaddressing setting is zone-wide. A second stack
+    // on the same zone is no API error: the two fight over that state, and a
+    // destroy of one could switch routing off for the other.
     const owners = new Map<string, string[]>();
     for (const stack of stacks()) {
       const zoneId = inboundZone(stack.config);

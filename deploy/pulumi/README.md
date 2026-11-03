@@ -17,7 +17,7 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 | App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, `skill-scheduler`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
 | Edge | Gateway API (Envoy Gateway, HA: 2 replicas + PDB) + HTTPRoutes with cert-manager TLS for `app.<baseDomain>` and `s3.<baseDomain>` |
 | DNS | Cloudflare A records for exactly the Gateway's HTTPS listener hosts, plus optionally the zone-level `www` / `_dmarc` / apex-redirect records — only when `dnsEnabled` (off by default; records are otherwise maintained by hand) |
-| Mail | Project mail at Cloudflare (ADR-0138): Email Routing on the mail domain's zone apex (by default the app zone), its catch-all, and the Email Worker that refuses addresses that are not project-shaped and posts the rest, RFC 9421-signed, to the BFF — only when `inboundMailDomain` is set (off by default) |
+| Mail | Project mail at Cloudflare (ADR-0138): Email Routing on the receiving subdomain (`inbox.<zone>`, by default in the app zone), its one literal rule `p@<domain>`, and the Email Worker that refuses addresses that are not project-shaped (`p+<slug>.<token>@<domain>`) and posts the rest, RFC 9421-signed, to the BFF — only when `inboundMailDomain` is set (off by default). The zone's subaddressing setting is a dashboard step |
 
 ## Prerequisites
 
@@ -161,10 +161,11 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `dnsDmarc` | — | Value of the `_dmarc` TXT record, when the baseline is owned here |
 | `dnsApexRedirectTo` | — | Absolute URL the apex and `www` redirect to (302) while no stack serves the apex. Unset it once one does — `loadConfig` refuses both at once |
 | **Project mail (Cloudflare Email Routing, ADR-0138)** — operator guide: [`docs/deployment/kubernetes.md` §3c](../../docs/deployment/kubernetes.md) | | |
-| `inboundMailDomain` | — | Domain of the project addresses, normally the app zone's apex (`example.org`, the same as `dnsZoneName`). Setting it turns the feature on: Email Routing, the catch-all and the Worker at Cloudflare, `INBOUND_MAIL_DOMAIN` on the frontend. Email Routing adds and locks the apex MX and SPF records and a DKIM TXT; it leaves the apex A record, `www` and `_dmarc` alone. **Must be the apex of `inboundMailZoneId`** (Cloudflare's catch-all exists only for an apex; refused at load time for a subdomain of `dnsZoneName`, at preview for any other mismatch). On the app zone it needs `dnsEnabled` and `dnsZoneBaseline`. Refused while `malwareScanEnabled` is false: every part of a mail is scanned before it can be filed. Refused at preview if the apex has MX records pointing anywhere but `*.mx.cloudflare.net`. A company address on the same apex needs a literal routing rule of its own (`postmaster@` and `abuse@` before the first promote: gate G7). Each organization also needs the `inbound-mail` WorkOS entitlement. At most one stack per mail zone. **Never unset it to turn the feature off**: set `inboundMailEnabled: false` first |
-| `inboundMailZoneId` | `dnsZoneId` when `inboundMailDomain` equals `dnsZoneName` | Cloudflare zone whose apex is `inboundMailDomain`. Set it only for a domain on a zone of its own |
-| `inboundMailEnabled` | `true` | The managed off switch. `false` keeps the domain and Email Routing, updates the catch-all in place to disabled (Cloudflare then refuses unclaimed addresses at SMTP time; never Drop, which loses mail silently), deletes the Worker after that, and takes the domain off the frontend. The keys are then not needed |
-| `inboundMailPaused` | `false` | The incident lever: the Worker answers every project address with a temporary failure before reading it, and the BFF answers 503 (`INBOUND_MAIL_PAUSED`). Senders retry for days; nothing bounces. The promote that first sets the domain sets this too; unpause after launch gates G1–G9 (`scripts/inbound-mail-smoke.ts`) |
+| `inboundMailDomain` | — | The receiving domain of the project addresses, normally a subdomain of the app zone (`inbox.example.org`): the apex's MX stay with the company's mail provider. Setting it turns the feature on: Email Routing on that domain, its one literal rule and the Worker at Cloudflare, `INBOUND_MAIL_DOMAIN` on the frontend and `bff-jobs`. Email Routing adds and locks the domain's MX and SPF records and a DKIM TXT. **Must lie in `inboundMailZoneId`** (its apex or a subdomain; refused at load time for a domain outside `dnsZoneName` on the DNS zone's id, at preview for any other mismatch). On the app zone it needs `dnsEnabled` and `dnsZoneBaseline`. Refused while `malwareScanEnabled` is false: every part of a mail is scanned before it can be filed. Refused at preview if the domain has MX records pointing anywhere but `*.mx.cloudflare.net`. Needs the zone's **subaddressing** switched on by hand (gate G0). Each organization also needs the `inbound-mail` WorkOS entitlement. At most one stack per mail zone. **Never unset it to turn the feature off**: set `inboundMailEnabled: false` first |
+| `inboundMailLocalPart` | `p` | The local part of the one routing rule and of every project address, in front of the `+`: `p+<slug>.<token>@<domain>`. 1 to 32 of `[a-z0-9-]`, no hyphen at either end. Reaches the frontend and `bff-jobs` as `INBOUND_MAIL_LOCAL_PART` and the Worker as `ADDRESS_LOCAL_PART`. Changing it changes every project's address |
+| `inboundMailZoneId` | `dnsZoneId` when `inboundMailDomain` is `dnsZoneName` or a subdomain of it | Cloudflare zone `inboundMailDomain` lives in. Set it only for a domain on a zone of its own |
+| `inboundMailEnabled` | `true` | The managed off switch. `false` keeps the domain and Email Routing, updates the rule in place to disabled (no rule then matches, and Cloudflare refuses the addresses at SMTP time; never Drop, which loses mail silently), deletes the Worker after that, and takes the domain off the frontend. The keys are then not needed |
+| `inboundMailPaused` | `false` | The incident lever: the Worker answers every project address with a temporary failure before reading it, and the BFF answers 503 (`INBOUND_MAIL_PAUSED`). Senders retry for days; nothing bounces. The promote that first sets the domain sets this too; unpause after launch gates G0–G9 (`scripts/inbound-mail-smoke.ts`) |
 | 🔒 `inboundMailSigningKeys` | — | Required with the domain while enabled. JSON, keyid → base64 secret of at least 32 bytes, one or two entries: `{"mi-2026-10":"<openssl rand -base64 32>"}`. Reaches the frontend as `INBOUND_MAIL_SIGNING_KEYS`; the Worker gets only the entry it signs with, as a `secret_text` binding. Checked as the BFF checks it (a map it cannot use is a 503 on every delivery). Rotate: add the successor, set `inboundMailSigningKeyId` to it, promote; then remove the old entry and promote. Never edit the Worker's binding in the dashboard: the next `up` restores it from state |
 | `inboundMailSigningKeyId` | the only key | The keyid the Worker signs with. Required while the map holds two keys |
 | **Edge rate limiting (ADR-0040 L1)** | | |
@@ -377,7 +378,7 @@ the gate preview is the policy checkpoint (accepted residual, see
 
 ### Project mail's launch gates
 
-`scripts/inbound-mail-smoke.ts` runs the launch gates G1–G9 of project mail
+`scripts/inbound-mail-smoke.ts` runs the launch gates G0–G9 of project mail
 against a deployed stack, after the promote that set `inboundMailDomain`
 with `inboundMailPaused: true` and before the unpause, and again after any
 bump of the Worker's `COMPATIBILITY_DATE` (G8). It never writes to
@@ -387,7 +388,7 @@ probes are held mail in the test office.
 
 ```bash
 bun scripts/inbound-mail-smoke.ts plan                # every gate's steps
-bun scripts/inbound-mail-smoke.ts cloudflare          # G7, routing, catch-all, Worker settings (read-only)
+bun scripts/inbound-mail-smoke.ts cloudflare          # G0, G7: routing, subaddressing, the rule, MX, Worker settings (read-only)
 bun scripts/inbound-mail-smoke.ts signed --run        # G3 at the BFF and the edge
 bun scripts/inbound-mail-smoke.ts signed --run --expect-paused   # G4, while paused
 bun scripts/inbound-mail-smoke.ts malware --run       # G6: EICAR and a limit-exceeding archive
@@ -426,9 +427,9 @@ src/config.ts            typed config: DeployConfig and loadConfig
 src/config/              one module per concern: its keys, defaults and checks
 src/platform/            provider, namespace, cert-manager, gateway (Envoy),
                          dns (Cloudflare records for the Gateway's hosts),
-                         inbound-mail (Email Routing's catch-all + the Email
+                         inbound-mail (Email Routing's one rule + the Email
                          Worker, inbound-mail-worker.js, uploaded verbatim),
-                         email-routing (the mail zone + apex MX guard),
+                         email-routing (the mail domain + its MX guard),
                          metrics-server, scheduling (PDB/spread), rollout
                          (update strategy, drain, secret checksum)
 policy/                  CrossGuard policy pack (own package.json + bun.lock)
@@ -442,7 +443,7 @@ scripts/                 deploy.yml's helpers: GHCR tag lookup, the staging
                          image resolver + downgrade guard (reads the
                          `deployedImages` output), CR schema validation,
                          inbound-mail-smoke.ts (project mail's launch
-                         gates G1–G9, below),
+                         gates G0–G9, below),
                          the workspace stack file and ESC environment
 workspace/               the `workspace` project (ADR-0147): this program
                          again, for the namespace `workspace`

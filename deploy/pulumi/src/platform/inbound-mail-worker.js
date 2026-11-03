@@ -12,15 +12,16 @@
  *
  * ## The one thing it decides: is this a project address at all
  *
- * The catch-all it hangs off is the product domain's own (`example.org`), so it
- * receives every address on that domain that no literal rule claimed first:
- * project addresses, and also typos of company addresses and whatever spam
- * guesses. Cloudflare matches literal rules before the catch-all, so a named
- * company address with its own rule never gets here. For the rest, the Worker
- * checks the recipient's SHAPE, the rule of `contracts/inbound-address.json`,
- * which the BFF's parser runs too. A project-shaped address goes to the BFF.
- * Anything else is refused here with `UNKNOWN_ADDRESS_TEXT`, without a
- * request: spam to random names never reaches the webhook.
+ * One literal routing rule hands it mail: `<ADDRESS_LOCAL_PART>@<ADDRESS_DOMAIN>`
+ * (`p@inbox.example.org`), and Cloudflare's subaddressing makes every
+ * `p+<detail>@inbox.example.org` fall back to that rule (ADR-0138). So it
+ * receives the project addresses, `p+<slug>.<token>@…`, and also the bare
+ * `p@…` and whatever spam guesses after the `+`. It checks the recipient's
+ * SHAPE, the rule of `contracts/inbound-address.json`, which the BFF's parser
+ * runs too: its own domain, its own local part before the first `+`, and a
+ * token after the last dot of the subaddress. A project-shaped address goes to
+ * the BFF. Anything else is refused here with `UNKNOWN_ADDRESS_TEXT`, without
+ * a request: spam to random subaddresses never reaches the webhook.
  *
  * The shape is public, so splitting the two texts on it tells a prober
  * nothing: whether a project-shaped address EXISTS is answered only by the
@@ -117,6 +118,8 @@
  * @property {string} SIGNING_KEY_ID The keyid this Worker signs with, a key of `INBOUND_MAIL_SIGNING_KEYS`.
  * @property {string} SIGNING_KEY Its secret, base64 as in the key map.
  * @property {string} PAUSED `"true"` while deliveries are paused.
+ * @property {string} ADDRESS_DOMAIN The receiving domain, `inboundMailDomain` (e.g. `inbox.example.org`), as the BFF's `INBOUND_MAIL_DOMAIN`.
+ * @property {string} ADDRESS_LOCAL_PART The local part in front of the `+`, `inboundMailLocalPart` (e.g. `p`), as the BFF's `INBOUND_MAIL_LOCAL_PART`.
  */
 
 /**
@@ -187,28 +190,43 @@ const COVERED_COMPONENTS = [
   ENVELOPE_FROM_HEADER,
 ];
 
+/** ASCII-only lowercasing, so `K` (Kelvin) cannot fold onto `k`. */
+function asciiLower(/** @type {string} */ value) {
+  return value.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
+}
+
 /**
- * Whether `recipient` has the shape of a project address: after ASCII
- * lowercasing, dropping surrounding `<>` and quotes and a `+detail`
- * subaddress, what follows the LAST dot (or the whole local part) matches
- * `TOKEN_PATTERN`. ASCII lowercasing only, so `K` (Kelvin) cannot fold onto `k`.
+ * Whether `recipient` has the shape of a project address: after dropping
+ * surrounding `<>` and the quotes of a quoted local part, and ASCII
+ * lowercasing, the domain is `env.ADDRESS_DOMAIN`, the text before the FIRST
+ * `+` is `env.ADDRESS_LOCAL_PART`, and what follows the LAST dot of the rest
+ * (or the whole rest) matches `TOKEN_PATTERN`.
  *
  * @param {string} recipient
+ * Throws (a temporary failure) when either binding is missing.
+ *
+ * @param {Env} env
  * @returns {boolean}
  */
-function isProjectRecipient(recipient) {
+function isProjectRecipient(recipient, env) {
+  const domain = asciiLower(env.ADDRESS_DOMAIN ?? "");
+  const localPart = asciiLower(env.ADDRESS_LOCAL_PART ?? "");
+  if (domain === "" || localPart === "") {
+    // A fault of ours, never the sender's: a retry, not a bounce.
+    throw new Error("inbound-mail: ADDRESS_DOMAIN or ADDRESS_LOCAL_PART is not bound; asking the sender to retry");
+  }
   const trimmed = recipient.trim().replace(/^<|>$/g, "");
   const at = trimmed.lastIndexOf("@");
-  if (at === -1) return false;
+  if (at === -1 || asciiLower(trimmed.slice(at + 1)) !== domain) return false;
   let local = trimmed.slice(0, at);
   if (local.length >= 2 && local.startsWith('"') && local.endsWith('"')) {
     local = local.slice(1, -1);
   }
+  local = asciiLower(local);
   const plus = local.indexOf("+");
-  if (plus !== -1) local = local.slice(0, plus);
-  local = local.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
-  const dot = local.lastIndexOf(".");
-  return TOKEN.test(dot === -1 ? local : local.slice(dot + 1));
+  if (plus === -1 || local.slice(0, plus) !== localPart) return false;
+  const detail = local.slice(plus + 1);
+  return TOKEN.test(detail.slice(detail.lastIndexOf(".") + 1));
 }
 
 /**
@@ -309,7 +327,7 @@ function isExplicitReject(response) {
 /** @type {ExportedHandler<Env>} */
 export default {
   async email(message, env) {
-    if (!isProjectRecipient(message.to)) {
+    if (!isProjectRecipient(message.to, env)) {
       message.setReject(UNKNOWN_ADDRESS_TEXT);
       return;
     }

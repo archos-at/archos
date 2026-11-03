@@ -60,7 +60,7 @@ const URL_SIGNED = 'https://app.example.test/api/internal/signed/inbound-mail'
 const ORG = 'org_01MAILTEST'
 const PROJECT = '0e5b4f2e-1d7c-4c3a-9a51-2f0d8c6b7a10'
 const ADDRESS = '7a1f5c3e-8b2d-4e6f-9a0b-1c2d3e4f5a6b'
-const RECIPIENT = 'wohnbau-hietzing.k3m7q2xw4pab@example.org'
+const RECIPIENT = 'p+wohnbau-hietzing.k3m7q2xw4pab@example.org'
 const SENDER = 'sekretariat@statik-weber.at'
 const MESSAGE =
   'From: Statik Weber <sekretariat@statik-weber.at>\r\n' +
@@ -197,7 +197,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it.each([
-    ['an unknown token', { 'x-envelope-to': 'wohnbau.zzzzzzzzzzzz@example.org' }],
+    ['an unknown token', { 'x-envelope-to': 'p+wohnbau.zzzzzzzzzzzz@example.org' }],
     ['a recipient that holds no token', { 'x-envelope-to': 'info@example.org' }],
   ])('rejects %s with the one bounce text, without reading the body', async (_, envelope) => {
     const response = await POST(await sign({}, envelope))
@@ -260,14 +260,14 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it('decodes both envelope headers as the Worker encodes them, and the null sender to ""', async () => {
-    await POST(await sign({}, { 'x-envelope-to': 'wohnbau.k3m7q2xw4pab%2Bplaene@example.org', 'x-envelope-from': '<>' }))
+    await POST(await sign({}, { 'x-envelope-to': 'p%2Bwohnbau.k3m7q2xw4pab@example.org', 'x-envelope-from': '<>' }))
 
     expect(calls[0]).toBe('address:k3m7q2xw4pab')
     expect(vi.mocked(insertReception).mock.calls[0][0].envelopeFrom).toBe('')
   })
 
   it('answers a recipient outside our domain with 503: our routing, never the sender', async () => {
-    const response = await POST(await sign({}, { 'x-envelope-to': 'someone@example.org' }))
+    const response = await POST(await sign({}, { 'x-envelope-to': 'p+wohnbau.k3m7q2xw4pab@inbox.example.com' }))
 
     expect(response.status).toBe(503)
     expect(response.headers.get(VERDICT_HEADER)).toBeNull()
@@ -301,7 +301,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
     expect(limited.headers.get(VERDICT_HEADER)).toBeNull()
 
     // A guesser's unknown tokens spend nothing of the address's budget, and theirs runs out on its own.
-    const unknown = await POST(await sign({}, { 'x-envelope-to': 'x.zzzzzzzzzzzz@example.org' }))
+    const unknown = await POST(await sign({}, { 'x-envelope-to': 'p+x.zzzzzzzzzzzz@example.org' }))
     expect(unknown.status).toBe(404)
   })
 
@@ -358,7 +358,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
 
   it('logs one line per delivery with ids and codes, never the sender, the recipient or the token', async () => {
     await POST(await sign())
-    await POST(await sign({}, { 'x-envelope-to': 'wohnbau.zzzzzzzzzzzz@example.org' }))
+    await POST(await sign({}, { 'x-envelope-to': 'p+wohnbau.zzzzzzzzzzzz@example.org' }))
 
     const lines = [...infoLines().mock.calls, ...vi.mocked(console.warn).mock.calls].flat().map(String)
     expect(lines.filter((line) => line.startsWith('[inbound-mail] delivery'))).toHaveLength(2)
@@ -371,7 +371,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   it('answers only what the Worker reads as the contract says: a bounce is a 4xx with the verdict, all else retries', async () => {
     const answers: Array<[string, Response]> = [
       ['accepted', await POST(await sign())],
-      ['rejected', await POST(await sign({}, { 'x-envelope-to': 'x.zzzzzzzzzzzz@example.org' }))],
+      ['rejected', await POST(await sign({}, { 'x-envelope-to': 'p+x.zzzzzzzzzzzz@example.org' }))],
       ['rejected', await POST(await sign({ contentLength: String(27 * 1024 * 1024) }))],
       ['retry', await POST(await sign({ sentBody: MESSAGE.slice(0, 10) }))],
       ['retry', await POST(await sign({}, { 'x-envelope-to': '%E0' }))],

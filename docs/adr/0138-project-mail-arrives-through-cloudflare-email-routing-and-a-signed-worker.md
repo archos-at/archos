@@ -1,6 +1,7 @@
 ---
 status: proposed
 date: 2026-10-27
+amended: 2026-11-03 (the address moves to a subdomain, one literal rule and subaddressing)
 decision-makers: product owner, Grid engineering
 consulted: the security and shippability red teams of the project-mail design
 informed: whoever operates the stack, Cloudflare or the edge
@@ -10,11 +11,11 @@ informed: whoever operates the stack, Cloudflare or the edge
 
 ## Context and Problem Statement
 
-ADR-0137 gives every project an address, `<slug>.<token>@<domain>`
-(`bauplatz-12.k3x7q2m9p4ab@example.org`), and holds what arrives for a person to
-file. Something has to receive SMTP for `example.org`, decide which addresses
-exist, and hand each message to the BFF without letting anyone else post a mail
-into an office's review queue.
+ADR-0137 gives every project an address, `p+<slug>.<token>@inbox.<domain>`
+(`p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`), and holds what arrives for a
+person to file. Something has to receive SMTP for that domain, decide which
+addresses exist, and hand each message to the BFF without letting anyone else
+post a mail into an office's review queue.
 
 The agent runs no mail server and should not start: an MX that accepts mail from
 the internet is a spam, abuse and deliverability operation of its own. The
@@ -30,6 +31,8 @@ is taken by another record). This record replaces that draft.
 
 * **Buy the MX.** Receiving SMTP, spam handling at the edge and retries belong
   to a provider.
+* **Leave the company's own mail alone.** The product domain's apex MX belongs
+  to Google Workspace, which delivers the company's addresses.
 * **The webhook is a door into every office's review queue**, so its requests
   are authenticated by a key we hold, and the envelope (who sent, to which
   address) is bound to that authentication.
@@ -63,9 +66,9 @@ with mailauth 8.**
 ### The path
 
 ```text
-sender MTA ──SMTP──▶ Cloudflare Email Routing (apex MX of example.org)
-                      │ literal rules first (postmaster@, abuse@, company addresses)
-                      │ catch-all ──▶ Email Worker (inbound-mail-worker.js)
+sender MTA ──SMTP──▶ Cloudflare Email Routing (MX of inbox.example.org)
+                      │ subaddressing: p+<anything>@ falls back to the rule for p@
+                      │ ONE literal rule p@inbox.example.org ──▶ Email Worker (inbound-mail-worker.js)
                       │                 shape check of the recipient, else setReject
                       │                 buffer message.raw, Content-Digest, RFC 9421 sign
                       ▼
@@ -76,16 +79,16 @@ sender MTA ──SMTP──▶ Cloudflare Email Routing (apex MX of example.org)
                BFF route (outside the Next proxy) ──▶ staging ──▶ receive job
 ```
 
-- **Email Routing on the zone apex.** Cloudflare's catch-all exists only for an
-  apex, so project addresses live on the product domain itself
-  (`deploy/pulumi/src/platform/inbound-mail.ts`, `email-routing.ts`). Literal
-  rules match first, so `postmaster@`, `abuse@` and every company address get a
-  rule of their own before the first promote (launch gate G7). The price: the
-  product domain's mail stays on Email Routing, and moving it means a new
-  domain for project mail and a new address for every project.
+- **Email Routing on a subdomain, with one literal rule.** Project mail is
+  received on `inbox.<domain>` (`inboundMailDomain`), never the apex. The
+  rule `p@inbox.<domain>` (`inboundMailLocalPart`, default `p`) points at the
+  Worker, and the zone's subaddressing makes every `p+<detail>@inbox.<domain>`
+  fall back to it. The project lives in the subaddress: `p+<slug>.<token>`.
+  Details below ("The address").
 - **The Worker decides one thing**: whether the recipient is project-shaped
-  (`contracts/inbound-address.json`, 12 characters of lowercase base32 after the
-  last dot). Anything else is refused at Cloudflare with
+  (`contracts/inbound-address.json`: its `ADDRESS_DOMAIN`, its
+  `ADDRESS_LOCAL_PART` before the first `+`, and 12 characters of lowercase
+  base32 after the last dot of the subaddress). Anything else is refused at Cloudflare with
   `UNKNOWN_ADDRESS_TEXT`, without a request. Whether a project-shaped address
   exists is answered only by the BFF. The Worker is one module uploaded
   verbatim, type-checked against `@cloudflare/workers-types`, and exports only
@@ -104,6 +107,75 @@ sender MTA ──SMTP──▶ Cloudflare Email Routing (apex MX of example.org)
   measures the CPU of a 25 MiB mail, and a failure stops the launch.
 - **`redirect: "manual"`**: a followed redirect would turn the POST into a GET
   and send the signed headers elsewhere. `BFF_TIMEOUT_MS` is 90 s.
+
+### The address: one literal rule and subaddressing on a subdomain
+
+A project address is `<local part>+<slug>.<token>@<domain>`, or
+`<local part>+<token>@<domain>` for a name with nothing Latin in it
+(`p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`). The grammar both sides run is
+`contracts/inbound-address.json`: strip `<>` and the quotes of a quoted local
+part, ASCII-lowercase; the host must equal the receiving domain (not the parent
+domain, not a subdomain of it, not a look-alike that starts with it); the local
+part must contain a `+` and the text before the FIRST `+` must equal the
+configured local part; the token is what follows the LAST dot of the rest, or
+the whole rest. A second `+` therefore lands in the token position and the
+recipient is no project address.
+
+Why this shape (the first version used `<slug>.<token>@example.org` and the
+zone's catch-all, which cannot ship):
+
+- **The apex MX belongs to Google Workspace**, which delivers the company's
+  own addresses, and Email Routing needs exclusive control of the MX of the
+  domain it routes ("Email Routing requires exclusive control of the root
+  domain MX records"; enabling it beside another provider's MX fails with
+  error 2008, developers.cloudflare.com/email-service/reference/troubleshooting/,
+  read 2026-11-03). So project mail moves to a subdomain whose MX nothing else
+  uses. Email Routing supports subdomains of the same zone, on every plan
+  (developers.cloudflare.com/email-service/configuration/subdomains/, last
+  updated 2026-10-15).
+- **The catch-all is apex-only** ("Catch-all rules are only available for the
+  apex domain", the same page; the API's catch-all is one object per zone), so
+  a subdomain has literal rules only.
+- **A literal rule per project does not scale**: 200 routing rules per domain,
+  and the BFF would need a Cloudflare credential to mint an address.
+  BFF-managed per-address rules are rejected for the same reasons.
+- **One literal rule plus subaddressing does.** With subaddressing on, "if you
+  send an email to `user+detail@example.com` it will be matched by the
+  `user@example.com` routing rule … preserved in `message.to`"
+  (developers.cloudflare.com/email-service/configuration/email-routing-addresses/#subaddressing,
+  read 2026-11-03; RFC 5233). Minting an address stays a database insert.
+
+**Subaddressing is not in Pulumi.** `@pulumi/cloudflare` 6.23.1 exposes
+`supportSubaddress` only on `EmailRoutingSettings`, whose create calls the
+zone's Email Routing *enable* endpoint (which onboards the APEX, and fails
+beside Google Workspace's MX) without sending the field, whose update is a
+no-op, and whose delete disables Email Routing for the whole zone
+(terraform-provider-cloudflare `internal/services/email_routing_settings`,
+read 2026-11-03). `EmailRoutingDns` reports it but cannot set it. So it is a
+manual step, once per zone: dashboard → Email Routing → Settings →
+Subaddressing. The smoke tool's `cloudflare` command reads `support_subaddress`
+(gate G0).
+
+**The one thing to verify before go-live** is that subaddressing applies to a
+subdomain's literal rule: Cloudflare documents subaddressing and subdomain
+rules each, not their combination, and its dashboard adds a subdomain from the
+apex's Email Routing settings. Gate G0, with the stack still paused: switch
+subaddressing on, `cloudflare` passes, and one plain mail to
+`p+smoke.aaaaaaaaaaaa@inbox.<domain>` gets a TEMPORARY failure (the Worker
+answered, paused) rather than "Address does not exist" (no rule matched), with
+the rule shown as matched in the activity log. The same run proves that
+`email/routing/dns` enables routing on the subdomain while the apex's MX stay
+with Google Workspace.
+
+**The fallback**, if G0 fails: a dedicated mail domain (a zone of its own,
+`inboundMailZoneId`) whose apex is the receiving domain, with an apex catch-all
+to the Worker. Its addresses would drop the `+`, so it is a code change (the
+contract, the Worker's shape check, the parser and the Pulumi rule), not a
+configuration switch; the first version of this record is that design.
+
+**No transition for the old form.** `<slug>.<token>@<domain>` never reached
+production (no committed stack sets `inboundMailDomain`, 2026-11-03), so only
+the new form parses; a recipient without a `+` is not a project address.
 
 ### RFC 9421 over a Content-Digest, with no fallback
 
@@ -220,9 +292,9 @@ inside it.
 ### Switches, outermost first
 
 1. `grid-oib:inboundMailDomain` (on) and `inboundMailEnabled` (`false` is the
-   managed off: the catch-all is updated in place to disabled, so Cloudflare
-   refuses unclaimed addresses, never Drop, which loses mail silently; the
-   Worker is deleted after).
+   managed off: the rule is updated in place to disabled, so no rule matches
+   and Cloudflare refuses the addresses, never Drop, which loses mail silently;
+   the Worker is deleted after).
 2. `inboundMailPaused`: the Worker answers a temporary failure before reading,
    and the BFF answers 503 (`INBOUND_MAIL_PAUSED`). The first promote is
    paused.
@@ -231,7 +303,7 @@ inside it.
 
 `loadConfig` refuses an inbound domain without `malwareScanEnabled`: every
 part of a mail is scanned before it can be filed (ADR-0139). The operator's
-runbook, with the owner gates and the launch gates G1–G9:
+runbook, with the owner gates and the launch gates G0–G9:
 [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138).
 
 ### Consequences
@@ -243,9 +315,12 @@ runbook, with the owner gates and the launch gates G1–G9:
 * Good, because no unauthenticated body is buffered at the edge or in the proxy.
 * Good, because every fault of ours is a retry, so a misconfiguration delays
   mail rather than losing it.
-* Bad, because the product domain's mail is bound to Cloudflare Email Routing,
-  and Cloudflare becomes a transit processor of project mail (a sub-processor
-  row and a customer notice, gate O7).
+* Good, because the company's own mail keeps its provider: only the
+  subdomain's MX point at Cloudflare.
+* Bad, because Cloudflare becomes a transit processor of project mail (a
+  sub-processor row and a customer notice, gate O7).
+* Bad, because the address depends on subaddressing, a zone setting outside
+  Pulumi, whose effect on a subdomain's rule is proved only by gate G0.
 * Bad, because Workers Paid is a running cost, needed for the CPU time (Free
   allows 10 ms per invocation, which a large mail's copy and SHA-256 exceed;
   Workers limits, read 2026-10-27), and the CPU of buffering 25 MiB in a
@@ -270,19 +345,25 @@ runbook, with the owner gates and the launch gates G1–G9:
 - `deploy/pulumi/src/app/httproutes.spec.ts`: the signed route's header match,
   no rate limit, validated against the upstream CRD models.
 - `deploy/pulumi/src/config.spec.ts`: the domain refused without the scanner,
-  the apex rule, the key map's shape.
+  the zone rule, the local part's shape, the key map's shape.
+- `deploy/pulumi/src/platform/inbound-mail.spec.ts`: routing on the subdomain,
+  the one literal rule `p@<domain>` → the Worker, no catch-all and no
+  `EmailRoutingSettings`, the address bindings.
+- `contracts/inbound-address.json`, run by `address.spec.ts` and
+  `inbound-mail-worker.spec.ts`: the grammar above, case by case.
 - `lib/inbound-mail/sender-auth.spec.ts` and the hostile corpus
   (`__fixtures__/hostile.ts`): verdicts, flags, and no stored line with `spf=`.
-- Launch gates G1–G9 (`deploy/pulumi/scripts/inbound-mail-smoke.ts`) against a
-  real stack before the unpause.
+- Launch gates G0–G9 (`deploy/pulumi/scripts/inbound-mail-smoke.ts`) against a
+  real stack before the unpause; G0 is the subaddressing proof.
 
 ## Pros and Cons of the Options
 
 ### Receiver
 
 - Cloudflare Email Routing (chosen): already the DNS provider, free routing,
-  a Worker is code we version and test. Bad: the catch-all is apex-only, and
-  Email Routing gives the Worker no authentication verdict and no IP.
+  a Worker is code we version and test. Bad: the catch-all is apex-only (hence
+  one literal rule and subaddressing on a subdomain), and Email Routing gives
+  the Worker no authentication verdict and no IP.
 - A transactional provider's inbound webhook: a parsed JSON post with SPF and
   DKIM verdicts. Bad: a new sub-processor that stores mail, a parsed form we
   would trust instead of the raw bytes, and no binding of the envelope to our
@@ -313,7 +394,8 @@ runbook, with the owner gates and the launch gates G1–G9:
   `file-type` (MIT), `http-message-signatures` (ISC) and `structured-headers`
   (MIT) (`docs/compliance/external-dependencies.md`).
 - The flow inside the BFF and after: [`inbound-mail.md`](../architecture/inbound-mail.md).
-- Revisit when: G5 fails (buffering in a Worker is too costly); Cloudflare
-  documents an authentication verdict for Email Workers; plus-addressing
-  (FU14) makes a catch-all unnecessary; ARC from a fixed sealer allowlist
-  (FU10) becomes worth trusting.
+- Revisit when: G0 fails (take the fallback above); G5 fails (buffering in a
+  Worker is too costly); Cloudflare documents an authentication verdict for
+  Email Workers; the provider gains a way to set subaddressing without
+  onboarding the apex; ARC from a fixed sealer allowlist (FU10) becomes worth
+  trusting.

@@ -10,10 +10,10 @@ import { fileSlug } from '@/lib/text/latinize'
 
 describe('contactCard', () => {
   it('writes a vCard 4.0 with CRLF line ends', () => {
-    const card = contactCard({ name: `${PRODUCT_NAME} · Bauplatz 12`, address: 'bauplatz-12.k3x7q2m9p4ab@example.org' })
+    const card = contactCard({ name: `${PRODUCT_NAME} · Bauplatz 12`, address: 'p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org' })
     expect(card.startsWith('BEGIN:VCARD\r\nVERSION:4.0\r\n')).toBe(true)
     expect(card).toContain(`FN:${PRODUCT_NAME} · Bauplatz 12\r\n`)
-    expect(card).toContain('EMAIL;TYPE=work:bauplatz-12.k3x7q2m9p4ab@example.org\r\n')
+    expect(card).toContain('EMAIL;TYPE=work:p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org\r\n')
     expect(card.endsWith('END:VCARD\r\n')).toBe(true)
   })
 

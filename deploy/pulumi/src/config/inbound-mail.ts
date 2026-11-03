@@ -1,6 +1,6 @@
 /**
- * Project mail's deploy config (ADR-0138): the receiving domain, its Cloudflare
- * zone, and the Worker's signing keys, checked together. Split from `config.ts`
+ * Project mail's deploy config (ADR-0138): the receiving domain and local part,
+ * its Cloudflare zone, and the Worker's signing keys, checked together. Split from `config.ts`
  * like the other areas; `loadConfig` calls `inboundMailConfig`.
  */
 
@@ -10,6 +10,21 @@ import { bool, requireSecretsTogether } from "./readers";
 
 /** The keyid shape the BFF accepts (`usableSigningKeys`, `apps/workspace/bff/internal-auth.ts`). */
 const SIGNING_KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
+
+/**
+ * The local part when `inboundMailLocalPart` is unset: addresses are
+ * `p+<slug>.<token>@<domain>`. `DEFAULT_LOCAL_PART` in the BFF's `address.ts`
+ * and `localPart` in `contracts/inbound-address.json` say the same.
+ */
+export const DEFAULT_INBOUND_MAIL_LOCAL_PART = "p";
+
+/** The BFF's `LOCAL_PART_PATTERN`: no `+`, no dot, nothing a client would quote. */
+const LOCAL_PART = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
+
+/** Whether `domain` is `zone` itself or a name under it. */
+function withinZone(domain: string, zone: string): boolean {
+  return domain === zone || domain.endsWith(`.${zone}`);
+}
 
 /** What `pulumi config set` must be given for a signing key, in every message that refuses one. */
 const SIGNING_KEYS_HINT =
@@ -73,10 +88,12 @@ export interface InboundMailZoneContext {
  */
 export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneContext): DeployConfig["inboundMail"] {
   const domain = (cfg.get("inboundMailDomain") ?? "").trim().toLowerCase().replace(/\.$/, "");
-  // On the app zone's apex (the recommended setup: addresses on the product's
-  // own domain), the zone is the DNS zone and needs no second key.
+  const localPart = (cfg.get("inboundMailLocalPart") ?? DEFAULT_INBOUND_MAIL_LOCAL_PART).trim().toLowerCase();
+  // On the app zone (the recommended setup: a subdomain of the product's own
+  // domain, `inbox.example.org`), the zone is the DNS zone and needs no second key.
   const zoneId =
-    cfg.get("inboundMailZoneId") ?? (domain !== "" && domain === zone.dnsZoneName ? zone.dnsZoneId : "");
+    cfg.get("inboundMailZoneId") ??
+    (domain !== "" && zone.dnsZoneName !== "" && withinZone(domain, zone.dnsZoneName) ? zone.dnsZoneId : "");
   const configured = domain !== "";
   const enabled = configured && bool(cfg, "inboundMailEnabled", true);
   const paused = bool(cfg, "inboundMailPaused", false);
@@ -85,6 +102,7 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     enabled,
     paused,
     domain,
+    localPart,
     zoneId,
     signingKeys: pulumi.secret(""),
     signingKeyId: "",
@@ -107,45 +125,48 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
   }
   if (!/^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(domain)) {
     throw new Error(
-      `inboundMailDomain must be a bare domain name like "example.org" ` +
+      `inboundMailDomain must be a bare domain name like "inbox.example.org" ` +
         `(got "${domain}"): no scheme, no "@", no path.`,
+    );
+  }
+  if (!LOCAL_PART.test(localPart)) {
+    // The BFF refuses the same value at runtime; a deploy that mints
+    // addresses no rule routes must fail at preview instead.
+    throw new Error(
+      `inboundMailLocalPart must be 1 to 32 of [a-z0-9-], without a hyphen at either end ` +
+        `(got "${localPart}"): it is the "p" of p+<slug>.<token>@${domain}, so never a "+" or a dot.`,
     );
   }
   requireSecretsTogether(
     cfg,
     ["cloudflareApiToken"],
     "when inboundMailDomain is set (a Cloudflare token that may write the Worker and the zone's " +
-      "Email Routing; even managed off, the catch-all is this stack's)",
+      "Email Routing; even managed off, the routing rule is this stack's)",
   );
   if (zoneId === "") {
     throw new Error(
       "inboundMailZoneId is required when inboundMailDomain is set: the " +
-        "Cloudflare zone (dashboard → the zone → Overview → API) whose apex is that domain. " +
-        "It may be left out when the domain is dnsZoneName.",
+        "Cloudflare zone (dashboard → the zone → Overview → API) the domain lives in. " +
+        "It may be left out when the domain is dnsZoneName or a subdomain of it.",
     );
   }
-  // The one mistake this can see without calling Cloudflare. The catch-all
-  // is an apex-only feature, so a subdomain of the DNS zone gets routing
-  // enabled, MX records and a Worker, and then refuses every message to an
-  // address nobody listed. `email-routing.ts` checks the general case against
-  // the zone's real name at preview time.
-  if (zoneId === zone.dnsZoneId && zone.dnsZoneName !== "" && domain !== zone.dnsZoneName) {
+  // The one mistake this can see without calling Cloudflare: a zone id that
+  // names the DNS zone for a domain outside it. `email-routing.ts` checks the
+  // general case against the zone's real name at preview time.
+  if (zoneId === zone.dnsZoneId && zone.dnsZoneName !== "" && !withinZone(domain, zone.dnsZoneName)) {
     throw new Error(
-      `inboundMailDomain "${domain}" is not the apex of its zone ` +
-        `("${zone.dnsZoneName}"). Cloudflare Email Routing has no catch-all for subdomains, so ` +
-        "mail to project addresses there would be refused. Use the zone's apex " +
-        `("${zone.dnsZoneName}") or a domain that is a zone apex of its own (see ` +
-        'docs/deployment/kubernetes.md, "Project mail").',
+      `inboundMailDomain "${domain}" is not in its zone ("${zone.dnsZoneName}"). Use a subdomain ` +
+        `of it (e.g. "inbox.${zone.dnsZoneName}") or set inboundMailZoneId to the domain's own zone.`,
     );
   }
-  // On the app zone the catch-all is a zone-level object beside the apex's
-  // MX and `_dmarc`: it belongs to the one stack that owns the zone. A second
-  // stack would silently repoint the catch-all at its own Worker.
+  // On the app zone Email Routing's enablement is one object per zone (the
+  // provider keys it by zone id) beside the apex's MX and `_dmarc`: it belongs
+  // to the one stack that owns the zone. A second stack would fight over it.
   if (zoneId === zone.dnsZoneId && (!zone.dnsEnabled || !zone.dnsZoneBaseline)) {
     throw new Error(
       "inboundMailDomain on the app zone needs dnsEnabled and " +
-        "dnsZoneBaseline: the catch-all and the apex's mail routing are zone-level, " +
-        "and only the stack owning the zone may manage them.",
+        "dnsZoneBaseline: Email Routing is zone-level, " +
+        "and only the stack owning the zone may manage it.",
     );
   }
   if (!enabled) return off;

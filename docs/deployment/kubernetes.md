@@ -554,7 +554,8 @@ reverting is deleting a Cloudflare zone nobody is pointed at.
 ## 3c. Project mail (Cloudflare Email Routing, ADR-0138)
 
 Every project of an office with the `inbound-mail` entitlement can have an
-address `<slug>.<token>@<domain>`; mail to it waits in the project's
+address `p+<slug>.<token>@<domain>` (`<domain>` a receiving subdomain such as
+`inbox.example.org`); mail to it waits in the project's
 E-Mail-Eingang until a person files it (ADR-0137,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
 is deployed until `inboundMailDomain` is set.
@@ -562,9 +563,9 @@ is deployed until `inboundMailDomain` is set.
 ### What it is
 
 ```text
-sender ─SMTP─▶ Cloudflare Email Routing (apex MX) ─catch-all─▶ Email Worker
-                 literal rules first:                          shape check, buffer,
-                 postmaster@, abuse@, company addresses        RFC 9421 sign, post
+sender ─SMTP─▶ Cloudflare Email Routing (MX of inbox.<domain>) ─rule p@─▶ Email Worker
+                 subaddressing: p+<anything>@ falls back         shape check, buffer,
+                 to the one literal rule p@inbox.<domain>        RFC 9421 sign, post
                                                                      │
    app.<domain> Envoy: route app-signed, Content-Length ≤ 27 MiB, no edge limit
                                                                      ▼
@@ -575,7 +576,7 @@ sender ─SMTP─▶ Cloudflare Email Routing (apex MX) ─catch-all─▶ Email
 Pieces: `deploy/pulumi/src/platform/{inbound-mail,email-routing}.ts` and the
 Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 `SIGNED_INTERNAL_ROUTE` in `src/constants.ts`; the frontend's
-`INBOUND_MAIL_{DOMAIN,PAUSED,SIGNING_KEYS}`; the in-cluster ClamAV
+`INBOUND_MAIL_{DOMAIN,LOCAL_PART,PAUSED,SIGNING_KEYS}`; the in-cluster ClamAV
 (`malwareScanEnabled`, ADR-0139). Config keys and their meaning:
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md) („Project mail“ rows).
 
@@ -593,12 +594,19 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 - `cloudflareApiToken` with, on the mail domain's zone, `Zone:Zone Settings:Edit`,
   `Zone:Email Routing Rules:Edit` and `Zone:Zone:Read`, plus Account
   `Workers Scripts:Edit` with the account under the token's Account Resources.
-- The mail domain is the apex of its zone (Cloudflare's catch-all exists only
-  for an apex). On the app zone that needs `dnsEnabled` and `dnsZoneBaseline`.
-  The preview refuses an apex whose MX points anywhere but
-  `*.mx.cloudflare.net`. On 2026-10-22 `example.org` had no MX (DNS-over-HTTPS lookup); Email Routing adds and
-  locks the apex MX, an SPF TXT and a DKIM TXT, and leaves A, `www` and
-  `_dmarc` alone.
+- The mail domain is a subdomain nothing else receives mail on, normally
+  `inbox.<app zone>` (ADR-0138): the apex's MX belongs to the company's mail
+  provider (Google Workspace), and Email Routing needs the MX of the domain it
+  routes. On the app zone that needs `dnsEnabled` and `dnsZoneBaseline`
+  (`inboundMailZoneId` may then be left out). The preview refuses a mail
+  domain whose MX points anywhere but `*.mx.cloudflare.net`; the apex's MX are
+  not read. Email Routing adds and locks the subdomain's MX, an SPF TXT and a
+  DKIM TXT.
+- **Subaddressing** on the zone (Email Routing → Settings → Subaddressing), by
+  hand: Pulumi cannot set it without onboarding the apex
+  (`platform/email-routing.ts` says why). Without it `p+<slug>.<token>@` does
+  not reach the rule for `p@`, and every project address bounces. Gate G0
+  checks it and proves it on the subdomain.
 - **The scanner first.** `loadConfig` refuses an inbound domain while
   `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
   pod to be ready (signatures under 48 h old) before the mail promote.
@@ -612,14 +620,15 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 
 ### Setup: the first promote is paused
 
-1. In the Cloudflare dashboard, give `postmaster@`, `abuse@` and **every
-   company address on the apex** a literal routing rule. Literal rules match
-   before the catch-all; an address without one reaches the Worker, which
-   refuses anything that is not project-shaped (gate G7).
+1. In the Cloudflare dashboard, switch on subaddressing for the zone (Email
+   Routing → Settings). Nothing on the apex changes: its MX stay with the
+   company's mail provider.
 2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
-   `inboundMailDomain`, `inboundMailPaused: true`, the secret
-   `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`), and
-   `inboundMailZoneId` only for a domain on a zone of its own.
+   `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
+   `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`), `inboundMailLocalPart`
+   only to change the default `p`, and `inboundMailZoneId` only for a domain on
+   a zone of its own. Pulumi enables Email Routing on the subdomain and creates
+   the one literal rule `p@<domain>` → the Worker.
 3. `npm run preview`, then `npm run up` (gate O4).
 4. Run the launch gates against the test office (below), then set
    `inboundMailPaused: false` and promote.
@@ -638,8 +647,8 @@ below.
 | O2 | Cloudflare Workers Paid | before O4 |
 | O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
-| O5 | DNS: Email Routing on the apex writes MX and TXT records; literal rules for `postmaster@`, `abuse@` and company addresses first | with O4 |
-| O6 | Launch gates G1–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
+| O5 | DNS: Email Routing on the subdomain writes its MX and TXT records; subaddressing switched on for the zone first | with O4 |
+| O6 | Launch gates G0–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
 | O7 | The `inbound-mail` entitlement on, per office, only after the Datenschutzberater's sign-off and the customer notice | per office |
 
 Launch gates, run with `deploy/pulumi/scripts/inbound-mail-smoke.ts` (usage in
@@ -649,13 +658,14 @@ probes are held mail in the TEST office, never a customer's):
 
 | Gate | Check |
 |---|---|
+| G0 | Subaddressing reaches the subdomain's rule: `cloudflare` reads `support_subaddress`, the rule and the subdomain's MX; one plain mail to `p+smoke.aaaaaaaaaaaa@<domain>` while paused gets a temporary failure (the Worker answered), not "Address does not exist" (no rule matched). A permanent refusal stops the launch: take ADR-0138's fallback, a dedicated mail domain with an apex catch-all |
 | G1 | A DKIM-signed test mail arrives `*_verified` with its `signed_headers` (DKIM survives into `message.raw`) |
 | G2 | A throwing Worker gives a temporary failure, and the retry delivers |
 | G3 | 24 MiB is held, 26 MiB refused by Cloudflare, a truncated body gives `body-truncated`, unsigned and unknown-key requests 401 |
 | G4 | While paused, a temporary failure; after the unpause the mail is delivered |
 | G5 | Worker CPU time for a 25 MiB message (Workers Paid; Free allows 10 ms). A failure blocks the launch: there is no fallback that drops the digest |
 | G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0139) |
-| G7 | Literal `postmaster@` and `abuse@` rules present |
+| G7 | The one literal rule `p@<domain>` → the Worker, and no other rule on the receiving domain |
 | G8 | G1 and G2 again after any `COMPATIBILITY_DATE` bump of the Worker (a spec fails once the date is a year old) |
 | G9 | The aligned-DKIM share of a pilot office's real project mail, counted offline from an archive's `Authentication-Results` (`dkim-share`). It sets expectations for the trust labels and following |
 
@@ -705,12 +715,12 @@ delivery, which the senders retry.
 
 ### Turning it off
 
-Set `inboundMailEnabled: false` and promote. The catch-all is updated in place
-to disabled, so Cloudflare refuses unclaimed addresses at SMTP time (never
-Drop, which accepts and discards), and Pulumi deletes the Worker afterwards
-(deletions run last). The frontend loses `INBOUND_MAIL_DOMAIN`. Only then
-unset `inboundMailDomain`, if it is for good. Email Routing itself is
-`retainOnDelete`: company addresses depend on it. Reversing migration 0193
+Set `inboundMailEnabled: false` and promote. The rule is updated in place to
+disabled, so no rule matches and Cloudflare refuses the addresses at SMTP time
+(never Drop, which accepts and discards), and Pulumi deletes the Worker
+afterwards (deletions run last). The frontend loses `INBOUND_MAIL_DOMAIN`. Only
+then unset `inboundMailDomain`, if it is for good. Email Routing itself is
+`retainOnDelete`: its delete is zone-level. Reversing migration 0193
 needs every staged object and kept original erased first
 ([`schema.md`](../database/schema.md#reversing-0193)).
 
