@@ -94,10 +94,19 @@ class FakeWorker:
     slots: int | None
     workflows: list[Any]
     lifespan: Any
+    labels: dict[str, Any] = field(default_factory=dict)
     started: bool = False
 
     def start(self) -> None:
         self.started = True
+
+
+class FakeRateLimits:
+    def __init__(self) -> None:
+        self.put_calls: list[tuple[str, int, Any]] = []
+
+    def put(self, key: str, limit: int, duration: Any = None) -> None:
+        self.put_calls.append((key, limit, duration))
 
 
 class FakeHatchet:
@@ -107,6 +116,7 @@ class FakeHatchet:
         self.workflows: list[FakeWorkflow] = []
         self.runs = FakeRuns()
         self.workers: list[FakeWorker] = []
+        self.rate_limits = FakeRateLimits()
 
     def workflow(self, **options) -> FakeWorkflow:
         workflow = FakeWorkflow(options)
@@ -114,7 +124,7 @@ class FakeHatchet:
         return workflow
 
     def worker(self, name, slots=None, durable_slots=None, labels=None, workflows=None, lifespan=None):
-        worker = FakeWorker(name, slots, list(workflows or []), lifespan)
+        worker = FakeWorker(name, slots, list(workflows or []), lifespan, dict(labels or {}))
         self.workers.append(worker)
         return worker
 
@@ -131,12 +141,20 @@ def install() -> FakeHatchet:
 
 
 class FakeContext:
-    """The ``Context`` a task function gets: the attempt, and whether the run was cancelled."""
+    """The ``Context`` a task function gets: the attempt, whether the run was cancelled, its metadata."""
 
-    def __init__(self, *, attempt: int = 1, max_attempts: int = 3, cancelled: bool = False) -> None:
+    def __init__(
+        self, *, attempt: int = 1, max_attempts: int = 3, cancelled: bool = False, metadata: dict | None = None
+    ) -> None:
         self.attempt_number = attempt
         self.max_attempts = max_attempts
         self.is_cancelled = cancelled
+        self.additional_metadata = dict(metadata or {})
+        self.paused: list[tuple[str, Any]] = []
+
+    def pause_rate_limit(self, key: str, until: Any) -> Any:
+        self.paused.append((key, until))
+        return until
 
 
 def install_for(monkeypatch) -> FakeHatchet:

@@ -37,6 +37,7 @@ export const QDRANT_CALLERS = [
   ...API_TIERS,
   "agent-worker",
   "ingest-worker",
+  "ingest-worker-heavy",
   QDRANT.snapshotJob,
   CHROMA_MIGRATION.name,
   QDRANT.opsLabel,

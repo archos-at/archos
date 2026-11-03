@@ -19,8 +19,10 @@ Mechanics, each a decision:
   Pulumi injects as the full ``/v1/traces`` URL; a bare collector URL gets the
   suffix. A blank endpoint builds nothing and every call is a no-op, the same
   availability rule as ``otel_header_redaction_exporter``.
-* **Always a root.** The span starts from an empty context, so an ambient span
-  (an instrumented request, a test harness) cannot adopt it into its trace.
+* **A root unless told otherwise.** A span starts from an empty context, so an
+  ambient span (an instrumented request, a test harness) cannot adopt it into
+  its trace. The one exception is stated, never ambient: background work that
+  carries its trigger's traceparent continues that trace (:func:`continued_from`).
 * **Fail-open.** A telemetry fault logs at DEBUG and the route carries on; the
   context manager never raises and never swallows the route's own exception.
 
@@ -83,6 +85,10 @@ _SCOPE = "agent.observability.direct_trace"
 #: generation is its own root trace, as every route's is.
 _parent_span: ContextVar[Any | None] = ContextVar("direct_trace_parent_span", default=None)
 
+#: Where a unit of background work's trace continues (:func:`continued_from`): the trace a
+#: Hatchet trigger started. Unset, :func:`observed_span` starts a root trace.
+_parent_context: ContextVar[Any | None] = ContextVar("direct_trace_parent_context", default=None)
+
 _lock = threading.Lock()
 _resolved = False
 _provider = None
@@ -130,6 +136,16 @@ def _build(endpoint: str | None, env: Mapping[str, str], exporter):
     provider = TracerProvider(resource=Resource.create(resource_attributes(env)))
     provider.add_span_processor(BatchSpanProcessor(exporter))
     return provider
+
+
+def tracer_provider():
+    """The private provider, built from the environment on first use; None when tracing is off.
+
+    For an instrumentor that should export where these spans go (the Hatchet
+    SDK's, ``hatchet_tracing``), never for making it the global one.
+    """
+    _current_tracer()
+    return _provider
 
 
 def _current_tracer():
@@ -351,6 +367,11 @@ class SpanRecorder:
     def __init__(self, span: Any | None) -> None:
         self._span = span
 
+    @property
+    def span(self) -> Any | None:
+        """The OpenTelemetry span, or None when tracing is off (``hatchet_tracing`` links runs to it)."""
+        return self._span
+
     def finish(self, output: Mapping[str, Any], *, failed: str | None = None) -> None:
         """Record the outcome (counts, seconds, statuses: never document text). Never raises."""
         if self._span is None:
@@ -388,7 +409,7 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
 
             span = tracer.start_span(
                 feature,
-                context=Context(),
+                context=_parent_context.get() or Context(),
                 kind=SpanKind.INTERNAL,
                 attributes={
                     **process_trace_attributes(),
@@ -408,6 +429,32 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
         if token is not None:
             _parent_span.reset(token)
         _end_span(span, None)
+
+
+@contextmanager
+def continued_from(traceparent: str | None) -> Iterator[None]:
+    """Spans :func:`observed_span` opens in this block join the trace ``traceparent`` names (W3C).
+
+    For background work a trigger started: an ingest run carries its trigger's
+    traceparent in its Hatchet metadata, so the trigger, the run's wait for a
+    worker and every file's trace are one trace. Nothing to continue (None, or
+    a value that does not parse) leaves each span a root, as before.
+    """
+    parent = None
+    if traceparent:
+        try:
+            from opentelemetry.trace import get_current_span
+            from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+            extracted = TraceContextTextMapPropagator().extract({"traceparent": traceparent})
+            parent = extracted if get_current_span(extracted).get_span_context().is_valid else None
+        except Exception:
+            logger.debug("direct_trace: could not read a traceparent", exc_info=True)
+    token = _parent_context.set(parent)
+    try:
+        yield
+    finally:
+        _parent_context.reset(token)
 
 
 def _end_span(span: Any | None, exc: BaseException | None) -> None:

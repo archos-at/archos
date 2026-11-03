@@ -36,6 +36,7 @@ export const HATCHET_CALLERS = [
   ...API_TIERS,
   "agent-worker",
   "ingest-worker",
+  "ingest-worker-heavy",
   "frontend",
   "bff-jobs",
 ] as const;

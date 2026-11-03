@@ -52,7 +52,7 @@ import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
 import { installWorkers } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
-import { installIngestWorker } from "./src/app/ingest-worker";
+import { installIngestWorker, installIngestWorkerHeavy } from "./src/app/ingest-worker";
 import { installHatchetQueueAuth } from "./src/app/hatchet-queue-auth";
 import { installBffJobs } from "./src/app/bff-jobs";
 import { installBackgroundWorkPostgres } from "./src/data/background-work-pg";
@@ -408,6 +408,18 @@ const agentWorker = installAgentWorker(wiring, cfg, secrets, [
 // Ingestion tier (ADR-0076) — runs `ingest-document` on Hatchet (ADR-0150),
 // fairly across organisations, scaled by KEDA on its backlog there.
 const ingestWorker = installIngestWorker(wiring, cfg, secrets, [
+  postgres.initJob,
+  postgres.pooler,
+  dragonfly.service,
+  seaweed.bucketInitJob,
+  qdrant.service,
+  ...queueScalerDeps,
+  ...afterChromaMigration,
+]);
+
+// The high-memory ingest pool: `ingest-document-heavy`, the files of
+// `ingestHeavyFileBytes` or more, one a pod, scaled by KEDA on that backlog.
+installIngestWorkerHeavy(wiring, cfg, secrets, [
   postgres.initJob,
   postgres.pooler,
   dragonfly.service,

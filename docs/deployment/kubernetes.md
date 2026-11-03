@@ -863,8 +863,8 @@ schema.
   opening at most `pgPoolerPoolSize` (default 12) server connections per
   (database, role) pair. The plan refuses a stack whose pooler worst case plus
   the direct reserve passes `max_connections` (200): `assertPgConnectionBudget`
-  prints every part. Prod is 74 pooled + 83 direct = 157; a fresh stack with
-  everything on is 196. Clients past the pool wait in PgBouncer instead of
+  prints every part. Prod is 74 pooled + 82 direct = 156; a fresh stack with
+  everything on is 197. Both ingest pools count, the high-memory one too. Clients past the pool wait in PgBouncer instead of
   failing, so saturation shows as waiting clients rather than errors:
   PgBouncer's `SHOW POOLS` reports them as `cl_waiting`, and a value above 0 for
   long means raise `pgPoolerPoolSize` (and the budget with it). The image is
@@ -1320,20 +1320,23 @@ files at once, were then OOMKilled at the 6Gi limit, and prod ran three pods
 of three files at 8Gi / 12Gi. That sizing paid for a text pass that held the
 whole document (2026-10-19, #1095); the pass now holds one page. Prod therefore
 runs the tier wide and small on the `batch` worker group (§2b, 64 GB nodes):
-up to 8 pods of 2 files, 1 CPU / 6Gi requested and 2 CPU / 6Gi limits. Memory
+up to 7 pods of 2 files, 1 CPU / 6Gi requested and 2 CPU / 6Gi limits, beside one
+`ingest-worker-heavy` pod (12Gi, one file of 40 MiB or more at a time, scaled from
+zero on `ingest-document-heavy`'s backlog; [`hatchet.md`](hatchet.md#ingestion-on-two-pools)). Memory
 request equals limit, so the scheduler never places more than a node holds,
-and all eight fit one batch node. Two files a pod because pdfplumber parses on
+and both pools at their ceilings (7 × 6 + 12 = 54 GB) fit one batch node. Two files a pod because pdfplumber parses on
 one core (the GIL): another pod adds parse speed where a third thread does
 not, and an OOM kill costs two jobs an attempt rather than three. Raise the
 memory before the ceiling if `[ingest-mem]` shows a pod near 6Gi. The ceiling
 is also bounded from the other side:
-`ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` is the documents read at
-once, and the program fails the deploy when that is more than
-`vlmFleetConcurrency`, the lease pool that caps vision calls (§6.3d). Each file
-streams its OCR and vision calls through `ingestPageReadParallelism` (16)
-threads, which bound its threads and memory, not the calls. Prod's 8 × 2 is 16
-documents against 32 slots: more pods only wait for a vision slot, so the next
-lever for drawing-heavy files is the provider pool, not the ceiling.
+`ingestWorkerMaxReplicas` × `ingestWorkerConcurrency`, plus the heavy pool's
+replicas × concurrency, is the documents read at once, and the program fails
+the deploy when that is more than `vlmFleetConcurrency`, the lease pool that
+caps vision calls (§6.3d). Each file streams its OCR and vision calls through
+`ingestPageReadParallelism` (16) threads, which bound its threads and memory,
+not the calls. Prod's 7 × 2 + 1 is 15 documents against 32 slots: more pods
+only wait for a vision slot, so the next lever for drawing-heavy files is the
+provider pool, not the ceiling.
 
 ### 6.3c BFF background jobs — a pool of frontend-image pods running `bff-job` (ADR-0079, ADR-0150)
 

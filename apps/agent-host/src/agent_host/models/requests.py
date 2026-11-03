@@ -175,6 +175,9 @@ class IngestRequest(BaseModel):
     file_ref: str = Field(..., description="Presigned URL or file reference to download")
     collection: str = Field(..., description="Target collection name")
     document_id: str | None = Field(None, description="Optional document tracking ID")
+    byte_size: int | None = Field(
+        None, ge=0, description="The original's bytes: from `INGEST_HEAVY_FILE_BYTES` on, read on the high-memory pool."
+    )
     project_id: str | None = Field(
         None,
         max_length=120,
@@ -295,13 +298,9 @@ class IngestRequest(BaseModel):
         ),
     )
     approved_by: str | None = Field(
-        None,
-        description="Display name of the person who released an agent-authored document.",
+        None, description="Display name of the person who released an agent-authored document."
     )
-    approved_at: str | None = Field(
-        None,
-        description="ISO timestamp of that release.",
-    )
+    approved_at: str | None = Field(None, description="ISO timestamp of that release.")
     producer: str | None = Field(
         None,
         description="Which pipeline wrote an agent-authored document (`documents.authored_by_producer`).",

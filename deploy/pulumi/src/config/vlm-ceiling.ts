@@ -1,4 +1,4 @@
-import type { IngestWorkerConfig, ProviderLimitsConfig } from "./workers";
+import { ingestJobsAtCeiling, type IngestWorkerConfig, type ProviderLimitsConfig } from "./workers";
 /**
  * The VLM call ceiling: what the ingest tier can have in flight against the provider limit.
  *
@@ -10,12 +10,14 @@ import type { IngestWorkerConfig, ProviderLimitsConfig } from "./workers";
  */
 
 /**
- * Page reads the ingest tier asks for at its ceiling: replicas, times the jobs one
- * replica runs at once, times one file's page-read pool. Every one asks the fleet
- * pool for a slot; most of them wait there once the pool is full.
+ * Page reads the ingest tiers ask for at their ceilings: the documents they read at
+ * once (each pool's replicas times the jobs one replica runs, the standard pool and,
+ * when it exists, the high-memory one: `ingestJobsAtCeiling`), times one file's
+ * page-read pool. Every one asks the fleet pool for a slot; most of them wait there
+ * once the pool is full.
  */
 export function vlmPageReadThreads(cfg: { ingestWorker: IngestWorkerConfig; providerLimits: ProviderLimitsConfig }): number {
-  return cfg.ingestWorker.maxReplicas * cfg.ingestWorker.concurrency * cfg.providerLimits.pageReadParallelism;
+  return ingestJobsAtCeiling(cfg.ingestWorker) * cfg.providerLimits.pageReadParallelism;
 }
 
 /**
@@ -31,8 +33,8 @@ export function vlmPeakCalls(cfg: { ingestWorker: IngestWorkerConfig; providerLi
 /**
  * Refuse a sizing in which the bounds stop meaning what they say:
  *
- * - more documents running at once (replicas x concurrency) than the fleet pool has
- *   slots: a document needs a slot to make progress at all, so the extra replicas
+ * - more documents running at once (each pool's replicas x concurrency, standard
+ *   plus high-memory: `ingestJobsAtCeiling`) than the fleet pool has slots: a document needs a slot to make progress at all, so the extra replicas
  *   only hold memory while they wait;
  * - one file's page-read pool larger than the fleet pool: its extra threads can
  *   never hold a slot;
@@ -47,15 +49,19 @@ export function vlmPeakCalls(cfg: { ingestWorker: IngestWorkerConfig; providerLi
 export function assertVlmPeakFitsCeiling(cfg: { ingestWorker: IngestWorkerConfig; providerLimits: ProviderLimitsConfig }): void {
   const { vlmFleetConcurrency, pageReadParallelism, limitCeiling, modelLimitCeiling } = cfg.providerLimits;
   if (vlmFleetConcurrency === 0) return;
-  const { maxReplicas, concurrency } = cfg.ingestWorker;
-  const documents = maxReplicas * concurrency;
+  const { maxReplicas, concurrency, heavy } = cfg.ingestWorker;
+  const documents = ingestJobsAtCeiling(cfg.ingestWorker);
   if (documents > vlmFleetConcurrency) {
+    const heavyJobs = heavy?.enabled ? heavy.maxReplicas * heavy.concurrency : 0;
+    const heavyTerm = heavyJobs
+      ? ` + ingestWorkerHeavyMaxReplicas (${heavy.maxReplicas}) x ingestWorkerHeavyConcurrency (${heavy.concurrency})`
+      : "";
     throw new Error(
-      `Invalid ingest sizing: ingestWorkerMaxReplicas (${maxReplicas}) x ingestWorkerConcurrency (${concurrency}) ` +
-        `= ${documents} documents read at once, more than vlmFleetConcurrency (${vlmFleetConcurrency}) vision slots. ` +
-        "A document needs a slot to make progress, so the extra replicas would only wait and hold memory. Lower " +
-        `ingestWorkerMaxReplicas to ${Math.max(1, Math.floor(vlmFleetConcurrency / concurrency))} or less, or raise ` +
-        "vlmFleetConcurrency (and the provider's own limit with it).",
+      `Invalid ingest sizing: ingestWorkerMaxReplicas (${maxReplicas}) x ingestWorkerConcurrency (${concurrency})` +
+        `${heavyTerm} = ${documents} documents read at once, more than vlmFleetConcurrency (${vlmFleetConcurrency}) ` +
+        "vision slots. A document needs a slot to make progress, so the extra replicas would only wait and hold " +
+        `memory. Lower ingestWorkerMaxReplicas to ${Math.max(1, Math.floor((vlmFleetConcurrency - heavyJobs) / concurrency))} ` +
+        "or less, or raise vlmFleetConcurrency (and the provider's own limit with it).",
     );
   }
   if (pageReadParallelism > vlmFleetConcurrency) {

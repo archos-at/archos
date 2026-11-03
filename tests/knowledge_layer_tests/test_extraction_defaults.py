@@ -16,10 +16,18 @@ import time
 import pytest
 from knowledge_layer.llamaindex import adapter
 from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+from knowledge_layer.llamaindex.ingest_measures import COVERAGE_KEY
+from knowledge_layer.llamaindex.ingest_measures import STAGE_SECONDS_KEY
 from knowledge_layer_testing.qdrant import FakeEmbedder
 from knowledge_layer_testing.qdrant import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
+
+
+def _counters(metadata: dict) -> dict:
+    """A file's own counters, without the stage seconds and coverage every file now carries."""
+    return {k: v for k, v in metadata.items() if k not in (STAGE_SECONDS_KEY, COVERAGE_KEY)}
+
 
 _SWITCHES = ("EXTRACT_TABLES", "EXTRACT_IMAGES", "EXTRACT_CHARTS")
 
@@ -319,7 +327,7 @@ def test_the_cap_bounds_analysis_and_records_what_it_left_out(tmp_path, monkeypa
 
     # The largest raster (page 1, 2000x2000) is the one analysed.
     assert pipeline.analysed == [b"1-0"]
-    assert status.file_details[0].metadata == {"images_over_cap": 2}
+    assert _counters(status.file_details[0].metadata) == {"images_over_cap": 2}
 
 
 def test_under_the_cap_nothing_is_recorded(tmp_path, monkeypatch, ingestor, summary_db):
@@ -327,7 +335,7 @@ def test_under_the_cap_nothing_is_recorded(tmp_path, monkeypatch, ingestor, summ
 
     status = _ingest(ingestor, pipeline)
 
-    assert status.file_details[0].metadata == {}
+    assert _counters(status.file_details[0].metadata) == {}
 
 
 def test_a_raster_over_the_pixel_budget_is_counted_on_the_file_status(tmp_path, monkeypatch, ingestor, summary_db):
@@ -336,7 +344,7 @@ def test_a_raster_over_the_pixel_budget_is_counted_on_the_file_status(tmp_path, 
 
     status = _ingest(ingestor, pipeline)
 
-    assert status.file_details[0].metadata == {"images_over_pixel_budget": 1}
+    assert _counters(status.file_details[0].metadata) == {"images_over_pixel_budget": 1}
 
 
 def test_pages_read_without_layout_are_counted_and_kept_from_the_table_pass(
@@ -355,5 +363,5 @@ def test_pages_read_without_layout_are_counted_and_kept_from_the_table_pass(
 
     status = _ingest(ingestor, pipeline)
 
-    assert status.file_details[0].metadata == {"pages_read_without_layout": 2}
+    assert _counters(status.file_details[0].metadata) == {"pages_read_without_layout": 2}
     assert [call[2] for call in table_calls] == [[2, 3]]

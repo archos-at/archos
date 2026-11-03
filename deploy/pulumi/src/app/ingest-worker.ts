@@ -14,6 +14,23 @@ import { UID } from "../constants";
 
 /** The Hatchet workflow the tier runs (ADR-0150). */
 export const WORKFLOW = "ingest-document";
+/** The workflow the high-memory pool runs: the same steps, for files of `ingestHeavyFileBytes` or more. */
+export const HEAVY_WORKFLOW = "ingest-document-heavy";
+/** The high-memory pool's Deployment, and the worker label its `index` step requires (`pool=highmem`). */
+export const HEAVY_TIER = "ingest-worker-heavy";
+export const HEAVY_POOL = "highmem";
+
+/** What tells the two ingest pools apart; everything else about them is one Deployment shape. */
+interface IngestPool {
+  name: string;
+  workflow: string;
+  env: ReturnType<typeof ingestWorkerEnv>;
+  liveness: string;
+  resources: DeployConfig["ingestWorker"]["resources"];
+  minReplicas: number;
+  maxReplicas: number;
+  concurrency: number;
+}
 
 /**
  * The ingestion tier (ADR-0076, ADR-0150), the only process that runs ingestion jobs.
@@ -54,17 +71,89 @@ export function installIngestWorker(
   pdb: k8s.policy.v1.PodDisruptionBudget;
 } {
   assertVlmPeakFitsCeiling(cfg);
-  const labels = commonLabels("ingest-worker");
+  const liveness = "/tmp/ingest-worker.alive";
+  return installIngestPool(w, cfg, secrets, dependsOn, {
+    name: "ingest-worker",
+    workflow: WORKFLOW,
+    env: ingestWorkerEnv(w, liveness),
+    liveness,
+    resources: cfg.ingestWorker.resources,
+    minReplicas: cfg.ingestWorker.minReplicas,
+    maxReplicas: cfg.ingestWorker.maxReplicas,
+    concurrency: cfg.ingestWorker.concurrency,
+  });
+}
+
+/**
+ * The high-memory pool (`ingest-worker-heavy`): the standard tier's shape with
+ * `INGEST_WORKER_POOL=highmem`, so it serves `ingest-document-heavy` under the
+ * worker label `pool=highmem`, 12Gi a pod and one file at a time
+ * (`ingestWorkerHeavy*`). KEDA scales it on that workflow's backlog alone; the
+ * prefix match is `<namespace>_ingest-document-heavy:`, which the standard
+ * tier's `<namespace>_ingest-document:` never matches. Both pools share one
+ * fairness limit per organisation in Hatchet (`ingest-org`, ADR-0150) and count
+ * together against the vision pool (`assertVlmPeakFitsCeiling`). None when the
+ * stack turns the pool off; the dispatching tiers then send every file standard.
+ */
+export function installIngestWorkerHeavy(
+  w: AppWiring,
+  cfg: DeployConfig,
+  secrets: AppSecrets,
+  dependsOn: pulumi.Resource[],
+): ReturnType<typeof installIngestPool> | undefined {
+  const heavy = cfg.ingestWorker.heavy;
+  if (!heavy.enabled) return undefined;
+  assertVlmPeakFitsCeiling(cfg);
+  const liveness = "/tmp/ingest-worker-heavy.alive";
+  return installIngestPool(w, cfg, secrets, dependsOn, {
+    name: HEAVY_TIER,
+    workflow: HEAVY_WORKFLOW,
+    env: ingestWorkerHeavyEnv(w, liveness),
+    liveness,
+    resources: heavy.resources,
+    minReplicas: heavy.minReplicas,
+    maxReplicas: heavy.maxReplicas,
+    concurrency: heavy.concurrency,
+  });
+}
+
+/**
+ * The high-memory pool's env: the ingest worker's, serving `ingest-document-heavy`
+ * (`INGEST_WORKER_POOL=highmem`) with one slot per heavy file it runs at once,
+ * which the heavy `index` step takes all of (`INGEST_HEAVY_WORKER_SLOTS`).
+ */
+export function ingestWorkerHeavyEnv(w: AppWiring, livenessFile: string): ReturnType<typeof ingestWorkerEnv> {
+  const slots = String(w.cfg.ingestWorker.heavy.concurrency);
+  return [
+    ...ingestWorkerEnv(w, livenessFile).filter((e) => e.name !== "INGEST_MAX_WORKERS"),
+    { name: "INGEST_WORKER_POOL", value: "highmem" },
+    { name: "INGEST_HEAVY_WORKER_SLOTS", value: slots },
+    { name: "INGEST_MAX_WORKERS", value: slots },
+  ];
+}
+
+function installIngestPool(
+  w: AppWiring,
+  cfg: DeployConfig,
+  secrets: AppSecrets,
+  dependsOn: pulumi.Resource[],
+  pool: IngestPool,
+): {
+  deployment: k8s.apps.v1.Deployment;
+  scaledObject: k8s.apiextensions.CustomResource;
+  pdb: k8s.policy.v1.PodDisruptionBudget;
+} {
+  const labels = commonLabels(pool.name);
   const profile = agentWorkerRollout(cfg.ingestWorker.drainSeconds);
   const shutdown = gracefulShutdown(profile);
-  const liveness = "/tmp/ingest-worker.alive";
+  const liveness = pool.liveness;
 
   const deployment = new k8s.apps.v1.Deployment(
-    "ingest-worker",
+    pool.name,
     {
-      metadata: { name: "ingest-worker", namespace: w.namespace, labels },
+      metadata: { name: pool.name, namespace: w.namespace, labels },
       spec: {
-        replicas: Math.max(1, cfg.ingestWorker.minReplicas),
+        replicas: Math.max(1, pool.minReplicas),
         selector: { matchLabels: labels },
         ...surgeRollout(profile),
         template: {
@@ -84,8 +173,8 @@ export function installIngestWorker(
                 image: backendImage(cfg),
                 imagePullPolicy: appPullPolicy(cfg, backendImage(cfg)),
                 securityContext: hardenedContainerSecurityContext(),
-                env: ingestWorkerEnv(w, liveness),
-                resources: toResourceRequirements(cfg.ingestWorker.resources),
+                env: pool.env,
+                resources: toResourceRequirements(pool.resources),
                 // The worker touches the marker every 15 s while its loop runs;
                 // python, because the image has no procps (see agent-worker.ts).
                 livenessProbe: {
@@ -127,16 +216,16 @@ export function installIngestWorker(
   );
 
   const scaledObject = installQueueScaledObject(w, {
-    name: "ingest-worker",
+    name: pool.name,
     deployment,
     labels,
-    minReplicas: cfg.ingestWorker.minReplicas,
-    maxReplicas: cfg.ingestWorker.maxReplicas,
-    concurrency: cfg.ingestWorker.concurrency,
-    workflow: WORKFLOW,
+    minReplicas: pool.minReplicas,
+    maxReplicas: pool.maxReplicas,
+    concurrency: pool.concurrency,
+    workflow: pool.workflow,
     dependsOn,
   });
 
-  const pdb = installPdb("ingest-worker", w.namespace, w.provider, labels, [deployment]);
+  const pdb = installPdb(pool.name, w.namespace, w.provider, labels, [deployment]);
   return { deployment, scaledObject, pdb };
 }

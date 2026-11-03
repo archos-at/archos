@@ -52,16 +52,24 @@ function stackKnob(stack: "dev" | "prod", key: string): string | undefined {
 }
 
 describe("the ingest tier's peak vision calls", () => {
-  it("are the page-read threads that ask, capped by the fleet's lease pool", async () => {
+  it("are the page-read threads that ask, capped by the fleet's lease pool, the high-memory pool's added", async () => {
     const { vlmPeakCalls, vlmPageReadThreads } = await load();
-    const tier = (pool: number) =>
+    const heavy = { enabled: true, maxReplicas: 2, concurrency: 1 };
+    const tier = (pool: number, withHeavy = false) =>
       ({
-        ingestWorker: { maxReplicas: 5, concurrency: 3 },
+        ingestWorker: { maxReplicas: 5, concurrency: 3, ...(withHeavy ? { heavy } : {}) },
         providerLimits: { pageReadParallelism: 16, vlmFleetConcurrency: pool },
       }) as never;
 
     expect(vlmPageReadThreads(tier(32))).toBe(240);
-    expect(vlmPeakCalls(tier(32))).toBe(32);
+    expect(vlmPageReadThreads(tier(32, true))).toBe(272);
+    expect(
+      vlmPageReadThreads({
+        ingestWorker: { maxReplicas: 5, concurrency: 3, heavy: { ...heavy, enabled: false } },
+        providerLimits: { pageReadParallelism: 16, vlmFleetConcurrency: 32 },
+      } as never),
+    ).toBe(240);
+    expect(vlmPeakCalls(tier(32, true))).toBe(32);
     expect(vlmPeakCalls(tier(0))).toBe(240);
   });
 
@@ -96,7 +104,7 @@ describe("the ingest tier's peak vision calls", () => {
     const { cfg, assertVlmPeakFitsCeiling } = await load({ "grid-oib:ingestWorkerMaxReplicas": "12" });
 
     expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(
-      /ingestWorkerMaxReplicas \(12\) x ingestWorkerConcurrency \(3\) = 36 documents read at once, more than vlmFleetConcurrency \(32\) vision slots/,
+      /ingestWorkerMaxReplicas \(12\) x ingestWorkerConcurrency \(3\) \+ ingestWorkerHeavyMaxReplicas \(1\) x ingestWorkerHeavyConcurrency \(1\) = 37 documents read at once, more than vlmFleetConcurrency \(32\) vision slots/,
     );
     expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(/Lower ingestWorkerMaxReplicas to 10 or less, or raise vlmFleetConcurrency/);
   });
@@ -106,14 +114,14 @@ describe("the ingest tier's peak vision calls", () => {
     const over = await load({ "grid-oib:ingestWorkerMaxReplicas": "11" });
 
     expect(() => at.assertVlmPeakFitsCeiling(at.cfg)).not.toThrow();
-    expect(() => over.assertVlmPeakFitsCeiling(over.cfg)).toThrow(/= 33 documents/);
+    expect(() => over.assertVlmPeakFitsCeiling(over.cfg)).toThrow(/= 34 documents/);
   });
 
   it("follow the pool when it is raised, and refuse a file's pool larger than it", async () => {
     const raised = await load({
       "grid-oib:ingestWorkerMaxReplicas": "12",
-      "grid-oib:vlmFleetConcurrency": "72",
-      "grid-oib:providerModelLimitCeiling": "72",
+      "grid-oib:vlmFleetConcurrency": "74",
+      "grid-oib:providerModelLimitCeiling": "74",
     });
     const wider = await load({ "grid-oib:ingestPageReadParallelism": "48" });
 

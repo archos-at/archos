@@ -38,8 +38,8 @@ export interface PostgresConfig {
      * the largest that lets a fresh stack with everything on pass the plan:
      * two poolers x (three pooled pairs x 12 + 1 auth session) = 74 of the
      * primary's 200 connections, against a direct reserve of up to 122 (62
-     * fixed or sized by the ingest tier at 5 x 3, 20 for Langfuse, 40 for a
-     * filer that keeps its namespace in Postgres) = 196. Prod, on the single
+     * fixed or sized by the ingest tiers at 5 x 3 + 1 x 1, 20 for Langfuse, 40 for
+     * a filer that keeps its namespace in Postgres) = 197. Prod, on the single
      * SeaweedFS topology and an ingest tier of 3 x 3, holds 74 + 76 = 150.
      * It is not a demand number: a transaction holds a server connection for milliseconds, and 24 per pair
      * across the two poolers serves hundreds of statements a second. Clients

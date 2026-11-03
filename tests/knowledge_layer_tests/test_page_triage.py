@@ -26,6 +26,8 @@ from knowledge_layer.llamaindex import page_triage
 from knowledge_layer.llamaindex import processing
 from knowledge_layer.llamaindex import transcription
 from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+from knowledge_layer.llamaindex.ingest_measures import COVERAGE_KEY
+from knowledge_layer.llamaindex.ingest_measures import STAGE_SECONDS_KEY
 from knowledge_layer.llamaindex.page_triage import MIN_SKETCH_PATHS
 from knowledge_layer.llamaindex.page_triage import PageKind
 from knowledge_layer.llamaindex.page_triage import PageSignals
@@ -35,6 +37,12 @@ from knowledge_layer_testing.qdrant import FakeEmbedder
 from knowledge_layer_testing.qdrant import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
+
+
+def _counters(metadata: dict) -> dict:
+    """A file's own counters, without the stage seconds and coverage every file now carries."""
+    return {k: v for k, v in metadata.items() if k not in (STAGE_SECONDS_KEY, COVERAGE_KEY)}
+
 
 GERMAN = (
     "Gemäß § 70 der Bauordnung für Wien wird die Bewilligung unter folgenden Auflagen erteilt: "
@@ -524,7 +532,7 @@ class TestScannedPdfIngestion:
             "base_url": "https://vlm.test/v1",
             "api_key": expected_key,
         }
-        assert status.file_details[0].metadata == {"pages_transcribed": 2}
+        assert _counters(status.file_details[0].metadata) == {"pages_transcribed": 2}
 
     def test_a_match_in_the_transcript_holds_the_file_before_anything_indexes_it(
         self, tmp_path, monkeypatch, indexed, no_drawing_vlm
@@ -569,7 +577,7 @@ class TestScannedPdfIngestion:
 
         assert status.is_success
         assert len(indexed.docs()) == 21, "past the old 20-page drawing cap, a scan still indexes"
-        assert status.file_details[0].metadata == {"pages_transcribed": 21, "pages_over_ocr_cap": 4}
+        assert _counters(status.file_details[0].metadata) == {"pages_transcribed": 21, "pages_over_ocr_cap": 4}
 
     def test_ocr_model_setting_is_used(self, tmp_path, monkeypatch, indexed, no_drawing_vlm):
         _credential(monkeypatch)
@@ -663,7 +671,7 @@ class TestGarbledPdfIngestion:
 
         assert status.is_success
         assert [doc.metadata["page_label"] for doc in indexed.docs()] == ["1"]
-        assert status.file_details[0].metadata == {"pages_not_transcribed_no_vlm": 1}
+        assert _counters(status.file_details[0].metadata) == {"pages_not_transcribed_no_vlm": 1}
 
 
 class TestOcrSwitch:
@@ -681,7 +689,7 @@ class TestOcrSwitch:
         assert status.is_success
         assert calls == []
         assert [doc.metadata["page_label"] for doc in indexed.docs()] == ["1", "2"]
-        assert status.file_details[0].metadata == {"pages_over_ocr_cap": 1, "pages_garbled_text_kept": 1}
+        assert _counters(status.file_details[0].metadata) == {"pages_over_ocr_cap": 1, "pages_garbled_text_kept": 1}
 
 
 class TestDrawingCapIsCounted:
@@ -698,4 +706,4 @@ class TestDrawingCapIsCounted:
         status = _ingest(indexed, path, "plans.pdf")
 
         assert status.is_success
-        assert status.file_details[0].metadata == {"drawing_pages_over_cap": 1}
+        assert _counters(status.file_details[0].metadata) == {"drawing_pages_over_cap": 1}

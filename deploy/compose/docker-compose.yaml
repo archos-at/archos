@@ -51,6 +51,9 @@ services:
       # (ADR-0082). Every other role of the image sets its own.
       PROCESS_ROLE: chat
       APP_ENV: ${APP_ENV:-production}
+      # Compose runs one ingest worker, the standard pool: no file goes to
+      # `ingest-document-heavy`, which only Kubernetes' `ingest-worker-heavy` serves.
+      INGEST_HEAVY_FILE_BYTES: ${INGEST_HEAVY_FILE_BYTES:-0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       # PostHog for the Python roles (fail-open: both empty means no events leave
       # the backend, see packages/agent/src/agent/observability/posthog_client.py). The pair

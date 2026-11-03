@@ -57,6 +57,8 @@ services:
       # (ADR-0082). The services below extend this one and set their own role.
       - PROCESS_ROLE=chat
       - APP_ENV=${APP_ENV:-production}
+      # One ingest worker, the standard pool: no file goes to `ingest-document-heavy`.
+      - INGEST_HEAVY_FILE_BYTES=${INGEST_HEAVY_FILE_BYTES:-0}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # PostHog for the Python roles (fail-open: both empty means no events leave
       # the backend). Inherited by every role that extends this service.
