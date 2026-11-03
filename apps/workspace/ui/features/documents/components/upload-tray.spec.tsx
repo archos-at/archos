@@ -6,6 +6,8 @@ import { UploadTray } from './upload-tray'
 const requestQuarantineRelease = vi.fn(async (_documentId: string) => ({ notified: 1 }))
 const reviewAccess = vi.fn(async (_documentId: string) => ({ canReview: false, canAskForReview: true }))
 const releaseQuarantinedDocument = vi.fn(async (_documentId: string) => ({ status: 'processing' }))
+const { watchDocuments } = vi.hoisted(() => ({ watchDocuments: vi.fn() }))
+vi.mock('../orchestrator', () => ({ UploadOrchestrator: { watchDocuments } }))
 vi.mock('@/adapters/api/upload-screening-client', () => ({
   requestQuarantineRelease: (documentId: string) => requestQuarantineRelease(documentId),
   getQuarantineReviewAccess: (documentId: string) => reviewAccess(documentId),
@@ -362,6 +364,8 @@ describe('UploadTray', () => {
       expect(releaseQuarantinedDocument).toHaveBeenCalledWith('doc-h')
       expect(await screen.findByTestId('upload-row-allow-done')).toBeDefined()
       expect(screen.queryByTestId('upload-row-request-review')).toBeNull()
+      // The row is read again: the tray follows it by document status.
+      expect(watchDocuments).toHaveBeenCalledWith(['h'])
     })
 
     it('asks again when the question of who may decide could not be asked, rather than offering nothing', async () => {

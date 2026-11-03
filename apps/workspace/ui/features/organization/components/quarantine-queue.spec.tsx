@@ -252,5 +252,24 @@ describe('QuarantineQueue', () => {
       render(<QuarantineQueue />)
       expect(await screen.findByTestId('quarantine-filter-unscreened')).toHaveTextContent('1')
     })
+
+    it('picks at most what one request decides when more rows are shown', async () => {
+      const rows = Array.from({ length: 51 }, (_, index) => cardRow(`card-${index}`))
+      stubApi(rows, (url, init) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({
+              results: (JSON.parse(String(init?.body)).documentIds as string[]).map((id) => ({ id, outcome: 'allowed' })),
+            })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-all'))
+      expect(screen.getByTestId('quarantine-selection-limit')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('quarantine-release-selected'))
+      fireEvent.click(await screen.findByTestId('quarantine-release-confirm'))
+
+      await waitFor(() => expect(decisions()).toHaveLength(1))
+      expect(decisions()[0].documentIds).toHaveLength(50)
+    })
   })
 })

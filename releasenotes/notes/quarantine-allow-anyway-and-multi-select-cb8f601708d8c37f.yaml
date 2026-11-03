@@ -2,8 +2,8 @@
 features:
   - >
     In the quarantine you can now filter held files by what was found, select
-    several or all of them, and allow, delete or check them again with the
-    current rules in one step.
+    several or all shown files (up to 50 at a time), and allow, delete or
+    check them again with the current rules in one step.
 improvements:
   - >
     When a file is not uploaded because its name contains a sensitive term,

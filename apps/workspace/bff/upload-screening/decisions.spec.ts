@@ -70,6 +70,7 @@ describe('decideQuarantinedDocuments', () => {
       { id: 'd', outcome: 'forbidden' },
       { id: 'e', outcome: 'failed' },
     ])
+    expect(vi.mocked(releaseQuarantinedDocument).mock.calls.map(([, id]) => id)).toEqual(['a', 'b', 'c', 'd', 'e'])
     expect(releaseQuarantinedDocument).toHaveBeenCalledWith(reviewer, 'a', request)
   })
 
