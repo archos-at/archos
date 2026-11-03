@@ -6,6 +6,7 @@ import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedJobSecurityContext } from "../platform/security";
 import { scrapeAnnotations } from "../platform/scrape";
+import { cnpgClusterSpec, installBackupSecret, installCnpgScheduledBackup } from "./cnpg";
 import { APP_DB, CHECKPOINTS_DB, JOBS_DB, RUNTIME_ROLE, installPostgresRename, installRlsRoleRename } from "./postgres-rename";
 export { APP_DB, CHECKPOINTS_DB, JOBS_DB, RUNTIME_ROLE };
 import { CHECKPOINTS_SQL, JOBS_SQL, seaweedFilerSql } from "./postgres-sql";
@@ -296,69 +297,17 @@ export function installPostgres(
 
   // 2b. Object-store credentials for continuous backup (only when enabled). The
   //     provider's StorageClasses reclaim `Delete`, so WAL archiving + scheduled
-  //     base backups to SeaweedFS are the only path to point-in-time recovery
-  //     after an accidental PVC/volume loss.
+  //     base backups are the only path to point-in-time recovery after an
+  //     accidental PVC/volume loss. They default to the in-cluster SeaweedFS
+  //     identity (and the in-cluster SeaweedFS endpoint, `config/postgres.ts`),
+  //     overridable for an external S3 endpoint: offsite PITR.
   const backupSecretName = objectName("pgBackupSecret"); // pragma: allowlist secret
   const backupSecret = cfg.postgres.backups.enabled
-    ? new k8s.core.v1.Secret(
-        "pg-backup-s3",
-        {
-          metadata: { name: backupSecretName, namespace },
-          stringData: {
-            // Defaults to the in-cluster SeaweedFS identity; overridable for an
-            // external S3 endpoint (offsite PITR — see config.ts).
-            ACCESS_KEY_ID: cfg.postgres.backups.accessKey ?? cfg.seaweedfs.accessKey,
-            SECRET_ACCESS_KEY: cfg.postgres.backups.secretKey ?? cfg.seaweedfs.secretKey,
-          },
-        },
-        { provider },
-      )
+    ? installBackupSecret("pg-backup-s3", backupSecretName, namespace, provider, {
+        accessKey: cfg.postgres.backups.accessKey ?? cfg.seaweedfs.accessKey,
+        secretKey: cfg.postgres.backups.secretKey ?? cfg.seaweedfs.secretKey,
+      })
     : undefined;
-
-  // NOTE: this uses CNPG's in-tree `barmanObjectStore`. It is stable and works
-  // on current operators but is being superseded by the barman-cloud plugin;
-  // if a future auto-pulled operator (chart is unpinned) drops the in-tree path,
-  // the webhook will reject this at `pulumi up` — switch to the plugin then.
-  //
-  // ENCRYPTION. `encryption` is a field of `wal` and `data`, NOT of
-  // `barmanObjectStore` itself, and its CRD enum is `AES256;"aws:kms"` with no
-  // empty member — so "inherit the bucket policy" is the key being ABSENT, and
-  // emitting `encryption: ""` would be rejected by the webhook. That is why this
-  // spreads conditionally instead of always setting the field.
-  //
-  // What it actually does: barman-cloud sends `--encryption`, which becomes an
-  // `x-amz-server-side-encryption` header on the PUT. It therefore encrypts
-  // exactly nothing unless the DESTINATION implements SSE. The default
-  // destination is this cluster's own SeaweedFS, which does not: SSE-S3/KMS/C
-  // land in 3.97, prod pins 3.80, and even a newer image would need a KMS this
-  // program never configures. SeaweedFS answers such a PUT 200 and writes the
-  // object in the clear, so the header would leave "encryption: AES256" in the
-  // Cluster spec while the bytes are plaintext. `loadConfig` refuses that
-  // combination outright; the knob is here for a real external S3 destination.
-  //
-  // With the in-cluster destination and no SSE, the archive — every row of every
-  // database, WAL included — is at rest exactly as protected as the SeaweedFS
-  // volumes underneath it (`seaweedfsEncryptVolumeData`) and nothing more. Said
-  // plainly in docs/deployment/kubernetes.md § Encryption posture.
-  const backupEncryption = cfg.postgres.backups.encryption;
-  const encryptionField = backupEncryption ? { encryption: backupEncryption } : {};
-  const backupSpec = cfg.postgres.backups.enabled
-    ? {
-        backup: {
-          retentionPolicy: cfg.postgres.backups.retention,
-          barmanObjectStore: {
-            destinationPath: `s3://${cfg.postgres.backups.bucket}/`,
-            endpointURL: cfg.postgres.backups.endpoint,
-            s3Credentials: {
-              accessKeyId: { name: backupSecretName, key: "ACCESS_KEY_ID" },
-              secretAccessKey: { name: backupSecretName, key: "SECRET_ACCESS_KEY" },
-            },
-            wal: { compression: "gzip", maxParallel: 2, ...encryptionField },
-            data: { compression: "gzip", ...encryptionField },
-          },
-        },
-      }
-    : {};
 
   // 3. The Postgres cluster. `jobs` is the bootstrapped app DB; the other
   //    two databases are created by postInitSQL (as superuser, once) owned by
@@ -370,114 +319,42 @@ export function installPostgres(
       apiVersion: "postgresql.cnpg.io/v1",
       kind: "Cluster",
       metadata: { name: CLUSTER_NAME, namespace, labels: commonLabels("postgres") },
-      spec: {
+      // The row-level-security roles (ADR-0041) are NOT managed here: their names
+      // change after the migrations (ADR-0145 row 10d), so the rename Jobs keep
+      // them (`postgres-rename.ts`), as `<cluster>-superuser`, which is why
+      // superuser access is on. `max_connections` is the ceiling
+      // `assertPgConnectionBudget` holds the pooler and the direct connections under.
+      spec: cnpgClusterSpec({
         instances: cfg.postgres.instances,
-        // Every instance's exporter (connections, replication lag, WAL,
-        // database sizes) for the node agents to scrape (ADR-0119). The
-        // operator copies these onto every pod it builds.
-        inheritedMetadata: { annotations: scrapeAnnotations(PORT.postgresMetrics) },
-        // Major-pinned, patch-floating: gets every 17.x minor/security patch
-        // automatically (safe in-place for Postgres), but never auto-crosses a
-        // major — CloudNativePG treats a major bump as a declarative migration,
-        // and a floating `latest` could refuse to start on the old data dir.
-        imageName: "ghcr.io/cloudnative-pg/postgresql:17",
-        // Automatic switchover + rolling restart on operator/image updates — the
-        // right default when the provider drains/replaces nodes on its own.
+        storageSize: cfg.postgres.storageSize,
+        storageClass: cfg.storage.className,
         primaryUpdateStrategy: cfg.postgres.primaryUpdateStrategy,
-        // Keep primary and replicas off the same worker node so a single node
-        // loss / upgrade drain can't take the whole cluster down. Required on a
-        // data group, which is fixed in size; `preferred` without one, so a
-        // small (or single-node) cluster still schedules.
-        affinity: {
-          enablePodAntiAffinity: true,
-          topologyKey: "kubernetes.io/hostname",
-          podAntiAffinityType: cfg.nodeGroups.data ? "required" : "preferred",
-          ...onNodeGroup(cfg.nodeGroups.data),
-        },
-        storage: {
-          size: cfg.postgres.storageSize,
-          storageClass: cfg.storage.className,
-        },
-        // Row-level-security roles (ADR-0041) are NOT declared here: the
-        // operator creates a role by the name it is given, and their names
-        // change after the migrations (ADR-0145 row 10d), so the rename Jobs
-        // keep them instead (`postgres-rename.ts`). Not in a migration either:
-        // creating a BYPASSRLS role takes a creator that holds BYPASSRLS, which
-        // the application user does not. Migration 0030 asserts they exist.
-        // `<cluster>-superuser` is the login those Jobs use, the only one that
-        // can rename a database or a role (`postgres-rename.ts`).
-        enableSuperuserAccess: true,
-        managed: {
-          roles: [
-            // The SeaweedFS filer's own login (ADR-0043). It owns exactly one
-            // database and needs DDL inside it — the `[postgres2]` store
-            // creates a table per S3 bucket on demand, which is what makes
-            // dropping a tenant a DROP TABLE instead of a row sweep. That DDL
-            // right is confined to a database it owns; it has no CREATEDB and
-            // no CREATEROLE, so it cannot make itself another one.
-            ...(filerCredentials
-              ? [
-                  {
-                    name: cfg.seaweedfs.filerDatabaseUser,
-                    ensure: "present",
-                    login: true,
-                    superuser: false,
-                    createdb: false,
-                    createrole: false,
-                    bypassrls: false,
-                    passwordSecret: { name: filerCredentials.metadata.apply((m) => m!.name!) },
-                  },
-                ]
-              : []),
-            // Langfuse's own login (ADR-0044) — same shape and same reasoning
-            // as the filer's: DDL inside one database it owns, nothing outside.
-            ...(langfuseCredentials
-              ? [
-                  {
-                    name: LANGFUSE.databaseUser,
-                    ensure: "present",
-                    login: true,
-                    superuser: false,
-                    createdb: false,
-                    createrole: false,
-                    bypassrls: false,
-                    passwordSecret: { name: langfuseCredentials.metadata.apply((m) => m!.name!) },
-                  },
-                ]
-              : []),
+        dataNodeGroup: cfg.nodeGroups.data,
+        resources: DATA_RESOURCES.postgres,
+        parameters: { max_connections: POSTGRES_TUNING.maxConnections, shared_buffers: POSTGRES_TUNING.sharedBuffers },
+        bootstrap: {
+          database: JOBS_DB,
+          owner: cfg.postgres.appUser,
+          secret: appSecret.metadata.name,
+          postInitSQL: [
+            `CREATE DATABASE ${CHECKPOINTS_DB} OWNER ${cfg.postgres.appUser}`,
+            `CREATE DATABASE ${APP_DB} OWNER ${cfg.postgres.appUser}`,
           ],
         },
-        bootstrap: {
-          initdb: {
-            database: JOBS_DB,
-            owner: cfg.postgres.appUser,
-            secret: { name: appSecret.metadata.name },
-            postInitSQL: [
-              `CREATE DATABASE ${CHECKPOINTS_DB} OWNER ${cfg.postgres.appUser}`,
-              `CREATE DATABASE ${APP_DB} OWNER ${cfg.postgres.appUser}`,
-            ],
-          },
-        },
-        // `max_connections` is the ceiling `assertPgConnectionBudget` holds the
-        // pooler and the direct connections under. LISTEN/NOTIFY and session
-        // locks need a direct session; they take `grid-pg-rw` (see `PgRoute`),
-        // everything else goes through the pooler below. The keepalives and the
-        // idle-in-transaction timeout free what a dead client held (see
-        // `POSTGRES_TUNING`); they are user-level, so the operator reloads.
-        postgresql: {
-          parameters: {
-            max_connections: POSTGRES_TUNING.maxConnections,
-            shared_buffers: POSTGRES_TUNING.sharedBuffers,
-            tcp_keepalives_idle: POSTGRES_TUNING.tcpKeepalivesIdle,
-            tcp_keepalives_interval: POSTGRES_TUNING.tcpKeepalivesInterval,
-            tcp_keepalives_count: POSTGRES_TUNING.tcpKeepalivesCount,
-            idle_in_transaction_session_timeout: POSTGRES_TUNING.idleInTransactionSessionTimeout,
-          },
-        },
-        resources: DATA_RESOURCES.postgres,
-        // Continuous WAL archiving + base-backup target (empty unless enabled).
-        ...backupSpec,
-      },
+        // The SeaweedFS filer's (ADR-0043) and Langfuse's (ADR-0044) own logins:
+        // each owns exactly one database and needs DDL inside it, nothing outside.
+        roles: [
+          ...(filerCredentials
+            ? [{ name: cfg.seaweedfs.filerDatabaseUser, passwordSecret: filerCredentials.metadata.apply((m) => m!.name!) }]
+            : []),
+          ...(langfuseCredentials
+            ? [{ name: LANGFUSE.databaseUser, passwordSecret: langfuseCredentials.metadata.apply((m) => m!.name!) }]
+            : []),
+        ],
+        enableSuperuserAccess: true,
+        backups: cfg.postgres.backups,
+        backupSecretName,
+      }),
     },
     {
       provider,
@@ -901,23 +778,11 @@ export function installScheduledBackup(
   dependsOn: pulumi.Resource[],
 ): k8s.apiextensions.CustomResource | undefined {
   if (!cfg.postgres.backups.enabled) return undefined;
-  return new k8s.apiextensions.CustomResource(
+  return installCnpgScheduledBackup(
     "pg-scheduled-backup",
-    {
-      apiVersion: "postgresql.cnpg.io/v1",
-      kind: "ScheduledBackup",
-      metadata: { name: objectName("pgScheduledBackup"), namespace, labels: commonLabels("postgres") },
-      spec: {
-        schedule: cfg.postgres.backups.schedule,
-        backupOwnerReference: "self",
-        cluster: { name: CLUSTER_NAME },
-        method: "barmanObjectStore",
-        // Take the first base backup immediately on creation — without it there
-        // is no PITR at all until the first scheduled run. See the header for
-        // why that makes this resource's ordering load-bearing.
-        immediate: true,
-      },
-    },
-    { provider, dependsOn },
+    { name: objectName("pgScheduledBackup"), cluster: CLUSTER_NAME, schedule: cfg.postgres.backups.schedule },
+    provider,
+    namespace,
+    dependsOn,
   );
 }

@@ -4,8 +4,8 @@
  * Reconciliation settles a batch whenever somebody reads its documents, and the
  * browser that uploaded them polls while its tab is open. Close the tab and
  * nothing reads them: the upload is done, and its uploader is never told. The
- * scheduler therefore calls this every tick (`scheduler/index.js`), as it does
- * the run reconciler.
+ * `upload-sweep` Hatchet task therefore calls this every minute
+ * (`bff/scheduling/sweeps.ts`), as it does the run reconciler.
  *
  *  - A batch nobody sealed (the tab closed mid-upload) is sealed on its behalf
  *    once no file has come into it for {@link ABANDONED_AFTER_MS}: whatever
@@ -85,7 +85,7 @@ export async function sweepUploadBatches(
           result.sealed += 1
         }
         const inFlight = await listInFlightBatchDocuments(batch.organizationId, batch.id)
-        if (inFlight.length > 0) await reconcileDocumentStatuses(inFlight, batch.organizationId)
+        if (inFlight.length > 0) await reconcileDocumentStatuses(inFlight, batch.organizationId, 'sweep')
         const completed = await settleUploadBatches(batch.organizationId, [batch.id])
         result.completed += completed.length
       })

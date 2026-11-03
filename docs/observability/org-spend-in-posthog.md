@@ -17,9 +17,9 @@ who spent what. Nothing else in PostHog can stand in for it:
 | `openrouter_*` warehouse tables | The platform's own bill per model and key. No tenant in it. Good for reconciling, which the dashboard does |
 | `budget_threshold_crossed`, `budget_blocked` | Moments, not amounts. They say a limit was reached, not how much was spent |
 
-So the BFF sends the ledger itself. `lib/analytics/usage-export.ts`, asked by
-the job scheduler every ten minutes (`POST /api/internal/analytics/usage-export`,
-`sweepUsageExport` in `scheduler/index.js`), sends two personless events:
+So the BFF sends the ledger itself. `lib/analytics/usage-export.ts`, run by
+the `usage-export` Hatchet task every ten minutes (`sweepUsageExport` in
+`apps/workspace/bff/scheduling/sweeps.ts`), sends two personless events:
 
 | Event | One per | What it carries |
 |---|---|---|

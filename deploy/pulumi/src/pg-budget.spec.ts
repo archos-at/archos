@@ -68,8 +68,8 @@ describe("pgConnectionBudget", () => {
 
     // 2 poolers x (3 pooled pairs x 16 + 1 auth session)
     expect(budget.pooled).toBe(98);
-    // One keyed_lock per ingest job in flight (5 x 3), plus the background ones.
-    expect(part(budget, /advisory locks/)).toBe(15 + 4);
+    // One keyed_lock per ingest job in flight (5 x 3, the high-memory pool's 1 x 1), plus the background ones.
+    expect(part(budget, /advisory locks/)).toBe(15 + 1 + 4);
     expect(budget.total).toBe(budget.pooled + budget.reserveTotal);
     expect(budget.limit).toBe(200);
   });
@@ -148,12 +148,12 @@ describe("assertPgConnectionBudget", () => {
     const budget = pgConnectionBudget(cfg);
 
     expect(cfg.langfuse.enabled).toBe(true);
-    expect(cfg.ingestWorker.maxReplicas).toBe(8);
+    expect(cfg.ingestWorker.maxReplicas).toBe(7);
     // 2 x (3 x 12 + 1)
     expect(budget.pooled).toBe(74);
-    // 3 superuser + 6 CNPG + 20 LISTEN + (8 x 2 + 4) locks + 6 Jobs + 8 KEDA + 20 Langfuse
-    expect(budget.reserveTotal).toBe(83);
-    expect(budget.total).toBe(157);
+    // 3 superuser + 6 CNPG + 20 LISTEN + (7 x 2 + 1 x 1 + 4) locks + 6 Jobs + 8 KEDA + 20 Langfuse
+    expect(budget.reserveTotal).toBe(82);
+    expect(budget.total).toBe(156);
   });
 
   it("passes a fresh stack with everything on, which is the defaults' worst case", async () => {
@@ -168,7 +168,7 @@ describe("assertPgConnectionBudget", () => {
     expect(cfg.seaweedfs.topology).toBe("split");
     expect(cfg.seaweedfs.filerStore).toBe("postgres");
     expect(() => assertPgConnectionBudget(cfg)).not.toThrow();
-    expect(pgConnectionBudget(cfg).total).toBe(196);
+    expect(pgConnectionBudget(cfg).total).toBe(197);
   });
 
   it("fails a pooler sized past the limit, naming every number and what to change", async () => {
@@ -190,7 +190,7 @@ describe("assertPgConnectionBudget", () => {
       "grid-oib:ingestWorkerConcurrency": "4",
     });
 
-    expect(() => assertPgConnectionBudget(cfg)).toThrow(/session advisory locks \(ingest jobs in flight \+ background\) 84/);
+    expect(() => assertPgConnectionBudget(cfg)).toThrow(/session advisory locks \(ingest jobs in flight \+ background\) 85/);
   });
 
   it("is allowed to total the limit exactly, not a connection more", async () => {

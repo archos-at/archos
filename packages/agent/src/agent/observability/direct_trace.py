@@ -19,8 +19,10 @@ Mechanics, each a decision:
   Pulumi injects as the full ``/v1/traces`` URL; a bare collector URL gets the
   suffix. A blank endpoint builds nothing and every call is a no-op, the same
   availability rule as ``otel_header_redaction_exporter``.
-* **Always a root.** The span starts from an empty context, so an ambient span
-  (an instrumented request, a test harness) cannot adopt it into its trace.
+* **A root unless told otherwise.** A span starts from an empty context, so an
+  ambient span (an instrumented request, a test harness) cannot adopt it into
+  its trace. The one exception is stated, never ambient: background work that
+  carries its trigger's traceparent continues that trace (:func:`continued_from`).
 * **Fail-open.** A telemetry fault logs at DEBUG and the route carries on; the
   context manager never raises and never swallows the route's own exception.
 
@@ -65,6 +67,8 @@ logger = logging.getLogger(__name__)
 #: Langfuse's observation-level input/output, which win over ``input.value``.
 INPUT_ATTRIBUTE = "langfuse.observation.input"
 OUTPUT_ATTRIBUTE = "langfuse.observation.output"
+#: Metadata of one observation, where a nested generation writes what a root writes on its trace.
+OBSERVATION_METADATA_PREFIX = "langfuse.observation.metadata."
 #: The served model, when the provider names one other than the requested id.
 GEN_AI_RESPONSE_MODEL = "gen_ai.response.model"
 
@@ -80,6 +84,10 @@ _SCOPE = "agent.observability.direct_trace"
 #: The span a direct generation nests under: an ingest file's (:func:`observed_span`). Unset, a
 #: generation is its own root trace, as every route's is.
 _parent_span: ContextVar[Any | None] = ContextVar("direct_trace_parent_span", default=None)
+
+#: Where a unit of background work's trace continues (:func:`continued_from`): the trace a
+#: Hatchet trigger started. Unset, :func:`observed_span` starts a root trace.
+_parent_context: ContextVar[Any | None] = ContextVar("direct_trace_parent_context", default=None)
 
 _lock = threading.Lock()
 _resolved = False
@@ -130,6 +138,16 @@ def _build(endpoint: str | None, env: Mapping[str, str], exporter):
     return provider
 
 
+def tracer_provider():
+    """The private provider, built from the environment on first use; None when tracing is off.
+
+    For an instrumentor that should export where these spans go (the Hatchet
+    SDK's, ``orchestrator_tracing``), never for making it the global one.
+    """
+    _current_tracer()
+    return _provider
+
+
 def _current_tracer():
     """The tracer, building the provider from the environment on first use; None when disabled."""
     if not _resolved:
@@ -171,25 +189,32 @@ def generation_start_attributes(
     messages: list | None,
     session_id: str | None = None,
     metadata: Mapping[str, Any] | None = None,
+    nested: bool = False,
 ) -> dict[str, Any]:
     """What the span knows before the call: trace identity, model, prompt. Pure.
 
     Metadata keeps scalars only, since a Langfuse metadata value is one
     attribute; ``feature`` is written last so a caller cannot rename the trace.
+
+    ``nested``: the generation is a child of an :func:`observed_span` (an ingested
+    file), whose trace it must not claim. Langfuse reads ``langfuse.trace.*`` off
+    ANY span of a trace, so a child that wrote its own trace name, tags and
+    ``feature`` renamed its file's ``ingest-file`` trace to ``ingest-vision``
+    whenever its span was ingested after the root's. A nested generation writes
+    its metadata on the observation instead, and no trace-level attribute.
     """
-    attributes: dict[str, Any] = {
-        **process_trace_attributes(),
-        OBSERVATION_TYPE_ATTRIBUTE: "generation",
-        TRACE_NAME_ATTRIBUTE: feature,
-        TAGS_ATTRIBUTE: [f"feature:{feature}", AUXILIARY_SURFACE_TAG],
-    }
+    attributes: dict[str, Any] = {**process_trace_attributes(), OBSERVATION_TYPE_ATTRIBUTE: "generation"}
+    if not nested:
+        attributes[TRACE_NAME_ATTRIBUTE] = feature
+        attributes[TAGS_ATTRIBUTE] = [f"feature:{feature}", AUXILIARY_SURFACE_TAG]
+    prefix = OBSERVATION_METADATA_PREFIX if nested else METADATA_PREFIX
     for key, value in {**(metadata or {}), "feature": feature}.items():
         if isinstance(value, str | int | float | bool):
-            attributes[f"{METADATA_PREFIX}{key}"] = value
+            attributes[f"{prefix}{key}"] = value
     if model:
         attributes[GEN_AI_REQUEST_MODEL] = model
         attributes[OBSERVATION_MODEL_NAME] = model
-    if session_id:
+    if session_id and not nested:
         attributes[SESSION_ID_ATTRIBUTE] = session_id
     if messages is not None:
         attributes[INPUT_ATTRIBUTE] = _clip(json.dumps(messages, ensure_ascii=False, default=str))
@@ -271,9 +296,17 @@ class GenerationRecorder:
         if self._span is None:
             return
         try:
-            self._span.set_attributes(generation_result_attributes(response))
+            attributes = generation_result_attributes(response)
+            if getattr(self._span, "parent", None) is not None:  # nested: the trace is its parent's
+                attributes = {_on_observation(key): value for key, value in attributes.items()}
+            self._span.set_attributes(attributes)
         except Exception:
             logger.debug("direct_trace: could not record a generation's reply", exc_info=True)
+
+
+def _on_observation(key: str) -> str:
+    """A trace-metadata attribute key as the same key on the observation."""
+    return key.replace(METADATA_PREFIX, OBSERVATION_METADATA_PREFIX, 1)
 
 
 class _ObservedGeneration:
@@ -319,7 +352,7 @@ def _start_span(feature: str, attributes: dict[str, Any]) -> Any | None:
             feature,
             context=context,
             kind=SpanKind.CLIENT,
-            attributes=generation_start_attributes(feature, **attributes),
+            attributes=generation_start_attributes(feature, **attributes, nested=parent is not None),
         )
     except Exception:
         logger.debug("direct_trace: could not start a generation span", exc_info=True)
@@ -333,6 +366,11 @@ class SpanRecorder:
 
     def __init__(self, span: Any | None) -> None:
         self._span = span
+
+    @property
+    def span(self) -> Any | None:
+        """The OpenTelemetry span, or None when tracing is off (``orchestrator_tracing`` links runs to it)."""
+        return self._span
 
     def finish(self, output: Mapping[str, Any], *, failed: str | None = None) -> None:
         """Record the outcome (counts, seconds, statuses: never document text). Never raises."""
@@ -371,7 +409,7 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
 
             span = tracer.start_span(
                 feature,
-                context=Context(),
+                context=_parent_context.get() or Context(),
                 kind=SpanKind.INTERNAL,
                 attributes={
                     **process_trace_attributes(),
@@ -391,6 +429,32 @@ def observed_span(feature: str, *, metadata: Mapping[str, Any] | None = None) ->
         if token is not None:
             _parent_span.reset(token)
         _end_span(span, None)
+
+
+@contextmanager
+def continued_from(traceparent: str | None) -> Iterator[None]:
+    """Spans :func:`observed_span` opens in this block join the trace ``traceparent`` names (W3C).
+
+    For background work a trigger started: an ingest run carries its trigger's
+    traceparent in its Hatchet metadata, so the trigger, the run's wait for a
+    worker and every file's trace are one trace. Nothing to continue (None, or
+    a value that does not parse) leaves each span a root, as before.
+    """
+    parent = None
+    if traceparent:
+        try:
+            from opentelemetry.trace import get_current_span
+            from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+            extracted = TraceContextTextMapPropagator().extract({"traceparent": traceparent})
+            parent = extracted if get_current_span(extracted).get_span_context().is_valid else None
+        except Exception:
+            logger.debug("direct_trace: could not read a traceparent", exc_info=True)
+    token = _parent_context.set(parent)
+    try:
+        yield
+    finally:
+        _parent_context.reset(token)
 
 
 def _end_span(span: Any | None, exc: BaseException | None) -> None:

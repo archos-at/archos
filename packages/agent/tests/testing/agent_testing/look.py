@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 
-import knowledge_layer.llamaindex.adapter as llm_adapter
+import knowledge_layer.ingest.adapter as llm_adapter
 import knowledge_layer.view_image as view
 import pypdfium2 as pdfium
 import pytest

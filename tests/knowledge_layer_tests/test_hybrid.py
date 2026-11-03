@@ -1,7 +1,7 @@
 """Tests for the hybrid lexical+vector retrieval fusion (RRF).
 
 The vector channel alone misses short exact-string queries (``§ 3``, quoted
-phrases, ALLCAPS abbreviations). ``knowledge_layer.llamaindex.hybrid`` fuses
+phrases, ALLCAPS abbreviations). ``knowledge_layer.search.hybrid`` fuses
 one vector channel with one lexical channel per exact term using reciprocal
 rank fusion (Cormack et al., SIGIR 2009) and must fail open.
 """
@@ -10,12 +10,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from knowledge_layer.llamaindex.hybrid import DEFAULT_DF_CEILING_MIN_TOTAL
-from knowledge_layer.llamaindex.hybrid import DEFAULT_DF_CEILING_RATIO
-from knowledge_layer.llamaindex.hybrid import RRF_K
-from knowledge_layer.llamaindex.hybrid import fuse_with_ranks
-from knowledge_layer.llamaindex.hybrid import reciprocal_rank_fusion
-from knowledge_layer.llamaindex.hybrid import selective_terms
+from knowledge_layer.search import DEFAULT_DF_CEILING_MIN_TOTAL
+from knowledge_layer.search import DEFAULT_DF_CEILING_RATIO
+from knowledge_layer.search import RRF_K
+from knowledge_layer.search import fuse_with_ranks
+from knowledge_layer.search import reciprocal_rank_fusion
+from knowledge_layer.search import selective_terms
 
 
 def _chunk(chunk_id: str) -> SimpleNamespace:

@@ -8,8 +8,7 @@ terminal SUCCESS and only then the thread turn and the notification.
 
 EVERY PUBLISH IS GATED ON OWNING THE VERDICT. Terminal statuses are sticky: a
 job the reaper or the cancel route already finalized (FAILURE, INTERRUPTED) is
-never flipped back, and a worker whose queue claim was reclaimed lost the race
-even while ``job_info`` still reads RUNNING. A run that does not own the
+never flipped back. A run that does not own the
 verdict writes no thread turn, no notice and no notification: thread, Report
 and status would otherwise tell three different stories about one run.
 """
@@ -40,7 +39,6 @@ from .run_result import extract_verified_sources
 from .run_result import mark_degraded
 from .runner import _DEGRADED_EVENT_FIELDS
 from .runner import JOB_DEGRADED_EVENT_TYPE
-from .runner import _lost_claim
 from .runner import _merge_job_cards
 from .runner import _produces_report
 from .runner import _run_report_passes
@@ -172,22 +170,13 @@ async def finish(scope: JobScope, request: JobRequest, outcome: JobOutcome) -> N
     """Write SUCCESS unless the verdict is not this run's; then the thread turn and the notification."""
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
 
-    lost_claim = await _lost_claim(request.db_url, request.job_id, request.claim_owner)
-    if lost_claim:
-        logger.warning(
-            "Job %s lost its queue claim; skipping SUCCESS write and thread publish (the owning worker publishes)",
-            request.job_id,
-        )
-        finalized = False
-    else:
-        finalized = await _update_status_if_not_terminal(
-            scope.job_store, request.job_id, JobStatus.SUCCESS, output=outcome.output
-        )
+    finalized = await _update_status_if_not_terminal(
+        scope.job_store, request.job_id, JobStatus.SUCCESS, output=outcome.output
+    )
     if not finalized:
         logger.info(
-            "Job %s finished without a thread turn (%s); the standing verdict owns the thread",
+            "Job %s finished without a thread turn (terminal status already set); the standing verdict owns the thread",
             request.job_id,
-            "queue claim lost" if lost_claim else "terminal status already set",
         )
         return
     await _write_thread_turn(scope, request, outcome)
@@ -246,13 +235,7 @@ async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) ->
     logger.exception("Job %s failed: %s", request.job_id, type(exc).__name__)
     safe_error = sanitize_job_error(exc)
     finalized = False
-    lost_claim = await _lost_claim(request.db_url, request.job_id, request.claim_owner)
-    if lost_claim:
-        logger.warning(
-            "Job %s lost its queue claim; skipping FAILURE write and notice (the owning worker publishes)",
-            request.job_id,
-        )
-    elif scope.job_store:
+    if scope.job_store:
         finalized = await _update_status_if_not_terminal(
             scope.job_store, request.job_id, JobStatus.FAILURE, error=safe_error
         )
@@ -270,8 +253,8 @@ async def finish_failed(scope: JobScope, request: JobRequest, exc: Exception) ->
             expect_run=request.expect_run,
         )
     # A standing FAILURE (the reaper's) is reported by the reaper too; a repeat
-    # here is harmless. A reclaimed loser reports nothing.
-    if not lost_claim and await _should_notify_outcome(
+    # here is harmless.
+    if await _should_notify_outcome(
         job_store=scope.job_store, job_id=request.job_id, verdict=verdict, finalized=finalized
     ):
         await notify_job_outcome(

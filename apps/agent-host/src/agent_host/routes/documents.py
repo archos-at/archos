@@ -137,7 +137,7 @@ def _attach_derived_suggestions(
     files: list[FileInfo], summaries: list[AvailableDocument], held_names: Callable[[], set[str] | None]
 ) -> None:
     """Fill ``revision_suggestion`` of the files that have none from the collection's own rows (on read)."""
-    from knowledge_layer.llamaindex import revisions
+    from knowledge_layer.ingest import revisions
 
     derived = revisions.derive_suggestions(summaries, held_names)
     for file in files:
@@ -150,7 +150,7 @@ def _held_names_of(collection_name: str) -> Callable[[], set[str] | None]:
     """The reader of a collection's held and in-flight file names, for suggestions derived on read."""
 
     def held() -> set[str] | None:
-        from knowledge_layer.llamaindex import revisions
+        from knowledge_layer.ingest import revisions
 
         return revisions.held_file_names(collection_name)
 

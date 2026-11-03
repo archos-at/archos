@@ -49,7 +49,7 @@ kubectl -n grid get deploy ingest-worker \
 The tag is `sha-<commit>`. Two ways to tell whether that commit carries the fix:
 
 ```bash
-git log --oneline <commit> -- packages/knowledge-layer/src/llamaindex/adapter.py
+git log --oneline <commit> -- packages/knowledge-layer/src/ingest/adapter.py
 git merge-base --is-ancestor <commit> origin/develop && echo "on develop"
 ```
 
@@ -162,24 +162,23 @@ The fixed build adds three lines, so the window between `file:start` and
 - `[ingest-perf]` is written in the file's `finally`, so a killed process never
   writes it. Its absence says the process died, not where.
 
-## 4. Queue depth and dead jobs
+## 4. Queue depth and failed runs
 
-The scaler reads `ingest_job_queue`, so the same table is what to look at when
-pods are restarting. It lives in the `jobs` database in the app Postgres,
-which is the CloudNativePG cluster `grid-pg`:
+A document is one `ingest-document` run on Hatchet (ADR-0150), and KEDA scales
+the tier on the runs Hatchet holds queued or running ([k8s §6.3d](kubernetes.md)).
+That backlog is what to look at when pods are restarting, by workflow:
 
 ```bash
-PRIMARY=$(kubectl -n grid get cluster grid-pg -o jsonpath='{.status.currentPrimary}')
-kubectl -n grid exec "$PRIMARY" -- psql -U postgres -d jobs -Atc \
-  "SELECT status, count(*) FROM ingest_job_queue GROUP BY status ORDER BY status;"
+kubectl cnpg psql background-work-pg -n background-work -- -d hatchet -c \
+  "SELECT split_part(action_id, ':', 1) AS workflow, count(*) FROM v1_queue_item GROUP BY 1"
 ```
 
-`dead|N` is the number of jobs that exhausted their retries; an OOM kill
-mid-claim is one way a job gets there. KEDA scales the tier on the rows that are
-not `dead` (`ingest-worker` ScaledObject, min 1, max 3 —
-[k8s §6.3d](kubernetes.md)). A growing `dead` count while pods restarted is the
-sequence to look for; a `dead` count that is flat while the queue drains is
-normal.
+A run whose worker was OOM-killed is reassigned by Hatchet and counts an
+attempt; one that spent every attempt is failed, with each attempt's error on
+the run in the dashboard ([`hatchet.md`](hatchet.md), "Reaching the
+dashboard"). Failed `ingest-document` runs climbing while pods restarted is the
+sequence to look for. The old `ingest_job_queue` table is kept until the cutover
+drains it; [`hatchet.md`](hatchet.md) has the query that watches it empty.
 
 ## 5. What the lab measures, before and after
 

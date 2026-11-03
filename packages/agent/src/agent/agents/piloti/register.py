@@ -226,7 +226,7 @@ class _Deployment:
     agent: ChatAgent
     provider: LLMProvider
     tools: list[Any]
-    #: The read-only estate backend the filesystem tools read through (``knowledge_layer.estate``); built once.
+    #: The read-only estate backend the filesystem tools read through (``knowledge_layer.estate.backend``); built once.
     estate: Any = None
     #: tool names → (is_valid, unavailable): the availability check is a scan
     #: with an INFO line per tool, and the tool set is fixed per deployment.

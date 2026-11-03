@@ -158,14 +158,14 @@ include_external_packages = true
 
 [[tool.importlinter.contracts]]
 id = "qdrant-client-confined"
-name = "Only knowledge_layer.qdrant imports qdrant_client"
+name = "Only knowledge_layer.vector_store imports qdrant_client"
 type = "forbidden"
 source_modules = ["agent", "agent_host", "knowledge_layer"]
 forbidden_modules = ["qdrant_client"]
 # Who names the client, not who reaches a module that does: everything reaches
-# knowledge_layer.qdrant, which is the point of confining the client there.
+# knowledge_layer.vector_store, which is the point of confining the client there.
 allow_indirect_imports = true
-ignore_imports = ["knowledge_layer.qdrant.** -> qdrant_client"]
+ignore_imports = ["knowledge_layer.vector_store.** -> qdrant_client"]
 
 [[tool.importlinter.contracts]]
 id = "agent-api-seam"
@@ -192,17 +192,17 @@ ignore_imports = [
   "agent.agents.piloti.register -> knowledge_layer.chat_binding",
   "agent.agents.piloti.register -> knowledge_layer.estate",
   "agent.knowledge.collection_pages -> knowledge_layer.chunk_positions",
-  "agent.knowledge.collection_pages -> knowledge_layer.qdrant.payload",
-  "agent.knowledge.collection_pages -> knowledge_layer.qdrant.reads",
+  "agent.knowledge.collection_pages -> knowledge_layer.vector_store",
+  "agent.knowledge.collection_pages -> knowledge_layer.vector_store.reads",
   "agent.knowledge.folder_cards.inputs -> knowledge_layer.browse",
   "agent.knowledge.folder_cards.worker -> knowledge_layer.browse",
-  "agent.knowledge.folder_cards.worker -> knowledge_layer.qdrant.folders",
-  "agent.knowledge.folder_cards.worker -> knowledge_layer.qdrant.store",
-  "agent.knowledge.scoping -> knowledge_layer.search_scope",
-  "agent.oib_sync -> knowledge_layer.llamaindex.adapter",
-  "agent.tools.cross_project.hit_judge -> knowledge_layer.decisions",
-  "agent.tools.cross_project.register -> knowledge_layer.trace_lanes",
-  "agent.tools.look.reading -> knowledge_layer.llamaindex.adapter",
+  "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store.folders",
+  "agent.knowledge.folder_cards.worker -> knowledge_layer.vector_store",
+  "agent.knowledge.scoping -> knowledge_layer.search",
+  "agent.oib_sync -> knowledge_layer.ingest.adapter",
+  "agent.tools.cross_project.hit_judge -> knowledge_layer.search",
+  "agent.tools.cross_project.register -> knowledge_layer.search",
+  "agent.tools.look.reading -> knowledge_layer.ingest",
   "agent.tools.look.register -> knowledge_layer.view_image",
   "agent.tools.look.resolve -> knowledge_layer.view_image",
 ]

@@ -14,8 +14,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from knowledge_layer.read_passage import ReadPassageConfig
-from knowledge_layer.read_passage import _current_revision
 from knowledge_layer.read_passage import read_passage
+from knowledge_layer.read_passage.tool import _current_revision
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf

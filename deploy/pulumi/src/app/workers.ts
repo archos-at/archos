@@ -13,7 +13,7 @@ import {
 } from "../platform/rollout";
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { BOOTSTRAP_JOB_RESOURCES, JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, PORT, UID } from "../constants";
-import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, schedulerEnv, sref } from "./config";
+import { AppSecrets, AppWiring, BACKEND_URL, purgerEnv, sref } from "./config";
 
 const FRONTEND_URL = `http://frontend:${PORT.frontend}`;
 
@@ -176,7 +176,6 @@ export function installWorkers(
   dependsOn: pulumi.Resource[],
 ): {
   purger: k8s.apps.v1.Deployment;
-  scheduler: k8s.apps.v1.Deployment;
   storageAlerts?: k8s.batch.v1.CronJob;
   vectorReconcile?: k8s.batch.v1.CronJob;
   housekeeping: k8s.batch.v1.CronJob[];
@@ -227,53 +226,6 @@ export function installWorkers(
     },
     { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
   );
-
-  // Always created. It drives the run reconciler
-  // (`apps/workspace/bff/runs/reconcile.ts`) as well as the schedules, and
-  // runs exist without Agent Skills (an escalated chat question). Whether a
-  // schedule fires is the organization's `skills` WorkOS flag, checked by the
-  // BFF per fire, so there is no deployment switch here.
-  const scheduler = new k8s.apps.v1.Deployment(
-        "skill-scheduler",
-        {
-          metadata: {
-            name: "skill-scheduler",
-            namespace: w.namespace,
-            labels: commonLabels("skill-scheduler"),
-          },
-          spec: {
-            replicas: 1,
-            ...recreateRollout(ROLLOUT.lightWorker),
-            selector: { matchLabels: commonLabels("skill-scheduler") },
-            template: {
-              metadata: {
-                labels: commonLabels("skill-scheduler"),
-                annotations: secretChecksumAnnotations(withLangfuseKeysChecksum(cfg, secrets.checksum)),
-              },
-              spec: {
-                enableServiceLinks: false, // see platform/security.ts — service-link env collisions
-                imagePullSecrets: w.imagePullSecrets,
-                securityContext: { runAsNonRoot: true, runAsUser: UID.frontend, runAsGroup: UID.frontend },
-                // Finish the claimed scheduler batch before exiting.
-                terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
-                ...onNodeGroup(cfg.nodeGroups.app),
-                containers: [
-                  {
-                    name: "skill-scheduler",
-                    image: frontendImage(cfg),
-                    imagePullPolicy: appPullPolicy(cfg, frontendImage(cfg)),
-                    securityContext: hardenedContainerSecurityContext(),
-                    command: ["node", "scheduler/index.js"],
-                    env: schedulerEnv(w),
-                    resources: workerResources,
-                  },
-                ],
-              },
-            },
-          },
-        },
-        { provider: w.provider, dependsOn: [secrets.secret, ...dependsOn] },
-      );
 
   /**
    * Storage-quota alerting (ADR-0042). A 10-minute ceiling: the sweep is one
@@ -363,5 +315,5 @@ export function installWorkers(
     baseCorpusSync,
   ];
 
-  return { purger, scheduler, storageAlerts, vectorReconcile, housekeeping, baseCorpusSync };
+  return { purger, storageAlerts, vectorReconcile, housekeeping, baseCorpusSync };
 }

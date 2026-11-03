@@ -656,8 +656,10 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   `schedule_timezone`, `next_run_at` — *when the due scan should next look at
   this row*, which is the cron's next occurrence on a `schedule`, the `due_at`
   on a pending `once`, and NULL on a `manual` one, on anything paused, and on a
-  one-shot that has already fired (0090) — `due_at` (live only on `once`),
-  `budget_usd`, `last_run_at`, `created_at`, `updated_at`.
+  one-shot that has already fired (0090) — `scheduled_run_id` (0192: the
+  Hatchet scheduled run that fires the row at `next_run_at`, NULL when none is
+  known), `due_at` (live only on `once`), `budget_usd`, `last_run_at`,
+  `created_at`, `updated_at`.
 - `task_runs`: `id`, `organization_id`, `project_id`, `definition_id`
   (nullable, `ON DELETE SET NULL` via the composite FK below — history outlives
   the arrangement), the frozen `kind` /
@@ -684,11 +686,10 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   constraints copied from 0075). `kind` has NO check, deliberately, as in 0075.
 - **Indexes:** `idx_task_definitions_project_created`,
   `idx_task_definitions_organization_id`, and the PARTIAL `idx_task_definitions_due`
-  on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scheduler's
-  due-scan, the successor of `idx_jobs_due`. 0090 moved that predicate off the
-  trigger and onto `next_run_at` so ONE index and ONE claim query serve both a
-  recurring task and a one-shot; the claim's WHERE clause must keep matching it
-  or the scan degrades to a sequential one over every definition. A claimed
+  on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scan of the
+  repair sweep (`schedule-repair`, ADR-0150), which gives an overdue row a
+  Hatchet scheduled run; its WHERE clause must keep matching the predicate or
+  the scan degrades to a sequential one over every definition. A fired
   one-shot has its `next_run_at` NULLED rather than advanced, which is what
   makes it at-most-once — and `enabled` is deliberately left alone, because it
   is the person's pause switch and a finished task is not a paused one. On runs:
@@ -1056,8 +1057,8 @@ UPDATE and any DELETE except by the platform role, which is the retention sweep.
 
 Retention: `organizations.settings.downloadLogRetentionDays` (30–365; absent,
 malformed or out of range means 365), written only by
-`PUT /api/organization/download-log/retention`. The scheduler
-(`scheduler/db.js`, `pruneDownloadLog`) deletes once a day, in batches of 1000
+`PUT /api/organization/download-log/retention`. The daily
+`download-log-retention` task (`workers/maintenance-sql.js`, `pruneDownloadLog`) deletes once a day, in batches of 1000
 and at most 50 batches a run: first everything older than 365 days, then each
 organization's own shorter cutoff. Proven against Postgres in
 `lib/download-log/download-log.integration.spec.ts`, constraints and guard
@@ -1523,10 +1524,19 @@ split is stated explicitly).
 
 ---
 
-## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079)
+## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079; kept until the cutover drains them)
 
-The BFF's durable background work: one row is one job a `bff-jobs` replica
-claims and runs (project reindex, failed-ingestion rescan, the sort of a shelf's root
+The BFF's background work runs on Hatchet (ADR-0150): one `bff-job` run per
+job, the kind in its input, fair across offices by a `GROUP_ROUND_ROBIN`
+concurrency key on `input.organization_id` and ordered inside an office by run
+priority ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)). These two
+tables are the claim queue it replaced. Nothing new is written to them; they are
+kept until the cutover drains them (hatchet.md, "Cutover from the claim
+queues"), and a later migration drops them. What follows describes the rows
+still in them.
+
+Under the claim queue, one row was one job a `bff-jobs` replica
+claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's root
 `root_sort`, ADR-0121, the re-read of the documents collection placement moved
 `placement_reingest`; and, one step each,
 IFC extraction `bim_extract`, office conversion `office_rendition` and research
@@ -1545,7 +1555,7 @@ bulk), then oldest, with `FOR UPDATE SKIP LOCKED`.
 | `payload` | jsonb | The job's whole state: what was asked and how far it got (a keyset cursor, the counts). Saved after every slice and read back by whichever worker claims it next. Holds the requester's identity, permissions and feature flags, never an access token. A `file_research_report` job carries the finished report itself (the backend forgets a run after a day), so it is the one payload that can be large. |
 | `status` | text | `queued`, `claimed` or `dead` (CHECK). A finished job is **deleted**; a job that failed every attempt is `dead` and stays, with its reason, until `BFF_JOBS_DEAD_RETENTION_DAYS` after `dead_at`. When a row goes dead its `payload` is reduced to `runId`, `projectId`, `documentId` and `taskRunId` (`KEPT_PAYLOAD_KEYS`): the sweeps match a dead job by them, and nothing else of the report, requester or storage keys outlives the attempt. |
 | `attempts` | integer | Claims spent. A drain or a cap gives a claim back without spending one. |
-| `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK); a claim silent for `BFF_JOBS_STALE_SECONDS` is claimed again. |
+| `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK). The holder is one attempt of a Hatchet run (`run/retry@worker`); a claim silent for `BFF_JOBS_STALE_SECONDS`, by the newer of `heartbeat_at` and `claimed_at`, is claimed again. |
 | `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. |
 | `dead_at` | timestamptz | Migration 0104. Set when the row goes dead (CHECK `bff_job_queue_dead_stamped`: a dead row always has one), and what the retention counts from. |
 | `created_at`, `last_error` | timestamptz, text | |
@@ -1566,13 +1576,13 @@ RLS: both are tenant tables whose predicate compares `lane` (not an
 `organization_id` column) to `current_org()`, so a request enqueues and
 reads only its own organization's jobs. The runner is cross-tenant by nature
 and steps up to `app_platform` per transaction
-(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA counts
-the table as `keda_scaler`, a login with SELECT on this table's `status`
-column and nothing else (a leaked scaler DSN cannot read a payload); it crosses the tenant boundary by a second policy,
-`grid_keda_scaler_count` (`FOR SELECT TO keda_scaler USING (true)`), which
-the Pulumi grants Job (`deploy/pulumi/src/app/queue-scaler-grants.ts`) creates
-after the migrations, not a migration: the role exists only where CloudNativePG
-declares it. `tenant_isolation` is untouched.
+(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA no
+longer counts this table: the `bff-jobs` tier scales on its Hatchet backlog in
+`background-work-pg` (`hatchetBacklogQuery`, `deploy/pulumi/src/app/keda-scaling.ts`),
+read by that cluster's own `keda_scaler` login. A database that ran the claim
+queue may still carry the scaler's `grid_keda_scaler_count` policy
+(`FOR SELECT TO keda_scaler USING (true)`, a policy a Pulumi Job created, never a
+migration); it goes with the tables. `tenant_isolation` is untouched.
 
 ---
 

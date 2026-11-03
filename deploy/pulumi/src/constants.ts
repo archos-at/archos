@@ -175,7 +175,7 @@ export const BOOTSTRAP_JOB_RESOURCES = {
   limits: { cpu: "250m", memory: "256Mi" },
 } as const;
 
-/** Resource envelope for light single-replica Node workers (purger, scheduler)
+/** Resource envelope for light single-replica Node workers (the purger)
  *  and the migration Job — poll loops, no heavy lifting. */
 export const LIGHT_WORKER_RESOURCES = {
   requests: { cpu: "50m", memory: "128Mi" },
@@ -556,15 +556,12 @@ export const APP_DEFAULTS = {
   folderPurgeGraceDays: 14,
   /** Purger poll interval (ms). */
   purgerPollMs: 60_000,
-  /** Skill-scheduler poll interval (ms) and per-tick claim batch. */
-  schedulerPollMs: 30_000,
-  schedulerBatch: 20,
-  /** Job run history retention (days). */
+  /** Job run history retention (days), pruned by the bff-jobs `task-runs-prune` task. */
   skillRunsRetentionDays: 90,
   /**
-   * How long Langfuse traces live before the scheduler deletes them (days).
-   * Langfuse's own retention setting is Enterprise-only (ADR-0044); the
-   * scheduler job reads this and never goes below Langfuse's minimum of 3.
+   * How long Langfuse traces live before bff-jobs' `trace-retention` task
+   * deletes them (days). Langfuse's own retention setting is Enterprise-only
+   * (ADR-0044); the task reads this and never goes below Langfuse's minimum of 3.
    */
   langfuseTraceRetentionDays: 30,
 } as const;

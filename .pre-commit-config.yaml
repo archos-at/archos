@@ -201,6 +201,19 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: package-surfaces
+        name: code outside a package imports its surface, not its submodules
+        # Laying knowledge_layer out by job rewrote nearly a thousand imports and
+        # dotted patch strings, most of them in tests, because they named the
+        # submodule rather than the package. A ratchet on
+        # ci/package_surface_baseline.json: what still names a submodule from
+        # outside may only shrink. Always, for the reason file-size gives. The
+        # venv python, for the reason file-size gives. About two seconds.
+        entry: .venv/bin/python scripts/check_package_surfaces.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: env-docs
         name: the queue workers' environment variables have a row in the env reference
         # AGENTS.md asks for a row per variable; nothing else checks it, and an

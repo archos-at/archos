@@ -7,7 +7,7 @@ runs as four of them (ADR-0082): the `chat` role (`chat`), the `api` role
 shared `qdrant` vector store (ADR-0115). This page describes the core ones; the observability stack
 (`dragonfly`, `clickhouse`, the three `langfuse-*` services) and the four
 background workers (`purger`,
-`skill-scheduler`, `bff-jobs`, `housekeeping`) are defined in the compose file
+`bff-jobs`, `housekeeping`) are defined in the compose file
 with their own comments and are not covered here. `housekeeping` is the
 backend's housekeeping clock (ADR-0082 step A1): the backend runs no cleanup
 loop of its own, and this calls its `/v1/maintenance/housekeeping/*` routes on
@@ -15,8 +15,9 @@ the cadences Kubernetes runs as CronJobs. One of them is the base-corpus sync
 (`base-corpus`, every ten minutes), which queues an ingest job for each uploaded OIB PDF that is
 not indexed yet (the `ingest-worker` service claims and runs it); the backend does no sync at boot. `bff-jobs` (ADR-0079) is the frontend image
 running `workers/jobs/index.js`: the BFF (or, with `BFF_JOBS_MODE=inprocess`,
-the services bundled into `dist-jobs/slice.mjs` and no server) plus the claim loop that runs the jobs
-in `bff_job_queue` (project reindex, failed-ingestion rescan, IFC extraction,
+the services bundled into `dist-jobs/slice.mjs` and no server) plus the worker that runs the BFF's
+jobs as `bff-job` runs on Hatchet (ADR-0150; the Compose `hatchet` profile, [`hatchet.md`](hatchet.md), and `bff_job_queue` kept
+until the cutover drains it) (project reindex, failed-ingestion rescan, IFC extraction,
 Office rendition through `gotenberg`, research-report filing), with no
 published port. Without it none of them runs. It shares the frontend's environment by YAML alias, so a
 variable added to `frontend` reaches it.
@@ -246,7 +247,7 @@ It is the only long-running-image container that holds
 out of the container that serves requests is the point: row-level security does
 not apply to a table's owner, so a bug that reached it would have a full bypass
 inside the very process the boundary is meant to constrain. `frontend`,
-`purger` and `skill-scheduler` all wait on it via
+`purger` and `bff-jobs` all wait on it via
 `depends_on: { condition: service_completed_successfully }`.
 
 Runbook: [row-level security](../database/row-level-security.md), ADR-0041.

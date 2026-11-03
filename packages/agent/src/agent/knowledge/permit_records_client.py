@@ -3,7 +3,7 @@
 ``permit_records`` and ``permit_requirements`` live in the BFF's Postgres, which this
 process never reads or writes (ADR-0055). The ingest pipeline and the backfill hand the
 record over ``POST /api/internal/permit-records``, service-token guarded, the transport
-``knowledge_layer/llamaindex/document_presence.py`` uses for ``document-exists``.
+``knowledge_layer/ingest/document_presence.py`` uses for ``document-exists``.
 
 Fail-open the same way: no BFF configured, a timeout, a non-200 or an unreadable answer
 is ``False`` and a WARNING, never an exception. A record that did not land costs the
@@ -61,15 +61,15 @@ def store_permit_record(
     if document_id:
         body["documentId"] = document_id
     try:
-        import httpx
+        from agent.common.connect_retry import connect_retrying_client
 
-        # No redirect following (httpx's default): the token must not follow a 3xx elsewhere.
-        response = httpx.post(
-            f"{base_url.rstrip('/')}{_PERMIT_RECORDS_PATH}",
-            json=body,
-            headers={"x-internal-token": token},
-            timeout=_HTTP_TIMEOUT_SECONDS,
-        )
+        # No redirect following: the token must not follow a 3xx elsewhere.
+        with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}{_PERMIT_RECORDS_PATH}",
+                json=body,
+                headers={"x-internal-token": token},
+            )
         if response.status_code != 200:
             logger.warning(
                 "permit_records: the BFF refused the record for document %s (HTTP %d)",

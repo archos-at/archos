@@ -1,12 +1,16 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
-import { APP_DEFAULTS, KEDA_SCALER_ROLE, LANGFUSE, PORT, QDRANT } from "../constants";
+import { APP_DEFAULTS, LANGFUSE, PORT, QDRANT } from "../constants";
 import { APP_DB, CHECKPOINTS_DB, JOBS_DB, RUNTIME_ROLE, type Postgres } from "../data/postgres";
 import { FRONTEND_DRAIN_SECONDS, secretChecksum } from "../platform/rollout";
 import { frontendLangfuseEnv, LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "../platform/langfuse";
 import { logicalName, objectName } from "../names";
 import { API_TIER, CHAT_TIER } from "./tier-names";
+import { hatchetEnv } from "./hatchet-env";
+import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
+import type { ModelWorkload } from "../config/app-services";
+import { heavyFileBytesEnv } from "../config/workers";
 
 /** The BFF's `service.name`; the collector routes its spans by it (`APP_TRACE_SERVICES`). */
 export const BFF_SERVICE_NAME = "grid-ui";
@@ -89,57 +93,6 @@ export interface AppSecrets {
   checksum: pulumi.Output<string>;
 }
 
-/** The Secret KEDA's TriggerAuthentications read the queue DSNs from; no pod references it. */
-export const SCALER_SECRET_NAME = objectName("kedaScalerSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
-
-/**
- * The Secret key of the DSN KEDA reads the Python claim queues (`jobs`)
- * through, and the one for the BFF queue (`app`).
- */
-export const JOBS_QUEUE_DSN_KEY = "KEDA_JOBS_QUEUE_DB_URL";
-export const BFF_QUEUE_DSN_KEY = "KEDA_BFF_QUEUE_DB_URL";
-
-/**
- * What KEDA's `postgresql` scaler connects with, in a Secret of its own
- * (ADR-0079): the read-only scaler login (`KEDA_SCALER_ROLE`, SELECT on the queue
- * tables and nothing else, `queue-scaler-grants.ts`), never the owner.
- *
- * Its own Secret, not keys of `grid-secrets`, for two reasons. No pod reads these
- * values, and a Secret that every pod's checksum covers would roll the frontend,
- * the backend and every worker on a rotation of a credential none of them holds.
- * And the operator in `keda` reads only what a TriggerAuthentication names, so
- * the scaler's credential sits apart from the keys of the application's own.
- *
- * Each DSN's host is the FQDN, because the operator resolves names in its own
- * namespace and a bare service name resolves there to nothing: the scaler would
- * error on every poll and the tier would never scale out. Both Python queues
- * live in one database, so the ingest and research tiers read one key.
- */
-export function buildScalerSecret(w: AppWiring): k8s.core.v1.Secret {
-  const dsn = (db: string) =>
-    // Direct: the operator opens a session per poll, from another namespace, as a
-    // login capped at KEDA_SCALER_CONNECTION_LIMIT (counted in the budget's direct
-    // reserve). The scaler reads the primary's own queue tables, whether or not
-    // the pooler is up.
-    w.dsn({
-      db,
-      via: "direct",
-      as: { user: KEDA_SCALER_ROLE, password: w.cfg.postgres.scalerPassword },
-      clusterWide: true,
-    });
-  return new k8s.core.v1.Secret(
-    logicalName("grid-keda-scaler"),
-    {
-      metadata: { name: SCALER_SECRET_NAME, namespace: w.namespace },
-      stringData: {
-        [JOBS_QUEUE_DSN_KEY]: dsn(JOBS_DB),
-        ...(w.cfg.bffJobs.enabled ? { [BFF_QUEUE_DSN_KEY]: dsn(APP_DB) } : {}),
-      },
-    },
-    { provider: w.provider },
-  );
-}
-
 /**
  * One Kubernetes Secret holding every sensitive value (API keys, tokens, the
  * BYOK KEK, S3 secret key, and the fully-formed DB DSNs — which embed the PG
@@ -154,7 +107,7 @@ export function buildScalerSecret(w: AppWiring): k8s.core.v1.Secret {
 export function buildSecrets(w: AppWiring): AppSecrets {
   const { cfg } = w;
   const values: Record<string, pulumi.Input<string>> = {
-    OPENROUTER_API_KEY: cfg.llm.openrouterApiKey,
+    ...openrouterSecretValues(cfg),
     TAVILY_API_KEY: cfg.llm.tavilyApiKey,
     INTERNAL_API_TOKEN: cfg.internal.apiToken,
     ADMIN_TOKEN: cfg.internal.adminToken,
@@ -295,10 +248,11 @@ export function webPosthogEnv(cfg: DeployConfig): EnvVar[] {
  * §4, §6). `chatEnv`, `apiEnv` and the worker envs add `PROCESS_ROLE`.
  */
 
-export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvVar[] {
+export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workload: ModelWorkload = "chat"): EnvVar[] {
   const { cfg } = w;
   const env: EnvVar[] = [
     { name: "APP_ENV", value: "production" },
+    ...hatchetEnv(),
     { name: "LOG_LEVEL", value: "INFO" },
     { name: "HOST", value: "0.0.0.0" },
     { name: "PORT", value: String(PORT.backend) },
@@ -383,23 +337,23 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat"): EnvV
     { name: "MAX_QUEUED_JOBS_PER_ORG", value: String(cfg.backend.maxQueuedJobsPerOrg) },
     { name: "INGEST_MAX_WORKERS", value: String(cfg.backend.ingestMaxWorkers) },
     { name: "INGEST_MAX_PER_ORG", value: String(cfg.ingestWorker.maxPerOrg) },
+    { name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) },
     // No env for the base corpus: it lives in SeaweedFS and the knowledge
     // database (ADR-0082 step A2), and the per-replica cache defaults to
     // /tmp/base-corpus (BASE_CORPUS_CACHE_DIR), a place the pod may lose.
-    // LLM / embeddings / VLM (all via OpenRouter).
-    sref("OPENROUTER_API_KEY"),
+    // LLM / embeddings / VLM (all via OpenRouter), on this workload's own key
+    // (`model-keys.ts`) as OPENROUTER_API_KEY, EMBED_API_KEY and VLM_API_KEY.
+    ...openrouterKeyEnv(workload, SECRET_NAME),
     sref("TAVILY_API_KEY"),
     { name: "EMBED_MODEL", value: cfg.llm.embedModel },
     { name: "EMBED_BASE_URL", value: cfg.llm.embedBaseUrl },
-    srefAs("EMBED_API_KEY", "OPENROUTER_API_KEY"),
     { name: "VLM_MODEL", value: cfg.llm.vlmModel },
     { name: "VLM_BASE_URL", value: cfg.llm.vlmBaseUrl },
-    srefAs("VLM_API_KEY", "OPENROUTER_API_KEY"),
-    // What the one OpenRouter key is asked to carry (ADR-0076, ADR-0081). Set
+    // What the OpenRouter keys are asked to carry (ADR-0076, ADR-0081). Set
     // from the stack so the budget is read where `ingestWorkerMaxReplicas` is:
     // `assertVlmPeakFitsCeiling` holds the two together.
     { name: "VLM_FLEET_CONCURRENCY", value: String(cfg.providerLimits.vlmFleetConcurrency) },
-    { name: "VLM_BATCH_WORKERS", value: String(cfg.providerLimits.vlmBatchWorkers) },
+    { name: "INGEST_PAGE_READ_PARALLELISM", value: String(cfg.providerLimits.pageReadParallelism) },
     { name: "PROVIDER_LIMIT_CEILING", value: String(cfg.providerLimits.limitCeiling) },
     { name: "PROVIDER_MODEL_LIMIT_CEILING", value: String(cfg.providerLimits.modelLimitCeiling) },
     // No EXTRACT_* here: tables, images and charts are on in code and a
@@ -475,12 +429,11 @@ export function apiEnv(w: AppWiring): EnvVar[] {
  */
 export function workerEnv(w: AppWiring): EnvVar[] {
   return [
-    ...backendEnv(w, "grid-agent-worker"),
+    ...backendEnv(w, "grid-agent-worker", "research"),
     { name: "PROCESS_ROLE", value: "worker" },
     { name: "RESEARCH_WORKERS", value: String(w.cfg.agentWorker.concurrency) },
-    // The drain budget the pod's grace period is derived from (`agent-worker.ts`):
-    // a job still running when it ends is given back to the queue, not killed.
-    { name: "RESEARCH_WORKER_DRAIN_SECONDS", value: String(w.cfg.agentWorker.drainSeconds) },
+    // No drain variable: on SIGTERM the Hatchet SDK waits for the runs it holds
+    // for as long as the pod's grace period (`agentWorkerDrainSeconds` + 30 s).
   ];
 }
 
@@ -498,17 +451,15 @@ const INGEST_WITHHELD_ENV = new Set(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LA
  * per-process concurrency.
  */
 export function ingestWorkerEnv(w: AppWiring, livenessFile: string): EnvVar[] {
-  const overridden = new Set(["INGEST_MAX_WORKERS"]);
   return [
-    ...backendEnv(w, "grid-ingest-worker").filter(
-      (e) => !(typeof e.name === "string" && (overridden.has(e.name) || INGEST_WITHHELD_ENV.has(e.name))),
+    ...backendEnv(w, "grid-ingest-worker", "ingest").filter(
+      (e) => !(typeof e.name === "string" && (e.name === "INGEST_MAX_WORKERS" || INGEST_WITHHELD_ENV.has(e.name))),
     ),
     { name: "PROCESS_ROLE", value: "ingest-worker" },
     { name: "INGEST_MAX_WORKERS", value: String(w.cfg.ingestWorker.concurrency) },
     // What one embedded raster may allocate before it is refused (adapter.py).
     // Set from the stack where the tier's memory is, because it is a memory bound.
     { name: "MAX_IMAGE_PIXELS", value: String(w.cfg.ingestWorker.maxImagePixels) },
-    { name: "INGEST_WORKER_DRAIN_SECONDS", value: String(w.cfg.ingestWorker.drainSeconds) },
     { name: "WORKER_LIVENESS_FILE", value: livenessFile },
   ];
 }
@@ -518,6 +469,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
   const { cfg } = w;
   return [
     { name: "APP_ENV", value: "production" },
+    ...hatchetEnv(),
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
     { name: "LANDING_URL", value: `https://${cfg.ingress.webDomain}` },
     // Every backend HTTP call goes to the api role; only the WebSocket proxy
@@ -604,8 +556,8 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     { name: "SEAWEED_PRESIGNED_URL_TTL_SECONDS", value: String(APP_DEFAULTS.presignedUrlTtlSeconds) },
     { name: "PROJECT_PURGE_GRACE_DAYS", value: String(APP_DEFAULTS.projectPurgeGraceDays) },
     { name: "FOLDER_PURGE_GRACE_DAYS", value: String(APP_DEFAULTS.folderPurgeGraceDays) },
-    // Model catalog. Pricing (margin, credit price) is a platform setting in
-    // the database (ADR-0053), not an environment variable.
+    // Model catalog reads (no completions, so no credit spent): the chat key,
+    // which the Secret holds under this name. Pricing is a platform setting.
     sref("OPENROUTER_API_KEY"),
     // Platform tier.
     { name: "PLATFORM_OWNER_EMAILS", value: cfg.auth.platformOwnerEmails },
@@ -716,44 +668,6 @@ export function purgerEnv(w: AppWiring): EnvVar[] {
     ...(cfg.observability.enabled
       ? [
           { name: "OTEL_SERVICE_NAME", value: "grid-purger" },
-          { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
-        ]
-      : []),
-  ];
-}
-
-/**
- * Skill-scheduler worker environment.
- *
- * Every name here must match what `apps/workspace/scheduler/index.js` reads. It
- * did not: the worker moved to the `SKILL_*` names with Agent Skills and
- * this block kept emitting the `WORKFLOW_*` ones, so the container saw an
- * unset start gate and exited 0 as a no-op on every deployment.
- */
-export function schedulerEnv(w: AppWiring): EnvVar[] {
-  const { cfg } = w;
-  return [
-    sref("APP_DATABASE_URL"),
-    { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
-    sref("INTERNAL_API_TOKEN"),
-    { name: "SKILL_SCHEDULER_POLL_MS", value: String(APP_DEFAULTS.schedulerPollMs) },
-    { name: "SKILL_SCHEDULER_BATCH", value: String(APP_DEFAULTS.schedulerBatch) },
-    { name: "SKILL_RUNS_RETENTION_DAYS", value: String(APP_DEFAULTS.skillRunsRetentionDays) },
-    // The daily Langfuse trace retention sweep (ADR-0044); a no-op without the keys.
-    ...(cfg.langfuse.enabled
-      ? [
-          ...langfuseApiEnv(cfg),
-          {
-            name: "TRACE_RETENTION_DAYS",
-            value: String(APP_DEFAULTS.langfuseTraceRetentionDays),
-          },
-        ]
-      : []),
-    // OTLP logs via the cluster collector (see frontendEnv for the gating
-    // rationale). Base URL - the JS exporter derives /v1/logs.
-    ...(cfg.observability.enabled
-      ? [
-          { name: "OTEL_SERVICE_NAME", value: "grid-skill-scheduler" },
           { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
         ]
       : []),

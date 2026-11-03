@@ -1,13 +1,11 @@
 /**
- * How many claims a job gets, as the BFF in a `bff-jobs` pod knows it.
+ * How many attempts a job gets (`BFF_JOBS_MAX_ATTEMPTS`, default 3).
  *
- * The runner decides when a job is dead (`BFF_JOBS_MAX_ATTEMPTS`, default
- * 3, read in `workers/jobs/index.js`). The BFF in the same pod sees the same
- * environment, so a handler can tell that the attempt it is running is the
- * last one and leave the truth behind before the queue gives up on it: a
- * document that will never be extracted should say so, not read "processing"
- * until somebody notices. Two readers of one name, with the runner's default
- * written in both; `attempts.spec.ts` holds the two defaults together.
+ * One reader for both sides of the question: a `bff-job` run marks a job dead
+ * after this many (`./task-run.ts`), and a handler is told when the attempt
+ * it is running is the last one, so it can leave the truth behind before the
+ * job gives up: a document that will never be extracted should say so, not
+ * read "processing" until somebody notices.
  */
 
 const DEFAULT_MAX_ATTEMPTS = 3

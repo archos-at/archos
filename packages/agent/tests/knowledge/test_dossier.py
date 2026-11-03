@@ -7,6 +7,8 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from openai import ContentFilterFinishReasonError
+from openai import LengthFinishReasonError
 
 from agent.knowledge import dossier as d
 
@@ -147,6 +149,67 @@ class TestWrite:
         llm = FakeLLM(_reply())
         assert d.write_dossier("  ", llm, file_name="BB.pdf") is None
         assert llm.messages == []
+
+
+class _ClippedThenAnswering(FakeLLM):
+    """Clips the first call at its budget (reasoning ate it), answers the second."""
+
+    def __init__(self, reply: Any):
+        super().__init__(reply)
+        self.budgets: list[int] = []
+
+    def invoke(self, messages: list[Any]) -> SimpleNamespace:
+        self.budgets.append(self.bound["max_tokens"])
+        if len(self.budgets) == 1:
+            raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+        return super().invoke(messages)
+
+
+class TestProviderRefusals:
+    def test_a_reply_clipped_at_its_budget_is_asked_again_with_double_the_budget(self):
+        llm = _ClippedThenAnswering(_reply())
+        record = d.write_dossier("## Digest\n[Seite 1]\nText", llm, file_name="BB.pdf")
+        assert record["document_type"] == "building_description"
+        assert llm.budgets == [d.MAX_OUTPUT_TOKENS, d.MAX_OUTPUT_TOKENS * 2]
+
+    def test_a_reply_clipped_twice_fails_open_after_one_retry(self):
+        class AlwaysClipped(FakeLLM):
+            def __init__(self):
+                super().__init__(_reply())
+                self.calls = 0
+
+            def invoke(self, messages):
+                self.calls += 1
+                raise LengthFinishReasonError(completion=SimpleNamespace(usage=None))
+
+        llm = AlwaysClipped()
+        assert d.write_dossier("## Digest\n[Seite 1]\nText", llm, file_name="BB.pdf") is None
+        assert llm.calls == 2
+
+    def test_a_content_filter_refusal_is_not_retried_and_says_so(self, caplog):
+        class Refused(FakeLLM):
+            def __init__(self):
+                super().__init__(_reply())
+                self.calls = 0
+
+            def invoke(self, messages):
+                self.calls += 1
+                raise ContentFilterFinishReasonError()
+
+        llm = Refused()
+        with caplog.at_level("WARNING", logger=d.logger.name):
+            assert d.write_dossier("## Digest\n[Seite 1]\nText", llm, file_name="Dach.pdf") is None
+        assert llm.calls == 1
+        assert "ContentFilterFinishReasonError" in caplog.text
+        assert "Dach.pdf" in caplog.text
+
+
+class TestMisfitLog:
+    def test_the_misfit_log_names_the_fields_not_the_words(self, caplog):
+        with caplog.at_level("WARNING", logger=d.logger.name):
+            assert d.parse_dossier(_reply(document_type="Brandschutzkonzept")) is None
+        assert "document_type" in caplog.text
+        assert "Brandschutzkonzept" not in caplog.text
 
 
 class TestLiftedFacts:

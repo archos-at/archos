@@ -2,10 +2,10 @@
 
 Everything here builds the production objects rather than lookalikes:
 
-* **Qdrant**: the production collection shape (``qdrant/schema.py``: dense + server
+* **Qdrant**: the production collection shape (``vector_store/schema.py``: dense + server
   BM25 with ``BM25_OPTIONS``, TurboQuant 4-bit, strict mode, payload indexes),
   under uniquely named aliases so a shared server is never touched outside them,
-  filled through ingestion's own write (``qdrant/writes.py`` ``write_chunks``,
+  filled through ingestion's own write (``vector_store/writes.py`` ``write_chunks``,
   one call per file, as ``_ingest_job`` makes it).
 * **The retriever**: ``LlamaIndexRetriever`` with its query-embedding cache
   pre-filled, so ``_retrieve_sync`` runs the store path with no embedding call in
@@ -49,7 +49,7 @@ class IndexedChunk:
 
 def identity(model: str, base_url: str) -> dict[str, str]:
     """The embedder fingerprint the collection records, as production computes it."""
-    from knowledge_layer.llamaindex.embedding import embed_fingerprint_metadata
+    from knowledge_layer.embedding import embed_fingerprint_metadata
 
     return embed_fingerprint_metadata(model, base_url)
 
@@ -65,9 +65,9 @@ def isolated_qdrant(url: str, api_key: str | None = None) -> Iterator[str]:
     so renaming them for the run puts every read and write of the production code
     on throwaway collections. Yields the run's suffix.
     """
-    from knowledge_layer.qdrant import schema
-    from knowledge_layer.qdrant.store import make_client
-    from knowledge_layer.qdrant.store import reset_store
+    from knowledge_layer.vector_store import make_client
+    from knowledge_layer.vector_store import reset_store
+    from knowledge_layer.vector_store import schema
 
     suffix = uuid.uuid4().hex[:8]
     saved = dict(schema.ALIASES)
@@ -105,9 +105,9 @@ def fill_qdrant(chunks: Sequence[IndexedChunk], vectors: np.ndarray, fingerprint
     person-set facts finds none, which is what it would find. The id sets are
     compared afterwards, not only the counts: equal counts can hide a swap.
     """
-    from knowledge_layer.qdrant import writes
-    from knowledge_layer.qdrant.payload import ChunkRecord
-    from knowledge_layer.qdrant.store import get_store
+    from knowledge_layer.vector_store import ChunkRecord
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import writes
 
     by_file: dict[str, list[ChunkRecord]] = {}
     for chunk, vector in zip(chunks, vectors, strict=True):
@@ -136,8 +136,8 @@ def wait_until_indexed(timeout_s: float = 600.0) -> dict[str, Any]:
     Until HNSW and the quantized copy are built a search is a brute-force scan, so a
     latency or recall measured earlier would not be of the configuration under test.
     """
-    from knowledge_layer.qdrant import schema
-    from knowledge_layer.qdrant.store import get_store
+    from knowledge_layer.vector_store import get_store
+    from knowledge_layer.vector_store import schema
 
     client = get_store().client
     alias = schema.ALIASES[schema.Physical.CORPUS]
@@ -167,7 +167,7 @@ def retriever(model: str, base_url: str, queries: Sequence[str], query_vectors: 
     ``_retrieve_sync`` then runs exactly as in production, minus the embedding round
     trip: the store calls are what is timed and scored.
     """
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
     from llama_index.core.embeddings import MockEmbedding
 
     instance = LlamaIndexRetriever({"embed_model": model, "embed_base_url": base_url, "hybrid_search": True})

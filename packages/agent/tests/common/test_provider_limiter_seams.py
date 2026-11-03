@@ -335,12 +335,9 @@ def test_a_research_job_runs_in_the_research_class():
     assert inspect.iscoroutinefunction(agent_job.run_agent_job)
 
 
-def test_a_queued_ingest_job_runs_in_the_class_of_its_priority(monkeypatch):
-    import threading
-
-    import agent_host.jobs.ingest_dispatch as dispatch
+def test_a_dispatched_ingest_job_runs_in_the_class_of_its_priority():
+    from agent.knowledge import ingest_execution
     from agent.knowledge.base import PreparedIngestJob
-    from agent_host.jobs.ingest_dispatch import QueueSource
 
     seen: list[str] = []
 
@@ -348,22 +345,14 @@ def test_a_queued_ingest_job_runs_in_the_class_of_its_priority(monkeypatch):
         def run_prepared(self, prepared, still_owner=None):
             seen.append(pl.current_class())
 
-    source = QueueSource.__new__(QueueSource)
-    source._ingestor = Ingestor()
-    source._worker = "w"
-    source._max_job_seconds = 0
-    source._held = {}
-    source._held_lock = threading.Lock()
-    source._beat = lambda *a: None
-
-    monkeypatch.setattr(dispatch.ingest_queue, "mark_done", lambda *a, **k: None)
-    monkeypatch.setattr(dispatch.ingest_queue.QUEUE, "record_duration", lambda *a, **k: None)
+        def get_job_status(self, job_id):
+            return None
 
     def job(config: dict) -> PreparedIngestJob:
         return PreparedIngestJob(job_id="j", status=None, file_paths=[], collection_name="c", config=config)
 
     # The priority POST /v1/ingest put on the job config is the one the limiter sees.
-    source._run("job-1", job({"priority": "bulk"}), dispatch._Run())
-    source._run("job-2", job({"priority": "interactive"}), dispatch._Run())
-    source._run("job-3", job({}), dispatch._Run())  # a job from before priorities existed
+    ingest_execution.run_job(Ingestor(), job({"priority": "bulk"}), None)
+    ingest_execution.run_job(Ingestor(), job({"priority": "interactive"}), None)
+    ingest_execution.run_job(Ingestor(), job({}), None)  # a job from before priorities existed
     assert seen == [pl.BULK, pl.INTERACTIVE, pl.INTERACTIVE]

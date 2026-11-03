@@ -954,7 +954,7 @@ and in `docker ps`); `<uuid>` below is that.
    ```bash
    docker ps --format '{{.Names}}' | grep '<uuid>'
    docker stop frontend-<uuid> bff-jobs-<uuid> ingest-worker-<uuid> agent-worker-<uuid> \
-     aiq-agent-<uuid> purger-<uuid> skill-scheduler-<uuid> housekeeping-<uuid>
+     aiq-agent-<uuid> purger-<uuid> housekeeping-<uuid>
    ```
 
 5. **Import** in the image the deploy built, with `aiq-api`'s own

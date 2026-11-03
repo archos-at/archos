@@ -58,7 +58,7 @@ The hash and version are written only after the file's job reached `FileStatus.S
 
 ## Who runs ingestion
 
-**The ingest workers do.** A file that needs ingestion becomes exactly one job on the `ingest_job_queue` table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
+**The ingest workers do.** A file that needs ingestion becomes exactly one ingest job, an `ingest-document` run on Hatchet (ADR-0150, [`hatchet.md`](../deployment/hatchet.md)) with no organisation and `bulk` priority. The rest of this paragraph describes the claim queue it replaced, `ingest_job_queue`, kept until the cutover drains it: one job on that table, the queue `POST /v1/ingest` uses (`agent.knowledge.ingest_queue`), in the platform lane (no organisation) at `bulk` priority. It is claimed by the ingest-worker tier, and by nothing else: the `chat` and `api` roles only enqueue (ADR-0082 step B). Kubernetes runs it as the `ingest-worker` Deployment and both Compose files as the `ingest-worker` service, with the queue's heartbeat, stale-claim reclaim, attempt limit, dead rows and drain behaviour. The queue is on whenever `SUMMARY_DB` is set, which the corpus needs anyway.
 
 **There is no in-process path.** `oib_sync` never calls `upload_file`, `submit_job` or `run_prepared`, and has no thread pool (a test greps for it). If the queue is off or cannot take the job (`INGEST_QUEUE=off`, no database, a write error), `ingest_dispatch.enqueue_only` (the API tier's own enqueue, which its routes hand to `oib_sync` as `enqueue`, so the agent tier never imports the API tier) raises `QueueUnavailable`: the upload route answers 500, the sync cycle fails loudly, and the next cycle queues the file once the queue is back.
 
@@ -179,7 +179,7 @@ which sends each PDF through `POST /v1/admin/oib/documents` (header `X-Admin-Tok
 
 ## Ingestor initialization
 
-`oib_sync` imports `knowledge_layer.llamaindex.adapter` lazily to register the ingestor backend with the factory, then obtains an ingestor, which it uses only to prepare jobs and to read and clean the collection, via:
+`oib_sync` imports `knowledge_layer.ingest.adapter` lazily to register the ingestor backend with the factory, then obtains an ingestor, which it uses only to prepare jobs and to read and clean the collection, via:
 
 ```python
 from agent.knowledge.factory import get_ingestor
@@ -206,7 +206,7 @@ packages/agent/src/agent/oib_sync.py ──────────► packages/
        │                                                          │ claimed by
        │                                                          ▼
        │                                         ingest workers (QueueSource) ─► CorpusObjectDownload
-       ├── knowledge_layer.llamaindex.adapter   (prepare_job; the worker runs the job)
+       ├── knowledge_layer.ingest.adapter   (prepare_job; the worker runs the job)
        ├── agent.knowledge.ingest_status_store (job outcomes, read by settle)
        ├── agent.knowledge.leader_lock
        └── Qdrant (oib_knowledge scope)

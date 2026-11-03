@@ -103,7 +103,7 @@ content, whose value is the same whichever tenant or turn asks, or a
 process-lifetime handle holding no tenant or turn data:
 
 - the query-embedding LRU with its in-flight dedupe, keyed by (model, text), on
-  the retriever in `packages/knowledge-layer/src/llamaindex/query_embeddings.py`;
+  the retriever in `packages/knowledge-layer/src/search/query_embeddings.py`;
 - `knowledge/factory._SEARCH_RETRIEVER`, the retriever handle recorded when the
   knowledge tool is built;
 - `agents/piloti/register._WARMING`, strong references to running warm-ups, so
@@ -177,8 +177,8 @@ routes that predate it sit in a shrink-only baseline.
 ## Bulk work is a server run, never a browser loop
 
 A move, a sort, an import or a reindex over many items, or longer than one
-request, is a row the person comes back to, worked by a `bff_job_queue` job in
-bounded slices (root sort is the first). The browser starts it, reads it and
+request, is a row the person comes back to, worked by a BFF job (a `bff-job`
+run on Hatchet, ADR-0150) in bounded slices (root sort is the first). The browser starts it, reads it and
 asks for the next step; it never loops over items or keeps a pool of item
 requests. The decision and its debt are ADR-0121.
 
@@ -195,7 +195,7 @@ counted, so review is the gate for it.
 | Route → service → repository layering | ADR-0017 |
 | Row-level security as the tenancy backstop | ADR-0041, [`../database/row-level-security.md`](../database/row-level-security.md) |
 | Layered admission control (edge rate limit, job and turn concurrency, euro budget) | ADR-0040, ADR-0015 |
-| DB-claimed workers instead of an assigning scheduler | ADR-0021 |
+| Background work on self-hosted Hatchet (replacing the DB-claimed workers), fair per organization | ADR-0150, ADR-0021 |
 | Materialised path for folders | ADR-0049 |
 | Write-through usage rollups | ADR-0019 |
 | Cards as the rich-UI layer, decisions persisted on the message | ADR-0012, ADR-0030 |

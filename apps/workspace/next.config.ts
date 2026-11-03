@@ -118,8 +118,10 @@ export const nextConfig: NextConfig = {
   // node_modules (deploy/Dockerfile), so Node resolves it as it does in tests.
   // `ws` likewise: the wake job's chat socket (`lib/turns/headless-turn.ts`),
   // whose optional native peers (`bufferutil`, `utf-8-validate`) a bundler
-  // would try to resolve and inline.
-  serverExternalPackages: ['exceljs', 'ws'],
+  // would try to resolve and inline. The Hatchet SDK likewise (an enqueue
+  // triggers a run, `lib/jobs-queue/orchestrator.ts`): a gRPC client whose agent
+  // adapters name optional peers nothing here installs.
+  serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk'],
 
   experimental: {
     serverActions: {
