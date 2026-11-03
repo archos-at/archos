@@ -280,8 +280,22 @@ project can be reopened.
 
 ### Sender authentication in the BFF, SPF never read
 
-Cloudflare Email Routing hands the Worker no SPF, DKIM or DMARC verdict and no
-connecting IP. The receive job authenticates from the raw message with
+*Corrected 2026-11-03, from Cloudflare's docs of that date (Email Service →
+Postmaster, Email lifecycle, Email handler).* Cloudflare filters before the
+Worker runs: it **rejects** a message that passes neither SPF nor DKIM, and one
+that fails the claimed sender's published DMARC policy (`p=reject`, and
+`p=quarantine` reads the same at SMTP), and it prepends its own
+`Authentication-Results` header (authserv-id `mx.cloudflare.net`). Three
+consequences: a forged From of a member whose domain publishes an enforcing
+DMARC policy never reaches us (Cloudflare's bounce tells the forger, not us);
+a correspondent whose mail server signs nothing and has no SPF bounces at
+Cloudflare, which is the support case the runbook names; and every mail that
+does reach the Worker passed SPF or DKIM for *some* domain, which says nothing
+about the From, so the classes of ADR-0137 still rest on our own aligned-DKIM
+check below. Cloudflare's header is not read: the connecting IP stays unknown
+to us, and one verifier, ours, decides the class.
+
+Cloudflare Email Routing hands the Worker no connecting IP. The receive job authenticates from the raw message with
 **mailauth 8** `authenticate()`, called without an `ip`, so its SPF result is
 always `temperror` and is **never read**. The stored evidence line
 (`authentication_results`) is built by us from the DKIM and DMARC results
