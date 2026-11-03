@@ -8,8 +8,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/backend-proxy', () => ({ getBackendUrl: () => 'http://aiq-api.test' }))
+vi.mock('@/lib/backend-url', () => ({ getBackendUrl: () => 'http://aiq-api' }))
 
+import { INTERNAL_TOKEN_HEADER, InternalServiceUnavailableError } from '@/lib/internal-auth'
 import { redactProjectAddresses } from './address'
 import { MAIL_READ_TIMEOUT_MS, MailReadRefusedError, readMail, redactRead, unreadableRead } from './read-client'
 
@@ -63,9 +64,9 @@ describe('readMail', () => {
     const read = await readMail('http://seaweed.test/presigned')
 
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe('http://aiq-api.test/v1/mail/read')
+    expect(url).toBe('http://aiq-api/v1/mail/read')
     expect(JSON.parse(init.body)).toEqual({ file_ref: 'http://seaweed.test/presigned' })
-    expect(init.headers['x-internal-token']).toBe('internal-token')
+    expect(init.headers[INTERNAL_TOKEN_HEADER]).toBe('internal-token')
     expect(init.redirect).toBe('manual')
     expect(MAIL_READ_TIMEOUT_MS).toBeGreaterThanOrEqual(60_000)
     expect(read).toMatchObject({
@@ -83,6 +84,12 @@ describe('readMail', () => {
 
     fetchMock.mockResolvedValue(new Response('{}', { status: 502 }))
     await expect(readMail('u')).rejects.not.toBeInstanceOf(MailReadRefusedError)
+  })
+
+  it('sends nothing without the service token, and the job retries', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', '')
+    await expect(readMail('u')).rejects.toBeInstanceOf(InternalServiceUnavailableError)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('refuses an answer that is not a read rather than stage it', async () => {

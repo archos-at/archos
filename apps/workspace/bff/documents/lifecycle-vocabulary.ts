@@ -58,7 +58,7 @@ export const OPEN_DOCUMENT_VERSION_STATES = [
  *
  * Not whose authority — that is `submitted_by`, and it is a person either way.
  * The distinction exists for exactly one guard: „der Einreichende darf nicht
- * freigeben" is about a person asserting their own work, and a report Piloti
+ * freigeben" is about a person asserting their own work, and a report the agent
  * filed in the commissioning human's session is not their own work.
  */
 export const DOCUMENT_SUBMIT_ACTORS = ['human', 'agent'] as const
@@ -69,7 +69,7 @@ export type DocumentSubmitActor = (typeof DOCUMENT_SUBMIT_ACTORS)[number]
  *
  * - `upload` — a person put the bytes there (`upload`, born `published`). The
  *   person is the assertion; nobody reviewed it unless somebody asked.
- * - `draft`  — it began as a draft (`create`, a fork), Piloti's or a person's
+ * - `draft`  — it began as a draft (`create`, a fork), the agent's or a person's
  *   revision, and becomes `published` only through an approval.
  *
  * `document_versions_published_is_approved` demands an approver of a published

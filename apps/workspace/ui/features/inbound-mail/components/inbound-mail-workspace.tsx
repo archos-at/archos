@@ -465,7 +465,7 @@ export function InboundMailWorkspace({
       <div className="flex min-h-0 flex-1 flex-col @3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className={cn('min-h-0 flex-1 flex-col @3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
           <div className="flex items-baseline justify-between gap-2 px-3 pt-3 sm:px-4">
-            <h2 className="text-sm font-semibold">{t('title')}</h2>
+            <h2 className="text-sm font-medium">{t('title')}</h2>
           </div>
           <InboundMailList
             state={list}

@@ -251,6 +251,7 @@ workspace:
   - 'deploy/compose/init-db.sql'
   - 'docs/technical-reference/answer-feedback-export.md'
   - 'packages/agent/src/agent/common/status_keys.py'
+  - 'packages/agent/src/agent/knowledge/doc_class_vocabulary.py'
   - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
   - 'packages/knowledge-layer/src/llamaindex/chosen_document_type.py'

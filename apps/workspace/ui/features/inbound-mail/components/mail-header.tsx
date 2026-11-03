@@ -78,7 +78,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
       asChild
     >
       <header className="flex flex-col gap-2" data-testid="mail-header">
-        <h2 className="text-lg font-semibold tracking-tight [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
+        <h2 className="text-lg font-medium tracking-tight [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
           {subject}
         </h2>
         {/* The one line: who, how far confirmed, when, and the way to the rest. It wraps on a phone, never truncates. */}
