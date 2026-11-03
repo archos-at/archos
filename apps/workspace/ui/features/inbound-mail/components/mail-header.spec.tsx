@@ -146,6 +146,13 @@ describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
     expect(screen.getByTestId('decision-dismiss')).toBeEnabled()
   })
 
+  it('says a sender the directory could not check could not be checked, never an outsider’s 14 days (R14)', () => {
+    render(<SenderWaitLine view={{ status: 'waiting', waitReason: 'sender_unchecked', onlySenderReleases: false }} />)
+    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'sender_unchecked')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('could not be checked. Check before you file.')
+    expect(screen.getByTestId('sender-wait-reason')).not.toHaveTextContent('outside the office')
+  })
+
   it('says an outsider’s mail is discarded after 14 days, and a member without write rights waits for the writers', () => {
     renderDetail('external-unverified')
     expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('discarded after 14 days')

@@ -145,6 +145,17 @@ describe('what the class means to a reader', () => {
   })
 })
 
+describe('a sender the receive job could not check (R14)', () => {
+  it('is said to be unchecked, never an outsider nor read-only: with the directory down no impersonation check could run', () => {
+    // The directory did not answer: no member could be named, so the class is `external` and no `claims_member_name`.
+    const directoryDown = { senderClass: 'external', senderTrust: 'external_verified', senderFlags: ['sender_unchecked'], automatic: false } as const
+    expect(senderWaitReason(directoryDown)).toBe('sender_unchecked')
+    // The write check did not answer: the member is named, but not called read-only.
+    expect(senderWaitReason({ ...directoryDown, senderClass: 'office_member', senderTrust: 'member_verified' })).toBe('sender_unchecked')
+    expect(senderWaitReason({ ...directoryDown, senderFlags: [] })).toBe('outside_office')
+  })
+})
+
 describe('when a mail’s expiry is final', () => {
   it('is final for an outsider’s mail only, never for one whose sender could not be checked: that may be a member’s', () => {
     expect(expiryIsFinal({ senderClass: 'external', senderFlags: [] })).toBe(true)

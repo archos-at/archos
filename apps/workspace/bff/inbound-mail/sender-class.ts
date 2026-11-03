@@ -97,9 +97,14 @@ function unverifiedWriterReason(mail: WaitReasonInput): InboundMailWaitReason {
  * a member who may not write here, or a sender outside the office. A verified
  * writer's mail waits only for what its sender's filing left (a flagged part,
  * a part with no folder): null, unless direct filing is switched off, when it
- * waits for any writer (`paused`).
+ * waits for any writer (`paused`). A sender the receive job could not check
+ * (`sender_unchecked`: the directory or the write check did not answer) is
+ * called neither an outsider nor read-only, whatever its class: the reader is
+ * told it could not be checked, which is also why no impersonation warning can
+ * show for it (`claims_member_name` needs the directory).
  */
 export function senderWaitReason(mail: WaitReasonInput): InboundMailWaitReason | null {
+  if (mail.senderFlags.includes('sender_unchecked')) return 'sender_unchecked'
   switch (mail.senderClass) {
     case 'verified_writer':
       return (mail.directFiling ?? directFilingEnabled()) ? null : 'paused'
