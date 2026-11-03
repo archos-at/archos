@@ -249,6 +249,9 @@ describe("RabbitMQ", () => {
     const { metadata, spec } = find("kubernetes:rabbitmq.com/v1beta1:RabbitmqCluster", "hatchet-rabbitmq").inputs;
     expect(metadata).toEqual({ name: "hatchet-rabbitmq", namespace: "background-work" });
     expect(spec.replicas).toBe(3);
+    // Hatchet's tested RabbitMQ, not the operator's default: 4.3 refuses the
+    // x-consumer-timeout Hatchet puts on its classic queues.
+    expect(spec.image).toBe("rabbitmq:4.2.8-management@sha256:2f5f2d5551a7c11e09c57b00ff6a86f363ddd424e3bde3a54c88a75c742a81e8");
     expect(spec.resources).toEqual({ requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
     expect(spec.persistence).toEqual({ storageClassName: "premium", storage: "10Gi" });
     const label = { "background-work/component": "rabbitmq" };

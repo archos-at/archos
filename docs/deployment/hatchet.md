@@ -191,9 +191,17 @@ The operator is pinned by `RABBITMQ_OPERATOR_VERSION` (`platform/rabbitmq.ts`,
 CRD of that same release. To upgrade it, read the operator's release notes,
 raise the constant, preview on dev. An operator upgrade can roll every
 RabbitmqCluster it manages (a new default RabbitMQ image); the PDB keeps that to
-one node at a time, and two of three keep the quorum. The RabbitMQ version
-itself is the operator's default image for that release; pin `spec.image` in
-`rabbitmqClusterSpec` if a stack must hold one.
+one node at a time, and two of three keep the quorum.
+
+The RabbitMQ version is pinned by `RABBITMQ_IMAGE` (`rabbitmq:4.2.8-management`),
+the one Hatchet's own `docker-compose.yml` names at `HATCHET_IMAGE_TAG`, never
+the operator's default. Hatchet declares classic queues with a hardcoded
+`x-consumer-timeout`, which RabbitMQ 4.3 accepts only on quorum queues, so on
+4.3 every Hatchet component exits at boot with `406 PRECONDITION_FAILED -
+invalid arg 'x-consumer-timeout'`. When you raise `HATCHET_IMAGE_TAG`, read that
+tag's `docker-compose.yml` and move `RABBITMQ_IMAGE` to its RabbitMQ. RabbitMQ
+does not downgrade: a node refuses data written by a newer minor, so lowering the
+image on a running cluster means new volumes.
 
 Before any RabbitMQ change, check the cluster is whole:
 
