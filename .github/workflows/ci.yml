@@ -895,14 +895,16 @@ jobs:
       # not hide the others' results.
       - name: Ingest workflow on the engine (Python)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        timeout-minutes: 8
         run: >-
-          .venv/bin/python -X faulthandler -m pytest -q
+          .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=150
           packages/agent/tests/knowledge/test_ingest_hatchet_engine.py
           --junitxml="$RUNNER_TEMP/hatchet-ingest.xml"
       - name: Research run on the engine (Python, worker subprocesses)
         if: ${{ !cancelled() && steps.engine.outcome == 'success' }}
+        timeout-minutes: 8
         run: >-
-          .venv/bin/python -X faulthandler -m pytest -q
+          .venv/bin/python -X faulthandler -m pytest -q -rA -o faulthandler_timeout=150
           apps/agent-host/tests/test_research_hatchet_engine.py
           --junitxml="$RUNNER_TEMP/hatchet-research.xml"
       # Over the migrated database as the restricted role, which the RLS script
