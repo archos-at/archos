@@ -17,7 +17,7 @@ import 'server-only'
  * | # | Sweep | Window | Hold |
  * |---|---|---|---|
  * | 1 | `receiving` left behind: erase its object by key, delete the row | 15 min | skipped |
- * | 2 | `received` with no live job: queue it again (job id = mail id) | 5 min | — |
+ * | 2 | `received` with no job: queue it again (job id = mail id); one whose job is dead waits for the queue's retention | 5 min | — |
  * | 5 | `filing` past its claim: waits again (`unavailable`), the decider told | the claim | — |
  * | 13 | an original's move that stopped: finish it (copy proven, then the raw erased) | 15 min | a move erases nothing |
  * | 11 | decisions owed to the audit trail: send them (before 8 and 9, RT-S8) | 1 min | — |
@@ -150,18 +150,16 @@ export async function sweepStaleReceptions(now: Date): Promise<SweepCounts> {
   return result
 }
 
-/** Sweep 2: received mail whose job is gone gets it again; a dead job is left for the queue's retention, loudly. */
+/**
+ * Sweep 2: received mail whose job is gone gets it again. A mail whose job is
+ * dead is not listed: the queue reported it when it died, and it is queued
+ * again here once the queue's retention prunes the dead row.
+ */
 export async function sweepOrphanedReceptions(now: Date): Promise<SweepCounts> {
-  const result = counts('requeued', 'dead')
+  const result = counts('requeued')
   const before = new Date(now.getTime() - ORPHANED_RECEPTION_MS)
   const rows = await discover('received mail without a job', () => sweeps.findReceivedWithoutJob(before, SWEEP_BATCH))
   await eachRow(rows, result, (row) => `the received mail ${row.id}`, async (row) => {
-    if (row.deadJob) {
-      // Every attempt was spent and the last one could not even hold it unreadable: an operator's to look at.
-      result.dead += 1
-      console.error(`[inbound-mail] mail ${row.id} is received, and its job gave up; it is queued again once the dead job is pruned`)
-      return
-    }
     if (await queueReceiveJob({ mailId: row.id, organizationId: row.organizationId, projectId: row.projectId })) result.requeued += 1
   })
   return result

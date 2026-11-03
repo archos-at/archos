@@ -516,7 +516,7 @@ In the order they run:
 | # | Name | What | Window | Legal hold |
 |---|---|---|---|---|
 | 1 | `staleReceptions` | `receiving` untouched: object erased by key, row deleted | 15 min | project hold: skipped |
-| 2 | `orphanedReceptions` | `received` with no job: queued again (a dead job is counted `dead`) | 5 min | — |
+| 2 | `orphanedReceptions` | `received` with no job: queued again. One whose job is dead is not listed: the queue logged it once when it died (`[bff-jobs] … now dead`), and it is queued again once the queue's retention prunes the dead row. Listing those first let fifty fill every batch and logged an error for each every tick (R11 of the second review) | 5 min | — |
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
