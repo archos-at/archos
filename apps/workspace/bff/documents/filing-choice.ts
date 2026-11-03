@@ -30,6 +30,7 @@
  * at filing, which the ingest job treats as the newest choice.
  */
 
+import { FILING_CHOICE_METADATA_KEY } from './filing-choice-key'
 import type { Document } from '@/lib/db/schema/documents'
 import {
   mailOriginIngestFactsSchema,
