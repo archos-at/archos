@@ -5,7 +5,7 @@
  * REAL Postgres with migration 0193, through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://grid_app_rw@host:port/grid_app \
+ *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/inbound-mail/sweep.integration.spec.ts
  *
  * Every sweep of the table, each against rows the migration's CHECKs accept,
@@ -35,7 +35,7 @@ const ORG = `org_inbound_sweep_${STAMP}`
 const MANAGER = 'user_01J0SWEEPMANAGER000000000A'
 const DECIDER = 'user_01J0SWEEPDECIDER000000000A'
 const FOLLOWER = 'user_01J0SWEEPFOLLOWER00000000A'
-const BUCKET = 'grid-org-sweep'
+const BUCKET = 'org-sweep-bucket'
 
 const staging = vi.hoisted(() => ({
   erased: [] as string[],

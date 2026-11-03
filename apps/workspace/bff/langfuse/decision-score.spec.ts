@@ -163,7 +163,7 @@ describe('recordDecisionScore — finding the turn', () => {
 
     expect(getAnswerTraceId).not.toHaveBeenCalled()
     expect(api.create.mock.calls[0][0]).toEqual({
-      id: 'piloti-decision-inbound_mail_suggestion-part-1',
+      id: `${DECISION_SCORE_NAME}-inbound_mail_suggestion-part-1`,
       traceId: TRACE,
       name: DECISION_SCORE_NAME,
       dataType: 'CATEGORICAL',

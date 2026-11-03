@@ -186,7 +186,7 @@ export function decimalAtMost(max: number): string {
  * Cloudflare's 25 MiB inbound cap means a real mail never meets it.
  *
  * Its policy has no rate limit and no hour-long budget, and it is the only
- * policy that applies: the app route's catch-all bucket attaches to `grid-app`
+ * policy that applies: the app route's catch-all bucket attaches to the app route
  * and so never sees these requests.
  */
 function installSignedInternalRoute(
@@ -207,7 +207,7 @@ function installSignedInternalRoute(
     },
   };
   const refusal = new k8s.apiextensions.CustomResource(
-    "grid-signed-body-limit-filter",
+    "signed-body-limit-filter",
     {
       apiVersion: "gateway.envoyproxy.io/v1alpha1",
       kind: "HTTPRouteFilter",
@@ -243,7 +243,7 @@ function installSignedInternalRoute(
     ],
   };
   const route = new k8s.apiextensions.CustomResource(
-    "grid-app-signed-route",
+    "app-signed-route",
     {
       apiVersion: "gateway.networking.k8s.io/v1",
       kind: "HTTPRoute",
@@ -261,7 +261,7 @@ function installSignedInternalRoute(
     retry: edgeRetry,
   };
   new k8s.apiextensions.CustomResource(
-    "grid-app-signed-backend-traffic-policy",
+    "app-signed-backend-traffic-policy",
     {
       apiVersion: "gateway.envoyproxy.io/v1alpha1",
       kind: "BackendTrafficPolicy",

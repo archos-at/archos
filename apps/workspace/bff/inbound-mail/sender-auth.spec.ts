@@ -253,14 +253,14 @@ describe('evidenceLine', () => {
   it('carries the authserv-id, DKIM and DMARC, and never spf=', async () => {
     const raw = await sign(message())
     const { authenticationResults } = await authenticate(raw, { ...keyFor(MEMBER_DOMAIN), [`_dmarc.${MEMBER_DOMAIN}`]: 'v=DMARC1; p=reject' })
-    expect(authenticationResults).toMatch(/^piloti\.at; dkim=pass header\.i=@buero-muster\.at .*; dmarc=pass/)
+    expect(authenticationResults).toMatch(/^example\.org; dkim=pass header\.i=@buero-muster\.at .*; dmarc=pass/)
     expect(authenticationResults).not.toMatch(/spf=/i)
     expect(authenticationResults).not.toMatch(/[\r\n]/)
   })
 
   it('drops an spf= result even if one were handed to it, and stays within 4096 characters', () => {
     const info = (text: string) => ({ status: { result: 'pass' as const }, info: text })
-    const line = evidenceLine('piloti.at', {
+    const line = evidenceLine('example.org', {
       dkim: { headerFrom: [], fromFields: 1, fromSyntax: 'valid', envelopeFrom: false, results: [info('spf=temperror x'), info(`dkim=pass ${'b'.repeat(5000)}`)] },
       dmarc: false,
     })
@@ -277,7 +277,7 @@ const verifiedAuth = (overrides: Partial<SenderAuthentication> = {}): SenderAuth
   signerDomain: MEMBER_DOMAIN,
   signedHeaders: ['from', 'to', 'subject', 'date', 'message-id'],
   signedRecipientNamesProject: true,
-  authenticationResults: 'piloti.at; dkim=pass',
+  authenticationResults: 'example.org; dkim=pass',
   ...overrides,
 })
 

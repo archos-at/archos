@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { mailStackConfig, SIGNING_KEY_ID, SIGNING_KEYS, SIGNING_SECRET } from "./src/test-support/app-zone-config";
+import { LEGACY_PROJECT } from "./src/names";
 
 /**
  * The whole program with project mail on, on a zone of its own.
@@ -34,7 +35,7 @@ pulumi.runtime.setMocks(
     },
     call: (args: pulumi.runtime.MockCallArgs) => {
       if (args.token === "cloudflare:index/getZone:getZone") {
-        return { id: args.inputs.zoneId, name: DOMAIN, account: { id: "account-1", name: "Grid" } };
+        return { id: args.inputs.zoneId, name: DOMAIN, account: { id: "account-1", name: "Office" } };
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
         // The apex MX guard's lookup: Cloudflare's own MX, as after a first `up`.
@@ -43,7 +44,7 @@ pulumi.runtime.setMocks(
       return {};
     },
   },
-  "grid-oib",
+  LEGACY_PROJECT,
   "test",
   false,
 );
@@ -76,12 +77,12 @@ describe("the program constructs with project mail on", () => {
     pulumi.runtime.setAllConfig({
       ...baseStackConfig(),
       ...mailStackConfig(),
-      "grid-oib:seaweedfsTopology": "single",
-      "grid-oib:seaweedfsPerOrgBuckets": "false",
-      "grid-oib:observabilityEnabled": "false",
-      "grid-oib:inboundMailDomain": DOMAIN,
-      "grid-oib:inboundMailZoneId": "zone-mail-1",
-      "grid-oib:inboundMailPaused": "true",
+      [`${LEGACY_PROJECT}:seaweedfsTopology`]: "single",
+      [`${LEGACY_PROJECT}:seaweedfsPerOrgBuckets`]: "false",
+      [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: DOMAIN,
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-mail-1",
+      [`${LEGACY_PROJECT}:inboundMailPaused`]: "true",
     });
     const stack = (await import("./index")) as Record<string, unknown>;
     await Promise.all(
@@ -99,7 +100,7 @@ describe("the program constructs with project mail on", () => {
         "cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll",
       ]),
     );
-    expect(outputs.inboundMailWorker).toBe("grid-inbound-mail-test (paused)");
+    expect(outputs.inboundMailWorker).toBe("inbound-mail-test (paused)");
   });
 
   it("gives the frontend the domain, the pause and the key map, the map from the Secret", () => {

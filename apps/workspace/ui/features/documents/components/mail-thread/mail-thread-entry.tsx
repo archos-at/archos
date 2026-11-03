@@ -11,7 +11,7 @@
  *   carry; an unconfirmed domain wears the warning glyph, its words stay ink.
  *   A confirmed domain is said once per run of its mails (`entriesSayingTrust`).
  *   How it was filed is said only where no person decided it in the app (a
- *   follow, the archive import, an agent, a Piloti card).
+ *   follow, the archive import, an agent, an agent's card).
  * - **What came with it** (D36): every attachment, as a link to the document
  *   it became, „lag schon im Projekt“, or „nicht abgelegt“ with its reason
  *   (its bytes are then only in the original); one in a folder the reader may
@@ -22,7 +22,7 @@
  *
  * A link or a citation that names this entry scrolls it into view and marks
  * it (`focused`): an ink bar on the leading edge, never a tint under muted
- * text (`grid-design-language.md`).
+ * text (`design-language.md`).
  */
 
 import type { JSX } from 'react'
@@ -47,7 +47,7 @@ import { mailThreadCopy } from '@/i18n/namespaces/mail-thread'
 /** The ways of filing worth a line: every other mail was decided by a person in the app. */
 const FILED_VIA_ICON: Partial<Record<MailThreadFiledVia, typeof Bot>> = {
   agent: Bot,
-  piloti_proposal: Sparkles,
+  agent_proposal: Sparkles,
   follow: Repeat2,
   archive_import: Archive,
 }

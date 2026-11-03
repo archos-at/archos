@@ -19,7 +19,7 @@ reader cannot disagree:
 **A domain is authority only when a signature confirmed it** (RT-S2). The line
 :func:`mail_origin_label` prints names the SIGNING domain for a verified sender,
 and otherwise the From domain with „Domain nicht bestätigt“, the same words and
-the same rule as the Verlauf's own section headings. So Piloti can attribute
+the same rule as the Verlauf's own section headings. So the agent can attribute
 („laut E-Mail von Mag. Huber vom 12.05.2026“) and never present a sender
 nobody confirmed as the Behörde.
 

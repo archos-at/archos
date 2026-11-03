@@ -530,7 +530,7 @@ class TestLaneForMailHit:
         assert nr.lane_for_hit(doc_class="law", shelf="project", source_format="mail")[0] == "project_mail"
 
     def test_the_stated_author_still_outranks_it(self):
-        assert nr.lane_for_hit(shelf="project", authored_by="agent", source_format="mail")[0] == "office_piloti"
+        assert nr.lane_for_hit(shelf="project", authored_by="agent", source_format="mail")[0] == AGENT_AUTHORED_LANE
 
     def test_any_other_format_changes_nothing(self):
         for source_format in (None, "", "pdf", "MAIL "):

@@ -231,7 +231,7 @@ possibly as a new Fassung; the text usually into its **E-Mail-Verlauf**) or
 not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
 after 30 days; both can be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
-Piloti's reads it. Anyone may write to the address; each mail says whether its
+ARCHOS's reads it. Anyone may write to the address; each mail says whether its
 sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
 bestätigt“), which shapes what is suggested and never files anything by itself.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
@@ -251,7 +251,7 @@ the states `waiting`, `settled`, `filed`, `dismissed`, `expired`; never
 `inbox` or `intake`.
 
 **E-Mail-Adresse des Projekts** (project mail address):
-The address `<name>.<token>@piloti.at` a project receives mail at. Whoever
+The address `<name>.<token>@example.org` a project receives mail at. Whoever
 knows it can put mail in front of the office, never into the project. A leaked
 address is replaced (*neue Adresse erzeugen*): the old one stops working at
 once, and every *Folgen* on the project ends.
@@ -262,7 +262,7 @@ _Code_: `inbound mail address` (`inbound_mail_addresses`,
 **E-Mail-Verlauf** (mail thread):
 One e-mail conversation filed as one document of Dokumentart *Korrespondenz*:
 each filed e-mail is a section, and each one filed later adds a Fassung, so
-the newest Fassung holds the whole conversation and Piloti cites one e-mail of
+the newest Fassung holds the whole conversation and ARCHOS cites one e-mail of
 it. E-mails from the project's address and from an imported Outlook archive
 end up in the same E-Mail-Verlauf, each once. Each section keeps its *Original
 (.eml)* as evidence: downloadable by whoever may read the Verlauf, never read by

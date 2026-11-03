@@ -182,10 +182,10 @@ config:
   # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
   # Off until owner gate O4 (docs/deployment/kubernetes.md §3c). The promote that
   # turns it on sets the domain AND the pause, with the scanner already running:
-  #   pulumi config set        grid-oib:malwareScanEnabled true   (PR-C, deployed first)
-  #   pulumi config set --secret grid-oib:inboundMailSigningKeys '{"mi-2026-10":"<openssl rand -base64 32>"}'
-  #   pulumi config set        grid-oib:inboundMailPaused   true
-  #   pulumi config set        grid-oib:inboundMailDomain   piloti.at
+  #   pulumi config set        malwareScanEnabled true   (deployed first)
+  #   pulumi config set --secret inboundMailSigningKeys '{"mi-2026-10":"<openssl rand -base64 32>"}'
+  #   pulumi config set        inboundMailPaused   true
+  #   pulumi config set        inboundMailDomain   <the receiving domain>
   # The Cloudflare token then also needs Zone:Zone Settings:Edit, Zone:Email Routing
   # Rules:Edit, Zone:Zone:Read and Account:Workers Scripts:Edit (account listed
   # under the token's Account Resources). Unpause after launch gates G1-G9.

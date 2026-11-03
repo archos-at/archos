@@ -8,7 +8,7 @@ import 'server-only'
  * mail by two readings. It reads; it never files (`review-first.spec.ts`).
  */
 
-import type { InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import {
   followEligibility,
   type FollowCandidateMail,

@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The scores a decision on a held mail writes (`./suggest-scores`): one
- * `piloti-decision` per suggested part, one `mail-thread-match` for a matched
+ * the decision score (`DECISION_SCORE_NAME`) per suggested part, one `mail-thread-match` for a matched
  * text, and PostHog's `suggestion_followed`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'

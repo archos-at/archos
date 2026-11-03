@@ -9,7 +9,7 @@
  *
  * - **No bytes and no text outside `-text-get`.** A held mail is unconfirmed
  *   third-party text. The list and the detail carry metadata only (the subject
- *   masked, names of parts, flags), so Piloti, which is offered them, never
+ *   masked, names of parts, flags), so the agent, which is offered them, never
  *   reads what a stranger wrote before a person filed it (D7, D22, RT-S6).
  *   `inbound-mail-text-get` is the one view with the text, and it is masked.
  * - **Candidates are the viewer's.** A thread, a duplicate or an earlier
@@ -83,7 +83,7 @@ export const INBOUND_MAIL_REFUSALS = [
   'sender_not_acknowledged',
   /** An acknowledgement in a request about more than one mail: each is a single mail's decision. */
   'acknowledgement_in_bulk',
-  /** A Piloti card carries an acknowledgement or a release; only the person gives those. */
+  /** An agent's card carries an acknowledgement or a release; only the person gives those. */
   'card_carries_acknowledgement',
   /** A document of this name is already in the project; file it as its next Fassung (`revisionOf`) or rename it. */
   'name_taken',
@@ -166,7 +166,7 @@ export type IncompleteReason = (typeof INBOUND_MAIL_INCOMPLETE_REASONS)[number]
 
 /** What the sender asks of the person, on both views (`./sender-risk`). */
 export interface InboundMailSenderRiskView {
-  /** `impersonation`: nothing is pre-selected, Piloti suggests nothing, filing needs `acknowledgeSender`. `caution`: filing needs it. */
+  /** `impersonation`: nothing is pre-selected, the agent suggests nothing, filing needs `acknowledgeSender`. `caution`: filing needs it. */
   riskLevel: SenderRiskLevel
   /** Why it reads as someone pretending; null unless `riskLevel` is `impersonation`. */
   impersonation: ImpersonationBasis | null
@@ -337,7 +337,7 @@ export interface InboundMailPartView {
   revisionCandidate: (InboundMailDocumentRefView & { nextVersion: number }) | null
   /** A possible earlier Fassung exists in a folder the viewer does not see („1 mögliche Fassung …“). */
   revisionCandidateHidden: boolean
-  /** Piloti's suggestion (D21): folder, Dokumentart and a one-line reason; null while there is none, and always for a mail Piloti does not suggest for. */
+  /** The agent's suggestion (D21): folder, Dokumentart and a one-line reason; null while there is none, and always for a mail the agent does not suggest for. */
   suggestion: InboundMailSuggestion | null
   /**
    * Offered checked: filing it as suggested asks nothing of the person

@@ -219,7 +219,7 @@ describe('purgeProject', () => {
     await purgeProject(tx, entry, deps)
 
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
-      ['grid-documents', 'org/org1/project/p1/'],
+      ['documents', 'org/org1/project/p1/'],
       ['grid-org-org1-abcdef123456', 'org/org1/project/p1/'],
     ])
   })
@@ -241,7 +241,7 @@ describe('purgeProject', () => {
     expect(bucketRead.text).toContain('SELECT staging_bucket AS storage_bucket FROM inbound_mails WHERE project_id =')
     expect(bucketRead.text).toContain('SELECT original_bucket AS storage_bucket FROM mail_thread_entries WHERE project_id =')
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
-      ['grid-documents', 'org/org1/project/p1/'],
+      ['documents', 'org/org1/project/p1/'],
       ['grid-org-org1-mailonly000', 'org/org1/project/p1/'],
     ])
   })
@@ -260,7 +260,7 @@ describe('purgeProject', () => {
     await purgeProject(tx, entry, deps)
 
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
-      ['grid-documents', 'org/org1/project/p1/'],
+      ['documents', 'org/org1/project/p1/'],
     ])
   })
 
@@ -455,7 +455,7 @@ describe('session attachments', () => {
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
       // The project's own prefix, in the shared bucket (no project document row
       // records another one).
-      ['grid-documents', 'org/org1/project/p1/'],
+      ['documents', 'org/org1/project/p1/'],
       // …and the chat's prefix, which shares no ancestor with it.
       ['grid-documents', 'org/org1/session/s_c1/'],
       ['grid-org-org1-abcdef123456', 'org/org1/session/s_c1/'],

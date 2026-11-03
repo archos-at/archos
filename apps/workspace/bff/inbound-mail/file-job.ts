@@ -49,7 +49,7 @@ import { createHash } from 'node:crypto'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { listProjectFolderTree } from '@/lib/authz/folder-access-repository'
 import type { AccessFolder } from '@/lib/authz/folder-access-rule'
-import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailDecisionRow, InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { memberReader } from '@/lib/documents/document-reader'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
@@ -102,7 +102,7 @@ export const RESCAN_AFTER_MS = 24 * 60 * 60 * 1000
 /** The request the uploads' audit lines carry: a job, not a browser. */
 const jobRequest = (): Request =>
   new Request('http://bff-jobs.internal/inbound-mail-file', {
-    headers: { 'user-agent': 'piloti-inbound-mail' },
+    headers: { 'user-agent': 'inbound-mail' },
   })
 
 /** What one run shares across its mails: the person, the project, and what it reads or opens at most once. */

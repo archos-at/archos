@@ -15,7 +15,7 @@ const alertVariants = cva(
         // the signal red on the glyph and the words in ink. Red words on the
         // tint measured 4.08:1 (axe, 2026-10-27), under the 4.5:1 AA asks of
         // body text: the same cure as a warning line, glyph coloured, words
-        // in ink (`grid-design-language.md`, „Measured contrasts“).
+        // in ink (`design-language.md`, „Measured contrasts“).
         destructive:
           'border-danger bg-danger-subtle text-foreground [&>svg]:text-error *:data-[slot=alert-description]:text-foreground',
         success:

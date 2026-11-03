@@ -234,10 +234,10 @@ def test_a_mail_reads_its_headers_recipients_and_attachments():
     assert forwarded.embedded_message is True
 
 
-#: One conversation as both sources carry it (``shared/thread-index.json``): the
+#: One conversation as both sources carry it (``contracts/thread-index.json``): the
 #: BFF's ``threadIndexGuid`` spec reads the same vector, so the archive and an
 #: inbound ``Thread-Index`` header cannot drift apart.
-THREAD_INDEX = json.loads((Path(__file__).resolve().parents[3] / "shared" / "thread-index.json").read_text())
+THREAD_INDEX = json.loads((Path(__file__).resolve().parents[3] / "contracts" / "thread-index.json").read_text())
 #: A conversation index as Outlook writes it: reserved byte, FILETIME, GUID, one child block.
 CONVERSATION_INDEX = bytes.fromhex(THREAD_INDEX["bytesHex"])
 

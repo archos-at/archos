@@ -500,7 +500,7 @@ depends on nobody but a person handling them. So a **fifth category**,
 `evidence`: *bytes kept as proof, which no model reads*. An operation that
 serves such bytes is catalogued like every other (the route has its
 operation, so `agent-reachability.spec.ts` holds) and withheld from every door,
-Piloti's and every outside agent's, with `withheld: { category: 'evidence',
+The agent's and every outside agent's, with `withheld: { category: 'evidence',
 reason }` (`exposure.config.ts`). Today: `inbound-mail-original-get`, and the
 filed entry's original download that follows it. Offering one again is, as for
 every withheld operation, deleting its `withheld` entry, and here it would
@@ -509,7 +509,7 @@ also break the promise ADR-0137 makes; that change needs an amendment of its own
 What is not evidence, and why: a held mail's text (`inbound-mail-text-get`)
 and an attachment's bytes before filing (`inbound-mail-part-content-get`) are
 what the person decides on. They are offered to an outside agent acting as the
-person (the text masked), and not to Piloti (`piloti: false`), which reads a
+person (the text masked), and not to the agent (`piloti: false`), which reads a
 mail only once a person filed it (ADR-0137, D22).
 
 ### The app is a client of the same routes

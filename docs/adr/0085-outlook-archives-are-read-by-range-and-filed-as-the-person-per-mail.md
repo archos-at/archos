@@ -165,5 +165,5 @@ Verläufe it opened (`threads_created`), the existing ones it added to
 Confirmation: `lib/mail-thread/archive.spec.ts`, `archive.integration.spec.ts`
 (Postgres: dedupe both ways, one Fassung per slice, no append into an
 unwritable Verlauf), `lib/mail-import/*.spec.ts`, and the shared Thread-Index
-fixture `shared/thread-index.json` read by both `mail-threading.spec.ts` and
+fixture `contracts/thread-index.json` read by both `mail-threading.spec.ts` and
 `test_mail_archive_reader.py`. The flow: [`mail-import.md`](../architecture/mail-import.md).

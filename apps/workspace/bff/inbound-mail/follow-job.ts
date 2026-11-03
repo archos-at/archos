@@ -46,7 +46,7 @@ import { resolvePinnedRequesterSessionStrict } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { isInboundMailEnabled } from '@/lib/authz/feature-flags'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { memberReader, SCREENED_ONLY } from '@/lib/documents/document-reader'
 import {
   requesterOf,

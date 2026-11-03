@@ -168,7 +168,7 @@ fi
 # name, so a suite cannot arrive here unrun.
 echo "==> renaming the row-level-security roles as the deploy does, after the migrations"
 rename_rls_roles
-echo "==> running the isolation, BIM query, memory consolidation, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, Piloti's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
+echo "==> running the isolation, BIM query, memory consolidation, profile-binding, legal-hold, chat-erasure, restricted-use, cross-project use, similar passages, project intake, run-reconciler, usage-ledger, answer-feedback, restricted memory, download-log, Papierkorb, closed-project, Steckbrief, Ausmisten, upload batches, quarantine decisions, the agent's proposed operations and solo reads, restricted-feedback, revision-subject, the hold on a document, permit-record, push subscription, inbox paging, Anmerkungen, Offene Punkte, folder cards and search providers, workspace search, inbound mail and mail thread suites as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run \
     bff/db/tenant-isolation.integration.spec.ts \
@@ -2571,7 +2571,7 @@ echo "==> 0192 upload batch effects and its down migration verified"
 # a third project of the first one that a legal hold will cover. Every refusal
 # 0193 promises is a violating statement here, named by its constraint:
 # nothing is filed without a person's file decision, a system actor never
-# decides, a Piloti card and a follow carry no acknowledgement, a follow is the
+# decides, an agent's card and a follow carry no acknowledgement, a follow is the
 # follower's own, nothing unscanned is shown or filed, a settled mail keeps no
 # third party's data, every object key is the row's own. Then what the runtime
 # role may do (its organization only, never a DELETE), what a decision may
@@ -2682,7 +2682,7 @@ refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', 
 refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', '$U184_A1', '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_member_has_user" "an outsider's mail that names a member"
 refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_unverified', 'system:inbound_mail', '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_none')" "inbound_mails_sender_user_is_person" "a member that is not a person's id"
 refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{trusted}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_sender_flags_known" "an unknown sender flag"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', 'piloti.at; dkim=pass header.d=y.at; SPF=temperror', NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_authentication_results_shape" "a stored evidence line that carries spf= (RT-S18)"
+refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', 'example.org; dkim=pass header.d=y.at; SPF=temperror', NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_authentication_results_shape" "a stored evidence line that carries spf= (RT-S18)"
 refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_unverified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_maybe')" "inbound_mails_sender_reason_known" "an unknown sender reason"
 refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_unverified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_reason_with_trust" "a DKIM pass labelled unverified"
 refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_fail')" "inbound_mails_reason_with_trust" "a verified sender whose signature failed"
@@ -2726,9 +2726,9 @@ refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file'
 refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', 'user_1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_decider_is_person" "a decider that is not a WorkOS user id"
 refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'accept', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_action_known" "an unknown action"
 refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'rule', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_via_known" "a decision that came by a rule"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'piloti_proposal', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_proposal_iff_card" "a Piloti card that names no proposal"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'piloti_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, true)" "inbound_mail_decisions_piloti_cards_file_clean" "a Piloti card that acknowledges a risk (RT-S5)"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'piloti_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, true, false, false)" "inbound_mail_decisions_piloti_cards_file_clean" "a Piloti card that releases a stopped name (RT-S5)"
+refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_proposal_iff_card" "an agent's card that names no proposal"
+refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, true)" "inbound_mail_decisions_agent_cards_file_clean" "an agent's card that acknowledges a risk (RT-S5)"
+refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, true, false, false)" "inbound_mail_decisions_agent_cards_file_clean" "an agent's card that releases a stopped name (RT-S5)"
 refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_destination_when_filing" "a filing with nowhere to go"
 refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_destination_when_filing" "a dismissal with a destination"
 refused_in inbound_0193 "${V184}$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, 'Statik', 'create', NULL, 'full', 'Statik', false, false, false)" "inbound_mail_decisions_thread_for_text" "an attachment filed into a thread"
@@ -2751,7 +2751,7 @@ INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, pa
 INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by) VALUES
   ('3c000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A1');
 INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, proposal_id, folder_path) VALUES
-  ('3e000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'piloti_proposal', gen_random_uuid(), 'Rechnungen');
+  ('3e000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), 'Rechnungen');
 INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, thread_action, mail_thread_id, message_text) VALUES
   ('3d000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', 'fa000000-0000-4000-8000-000000000184', 'append', 'ea000000-0000-4000-8000-000000000184', 'full');
 SQL
@@ -2838,7 +2838,7 @@ refused_in inbound_0193 "$ENTRY184, 'archive', NULL, gen_random_uuid(), now(), n
 refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'archive_import', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_archive_imported" "an inbound entry filed by an import"
 refused_in inbound_0193 "$ENTRY184, 'inbound', NULL, NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_provenance" "an inbound entry that names no mail"
 refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', 'system:follow', 'follow', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_filer_is_person" "an entry nobody filed"
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', 'piloti.at; spf=pass', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_authentication_results_shape" "an entry's evidence line with spf="
+refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', 'example.org; spf=pass', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_authentication_results_shape" "an entry's evidence line with spf="
 refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, 'b', NULL, repeat('a', 64), 1, 'clean')" "mail_thread_entries_original_together" "half an original"
 refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, 'b', 'org/org_0184_a/project/a0000000-0000-4000-8000-000000000184/_mail-originals/e1000000-0000-4000-8000-000000000184.eml', repeat('a', 64), 1, 'clean')" "mail_thread_entries_original_key_shape" "an original under another entry's key"
 refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), '21.10.2026 09:00 · Huber (statik.at)', 'external_verified', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_heading_key" "two sections with one heading"
@@ -2861,7 +2861,7 @@ refused_in inbound_0193 "UPDATE mail_thread_message_ids SET thread_id = 'ec00000
 
 # The runtime role: its organization's rows only, in all nine tables, and no DELETE.
 for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mail_decisions mail_threads mail_thread_entries mail_thread_entry_attachments mail_thread_message_ids mail_thread_follows; do
-  seen=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U grid_app_rw -d inbound_0193 -qtA \
+  seen=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA \
     -c "SET grid.organization_id = 'org_0184_b'" \
     -c "SELECT coalesce(string_agg(DISTINCT organization_id, ','), '') FROM $table")
   if [ "$seen" != "org_0184_b" ]; then
@@ -2870,7 +2870,7 @@ for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mai
   fi
 done
 for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mail_decisions mail_threads mail_thread_entries mail_thread_entry_attachments mail_thread_follows; do
-  if out=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U grid_app_rw -d inbound_0193 -qtA -v ON_ERROR_STOP=1 \
+  if out=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA -v ON_ERROR_STOP=1 \
       -c "SET grid.organization_id = 'org_0184_b'" -c "DELETE FROM $table WHERE organization_id = 'org_0184_b'" 2>&1); then
     echo "MIGRATION ASSERTION FAILED on inbound_0193: the runtime role deleted from $table" >&2
     exit 1
@@ -2880,7 +2880,7 @@ for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mai
     exit 1
   fi
 done
-RWINS184=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U grid_app_rw -d inbound_0193 -qtA \
+RWINS184=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA \
   -c "SET grid.organization_id = 'org_0184_a'" \
   -c "INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, expires_at) VALUES ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'eb000000-0000-4000-8000-000000000184', '$U184_A1', now() + interval '1 day')" 2>&1 || true)
 if ! grep -q "row-level security" <<<"$RWINS184"; then

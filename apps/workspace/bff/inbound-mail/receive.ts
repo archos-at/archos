@@ -36,7 +36,7 @@
  * 12. `received` and the receive job, in one transaction.
  * 13. 202.
  *
- * ## The answer is a contract (`shared/inbound-mail-contract.json`)
+ * ## The answer is a contract (`contracts/inbound-mail-contract.json`)
  *
  * The Worker bounces a mail ONLY on a 4xx carrying `x-inbound-verdict: reject`:
  * an unknown or revoked address, an office with the feature off (the same

@@ -23,7 +23,7 @@ import {
 
 const SCRIPT = join(__dirname, "inbound-mail-smoke.ts");
 const VECTORS = JSON.parse(
-  readFileSync(join(__dirname, "../../../shared/inbound-mail-signature.json"), "utf8"),
+  readFileSync(join(__dirname, "../../../contracts/inbound-mail-signature.json"), "utf8"),
 ) as {
   vectors: Array<{
     keyId: string;
@@ -51,12 +51,12 @@ describe("the probes' signatures", () => {
 
 describe("the probe messages", () => {
   it.each([64 * 1024, 1024 * 1024, 24 * 1024 * 1024, 26 * 1024 * 1024 + 1])("builds a message of exactly %i bytes", (size) => {
-    expect(messageOfSize("p.k3m7q2xw4pab@piloti.test", "size", size).byteLength).toBe(size);
+    expect(messageOfSize("p.k3m7q2xw4pab@example.test", "size", size).byteLength).toBe(size);
   });
 
   it("is CRLF throughout, with base64 lines of at most 76 characters", () => {
     const raw = buildMessage({
-      to: "p.k3m7q2xw4pab@piloti.test",
+      to: "p.k3m7q2xw4pab@example.test",
       subject: "EICAR",
       text: "hello",
       attachments: [{ name: "eicar.com.txt", contentType: "text/plain", bytes: Buffer.from(EICAR) }],
@@ -69,7 +69,7 @@ describe("the probe messages", () => {
 
   it("gives every message its own Message-ID, so a re-run is never a duplicate", () => {
     const id = (raw: Buffer) => /^Message-ID: (.*)$/m.exec(raw.toString())?.[1];
-    const args = { to: "p.k3m7q2xw4pab@piloti.test", subject: "x", text: "x" };
+    const args = { to: "p.k3m7q2xw4pab@example.test", subject: "x", text: "x" };
     expect(id(buildMessage(args))).not.toBe(id(buildMessage(args)));
   });
 });
@@ -110,7 +110,7 @@ describe("G9: the aligned DKIM share", () => {
     ["ma37.wien.gv.at", "wien.gv.at"],
     ["mail.statik-weber.at", "statik-weber.at"],
     ["Example.CO.UK.", "example.co.uk"],
-    ["piloti.at", "piloti.at"],
+    ["example.org", "example.org"],
   ])("takes %s's organizational domain as %s", (domain, org) => {
     expect(organizationalDomain(domain)).toBe(org);
   });

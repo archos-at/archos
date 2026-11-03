@@ -5,75 +5,75 @@
       "name": "a plain ASCII message",
       "keyId": "mi-2026-10",
       "secret": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo=",
-      "bffUrl": "https://app.piloti.test",
+      "bffUrl": "https://app.example.test",
       "created": 1792670400,
       "envelope": {
-        "to": "riverside.k3m7q2xw4pab@piloti.test",
+        "to": "riverside.k3m7q2xw4pab@example.test",
         "from": "sender@example.org"
       },
-      "bodyBase64": "RnJvbTogU2VuZGVyIDxzZW5kZXJAZXhhbXBsZS5vcmc+DQpUbzogcml2ZXJzaWRlLmszbTdxMnh3NHBhYkBwaWxvdGkudGVzdA0KU3ViamVjdDogU2l0ZSB2aXNpdA0KTWVzc2FnZS1JRDogPHYxQGV4YW1wbGUub3JnPg0KDQpTZWUgeW91IG9uIE1vbmRheS4NCg==",
+      "bodyBase64": "RnJvbTogU2VuZGVyIDxzZW5kZXJAZXhhbXBsZS5vcmc+DQpUbzogcml2ZXJzaWRlLmszbTdxMnh3NHBhYkBleGFtcGxlLnRlc3QNClN1YmplY3Q6IFNpdGUgdmlzaXQNCk1lc3NhZ2UtSUQ6IDx2MUBleGFtcGxlLm9yZz4NCg0KU2VlIHlvdSBvbiBNb25kYXkuDQo=",
       "expected": {
-        "url": "https://app.piloti.test/api/internal/signed/inbound-mail",
+        "url": "https://app.example.test/api/internal/signed/inbound-mail",
         "headers": {
-          "content-digest": "sha-256=:Yr7DFUP38O7xe3oyBz3rio77lZfQzGXLtuNgvxXQhtA=:",
-          "content-length": "148",
+          "content-digest": "sha-256=:NieQn1UF3uVVinkdoePWFai8PGtjekFBznViDRXvBAU=:",
+          "content-length": "149",
           "content-type": "message/rfc822",
-          "x-envelope-to": "riverside.k3m7q2xw4pab@piloti.test",
+          "x-envelope-to": "riverside.k3m7q2xw4pab@example.test",
           "x-envelope-from": "sender@example.org",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670400;expires=1792670700;keyid=\"mi-2026-10\";alg=\"hmac-sha256\"",
-          "signature": "sig=:gHoFmbRpqfFGSbTvfbSEvh8BIn9MPoP/W2XkMlHWjUg=:"
+          "signature": "sig=:QWe1h5G0VvFE5vr06f53oRahNSrq3vo+Uu1+umXA6ZQ=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.piloti.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Yr7DFUP38O7xe3oyBz3rio77lZfQzGXLtuNgvxXQhtA=:\n\"content-length\": 148\n\"x-envelope-to\": riverside.k3m7q2xw4pab@piloti.test\n\"x-envelope-from\": sender@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670400;expires=1792670700;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:NieQn1UF3uVVinkdoePWFai8PGtjekFBznViDRXvBAU=:\n\"content-length\": 149\n\"x-envelope-to\": riverside.k3m7q2xw4pab@example.test\n\"x-envelope-from\": sender@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670400;expires=1792670700;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
       }
     },
     {
       "name": "a bounce with a null sender and 8-bit bytes in the body",
       "keyId": "mi-2026-10",
       "secret": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo=",
-      "bffUrl": "https://app.piloti.test",
+      "bffUrl": "https://app.example.test",
       "created": 1792670401,
       "envelope": {
-        "to": "k3m7q2xw4pab@piloti.test",
+        "to": "k3m7q2xw4pab@example.test",
         "from": ""
       },
       "bodyBase64": "U3ViamVjdDogVW5kZWxpdmVyYWJsZQ0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdA0KDQrDpAD/DQo=",
       "expected": {
-        "url": "https://app.piloti.test/api/internal/signed/inbound-mail",
+        "url": "https://app.example.test/api/internal/signed/inbound-mail",
         "headers": {
           "content-digest": "sha-256=:Wgd2iJU10NA6/PoiIfGFYpCfskuuT2/StkVXK6OSbMk=:",
           "content-length": "65",
           "content-type": "message/rfc822",
-          "x-envelope-to": "k3m7q2xw4pab@piloti.test",
+          "x-envelope-to": "k3m7q2xw4pab@example.test",
           "x-envelope-from": "<>",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670401;expires=1792670701;keyid=\"mi-2026-10\";alg=\"hmac-sha256\"",
-          "signature": "sig=:OZgAbBrtsngTKaJ851v6VSG38Jjt91KUdIwM12SqpxU=:"
+          "signature": "sig=:ysFnZovhQyCxkHdgxXXnkSzwpBfAgdXoNty1kbitRaQ=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.piloti.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Wgd2iJU10NA6/PoiIfGFYpCfskuuT2/StkVXK6OSbMk=:\n\"content-length\": 65\n\"x-envelope-to\": k3m7q2xw4pab@piloti.test\n\"x-envelope-from\": <>\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670401;expires=1792670701;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Wgd2iJU10NA6/PoiIfGFYpCfskuuT2/StkVXK6OSbMk=:\n\"content-length\": 65\n\"x-envelope-to\": k3m7q2xw4pab@example.test\n\"x-envelope-from\": <>\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670401;expires=1792670701;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
       }
     },
     {
       "name": "an SMTPUTF8 sender, percent-encoded",
       "keyId": "mi-2026-10",
       "secret": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo=",
-      "bffUrl": "https://app.piloti.test",
+      "bffUrl": "https://app.example.test",
       "created": 1792670402,
       "envelope": {
-        "to": "riverside.k3m7q2xw4pab+drawings@piloti.test",
+        "to": "riverside.k3m7q2xw4pab+drawings@example.test",
         "from": "zoë@example.org"
       },
       "bodyBase64": "U3ViamVjdDogPT9VVEYtOD9RP1pvPUMzPUFCPz0NCg0KaGVsbG8NCg==",
       "expected": {
-        "url": "https://app.piloti.test/api/internal/signed/inbound-mail",
+        "url": "https://app.example.test/api/internal/signed/inbound-mail",
         "headers": {
           "content-digest": "sha-256=:Ra81KoMaZIAKAqHBrwkFi4cqhLBsgbTEgIHFzstkA64=:",
           "content-length": "40",
           "content-type": "message/rfc822",
-          "x-envelope-to": "riverside.k3m7q2xw4pab+drawings@piloti.test",
+          "x-envelope-to": "riverside.k3m7q2xw4pab+drawings@example.test",
           "x-envelope-from": "zo%C3%AB@example.org",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670402;expires=1792670702;keyid=\"mi-2026-10\";alg=\"hmac-sha256\"",
-          "signature": "sig=:SFP0h2WEEWicswoeoRI2OItpN4tbyQIamU6z9nQWjpc=:"
+          "signature": "sig=:LUEmlfQCQDu3vaoN2zgxV6/92ZKoKkCYgXvRvjX8/KY=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.piloti.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Ra81KoMaZIAKAqHBrwkFi4cqhLBsgbTEgIHFzstkA64=:\n\"content-length\": 40\n\"x-envelope-to\": riverside.k3m7q2xw4pab+drawings@piloti.test\n\"x-envelope-from\": zo%C3%AB@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670402;expires=1792670702;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Ra81KoMaZIAKAqHBrwkFi4cqhLBsgbTEgIHFzstkA64=:\n\"content-length\": 40\n\"x-envelope-to\": riverside.k3m7q2xw4pab+drawings@example.test\n\"x-envelope-from\": zo%C3%AB@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670402;expires=1792670702;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
       }
     },
     {

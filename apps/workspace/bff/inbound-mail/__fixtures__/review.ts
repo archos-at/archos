@@ -5,7 +5,7 @@
  * fact its case is about.
  */
 
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 
 export const PROJECT_ID = '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d'
 export const MAIL_ID = '7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f'
@@ -38,8 +38,8 @@ export function heldMail(overrides: Partial<InboundMailRow> = {}): InboundMailRo
     rawScannedAt: AT,
     rawScanAttempts: 1,
     messageId: '<reply-2@statik-weber.at>',
-    inReplyTo: ['<first@piloti.test>'],
-    referenceIds: ['<first@piloti.test>'],
+    inReplyTo: ['<first@example.test>'],
+    referenceIds: ['<first@example.test>'],
     threadIndexGuid: null,
     baseSubject: 'statik einreichung',
     threadMatch: [{ threadId: THREAD_ID, strength: 'reference', headers: ['in-reply-to', 'references'] }],

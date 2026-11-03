@@ -282,7 +282,7 @@ describe("Qdrant's dashboard at the edge", () => {
       "grid-oib:loadBalancerIp": "203.0.113.10",
       "grid-oib:dnsEnabled": "true",
       "grid-oib:dnsZoneId": "zone-abc123",
-      "grid-oib:dnsZoneName": "example.test",
+      [`${LEGACY_PROJECT}:dnsZoneName`]: "example.test",
       "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
     });
     expect(error?.message).toMatch(/qdrant\.elsewhere\.test is not inside it/);
@@ -515,10 +515,10 @@ describe("malwareScan", () => {
 describe("project mail (ADR-0138)", () => {
   const mail = {
     ...mailStackConfig(),
-    "grid-oib:inboundMailDomain": "post.example.test",
-    "grid-oib:inboundMailZoneId": "zone-mail-1",
+    [`${LEGACY_PROJECT}:inboundMailDomain`]: "post.example.test",
+    [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-mail-1",
   };
-  const keys = (map: Record<string, unknown>) => ({ ...mail, "grid-oib:inboundMailSigningKeys": JSON.stringify(map) });
+  const keys = (map: Record<string, unknown>) => ({ ...mail, [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: JSON.stringify(map) });
 
   it("is off, and asks for nothing, while the domain is unset", () => {
     expect(loadWith({})).toBeNull();
@@ -540,13 +540,13 @@ describe("project mail (ADR-0138)", () => {
   it("refuses the domain while the malware scanner is off", () => {
     // Mail from anyone is scanned before it can be filed; without clamd every
     // scan fails closed and nothing that arrives could ever be filed.
-    const error = loadWith({ ...mail, "grid-oib:malwareScanEnabled": "false" });
-    expect(error?.message).toMatch(/inboundMailDomain needs grid-oib:malwareScanEnabled=true/);
+    const error = loadWith({ ...mail, [`${LEGACY_PROJECT}:malwareScanEnabled`]: "false" });
+    expect(error?.message).toMatch(/inboundMailDomain needs malwareScanEnabled=true/);
   });
 
   // A domain without a usable key map deploys a Worker whose every delivery
   // gets a 503: the sender's server retries for days, then bounces.
-  it.each(["grid-oib:inboundMailSigningKeys", "grid-oib:cloudflareApiToken"])("refuses the domain without %s", (key) => {
+  it.each([`${LEGACY_PROJECT}:inboundMailSigningKeys`, `${LEGACY_PROJECT}:cloudflareApiToken`])("refuses the domain without %s", (key) => {
     expect(loadWith(mail, [key])?.message).toContain(key);
   });
 
@@ -560,11 +560,11 @@ describe("project mail (ADR-0138)", () => {
     ["a hex secret", JSON.stringify({ k: "ab".repeat(32) + "!" }), /secret of "k"/],
     [
       "the development secret",
-      JSON.stringify({ k: Buffer.from("grid-internal-dev-signing-secret").toString("base64") }),
+      JSON.stringify({ k: Buffer.from("internal-dev-signing-secret-0032").toString("base64") }),
       /well-known development secret/,
     ],
   ])("refuses a key map that is %s, as the BFF would", (_label, raw, message) => {
-    const error = loadWith({ ...mail, "grid-oib:inboundMailSigningKeys": raw });
+    const error = loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: raw });
     expect(error?.message).toMatch(message);
     // Only key names reach a message, never a secret.
     expect(error?.message).not.toContain(SIGNING_SECRET);
@@ -573,30 +573,30 @@ describe("project mail (ADR-0138)", () => {
   it("requires the Worker's keyid while two keys are held", () => {
     const two = keys({ old: SIGNING_SECRET, new: Buffer.alloc(32, 3).toString("base64") });
     expect(loadWith(two)?.message).toMatch(/inboundMailSigningKeyId must name the key/);
-    expect(loadWith({ ...two, "grid-oib:inboundMailSigningKeyId": "new" })).toBeNull();
-    expect(loadWith({ ...two, "grid-oib:inboundMailSigningKeyId": "gone" })?.message).toMatch(/got "gone"/);
+    expect(loadWith({ ...two, [`${LEGACY_PROJECT}:inboundMailSigningKeyId`]: "new" })).toBeNull();
+    expect(loadWith({ ...two, [`${LEGACY_PROJECT}:inboundMailSigningKeyId`]: "gone" })?.message).toMatch(/got "gone"/);
   });
 
   it("switches off without keys, but keeps the zone checks", () => {
-    const off = { ...mail, "grid-oib:inboundMailEnabled": "false" };
-    delete (off as Record<string, string>)["grid-oib:inboundMailSigningKeys"];
+    const off = { ...mail, [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false" };
+    delete (off as Record<string, string>)[`${LEGACY_PROJECT}:inboundMailSigningKeys`];
     expect(loadWith(off)).toBeNull();
     expect(loadValues(off).inboundMail).toMatchObject({ configured: true, enabled: false });
-    expect(loadWith({ ...off, "grid-oib:inboundMailZoneId": "" }, ["grid-oib:inboundMailZoneId"])?.message).toMatch(
+    expect(loadWith({ ...off, [`${LEGACY_PROJECT}:inboundMailZoneId`]: "" }, [`${LEGACY_PROJECT}:inboundMailZoneId`])?.message).toMatch(
       /inboundMailZoneId is required/,
     );
   });
 
   it("reads the pause", () => {
-    expect(loadValues({ ...mail, "grid-oib:inboundMailPaused": "true" }).inboundMail.paused).toBe(true);
+    expect(loadValues({ ...mail, [`${LEGACY_PROJECT}:inboundMailPaused`]: "true" }).inboundMail.paused).toBe(true);
   });
 
   it("refuses the domain without the zone to enable routing on", () => {
-    expect(loadWith(mail, ["grid-oib:inboundMailZoneId"])?.message).toMatch(/inboundMailZoneId is required/);
+    expect(loadWith(mail, [`${LEGACY_PROJECT}:inboundMailZoneId`])?.message).toMatch(/inboundMailZoneId is required/);
   });
 
   it.each(["https://post.example.test", "inbox@post.example.test", "post"])("refuses %s as a domain", (domain) => {
-    expect(loadWith({ ...mail, "grid-oib:inboundMailDomain": domain })?.message).toMatch(
+    expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailDomain`]: domain })?.message).toMatch(
       /must be a bare domain name/,
     );
   });
@@ -604,36 +604,36 @@ describe("project mail (ADR-0138)", () => {
   it("refuses a subdomain of the DNS zone, which the catch-all cannot cover", () => {
     const error = loadWith({
       ...mail,
-      "grid-oib:inboundMailDomain": "mail.example.test",
-      "grid-oib:inboundMailZoneId": "zone-dns-1",
-      "grid-oib:dnsZoneId": "zone-dns-1",
-      "grid-oib:dnsZoneName": "example.test",
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: "mail.example.test",
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-dns-1",
+      [`${LEGACY_PROJECT}:dnsZoneId`]: "zone-dns-1",
+      [`${LEGACY_PROJECT}:dnsZoneName`]: "example.test",
     });
     expect(error?.message).toMatch(/is not the apex of its zone/);
   });
 
   it("takes the app zone when the domain is its apex and no zone is given", () => {
-    const values = { ...appZoneStackConfig(), ...mailStackConfig(), "grid-oib:inboundMailDomain": APP_ZONE };
+    const values = { ...appZoneStackConfig(), ...mailStackConfig(), [`${LEGACY_PROJECT}:inboundMailDomain`]: APP_ZONE };
     expect(loadWith(values)).toBeNull();
     expect(loadValues(values).inboundMail.zoneId).toBe(APP_ZONE_ID);
   });
 
   it.each([
-    ["grid-oib:dnsZoneBaseline", "false"],
-    ["grid-oib:dnsEnabled", "false"],
+    [`${LEGACY_PROJECT}:dnsZoneBaseline`, "false"],
+    [`${LEGACY_PROJECT}:dnsEnabled`, "false"],
   ])("refuses project mail on the app zone unless this stack owns it (%s=%s)", (key, value) => {
     // The catch-all is one object per zone: a second stack's `up` would
     // silently repoint it at its own Worker.
     const error = loadWith({
       ...appZoneStackConfig(),
       ...mail,
-      "grid-oib:inboundMailDomain": APP_ZONE,
-      "grid-oib:inboundMailZoneId": APP_ZONE_ID,
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: APP_ZONE,
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: APP_ZONE_ID,
       // The apex-serving stack must itself be the baseline; serve a subdomain
       // so that the only refusal left is project mail's.
-      "grid-oib:baseDomain": `www2.${APP_ZONE}`,
+      [`${LEGACY_PROJECT}:baseDomain`]: `www2.${APP_ZONE}`,
       [key]: value,
     });
-    expect(error?.message).toMatch(/inboundMailDomain on the app zone needs grid-oib:dnsEnabled/);
+    expect(error?.message).toMatch(/inboundMailDomain on the app zone needs dnsEnabled/);
   });
 });

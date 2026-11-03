@@ -280,23 +280,15 @@
                 "type": "string"
               },
               "fromName": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "signerDomain": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "senderTrust": {
@@ -318,8 +310,7 @@
               "fromName",
               "signerDomain",
               "senderTrust"
-            ],
-            "additionalProperties": true
+            ]
           }
         }
       },
@@ -492,23 +483,15 @@
                       "type": "string"
                     },
                     "fromName": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
+                      "type": [
+                        "string",
+                        "null"
                       ]
                     },
                     "signerDomain": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "null"
-                        }
+                      "type": [
+                        "string",
+                        "null"
                       ]
                     },
                     "senderTrust": {
@@ -530,8 +513,7 @@
                     "fromName",
                     "signerDomain",
                     "senderTrust"
-                  ],
-                  "additionalProperties": true
+                  ]
                 }
               }
             },
@@ -719,23 +701,15 @@
                     "type": "string"
                   },
                   "fromName": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "signerDomain": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "null"
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   },
                   "senderTrust": {
@@ -757,8 +731,7 @@
                   "fromName",
                   "signerDomain",
                   "senderTrust"
-                ],
-                "additionalProperties": true
+                ]
               }
             }
           },

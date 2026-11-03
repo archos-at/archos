@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 
-const store = vi.hoisted(() => ({ active: null as unknown, domain: 'piloti.at' as string | null }))
+const store = vi.hoisted(() => ({ active: null as unknown, domain: 'example.org' as string | null }))
 
 vi.mock('./access', () => ({
   requireMailReviewer: vi.fn(async () => ({ closed: false })),
@@ -66,7 +66,7 @@ const PROJECT = '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d'
 beforeEach(() => {
   vi.clearAllMocks()
   store.active = null
-  store.domain = 'piloti.at'
+  store.domain = 'example.org'
 })
 
 describe('the project address', () => {
@@ -89,7 +89,7 @@ describe('the project address', () => {
   })
 
   it('is created once, under the project’s slug, and a second create answers the same one', async () => {
-    expect((await createInboundMailAddress(session, PROJECT)).address).toBe('wohnhaus-moedling.abcdefgh2345@piloti.at')
+    expect((await createInboundMailAddress(session, PROJECT)).address).toBe('wohnhaus-moedling.abcdefgh2345@example.org')
     expect(await createInboundMailAddress(session, PROJECT)).toMatchObject({ state: 'active' })
     expect(insertAddress).toHaveBeenCalledTimes(1)
     expect(recordAuditEventAfterCommit).toHaveBeenCalledWith(expect.objectContaining({ action: 'inbound_mail_address.created' }))

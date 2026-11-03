@@ -7,7 +7,7 @@ import 'server-only'
  * always wait for a person. This module is the decision itself:
  *
  * - **Following** (`mail-thread-follow`) is the person's own act, so the
- *   operation is `control`-sensitive: Piloti never sees it, an outside agent
+ *   operation is `control`-sensitive: The agent never sees it, an outside agent
  *   only under the office's opt-in and the step-up scope. Who may: whoever may
  *   file mail into the project (the `inbound-mail` entitlement,
  *   `project:documents:write`, an open project) and read and write the thread
@@ -38,7 +38,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import { getHiddenFolderIds, requireFolderWrite } from '@/lib/authz/folder-access'
 import { requireProjectAccess } from '@/lib/authz/projects'
 import { getDb } from '@/lib/db'
-import type { MailThreadFollowRow } from '@/lib/db/schema'
+import type { MailThreadFollowRow } from '@/lib/db/schema/mail-thread'
 import { memberReader } from '@/lib/documents/document-reader'
 import { managesProject, requireInboundMailEnabled, requireMailReviewer } from '@/lib/inbound-mail/access'
 import { settleFollowExpiring } from '@/lib/inbound-mail/announce'

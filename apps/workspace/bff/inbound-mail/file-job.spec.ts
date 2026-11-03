@@ -94,13 +94,13 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 import { createHash } from 'node:crypto'
 import { FileTooLargeError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { InboundMailDecisionRow, InboundMailPartRow } from '@/lib/db/schema'
+import type { InboundMailDecisionRow, InboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import type { InboundMailFilePayload } from '@/lib/jobs-queue/types'
 import { appendInboundMessage } from '@/lib/mail-thread/append'
 import { finishOriginalMove } from '@/lib/mail-thread/originals'
 import { decidePendingAttachment, findEntryOfMail } from '@/lib/mail-thread/write-repository'
-import type { MailThreadEntryRow } from '@/lib/db/schema'
+import type { MailThreadEntryRow } from '@/lib/db/schema/mail-thread'
 import {
   filePart,
   heldMail,
@@ -592,7 +592,7 @@ describe('telling (D9, DECISION §9)', () => {
 })
 
 describe('filedForm (B8: a filed entry names no project address, its own included)', () => {
-  const domain = 'piloti.test'
+  const domain = 'example.test'
   const own = `wohnbau.abcdefgh2345@${domain}`
   const other = `nachbar.zzzzzzzzzzzz@${domain}`
   const read = {

@@ -2,7 +2,7 @@
  * @vitest-environment node
  */
 /**
- * The Worker ↔ webhook contract is held to `shared/inbound-mail-contract.json`,
+ * The Worker ↔ webhook contract is held to `contracts/inbound-mail-contract.json`,
  * which the Email Worker's spec reads too: a value changed on one side only
  * would bounce mail the webhook meant to hold, or retry mail it meant to bounce.
  */
@@ -48,15 +48,15 @@ interface VerdictContract {
 function loadContract(): VerdictContract {
   let dir = process.cwd()
   for (;;) {
-    const candidate = join(dir, 'shared', 'inbound-mail-contract.json')
+    const candidate = join(dir, 'contracts', 'inbound-mail-contract.json')
     if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, 'utf8')) as VerdictContract
     const parent = dirname(dir)
-    if (parent === dir) throw new Error(`shared/inbound-mail-contract.json not found above ${process.cwd()}`)
+    if (parent === dir) throw new Error(`contracts/inbound-mail-contract.json not found above ${process.cwd()}`)
     dir = parent
   }
 }
 
-describe('the verdict contract with the Email Worker (shared/inbound-mail-contract.json)', () => {
+describe('the verdict contract with the Email Worker (contracts/inbound-mail-contract.json)', () => {
   const contract = loadContract()
 
   it('names the same path, headers, size bound, signed components and lifetime', () => {

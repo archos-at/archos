@@ -1,5 +1,5 @@
 /**
- * The draft a person edits and the request it becomes (D26): Piloti's
+ * The draft a person edits and the request it becomes (D26): The agent's
  * suggestion pre-filled, unchecked parts left out (the server dismisses
  * them), acknowledgements only where the mail needs them and never in bulk.
  */
@@ -30,7 +30,7 @@ describe('targetForPath', () => {
 })
 
 describe('initialDraft', () => {
-  it('takes Piloti’s suggestion and the pre-selected thread', () => {
+  it('takes the agent’s suggestion and the pre-selected thread', () => {
     const view = mail({ parts: [message, permitDecision] })
     const draft = initialDraft(view, FOLDERS, copy)
     expect(draft.message).toMatchObject({ checked: true, target: { kind: 'append', threadId: view.threadCandidates[0].threadId } })
@@ -49,7 +49,7 @@ describe('initialDraft', () => {
       kind: 'create',
       name: 'Baustellenbegehung',
       folder: { kind: 'existing', folderId: FOLDERS[3].id, path: 'Korrespondenz' },
-      // The correspondence folder is the rule's pick, not Piloti's: no mark on it.
+      // The correspondence folder is the rule's pick, not the agent's: no mark on it.
       folderSuggested: false,
       releaseName: false,
     })
@@ -68,7 +68,7 @@ describe('initialDraft', () => {
 })
 
 describe('edits', () => {
-  it('a field stops being Piloti’s once the person gives it another value', () => {
+  it('a field stops being the agent’s once the person gives it another value', () => {
     const view = mail({ parts: [message, permitDecision] })
     const draft = initialDraft(view, FOLDERS, copy)
     const same = updateAttachment(draft, permitDecision.id, { name: 'Bescheid.pdf', documentType: 'Bescheid' })
@@ -164,7 +164,7 @@ describe('decisionOf', () => {
 })
 
 describe('newThreadTarget', () => {
-  it('takes the folder Piloti suggested for the text (D14)', () => {
+  it('takes the folder the agent suggested for the text (D14)', () => {
     const view = mail({ parts: [messagePart({ id: message.id, suggestion: { folderId: null, folderPath: 'Behörde', newFolder: false, documentType: null, reason: 'x' } })], threadCandidates: [] })
     expect(initialDraft(view, FOLDERS, copy).message?.target).toMatchObject({ kind: 'create', folder: { kind: 'existing', path: 'Behörde' }, folderSuggested: true })
   })

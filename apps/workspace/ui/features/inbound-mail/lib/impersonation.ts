@@ -3,7 +3,7 @@
  * 'impersonation'`, `lib/inbound-mail/sender-risk.ts`): a rejected signature,
  * or an outsider writing under a member's name. The owner's rule after the
  * screenshots of 2026-10-22: such a mail is announced above everything else,
- * nothing of it is offered checked, and Piloti suggests nothing for it.
+ * nothing of it is offered checked, and the agent suggests nothing for it.
  *
  * The server already says so (every part's `preselected` is false, the view
  * drops a stored suggestion, the suggest job skips it). The detail holds the
@@ -45,7 +45,7 @@ export function bulkSelectable(mail: Pick<InboundMailSummaryView, 'riskLevel'>):
 
 /**
  * The view as the detail draws it: for an impersonation, every part without
- * Piloti's suggestion and not pre-selected; any other view unchanged (the
+ * The agent's suggestion and not pre-selected; any other view unchanged (the
  * same object, so effects keyed on it do not run again).
  */
 export function guardImpersonation(view: InboundMailView): InboundMailView {

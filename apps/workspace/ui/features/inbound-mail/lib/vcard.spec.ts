@@ -5,13 +5,15 @@
 
 import { describe, expect, it } from 'vitest'
 import { contactCard, contactCardFileName } from './vcard'
+import { PRODUCT_NAME } from '@/lib/brand'
+import { fileSlug } from '@/lib/text/latinize'
 
 describe('contactCard', () => {
   it('writes a vCard 4.0 with CRLF line ends', () => {
-    const card = contactCard({ name: 'Piloti · Bauplatz 12', address: 'bauplatz-12.k3x7q2m9p4ab@piloti.at' })
+    const card = contactCard({ name: `${PRODUCT_NAME} · Bauplatz 12`, address: 'bauplatz-12.k3x7q2m9p4ab@example.org' })
     expect(card.startsWith('BEGIN:VCARD\r\nVERSION:4.0\r\n')).toBe(true)
-    expect(card).toContain('FN:Piloti · Bauplatz 12\r\n')
-    expect(card).toContain('EMAIL;TYPE=work:bauplatz-12.k3x7q2m9p4ab@piloti.at\r\n')
+    expect(card).toContain(`FN:${PRODUCT_NAME} · Bauplatz 12\r\n`)
+    expect(card).toContain('EMAIL;TYPE=work:bauplatz-12.k3x7q2m9p4ab@example.org\r\n')
     expect(card.endsWith('END:VCARD\r\n')).toBe(true)
   })
 
@@ -32,7 +34,7 @@ describe('contactCard', () => {
 
 describe('contactCardFileName', () => {
   it('is a latin slug of the project', () => {
-    expect(contactCardFileName('Bauplatz 12 – Wohnbau Seestadt')).toBe('piloti-bauplatz-12-wohnbau-seestadt.vcf')
-    expect(contactCardFileName('工程')).toMatch(/^piloti-.+\.vcf$/)
+    expect(contactCardFileName('Bauplatz 12 – Wohnbau Seestadt')).toBe('bauplatz-12-wohnbau-seestadt.vcf')
+    expect(contactCardFileName('工程')).toMatch(new RegExp(`^${fileSlug(PRODUCT_NAME)}-.+\\.vcf$`))
   })
 })

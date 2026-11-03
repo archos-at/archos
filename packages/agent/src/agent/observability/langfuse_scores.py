@@ -41,6 +41,9 @@ from threading import Lock
 from typing import Any
 from typing import Literal
 
+from .card_scores import card_validity_score  # noqa: F401  (re-exported)
+from .card_scores import formula_provenance_score  # noqa: F401  (re-exported)
+
 logger = logging.getLogger(__name__)
 
 DataType = Literal["NUMERIC", "CATEGORICAL", "BOOLEAN"]
@@ -86,7 +89,7 @@ SCORE_DEFINITIONS: tuple[ScoreDefinition, ...] = (
         "piloti-decision",
         "CATEGORICAL",
         "A person's decision on something Piloti produced in this turn: a proposal or a proposed mark taken "
-        "over (accepted) or dismissed, an applied change undone, a held mail's part filed where Piloti "
+        "over (accepted) or dismissed, an applied change undone, a held mail's part filed where the agent "
         "suggested (accepted) or not (dismissed). Metadata names the subject and its id.",
         writer="bff",
         categories=("accepted", "dismissed", "undone"),
@@ -536,47 +539,6 @@ def steer_scores(inbox: Any) -> list[RuntimeScore]:
         return []
     applied = len(getattr(inbox, "applied", None) or [])
     return [RuntimeScore("steer-count", float(received), comment=f"applied {applied}")]
-
-
-def formula_provenance_score(card: dict[str, Any], *, index: int) -> RuntimeScore | None:
-    """How many of a formula card's given defaults say where they are written; ``None`` for any other card.
-
-    An input with no value is not counted against the card: it is shown as
-    unknown, which is the honest outcome, and counted in the metadata instead.
-    A card whose inputs are all unknown scores 1 — nothing on it is untraced.
-    """
-    if card.get("type") != "formula":
-        return None
-    from agent.cards.formula_card import formula_inputs
-
-    inputs = formula_inputs(card)
-    given = [item for item in inputs if item.get("value") is not None]
-    sourced = [item for item in given if (item.get("source") or "").strip() or item.get("reference")]
-    share = round(len(sourced) / len(given), 4) if given else 1.0
-    name = str((card.get("formula") or {}).get("name"))
-    return RuntimeScore(
-        "formula-input-provenance",
-        share,
-        comment=f"{len(sourced)} of {len(given)} given inputs sourced",
-        item=str(index),
-        metadata={
-            "formula": name,
-            "inputs": len(inputs),
-            "given": len(given),
-            "sourced": len(sourced),
-            "unknown": len(inputs) - len(given),
-        },
-    )
-
-
-def card_validity_score(*, outcome: str, card_type: str, index: int, fields: int | None = None) -> RuntimeScore:
-    """One envelope card's schema miss: repaired, dropped, or `stripped` of ``fields`` it may not state."""
-    metadata: dict[str, Any] = {"card_type": card_type}
-    comment = card_type
-    if fields is not None:
-        metadata["fields"] = fields
-        comment = f"{card_type}: {fields} stated field(s) removed"
-    return RuntimeScore("card-validity", outcome, comment=comment, item=str(index), metadata=metadata)
 
 
 def thread_reply_scores(verdict: str) -> list[RuntimeScore]:

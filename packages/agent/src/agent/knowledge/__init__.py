@@ -61,8 +61,6 @@ from .factory import set_document_display_title
 from .factory import set_document_doc_class
 from .factory import set_document_doc_class_suggestion
 from .factory import set_document_folder_path
-from .factory import set_document_mail_origin
-from .factory import set_document_mail_thread
 from .factory import set_document_page_count
 from .factory import set_document_provenance
 from .factory import set_document_reading
@@ -73,6 +71,8 @@ from .factory import set_document_tags_by_person
 from .factory import set_document_topics_by_person
 from .factory import unregister_summary
 from .factory import update_document_tags
+from .factory_mail import set_document_mail_origin
+from .factory_mail import set_document_mail_thread
 from .inventory import allocate_inventory
 from .inventory import allocate_inventory_detailed
 from .inventory import get_inventory_drops

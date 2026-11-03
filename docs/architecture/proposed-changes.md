@@ -23,8 +23,8 @@ An applied `operation` runs its route as the person, and the route can tell it
 was a card: the applier passes the proposal's id as `callOperation`'s `origin`,
 and the acting session answers it (`actingProposalId`,
 `lib/agent-api/acting-session.ts`). The E-Mail-Eingang records such a filing
-as `via = 'piloti_proposal'`, and the database refuses a card that carries an
-acknowledgement or a name release (ADR-0137): Piloti proposes `inbound-mail-file`
+as `via = 'agent_proposal'`, and the database refuses a card that carries an
+acknowledgement or a name release (ADR-0137): The agent proposes `inbound-mail-file`
 for clean, unflagged parts only.
 The lifecycle in `service.ts` is the same for every kind and asks `kinds.ts`
 for the rest.

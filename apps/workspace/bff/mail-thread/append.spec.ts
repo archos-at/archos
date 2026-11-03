@@ -37,7 +37,8 @@ import {
   NotFoundError,
 } from '@/lib/api/errors'
 import type { AccessFolder } from '@/lib/authz/folder-access-rule'
-import type { InboundMailDecisionRow, MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema'
+import type { InboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
+import type { MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema/mail-thread'
 import { contentDigest } from '@/lib/documents/content-digest'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import {
@@ -153,7 +154,7 @@ function threadRow(overrides: Partial<MailThreadRow> = {}): MailThreadRow {
     documentId: THREAD_DOC,
     baseSubject: 'statik einreichung',
     threadIndexGuid: null,
-    participantDomains: ['piloti.test'],
+    participantDomains: ['example.test'],
     continuesThreadId: null,
     entryCount: 1,
     renderedBytes: 100,
@@ -405,11 +406,11 @@ describe('the entry', () => {
 
   it('answers the latest entry the mail’s In-Reply-To names', () => {
     const entries = [
-      { id: 'a', messageId: '<first@piloti.test>', filedAt: new Date('2026-10-01') },
-      { id: 'b', messageId: '<first@piloti.test>', filedAt: new Date('2026-10-02') },
-      { id: 'c', messageId: '<other@piloti.test>', filedAt: new Date('2026-10-03') },
+      { id: 'a', messageId: '<first@example.test>', filedAt: new Date('2026-10-01') },
+      { id: 'b', messageId: '<first@example.test>', filedAt: new Date('2026-10-02') },
+      { id: 'c', messageId: '<other@example.test>', filedAt: new Date('2026-10-03') },
     ]
-    expect(answeredEntryOf(entries, ['<first@piloti.test>'])).toBe('b')
+    expect(answeredEntryOf(entries, ['<first@example.test>'])).toBe('b')
     expect(answeredEntryOf(entries, ['<nobody@x.at>'])).toBeNull()
   })
 })
@@ -443,7 +444,7 @@ describe('appending to a thread', () => {
         threadId: THREAD_ID,
         mail: heldMail({
           id: 'aaaaaaaa-0000-4000-8000-000000000001',
-          messageId: '<first@piloti.test>',
+          messageId: '<first@example.test>',
           sentAt: new Date('2026-10-20T08:00:00Z'),
           receivedAt: new Date('2026-10-20T08:01:00Z'),
           senderName: 'Huber',
@@ -583,13 +584,13 @@ describe('appending to a thread', () => {
     })
     expect(commit.messageIds).toEqual({
       received: '<reply-2@statik-weber.at>',
-      referenced: ['<first@piloti.test>', '<first@piloti.test>'],
+      referenced: ['<first@example.test>', '<first@example.test>'],
     })
     expect(commit.part).toEqual({ id: textPart().id, documentId: THREAD_DOC, versionId: 'ver-2' })
     expect(commit.threadUpdate).toMatchObject({
       documentId: THREAD_DOC,
       entryCount: 2,
-      participantDomains: ['piloti.test', 'statik-weber.at'],
+      participantDomains: ['example.test', 'statik-weber.at'],
     })
     expect(commit.movesOriginal).toBe(true)
     expect(vi.mocked(uploadDocument).mock.invocationCallOrder[0]).toBeLessThan(

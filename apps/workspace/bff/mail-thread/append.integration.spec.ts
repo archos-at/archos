@@ -4,7 +4,7 @@
  * The SQL that writes an E-Mail-Verlauf, against a REAL Postgres with migration
  * 0193, through the restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://grid_app_rw@host:port/grid_app \
+ *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/mail-thread/append.integration.spec.ts
  *
  * The unit specs stand the repository in; these prove its statements keep the
@@ -87,9 +87,9 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
         raw_storage_key, read_storage_key, raw_scan_status, raw_scanned_at, sender_address, sender_name, subject, base_subject,
         sender_trust, sender_reason, signer_domain, message_id, in_reply_to, participants, participant_domains, sent_at, expires_at)
-      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'grid-org-test',
+      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'org-test-bucket',
         ${stagingKey(mailId, 'raw.eml')}, ${stagingKey(mailId, 'read.json')}, 'clean', now(), 'p.weber@statik-weber.at', 'DI Petra Weber',
-        'Statik', 'statik', 'external_verified', 'dkim_pass', 'statik-weber.at', ${`<${mailId}@statik-weber.at>`}, '{"<first@piloti.test>"}',
+        'Statik', 'statik', 'external_verified', 'dkim_pass', 'statik-weber.at', ${`<${mailId}@statik-weber.at>`}, '{"<first@example.test>"}',
         '[]'::jsonb, '{statik-weber.at}', now() - interval '1 hour', now() + interval '30 days')
       RETURNING id`)
     const text = await one<{ id: string }>(sql`
@@ -169,7 +169,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
       },
       messageIds: {
         received: `<${mail.mailId}@statik-weber.at>`,
-        referenced: ['<first@piloti.test>'],
+        referenced: ['<first@example.test>'],
       },
       attachments: [
         {
@@ -298,7 +298,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
         )
       ).toEqual([
         { state: 'received', message_id: `<${mail.mailId}@statik-weber.at>` },
-        { state: 'referenced', message_id: '<first@piloti.test>' },
+        { state: 'referenced', message_id: '<first@example.test>' },
       ])
       expect(
         (
@@ -413,7 +413,7 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
       await inTenant(() => write.commitAppend(commit))
       const key = `org/${ORG}/project/${projectId}/_mail-originals/${commit.entry.id}.eml`
       const original = {
-        originalBucket: 'grid-org-test',
+        originalBucket: 'org-test-bucket',
         originalStorageKey: key,
         originalSha256: 'c'.repeat(64),
         originalBytes: 2048,

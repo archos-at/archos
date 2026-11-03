@@ -438,7 +438,7 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         const [mail] = await db.execute(
           sql`insert into inbound_mails (organization_id, project_id, address_id, status, delivery_key, raw_size_bytes,
                                          staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, expires_at)
-              values (${org}, ${projectId}, ${address.id}, 'waiting', ${'e'.repeat(64)}, 100, 'grid-documents', 'clean', now(),
+              values (${org}, ${projectId}, ${address.id}, 'waiting', ${'e'.repeat(64)}, 100, 'documents', 'clean', now(),
                       'huber@statik.at', 'external_verified', 'dkim_pass', now() + interval '30 days') returning id`
         )
         const [text] = await db.execute(
@@ -484,15 +484,15 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
       )
     ).toMatch(/inbound_mail_decisions_decider_is_person/)
-    // A Piloti card carries no acknowledgement (RT-S5).
+    // An agent's card carries no acknowledgement (RT-S5).
     expect(
       await refusedBy(() =>
         db.execute(
           sql`insert into inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, proposal_id, folder_path, acknowledged_risk)
-              values (${ORG_A}, ${a.project}, ${a.mail}, ${a.file}, 'file', ${person(ORG_A)}, 'piloti_proposal', gen_random_uuid(), 'Statik', true)`
+              values (${ORG_A}, ${a.project}, ${a.mail}, ${a.file}, 'file', ${person(ORG_A)}, 'agent_proposal', gen_random_uuid(), 'Statik', true)`
         )
       )
-    ).toMatch(/inbound_mail_decisions_piloti_cards_file_clean/)
+    ).toMatch(/inbound_mail_decisions_agent_cards_file_clean/)
     // A follow decision is the follower's own (D31).
     expect(
       await refusedBy(() =>

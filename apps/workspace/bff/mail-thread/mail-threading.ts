@@ -282,7 +282,7 @@ function matchOne(message: ThreadingMessage, thread: ThreadCandidate): ThreadMat
     return { threadId: thread.threadId, strength: 'thread_index', headers: ['thread-index'] }
 
   if (!sameSubject || !message.baseSubject) return null
-  // A reply that cites only an ancestor the thread knows by quotation (Piloti was put in Cc mid-thread).
+  // A reply that cites only an ancestor the thread knows by quotation (The agent was put in Cc mid-thread).
   const referenced = new Set(thread.referencedIds)
   const citesAncestor = cites(message.inReplyTo, referenced) || cites(message.references, referenced)
   if (citesAncestor || (sharesParticipant(message, thread) && activeWithin(message, thread)))

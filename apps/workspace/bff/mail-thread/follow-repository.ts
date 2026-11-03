@@ -17,19 +17,10 @@ import 'server-only'
 
 import { and, count, eq, gt, isNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import {
-  documents,
-  inboundMailDecisions,
-  inboundMailParts,
-  inboundMails,
-  mailThreadFollows,
-  mailThreads,
-  projectFolders,
-  type InboundMailDecisionRow,
-  type MailThreadFollowRow,
-  type NewInboundMailDecisionRow,
-  type NewMailThreadFollowRow,
-} from '@/lib/db/schema'
+import { documents } from '@/lib/db/schema/documents'
+import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
+import { mailThreadFollows, mailThreads, type MailThreadFollowRow, type NewMailThreadFollowRow } from '@/lib/db/schema/mail-thread'
+import { projectFolders } from '@/lib/db/schema/project-folders'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 import {

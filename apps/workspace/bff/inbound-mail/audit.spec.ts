@@ -17,7 +17,7 @@ vi.mock('./repository', () => ({
 }))
 
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
-import type { InboundMailDecisionRow } from '@/lib/db/schema'
+import type { InboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import { auditDecisions, decisionMetadata } from './audit'
 import { markDecisionsAudited } from './repository'
 

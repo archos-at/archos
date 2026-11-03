@@ -8,7 +8,8 @@ import 'server-only'
 
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import { documents, inboundMailParts, inboundMails, type InboundMailPartRow } from '@/lib/db/schema'
+import { documents } from '@/lib/db/schema/documents'
+import { inboundMailParts, inboundMails, type InboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import type { DocumentReader } from '@/lib/documents/document-reader'
 import { documentVisibleTo } from '@/lib/documents/visibility'
 

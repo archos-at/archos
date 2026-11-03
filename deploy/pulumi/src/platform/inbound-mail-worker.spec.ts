@@ -17,10 +17,10 @@ import worker, {
 } from "./inbound-mail-worker.js";
 // Imports, not `node:fs`: this spec is also checked against the Workers
 // runtime types (tsconfig.worker.json), which have no Node modules.
-import addressContract from "../../../../shared/inbound-address.json";
-import contract from "../../../../shared/inbound-mail-contract.json";
-import signatureVectors from "../../../../shared/inbound-mail-signature.json";
-import publicSite from "../../../../shared/public-site.json";
+import addressContract from "../../../../contracts/inbound-address.json";
+import contract from "../../../../contracts/inbound-mail-contract.json";
+import signatureVectors from "../../../../contracts/inbound-mail-signature.json";
+import publicSite from "../../../../contracts/public-site.json";
 
 /**
  * The Email Worker's whole job: sign the message exactly as the BFF verifies
@@ -48,7 +48,7 @@ const ENV: Env = {
 /** The handler never touches the execution context. */
 const CTX = {} as ExecutionContext;
 
-const PROJECT_ADDRESS = "riverside.k3m7q2xw4pab@piloti.test";
+const PROJECT_ADDRESS = "riverside.k3m7q2xw4pab@example.test";
 
 function bytesOf(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -110,7 +110,7 @@ afterEach(() => {
 });
 
 describe("inbound mail worker: the contract file", () => {
-  it("restates shared/inbound-mail-contract.json", () => {
+  it("restates contracts/inbound-mail-contract.json", () => {
     expect(INBOUND_MAIL_PATH).toBe(contract.path);
     expect(INBOUND_MAIL_PATH.startsWith(contract.signedPathPrefix)).toBe(true);
     expect(VERDICT_HEADER).toBe(contract.verdictHeader);
@@ -199,7 +199,7 @@ describe("inbound mail worker: the pause", () => {
 
   it("still refuses an address that is not project-shaped while paused", async () => {
     stubFetch(respond(202));
-    const { message, setReject } = fakeMessage("contact@piloti.test");
+    const { message, setReject } = fakeMessage("contact@example.test");
     await deliver(message, { ...ENV, PAUSED: "true" });
     expect(setReject).toHaveBeenCalledWith(UNKNOWN_ADDRESS_TEXT);
   });
@@ -318,7 +318,7 @@ describe("inbound mail worker: the verdict contract", () => {
 });
 
 describe("inbound mail worker: the bounce texts", () => {
-  it("links the help and privacy pages of shared/public-site.json", () => {
+  it("links the help and privacy pages of contracts/public-site.json", () => {
     const { origin, paths } = publicSite;
     expect(REJECT_TEXT).toContain(`Help: ${origin}${paths.mailInbox}`);
     expect(REJECT_TEXT).toContain(`Privacy: ${origin}${paths.privacy}`);
@@ -353,7 +353,7 @@ interface AddressContract {
 const ADDRESSES: AddressContract = addressContract;
 
 describe("inbound mail worker: which recipients reach the BFF", () => {
-  it("uses the token pattern of shared/inbound-address.json", () => {
+  it("uses the token pattern of contracts/inbound-address.json", () => {
     // The BFF's address.spec.ts checks its own pattern against the same file.
     expect(TOKEN_PATTERN).toBe(ADDRESSES.tokenPattern);
   });

@@ -30,7 +30,7 @@
  * at filing, which the ingest job treats as the newest choice.
  */
 
-import type { Document } from '@/lib/db/schema'
+import type { Document } from '@/lib/db/schema/documents'
 import {
   mailOriginIngestFactsSchema,
   mailThreadIngestFactsSchema,

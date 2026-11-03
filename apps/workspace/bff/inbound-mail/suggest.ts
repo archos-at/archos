@@ -1,5 +1,5 @@
 /**
- * Piloti's suggestion for a held mail (ADR-0137, DECISION D21): where each
+ * The agent's suggestion for a held mail (ADR-0137, DECISION D21): where each
  * attachment belongs and as which Dokumentart, and, for a mail that matched no
  * E-Mail-Verlauf, the folder its text would start one in. The rules, pure; the
  * job that asks the model and stores the answer is `./suggest-job`.
@@ -30,7 +30,7 @@
  * address included), an impersonation (`./sender-risk`: a rejected signature,
  * or a member's name on another address, however well its own domain signed)
  * and automatic mail get no model call ({@link suggestionSkipReason}). A
- * suggestion on such a mail would put Piloti's weight behind a stranger's
+ * suggestion on such a mail would put the agent's weight behind a stranger's
  * claim, which is what a payment-diversion mail is built to borrow. The views
  * drop a stored suggestion by the same rule, so one written before the rule
  * changed is never shown. A suggestion never files anything; a person files,
@@ -38,7 +38,7 @@
  *
  * ## Whether it was followed
  *
- * When the person decides, each suggested part is scored (`piloti-decision`,
+ * When the person decides, each suggested part is scored (`DECISION_SCORE_NAME`,
  * subject `inbound_mail_suggestion`) and the mail's decision says how much of
  * the suggestion was taken (PostHog `suggestion_followed`). Both read
  * {@link suggestionOutcome}.
@@ -48,7 +48,7 @@
  */
 
 import { z } from 'zod'
-import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { DOCUMENT_TYPE_TAGS, type DocumentTypeTag } from '@/lib/documents/tag-vocabulary'
 import type {
   FilingConventionInput,
@@ -109,7 +109,7 @@ export type SuggestionSkipReason =
 
 /**
  * The reasons that need no lookup: the mail's own state and labels, in this
- * order. Pure and browser-safe: the E-Mail-Eingang says „Piloti macht hierfür
+ * order. Pure and browser-safe: the E-Mail-Eingang says „The agent macht hierfür
  * keine Vorschläge“ by this same function.
  */
 export function suggestionSkipReason(

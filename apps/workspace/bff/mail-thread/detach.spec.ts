@@ -55,7 +55,7 @@ vi.mock('@/lib/upload-screening/service', async (importOriginal) => ({
 import { InsufficientStorageError } from '@/lib/api/errors'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema'
+import type { MailThreadEntryRow, MailThreadRow } from '@/lib/db/schema/mail-thread'
 import { uploadDocument } from '@/lib/documents/document-dispatch'
 import { settleFollowExpiring } from '@/lib/inbound-mail/announce'
 import { heldMail, PERSON, PROJECT_ID } from '@/lib/inbound-mail/__fixtures__/review'

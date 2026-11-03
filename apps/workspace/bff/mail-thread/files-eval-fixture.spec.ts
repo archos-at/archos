@@ -38,7 +38,7 @@ import type { MailThreadRenderInput } from './render'
 
 // apps/workspace/bff/mail-thread → repo root is five levels up.
 const HERE = dirname(fileURLToPath(import.meta.url))
-const FIXTURE_DIR = resolve(HERE, '../../../../../tests/fixtures/files_eval/mail')
+const FIXTURE_DIR = resolve(HERE, '../../../../tests/fixtures/files_eval/mail')
 
 type FixtureEntry = Omit<MailThreadRenderEntry, 'heading' | 'sentAt' | 'receivedAt' | 'filedAt'> & {
   sentAt: string

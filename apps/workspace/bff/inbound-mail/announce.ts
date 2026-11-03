@@ -37,7 +37,7 @@ import 'server-only'
 
 import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { isFolderVisibleToMember } from '@/lib/authz/folder-access'
-import type { InboxItemType } from '@/lib/db/schema'
+import type { InboxItemType } from '@/lib/db/schema/inbox'
 import { memberReader } from '@/lib/documents/document-reader'
 import type {
   InboundMailCapNotice,

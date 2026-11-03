@@ -13,7 +13,7 @@
  * Read on the server, where the text is (`inbound-mail-text-get` answers it as
  * `forwardedFrom`, masked like the rest of the text), so every client of the
  * route gets the same answer. It is text a stranger wrote, which is why it
- * travels with the text and not on `inbound-mail-get`, which Piloti reads
+ * travels with the text and not on `inbound-mail-get`, which the agent reads
  * (D7, D22).
  *
  * Pure.

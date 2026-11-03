@@ -83,7 +83,7 @@ export const inboundMail = {
     threadActionFirst: 'File the first {count} (becomes revisions {first}–{last})',
     reviewInOrder: 'Go through them in order',
     quiet: 'Domain not verified or automatic ({count})',
-    quietHint: 'These are listed in full. Piloti makes no suggestions for them, and they file nothing on their own.',
+    quietHint: 'These are listed in full. {productName} makes no suggestions for them, and they file nothing on their own.',
   },
 
   trust: {
@@ -101,8 +101,8 @@ export const inboundMail = {
       impersonation:
         'The signature of this mail failed, or the domain’s policy refused it. Someone may be using this name. Filing it needs your confirmation.',
       impersonationMemberName:
-        'The name shown is a member’s, but the address is not theirs. Mails that try to divert a payment look like this. Piloti suggests nothing for it, and filing it needs your confirmation.',
-      unverified: 'The sending domain did not sign this mail. Piloti suggests nothing for it and selects no mail thread.',
+        'The name shown is a member’s, but the address is not theirs. Mails that try to divert a payment look like this. {productName} suggests nothing for it, and filing it needs your confirmation.',
+      unverified: 'The sending domain did not sign this mail. {productName} suggests nothing for it and selects no mail thread.',
     },
   },
 
@@ -234,7 +234,7 @@ export const inboundMail = {
       type_mismatch: 'The file name and its content do not match.',
       acknowledgeRisk: 'I have read the warning. File anyway',
       acknowledgeRevision: 'File it as the next revision anyway',
-      encrypted: 'Encrypted – Piloti cannot read its content',
+      encrypted: 'Encrypted – {productName} cannot read its content',
       forwarded_inner: 'From a forwarded mail',
       image_in_mail: 'Picture in the mail',
       lastFailure: 'Could not be filed: {reason}',
@@ -251,10 +251,10 @@ export const inboundMail = {
   },
 
   suggestion: {
-    label: 'Piloti’s suggestion',
+    label: '{productName}’s suggestion',
     newFolder: 'new',
     noFolder: 'No suggestion – choose a folder.',
-    pending: 'Piloti is still reading …',
+    pending: '{productName} is still reading …',
     none: 'No suggestion for unverified or automatic mail.',
     root: 'Files (top level)',
     documentType: 'Document type',
@@ -281,7 +281,7 @@ export const inboundMail = {
     rejectedSignature: 'Careful: this mail poses as {name}. Its signature is invalid or was rejected by the domain.',
     memberName: 'Careful: the name {name} belongs to a member, the address {address} does not.',
     consequence:
-      'This is how fraud with changed bank details begins. Piloti suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.',
+      'This is how fraud with changed bank details begins. {productName} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.',
     fileAnyway: 'File anyway …',
     fileAnywayHint: 'Only once you checked by phone that the mail is genuine.',
   },
@@ -416,8 +416,8 @@ export const inboundMail = {
     label: 'Project mail address',
     copy: 'Copy',
     saveContact: 'Save as contact',
-    contactName: 'Piloti · {project}',
-    contactNote: 'Mail to this address waits in Piloti until someone files it.',
+    contactName: '{productName} · {project}',
+    contactNote: 'Mail to this address waits in {productName} until someone files it.',
     usesLabel: 'What the address is for',
     uses: {
       cc: 'Put it in Cc when you write to the authority, the structural engineer or the client: the replies land in project mail.',
@@ -427,7 +427,7 @@ export const inboundMail = {
     tileLead: 'Put in Cc, it brings the replies of the authority, the structural engineer and the client into project mail, ready to file.',
     openInbox: 'Open project mail',
     guide: 'Guide',
-    helpUrl: 'https://piloti.at/en/project-mail/',
+    helpUrl: 'https://example.org/en/project-mail/',
     none: 'This project has no mail address yet.',
     noneMember: 'Ask someone who manages the project to create it in the project settings.',
     create: 'Create address',
@@ -454,7 +454,7 @@ export const inboundMail = {
       share: '{percent} % of your office’s mail in the last 30 days was verified by your domain',
       missing: 'Your domain does not sign its mail – how to set it up',
       explain: 'Mail your domain signs is labelled “Domain verified”. Unsigned mail from your colleagues needs a confirmation before filing.',
-      helpUrl: 'https://piloti.at/en/project-mail/#dkim',
+      helpUrl: 'https://example.org/en/project-mail/#dkim',
     },
   },
 

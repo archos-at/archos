@@ -4,7 +4,7 @@
  * The receive side's SQL against a REAL Postgres with migration 0193, through
  * the restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://grid_app_rw@host:port/grid_app \
+ *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/inbound-mail/repository.integration.spec.ts
  *
  * The unit specs stand the repository in; these prove the statements keep the
@@ -62,7 +62,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
         addressId,
         envelopeFrom: 'sender@example.org',
         rawSizeBytes: bytes,
-        stagingBucket: 'grid-org-test',
+        stagingBucket: 'org-test-bucket',
         rawStorageKey: keyOf(mailId),
         receivedAt: new Date(),
         expiresAt: new Date(Date.now() + 30 * 86_400_000),
@@ -200,7 +200,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
         signerDomain: 'statik.example',
         signedHeaders: ['from', 'to', 'subject', 'date', 'message-id'],
         senderFlags: [],
-        authenticationResults: 'piloti.at; dkim=pass header.d=statik.example; dmarc=pass header.from=statik.example',
+        authenticationResults: 'example.org; dkim=pass header.d=statik.example; dmarc=pass header.from=statik.example',
         automatic: false,
         sentAt: new Date(),
         sentAtHeader: new Date(),
@@ -541,13 +541,13 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect(await one(sql`SELECT count(*)::int AS n FROM inbound_mail_decisions WHERE mail_id = ${mailId}::uuid AND action = 'file'`)).toEqual({ n: 1 })
     })
 
-    it('refuses a Piloti card carrying an acknowledgement, in the database (RT-S5)', async () => {
+    it('refuses an agent's card carrying an acknowledgement, in the database (RT-S5)', async () => {
       const { mailId, fileId } = await heldMail()
-      const card = { decidedBy: PERSON, via: 'piloti_proposal' as const, proposalId: crypto.randomUUID() }
+      const card = { decidedBy: PERSON, via: 'agent_proposal' as const, proposalId: crypto.randomUUID() }
       await expect(
         inTenant(() =>
           repo.writeMailDecisions(
-            [{ mailId, ifMatch: 'x', files: [fileRow(mailId, fileId, { via: 'piloti_proposal', proposalId: card.proposalId, acknowledgedRisk: true })] }],
+            [{ mailId, ifMatch: 'x', files: [fileRow(mailId, fileId, { via: 'agent_proposal', proposalId: card.proposalId, acknowledgedRisk: true })] }],
             card,
             () => 'x',
             new Date(Date.now() + 300_000),
@@ -556,7 +556,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
         ),
       ).rejects.toSatisfy((error: unknown) => {
         const cause = (error as { cause?: { constraint_name?: string } }).cause
-        return cause?.constraint_name === 'inbound_mail_decisions_piloti_cards_file_clean'
+        return cause?.constraint_name === 'inbound_mail_decisions_agent_cards_file_clean'
       })
       expect((await inTenant(() => repo.findMailParts([mailId]))).map((part) => part.state)).toEqual(['waiting', 'waiting'])
     })

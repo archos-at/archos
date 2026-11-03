@@ -59,7 +59,7 @@ import { BFF_JOB_PRIORITY, type BffJobPriority } from '@/lib/db/schema/bff-job-q
  * runs as the system files. `inbound_mail_receive` is one step AS THE SYSTEM
  * (`SYSTEM_ACTORS.inboundMail`): it reads, scans, labels and holds a mail for a
  * person, and decides nothing a person would. `inbound_mail_suggest` is one
- * step as the system too: Piloti's placement suggestion from names and
+ * step as the system too: The agent's placement suggestion from names and
  * metadata, a proposal only. `inbound_mail_file` runs AS THE PERSON who decided
  * (`requester`), resolved per slice, because filing is their upload, with their
  * rights, quota and screening. `inbound_mail_follow` runs AS THE FOLLOWER: their
@@ -541,7 +541,7 @@ export const inboundMailReceivePayloadSchema = z.object({
 export type InboundMailReceivePayload = z.infer<typeof inboundMailReceivePayloadSchema>
 
 /**
- * `inbound_mail_suggest`: Piloti's placement suggestion for a held mail's
+ * `inbound_mail_suggest`: The agent's placement suggestion for a held mail's
  * parts, from names and metadata only (D21). Job id uuid5 of the mail
  * (`inboundMailJobId`). Ids only.
  */

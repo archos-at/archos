@@ -11,7 +11,7 @@
  *
  * Who: `project:documents:write`, and write on every target folder. An outside
  * agent's call runs only on the person's own yes (`requiresPersonConfirmation`),
- * and Piloti only proposes it as a card.
+ * and the agent only proposes it as a card.
  *
  * Thin handler; the logic is `@/lib/inbound-mail/service`.
  */

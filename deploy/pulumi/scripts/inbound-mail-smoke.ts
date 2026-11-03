@@ -21,9 +21,9 @@
  *                              and to the account's Workers scripts
  *   INBOUND_MAIL_ZONE_ID       the zone whose apex is the mail domain
  *   INBOUND_MAIL_ACCOUNT_ID    the account that owns the Worker
- *   INBOUND_MAIL_DOMAIN        e.g. piloti.at
+ *   INBOUND_MAIL_DOMAIN        e.g. example.org
  *   INBOUND_MAIL_WORKER        the script name, the stack output `inboundMailWorker`
- *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.piloti.at, the origin of WORKOS_REDIRECT_URI
+ *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.example.org, the origin of WORKOS_REDIRECT_URI
  *   INBOUND_MAIL_TEST_ADDRESS  a project address of the TEST office (never a customer's)
  *   INBOUND_MAIL_KEY_ID        the keyid the Worker signs with (`inboundMailSigningKeyId`)
  *   INBOUND_MAIL_SIGNING_KEY   its base64 secret, from `pulumi config get --show-secrets`
@@ -48,7 +48,7 @@ import { createSigner, httpbis } from "http-message-signatures";
 import { serializeDictionary } from "structured-headers";
 
 const CONTRACT = JSON.parse(
-  readFileSync(join(__dirname, "../../../shared/inbound-mail-contract.json"), "utf8"),
+  readFileSync(join(__dirname, "../../../contracts/inbound-mail-contract.json"), "utf8"),
 ) as {
   path: string;
   envelopeToHeader: string;
@@ -83,7 +83,7 @@ export interface Attachment {
 export function buildMessage(args: { to: string; subject: string; text: string; attachments?: Attachment[] }): Buffer {
   const boundary = `smoke-${randomBytes(12).toString("hex")}`;
   const lines = [
-    "From: Piloti smoke test <smoke@example.invalid>",
+    "From: The agent smoke test <smoke@example.invalid>",
     `To: ${args.to}`,
     `Subject: [smoke] ${args.subject}`,
     `Date: ${new Date().toUTCString().replace("GMT", "+0000")}`,

@@ -18,7 +18,7 @@ import 'server-only'
  * ## The trace it sits on
  *
  * Matching is the receive job's, a rule and not a model call, so it has no
- * generation of its own; and a mail Piloti made no suggestion for (an
+ * generation of its own; and a mail the agent made no suggestion for (an
  * unconfirmed sender's, or with the budget spent) has no trace at all. The
  * score therefore comes with its own trace, `mail-thread-match`, written in the
  * same ingestion batch: ids, codes and counts, never a subject, a name or an

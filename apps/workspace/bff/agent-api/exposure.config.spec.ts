@@ -33,6 +33,10 @@ import { APP_TOOLS } from './catalog/app-views'
 import type { Sensitivity } from './operation'
 import { maySeeSensitive, SENSITIVE_SCOPE, visibleOperations } from './policy'
 import type { AgentPrincipal } from './principal'
+import { externalOnly, HELD_MAIL, SENSITIVE } from './exposure-presets'
+
+/** The in-product agent's actor on the wire (`AgentPrincipal['actor']`). */
+const IN_PRODUCT_ACTOR = 'piloti' as const
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/exposure.json')
 const NATIVE = /^native:[a-z][a-z0-9_]*$/
@@ -92,9 +96,9 @@ describe('the exposure config', () => {
     }
   })
 
-  it('keeps a held mail’s text and bytes from Piloti, and evidence off every door (ADR-0137, D22)', () => {
-    // Piloti reads a mail once a person filed it; before, metadata only (RT-S6).
-    for (const name of ['inbound-mail-text-get', 'inbound-mail-part-content-get']) expect(entry(name).piloti, name).toBe(false)
+  it('keeps a held mail’s text and bytes from the agent, and evidence off every door (ADR-0137, D22)', () => {
+    // The agent reads a mail once a person filed it; before, metadata only (RT-S6).
+    for (const name of ['inbound-mail-text-get', 'inbound-mail-part-content-get']) expect(entry(name), name).toMatchObject(externalOnly(HELD_MAIL))
     // The original `.eml` is proof: no model reads it, whoever asks (ADR-0122, amendment "evidence is on no door").
     const evidence = Object.entries(entries).filter(([, exposure]) => exposure.withheld?.category === 'evidence').map(([name]) => name)
     expect(evidence).toContain('inbound-mail-original-get')
@@ -103,18 +107,18 @@ describe('the exposure config', () => {
     }
   })
 
-  it('never lets Piloti make or end a standing decision to follow a mail thread (D31)', () => {
+  it('never lets the agent make or end a standing decision to follow a mail thread (D31)', () => {
     const follow = AGENT_OPERATIONS.find((op) => op.name === 'mail-thread-follow')
-    // It turns review down for one conversation: a control, never offered to Piloti, whatever it holds.
+    // It turns review down for one conversation: a control, never offered to the agent, whatever it holds.
     expect(follow?.sensitivity).toBe('control')
-    expect(entry('mail-thread-follow')).toMatchObject({ external: true, piloti: false })
-    expect(entry('mail-thread-unfollow')).toMatchObject({ external: true, piloti: false })
+    expect(entry('mail-thread-follow')).toMatchObject(SENSITIVE)
+    expect(entry('mail-thread-unfollow')).toEqual(externalOnly(entry('mail-thread-unfollow').reason ?? ''))
     const session = { userId: 'user_1', organizationId: 'org_1', role: 'admin', permissions: [] } as unknown as AgentPrincipal['session']
-    const piloti: AgentPrincipal = { actor: 'piloti', session, clientId: null, scopes: [SENSITIVE_SCOPE], sensitiveOptIns: ['control'] }
-    const names = visibleOperations(piloti).map((op) => op.name)
+    const inProduct: AgentPrincipal = { actor: IN_PRODUCT_ACTOR, session, clientId: null, scopes: [SENSITIVE_SCOPE], sensitiveOptIns: ['control'] }
+    const names = visibleOperations(inProduct).map((op) => op.name)
     expect(names).not.toContain('mail-thread-follow')
     expect(names).not.toContain('mail-thread-unfollow')
-    expect(maySeeSensitive(piloti, 'control', true)).toBe(false)
+    expect(maySeeSensitive(inProduct, 'control', true)).toBe(false)
     // An outside agent sees it only with the office's opt-in AND the step-up scope.
     const outside = (scopes: string[], sensitiveOptIns: Sensitivity[]): AgentPrincipal => ({
       actor: 'external_agent',

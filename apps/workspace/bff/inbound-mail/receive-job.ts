@@ -6,7 +6,7 @@
  * nothing a person would and it cannot file: it imports no filing code
  * (`review-first.spec.ts`), and the database refuses a filed part without a
  * person's decision (migration 0193). What it leaves is a `waiting` mail with
- * its parts, and at most two jobs queued for later: Piloti's suggestion
+ * its parts, and at most two jobs queued for later: The agent's suggestion
  * (metadata only, D21) and, when a person's standing decision to follow the
  * thread could cover the reply, the follow job, which runs as that person and
  * re-checks everything before it appends a word.
@@ -36,7 +36,7 @@
  * 12. Following: conditions 1–6 of D31 (`followEligibility`, pure); only when
  *     they hold is `inbound_mail_follow` queued.
  * 13. Announce (`inbound_mail.waiting`, every held mail), the live hint, the
- *     audit event, PostHog, and Piloti's suggestion unless `suggestionSkipReason`
+ *     audit event, PostHog, and the agent's suggestion unless `suggestionSkipReason`
  *     says otherwise (an unconfirmed sender, an impersonation, automatic mail).
  *
  * A failure retries through the queue. On the last attempt the mail is held
@@ -52,7 +52,7 @@ import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { SYSTEM_ACTORS } from '@/lib/audit/service'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import { isCoveredByActiveHold } from '@/lib/compliance/repository'
-import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema'
+import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
@@ -589,7 +589,7 @@ export function sizeBucket(bytes: number): string {
   return 'ge_10m'
 }
 
-/** Piloti's suggestion (D21), queued once per mail; the job reads the budget and the names itself. */
+/** The agent's suggestion (D21), queued once per mail; the job reads the budget and the names itself. */
 async function queueSuggestion(mail: InboundMailRow): Promise<void> {
   await insertJobIfAbsent({
     kind: 'inbound_mail_suggest',

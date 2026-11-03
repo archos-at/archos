@@ -2,7 +2,7 @@
 
 /**
  * What to do with a text the content check found something in (D13), asked
- * before filing because a filed text becomes part of a document Piloti reads.
+ * before filing because a filed text becomes part of a document the agent reads.
  *
  * Three outcomes, „Unkenntlich ablegen“ selected: the findings are masked in
  * the E-Mail-Verlauf (the original keeps them, as evidence), the text starts

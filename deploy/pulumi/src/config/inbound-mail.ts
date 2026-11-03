@@ -47,7 +47,7 @@ function assertSigningKeys(raw: string): string[] {
       throw new Error(`${SIGNING_KEYS_HINT}; the secret of "${keyId}" is not base64 of at least 32 bytes.`);
     }
     // `DEV_DEFAULT_SIGNING_SECRET`, which the BFF refuses outside development.
-    if (secret === Buffer.from("internal-dev-signing-secret").toString("base64")) {
+    if (secret === Buffer.from("internal-dev-signing-secret-0032").toString("base64")) {
       throw new Error(`${SIGNING_KEYS_HINT}; "${keyId}" holds the well-known development secret.`);
     }
   }

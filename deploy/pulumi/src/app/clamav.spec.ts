@@ -149,7 +149,7 @@ describe("clamav", () => {
   });
 
   it("holds the BFF to the limits clamd enforces, and to the same signature age as the probe", () => {
-    const bff = readFileSync(join(REPO, "frontends", "ui", "src", "lib", "malware-scan", "config.ts"), "utf8");
+    const bff = readFileSync(join(REPO, "apps", "workspace", "bff", "malware-scan", "config.ts"), "utf8");
     // `export const MAX_SIGNATURE_AGE_MS = 48 * 60 * 60 * 1000`
     const age = bff.match(/MAX_SIGNATURE_AGE_MS = (\d+) \* 60 \* 60 \* 1000/);
     expect(age?.[1]).toBe("48");

@@ -23,7 +23,7 @@
  * - a mail whose DKIM fails is held like any other (the NEGATIVE).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema'
+import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import type { MalwareScanVerdict } from '@/lib/malware-scan/types'
 
 vi.mock('server-only', () => ({}))
@@ -157,7 +157,7 @@ const ORG = 'org_01RECEIVEJOB'
 const PROJECT = '0e5b4f2e-1d7c-4c3a-9a51-2f0d8c6b7a10'
 const MAIL = '3c2b1a00-0000-4000-8000-00000000a001'
 const ADDRESS = '7a1f5c3e-8b2d-4e6f-9a0b-1c2d3e4f5a6b'
-const BUCKET = 'grid-org-test'
+const BUCKET = 'org-test-bucket'
 const RAW_KEY = `org/${ORG}/project/${PROJECT}/_inbound-mail/${MAIL}/raw.eml`
 const READ_KEY = `org/${ORG}/project/${PROJECT}/_inbound-mail/${MAIL}/read.json`
 const MEMBER_ID = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
@@ -553,7 +553,7 @@ describe('B8: another office’s project address never reaches what a person rea
     const visible = JSON.stringify([heldRow(), stagedRead(), state.parts])
     expect(visible).not.toContain(OTHER_TOKEN)
     expect(stagedRead().ownText).toContain(PROJECT_ADDRESS)
-    expect(stagedRead().quoted[0].header).toContain('nachbar.…@piloti.at')
+    expect(stagedRead().quoted[0].header).toContain('nachbar.…@example.org')
     expect(heldRow().participants.map((participant) => participant.address)).toEqual(['anna@buero-muster.at', 'weber@statik-weber.at'])
     expect(heldRow().participantDomains).toEqual([MEMBER_DOMAIN, 'statik-weber.at'])
   })

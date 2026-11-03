@@ -49,7 +49,7 @@ function mail(overrides: Partial<FollowCandidateMail> = {}): FollowCandidateMail
       'weber@statik-weber.at',
       'berger@berger-architektur.at',
       'Huber@MA37.wien.gv.at',
-      'bauplatz-12.k3x7q2m9p4ab@piloti.at',
+      'bauplatz-12.k3x7q2m9p4ab@example.org',
     ],
     match: { threadId: THREAD_ID, strength: 'reference', headers: ['in-reply-to', 'references'] },
     subjectNameStops: [],
@@ -60,7 +60,7 @@ function mail(overrides: Partial<FollowCandidateMail> = {}): FollowCandidateMail
   }
 }
 
-const context = { now: NOW, ownDomains: ['piloti.at'] }
+const context = { now: NOW, ownDomains: ['example.org'] }
 
 function reasons(candidate: FollowCandidateMail, follows: FollowRow[] = [follow]): FollowIneligibilityReason[] {
   const result = followEligibility(candidate, thread, follows, context)
@@ -193,7 +193,7 @@ describe('followEligibility', () => {
     })
 
     it('never counts the project’s own address', () => {
-      expect(newParticipantDomains({ participantAddresses: ['a@PILOTI.at'] }, thread, ['piloti.at'])).toEqual([])
+      expect(newParticipantDomains({ participantAddresses: ['a@PILOTI.at'] }, thread, ['example.org'])).toEqual([])
     })
   })
 

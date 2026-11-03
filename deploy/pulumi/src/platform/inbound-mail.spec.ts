@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
 import { mailStackConfig, SIGNING_KEY_ID, SIGNING_SECRET } from "../test-support/app-zone-config";
+import { LEGACY_PROJECT } from "../names";
 
 /**
  * Project mail on Cloudflare (`platform/inbound-mail.ts`).
@@ -22,7 +23,7 @@ const CALLS: Array<{ token: string; inputs: Record<string, unknown> }> = [];
 const ZONE_ID = "zone-mail-1";
 const DOMAIN = "post.example.test";
 const CONTRACT = JSON.parse(
-  readFileSync(join(__dirname, "../../../../shared/inbound-mail-contract.json"), "utf8"),
+  readFileSync(join(__dirname, "../../../../contracts/inbound-mail-contract.json"), "utf8"),
 ) as { path: string };
 
 /** What the MX lookup answers; each test sets it before `install`. */
@@ -43,7 +44,7 @@ pulumi.runtime.setMocks(
     call: (args: pulumi.runtime.MockCallArgs) => {
       CALLS.push({ token: args.token, inputs: args.inputs });
       if (args.token === "cloudflare:index/getZone:getZone") {
-        return { id: args.inputs.zoneId, name: DOMAIN, account: { id: "account-1", name: "Grid" } };
+        return { id: args.inputs.zoneId, name: DOMAIN, account: { id: "account-1", name: "Office" } };
       }
       if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
         return { results: MX_RECORDS };
@@ -51,7 +52,7 @@ pulumi.runtime.setMocks(
       return {};
     },
   },
-  "grid-oib",
+  LEGACY_PROJECT,
   "test",
   false,
 );
@@ -60,10 +61,10 @@ function mailConfig(overrides: Record<string, string> = {}): Record<string, stri
   return {
     ...baseStackConfig(),
     ...mailStackConfig(),
-    "grid-oib:observabilityEnabled": "false",
-    "grid-oib:baseDomain": "example.test",
-    "grid-oib:inboundMailDomain": DOMAIN,
-    "grid-oib:inboundMailZoneId": ZONE_ID,
+    [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
+    [`${LEGACY_PROJECT}:baseDomain`]: "example.test",
+    [`${LEGACY_PROJECT}:inboundMailDomain`]: DOMAIN,
+    [`${LEGACY_PROJECT}:inboundMailZoneId`]: ZONE_ID,
     ...overrides,
   };
 }
@@ -111,7 +112,7 @@ function reveal(value: unknown): { secret: boolean; value: unknown } {
 
 describe("project mail on Cloudflare", () => {
   it("creates nothing when inboundMailDomain is unset", async () => {
-    const result = await install(mailConfig({ "grid-oib:inboundMailDomain": "" }));
+    const result = await install(mailConfig({ [`${LEGACY_PROJECT}:inboundMailDomain`]: "" }));
     expect(result).toBeUndefined();
     expect(RESOURCES.filter((r) => r.type.startsWith("cloudflare:"))).toEqual([]);
     expect(CALLS).toEqual([]);
@@ -121,7 +122,7 @@ describe("project mail on Cloudflare", () => {
     await install(mailConfig());
     const script = one(SCRIPT);
     expect(script.inputs.accountId).toBe("account-1");
-    expect(script.inputs.scriptName).toBe("grid-inbound-mail-test");
+    expect(script.inputs.scriptName).toBe("inbound-mail-test");
     expect(script.inputs.mainModule).toBe("inbound-mail-worker.js");
     expect(script.inputs.content).toBe(readFileSync(join(__dirname, "inbound-mail-worker.js"), "utf8"));
     // The module syntax Worker, not a service-worker script: that is the shape
@@ -167,8 +168,8 @@ describe("project mail on Cloudflare", () => {
     const successor = Buffer.alloc(32, 0x22).toString("base64");
     await install(
       mailConfig({
-        "grid-oib:inboundMailSigningKeys": JSON.stringify({ [SIGNING_KEY_ID]: SIGNING_SECRET, "mi-2027-01": successor }),
-        "grid-oib:inboundMailSigningKeyId": "mi-2027-01",
+        [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: JSON.stringify({ [SIGNING_KEY_ID]: SIGNING_SECRET, "mi-2027-01": successor }),
+        [`${LEGACY_PROJECT}:inboundMailSigningKeyId`]: "mi-2027-01",
       }),
     );
     const bindings = reveal(one(SCRIPT).inputs.bindings).value as Binding[];
@@ -177,7 +178,7 @@ describe("project mail on Cloudflare", () => {
   });
 
   it("passes the pause to the Worker", async () => {
-    await install(mailConfig({ "grid-oib:inboundMailPaused": "true" }));
+    await install(mailConfig({ [`${LEGACY_PROJECT}:inboundMailPaused`]: "true" }));
     const bindings = reveal(one(SCRIPT).inputs.bindings).value as Binding[];
     expect(bindings.find((b) => b.name === "PAUSED")?.text).toBe("true");
   });
@@ -193,7 +194,7 @@ describe("project mail on Cloudflare", () => {
       zoneId: ZONE_ID,
       enabled: true,
       matchers: [{ type: "all" }],
-      actions: [{ type: "worker", values: ["grid-inbound-mail-test"] }],
+      actions: [{ type: "worker", values: ["inbound-mail-test"] }],
     });
   });
 
@@ -223,7 +224,7 @@ describe("project mail on Cloudflare", () => {
 
 describe("project mail, switched off (inboundMailEnabled: false)", () => {
   const off = () =>
-    mailConfig({ "grid-oib:inboundMailEnabled": "false", "grid-oib:inboundMailSigningKeys": "" });
+    mailConfig({ [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false", [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: "" });
 
   it("keeps the catch-all, disabled, so Cloudflare refuses at SMTP time", async () => {
     // Disabled, not Drop: Drop accepts and discards, and the sender never
@@ -234,7 +235,7 @@ describe("project mail, switched off (inboundMailEnabled: false)", () => {
     const catchAll = one(CATCH_ALL);
     expect(catchAll.inputs).toMatchObject({ zoneId: ZONE_ID, enabled: false, matchers: [{ type: "all" }] });
     expect(catchAll.inputs.actions).toEqual([{ type: "drop" }]);
-    expect(JSON.stringify(catchAll.inputs)).not.toContain("grid-inbound-mail-test");
+    expect(JSON.stringify(catchAll.inputs)).not.toContain("inbound-mail-test");
   });
 
   it("is the same Pulumi resource as the live catch-all, so the switch is an update, not a delete", async () => {
@@ -253,7 +254,7 @@ describe("project mail, switched off (inboundMailEnabled: false)", () => {
 });
 
 describe("the zone apex check", () => {
-  const KEY = "grid-oib:inboundMailDomain";
+  const KEY = `${LEGACY_PROJECT}:inboundMailDomain`;
 
   it("accepts the zone's own apex", async () => {
     const { assertZoneApex } = await import("./email-routing");
@@ -263,7 +264,7 @@ describe("the zone apex check", () => {
   it("refuses a subdomain of the zone, because the catch-all would not cover it", async () => {
     const { assertZoneApex } = await import("./email-routing");
     expect(() => assertZoneApex(KEY, `mail.${DOMAIN}`, ZONE_ID, DOMAIN)).toThrow(
-      /grid-oib:inboundMailDomain.*must be the zone's apex/,
+      /inboundMailDomain.*must be the zone's apex/,
     );
   });
 });

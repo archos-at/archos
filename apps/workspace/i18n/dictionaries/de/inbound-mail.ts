@@ -88,7 +88,7 @@ export const inboundMail: typeof en.inboundMail = {
     threadActionFirst: 'Die ersten {count} ablegen (wird Fassung {first}–{last})',
     reviewInOrder: 'Der Reihe nach ansehen',
     quiet: 'Domain nicht bestätigt oder automatisch ({count})',
-    quietHint: 'Sie stehen vollständig hier. Piloti macht für sie keine Vorschläge, und von selbst wird nichts davon abgelegt.',
+    quietHint: 'Sie stehen vollständig hier. {productName} macht für sie keine Vorschläge, und von selbst wird nichts davon abgelegt.',
   },
 
   trust: {
@@ -106,9 +106,9 @@ export const inboundMail: typeof en.inboundMail = {
       impersonation:
         'Die Signatur dieser E-Mail ist ungültig, oder die Richtlinie der Domain hat sie abgelehnt. Möglicherweise verwendet jemand diesen Namen. Zum Ablegen braucht es Ihre Bestätigung.',
       impersonationMemberName:
-        'Der angezeigte Name ist der eines Mitglieds, die Adresse gehört aber nicht zu ihm. So sehen E-Mails aus, die eine Zahlung umleiten wollen. Piloti schlägt dafür nichts vor, und zum Ablegen braucht es Ihre Bestätigung.',
+        'Der angezeigte Name ist der eines Mitglieds, die Adresse gehört aber nicht zu ihm. So sehen E-Mails aus, die eine Zahlung umleiten wollen. {productName} schlägt dafür nichts vor, und zum Ablegen braucht es Ihre Bestätigung.',
       unverified:
-        'Die Domain des Absenders hat diese E-Mail nicht signiert. Piloti schlägt dafür nichts vor und wählt keinen E-Mail-Verlauf vor.',
+        'Die Domain des Absenders hat diese E-Mail nicht signiert. {productName} schlägt dafür nichts vor und wählt keinen E-Mail-Verlauf vor.',
     },
   },
 
@@ -241,7 +241,7 @@ export const inboundMail: typeof en.inboundMail = {
       type_mismatch: 'Dateiname und Inhalt passen nicht zusammen.',
       acknowledgeRisk: 'Ich habe die Warnung gelesen. Trotzdem ablegen',
       acknowledgeRevision: 'Trotzdem als nächste Fassung ablegen',
-      encrypted: 'Verschlüsselt – Piloti kann den Inhalt nicht lesen',
+      encrypted: 'Verschlüsselt – {productName} kann den Inhalt nicht lesen',
       forwarded_inner: 'Aus einer weitergeleiteten E-Mail',
       image_in_mail: 'Bild in der E-Mail',
       lastFailure: 'Konnte nicht abgelegt werden: {reason}',
@@ -258,10 +258,10 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   suggestion: {
-    label: 'Vorschlag von Piloti',
+    label: 'Vorschlag von {productName}',
     newFolder: 'neu',
     noFolder: 'Kein Vorschlag – wählen Sie einen Ordner.',
-    pending: 'Piloti liest noch …',
+    pending: '{productName} liest noch …',
     none: 'Für nicht bestätigte oder automatische E-Mails gibt es keinen Vorschlag.',
     root: 'Dateien (oberste Ebene)',
     documentType: 'Dokumentart',
@@ -288,7 +288,7 @@ export const inboundMail: typeof en.inboundMail = {
     rejectedSignature: 'Vorsicht: Diese E-Mail gibt sich als {name} aus. Ihre Signatur ist ungültig oder wurde von der Domain abgelehnt.',
     memberName: 'Vorsicht: Der Name {name} gehört einem Mitglied, die Adresse {address} nicht.',
     consequence:
-      'So beginnen Betrugsversuche mit Kontoänderungen. Piloti macht keinen Vorschlag, nichts ist vorausgewählt. Prüfen Sie Zahlungs- oder Kontoänderungen telefonisch, nicht per Antwort.',
+      'So beginnen Betrugsversuche mit Kontoänderungen. {productName} macht keinen Vorschlag, nichts ist vorausgewählt. Prüfen Sie Zahlungs- oder Kontoänderungen telefonisch, nicht per Antwort.',
     fileAnyway: 'Trotzdem ablegen …',
     fileAnywayHint: 'Nur wenn Sie telefonisch geprüft haben, dass die E-Mail echt ist.',
   },
@@ -429,8 +429,8 @@ export const inboundMail: typeof en.inboundMail = {
     label: 'E-Mail-Adresse des Projekts',
     copy: 'Kopieren',
     saveContact: 'Als Kontakt sichern',
-    contactName: 'Piloti · {project}',
-    contactNote: 'E-Mails an diese Adresse warten in Piloti, bis jemand sie ablegt.',
+    contactName: '{productName} · {project}',
+    contactNote: 'E-Mails an diese Adresse warten in {productName}, bis jemand sie ablegt.',
     usesLabel: 'Wofür die Adresse da ist',
     uses: {
       cc: 'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im E-Mail-Eingang.',
@@ -440,7 +440,7 @@ export const inboundMail: typeof en.inboundMail = {
     tileLead: 'In Cc gesetzt, bringt sie die Antworten von Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum Ablegen.',
     openInbox: 'Zum E-Mail-Eingang',
     guide: 'Anleitung',
-    helpUrl: 'https://piloti.at/e-mail-eingang/',
+    helpUrl: 'https://example.org/e-mail-eingang/',
     none: 'Dieses Projekt hat noch keine E-Mail-Adresse.',
     noneMember: 'Bitten Sie jemanden, der das Projekt verwaltet, sie in den Projekteinstellungen zu erzeugen.',
     create: 'Adresse erzeugen',
@@ -469,7 +469,7 @@ export const inboundMail: typeof en.inboundMail = {
       missing: 'Ihre Domain signiert ihre E-Mails nicht – so richten Sie es ein',
       explain:
         'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“. Nicht signierte E-Mails Ihrer Kolleginnen und Kollegen brauchen vor dem Ablegen eine Bestätigung.',
-      helpUrl: 'https://piloti.at/e-mail-eingang/#dkim',
+      helpUrl: 'https://example.org/e-mail-eingang/#dkim',
     },
   },
 

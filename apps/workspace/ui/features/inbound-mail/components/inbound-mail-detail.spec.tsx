@@ -123,7 +123,7 @@ describe('InboundMailDetail', () => {
     renderDetail('impersonation')
     const warning = screen.getByTestId('impersonation-warning')
     expect(warning).toHaveTextContent('Careful: this mail poses as Miriam Huber. Its signature is invalid or was rejected by the domain.')
-    expect(warning).toHaveTextContent('Piloti suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.')
+    expect(warning).toHaveTextContent('The agent suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.')
     // Above the header, before anything can be checked.
     expect(warning.compareDocumentPosition(screen.getByTestId('mail-header')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await userEvent.click(screen.getByTestId('impersonation-file-anyway'))
@@ -162,7 +162,7 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('decision-file')).toBeInTheDocument()
   })
 
-  it('wears Piloti’s mark only on a folder Piloti suggested, never on the rule’s correspondence folder', () => {
+  it('wears the agent’s mark only on a folder the agent suggested, never on the rule’s correspondence folder', () => {
     renderDetail('external-unverified')
     // A new thread for an unconfirmed stranger goes to the correspondence folder by rule: a plain folder chip.
     const chip = screen.getByTestId('detail-new-thread-folder')
@@ -189,7 +189,7 @@ describe('InboundMailDetail', () => {
     expect(screen.getByTestId('message-checkbox')).not.toBeChecked()
     expect(screen.getByTestId('attachment-checkbox')).not.toBeChecked()
     await userEvent.click(screen.getByTestId('attachment-checkbox'))
-    expect(screen.queryByText('Piloti’s suggestion')).toBeNull()
+    expect(screen.queryByText('The agent’s suggestion')).toBeNull()
     expect(screen.queryByTestId('attachment-folder')).toBeNull()
   })
 

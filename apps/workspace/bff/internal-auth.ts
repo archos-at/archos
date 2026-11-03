@@ -236,7 +236,7 @@ const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/
  * The well-known secret local stacks sign with. Like the dev token it is in the
  * repository, so it is refused outside a dev environment.
  */
-export const DEV_DEFAULT_SIGNING_SECRET = Buffer.from('internal-dev-signing-secret').toString('base64')
+export const DEV_DEFAULT_SIGNING_SECRET = Buffer.from('internal-dev-signing-secret-0032').toString('base64')
 
 /** Why a signed request was refused. The code is what the operator's alert matches on. */
 export type SignatureRefusal =

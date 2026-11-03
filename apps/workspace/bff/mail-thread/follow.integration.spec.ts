@@ -4,7 +4,7 @@
  * „Verlauf folgen“ against a REAL Postgres with migration 0193, through the
  * restricted runtime role (`scripts/rls-test-db.sh`):
  *
- *   TEST_DATABASE_URL=postgres://grid_app_rw@host:port/grid_app \
+ *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *     npx vitest run src/lib/mail-thread/follow.integration.spec.ts
  *
  * Two halves. The first proves the follow SQL keeps the migration's rules
@@ -220,7 +220,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
         read_storage_key, raw_scan_status, raw_scanned_at, sender_address, sender_name, subject, base_subject,
         sender_trust, sender_reason, signer_domain, message_id, participants, participant_domains, sent_at, received_at, expires_at)
-      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'grid-org-test',
+      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'org-test-bucket',
         ${`org/${ORG}/project/${projectId}/_inbound-mail/${mailId}/read.json`}, 'clean', now(), 'anna@buero-muster.at', 'Anna Muster', 'AW: Einreichplan', 'einreichplan',
         'external_verified', 'dkim_pass', 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
         ${receivedAt.toISOString()}::timestamptz, ${receivedAt.toISOString()}::timestamptz, now() + interval '30 days')`)
@@ -246,7 +246,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
 
   beforeAll(async () => {
     process.env.APP_DATABASE_URL = url
-    vi.stubEnv('INBOUND_MAIL_DOMAIN', 'piloti.at')
+    vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
     const context = await import('@/lib/db/tenant-context')
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
@@ -567,7 +567,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
         hostile.message(
           hostile.multipart('mixed', [hostile.BODY, hostile.attachment(`S-${seed}.pdf`, 'application/pdf', hostile.pdf(`S ${seed}`))]),
           {
-            To: `${project.slug}.${project.token}@piloti.at`,
+            To: `${project.slug}.${project.token}@example.org`,
             Subject: 'AW: Einreichplan',
             Date: new Date(Date.now() - 60_000).toUTCString(),
             'Message-ID': `<${seed}-${STAMP}@buero-muster.at>`,
@@ -584,7 +584,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
       await rows(sql`
         INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, envelope_from, raw_size_bytes, staging_bucket, raw_storage_key, expires_at)
         VALUES (${mailId}::uuid, ${ORG}, ${project.projectId}::uuid, ${project.addressId}::uuid, 'received', ${createHash('sha256').update(mailId).digest('hex')},
-                ${MEMBER_EMAIL}, ${raw.length}, 'grid-org-test', ${rawKey}, now() + interval '30 days')`)
+                ${MEMBER_EMAIL}, ${raw.length}, 'org-test-bucket', ${rawKey}, now() + interval '30 days')`)
       const { runInboundMailReceive } = await import('@/lib/inbound-mail/receive-job')
       await inTenant(() => runInboundMailReceive(ORG, { mailId, projectId: project.projectId }, { last: false }))
       return mailId

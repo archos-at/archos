@@ -78,7 +78,7 @@ leak its person into the next one.
 
 The binding also says how the call reached the route. `actingReaderIsAgent()`
 is true for a call whose answer a model reads, and `actingProposalId()` names
-the Piloti proposal whose acceptance the call applies (set by the proposal
+the agent's proposal whose acceptance the call applies (set by the proposal
 applier through `callOperation`'s `origin`). A route that records how a person
 decided reads them: an E-Mail-Eingang decision's `via` is `piloti_proposal`,
 `agent` or `app` from these, never from the body an agent writes
@@ -996,7 +996,7 @@ from `folders` unrenamed.
 
 Bytes going out follow the same rule as bytes coming in: an operation answers a held
 attachment's bytes (`inbound-mail-part-content-get`) only after a clean scan, and never to
-Piloti. The originals of mail, held or filed, are bytes kept as proof and are on no door
+The agent. The originals of mail, held or filed, are bytes kept as proof and are on no door
 (`withheld`, category `evidence`, ADR-0122).
 
 ### Links into the app

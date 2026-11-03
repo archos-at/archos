@@ -16,7 +16,7 @@ import 'server-only'
 
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { recordAuditEventOrThrow } from '@/lib/audit/service'
-import type { InboundMailDecisionRow } from '@/lib/db/schema'
+import type { InboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import type { EndedFollow, ProjectFollowEnd } from './repository'
 import { findPartKinds, markDecisionsAudited } from './repository'
 

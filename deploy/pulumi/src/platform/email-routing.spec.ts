@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { assertNoForeignMx, ROUTING_RESOURCE_OPTIONS } from "./email-routing";
+import { LEGACY_PROJECT } from "../names";
 
 /**
  * The apex MX guard the inbox's Email Routing runs before creating anything
@@ -13,7 +14,7 @@ import { assertNoForeignMx, ROUTING_RESOURCE_OPTIONS } from "./email-routing";
 
 const DOMAIN = "post.example.test";
 const ZONE_ID = "zone-mail-1";
-const KEY = "grid-oib:inboundMailDomain";
+const KEY = `${LEGACY_PROJECT}:inboundMailDomain`;
 
 const mx = (content: string, name = DOMAIN) => ({ name, content });
 const CLOUDFLARE_MX = ["route1", "route2", "route3"].map((h) => mx(`${h}.mx.cloudflare.net`));
@@ -24,7 +25,7 @@ const guard = (records: Array<{ name: string; content: string }>) => () =>
 describe("the apex MX guard", () => {
   it("refuses an apex whose mail goes elsewhere, naming the key and the hosts", () => {
     expect(guard([mx("post-example-test.mail.protection.outlook.com")])).toThrow(
-      /grid-oib:inboundMailDomain.*already receives mail elsewhere.*post-example-test\.mail\.protection\.outlook\.com/,
+      /inboundMailDomain.*already receives mail elsewhere.*post-example-test\.mail\.protection\.outlook\.com/,
     );
   });
 

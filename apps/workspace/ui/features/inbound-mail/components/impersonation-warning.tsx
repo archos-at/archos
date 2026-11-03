@@ -8,14 +8,14 @@
  * theirs.
  *
  * It says why (a signature the domain rejected, or a member's name on an
- * address that is not theirs) and what follows: Piloti suggests nothing,
+ * address that is not theirs) and what follows: The agent suggests nothing,
  * nothing is pre-selected, and a payment or bank change is checked by phone,
  * never by replying. No dismiss: the one yes is the bar's acknowledgement.
  *
  * A stop, not a caution: the signal red on the glyph and the leading rule,
  * the words in ink. Not the kit's `Alert variant="destructive"`, whose red
  * text on its tint measures 4.08:1 (axe, 2026-10-22), under the 4.5:1 WCAG
- * AA asks; for the same reason no gold either (`grid-design-language.md`,
+ * AA asks; for the same reason no gold either (`design-language.md`,
  * „Warning gold is a glyph colour“).
  */
 

@@ -55,7 +55,7 @@ import { upsertScore } from './feedback-score'
  * What was decided on. `intake_suggestion` is one value a reading of the
  * project's documents suggested (ADR-0111), confirmed or dismissed on the
  * review; it has no turn, so its caller passes the reading's trace id.
- * `inbound_mail_suggestion` is where Piloti suggested filing one part of a
+ * `inbound_mail_suggestion` is where the agent suggested filing one part of a
  * held mail (ADR-0137, D21), filed there (accepted) or not (dismissed); its
  * trace is the `filing-fit` generation's, stored on the part.
  */

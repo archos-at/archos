@@ -7,7 +7,7 @@
  *
  * The entry's JSON columns are parsed through these schemas wherever they are
  * read, because the renderer (`./render.ts`) writes what they hold into a
- * document Piloti reads: a row that does not parse is a bug to surface, not
+ * document the agent reads: a row that does not parse is a bug to surface, not
  * text to print.
  */
 

@@ -9,6 +9,7 @@ import { decimalAtMost } from "./httproutes";
 import { HTTPRoute } from "@kubernetes-models/gateway-api/gateway.networking.k8s.io/v1/HTTPRoute";
 import { HTTPRouteFilter } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/HTTPRouteFilter";
 import { BackendTrafficPolicy } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/BackendTrafficPolicy";
+import { objectName } from "../names";
 
 /**
  * Edge policies on the public routes (`app/httproutes.ts`).
@@ -71,7 +72,7 @@ describe("BackendTrafficPolicies", () => {
 
   it("creates one policy per public route", () => {
     expect(POLICIES.map((p) => p.metadata.name).sort()).toEqual([
-      "grid-app-signed-timeouts",
+      "app-signed-timeouts",
       "grid-app-timeouts",
       "grid-s3-timeouts",
       "grid-web-timeouts",
@@ -135,7 +136,7 @@ describe("the signed internal routes at the edge", () => {
     filters?: Array<{ type: string; extensionRef: { group: string; kind: string; name: string } }>;
   };
   const contract = JSON.parse(
-    readFileSync(join(__dirname, "../../../../shared/inbound-mail-contract.json"), "utf8"),
+    readFileSync(join(__dirname, "../../../../contracts/inbound-mail-contract.json"), "utf8"),
   ) as { path: string; signedPathPrefix: string; maxRawMessageBytes: number; edgeMaxBodyBytes: number };
 
   const rules = () => named("HTTPRoute", SIGNED_INTERNAL_ROUTE.routeName).rules as Rule[];
@@ -218,7 +219,7 @@ describe("the signed internal routes at the edge", () => {
   it("leaves the app route's buckets as they were: no inverted exemptions", () => {
     // The signed routes are outside the app route, so the catch-all needs no
     // carve-out; an inverted match here would mean someone added one anyway.
-    const app = policy("grid-app-timeouts") as {
+    const app = policy(objectName("appTimeouts")) as {
       rateLimit?: { global: { rules: Array<{ clientSelectors: Array<{ path?: { invert?: boolean } }> }> } };
     };
     for (const rule of app.rateLimit?.global.rules ?? []) {
@@ -229,7 +230,7 @@ describe("the signed internal routes at the edge", () => {
 
 describe("the plain-HTTP listener", () => {
   it("redirects every host to HTTPS permanently, so a favicon fetch over http finds the site", () => {
-    expect(named("HTTPRoute", "grid-https-redirect")).toEqual({
+    expect(named("HTTPRoute", objectName("httpsRedirectRoute"))).toEqual({
       parentRefs: [{ name: "grid-gateway", sectionName: "http" }],
       rules: [{ filters: [{ type: "RequestRedirect", requestRedirect: { scheme: "https", statusCode: 301 } }] }],
     });

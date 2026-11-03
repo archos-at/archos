@@ -60,7 +60,7 @@ export const mailThread: typeof en.mailThread = {
     /** Wie sie abgelegt wurde, nur genannt, wo nicht eine Person in der App entschieden hat. */
     filedVia: {
       agent: 'Von einem Agenten im Namen einer Person abgelegt',
-      piloti_proposal: 'Auf Vorschlag von Piloti abgelegt',
+      agent_proposal: 'Auf Vorschlag von {productName} abgelegt',
       follow: 'Angefügt, weil jemand diesem E-Mail-Verlauf folgt',
       archive_import: 'Aus dem E-Mail-Archiv übernommen',
     },

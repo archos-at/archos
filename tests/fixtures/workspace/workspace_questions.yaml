@@ -187,7 +187,7 @@ questions:
     expect:
       uses: [knowledge_search]
 
-  # The project's mail (ADR-0137). Filing a held mail is the person's decision: Piloti reads its
+  # The project's mail (ADR-0137). Filing a held mail is the person's decision: The agent reads its
   # metadata (never its text before filing) and proposes inbound-mail-file as a card.
   - id: ws-mail-file-de
     question: Leg den Anhang der E-Mail vom Statikbüro im Ordner Einreichung ab.
@@ -200,7 +200,7 @@ questions:
       judge: [pending]
 
   # Following a mail thread turns review down for one conversation (D31): only the person starts it,
-  # so Piloti neither sees nor proposes it, and says so.
+  # so the agent neither sees nor proposes it, and says so.
   - id: ws-mail-follow-de
     question: Folge dem E-Mail-Verlauf mit dem Statikbüro, damit Antworten automatisch abgelegt werden.
     expect:

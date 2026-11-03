@@ -537,7 +537,7 @@ class TestThePermitRecords:
         ids=["exactly the cap", "one over"],
     )
     def test_the_cap_is_inclusive_and_a_cut_body_is_at_most_the_cap(self, length: int, cut: bool) -> None:
-        body, truncated = lookup._capped_body("a" * length)
+        body, truncated = lookup.capped_body("a" * length)
 
         assert truncated is cut
         assert len(body) <= lookup.PERMIT_BODY_MAX_CHARS

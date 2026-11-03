@@ -3,7 +3,7 @@
 - **Date:** 2026-10-27, against the project-mail branch (ADR-0137, ADR-0138).
 - **What it covers:** mail that third parties send to a project's address, the
   E-Mail-Verläufe it is filed into, the original `.eml` kept as evidence, the
-  standing decision to follow a Verlauf, Piloti's metadata suggestion, and the
+  standing decision to follow a Verlauf, the agent's metadata suggestion, and the
   Outlook archive rendering into the same Verläufe.
 - **Status: Datenschutzberater sign-off OPEN.** Every section marked
   **[sign-off]** needs a human data-protection decision before the
@@ -14,7 +14,7 @@
 ## Roles
 
 The office publishes the project's address and decides what is filed, so the
-office is the **controller** of the mail third parties send to it. Piloti's
+office is the **controller** of the mail third parties send to it. The agent's
 operator processes it on the office's behalf (Art. 28 DSGVO), as it does the
 office's other project content. **[sign-off]** The customer terms (AVV) need a
 paragraph saying so; a draft is at the end of this document.
@@ -25,8 +25,8 @@ paragraph saying so; a draft is at the end of this document.
 |---|---|---|---|
 | The raw message while it waits (`raw.eml`), `read.json` (the reader's text, quotes, invitations) and each attachment | the organization's bucket, `org/<org>/project/<project>/_inbound-mail/<mailId>/` | while the mail waits (30 days), then 7 days restorable after a dismissal or expiry | key-exact erasure when the mail settles (sweep 6), at once for a dismissed part of an `external_unverified` mail, sweep 1 for a reception that never finished |
 | A held mail's metadata: sender address and name, subject, participants (From, Reply-To, To, Cc), Message-IDs, sender trust and flags, our authentication line | `inbound_mails` | while waiting; scrubbed to ids, counts, trust and the member it came from when it settles (a CHECK) | the row: 30 days after settling unless a filed part's document lives; dropped rows 30 days after receipt (sweep 8) |
-| Parts: file names, sizes, hashes, scan verdicts, Piloti's suggestion | `inbound_mail_parts` | the name only while the bytes are there (a CHECK) | with the mail row |
-| Decisions: who filed, dismissed or restored which part, how (app, agent, Piloti card, follow) | `inbound_mail_decisions`, and the WorkOS audit trail (`inbound_mail.decided`) | never deleted before the audit trail took it (a trigger); then with the mail or its thread | sweeps 8 and 9 |
+| Parts: file names, sizes, hashes, scan verdicts, the agent's suggestion | `inbound_mail_parts` | the name only while the bytes are there (a CHECK) | with the mail row |
+| Decisions: who filed, dismissed or restored which part, how (app, agent, the agent card, follow) | `inbound_mail_decisions`, and the WorkOS audit trail (`inbound_mail.decided`) | never deleted before the audit trail took it (a trigger); then with the mail or its thread | sweeps 8 and 9 |
 | A filed message's text, sender name and domain, participants by name and domain, quotes, invitations | `mail_thread_entries` and the E-Mail-Verlauf document (Markdown, indexed like any document) | as long as the Verlauf's document | deleting the document; sweep 9 then deletes the thread and its entries |
 | **The original `.eml` of a filed message** | `…/_mail-originals/<entryId>.eml` | **as long as its entry, i.e. the Verlauf's document** | sweep 9, by key, before the thread row is deleted; the project purge |
 | What came with a filed message (name, disposition, the document and Fassung it became) | `mail_thread_entry_attachments` | as long as its entry | with the entry |
@@ -80,8 +80,8 @@ restorable) before anyone decided.
 
 ## Models
 
-- **Before filing, no model Piloti runs reads a held mail's text or bytes.**
-  The one model call is Piloti's filing suggestion, and its input is exactly:
+- **Before filing, no model the agent runs reads a held mail's text or bytes.**
+  The one model call is the agent's filing suggestion, and its input is exactly:
   the attachments' file names that passed the office's name check, the
   subject masked by the office's content check, the sender's domain, the
   project's folders every member may read, and the office's folder conventions
@@ -104,9 +104,9 @@ messages.
 ## Legal hold
 
 Every sweep that erases or deletes asks
-`grid_legal_hold_blocks('project', project_id, organization_id)` in its WHERE,
+`legal_hold_blocks('project', project_id, organization_id)` in its WHERE,
 and a mail's bytes also ask about a custodian hold on the member it came from.
-`grid_legal_hold_blocks('project', …)` is true when **anything in the project**
+`legal_hold_blocks('project', …)` is true when **anything in the project**
 is held (a document, a folder, a conversation, a user; migration 0115), so one
 held document pauses that project's whole mail erasure: held mail still expires
 and settles for the people using it, but its bytes and rows are kept
@@ -127,7 +127,7 @@ erasure across Verläufe. **[sign-off]** Whether that suffices.
 |---|---|---|
 | Cloudflare, Inc. | DNS (as before) **and now transit of mail sent to project addresses** (Email Routing, the Email Worker); USA, worldwide network | the purpose widens; listed on the app's sub-processor page |
 | ClamAV (self-hosted) | malware scanning in the cluster; no third-party processing | listed in the self-hosted table |
-| OpenRouter and the chosen model provider | Piloti's metadata suggestion (names, masked subject, domain) | no new processor; a new input |
+| OpenRouter and the chosen model provider | The agent's metadata suggestion (names, masked subject, domain) | no new processor; a new input |
 
 ## Draft paragraphs
 

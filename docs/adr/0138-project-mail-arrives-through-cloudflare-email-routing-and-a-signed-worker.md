@@ -11,12 +11,12 @@ informed: whoever operates the stack, Cloudflare or the edge
 ## Context and Problem Statement
 
 ADR-0137 gives every project an address, `<slug>.<token>@<domain>`
-(`bauplatz-12.k3x7q2m9p4ab@piloti.at`), and holds what arrives for a person to
-file. Something has to receive SMTP for `piloti.at`, decide which addresses
+(`bauplatz-12.k3x7q2m9p4ab@example.org`), and holds what arrives for a person to
+file. Something has to receive SMTP for `example.org`, decide which addresses
 exist, and hand each message to the BFF without letting anyone else post a mail
 into an office's review queue.
 
-Piloti runs no mail server and should not start: an MX that accepts mail from
+The agent runs no mail server and should not start: an MX that accepts mail from
 the internet is a spam, abuse and deliverability operation of its own. The
 product domain's DNS is already at Cloudflare (`kubernetes.md` §3b). The
 transport has to keep three properties under a public address: a request the
@@ -63,7 +63,7 @@ with mailauth 8.**
 ### The path
 
 ```text
-sender MTA ──SMTP──▶ Cloudflare Email Routing (apex MX of piloti.at)
+sender MTA ──SMTP──▶ Cloudflare Email Routing (apex MX of example.org)
                       │ literal rules first (postmaster@, abuse@, company addresses)
                       │ catch-all ──▶ Email Worker (inbound-mail-worker.js)
                       │                 shape check of the recipient, else setReject
@@ -84,7 +84,7 @@ sender MTA ──SMTP──▶ Cloudflare Email Routing (apex MX of piloti.at)
   product domain's mail stays on Email Routing, and moving it means a new
   domain for project mail and a new address for every project.
 - **The Worker decides one thing**: whether the recipient is project-shaped
-  (`shared/inbound-address.json`, 12 characters of lowercase base32 after the
+  (`contracts/inbound-address.json`, 12 characters of lowercase base32 after the
   last dot). Anything else is refused at Cloudflare with
   `UNKNOWN_ADDRESS_TEXT`, without a request. Whether a project-shaped address
   exists is answered only by the BFF. The Worker is one module uploaded
@@ -117,7 +117,7 @@ back exactly what Cloudflare saw.
 - The BFF verifies with `http-message-signatures` (the oracle,
   `requireInternalSignature` in `apps/workspace/bff/internal-auth.ts`); the
   Worker signs by hand on WebCrypto. Both are held to the same vectors,
-  `shared/inbound-mail-signature.json`.
+  `contracts/inbound-mail-signature.json`.
 - `@target-uri` is checked against the pinned origin of `WORKOS_REDIRECT_URI`,
   so the Worker's `BFF_URL` must be exactly that origin.
 - **No nonce store**: a replay is the same bytes, hence the same delivery key,
@@ -175,7 +175,7 @@ prepends its own lines on a retry, and the retry is still the same mail.
 ### The answer is a contract
 
 The Worker bounces **only** a 4xx carrying `x-inbound-verdict: reject`
-(`shared/inbound-mail-contract.json`); every other answer makes it throw, which
+(`contracts/inbound-mail-contract.json`); every other answer makes it throw, which
 Cloudflare turns into a temporary SMTP failure the sender retries.
 
 | Situation | BFF answers | Sender sees |
@@ -190,7 +190,7 @@ Cloudflare turns into a temporary SMTP failure the sender retries.
 
 One bounce text for every permanent refusal, ASCII, revealing no reason:
 "This message could not be delivered: the address is unknown or no longer
-valid. Help: https://piloti.at/e-mail-eingang/ Privacy: https://piloti.at/datenschutz/".
+valid. Help: https://example.org/e-mail-eingang/ Privacy: https://example.org/datenschutz/".
 An office switched off reads exactly like an unknown address. A closed project
 holds its mail, because Gewährleistung correspondence arrives late and a
 project can be reopened.
@@ -259,8 +259,8 @@ runbook, with the owner gates and the launch gates G1–G9:
 ### Confirmation
 
 - `deploy/pulumi/src/platform/inbound-mail-worker.spec.ts`: the constants held
-  to `shared/inbound-mail-contract.json`, the signer against
-  `shared/inbound-mail-signature.json` byte for byte, the verdict mapping, the
+  to `contracts/inbound-mail-contract.json`, the signer against
+  `contracts/inbound-mail-signature.json` byte for byte, the verdict mapping, the
   pause, `redirect: "manual"`, and a spec that fails once `COMPATIBILITY_DATE`
   is a year old.
 - `apps/workspace/bff/inbound-mail/contract.spec.ts` and the route spec: the

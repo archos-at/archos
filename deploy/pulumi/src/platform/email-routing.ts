@@ -5,14 +5,14 @@ import type { DeployConfig } from "../config";
 /**
  * Cloudflare Email Routing on project mail's zone apex (`inbound-mail.ts`
  * puts the zone's catch-all and its Email Worker on it): the provider, the
- * guards, and the enablement. Normally the product's own apex (`piloti.at`);
+ * guards, and the enablement. Normally the product's own apex (`example.org`);
  * project mail may instead have a zone of its own.
  *
  * ## The apex MX guard
  *
  * Enabling Email Routing on a domain (`EmailRoutingDns`) moves the apex's MX
  * to Cloudflare and locks them. If the apex already receives mail elsewhere
- * (say `office@piloti.at` is delivered by Microsoft 365), that mail would go
+ * (say `office@example.org` is delivered by Microsoft 365), that mail would go
  * to Cloudflare from then on, into the catch-all, whose Worker refuses every
  * address that is not project-shaped. So before anything is created, the
  * preview reads the apex's MX records and refuses any that point anywhere but
@@ -100,7 +100,7 @@ export function checkedRoutingZone(args: {
 /** Email Routing on one zone apex, guarded and enabled. */
 export interface MailZone {
   provider: cloudflare.Provider;
-  /** The apex, e.g. `piloti.at`. */
+  /** The apex, e.g. `example.org`. */
   domain: string;
   /** Taken from the guarded lookup, so nothing using them exists unless the guards passed. */
   zoneId: pulumi.Output<string>;
@@ -151,7 +151,7 @@ export const ROUTING_RESOURCE_OPTIONS = {
 export function installInboundMailZone(cfg: DeployConfig): MailZone | undefined {
   const mail = cfg.inboundMail;
   if (!mail.configured) return undefined;
-  const configKeys = "grid-oib:inboundMailDomain";
+  const configKeys = "inboundMailDomain";
   // A provider of its own rather than the DNS module's: that one exists only
   // inside `installDns`, and an inbox zone of its own need not be the DNS zone.
   const provider = new cloudflare.Provider("cloudflare-inbound-mail", { apiToken: mail.apiToken });

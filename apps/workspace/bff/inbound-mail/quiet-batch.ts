@@ -9,14 +9,14 @@ import 'server-only'
  * names a batch only while it is open (`acceptedUploadBatchId` ignores a
  * sealed one). A batch id derived from the decision would be sealed by the
  * first run, so a retry's uploads would carry no batch and set off everything
- * a person's upload does: the tray's summary, Piloti's placement review, the
+ * a person's upload does: the tray's summary, the agent's placement review, the
  * intake reading. A fresh id per run never meets a sealed batch; a run that
  * dies between open and seal leaves an open batch the upload sweep seals.
  */
 
 import { randomUUID } from 'node:crypto'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import type { UploadBatchEffects } from '@/lib/db/schema'
+import type { UploadBatchEffects } from '@/lib/db/schema/upload-batches'
 import { openUploadBatch, sealJobUploadBatch } from '@/lib/upload-batches/service'
 
 /** A quiet batch for this run's uploads into the project, opened as the person. */

@@ -5,7 +5,7 @@
  * GET — only after a clean scan (409 `scan_not_clean` otherwise), served as a
  *       download that a browser never sniffs or runs, and audited
  *       (`inbound_mail.part_read`). Whoever may add documents to the project
- *       reads it; Piloti does not (the exposure config).
+ *       reads it; the agent does not (the exposure config).
  *
  * Thin handler; the logic is `@/lib/inbound-mail/service`.
  */

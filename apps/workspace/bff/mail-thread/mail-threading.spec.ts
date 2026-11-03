@@ -133,9 +133,9 @@ interface ThreadIndexVector {
  */
 function loadThreadIndexVector(): ThreadIndexVector {
   for (let dir = process.cwd(); ; dir = dirname(dir)) {
-    const candidate = join(dir, 'shared', 'thread-index.json')
+    const candidate = join(dir, 'contracts', 'thread-index.json')
     if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, 'utf8')) as ThreadIndexVector
-    if (dirname(dir) === dir) throw new Error(`shared/thread-index.json not found above ${process.cwd()}`)
+    if (dirname(dir) === dir) throw new Error(`contracts/thread-index.json not found above ${process.cwd()}`)
   }
 }
 
@@ -153,7 +153,7 @@ describe('threadIndexGuid', () => {
     expect(threadIndexGuidFromBytes(bytes)).toBe(threadIndexGuid(threadIndex(GUID, 1)))
   })
 
-  it('gives the archive and the header of one conversation the same GUID (shared/thread-index.json)', () => {
+  it('gives the archive and the header of one conversation the same GUID (contracts/thread-index.json)', () => {
     const vector = loadThreadIndexVector()
     const archived = Uint8Array.from(vector.bytesHex.match(/../g) ?? [], (pair) => Number.parseInt(pair, 16))
     expect(threadIndexGuid(vector.conversationIndexBase64)).toBe(vector.guid)

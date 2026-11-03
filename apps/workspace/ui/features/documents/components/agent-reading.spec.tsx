@@ -97,7 +97,7 @@ describe('AgentReading', () => {
     it('names a type stored as a token by its label', () => {
       render(<AgentReading file={fileFixture({ tags: ['correspondence', 'Brandschutz'] })} canManage />)
 
-      expect(screen.getByTestId('piloti-reading-type')).toHaveTextContent('Correspondence')
+      expect(screen.getByTestId('agent-reading-type')).toHaveTextContent('Correspondence')
       expect(screen.queryByText('correspondence')).toBeNull()
     })
 

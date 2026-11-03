@@ -3,7 +3,7 @@
 /**
  * The E-Mail-Eingang's own atoms: the few shapes its organisms repeat, written
  * once so the list, the detail and the decision bar are made of the same
- * material (`grid-design-language.md`, „Component layers“).
+ * material (`design-language.md`, „Component layers“).
  *
  * - `FactLine`: one fact about a mail or a part, a glyph and words. Muted by
  *   default; `warning` for what must be seen before filing, `danger` for

@@ -15,7 +15,7 @@ import 'server-only'
  *   state“). Each repeats its whole condition, the legal hold included.
  *
  * **Legal hold is a filter, the trigger the backstop (RT-S20).** Every set
- * that erases or deletes asks `grid_legal_hold_blocks` in its WHERE: a hold on
+ * that erases or deletes asks `legal_hold_blocks` in its WHERE: a hold on
  * the project (`project`), and for a mail's bytes also a custodian hold on the
  * member it came from (`user`, `sender_user_id`). A held row is left out of
  * the set, or its erasure is deferred (`erasure_deferred_at`), so one held
@@ -25,15 +25,8 @@ import 'server-only'
 
 import { and, eq, inArray, isNull, lt, sql, type SQL } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
-import {
-  inboundMailAddresses,
-  inboundMailDecisions,
-  inboundMailParts,
-  inboundMails,
-  mailThreadFollows,
-  type InboundMailDecisionRow,
-  type InboundMailRow,
-} from '@/lib/db/schema'
+import { inboundMailAddresses, inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type InboundMailRow } from '@/lib/db/schema/inbound-mail'
+import { mailThreadFollows } from '@/lib/db/schema/mail-thread'
 import { ignoredCounts } from './filing-repository'
 import type {
   InboundMailCapNotice,
@@ -45,10 +38,10 @@ import type { StoredScan } from './repository'
 const DAY_MS = 24 * 60 * 60 * 1000
 
 /** No legal hold covers the mail's project: what every erasing or deleting set asks (`m` is `inbound_mails`). */
-const mailProjectFree = sql`NOT grid_legal_hold_blocks('project', m.project_id::text, m.organization_id)`
+const mailProjectFree = sql`NOT legal_hold_blocks('project', m.project_id::text, m.organization_id)`
 
 /** No custodian hold covers the member the mail came from: its bytes are theirs to keep. */
-const mailSenderFree = sql`(m.sender_user_id IS NULL OR NOT grid_legal_hold_blocks('user', m.sender_user_id, m.organization_id))`
+const mailSenderFree = sql`(m.sender_user_id IS NULL OR NOT legal_hold_blocks('user', m.sender_user_id, m.organization_id))`
 
 /** Both: the mail's bytes may be erased now. */
 const mailErasable = sql`${mailProjectFree} AND ${mailSenderFree}`
@@ -556,7 +549,7 @@ const threadDeletable = (now: Date, leaseHolder: string | null = null) => sql`
       ? sql`(t.render_lease_until IS NULL OR t.render_lease_until < ${now.toISOString()}::timestamptz)`
       : sql`t.render_lease_holder = ${leaseHolder}::uuid`
   }
-  AND NOT grid_legal_hold_blocks('project', t.project_id::text, t.organization_id)
+  AND NOT legal_hold_blocks('project', t.project_id::text, t.organization_id)
   AND NOT EXISTS (SELECT 1 FROM mail_thread_follows f WHERE f.thread_id = t.id AND f.ended_at IS NULL)
   AND NOT EXISTS (
     SELECT 1 FROM mail_thread_follows f

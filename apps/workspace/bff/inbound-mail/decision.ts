@@ -18,7 +18,7 @@ import 'server-only'
  * | `risk_not_acknowledged` | a `macro` or `type_mismatch` part, an append to a thread the sender could not vouch for, a Fassung of an earlier document from such a sender: the part's id is in `acknowledgeRisk` |
  * | `sender_not_acknowledged` | an unconfirmed sender the person must accept: `member_unverified`, a DKIM `fail` or `policy`, a mail addressed to others (outside the Bcc case), a stale date |
  * | `acknowledgement_in_bulk` | acknowledgements only in a request about one mail (RT-S5) |
- * | `card_carries_acknowledgement` | a Piloti card carries none (RT-S5; the database refuses it too) |
+ * | `card_carries_acknowledgement` | an agent's card carries none (RT-S5; the database refuses it too) |
  * | `target_unknown`, `thread_full` | the thread or the earlier document is one the person may read, and the thread has room |
  * | `name_taken` | the name is free in the project, or the person files the part as that document's next Fassung |
  * | `unreadable`, `nothing_to_mask` | the text was read, and masking has something to mask |
@@ -32,7 +32,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { ConflictError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { requireFolderWrite } from '@/lib/authz/folder-access'
-import type { InboundMailPartRow, InboundMailRow, NewInboundMailDecisionRow } from '@/lib/db/schema'
+import type { InboundMailPartRow, InboundMailRow, NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
 import { isAcceptedType } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
 import { appendNeedsAcknowledgement, senderPreselectionBlocks } from '@/lib/mail-thread/mail-threading'
@@ -313,8 +313,8 @@ export function planMailDecision(
   const released =
     decision.parts.some((part) => part.screeningRelease) ||
     (decision.message?.thread.action === 'create' && decision.message.thread.screeningRelease !== undefined)
-  if (context.actor.via === 'piloti_proposal' && (acknowledged || released)) {
-    throw refusal('card_carries_acknowledgement', 'A card Piloti proposed files clean, unflagged parts only; the person decides the rest', {
+  if (context.actor.via === 'agent_proposal' && (acknowledged || released)) {
+    throw refusal('card_carries_acknowledgement', 'A card the agent proposed files clean, unflagged parts only; the person decides the rest', {
       mailId: mail.id,
     })
   }
