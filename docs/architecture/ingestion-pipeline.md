@@ -237,7 +237,8 @@ What is measured in production today:
 - `document_ingest_finished` in PostHog with `duration_ms`. It is **not** a
   processing time: it is `now − documents.updated_at` at the read that first
   noticed the change (`bff/analytics/ingest-events.ts`), so it includes the queue
-  wait and every hour nobody looked. On 2026-11-02, 59 PDFs read in 18 s each
+  wait and every hour nobody looked. A rename, move or other write to the row
+  during the ingest moves `updated_at`, and the value then starts there. On 2026-11-02, 59 PDFs read in 18 s each
   (p50 of their `ingest-file` traces) reported about 21,600 s, because no read
   reconciled them until a chat turn six hours later. For processing time use the
   `ingest-file` trace latency (mirrored into PostHog as `langfuse observation`).
