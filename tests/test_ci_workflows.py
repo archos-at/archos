@@ -251,7 +251,9 @@ def test_the_test_database_follows_every_develop_push_and_holds_nobody_up():
     testmon = load("testmon.yml")
     job = testmon["jobs"]["backend-testmon"]
 
-    assert testmon["on"] == {"push": {"branches": ["develop"]}}
+    assert testmon["on"]["push"]["branches"] == ["develop"]
+    # A merge that changes no Python cannot change which test runs which function.
+    assert "**/*.py" in testmon["on"]["push"]["paths"] and "uv.lock" in testmon["on"]["push"]["paths"]
     assert "backend-testmon" not in JOBS
     assert not any("be:test:testmon" in json.dumps(other) for other in JOBS.values())
     assert testmon["concurrency"]["group"] != CI["concurrency"]["group"]
@@ -588,3 +590,52 @@ def test_a_prod_rollback_is_a_dispatch_tag_checked_before_it_reaches_a_command_l
         assert index > verify
         # An unqualified key is the project's own: the stack file's imageTag.
         assert 'pulumi config set imageTag "$ROLLBACK_TAG"' in steps[index]["run"]
+
+
+def test_a_pull_request_must_not_take_away_what_a_rollback_reads():
+    step = next(s for s in JOBS["release-notes"]["steps"] if "migration_contract.py" in s.get("run", ""))
+
+    assert evaluate(step["if"], github={"event_name": "pull_request"})
+    assert not evaluate(step["if"], github={"event_name": "push"})
+    # Read live, like no-release-note: label, then re-run the job.
+    assert "migration:contract" in step["run"] and "labels" not in step["if"]
+    labels = yaml.safe_load((WORKFLOWS.parent / "labels.yml").read_text(encoding="utf-8"))
+    assert "migration:contract" in {label["name"] for label in labels}
+
+
+def test_no_pull_request_can_skip_ci_on_its_merge_commit():
+    code = load("pr.yml")["jobs"]["skip-markers"]["steps"][0]["run"]
+
+    def verdict(title: str, body: str) -> bool:
+        import os
+
+        os.environ["TITLE"], os.environ["BODY"] = title, body
+        try:
+            exec(code, {})  # noqa: S102 - our own workflow's script
+        except SystemExit:
+            return False
+        return True
+
+    assert verdict("feat: a thing", "we skip CI flakes by fixing them")
+    for marker in ("[skip ci]", "[ci skip]", "[no ci]", "[skip actions]", "[actions skip]", "skip-checks: true"):
+        assert not verdict("fix: x", f"text {marker.upper()}")
+
+
+def test_a_ci_triggered_deploy_of_what_staging_runs_applies_nothing():
+    steps = DEPLOY["jobs"]["deploy"]["steps"]
+    skip = _step_index(steps, "Skip a commit staging already runs")
+
+    assert steps[skip]["if"] == "${{ github.event_name == 'workflow_run' }}"
+    assert skip > _step_index(steps, "Resolve per-service image refs")
+    for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up", "Smoke check"):
+        assert "env.ALREADY_DEPLOYED != 'true'" in steps[_step_index(steps, name)]["if"]
+
+
+@pytest.mark.parametrize(
+    ("workflow", "variable"), [("ci.yml", "CI_RUNNER"), ("testmon.yml", "CI_RUNNER"), ("deploy.yml", "DEPLOY_RUNNER")]
+)
+def test_the_runner_is_one_repository_variable_away_from_self_hosted(workflow, variable):
+    # Moving to Actions Runner Controller is a variable, not an edit per job;
+    # deploys get their own, so they need not run inside the cluster they change.
+    for name, job in load(workflow)["jobs"].items():
+        assert job["runs-on"] == f"${{{{ vars.{variable} || 'ubuntu-latest' }}}}", name

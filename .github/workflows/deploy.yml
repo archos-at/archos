@@ -103,6 +103,10 @@ permissions:
   contents: read
   packages: read # verify an image tag exists for all three images before pinning it
 
+# The deploy runner is its own variable, DEPLOY_RUNNER, not CI_RUNNER: a
+# self-hosted runner inside the cluster it deploys to dies with a rollout that
+# takes the cluster down, halfway through `pulumi up`. Point it elsewhere.
+
 env:
   # The post-deploy smoke check, shared by both jobs. Inline rather than a file
   # in the repository: staging runs develop's workflow against an older
@@ -143,7 +147,7 @@ jobs:
         && github.event.workflow_run.event == 'push'
         && github.event.workflow_run.head_repository.full_name == github.repository)
       || (github.event_name == 'workflow_dispatch' && (inputs.target == 'staging' || inputs.target == 'both'))
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     # Generous on purpose. A timeout that kills `pulumi up` mid-apply leaves
     # the stack with pending operations that someone clears by hand; the
     # policy pack's progress deadlines fail a stuck rollout long before this.
@@ -635,7 +639,7 @@ jobs:
     # chain from CI — that is staging's trigger and would otherwise
     # queue a prod apply on every merge to develop.
     if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.target == 'prod' || inputs.target == 'both')) }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
     # As generous as staging's, for the same reason.
     timeout-minutes: 60
     # Required-reviewer protection comes from this GitHub environment.

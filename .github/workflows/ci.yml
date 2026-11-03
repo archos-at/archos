@@ -51,6 +51,12 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Where every job runs: the repository variable CI_RUNNER, or GitHub's hosted
+# `ubuntu-latest` when it is unset. Moving to self-hosted runners (Actions
+# Runner Controller) is setting the variable to the scale set's name, not an
+# edit here. The runner image must carry what the hosted image gives these jobs
+# for free: Docker (service containers, buildx, gitleaks), python3, jq, gh,
+# curl and git. docs/contributing/ci.md#runners-and-cost.
 env:
   # Image references must be lowercase, and nothing lowercases this one for us.
   REGISTRY: ghcr.io/archos-at
@@ -58,7 +64,7 @@ env:
 jobs:
   changes:
     name: Plan
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     # Every job has a timeout of a few times its measured run. GitHub's
     # default is 360 minutes, and a hung job holds one of the capped runner
     # slots for all of them while every queued run waits behind it.
@@ -216,7 +222,7 @@ jobs:
     name: Repo checks (lint, secrets)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -292,7 +298,7 @@ jobs:
     name: Repo checks (CI machinery tests)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -309,10 +315,10 @@ jobs:
   # venv: reno and the house rules run through `uv run --no-project`, apm
   # through `uvx`, so this leg sets up uv alone.
   release-notes:
-    name: Repo checks (release notes, skills)
+    name: Repo checks (release notes, skills, migrations)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -384,6 +390,26 @@ jobs:
             exit 0
           fi
           python3 ci/require_release_note.py "$BASE_SHA" "$HEAD_SHA"
+      # A migration this pull request adds may not take away what a running
+      # build reads (a drop, a rename, a narrowed type): the migration Job runs
+      # forward only, so it would break a rollback by image tag and the old
+      # pods mid-rollout. The `migration:contract` label, read live, is the
+      # author's word that production is past every build reading the old
+      # shape. ci/migration_contract.py; docs/deployment/rollback.md.
+      - name: Migrations stay rollback-safe (expand/contract)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.labels[].name' | grep -qx 'migration:contract'; then
+            echo "Labelled migration:contract: a contract migration, on purpose."
+            exit 0
+          fi
+          python3 ci/migration_contract.py "$BASE_SHA" "$HEAD_SHA"
+
   # Diff-aware: `semgrep ci` on a pull request reports only findings the change
   # introduces, so it blocks a new finding without failing on the backlog. A
   # push has nothing new to find that its pull request did not, and the
@@ -392,7 +418,7 @@ jobs:
     name: SAST (Semgrep, new findings)
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.sast == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     container:
       # Pinned: an unpinned scanner image changes the rules under a PR that
@@ -428,7 +454,7 @@ jobs:
     name: Backend core (shard ${{ matrix.shard }}/4)
     needs: changes
     if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       # One shard's failure should not hide the others' results.
@@ -472,7 +498,7 @@ jobs:
     name: Backend coverage gate
     needs: [changes, backend]
     if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -515,7 +541,7 @@ jobs:
     name: Backend suites (${{ matrix.suite }})
     needs: changes
     if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -574,7 +600,7 @@ jobs:
     name: Backend affected tests (${{ matrix.suite }}${{ matrix.shard && format(' {0}/4', matrix.shard) || '' }})
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_mode == 'select'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -673,7 +699,7 @@ jobs:
     name: Workspace (cards, lint, types, tenant isolation)
     needs: changes
     if: needs.changes.outputs.workspace == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       # These jobs run PR-controlled code (`bun install` runs lifecycle scripts,
@@ -715,7 +741,7 @@ jobs:
     # last green run or the base, ci/pr_selection.py) runs none ('none'); one that a selection can see runs only the specs
     # its change reaches ('select'); everything else, and every push, all.
     if: needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       # One shard's failure should not hide the others' results.
@@ -768,7 +794,7 @@ jobs:
     name: Workspace coverage
     needs: [changes, workspace-test]
     if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.workspace == 'true' && needs.changes.outputs.ui_mode == 'full' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -800,7 +826,7 @@ jobs:
     # The public website, apps/website, and the riso kit's fast gate (task website:verify).
     needs: changes
     if: needs.changes.outputs.site == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -820,7 +846,7 @@ jobs:
     name: Infra (Pulumi typecheck + manifest tests)
     needs: changes
     if: needs.changes.outputs.infra == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -864,7 +890,7 @@ jobs:
     name: Standalone packages (packages/)
     needs: changes
     if: needs.changes.outputs.packages == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -899,7 +925,7 @@ jobs:
     name: Hatchet engine tests
     needs: changes
     if: needs.changes.outputs.hatchet == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -964,7 +990,7 @@ jobs:
     name: Image vulns (trivy, changed pins)
     needs: changes
     if: needs.changes.outputs.pins != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       TRIVY_VERSION: "0.61.1"
@@ -995,7 +1021,7 @@ jobs:
     name: Image build (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -1026,7 +1052,7 @@ jobs:
     name: Image build + push (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'push' && needs.changes.outputs.build != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -1067,7 +1093,7 @@ jobs:
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -1114,7 +1140,7 @@ jobs:
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
     needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, hatchet, trivy, image, image-push, publish]
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Require needed jobs to have passed (skipped is fine)

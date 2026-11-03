@@ -14,9 +14,23 @@ name: Test database
 # queue one at a time, the next merge's run waited for it too (17:56 → 18:06).
 # The cache is shared across workflows on a branch, so pull requests find the
 # database under the same key and path as before.
+#
+# Only when Python changed. testmon maps Python functions to the tests that
+# execute them; a docs, UI or workflow merge cannot change that map, and the
+# full backend suite this re-runs costs seven runner-minutes a merge. A pull
+# request restores the newest database by prefix, which is then still exact for
+# every Python file. Non-Python inputs a test reads are matched by name in
+# ci/pr_selection.py, not through this database.
 on:
   push:
     branches: [develop]
+    paths:
+      - '**/*.py'
+      - '**/pyproject.toml'
+      - 'uv.lock'
+      - 'taskfiles/backend.yml'
+      - '.github/workflows/testmon.yml'
+      - '.github/actions/setup-python-env/**'
 
 permissions:
   contents: read
@@ -30,7 +44,7 @@ concurrency:
 jobs:
   backend-testmon:
     name: Backend test database (testmon)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     services:
       qdrant:
