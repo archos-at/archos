@@ -236,7 +236,7 @@ function StepRail({
           const label = tShell(`steps.${summary.id}`)
           return (
             <li key={summary.id} className={cn('flex items-center gap-2.5', i < summaries.length - 1 && 'flex-1')}>
-              <button
+              <button data-attr="intake-go-to"
                 type="button"
                 onClick={() => onGoTo(summary.id)}
                 aria-current={active ? 'step' : undefined}

@@ -28,6 +28,29 @@
   },
   "releases": [
     {
+      "id": "2026-W45",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-02",
+      "dateEnd": "2026-11-08",
+      "summary": null,
+      "sections": [
+        {
+          "key": "fixes",
+          "notes": [
+            {
+              "en": "The budget warning in the chat now tells members who cannot change the limit that an admin can raise it, not only once the budget is spent.",
+              "de": "Die Budgetwarnung im Chat informiert Mitglieder, die das Limit nicht ändern können, jetzt darüber, dass ein Admin es erhöhen kann – auch bevor das Budget aufgebraucht ist."
+            },
+            {
+              "en": "Uploading hundreds of files at once no longer makes a share of them fail to be read and wait several minutes for a second try.",
+              "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "2026-W44",
       "kind": "week",
       "version": null,

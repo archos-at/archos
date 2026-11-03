@@ -199,7 +199,7 @@ const MetaChip = forwardRef<
         <span className="truncate">{children}</span>
       </button>
       {onClear && (
-        <button
+        <button data-attr="files-clear"
           type="button"
           className="text-muted-foreground hover:text-foreground mr-1 inline-flex size-4 shrink-0 items-center justify-center rounded-full outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/60"
           aria-label={clearLabel}
@@ -328,7 +328,7 @@ function KindPicker({ value, onChange }: { value: AnnotationKind; onChange: (kin
         const Icon = KIND_ICONS[kind]
         const on = kind === value
         return (
-          <button
+          <button data-attr="files-change"
             key={kind}
             type="button"
             aria-pressed={on}
@@ -448,7 +448,7 @@ function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentRevie
   const [adoptFailed, setAdoptFailed] = useState(false)
   const line = liveLine(stepsOf(ask.view), tChat) ?? t('review.piloti.replying')
   const close = (
-    <button
+    <button data-attr="files-dismiss"
       type="button"
       className="text-muted-foreground hover:text-foreground ml-auto shrink-0 self-start rounded p-0.5"
       aria-label={t('review.piloti.close')}

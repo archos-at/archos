@@ -165,7 +165,7 @@ export function ComposerField({ controller }: { controller: InputAreaController 
             <Alert variant="destructive" className="mt-2">
               <AlertDescription className="flex w-full items-start justify-between gap-2">
                 <span>{controller.uploadError}</span>
-                <button
+                <button data-attr="chat-clear-error"
                   type="button"
                   onClick={controller.clearError}
                   aria-label={controller.t('dismissError')}
@@ -204,7 +204,7 @@ export function ComposerField({ controller }: { controller: InputAreaController 
             )}
           >
             <span className="min-w-0 flex-1">{controller.composerNote.text}</span>
-            <button
+            <button data-attr="chat-composer-note"
               type="button"
               onClick={() => controller.setComposerNote(null)}
               aria-label={controller.tCapture('dictation.dismiss')}

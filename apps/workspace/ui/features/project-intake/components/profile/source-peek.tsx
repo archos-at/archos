@@ -91,7 +91,7 @@ function DocumentSource({
   return (
     <>
       <Chip asChild interactive variant="muted" className={cn(CHIP_CLASS, 'aria-expanded:bg-primary aria-expanded:text-primary-foreground')}>
-        <button type="button" aria-label={t('source.chipAria', { label, source: text })} data-testid="source-peek" {...triggerProps}>
+        <button data-attr="source-peek" type="button" aria-label={t('source.chipAria', { label, source: text })} data-testid="source-peek" {...triggerProps}>
           <ChipLabel>{text}</ChipLabel>
           {more > 0 && <span className="tabular-nums">{t('source.more', { count: more })}</span>}
         </button>

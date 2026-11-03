@@ -71,16 +71,21 @@ export const UsageNotice: FC<UsageNoticeProps> = ({ notice, onDismiss }) => {
   const renews =
     notice.window === 'day' ? t('usageNotice.renewsDay', { time }) : t('usageNotice.renewsMonth', { date })
 
+  // Whoever cannot move the limit is told who can, at every level: a warning
+  // that ends in nothing to do is noise, and one that points at a settings
+  // page they cannot edit is a dead end.
+  const askAdmin = notice.canChange ? null : t('usageNotice.askAdmin')
   const sentences: Array<string | null> = exhausted
     ? [
         notice.window === 'day' ? t('usageNotice.blockedDay', { time }) : t('usageNotice.blockedMonth', { date }),
-        notice.canChange ? null : t('usageNotice.askAdmin'),
+        askAdmin,
       ]
     : [
         amounts ?? (notice.level === 'forecast' ? t('usageNotice.usedSoFar', { percent }) : null),
         notice.level === 'warning' && runsOut ? t('usageNotice.paceRunsOut', { date: runsOut }) : null,
         notice.level === 'critical' ? t('usageNotice.longRunsMayStop') : null,
         renews,
+        askAdmin,
       ]
 
   const title = t(`usageNotice.title.${notice.level}`, { budget, percent, date: runsOut ?? date })

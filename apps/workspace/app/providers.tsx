@@ -61,8 +61,8 @@ const isThemeMode = (value: unknown): value is ThemeMode =>
  * (pending the owner's permission). The server-known session is handed to the
  * SDK at init (`posthogIdentity`, PostHog `bootstrap`), so the first pageview is
  * already the person. The organization (id and name), role and locale ride
- * along as properties on every event, because group analytics is a paid add-on
- * (`lib/analytics/posthog.ts`). The identify effect still runs once per load:
+ * along as properties on every event, and the organization is also a PostHog
+ * group (`lib/analytics/posthog.ts`). The identify effect still runs once per load:
  * it covers the case where the server could not build the bootstrap, and a
  * switch of user within one page.
  */

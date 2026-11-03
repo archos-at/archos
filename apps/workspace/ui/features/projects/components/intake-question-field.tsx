@@ -242,7 +242,7 @@ export function QuestionHeader({ question, domId }: { question: ProjectIntakeQue
             control beside every label — an accordion the length of the form
             competing with the questions it annotates. */}
         {question.why && (
-          <button
+          <button data-attr="project-why-open"
             type="button"
             onClick={() => setWhyOpen((previous) => !previous)}
             aria-expanded={whyOpen}
@@ -371,7 +371,7 @@ export function Segmented({
         const active = value === opt.value
         const tone = opt.tone ?? 'default'
         return (
-          <button
+          <button data-attr="project-change"
             key={opt.value}
             type="button"
             aria-pressed={active}
@@ -428,7 +428,7 @@ export function ChipMultiSelect({
       {(question.options ?? []).map((opt) => {
         const active = value.includes(opt.value)
         return (
-          <button
+          <button data-attr="project-change"
             key={opt.value}
             type="button"
             aria-pressed={active}
