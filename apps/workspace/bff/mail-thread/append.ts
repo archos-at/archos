@@ -225,6 +225,8 @@ export function inboundEntryOf(input: {
     signerDomain: mail.signerDomain,
     senderTrust: mail.senderTrust ?? 'external_unverified',
     authenticationResults: mail.authenticationResults,
+    // Who wrote a forwarded message (migration 0195); the sender stays the forwarder.
+    ...authorOf(mail),
     participants: mail.participants
       .slice(0, 50)
       .map((participant) => ({ ...participant, name: cut(participant.name, 300) })),
@@ -237,6 +239,17 @@ export function inboundEntryOf(input: {
     filedVia: decision.via,
     // The decision's time, not the run's: a retry renders the same bytes.
     filedAt: decision.decidedAt,
+  }
+}
+
+/** The entry's author columns from the mail's original, or none for a mail that is no forward. */
+function authorOf(mail: InboundMailRow): Pick<NewMailThreadEntryRow, 'authorAddress' | 'authorName' | 'authorSentAt' | 'authorMessageId'> {
+  if (!mail.originalAuthorAddress && !mail.originalAuthorName) return {}
+  return {
+    authorAddress: mail.originalAuthorAddress,
+    authorName: mail.originalAuthorName,
+    authorSentAt: mail.originalSentAt,
+    authorMessageId: mail.originalMessageId,
   }
 }
 
@@ -268,6 +281,10 @@ export function renderEntryOf(
     senderDomain: row.senderDomain ?? null,
     signerDomain: row.signerDomain ?? null,
     senderTrust: row.senderTrust,
+    author:
+      row.authorName || row.authorAddress
+        ? { name: row.authorName ?? null, address: row.authorAddress ?? null, sentAt: row.authorSentAt ? new Date(row.authorSentAt) : null }
+        : null,
     inReplyToEntryId: row.inReplyToEntryId ?? null,
     participants: mailThreadParticipantSchema
       .array()

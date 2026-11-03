@@ -295,6 +295,18 @@ A binned, deleted or archived Verlauf document is `last_failure:
 thread_document_gone`. A thread at 200 entries or 2 MiB refuses an append
 (`thread_full`).
 
+**A forwarded message is cited by its author.** When the mail carried an
+original (0195), the entry keeps its author (`author_*`), its heading names the
+author at the time they wrote it with „Domain nicht bestätigt“ (the forwarder's
+signature covers the forward, not what it quotes, RT-S2), and the line
+„Weitergeleitet von“ names the sender by the usual rule. An attachment's
+`mail_origin` does the same: `from_*` and `sent_at` are the author's,
+`forwarded_by_name`, `forwarded_by_domain` and `forwarded_at` the forwarder's
+(`ingest-facts.ts`, `agent_host/models/mail_facts.py`, printed by
+`agent/knowledge/mail_facts.py`). The document's „kam mit der E-Mail“ line in
+the UI (`mail-origins.ts`, `MailOriginView`) still names the sender, whose
+trust it shows.
+
 The knowledge layer reads a Verlauf like any Markdown document, one chunk
 section per message (`source_format: mail`, lane `project_mail`, label
 „E-Mail“), with `document_date` the newest message's send time; a filed

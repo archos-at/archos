@@ -561,10 +561,12 @@ class AvailableDocument(BaseModel):
             (:mod:`~agent.knowledge.mail_facts`). Its date is the document's own date.
         mail_origin: Optional, on a file filed from a mail: the message it came with, ``sent_at``,
             ``received_at``, ``from_name``, ``from_domain``, ``signer_domain``, ``sender_trust``,
-            ``thread_document_id`` and ``locale``. A display name and domains only, never an
+            ``thread_document_id`` and ``locale``; a forwarded message's ``from_*`` and ``sent_at``
+            are its author's, and ``forwarded_by_name``, ``forwarded_by_domain`` and
+            ``forwarded_at`` its forwarder's. Display names and domains only, never an
             address. A reader names the sender's domain only as :func:`~agent.knowledge.
             mail_facts.mail_origin_label` does: the signing domain when it was verified, else
-            „Domain nicht bestätigt“.
+            „Domain nicht bestätigt“, and never for a forward's author.
         added_at: Optional ``YYYY-MM-DD`` the document was first indexed under
             this name (the row's ``created_at``; a re-ingest keeps it). A
             string, not a datetime, because the row rides the checkpointed turn
