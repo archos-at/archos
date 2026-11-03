@@ -354,7 +354,7 @@ export const buildPosthogInitOptions = (
   },
   capture_pageview: 'history_change',
   capture_heatmaps: true,
-  capture_performance: true,
+  capture_performance: { web_vitals: true, web_vitals_attribution: ['CLS', 'INP', 'LCP'], network_timing: true },
   capture_dead_clicks: true,
   // The SDK's own URL masking: query values named here become `<masked>` in
   // `$current_url`, `$referrer`, the campaign and `$initial_*` person properties,

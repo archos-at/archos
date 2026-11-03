@@ -116,7 +116,7 @@ export function PageReadings({
           </ol>
         )}
         {hidden > 0 || (expanded && details && details.length > FIRST_ENTRIES) ? (
-          <button
+          <button data-attr="files-expanded"
             type="button"
             onClick={() => setExpanded((value) => !value)}
             className="text-muted-foreground hover:text-foreground hover:bg-accent/40 duration-snap border-border/60 touch-target focus-visible:bg-accent/40 w-full border-t px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
@@ -182,7 +182,7 @@ function PageReading({
   return (
     <li className="py-2.5 text-xs/5">
       {onShowPage ? (
-        <button
+        <button data-attr="files-show-page"
           type="button"
           onClick={() => onShowPage(detail.page)}
           title={t('preview.visualDetails.showPage', { page: detail.page })}

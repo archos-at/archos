@@ -44,7 +44,7 @@ export function RegionBoxes({ regions, size, activeRegion, dashed = false }: Reg
         return (
           <Tooltip key={number}>
             <TooltipTrigger asChild>
-              <button
+              <button data-attr="compare-region"
                 type="button"
                 data-testid="compare-region"
                 data-region={number}

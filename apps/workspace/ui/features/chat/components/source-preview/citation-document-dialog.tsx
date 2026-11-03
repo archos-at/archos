@@ -215,7 +215,7 @@ export const CitationDocumentDialog: FC<{
         (shown || rendition || citedSearchable || beside) && (
           <span className="flex shrink-0 items-center gap-2">
             {beside && (
-              <button
+              <button data-attr="chat-open-beside"
                 type="button"
                 onClick={() => void openBeside()}
                 data-open-beside-chat=""

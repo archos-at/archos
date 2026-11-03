@@ -411,7 +411,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                   // this is the fast one for people who know it — which is why it
                   // carries a hover fill and a text cursor, the two hints that make
                   // the click findable for anyone who happens to pass over it.
-                  <button
+                  <button data-attr="chat-start-editing-title"
                     type="button"
                     onClick={startEditingTitle}
                     disabled={!canRename}

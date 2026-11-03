@@ -297,7 +297,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                        genuinely has no origin path, and the row is absent rather
                        than empty. */}
                     <InspectorRow label={t('preview.originPath')} icon={FolderTree}>
-                      <button
+                      <button data-attr="file-origin-path"
                         type="button"
                         onClick={() => {
                           void navigator.clipboard

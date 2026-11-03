@@ -689,7 +689,7 @@ function PeekToolbar({
             The indexing case needs no control — it resolves itself, and the
             poll above is what makes that visible. */}
         {isFailedStatus(file.status) && (
-          <button
+          <button data-attr="files-expand"
             type="button"
             onClick={onExpand}
             className={cn(

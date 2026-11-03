@@ -90,7 +90,7 @@ const Row = memo(function Row({
 }): JSX.Element {
   return (
     <li>
-      <button
+      <button data-attr="review-row"
         type="button"
         data-testid="review-row"
         aria-current={selected || undefined}
@@ -445,7 +445,7 @@ export function ReviewPanel({
           {FILTERS.map((option) => {
             const count = counts[option]
             return (
-              <button
+              <button data-attr="files-filter"
                 key={option}
                 type="button"
                 aria-pressed={filter === option}
@@ -467,7 +467,7 @@ export function ReviewPanel({
             )
           })}
         </div>
-        <button
+        <button data-attr="review-filter-mine"
           type="button"
           aria-pressed={mine}
           data-testid="review-filter-mine"
@@ -547,7 +547,7 @@ function ListedMarks({
           className="border-foreground/25 mx-0.5 mb-2 rounded-surface border border-dashed"
         >
           <div className="flex items-center gap-2 px-2.5 py-2">
-            <button
+            <button data-attr="files-proposals-open"
               type="button"
               aria-expanded={proposalsOpen}
               onClick={() => setProposalsOpen((open) => !open)}

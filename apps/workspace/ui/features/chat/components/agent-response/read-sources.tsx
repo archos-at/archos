@@ -75,7 +75,7 @@ export const ReadSourcesSection: FC<{ readSources?: CitationSource[] }> = ({ rea
           </span>
         ))}
         {named.length > MAX_READ_SOURCES && (
-          <button
+          <button data-attr="read-sources-more"
             type="button"
             onClick={() => setExpanded((open) => !open)}
             aria-expanded={expanded}

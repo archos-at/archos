@@ -74,7 +74,7 @@ const RoundFlowNode: FC<NodeProps<Node<RoundData>>> = ({ data }) => (
       />
     ))}
     {data.foldable && (
-      <button
+      <button data-attr="reasoning-round-toggle"
         type="button"
         onClick={data.onToggle}
         aria-expanded={!data.folded}
@@ -256,7 +256,7 @@ const UncitedFoldCard: FC<{
   if (slot.expanded) {
     return (
       <div role="listitem" data-testid="uncited-fold" className="mt-1.5 flex min-w-0">
-        <button
+        <button data-attr="chat-toggle"
           type="button"
           onClick={onToggle}
           aria-expanded
@@ -285,7 +285,7 @@ const UncitedFoldCard: FC<{
       <SectionLabel id={tabId} className={cn(FOLDER_TAB, 'bg-card text-muted-foreground')}>
         {t(`${U}${slot.live ? 'pillLive' : 'pill'}`)}
       </SectionLabel>
-      <button
+      <button data-attr="chat-toggle"
         type="button"
         onClick={onToggle}
         aria-expanded={false}

@@ -290,7 +290,7 @@ export const AnswerSourcesRow: FC<AnswerSourcesRowProps> = ({
       })}
       </div>
       {(hidden > 0 || expanded) && documents.length > MAX_ANSWER_SOURCES && (
-        <button
+        <button data-attr="answer-sources-more"
           type="button"
           onClick={() => setExpanded((open) => !open)}
           aria-expanded={expanded}

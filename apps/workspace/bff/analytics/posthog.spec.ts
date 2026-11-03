@@ -296,7 +296,7 @@ describe('posthog init options', () => {
     expect(options.capture_pageview).toBe('history_change')
     expect(options.capture_dead_clicks).toBe(true)
     expect(options.capture_heatmaps).toBe(true)
-    expect(options.capture_performance).toBe(true)
+    expect(options.capture_performance).toEqual({ web_vitals: true, web_vitals_attribution: ['CLS', 'INP', 'LCP'], network_timing: true })
   })
 
   test('the SDK masks the secret query keys in the URLs it owns', () => {

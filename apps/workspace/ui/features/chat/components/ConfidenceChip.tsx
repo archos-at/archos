@@ -83,7 +83,7 @@ export const ConfidenceChip: FC<ConfidenceChipProps> = ({
       <Tooltip>
         <TooltipTrigger asChild>
           <Chip asChild variant="muted" size="sm" interactive>
-            <button type="button" data-testid="confidence-check-unavailable">
+            <button data-attr="confidence-check-unavailable" type="button" data-testid="confidence-check-unavailable">
               <Gauge aria-hidden="true" />
               {t('confidence.checked.unavailable')}
             </button>

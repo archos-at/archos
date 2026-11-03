@@ -669,7 +669,7 @@ function StandingTasksSection({
           tone="destructive"
           title={tJobs('loadError')}
           action={
-            <Button variant="outline" size="sm" onClick={onRetry}>
+            <Button variant="outline" size="sm" onClick={onRetry} data-attr="jobs-retry">
               {tJobs('tryAgain')}
             </Button>
           }
