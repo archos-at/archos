@@ -717,6 +717,11 @@ export const organization = {
     someFailed:
       '{count, plural, one {One file could not be decided. It stays selected.} other {# files could not be decided. They stay selected.}}',
     decideError: 'Could not save the decision. Please try again.',
+    recheck: 'Check again',
+    recheckHint:
+      'Checks the files again with the rules in force today. What no longer matches, {productName} reads like any upload; what still matches comes back here.',
+    recheckingMany:
+      '{count, plural, one {One file is being checked again.} other {# files are being checked again.}} What still matches comes back here.',
     filterLabel: 'Filter by finding',
     filter: {
       all: 'All',

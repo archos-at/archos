@@ -6,12 +6,20 @@ vi.mock('./quarantine-reviewers', () => ({ mayReviewQuarantine: vi.fn() }))
 vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
 vi.mock('@/lib/documents/document-edits', () => ({ deleteDocument: vi.fn() }))
 vi.mock('@/lib/session-documents/service', () => ({ deleteSessionDocument: vi.fn() }))
+vi.mock('@/lib/documents/repository', () => ({ markForRescreening: vi.fn() }))
+vi.mock('@/lib/documents/document-dispatch', () => ({
+  dispatchDocument: vi.fn().mockResolvedValue({ jobId: 'job-1', status: 'processing' }),
+}))
+vi.mock('@/lib/documents/folder-path', () => ({ resolveDocumentFolderPath: vi.fn().mockResolvedValue('Pläne') }))
+vi.mock('@/lib/documents/shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import { deleteDocument } from '@/lib/documents/document-edits'
 import { deleteSessionDocument } from '@/lib/session-documents/service'
+import { dispatchDocument } from '@/lib/documents/document-dispatch'
+import { markForRescreening } from '@/lib/documents/repository'
 import { makeDocument } from '@/test-utils/db-fixtures'
 import { decideQuarantinedDocuments } from './decisions'
 import { quarantineDecisionsSchema, QUARANTINE_DECISION_LIMIT } from './decisions-wire'
@@ -105,6 +113,48 @@ describe('decideQuarantinedDocuments', () => {
       { id: 'other', outcome: 'not_found' },
     ])
     expect(deleteDocument).not.toHaveBeenCalled()
+  })
+})
+
+describe('recheck', () => {
+  const held = makeDocument({
+    id: 'q',
+    scope: 'project',
+    projectId: 'proj-1',
+    status: 'quarantined',
+    contentHash: 'sha256:abc',
+    storageKey: 'org/doc/q.xlsx',
+  })
+
+  it('screens a held document again, with the bytes the reviewer saw, and releases nothing', async () => {
+    vi.mocked(getAccessibleDocument).mockResolvedValueOnce(held)
+    vi.mocked(markForRescreening).mockResolvedValueOnce(true)
+
+    const { results } = await decideQuarantinedDocuments(reviewer, { decision: 'recheck', documentIds: ['q'] }, request)
+
+    expect(results).toEqual([{ id: 'q', outcome: 'rechecking' }])
+    expect(markForRescreening).toHaveBeenCalledWith('q', 'org-1', 'sha256:abc')
+    expect(dispatchDocument).toHaveBeenCalledWith(expect.objectContaining({ documentId: 'q', folderPath: 'Pläne' }))
+    expect(releaseQuarantinedDocument).not.toHaveBeenCalled()
+    expect(settleReleaseRequests).not.toHaveBeenCalled()
+  })
+
+  it('dispatches nothing when the row moved on, nor for a document the session does not review', async () => {
+    vi.mocked(getAccessibleDocument).mockResolvedValueOnce(held).mockResolvedValueOnce(held)
+    vi.mocked(markForRescreening).mockResolvedValueOnce(false)
+    vi.mocked(mayReviewQuarantine).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+
+    const { results } = await decideQuarantinedDocuments(
+      reviewer,
+      { decision: 'recheck', documentIds: ['q', 'other'] },
+      request
+    )
+
+    expect(results).toEqual([
+      { id: 'q', outcome: 'changed' },
+      { id: 'other', outcome: 'not_found' },
+    ])
+    expect(dispatchDocument).not.toHaveBeenCalled()
   })
 })
 

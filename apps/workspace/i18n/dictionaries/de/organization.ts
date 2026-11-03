@@ -730,6 +730,13 @@ export const organization: typeof en.organization = {
     someFailed:
       '{count, plural, one {Über eine Datei ließ sich nicht entscheiden. Sie bleibt ausgewählt.} other {Über # Dateien ließ sich nicht entscheiden. Sie bleiben ausgewählt.}}',
     decideError: 'Die Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+    // Mit den Regeln von heute erneut prüfen: die Prüfung wurde verbessert oder
+    // das Büro hat seine Liste geändert. Gibt nichts frei, was die Regeln halten.
+    recheck: 'Erneut prüfen',
+    recheckHint:
+      'Prüft die Dateien noch einmal mit den heute geltenden Regeln. Was nicht mehr anschlägt, liest {productName} wie jeden Upload; was weiterhin anschlägt, kommt hierher zurück.',
+    recheckingMany:
+      '{count, plural, one {Eine Datei wird erneut geprüft.} other {# Dateien werden erneut geprüft.}} Was weiterhin anschlägt, kommt hierher zurück.',
     filterLabel: 'Nach Fund filtern',
     filter: {
       all: 'Alle',

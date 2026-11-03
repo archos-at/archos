@@ -17,8 +17,10 @@ export const QUARANTINE_DECISION_LIMIT = 50
 export const quarantineDecisionsSchema = z
   .object({
     decision: z
-      .enum(['allow', 'delete'])
-      .describe('allow: read each like any other upload. delete: remove each for good.'),
+      .enum(['allow', 'delete', 'recheck'])
+      .describe(
+        'allow: read each like any other upload. delete: remove each for good. recheck: screen each again with the rules in force now; a match holds it again.'
+      ),
     documentIds: z
       .array(z.string().min(1))
       .min(1)
@@ -32,13 +34,15 @@ export const quarantineDecisionsSchema = z
 export type QuarantineDecisions = z.infer<typeof quarantineDecisionsSchema>
 
 /**
- * What became of one document. `changed`: it is no longer held (someone decided
- * first). `not_found`: this session may not decide about it, answered as for a
+ * What became of one document. `rechecking`: it is being screened again, and
+ * comes back to the queue only if it still matches. `changed`: it is no longer
+ * held (someone decided first). `not_found`: this session may not decide about it, answered as for a
  * document that does not exist. `forbidden`: a reviewer who may not write its
  * folder. `failed`: anything else; the document is as it was.
  */
 export const QUARANTINE_DECISION_OUTCOMES = [
   'allowed',
+  'rechecking',
   'deleted',
   'changed',
   'not_found',

@@ -133,7 +133,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       const empty = new URLSearchParams(window.location.search).has('empty')
       if (url === '/api/quarantine/decisions') {
         const { decision, documentIds } = JSON.parse(String(init?.body)) as { decision: string; documentIds: string[] }
-        const outcome = decision === 'allow' ? 'allowed' : 'deleted'
+        const outcome = decision === 'allow' ? 'allowed' : decision === 'recheck' ? 'rechecking' : 'deleted'
         return Response.json({ results: documentIds.map((id) => ({ id, outcome })) })
       }
       if (url.startsWith('/api/quarantine')) return Response.json({ items: empty ? [] : [...CARD_ITEMS, ...ITEMS] })

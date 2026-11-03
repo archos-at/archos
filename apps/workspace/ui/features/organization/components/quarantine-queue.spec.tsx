@@ -220,5 +220,22 @@ describe('QuarantineQueue', () => {
       expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('1 selected')
       expect(toast.error).toHaveBeenCalled()
     })
+
+    it('checks the selection again with the rules in force now; the rows leave until they match again', async () => {
+      stubApi([cardRow('card-a'), cardRow('card-b')], (url, init) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({
+              results: (JSON.parse(String(init?.body)).documentIds as string[]).map((id) => ({ id, outcome: 'rechecking' })),
+            })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-all'))
+      fireEvent.click(screen.getByTestId('quarantine-recheck-selected'))
+
+      await waitFor(() => expect(decisions()).toEqual([{ decision: 'recheck', documentIds: ['card-a', 'card-b'] }]))
+      await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
+      expect(toast.success).toHaveBeenCalled()
+    })
   })
 })

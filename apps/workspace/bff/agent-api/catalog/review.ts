@@ -374,10 +374,11 @@ export const reviewOperations = [
   {
     name: 'quarantine-decide',
     domain: 'review',
-    summary: 'Allow or delete several held documents at once',
+    summary: 'Allow, delete or recheck several held documents at once',
     description:
       'A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other ' +
-      'upload, `delete` removes each for good. Every document is checked on its own and answers with its own `outcome` ' +
+      'upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it ' +
+      'again). Every document is checked on its own and answers with its own `outcome` ' +
       '(`changed` when someone decided first). The decision cannot be taken back.',
     method: 'POST',
     path: '/api/quarantine/decisions',

@@ -12,7 +12,7 @@
  */
 
 import type { JSX } from 'react'
-import { Trash2, X } from 'lucide-react'
+import { RotateCcw, Trash2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -52,6 +52,8 @@ export interface QuarantineSelectionProps {
   onClear: () => void
   onRelease: () => void
   onDelete: () => void
+  /** Screen the selection again with the rules in force now: what no longer matches goes through. */
+  onRecheck: () => void
 }
 
 export function QuarantineSelection({
@@ -65,6 +67,7 @@ export function QuarantineSelection({
   onClear,
   onRelease,
   onDelete,
+  onRecheck,
 }: QuarantineSelectionProps): JSX.Element {
   const t = useTranslations(organizationCopy)
   const pickable = Math.min(shown, limit)
@@ -116,6 +119,16 @@ export function QuarantineSelection({
         </p>
         {selected > 0 && (
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onRecheck}
+              title={t('quarantine.recheckHint')}
+              data-testid="quarantine-recheck-selected"
+            >
+              <RotateCcw className="size-4" aria-hidden />
+              {t('quarantine.recheck')}
+            </Button>
             <Button
               variant="outline"
               size="sm"

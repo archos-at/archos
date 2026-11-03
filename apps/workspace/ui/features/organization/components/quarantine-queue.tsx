@@ -65,8 +65,22 @@ type PendingAction =
   | { kind: 'release' | 'delete'; item: QuarantineQueueItem }
   | { kind: 'releaseMany' | 'deleteMany'; ids: string[] }
 
+/** Outcomes that did what was asked, and what the toast then says. */
+const DONE: ReadonlySet<QuarantineDecisionOutcome> = new Set(['allowed', 'deleted', 'rechecking'])
+const DONE_TOAST = {
+  allow: 'quarantine.releasedMany',
+  delete: 'quarantine.deletedMany',
+  recheck: 'quarantine.recheckingMany',
+} as const
+
 /** Outcomes after which a row is no longer in the queue: decided here, or by someone else first. */
-const LEAVES_QUEUE: ReadonlySet<QuarantineDecisionOutcome> = new Set(['allowed', 'deleted', 'changed', 'not_found'])
+const LEAVES_QUEUE: ReadonlySet<QuarantineDecisionOutcome> = new Set([
+  'allowed',
+  'deleted',
+  'rechecking',
+  'changed',
+  'not_found',
+])
 
 /** Project names for the "where" line. Best-effort: a failed read shows "a project". */
 function useProjectNames(): Map<string, string> {
@@ -142,7 +156,7 @@ export const QuarantineQueue: FC = () => {
   const selectAll = (all: boolean): void =>
     setSelected(all ? new Set(shown.slice(0, QUARANTINE_DECISION_LIMIT).map((item) => item.id)) : new Set())
 
-  const decideMany = async (decision: 'allow' | 'delete', ids: string[]): Promise<void> => {
+  const decideMany = async (decision: 'allow' | 'delete' | 'recheck', ids: string[]): Promise<void> => {
     let results: Awaited<ReturnType<typeof decideQuarantinedDocuments>>
     try {
       results = await decideQuarantinedDocuments(decision, ids)
@@ -151,11 +165,11 @@ export const QuarantineQueue: FC = () => {
       return
     }
     const gone = new Set(results.filter((result) => LEAVES_QUEUE.has(result.outcome)).map((result) => result.id))
-    const done = results.filter((result) => result.outcome === 'allowed' || result.outcome === 'deleted').length
+    const done = results.filter((result) => DONE.has(result.outcome)).length
     const stuck = results.length - gone.size
     setItems((prev) => prev?.filter((item) => !gone.has(item.id)) ?? null)
     setSelected(new Set(ids.filter((id) => !gone.has(id))))
-    if (done > 0) toast.success(t(decision === 'allow' ? 'quarantine.releasedMany' : 'quarantine.deletedMany', { count: done }))
+    if (done > 0) toast.success(t(DONE_TOAST[decision], { count: done }))
     if (stuck > 0) toast.error(t('quarantine.someFailed', { count: stuck }))
     // Someone else decided some of them first: the rest of the list may be stale too.
     if (done + stuck < results.length) void load()
@@ -238,6 +252,7 @@ export const QuarantineQueue: FC = () => {
         onClear={() => setSelected(new Set())}
         onRelease={() => ask({ kind: 'releaseMany', ids: selectedShown })}
         onDelete={() => ask({ kind: 'deleteMany', ids: selectedShown })}
+        onRecheck={() => void decideMany('recheck', selectedShown)}
       />
       <ItemList as="ul" aria-label={t('quarantine.listLabel')} data-testid="quarantine-queue">
         {shown.map((item) => (

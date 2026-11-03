@@ -12409,8 +12409,8 @@
     "/api/quarantine/decisions": {
       "post": {
         "operationId": "quarantine-decide",
-        "summary": "Allow or delete several held documents at once",
-        "description": "A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other upload, `delete` removes each for good. Every document is checked on its own and answers with its own `outcome` (`changed` when someone decided first). The decision cannot be taken back.",
+        "summary": "Allow, delete or recheck several held documents at once",
+        "description": "A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it again). Every document is checked on its own and answers with its own `outcome` (`changed` when someone decided first). The decision cannot be taken back.",
         "tags": [
           "review"
         ],
@@ -12425,9 +12425,10 @@
                     "type": "string",
                     "enum": [
                       "allow",
-                      "delete"
+                      "delete",
+                      "recheck"
                     ],
-                    "description": "allow: read each like any other upload. delete: remove each for good."
+                    "description": "allow: read each like any other upload. delete: remove each for good. recheck: screen each again with the rules in force now; a match holds it again."
                   },
                   "documentIds": {
                     "description": "The held documents, at most 50, as quarantine-list names them.",
@@ -12476,7 +12477,7 @@
         },
         "x-piloti-sensitivity": "control",
         "x-mcp-annotations": {
-          "title": "Allow or delete several held documents at once",
+          "title": "Allow, delete or recheck several held documents at once",
           "readOnlyHint": false,
           "destructiveHint": true,
           "idempotentHint": false,
