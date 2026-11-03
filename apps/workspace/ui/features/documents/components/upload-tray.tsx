@@ -18,8 +18,7 @@ import { IngestionStatusWord, ingestionMarkOfPhase } from './ingestion-atoms'
 import { IngestFailureNotice } from './ingest-failure-notice'
 import { HeldUploadReason } from './held-upload-reason'
 import { HeldUploadDecision } from './held-upload-decision'
-import { useDocumentsStore } from '../store'
-import { UploadOrchestrator } from '../orchestrator'
+import { readAllowedRowAgain } from '../lib/read-allowed-row'
 import { quarantineVerdictOf } from '@/lib/upload-screening/quarantine'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { Button } from '@/components/ui/button'
@@ -733,15 +732,13 @@ function UploadRow({
                   testId="upload-row-held"
                 />
               )}
-              {/* What the person can do about a held file, where they first
-                  learn of it: allow it when they may decide, or ask those who
-                  may. This session's own upload, or the held file this one
-                  would replace when they uploaded it too. */}
+              {/* Allow it or ask for a review, where they first learn of it:
+                  this upload, or the held file it would replace. */}
               {isHeldBack && reviewableId && (
                 <HeldUploadDecision
                   documentId={reviewableId}
                   name={file.fileName}
-                  onReleased={reviewableId === file.serverFileId ? () => readAgain(file.id) : undefined}
+                  onReleased={reviewableId === file.serverFileId ? () => readAllowedRowAgain(file.id) : undefined}
                   className="mt-2 h-7 px-2 text-xs"
                   askTestId="upload-row-request-review"
                   allowTestId="upload-row-allow"
@@ -753,18 +750,6 @@ function UploadRow({
       </AnimatePresence>
     </motion.li>
   )
-}
-
-/** An allowed row is read again: the tray follows it by document status, as a re-read (ADR-0086). */
-function readAgain(rowId: string): void {
-  useDocumentsStore.getState().updateTrackedFile(rowId, {
-    status: 'ingesting',
-    errorMessage: null,
-    quarantine: null,
-    jobId: undefined,
-    progress: 0,
-  })
-  UploadOrchestrator.watchDocuments([rowId])
 }
 
 function RowAction({

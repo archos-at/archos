@@ -81,7 +81,8 @@ export function HeldUploadDecision({
       onReleased?.(status)
     } catch (error) {
       // Someone else allowed or deleted it first: what was on screen was stale.
-      const decided = error instanceof ApiRequestError && (error.status === 409 || error.status === 404)
+      const decided =
+        error instanceof ApiRequestError && (error.status === 409 || error.status === 404)
       if (decided) notifyDocumentsChanged()
       toast.error(decided ? tOrg('quarantine.changed') : tOrg('quarantine.releaseError'))
     }
@@ -89,13 +90,23 @@ export function HeldUploadDecision({
 
   if (released) {
     return (
-      <p className={cn('text-muted-foreground text-xs leading-snug', className)} data-testid={`${allowTestId}-done`}>
+      <p
+        className={cn('text-muted-foreground text-xs leading-snug', className)}
+        data-testid={`${allowTestId}-done`}
+      >
         {t('summary.files.allowedAnyway')}
       </p>
     )
   }
   if (access?.canAskForReview) {
-    return <RequestReviewButton documentId={documentId} name={name} className={className} testId={askTestId} />
+    return (
+      <RequestReviewButton
+        documentId={documentId}
+        name={name}
+        className={className}
+        testId={askTestId}
+      />
+    )
   }
   if (!access?.canReview) return null
 

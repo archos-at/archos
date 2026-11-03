@@ -15,3 +15,4 @@
 export { useFileUpload } from './hooks/use-file-upload'
 export { useFileDragDrop } from './hooks/use-file-drag-drop'
 export { FileUploadZone } from './components/FileUploadZone'
+export { HeldUploadDecision } from './components/held-upload-decision'

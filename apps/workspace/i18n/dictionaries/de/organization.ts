@@ -712,6 +712,34 @@ export const organization: typeof en.organization = {
     deleteError: 'Die Datei konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.',
     deleteErrorSession: 'Einen Chat-Anhang können nur Personen löschen, die an diesem Chat beteiligt sind.',
     loadError: 'Die Quarantäne konnte gerade nicht geladen werden.',
+    // Mehrfachauswahl: mehrere zurückgehaltene Dateien auf einmal zulassen oder
+    // löschen, etwa alle, die nur wegen einer vermeintlichen Kartennummer warten.
+    selectRow: '„{name}“ auswählen',
+    selectAll: 'Alle angezeigten auswählen',
+    selected: '{count} ausgewählt',
+    selectionLimit: 'Höchstens {limit} Dateien auf einmal. Die übrigen wählen Sie danach.',
+    clearSelection: 'Auswahl aufheben',
+    releaseManyTitle: '{count, plural, one {Eine Datei zulassen?} other {# Dateien zulassen?}}',
+    releaseManyDescription:
+      '{productName} liest {count, plural, one {die Datei} other {die # Dateien}} dann wie jeden anderen Upload: Sprachmodelle sehen den Inhalt, und die Suche findet sie. Ihre Entscheidung wird für jede Datei mit Ihrem Namen protokolliert.',
+    releasedMany: '{count, plural, one {Eine Datei ist zugelassen und wird gelesen.} other {# Dateien sind zugelassen und werden gelesen.}}',
+    deleteManyTitle: '{count, plural, one {Eine Datei löschen?} other {# Dateien löschen?}}',
+    deleteManyDescription:
+      '{count, plural, one {Die Datei wird} other {Die # Dateien werden}} aus {productName} entfernt. Das lässt sich nicht rückgängig machen.',
+    deletedMany: '{count, plural, one {Eine Datei ist gelöscht.} other {# Dateien sind gelöscht.}}',
+    someFailed:
+      '{count, plural, one {Über eine Datei ließ sich nicht entscheiden. Sie bleibt ausgewählt.} other {Über # Dateien ließ sich nicht entscheiden. Sie bleiben ausgewählt.}}',
+    decideError: 'Die Entscheidung konnte nicht gespeichert werden. Bitte versuchen Sie es erneut.',
+    filterLabel: 'Nach Fund filtern',
+    filter: {
+      all: 'Alle',
+      term: 'Begriff',
+      iban: 'IBAN',
+      at_svnr: 'SV-Nummer',
+      credit_card: 'Kartennummer',
+      other: 'Andere Regel',
+      unscreened: 'Nicht geprüft',
+    },
   },
   /** What Piloti learned about the office's conventions, to confirm or decline (ADR-0129). */
   officeConventions: {

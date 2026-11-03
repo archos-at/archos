@@ -7,10 +7,11 @@
  * Archiv file caught by an IBAN and a card number (masked, as the job stores
  * them), a chat attachment whose scan was only partly checked, a scan caught
  * in the vision model's transcript of its pages (`after_transcription`), and a
- * row whose verdict could not be read. `?empty=1` shows the empty state instead.
+ * row whose verdict could not be read, and three order numbers misread as card
+ * numbers, for the finding filter and multi-select. `?empty=1` shows the empty state instead.
  *
  * A module-scope fetch shim (browser + dev only) serves the queue and the
- * projects list and answers release and delete with success, so a row can be
+ * projects list and answers release, delete and a selection's decision with success, so a row can be
  * released or deleted and leaves the list. Not linked from anywhere and 404s
  * outside development.
  */
@@ -104,6 +105,19 @@ const ITEMS = [
   },
 ]
 
+// Three order numbers that read like card numbers: the case multi-select and
+// the finding filter are for (pick „Kartennummer", select all, allow).
+const CARD_ITEMS = ['Bestellung_4711.pdf', 'Lieferschein_Fenster.pdf', 'Angebot_Haustechnik.pdf'].map((name, index) => ({
+  id: `doc-card-${index}`,
+  filename: name,
+  scope: 'project',
+  projectId: 'proj_1',
+  conversationId: null,
+  uploadedBy: 'user_01',
+  quarantinedAt: at(1 + index),
+  verdict: { reasons: [{ kind: 'credit_card', sample: '•••• 4444', count: 1, pages: [1] }], checked: 'full' },
+}))
+
 const PROJECTS = [
   { id: 'proj_1', name: 'Wohnbau Nord' },
   { id: 'proj_2', name: 'Sanierung Hauptplatz' },
@@ -117,7 +131,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
       const empty = new URLSearchParams(window.location.search).has('empty')
-      if (url.startsWith('/api/quarantine')) return Response.json({ items: empty ? [] : ITEMS })
+      if (url === '/api/quarantine/decisions') {
+        const { decision, documentIds } = JSON.parse(String(init?.body)) as { decision: string; documentIds: string[] }
+        const outcome = decision === 'allow' ? 'allowed' : 'deleted'
+        return Response.json({ results: documentIds.map((id) => ({ id, outcome })) })
+      }
+      if (url.startsWith('/api/quarantine')) return Response.json({ items: empty ? [] : [...CARD_ITEMS, ...ITEMS] })
       if (url.startsWith('/api/projects')) return Response.json(PROJECTS)
       if (url.includes('/quarantine/release')) return Response.json({ id: 'doc', status: 'pending', jobId: null })
       if (init?.method === 'DELETE') return new Response(null, { status: 204 })

@@ -1,0 +1,15 @@
+---
+features:
+  - >
+    In the quarantine you can now filter held files by what was found, select
+    several or all of them, and allow or delete them in one step.
+improvements:
+  - >
+    If you may review a held upload, you can allow it anyway right in the
+    upload message, after checking what was found, instead of going to the
+    quarantine first.
+fixes:
+  - >
+    Long order, article and meter numbers are no longer held as card numbers:
+    a number written without spaces now counts as one only when a card is
+    mentioned beside it.

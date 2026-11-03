@@ -25,7 +25,7 @@ import { Item, ItemContent, ItemDescription, ItemMedia } from '@/components/ui/i
 import { DocumentStatusBadge, fileTypeIcon } from '@/features/documents/components/document-status'
 import { IngestFailureNotice } from '@/features/documents/components/ingest-failure-notice'
 import { QuarantineFindings } from '@/features/documents/components/quarantine-findings'
-import { HeldUploadDecision } from '@/features/documents/components/held-upload-decision'
+import { HeldUploadDecision } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { uploadBatchesCopy } from '@/i18n/namespaces/upload-batches'

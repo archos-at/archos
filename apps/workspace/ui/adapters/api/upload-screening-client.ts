@@ -7,6 +7,7 @@
  *   - access  → `GET     /api/documents/[id]/quarantine`
  *   - release → `POST    /api/documents/[id]/quarantine/release`
  *   - ask     → `POST    /api/documents/[id]/quarantine/request-release`
+ *   - several → `POST    /api/quarantine/decisions` (allow or delete a selection)
  *   - delete  → each shelf's own delete route (project, Archiv, chat)
  *
  * The queue's server type lives in `lib/upload-screening/review.ts`, which is
@@ -17,6 +18,11 @@
 
 import { z } from 'zod'
 import { uploadScreeningPolicySchema, type UploadScreeningPolicy } from '@/lib/upload-screening/policy'
+import {
+  quarantineDecisionResultSchema,
+  type QuarantineDecisionResult,
+  type QuarantineDecisions,
+} from '@/lib/upload-screening/decisions-wire'
 import { verdictSchema } from '@/lib/upload-screening/quarantine'
 import { ApiRequestError } from './api-error'
 
@@ -150,4 +156,22 @@ const DELETE_ROUTE: Record<QuarantineScope, (id: string) => string> = {
 export async function deleteQuarantinedDocument(item: Pick<QuarantineQueueItem, 'id' | 'scope'>): Promise<void> {
   const response = await fetch(DELETE_ROUTE[item.scope](item.id), { method: 'DELETE' })
   if (!response.ok) throw await requestError(response, 'Failed to delete the document')
+}
+
+/**
+ * Allow or delete several held documents in one request (at most
+ * `QUARANTINE_DECISION_LIMIT`). Each answers with its own outcome; the promise
+ * rejects only when the request itself fails.
+ */
+export async function decideQuarantinedDocuments(
+  decision: QuarantineDecisions['decision'],
+  documentIds: readonly string[]
+): Promise<QuarantineDecisionResult['results']> {
+  const response = await fetch('/api/quarantine/decisions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision, documentIds }),
+  })
+  if (!response.ok) throw await requestError(response, 'Failed to decide about the documents')
+  return quarantineDecisionResultSchema.parse(await response.json()).results
 }

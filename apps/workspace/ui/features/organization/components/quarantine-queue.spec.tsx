@@ -170,4 +170,54 @@ describe('QuarantineQueue', () => {
     render(<QuarantineQueue />)
     expect(await screen.findByTestId('quarantine-empty')).toHaveTextContent('Nothing is waiting for review')
   })
+
+  describe('several at once', () => {
+    const CARD: QuarantineReason = { kind: 'credit_card', sample: '•••• 4444', count: 1 }
+    const cardRow = (id: string) => ({ ...ITEMS[0], id, filename: `${id}.pdf`, verdict: { reasons: [CARD], checked: 'full' } })
+    const decisions = () =>
+      vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/quarantine/decisions').map(([, init]) => JSON.parse(String(init?.body)))
+
+    it('filters by what held the files, picks all shown, and allows them in one request', async () => {
+      stubApi([cardRow('card-a'), cardRow('card-b'), ITEMS[0]], (url, init) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({
+              results: (JSON.parse(String(init?.body)).documentIds as string[]).map((id) => ({ id, outcome: 'allowed' })),
+            })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-filter-credit_card'))
+      expect(screen.queryByTestId('quarantine-row-doc-1')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('quarantine-select-all'))
+      expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('2 selected')
+      fireEvent.click(screen.getByTestId('quarantine-release-selected'))
+      fireEvent.click(await screen.findByTestId('quarantine-release-confirm'))
+
+      await waitFor(() => expect(decisions()).toEqual([{ decision: 'allow', documentIds: ['card-a', 'card-b'] }]))
+      await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
+      expect(toast.success).toHaveBeenCalled()
+      // The card filter is empty now, so the list falls back to everything left.
+      expect(screen.getByTestId('quarantine-row-doc-1')).toBeInTheDocument()
+    })
+
+    it('keeps a file the server could not decide, selected, and says so', async () => {
+      stubApi([cardRow('card-a'), cardRow('card-b')], (url) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({ results: [{ id: 'card-a', outcome: 'deleted' }, { id: 'card-b', outcome: 'failed' }] })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-card-a'))
+      fireEvent.click(screen.getByTestId('quarantine-select-card-b'))
+      fireEvent.click(screen.getByTestId('quarantine-delete-selected'))
+      fireEvent.click(await screen.findByTestId('quarantine-delete-confirm'))
+
+      await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
+      expect(decisions()).toEqual([{ decision: 'delete', documentIds: ['card-a', 'card-b'] }])
+      expect(screen.getByTestId('quarantine-row-card-b')).toBeInTheDocument()
+      expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('1 selected')
+      expect(toast.error).toHaveBeenCalled()
+    })
+  })
 })

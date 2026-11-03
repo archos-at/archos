@@ -12406,6 +12406,84 @@
         }
       }
     },
+    "/api/quarantine/decisions": {
+      "post": {
+        "operationId": "quarantine-decide",
+        "summary": "Allow or delete several held documents at once",
+        "description": "A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other upload, `delete` removes each for good. Every document is checked on its own and answers with its own `outcome` (`changed` when someone decided first). The decision cannot be taken back.",
+        "tags": [
+          "review"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "allow",
+                      "delete"
+                    ],
+                    "description": "allow: read each like any other upload. delete: remove each for good."
+                  },
+                  "documentIds": {
+                    "description": "The held documents, at most 50, as quarantine-list names them.",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "decision",
+                  "documentIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-piloti-sensitivity": "control",
+        "x-mcp-annotations": {
+          "title": "Allow or delete several held documents at once",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/agent-asks/{id}/cancel": {
       "post": {
         "operationId": "agent-ask-cancel",

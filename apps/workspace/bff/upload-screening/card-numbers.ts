@@ -107,7 +107,8 @@ export function cardLayout(sizes: readonly number[]): boolean {
 }
 
 /** A card wrapped at a line end counts in one layout only, four groups of four: table rows are not cards. */
-export const wrappedCardLayout = (sizes: readonly number[]): boolean => sizes.join(',') === '4,4,4,4'
+export const wrappedCardLayout = (sizes: readonly number[]): boolean =>
+  sizes.join(',') === '4,4,4,4'
 
 /** Whether a network's own layout carries that network's digits (4-6-5 is Amex, 4-6-4 Diners). */
 function networkFits(sizes: readonly number[], digits: string): boolean {
@@ -140,8 +141,18 @@ export function* cardsIn(
     for (let last = Math.min(groups.length, first + CARD_MAX_GROUPS); last > first; last -= 1) {
       const digits = digitsOf.slice(first, last).join('')
       const sizes = digitsOf.slice(first, last).map((group) => group.length)
-      if (layout(sizes) && networkFits(sizes, digits) && standsAlone(digitsOf, first, last) && validCard(digits)) {
-        yield { digits, start: groups[first].start, end: groups[last - 1].end, unbroken: sizes.length === 1 }
+      if (
+        layout(sizes) &&
+        networkFits(sizes, digits) &&
+        standsAlone(digitsOf, first, last) &&
+        validCard(digits)
+      ) {
+        yield {
+          digits,
+          start: groups[first].start,
+          end: groups[last - 1].end,
+          unbroken: sizes.length === 1,
+        }
         first = last - 1
         break
       }
@@ -163,7 +174,9 @@ export function hasCardWord(folded: string): boolean {
 /** The code point that ends just before `index`. */
 function charBefore(text: string, index: number): string {
   const low = text.charCodeAt(index - 1)
-  return low >= 0xdc00 && low <= 0xdfff && index >= 2 ? text.slice(index - 2, index) : text.slice(index - 1, index)
+  return low >= 0xdc00 && low <= 0xdfff && index >= 2
+    ? text.slice(index - 2, index)
+    : text.slice(index - 1, index)
 }
 
 export function maskCard(digits: string): string {

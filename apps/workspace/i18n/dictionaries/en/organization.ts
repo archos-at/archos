@@ -701,6 +701,32 @@ export const organization = {
     deleteError: 'Could not delete the file. Please try again.',
     deleteErrorSession: 'Only people in that chat can delete a chat attachment.',
     loadError: 'Could not load the quarantine.',
+    selectRow: 'Select “{name}”',
+    selectAll: 'Select all shown',
+    selected: '{count} selected',
+    selectionLimit: 'At most {limit} files at once. Select the rest afterwards.',
+    clearSelection: 'Clear selection',
+    releaseManyTitle: '{count, plural, one {Allow one file?} other {Allow # files?}}',
+    releaseManyDescription:
+      '{productName} then reads {count, plural, one {the file} other {the # files}} like any other upload: language models see the content, and search finds them. Your decision is logged under your name for each file.',
+    releasedMany: '{count, plural, one {One file is allowed and being read.} other {# files are allowed and being read.}}',
+    deleteManyTitle: '{count, plural, one {Delete one file?} other {Delete # files?}}',
+    deleteManyDescription:
+      '{count, plural, one {The file is} other {The # files are}} removed from {productName}. This cannot be undone.',
+    deletedMany: '{count, plural, one {One file was deleted.} other {# files were deleted.}}',
+    someFailed:
+      '{count, plural, one {One file could not be decided. It stays selected.} other {# files could not be decided. They stay selected.}}',
+    decideError: 'Could not save the decision. Please try again.',
+    filterLabel: 'Filter by finding',
+    filter: {
+      all: 'All',
+      term: 'Term',
+      iban: 'IBAN',
+      at_svnr: 'Social security no.',
+      credit_card: 'Card number',
+      other: 'Other rule',
+      unscreened: 'Not checked',
+    },
   },
   /** What Piloti learned about the office's conventions, to confirm or decline (ADR-0129). */
   officeConventions: {
