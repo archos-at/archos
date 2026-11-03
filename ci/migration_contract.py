@@ -54,16 +54,21 @@ RULES: list[tuple[str, re.Pattern[str]]] = [
 ADD_COLUMN = re.compile(r"\bADD\s+COLUMN\b(?P<clause>[^,;]*)")
 
 
+_STRING_OR_COMMENT = re.compile(r"'(?:[^']|'')*'|--[^\n]*|/\*.*?\*/", re.DOTALL)
+
+
 def strip_comments(sql: str) -> str:
-    sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
-    return re.sub(r"--[^\n]*", " ", sql)
+    """Drop comments, leaving quoted strings as they are: a `--` inside a string starts no comment."""
+    return _STRING_OR_COMMENT.sub(lambda m: m.group(0) if m.group(0).startswith("'") else " ", sql)
 
 
 def findings(sql: str) -> list[str]:
     """What this migration takes away, one line per rule it breaks."""
     text = " ".join(strip_comments(sql).upper().split())
     found = [reason for reason, pattern in RULES if pattern.search(text)]
-    for match in ADD_COLUMN.finditer(text):
+    # Type arguments such as numeric(12,2) hold commas, which would end the clause.
+    flat = re.sub(r"\([^()]*\)", "", text)
+    for match in ADD_COLUMN.finditer(flat):
         clause = match["clause"]
         if re.search(r"\bNOT\s+NULL\b", clause) and not re.search(r"\bDEFAULT\b", clause):
             found.append("adds a NOT NULL column without a default")

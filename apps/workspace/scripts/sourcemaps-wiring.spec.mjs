@@ -41,9 +41,15 @@ describe('withSourceMaps', () => {
   )
 
   it('is what Next loads, with no map flags outside the image build', () => {
-    const loaded = config()
-    expect(loaded.productionBrowserSourceMaps).toBeUndefined()
-    expect(loaded.experimental?.serverSourceMaps).toBeUndefined()
+    const saved = process.env.EMIT_SOURCE_MAPS
+    delete process.env.EMIT_SOURCE_MAPS
+    try {
+      const loaded = config()
+      expect(loaded.productionBrowserSourceMaps).toBeUndefined()
+      expect(loaded.experimental?.serverSourceMaps).toBeUndefined()
+    } finally {
+      if (saved !== undefined) process.env.EMIT_SOURCE_MAPS = saved
+    }
   })
 })
 
@@ -75,6 +81,11 @@ describe('the image build wiring', () => {
 
   it('declares the commit before the build, for the deployment id and the release', () => {
     expect(builder.indexOf('ARG GIT_SHA=""')).toBeLessThan(builder.indexOf('bun run build'))
+  })
+
+  it('fails the build when a map or its chunk cannot be copied aside', () => {
+    expect(buildStep).toContain('cp "$map" "/sourcemaps/$map" || exit 1')
+    expect(buildStep).toContain('cp "${map%.map}" "/sourcemaps/${map%.map}" || exit 1')
   })
 
   it('copies maps and their chunks aside before it deletes them from the served trees', () => {

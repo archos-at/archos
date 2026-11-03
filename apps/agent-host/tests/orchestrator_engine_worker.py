@@ -42,14 +42,18 @@ async def _record(events: EventStore, event: dict) -> None:
     back stays as a check, because these events are what the engine tests
     measure.
     """
-    for _ in range(40):
+    # get_events answers [] on a failed read too, so a missing row is believed
+    # only after a whole window of reads: writing again on one empty read would
+    # store a duplicate whenever the write had landed and the read had failed.
+    for _ in range(4):
         await asyncio.to_thread(events.store, event)
-        stored = await asyncio.to_thread(
-            EventStore.get_events, events.db_url, events.job_id, event_types=[event["type"]]
-        )
-        if any((row["type"], row["data"]) == (event["type"], event["data"]) for row in stored):
-            return
-        await asyncio.sleep(0.25)
+        for _ in range(20):
+            stored = await asyncio.to_thread(
+                EventStore.get_events, events.db_url, events.job_id, event_types=[event["type"]]
+            )
+            if any((row["type"], row["data"]) == (event["type"], event["data"]) for row in stored):
+                return
+            await asyncio.sleep(0.25)
     raise RuntimeError(f"could not record {event['type']} for {events.job_id}")
 
 

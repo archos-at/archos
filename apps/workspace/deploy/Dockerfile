@@ -153,8 +153,8 @@ RUN EMIT_SOURCE_MAPS=1 bun run build \
     && rm -rf node_modules/@posthog/cli/node_modules/.bin_real \
     && mkdir -p /sourcemaps \
     && (cd .next && find static server -name '*.map' -type f | while read -r map; do \
-         mkdir -p "/sourcemaps/$(dirname "$map")" && cp "$map" "/sourcemaps/$map" \
-         && if [ -f "${map%.map}" ]; then cp "${map%.map}" "/sourcemaps/${map%.map}"; fi; \
+         mkdir -p "/sourcemaps/$(dirname "$map")" && cp "$map" "/sourcemaps/$map" || exit 1; \
+         if [ -f "${map%.map}" ]; then cp "${map%.map}" "/sourcemaps/${map%.map}" || exit 1; fi; \
        done) \
     && find .next/static .next/server -name '*.map' -type f -delete \
     && find .next/static .next/server -name '*.js' -type f -exec sed -i '/^\/\/# sourceMappingURL=/d' {} + \

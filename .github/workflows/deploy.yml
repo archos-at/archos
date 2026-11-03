@@ -389,9 +389,12 @@ jobs:
       # A CI-triggered deploy of exactly what the stack already runs does
       # nothing but hold `deploy-dev` for three to four minutes: 19 of 78
       # commits were deployed twice in two weeks (a re-run CI run fires
-      # workflow_run again). Same three refs, all `sha-<this commit>`, means
-      # the same program too, since the program is this commit's checkout. A
+      # workflow_run again). "Exactly" is the three image refs AND the program:
+      # the stack tag `deployed-commit`, which a green apply writes, must name
+      # this commit. Refs alone would match after an operator rollback to this
+      # commit's tag from a newer develop, which runs the newer program. A
       # dispatch always applies: an operator asking for a re-apply means it.
+      # The smoke check below still runs on a skip.
       - name: Skip a commit staging already runs
         if: ${{ github.event_name == 'workflow_run' }}
         continue-on-error: true
@@ -400,7 +403,9 @@ jobs:
           export PATH="$HOME/.pulumi/bin:$PATH"
           deployed="$(pulumi stack output deployedImages --json)"
           same() { [ "$(jq -r --arg s "$1" '.[$s] // empty' <<<"$deployed")" = "$2" ]; }
-          if same backend "$BACKEND_IMAGE_REF" && same frontend "$FRONTEND_IMAGE_REF" && same web "$WEB_IMAGE_REF"; then
+          program="$(pulumi stack tag get deployed-commit 2>/dev/null || true)"
+          if [ "$program" = "$DEPLOY_SHA" ] && same backend "$BACKEND_IMAGE_REF" \
+             && same frontend "$FRONTEND_IMAGE_REF" && same web "$WEB_IMAGE_REF"; then
             echo "::notice::staging already runs ${IMAGE_TAG} on all three services; nothing to apply"
             echo "ALREADY_DEPLOYED=true" >> "$GITHUB_ENV"
           fi
@@ -473,8 +478,14 @@ jobs:
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           # The stack the plan step selected.
-          ref="$(pulumi stack output deployedImages --json | jq -r '.backend // empty')"
-          echo "tag=${ref##*:}" >> "$GITHUB_OUTPUT"
+          # One rollback command only when all three services ran the same tag:
+          # a rollback pins all three to one tag. Otherwise the summary names
+          # each service's ref and no command.
+          deployed="$(pulumi stack output deployedImages --json)"
+          tags="$(jq -r '[.backend, .frontend, .web] | map(select(. != null) | sub("^.*:"; "")) | unique | join(" ")' <<<"$deployed")"
+          refs="$(jq -r '[.backend, .frontend, .web] | map(select(. != null)) | join(", ")' <<<"$deployed")"
+          case "$tags" in *" "*|"") echo "tag=" >> "$GITHUB_OUTPUT" ;; *) echo "tag=$tags" >> "$GITHUB_OUTPUT" ;; esac
+          echo "refs=$refs" >> "$GITHUB_OUTPUT"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -498,6 +509,8 @@ jobs:
           # The plan step above previewed this exact config a minute ago, under
           # the same concurrency group; `up` would preview it again (~10 s).
           pulumi up --yes --skip-preview
+          # The program this stack now runs, for the skip above.
+          pulumi stack tag set deployed-commit "$DEPLOY_SHA"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           POSTHOG_RELEASE_ID: ${{ steps.posthog-release.outputs.release-id }}
@@ -508,7 +521,6 @@ jobs:
       # and the backend's health behind it. Red means the deploy is live and
       # broken; the summary names the tag to roll back to.
       - name: Smoke check
-        if: ${{ env.ALREADY_DEPLOYED != 'true' }}
         working-directory: deploy/pulumi
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
@@ -518,18 +530,23 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
       - name: How to roll this back
-        if: ${{ always() && env.ALREADY_DEPLOYED != 'true' && steps.previous.outputs.tag != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
+        if: ${{ always() && env.ALREADY_DEPLOYED != 'true' && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.IMAGE_TAG }}
         env:
           PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
+          PREVIOUS_REFS: ${{ steps.previous.outputs.refs }}
         run: |
           {
             echo "## Rolling back"
             echo
-            echo "Before this run staging ran \`$PREVIOUS_TAG\`. To put it back:"
-            echo
-            echo '```bash'
-            echo "gh workflow run deploy.yml --ref develop -f target=staging -f imageTag=$PREVIOUS_TAG"
-            echo '```'
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo "Before this run staging ran \`$PREVIOUS_TAG\` on all three services. To put it back:"
+              echo
+              echo '```bash'
+              echo "gh workflow run deploy.yml --ref develop -f target=staging -f imageTag=$PREVIOUS_TAG"
+              echo '```'
+            else
+              echo "Before this run the services ran different tags ($PREVIOUS_REFS); a rollback pins one tag for all three, so pick one CI passed."
+            fi
             echo
             echo "docs/deployment/rollback.md has the rest."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -654,14 +671,16 @@ jobs:
       # empty on a push: then the tag Pulumi.prod.yaml pins is deployed.
       ROLLBACK_TAG: ${{ inputs.imageTag }}
     steps:
-      # Always the prod branch's program. A push lands on refs/heads/prod, so
-      # that is the promoted commit; a dispatch used to check out the ref it
+      # Always prod's program. A push applies exactly the pushed commit, not the
+      # branch's tip when the job starts: a later push to prod that lands while
+      # this run waits for the reviewers would otherwise ride on this run's
+      # approval. A dispatch takes prod's tip; it used to check out the ref it
       # ran from, so `target=both` from develop applied DEVELOP's program to
       # production. Full history: the vector-store floor reads the commit the
       # pinned image was built from, a develop commit behind the promotion.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: prod
+          ref: ${{ github.event_name == 'push' && github.sha || 'prod' }}
           fetch-depth: 0
           # As staging's: prod's full clone took 158 s at the median.
           filter: blob:none
@@ -728,7 +747,17 @@ jobs:
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           pulumi stack select matthiasbigl/grid-oib/prod
-          [ -z "$ROLLBACK_TAG" ] || pulumi config set imageTag "$ROLLBACK_TAG"
+          if [ -n "$ROLLBACK_TAG" ]; then
+            # A per-service ref wins over imageTag in the program, so with one
+            # set the rollback would report a tag the service never ran.
+            for key in backendImage frontendImage webImage; do
+              if pulumi config get "$key" >/dev/null 2>&1; then
+                echo "::error::the prod stack pins $key, which overrides imageTag; a rollback by tag would not reach that service. Remove it from Pulumi.prod.yaml first."
+                exit 1
+              fi
+            done
+            pulumi config set imageTag "$ROLLBACK_TAG"
+          fi
           # `--json` puts the plan on stdout, but policy-pack violations are NOT
           # part of it — re-run in text mode on failure so the violating rule is
           # visible in the log (the failed plan itself is cached server-side).
@@ -750,8 +779,14 @@ jobs:
         run: |
           export PATH="$HOME/.pulumi/bin:$PATH"
           # The stack the plan step selected.
-          ref="$(pulumi stack output deployedImages --json | jq -r '.backend // empty')"
-          echo "tag=${ref##*:}" >> "$GITHUB_OUTPUT"
+          # One rollback command only when all three services ran the same tag:
+          # a rollback pins all three to one tag. Otherwise the summary names
+          # each service's ref and no command.
+          deployed="$(pulumi stack output deployedImages --json)"
+          tags="$(jq -r '[.backend, .frontend, .web] | map(select(. != null) | sub("^.*:"; "")) | unique | join(" ")' <<<"$deployed")"
+          refs="$(jq -r '[.backend, .frontend, .web] | map(select(. != null)) | join(", ")' <<<"$deployed")"
+          case "$tags" in *" "*|"") echo "tag=" >> "$GITHUB_OUTPUT" ;; *) echo "tag=$tags" >> "$GITHUB_OUTPUT" ;; esac
+          echo "refs=$refs" >> "$GITHUB_OUTPUT"
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
@@ -775,18 +810,23 @@ jobs:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
 
       - name: How to roll this back
-        if: ${{ always() && steps.previous.outputs.tag != '' && steps.previous.outputs.tag != env.PROD_IMAGE_TAG }}
+        if: ${{ always() && steps.previous.outputs.refs != '' && steps.previous.outputs.tag != env.PROD_IMAGE_TAG }}
         env:
           PREVIOUS_TAG: ${{ steps.previous.outputs.tag }}
+          PREVIOUS_REFS: ${{ steps.previous.outputs.refs }}
         run: |
           {
             echo "## Rolling back"
             echo
-            echo "Before this run production ran \`$PREVIOUS_TAG\`. To put it back (the production reviewers approve it like any deploy):"
-            echo
-            echo '```bash'
-            echo "gh workflow run deploy.yml --ref develop -f target=prod -f imageTag=$PREVIOUS_TAG"
-            echo '```'
+            if [ -n "$PREVIOUS_TAG" ]; then
+              echo "Before this run production ran \`$PREVIOUS_TAG\` on all three services. To put it back (the production reviewers approve it like any deploy):"
+              echo
+              echo '```bash'
+              echo "gh workflow run deploy.yml --ref develop -f target=prod -f imageTag=$PREVIOUS_TAG"
+              echo '```'
+            else
+              echo "Before this run the services ran different tags ($PREVIOUS_REFS); a rollback pins one tag for all three, so pick one CI passed."
+            fi
             echo
             echo "Then pin it, or the fix, in Pulumi.prod.yaml on prod: the next push to prod applies the file. docs/deployment/rollback.md."
           } >> "$GITHUB_STEP_SUMMARY"

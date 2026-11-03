@@ -108,3 +108,34 @@ def test_percentiles_of_nothing_and_of_one(mod):
     assert mod.percentile([], 0.5) == 0.0
     assert mod.percentile([42.0], 0.9) == 42.0
     assert mod.percentile([1.0, 2.0, 3.0, 4.0, 5.0], 0.5) == 3.0
+
+
+def test_a_push_is_not_credited_to_an_older_commits_deploy(mod):
+    # b lands while a's CI runs; a's deploy finishes after b's push but ships a.
+    pushes = [ci("a", 0, 8), ci("b", 2, 12)]
+    deploys = [deploy("a", 8, 14), deploy("b", 12, 18)]
+
+    samples, _ = mod.merge_to_staging(pushes, deploys)
+
+    assert {s.sha: s.total for s in samples}["b"] == 16 * 60
+
+
+def test_timed_out_runs_count_as_red(mod):
+    _, failed = mod.merge_to_staging([ci("a", 0, 8)], [deploy("a", 8, 70, "timed_out")])
+    _, red = mod.pull_request_to_green([ci("p", 0, 60, "timed_out", event="pull_request")])
+
+    assert failed == 1 and red == 1
+
+
+def test_the_report_says_when_the_page_cap_cut_it_off(mod):
+    from datetime import UTC
+    from datetime import datetime
+
+    page = {"workflow_runs": [ci("a", 0, 8)] * 100, "total_count": 5000}
+    text = mod.report(lambda _path: page, "acme/grid", 7, datetime(2026, 11, 3, tzinfo=UTC))
+
+    assert "partial: more than 1000 runs" in text
+    whole = mod.report(
+        lambda _path: {"workflow_runs": [], "total_count": 0}, "acme/grid", 7, datetime(2026, 11, 3, tzinfo=UTC)
+    )
+    assert "partial" not in whole

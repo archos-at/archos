@@ -572,7 +572,10 @@ def test_production_always_deploys_the_prod_branchs_program():
     job = DEPLOY["jobs"]["deploy-prod"]
     checkout = next(step for step in job["steps"] if step.get("uses", "").startswith("actions/checkout"))
 
-    assert checkout["with"]["ref"] == "prod"
+    ref = checkout["with"]["ref"]
+    # A push applies the pushed commit, not prod's tip at approval time.
+    assert evaluate(ref, github={"event_name": "push", "sha": "abc"}) == "abc"
+    assert evaluate(ref, github={"event_name": "workflow_dispatch", "sha": "abc"}) == "prod"
     assert "GITHUB_SHA" not in json.dumps(job["steps"])
 
 
@@ -585,6 +588,9 @@ def test_a_prod_rollback_is_a_dispatch_tag_checked_before_it_reaches_a_command_l
     verify = _step_index(steps, "Verify the pinned images exist")
     assert "^sha-[0-9a-f]{40}$" in steps[verify]["run"]
     assert "vector-store-floor.sh" in steps[verify]["run"]
+    validate = steps[_step_index(steps, "Validate plan (CRD schemas + policy pack)")]
+    # A per-service ref would override the rollback tag for that service.
+    assert all(key in validate["run"] for key in ("backendImage", "frontendImage", "webImage"))
     for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):
         index = _step_index(steps, name)
         assert index > verify
@@ -627,8 +633,14 @@ def test_a_ci_triggered_deploy_of_what_staging_runs_applies_nothing():
 
     assert steps[skip]["if"] == "${{ github.event_name == 'workflow_run' }}"
     assert skip > _step_index(steps, "Resolve per-service image refs")
-    for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up", "Smoke check"):
+    for name in ("Validate plan (CRD schemas + policy pack)", "Pulumi up"):
         assert "env.ALREADY_DEPLOYED != 'true'" in steps[_step_index(steps, name)]["if"]
+    # The same program, not only the same images: an operator rollback leaves
+    # this commit's images under a newer program.
+    assert '"$program" = "$DEPLOY_SHA"' in steps[skip]["run"]
+    assert 'pulumi stack tag set deployed-commit "$DEPLOY_SHA"' in steps[_step_index(steps, "Pulumi up")]["run"]
+    # A skipped apply is still checked from outside.
+    assert "if" not in steps[_step_index(steps, "Smoke check")]
 
 
 @pytest.mark.parametrize(
@@ -667,7 +679,13 @@ def test_source_maps_are_uploaded_after_ci_by_a_workflow_nothing_waits_on():
 
 def test_the_upload_runs_the_cli_the_build_injected_with():
     package = json.loads((WORKFLOWS.parents[1] / "apps/workspace/package.json").read_text(encoding="utf-8"))
-    upload = next(s for s in load("sourcemaps.yml")["jobs"]["upload"]["steps"] if s.get("name") == "Upload to PostHog")
+    steps = load("sourcemaps.yml")["jobs"]["upload"]["steps"]
+    upload = next(s for s in steps if s.get("name") == "Upload to PostHog")
+    # A failed download of maps the run did export fails the job; only a run
+    # that exported none is skipped.
+    fetch = next(s for s in steps if s.get("name") == "Fetch the run's source maps")
+    assert "continue-on-error" not in fetch
+    assert fetch["if"] == upload["if"] == "steps.maps.outputs.exported == 'true'"
 
     assert upload["env"]["POSTHOG_CLI_VERSION"] == package["devDependencies"]["@posthog/cli"]
     assert "--release-name workspace-ui" in upload["run"] and '--release-version "$RELEASE_VERSION"' in upload["run"]

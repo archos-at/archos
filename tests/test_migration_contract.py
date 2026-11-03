@@ -37,6 +37,8 @@ def mod():
         "ALTER TABLE projects ALTER COLUMN budget SET DATA TYPE bigint;",
         "ALTER TABLE projects ALTER COLUMN owner_id SET NOT NULL;",
         "ALTER TABLE projects ADD COLUMN region text NOT NULL;",
+        "ALTER TABLE invoices ADD COLUMN amount numeric(12,2) NOT NULL;",
+        "UPDATE notes SET body = '-- not a comment'; DROP TABLE legacy_notes;",
     ],
 )
 def test_a_statement_an_older_build_trips_over_is_flagged(mod, sql):
@@ -54,6 +56,7 @@ def test_a_statement_an_older_build_trips_over_is_flagged(mod, sql):
         "-- DROP TABLE documents; we do not, this is a comment\nSELECT 1;",
         "/* RENAME TO is discussed here */ CREATE TABLE x (id int);",
         "ALTER TABLE projects DROP CONSTRAINT projects_old_check;",
+        "ALTER TABLE invoices ADD COLUMN amount numeric(12,2) NOT NULL DEFAULT 0;",
     ],
 )
 def test_an_additive_statement_passes(mod, sql):

@@ -16,19 +16,20 @@ previous build back on its own, opens the incident and tells you which commit
 and which migration stood in the way. Nobody waits on a check that duplicates
 another, and the numbers that say so are on a page, every week.
 
-The runners are self-hosted (Actions Runner Controller), so wall time is the
-budget and runner-minutes are not: parallelism is cheap, and a job is removed
-when it duplicates another or holds the critical path, not for its cost.
+The runners are moving to self-hosted ones (Actions Runner Controller, once
+`vars.CI_RUNNER` names the scale set; until then `ubuntu-latest`), so wall time
+is the budget and runner-minutes are not: parallelism is cheap, and a job is
+removed when it duplicates another or holds the critical path, not for its cost.
 
 ## Baseline (2026-10-28 to 11-03)
 
 | | p50 | p90 | Source |
 |---|---|---|---|
-| Merge to staging | **17.5 min** | **82.3 min** | 60 develop pushes, `ci/lead_time.py` |
-| of which waiting for CI (queued, or develop red) | 0.7 | 65.8 | |
-| of which the CI push run | 10.7 | 16.0 | |
-| of which the deploy | 5.7 | 10.5 | `pulumi up` alone 181 s median |
-| Pull request push to green | 4.6 min | 6.9 min | 45 green PR runs |
+| Merge to staging | **21.0 min** | **101.6 min** | 80 develop pushes, `ci/lead_time.py` |
+| of which waiting for CI (queued, or develop red) | 5.8 | 85.1 | |
+| of which the CI push run | 10.7 | 15.4 | |
+| of which the deploy | 5.9 | 9.4 | `pulumi up` alone 181 s median |
+| Pull request run to green | 4.6 min | 6.9 min | 45 green PR runs |
 
 Where the time went, and what made develop red:
 
@@ -67,12 +68,16 @@ Where the time went, and what made develop red:
 | `ci/lead_time.py` and the weekly **Lead time** workflow | all | the numbers above, every week |
 
 Projected merge to staging at p50: about 1 min of CI for a reused merge plus
-about 5 min of deploy, so roughly 6–7 minutes, against 17.5. The p90 is set by
+about 5 min of deploy, so roughly 6–7 minutes, against 21.0. (A first cut of
+the meter credited some pushes to an older commit's deploy that merely finished
+later, and read 17.5 / 82.3; the numbers above count a push only to a deploy
+whose CI run started no earlier than it.) The p90 is set by
 red develop; the next slices are about that.
 
 One cost moved the other way: a PR frontend build now emits and injects source
 maps as a push build does, so both are the same build. Measure its effect on
-the PR image job (median 242 s before) with the Lead time report.
+the PR image job (median 242 s before) from that job's duration on the PR's CI
+runs; the Lead time report times whole runs, not jobs.
 
 ## Next slices, ranked
 
