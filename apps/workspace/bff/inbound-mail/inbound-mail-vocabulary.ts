@@ -337,8 +337,8 @@ export type InboundMailContentFinding = ScreeningDetector | 'term'
  *   member (`via = 'sender'`).
  * - `unverified_writer`: the From is such a member, but the signature failed,
  *   is missing, does not name the project (a Bcc copy included), or carries a
- *   replay or date flag. Only that member releases it
- *   („Haben Sie das gesendet?“, `acknowledgeSender`); any writer dismisses it.
+ *   replay or date flag. Only that member files it
+ *   („Haben Sie diese E-Mail gesendet?“, `acknowledgeSender`); any writer dismisses it.
  * - `office_member`: the From is a member without write rights in the project.
  * - `external`: the From is nobody in the office; it waits
  *   {@link INBOUND_MAIL_EXTERNAL_WAIT_DAYS} days and is then discarded.
@@ -384,6 +384,10 @@ export const INBOUND_MAIL_WAIT_DAYS = 30
 export const INBOUND_MAIL_EXTERNAL_WAIT_DAYS = 14
 /** How long a dismissed or expired part can be restored (D8); an outsider's expired mail is the exception. */
 export const INBOUND_MAIL_RESTORE_DAYS = 7
+/** How long before its end a held mail's people are told it expires (sweep 4, D8). */
+export const INBOUND_MAIL_EXPIRING_NOTICE_DAYS = 5
+/** How long before a follow ends its follower is told (sweep 12). */
+export const MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS = 5
 /** A verified mail whose signed Date is more than this many days before receipt is `stale_date` (`./sender-auth`). */
 export const INBOUND_MAIL_STALE_DATE_DAYS = 7
 /**

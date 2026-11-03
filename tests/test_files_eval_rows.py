@@ -166,7 +166,7 @@ class TestTheMailThread:
         assert not [spec for spec in specs if str(spec["metadata"].get("clause_id", "")).startswith("14.05.2026 09:00")]
 
     def test_the_quote_is_cited_under_the_message_that_kept_it(self, specs):
-        quote = f"{self.HUBER} › Zitat in der Nachricht von {self.HUBER}"
+        quote = f"{self.HUBER} › Zitat aus der E-Mail vom {self.HUBER}"
         assert "Stellplatz im Hof" in self._section(specs, quote)
         assert [spec for spec in specs if "Stellplatz im Hof" in spec["text"]] == [
             spec for spec in specs if spec["metadata"].get("clause_id") == quote

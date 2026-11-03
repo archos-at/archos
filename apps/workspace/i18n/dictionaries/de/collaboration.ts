@@ -829,11 +829,11 @@ export const collaboration: typeof en.collaboration = {
       },
       // Tag 25 von 30: was niemand ablegt, läuft ab (wiederherstellbar sieben Tage).
       inboundMailExpiring: {
-        titleOne: 'Eine E-Mail an „{subject}“ läuft in fünf Tagen ab',
-        titleMany: '{count} E-Mails an „{subject}“ laufen in fünf Tagen ab',
-        title: 'E-Mails an „{subject}“ laufen in fünf Tagen ab',
+        titleOne: 'Eine E-Mail an „{subject}“ läuft in {noticeDays} Tagen ab',
+        titleMany: '{count} E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
+        title: 'E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
         titleResolved: 'Keine E-Mail an „{subject}“ läuft mehr ab',
-        body: 'Was bis dahin niemand ablegt, läuft ab und kann danach noch sieben Tage wiederhergestellt werden.',
+        body: 'Was bis dahin niemand ablegt, läuft ab. Die E-Mail eines Mitglieds lässt sich danach noch {restoreDays} Tage wiederherstellen, eine von außerhalb des Büros nicht.',
         variants: {
           unconfirmed: {
             body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden. Was niemand ablegt, läuft ab.',
@@ -849,7 +849,7 @@ export const collaboration: typeof en.collaboration = {
           dismissed: {
             title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
             titleRelated: 'Ihre E-Mail an „{subject}“ wurde verworfen',
-            body: 'Verworfen von {actor}. Sie kann sieben Tage lang wiederhergestellt werden.',
+            body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
           },
           // In Ihrem Namen abgelegt, ohne dass jemand sie angesehen hat: Ihre Domain hat sie bestätigt, und Sie dürfen im Projekt ablegen.
           direct: {
@@ -878,11 +878,11 @@ export const collaboration: typeof en.collaboration = {
       },
       inboundMailRejected: {
         title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
-        body: 'Verworfen von {actor}. Sie kann sieben Tage lang wiederhergestellt werden.',
+        body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
       },
       inboundMailExpired: {
         title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',
-        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt. Sieben Tage lang lässt sie sich im E-Mail-Eingang unter „Bearbeitet“ wiederherstellen: von Ihnen, wenn Sie im Projekt ablegen dürfen, sonst von jemandem, der es darf.',
+        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt. {restoreDays} Tage lang lässt sie sich im E-Mail-Eingang unter „Bearbeitet“ wiederherstellen: von Ihnen, wenn Sie im Projekt ablegen dürfen, sonst von jemandem, der es darf.',
       },
       inboundMailFilingFailed: {
         title: 'Eine E-Mail an „{subject}“ wurde nicht vollständig abgelegt',
@@ -909,7 +909,7 @@ export const collaboration: typeof en.collaboration = {
         body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge warten im E-Mail-Eingang.',
       },
       mailThreadFollowExpiring: {
-        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch fünf Tage',
+        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch {followNoticeDays} Tage',
         titleResolved: 'Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ ist verlängert oder beendet',
         body: 'Verlängern Sie, damit spätere Antworten weiter angefügt werden.',
       },

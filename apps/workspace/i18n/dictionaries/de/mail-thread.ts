@@ -7,7 +7,7 @@ import type { en } from '../en'
  * formuliert, damit jede Fläche sie gleich sagt.
  *
  * Die Worte der Darstellung selbst (Abschnittsüberschriften, „eingegangen …“,
- * „Zitat in der Nachricht von …“) stehen NICHT hier, sondern versioniert in
+ * „Zitat aus der E-Mail vom …“) stehen NICHT hier, sondern versioniert in
  * `lib/mail-thread/render-copy.ts`: eine Änderung schriebe jeden Abschnitt neu.
  */
 export const mailThread: typeof en.mailThread = {

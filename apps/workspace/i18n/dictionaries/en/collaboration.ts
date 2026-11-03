@@ -978,11 +978,11 @@ export const collaboration = {
       },
       // Day 25 of 30: what nobody files expires (restorable for seven days).
       inboundMailExpiring: {
-        titleOne: 'A mail to “{subject}” expires in five days',
-        titleMany: '{count} mails to “{subject}” expire in five days',
-        title: 'Mails to “{subject}” expire in five days',
+        titleOne: 'A mail to “{subject}” expires in {noticeDays} days',
+        titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
+        title: 'Mails to “{subject}” expire in {noticeDays} days',
         titleResolved: 'No mail to “{subject}” is about to expire',
-        body: 'What nobody files by then expires, and can be restored for seven days after.',
+        body: 'What nobody files by then expires. A member’s mail can be restored for {restoreDays} days after, one from outside the office cannot.',
         variants: {
           unconfirmed: {
             body: 'Some of them come from a domain that is not verified, or were sent automatically. What nobody files expires.',
@@ -998,7 +998,7 @@ export const collaboration = {
           dismissed: {
             title: 'Your mail to “{subject}” was dismissed',
             titleRelated: 'Your mail to “{subject}” was dismissed',
-            body: 'Dismissed by {actor}. It can be restored for seven days.',
+            body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
           },
           // Filed as you, without anyone looking at it: your domain verified it and you may file in the project.
           direct: {
@@ -1026,11 +1026,11 @@ export const collaboration = {
       },
       inboundMailRejected: {
         title: 'Your mail to “{subject}” was dismissed',
-        body: 'Dismissed by {actor}. It can be restored for seven days.',
+        body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
       },
       inboundMailExpired: {
         title: 'Your mail to “{subject}” was not filed in time',
-        body: 'Nobody filed it within its window. For seven days it can be restored in Project mail under “Handled”: by you if you may file in the project, otherwise by someone who may.',
+        body: 'Nobody filed it within its window. For {restoreDays} days it can be restored in Project mail under “Handled”: by you if you may file in the project, otherwise by someone who may.',
       },
       inboundMailFilingFailed: {
         title: 'A mail to “{subject}” was not filed completely',
@@ -1057,7 +1057,7 @@ export const collaboration = {
         body: 'As you, because you follow the mail thread. Attachments wait in Project mail.',
       },
       mailThreadFollowExpiring: {
-        title: 'You follow a mail thread in “{subject}” for five more days',
+        title: 'You follow a mail thread in “{subject}” for {followNoticeDays} more days',
         titleResolved: 'Your follow of a mail thread in “{subject}” was renewed or ended',
         body: 'Renew it so later replies keep being appended.',
       },

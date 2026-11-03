@@ -284,7 +284,7 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'inbound_mail.filing_failed': { icon: 'mail-x', i18nKey: 'inboundMailFilingFailed', tone: 'warning' },
   'inbound_mail.cap_reached': { icon: 'mail-warning', i18nKey: 'inboundMailCapReached', tone: 'warning' },
   'inbound_mail.appended': { icon: 'mail-plus', i18nKey: 'inboundMailAppended', tone: 'info' },
-  // „Haben Sie das gesendet?": the shield of a claim only the reader can confirm.
+  // „Haben Sie diese E-Mail gesendet?“: the shield of a claim only the reader can confirm.
   'inbound_mail.held': { icon: 'shield-alert', i18nKey: 'inboundMailHeld', tone: 'request' },
   'inbound_mail.held_for_writers': { icon: 'mail', i18nKey: 'inboundMailHeldForWriters', tone: 'info' },
   'inbound_mail.rejected': { icon: 'mail-x', i18nKey: 'inboundMailRejected', tone: 'info' },

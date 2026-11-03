@@ -220,7 +220,7 @@ so the agent sees the conversation once and cites one message by its section.
 - **Headings never change**, so citations hold: `{dd.mm.yyyy HH:MM} · {name}
   ({signer domain})` for a verified mail, `… ({from domain}, Domain nicht
   bestätigt)` for an unverified one, `… ({from domain}, aus dem Outlook-Archiv)`
-  for an archive entry. A quoted block becomes „Zitat in der Nachricht von …“,
+  for an archive entry. A quoted block becomes „Zitat aus der E-Mail vom …“,
   never the quoted party's words, and is folded only where it repeats an entry
   the thread already holds.
 - **Each section says when it arrived** („eingegangen …“, `received_at`). The
