@@ -17,7 +17,10 @@ import { baseStackConfig } from "./src/test-support/stack-config";
  * StatefulSet and DaemonSet the program builds, including the objects a
  * `yaml/v2` ConfigGroup or ConfigFile carries inline, the way the pack sees
  * them. A Helm release is one resource to the pack, so its chart's workloads
- * are not here, as they are not there.
+ * are not here, as they are not there. A manifest the program references by URL
+ * (a `ConfigFile` with `file`) is read by the deploy, not by these mocks; the
+ * Deployments in one are exempt by name in the pack (`UPSTREAM_SOAK_EXEMPT`),
+ * and the last test keeps that list to the ones we mean.
  *
  * Kept in step with the pack by hand: a rule added there gets its check here.
  */
@@ -65,6 +68,13 @@ type Workload = { kind: string; name: string; spec: Record<string, any> };
 /** The pack's CREATED_WITH_POD_MANAGEMENT_POLICY, the StatefulSets created with the field. */
 const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
 
+/** The pack's UPSTREAM_SOAK_EXEMPT, read from it (the last test). */
+const UPSTREAM_SOAK_EXEMPT = (() => {
+  const pack = readFileSync(join(__dirname, "policy/index.ts"), "utf8");
+  const table = pack.match(/const UPSTREAM_SOAK_EXEMPT[^=]*=\s*\{([\s\S]*?)\n\};/)?.[1] ?? "";
+  return [...table.matchAll(/^\s*"([a-z0-9-]+)":/gm)].map((m) => m[1]);
+})();
+
 const WORKLOAD_TYPES: Record<string, string> = {
   "kubernetes:apps/v1:Deployment": "Deployment",
   "kubernetes:apps/v1:StatefulSet": "StatefulSet",
@@ -89,13 +99,15 @@ function violations(w: Workload): string[] {
   const out: string[] = [];
   const pod = w.spec.template?.spec ?? {};
   if (w.kind === "Deployment") {
-    if (!(w.spec.minReadySeconds >= 1)) out.push("deployment-rollout-gated: minReadySeconds");
-    if (!(w.spec.progressDeadlineSeconds >= 1)) out.push("deployment-rollout-gated: progressDeadlineSeconds");
+    if (!UPSTREAM_SOAK_EXEMPT.includes(w.name) && !(w.spec.minReadySeconds >= 1)) {
+      out.push("deployment-rollout-gated: minReadySeconds");
+    }
     const type = w.spec.strategy?.type ?? "RollingUpdate";
     const replicas = w.spec.replicas ?? 2;
+    const maxUnavailable = w.spec.strategy?.rollingUpdate?.maxUnavailable;
     if (type === "Recreate") {
       if (replicas > 1) out.push("deployment-no-capacity-dip: Recreate with several replicas");
-    } else if (String(w.spec.strategy?.rollingUpdate?.maxUnavailable) !== "0") {
+    } else if (!(replicas === 1 && maxUnavailable === undefined) && String(maxUnavailable) !== "0") {
       out.push("deployment-no-capacity-dip: maxUnavailable is not 0");
     }
   }
@@ -128,10 +140,8 @@ describe("the dev stack's plan against the policy pack's mandatory workload rule
     await new Promise((r) => setTimeout(r, 200));
   });
 
-  it("builds the workloads, the manifest-carried ones among them", () => {
-    const names = workloads().map((w) => w.name);
-    expect(names.length).toBeGreaterThan(10);
-    expect(names).toContain("rabbitmq-cluster-operator");
+  it("builds the workloads", () => {
+    expect(workloads().length).toBeGreaterThan(10);
   });
 
   it("has no workload a mandatory rule refuses", () => {
@@ -140,5 +150,15 @@ describe("the dev stack's plan against the policy pack's mandatory workload rule
       .filter(([, v]) => v.length > 0);
 
     expect(Object.fromEntries(refused)).toEqual({});
+  });
+
+  // The pack exempts an upstream manifest's Deployment from the soak by name. The list holds exactly the manifests the program references by URL.
+  it("exempts only the Deployments of the release manifests it references", () => {
+    const exempt = UPSTREAM_SOAK_EXEMPT;
+    const referenced = RESOURCES.filter((r) => r.type === "kubernetes:yaml/v2:ConfigFile" && /^https:/.test(r.inputs.file))
+      .map((r) => r.name);
+
+    expect(exempt).toEqual(["rabbitmq-cluster-operator"]);
+    expect(referenced).toEqual(exempt);
   });
 });

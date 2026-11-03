@@ -5,8 +5,8 @@
  * images moved behind a paid catalogue in 2025.
  *
  * The operator is installed from its own release manifest, pinned
- * (`RABBITMQ_OPERATOR_VERSION`) and vendored beside this file, which is how
- * RabbitMQ publishes it; there is no official Helm chart. The manifest's admission webhook takes its
+ * (`RABBITMQ_OPERATOR_VERSION`), which is how RabbitMQ publishes it; there is
+ * no official Helm chart. The manifest's admission webhook takes its
  * certificate from cert-manager (a `Certificate` and a self-signed `Issuer` in
  * `rabbitmq-system`), so it is applied after cert-manager.
  *
@@ -14,30 +14,16 @@
  * `<cluster>-default-user` (keys `username`, `password`, `host`, `port`), and
  * Hatchet's components read it (`platform/hatchet.ts`).
  */
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
 import { BACKGROUND_WORK } from "../config/background-work";
 import { NODE_GROUP_LABEL } from "../constants";
-import { loadAll } from "js-yaml";
-import { ROLLOUT, surgeRollout } from "./rollout";
 import { scrapeAnnotations } from "./scrape";
 
 /** The operator release the manifest URL names. 2.23.2 was the latest on 2026-11-03. */
 export const RABBITMQ_OPERATOR_VERSION = "2.23.2";
-/**
- * The release manifest, vendored at that version (`cluster-operator.yml` from the
- * GitHub release, sha256 58b74bd5…c773f). In the repo rather than fetched at
- * deploy time, so a plan reads the same bytes every time and the policy-pack
- * patch below is tested against the real file. Bump: download the new release's
- * `cluster-operator.yml` here under its version and change the constant.
- */
-export const RABBITMQ_OPERATOR_MANIFEST = resolve(
-  __dirname,
-  `manifests/rabbitmq-cluster-operator-${RABBITMQ_OPERATOR_VERSION}.yml`,
-);
+export const RABBITMQ_OPERATOR_MANIFEST = `https://github.com/rabbitmq/cluster-operator/releases/download/v${RABBITMQ_OPERATOR_VERSION}/cluster-operator.yml`;
 /** The namespace the manifest creates for the operator. */
 export const RABBITMQ_OPERATOR_NAMESPACE = "rabbitmq-system";
 
@@ -64,34 +50,12 @@ export const RABBITMQ_DEFAULT_USER_SECRET = `${RABBITMQ.cluster}-default-user`; 
 /** The AMQP Service, by FQDN: `<cluster>.<namespace>.svc`. */
 export const RABBITMQ_HOST = `${RABBITMQ.cluster}.${BACKGROUND_WORK.namespace}.svc.cluster.local`;
 
-export function installRabbitmqOperator(provider: k8s.Provider, dependsOn: pulumi.Resource[]): k8s.yaml.v2.ConfigGroup {
-  return new k8s.yaml.v2.ConfigGroup(
+export function installRabbitmqOperator(provider: k8s.Provider, dependsOn: pulumi.Resource[]): k8s.yaml.v2.ConfigFile {
+  return new k8s.yaml.v2.ConfigFile(
     "rabbitmq-cluster-operator",
-    { objs: operatorManifest() },
+    { file: RABBITMQ_OPERATOR_MANIFEST },
     { provider, dependsOn },
   );
-}
-
-/** One object of a Kubernetes manifest, as YAML parses it. */
-export type ManifestObject = { kind?: string; spec?: Record<string, unknown>; [field: string]: unknown };
-
-/** The vendored manifest's objects, the operator Deployment gated as below. Pure, for the spec. */
-export function operatorManifest(file = RABBITMQ_OPERATOR_MANIFEST): ManifestObject[] {
-  const objects = loadAll(readFileSync(file, "utf8")).filter(Boolean) as ManifestObject[];
-  return objects.map(gateOperatorRollout);
-}
-
-/**
- * Upstream's operator Deployment sets no soak, no progress deadline and no surge
- * strategy, which the policy pack's mandatory `deployment-rollout-gated` and
- * `deployment-no-capacity-dip` refuse: the first staging preview with it failed
- * on exactly that. A manifest's objects are separate resources the pack checks,
- * unlike a Helm release's. The operator elects a leader, so a surged second pod
- * waits its turn.
- */
-export function gateOperatorRollout(object: ManifestObject): ManifestObject {
-  if (object.kind !== "Deployment") return object;
-  return { ...object, spec: { ...object.spec, ...surgeRollout(ROLLOUT.lightWorker) } };
 }
 
 /** The `RabbitmqCluster` spec. Pure, for the spec. */
