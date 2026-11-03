@@ -135,7 +135,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 #
 # Maps and their chunks are copied to /sourcemaps, which only the `sourcemaps`
 # stage below reads; CI exports that stage and the Source maps workflow uploads
-# it after CI, linked to release `grid-ui` at GIT_SHA. Uploading here took
+# it after CI, linked to release `workspace-ui` at GIT_SHA. Uploading here took
 # ~232 s of every frontend build on the deploy's critical path, and an image
 # built with the key differed from one built without it; now both are the same
 # build. Then every map leaves the served trees, with the `sourceMappingURL`

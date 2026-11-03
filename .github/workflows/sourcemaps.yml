@@ -6,7 +6,7 @@ name: Source maps
 # shipped JavaScript offline, and keeps maps and chunks in a `sourcemaps` stage
 # that never reaches the runtime image (apps/workspace/deploy/Dockerfile); the
 # push run's image job exports that stage as the artifact `sourcemaps-frontend`.
-# This workflow uploads it and links it to release `grid-ui` at the commit the
+# This workflow uploads it and links it to release `workspace-ui` at the commit the
 # image was built from. It used to run inside `next build`, ~232 s of every
 # frontend build that the deploy waited for (run 41688820888).
 #
@@ -70,4 +70,4 @@ jobs:
           fi
           npm install --prefix "$RUNNER_TEMP/posthog" --no-save --ignore-scripts "@posthog/cli@$POSTHOG_CLI_VERSION"
           "$RUNNER_TEMP/posthog/node_modules/.bin/posthog-cli" sourcemap upload \
-            --directory sourcemaps --release-name grid-ui --release-version "$RELEASE_VERSION"
+            --directory sourcemaps --release-name workspace-ui --release-version "$RELEASE_VERSION"

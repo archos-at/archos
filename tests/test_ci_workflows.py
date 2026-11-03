@@ -670,7 +670,7 @@ def test_the_upload_runs_the_cli_the_build_injected_with():
     upload = next(s for s in load("sourcemaps.yml")["jobs"]["upload"]["steps"] if s.get("name") == "Upload to PostHog")
 
     assert upload["env"]["POSTHOG_CLI_VERSION"] == package["devDependencies"]["@posthog/cli"]
-    assert "--release-name grid-ui" in upload["run"] and '--release-version "$RELEASE_VERSION"' in upload["run"]
+    assert "--release-name workspace-ui" in upload["run"] and '--release-version "$RELEASE_VERSION"' in upload["run"]
 
 
 def test_only_the_pushed_frontend_build_exports_its_source_maps():

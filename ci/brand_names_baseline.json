@@ -481,7 +481,6 @@
   "apps/workspace/eslint-rules/global-cache-keys.mjs": 1,
   "apps/workspace/eslint-rules/motion-vocabulary.mjs": 1,
   "apps/workspace/i18n/config.ts": 1,
-  "apps/workspace/next.config.ts": 2,
   "apps/workspace/observability/http-metrics.js": 2,
   "apps/workspace/observability/http-metrics.spec.mjs": 2,
   "apps/workspace/observability/otel-logs.js": 3,

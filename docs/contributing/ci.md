@@ -138,7 +138,7 @@ deploy exactly as before.
 
 | Piece | Where | What it does |
 |---|---|---|
-| Source maps and release | The frontend Docker build (inject, offline) and `.github/workflows/sourcemaps.yml` (upload, after CI) | The build emits maps and injects a chunk id into each shipped chunk; `image-push` exports the maps as an artifact; the Source maps workflow uploads them for release `grid-ui` at the commit that built the image, the `GIT_SHA` the container reports |
+| Source maps and release | The frontend Docker build (inject, offline) and `.github/workflows/sourcemaps.yml` (upload, after CI) | The build emits maps and injects a chunk id into each shipped chunk; `image-push` exports the maps as an artifact; the Source maps workflow uploads them for release `workspace-ui` at the commit that built the image, the `GIT_SHA` the container reports |
 | Backend release | `deploy.yml` (staging), before the plan (`PostHog/resolve-release`) | Finds or creates release `grid-agent` at the backend image's commit and hands its id to the Python tiers as `POSTHOG_RELEASE_ID` (below) |
 | Deploy marker | `deploy.yml`, after each `Pulumi up` (`deploy/pulumi/scripts/posthog-annotate.sh`) | A project annotation `deploy dev <sha>` or `deploy prod <sha>` at the time the apply finished. `continue-on-error`: a PostHog outage never turns a deploy red |
 
@@ -167,7 +167,7 @@ Why it is built this way:
   0.18.11: with `--release-*` it calls the API, without them it logs "injecting
   chunk ids only"). A pull request build therefore injects exactly as a push
   does, and an image no longer differs by whether its builder held the secret.
-  The release is linked at upload (`--release-name grid-ui --release-version
+  The release is linked at upload (`--release-name workspace-ui --release-version
   <commit>`), so unmerged code still never creates one.
 - **The maps are kept aside and not served.** Next serves `.next/static/**/*.map`,
   original source included, to anyone. `next.config.ts` turns browser and
@@ -185,6 +185,9 @@ Why it is built this way:
   deploy marker carries the commit that was deployed. Read the pair together:
   the release says where the code came from, the annotation says when users got
   it.
+- **The release is `workspace-ui`**, named for what it is (ADR-0149); it was
+  `grid-ui` until the upload moved out of the build, and releases made before
+  then keep that name in PostHog.
 - **Chunk ids are content-addressed** (UUIDv5 of the chunk), so a rebuild of
   unchanged files yields the same ids and a re-run cannot orphan an upload.
 - The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the

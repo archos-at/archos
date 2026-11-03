@@ -245,7 +245,7 @@ export const nextConfig: NextConfig = {
  * offline (`posthog-cli sourcemap inject`), copies maps and chunks into a
  * `sourcemaps` stage that never reaches the runtime image, and deletes every
  * map from the served trees. CI exports that stage and the Source maps
- * workflow uploads it after CI, linked to release `grid-ui` at the build's
+ * workflow uploads it after CI, linked to release `workspace-ui` at the build's
  * commit. Uploading here, through `@posthog/nextjs-config`, took ~232 s of
  * every frontend build on the deploy's critical path (run 41688820888), and
  * made an image built with the key differ from one built without it.
