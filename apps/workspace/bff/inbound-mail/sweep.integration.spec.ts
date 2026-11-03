@@ -108,10 +108,10 @@ vi.mock('@/lib/audit/service', async (importOriginal) => {
   return { ...actual, recordAuditEvent: record, recordAuditEventOrThrow: record }
 })
 
-vi.mock('@/lib/authz/project-membership', () => ({
-  PERMISSION_CHECKS_AT_ONCE: 8,
-  userHoldsProjectPermission: vi.fn(async (_scope: unknown, _project: string, userId: string) => userId === MANAGER),
-}))
+vi.mock('@/lib/authz/project-membership', () => {
+  const userHoldsProjectPermission = vi.fn(async (_scope: unknown, _project: string, userId: string) => userId === MANAGER)
+  return { PERMISSION_CHECKS_AT_ONCE: 8, userHoldsProjectPermission, userHoldsProjectPermissionStrict: userHoldsProjectPermission }
+})
 vi.mock('@/lib/sharing/directory', () => ({
   loadOrganizationDirectory: vi.fn(async () => new Map([[MANAGER, { userId: MANAGER, email: null, name: 'M', profilePictureUrl: null }]])),
 }))

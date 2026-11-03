@@ -45,9 +45,7 @@ import 'server-only'
  * runs, and a lost row costs a notification, never the mail.
  */
 
-import { PERMISSION_CHECKS_AT_ONCE, userHoldsProjectPermission } from '@/lib/authz/project-membership'
 import { isFolderVisibleToMember } from '@/lib/authz/folder-access'
-import { DOCUMENT_WRITE_PERMISSIONS } from '@/lib/authz/folder-access-rule'
 import type { InboxItemType } from '@/lib/db/schema/inbox'
 import { memberReader } from '@/lib/documents/document-reader'
 import type {
@@ -68,8 +66,7 @@ import {
 } from '@/lib/inbox/service'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { findThreadRow } from '@/lib/mail-thread/write-repository'
-import { loadOrganizationDirectory } from '@/lib/sharing/directory'
-import { inPool } from '@/lib/utils/in-pool'
+import { holds, projectManagers, projectWriters, writes } from './notice-recipients'
 import { filedFolderIds, projectNoticeState } from './notice-repository'
 import { findLiveFolders } from './repository'
 
@@ -109,46 +106,6 @@ export function notifiesSender(mail: Pick<WaitingMail, 'senderTrust' | 'senderUs
 /** Whether the row says that mail from an unconfirmed domain, or automatic mail, is among what waits. */
 export function isUnconfirmed(mail: Pick<WaitingMail, 'senderTrust' | 'automatic'>): boolean {
   return mail.automatic || mail.senderTrust === 'external_unverified' || mail.senderTrust === 'member_unverified'
-}
-
-type AskedPermission = 'project:view' | 'project:manage' | (typeof DOCUMENT_WRITE_PERMISSIONS)[number]
-
-const holds = (organizationId: string, projectId: string, userId: string, permission: AskedPermission) =>
-  userHoldsProjectPermission({ organizationId }, projectId, userId, permission).catch(() => false)
-
-/** Whether the member may write in the project (any of `DOCUMENT_WRITE_PERMISSIONS`), as the E-Mail-Eingang asks before a filing. */
-async function writes(organizationId: string, projectId: string, userId: string): Promise<boolean> {
-  for (const permission of DOCUMENT_WRITE_PERMISSIONS) {
-    if (await holds(organizationId, projectId, userId, permission)) return true
-  }
-  return false
-}
-
-/**
- * Every member who may write in the project, so may file its mail: the people
- * a held mail waits for. Asked a few at a time, as a throttled check fails
- * closed. An unreadable directory tells nobody, and says so in the log.
- */
-export async function projectWriters(organizationId: string, projectId: string, label: string): Promise<string[]> {
-  const directory = await loadOrganizationDirectory(organizationId)
-  if (directory.size === 0) console.warn(`[inbound-mail] nobody to tell about ${label}: the directory is empty`)
-  const verdicts = await inPool([...directory.keys()], PERMISSION_CHECKS_AT_ONCE, async (userId) =>
-    (await writes(organizationId, projectId, userId)) ? userId : null,
-  )
-  return verdicts.filter((userId): userId is string => userId !== null)
-}
-
-/**
- * Every member who manages the project (`project:manage`). The directory is
- * the whole roster; an unreadable one tells nobody, and says so in the log.
- */
-export async function projectManagers(organizationId: string, projectId: string, label: string): Promise<string[]> {
-  const directory = await loadOrganizationDirectory(organizationId)
-  if (directory.size === 0) console.warn(`[inbound-mail] nobody to tell about ${label}: the directory is empty`)
-  const verdicts = await Promise.all(
-    [...directory.keys()].map(async (userId) => ((await holds(organizationId, projectId, userId, 'project:manage')) ? userId : null)),
-  )
-  return verdicts.filter((userId): userId is string => userId !== null)
 }
 
 type SenderFacts = Pick<WaitingMail, 'organizationId' | 'projectId' | 'senderTrust' | 'senderUserId' | 'senderFlags'>

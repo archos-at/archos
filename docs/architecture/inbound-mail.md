@@ -550,6 +550,15 @@ adds the variant `unconfirmed`.
 | `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
 
+**The project's writers** are asked of WorkOS once per organization and
+project every five minutes (`lib/inbound-mail/notice-recipients.ts`,
+`projectWriters`, cache key `inbound-mail-writers:<organization>:<project>`):
+up to two strict checks per directory member, so a burst of held mail costs one
+round, not one per mail. A check WorkOS does not answer (a throttle) stores
+nothing and tells the writers that did answer plus the project's managers, with
+a `[inbound-mail]` warning, never nobody. A member given write rights hears of
+held mail from the next round on.
+
 The collapsed rows carry the anchor of their newest emission, so they are
 settled by what the project still holds (`settleProjectNotices`), never by one
 mail's anchor ([`adding-a-shareable-resource-type.md`](adding-a-shareable-resource-type.md)).
