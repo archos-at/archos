@@ -12,6 +12,7 @@
   "bff/api/errors.ts": 525,
   "bff/assignments/repository.ts": 277,
   "bff/assignments/service.ts": 276,
+  "bff/audit/schemas.mjs": 400,
   "bff/audit/service.ts": 399,
   "bff/auth/membership-roles.ts": 450,
   "bff/auth/person.ts": 284,
