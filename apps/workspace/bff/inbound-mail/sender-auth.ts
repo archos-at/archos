@@ -383,8 +383,8 @@ async function evaluate(raw: Uint8Array, options: AuthenticateSenderOptions): Pr
  * Authenticate the sender of a raw message. Never throws: an exception is
  * `verifier_error` and a deadline `verifier_timeout`, both unverified, so a bug
  * or a slow DNS server labels a mail rather than losing it. The receive job
- * may retry a transient reason ({@link isTransientReason}) on an attempt that
- * is not its last.
+ * waits a transient reason ({@link isTransientReason}) out a few minutes
+ * before it lets it stand.
  */
 export async function authenticateSender(raw: Uint8Array, options: AuthenticateSenderOptions): Promise<SenderAuthentication> {
   const fields = rawHeaderFields(raw)
@@ -409,9 +409,14 @@ export async function authenticateSender(raw: Uint8Array, options: AuthenticateS
   }
 }
 
-/** Reasons a later attempt may answer differently. */
+/**
+ * Reasons a later try may answer differently: DNS that failed or did not
+ * answer in time. Not `verifier_error`: the verifier threw on this message,
+ * and it throws the same on every try, so it is a verdict (no aligned pass),
+ * not a fault to wait out (R2 of the second 2026-11 ship review).
+ */
 export function isTransientReason(reason: SenderReason): boolean {
-  return reason === 'dkim_temperror' || reason === 'verifier_timeout' || reason === 'verifier_error'
+  return reason === 'dkim_temperror' || reason === 'verifier_timeout'
 }
 
 // ---------------------------------------------------------------------------

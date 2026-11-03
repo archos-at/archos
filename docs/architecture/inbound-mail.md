@@ -191,7 +191,9 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    inline forward has no Message-ID: its header block is the forwarder's text;
 4. **authenticate the sender** (`sender-auth.ts`, mailauth 8 without an IP, so
    SPF is never read): trust, reason, signer domain, signed headers, flags; a
-   transient verdict is a dependency fault (below);
+   DNS fault (`dkim_temperror`, `verifier_timeout`) is waited out briefly
+   (below), and a verifier that threw (`verifier_error`) is a verdict: no
+   aligned pass, logged by the mail's id;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
    office's accepted types; find the member by exact address, or an outsider's
    display name that is a member's (`claims_member_name`);
@@ -261,9 +263,16 @@ the mail is held with what was not learned, said, never guessed:
   says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
   is still an outsider's (no restore window), since the database cannot tell
   it is a member's;
-- DKIM: the verifier's transient reason (`dkim_temperror`, `verifier_timeout`)
-  stands as the verdict, so a member's mail is `unverified_writer` and waits
-  for their one press;
+- DKIM: DNS has a budget of its own, two waits of 2 and 10 minutes
+  (`DKIM_DNS_FAULT_WAITS_MS`, counted as `dkimFaults` in the payload), because
+  the sender's nameserver is the sender's: a domain whose DNS never answers made
+  each of its mails run eleven times over six hours (R2 of the second review).
+  Then the transient reason (`dkim_temperror`, `verifier_timeout`) stands as the
+  verdict, so a member's mail is `unverified_writer` and waits for their one
+  press. A canary lookup to tell our resolver from theirs was the alternative;
+  it is one more dependency, and a cached answer says nothing about a resolver
+  that just died. `verifier_error` is not waited for at all: mailauth throws the
+  same on every try;
 - the reader: the text is held `unreadable` with `reader_fault_at`, and sweep 15
   (`receive-reread.ts`) reads it again every 15 minutes while the mail waits,
   then queues a verified writer's sender filing again, by name.

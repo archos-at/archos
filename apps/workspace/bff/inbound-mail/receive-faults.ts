@@ -20,7 +20,9 @@
  * - the directory or the write check (WorkOS): flag `sender_unchecked`, the
  *   30-day window even for a mail it cannot tie to a member (the database
  *   holds the pairing), never a verified writer's;
- * - DNS for DKIM: the verifier's own transient reason, kept as the verdict;
+ * - DNS for DKIM, after a budget of its own of two waits
+ *   ({@link DKIM_DNS_FAULT_WAITS_MS}): the verifier's own transient reason, kept
+ *   as the verdict;
  * - the Python reader: the text held unreadable with `reader_fault_at`, which
  *   the sweep reads again while the mail waits (`./receive-reread.ts`).
  *
@@ -66,10 +68,47 @@ export const RECEIVE_FAULT_WAITS_MS: readonly number[] = [1, 2, 4, 8, 16, 32, 60
 /** Faults the job waits out before it holds the mail with what it could not learn. */
 export const RECEIVE_FAULT_BUDGET = RECEIVE_FAULT_WAITS_MS.length
 
-/** When to try again after `faults` earlier faults, or null once the budget is spent. */
-export function nextFaultTry(faults: number, now: Date): Date | null {
-  const wait = RECEIVE_FAULT_WAITS_MS[faults]
-  return wait === undefined ? null : new Date(now.getTime() + wait)
+/**
+ * How long the job waits after a DNS fault of sender authentication
+ * (`dkim_temperror`, `verifier_timeout`): 2 and then 10 minutes, apart from
+ * the budget above, and then the transient reason stands as the verdict.
+ *
+ * The sender's nameserver is the sender's: a domain whose DNS never answers
+ * made every one of its mails run eleven times over six hours, each up to the
+ * 20 s verify deadline, at the sender's will (R2 of the second 2026-11 ship
+ * review). A canary lookup of a known domain could tell our resolver from
+ * theirs, but it is one more dependency whose answer is a guess (a cached
+ * canary says nothing about a resolver that just died). Twelve minutes covers
+ * a resolver restart of ours; an outage of our DNS past that leaves a member's
+ * mail `unverified_writer`, waiting for their one press, never lost.
+ */
+export const DKIM_DNS_FAULT_WAITS_MS: readonly number[] = [2, 10].map((minutes) => minutes * MINUTE)
+
+/** DNS faults of sender authentication the job waits out before the transient reason stands. */
+export const DKIM_DNS_FAULT_BUDGET = DKIM_DNS_FAULT_WAITS_MS.length
+
+/** The fault counts a receive job carries in its payload. */
+export interface FaultCounts {
+  faults?: number
+  dkimFaults?: number
+}
+
+/**
+ * The next try after a fault of `dependency`: the counts it carries and when,
+ * or null once that dependency's budget is spent. DNS for DKIM counts against
+ * its own small budget, every other dependency against the long one.
+ */
+export function nextFaultTry<T extends FaultCounts>(
+  dependency: ReceiveDependency,
+  payload: T,
+  now: Date,
+): { payload: T; notBefore: Date; budget: number } | null {
+  const dkim = dependency === 'dkim_dns'
+  const spent = (dkim ? payload.dkimFaults : payload.faults) ?? 0
+  const wait = (dkim ? DKIM_DNS_FAULT_WAITS_MS : RECEIVE_FAULT_WAITS_MS)[spent]
+  if (wait === undefined) return null
+  const counts = dkim ? { dkimFaults: spent + 1 } : { faults: spent + 1 }
+  return { payload: { ...payload, ...counts }, notBefore: new Date(now.getTime() + wait), budget: dkim ? DKIM_DNS_FAULT_BUDGET : RECEIVE_FAULT_BUDGET }
 }
 
 /** The dependency a failure stands for, or null for anything else (a bug, which spends an attempt). */

@@ -928,12 +928,53 @@ describe('B3: a dependency that does not answer spends no attempt and freezes no
     state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
     receive(await sign(message()))
 
-    expect(await run(LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(await run(LAST)).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
     expect(heldRow().status).toBe('received')
 
     state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) })
-    await run(LAST, 1)
+    await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, LAST)
     expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+  })
+
+  it('DNS for DKIM down: two short waits of its own, then the transient reason stands, the long budget untouched (R2)', async () => {
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
+    receive(await sign(message()))
+    const before = Date.now()
+
+    const first = await run(NOT_LAST)
+    expect(first).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
+    expect((first as { payload: { faults?: number } }).payload.faults).toBeUndefined()
+    const wait = (first as { notBefore: Date }).notBefore.getTime() - before
+    expect(wait).toBeGreaterThanOrEqual(2 * 60_000)
+    expect(wait).toBeLessThan(3 * 60_000)
+    expect(await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, NOT_LAST)).toMatchObject({
+      done: false,
+      payload: { dkimFaults: 2 },
+    })
+    expect(heldRow().status).toBe('received')
+
+    expect(await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 2 }, NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'dkim_temperror', senderClass: 'unverified_writer' })
+  })
+
+  it('a verifier that throws is a verdict, not a fault: held unverified at once, and logged by the mail’s id (R2)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    vi.mocked(authenticateSender).mockResolvedValueOnce({
+      fromAddress: 'anna@buero-muster.at',
+      fromDomain: 'buero-muster.at',
+      verified: false,
+      reason: 'verifier_error',
+      signerDomain: null,
+      signedHeaders: [],
+      signedRecipientNamesProject: false,
+      authenticationResults: '',
+    })
+    receive(await sign(message()))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'verifier_error' })
+    expect(heldRow().senderClass).not.toBe('verified_writer')
+    expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain(`mail ${MAIL}: the verifier threw`)
   })
 
   it('the reader down: waited out; past the budget the text waits unreadable with reader_fault_at, the class kept', async () => {

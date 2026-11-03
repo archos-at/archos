@@ -23,7 +23,7 @@
  *     its key (a legal hold defers that). List and bulk mail is kept, marked
  *     `automatic`. A forward records its original's author (`./receive-original`);
  *     its original's Message-ID is the sender's word and never drops a delivery.
- *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a transient verdict is a fault.
+ *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a DNS fault is waited out briefly.
  *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
  *     find the member by exact address, or an outsider's display name that
  *     claims a member's (`claims_member_name`), and whether that member may
@@ -50,10 +50,12 @@
  *     suggestion unless `suggestionSkipReason` says otherwise (an unconfirmed
  *     sender, an impersonation, automatic mail).
  *
- * A dependency that does not answer (WorkOS, DNS for DKIM, the reader, the
- * object store, the database) spends no attempt: the job waits it out for
- * about six hours and only then holds the mail with what it could not learn,
- * flagged, never guessed (`./receive-faults.ts`). Any other failure retries
+ * A dependency that does not answer (WorkOS, the reader, the object store,
+ * the database) spends no attempt: the job waits it out for about six hours
+ * and only then holds the mail with what it could not learn, flagged, never
+ * guessed (`./receive-faults.ts`). DNS for DKIM, which the sender's own
+ * nameserver can fail at will, gets twelve minutes and then its transient
+ * reason stands. Any other failure retries
  * through the queue, and on the last attempt the mail is held anyway, flagged
  * `unreadable`, with a text part whose original can be downloaded once its scan
  * is clean: mail is never lost to a parser bug. Its sender keeps the class the
@@ -95,6 +97,7 @@ import { mailParticipants, participantDomainsOf, recipientCountOf } from './rece
 import {
   dependencyOf,
   DependencyFaultError,
+  DKIM_DNS_FAULT_BUDGET,
   fromObjectStore,
   nextFaultTry,
   readHeldText,
@@ -145,23 +148,36 @@ export async function runInboundMailReceive(
   payload: InboundMailReceivePayload,
   attempt: JobAttempt,
 ): Promise<JobSliceResult<InboundMailReceivePayload>> {
-  const faults = payload.faults ?? 0
+  const degraded = (payload.faults ?? 0) >= RECEIVE_FAULT_BUDGET
+  const budget: ReceiveBudget = { degraded, dkimSpent: degraded || (payload.dkimFaults ?? 0) >= DKIM_DNS_FAULT_BUDGET }
   try {
-    await receive(organizationId, payload, attempt, faults >= RECEIVE_FAULT_BUDGET)
+    await receive(organizationId, payload, attempt, budget)
     return { done: true, payload }
   } catch (error) {
     const dependency = dependencyOf(error)
-    const notBefore = dependency ? nextFaultTry(faults, new Date()) : null
-    if (!dependency || !notBefore) throw error
+    const next = dependency ? nextFaultTry(dependency, payload, new Date()) : null
+    if (!dependency || !next) throw error
+    const tries = dependency === 'dkim_dns' ? next.payload.dkimFaults : next.payload.faults
     console.warn(
-      `[inbound-mail] mail ${payload.mailId}: the ${dependency} did not answer (${faults + 1} of ${RECEIVE_FAULT_BUDGET}); again at ${notBefore.toISOString()}`,
+      `[inbound-mail] mail ${payload.mailId}: the ${dependency} did not answer (${tries} of ${next.budget}); again at ${next.notBefore.toISOString()}`,
     )
-    return { done: false, payload: { ...payload, faults: faults + 1 }, notBefore }
+    return { done: false, payload: next.payload, notBefore: next.notBefore }
   }
 }
 
-/** One run. `degraded`: the fault budget is spent, so what a dependency could not answer is held as unknown. */
-async function receive(organizationId: string, payload: InboundMailReceivePayload, attempt: JobAttempt, degraded: boolean): Promise<void> {
+/**
+ * What a run may no longer wait for. `degraded`: the long budget is spent, so
+ * what a dependency could not answer is held as unknown. `dkimSpent`: DNS for
+ * DKIM had its two waits, so a transient reason stands as the verdict.
+ */
+interface ReceiveBudget {
+  degraded: boolean
+  dkimSpent: boolean
+}
+
+/** One run (see {@link ReceiveBudget}). */
+async function receive(organizationId: string, payload: InboundMailReceivePayload, attempt: JobAttempt, budget: ReceiveBudget): Promise<void> {
+  const { degraded } = budget
   const mail = await findMailForReceive(payload.mailId)
   if (!mail || mail.projectId !== payload.projectId || mail.organizationId !== organizationId) return
   const domain = inboundMailDomain()
@@ -186,7 +202,7 @@ async function receive(organizationId: string, payload: InboundMailReceivePayloa
   const evidence: SenderEvidence = {}
   let held: boolean
   try {
-    held = await readAndHold(mail, raw, domain, automatic.automatic, degraded, evidence)
+    held = await readAndHold(mail, raw, domain, automatic.automatic, budget, evidence)
   } catch (error) {
     const fault = dependencyOf(error) !== null
     if (fault ? !degraded : !attempt.last) throw error
@@ -238,15 +254,16 @@ async function readAndHold(
   raw: Uint8Array,
   domain: string,
   automatic: boolean,
-  degraded: boolean,
+  { degraded, dkimSpent }: ReceiveBudget,
   evidence: SenderEvidence,
 ): Promise<boolean> {
   const token = await findAddressToken(mail.addressId)
   if (!token) throw new Error(`the address of mail ${mail.id} is gone`)
   const authentication = await authenticateSender(raw, { projectToken: token, inboundDomain: domain, envelopeFrom: mail.envelopeFrom })
-  if (isTransientReason(authentication.reason) && !degraded) {
+  if (isTransientReason(authentication.reason) && !dkimSpent) {
     throw new DependencyFaultError('dkim_dns', new Error(`sender authentication was inconclusive (${authentication.reason})`))
   }
+  if (authentication.reason === 'verifier_error') console.error(`[inbound-mail] mail ${mail.id}: the verifier threw; its sender is held unverified`)
   const mime = await readMime(raw, { acceptedTypes: await acceptedTypesForOrganization(mail.organizationId) })
   const fromName = mime.kind === 'read' ? (mime.headers.from?.name ?? null) : null
   const identity = await senderIdentityFor(mail.organizationId, authentication.fromAddress, fromName, degraded)

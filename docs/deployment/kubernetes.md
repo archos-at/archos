@@ -728,8 +728,12 @@ Record of runs: none yet.
   (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends
   an attempt) back to the queue without spending an attempt and tries again after 1, 2, 4,
   8, 16 and 32 minutes, then hourly, about six hours in all
-  (`lib/inbound-mail/receive-faults.ts`). Each wait is a `bff-jobs` warning
-  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of 11)`. Past
+  (`lib/inbound-mail/receive-faults.ts`); DNS for DKIM waits only 2 and 10
+  minutes, since a sender's own nameserver can fail at will, and then its
+  transient reason stands. Each wait is a `bff-jobs` warning
+  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of <budget>)`
+  (11, or 2 for `dkim_dns`). A `mail <id>: the verifier threw` error is a
+  mailauth exception on that message, held unverified at once. Past
   the budget the mail is held anyway: a sender WorkOS could not place is
   flagged `sender_unchecked` (30 days, for the writers, never filed directly),
   a text the reader did not answer for keeps `reader_fault_at` and sweep 15

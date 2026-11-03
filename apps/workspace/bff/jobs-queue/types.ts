@@ -483,13 +483,16 @@ export type DocumentCheckPayload = z.infer<typeof documentCheckPayloadSchema>
  * staged (ADR-0137, `lib/inbound-mail/receive-job.ts`). The job id is the
  * mail's id, so the webhook's enqueue and the sweep's re-enqueue of a mail left
  * `received` are one job. Ids only: everything else is on the row and in the
- * staged message. `faults` counts the dependency faults it waited out
- * (`lib/inbound-mail/receive-faults.ts`); absent on the first run.
+ * staged message. `faults` counts the dependency faults it waited out, and
+ * `dkimFaults` the DNS faults of sender authentication, which have a smaller
+ * budget of their own (`lib/inbound-mail/receive-faults.ts`); both absent on
+ * the first run.
  */
 export const inboundMailReceivePayloadSchema = z.object({
   mailId: z.string().uuid(),
   projectId: z.string().uuid(),
   faults: z.number().int().nonnegative().max(100).optional(),
+  dkimFaults: z.number().int().nonnegative().max(100).optional(),
 })
 export type InboundMailReceivePayload = z.infer<typeof inboundMailReceivePayloadSchema>
 
