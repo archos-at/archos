@@ -168,8 +168,8 @@ The layers are separate claims on the queue. L0 runs at `interactive` priority f
 every office before any L1 work, so a newcomer's upload is searchable in seconds
 whatever another office is doing. L1 runs at `bulk` and yields. On Hatchet
 (ADR-0150) a layer is a task run instead of a claim, the two priorities are run
-priority, and a fleet-wide ceiling holds only inside one task definition, so the
-layers that make vision calls share the one capped task. L2 and L3 run when a
+priority. The vision ceiling stays the Dragonfly pool, because a Hatchet
+concurrency key holds only inside one task definition. L2 and L3 run when a
 document's L1 settles, and L3 once per upload batch rather than once per file.
 
 ### L0: one look at every page

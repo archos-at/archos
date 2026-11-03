@@ -402,7 +402,7 @@ frontend start). → `docs/database/`.
 | Frontend | Next.js 16, React 18, TypeScript, shadcn/ui + Tailwind v4 |
 | BFF / gateway | Next.js app-router API routes + a Node `server.js` WS/HTTP proxy |
 | AI orchestration | The agent runtime + LangGraph; the Postgres research queue for async jobs |
-| Background work | Our Postgres claim queues (ADR-0076, ADR-0079) by default; self-hosted Hatchet on its own Postgres cluster behind a flag per tier (ADR-0150) |
+| Background work | Self-hosted Hatchet (`hatchet-ha`, RabbitMQ, its own Postgres cluster `background-work-pg`) in place of our claim queues (ADR-0150) |
 | LLM | any OpenAI-compatible endpoint (reference boot floor: OpenAI GPT-5.6 Luna via OpenRouter; the served model is an admin decision at runtime) |
 | Embeddings | any OpenAI-compatible endpoint (reference: OpenAI text-embedding-3-large via OpenRouter) |
 | RAG / vector store | Qdrant via `qdrant-client` (+ LlamaIndex ingestion) |

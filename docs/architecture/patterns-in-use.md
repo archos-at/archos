@@ -195,7 +195,7 @@ counted, so review is the gate for it.
 | Route → service → repository layering | ADR-0017 |
 | Row-level security as the tenancy backstop | ADR-0041, [`../database/row-level-security.md`](../database/row-level-security.md) |
 | Layered admission control (edge rate limit, job and turn concurrency, euro budget) | ADR-0040, ADR-0015 |
-| DB-claimed workers instead of an assigning scheduler; moving to self-hosted Hatchet behind a flag per tier | ADR-0021, ADR-0150 |
+| Background work on self-hosted Hatchet (replacing the DB-claimed workers), fair per organization | ADR-0150, ADR-0021 |
 | Materialised path for folders | ADR-0049 |
 | Write-through usage rollups | ADR-0019 |
 | Cards as the rich-UI layer, decisions persisted on the message | ADR-0012, ADR-0030 |
