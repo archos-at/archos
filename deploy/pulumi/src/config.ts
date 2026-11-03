@@ -13,6 +13,7 @@ import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./
 import { type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
 import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
+import { refuseInClusterAppArchive } from "./config/barman-backups";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
   type ChromaMigrationConfig,
@@ -432,6 +433,7 @@ export function loadConfig(): DeployConfig {
   const seaweedfs = loadSeaweedfs(cfg);
 
   const postgres = loadPostgres(cfg);
+  refuseInClusterAppArchive(cfg, postgres.backups, { stack: pulumi.getStack(), seaweedPublicHost: s3Domain });
 
   const dragonflyStores = loadDragonfly(cfg);
 
