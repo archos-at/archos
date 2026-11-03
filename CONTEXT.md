@@ -225,15 +225,20 @@ The exact place a statement is pinned to: a Punkt, a section, a page.
 
 **E-Mail-Eingang** (Project mail):
 Where mail sent to a project's e-mail address waits until a person files it
-(ADR-0137). Each part of a mail, its own text and each attachment, is
+(ADR-0137). A member who may file in the project and whose domain signed their
+own mail has it *direkt abgelegt*, as them, without a click (the amendment of
+2026-11-03); a mail that only carries such a member's address waits for that
+member, who alone releases it („Haben Sie das gesendet?“). Each part of a mail, its own text and each attachment, is
 *abgelegt* (into a folder the person chooses, under a name and a Dokumentart,
 possibly as a new Fassung; the text usually into its **E-Mail-Verlauf**) or
 not; a mail nobody wants is *verworfen*, and one nobody decides *läuft ab*
-after 30 days; both can be *wiederhergestellt* for seven days. Until a person
+after 30 days (mail from outside the office after 14, and then it is gone);
+both can otherwise be *wiederhergestellt* for seven days. Until a person
 files it, nothing of a mail is a document: nothing indexes it and no model of
 ARCHOS's reads it. Anyone may write to the address; each mail says whether its
 sender's domain was confirmed („Domain bestätigt: …“, „Domain nicht
-bestätigt“), which shapes what is suggested and never files anything by itself.
+bestätigt“), which shapes what is suggested; only a signed mail of a member
+who may file is filed by itself.
 A mail that poses as a member („Gibt sich als … aus“) is a stop, never a
 default. Attachments are checked for malware before anyone can file them. Who
 may add documents to the project decides; the folder's write right still

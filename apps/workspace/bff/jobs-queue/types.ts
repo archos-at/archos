@@ -54,7 +54,7 @@ import { requesterSchema } from './requester'
  * wait (`notBefore`) for its answer and leave what it found. Does nothing when
  * the organization's `piloti-notices` is off.
  *
- * The four `inbound_mail_*` kinds carry a mail sent to a project's address
+ * The five `inbound_mail_*` kinds carry a mail sent to a project's address
  * (ADR-0137), and who each runs as is the point of the design: nothing that
  * runs as the system files. `inbound_mail_receive` is one step AS THE SYSTEM
  * (`SYSTEM_ACTORS.inboundMail`): it reads, scans, labels and holds a mail for a
@@ -64,7 +64,10 @@ import { requesterSchema } from './requester'
  * (`requester`), resolved per slice, because filing is their upload, with their
  * rights, quota and screening. `inbound_mail_follow` runs AS THE FOLLOWER: their
  * standing decision to append a conversation's verified replies, re-checked as
- * them before anything is written.
+ * them before anything is written. `inbound_mail_sender_file` runs AS THE
+ * SENDER of a verified writer's mail (ADR-0137's amendment): the member whose
+ * domain signed it and who may write in the project, resolved and re-checked
+ * as them before their own mail is filed in their name.
  *
  * `search_facets_sync` walks one shelf's documents a page per slice as the
  * system (ADR-0136): it rewrites their derived search rows from the reading the
@@ -98,6 +101,7 @@ export const BFF_JOB_KINDS = [
   'inbound_mail_suggest',
   'inbound_mail_file',
   'inbound_mail_follow',
+  'inbound_mail_sender_file',
   'search_facets_sync',
 ] as const
 export type BffJobKind = (typeof BFF_JOB_KINDS)[number]
@@ -529,6 +533,21 @@ export const inboundMailFollowPayloadSchema = z.object({
   requester: requesterSchema,
 })
 export type InboundMailFollowPayload = z.infer<typeof inboundMailFollowPayloadSchema>
+
+/**
+ * `inbound_mail_sender_file`: file a verified writer's mail as its sender
+ * (ADR-0137, amendment of 2026-11-03; `lib/inbound-mail/sender-file-job.ts`).
+ * Queued by the receive job only for `sender_class = 'verified_writer'`; the
+ * job reads the sender off the mail's frozen verdict, never from here. Job id
+ * uuid5 of the mail. `waits` counts the slices spent waiting for the agent's
+ * suggestion.
+ */
+export const inboundMailSenderFilePayloadSchema = z.object({
+  mailId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  waits: z.number().int().nonnegative(),
+})
+export type InboundMailSenderFilePayload = z.infer<typeof inboundMailSenderFilePayloadSchema>
 
 /** What a one-step job is told about the attempt it is running. */
 export interface JobAttempt {

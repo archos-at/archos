@@ -40,12 +40,20 @@ export interface MailDecisionWrite {
   ifMatch: string
   /** The `file` decisions, one per part filed, ids assigned by the caller. */
   files: NewInboundMailDecisionRow[]
+  /**
+   * Leave the other waiting parts waiting instead of dismissing them: a
+   * sender's direct filing files what it can and leaves the rest to the
+   * sender in the E-Mail-Eingang (`./sender-file-job.ts`). A person's request
+   * decides the whole mail.
+   */
+  keepOthers?: boolean
 }
 
 /** Who decided and how, the same for every row of one request. */
 export interface DecisionActor {
   decidedBy: string
-  via: 'app' | 'agent' | 'agent_proposal'
+  /** `sender`: a verified writer's own mail, filed as them without a click (migration 0194). */
+  via: 'app' | 'agent' | 'agent_proposal' | 'sender'
   proposalId: string | null
 }
 
@@ -105,7 +113,7 @@ export async function writeMailDecisions(
       }
 
       const filed = new Set(write.files.map((decision) => decision.partId))
-      const others = parts.filter((part) => part.state === 'waiting' && !filed.has(part.id))
+      const others = write.keepOthers ? [] : parts.filter((part) => part.state === 'waiting' && !filed.has(part.id))
       decisions.push(...(await dismissParts(tx, mail, others, actor, now)))
       await tx.update(inboundMails).set({ updatedAt: now }).where(eq(inboundMails.id, write.mailId))
     }
@@ -214,6 +222,8 @@ export async function restoreMailParts(
     const restorable = (await findMailParts([mailId], tx)).filter(
       (part) =>
         (part.state === 'dismissed' || part.state === 'expired') &&
+        // An outsider's mail that ran out is discarded, never restored (migration 0194 refuses it too).
+        !(part.state === 'expired' && mail.senderClass === 'external') &&
         part.endedAt !== null &&
         new Date(part.endedAt) > restorableAfter &&
         (part.kind === 'message' || part.storageKey !== null),

@@ -39,6 +39,14 @@ import type {
 import type { MalwareScanStatus } from './inbound-mail-vocabulary'
 import { impersonationOf, senderNeedsAcknowledgement, senderRiskLevel, type SenderFacts } from './sender-risk'
 
+/**
+ * Folder names the office files correspondence in: where a new E-Mail-Verlauf
+ * goes by default when the agent suggested no folder for the text, the first
+ * the person may write in, else the project root. The review UI's draft and
+ * the sender's direct filing (`./sender-file-job.ts`) read this one rule.
+ */
+export const CORRESPONDENCE_FOLDER = /(?:^|\/)\s*(?:korrespondenz|schriftverkehr|correspondence|e-?mails?)\s*$/iu
+
 /** A part as the service reads it, before its default is known. */
 export type InboundMailPartBase = Omit<InboundMailPartView, 'preselected'>
 
@@ -139,7 +147,8 @@ export function incompleteReason(view: Omit<InboundMailView, DerivedFields>): In
   if (view.status !== 'waiting') return 'not_waiting'
   if (view.projectClosed) return 'project_closed'
   const sender = senderFactsOfView(view)
-  if (!sender || senderNeedsAcknowledgement(sender)) return 'sender'
+  // A mail that claims a writer it could not prove to be waits for that writer's „Ja, gesendet“.
+  if (!sender || senderNeedsAcknowledgement(sender) || view.senderClass === 'unverified_writer') return 'sender'
 
   const attachments = view.parts.filter((part) => part.kind === 'attachment')
   const waiting = attachments.filter((part) => part.state === 'waiting')
@@ -163,13 +172,17 @@ export function incompleteReason(view: Omit<InboundMailView, DerivedFields>): In
 /** The view with what it asks of the person: each part's default, the sender's risk, whether it is complete. */
 export function withReviewDefaults(base: InboundMailViewBase): InboundMailView {
   const sender = senderFactsOfView(base)
-  const parts = base.parts.map((part) => ({ ...part, preselected: partPreselected(part, { projectClosed: base.projectClosed, rawScan: base.rawScan, sender }) }))
+  // Nothing is offered checked to a reader who may not file it (`sender_only`): they may only dismiss it.
+  const parts = base.parts.map((part) => ({
+    ...part,
+    preselected: !base.onlySenderReleases && partPreselected(part, { projectClosed: base.projectClosed, rawScan: base.rawScan, sender }),
+  }))
   const view = { ...base, parts }
   return {
     ...view,
     riskLevel: senderRiskLevel(sender),
     impersonation: sender ? impersonationOf(sender) : null,
-    needsSenderAcknowledgement: sender !== null && senderNeedsAcknowledgement(sender),
+    needsSenderAcknowledgement: sender !== null && (senderNeedsAcknowledgement(sender) || base.senderClass === 'unverified_writer'),
     incompleteReason: incompleteReason(view),
   }
 }

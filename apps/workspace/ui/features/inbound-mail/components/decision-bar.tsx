@@ -51,6 +51,7 @@ function blockerText(blocker: DraftBlocker, t: (key: string, vars?: Record<strin
       return null
     case 'project_closed':
     case 'thread_name_missing':
+    case 'sender_only':
       return t(`bar.blockers.${blocker.kind}`)
     case 'folder_missing':
     case 'name_stop':
@@ -104,7 +105,7 @@ export function DecisionBar({
             <CheckLine checked={acknowledgeSender} onCheckedChange={onAcknowledgeSender} disabled={busy} testId="acknowledge-sender">
               <span className="text-foreground inline-flex items-center gap-1.5 font-medium">
                 <ShieldAlert className="text-warning size-3.5 shrink-0" aria-hidden />
-                {t(impersonation ? 'bar.acknowledgeImpersonation' : 'bar.acknowledgeSender')}
+                {t(impersonation ? 'bar.acknowledgeImpersonation' : summary.ownClaimedMail ? 'bar.acknowledgeOwnMail' : 'bar.acknowledgeSender')}
               </span>
             </CheckLine>
           )}

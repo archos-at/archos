@@ -1043,6 +1043,7 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `recipient_count` | `integer` | 0..1000 | To and Cc recipients, the project addresses not counted; more than the To/Cc `participants` kept means the 200 cap cut some, and a follow refuses the mail (condition 5, `recipients_unchecked`) |
 | `sender_trust` | `text` | `member_verified`/`member_unverified`/`external_verified`/`external_unverified`; required when `waiting` or `settled` | A label and a condition on defaults, never a gate |
 | `sender_user_id` | `text` | set exactly when the trust is `member_*` (`inbound_mails_member_has_user`); person-shaped | Read only under the notice rules |
+| `sender_class` | `text` | migration 0194: `verified_writer`/`unverified_writer`/`office_member`/`external`; set exactly with the trust (`inbound_mails_sender_class_with_trust`); `external` exactly for `external_*` (`…_sender_class_member`); `verified_writer` only with `member_verified`, `dkim_pass`, a member, no `stale_date`/`date_out_of_range`/`message_id_reused`/`already_filed`, `not_addressed_to_project` only with `bcc_own`, not automatic (`inbound_mails_verified_writer_evidence`) | Who the sender is to the project, judged by the hold with the member's write right. Frozen: see below |
 | `sender_reason` | `text` | 20 known codes; set exactly with the trust; `dkim_pass` exactly when `*_verified` (`inbound_mails_reason_with_trust`) | |
 | `signer_domain` | `text` | ≤ 253 | |
 | `signed_headers` | `text[]` | ≤ 64, lowercase header names | mailauth's `signingHeaders.keys` of the aligned passing signature |
@@ -1052,7 +1053,7 @@ answers by reading the winner. Index `(project_id, created_at)`.
 | `dropped_reason` | `text` | `auto_reply`/`delivery_report`/`self_loop`; set exactly when `dropped` | |
 | `sent_at`, `sent_at_header` | `timestamptz` | | The clamped Date and the sender's claim |
 | `received_at` | `timestamptz` | NOT NULL | |
-| `expires_at` | `timestamptz` | NOT NULL, after `received_at` | Fixed at receipt (30 days) |
+| `expires_at` | `timestamptz` | NOT NULL, after `received_at` | 30 days at receipt; the hold sets 14 for an `external` mail (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`); a restore may move it later |
 | `settled_at` | `timestamptz` | set exactly when `settled` | |
 | `notified_at`, `expiring_notified_at` | `timestamptz` | | Told once |
 | `not_staged` | `jsonb` | array ≤ 100 | `[{ filename, reason }]` while waiting |
@@ -1066,6 +1067,14 @@ The scrub is a CHECK (`inbound_mails_ended_is_scrubbed`): a `settled` or
 participants or `not_staged`, and no staged key unless `erasure_deferred_at`
 (or, for the raw key only, `original_move_pending_at`). A mail is never
 `waiting` before its raw message was scanned (`inbound_mails_waiting_is_scanned`).
+
+Trigger `inbound_mails_sender_verdict_guard` (0194): the verdict (`sender_class`,
+`sender_trust`, `sender_user_id`, `sender_reason`, `sender_flags`,
+`signer_domain`, `signed_headers`, `automatic`, `received_at`) changes only in
+the `received → waiting` transition (`inbound_mails_sender_verdict_frozen`); a
+mail never goes back to `receiving` or `received`, and no INSERT is a
+`verified_writer`'s (`…_sender_verdict_held_once`). One place writes the
+evidence of a direct filing: the hold's compare-and-set.
 
 Indexes: `inbound_mails_waiting_idx` (org, project, received_at; waiting),
 `_expiry_idx`, `_receiving_idx` (updated_at; receiving or received),
@@ -1129,7 +1138,7 @@ sent from here.
 | `part_id` | `uuid` | FK `(part_id, mail_id, project_id, organization_id)` → `inbound_mail_parts` CASCADE; unique `(id, part_id)` | |
 | `action` | `text` | `file`/`dismiss`/`restore` | |
 | `decided_by` | `text` | NOT NULL, person-shaped (`inbound_mail_decisions_decider_is_person`) | Always a person |
-| `via` | `text` | `app`/`agent`/`agent_proposal`/`follow`, default `app` | |
+| `via` | `text` | `app`/`agent`/`agent_proposal`/`follow`/`sender`, default `app` | `sender` (0194): a verified writer's own mail, filed as them without a click |
 | `proposal_id` | `uuid` | exactly with `agent_proposal` | |
 | `follow_id` | `uuid` | exactly with `follow`; FK `(follow_id, mail_thread_id, decided_by, organization_id)` → `mail_thread_follows (id, thread_id, user_id, organization_id)` CASCADE | The decider is the follower |
 | `decided_at` | `timestamptz` | | |
@@ -1141,15 +1150,25 @@ sent from here.
 | `screening_release`, `acknowledged_sender`, `acknowledged_risk` | `boolean` | NOT NULL, default false; only on `file` | Read by the filing job from here and nowhere else |
 | `audited_at` | `timestamptz` | | NULL while owed to the trail |
 
-CHECKs: `inbound_mail_decisions_pagent_cards_file_clean` (an agent's card carries
+CHECKs: `inbound_mail_decisions_agent_cards_file_clean` (an agent's card carries
 no release and no acknowledgement); `…_follow_appends_text_only` (a follow is
 `file` + `append` with no release or acknowledgement); `…_destination_when_filing`,
-`…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`.
+`…_target_only_when_filing`, `…_thread_named`, `…_message_text`, `…_lengths`;
+`…_sender_files_clean` (0194: a `sender` decision files, and acknowledges or
+releases nothing).
 
 Trigger `inbound_mail_decisions_guard`:
 - INSERT: a follow files a text, never an attachment
   (`inbound_mail_decisions_follow_files_text`); a thread is chosen for a filed
-  text and only for it (`…_thread_for_text`).
+  text and only for it (`…_thread_for_text`). From 0194: `via = 'sender'` only
+  on a `verified_writer` mail, decided by its `sender_user_id`, its raw message
+  `clean`, the part without risk flags or content findings
+  (`…_sender_files_own_verified_mail`); a `file` or `restore` on an
+  `unverified_writer` mail only by its `sender_user_id`, a `file` with
+  `acknowledged_sender` (`…_claimed_sender_releases`); no `restore` of an
+  `expired` part of an `external` mail (`…_external_expiry_final`). The part and
+  the mail are read by their full composite keys, under the caller's row-level
+  security; SECURITY INVOKER.
 - UPDATE: nothing changes but `audited_at`, once, NULL to a time (`…_immutable`).
 - DELETE: refused while `audited_at IS NULL` and the project row exists
   (`…_audited_before_delete`, RT-S8): sweeps wait for the trail, a purge (which
@@ -1274,6 +1293,15 @@ renders into the same Verläufe. 0193 adds three counters to `mail_imports`,
 `threads_created`, `threads_appended` and `already_in_project` (integer, NOT
 NULL, default 0, CHECK `mail_imports_thread_counts_non_negative`), counted when
 the cursor passes a mail, so a retried mail counts once.
+
+### Reversing 0194
+
+`0194_sender_class.down.sql` **refuses** (`object_in_use`) while any decision
+says `via = 'sender'` or any entry `filed_via = 'sender'`: they are the record
+of a filing and are not rewritten. Otherwise it drops the verdict guard and
+0194's CHECKs, restores 0193's two guard functions and `via` lists, deletes the
+`inbound_mail_sender_file` jobs and the four inbox types 0194's build writes,
+and drops `sender_class`.
 
 ### Reversing 0193
 

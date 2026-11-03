@@ -1000,7 +1000,30 @@ export const collaboration = {
             titleRelated: 'Your mail to “{subject}” was dismissed',
             body: 'Dismissed by {actor}. It can be restored for seven days.',
           },
+          // Filed as you, without anyone pressing a button: your domain signed it and you may write in the project.
+          direct: {
+            title: 'Your mail to “{subject}” was filed',
+            titleRelated: 'Your mail to “{subject}” was filed in “{related}”',
+            body: 'Filed directly as you, because your domain signed it and you may file in this project.',
+          },
         },
+      },
+      inboundMailHeld: {
+        title: 'Did you send this mail to “{subject}”?',
+        titleResolved: 'The mail to “{subject}” in your name is decided',
+        body: 'It carries your address, but its signature did not match. Only you can file it; anyone in the project can dismiss it.',
+      },
+      inboundMailHeldForWriters: {
+        title: 'Your mail to “{subject}” waits to be filed',
+        body: 'You cannot file in this project, so someone who can decides where it goes.',
+      },
+      inboundMailRejected: {
+        title: 'Your mail to “{subject}” was dismissed',
+        body: 'Dismissed by {actor}. It can be restored for seven days.',
+      },
+      inboundMailExpired: {
+        title: 'Your mail to “{subject}” was not filed in time',
+        body: 'Nobody filed it within its window, and it has expired.',
       },
       inboundMailFilingFailed: {
         title: 'A mail to “{subject}” was not filed completely',

@@ -52,6 +52,7 @@ export function heldMail(overrides: Partial<InboundMailRow> = {}): InboundMailRo
     recipientCount: 0,
     senderTrust: 'member_verified',
     senderUserId: PERSON,
+    senderClass: 'verified_writer',
     senderReason: 'dkim_pass',
     signerDomain: 'statik-weber.at',
     signedHeaders: ['from', 'subject', 'date', 'message-id', 'to', 'in-reply-to', 'references'],

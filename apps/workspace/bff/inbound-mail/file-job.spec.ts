@@ -86,6 +86,7 @@ vi.mock('./announce', () => ({
   announceDecided: vi.fn(async () => true),
   announceFilingFailed: vi.fn(async () => true),
   settleFilingFailed: vi.fn(async () => undefined),
+  settleHeld: vi.fn(async () => undefined),
   settleProjectNotices: vi.fn(async () => undefined),
 }))
 vi.mock('./notice-repository', () => ({ partOutcomesOf: vi.fn(async () => []) }))

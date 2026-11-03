@@ -65,10 +65,11 @@ export type MailThreadEntrySource = (typeof MAIL_THREAD_ENTRY_SOURCES)[number]
 
 /**
  * How a message was filed: decided in the app, by an outside agent as the
- * person, through an agent's card, by a follow, or by the person's archive import.
+ * person, through an agent's card, by a follow, by the person's archive import,
+ * or directly as its verified sender's own (`sender`, migration 0194).
  * An archive entry is always `archive_import`, and only an archive entry is.
  */
-export const MAIL_THREAD_FILED_VIA = ['app', 'agent', 'agent_proposal', 'follow', 'archive_import'] as const
+export const MAIL_THREAD_FILED_VIA = ['app', 'agent', 'agent_proposal', 'follow', 'archive_import', 'sender'] as const
 export type MailThreadFiledVia = (typeof MAIL_THREAD_FILED_VIA)[number]
 
 /** One address of a filed message (`mail_thread_entries.participants`); the renderer prints name and domain only. */

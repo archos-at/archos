@@ -86,10 +86,10 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
         raw_storage_key, read_storage_key, raw_scan_status, raw_scanned_at, sender_address, sender_name, subject, base_subject,
-        sender_trust, sender_reason, signer_domain, message_id, in_reply_to, participants, participant_domains, sent_at, expires_at)
+        sender_trust, sender_class, sender_reason, signer_domain, message_id, in_reply_to, participants, participant_domains, sent_at, expires_at)
       VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'org-test-bucket',
         ${stagingKey(mailId, 'raw.eml')}, ${stagingKey(mailId, 'read.json')}, 'clean', now(), 'p.weber@statik-weber.at', 'DI Petra Weber',
-        'Statik', 'statik', 'external_verified', 'dkim_pass', 'statik-weber.at', ${`<${mailId}@statik-weber.at>`}, '{"<first@example.test>"}',
+        'Statik', 'statik', 'external_verified', 'external', 'dkim_pass', 'statik-weber.at', ${`<${mailId}@statik-weber.at>`}, '{"<first@example.test>"}',
         '[]'::jsonb, '{statik-weber.at}', now() - interval '1 hour', now() + interval '30 days')
       RETURNING id`)
     const text = await one<{ id: string }>(sql`

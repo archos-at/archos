@@ -42,8 +42,10 @@ import {
   announceAppended,
   announceCapReached,
   announceDecided,
+  announceExpired,
   announceExpiring,
   announceFilingFailed,
+  announceHeld,
   announceFollowExpiring,
   announceWaiting,
   INBOUND_MAIL_INBOX_TYPES,
@@ -51,6 +53,7 @@ import {
   settleCapReached,
   settleFilingFailed,
   settleFollowExpiring,
+  settleHeld,
   settleProjectNotices,
   type WaitingMail,
 } from './announce'
@@ -77,6 +80,8 @@ const mail = (overrides: Partial<WaitingMail> = {}): WaitingMail => ({
 const emitted = () => (vi.mocked(emitInboxItems).mock.calls[0]?.[0] ?? []) as InboxEmission[]
 
 beforeEach(() => {
+  // A test that makes the write fail leaves that behind otherwise (clearAllMocks keeps implementations).
+  vi.mocked(emitInboxItems).mockImplementation(async (rows) => rows.length)
   vi.mocked(findProjectInOrg).mockResolvedValue({ id: PROJECT, name: 'Wohnbau Hietzing' } as never)
   vi.mocked(loadOrganizationDirectory).mockResolvedValue(
     new Map([MEMBER, MANAGER, OTHER].map((userId) => [userId, { userId, email: null, name: userId, profilePictureUrl: null }])),
@@ -199,15 +204,84 @@ describe('inbound_mail.decided (D9)', () => {
     }
   })
 
-  it('says dismissed, and never tells anyone about an unverified or a stranger’s mail', async () => {
+  it('tells a dismissal as inbound_mail.rejected, to the member the mail names, verified or not; never a stranger', async () => {
     await announceDecided(decided({ outcome: 'dismissed' }))
-    expect(emitted()[0]?.payload).toEqual({ subject: 'Wohnbau Hietzing', variant: 'dismissed' })
+    expect(emitted()).toEqual([
+      expect.objectContaining({
+        recipientUserId: MEMBER,
+        type: 'inbound_mail.rejected',
+        actorUserId: DECIDER,
+        groupKey: `inbound_mail.rejected:project:${PROJECT}:${MAIL}`,
+        payload: { subject: 'Wohnbau Hietzing' },
+      }),
+    ])
 
     vi.mocked(emitInboxItems).mockClear()
-    expect(await announceDecided(decided({ senderTrust: 'member_unverified' }))).toBe(false)
+    // The amendment: the member a forged From names is told what became of it; they are the one who can tell.
+    expect(await announceDecided(decided({ senderTrust: 'member_unverified', outcome: 'dismissed' }))).toBe(true)
+    expect(emitted()[0]).toMatchObject({ recipientUserId: MEMBER, type: 'inbound_mail.rejected' })
+    vi.mocked(emitInboxItems).mockClear()
     expect(await announceDecided(decided({ senderTrust: 'external_verified', senderUserId: null }))).toBe(false)
     expect(await announceDecided(decided({ senderTrust: null }))).toBe(false)
+    expect(await announceDecided(decided({ senderUserId: OTHER }))).toBe(false)
     expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('tells the sender their mail was filed directly as them, although they are its decider', async () => {
+    vi.mocked(filedFolderIds).mockResolvedValueOnce(['folder-1'])
+
+    await announceDecided(decided({ decidedBy: MEMBER, direct: true }))
+
+    expect(emitted()).toEqual([
+      expect.objectContaining({
+        recipientUserId: MEMBER,
+        type: 'inbound_mail.decided',
+        actorUserId: null,
+        payload: { subject: 'Wohnbau Hietzing', variant: 'direct', related: 'Behörde/Bescheide' },
+      }),
+    ])
+  })
+})
+
+describe('the sender rule’s notices (ADR-0137, amendment of 2026-11-03)', () => {
+  it('asks the writer a forged or unsigned mail names whether they sent it, per mail', async () => {
+    expect(await announceHeld({ ...mail({ senderTrust: 'member_unverified' }), senderClass: 'unverified_writer' })).toBe(true)
+
+    expect(emitted()).toEqual([
+      expect.objectContaining({
+        recipientUserId: MEMBER,
+        type: 'inbound_mail.held',
+        anchorId: MAIL,
+        actorUserId: null,
+        groupKey: `inbound_mail.held:project:${PROJECT}:${MAIL}`,
+        payload: { subject: 'Wohnbau Hietzing' },
+      }),
+    ])
+  })
+
+  it('tells a member without write rights their mail waits for the writers; nothing about an outsider’s or a verified writer’s', async () => {
+    await announceHeld({ ...mail(), senderClass: 'office_member' })
+    expect(emitted()[0]).toMatchObject({ recipientUserId: MEMBER, type: 'inbound_mail.held_for_writers' })
+
+    vi.mocked(emitInboxItems).mockClear()
+    expect(await announceHeld({ ...mail({ senderTrust: 'external_unverified', senderUserId: null }), senderClass: 'external' })).toBe(false)
+    expect(await announceHeld({ ...mail(), senderClass: 'verified_writer' })).toBe(false)
+    expect(await announceHeld({ ...mail({ senderUserId: OTHER }), senderClass: 'office_member' })).toBe(false)
+    expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('settles the held notices of a decided mail, and tells its member when it ran out', async () => {
+    await settleHeld(ORG, [MAIL])
+    expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({
+      organizationId: ORG,
+      types: ['inbound_mail.held', 'inbound_mail.held_for_writers'],
+      anchorId: MAIL,
+    })
+
+    await announceExpired(mail())
+    expect(emitted()[0]).toMatchObject({ recipientUserId: MEMBER, type: 'inbound_mail.expired', anchorId: MAIL })
+    vi.mocked(emitInboxItems).mockClear()
+    expect(await announceExpired(mail({ senderUserId: null }))).toBe(false)
   })
 })
 
@@ -297,6 +371,10 @@ describe('redacted by construction (RT-X1)', () => {
     await announceWaiting(base)
     await announceExpiring(base)
     await announceDecided({ ...base, decidedBy: DECIDER, outcome: 'filed' })
+    await announceDecided({ ...base, decidedBy: DECIDER, outcome: 'dismissed' })
+    await announceHeld({ ...base, senderClass: 'unverified_writer' })
+    await announceHeld({ ...base, senderClass: 'office_member' })
+    await announceExpired(base)
     await announceFilingFailed({ ...leaky, organizationId: ORG, projectId: PROJECT, mailId: MAIL, decidedBy: DECIDER, failure: 'screened' })
     await announceCapReached({ ...leaky, organizationId: ORG, projectId: PROJECT, addressId: 'address-1', notice: 'nearly_full' })
     await announceAppended({ ...leaky, organizationId: ORG, projectId: PROJECT, mailId: MAIL, threadId: THREAD, followerUserId: MEMBER })

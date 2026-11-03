@@ -30,6 +30,7 @@ import type {
   InboundMailPartState,
   InboundMailStatus,
   InboundMailThreadAction,
+  InboundMailSenderClass,
   InboundSenderTrust,
   MailParticipant,
   MalwareScanStatus,
@@ -136,6 +137,11 @@ export const inboundMails = pgTable(
     senderTrust: text('sender_trust').$type<InboundSenderTrust>(),
     /** The member the From address belongs to; read only under D9's notice rules. */
     senderUserId: text('sender_user_id'),
+    /**
+     * Who the sender is to the project (migration 0194): written by the hold with
+     * the trust, frozen after it. NULL exactly while `senderTrust` is.
+     */
+    senderClass: text('sender_class').$type<InboundMailSenderClass>(),
     /** Why the sender is or is not verified; `dkim_pass` exactly when the trust is verified. */
     senderReason: text('sender_reason').$type<SenderReason>(),
     signerDomain: text('signer_domain'),

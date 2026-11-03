@@ -389,7 +389,13 @@ code, never a sender, subject or file name. A mail's notices go to its sender
 only when it is `member_verified`, addressed to the project or the member's own
 Bcc copy, and the member may read the project; otherwise to the project's
 managers, so whoever forged a member's address never reaches that member
-through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-seven-notices).
+through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-eleven-notices).
+
+*Amended by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits):* the member a
+From address names now hears why their mail waits and what became of it, forged
+or not (`inbound_mail.held`, `.held_for_writers`, `.rejected`, `.expired`, and
+`.decided` with `direct` for a mail filed as them): eleven types. Rows still
+carry the project's name, a count and a code.
 
 ### Exposure
 
@@ -420,15 +426,16 @@ through us. The table: [`inbound-mail.md`](../architecture/inbound-mail.md#the-s
 
 | Item | Kept |
 |---|---|
-| A held mail | 30 days (`INBOUND_MAIL_WAIT_DAYS`, fixed at receipt); a notice five days before the end |
-| Dismissed or expired parts | restorable 7 days, then erased; a dismissed part of an `external_unverified` mail is erased by the next sweep |
+| A held mail | 30 days (`INBOUND_MAIL_WAIT_DAYS`); mail from outside the office 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`, set at the hold, by the [amendment of 2026-11-03](#amendment-2026-11-03-verified-project-mail-is-filed-directly-only-unverified-mail-waits)); a notice five days before the end |
+| Dismissed or expired parts | restorable 7 days, then erased; a dismissed part of an `external_unverified` mail, and an expired part of an `external` mail (the amendment), are erased by the next sweep |
 | A settled mail (ids, counts, trust) | while any filed part's document lives, else 30 days |
 | A dropped mail (auto-reply, report, loop) | 30 days, its bytes erased at once |
 | The original of a filed message | its entry's life: until the Verlauf's document is deleted |
 | A follow | until it ends; ended follows go with their thread |
 
 Expiry is not a delete: an expired mail is restorable for seven days like a
-dismissed one. Thirty days, because holidays run three weeks and a lost
+dismissed one, except mail from outside the office, which the amendment
+discards when it runs out. Thirty days, because holidays run three weeks and a lost
 Bescheid is real harm. Code constants, no environment variables. A legal hold
 on the project (and, for a mail's bytes, a custodian hold on the member it came
 from) pauses every erasure and deletion; ending still happens. The sweeps:
@@ -502,11 +509,12 @@ placement review and no document check.
   authentication line with `spf=`; a tenant DELETE; the legal-hold triggers.
 - **Static ratchet** `lib/inbound-mail/review-first.spec.ts`: the webhook, the
   receive job, the suggest job and the sweep import no filing code.
-- **Dynamic ratchet** `lib/inbound-mail/review-first.e2e.spec.ts`: a perfect
-  `member_verified` mail with no follow runs to idle with no document; with a
-  follow and a signed reference, exactly one new Fassung and the attachments
-  still waiting; with References outside the signature or a new participant
-  domain, none.
+- **Dynamic ratchet** `lib/inbound-mail/review-first.e2e.spec.ts`: a signed
+  mail of a member who may not write runs to idle with no document (a writer's
+  ends as their document since the amendment; see its Confirmation);
+  `lib/mail-thread/follow.integration.spec.ts`: with a follow and a signed
+  reference, exactly one new Fassung and the attachments still waiting; with
+  References outside the signature or a new participant domain, none.
 - `lib/mail-thread/follow-eligibility.spec.ts` fails each of conditions 1–6
   alone; `lib/mail-thread/follow.integration.spec.ts` the rest against
   Postgres.
@@ -671,5 +679,19 @@ scanner (ADR-0150) and the upload path like any other file.
   including a spoofed From of a real member, a replayed signed mail, a class
   rewritten after hold, a `via = 'sender'` decision by someone else, and the
   cross-tenant and runtime-role refusals.
-- `review-first.e2e.spec.ts`: a `verified_writer` mail ends as a document; a
-  spoofed one waits for its member.
+- `review-first.e2e.spec.ts`: one mail per class through the real receive,
+  sender's filing and filing jobs against Postgres: a `verified_writer` mail
+  ends as a document uploaded as its sender; a signature that fails and a
+  spoofed From of the same writer wait (`unverified_writer`), the sender's
+  filing files nothing and the database refuses a direct decision for them; an
+  office member's mail and an outsider's (14 days) wait.
+- `lib/inbound-mail/sender-class.spec.ts` (the classifier, every flag),
+  `sender-filing.spec.ts` (what a direct filing files, and where),
+  `sender-file-job.spec.ts` (each step of the job breaking alone),
+  `receive-job.spec.ts` (the class the hold writes, a WorkOS failure reading as
+  no write right), `announce.spec.ts` (the four new notices through the
+  canaries), `sweep.integration.spec.ts` (an outsider's expired mail erased
+  and settled on the next sweep, a member's kept seven days).
+- `review-first.spec.ts`: the receive side still imports no filing code; it
+  queues `inbound_mail_sender_file` by name, and `sender-file-job.ts` is among
+  the filing modules.

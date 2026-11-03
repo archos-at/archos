@@ -16,7 +16,8 @@ import 'server-only'
  * | `type_not_accepted` | the office accepts the type, of the part and of the name it is filed under |
  * | `name_stop` | the name check passes the file name, the thread name and a new folder path, or the person released it |
  * | `risk_not_acknowledged` | a `macro` or `type_mismatch` part, an append to a thread the sender could not vouch for, a Fassung of an earlier document from such a sender: the part's id is in `acknowledgeRisk` |
- * | `sender_not_acknowledged` | an unconfirmed sender the person must accept: `member_unverified`, a DKIM `fail` or `policy`, a mail addressed to others (outside the Bcc case), a stale date |
+ * | `sender_only` | a mail that claims a writer it could not prove to be (`unverified_writer`) is filed only by that writer (ADR-0137's amendment; the database holds the same rule) |
+ * | `sender_not_acknowledged` | an unconfirmed sender the person must accept: `member_unverified`, a DKIM `fail` or `policy`, a mail addressed to others (outside the Bcc case), a stale date, and every mail that claims a writer it could not prove to be |
  * | `acknowledgement_in_bulk` | acknowledgements only in a request about one mail (RT-S5) |
  * | `card_carries_acknowledgement` | an agent's card carries none (RT-S5; the database refuses it too) |
  * | `target_unknown`, `thread_full` | the thread or the earlier document is one the person may read, and the thread has room |
@@ -42,6 +43,7 @@ import type { InboundMailRefusal } from './inbound-mail-wire'
 import type { InboundMailDecision, InboundMailPartDecision } from './inbound-mail-wire'
 import type { DecisionActor } from './repository'
 import { findDocumentIdByStoredName, type CandidateDocument, type ThreadDocument } from './repository'
+import { onlySenderReleases } from './sender-class'
 import { senderFactsOf, senderNeedsAcknowledgement as needsAcknowledgement } from './sender-risk'
 
 /** The Dokumentart a filed mail text's thread document carries (D14). */
@@ -86,8 +88,10 @@ export function mailIfMatch(
  * verdict. A mail a person can read always has one (`inbound_mails_trust_when_shown`).
  */
 export function senderNeedsAcknowledgement(
-  mail: Pick<InboundMailRow, 'senderTrust' | 'senderReason' | 'senderFlags'>,
+  mail: Pick<InboundMailRow, 'senderTrust' | 'senderReason' | 'senderFlags' | 'senderClass'>,
 ): boolean {
+  // „Haben Sie das gesendet?“: the claimed writer releases it by saying so (`acknowledged_sender`, migration 0194).
+  if (mail.senderClass === 'unverified_writer') return true
   const facts = senderFactsOf(mail)
   return facts === null || needsAcknowledgement(facts)
 }
@@ -313,8 +317,13 @@ export function planMailDecision(
   const released =
     decision.parts.some((part) => part.screeningRelease) ||
     (decision.message?.thread.action === 'create' && decision.message.thread.screeningRelease !== undefined)
-  if (context.actor.via === 'agent_proposal' && (acknowledged || released)) {
+  if ((context.actor.via === 'agent_proposal' || context.actor.via === 'sender') && (acknowledged || released)) {
     throw refusal('card_carries_acknowledgement', 'A card the agent proposed files clean, unflagged parts only; the person decides the rest', {
+      mailId: mail.id,
+    })
+  }
+  if (onlySenderReleases(mail, context.actor.decidedBy) && (decision.parts.length > 0 || decision.message)) {
+    throw refusal('sender_only', 'This mail claims another member as its sender; only that member can file it. You can dismiss it', {
       mailId: mail.id,
     })
   }

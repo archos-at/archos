@@ -116,6 +116,55 @@ export const INBOUND_MAIL_TYPE_DEFINITIONS = {
     email: IN_APP_ONLY,
     push: { category: 'requests', urgency: 'low' },
   },
+  /*
+    The sender rule's notices (ADR-0137, amendment of 2026-11-03), each to the
+    member a mail's From address names, never to anyone outside the office.
+
+    `held`: the mail claims the reader, a writer of the project, and the
+    signature did not hold. Actionable: only the reader can release it („Haben
+    Sie das gesendet?“); resolved when the mail is decided or expires. Per
+    mail. A forger causes this row for the member they impersonate, which is
+    the point: that member is the one who can answer.
+  */
+  'inbound_mail.held': {
+    actionable: true,
+    grouping: 'per-anchor',
+    retentionDays: 30,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'requests', urgency: 'normal' },
+  },
+  /*
+    `held_for_writers`: the reader's own mail waits for the project's writers,
+    since the reader may not write there. Informational, low: nothing waits on
+    the reader.
+  */
+  'inbound_mail.held_for_writers': {
+    actionable: false,
+    grouping: 'per-anchor',
+    retentionDays: 30,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'results', urgency: 'low' },
+  },
+  /* `rejected`: a writer dismissed the reader's own mail. A result, like `decided`. */
+  'inbound_mail.rejected': {
+    actionable: false,
+    grouping: 'per-anchor',
+    retentionDays: 30,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'results', urgency: 'low' },
+  },
+  /* `expired`: the reader's own mail ran out unfiled (sweep 3). A result. */
+  'inbound_mail.expired': {
+    actionable: false,
+    grouping: 'per-anchor',
+    retentionDays: 30,
+    gate: 'operational',
+    email: IN_APP_ONLY,
+    push: { category: 'results', urgency: 'low' },
+  },
 } satisfies Partial<Record<InboxItemType, InboxTypeDefinition>>
 
 /**

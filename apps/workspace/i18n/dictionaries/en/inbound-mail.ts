@@ -24,7 +24,7 @@ export const inboundMail = {
   empty: {
     neverTitle: 'No mail to this project yet',
     neverText:
-      'Put the address below in Cc when you write to the authority, the structural engineer or the client. The replies land here, and nothing is filed until someone confirms it.',
+      'Put the address below in Cc when you write to the authority, the structural engineer or the client. What you send from your own signed address is filed directly; replies from others land here until someone files them.',
     doneTitle: 'Nothing waits to be filed',
     doneText: 'New mail to the project mail address appears here.',
     showHandled: 'Show handled mail',
@@ -104,6 +104,14 @@ export const inboundMail = {
         'The name shown is a member’s, but the address is not theirs. Mails that try to divert a payment look like this. {productName} suggests nothing for it, and filing it needs your confirmation.',
       unverified: 'The sending domain did not sign this mail. {productName} suggests nothing for it and selects no mail thread.',
     },
+  },
+
+  // Why a mail waits, by its sender (only signed mail from someone who may file in the project is filed directly).
+  waitReason: {
+    signature: 'Waiting: the signature does not match the member’s address. Only that member can file it; anyone can dismiss it.',
+    signatureOwn: 'Did you send this mail? The signature does not match your address, so it was not filed directly. Only you can file it.',
+    no_write_rights: 'Waiting: the sender may not file in this project.',
+    outside_office: 'Waiting: the sender is outside the office. If nobody files it, it is discarded after {days} days.',
   },
 
   flags: {
@@ -296,9 +304,11 @@ export const inboundMail = {
     busy: 'Filing …',
     acknowledgeImpersonation: 'I checked that the mail is genuine. File it anyway',
     acknowledgeSender: 'Domain not verified. File anyway',
+    acknowledgeOwnMail: 'Yes, I sent this mail. File it',
     originalErased: 'The original of the mail is deleted after filing',
     blockers: {
       project_closed: 'The project is closed – reopen it to file',
+      sender_only: 'This mail carries another member’s address. Only that member can file it; you can dismiss it.',
       folder_missing: '{count, plural, one {Choose a folder for # attachment.} other {Choose a folder for # attachments.}}',
       name_stop: '{count, plural, one {Confirm the name check for # attachment.} other {Confirm the name check for # attachments.}}',
       risk: '{count, plural, one {Confirm the warning for # part.} other {Confirm the warning for # parts.}}',
@@ -380,6 +390,7 @@ export const inboundMail = {
     name_stop: 'The name check stopped a name. Confirm it with “File anyway”, or choose another name.',
     risk_not_acknowledged: 'Confirm the warning before filing.',
     sender_not_acknowledged: 'Confirm the unverified domain before filing.',
+    sender_only: 'This mail carries another member’s address. Only that member can file or restore it; you can dismiss it.',
     acknowledgement_in_bulk: 'This mail needs a confirmation of yours. Open it on its own.',
     card_carries_acknowledgement: 'This needs a confirmation only you can give. Open the mail.',
     name_taken: 'A document of this name is already in the project. File it as its next revision, or rename it.',
@@ -417,12 +428,12 @@ export const inboundMail = {
     copy: 'Copy',
     saveContact: 'Save as contact',
     contactName: '{productName} · {project}',
-    contactNote: 'Mail to this address waits in {productName} until someone files it.',
+    contactNote: '{productName} files your own signed mail to this address directly; other mail waits until someone files it.',
     usesLabel: 'What the address is for',
     uses: {
       cc: 'Put it in Cc when you write to the authority, the structural engineer or the client: the replies land in project mail.',
       forward: 'Forward documents to it from your mail program.',
-      held: 'Nothing is filed until someone confirms it.',
+      held: 'Mail someone who may file in the project sends from their own signed address is filed directly. Everything else waits until someone files it; mail from outside the office for 14 days.',
     },
     tileLead: 'Put in Cc, it brings the replies of the authority, the structural engineer and the client into project mail, ready to file.',
     openInbox: 'Open project mail',
@@ -455,7 +466,7 @@ export const inboundMail = {
     ownDomain: {
       share: '{percent} % of your office’s mail in the last {days} days was verified by your domain',
       missing: 'Your domain does not sign its mail – how to set it up',
-      explain: 'Mail your domain signs is labelled “Domain verified”. Unsigned mail from your colleagues needs a confirmation before filing.',
+      explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. Unsigned mail carrying a colleague’s address can only be filed by that colleague.',
       helpUrl: 'https://example.org/en/project-mail/#dkim',
     },
   },

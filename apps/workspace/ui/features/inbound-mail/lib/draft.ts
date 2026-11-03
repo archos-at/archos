@@ -20,7 +20,7 @@ import type {
   InboundMailThreadCandidateView,
   InboundMailView,
 } from '@/lib/inbound-mail/inbound-mail-wire'
-import { defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
+import { CORRESPONDENCE_FOLDER, defaultThread, messageSelectable as partMessageSelectable } from '@/lib/inbound-mail/review-defaults'
 import { displaySubject } from '@/lib/inbound-mail/subject'
 import { attachmentCase, type AttachmentCase } from './attachment-case'
 import { readSuggestion, type PartSuggestion } from './suggestion'
@@ -98,8 +98,6 @@ export interface DraftCopy {
   untitledThread: string
 }
 
-/** Folder names the office files correspondence in, for a new thread's default folder. */
-const CORRESPONDENCE_FOLDER = /(?:^|\/)\s*(?:korrespondenz|schriftverkehr|correspondence|e-?mails?)\s*$/iu
 
 /** The target a suggested path resolves to: the folder that has it, or a folder filing creates. */
 export function targetForPath(path: string, folders: readonly FolderOption[], folderId: string | null = null): FolderTarget {
@@ -251,6 +249,8 @@ export type DraftBlocker =
   | { kind: 'risk'; count: number }
   | { kind: 'thread_name_missing' }
   | { kind: 'sender' }
+  /** The mail claims another member as its sender: only they may file it (`sender_only`); the reader may dismiss it. */
+  | { kind: 'sender_only' }
 
 export interface DraftSummary {
   files: number
@@ -260,6 +260,8 @@ export interface DraftSummary {
   /** Nothing is filed, so the original is erased when the mail settles (D6). */
   originalErased: boolean
   needsSenderAcknowledgement: boolean
+  /** The mail claims the reader as its sender and their signature did not hold: their yes is „I sent this“. */
+  ownClaimedMail: boolean
   blockers: DraftBlocker[]
 }
 
@@ -283,6 +285,7 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
   if (risks > 0) blockers.push({ kind: 'risk', count: risks })
   if (text && draft.message?.target.kind === 'create' && draft.message.target.name.trim() === '') blockers.push({ kind: 'thread_name_missing' })
   if (needsSender && !draft.acknowledgeSender) blockers.push({ kind: 'sender' })
+  if (view.onlySenderReleases && files + (text ? 1 : 0) > 0) blockers.push({ kind: 'sender_only' })
 
   return {
     files,
@@ -290,6 +293,7 @@ export function draftSummary(view: InboundMailView, draft: MailDraft): DraftSumm
     thread: candidate ? { name: candidate.name, nextVersion: candidate.nextVersion } : null,
     originalErased: !text,
     needsSenderAcknowledgement: needsSender,
+    ownClaimedMail: view.senderClass === 'unverified_writer' && !view.onlySenderReleases,
     blockers,
   }
 }

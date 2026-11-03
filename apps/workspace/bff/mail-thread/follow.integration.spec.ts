@@ -110,12 +110,17 @@ vi.mock('@/lib/authz/folder-access', async (importOriginal) => ({
   requireFolderWrite: vi.fn(async () => undefined),
   getHiddenFolderIds: vi.fn(async () => []),
 }))
+// The replying member may not write in the project: their reply waits, and the follow is what appends it.
+// (A writer's own signed reply is filed as them instead: `review-first.e2e.spec.ts`.)
+vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermission: vi.fn(async () => false) }))
 vi.mock('@/lib/inbound-mail/announce', () => ({
   announceWaiting: vi.fn(async () => true),
   announceAppended: vi.fn(async () => true),
   announceDecided: vi.fn(async () => true),
   announceFilingFailed: vi.fn(async () => true),
   settleFilingFailed: vi.fn(async () => undefined),
+  announceHeld: vi.fn(async () => true),
+  settleHeld: vi.fn(async () => undefined),
   settleFollowExpiring: vi.fn(async () => undefined),
   settleProjectNotices: vi.fn(async () => undefined),
 }))
@@ -219,10 +224,10 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes, staging_bucket,
         read_storage_key, raw_scan_status, raw_scanned_at, sender_address, sender_name, subject, base_subject,
-        sender_trust, sender_reason, signer_domain, message_id, participants, participant_domains, sent_at, received_at, expires_at)
+        sender_trust, sender_class, sender_reason, signer_domain, message_id, participants, participant_domains, sent_at, received_at, expires_at)
       VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'waiting', ${mailId.replace(/-/g, '').padEnd(64, 'a')}, 2048, 'org-test-bucket',
         ${`org/${ORG}/project/${projectId}/_inbound-mail/${mailId}/read.json`}, 'clean', now(), 'anna@buero-muster.at', 'Anna Muster', 'AW: Einreichplan', 'einreichplan',
-        'external_verified', 'dkim_pass', 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
+        'external_verified', 'external', 'dkim_pass', 'buero-muster.at', ${`${mailId}@buero-muster.at`}, '[]'::jsonb, '{buero-muster.at}',
         ${receivedAt.toISOString()}::timestamptz, ${receivedAt.toISOString()}::timestamptz, now() + interval '30 days')`)
     const text = await one<{ id: string }>(sql`
       INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status)
@@ -567,7 +572,8 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
         hostile.message(
           hostile.multipart('mixed', [hostile.BODY, hostile.attachment(`S-${seed}.pdf`, 'application/pdf', hostile.pdf(`S ${seed}`))]),
           {
-            To: `${project.slug}.${project.token}@example.org`,
+            // `<local part>+<slug>.<token>@<domain>` (`address.ts`): without the local part no recipient names the project.
+            To: `p+${project.slug}.${project.token}@example.org`,
             Subject: 'AW: Einreichplan',
             Date: new Date(Date.now() - 60_000).toUTCString(),
             'Message-ID': `<${seed}-${STAMP}@buero-muster.at>`,

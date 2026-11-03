@@ -17,7 +17,7 @@ import { mailThreadEntries, mailThreadFollows, mailThreadMessageIds, mailThreads
 import { documentVisibleTo, SCREENED_ONLY } from '@/lib/documents/visibility'
 import type { FollowRow } from '@/lib/mail-thread/follow-eligibility'
 import type { ThreadCandidate } from '@/lib/mail-thread/mail-threading'
-import type { MalwareScanStatus } from './inbound-mail-vocabulary'
+import type { InboundMailSenderClass, MalwareScanStatus } from './inbound-mail-vocabulary'
 
 /** The mail the receive job reads, in any status: a job that finds it past `received` has nothing to do. */
 export async function findMailForReceive(mailId: string): Promise<InboundMailRow | null> {
@@ -324,8 +324,14 @@ export async function findThreadFollowContext(projectId: string, threadId: strin
   }
 }
 
-/** What the receive job writes onto the mail when it is held. */
-export type HeldMailFields = Pick<
+/**
+ * What the receive job writes onto the mail when it is held: what it read, the
+ * verdict on the sender and, with it, the sender's class and the window that
+ * class gives (migration 0194 freezes all three after this write).
+ */
+export type HeldMailFields = HeldMailColumns & { senderClass: InboundMailSenderClass; expiresAt: Date }
+
+type HeldMailColumns = Pick<
   NewInboundMailRow,
   | 'readStorageKey'
   | 'messageId'

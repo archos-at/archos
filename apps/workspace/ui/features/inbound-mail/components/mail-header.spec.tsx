@@ -107,3 +107,23 @@ describe('expiryShownInline', () => {
     expect(expiryShownInline({ status: 'handled', expiresAt: new Date(FIXTURE_NOW + day).toISOString() }, FIXTURE_NOW)).toBe(false)
   })
 })
+
+describe('why a mail waits (ADR-0137, amendment of 2026-11-03)', () => {
+  it('asks the member a mail with their address whether they sent it, and lets them file it saying so', () => {
+    renderDetail('impersonation')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signatureOwn')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('Did you send this mail?')
+  })
+
+  it('tells another writer only the member can file it, and blocks filing while leaving dismissal', () => {
+    renderDetail('claimed-by-colleague')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveAttribute('data-reason', 'signature')
+    expect(screen.queryByTestId('acknowledge-sender')).toBeNull()
+    expect(screen.getByTestId('decision-dismiss')).toBeEnabled()
+  })
+
+  it('says an outsider’s mail is discarded after 14 days, and a member without write rights waits for the writers', () => {
+    renderDetail('external-unverified')
+    expect(screen.getByTestId('sender-wait-reason')).toHaveTextContent('discarded after 14 days')
+  })
+})

@@ -5,11 +5,14 @@
  * Runs AS THE SYSTEM (`SYSTEM_ACTORS.inboundMail`), one step, bulk. It decides
  * nothing a person would and it cannot file: it imports no filing code
  * (`review-first.spec.ts`), and the database refuses a filed part without a
- * person's decision (migration 0193). What it leaves is a `waiting` mail with
- * its parts, and at most two jobs queued for later: The agent's suggestion
- * (metadata only, D21) and, when a person's standing decision to follow the
- * thread could cover the reply, the follow job, which runs as that person and
- * re-checks everything before it appends a word.
+ * person's decision (migrations 0193, 0194). What it leaves is a `waiting` mail
+ * with its parts and its sender's class (`./sender-class.ts`), and at most two
+ * jobs queued for later: The agent's suggestion (metadata only, D21) and
+ * either the sender's own filing (`inbound_mail_sender_file`, for a verified
+ * writer's mail: it runs as that member and files what they sent as them) or,
+ * when a person's standing decision to follow the thread could cover the
+ * reply, the follow job, which runs as that person and re-checks everything
+ * before it appends a word. Each is queued by its kind's name only.
  *
  * Each run asks again, in this order:
  *  1. Load the row and read `raw.eml`. A mail past `received` was done by an
@@ -23,7 +26,9 @@
  *     transient verdict retries.
  *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
  *     find the member by exact address, or an outsider's display name that
- *     claims a member's (`claims_member_name`).
+ *     claims a member's (`claims_member_name`), and whether that member may
+ *     write in the project (`project:documents:write`; a failed check reads
+ *     as no: the mail then waits for the project's writers).
  *  6. The Namensprüfung on each attachment's name and the base subject.
  *  7. Scan each attachment.
  *  8. The Python reader (`/v1/mail/read`): own text, quotes, invitations; the
@@ -32,12 +37,18 @@
  *     participants, the text, every quote and its header, the invitations.
  * 10. Match the project's threads and look up the Message-ID
  *     (`message_id_reused`, `already_filed`); ids and strengths only.
- * 11. Stage the attachments and `read.json`, insert the parts, `waiting`.
- * 12. Following: conditions 1–6 of D31 (`followEligibility`, pure); only when
- *     they hold is `inbound_mail_follow` queued.
- * 13. Announce (`inbound_mail.waiting`, every held mail), the live hint, the
- *     audit event, PostHog, and the agent's suggestion unless `suggestionSkipReason`
- *     says otherwise (an unconfirmed sender, an impersonation, automatic mail).
+ * 11. Classify the sender (`senderClassOf`), stage the attachments and
+ *     `read.json`, insert the parts, `waiting`, with the class and its window
+ *     (an outsider's mail waits 14 days, every other 30).
+ * 12. A verified writer's mail queues its sender's filing; any other mail,
+ *     when conditions 1–6 of D31 hold (`followEligibility`, pure), queues
+ *     `inbound_mail_follow`.
+ * 13. Announce: a verified writer's mail is the sender job's to tell about;
+ *     every other mail `inbound_mail.waiting`, and the member it names hears
+ *     why it waits (`inbound_mail.held`, `inbound_mail.held_for_writers`).
+ *     Then the live hint, the audit event, PostHog, and the agent's
+ *     suggestion unless `suggestionSkipReason` says otherwise (an unconfirmed
+ *     sender, an impersonation, automatic mail).
  *
  * A failure retries through the queue. On the last attempt the mail is held
  * anyway, flagged `unreadable`, with a text part whose original can be
@@ -46,7 +57,6 @@
 
 import 'server-only'
 import { createHash } from 'node:crypto'
-import { v5 as uuidv5 } from 'uuid'
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { SYSTEM_ACTORS } from '@/lib/audit/service'
@@ -61,7 +71,6 @@ import { baseSubject, clampSentAt, domainOf, matchThread } from '@/lib/mail-thre
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { asciiLower, inboundMailDomain, redactProjectAddresses } from './address'
-import { announceWaiting } from './announce'
 import { classifyAutomaticMail } from './automatic-mail'
 import { judgeFollow } from './follow-candidate'
 import { NULL_SENDER } from './contract'
@@ -98,11 +107,9 @@ import { authenticateSender, dateHeaderOf, isTransientReason, judgeSender, type 
 import { claimsMemberName } from './sender-risk'
 import { eraseStagedObjects, putStagedObject, readStagedObject, stagedObjectUrlForBackend } from './staging'
 import { suggestionSkipReason } from './suggest'
+import { announceHeldMail, classified, inboundMailJobId, queueSenderFiling } from './receive-sender'
 
-/** The job ids of the jobs one mail queues: uuid5 of the kind and the mail, so a second enqueue is no second job. */
-export function inboundMailJobId(kind: 'suggest' | 'follow', mailId: string): string {
-  return uuidv5(`grid:inbound-mail:${kind}:${mailId}`, uuidv5.URL)
-}
+export { inboundMailJobId } from './receive-sender'
 
 /** The job's step (`systemHandler`): throws to retry, holds the mail anyway on its last attempt. */
 export async function runInboundMailReceive(
@@ -233,6 +240,7 @@ async function readAndHold(
   const messagePart = textPartOf(mail, read, ownTextSha256, screening.contentFindings(read.ownText))
   const fields: HeldMailFields = {
     ...senderFields(verdict, flags, mail, mime.headers.from?.address ?? null),
+    ...(await classified(mail, verdict, flags, automatic)),
     readStorageKey: readKey,
     messageId: mime.headers.messageId,
     inReplyTo: mime.headers.inReplyTo.slice(0, 5),
@@ -488,6 +496,7 @@ async function holdUnreadable(mail: InboundMailRow, raw: Uint8Array, automatic: 
   const read = unreadableRead('failed')
   const fields: HeldMailFields = {
     ...senderFields(verdict, verdict.flags, mail, null),
+    ...(await classified(mail, verdict, verdict.flags, automatic)),
     readStorageKey: null,
     automatic,
   }
@@ -524,17 +533,12 @@ async function afterHold(mailId: string, domain: string, raw: Uint8Array | null)
   const mail = await findMailForReceive(mailId)
   if (!mail || mail.status !== 'waiting' || mail.notifiedAt || !mail.senderTrust) return
   const parts = await findPartSummaries(mail.id)
-  const followQueued = await queueFollowIfEligible(mail, parts, domain, raw)
+  const direct = mail.senderClass === 'verified_writer'
+  // A verified writer's mail is filed by its sender; a follow would race it for the text.
+  const followQueued = direct ? false : await queueFollowIfEligible(mail, parts, domain, raw)
   if (suggestionSkipReason(mail) === null) await queueSuggestion(mail)
-  await announceWaiting({
-    organizationId: mail.organizationId,
-    projectId: mail.projectId,
-    mailId: mail.id,
-    senderTrust: mail.senderTrust,
-    senderUserId: mail.senderUserId,
-    senderFlags: mail.senderFlags,
-    automatic: mail.automatic,
-  })
+  if (direct) await queueSenderFiling(mail)
+  else await announceHeldMail({ ...mail, senderTrust: mail.senderTrust })
   publishProjectChanged(mail.organizationId, mail.projectId)
   const metadata = receivedMetadata(mail, parts, followQueued)
   recordAuditEventAfterCommit({
@@ -554,6 +558,7 @@ async function afterHold(mailId: string, domain: string, raw: Uint8Array | null)
     properties: {
       outcome: 'held',
       sender_trust: mail.senderTrust,
+      sender_class: mail.senderClass,
       automatic: mail.automatic,
       attachments: metadata.attachments,
       size_bucket: sizeBucket(mail.rawSizeBytes ?? 0),
@@ -570,6 +575,7 @@ export function receivedMetadata(mail: InboundMailRow, parts: readonly PartSumma
     senderTrust: mail.senderTrust ?? '',
     senderReason: mail.senderReason ?? '',
     senderFlags: mail.senderFlags.join(','),
+    senderClass: mail.senderClass ?? '',
     automatic: mail.automatic,
     attachments: attachments.length,
     notStaged,

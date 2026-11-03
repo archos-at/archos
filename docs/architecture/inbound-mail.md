@@ -2,19 +2,21 @@
 
 Every project of an office that has the feature gets an address,
 `p+<slug>.<token>@inbox.example.org` (ADR-0138: one routing rule, `p@`, on a
-receiving subdomain, and Cloudflare's subaddressing). Mail sent to it waits in the project's
-**E-Mail-Eingang** until a person with write access to the project's documents
-files each part of it, its text and each attachment. A filed text becomes a
+receiving subdomain, and Cloudflare's subaddressing). A mail a project writer
+sends from their own address, signed by their domain, is **filed directly, as
+them**; every other mail waits in the project's **E-Mail-Eingang** until a
+person files each part of it, its text and each attachment (who may, depends on
+who the mail claims to be from: [the sender rule](#the-sender-rule)). A filed text becomes a
 section of the conversation's one document, the **E-Mail-Verlauf**, and the
 message's original `.eml` is kept beside it as evidence. A person may follow a
 Verlauf, so that later replies' text is appended without a click.
 
 Why it is built this way: [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md)
-(review, threads, originals, following) and
+(review, threads, originals, following, and its amendment of 2026-11-03: the sender rule) and
 [ADR-0138](../adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md)
 (transport). The scanner: [ADR-0150](../adr/0150-attachments-from-outside-are-scanned-in-cluster-by-clamav.md).
 The Outlook archive renders into the same Verläufe: [`mail-import.md`](mail-import.md).
-The tables: [`schema.md`](../database/schema.md#project-mail-migration-0193-adr-0137).
+The tables: [`schema.md`](../database/schema.md#project-mail-migration-0193-adr-0137) (and migration 0194, the sender class).
 Operating it: [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138).
 
 ## The flow, from the edge to filing
@@ -33,6 +35,8 @@ flowchart LR
     Q1 --> H[(waiting mail + parts)]
     Q1 --> Q2[[inbound_mail_suggest<br/>system, metadata only]]
     Q1 -->|D31 conditions 1-6| Q4[[inbound_mail_follow<br/>as the follower]]
+    Q1 -->|verified_writer| Q5[[inbound_mail_sender_file<br/>as the sender]]
+    Q5 -->|via sender| D
     P((person)) -->|inbound-mail-file| D[decision rows<br/>+ claim]
     D --> Q3[[inbound_mail_file<br/>as the decider]]
     Q4 -->|conditions 1-9| D2[follow decision] --> Q3
@@ -51,7 +55,56 @@ Legend: rounded boxes `[[…]]` are BFF jobs on `bff_job_queue`, cylinders are
 objects in the organization's bucket or rows, dashed arrows are calls that make
 no model call. Nothing left of „decision rows“ can file: the webhook, the
 receive job, the suggest job and the sweeps import no filing code
-(`review-first.spec.ts`).
+(`review-first.spec.ts`); the receive job queues the sender's filing by its
+kind's name only.
+
+## The sender rule
+
+ADR-0137's amendment of 2026-11-03. The receive job classifies the sender once,
+when it holds the mail (`inbound_mails.sender_class`, migration 0194, frozen by
+`inbound_mails_sender_verdict_guard` after the `received → waiting` write;
+`lib/inbound-mail/sender-class.ts`, `receive-sender.ts`):
+
+| Class | When | What happens | Window |
+|---|---|---|---|
+| `verified_writer` | an aligned DKIM pass, the From is a member who holds `project:documents:write` (any of `DOCUMENT_WRITE_PERMISSIONS`, a closed project none; a WorkOS failure reads as no), addressed to the project or their own Bcc copy, no `stale_date`, `date_out_of_range`, `message_id_reused` or `already_filed`, not automatic | filed directly as that member by `inbound_mail_sender_file`; whatever it cannot file waits for them | 30 days |
+| `unverified_writer` | the From is such a member, but the signature failed or is absent, or carries one of those flags, or the mail is automatic | held; only that member files or restores it, with `acknowledgeSender` („Ja, ich habe sie gesendet“); anyone else gets `sender_only` and may dismiss it | 30 days |
+| `office_member` | the From is a member without write rights here | held for the project's writers | 30 days |
+| `external` | the From is nobody in the office | held for the project's writers; discarded when it runs out, no restore window | 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`) |
+
+**The sender's filing** (`lib/inbound-mail/sender-file-job.ts`, a sliced job
+as the system that resolves the sender itself, strictly): it waits for the
+agent's suggestion while that job is still queued (30 s, at most ten times),
+re-checks the sender (a member, the entitlement, `requireMailReviewer`, the
+project open), builds the member's own view of the mail and files what that
+view offers checked, as „Ablegen“ unchanged would (`sender-filing.ts`): an
+attachment offered checked with no risk flag and a name, as the next Fassung of
+its earlier document when the sender vouches for it, else into the agent's
+suggested folder, and with neither it waits; the text, offered checked with no
+content finding, into the pre-selected Verlauf, else a new one named after the
+subject in the suggested text folder, else the first correspondence folder the
+sender may write, else the root (`CORRESPONDENCE_FOLDER` in `review-defaults.ts`,
+shared with the UI's draft); a text without a subject waits. Every check of a
+person's decision applies (`planMailDecision`, `requireDecisionRights`); a part
+the review refuses by id waits and the rest goes. The decisions are written
+`via = 'sender'`, `decided_by` = the sender, other parts left waiting
+(`keepOthers`), with `inbound_mail_file` in the same transaction, which uploads
+in the sender's session. Whatever still waits is announced as any held mail
+(`inbound_mail.waiting`); so is the whole mail on the job's last failed attempt.
+A verified writer's mail queues no follow job: its sender files the text.
+
+**What the database holds** (migration 0194; `scripts/rls-test-db.sh`, the 0194
+section): the class needs its evidence (`inbound_mails_verified_writer_evidence`),
+is written only by the hold and never changes (`…_sender_verdict_frozen`,
+`…_held_once`); a `via = 'sender'` decision only on a verified writer's mail,
+by its sender, with a clean raw message and an unflagged part
+(`inbound_mail_decisions_sender_files_own_verified_mail`), filing only, no
+acknowledgement (`…_sender_files_clean`), and a part flagged since is not
+claimed on it (`inbound_mail_parts_sender_files_clean`); a file or restore of an
+`unverified_writer` mail only by its member, a file saying they sent it
+(`…_claimed_sender_releases`); an outsider's expired part is never restored
+(`…_external_expiry_final`). The triggers bind every role, the BYPASSRLS
+platform role included.
 
 ## Receiving: the webhook
 
@@ -145,13 +198,20 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
 10. **match the project's threads** and look the Message-ID up
     (`message_id_reused`, `already_filed`); ids and strengths only
     (`thread_match`);
-11. stage the attachments and `read.json`, insert the parts, `waiting`;
-12. **following**: conditions 1–6 of D31 (`judgeFollow`); only when they hold is
-    `inbound_mail_follow` queued;
-13. announce (`inbound_mail.waiting`), publish the project change to the agent
-    door, audit `inbound_mail.received`, PostHog `inbound_mail_received`, and
-    queue the agent's suggestion unless the sender is unconfirmed, impersonating,
-    or the mail is automatic.
+11. **classify the sender** ([the sender rule](#the-sender-rule)): whether the
+    From's member may write in the project, asked of WorkOS; stage the
+    attachments and `read.json`, insert the parts, `waiting`, with the class
+    and its window (14 days for an outsider, else 30);
+12. a `verified_writer` mail queues `inbound_mail_sender_file` (by name);
+    any other, when conditions 1–6 of D31 hold (`judgeFollow`),
+    `inbound_mail_follow`;
+13. announce: nothing yet for a verified writer's mail (the sender's filing
+    tells what it leaves); for any other `inbound_mail.waiting`, and the member
+    it names hears why it waits (`inbound_mail.held`,
+    `inbound_mail.held_for_writers`); publish the project change to the agent
+    door, audit `inbound_mail.received` (with `senderClass`), PostHog
+    `inbound_mail_received` (`sender_class`), and queue the agent's suggestion
+    unless the sender is unconfirmed, impersonating, or the mail is automatic.
 
 On the last attempt the mail is held anyway, flagged `unreadable`, with a text
 part whose original can be downloaded once its scan is clean: mail is never lost
@@ -164,7 +224,7 @@ to a parser bug.
 | The address | `inbound_mail_addresses` | active; revoked (`rotated`, `switched_off`) |
 | A delivery | `inbound_mails` | `receiving` → `received` → `waiting` → `settled`, or `dropped` |
 | A part | `inbound_mail_parts` (`message` or `attachment`) | `waiting` → `filing` → `filed`; `waiting` again with `last_failure`; `dismissed` / `expired` → `waiting` (restore, 7 days) |
-| A decision | `inbound_mail_decisions` (append-only) | `file`, `dismiss`, `restore`; `via` `app`, `agent`, `agent_proposal`, `follow` |
+| A decision | `inbound_mail_decisions` (append-only) | `file`, `dismiss`, `restore`; `via` `app`, `agent`, `agent_proposal`, `follow`, `sender` |
 
 Staged objects: `org/<org>/project/<project>/_inbound-mail/<mailId>/raw.eml`,
 `…/read.json` and `…/<position>` per attachment. A filed message's original:
@@ -222,7 +282,13 @@ with `details.reason` from `INBOUND_MAIL_REFUSALS` (`inbound-mail-wire.ts`).
 
 `via` is read from the call, never the body (`decisionActor`): an agent's card the
 person accepted (`actingProposalId`, set by the proposal applier), an outside
-agent acting as the person, or the app.
+agent acting as the person, or the app; `sender` only from the sender's filing
+job. A mail that claims another member (`unverified_writer`) is refused with
+`sender_only` for anyone but that member (`onlySenderReleases` on the views);
+its member files it with `acknowledgeSender`, which every `unverified_writer`
+mail needs (`senderNeedsAcknowledgement`). The E-Mail-Eingang says why a mail
+waits under its sender (`waitReason`: `signature`, `no_write_rights`,
+`outside_office`; `SenderWaitLine`).
 
 Defaults, completeness and thread groups are the server's
 (`review-defaults.ts`, `thread-groups.ts`, `forwarded.ts`): a part is
@@ -367,9 +433,9 @@ In the order they run:
 | 5 | `lapsedClaims` | `filing` past its claim: waits again (`unavailable`), the decider told | the claim (5 min) | — |
 | 13 | `stalledMoves` | an original's move that stopped: finished (copy proven, then raw erased); entry gone: raw erased | 15 min | the move erases nothing unproven; the entry-gone branch skips a held project |
 | 11 | `audits` | decisions with `audited_at IS NULL`: sent to the trail, marked | 1 min | — |
-| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days), audited | 30 days | — (no erasure) |
-| 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25 | — |
-| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
+| 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`) | 30 days; an outsider's 14 | — (no erasure) |
+| 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
+| 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts | 1 h | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |
@@ -391,7 +457,7 @@ erasure and deletion wait. The `BEFORE DELETE` triggers on `inbound_mails`,
 `mail_thread_entries` and `mail_thread_entry_attachments` (`GLH01`) are the
 backstop, never the filter.
 
-## The seven notices
+## The eleven notices
 
 `lib/inbound-mail/announce.ts`, in-app and push only (`email: never`). Payload
 `{ subject: <project name>, variant?, related? }`: no sender, subject or file
@@ -402,7 +468,11 @@ adds the variant `unconfirmed`.
 |---|---|---|---|---|---|
 | `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, holding project read), else the project's managers | collapsed per project, actionable | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
-| `inbound_mail.decided` | the member sender only, when the run filed the mail's last part or the dismissal ended it; variant `dismissed` | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
+| `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
+| `inbound_mail.rejected` | the member the From names, when a dismissal ended their mail | per mail | `/files` | results, low | — |
+| `inbound_mail.held` | the writer an `unverified_writer` mail claims: „Haben Sie diese E-Mail gesendet?“ | per mail, actionable | `/files/mail/<mailId>` | requests, normal | the mail is decided or expires (`settleHeld`) |
+| `inbound_mail.held_for_writers` | the member without write rights whose mail waits | per mail | `/files` | results, low | the same |
+| `inbound_mail.expired` | the member the From names, when sweep 3 expired their mail | per mail | `/files` | results, low | — |
 | `inbound_mail.filing_failed` | the decider; variant the `last_failure` | per mail, actionable | `/files/mail/<mailId>` | requests, normal | filed again or dismissed |
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
 | `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
@@ -411,7 +481,10 @@ adds the variant `unconfirmed`.
 The collapsed rows carry the anchor of their newest emission, so they are
 settled by what the project still holds (`settleProjectNotices`), never by one
 mail's anchor ([`adding-a-shareable-resource-type.md`](adding-a-shareable-resource-type.md)).
-A `member_unverified` mail never notifies the member it names. The Postfach row's
+The member a mail's From names hears why it waits and what became of it,
+whether or not their domain signed it: a forged mail causes a notice to the
+member it impersonates, by design (ADR-0137's amendment), and the row carries
+nothing the forger wrote. Nobody outside the office hears anything. The Postfach row's
 „Wie vorgeschlagen ablegen“ action of the design is not built yet.
 
 ## The agent's suggestion
@@ -441,7 +514,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | `inbound-mail-address-get`, `-create`, `-delete`, `-rotate` | yes | yes |
 | `inbound-mail-list`, `-get` (metadata only) | yes | yes |
 | `inbound-mail-text-get` (masked), `inbound-mail-part-content-get` | yes | no |
-| `inbound-mail-file`, `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only |
+| `inbound-mail-file` (also the member's release of mail that claims them: `acknowledgeSender`), `inbound-mail-dismiss` | yes, `requiresPersonConfirmation` | as a card; clean, unflagged parts only (a card carries no `acknowledgeSender`, so it never releases a claimed mail) |
 | `inbound-mail-restore` | yes | yes |
 | `inbound-mail-original-get`, `mail-thread-entry-original-get` | withheld (`evidence`) | withheld |
 | `mail-thread-list`, `-get`, `mail-thread-entry-detach` | yes | yes (detach as a card) |
@@ -463,7 +536,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | Redaction of other projects' addresses | receive job | — | another tenant's token learned (the original stays unredacted and gated) |
 | `project:documents:write`, candidates for the viewer | service | 404 | a non-writer reads held mail, or a writer learns restricted names |
 | Per-target folder write, type, scan, acknowledgements, `ifMatch` | `decision.ts` | 409 / 403 | a filing the decider was not entitled to |
-| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned` | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
+| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0194's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail released only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
 | `requiresPersonConfirmation` | door | refused with a link | an injected outside agent cannot file |
 | Filing as the decider (or follower) | job | `last_failure` | nothing past an ordinary upload by that person |
 | Static ratchet | `review-first.spec.ts` | CI | — |
@@ -510,6 +583,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts` |
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
+| The sender rule | `lib/inbound-mail/{sender-class,receive-sender,sender-filing,sender-file-job}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |
 | Sweeps and notices | `lib/inbound-mail/{sweep,sweep-repository,announce,notice-repository}.ts` |

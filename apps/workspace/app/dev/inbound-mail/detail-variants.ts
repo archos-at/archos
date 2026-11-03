@@ -70,6 +70,18 @@ export const DETAIL_VARIANTS: Record<string, DetailFixture> = {
     }),
     text: text({ ownText: 'Liebe Kolleginnen und Kollegen,\n\nbitte ab sofort die Honorarnoten auf das neue Konto im Anhang überweisen. Ich bin heute nicht erreichbar.\n\nMiriam', quoted: [] }),
   },
+  // A mail with a colleague's address and a signature that failed, as another writer sees it: only Miriam can file it.
+  'claimed-by-colleague': {
+    view: mail({
+      key: 'claimed-by-colleague',
+      subject: 'Plan Tiefgarage Index G',
+      sender: { name: 'Miriam Huber', address: 'm.huber@huber-architektur.at', domain: 'huber-architektur.at', signerDomain: null, trust: 'member_unverified', reason: 'dkim_none', flags: [] },
+      onlySenderReleases: true,
+      parts: [messagePart({ id: fixtureId('message:claimed') }), part({ name: 'TG_Index_G.pdf' })],
+      threadCandidates: [],
+    }),
+    text: text({ ownText: 'Anbei Index G der Tiefgarage.', quoted: [] }),
+  },
   'bcc-own': {
     view: mail({
       key: 'bcc-own',

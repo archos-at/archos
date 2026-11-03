@@ -155,6 +155,8 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     status?: 'receiving' | 'received' | 'waiting' | 'settled' | 'dropped'
     trust?: 'external_verified' | 'external_unverified' | 'member_verified'
     senderUserId?: string | null
+    /** The class a seed held mail carries (migration 0194); by default what its trust allows short of a writer. */
+    senderClass?: 'office_member' | 'external' | 'unverified_writer'
     raw?: boolean
     read?: boolean
     /** Interval SQL, e.g. `'20 minutes'`: how long ago. */
@@ -180,12 +182,14 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     const trust = shown ? (seed.trust ?? 'external_verified') : null
     const reason = trust === null ? null : trust.endsWith('_verified') ? 'dkim_pass' : 'dkim_none'
     const userId = trust === 'member_verified' ? (seed.senderUserId ?? MANAGER) : null
+    // Inserted held, as only a seed does: a verified writer's class is the hold's alone (migration 0194).
+    const senderClass = trust === null ? null : (seed.senderClass ?? (trust.startsWith('member_') ? 'office_member' : 'external'))
     const raw = seed.raw ?? status !== 'settled'
     const read = seed.read ?? open
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes,
         staging_bucket, raw_storage_key, read_storage_key, raw_scan_status, raw_scanned_at, raw_scan_attempts,
-        sender_address, subject, sender_trust, sender_reason, sender_user_id, dropped_reason,
+        sender_address, subject, sender_trust, sender_reason, sender_user_id, sender_class, dropped_reason,
         received_at, updated_at, expires_at, settled_at, original_move_pending_at, erasure_deferred_at)
       VALUES (${id}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, ${status},
         ${status === 'receiving' ? null : deliveryKey}, ${status === 'receiving' ? null : (seed.bytes ?? 4096)},
@@ -193,7 +197,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         ${status === 'receiving' || status === 'received' ? 'pending' : (seed.rawScan ?? 'clean')},
         ${status === 'receiving' || status === 'received' ? null : sql`now() - ${seed.rawScannedAgo ?? '0 seconds'}::interval`},
         ${seed.rawScanAttempts ?? 1},
-        ${open ? 'sender@example.org' : null}, ${open ? 'Bescheid' : null}, ${trust}, ${reason}, ${userId},
+        ${open ? 'sender@example.org' : null}, ${open ? 'Bescheid' : null}, ${trust}, ${reason}, ${userId}, ${senderClass},
         ${status === 'dropped' ? 'auto_reply' : null},
         now() - ${seed.receivedAgo ?? '0 seconds'}::interval, now() - ${seed.updatedAgo ?? '0 seconds'}::interval,
         now() + ${seed.expiresIn ?? '30 days'}::interval - ${seed.receivedAgo ?? '0 seconds'}::interval,
@@ -472,9 +476,40 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     })
   })
 
+  describe('the sender rule: an outsider’s mail is discarded when it runs out (ADR-0137, amendment of 2026-11-03)', () => {
+    it('expires an outsider’s mail with no restore window: the next sweep 6 erases its bytes and settles it, and nobody is told', async () => {
+      const mail = await seedMail({ receivedAgo: '15 days', expiresIn: '14 days' })
+      await seedPart(mail, { kind: 'message' })
+      const file = await seedPart(mail)
+
+      await sweep.sweepExpiredMails(now())
+      expect((await partRow(file))?.state).toBe('expired')
+      expect(await inboxRows('inbound_mail.expired')).toHaveLength(0)
+
+      await sweep.sweepEndedParts(now())
+      expect(await partRow(file)).toMatchObject({ state: 'expired', storage_key: null, filename: null })
+      expect(staging.erased).toContain(stagingKey(project, mail, '1'))
+      expect((await mailRow(mail))?.status).toBe('settled')
+    })
+
+    it('tells a member their own mail ran out, and keeps it restorable for seven days', async () => {
+      const mail = await seedMail({ trust: 'member_verified', receivedAgo: '31 days' })
+      const file = await seedPart(mail)
+
+      await sweep.sweepExpiredMails(now())
+      await sweep.sweepEndedParts(now())
+
+      expect((await partRow(file))?.storage_key).not.toBeNull()
+      expect(await inboxRows('inbound_mail.expired')).toEqual([
+        expect.objectContaining({ recipient_user_id: MANAGER, anchor_id: mail, payload: { subject: 'Wohnbau Hietzing' } }),
+      ])
+    })
+  })
+
   describe('sweep 6: past the seven days', () => {
     it('erases an ended part’s bytes in an unheld project and defers them in a held one', async () => {
-      const mail = await seedMail()
+      // A member's mail: an outsider's expired part would go at once (the next test).
+      const mail = await seedMail({ trust: 'member_verified' })
       await seedPart(mail, { kind: 'message' })
       const free = await seedPart(mail, { state: 'dismissed', endedAgo: '8 days' })
       const recent = await seedPart(mail, { position: 2, state: 'expired', endedAgo: '1 day' })

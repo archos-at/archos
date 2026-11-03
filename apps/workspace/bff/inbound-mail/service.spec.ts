@@ -89,6 +89,7 @@ vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() })
 vi.mock('./announce', () => ({
   announceDecided: vi.fn(async () => true),
   settleFilingFailed: vi.fn(async () => undefined),
+  settleHeld: vi.fn(async () => undefined),
   settleProjectNotices: vi.fn(async () => undefined),
 }))
 vi.mock('./notice-repository', () => ({ partStatesOf: vi.fn(async () => new Map()) }))

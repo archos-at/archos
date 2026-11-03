@@ -195,6 +195,8 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
         participantDomains: ['statik.example'],
         recipientCount: 1,
         senderTrust: 'external_verified' as const,
+        senderClass: 'external' as const,
+        expiresAt: new Date(Date.now() + 14 * 86_400_000),
         senderUserId: null,
         senderReason: 'dkim_pass' as const,
         signerDomain: 'statik.example',
@@ -264,7 +266,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
 
       const own = await received()
       await inTenant(() => repo.recordRawScan(own, { status: 'clean', engine: 'ClamAV 1.5.4/28157', signature: null, scannedAt: new Date() }))
-      const member = { ...fields(own), senderTrust: 'member_unverified' as const, senderUserId: USER, senderReason: 'dkim_none' as const, senderFlags: ['claims_member_name' as const] }
+      const member = { ...fields(own), senderTrust: 'member_unverified' as const, senderClass: 'office_member' as const, senderUserId: USER, senderReason: 'dkim_none' as const, senderFlags: ['claims_member_name' as const] }
       await expect(inTenant(() => repo.holdMail(own, member, [textPart(own)]))).rejects.toSatisfy((error: unknown) => {
         const cause = (error as { cause?: { constraint_name?: string } }).cause
         return cause?.constraint_name === 'inbound_mails_member_name_claim_external'
@@ -420,6 +422,8 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
             participantDomains: ['statik.example'],
             recipientCount: 1,
             senderTrust: 'external_verified',
+            senderClass: 'external',
+            expiresAt: new Date(Date.now() + 14 * 86_400_000),
             senderUserId: null,
             senderReason: 'dkim_pass',
             signerDomain: 'statik.example',

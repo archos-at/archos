@@ -304,6 +304,27 @@ export type InboundMailFilingFailure = (typeof INBOUND_MAIL_FILING_FAILURES)[num
 /** The content-check findings in the mail's own text, by kind (D13). */
 export type InboundMailContentFinding = ScreeningDetector | 'term'
 
+// ------------------------------------------------------------ the sender rule
+
+/**
+ * Who the sender is to the project, judged once when the mail is held and
+ * frozen after (`inbound_mails.sender_class`, migration 0194; ADR-0137's
+ * amendment of 2026-11-03):
+ *
+ * - `verified_writer`: DKIM passed aligned with the From domain, the From is a
+ *   member who holds `project:documents:write`, the mail is addressed to the
+ *   project (or the member's own Bcc copy), no replay or date flag, not
+ *   automatic. Filed directly, as that member (`via = 'sender'`).
+ * - `unverified_writer`: the From is such a member, but the signature failed,
+ *   is missing, or carries a replay or date flag. Only that member releases it
+ *   („Haben Sie das gesendet?“, `acknowledgeSender`); any writer dismisses it.
+ * - `office_member`: the From is a member without write rights in the project.
+ * - `external`: the From is nobody in the office; it waits
+ *   {@link INBOUND_MAIL_EXTERNAL_WAIT_DAYS} days and is then discarded.
+ */
+export const INBOUND_MAIL_SENDER_CLASSES = ['verified_writer', 'unverified_writer', 'office_member', 'external'] as const
+export type InboundMailSenderClass = (typeof INBOUND_MAIL_SENDER_CLASSES)[number]
+
 // ------------------------------------------------------------ decisions
 
 /** What a person decided about a part. */
@@ -312,11 +333,13 @@ export type InboundMailDecisionAction = (typeof INBOUND_MAIL_DECISION_ACTIONS)[n
 
 /**
  * How the decision reached us: in the app, from an outside agent acting as the
- * person, through an agent's operation card the person confirmed, or as the
- * person's standing decision to follow a thread (D31). The decider is a person
- * in every case.
+ * person, through an agent's operation card the person confirmed, as the
+ * person's standing decision to follow a thread (D31), or as a verified
+ * writer's own mail filed directly (`sender`, migration 0194: the decider is
+ * the mail's sender, whose signature and write right the hold recorded). The
+ * decider is a person in every case.
  */
-export const INBOUND_MAIL_DECISION_VIAS = ['app', 'agent', 'agent_proposal', 'follow'] as const
+export const INBOUND_MAIL_DECISION_VIAS = ['app', 'agent', 'agent_proposal', 'follow', 'sender'] as const
 export type InboundMailDecisionVia = (typeof INBOUND_MAIL_DECISION_VIAS)[number]
 
 /** Where a filed message goes: into an existing thread as its next Fassung, or a new thread. */
@@ -331,7 +354,14 @@ export type InboundMailMessageText = (typeof INBOUND_MAIL_MESSAGE_TEXTS)[number]
 
 /** How long a mail waits for a person (D8). Fixed on the row at receipt. */
 export const INBOUND_MAIL_WAIT_DAYS = 30
-/** How long a dismissed or expired part can be restored (D8). */
+/**
+ * How long an outsider's mail (`sender_class = 'external'`) waits, from receipt
+ * (ADR-0137, amendment of 2026-11-03). It is set at the hold, once the sender
+ * is known, and an outsider's mail that runs out is discarded on the next sweep:
+ * no restore window after expiry.
+ */
+export const INBOUND_MAIL_EXTERNAL_WAIT_DAYS = 14
+/** How long a dismissed or expired part can be restored (D8); an outsider's expired mail is the exception. */
 export const INBOUND_MAIL_RESTORE_DAYS = 7
 /** A verified mail whose signed Date is more than this many days before receipt is `stale_date` (`./sender-auth`). */
 export const INBOUND_MAIL_STALE_DATE_DAYS = 7

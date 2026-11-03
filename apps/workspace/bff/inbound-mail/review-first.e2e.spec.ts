@@ -2,29 +2,38 @@
  * @vitest-environment node
  *
  * The dynamic ratchet of review-first (DECISION §10, ratchet 3, its no-follow
- * half), against a REAL Postgres with migration 0193 through the restricted
- * runtime role (`scripts/rls-test-db.sh`):
+ * half), as ADR-0137's amendment of 2026-11-03 left it, against a REAL
+ * Postgres with migrations 0193 and 0194 through the restricted runtime role
+ * (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run src/lib/inbound-mail/review-first.e2e.spec.ts
+ *     npx vitest run bff/inbound-mail/review-first.e2e.spec.ts
  *
- * The owner's sentence is „nothing is filed without a person's decision“. The
- * static ratchet (`review-first.spec.ts`) proves the receive side imports no
- * filing code; this one runs it. A perfect mail (a member's, DKIM-signed for
- * real, addressed to the project, with an attachment the office accepts) goes
- * through the real receive job and the real repository, and then the real
- * filing job:
+ * The owner's sentence is now: a project writer's own signed mail is filed
+ * directly, as them; everything else waits for a person, and a mail that
+ * claims a writer waits for that writer. The static ratchet
+ * (`review-first.spec.ts`) proves the receive side imports no filing code; this
+ * one runs it, one mail per class, through the real receive job, the real
+ * repository and the real sender's filing and filing jobs:
  *
- * 1. Received, it waits: zero `documents` rows in the project, no object
- *    written outside its own `_inbound-mail/<mail>/`, no filing job queued.
+ * 1. A member WITHOUT write rights, signed for real: it waits (`office_member`),
+ *    zero documents, no object outside its own `_inbound-mail/<mail>/`, no job
+ *    that files.
  * 2. The filing job, run before anyone decided, files nothing.
- * 3. Once the person decides to file the attachment (and so dismisses the
- *    text), exactly that file becomes a document, uploaded as THAT person,
- *    and its staged bytes are erased; the text becomes nothing.
+ * 3. Once a person decides to file its attachment, exactly that file becomes a
+ *    document, uploaded as THAT person; the text becomes nothing.
+ * 4. A WRITER's mail, signed for real: `verified_writer`; the sender's filing
+ *    decides it as them (`via = 'sender'`) and the filing job uploads it as
+ *    them. One more document, nobody pressed anything.
+ * 5. The same writer's address whose signature fails, and a spoofed From of the
+ *    same writer, unsigned: `unverified_writer`, nothing filed, the sender's
+ *    filing refuses it, and the database refuses a direct decision for it.
+ * 6. An outsider: `external`, waiting 14 days, nothing filed.
  *
  * Mocked are only what is outside this tier or the database: the object store
  * (in memory, every write recorded), the scanner, the Python reader, DNS (the
- * signature is real), the member directory, and the upload path's own
+ * signature is real), WorkOS (the member directory, the write right, the
+ * sessions, the project and folder access), and the upload path's own
  * machinery past the decision (`uploadDocument`, which here records its call
  * and writes the row an upload would, as the session's tenant).
  */
@@ -39,6 +48,8 @@ const store = vi.hoisted(() => ({
   writes: [] as string[],
   erased: [] as string[],
   dns: null as unknown,
+  /** Whether the member holds `project:documents:write` (WorkOS, mocked). */
+  memberWrites: false,
 }))
 
 vi.mock('./staging', () => ({
@@ -90,7 +101,8 @@ vi.mock('./sender-auth', async (importOriginal) => {
     ),
   }
 })
-vi.mock('@/lib/documents/accepted-types', () => ({
+vi.mock('@/lib/documents/accepted-types', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/documents/accepted-types')>()),
   acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md']),
 }))
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn() }))
@@ -106,12 +118,28 @@ vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
 vi.mock('@/lib/auth/pinned-session', () => ({
   resolvePinnedRequesterSession: vi.fn(async () => null),
+  resolvePinnedRequesterSessionStrict: vi.fn(),
+}))
+vi.mock('@/lib/authz/project-membership', () => ({
+  userHoldsProjectPermission: vi.fn(async (_org: unknown, _project: string, _user: string, permission: string) =>
+    store.memberWrites && permission === 'project:documents:write'),
+}))
+vi.mock('./access', () => ({ requireMailReviewer: vi.fn(async () => ({ closed: false })) }))
+vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()),
+  isInboundMailEnabled: vi.fn(() => true),
+}))
+vi.mock('@/lib/authz/folder-access', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/authz/folder-access')>()),
+  requireFolderWrite: vi.fn(async () => undefined),
 }))
 vi.mock('./announce', () => ({
   announceWaiting: vi.fn(async () => true),
+  announceHeld: vi.fn(async () => true),
   announceDecided: vi.fn(async () => true),
   announceFilingFailed: vi.fn(async () => true),
   settleFilingFailed: vi.fn(async () => undefined),
+  settleHeld: vi.fn(async () => undefined),
   settleProjectNotices: vi.fn(async () => undefined),
 }))
 vi.mock('./quiet-batch', () => ({
@@ -133,12 +161,16 @@ const TOKEN = (STAMP + 'rvfst')
   .padEnd(12, 'q')
   .slice(-12)
 
-describe.skipIf(!url)('review first: nothing is filed without a person’s decision', () => {
+describe.skipIf(!url)('review first: nothing is filed without a person’s decision, the verified writer’s own included', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let withTenant: typeof import('@/lib/db/tenant-context').withTenant
   let withPlatformAccess: typeof import('@/lib/db/tenant-context').withPlatformAccess
   let projectId: string
+  let addressId: string
+  let folderId: string
   let mailId: string
+  let hostile: typeof import('./__fixtures__/hostile')
+  let delivery = 0
   const session = {
     userId: MEMBER_ID,
     email: MEMBER_EMAIL,
@@ -177,7 +209,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     withTenant = context.withTenant
     withPlatformAccess = context.withPlatformAccess
     db = (await import('@/lib/db')).getDb()
-    const hostile = await import('./__fixtures__/hostile')
+    hostile = await import('./__fixtures__/hostile')
     store.dns = hostile.fakeDns(hostile.keyFor(hostile.MEMBER_DOMAIN))
     const { loadOrganizationDirectory } = await import('@/lib/sharing/directory')
     vi.mocked(loadOrganizationDirectory).mockResolvedValue(
@@ -210,7 +242,12 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
         INSERT INTO projects (organization_id, name, created_by, collection_name)
         VALUES (${ORG}, 'Wohnbau Hietzing', ${MEMBER_ID}, ${`coll_review_first_${STAMP}`}) RETURNING id`)
     )[0]!.id
-    const addressId = (
+    folderId = (
+      await rows<{ id: string }>(sql`
+        INSERT INTO project_folders (organization_id, project_id, name, path)
+        VALUES (${ORG}, ${projectId}::uuid, 'Statik', 'Statik') RETURNING id`)
+    )[0]!.id
+    addressId = (
       await rows<{ id: string }>(sql`
         INSERT INTO inbound_mail_addresses (organization_id, project_id, token, slug, created_by)
         VALUES (${ORG}, ${projectId}::uuid, ${TOKEN}, 'wohnbau', ${MEMBER_ID}) RETURNING id`)
@@ -229,13 +266,38 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
         }
       )
     )
-    mailId = crypto.randomUUID()
-    const rawKey = `org/${ORG}/project/${projectId}/_inbound-mail/${mailId}/raw.eml`
+    mailId = await stage(raw)
+  })
+
+  /** Stage a raw message as the webhook does (`received`, its bytes in the store); its id. */
+  async function stage(raw: string): Promise<string> {
+    const id = crypto.randomUUID()
+    delivery += 1
+    const rawKey = `org/${ORG}/project/${projectId}/_inbound-mail/${id}/raw.eml`
     store.objects.set(rawKey, hostile.bytes(raw))
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, envelope_from, raw_size_bytes, staging_bucket, raw_storage_key, expires_at)
-      VALUES (${mailId}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'received', ${'e'.repeat(64)}, ${MEMBER_EMAIL}, ${raw.length}, 'org-test-bucket', ${rawKey}, now() + interval '30 days')`)
-  })
+      VALUES (${id}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, 'received', ${String(delivery).padStart(64, 'e')}, ${MEMBER_EMAIL}, ${raw.length}, 'org-test-bucket', ${rawKey}, now() + interval '30 days')`)
+    return id
+  }
+
+  /** A signed mail of the member's with one PDF; `headers` as `hostile.message` takes them. */
+  async function memberMail(file: string, headers: Record<string, string | null>, signed = true): Promise<string> {
+    const raw = hostile.message(
+      hostile.multipart('mixed', [hostile.BODY, hostile.attachment(file, 'application/pdf', hostile.pdf(file))]),
+      { To: `p+wohnbau.${TOKEN}@example.org`, Date: new Date(Date.now() - 60_000).toUTCString(), ...headers },
+    )
+    return signed ? hostile.sign(raw) : raw
+  }
+
+  const classOf = async (id: string) =>
+    (await rows<{ sender_class: string; sender_trust: string; status: string }>(
+      sql`SELECT sender_class, sender_trust, status FROM inbound_mails WHERE id = ${id}::uuid`,
+    ))[0]
+  const receive = async (id: string) => {
+    const { runInboundMailReceive } = await import('./receive-job')
+    await inTenant(() => runInboundMailReceive(ORG, { mailId: id, projectId }, { last: false }))
+  }
 
   afterAll(async () => {
     vi.unstubAllEnvs()
@@ -247,14 +309,10 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     )
   })
 
-  it('1. holds a perfect mail without a document, a write outside its staging, or a filing job', async () => {
-    const { runInboundMailReceive } = await import('./receive-job')
-    await inTenant(() => runInboundMailReceive(ORG, { mailId, projectId }, { last: false }))
+  it('1. holds a signed mail of a member without write rights: no document, no write outside its staging, no job that files', async () => {
+    await receive(mailId)
 
-    const [mail] = await rows<{ status: string; sender_trust: string }>(
-      sql`SELECT status, sender_trust FROM inbound_mails WHERE id = ${mailId}::uuid`
-    )
-    expect(mail).toEqual({ status: 'waiting', sender_trust: 'member_verified' })
+    expect(await classOf(mailId)).toEqual({ status: 'waiting', sender_trust: 'member_verified', sender_class: 'office_member' })
     expect(
       await rows(
         sql`SELECT kind, state FROM inbound_mail_parts WHERE mail_id = ${mailId}::uuid ORDER BY position`
@@ -272,6 +330,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     ).toBe(true)
     expect(await jobKinds()).not.toContain('inbound_mail_file')
     expect(await jobKinds()).not.toContain('inbound_mail_follow')
+    expect(await jobKinds()).not.toContain('inbound_mail_sender_file')
   })
 
   it('2. files nothing when the filing job runs before anyone decided', async () => {
@@ -381,5 +440,105 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
         )
       )[0]!.count
     ).toBe('0')
+  })
+
+  it('4. files a writer’s own signed mail directly, as them: a decision via sender, an upload in their name', async () => {
+    const { runInboundMailSenderFile, SENDER_FILE_MAX_WAITS } = await import('./sender-file-job')
+    const { runInboundMailFiling } = await import('./file-job')
+    const { resolvePinnedRequesterSessionStrict } = await import('@/lib/auth/pinned-session')
+    const { uploadDocument } = await import('@/lib/documents/document-dispatch')
+    vi.mocked(resolvePinnedRequesterSessionStrict).mockResolvedValue(session)
+    vi.mocked(uploadDocument).mockClear()
+    store.memberWrites = true
+    // The text the reader could not read waits for its sender (a flagged part is never filed without a click); the attachment goes.
+    const { readMail } = await import('./read-client')
+    const read = await readMail('unused')
+    vi.mocked(readMail).mockResolvedValueOnce({ ...read, unreadable: true, unreadableReasons: ['failed'] })
+    const direct = await stage(await memberMail('S-102_A.pdf', { 'Message-ID': '<m4@buero-muster.at>' }))
+    const before = await documentCount()
+
+    await receive(direct)
+    expect(await classOf(direct)).toEqual({ status: 'waiting', sender_trust: 'member_verified', sender_class: 'verified_writer' })
+    expect(await jobKinds()).toContain('inbound_mail_sender_file')
+    // The agent's suggestion, as the suggest job would store it: the attachment's confident place.
+    await rows(sql`
+      UPDATE inbound_mail_parts SET suggestion = ${JSON.stringify({ folderId, folderPath: 'Statik', newFolder: false, documentType: null, reason: 'Statik' })}::jsonb
+       WHERE mail_id = ${direct}::uuid AND kind = 'attachment'`)
+
+    await inTenant(() => runInboundMailSenderFile(ORG, { mailId: direct, projectId, waits: SENDER_FILE_MAX_WAITS }, { last: false }))
+    expect(
+      await rows(sql`SELECT d.via, d.decided_by, p.kind, p.state FROM inbound_mail_decisions d JOIN inbound_mail_parts p ON p.id = d.part_id WHERE d.mail_id = ${direct}::uuid`),
+    ).toEqual([{ via: 'sender', decided_by: MEMBER_ID, kind: 'attachment', state: 'filing' }])
+    const [job] = Array.from(
+      await withPlatformAccess('spec', () =>
+        db.execute(sql`SELECT payload FROM bff_job_queue WHERE lane = ${ORG} AND kind = 'inbound_mail_file' AND payload->'mailIds' ? ${direct}`),
+      ),
+    ) as Array<{ payload: import('@/lib/jobs-queue/types').InboundMailFilePayload }>
+    expect(job?.payload.requester.userId).toBe(MEMBER_ID)
+
+    await inTenant(() => runInboundMailFiling(session, job!.payload))
+    expect(uploadDocument).toHaveBeenCalledOnce()
+    expect(vi.mocked(uploadDocument).mock.calls[0]![0].userId).toBe(MEMBER_ID)
+    expect(await documentCount()).toBe(before + 1)
+    expect(
+      await rows(sql`SELECT kind, state FROM inbound_mail_parts WHERE mail_id = ${direct}::uuid ORDER BY position`),
+    ).toEqual([
+      { kind: 'message', state: 'waiting' },
+      { kind: 'attachment', state: 'filed' },
+    ])
+  })
+
+  it('5. holds a writer’s address whose signature fails, and a spoofed From of that writer: filed by nobody but them', async () => {
+    const { runInboundMailSenderFile, SENDER_FILE_MAX_WAITS } = await import('./sender-file-job')
+    const repository = await import('./repository')
+    store.memberWrites = true
+    const signedDns = store.dns
+    store.dns = hostile.fakeDns({})
+    const failed = await stage(await memberMail('S-103.pdf', { 'Message-ID': '<m5@buero-muster.at>' }))
+    await receive(failed)
+    store.dns = signedDns
+    const spoofed = await stage(await memberMail('Kontoaenderung.pdf', { 'Message-ID': '<m6@buero-muster.at>' }, false))
+    await receive(spoofed)
+    const before = await documentCount()
+
+    for (const id of [failed, spoofed]) {
+      expect(await classOf(id)).toEqual({ status: 'waiting', sender_trust: 'member_unverified', sender_class: 'unverified_writer' })
+      expect(
+        await inTenant(() => runInboundMailSenderFile(ORG, { mailId: id, projectId, waits: SENDER_FILE_MAX_WAITS }, { last: false })),
+      ).toMatchObject({ done: true })
+      const part = (await inTenant(() => repository.findMailParts([id]))).find((candidate) => candidate.kind === 'attachment')!
+      await expect(
+        inTenant(() =>
+          repository.writeMailDecisions(
+            [{ mailId: id, ifMatch: 'read', keepOthers: true, files: [{ organizationId: ORG, projectId, mailId: id, partId: part.id, action: 'file', decidedBy: MEMBER_ID, via: 'sender', proposalId: null, folderId: null, folderPath: '', fileName: 'x.pdf', documentType: null }] }],
+            { decidedBy: MEMBER_ID, via: 'sender', proposalId: null },
+            () => 'read',
+            new Date(Date.now() + 300_000),
+            null,
+          ),
+        ),
+      ).rejects.toSatisfy((error: unknown) => /sender_files_own_verified_mail|only a verified writer/.test(String((error as { cause?: unknown }).cause ?? error)))
+    }
+    expect(await documentCount()).toBe(before)
+    expect(await rows(sql`SELECT 1 FROM inbound_mail_decisions WHERE mail_id IN (${failed}::uuid, ${spoofed}::uuid)`)).toEqual([])
+  })
+
+  it('6. holds an outsider’s mail for 14 days, and files nothing', async () => {
+    store.memberWrites = true
+    const before = await documentCount()
+    const raw = hostile.message(hostile.BODY, {
+      From: 'Wer Auch Immer <x@stranger.example>',
+      To: `p+wohnbau.${TOKEN}@example.org`,
+      'Message-ID': '<m7@stranger.example>',
+    })
+    const outsider = await stage(raw)
+    await receive(outsider)
+
+    expect(await classOf(outsider)).toEqual({ status: 'waiting', sender_trust: 'external_unverified', sender_class: 'external' })
+    const [window] = await rows<{ days: number }>(
+      sql`SELECT round(extract(epoch FROM expires_at - received_at) / 86400)::int AS days FROM inbound_mails WHERE id = ${outsider}::uuid`,
+    )
+    expect(window?.days).toBe(14)
+    expect(await documentCount()).toBe(before)
   })
 })

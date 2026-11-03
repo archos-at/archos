@@ -239,5 +239,29 @@ export const INBOX_ITEM_TYPES = [
    * at the Verlauf document. Resolved when it is renewed or ends.
    */
   'mail_thread.follow_expiring',
+  /**
+   * Actionable, operational tier: a mail to a project claims the reader as its
+   * sender, the reader may write there, and the signature did not hold
+   * (ADR-0137, amendment of 2026-11-03): only the reader can release it („Haben
+   * Sie das gesendet?“). One row per mail, to that member; names the project
+   * only. Resolved when the mail is decided or expires.
+   */
+  'inbound_mail.held',
+  /**
+   * Informational, operational tier: the reader's own mail to a project waits
+   * for the project's writers, because the reader may not write there. One
+   * row per mail, names the project only.
+   */
+  'inbound_mail.held_for_writers',
+  /**
+   * Informational, operational tier: a writer dismissed the reader's own mail
+   * to a project. One row per mail, to the member it came from.
+   */
+  'inbound_mail.rejected',
+  /**
+   * Informational, operational tier: the reader's own mail to a project ran
+   * out unfiled (sweep 3). One row per mail, to the member it came from.
+   */
+  'inbound_mail.expired',
 ] as const
 export type InboxItemType = (typeof INBOX_ITEM_TYPES)[number]

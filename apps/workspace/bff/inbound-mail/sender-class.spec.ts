@@ -1,0 +1,74 @@
+/**
+ * The sender rule's classifier (ADR-0137, amendment of 2026-11-03): one case
+ * per class, and every way a writer's mail falls short of a direct filing. The
+ * database holds the same rule (`inbound_mails_verified_writer_evidence`,
+ * `scripts/rls-test-db.sh`); this is the code that must never ask it for more.
+ */
+import { describe, expect, it } from 'vitest'
+import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput } from './sender-class'
+
+const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
+
+const input = (overrides: Partial<SenderClassInput> = {}): SenderClassInput => ({
+  trust: 'member_verified',
+  reason: 'dkim_pass',
+  senderUserId: WRITER,
+  flags: [],
+  automatic: false,
+  writes: true,
+  ...overrides,
+})
+
+describe('senderClassOf', () => {
+  it('a writer whose domain signed the mail to the project is a verified writer', () => {
+    expect(senderClassOf(input())).toBe('verified_writer')
+    expect(senderClassOf(input({ flags: ['not_addressed_to_project', 'bcc_own'] }))).toBe('verified_writer')
+  })
+
+  it('a writer’s mail without an aligned pass waits for that writer: failed, absent, or a spoofed From', () => {
+    expect(senderClassOf(input({ trust: 'member_unverified', reason: 'dkim_fail' }))).toBe('unverified_writer')
+    expect(senderClassOf(input({ trust: 'member_unverified', reason: 'dkim_none' }))).toBe('unverified_writer')
+    expect(senderClassOf(input({ trust: 'member_unverified', reason: 'dkim_unaligned' }))).toBe('unverified_writer')
+  })
+
+  it('a writer’s signed mail with a replay or date flag, or sent automatically, waits for that writer', () => {
+    for (const flag of ['stale_date', 'date_out_of_range', 'message_id_reused', 'already_filed'] as const) {
+      expect(senderClassOf(input({ flags: [flag] })), flag).toBe('unverified_writer')
+    }
+    expect(senderClassOf(input({ flags: ['not_addressed_to_project'] }))).toBe('unverified_writer')
+    expect(senderClassOf(input({ automatic: true }))).toBe('unverified_writer')
+  })
+
+  it('an office member without write rights is an office member, signed or not', () => {
+    expect(senderClassOf(input({ writes: false }))).toBe('office_member')
+    expect(senderClassOf(input({ writes: false, trust: 'member_unverified', reason: 'dkim_fail' }))).toBe('office_member')
+  })
+
+  it('anyone outside the office is external, however well their domain signed', () => {
+    expect(senderClassOf(input({ trust: 'external_verified', senderUserId: null }))).toBe('external')
+    expect(senderClassOf(input({ trust: 'external_unverified', reason: 'dkim_none', senderUserId: null, flags: ['claims_member_name'] }))).toBe('external')
+  })
+
+  it('names the evidence the database asks for, and nothing more', () => {
+    expect(isVerifiedWriterEvidence(input())).toBe(true)
+    expect(isVerifiedWriterEvidence(input({ senderUserId: null }))).toBe(false)
+    expect(isVerifiedWriterEvidence(input({ reason: 'dkim_fail' }))).toBe(false)
+  })
+})
+
+describe('what the class means to a reader', () => {
+  it('says why a mail waits', () => {
+    expect(senderWaitReason('verified_writer')).toBeNull()
+    expect(senderWaitReason('unverified_writer')).toBe('signature')
+    expect(senderWaitReason('office_member')).toBe('no_write_rights')
+    expect(senderWaitReason('external')).toBe('outside_office')
+    expect(senderWaitReason(null)).toBeNull()
+  })
+
+  it('lets only the claimed writer release a mail that claims them', () => {
+    const claimed = { senderClass: 'unverified_writer' as const, senderUserId: WRITER }
+    expect(onlySenderReleases(claimed, WRITER)).toBe(false)
+    expect(onlySenderReleases(claimed, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(true)
+    expect(onlySenderReleases({ senderClass: 'office_member', senderUserId: WRITER }, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(false)
+  })
+})

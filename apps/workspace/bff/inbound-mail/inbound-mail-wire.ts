@@ -31,6 +31,7 @@ import {
   type InboundMailPartKind,
   type InboundMailPartScanStatus,
   type InboundMailPartState,
+  type InboundMailSenderClass,
   type InboundSenderTrust,
   type MailParticipant,
   type MalwareScanStatus,
@@ -81,6 +82,12 @@ export const INBOUND_MAIL_REFUSALS = [
   'risk_not_acknowledged',
   /** The sender is unconfirmed in a way the person must accept (`acknowledgeSender`). */
   'sender_not_acknowledged',
+  /**
+   * The mail claims another member of the office as its sender and their
+   * signature did not hold: only that member files or restores it, saying they
+   * sent it; anyone else may dismiss it (ADR-0137, amendment of 2026-11-03).
+   */
+  'sender_only',
   /** An acknowledgement in a request about more than one mail: each is a single mail's decision. */
   'acknowledgement_in_bulk',
   /** An agent's card carries an acknowledgement or a release; only the person gives those. */
@@ -170,7 +177,25 @@ export interface InboundMailSenderRiskView {
   riskLevel: SenderRiskLevel
   /** Why it reads as someone pretending; null unless `riskLevel` is `impersonation`. */
   impersonation: ImpersonationBasis | null
+  /**
+   * Who the sender is to the project (`./sender-class.ts`): a verified writer's
+   * mail is filed as them; null for a mail held before the rule (none is shown
+   * unclassified since migration 0194).
+   */
+  senderClass: InboundMailSenderClass | null
+  /**
+   * Why it waits, for the line under the sender: `signature` (it claims a
+   * writer whose signature did not hold), `no_write_rights` (an office member
+   * who may not write here), `outside_office`; null for a verified writer's mail.
+   */
+  waitReason: InboundMailWaitReason | null
+  /** Only the member it claims may file or restore it (`sender_only`); the reader may dismiss it. */
+  onlySenderReleases: boolean
 }
+
+/** Why a held mail waits, by its sender's class (`./sender-class.ts`, `senderWaitReason`). */
+export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'no_write_rights', 'outside_office'] as const
+export type InboundMailWaitReason = (typeof INBOUND_MAIL_WAIT_REASONS)[number]
 
 // ------------------------------------------------------------ the list
 

@@ -1,17 +1,22 @@
 /**
  * @vitest-environment node
  *
- * Review first, held statically (ADR-0137, ratchet 2 of DECISION §10): nothing
- * reachable from the code that RECEIVES mail can file it.
+ * Review first, held statically (ADR-0137, ratchet 2 of DECISION §10, as its
+ * amendment of 2026-11-03 left it): nothing reachable from the code that
+ * RECEIVES mail can file it.
  *
- * Mail at a project's address is held until a person files it. The guarantee
- * has three layers: the database refuses a filed part without a person's
- * `file` decision (migration 0193), the dynamic spec runs a perfect mail to
- * idle and counts zero documents (`review-first.e2e.spec.ts`), and this one,
- * which fails before anything runs: the webhook, the receive job, the
- * suggestion and the sweeps must not import, at any depth, a module that can
- * file a document. A receive path that never loads the filing code cannot call
- * it, whatever a later change does with flags or conditions.
+ * Mail at a project's address is filed only on a person's decision: a writer's
+ * in the E-Mail-Eingang, or, for a verified writer's own mail, that writer's
+ * (`via = 'sender'`), made by a job that runs AS them (`sender-file-job.ts`).
+ * The guarantee has three layers: the database refuses a filed part without a
+ * person's `file` decision, and a decision without a click unless the mail's
+ * frozen class names its decider (migrations 0193, 0194); the dynamic spec runs
+ * a mail of each class to idle and counts the documents (`review-first.e2e.spec.ts`);
+ * and this one, which fails before anything runs: the webhook, the receive job,
+ * the suggestion and the sweeps must not import, at any depth, a module that
+ * can file a document. The receive side queues the sender's filing by its kind's
+ * name only. A receive path that never loads the filing code cannot call it,
+ * whatever a later change does with flags or conditions.
  *
  * The walk follows every import a module makes (static, dynamic and
  * type-only, read by the TypeScript compiler's own pre-processor) through the
@@ -45,6 +50,7 @@ const RECEIVE_ENTRIES = [
   'bff/inbound-mail/receive.ts',
   'bff/inbound-mail/receive-job.ts',
   'bff/inbound-mail/announce.ts',
+  'bff/inbound-mail/receive-sender.ts',
 ]
 
 /** Receive-side modules later packages of the same change add; walked as soon as they exist. */
@@ -56,6 +62,7 @@ const FILING_MODULES = [
   'bff/mail-thread/append.ts',
   'bff/inbound-mail/file-job.ts',
   'bff/inbound-mail/follow-job.ts',
+  'bff/inbound-mail/sender-file-job.ts',
   // The job table imports every job, the filing and follow jobs among them.
   'bff/jobs-queue/handlers.ts',
 ]

@@ -27,7 +27,7 @@ export const inboundMail: typeof en.inboundMail = {
   empty: {
     neverTitle: 'Noch keine E-Mails an dieses Projekt',
     neverText:
-      'Setzen Sie die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Die Antworten landen hier, und abgelegt wird erst, was jemand bestätigt.',
+      'Setzen Sie die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Was Sie selbst von Ihrer signierten Adresse senden, wird direkt abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.',
     doneTitle: 'Nichts wartet auf Ablage',
     doneText: 'Neue E-Mails an die E-Mail-Adresse des Projekts erscheinen hier.',
     showHandled: 'Bearbeitete anzeigen',
@@ -110,6 +110,14 @@ export const inboundMail: typeof en.inboundMail = {
       unverified:
         'Die Domain des Absenders hat diese E-Mail nicht signiert. {productName} schlägt dafür nichts vor und wählt keinen E-Mail-Verlauf vor.',
     },
+  },
+
+  // Warum eine E-Mail wartet, nach ihrem Absender (die direkte Ablage gilt nur für signierte E-Mails von Personen mit Schreibrecht).
+  waitReason: {
+    signature: 'Wartet: Die Signatur passt nicht zur Adresse des Mitglieds. Nur dieses Mitglied kann sie ablegen; verwerfen können alle.',
+    signatureOwn: 'Haben Sie diese E-Mail gesendet? Die Signatur passt nicht zu Ihrer Adresse, deshalb wurde sie nicht direkt abgelegt. Nur Sie können sie ablegen.',
+    no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen.',
+    outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, wird nach {days} Tagen verworfen.',
   },
 
   flags: {
@@ -303,9 +311,11 @@ export const inboundMail: typeof en.inboundMail = {
     busy: 'Wird abgelegt …',
     acknowledgeImpersonation: 'Ich habe geprüft, dass die E-Mail echt ist. Trotzdem ablegen',
     acknowledgeSender: 'Domain nicht bestätigt. Trotzdem ablegen',
+    acknowledgeOwnMail: 'Ja, ich habe diese E-Mail gesendet. Ablegen',
     originalErased: 'Das Original der E-Mail wird nach der Ablage gelöscht',
     blockers: {
       project_closed: 'Projekt ist abgeschlossen – wieder öffnen, um abzulegen',
+      sender_only: 'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen; Sie können sie verwerfen.',
       folder_missing: '{count, plural, one {Wählen Sie für # Anhang einen Ordner.} other {Wählen Sie für # Anhänge einen Ordner.}}',
       name_stop: '{count, plural, one {Bestätigen Sie die Namensprüfung bei # Anhang.} other {Bestätigen Sie die Namensprüfung bei # Anhängen.}}',
       risk: '{count, plural, one {Bestätigen Sie die Warnung bei # Teil.} other {Bestätigen Sie die Warnung bei # Teilen.}}',
@@ -392,6 +402,7 @@ export const inboundMail: typeof en.inboundMail = {
       'Die Namensprüfung hat einen Namen angehalten. Bestätigen Sie ihn mit „Trotzdem ablegen“ oder wählen Sie einen anderen Namen.',
     risk_not_acknowledged: 'Bestätigen Sie die Warnung vor dem Ablegen.',
     sender_not_acknowledged: 'Bestätigen Sie die nicht bestätigte Domain vor dem Ablegen.',
+    sender_only: 'Diese E-Mail trägt die Adresse eines anderen Mitglieds. Nur dieses Mitglied kann sie ablegen oder wiederherstellen; Sie können sie verwerfen.',
     acknowledgement_in_bulk: 'Diese E-Mail braucht Ihre Bestätigung. Öffnen Sie sie einzeln.',
     card_carries_acknowledgement: 'Dafür braucht es eine Bestätigung, die nur Sie geben können. Öffnen Sie die E-Mail.',
     name_taken:
@@ -430,12 +441,12 @@ export const inboundMail: typeof en.inboundMail = {
     copy: 'Kopieren',
     saveContact: 'Als Kontakt sichern',
     contactName: '{productName} · {project}',
-    contactNote: 'E-Mails an diese Adresse warten in {productName}, bis jemand sie ablegt.',
+    contactNote: 'Ihre eigenen signierten E-Mails an diese Adresse legt {productName} direkt ab; andere warten, bis jemand sie ablegt.',
     usesLabel: 'Wofür die Adresse da ist',
     uses: {
       cc: 'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im E-Mail-Eingang.',
       forward: 'Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie weiter.',
-      held: 'Abgelegt wird erst, was jemand bestätigt.',
+      held: 'Was jemand mit Schreibrecht im Projekt von der eigenen, signierten Adresse sendet, wird direkt abgelegt. Alles andere wartet, bis jemand es ablegt; E-Mails von außerhalb des Büros 14 Tage lang.',
     },
     tileLead: 'In Cc gesetzt, bringt sie die Antworten von Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum Ablegen.',
     openInbox: 'Zum E-Mail-Eingang',
@@ -470,7 +481,7 @@ export const inboundMail: typeof en.inboundMail = {
       share: '{percent} % der E-Mails Ihres Büros der letzten {days} Tage waren von Ihrer Domain bestätigt',
       missing: 'Ihre Domain signiert ihre E-Mails nicht – so richten Sie es ein',
       explain:
-        'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“. Nicht signierte E-Mails Ihrer Kolleginnen und Kollegen brauchen vor dem Ablegen eine Bestätigung.',
+        'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“ und werden direkt abgelegt, wenn die Person im Projekt ablegen darf. Eine nicht signierte E-Mail mit der Adresse einer Kollegin oder eines Kollegen kann nur diese Person selbst ablegen.',
       helpUrl: 'https://example.org/e-mail-eingang/#dkim',
     },
   },

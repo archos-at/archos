@@ -21,9 +21,9 @@ import 'server-only'
  * | 5 | `filing` past its claim: waits again (`unavailable`), the decider told | the claim | — |
  * | 13 | an original's move that stopped: finish it (copy proven, then the raw erased) | 15 min | a move erases nothing |
  * | 11 | decisions owed to the audit trail: send them (before 8 and 9, RT-S8) | 1 min | — |
- * | 3 | `waiting` past its end: parts `expired` (restorable 7 days), audited | 30 days | — |
- * | 4 | five days left: `inbound_mail.expiring`, once per mail | day 25 | — |
- * | 6 | dismissed and expired parts past 7 days: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days | deferred |
+ * | 3 | `waiting` past its end: parts `expired` (restorable 7 days; an outsider's never), audited; its member told (`inbound_mail.expired`) | 30 days, an outsider's 14 | — |
+ * | 4 | five days left: `inbound_mail.expiring`, once per mail | day 25, an outsider's day 9 | — |
+ * | 6 | dismissed and expired parts past 7 days, and an outsider's expired parts at once: bytes erased; a mail nothing of which waits is settled and scrubbed | 7 days, or the next tick | deferred |
  * | 7 | failed scans: scanned again, hourly, up to 24 times | 1 h | — |
  * | 10 | erasures a hold deferred, once it is released | — | the point |
  * | 8 | settled and dropped rows past their keep, with no live document and nothing owed to the trail: deleted | 30 days | skipped |
@@ -48,10 +48,12 @@ import { findEntryOfMail, forgetMovedRaw } from '@/lib/mail-thread/write-reposit
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import {
   announceCapReached,
+  announceExpired,
   announceExpiring,
   announceFilingFailed,
   announceFollowExpiring,
   settleCapReached,
+  settleHeld,
   settleProjectNotices,
 } from './announce'
 import { auditDecisions } from './audit'
@@ -243,6 +245,9 @@ export async function sweepExpiredMails(now: Date): Promise<SweepCounts> {
     })
     publishProjectChanged(row.organizationId, row.projectId)
     await settleProjectNotices(row.organizationId, row.projectId)
+    // The member it came from hears it ran out; nobody outside the office ever does.
+    await settleHeld(row.organizationId, [row.id])
+    await announceExpired({ ...row, mailId: row.id })
   })
   return result
 }

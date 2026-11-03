@@ -272,7 +272,10 @@ const projectTarget: InboxTargetDescriptor = {
  * for the decider who may file it again. A decided mail is told to its sender,
  * who may read the project without deciding its mail (D9): the list would
  * answer them 404, so it opens Dateien, at the folder the files went to when
- * the row names one they may open (its anchor). `inbound_mail.appended` and
+ * the row names one they may open (its anchor). The member's own rows about
+ * their mail (held for the writers, rejected, expired) open Dateien too; the
+ * one they must answer („Haben Sie das gesendet?“, `held`) opens the mail,
+ * which they, a writer, may read. `inbound_mail.appended` and
  * `mail_thread.follow_expiring` point at the Verlauf document instead.
  */
 function inboundMailLink(projectId: string, context: InboxTargetLinkContext): string | null {
@@ -284,10 +287,16 @@ function inboundMailLink(projectId: string, context: InboxTargetLinkContext): st
     case 'inbound_mail.expiring':
     case 'inbound_mail.cap_reached':
       return paths.list(waiting)
-    case 'inbound_mail.filing_failed': {
+    case 'inbound_mail.filing_failed':
+    case 'inbound_mail.held': {
       const mailId = context.anchorId?.trim()
       return mailId ? paths.mail(mailId, waiting) : paths.list(waiting)
     }
+    // The member may read the project without deciding its mail: Dateien, as for `decided`.
+    case 'inbound_mail.held_for_writers':
+    case 'inbound_mail.rejected':
+    case 'inbound_mail.expired':
+      return paths.files
     case 'inbound_mail.decided': {
       const folderId = context.anchorId?.trim()
       return folderId ? `${paths.files}?folder=${encodeURIComponent(folderId)}` : paths.files

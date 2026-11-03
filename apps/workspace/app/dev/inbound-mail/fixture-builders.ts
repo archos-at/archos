@@ -14,6 +14,17 @@ import { daysAhead, fixtureId, minutesAgo, PROJECT_ID } from './fixture-base'
 
 let sequence = 0
 
+/** A confirmed outsider: the sender of every fixture mail that names none. */
+const DEFAULT_SENDER: NonNullable<InboundMailView['sender']> = {
+  name: 'DI Petra Weber',
+  address: 'p.weber@statik-weber.at',
+  domain: 'statik-weber.at',
+  signerDomain: 'statik-weber.at',
+  trust: 'external_verified',
+  reason: 'dkim_pass',
+  flags: [],
+}
+
 // ------------------------------------------------------------ builders
 
 /** A confirmed outsider in an open project: what a part's default is judged against until `mail()` judges it against its own sender. */
@@ -68,8 +79,21 @@ export function thread(overrides: Partial<InboundMailThreadCandidateView> = {}):
   }
 }
 
+/**
+ * The class a fixture's sender has when the variant names none: an outsider's
+ * mail is `external`; a member's unsigned mail claims the reader (`unverified_writer`,
+ * „Haben Sie das gesendet?“); a member's signed mail that waits is one the
+ * member may not file (`office_member`), since a writer's would have been filed.
+ */
+function fixtureClass(sender: InboundMailView['sender']): Pick<InboundMailView, 'senderClass' | 'waitReason'> {
+  if (!sender || sender.trust.startsWith('external_')) return { senderClass: 'external', waitReason: 'outside_office' }
+  if (sender.trust === 'member_unverified') return { senderClass: 'unverified_writer', waitReason: 'signature' }
+  return { senderClass: 'office_member', waitReason: 'no_write_rights' }
+}
+
 export function mail(overrides: Partial<InboundMailView> & { key?: string } = {}): InboundMailView {
   const { key, ...rest } = overrides
+  const sender = rest.sender === undefined ? DEFAULT_SENDER : rest.sender
   return withReviewDefaults({
     id: fixtureId(`mail:${key ?? 'default'}`),
     projectId: PROJECT_ID,
@@ -77,15 +101,7 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string } = {}
     projectClosed: false,
     ifMatch: `if-${key ?? 'default'}`,
     subject: 'AW: Stellplatznachweis – Nachreichung Statik',
-    sender: {
-      name: 'DI Petra Weber',
-      address: 'p.weber@statik-weber.at',
-      domain: 'statik-weber.at',
-      signerDomain: 'statik-weber.at',
-      trust: 'external_verified',
-      reason: 'dkim_pass',
-      flags: [],
-    },
+    sender: DEFAULT_SENDER,
     participants: [
       { role: 'from', name: 'DI Petra Weber', address: 'p.weber@statik-weber.at' },
       { role: 'to', name: 'Miriam Huber', address: 'm.huber@huber-architektur.at' },
@@ -103,6 +119,8 @@ export function mail(overrides: Partial<InboundMailView> & { key?: string } = {}
     hiddenThreadCandidates: 0,
     followedBy: null,
     updatedAt: minutesAgo(9),
+    ...fixtureClass(sender),
+    onlySenderReleases: false,
     ...rest,
   })
 }
@@ -152,6 +170,9 @@ export function summaryOf(view: InboundMailView, overrides: Partial<InboundMailS
     thread: preferred ? { threadId: preferred.threadId, name: preferred.name, nextVersion: preferred.nextVersion, preselected: preferred.preselected } : null,
     riskLevel: view.riskLevel,
     impersonation: view.impersonation,
+    senderClass: view.senderClass,
+    waitReason: view.waitReason,
+    onlySenderReleases: view.onlySenderReleases,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     updatedAt: view.updatedAt,

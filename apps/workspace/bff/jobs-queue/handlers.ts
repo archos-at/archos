@@ -44,6 +44,7 @@ import { runRevisionNotice } from '@/lib/revision-notice/job'
 import { runInboundMailFiling } from '@/lib/inbound-mail/file-job'
 import { runInboundMailFollow } from '@/lib/inbound-mail/follow-job'
 import { runInboundMailReceive } from '@/lib/inbound-mail/receive-job'
+import { runInboundMailSenderFile } from '@/lib/inbound-mail/sender-file-job'
 import { runInboundMailSuggest } from '@/lib/inbound-mail/suggest-job'
 import { runSearchFacetsSyncSlice } from '@/lib/search/shelf-projection'
 import { isLastAttempt } from './attempts'
@@ -67,6 +68,7 @@ import {
   documentCheckPayloadSchema,
   inboundMailFilePayloadSchema,
   inboundMailFollowPayloadSchema,
+  inboundMailSenderFilePayloadSchema,
   inboundMailReceivePayloadSchema,
   inboundMailSuggestPayloadSchema,
   rootSortPayloadSchema,
@@ -221,5 +223,8 @@ export const JOB_HANDLERS: Record<BffJobKind, JobHandler> = {
   inbound_mail_follow: systemSliceHandler(inboundMailFollowPayloadSchema, (organizationId, payload) =>
     runInboundMailFollow(organizationId, payload),
   ),
+  // As the sender of a verified writer's mail, resolved by the job itself from the
+  // mail's frozen verdict (`sender-file-job.ts`): a sender who left files nothing.
+  inbound_mail_sender_file: systemSliceHandler(inboundMailSenderFilePayloadSchema, runInboundMailSenderFile),
   search_facets_sync: systemSliceHandler(searchFacetsSyncPayloadSchema, runSearchFacetsSyncSlice),
 }

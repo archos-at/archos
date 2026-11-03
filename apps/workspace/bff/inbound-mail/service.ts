@@ -40,7 +40,7 @@ import { maskText } from '@/lib/upload-screening/content-screen'
 import { screenUploadName } from '@/lib/upload-screening/name-screen'
 import { gatePolicy } from '@/lib/upload-screening/service'
 import { requireMailReviewer } from './access'
-import { announceDecided, settleFilingFailed, settleProjectNotices } from './announce'
+import { announceDecided, settleFilingFailed, settleHeld, settleProjectNotices } from './announce'
 import { auditDecisions } from './audit'
 import { partStatesOf } from './notice-repository'
 import { candidatesFor } from './candidates'
@@ -51,6 +51,7 @@ import type { DismissInboundMailsBody, FileInboundMailsBody, InboundMailDecision
 import { scanForStorage } from './malware-scan'
 import { mailReadSchema } from './read-client'
 import { dismissMails, findCandidateDocuments, findLiveFolders, findMailParts, findProjectMail, findThreadDocuments, hasOpenParts, listProjectMails, MailChangedError, PartNotWaitingError, restoreMailParts, writeMailDecisions, type DecisionActor, type DecisionsWritten } from './repository'
+import { onlySenderReleases } from './sender-class'
 import { senderFactsOf, senderRiskLevel } from './sender-risk'
 import { readStagedObject } from './staging'
 import { scoreMailDecision } from './suggest-scores'
@@ -263,6 +264,7 @@ async function afterDecisions(
   await auditDecisions(written.decisions)
   await settleProjectNotices(session.organizationId, projectId)
   await settleFilingFailed(session.organizationId, mailIds)
+  await settleHeld(session.organizationId, mailIds)
 }
 
 /**
@@ -290,7 +292,7 @@ async function tellDismissed(session: AuthorizedSession, mails: readonly Inbound
 }
 
 /** The rows a request's decisions are checked against, loaded once (`DecisionContext`). */
-async function decisionContext(
+export async function decisionContext(
   session: AuthorizedSession,
   projectId: string,
   body: FileInboundMailsBody,
@@ -484,7 +486,10 @@ export async function dismissInboundMails(
  */
 export async function restoreInboundMail(session: AuthorizedSession, projectId: string, mailId: string): Promise<InboundMailView> {
   const { closed } = await requireMailReviewer(session, projectId)
-  await requireMail(projectId, mailId)
+  const mail = await requireMail(projectId, mailId)
+  if (onlySenderReleases(mail, session.userId)) {
+    throw refusal('sender_only', 'This mail claims another member as its sender; only that member can restore it', { mailId })
+  }
   const now = Date.now()
   const written = await restoreMailParts(
     projectId,

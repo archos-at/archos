@@ -34,7 +34,7 @@ import { displaySubject } from '@/lib/inbound-mail/subject'
 import { expiryShownInline } from '../lib/evidence'
 import { senderDisplayName } from '../lib/sender'
 import { FactLine } from './inbound-mail-atoms'
-import { SenderFlagLines, SenderTrustLine } from './sender-trust'
+import { SenderFlagLines, SenderTrustLine, SenderWaitLine } from './sender-trust'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
 export interface MailHeaderProps {
@@ -103,6 +103,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           </CollapsibleTrigger>
         </div>
         {view.sender && <SenderFlagLines sender={view.sender} />}
+        <SenderWaitLine view={view} />
         {forwarded && (
           <p className="text-muted-foreground flex items-start gap-1.5 text-xs" data-testid="mail-forwarded">
             <Forward className="mt-px size-3.5 shrink-0" aria-hidden />

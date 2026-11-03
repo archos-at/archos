@@ -16,8 +16,8 @@ import type { JSX } from 'react'
 import { Info, ShieldAlert, ShieldCheck, ShieldQuestion } from 'lucide-react'
 import { Toggletip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
-import type { InboundMailSenderView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { INBOUND_MAIL_STALE_DATE_DAYS, type ImpersonationBasis, type InboundSenderTrust, type SenderFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
+import type { InboundMailSenderView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
+import { INBOUND_MAIL_EXTERNAL_WAIT_DAYS, INBOUND_MAIL_STALE_DATE_DAYS, type ImpersonationBasis, type InboundSenderTrust, type SenderFlag } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { cn } from '@/lib/utils'
 import { senderFlagLines, senderTone, senderTrustLine, type SenderTrustLine } from '../lib/sender'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
@@ -135,6 +135,25 @@ export function SenderTrustLine({ sender, impersonation }: { sender: InboundMail
         <TooltipContent className="max-w-72">{t(`trust.explain.${explainKey(line)}`)}</TooltipContent>
       </Toggletip>
     </span>
+  )
+}
+
+/**
+ * Why the mail waits, by who its sender is to the project (ADR-0137's
+ * amendment): a writer's address whose signature did not hold (asked of that
+ * writer as „Haben Sie das gesendet?“), a member who may not write here, or
+ * someone outside the office. Nothing for a verified writer's mail, nor once
+ * nothing of it waits.
+ */
+export function SenderWaitLine({ view }: { view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> }): JSX.Element | null {
+  const t = useTranslations(inboundMailCopy)
+  if (view.status !== 'waiting' || !view.waitReason) return null
+  const key = view.waitReason === 'signature' && !view.onlySenderReleases ? 'signatureOwn' : view.waitReason
+  return (
+    <p className="text-muted-foreground flex items-center gap-1.5 text-xs" data-testid="sender-wait-reason" data-reason={key}>
+      <Info className="size-3.5 shrink-0" aria-hidden />
+      <span>{t(`waitReason.${key}`, { days: INBOUND_MAIL_EXTERNAL_WAIT_DAYS })}</span>
+    </p>
   )
 }
 

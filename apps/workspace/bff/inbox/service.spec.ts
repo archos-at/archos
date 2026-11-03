@@ -163,6 +163,10 @@ const ALL_TYPES = [
   'inbound_mail.cap_reached',
   'inbound_mail.appended',
   'mail_thread.follow_expiring',
+  'inbound_mail.held',
+  'inbound_mail.held_for_writers',
+  'inbound_mail.rejected',
+  'inbound_mail.expired',
 ] as const satisfies readonly InboxItemType[]
 
 /** What a tenant WITHOUT collaboration may see: the operational types only. */
@@ -216,6 +220,10 @@ const OPERATIONAL_TYPES = [
   'inbound_mail.cap_reached',
   'inbound_mail.appended',
   'mail_thread.follow_expiring',
+  'inbound_mail.held',
+  'inbound_mail.held_for_writers',
+  'inbound_mail.rejected',
+  'inbound_mail.expired',
 ] as const satisfies readonly InboxItemType[]
 
 const at = new Date('2026-07-29T10:00:00.000Z')

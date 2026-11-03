@@ -25,10 +25,14 @@ export const RESTORE_WINDOW_MS = 7 * DAY_MS
 /**
  * A dismissed or expired part is past restoring: seven days after it ended,
  * or at once for a dismissed part of mail from an unconfirmed outside domain
- * (D8: nobody vouched for it, and somebody said no).
+ * (D8: nobody vouched for it, and somebody said no), and at once for an
+ * outsider's part that ran out (ADR-0137's amendment: an outsider's mail is
+ * discarded after its 14 days, with no restore window; migration 0194 refuses
+ * the restore too, `inbound_mail_decisions_external_expiry_final`).
  */
 const pastRestore = (cutoff: Date) => sql`(p.ended_at < ${cutoff.toISOString()}::timestamptz
-  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified'))`
+  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified')
+  OR (p.state = 'expired' AND m.sender_class = 'external'))`
 
 /** A staged object to erase, and whether a hold defers that. */
 export interface EndedPartBytes {

@@ -437,9 +437,9 @@ describe.skipIf(!url)('tenant isolation against live Postgres', () => {
         )
         const [mail] = await db.execute(
           sql`insert into inbound_mails (organization_id, project_id, address_id, status, delivery_key, raw_size_bytes,
-                                         staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_reason, expires_at)
+                                         staging_bucket, raw_scan_status, raw_scanned_at, sender_address, sender_trust, sender_class, sender_reason, expires_at)
               values (${org}, ${projectId}, ${address.id}, 'waiting', ${'e'.repeat(64)}, 100, 'documents', 'clean', now(),
-                      'huber@statik.at', 'external_verified', 'dkim_pass', now() + interval '30 days') returning id`
+                      'huber@statik.at', 'external_verified', 'external', 'dkim_pass', now() + interval '30 days') returning id`
         )
         const [text] = await db.execute(
           sql`insert into inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status)

@@ -16,6 +16,7 @@ import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-ma
 import type { InboundMailListStatus, InboundMailOutcome, InboundMailSummaryView, InboundMailView } from './inbound-mail-wire'
 import { findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
+import { onlySenderReleases, senderWaitReason } from './sender-class'
 import { readSuggestion, suggestionSkipReason } from './suggest'
 
 const DAY_MS = 86_400_000
@@ -40,6 +41,8 @@ function listStatusOf(mail: InboundMailRow, parts: readonly InboundMailPartRow[]
 function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: number): string | null {
   if (mail.status !== 'waiting' || (part.state !== 'dismissed' && part.state !== 'expired') || !part.endedAt) return null
   if (part.kind === 'attachment' && part.storageKey === null) return null
+  // An outsider's mail that ran out is discarded on the next sweep: nothing to restore.
+  if (part.state === 'expired' && mail.senderClass === 'external') return null
   const until = new Date(part.endedAt).getTime() + INBOUND_MAIL_RESTORE_DAYS * DAY_MS
   return until > now ? new Date(until).toISOString() : null
 }
@@ -77,11 +80,14 @@ function mailView(
   mail: InboundMailRow,
   parts: readonly InboundMailPartRow[],
   candidates: ViewerCandidates,
-  context: { closed: boolean; rules: ContentScreenRules | null; followedBy: string | null; now: number },
+  context: { closed: boolean; rules: ContentScreenRules | null; followedBy: string | null; now: number; viewerUserId: string },
 ): InboundMailView {
   const threads = candidates.threads(mail)
   return withReviewDefaults({
     id: mail.id,
+    senderClass: mail.senderClass,
+    waitReason: senderWaitReason(mail.senderClass),
+    onlySenderReleases: onlySenderReleases(mail, context.viewerUserId),
     projectId: mail.projectId,
     status: listStatusOf(mail, parts),
     projectClosed: context.closed,
@@ -144,6 +150,9 @@ export function summaryView(mail: InboundMailRow, parts: readonly InboundMailPar
       : null,
     riskLevel: view.riskLevel,
     impersonation: view.impersonation,
+    senderClass: view.senderClass,
+    waitReason: view.waitReason,
+    onlySenderReleases: view.onlySenderReleases,
     incompleteReason: view.incompleteReason,
     followedBy: view.followedBy,
     updatedAt: view.updatedAt,
@@ -173,7 +182,8 @@ export async function loadMailViews(
   const now = Date.now()
   return mails.map((mail) => {
     const own = byMail.get(mail.id) ?? []
-    return { mail, parts: own, view: mailView(mail, own, candidates, { closed, rules, followedBy: followers.get(mail.id) ?? null, now }) }
+    const context = { closed, rules, followedBy: followers.get(mail.id) ?? null, now, viewerUserId: session.userId }
+    return { mail, parts: own, view: mailView(mail, own, candidates, context) }
   })
 }
 

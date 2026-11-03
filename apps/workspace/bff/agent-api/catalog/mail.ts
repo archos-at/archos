@@ -121,7 +121,7 @@ export const mailOperations = [
     domain: 'mail',
     summary: 'List incoming email waiting in a project',
     description:
-      'Held until a person files or dismisses each part. Metadata only: masked subject, sender domain, `senderTrust` (about the domain, never a person), `riskLevel`, `incompleteReason` (null: filable as suggested). `threadGroups`: mails that file into one thread together. Then inbound-mail-get.',
+      'Mail that waits for a person: a project writer’s own signed mail is filed directly, the rest waits. Metadata only: masked subject, sender domain, `senderTrust` (about the domain, never a person), `senderClass` and `waitReason` (why it waits), `onlySenderReleases` (it claims another member: only they may file it), `riskLevel`, `incompleteReason` (null: filable as suggested). `threadGroups`: mails that file into one thread together. Then inbound-mail-get.',
     method: 'GET',
     path: '/api/projects/[id]/inbound-mails',
     params: projectParams,
@@ -181,7 +181,7 @@ export const mailOperations = [
     domain: 'mail',
     summary: 'File held email attachments and text into the project',
     description:
-      'Files `parts` into folders and `message` into a thread; every other waiting part is dismissed. A refusal names its rule in `details.reason`. Runs as you, on the person’s own yes.',
+      'Files `parts` into folders and `message` into a thread; every other waiting part is dismissed. A mail that claims the person as its sender but whose signature did not hold (`senderClass` `unverified_writer`) is released only by that person, with `acknowledgeSender: true` (they sent it); anyone else is refused with `sender_only` and may dismiss it. A refusal names its rule in `details.reason`. Runs as you, on the person’s own yes.',
     method: 'POST',
     path: '/api/projects/[id]/inbound-mails/file',
     params: projectParams,
@@ -221,7 +221,7 @@ export const mailOperations = [
     domain: 'mail',
     summary: 'Dismiss held email',
     description:
-      'Restorable for seven days with inbound-mail-restore. Runs only on the person’s own yes.',
+      'Restorable for seven days with inbound-mail-restore. Any reviewer may dismiss, mail that claims another member included. Runs only on the person’s own yes.',
     method: 'POST',
     path: '/api/projects/[id]/inbound-mails/dismiss',
     params: projectParams,
@@ -235,7 +235,7 @@ export const mailOperations = [
     domain: 'mail',
     summary: 'Restore dismissed or expired email',
     description:
-      'Its dismissed or expired parts wait again, within seven days of their end; else 409 `not_restorable`.',
+      'Its dismissed or expired parts wait again, within seven days of their end; else 409 `not_restorable`. Mail from outside the office that expired is discarded, never restored. Mail that claims another member is restored only by them (`sender_only`).',
     method: 'POST',
     path: '/api/projects/[id]/inbound-mails/[mailId]/restore',
     params: mailParams,

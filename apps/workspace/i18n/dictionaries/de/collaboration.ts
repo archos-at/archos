@@ -851,7 +851,31 @@ export const collaboration: typeof en.collaboration = {
             titleRelated: 'Ihre E-Mail an „{subject}“ wurde verworfen',
             body: 'Verworfen von {actor}. Sie kann sieben Tage lang wiederhergestellt werden.',
           },
+          // In Ihrem Namen abgelegt, ohne dass jemand bestätigt hat: Ihre Domain hat signiert, und Sie dürfen im Projekt ablegen.
+          direct: {
+            title: 'Ihre E-Mail an „{subject}“ wurde abgelegt',
+            titleRelated: 'Ihre E-Mail an „{subject}“ wurde in „{related}“ abgelegt',
+            body: 'Direkt in Ihrem Namen abgelegt, weil Ihre Domain sie signiert hat und Sie in diesem Projekt ablegen dürfen.',
+          },
         },
+      },
+      // Die E-Mail trägt die Adresse des Mitglieds, die Signatur passt nicht: nur es selbst kann sie freigeben.
+      inboundMailHeld: {
+        title: 'Haben Sie diese E-Mail an „{subject}“ gesendet?',
+        titleResolved: 'Die E-Mail an „{subject}“ in Ihrem Namen ist entschieden',
+        body: 'Sie trägt Ihre Adresse, aber die Signatur passte nicht. Nur Sie können sie ablegen; verwerfen kann sie jede Person im Projekt.',
+      },
+      inboundMailHeldForWriters: {
+        title: 'Ihre E-Mail an „{subject}“ wartet auf Ablage',
+        body: 'Sie dürfen in diesem Projekt nicht ablegen, deshalb entscheidet jemand, der es darf.',
+      },
+      inboundMailRejected: {
+        title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+        body: 'Verworfen von {actor}. Sie kann sieben Tage lang wiederhergestellt werden.',
+      },
+      inboundMailExpired: {
+        title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',
+        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt, und sie ist abgelaufen.',
       },
       inboundMailFilingFailed: {
         title: 'Eine E-Mail an „{subject}“ wurde nicht vollständig abgelegt',

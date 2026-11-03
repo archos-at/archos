@@ -1,26 +1,33 @@
 import 'server-only'
 /**
- * The E-Mail-Eingang's notices (ADR-0137, DECISION §9 „Postfach types“): who
- * is told what about project mail, and when a notice is settled. Seven types,
- * all in-app and push only (we never send mail about mail):
+ * The E-Mail-Eingang's notices (ADR-0137, DECISION §9 „Postfach types“, and
+ * the amendment of 2026-11-03): who is told what about project mail, and when
+ * a notice is settled. Eleven types, all in-app and push only (we never send
+ * mail about mail, and nobody outside the office hears from us at all):
  *
  * | Type | Told to | Row | Settled |
  * |---|---|---|---|
  * | `inbound_mail.waiting` | the sender per D9, else the managers | per project | nothing waits |
  * | `inbound_mail.expiring` | the same, once per mail (sweep 4) | per project | nothing told about waits |
- * | `inbound_mail.decided` | the member sender per D9 | per mail | — |
+ * | `inbound_mail.held` | the member a mail claims whose signature did not hold („Haben Sie das gesendet?“) | per mail | the mail is decided or expires |
+ * | `inbound_mail.held_for_writers` | the member without write rights whose mail waits for the writers | per mail | the mail is decided or expires |
+ * | `inbound_mail.decided` | the member sender: their mail was filed (by a writer, or directly as them, `direct`) | per mail | — |
+ * | `inbound_mail.rejected` | the member sender: their mail was dismissed | per mail | — |
+ * | `inbound_mail.expired` | the member sender: their mail ran out unfiled | per mail | — |
  * | `inbound_mail.filing_failed` | the decider | per mail | filed again or dismissed |
  * | `inbound_mail.cap_reached` | the managers | per address | below 80%, or a new address |
  * | `inbound_mail.appended` | the follower | per Verlauf and day | — |
  * | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow | renewed or ended |
  *
- * Who is told about a mail (D9, RT-S14):
- * - the sender, when the mail is `member_verified`, addressed to the project
- *   (or the member's own Bcc copy, D4) and the member may read the project:
- *   their own mail waits for them, and its outcome is theirs to hear;
- * - otherwise the project's managers (`project:manage`). A `member_unverified`
- *   mail never notifies the member it names: whoever forged their address must
- *   not reach them through us.
+ * Who is told about a mail (D9, RT-S14, and the amendment):
+ * - that it waits: the sender, when the mail is `member_verified`, addressed to
+ *   the project (or the member's own Bcc copy, D4) and the member may read the
+ *   project; otherwise the project's managers (`project:manage`);
+ * - why it waits, and what became of it: the member the From address names,
+ *   whenever there is one and they may read the project, the forged case
+ *   included. A forger thereby causes a notice to the member they
+ *   impersonated: that member is the one person who can answer „Haben Sie
+ *   das gesendet?“, and the row carries nothing the forger wrote.
  *
  * What a row says: the project's name, a count, a code. No sender, no subject,
  * no file name reaches a row or a push, so a stranger's words never land on a
@@ -42,6 +49,7 @@ import { memberReader } from '@/lib/documents/document-reader'
 import type {
   InboundMailCapNotice,
   InboundMailFilingFailure,
+  InboundMailSenderClass,
   InboundSenderTrust,
   SenderFlag,
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
@@ -67,6 +75,10 @@ export const INBOUND_MAIL_FILING_FAILED = 'inbound_mail.filing_failed' as const
 export const INBOUND_MAIL_CAP_REACHED = 'inbound_mail.cap_reached' as const
 export const INBOUND_MAIL_APPENDED = 'inbound_mail.appended' as const
 export const MAIL_THREAD_FOLLOW_EXPIRING = 'mail_thread.follow_expiring' as const
+export const INBOUND_MAIL_HELD = 'inbound_mail.held' as const
+export const INBOUND_MAIL_HELD_FOR_WRITERS = 'inbound_mail.held_for_writers' as const
+export const INBOUND_MAIL_REJECTED = 'inbound_mail.rejected' as const
+export const INBOUND_MAIL_EXPIRED = 'inbound_mail.expired' as const
 
 /** What the announcement reads of a held mail. Ids and labels only. */
 export interface WaitingMail {
@@ -116,6 +128,74 @@ type SenderFacts = Pick<WaitingMail, 'organizationId' | 'projectId' | 'senderTru
 async function senderToTell(mail: SenderFacts): Promise<string | null> {
   if (!notifiesSender(mail) || !mail.senderUserId) return null
   return (await holds(mail.organizationId, mail.projectId, mail.senderUserId, 'project:view')) ? mail.senderUserId : null
+}
+
+/**
+ * The member a mail's From address names, when they may read the project:
+ * the one told why their mail waits and what became of it, verified or not
+ * (the amendment of 2026-11-03). Null for an outsider's mail.
+ */
+async function memberToTell(mail: Pick<WaitingMail, 'organizationId' | 'projectId' | 'senderUserId'>): Promise<string | null> {
+  if (!mail.senderUserId) return null
+  return (await holds(mail.organizationId, mail.projectId, mail.senderUserId, 'project:view')) ? mail.senderUserId : null
+}
+
+/** One row about one mail for its member, named by the project only. */
+async function memberRow(
+  type: InboxItemType,
+  mail: Pick<WaitingMail, 'organizationId' | 'projectId' | 'mailId' | 'senderUserId'>,
+  extra: { anchorId?: string | null; actorUserId?: string | null; payload?: Record<string, unknown> } = {},
+): Promise<InboxEmission[] | null> {
+  const recipient = await memberToTell(mail)
+  if (!recipient) return null
+  const project = await findProjectInOrg(mail.projectId, mail.organizationId)
+  if (!project) return null
+  return [
+    {
+      organizationId: mail.organizationId,
+      recipientUserId: recipient,
+      type,
+      resourceType: 'project',
+      resourceId: mail.projectId,
+      anchorId: extra.anchorId === undefined ? mail.mailId : extra.anchorId,
+      actorUserId: extra.actorUserId ?? null,
+      groupKey: inboxGroupKey(type, 'project', mail.projectId, mail.mailId),
+      payload: { subject: project.name, ...extra.payload },
+    },
+  ]
+}
+
+/** A held mail and who its sender is to the project (`./sender-class.ts`). */
+export interface HeldMail extends WaitingMail {
+  senderClass: InboundMailSenderClass | null
+}
+
+/**
+ * Tell the member a held mail names why it waits (the receive job, once per
+ * mail): `inbound_mail.held` when it claims them as a writer and their
+ * signature did not hold, so only they can release it; `inbound_mail.held_for_writers`
+ * when they may not write in the project. Nothing for an outsider's mail or a
+ * verified writer's (the sender job tells about that). Never throws.
+ */
+export async function announceHeld(mail: HeldMail): Promise<boolean> {
+  const type =
+    mail.senderClass === 'unverified_writer' ? INBOUND_MAIL_HELD : mail.senderClass === 'office_member' ? INBOUND_MAIL_HELD_FOR_WRITERS : null
+  if (!type) return false
+  return emit(`${type} for mail ${mail.mailId}`, mail.organizationId, () => memberRow(type, mail))
+}
+
+/** The held notices of these mails, which no longer wait for their member: settled. Never throws. */
+export async function settleHeld(organizationId: string, mailIds: readonly string[]): Promise<void> {
+  await bestEffortInbox(`${INBOUND_MAIL_HELD} settled`, organizationId, async () => {
+    for (const mailId of mailIds) {
+      await resolveInboxItemsAnchoredOn({ organizationId, types: [INBOUND_MAIL_HELD, INBOUND_MAIL_HELD_FOR_WRITERS], anchorId: mailId })
+    }
+  })
+}
+
+/** A member's mail ran out unfiled (sweep 3): tell them. Never throws. */
+export async function announceExpired(mail: Pick<WaitingMail, 'organizationId' | 'projectId' | 'mailId' | 'senderUserId'>): Promise<boolean> {
+  return emit(`${INBOUND_MAIL_EXPIRED} for mail ${mail.mailId}`, mail.organizationId, () => memberRow(INBOUND_MAIL_EXPIRED, mail))
 }
 
 /** Who is told about this mail: its sender (see {@link notifiesSender}) when they may read the project, else its managers. */
@@ -209,9 +289,11 @@ export async function settleProjectNotices(organizationId: string, projectId: st
 /** A mail whose outcome its member sender is told (D9): what was decided, and by whom. */
 export interface DecidedMail extends Pick<WaitingMail, 'organizationId' | 'projectId' | 'mailId' | 'senderUserId' | 'senderFlags'> {
   senderTrust: InboundSenderTrust | null
-  /** The person who decided; their own mail is not news to them. */
+  /** The person who decided; their own mail is not news to them, unless it was filed directly. */
   decidedBy: string
   outcome: 'filed' | 'dismissed'
+  /** Filed directly, as the sender, without a click (`via = 'sender'`): they are told although they are its decider. */
+  direct?: boolean
 }
 
 /**
@@ -232,38 +314,26 @@ async function visibleFolder(mail: DecidedMail, recipient: string): Promise<{ id
 }
 
 /**
- * A member's own verified mail was decided (D9): tell them, once. The caller
- * is the run that ended the mail (the filing job when it filed the last part,
- * the dismissal when it dismissed what waited). Never the managers, never for
- * an unverified sender. Never throws; whether a row was written.
+ * A member's own mail was decided (D9, and the amendment): tell them, once.
+ * Filed is `inbound_mail.decided` (`direct` when it was filed as them without
+ * a click), dismissed is `inbound_mail.rejected`. The caller is the run that
+ * ended the mail (the filing job when it filed the last part, the dismissal
+ * when it dismissed what waited). Never the managers, never an outsider.
+ * Never throws; whether a row was written.
  */
 export async function announceDecided(mail: DecidedMail): Promise<boolean> {
-  const { senderTrust } = mail
-  if (!senderTrust) return false
-  return emit(`${INBOUND_MAIL_DECIDED} for mail ${mail.mailId}`, mail.organizationId, async () => {
-    const recipient = await senderToTell({ ...mail, senderTrust })
+  if (!mail.senderTrust) return false
+  const type = mail.outcome === 'dismissed' ? INBOUND_MAIL_REJECTED : INBOUND_MAIL_DECIDED
+  return emit(`${type} for mail ${mail.mailId}`, mail.organizationId, async () => {
+    const recipient = await memberToTell(mail)
     if (!recipient) return null
-    const project = await findProjectInOrg(mail.projectId, mail.organizationId)
-    if (!project) return null
     const folder = await visibleFolder(mail, recipient)
-    return [
-      {
-        organizationId: mail.organizationId,
-        recipientUserId: recipient,
-        type: INBOUND_MAIL_DECIDED,
-        resourceType: 'project',
-        resourceId: mail.projectId,
-        // The row opens Dateien at the folder it names; it folds per mail.
-        anchorId: folder?.id ?? null,
-        actorUserId: mail.decidedBy,
-        groupKey: inboxGroupKey(INBOUND_MAIL_DECIDED, 'project', mail.projectId, mail.mailId),
-        payload: {
-          subject: project.name,
-          ...(mail.outcome === 'dismissed' ? { variant: 'dismissed' } : {}),
-          ...(folder ? { related: folder.path } : {}),
-        },
-      },
-    ]
+    return memberRow(type, mail, {
+      // The row opens Dateien at the folder it names.
+      anchorId: folder?.id ?? null,
+      actorUserId: mail.direct ? null : mail.decidedBy,
+      payload: { ...(mail.direct ? { variant: 'direct' } : {}), ...(folder ? { related: folder.path } : {}) },
+    })
   })
 }
 
@@ -434,4 +504,8 @@ export const INBOUND_MAIL_INBOX_TYPES: readonly InboxItemType[] = [
   INBOUND_MAIL_CAP_REACHED,
   INBOUND_MAIL_APPENDED,
   MAIL_THREAD_FOLLOW_EXPIRING,
+  INBOUND_MAIL_HELD,
+  INBOUND_MAIL_HELD_FOR_WRITERS,
+  INBOUND_MAIL_REJECTED,
+  INBOUND_MAIL_EXPIRED,
 ]

@@ -76,7 +76,7 @@ import {
 import { publishProjectChanged } from '@/lib/realtime/door-events'
 import { chatScreeningRules } from '@/lib/upload-screening/content-screen'
 import { gatePolicy } from '@/lib/upload-screening/service'
-import { announceDecided, announceFilingFailed, settleFilingFailed, settleProjectNotices } from './announce'
+import { announceDecided, announceFilingFailed, settleFilingFailed, settleHeld, settleProjectNotices } from './announce'
 import { INBOUND_ATTACHMENT_EFFECTS, INBOUND_THREAD_APPEND_EFFECTS } from './batch-effects'
 import {
   findFilingWork,
@@ -237,6 +237,7 @@ async function tellOutcome(run: FilingRun, work: FilingWork): Promise<void> {
   const open = [...now.values()].some((part) => part.state === 'waiting' || part.state === 'filing')
   if (!filedNow || open) return
   await settleFilingFailed(run.session.organizationId, [work.mail.id])
+  await settleHeld(run.session.organizationId, [work.mail.id])
   await announceDecided({
     organizationId: run.session.organizationId,
     projectId: run.projectId,
@@ -246,6 +247,8 @@ async function tellOutcome(run: FilingRun, work: FilingWork): Promise<void> {
     senderFlags: work.mail.senderFlags,
     decidedBy: run.session.userId,
     outcome: 'filed',
+    // Filed as the sender without a click: they hear it, though they are its decider.
+    direct: claimed.every((part) => work.decisions.get(part.id)?.via === 'sender'),
   })
 }
 

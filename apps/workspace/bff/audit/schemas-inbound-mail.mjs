@@ -26,6 +26,8 @@ export const INBOUND_MAIL_AUDIT_SCHEMAS = /** @type {const} */ ({
       senderTrust: 'string',
       senderReason: 'string',
       senderFlags: 'string',
+      // Who the sender is to the project (migration 0194): `verified_writer` is filed as them.
+      senderClass: 'string',
       automatic: 'boolean',
       dropped: 'string',
       attachments: 'number',

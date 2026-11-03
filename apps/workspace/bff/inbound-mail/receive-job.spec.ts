@@ -123,7 +123,9 @@ vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
 vi.mock('@/lib/jobs-queue/repository', () => ({ insertJobIfAbsent: vi.fn(async () => true) }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
-vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true) }))
+vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true), announceHeld: vi.fn(async () => true) }))
+// Whether the From's member may write in the project (the sender rule): no, unless a test says so.
+vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermission: vi.fn(async () => false) }))
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
@@ -149,7 +151,8 @@ import {
   RECEIVED,
   sign,
 } from './__fixtures__/hostile'
-import { announceWaiting } from './announce'
+import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { announceHeld, announceWaiting } from './announce'
 import { readMail, type MailRead } from './read-client'
 import { inboundMailJobId, runInboundMailReceive } from './receive-job'
 
@@ -222,6 +225,7 @@ function receivedRow(overrides: Partial<InboundMailRow> = {}): InboundMailRow {
     recipientCount: 0,
     senderTrust: null,
     senderUserId: null,
+    senderClass: null,
     senderReason: null,
     signerDomain: null,
     signedHeaders: [],
@@ -688,5 +692,95 @@ describe('a job that has nothing to do', () => {
     receive(await sign(message()), { status: 'dropped' })
     await run()
     expect(state.calls).toEqual([])
+  })
+})
+
+describe('the sender rule: the class the hold writes (ADR-0137, amendment of 2026-11-03)', () => {
+  const DAY = 86_400_000
+  beforeEach(() => {
+    vi.mocked(userHoldsProjectPermission).mockReset().mockResolvedValue(false)
+  })
+  const writes = () => vi.mocked(userHoldsProjectPermission).mockImplementation(async (_org, _project, userId, permission) =>
+    userId === MEMBER_ID && permission === 'project:documents:write')
+
+  it('a writer’s signed mail is a verified writer’s: its sender’s filing is queued by name, nothing is announced yet', async () => {
+    writes()
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', senderClass: 'verified_writer' })
+    expect(new Date(heldRow().expiresAt).getTime() - new Date(heldRow().receivedAt).getTime()).toBe(30 * DAY)
+    expect(jobKinds()).toEqual(['inbound_mail_suggest', 'inbound_mail_sender_file'])
+    expect(vi.mocked(insertJobIfAbsent).mock.calls[1][0]).toMatchObject({
+      jobId: inboundMailJobId('sender', MAIL),
+      payload: { mailId: MAIL, projectId: PROJECT, waits: 0 },
+    })
+    expect(announceWaiting).not.toHaveBeenCalled()
+    expect(announceHeld).not.toHaveBeenCalled()
+  })
+
+  it('a writer’s mail whose signature fails waits for that writer, who is asked whether they sent it', async () => {
+    writes()
+    state.dns = fakeDns({})
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_unverified', senderClass: 'unverified_writer', senderUserId: MEMBER_ID })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+    expect(announceWaiting).toHaveBeenCalledOnce()
+    expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL, senderClass: 'unverified_writer', senderUserId: MEMBER_ID }))
+  })
+
+  it('a spoofed From of a real writer, unsigned, is never a verified writer’s', async () => {
+    writes()
+    receive(message(BODY, { From: 'Anna Muster <anna@buero-muster.at>' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_unverified', senderClass: 'unverified_writer' })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+  })
+
+  it('a writer’s signed mail replayed (its Message-ID already in the project) waits for that writer', async () => {
+    writes()
+    state.filedMessages = [{ entryId: 'e1', threadId: THREAD, source: 'inbound', ownTextSha256: '0'.repeat(64) }]
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow().senderFlags).toContain('message_id_reused')
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'unverified_writer' })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+  })
+
+  it('a member without write rights waits for the project’s writers, and hears why', async () => {
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'office_member' })
+    expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ senderClass: 'office_member' }))
+  })
+
+  it('a write check WorkOS does not answer reads as no write right: the mail waits instead of filing', async () => {
+    vi.mocked(userHoldsProjectPermission).mockRejectedValue(new Error('WorkOS unavailable'))
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'office_member' })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+  })
+
+  it('an outsider’s mail waits 14 days, and nobody outside the office hears of it', async () => {
+    receive(message(BODY, { From: 'Wer Auch Immer <x@stranger.example>' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'external_unverified', senderClass: 'external' })
+    expect(new Date(heldRow().expiresAt).getTime() - new Date(heldRow().receivedAt).getTime()).toBe(14 * DAY)
+    expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ senderClass: 'external', senderUserId: null }))
   })
 })
