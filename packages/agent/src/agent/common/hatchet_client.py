@@ -17,6 +17,9 @@ from __future__ import annotations
 import threading
 from typing import TYPE_CHECKING
 
+from .task_failures import TaskFailure
+from .task_failures import TransientTaskError
+
 if TYPE_CHECKING:
     from hatchet_sdk import Hatchet
 
@@ -41,3 +44,17 @@ def reset_for_tests(fake: Hatchet | None = None) -> None:
     global _client
     with _lock:
         _client = fake
+
+
+def task_error(failure: TaskFailure, *, retry: bool) -> Exception:
+    """What a task raises to the engine for ``failure`` (``raise task_error(...) from None``).
+
+    Its message is ``failure.text`` and nothing else, so the run's record in
+    Hatchet names a class and a category, never the original message or its
+    chained cause. ``retry`` says whether the task's retry policy applies.
+    """
+    if retry:
+        return TransientTaskError(failure.text)
+    from hatchet_sdk import NonRetryableException
+
+    return NonRetryableException(failure.text)

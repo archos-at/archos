@@ -11,12 +11,18 @@ this module says how Hatchet holds it:
   one (a scheduled fire) at ``Priority.LOW``.
 * WAITS, IS NOT REFUSED. The schedule timeout is a day, the job's own expiry,
   so a busy organization's job waits instead of being dropped.
-* RETRIED WHEN THE WORKER IS LOST, NOT WHEN THE RUN FAILS. ``retries`` is
-  ``RESEARCH_WORKER_MAX_ATTEMPTS`` less the first. A run that failed on its own
-  already wrote its verdict, and an unreadable payload fails the same way every
-  time, so both raise ``NonRetryableException``. Spent attempts and a run past
-  its execution timeout reach the on-failure task, which writes FAILURE unless
-  a verdict stands.
+* RETRIED WHEN THE WORKER IS LOST OR THE FAILURE MAY PASS. ``retries`` is
+  ``RESEARCH_WORKER_MAX_ATTEMPTS`` less the first. A transient failure (the job
+  database away, a timeout, a provider 5xx or 429; ``task_failures.classify``)
+  is tried again, and the retry's ownership check (``run_ownership``) runs
+  nothing when the job already ended. A run that failed on its own already
+  wrote its verdict, and an unreadable payload fails the same way every time,
+  so both raise ``NonRetryableException``. Spent attempts and a run past its
+  execution timeout reach the on-failure task, which writes FAILURE unless a
+  verdict stands.
+* NO MESSAGE TO HATCHET. A failure reaches the engine as its class and
+  category, raised ``from None``; the message and its traceback chain, which
+  may name a file or a URL, go to our own logs only.
 * NO TENANT CONTENT. The input carries ids, the priority and the
   ``payload_crypto`` ciphertext. Without a ``JOB_PAYLOAD_KEK`` nothing is sent.
 
@@ -41,11 +47,12 @@ from hatchet_sdk import ConcurrencyExpression
 from hatchet_sdk import ConcurrencyLimitStrategy
 from hatchet_sdk import Context
 from hatchet_sdk import Hatchet
-from hatchet_sdk import NonRetryableException
 from hatchet_sdk import Priority
 from pydantic import BaseModel
 
 from agent.common import hatchet_client
+from agent.common import task_failures
+from agent.knowledge.ingest_failures import DETERMINISTIC
 
 from . import orchestrator_runs
 from . import payload_crypto
@@ -155,30 +162,54 @@ def _db_url() -> str:
     return os.environ.get("NAT_JOB_STORE_DB_URL", "sqlite:///./data/jobs.db")
 
 
+def _failure_of(exc: Exception) -> task_failures.TaskFailure:
+    """A poison payload fails the same way every time; anything else is classified."""
+    if isinstance(exc, worker.PoisonPayloadError):
+        return task_failures.TaskFailure(type(exc).__name__, DETERMINISTIC)
+    return task_failures.classify(exc)
+
+
+async def _forget(db_url: str, job_id: str) -> None:
+    try:
+        await asyncio.to_thread(orchestrator_runs.forget, db_url, job_id)
+    except Exception:
+        logger.warning("Job %s: its Hatchet run id was not forgotten", job_id, exc_info=True)
+
+
 async def run_task(run: ResearchRunInput, attempt: int | None = None) -> dict[str, str]:
-    """One attempt of a research run: the run path, its failures mapped to Hatchet's terms."""
+    """One attempt of a research run: the run path, its failures mapped to Hatchet's terms.
+
+    The failure is logged in full here and reaches Hatchet as its class and
+    category only (``task_failures``). A transient one (the job database
+    away, a timeout, a provider 5xx or 429) is retried; anything else is not.
+    """
     db_url = _db_url()
-    ran = True
     try:
         ran = await worker.run_stored_job(db_url, run.job_id, run.payload, attempt)
-    except worker.PoisonPayloadError as exc:
-        raise NonRetryableException(str(exc)) from exc
     except Exception as exc:
-        logger.exception("Job %s failed on Hatchet", run.job_id)
-        raise NonRetryableException(f"research run failed: {type(exc).__name__}") from exc
-    finally:
-        # A cancel ends the run too: only a lost worker leaves the id for its retry,
-        # and a duplicate copy leaves it to the copy that runs.
-        if ran:
-            await asyncio.to_thread(orchestrator_runs.forget, db_url, run.job_id)
+        failure = _failure_of(exc)
+        logger.error("Job %s failed on Hatchet: %s", run.job_id, failure.text, exc_info=exc)
+        if not failure.transient:
+            # The retry keeps the id for its cancel; a run that ends here does not need it.
+            await _forget(db_url, run.job_id)
+        raise hatchet_client.task_error(failure, retry=failure.transient) from None
+    # A cancel ends the run too: only a lost worker leaves the id for its retry,
+    # and a duplicate copy leaves it to the copy that runs.
+    if ran:
+        await _forget(db_url, run.job_id)
     return {"job_id": run.job_id, "ran": "yes" if ran else "duplicate"}
 
 
 async def record_failure(run: ResearchRunInput) -> None:
     """Every attempt is spent, or the run outlived its timeout: FAILURE, unless a verdict stands."""
     db_url = _db_url()
-    await worker.record_exhausted_verdict(db_url, run.job_id)
-    await asyncio.to_thread(orchestrator_runs.forget, db_url, run.job_id)
+    try:
+        await worker.record_exhausted_verdict(db_url, run.job_id)
+    except Exception as exc:
+        failure = task_failures.classify(exc)
+        logger.error("Job %s: its failure was not recorded: %s", run.job_id, failure.text, exc_info=exc)
+        raise hatchet_client.task_error(failure, retry=False) from None
+    await _forget(db_url, run.job_id)
 
 
 _declared: dict[int, tuple[Hatchet, Any]] = {}

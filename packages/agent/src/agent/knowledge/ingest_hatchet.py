@@ -39,7 +39,10 @@ priority and the payload the API tier already encrypted (``payload_crypto``,
 * **Retries:** per step, with exponential backoff: ``RETRIES`` more attempts
   of ``index`` for a failure that may pass (a dropped worker, a timeout, a
   transient file failure), ``SETTLE_RETRIES`` of ``settle``. A failure of the
-  bytes raises ``NonRetryableException``.
+  bytes raises ``NonRetryableException``. What a step raises reaches Hatchet
+  as the exception's class and failure category only, ``from None``
+  (``task_failures``); the message, which may name a file or a URL, is logged
+  here and nowhere else.
 * **Idempotency:** one live run per job id, so asking twice for the base
   corpus's deterministic ids starts one run.
 """
@@ -67,6 +70,7 @@ from pydantic import BaseModel
 
 from agent.common import bff_http
 from agent.common import hatchet_client
+from agent.common import task_failures
 
 from . import ingest_execution
 from . import ingest_run_hold
@@ -220,7 +224,21 @@ def settle_step(job_id: str) -> dict[str, Any]:
             raise NonRetryableException(
                 f"the BFF refused to settle ingestion job {job_id} ({refused.status})"
             ) from None
-        raise
+        raise _sanitized(job_id, refused) from None
+    except Exception as error:
+        raise _sanitized(job_id, error) from None
+
+
+def _sanitized(job_id: str, error: Exception) -> Exception:
+    """``error`` as Hatchet may store it: class and category, no message (``task_failures``); logged in full here.
+
+    Tried again under the step's policy, as before: a failure of the bytes
+    ends as a FAILED status the step reads (``_ended``), not as an exception,
+    and the last attempt releases the hold that keeps the row from settling.
+    """
+    failure = task_failures.classify(error)
+    logger.error("Ingestion job %s failed on Hatchet: %s", job_id, failure.text, exc_info=error)
+    return hatchet_client.task_error(failure, retry=True)
 
 
 def trigger(job_id: str, organization_id: str | None, priority: str | None, payload: str) -> bool:
@@ -276,7 +294,10 @@ def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
         ingest_execution.fail_unreadable(run.job_id, type(error).__name__)
         raise NonRetryableException(f"unreadable_job: {type(error).__name__}") from None
     started = _monotonic()
-    status = ingest_execution.run_job(ingestor, prepared, still_owner=lambda: not ctx.is_cancelled)
+    try:
+        status = ingest_execution.run_job(ingestor, prepared, still_owner=lambda: not ctx.is_cancelled)
+    except Exception as error:
+        raise _sanitized(run.job_id, error) from None
     if ctx.is_cancelled:
         return _stopped(run.job_id, _monotonic() - started, last_attempt)
     return _ended(prepared, status, ctx.attempt_number, last_attempt)

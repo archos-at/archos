@@ -32,10 +32,13 @@ access belongs in the BFF, not here.
 [`docs/deployment/hatchet.md`](../../docs/deployment/hatchet.md)).
 A research job is a `research-run` task: concurrency `GROUP_ROUND_ROBIN` on
 `input.organization_id` capped at `MAX_ACTIVE_JOBS_PER_ORG`, `interactive` at
-`Priority.HIGH` before `bulk` at `Priority.LOW`, retries only after a lost worker
-(a run that fails on its own, and an unreadable payload, raise
-`NonRetryableException`), and an on-failure task that writes FAILURE unless a
-verdict stands. Hatchet delivers at least once, so a copy takes the job in
+`Priority.HIGH` before `bulk` at `Priority.LOW`, retries after a lost worker or a
+transient failure (the job database away, a timeout, a provider 5xx or 429:
+`agent.common.task_failures`; a run that fails on its own, and an unreadable
+payload, raise `NonRetryableException`), and an on-failure task that writes
+FAILURE unless a verdict stands. What a task raises to Hatchet is the
+exception's class and category, `from None`: the message and its chained
+cause, which may name a file or a URL, go to our own logs only. Hatchet delivers at least once, so a copy takes the job in
 `jobs/run_ownership.py` before it runs the agent (`submitted` to `running`, or a
 `running` job silent past the ghost reaper's window) and a losing copy runs
 nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends

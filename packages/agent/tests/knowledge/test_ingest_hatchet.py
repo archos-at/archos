@@ -18,9 +18,11 @@ import pytest
 from agent_testing import hatchet_fake
 from agent_testing.hatchet_fake import FakeContext
 from hatchet_sdk import NonRetryableException
+from hatchet_sdk.exceptions import TaskRunError
 
 from agent.common import bff_http
 from agent.common import hatchet_client
+from agent.common.task_failures import TransientTaskError
 from agent.knowledge import ingest_execution
 from agent.knowledge import ingest_hatchet
 from agent.knowledge import ingest_status_store
@@ -264,6 +266,28 @@ def test_a_step_that_ends_without_a_final_status_is_tried_again(db, serving):
         _index()(_input(), FakeContext())
 
 
+def test_a_job_that_raises_reaches_hatchet_as_a_class_and_a_category_and_is_tried_again(db, serving):
+    """``run_job``'s exception may name the file and its presigned URL; Hatchet stores neither."""
+    url = "https://s3.example/uploads/Bauantrag.pdf?X-Amz-Signature=secret"
+
+    def raises(prepared, still_owner):
+        try:
+            raise OSError(f"reading {url}")
+        except OSError as inner:
+            raise TimeoutError(f"download of plan.pdf from {url} timed out") from inner
+
+    serving(_Ingestor(while_running=raises))
+
+    with pytest.raises(TransientTaskError) as raised:
+        _index()(_input(), FakeContext(attempt=1))
+
+    stored = TaskRunError.from_exception(raised.value, "step-run-1").serialize(include_metadata=True)
+    assert str(raised.value) == "TimeoutError (transient)"
+    for secret in ("Bauantrag", "s3.example", "plan.pdf", "OSError"):
+        assert secret not in stored
+    assert raised.value.__cause__ is None and raised.value.__suppress_context__ is True
+
+
 def test_the_step_refuses_to_run_in_a_process_that_does_not_serve_it(monkeypatch):
     monkeypatch.setattr(ingest_hatchet._runtime, "ingestor", None)
 
@@ -310,7 +334,7 @@ def _refusal(status: int):
 def test_a_bff_that_is_away_fails_the_settle_step_so_it_is_tried_again(token):
     with (
         patch.object(bff_http._opener, "open", side_effect=_refusal(503)),
-        pytest.raises(bff_http.BffRefusedError),
+        pytest.raises(TransientTaskError, match=r"^BffRefusedError \(transient\)$"),
     ):
         ingest_hatchet.settle_step("job-1")
 

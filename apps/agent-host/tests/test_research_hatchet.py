@@ -19,9 +19,12 @@ from unittest.mock import patch
 import pytest
 from hatchet_sdk import NonRetryableException
 from hatchet_sdk import Priority
+from hatchet_sdk.exceptions import TaskRunError
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from agent.auth import Principal
+from agent.common.task_failures import TransientTaskError
 from agent_host.jobs import access as job_access
 from agent_host.jobs import orchestrator_runs
 from agent_host.jobs import payload_crypto
@@ -189,6 +192,67 @@ async def test_an_unreadable_payload_records_its_verdict_and_is_not_retried(db_u
 async def test_a_deterministic_run_failure_is_not_retried(db_url, replayed):
     with pytest.raises(NonRetryableException, match="TypeError"):
         await research_hatchet.run_task(_input(_stored(not_a_parameter=1)))
+
+
+def _what_hatchet_stores(raised: BaseException) -> str:
+    """The failure as the SDK serialises it into the engine: message and the whole traceback chain."""
+    return TaskRunError.from_exception(raised, "step-run-1").serialize(include_metadata=True)
+
+
+async def test_a_transient_database_error_before_the_run_is_retried_and_keeps_the_run_id(db_url, monkeypatch):
+    """A database that is away at ``try_take`` is the moment, not the job: Hatchet tries again."""
+    orchestrator_runs.record(db_url, "job-1", "run-1")
+
+    async def _database_away(*_args):
+        raise OperationalError("UPDATE job_info SET ... /srv/uploads/Bauantrag.pdf", {}, ConnectionError("gone"))
+
+    monkeypatch.setattr(worker_mod.run_ownership, "take_ownership", _database_away)
+
+    with pytest.raises(TransientTaskError) as raised:
+        await research_hatchet.run_task(_input(_stored()))
+
+    assert not isinstance(raised.value, NonRetryableException)
+    assert str(raised.value) == "OperationalError (transient)"
+    assert orchestrator_runs.run_id_for(db_url, "job-1") == "run-1"  # the retry's cancel still finds it
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        ValueError(f"https://s3.example/bucket/Bauantrag.pdf?X-Amz-Signature=abc {SECRET_QUESTION}"),
+        TimeoutError(f"reading https://s3.example/bucket/Bauantrag.pdf {SECRET_QUESTION}"),
+    ],
+    ids=["deterministic", "transient"],
+)
+async def test_what_hatchet_receives_names_a_class_and_a_category_never_the_message(
+    db_url, replayed, monkeypatch, failure
+):
+    async def _fails(**_kwargs):
+        try:
+            raise KeyError(SECRET_QUESTION)
+        except KeyError as inner:
+            raise failure from inner
+
+    monkeypatch.setattr(worker_mod, "run_agent_job", _fails)
+
+    with pytest.raises(Exception) as raised:
+        await research_hatchet.run_task(_input(_stored()))
+
+    stored = _what_hatchet_stores(raised.value)
+    assert type(failure).__name__ in stored
+    for secret in ("Bauantrag", "s3.example", SECRET_QUESTION, "KeyError"):
+        assert secret not in stored
+    assert raised.value.__cause__ is None and raised.value.__suppress_context__ is True
+
+
+async def test_an_unreadable_payload_reaches_hatchet_without_its_detail(db_url, replayed, monkeypatch):
+    monkeypatch.setattr(worker_mod, "record_poison_verdict", AsyncMock())
+
+    with pytest.raises(NonRetryableException) as raised:
+        await research_hatchet.run_task(_input("enc:not-a-ciphertext"))
+
+    assert str(raised.value) == "PoisonPayloadError (deterministic)"
+    assert "undecryptable" not in _what_hatchet_stores(raised.value)
 
 
 async def test_spent_attempts_fail_the_job_unless_a_verdict_stands(db_url, monkeypatch):
