@@ -156,7 +156,7 @@ def _vision_settings(organization_id: str | None) -> ResolvedCredential:
     The override read is fail-open: a BFF that cannot answer leaves the
     deployment's model, as it does for ingestion.
     """
-    from knowledge_layer.llamaindex.adapter import resolve_vlm_credential
+    from knowledge_layer.ingest.adapter import resolve_vlm_credential
 
     cred = resolve_vlm_credential(organization_id)
     if not organization_id:

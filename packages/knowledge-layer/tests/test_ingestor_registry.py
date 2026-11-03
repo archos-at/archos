@@ -21,11 +21,11 @@ from agent.knowledge.factory import list_ingestors
 @pytest.fixture(autouse=True)
 def _import_adapters():
     """Importing an adapter module is what populates the registry."""
-    import knowledge_layer.llamaindex.adapter  # noqa: F401
+    import knowledge_layer.ingest.adapter  # noqa: F401
 
 
 def test_llamaindex_maps_to_an_ingestor_class():
-    from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 
     assert is_ingestor_registered("llamaindex")
 

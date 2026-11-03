@@ -49,7 +49,7 @@ kubectl -n grid get deploy ingest-worker \
 The tag is `sha-<commit>`. Two ways to tell whether that commit carries the fix:
 
 ```bash
-git log --oneline <commit> -- packages/knowledge-layer/src/llamaindex/adapter.py
+git log --oneline <commit> -- packages/knowledge-layer/src/ingest/adapter.py
 git merge-base --is-ancestor <commit> origin/develop && echo "on develop"
 ```
 

@@ -16,20 +16,20 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
-from knowledge_layer.browse import MAX_TOPIC_COUNTS
-from knowledge_layer.browse import MAX_TYPE_COUNTS
-from knowledge_layer.browse import ListFilesConfig
-from knowledge_layer.browse import file_row
-from knowledge_layer.browse import file_rows
-from knowledge_layer.browse import group_matches
-from knowledge_layer.browse import list_files
-from knowledge_layer.browse import no_match_message
-from knowledge_layer.browse import phrase_pattern
-from knowledge_layer.browse import pick_passages
-from knowledge_layer.browse import render_listing
-from knowledge_layer.browse import select_files
-from knowledge_layer.browse import split_alternatives
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
+from knowledge_layer.browse.tool import MAX_TOPIC_COUNTS
+from knowledge_layer.browse.tool import MAX_TYPE_COUNTS
+from knowledge_layer.browse.tool import ListFilesConfig
+from knowledge_layer.browse.tool import file_row
+from knowledge_layer.browse.tool import file_rows
+from knowledge_layer.browse.tool import group_matches
+from knowledge_layer.browse.tool import list_files
+from knowledge_layer.browse.tool import no_match_message
+from knowledge_layer.browse.tool import phrase_pattern
+from knowledge_layer.browse.tool import pick_passages
+from knowledge_layer.browse.tool import render_listing
+from knowledge_layer.browse.tool import select_files
+from knowledge_layer.browse.tool import split_alternatives
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -365,7 +365,7 @@ def turn_shelves(monkeypatch):
 
 def _store_retriever():
     """The production retriever over the test's Qdrant (``qdrant_store``), with no embedder: exact mode needs none."""
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search.retriever import LlamaIndexRetriever
 
     retriever = LlamaIndexRetriever.__new__(LlamaIndexRetriever)
     retriever._ensure_initialized = lambda: None
@@ -374,8 +374,8 @@ def _store_retriever():
 
 def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
     """Write ``(file_name, text, page, metadata)`` rows into collection ``name``, as ingestion writes chunks."""
-    from knowledge_layer_testing.qdrant import record
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
 
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
@@ -452,7 +452,7 @@ class _FailingStore(_TextStore):
 
 class TestAStoreOutageIsNeverANo:
     def test_the_adapter_raises_on_an_outage_and_answers_empty_for_an_empty_collection(self, qdrant_store, monkeypatch):
-        from knowledge_layer.qdrant import store as store_module
+        from knowledge_layer.vector_store import store as store_module
 
         retriever = _store_retriever()
         assert retriever._find_text_sync("no_such_collection_xyz", "x", None, 5) == []
@@ -942,8 +942,8 @@ class TestTheIngestsReadingInAListing:
         assert "Type:" not in line and "States:" not in line and "Refers to:" not in line
 
     def test_the_facts_and_references_are_bounded(self):
-        from knowledge_layer.browse import MAX_ROW_FACTS
-        from knowledge_layer.browse import MAX_ROW_REFERENCES
+        from knowledge_layer.browse.tool import MAX_ROW_FACTS
+        from knowledge_layer.browse.tool import MAX_ROW_REFERENCES
 
         row = self._row(
             dossier={"facts": [{"key": "units", "value": str(n)} for n in range(20)]},

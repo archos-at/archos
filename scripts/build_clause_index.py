@@ -12,7 +12,7 @@ and that translation must be *mechanical* rather than remembered, or the golden
 set becomes an unreviewable pile of page numbers somebody typed once.
 
 This script is that translation. It reads the real PDFs in ``data/oib/`` with the
-SAME extractor the ingestion path uses (``knowledge_layer.llamaindex.adapter
+SAME extractor the ingestion path uses (``knowledge_layer.ingest.adapter
 ._extract_text_from_pdf``, pdfplumber + watermark stripping), so a Punkt's page
 span in this index is the page span of the text that was actually embedded. Using
 a second, differently-behaved PDF reader here would produce an index that is
@@ -386,7 +386,7 @@ def guideline_key(file_name: str) -> str:
     ``"2"`` in the chunker, and every golden label for that file would have resolved to
     nothing the moment the corpus moved off the May 2023 edition.
     """
-    from knowledge_layer.llamaindex.clause_chunking import guideline_key as shared_key
+    from knowledge_layer.ingest.clause_chunking import guideline_key as shared_key
 
     return shared_key(file_name)
 
@@ -404,7 +404,7 @@ def make_page_reader() -> PageReader | None:
     and all.
     """
     try:
-        from knowledge_layer.llamaindex.adapter import _extract_text_from_pdf
+        from knowledge_layer.ingest.adapter import _extract_text_from_pdf
     except Exception as exc:  # noqa: BLE001 - reported, not raised
         logger.error("Could not import the production PDF extractor: %s", exc)
         return None

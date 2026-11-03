@@ -91,7 +91,7 @@ def document_position(metadata: Mapping[str, Any] | None, chunk_id: Any) -> Docu
     (``chunk_ordinal``; a chunk without one, written before the field existed, sorts after the
     numbered chunks of its place), then the chunk id, which makes the order total. A ranged read's
     cursor carries this whole key and the continuation compares the same key
-    (``read_passage``, ``qdrant/reads.fetch_from``): a cursor holding only part of it skipped
+    (``read_passage``, ``vector_store/reads.fetch_from``): a cursor holding only part of it skipped
     chunks whose part agreed but whose sort position did not (a table part filed after a later
     text chunk, an unnumbered chunk in an earlier section).
     """
@@ -464,7 +464,7 @@ class BaseIngestor(ABC):
                 zero-argument callable the job runs when it reaches the file,
                 which downloads it and returns the local path; that file is the
                 job's to delete. ``POST /v1/ingest`` hands over the latter so
-                the request downloads nothing (``knowledge_layer.deferred_files``).
+                the request downloads nothing (``knowledge_layer.ingest.deferred_files``).
             collection_name: Target collection/index name.
             config: Optional ingestion configuration (chunking, extraction, and so on).
 

@@ -1,6 +1,6 @@
 """The retrieval loop: judge the fused pool, re-query when it is not enough.
 
-Two halves. The judge (`knowledge_layer.requery`) is a bounded LLM call that
+Two halves. The judge (`knowledge_layer.search.requery`) is a bounded LLM call that
 fails open to "sufficient". The loop in `knowledge_search` retrieves the
 judge's alternative formulations from every collection in scope and fuses them
 into the same RRF as new channels — one-shot when the judge is unset, silent,
@@ -13,12 +13,12 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
-from knowledge_layer.requery import SUFFICIENT
-from knowledge_layer.requery import SufficiencyVerdict
-from knowledge_layer.requery import _parse_verdict
-from knowledge_layer.requery import judge_sufficiency
-from knowledge_layer.requery import requery_notice
-from knowledge_layer.search_results import coverage_gap
+from knowledge_layer.search.requery import SUFFICIENT
+from knowledge_layer.search.requery import SufficiencyVerdict
+from knowledge_layer.search.requery import _parse_verdict
+from knowledge_layer.search.requery import judge_sufficiency
+from knowledge_layer.search.requery import requery_notice
+from knowledge_layer.search.results import coverage_gap
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -182,7 +182,7 @@ def loop_harness(monkeypatch):
     def install(retriever, judge):
         monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
         monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
-        monkeypatch.setattr("knowledge_layer.search_results.format_results", _grounding)
+        monkeypatch.setattr("knowledge_layer.search.results.format_results", _grounding)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)
@@ -371,7 +371,7 @@ class TestLaneToolScope:
 
         retriever = _FakeRetriever({"Fluchtweg GK4": [_chunk("a", "a")]})
         loop_harness(retriever, None)
-        monkeypatch.setattr("knowledge_layer.search_results.format_results", _spy)
+        monkeypatch.setattr("knowledge_layer.search.results.format_results", _spy)
 
         await _search(_config())
 
@@ -388,7 +388,7 @@ class TestLaneToolScope:
 
 
 class _Decider:
-    """The decision client behind ``knowledge_layer.decisions``, answering by call.
+    """The decision client behind ``knowledge_layer.search.decisions``, answering by call.
 
     ``rounds[i]`` is the p(answers) every passage gets on the i-th batch: the
     first is the judge's decider on the fused head, the second the coverage
@@ -428,7 +428,7 @@ class TestTheCoverageSignal:
     async def test_an_unanswered_pool_says_why_and_stays_whole(self, loop_harness, monkeypatch):
         """The gap is stated, never enforced: a decision withholds no passage (ADR-0064)."""
         decider = _Decider(0.1, 0.2)
-        monkeypatch.setattr("knowledge_layer.decisions._client", lambda: decider)
+        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge", requery_decider="jev")))
@@ -440,7 +440,7 @@ class TestTheCoverageSignal:
 
     async def test_a_widened_pool_that_now_answers_is_delivered_whole(self, loop_harness, monkeypatch):
         decider = _Decider(0.1, 0.8)
-        monkeypatch.setattr("knowledge_layer.decisions._client", lambda: decider)
+        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge", requery_decider="jev")))
@@ -449,7 +449,7 @@ class TestTheCoverageSignal:
 
     async def test_a_coverage_decision_that_did_not_run_claims_nothing(self, loop_harness, monkeypatch):
         decider = _Decider(0.1, None)
-        monkeypatch.setattr("knowledge_layer.decisions._client", lambda: decider)
+        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge", requery_decider="jev")))
@@ -458,7 +458,7 @@ class TestTheCoverageSignal:
 
     async def test_a_head_the_decider_finds_answered_is_never_rechecked(self, loop_harness, monkeypatch):
         decider = _Decider(0.9)
-        monkeypatch.setattr("knowledge_layer.decisions._client", lambda: decider)
+        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = await _search(_config(requery_llm="judge", requery_decider="jev"))
@@ -468,7 +468,7 @@ class TestTheCoverageSignal:
     async def test_the_llm_decider_claims_nothing(self, loop_harness, monkeypatch):
         """Its verdict was on the fused head before the reranker; re-asking it is a frontier call."""
         decider = _Decider(0.1)
-        monkeypatch.setattr("knowledge_layer.decisions._client", lambda: decider)
+        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = _body(await _search(_config(requery_llm="judge")))
@@ -477,7 +477,7 @@ class TestTheCoverageSignal:
 
     async def test_a_pinned_file_is_never_judged_for_coverage(self, loop_harness, monkeypatch):
         decider = _Decider(0.1)
-        monkeypatch.setattr("knowledge_layer.decisions._client", lambda: decider)
+        monkeypatch.setattr("knowledge_layer.search.decisions._client", lambda: decider)
         loop_harness(self._retriever(), _FakeLLM(self.WIDEN))
 
         out = await _search(_config(requery_llm="judge", requery_decider="jev"), file_name="oib-rl_4.pdf")
@@ -504,11 +504,11 @@ class TestTheCoverageGate:
         async def _never(*args, **kwargs):
             raise AssertionError("coverage asked")
 
-        monkeypatch.setattr("knowledge_layer.requery.judge_coverage", _never)
+        monkeypatch.setattr("knowledge_layer.search.requery.judge_coverage", _never)
         assert await coverage_gap("q", pool, verdict, self.CONFIG, widened=False) is None
 
     def test_the_real_renderer_states_the_gap_and_stops_calling_the_hits_relevant(self):
-        from knowledge_layer.search_results import format_results
+        from knowledge_layer.search.results import format_results
 
         result = SimpleNamespace(success=True, error_message=None, chunks=[_chunk("nah", "a")])
         rendered = format_results(result, "q", coverage_gap="kein Beleg")

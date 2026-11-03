@@ -659,8 +659,8 @@ def test_the_suite_reads_the_dialect_the_validator_holds():
 
 def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
     """Readiness is the corpus's chunk count in the store the ingest writes through."""
-    from knowledge_layer_testing.qdrant import record
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
 
     from agent import oib_sync
 
@@ -765,7 +765,7 @@ def test_the_startup_probe_times_only_methods_the_retriever_has():
     import re
 
     import startup_probe
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search.retriever import LlamaIndexRetriever
 
     timed = re.findall(r"retriever\.(\w+) = timed\(", Path(startup_probe.__file__).read_text())
     assert timed, "the probe times no retriever method; this test reads its source"

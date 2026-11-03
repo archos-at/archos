@@ -307,14 +307,14 @@ says it worked.
 | Photos keep their capture date and camera; OCR is timed; a dense sheet's reply is not generated twice | 0 | `adapter.py` |
 | Permit records and folder cards get the output budget their schema needs: both ran on the summary model's 100-token cap and were cut off mid-object | bug | `permit_extraction.py`, `folder_cards/build.py` |
 | A Langfuse trace per ingested file, stage seconds and coverage on it, every vision call and the dossier nested under it | 1 | `direct_trace.observed_span`, `adapter._file_trace` |
-| Coverage per file: pages fully read, and why the rest were not | 1 | `knowledge_layer/coverage.py` |
+| Coverage per file: pages fully read, and why the rest were not | 1 | `knowledge_layer/ingest/coverage.py` |
 | The vision pool shared fairly between offices | 3 | `lease_slots.FAIR_ACQUIRE_LUA` |
 | The table pass skips drawings the vision model reads (0.68 s a page on a vector sheet, for no table) | speed | `adapter._table_pass_skips` |
 | References: norms, laws, plans, named documents, no model | 4 | `knowledge_layer/references.py` |
 | The dossier: one strict call over a digest of every page; its summary replaces the first-and-last-chunk one; printed drawing quantities lifted into facts | 5 | `agent/knowledge/dossier.py` |
 | Findings derived per project (missing document, missing plan, contradiction, incomplete read), served to people and agents | 6 (first half) | `apps/workspace/bff/documents/findings.ts` |
 | Transient failures read again on their own, capped | reliability | the `ingest-document` task's retries on Hatchet (ADR-0150) |
-| Piloti sees the type, facts, references and unread pages of each document | 5 | `browse.py`, `inventory.py` |
+| Piloti sees the type, facts, references and unread pages of each document | 5 | `browse/tool.py`, `inventory.py` |
 | The Eingangsbericht on the uploader's `upload.completed` inbox row: documents read by type, new and settled findings, unresolved references, unread pages, a link to the findings; computed at the settle as the uploader, bounded, fail-open | 6 (second half, inbox) | `lib/upload-batches/upload-report.ts` |
 | Findings compare documents with the confirmed project profile (`profile_contradiction`): GK, storeys, plot area, Bauweise, Nutzung, Bundesland | 6 | `lib/documents/profile-contradictions.ts` |
 

@@ -5,7 +5,7 @@ and its route). ``writes.refresh_facts`` never raises after a person's edit,
 so a copy that failed leaves the old tags, Dokumentart or superseded mark on
 the points, and the pre-filters that read them hide or show a document
 wrongly. This sweep is what repairs that; ``writes.copy_facts`` itself is
-pinned on a real Qdrant in ``packages/knowledge-layer/tests/test_qdrant_adapter.py``.
+pinned on a real Qdrant in ``packages/knowledge-layer/tests/test_vector_store_adapter.py``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
 from httpx import AsyncClient
-from knowledge_layer.qdrant import writes
+from knowledge_layer.vector_store import writes
 
 from agent_host.routes.maintenance import REFRESH_FACTS_MAX_COLLECTIONS
 from agent_host.routes.maintenance import add_maintenance_routes

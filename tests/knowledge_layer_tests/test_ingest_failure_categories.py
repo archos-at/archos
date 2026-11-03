@@ -11,9 +11,9 @@ BFF's reconcile reads.
 import time
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.reader_version import INGEST_READER_VERSION
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest.reader_version import INGEST_READER_VERSION
 
 from agent.common.credential_resolution import ResolvedCredential
 from agent.knowledge.ingest_status_store import interrupted
@@ -36,7 +36,7 @@ def summary_db(tmp_path):
 
 @pytest.fixture
 def ingestor(monkeypatch, summary_db, qdrant_store):
-    from knowledge_layer_testing.qdrant import FakeEmbedder
+    from knowledge_layer_testing.vector_store import FakeEmbedder
 
     ing = LlamaIndexIngestor({"generate_summary": False})
     ing._embed_model = FakeEmbedder()

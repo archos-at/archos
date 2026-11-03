@@ -569,7 +569,7 @@ that chat, research, ingestion and embeddings all draw from
   `skill_review` and `cleanup_proposal` („Ausmisten", `interactive`), the
   background `feedback_digest` and
   `lesson_distill` (`bulk`), and the decision model (`common/decisions.py`) and
-  the reranker (`knowledge_layer/cross_encoder.py`), which take the class of the
+  the reranker (`knowledge_layer/search/cross_encoder.py`), which take the class of the
   task that makes them. It is the same transport without the zero-data-retention
   pin: those bodies already carry the organization's own policy
   (`ResolvedCredential.request_body`), and an organization that switched ZDR off

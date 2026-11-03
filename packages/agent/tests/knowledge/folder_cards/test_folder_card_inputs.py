@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from knowledge_layer.browse import file_rows
+from knowledge_layer.browse.tool import file_rows
 
 from agent.knowledge.folder_cards.inputs import PROMPT_VERSION
 from agent.knowledge.folder_cards.inputs import folder_inputs

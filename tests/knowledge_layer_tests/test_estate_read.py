@@ -17,14 +17,14 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer import estate as estate_module
 from knowledge_layer import stored_pages
-from knowledge_layer.browse import FileRow
-from knowledge_layer.estate import EstateBackend
-from knowledge_layer.estate import PagesRefused
-from knowledge_layer.estate import no_such_file
-from knowledge_layer.estate import pages_for_lines
-from knowledge_layer.estate import parse_pages
+from knowledge_layer.browse.tool import FileRow
+from knowledge_layer.estate import backend as estate_module
+from knowledge_layer.estate.backend import EstateBackend
+from knowledge_layer.estate.backend import PagesRefused
+from knowledge_layer.estate.backend import no_such_file
+from knowledge_layer.estate.backend import pages_for_lines
+from knowledge_layer.estate.backend import parse_pages
 from knowledge_layer_testing.estate_read import BSK
 from knowledge_layer_testing.estate_read import PAGES
 from knowledge_layer_testing.estate_read import RESTRICTED

@@ -11,10 +11,10 @@ All tests are offline: no ChromaDB, no embeddings, no network.
 """
 
 import pytest
-from knowledge_layer.fusion import merge_results
 from knowledge_layer.register import KnowledgeRetrievalConfig
-from knowledge_layer.search_scope import _resolve_target_collections
-from knowledge_layer.search_scope import restrict_scope_to_turn
+from knowledge_layer.search.fusion import merge_results
+from knowledge_layer.search.scope import _resolve_target_collections
+from knowledge_layer.search.scope import restrict_scope_to_turn
 
 from agent.knowledge.base import SESSION_COLLECTION_PREFIX
 from agent.knowledge.base import TTLCleanupMixin
@@ -318,7 +318,7 @@ class TestMergeEmbeddingMismatch:
         assert merged.chunks == []
 
     def test_total_mismatch_formats_as_failure(self):
-        from knowledge_layer.search_results import format_results
+        from knowledge_layer.search.results import format_results
 
         merged = merge_results([self._mismatch()], query="q", top_k=5, backend_name="llamaindex")
         text = format_results(merged, "q")
@@ -326,7 +326,7 @@ class TestMergeEmbeddingMismatch:
         assert "embedding mismatch" in text.lower()
 
     def test_partial_mismatch_formats_with_warning_banner(self):
-        from knowledge_layer.search_results import format_results
+        from knowledge_layer.search.results import format_results
 
         ok = _result([_chunk(0.6)])
         merged = merge_results([self._mismatch(), ok], query="q", top_k=5, backend_name="llamaindex")

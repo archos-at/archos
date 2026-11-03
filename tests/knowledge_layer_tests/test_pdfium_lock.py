@@ -3,7 +3,7 @@
 PDFium is not thread-safe, and this process calls it from the ingest pool's
 workers (the route no longer renders a thumbnail itself: the job draws it after
 the file's screening, ADR-0086). Every call site goes
-through ``knowledge_layer.llamaindex.pdfium_lock``; these tests run the call
+through ``knowledge_layer.ingest.pdfium_lock``; these tests run the call
 sites concurrently over a fake PDFium that records how many threads are inside
 it at once.
 """
@@ -16,9 +16,9 @@ import threading
 import time
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import pdfium_lock as pdfium_lock_module
-from knowledge_layer.llamaindex import processing
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import pdfium_lock as pdfium_lock_module
+from knowledge_layer.ingest import processing
 from PIL import Image
 
 pdfium = pytest.importorskip("pypdfium2")

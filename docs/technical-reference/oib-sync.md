@@ -179,7 +179,7 @@ which sends each PDF through `POST /v1/admin/oib/documents` (header `X-Admin-Tok
 
 ## Ingestor initialization
 
-`oib_sync` imports `knowledge_layer.llamaindex.adapter` lazily to register the ingestor backend with the factory, then obtains an ingestor, which it uses only to prepare jobs and to read and clean the collection, via:
+`oib_sync` imports `knowledge_layer.ingest.adapter` lazily to register the ingestor backend with the factory, then obtains an ingestor, which it uses only to prepare jobs and to read and clean the collection, via:
 
 ```python
 from agent.knowledge.factory import get_ingestor
@@ -206,7 +206,7 @@ packages/agent/src/agent/oib_sync.py ──────────► packages/
        │                                                          │ claimed by
        │                                                          ▼
        │                                         ingest workers (QueueSource) ─► CorpusObjectDownload
-       ├── knowledge_layer.llamaindex.adapter   (prepare_job; the worker runs the job)
+       ├── knowledge_layer.ingest.adapter   (prepare_job; the worker runs the job)
        ├── agent.knowledge.ingest_status_store (job outcomes, read by settle)
        ├── agent.knowledge.leader_lock
        └── Qdrant (oib_knowledge scope)

@@ -14,11 +14,11 @@ import threading
 import time
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import page_reads
-from knowledge_layer.llamaindex import page_triage
-from knowledge_layer.llamaindex import processing
-from knowledge_layer.llamaindex import transcription
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import page_reads
+from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import processing
+from knowledge_layer.ingest import transcription
 from knowledge_layer_testing.pdf_fixtures import build_drawing_sheets_pdf
 
 VISION = {"vlm_model": "m", "vlm_base_url": "u", "vlm_api_key": "k"}

@@ -10,7 +10,7 @@ to pass back verbatim.
 import importlib
 from types import SimpleNamespace
 
-rp = importlib.import_module("knowledge_layer.read_passage")
+rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
 
 def _doc(file_name: str, display_title: str | None = None) -> SimpleNamespace:

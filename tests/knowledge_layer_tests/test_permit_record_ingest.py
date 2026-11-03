@@ -11,8 +11,8 @@ import time
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.llamaindex import adapter as adapter_module
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 
 
 def _page(label: str | None, text: str) -> SimpleNamespace:

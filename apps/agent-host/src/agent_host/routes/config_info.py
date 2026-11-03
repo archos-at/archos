@@ -63,7 +63,7 @@ def add_config_info_routes(router: APIRouter, llm_configs: Mapping[str, Any]) ->
     # org model-config UI's `ingest_vlm` group maps to this via configLlmRefs so
     # it too shows a "workflow default" (and what a reset returns to).
     try:
-        from knowledge_layer.llamaindex.adapter import resolve_vlm_credential
+        from knowledge_layer.ingest.adapter import resolve_vlm_credential
 
         vlm_cred = resolve_vlm_credential()
         if vlm_cred.model:

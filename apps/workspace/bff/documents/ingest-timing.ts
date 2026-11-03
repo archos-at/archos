@@ -34,7 +34,7 @@ export interface JobClock {
   submitted_at?: unknown
   started_at?: unknown
   completed_at?: unknown
-  /** `stage_seconds` and `coverage` are read from it (`knowledge_layer/llamaindex/ingest_measures.py`). */
+  /** `stage_seconds` and `coverage` are read from it (`knowledge_layer/ingest/measures.py`). */
   metadata?: unknown
 }
 

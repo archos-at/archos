@@ -106,12 +106,12 @@ class Decompounder:
 
 def build_split_scope(decompounder: Decompounder, source_scope: str) -> dict[str, int]:
     """Copy ``source_scope``'s points into :data:`SPLIT_SCOPE` with BM25 over text plus compound parts."""
-    from knowledge_layer.qdrant.schema import DENSE
-    from knowledge_layer.qdrant.schema import LEXICAL
-    from knowledge_layer.qdrant.schema import SCOPE_FIELD
-    from knowledge_layer.qdrant.scope import scope_filter
-    from knowledge_layer.qdrant.store import bm25
-    from knowledge_layer.qdrant.store import get_store
+    from knowledge_layer.vector_store.schema import DENSE
+    from knowledge_layer.vector_store.schema import LEXICAL
+    from knowledge_layer.vector_store.schema import SCOPE_FIELD
+    from knowledge_layer.vector_store.scope import scope_filter
+    from knowledge_layer.vector_store.store import bm25
+    from knowledge_layer.vector_store.store import get_store
     from qdrant_client import models
 
     store = get_store()
@@ -152,7 +152,7 @@ def query_side(decompounder: Decompounder, corpus_texts: Sequence[str], *, query
     it would count „verfahren“ where it stands alone and miss every
     „Nachweisverfahren“ the split BM25 vector now matches.
     """
-    from knowledge_layer.qdrant import retrieval
+    from knowledge_layer.vector_store import retrieval
 
     documents = [set(_WORD.findall(text.lower())) | set(decompounder.expand(text)) for text in corpus_texts]
     original_candidates, original_frequencies = retrieval.bm25_candidates, retrieval.term_frequencies

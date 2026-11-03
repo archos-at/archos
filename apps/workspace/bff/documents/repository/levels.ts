@@ -83,7 +83,7 @@ export function afterDocumentLevelCursor(cursor: DocumentLevelCursor): SQL {
  * `fold_german` (migration 0188): case, either Unicode form (a name off a
  * Mac is decomposed), and ä ö ü ß as ae oe ue ss, so „Abgabepläne“ and
  * „Abgabeplaene“ find the same files, as the agent's file listing does
- * (`knowledge_layer/browse.py`, `fold`). `strpos` and not `LIKE`, so a `%` or
+ * (`knowledge_layer/browse/tool.py`, `fold`). `strpos` and not `LIKE`, so a `%` or
  * `_` in what the reader typed is a character, not a wildcard. Nothing for an
  * empty query.
  */

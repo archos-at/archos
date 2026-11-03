@@ -282,7 +282,7 @@ class TestThePrefetch:
         """The estate's own matcher (BRACE on) reads the escaped name as the one file it is."""
         from types import SimpleNamespace
 
-        from knowledge_layer.estate import glob_files
+        from knowledge_layer.estate.backend import glob_files
 
         def file(file_name: str) -> SimpleNamespace:
             leaf = f"{file_name}.md"

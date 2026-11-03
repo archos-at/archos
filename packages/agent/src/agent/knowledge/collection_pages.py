@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 #: The most chunks one document's read takes. A guard, not a budget: the
-#: structural fetch's own cap (``knowledge_layer.qdrant.reads.WHOLE_SET_CAP``).
+#: structural fetch's own cap (``knowledge_layer.vector_store.reads.WHOLE_SET_CAP``).
 MAX_CHUNKS = 4096
 
 
@@ -23,7 +23,7 @@ def read_pages(collection: str, file_name: str) -> list[tuple[Any, str]] | None:
     Raises when the store cannot be read: an outage is not evidence that a
     file has no chunks, so it never reads as None (``read_passage`` does the same).
 
-    A structural fetch (``knowledge_layer.qdrant.reads.fetch``): a filter on the
+    A structural fetch (``knowledge_layer.vector_store.reads.fetch``): a filter on the
     file, no query vector, no ranking. Reading order is page, then the section
     structure ``read_passage`` sorts by, then the chunk's place in the file
     (``reads.in_document_order``); point ids, which a scroll returns them by,
@@ -70,7 +70,7 @@ def read_chunks(collection: str, file_name: str) -> list[tuple[str, dict[str, An
     (``chunk_metadata``: the payload without the fields only the store adds).
     Raises when the store cannot be read, as ``read_pages`` does.
     """
-    from knowledge_layer.qdrant.payload import chunk_metadata
+    from knowledge_layer.vector_store.payload import chunk_metadata
 
     hits = _document_hits(collection, file_name)
     return [(hit.text, chunk_metadata(hit.payload)) for hit in hits if hit.text] or None
@@ -78,6 +78,6 @@ def read_chunks(collection: str, file_name: str) -> list[tuple[str, dict[str, An
 
 def _document_hits(collection: str, file_name: str) -> list[Any]:
     """Every chunk of one file, in reading order (``reads.in_document_order``)."""
-    from knowledge_layer.qdrant import reads
+    from knowledge_layer.vector_store import reads
 
     return reads.in_document_order(reads.fetch(collection, {"file_name": file_name}, MAX_CHUNKS))

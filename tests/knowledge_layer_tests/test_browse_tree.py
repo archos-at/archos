@@ -5,15 +5,15 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
-from knowledge_layer.browse import MAX_TREE_CARDS
-from knowledge_layer.browse import ListFilesConfig
-from knowledge_layer.browse import file_rows
-from knowledge_layer.browse import folder_cards
-from knowledge_layer.browse import list_files
-from knowledge_layer.browse import render_listing
-from knowledge_layer.browse import render_tree
-from knowledge_layer.browse import select_files
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
+from knowledge_layer.browse.tool import MAX_TREE_CARDS
+from knowledge_layer.browse.tool import ListFilesConfig
+from knowledge_layer.browse.tool import file_rows
+from knowledge_layer.browse.tool import folder_cards
+from knowledge_layer.browse.tool import list_files
+from knowledge_layer.browse.tool import render_listing
+from knowledge_layer.browse.tool import render_tree
+from knowledge_layer.browse.tool import select_files
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf
@@ -216,7 +216,7 @@ def test_the_listing_and_the_store_parse_a_page_count_alike(raw):
 
 
 def test_a_small_folder_names_its_files_and_a_large_one_says_it_does_not():
-    from knowledge_layer.browse import MAX_CARD_FILES
+    from knowledge_layer.browse.tool import MAX_CARD_FILES
 
     few = _cards([_doc("b.pdf", "E"), _doc("a.pdf", "E"), _doc("c.pdf", "E/P")])
     assert few["E"].files == ("a.pdf", "b.pdf")  # direct documents only, by name

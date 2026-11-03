@@ -32,7 +32,7 @@ from agent.knowledge.schema import Chunk
 from agent.knowledge.schema import ContentType
 from agent.knowledge.schema import RetrievalResult
 
-rp = importlib.import_module("knowledge_layer.read_passage")
+rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
 BASE = "oib_knowledge"
 MEMBERS = {
@@ -505,7 +505,7 @@ def _ranked_many() -> list[Chunk]:
 class TestTheOverviewIsNotBuriedInRankedHits:
     async def test_only_a_few_ranked_passages_ride_beside_the_overview(self, corpus):
         """The overview answers; sixteen ranked passages beside it were half the block."""
-        family = importlib.import_module("knowledge_layer.family_branch")
+        family = importlib.import_module("knowledge_layer.search.family_branch")
         corpus(MEMBERS, ranked=_ranked_many())
 
         out = await _search()
@@ -516,7 +516,7 @@ class TestTheOverviewIsNotBuriedInRankedHits:
 
     async def test_the_ranked_passages_left_out_are_counted_on_the_span(self, corpus, monkeypatch):
         """The cap and the floor record what they drop; so does the family budget."""
-        family = importlib.import_module("knowledge_layer.family_branch")
+        family = importlib.import_module("knowledge_layer.search.family_branch")
         corpus(MEMBERS, ranked=_ranked_many())
         span: dict = {}
 

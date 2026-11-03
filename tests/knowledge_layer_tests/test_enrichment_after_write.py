@@ -54,7 +54,7 @@ class _SummaryModel:
 @pytest.fixture
 def order(calls, monkeypatch):  # noqa: F811
     """What happened, in order: the write, the tags' answer, every copy of facts onto the points."""
-    from knowledge_layer.qdrant import writes
+    from knowledge_layer.vector_store import writes
 
     events: list[str] = []
     written = threading.Event()

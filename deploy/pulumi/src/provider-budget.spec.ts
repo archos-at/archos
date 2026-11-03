@@ -203,8 +203,8 @@ describe("the budget reaches the pods that spend it", () => {
     }
 
     const sources = [
-      read("packages", "knowledge-layer", "src", "llamaindex", "vision_calls.py"),
-      read("packages", "knowledge-layer", "src", "llamaindex", "page_reads.py"),
+      read("packages", "knowledge-layer", "src", "ingest", "vision_calls.py"),
+      read("packages", "knowledge-layer", "src", "ingest", "page_reads.py"),
       read("packages", "agent", "src", "agent", "common", "provider_limiter.py"),
     ].join("\n");
     for (const name of Object.keys(expected)) expect(sources, name).toContain(`"${name}"`);
@@ -215,10 +215,10 @@ describe("the budget reaches the pods that spend it", () => {
     const python = (path: string[], pattern: RegExp) => Number(read(...path).match(pattern)?.[1]);
 
     expect(cfg.providerLimits.vlmFleetConcurrency).toBe(
-      python(["packages", "knowledge-layer", "src", "llamaindex", "vision_calls.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
+      python(["packages", "knowledge-layer", "src", "ingest", "vision_calls.py"], /VLM_FLEET_CONCURRENCY = env_int\("VLM_FLEET_CONCURRENCY", (\d+)\)/),
     );
     expect(cfg.providerLimits.pageReadParallelism).toBe(
-      python(["packages", "knowledge-layer", "src", "llamaindex", "page_reads.py"], /env_int\("INGEST_PAGE_READ_PARALLELISM", (\d+)/),
+      python(["packages", "knowledge-layer", "src", "ingest", "page_reads.py"], /env_int\("INGEST_PAGE_READ_PARALLELISM", (\d+)/),
     );
     expect(cfg.providerLimits.limitCeiling).toBe(
       python(["packages", "agent", "src", "agent", "common", "provider_limiter.py"], /^_DEFAULT_CEILING = (\d+)$/m),

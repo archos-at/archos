@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 #: The config keys whose entries are deferred downloads, beside ``file_paths``:
 #: the rendition a document is read from, and the one only its thumbnail is
-#: drawn from (``knowledge_layer.renditions.RENDITION_CONFIG_LISTS``).
+#: drawn from (``knowledge_layer.ingest.renditions.RENDITION_CONFIG_LISTS``).
 _DEFERRED_CONFIG_LISTS = ("extraction_paths", "preview_paths")
 
 #: Config keys that are URLs a worker requests: gated again on the way back in.

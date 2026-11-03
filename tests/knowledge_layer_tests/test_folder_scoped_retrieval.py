@@ -14,13 +14,13 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.hit_metadata import _folder_matches
-from knowledge_layer.hit_metadata import apply_agent_filters
 from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
-from knowledge_layer.search_results import empty_search_message
-from knowledge_layer.search_results import format_results
+from knowledge_layer.search.hit_metadata import _folder_matches
+from knowledge_layer.search.hit_metadata import apply_agent_filters
+from knowledge_layer.search.results import empty_search_message
+from knowledge_layer.search.results import format_results
 
 from agent.common.source_kinds import Shelf
 from agent.knowledge.inventory import set_turn_documents
@@ -231,7 +231,7 @@ class _RankedStore:
         self.calls: list[dict] = []
 
     async def retrieve(self, query, collection_name, top_k, filters=None):
-        from knowledge_layer.qdrant.prefilter import folder_ancestors
+        from knowledge_layer.vector_store.prefilter import folder_ancestors
 
         self.calls.append({"collection": collection_name, "top_k": top_k, "filters": filters})
         pool = self.pools.get(collection_name, [])

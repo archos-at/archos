@@ -14,7 +14,7 @@ sorts after the numbered ones of its page, by chunk id: stable, never random.
 from __future__ import annotations
 
 import pytest
-from knowledge_layer_testing import qdrant as qt
+from knowledge_layer_testing import vector_store as qt
 
 from agent.knowledge.collection_pages import read_chunks
 from agent.knowledge.collection_pages import read_pages
@@ -26,7 +26,7 @@ LINES = [f"Zeile {i}: Brandabschnitt {i} hat Feuerwiderstand REI {30 + i}" for i
 
 def _ingested_records(file_name: str, lines: list[str], page: str = "1"):
     """The records ingestion writes for ``lines``: one LlamaIndex Document each, cut and embedded by the adapter."""
-    from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+    from knowledge_layer.ingest.adapter import LlamaIndexIngestor
     from llama_index.core import Document
 
     ingestor = object.__new__(LlamaIndexIngestor)
@@ -129,7 +129,7 @@ def test_a_file_the_store_holds_no_chunk_of_reads_as_none(qdrant_store):  # noqa
 @pytest.mark.parametrize("reader", [read_chunks, read_pages])
 def test_an_unreachable_store_raises_rather_than_reading_as_no_chunks(reader, qdrant_store, monkeypatch):  # noqa: ARG001
     """„Nicht im Index“ is a claim about the document; an outage is not evidence for it (read_passage does the same)."""
-    from knowledge_layer.qdrant import store as store_module
+    from knowledge_layer.vector_store import store as store_module
 
     qt.write("proj_down", _ingested_records("da.pdf", LINES[:1]))
 
@@ -151,7 +151,7 @@ def _fixture_hits(name: str):
     import sys
     from pathlib import Path
 
-    from knowledge_layer.qdrant.search import Hit
+    from knowledge_layer.vector_store.search import Hit
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "scripts" / "turn_census"))
     import fixture_files

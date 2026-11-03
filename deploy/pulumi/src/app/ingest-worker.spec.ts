@@ -43,9 +43,9 @@ const pythonSources = [
   // The heavy pool's size threshold and slots, read where the workflows are declared.
   read("packages", "agent", "src", "agent", "knowledge", "ingest_hatchet.py"),
   // The in-process pool's size, read by the knowledge layer's adapter.
-  read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
+  read("packages", "knowledge-layer", "src", "ingest", "adapter.py"),
   // One file's page-read pool, OCR and vision together.
-  read("packages", "knowledge-layer", "src", "llamaindex", "page_reads.py"),
+  read("packages", "knowledge-layer", "src", "ingest", "page_reads.py"),
 ].join("\n");
 const configSource = [
   read("deploy", "pulumi", "src", "app", "config.ts"),
@@ -133,7 +133,7 @@ describe("the ingest-worker tier", () => {
     // source, the Pulumi side from the loaded config, like the provider-budget
     // tests' `cfg.providerLimits`.
     const cfg = await load();
-    const python = read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py").match(
+    const python = read("packages", "knowledge-layer", "src", "ingest", "adapter.py").match(
       /MAX_IMAGE_PIXELS = env_int\("MAX_IMAGE_PIXELS", ([\d_]+)/,
     )?.[1];
     expect(python).toBeDefined();

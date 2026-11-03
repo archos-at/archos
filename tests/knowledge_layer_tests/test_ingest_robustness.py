@@ -18,10 +18,10 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter as adapter_module
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.llamaindex.adapter import PdfTextPages
-from knowledge_layer.llamaindex.adapter import unreadable_pdf_verdict
+from knowledge_layer.ingest import adapter as adapter_module
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest.adapter import PdfTextPages
+from knowledge_layer.ingest.adapter import unreadable_pdf_verdict
 
 from agent.knowledge import ingest_status_store
 from agent.knowledge.schema import FileProgress
@@ -64,7 +64,7 @@ class _Pdf:
 def fake_pdf(monkeypatch):
     """``pdfplumber.open`` over pages numbered 1..n, the ones in ``broken`` raising."""
     import pdfplumber
-    from knowledge_layer.llamaindex import captioned_tables
+    from knowledge_layer.ingest import captioned_tables
 
     monkeypatch.setattr(captioned_tables, "extract_page_tables", lambda *a, **k: [])
 
@@ -138,7 +138,7 @@ def stores(tmp_path):
 
 @pytest.fixture()
 def live_ingestor(tmp_path, monkeypatch, qdrant_store):
-    from knowledge_layer_testing.qdrant import FakeEmbedder
+    from knowledge_layer_testing.vector_store import FakeEmbedder
 
     ing = LlamaIndexIngestor({"generate_summary": False})
     ing._embed_model = FakeEmbedder()
@@ -149,7 +149,7 @@ def live_ingestor(tmp_path, monkeypatch, qdrant_store):
 @pytest.fixture()
 def quiet_pdf_pipeline(monkeypatch):
     """No images, no rendered pages, no VLM: only the text stage speaks."""
-    import knowledge_layer.llamaindex.processing as processing_module
+    import knowledge_layer.ingest.processing as processing_module
 
     from agent.common.credential_resolution import ResolvedCredential
 
@@ -192,7 +192,7 @@ def test_chunks_created_counts_the_nodes_stored(tmp_path, live_ingestor, stores)
     )
     status = _wait_terminal(live_ingestor, job_id)
 
-    from knowledge_layer_testing.qdrant import chunk_texts
+    from knowledge_layer_testing.vector_store import chunk_texts
 
     stored = len(chunk_texts("proj_count", {"file_name": "statik.txt"}))
     assert status.file_details[0].status == FileStatus.SUCCESS

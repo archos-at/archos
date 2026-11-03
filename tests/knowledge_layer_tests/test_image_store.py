@@ -13,12 +13,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import image_store
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.search_results import format_results
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import capture_indexed_documents
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import image_store
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.search.results import format_results
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
 
@@ -239,7 +239,7 @@ def _prepare_pdf_with_one_raster(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(adapter, "analyze_visual", lambda *a, **k: ("image", "A photo of the facade.", {}))
-    import knowledge_layer.llamaindex.processing as processing_module
+    import knowledge_layer.ingest.processing as processing_module
 
     monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", lambda *a, **k: [])
     pdf = tmp_path / "fassade.pdf"

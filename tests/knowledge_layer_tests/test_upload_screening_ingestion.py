@@ -17,14 +17,14 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import page_triage
-from knowledge_layer.llamaindex import transcription
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.llamaindex.screening import QUARANTINED_PREFIX
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import transcription
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest.screening import QUARANTINED_PREFIX
 from knowledge_layer_testing.pdf_fixtures import build_pdf
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import capture_indexed_documents
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import capture_indexed_documents
 
 from agent.common.credential_resolution import ResolvedCredential
 from agent.knowledge.schema import FileStatus
@@ -48,7 +48,7 @@ def summary_db(tmp_path):
 @pytest.fixture
 def calls(tmp_path, monkeypatch, summary_db, qdrant_store):
     """Every external call site, recording; plus the ingestor that would make them."""
-    from knowledge_layer.llamaindex import processing
+    from knowledge_layer.ingest import processing
 
     record: dict[str, list] = {"ocr": [], "image_caption": [], "vlm": []}
     cred = ResolvedCredential(api_key="vlm-key", base_url="https://vlm.test/v1", model="test-vlm", source="env")
@@ -408,7 +408,7 @@ class TestTablesAndCapsAreScreened:
 
     def test_a_term_only_in_spreadsheet_rows_past_the_cap_is_partial(self, tmp_path, calls, monkeypatch):
         openpyxl = pytest.importorskip("openpyxl")
-        from knowledge_layer.llamaindex import office_extractors
+        from knowledge_layer.ingest import office_extractors
 
         monkeypatch.setattr(office_extractors, "MAX_TABLE_ROWS", 3)
         workbook = openpyxl.Workbook()
@@ -428,7 +428,7 @@ class TestTablesAndCapsAreScreened:
 
     def test_a_term_only_in_columns_past_the_cap_is_partial(self, tmp_path, calls, monkeypatch):
         openpyxl = pytest.importorskip("openpyxl")
-        from knowledge_layer.llamaindex import office_extractors
+        from knowledge_layer.ingest import office_extractors
 
         monkeypatch.setattr(office_extractors, "MAX_TABLE_COLS", 2)
         workbook = openpyxl.Workbook()
@@ -444,7 +444,7 @@ class TestTablesAndCapsAreScreened:
         assert detail.screening == "partial"
 
     def test_a_term_only_in_the_cut_tail_of_a_long_csv_cell_is_partial(self, tmp_path, calls, monkeypatch):
-        from knowledge_layer.llamaindex import text_formats
+        from knowledge_layer.ingest import text_formats
 
         monkeypatch.setattr(text_formats, "_MAX_CELL_CHARS", 20)
         path = tmp_path / "liste.csv"
@@ -478,7 +478,7 @@ class TestTablesAndCapsAreScreened:
 @pytest.fixture
 def thumbnails(monkeypatch, calls):
     """Every thumbnail the job draws, by source path, in order with the screen."""
-    from knowledge_layer.llamaindex import screening
+    from knowledge_layer.ingest import screening
 
     events: list[str] = []
     screen = screening.screen_pages
@@ -578,7 +578,7 @@ def permits(monkeypatch, calls):
     The tag decision types every document a Bescheid, and the job names a BFF row, so the hook
     would read any file that reaches it.
     """
-    from knowledge_layer.llamaindex import document_presence
+    from knowledge_layer.ingest import document_presence
 
     seen: dict[str, list] = {"extracted": [], "dropped": []}
     monkeypatch.setattr(

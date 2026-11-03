@@ -5,8 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import vision_calls
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import vision_calls
 
 
 class RateLimited(Exception):

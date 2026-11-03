@@ -10,9 +10,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.browse import FileRow
-from knowledge_layer.estate import EstateBackend
-from knowledge_layer.qdrant.retrieval import PatternTooCostly
+from knowledge_layer.browse.tool import FileRow
+from knowledge_layer.estate.backend import EstateBackend
+from knowledge_layer.vector_store.retrieval import PatternTooCostly
 
 from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture
@@ -110,10 +110,10 @@ def _backend(retriever: Retriever, rows=None, stored=None) -> EstateBackend:
 
 @pytest.fixture(autouse=True)
 def _setup(monkeypatch):
-    from knowledge_layer import browse
+    from knowledge_layer.browse import tool as browse
 
     monkeypatch.setattr(browse, "_collection_filter", lambda collection, **_kwargs: None)
-    monkeypatch.setattr("knowledge_layer.search_scope.resolve_base_collection", lambda _config: "oib_knowledge")
+    monkeypatch.setattr("knowledge_layer.search.scope.resolve_base_collection", lambda _config: "oib_knowledge")
     token = begin_grounding_capture()
     try:
         yield

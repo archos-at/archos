@@ -135,7 +135,7 @@ def _hybrid(
 ) -> list[tuple[str, int]]:
     """Fuse and merge through the PRODUCTION helpers, then collapse to ranked units.
 
-    ``reciprocal_rank_fusion`` from ``knowledge_layer.llamaindex.hybrid`` with the vector
+    ``reciprocal_rank_fusion`` from ``knowledge_layer.search.hybrid`` with the vector
     channel first (the order ``adapter.py`` uses, so it wins ties), then ``merge_results``
     from ``knowledge_layer.register`` so the per-document diversity cap that decides what
     the agent actually sees is inside the measured path rather than downstream of it.
@@ -146,8 +146,8 @@ def _hybrid(
     entries are identical whether it is called with 16 or with 120. Only the fill pass
     beyond production's cutoff differs, and nothing is reported from there.
     """
-    from knowledge_layer.fusion import merge_results
-    from knowledge_layer.llamaindex.hybrid import reciprocal_rank_fusion
+    from knowledge_layer.search.fusion import merge_results
+    from knowledge_layer.search.hybrid import reciprocal_rank_fusion
 
     fused = reciprocal_rank_fusion([dense_hits, lexical_hits], top_n=top_k)
     merged = merge_results(

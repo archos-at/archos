@@ -14,11 +14,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.document_groups import document_key
-from knowledge_layer.document_groups import group_by_document
-from knowledge_layer.document_groups import render_document_groups
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search.document_groups import document_key
+from knowledge_layer.search.document_groups import group_by_document
+from knowledge_layer.search.document_groups import render_document_groups
 
 from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture

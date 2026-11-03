@@ -5,8 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.search_results import format_results
-from knowledge_layer.trace_lanes import _trace_lanes_for_chunks
+from knowledge_layer.search.results import format_results
+from knowledge_layer.search.trace_lanes import _trace_lanes_for_chunks
 
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 from agent.common.wire_v2 import TraceLane

@@ -242,9 +242,9 @@ def reference_values(terms: list[str]) -> list[str]:
     (``prefilter.plan``: ``references.reference_keys_for``, then
     ``payload.reference_value``). Any of the terms, so the values are their union.
     """
-    from knowledge_layer.qdrant import prefilter
-    from knowledge_layer.qdrant.payload import reference_value
     from knowledge_layer.references import KINDS
+    from knowledge_layer.vector_store import prefilter
+    from knowledge_layer.vector_store.payload import reference_value
 
     values: list[str] = []
     for term in terms:
@@ -263,7 +263,7 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
     Raises :class:`MatchesNothing` when ``refers_to`` was asked and named no
     reference: dropping the condition would widen the search instead.
     """
-    from knowledge_layer.qdrant import prefilter
+    from knowledge_layer.vector_store import prefilter
 
     parts: list[dict[str, Any]] = []
     if filters.document_ids:
@@ -290,7 +290,7 @@ def _reading_clauses(filters: GroupedSearchFilters) -> list[dict[str, Any]]:
 def grouped_filters(filters: GroupedSearchFilters | None) -> dict[str, Any]:
     """The typed request filters in the retriever's filter grammar, always with the superseded exclusion.
 
-    The grammar is what ``knowledge_layer.qdrant.scope`` compiles into the
+    The grammar is what ``knowledge_layer.vector_store.scope`` compiles into the
     scope filter, so these become pre-filters inside the one query. Each
     tag group is a separate any-of, as the BFF's ``matchesTags`` reads them.
     Raises :class:`MatchesNothing` for filters no passage can meet.

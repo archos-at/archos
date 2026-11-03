@@ -281,7 +281,7 @@ def knowledge_search_tool(fixture: Fixture, index: PassageIndex) -> StructuredTo
 
 
 def read_passage_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
-    from knowledge_layer.read_passage import _READ_PASSAGE_DESCRIPTION
+    from knowledge_layer.read_passage.tool import _READ_PASSAGE_DESCRIPTION
 
     async def read_passage(
         document: str, clause: str | int | None = None, page: int | str | None = None, conclusion: str = ""
@@ -308,8 +308,8 @@ def read_passage_tool(fixture: Fixture, index: PassageIndex) -> StructuredTool:
 
 
 def list_files_tool(fixture: Fixture) -> StructuredTool:
-    from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
-    from knowledge_layer.browse import file_rows
+    from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
+    from knowledge_layer.browse.tool import file_rows
 
     rows = file_rows(available_document(fixture, f).model_dump() for f in fixture.files)
 
@@ -328,12 +328,12 @@ def list_files_tool(fixture: Fixture) -> StructuredTool:
         view: str | None = None,
         depth: int | None = None,
     ) -> str:
-        from knowledge_layer.browse import DEFAULT_TREE_DEPTH
-        from knowledge_layer.browse import folder_cards
-        from knowledge_layer.browse import render_listing
-        from knowledge_layer.browse import render_revisions
-        from knowledge_layer.browse import render_tree
-        from knowledge_layer.browse import select_files
+        from knowledge_layer.browse.tool import DEFAULT_TREE_DEPTH
+        from knowledge_layer.browse.tool import folder_cards
+        from knowledge_layer.browse.tool import render_listing
+        from knowledge_layer.browse.tool import render_revisions
+        from knowledge_layer.browse.tool import render_tree
+        from knowledge_layer.browse.tool import select_files
 
         if revisions_of:
             return render_revisions(rows, revisions_of, default_shelves=("project",))

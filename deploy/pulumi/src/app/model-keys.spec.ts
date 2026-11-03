@@ -129,8 +129,8 @@ describe("one OpenRouter key per workload", () => {
   it("emits only env names the code actually reads", () => {
     const python = [
       read("packages", "agent", "src", "agent", "common", "credential_resolution.py"),
-      read("packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
-      read("packages", "knowledge-layer", "src", "llamaindex", "embedding.py"),
+      read("packages", "knowledge-layer", "src", "ingest", "adapter.py"),
+      read("packages", "knowledge-layer", "src", "embedding.py"),
     ].join("\n");
     for (const name of OPENROUTER_KEY_ENV) expect(python, name).toContain(`"${name}"`);
     expect(read("apps", "workspace", "bff", "model-config", "openrouter.ts")).toContain("process.env.OPENROUTER_API_KEY");

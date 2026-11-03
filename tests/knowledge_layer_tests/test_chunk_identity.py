@@ -12,11 +12,11 @@ import uuid
 
 import numpy as np
 import pytest
-from knowledge_layer.llamaindex import chunk_identity
-from knowledge_layer.llamaindex.chunk_identity import ChunkVersion
-from knowledge_layer.llamaindex.chunk_identity import chunk_id
-from knowledge_layer.llamaindex.chunk_identity import embed_with_cache
-from knowledge_layer.llamaindex.chunk_identity import ids_only_in
+from knowledge_layer.ingest import chunk_identity
+from knowledge_layer.ingest.chunk_identity import ChunkVersion
+from knowledge_layer.ingest.chunk_identity import chunk_id
+from knowledge_layer.ingest.chunk_identity import embed_with_cache
+from knowledge_layer.ingest.chunk_identity import ids_only_in
 
 from .test_ingest_screen_before_tables import _ingest
 from .test_ingest_screen_before_tables import _pdf
@@ -141,7 +141,7 @@ class TestAnIngestWritesTheSameIdsTwice:
     """Through the real `_ingest_job`, on the offline harness: a retry overwrites, it does not duplicate."""
 
     def test_two_attempts_of_one_version_write_the_same_chunk_ids(self, tmp_path, calls, monkeypatch):  # noqa: F811
-        from knowledge_layer.qdrant import writes
+        from knowledge_layer.vector_store import writes
 
         written: list[list[str]] = []
         monkeypatch.setattr(

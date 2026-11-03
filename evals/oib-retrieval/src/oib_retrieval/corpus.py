@@ -4,13 +4,13 @@ This module owns everything that touches a PDF, so the metric and qrels modules 
 pure. It calls the PRODUCTION extractor and the PRODUCTION chunkers rather than
 reimplementing either:
 
-* ``knowledge_layer.llamaindex.adapter._extract_text_from_pdf`` — the same pdfplumber walk
+* ``knowledge_layer.ingest.adapter._extract_text_from_pdf`` — the same pdfplumber walk
   and watermark strip ingestion runs, so the harness sees the text the index sees;
 * the OLD arm: one llama-index ``Document`` per extracted page, then
   ``SentenceSplitter(chunk_size=1024, chunk_overlap=128)``, which is what
   ``adapter.py`` did before Punkt chunking (and still does for any file the Punkt chunker
   declines);
-* the NEW arm: ``knowledge_layer.llamaindex.clause_chunking.clause_documents``, then the
+* the NEW arm: ``knowledge_layer.ingest.clause_chunking.clause_documents``, then the
   SAME splitter, because production applies it downstream to whatever documents ingestion
   produced — leaving it off the new arm would credit it for over-long Punkte that
   production does in fact split.
@@ -43,7 +43,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Production's splitter settings (``knowledge_layer.llamaindex.adapter`` defaults).
+#: Production's splitter settings (``knowledge_layer.ingest.adapter`` defaults).
 CHUNK_SIZE = 1024
 CHUNK_OVERLAP = 128
 
@@ -64,7 +64,7 @@ class Chunk:
     """One retrievable chunk, carrying the citation contract the metrics score on.
 
     ``chunk_id`` exists so the real ``reciprocal_rank_fusion`` from
-    ``knowledge_layer.llamaindex.hybrid`` can fuse these objects unchanged — that helper
+    ``knowledge_layer.search.hybrid`` can fuse these objects unchanged — that helper
     identifies a chunk by ``getattr(chunk, "chunk_id")`` and nothing else, so the harness
     fuses through the production code path instead of a lookalike.
     """
@@ -149,7 +149,7 @@ def extract_pages(pdf_path: Path, cache_dir: Path | None = None) -> list[dict[st
         with open(cache_path, encoding="utf-8") as handle:
             return _pages_from_json(json.load(handle))
 
-    from knowledge_layer.llamaindex.adapter import _extract_text_from_pdf
+    from knowledge_layer.ingest.adapter import _extract_text_from_pdf
 
     pages = _extract_text_from_pdf(str(pdf_path))
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -170,7 +170,7 @@ def _pages_to_json(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _pages_from_json(pages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Cached pages with their tables rebuilt as ``PageTable``, the type the chunkers read."""
-    from knowledge_layer.llamaindex.captioned_tables import PageTable
+    from knowledge_layer.ingest.captioned_tables import PageTable
 
     return [
         {
@@ -195,7 +195,7 @@ def page_documents(pages: list[dict[str, Any]], file_name: str, file_size: int) 
     The page's captioned tables are put back as Markdown, as production's per-page path
     does (``adapter.text_documents_for_pages``): ``text`` alone no longer holds them.
     """
-    from knowledge_layer.llamaindex.captioned_tables import page_text_with_tables
+    from knowledge_layer.ingest.captioned_tables import page_text_with_tables
     from llama_index.core import Document
 
     return [
@@ -221,7 +221,7 @@ def clause_or_page_documents(pages: list[dict[str, Any]], file_name: str, file_s
     files, so the two arms index the same corpus and a recall difference cannot come from
     one arm simply having more of it.
     """
-    from knowledge_layer.llamaindex.clause_chunking import clause_documents
+    from knowledge_layer.ingest.clause_chunking import clause_documents
 
     documents = clause_documents(pages, file_name, file_size)
     if documents is None:

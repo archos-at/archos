@@ -9,13 +9,13 @@ from __future__ import annotations
 import json
 
 import pytest
-from knowledge_layer.llamaindex import screening
-from knowledge_layer.llamaindex.screening import QUARANTINED_PREFIX
-from knowledge_layer.llamaindex.screening import Reason
-from knowledge_layer.llamaindex.screening import ScreeningRules
-from knowledge_layer.llamaindex.screening import ScreeningVerdict
-from knowledge_layer.llamaindex.screening import quarantine_error
-from knowledge_layer.llamaindex.screening import screen_pages
+from knowledge_layer.ingest import screening
+from knowledge_layer.ingest.screening import QUARANTINED_PREFIX
+from knowledge_layer.ingest.screening import Reason
+from knowledge_layer.ingest.screening import ScreeningRules
+from knowledge_layer.ingest.screening import ScreeningVerdict
+from knowledge_layer.ingest.screening import quarantine_error
+from knowledge_layer.ingest.screening import screen_pages
 
 from agent.common.content_screen import screening_config_unusable
 

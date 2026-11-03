@@ -11,11 +11,11 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex import page_triage
-from knowledge_layer.llamaindex import parsed_store
-from knowledge_layer.llamaindex.captioned_tables import PageTable
-from knowledge_layer.llamaindex.chunk_identity import file_version
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest import page_triage
+from knowledge_layer.ingest import parsed_store
+from knowledge_layer.ingest.captioned_tables import PageTable
+from knowledge_layer.ingest.chunk_identity import file_version
 
 from .test_ingest_screen_before_tables import _ingest
 from .test_ingest_screen_before_tables import calls  # noqa: F401 - fixtures, shared with the harness
@@ -184,8 +184,8 @@ class TestThroughTheIngest:
     """`_ingest_job` itself, on the offline harness: the second attempt of one version parses nothing."""
 
     def test_a_retry_skips_the_passes_and_writes_the_same_chunks(self, tmp_path, calls, monkeypatch, objects):  # noqa: F811
-        from knowledge_layer.llamaindex import page_text_store
-        from knowledge_layer.qdrant import writes
+        from knowledge_layer.ingest import page_text_store
+        from knowledge_layer.vector_store import writes
 
         monkeypatch.setattr(page_text_store, "request_slot", objects.presign)
         monkeypatch.setattr(page_text_store, "put_part", objects.upload)

@@ -3,7 +3,7 @@
 The person reading a passage in the document viewer asks for its neighbours
 across the collections the BFF authorized: the project's other documents,
 the office's other projects in reach, the Büroablage. Deterministic: a
-nearest-neighbour query in Qdrant, no LLM (``knowledge_layer.qdrant.similar``).
+nearest-neighbour query in Qdrant, no LLM (``knowledge_layer.vector_store.similar``).
 
 Authorization is the searches' (``document_search._authorize_collection``):
 every searched collection AND the source's own must be in the signed scope,
@@ -101,9 +101,9 @@ def _query(request: SimilarPassagesRequest, collections: list[str]) -> dict[str,
 
 def _search(request: SimilarPassagesRequest, collections: list[str]) -> Any:
     """Run the query on a worker thread's terms: the store and the embedder both block."""
-    from knowledge_layer.qdrant.similar import PassageSource
-    from knowledge_layer.qdrant.similar import find_similar
-    from knowledge_layer.qdrant.store import get_store
+    from knowledge_layer.vector_store.similar import PassageSource
+    from knowledge_layer.vector_store.similar import find_similar
+    from knowledge_layer.vector_store.store import get_store
 
     from agent.knowledge.factory import get_active_retriever
 

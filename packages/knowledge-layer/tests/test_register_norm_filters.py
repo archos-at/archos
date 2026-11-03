@@ -1,7 +1,7 @@
 """Base-collection metadata filter: the page-chunk exclusion, ``exclude_file_names``, caller filters."""
 
-from knowledge_layer import search_scope
 from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.search import scope as search_scope
 
 #: What every base-corpus search carries, whatever else is configured.
 NO_PAGE_CHUNKS = {"chunking": {"$ne": "page"}}
@@ -79,7 +79,7 @@ class TestBaseCollectionProfileRouting:
 def test_explicit_non_default_collection_is_never_rerouted():
     """Test/bench configs pointing at a custom collection keep it verbatim."""
     from knowledge_layer.register import KnowledgeRetrievalConfig
-    from knowledge_layer.search_scope import resolve_base_collection
+    from knowledge_layer.search.scope import resolve_base_collection
 
     config = KnowledgeRetrievalConfig(collection_name="test_collection")
     assert resolve_base_collection(config) == "test_collection"

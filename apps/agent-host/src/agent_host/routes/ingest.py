@@ -179,7 +179,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         config["project_facts"] = request.project_facts.facts.to_store()
         config["project_status"] = request.project_facts.status
     # The document's id, so the pipeline can ask the BFF for a PUT slot per
-    # raster it extracts (`knowledge_layer.llamaindex.image_store`). Without
+    # raster it extracts (`knowledge_layer.ingest.image_store`). Without
     # it the captions are indexed and the rasters discarded, which is what
     # every caller that sends no id (the OIB corpus sync) gets.
     if request.document_id:
@@ -188,7 +188,7 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     # every human document, which is what the parser expects
     # (agent.common.provenance.parse_agent_provenance).
     config.update(_provenance_config(request))
-    # The office's upload screening (`knowledge_layer.llamaindex.screening`),
+    # The office's upload screening (`knowledge_layer.ingest.screening`),
     # as plain data so it rides the durable queue's JSON payload unchanged.
     # An empty policy is no policy: the file's `screening` outcome stays null.
     if request.screening is not None and not request.screening.is_empty:
@@ -292,7 +292,7 @@ class DeferredObjectDownload:
     request and the job id is a false failure waiting to happen. The original
     (``file_ref``) and its PDF rendition (``extraction_ref``, ADR-0071) are
     each up to tens of megabytes, so the route gates both URLs and hands the
-    job this object instead of the bytes (``knowledge_layer.deferred_files``).
+    job this object instead of the bytes (``knowledge_layer.ingest.deferred_files``).
 
     The URL is a presigned GET, a bearer credential: it lives in a private slot
     and never in ``repr``, so a job config that is logged, printed or shown in

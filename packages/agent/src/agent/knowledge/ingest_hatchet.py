@@ -24,7 +24,7 @@ Each is a DAG of two steps, so a crash repeats only the step it happened in:
 in memory from the download to the write (``LlamaIndexIngestor._ingest_job``).
 Its costly middle, reading the pages, is already persisted: every vision and
 transcription result is cached by content hash in Dragonfly for 30 days
-(``knowledge_layer.llamaindex.processing``), so a repeated ``index`` reads its
+(``knowledge_layer.ingest.processing``), so a repeated ``index`` reads its
 pages from the cache. What a run does is ``ingest_execution``'s; Temporal, the
 documented exit, would replace this file and nothing below it.
 

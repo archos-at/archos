@@ -113,7 +113,7 @@ def _document(row: Any) -> ChildDocument:
 
 def _overview(rows: Sequence[Any], folder_path: str) -> tuple[str, ...]:
     """Tier 0 for the prompt, from the same function the listing uses."""
-    from knowledge_layer.browse import folder_cards
+    from knowledge_layer.browse.tool import folder_cards
 
     cards = folder_cards(list(rows), root=folder_path, depth=0)
     if not cards:

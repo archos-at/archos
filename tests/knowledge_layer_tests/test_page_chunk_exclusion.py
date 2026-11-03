@@ -21,12 +21,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.qdrant import store as store_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
-from knowledge_layer.search_scope import base_collection_filters
-from knowledge_layer_testing.qdrant import record
-from knowledge_layer_testing.qdrant import write
+from knowledge_layer.search.scope import base_collection_filters
+from knowledge_layer.vector_store import store as store_module
+from knowledge_layer_testing.vector_store import record
+from knowledge_layer_testing.vector_store import write
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 

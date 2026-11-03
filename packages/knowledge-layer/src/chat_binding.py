@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
+from knowledge_layer.browse.tool import TREE_PARAGRAPH
 from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import create_model
@@ -19,8 +21,6 @@ from pydantic.json_schema import SkipJsonSchema
 
 from agent.common.tool_calls import CONCLUSION_DESCRIPTION
 
-from .browse import _LIST_FILES_DESCRIPTION
-from .browse import TREE_PARAGRAPH
 from .register import knowledge_search_description
 from .register import result_budget
 

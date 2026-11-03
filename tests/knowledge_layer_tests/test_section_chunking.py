@@ -1,4 +1,4 @@
-"""Heading-aware chunking of tenant PDFs (``llamaindex/section_chunking``).
+"""Heading-aware chunking of tenant PDFs (``ingest/section_chunking``).
 
 Before it, every PDF that was not an OIB Richtlinie became one Document per page, cut
 by ``SentenceSplitter(1024/128)``: a section beginning at the foot of a page was split
@@ -17,10 +17,10 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-from knowledge_layer.llamaindex import section_chunking as sc
-from knowledge_layer.llamaindex.adapter import _extract_text_from_pdf
-from knowledge_layer.llamaindex.adapter import text_documents_for_pages
-from knowledge_layer.llamaindex.section_chunking import Line
+from knowledge_layer.ingest import section_chunking as sc
+from knowledge_layer.ingest.adapter import _extract_text_from_pdf
+from knowledge_layer.ingest.adapter import text_documents_for_pages
+from knowledge_layer.ingest.section_chunking import Line
 from knowledge_layer_testing.pdf_fixtures import body_lines
 from knowledge_layer_testing.pdf_fixtures import fire_safety_concept_pages
 from knowledge_layer_testing.pdf_fixtures import footer

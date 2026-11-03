@@ -73,7 +73,7 @@ def _normalise(text: str) -> str:
     analyzer (``german_text.fold``/``tokenize``, the lexical channel's own) removes every
     difference that is not a difference in what the chunk contains.
     """
-    from knowledge_layer.llamaindex.clause_chunking import _dehyphenate
+    from knowledge_layer.ingest.clause_chunking import _dehyphenate
 
     from agent.common.german_text import fold
     from agent.common.german_text import tokenize
@@ -87,7 +87,7 @@ def _content_lines(pages: list[dict[str, Any]]) -> list[tuple[int, str]]:
     Keeping ToC pages is what lets a content page the chunker wrongly drops as a ToC be
     attributed to that arm — see the module docstring.
     """
-    from knowledge_layer.llamaindex.clause_chunking import _is_furniture
+    from knowledge_layer.ingest.clause_chunking import _is_furniture
 
     collected: list[tuple[int, str]] = []
     for page in pages:
@@ -105,7 +105,7 @@ def _body_end(lines: list[tuple[int, str]]) -> int:
     address and back cover, and would then fail containment on every arm for a reason that
     has nothing to do with chunking.
     """
-    from knowledge_layer.llamaindex.clause_chunking import _END_OF_BODY_RE
+    from knowledge_layer.ingest.clause_chunking import _END_OF_BODY_RE
 
     for position, (_page, line) in enumerate(lines):
         if _END_OF_BODY_RE.match(line):

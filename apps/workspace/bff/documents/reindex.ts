@@ -75,7 +75,7 @@ export async function forEachBounded<T>(
  * There is NO chunk delete first. The backend replaces a version only once the
  * new one has indexed — `_find_previous_versions` collects the old ids before
  * the file is read, `_retire_previous_version` removes exactly those after the
- * file reaches SUCCESS (`llamaindex/adapter.py`; docs/technical-reference/
+ * file reaches SUCCESS (`ingest/adapter.py`; docs/technical-reference/
  * document-ingestion.md, "A re-upload replaces the previous version once it has
  * indexed"). This function used to DELETE the chunks and then dispatch, so any
  * dispatch or ingest failure — a backend blip, an encrypted PDF, a missing VLM

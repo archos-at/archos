@@ -5,8 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.browse import FileRow
-from knowledge_layer.estate import EstateBackend
+from knowledge_layer.browse.tool import FileRow
+from knowledge_layer.estate.backend import EstateBackend
 
 ROWS = [
     FileRow(
@@ -56,7 +56,7 @@ def _backend(rows=ROWS) -> EstateBackend:
 
 @pytest.fixture(autouse=True)
 def _no_in_flight(monkeypatch):
-    from knowledge_layer import estate
+    from knowledge_layer.estate import backend as estate
 
     async def none(_files):
         return []

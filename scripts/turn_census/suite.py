@@ -935,7 +935,7 @@ def _corpus_ready() -> bool:
     ingested" for another cause (an unreachable server) is not silent.
     """
     try:
-        from knowledge_layer.qdrant.store import get_store
+        from knowledge_layer.vector_store.store import get_store
 
         from agent.oib_sync import COLLECTION_NAME
 

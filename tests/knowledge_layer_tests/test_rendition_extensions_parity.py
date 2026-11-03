@@ -12,7 +12,7 @@ drift is silent, so it is caught here.
 import re
 from pathlib import Path
 
-from knowledge_layer.renditions import RENDITION_INDEXED_EXTENSIONS
+from knowledge_layer.ingest.renditions import RENDITION_INDEXED_EXTENSIONS
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TS_PREVIEW_TYPES = REPO_ROOT / "apps" / "workspace" / "bff" / "documents" / "preview-types.ts"

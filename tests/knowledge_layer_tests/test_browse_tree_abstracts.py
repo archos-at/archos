@@ -5,12 +5,12 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import ListFilesConfig
-from knowledge_layer.browse import abstract_lines
-from knowledge_layer.browse import file_rows
-from knowledge_layer.browse import folder_cards
-from knowledge_layer.browse import list_files
-from knowledge_layer.browse import render_tree
+from knowledge_layer.browse.tool import ListFilesConfig
+from knowledge_layer.browse.tool import abstract_lines
+from knowledge_layer.browse.tool import file_rows
+from knowledge_layer.browse.tool import folder_cards
+from knowledge_layer.browse.tool import list_files
+from knowledge_layer.browse.tool import render_tree
 from knowledge_layer.register import KnowledgeRetrievalConfig
 
 from agent.common.source_kinds import Shelf

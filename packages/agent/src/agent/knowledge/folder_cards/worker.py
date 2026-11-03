@@ -26,7 +26,7 @@ writes ``folder-card-fresh`` (the share of claimed folders whose card is fresh
 afterwards) on its first generation's trace.
 
 Every card the BFF accepted is also a Qdrant point ``kind = folder`` in its folder's own
-scope (``knowledge_layer.qdrant.folders``): written beside the ``PUT``, its status changed
+scope (``knowledge_layer.vector_store.folders``): written beside the ``PUT``, its status changed
 beside a restamp, removed beside a delete. The point is derived; a failure to write it is
 logged and never fails the card, and the nightly reconcile does not see it (a rebuild of
 the card rewrites it).
@@ -111,7 +111,7 @@ def summary_llm() -> Any | None:
 
 def collection_rows(collection: str) -> list[Any]:
     """The collection's documents as ``browse.FileRow``: the rows ``list_files`` counts."""
-    from knowledge_layer.browse import file_rows
+    from knowledge_layer.browse.tool import file_rows
 
     from agent.knowledge import get_available_documents
 
@@ -140,8 +140,8 @@ def _load(claim: queue.Claim) -> _Collection | None:
 def _publish_point(collection: str, card: dict[str, Any]) -> None:
     """Embed ``card`` with the production embedder and write its point into ``collection``'s scope."""
     try:
-        from knowledge_layer.qdrant import folders
-        from knowledge_layer.qdrant.store import get_store
+        from knowledge_layer.vector_store import folders
+        from knowledge_layer.vector_store.store import get_store
 
         from agent.knowledge.factory import get_active_retriever
 
@@ -155,8 +155,8 @@ def _publish_point(collection: str, card: dict[str, Any]) -> None:
 
 def _restamp_point(collection: str, folder_path: str, status: str) -> None:
     try:
-        from knowledge_layer.qdrant import folders
-        from knowledge_layer.qdrant.store import get_store
+        from knowledge_layer.vector_store import folders
+        from knowledge_layer.vector_store.store import get_store
 
         folders.set_folder_card_status(get_store(), collection, folder_path, status)
     except Exception:  # noqa: BLE001
@@ -165,8 +165,8 @@ def _restamp_point(collection: str, folder_path: str, status: str) -> None:
 
 def _drop_point(collection: str, folder_path: str) -> None:
     try:
-        from knowledge_layer.qdrant import folders
-        from knowledge_layer.qdrant.store import get_store
+        from knowledge_layer.vector_store import folders
+        from knowledge_layer.vector_store.store import get_store
 
         folders.delete_folder_card(get_store(), collection, folder_path)
     except Exception:  # noqa: BLE001

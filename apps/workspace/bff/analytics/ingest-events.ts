@@ -27,7 +27,7 @@
  * Where the worked time went, and how much was read: `text_s` … `write_s`, one
  * number of seconds per stage the file reached (`INGEST_STAGES`), and the
  * reading counts `pages_fully_read`, `pages_not_read`, `pages_over_render_cap`
- * and `rasters_over_cap`, from the job's status (`ingest_measures.py`). The
+ * and `rasters_over_cap`, from the job's status (`ingest/measures.py`). The
  * worker's `[ingest-perf]` line carries the same seconds at INFO, which never
  * reaches PostHog.
  *

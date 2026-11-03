@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import base64
 
-import knowledge_layer.llamaindex.adapter as llm_adapter
+import knowledge_layer.ingest.adapter as llm_adapter
 import pytest
 from knowledge_layer.view_image import ViewLimits
 from knowledge_layer.view_image import _find_pdf
@@ -256,7 +256,7 @@ def test_render_page_makes_every_pdfium_call_under_the_process_lock(monkeypatch)
     import sys
     from types import ModuleType
 
-    from knowledge_layer.llamaindex import pdfium_lock as lock_module
+    from knowledge_layer.ingest import pdfium_lock as lock_module
     from PIL import Image
 
     held = lock_module._LOCK._is_owned

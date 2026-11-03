@@ -14,15 +14,15 @@ from unittest.mock import AsyncMock
 from unittest.mock import patch
 
 import pytest
-from knowledge_layer import decisions as kl_decisions
-from knowledge_layer.cross_encoder import resolve_cross_encoder
-from knowledge_layer.decisions import JevReranker
-from knowledge_layer.decisions import passage_verdicts
-from knowledge_layer.requery import DECIDER_JEV
-from knowledge_layer.requery import SUFFICIENT
-from knowledge_layer.requery import CoverageGap
-from knowledge_layer.requery import judge_coverage
-from knowledge_layer.requery import judge_sufficiency
+from knowledge_layer.search import decisions as kl_decisions
+from knowledge_layer.search.cross_encoder import resolve_cross_encoder
+from knowledge_layer.search.decisions import JevReranker
+from knowledge_layer.search.decisions import passage_verdicts
+from knowledge_layer.search.requery import DECIDER_JEV
+from knowledge_layer.search.requery import SUFFICIENT
+from knowledge_layer.search.requery import CoverageGap
+from knowledge_layer.search.requery import judge_coverage
+from knowledge_layer.search.requery import judge_sufficiency
 
 from agent.common.decisions import Decision
 

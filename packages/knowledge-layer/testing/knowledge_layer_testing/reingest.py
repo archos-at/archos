@@ -8,11 +8,11 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
 
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import record
-from knowledge_layer_testing.qdrant import write
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import record
+from knowledge_layer_testing.vector_store import write
 
 
 @pytest.fixture()

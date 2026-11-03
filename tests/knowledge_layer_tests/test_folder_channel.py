@@ -2,7 +2,7 @@
 
 The store side (folder points never reach a chunk read; the folder query finds
 them; a restricted folder's card is invisible without its scope) runs on a real
-Qdrant in ``packages/knowledge-layer/tests/test_qdrant_scope_kind.py``. Here the
+Qdrant in ``packages/knowledge-layer/tests/test_vector_store_scope_kind.py``. Here the
 tool: the lines it prints, that they are no citation, when the channel asks at
 all, and that it never costs the search its answer.
 """
@@ -12,11 +12,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer import folder_channel
-from knowledge_layer.qdrant.folders import FolderHit
-from knowledge_layer.qdrant.folders import render_folder_hits
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
+from knowledge_layer.search import folder_channel
+from knowledge_layer.vector_store.folders import FolderHit
+from knowledge_layer.vector_store.folders import render_folder_hits
 
 from agent.common.grounding_block import begin_grounding_capture
 from agent.common.grounding_block import end_grounding_capture

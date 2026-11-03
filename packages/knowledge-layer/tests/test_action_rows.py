@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer import browse
+from knowledge_layer.browse import tool as browse
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -21,7 +21,7 @@ from agent.knowledge.schema import ContentType
 from agent.knowledge.schema import RetrievalResult
 from agent.knowledge.scoping import ScopedCollection
 
-rp = importlib.import_module("knowledge_layer.read_passage")
+rp = importlib.import_module("knowledge_layer.read_passage.tool")
 
 BASE = "oib_knowledge"
 OIB = "oib-rl_2_ausgabe_mai_2023.pdf"
@@ -157,7 +157,7 @@ class TestKnowledgeSearchRow:
         def _boom(*args, **kwargs):
             raise RuntimeError("boom")
 
-        monkeypatch.setattr("knowledge_layer.fusion.merge_results", _boom)
+        monkeypatch.setattr("knowledge_layer.search.fusion.merge_results", _boom)
 
         await _search(query="Fluchtweglänge")
 

@@ -100,4 +100,4 @@ def test_every_knowledge_layer_tool_module_is_an_entry_point():
 
     plugins = {entry.value for entry in entry_points(group="nat.plugins")}
 
-    assert {"knowledge_layer.register", "knowledge_layer.browse", "knowledge_layer.read_passage"} <= plugins
+    assert {"knowledge_layer.register", "knowledge_layer.browse.tool", "knowledge_layer.read_passage.tool"} <= plugins

@@ -1,4 +1,4 @@
-"""Tests for the OpenRouter cross-encoder reranker (``knowledge_layer.cross_encoder``).
+"""Tests for the OpenRouter cross-encoder reranker (``knowledge_layer.search.cross_encoder``).
 
 All offline: ``httpx.MockTransport`` stands in for the provider, so the request
 body contract and the documented example payload shape are pinned without
@@ -13,9 +13,9 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
-from knowledge_layer import cross_encoder as ce
-from knowledge_layer.cross_encoder import CrossEncoderReranker
-from knowledge_layer.cross_encoder import resolve_cross_encoder
+from knowledge_layer.search import cross_encoder as ce
+from knowledge_layer.search.cross_encoder import CrossEncoderReranker
+from knowledge_layer.search.cross_encoder import resolve_cross_encoder
 
 
 @pytest.fixture(autouse=True)
@@ -143,7 +143,7 @@ async def test_without_the_zdr_seam_the_rerank_is_skipped_not_sent_unpinned(monk
 
 def test_the_default_reranker_is_one_with_a_zdr_endpoint(monkeypatch) -> None:
     """Every rerank is pinned, so a default without a ZDR endpoint would refuse every call."""
-    from knowledge_layer import cross_encoder
+    from knowledge_layer.search import cross_encoder
 
     monkeypatch.setattr(cross_encoder, "DEFAULT_MODEL", "")
     assert cross_encoder.CrossEncoderReranker(api_key="k").model == "qwen/qwen3-reranker-8b"

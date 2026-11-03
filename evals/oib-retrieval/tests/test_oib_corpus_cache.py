@@ -13,8 +13,8 @@ from oib_retrieval import corpus
 
 pytest.importorskip("llama_index.core", reason="the chunking arms are llama-index Documents")
 
-from knowledge_layer.llamaindex import adapter  # noqa: E402
-from knowledge_layer.llamaindex.captioned_tables import PageTable  # noqa: E402
+from knowledge_layer.ingest import adapter  # noqa: E402
+from knowledge_layer.ingest.captioned_tables import PageTable  # noqa: E402
 
 
 def _pages() -> list[dict]:

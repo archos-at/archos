@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from knowledge_layer.coverage import reading_coverage
+from knowledge_layer.ingest.coverage import reading_coverage
 
 
 def _coverage(**overrides):

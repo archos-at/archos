@@ -4,7 +4,7 @@ A cross-project search returns another project's passages merged by vector
 score (``searchAcrossProjects``): the nearest text, whether or not it shows how
 the case was solved, and a document somebody uploaded to another project,
 whatever it says. The knowledge layer asks both questions of its own searches
-(``knowledge_layer.decisions``); the cross-project path asked neither.
+(``knowledge_layer.search.decisions``); the cross-project path asked neither.
 
 Two nouls per passage, in parallel:
 
@@ -118,7 +118,7 @@ async def judge_hits(query: str, hits: Sequence[dict[str, Any]]) -> HitVerdicts 
     if not hits or not query.strip():
         return None
     try:
-        from knowledge_layer.decisions import INJECTION_QUESTION
+        from knowledge_layer.search.decisions import INJECTION_QUESTION
     except ImportError:  # pragma: no cover - the layer ships with the agent
         INJECTION_QUESTION = None  # noqa: N806
     questions: dict[str, Any] = {"solved": SOLVED_QUESTION}

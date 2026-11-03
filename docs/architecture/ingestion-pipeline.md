@@ -12,7 +12,7 @@ Older, deeper material is still right and is linked rather than repeated:
 ADR-0076 (the claim queue, superseded), ADR-0117 (the page pipeline, proposed,
 not built), ADR-0150 (Hatchet, which now runs the job: section 7).
 
-Short forms: **A** is `packages/knowledge-layer/src/llamaindex/adapter.py`, **S** is
+Short forms: **A** is `packages/knowledge-layer/src/ingest/adapter.py`, **S** is
 `apps/workspace/bff/documents/service.ts` as it stood before it was split (its `S:N` line references are from then; `dispatchDocument` is now in `document-dispatch.ts`, `dispatchIngest` in `ingest-dispatch.ts`), **D** is
 `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`.
 
@@ -163,7 +163,7 @@ flowchart TB
   MD --> FA[Fassung: confirm, change summary<br/>or suggestion, 45 s bound]:::model
 ```
 
-**A retry does not parse again** (`llamaindex/parsed_store.py`). Once the upload
+**A retry does not parse again** (`ingest/parsed_store.py`). Once the upload
 screen has passed and the tables are read, the text pass's pages, the triage's verdict
 per page and the table pass's tables (with the pages it skipped) are written as
 `<version dir>/_text/parsed.json`, beside `pages.md` and `index.json`, through the same
@@ -181,7 +181,7 @@ text, triage and tables fresh, under 0.01 s read back, the same pages, triage an
 tables, in a 4.4 kB artefact. Without screening rules the triage is measured by
 `route_pdf_pages` and is not stored.
 
-**One page-read pool per file** (`llamaindex/page_reads.py`,
+**One page-read pool per file** (`ingest/page_reads.py`,
 `INGEST_PAGE_READ_PARALLELISM`, 16). Every page read of a file, a scan's
 transcription and a drawing's, an image's or a raster's analysis, is one call
 on the same pool, submitted as soon as its page is rendered: no batch waits for
@@ -201,7 +201,7 @@ screenable, like an embedded raster's.
 
 **Searchable before it is described.** The summary, tags, topics, dossier and a
 base-corpus Dokumentart suggestion start once the text and visuals are read, and the
-chunks are embedded and written while they run (`llamaindex/ingest_enrichment.py`):
+chunks are embedded and written while they run (`ingest/enrichment.py`):
 no chunk carries them (`stamp_chunk_metadata` reads only the Dokumentart and the
 provenance). They are collected after the write, within their own bounds, and their
 rows are registered then; the tags reach the points through `register_summary`'s copy
@@ -211,7 +211,7 @@ only once all of it is done, so the coverage and the status are unchanged. Measu
 each enrichment call stubbed to 2 s on the offline test harness: the write landed
 3.7 s after the job started before, 0.9 s after; the job settled at the same 4.3 s.
 
-**A chunk's id is what it is** (`llamaindex/chunk_identity.py`). It is `uuid5` of
+**A chunk's id is what it is** (`ingest/chunk_identity.py`). It is `uuid5` of
 the collection, the document (its id, else its name), the version (the file's
 content hash), the chunk's ordinal and the hash of its text, no longer the
 splitter's random node id. A retried write of the same version writes the same ids
@@ -240,7 +240,7 @@ What fails the file, and what only makes it poorer:
 A 429, an in-flight-credit 402 ("would exceed your available credits given your
 current in-flight requests", for at most 60 s from the first attempt, the transport's
 own 7 s of retries included) or a timeout inside a vision call is retried in place
-(`llamaindex/vision_calls.py`); a plain "insufficient credits" 402 is final. A page
+(`ingest/vision_calls.py`); a plain "insufficient credits" 402 is final. A page
 still unread after that is counted in the coverage, and a standalone image, whose
 only content is that reading, fails with `not_read: 1` (`vision_failed`) on its trace
 and job status. Every vision call carries a sticky-routing prompt-cache key built
@@ -329,7 +329,7 @@ What is measured in production today:
 - `[ingest-perf]` log line per file at INFO: text, tables, screen, ocr, renders,
   rasters, vision, summary, dossier, embedding, write. The same seconds and the
   coverage counts are on the job status's `metadata` (`stage_seconds`, `coverage`,
-  `llamaindex/ingest_measures.py`) and so on `document_ingest_finished` as `*_s`
+  `ingest/measures.py`) and so on `document_ingest_finished` as `*_s`
   and `pages_not_read` and its siblings.
 - `llm_usage_events` with `activity = ingest` per job: the one queryable cost
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).

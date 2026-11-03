@@ -23,15 +23,15 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.llamaindex import adapter
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
-from knowledge_layer.llamaindex.adapter import _parse_drawing_fields
-from knowledge_layer.llamaindex.adapter import _scrub_watermark_phrases
-from knowledge_layer.llamaindex.adapter import _strip_watermark_lines
-from knowledge_layer.llamaindex.adapter import _summary_from_drawing_fields
-from knowledge_layer_testing.qdrant import FakeEmbedder
-from knowledge_layer_testing.qdrant import record
-from knowledge_layer_testing.qdrant import write
+from knowledge_layer.ingest import adapter
+from knowledge_layer.ingest.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest.adapter import _parse_drawing_fields
+from knowledge_layer.ingest.adapter import _scrub_watermark_phrases
+from knowledge_layer.ingest.adapter import _strip_watermark_lines
+from knowledge_layer.ingest.adapter import _summary_from_drawing_fields
+from knowledge_layer_testing.vector_store import FakeEmbedder
+from knowledge_layer_testing.vector_store import record
+from knowledge_layer_testing.vector_store import write
 
 from agent.common.credential_resolution import ResolvedCredential
 
@@ -328,7 +328,7 @@ def _install_fake_pdf(monkeypatch, pages):
 
 class TestRenderVisualPagesNoVlm:
     def test_watermark_only_vector_page_is_rendered(self, monkeypatch):
-        from knowledge_layer.llamaindex import processing as _processing
+        from knowledge_layer.ingest import processing as _processing
 
         # Only a watermark as text, tens of thousands of vector paths.
         _install_fake_pdf(monkeypatch, [_FakePage("VECTORWORKS EDUCATIONAL VERSION", n_paths=5000)])
@@ -342,7 +342,7 @@ class TestRenderVisualPagesNoVlm:
         assert abs(max(out[0]["width"], out[0]["height"]) - 2048) <= 2
 
     def test_text_page_is_skipped(self, monkeypatch):
-        from knowledge_layer.llamaindex import processing as _processing
+        from knowledge_layer.ingest import processing as _processing
 
         # Plenty of text, no vector paths → not a visual page.
         _install_fake_pdf(monkeypatch, [_FakePage("A" * 5000, n_paths=0)])
@@ -352,7 +352,7 @@ class TestRenderVisualPagesNoVlm:
         assert out == []
 
     def test_render_cap_is_respected(self, monkeypatch):
-        from knowledge_layer.llamaindex import processing as _processing
+        from knowledge_layer.ingest import processing as _processing
 
         pages = [_FakePage("", n_paths=1000) for _ in range(5)]
         _install_fake_pdf(monkeypatch, pages)
@@ -366,12 +366,12 @@ class TestRenderVisualPagesNoVlm:
         # text only while reporting nothing. The cap stays; the silence goes.
         import logging
 
-        from knowledge_layer.llamaindex import processing as _processing
+        from knowledge_layer.ingest import processing as _processing
 
         pages = [_FakePage("", n_paths=1000) for _ in range(5)]
         _install_fake_pdf(monkeypatch, pages)
 
-        with caplog.at_level(logging.WARNING, logger="knowledge_layer.llamaindex.processing"):
+        with caplog.at_level(logging.WARNING, logger="knowledge_layer.ingest.processing"):
             out = _processing.render_visual_pages_no_vlm("plan-set.pdf", max_pages=2)
 
         assert len(out) == 2
@@ -449,7 +449,7 @@ class TestRunIngestionDrawingBranch:
         # Force the page-render path without depending on a real vector PDF:
         # report one visual page for any PDF. The renderer returns raw pages
         # (no VLM) — enrich_vlm_batch enriches them via the mocked VLM above.
-        import knowledge_layer.llamaindex.processing as processing_module
+        import knowledge_layer.ingest.processing as processing_module
 
         monkeypatch.setattr(
             processing_module,
@@ -488,7 +488,7 @@ class TestRunIngestionDrawingBranch:
         from agent.knowledge import get_available_documents
 
         _patch_vlm_credential(monkeypatch, "")
-        import knowledge_layer.llamaindex.processing as processing_module
+        import knowledge_layer.ingest.processing as processing_module
 
         render = MagicMock()
         monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", render)
@@ -547,7 +547,7 @@ class TestRunIngestionDrawingBranch:
         assert "[DRAWING" not in details[1]["text"]
 
     def test_visual_details_fails_open_to_empty(self, monkeypatch, ingestor):
-        from knowledge_layer.qdrant import store as store_module
+        from knowledge_layer.vector_store import store as store_module
 
         def boom(*args, **kwargs):
             raise ConnectionError("qdrant down")
@@ -627,7 +627,7 @@ class TestRunIngestionDrawingBranch:
 
         # render_visual_pages_no_vlm must return at least one raw page so
         # enrich_vlm_batch fires the VLM call (where we capture the creds).
-        import knowledge_layer.llamaindex.processing as processing_module
+        import knowledge_layer.ingest.processing as processing_module
 
         monkeypatch.setattr(
             processing_module,
@@ -656,8 +656,8 @@ class TestRunIngestionDrawingBranch:
 
 class TestRunIngestionEmbedsAndChecksWithTheWholePage:
     def _ingest_table_page(self, tmp_path, monkeypatch, ingestor, render):
-        import knowledge_layer.llamaindex.processing as processing_module
-        from knowledge_layer.llamaindex.captioned_tables import PageTable
+        import knowledge_layer.ingest.processing as processing_module
+        from knowledge_layer.ingest.captioned_tables import PageTable
 
         _patch_vlm_credential(monkeypatch, "vlm-key")
         monkeypatch.setattr(processing_module, "render_visual_pages_no_vlm", render)
@@ -703,8 +703,8 @@ class TestRunIngestionEmbedsAndChecksWithTheWholePage:
         from llama_index.embeddings import nvidia
 
         made: list[dict] = []
-        from knowledge_layer.llamaindex import dependencies
-        from knowledge_layer.llamaindex import embedding
+        from knowledge_layer import dependencies
+        from knowledge_layer import embedding
 
         monkeypatch.setattr(dependencies, "ensure_retrieval_dependencies", lambda: None)
         monkeypatch.setattr(nvidia, "NVIDIAEmbedding", lambda **kwargs: made.append(kwargs) or MagicMock())

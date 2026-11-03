@@ -9,8 +9,8 @@ actual parse. Word and presentation files are indexed from their PDF rendition
 """
 
 import pytest
-from knowledge_layer.llamaindex import office_extractors
-from knowledge_layer.llamaindex.adapter import _looks_like_image
+from knowledge_layer.ingest import office_extractors
+from knowledge_layer.ingest.adapter import _looks_like_image
 
 
 class TestXlsx:
