@@ -1539,7 +1539,8 @@ died half way left no record of which half. Both are now jobs:
   also a `[bff-jobs] … now dead` ERROR line.
 - **KEDA scales it on the queue.** A `postgresql` trigger (its own
   TriggerAuthentication, on the app database) counts the rows whose status is
-  not `dead` and asks for ceil(jobs / `bffJobsConcurrency`) replicas between
+  not `dead`, leaving out a job parked until a later `not_before` (it is no work
+  until then), and asks for ceil(jobs / `bffJobsConcurrency`) replicas between
   `bffJobsMinReplicas` and `bffJobsMaxReplicas` (prod 1 to 4, dev 0 to 2).
   Out at once, in a pod a minute. The scaler connects as `keda_scaler`, a
   read-only login that sees every lane of the row-level secured queue through a
@@ -1624,8 +1625,11 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   (declared with the other roles on the Cluster, `data/postgres.ts`), a login with
   nothing but `LOGIN` whose rights are SELECT on the `status` column (the one its
   `COUNT(*) … WHERE status NOT IN ('dead', 'cancelled')` reads, so a leaked DSN cannot read a
-  payload) of `ingest_job_queue` and `research_job_queue` in `jobs` and of
-  `bff_job_queue` in `app`. That last table is secured per organisation, so the role reads it through a policy of
+  payload) of `ingest_job_queue` and `research_job_queue` in `jobs`, and on `status` and
+  `not_before` of `bff_job_queue` in `app`: that queue's count also leaves out a job parked
+  until a later `not_before` (a backoff, or a receive job waiting out a dependency fault for
+  up to an hour), which is no work yet and held `bff-jobs` at its ceiling, idle, through an
+  outage. That last table is secured per organisation, so the role reads it through a policy of
   its own (`FOR SELECT TO keda_scaler`), not through `BYPASSRLS`. Its password
   is `pgScalerPassword`, or an HMAC of `pgAppPassword` when unset, and its DSNs sit
   in the `grid-keda-scaler` Secret, which no pod references: rotating it restarts
