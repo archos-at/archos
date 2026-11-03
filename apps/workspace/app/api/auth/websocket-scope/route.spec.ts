@@ -176,6 +176,8 @@ describe('GET /api/auth/websocket-scope gate-then-fanout', () => {
     expect(announceBudgetBlocked).toHaveBeenCalledWith({
       organizationId: 'org_1',
       userId: 'user_1',
+      userRole: 'member',
+      projectId: 'proj_q',
       scope: 'member',
       unit: 'credit',
     })

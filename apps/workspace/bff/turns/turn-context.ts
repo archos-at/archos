@@ -166,6 +166,8 @@ export async function resolveTurnContext(
       void announceBudgetBlocked({
         organizationId,
         userId: session.userId,
+        userRole: session.role,
+        projectId: effectiveProjectId ?? null,
         scope: budgetStatus.blockedScope,
         unit: budgetStatus.unit,
       })
