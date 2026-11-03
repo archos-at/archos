@@ -111,7 +111,18 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    (`message.rawScan` in the dictionaries: still being checked, check failed
    and repeated, or malware);
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
-   list and bulk mail `automatic`;
+   list and bulk mail `automatic`. Then **the original of a forward**
+   (`receive-original.ts`, migration 0195): `original-message.ts` reads an
+   attached original (`message/rfc822`, an `.eml`) or an inline forward's
+   header block, and its author, date, subject, Message-ID and source go on
+   the row (`original_*`), project addresses redacted. A second forward of an
+   original the project holds is dropped as `duplicate_original`, silently and
+   audited like the other drops, never bounced: while the first is open the
+   partial unique index `uniq_inbound_mails_open_original` refuses it, and once
+   the first was filed its entry's `author_message_id` does. A dismissed or
+   expired first mail blocks nothing after it settles. An inline forward has no
+   Message-ID and is never a duplicate: its header block is the forwarder's
+   text;
 4. **authenticate the sender** (`sender-auth.ts`, mailauth 8 without an IP, so
    SPF is never read): trust, reason, signer domain, signed headers, flags;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
@@ -507,7 +518,7 @@ numbers from those constants, with a link to Dateien for anything larger.
 | What | Code |
 |---|---|
 | Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `apps/workspace/bff/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
-| Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts` |
+| Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts`; a forward's original `lib/inbound-mail/{original-message,receive-original,receive-original-repository}.ts` |
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
