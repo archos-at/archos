@@ -437,11 +437,11 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
     no Dokumentart and no folder, rather than read a default the pipeline
     picked. ``Relevance Score:`` is last because it delimits the body.
 
-    Every string value goes through :func:`_line`, because a header field is
-    one line by definition and several of these values come from a document's
-    own text (a title read out of a PDF, a folder a user named). The numbers
-    and the :class:`~agent.common.source_kinds.Shelf` enum cannot carry a
-    newline, so they go in as they are.
+    Every string value is made one line: a header field is one line by
+    definition, and some come from a document's own text. Free text (a title, a
+    folder) goes through :func:`_line`; a key a tool takes back (``Path:``,
+    ``Citation:``, the codes, the project id) through :func:`_key`, so it
+    round-trips. Numbers and the ``Shelf`` enum cannot carry a newline.
     """
     yield f"Source: {_capped(_line(hit.display_title))}"
     if hit.project is not None:
@@ -449,19 +449,19 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
         if hit.project.federal_state_note:
             yield f"Bundesland: {_line(hit.project.federal_state_note)}"
     if hit.path:
-        yield f"Path: {_line(hit.path)}"
+        yield f"Path: {_key(hit.path)}"
     if hit.collection:
-        yield f"Collection: {_line(hit.collection)}"
+        yield f"Collection: {_key(hit.collection)}"
     if hit.shelf is not None:
         yield f"Shelf: {hit.shelf}"
     if hit.folder_path:
         yield f"Ordner: {_line(hit.folder_path)}"
     if hit.doc_class:
-        yield f"Dokumentart: {_line(hit.doc_class)} — {_line(_doc_class_label(hit.doc_class))}"
+        yield f"Dokumentart: {_key(hit.doc_class)} — {_line(_doc_class_label(hit.doc_class))}"
     if hit.provenance is not None:
         yield f"Herkunft: {_line(provenance_label(hit.provenance))} — {AGENT_DOCUMENT_NOTE}"
     if hit.source_format:
-        yield f"Format: {_line(hit.source_format)} — {_line(_source_format_label(hit.source_format))}"
+        yield f"Format: {_key(hit.source_format)} — {_line(_source_format_label(hit.source_format))}"
     if hit.page is not None:
         yield f"Page: {hit.page}–{hit.page_end}" if hit.page_end and hit.page_end > hit.page else f"Page: {hit.page}"
     for region in hit.regions[:MAX_RENDERED_REGIONS]:
@@ -470,8 +470,8 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
         yield f"Punkt: {_line(hit.clause)}"
     if hit.status_note:
         yield f"Rechtlicher Hinweis: {_line(hit.status_note)}"
-    yield f"Citation: {_line(hit.citation_key)}"
-    yield f"Content Type: {_line(hit.content_type)}"
+    yield f"Citation: {_key(hit.citation_key)}"
+    yield f"Content Type: {_key(hit.content_type)}"
     if hit.stored_image_index is not None:
         yield f"Image: stored (look image_index={hit.stored_image_index})"
     yield f"Relevance Score: {hit.score:.2f}"
@@ -498,7 +498,7 @@ def _region_line(region: SourceRegion) -> str:
 def _project_line(project: SourceProject) -> str:
     """``Name — abgeschlossen (project_id …)``: what the model reads, and the text reader parses back."""
     status = PROJECT_STATUS_LABELS.get(project.status, project.status)
-    return f"{_line(project.name)} — {_line(status)} (project_id {_line(project.id)})"
+    return f"{_line(project.name)} — {_line(status)} (project_id {_key(project.id)})"
 
 
 #: The longest title a ``Source:`` line prints. A mail's subject is its Verlauf's
@@ -515,21 +515,28 @@ def _capped(title: str) -> str:
     return title if len(title) <= MAX_SOURCE_TITLE_CHARS else f"{title[: MAX_SOURCE_TITLE_CHARS - 1].rstrip()}…"
 
 
-def _line(value: str) -> str:
-    """``value`` as ONE header line: every line break becomes a single space.
+def _key(value: str) -> str:
+    """``value`` as ONE header line: every line break becomes a single space, nothing else changes.
 
     A header field states what the HIT says. A value that carries a newline
     would render as further header lines, and the text reader would then read a
     ``Shelf:`` or a ``Dokumentart:`` off a title the producer took out of a
     document. The structured reader copies fields and never sees this, so the
     collapse is what keeps the two readers on one answer. A value with no line
-    break is returned unchanged, which is why the byte-identity fixtures still
-    hold. A value outside the fence that spells a fence tag or the
-    ``--- Result N ---`` delimiter (a mail subject, an attachment's name) has
-    the tag escaped and the dashes made one dash, so it reads as the name it is.
+    break is returned unchanged: a path or a citation key a tool takes back
+    must reach it byte for byte, and the byte-identity fixtures still hold.
     """
-    one_line = value.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
-    return _MARKER_IN_VALUE_RE.sub("—", neutralise_tags(one_line))
+    return value.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+
+
+def _line(value: str) -> str:
+    """Free text (a title, a folder, a label) as ONE header line (:func:`_key`), read as the name it is.
+
+    A fence tag it spells is escaped and a spelled ``--- Result N`` made one
+    dash. Never for a key a tool takes back: that would break its round trip;
+    mid-line, neither acts as grammar, since every reader anchors them.
+    """
+    return _MARKER_IN_VALUE_RE.sub("—", neutralise_tags(_key(value)))
 
 
 def _source_format_label(source_format: str) -> str:

@@ -16,7 +16,7 @@ import { INBOUND_MAIL_RESTORE_DAYS, type InboundSenderTrust } from './inbound-ma
 import type { InboundMailListStatus, InboundMailOutcome, InboundMailSummaryView, InboundMailView } from './inbound-mail-wire'
 import { findFollowDeciders, findMailParts } from './repository'
 import { withReviewDefaults, type InboundMailPartBase } from './review-defaults'
-import { onlySenderReleases, senderWaitReason } from './sender-class'
+import { expiryIsFinal, onlySenderReleases, senderWaitReason } from './sender-class'
 import { readSuggestion, suggestionSkipReason } from './suggest'
 
 const DAY_MS = 86_400_000
@@ -42,7 +42,7 @@ function restorableUntil(mail: InboundMailRow, part: InboundMailPartRow, now: nu
   if (mail.status !== 'waiting' || (part.state !== 'dismissed' && part.state !== 'expired') || !part.endedAt) return null
   if (part.kind === 'attachment' && part.storageKey === null) return null
   // An outsider's mail that ran out is discarded on the next sweep: nothing to restore.
-  if (part.state === 'expired' && mail.senderClass === 'external') return null
+  if (part.state === 'expired' && expiryIsFinal(mail)) return null
   const until = new Date(part.endedAt).getTime() + INBOUND_MAIL_RESTORE_DAYS * DAY_MS
   return until > now ? new Date(until).toISOString() : null
 }
@@ -87,7 +87,7 @@ function mailView(
     id: mail.id,
     senderClass: mail.senderClass,
     // A sender the receive job could not check is not called an outsider or read-only (`./receive-faults.ts`).
-    waitReason: mail.senderFlags.includes('sender_unchecked') ? 'sender_unchecked' : senderWaitReason(mail),
+    waitReason: senderWaitReason(mail),
     onlySenderReleases: onlySenderReleases(mail, context.viewerUserId),
     projectId: mail.projectId,
     status: listStatusOf(mail, parts),

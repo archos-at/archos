@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
-import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
+import { expiryIsFinal, isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
 
 const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
 
@@ -90,12 +90,15 @@ describe('senderClassOf', () => {
       expect(directFilingEnabled({ INBOUND_MAIL_DIRECT_FILING: ' FALSE ' })).toBe(false)
     })
 
-    it('off, a verified writer’s mail waits for its member like a claimed one, and says why', () => {
-      expect(senderClassOf(input({ directFiling: false }))).toBe('unverified_writer')
+    it('off, a verified writer’s mail keeps its class, so any writer files it, and says why it waits', () => {
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'false')
-      expect(senderClassOf(input())).toBe('unverified_writer')
-      expect(senderWaitReason({ senderClass: 'unverified_writer', senderTrust: 'member_verified', senderFlags: [], automatic: false })).toBe('paused')
+      expect(senderClassOf(input())).toBe('verified_writer')
+      expect(onlySenderReleases({ senderClass: 'verified_writer', senderUserId: 'user_writer' }, 'user_colleague')).toBe(false)
+      const held = { senderClass: 'verified_writer', senderTrust: 'member_verified', senderFlags: [], automatic: false } as const
+      expect(senderWaitReason(held)).toBe('paused')
+      expect(senderWaitReason({ ...held, directFiling: false })).toBe('paused')
       vi.stubEnv('INBOUND_MAIL_DIRECT_FILING', 'true')
+      expect(senderWaitReason(held)).toBeNull()
       expect(senderClassOf(input())).toBe('verified_writer')
     })
   })
@@ -139,5 +142,25 @@ describe('what the class means to a reader', () => {
     expect(onlySenderReleases(claimed, WRITER)).toBe(false)
     expect(onlySenderReleases(claimed, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(true)
     expect(onlySenderReleases({ senderClass: 'office_member', senderUserId: WRITER }, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(false)
+  })
+})
+
+describe('a sender the receive job could not check (R14)', () => {
+  it('is said to be unchecked, never an outsider nor read-only: with the directory down no impersonation check could run', () => {
+    // The directory did not answer: no member could be named, so the class is `external` and no `claims_member_name`.
+    const directoryDown = { senderClass: 'external', senderTrust: 'external_verified', senderFlags: ['sender_unchecked'], automatic: false } as const
+    expect(senderWaitReason(directoryDown)).toBe('sender_unchecked')
+    // The write check did not answer: the member is named, but not called read-only.
+    expect(senderWaitReason({ ...directoryDown, senderClass: 'office_member', senderTrust: 'member_verified' })).toBe('sender_unchecked')
+    expect(senderWaitReason({ ...directoryDown, senderFlags: [] })).toBe('outside_office')
+  })
+})
+
+describe('when a mail’s expiry is final', () => {
+  it('is final for an outsider’s mail only, never for one whose sender could not be checked: that may be a member’s', () => {
+    expect(expiryIsFinal({ senderClass: 'external', senderFlags: [] })).toBe(true)
+    expect(expiryIsFinal({ senderClass: 'external', senderFlags: ['sender_unchecked'] })).toBe(false)
+    expect(expiryIsFinal({ senderClass: 'office_member', senderFlags: [] })).toBe(false)
+    expect(expiryIsFinal({ senderClass: null, senderFlags: [] })).toBe(false)
   })
 })

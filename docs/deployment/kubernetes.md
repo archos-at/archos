@@ -771,10 +771,11 @@ bounce text with the same `up`.
 
 0. **Direct filing misbehaves** (a way past the sender rule, a filing that
    goes wrong): `inboundMailDirectFiling: false`, promote. Mail is still
-   received; a verified writer's mail now waits for its member's one press
-   (`unverified_writer`, wait reason `paused`), and a sender job already
-   queued files nothing. Mail held meanwhile keeps waiting after it is
-   switched back on. This is the first lever; pausing receipt is the next.
+   received; a verified writer's mail keeps its class but is queued no
+   sender job, so it waits for any of the project's writers (wait reason
+   `paused`), and a sender job already queued files nothing. Mail held
+   meanwhile keeps waiting for the writers after it is switched back on: it
+   is not filed retroactively. This is the first lever; pausing receipt is the next.
 1. **Pause**: `inboundMailPaused: true`, promote. The Worker answers a
    temporary failure before reading anything, effective as soon as Cloudflare
    has the binding (no frontend rollout needed for that half), and the BFF

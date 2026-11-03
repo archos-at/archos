@@ -868,6 +868,12 @@ export const collaboration: typeof en.collaboration = {
       inboundMailHeldForWriters: {
         title: 'Ihre E-Mail an „{subject}“ wartet auf Ablage',
         body: 'Sie dürfen in diesem Projekt nicht ablegen, deshalb entscheidet jemand, der es darf.',
+        variants: {
+          // WorkOS hat nicht beantwortet, ob das Mitglied hier ablegen darf (`sender_unchecked`): nie „Sie dürfen nicht“.
+          unchecked: {
+            body: 'Beim Eingang war nicht zu prüfen, ob Sie in diesem Projekt ablegen dürfen, deshalb entscheidet jemand, der es darf.',
+          },
+        },
       },
       inboundMailRejected: {
         title: 'Ihre E-Mail an „{subject}“ wurde verworfen',

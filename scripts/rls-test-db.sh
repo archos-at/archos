@@ -3334,6 +3334,19 @@ refused_in faults_0196 "UPDATE inbound_mails SET receive_progress = '[]' WHERE d
 refused_in faults_0196 "UPDATE inbound_mails SET status = 'waiting', sender_address = 'x@stranger.example', sender_trust = 'external_unverified', sender_reason = 'dkim_none', sender_class = 'external', expires_at = received_at + interval '14 days' WHERE delivery_key = repeat('4', 64)" "inbound_mails_receive_progress_received" "a held mail that still carries a run's progress (it names the sender)"
 sql_in faults_0196 <<<"UPDATE inbound_mails SET status = 'waiting', sender_address = 'x@stranger.example', sender_trust = 'external_unverified', sender_reason = 'dkim_none', sender_class = 'external', expires_at = received_at + interval '14 days', receive_progress = NULL WHERE delivery_key = repeat('4', 64);"
 check_in faults_0196 "SELECT status FROM inbound_mails WHERE delivery_key = repeat('4', 64)" "waiting" "0196: the hold clears the progress"
+# An unchecked sender's mail is classed `external` for want of a member, but may be a member's:
+# its expired part keeps a member's restore (0194's `inbound_mail_decisions_external_expiry_final` exempts it).
+sql_in faults_0196 <<SQL || { echo "MIGRATION ASSERTION FAILED on faults_0196: an unchecked sender's expired mail could not be restored" >&2; exit 1; }
+BEGIN;
+INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, position, kind, filename, content_type, size_bytes, sha256, storage_key, scan_status, scanned_at, risk_flags)
+SELECT 'c1100000-0000-4000-8000-000000000196', organization_id, project_id, id, 0, 'message', NULL, 'text/plain', 10, repeat('a', 64), NULL, 'not_applicable', NULL, '{}'::text[]
+  FROM inbound_mails WHERE delivery_key = repeat('1', 64);
+UPDATE inbound_mail_parts SET state = 'expired', ended_at = now() WHERE id = 'c1100000-0000-4000-8000-000000000196';
+INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text, screening_release, acknowledged_sender, acknowledged_risk)
+SELECT organization_id, project_id, mail_id, id, 'restore', '$U196', 'app', NULL, NULL, NULL, NULL, false, false, false
+  FROM inbound_mail_parts WHERE id = 'c1100000-0000-4000-8000-000000000196';
+ROLLBACK;
+SQL
 # Down: refused while a mail carries the flag; clean once none does; 0196 applies again.
 apply_in faults_0196 0196_receive_faults.sql
 refused_in faults_0196 "$(cat migrations/0196_receive_faults.down.sql)" "reverse 0196 refused" "the down while a mail carries sender_unchecked"

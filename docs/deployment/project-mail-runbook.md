@@ -326,7 +326,20 @@ and only once the Worker's `LANDING_URL` binding names the website (B1):
 Alert when no `inbound_mail_received` arrives for 24 h on working days once
 offices use it.
 
-**Pause** (the incident lever): `inboundMailPaused: "true"` in the stack file,
+**Direct filing off** (the first lever, when a member's mail is filed that
+should not have been, or a sender's filing goes wrong):
+`inboundMailDirectFiling: "false"`, promote. Mail is still received. A
+verified writer's mail keeps its class, but no sender's filing is queued for
+it: it waits in the E-Mail-Eingang for any of the project's writers, as all
+mail did before direct filing, saying „Die direkte Ablage ist ausgeschaltet“
+(wait reason `paused`), and its writers are told it waits. A sender's filing
+already queued files nothing. It is never stricter than before: colleagues can
+file the mail of a member on holiday or gone. Switched back on, what was held
+meanwhile keeps waiting for the writers; it is not filed retroactively.
+PostHog `inbound_mail_sender_filed` with `reason: direct_filing_off` counts
+those mails ([`kubernetes.md`](kubernetes.md#incidents), incident 0).
+
+**Pause** (the incident lever after that): `inboundMailPaused: "true"` in the stack file,
 promote. The Worker answers every project address with a temporary failure as
 soon as Cloudflare has the binding; the BFF answers 503. Senders see nothing at
 first, then their server's "delayed" notice after some hours, and a bounce only

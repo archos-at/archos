@@ -662,9 +662,12 @@ scanner (ADR-0150) and the upload path like any other file.
   mail and the full address is a named member with write rights. A forged
   From of a real member is held, and only that member can release it.
 - **It can be switched off alone.** `INBOUND_MAIL_DIRECT_FILING=false`
-  (Pulumi `inboundMailDirectFiling`) makes every verified writer's mail wait
-  for its member's one press, without pausing receipt: the first lever if the
-  sender rule or the filing misbehaves.
+  (Pulumi `inboundMailDirectFiling`) queues no sender's filing, so every
+  verified writer's mail waits for any of the project's writers as before
+  this amendment, without pausing receipt: the first lever if the sender rule
+  or the filing misbehaves. It is never stricter than the rule it switches
+  off: the class stays `verified_writer`, so no mail becomes releasable by its
+  member alone.
 - **The rule is in the database.** A CHECK and a trigger (migration 0194)
   tie a `via = 'sender'` decision to a `verified_writer` mail, its own
   sender, a clean scan and an unflagged part; the class is written once, in
@@ -713,9 +716,10 @@ scanner (ADR-0150) and the upload path like any other file.
 - `lib/inbound-mail/sender-class.spec.ts` (the classifier, every flag),
   `sender-filing.spec.ts` (what a direct filing files, and where),
   `sender-file-job.spec.ts` (each step of the job breaking alone),
-  `receive-job.spec.ts` (the class the hold writes, a WorkOS failure reading as
-  no write right), `announce.spec.ts` (the four new notices through the
-  canaries), `sweep.integration.spec.ts` (an outsider's expired mail erased
+  `receive-job.spec.ts` (the class the hold writes; a WorkOS failure waited
+  out within the fault budget, then held `sender_unchecked` for the writers
+  for 30 days, never read as "no write right"), `announce.spec.ts` (the four
+  new notices through the canaries), `sweep.integration.spec.ts` (an outsider's expired mail erased
   and settled on the next sweep, a member's kept seven days).
 - `review-first.spec.ts`: the receive side still imports no filing code; it
   queues `inbound_mail_sender_file` by name, and `sender-file-job.ts` is among

@@ -7,7 +7,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('@/lib/authz/project-membership', () => ({ PERMISSION_CHECKS_AT_ONCE: 8, userHoldsProjectPermission: vi.fn() }))
+vi.mock('@/lib/authz/project-membership', () => ({
+  PERMISSION_CHECKS_AT_ONCE: 8,
+  userHoldsProjectPermission: vi.fn(),
+  userHoldsProjectPermissionStrict: vi.fn(),
+}))
 vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn() }))
 vi.mock('@/lib/projects/repository', () => ({ findProjectInOrg: vi.fn() }))
 vi.mock('@/lib/inbox/service', () => ({
@@ -24,7 +28,9 @@ vi.mock('./notice-repository', () => ({
 vi.mock('@/lib/mail-thread/write-repository', () => ({ findThreadRow: vi.fn(async () => ({ documentId: DOCUMENT_ID })) }))
 vi.mock('./repository', () => ({ findLiveFolders: vi.fn(async (_p: string, ids: string[]) => new Map(ids.map((id) => [id, 'Behörde/Bescheide']))) }))
 
-import { userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { userHoldsProjectPermission, userHoldsProjectPermissionStrict } from '@/lib/authz/project-membership'
+import { setCacheStore } from '@/lib/cache'
+import { MapCacheStore } from '@/test-utils/cache-store'
 import { isFolderVisibleToMember } from '@/lib/authz/folder-access'
 import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'
 import { buildPushMessage } from '@/lib/push/payload'
@@ -89,16 +95,23 @@ const mail = (overrides: Partial<WaitingMail> = {}): WaitingMail => ({
 
 const emitted = () => (vi.mocked(emitInboxItems).mock.calls[0]?.[0] ?? []) as InboxEmission[]
 
+/** Who holds what, as both the lenient and the strict check read it. */
+const holdsAsListed = async (_session: unknown, _project: string, userId: string, permission: string) =>
+  (PERMISSIONS[userId] ?? []).includes(permission)
+
+let cache: MapCacheStore
+
 beforeEach(() => {
+  cache = new MapCacheStore()
+  setCacheStore(cache)
+  vi.mocked(userHoldsProjectPermissionStrict).mockImplementation(holdsAsListed)
   // A test that makes the write fail leaves that behind otherwise (clearAllMocks keeps implementations).
   vi.mocked(emitInboxItems).mockImplementation(async (rows) => rows.length)
   vi.mocked(findProjectInOrg).mockResolvedValue({ id: PROJECT, name: 'Wohnbau Hietzing' } as never)
   vi.mocked(loadOrganizationDirectory).mockResolvedValue(
     new Map([MEMBER, MANAGER, OTHER, READER].map((userId) => [userId, { userId, email: null, name: userId, profilePictureUrl: null }])),
   )
-  vi.mocked(userHoldsProjectPermission).mockImplementation(async (_session, _project, userId, permission) =>
-    (PERMISSIONS[userId] ?? []).includes(permission),
-  )
+  vi.mocked(userHoldsProjectPermission).mockImplementation(holdsAsListed)
 })
 
 afterEach(() => {
@@ -128,9 +141,12 @@ describe('inbound_mail.waiting', () => {
     expect(emitted().map((row) => row.recipientUserId)).toEqual(WRITERS)
 
     vi.mocked(emitInboxItems).mockClear()
-    vi.mocked(userHoldsProjectPermission).mockImplementation(async (_s, _p, userId, permission) =>
-      userId === MANAGER ? permission === 'project:edit' : permission === 'project:view',
-    )
+    const onlyManagerWrites = async (_s: unknown, _p: string, userId: string, permission: string) =>
+      userId === MANAGER ? permission === 'project:edit' : permission === 'project:view'
+    vi.mocked(userHoldsProjectPermission).mockImplementation(onlyManagerWrites)
+    vi.mocked(userHoldsProjectPermissionStrict).mockImplementation(onlyManagerWrites)
+    // Past the writers' cache window, as a rights change is read.
+    cache.map.clear()
     await announceWaiting(mail())
     expect(emitted().map((row) => row.recipientUserId)).toEqual([MANAGER])
   })
@@ -151,6 +167,47 @@ describe('inbound_mail.waiting', () => {
     vi.mocked(emitInboxItems).mockClear()
     await announceHeld({ ...reader, senderClass: 'office_member' })
     expect(emitted()).toEqual([expect.objectContaining({ recipientUserId: READER, type: 'inbound_mail.held_for_writers' })])
+  })
+
+  it('asks WorkOS for a project’s writers once per window, per organization and project, not once per held mail', async () => {
+    await announceWaiting(mail({ senderTrust: 'external_verified', senderUserId: null }))
+    const checks = vi.mocked(userHoldsProjectPermissionStrict).mock.calls.length
+    expect(checks).toBeGreaterThan(0)
+
+    await announceWaiting(mail({ senderTrust: 'external_verified', senderUserId: null, mailId: '3c2b1a00-0000-4000-8000-00000000a002' }))
+    await announceExpiring(mail({ senderTrust: 'external_verified', senderUserId: null }))
+
+    expect(vi.mocked(userHoldsProjectPermissionStrict).mock.calls).toHaveLength(checks)
+    expect([...cache.map.keys()]).toEqual([`inbound-mail-writers:${ORG}:${PROJECT}`])
+    for (const call of vi.mocked(emitInboxItems).mock.calls) expect(call[0].map((row) => row.recipientUserId)).toEqual(WRITERS)
+  })
+
+  it('tells the managers, never nobody, when WorkOS does not answer a write check, and keeps no guess', async () => {
+    // Throttled: the strict check throws, the lenient one fails closed, and only a manage check gets through.
+    vi.mocked(userHoldsProjectPermissionStrict).mockRejectedValue(new Error('429 Too Many Requests'))
+    vi.mocked(userHoldsProjectPermission).mockImplementation(async (_s, _p, userId, permission) =>
+      userId === MANAGER && permission === 'project:manage',
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await announceWaiting(mail({ senderTrust: 'external_verified', senderUserId: null }))
+
+    expect(emitted().map((row) => row.recipientUserId)).toEqual([MANAGER])
+    expect(cache.map.size).toBe(0)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('could not all be asked'))
+  })
+
+  it('tells the writers it could name and the managers when only some write checks went unanswered', async () => {
+    vi.mocked(userHoldsProjectPermissionStrict).mockImplementation(async (_s, _p, userId, permission) => {
+      if (userId === OTHER) throw new Error('503')
+      return (PERMISSIONS[userId] ?? []).includes(permission)
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await announceWaiting(mail({ senderTrust: 'external_verified', senderUserId: null }))
+
+    expect(emitted().map((row) => row.recipientUserId)).toEqual(WRITERS)
+    expect(cache.map.size).toBe(0)
   })
 
   it('names the project and never the mail, and says when the domain is unconfirmed or the mail automatic', async () => {
@@ -302,6 +359,20 @@ describe('the sender rule’s notices (ADR-0137, amendment of 2026-11-03)', () =
     expect(await announceHeld({ ...mail(), senderClass: 'verified_writer' })).toBe(false)
     expect(await announceHeld({ ...mail({ senderUserId: OTHER }), senderClass: 'office_member' })).toBe(false)
     expect(emitInboxItems).not.toHaveBeenCalled()
+  })
+
+  it('never tells a member “you cannot file here” when WorkOS did not answer whether they may: the unchecked variant says so', async () => {
+    await announceHeld({ ...mail({ senderFlags: ['sender_unchecked'] }), senderClass: 'office_member' })
+    const [row] = emitted()
+    expect(row).toMatchObject({ recipientUserId: MEMBER, type: 'inbound_mail.held_for_writers', payload: { variant: 'unchecked' } })
+
+    const view = { id: 'item-1', type: row!.type, href: '/app/inbox', subject: 'Wohnbau Hietzing', variant: 'unchecked', count: 1 } as InboxItemView
+    const en = buildPushMessage(view, row!.groupKey, DEFAULT_PUSH_PREFERENCES, 'en')
+    const de = buildPushMessage(view, row!.groupKey, DEFAULT_PUSH_PREFERENCES, 'de')
+    expect(en?.body).toContain('could not be checked')
+    expect(en?.body).not.toContain('You cannot file')
+    expect(de?.body).toContain('nicht zu prüfen')
+    expect(de?.body).not.toContain('Sie dürfen in diesem Projekt nicht ablegen')
   })
 
   it('settles the held notices of a decided mail, and tells its member when it ran out', async () => {
