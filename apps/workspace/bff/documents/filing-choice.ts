@@ -27,7 +27,7 @@
  * at filing, which the ingest job treats as the newest choice.
  */
 
-import type { Document } from '@/lib/db/schema'
+import type { Document } from '@/lib/db/schema/documents'
 import { documentTypeOf, type DocumentTypeTag } from './tag-vocabulary'
 
 /** A document id as the row's primary key holds it. */
