@@ -2,8 +2,9 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GridConfig, pullPolicyFor } from "../config";
-import { CLAMAV, PORT, UID } from "../constants";
+import type { DeployConfig } from "../config";
+import { pullPolicyFor } from "../config/images";
+import { CLAMAV } from "../clamav-constants";
 import { commonLabels } from "../platform/namespaces";
 import { ROLLOUT, assertStartupFitsRollout, gracefulShutdown, secretChecksum, secretChecksumAnnotations, surgeRollout } from "../platform/rollout";
 import { onNodeGroup } from "../platform/scheduling";
@@ -12,7 +13,7 @@ import { hardenedContainerSecurityContext } from "../platform/security";
 export interface ClamAV {
   deployment: k8s.apps.v1.Deployment;
   service: k8s.core.v1.Service;
-  /** The `GRID_MALWARE_SCAN_URL` the frontend and the bff-jobs pool get. */
+  /** The `MALWARE_SCAN_URL` the frontend and the bff-jobs pool get. */
   url: pulumi.Output<string>;
 }
 
@@ -39,7 +40,7 @@ export function clamavConfigFiles(): { "clamd.conf": string; "freshclam.conf": s
 export function readinessScript(): string {
   const maxAgeSeconds = CLAMAV.maxSignatureAgeHours * 3600;
   return [
-    `reply=$(printf 'zVERSION\\0' | nc -w 5 127.0.0.1 ${PORT.clamav} | tr -d '\\0')`,
+    `reply=$(printf 'zVERSION\\0' | nc -w 5 127.0.0.1 ${CLAMAV.port} | tr -d '\\0')`,
     'built=$(date -u -D "%a %b %d %H:%M:%S %Y" -d "${reply##*/}" +%s) || exit 1',
     `[ $(( $(date -u +%s) - built )) -lt ${maxAgeSeconds} ]`,
   ].join("\n");
@@ -47,14 +48,14 @@ export function readinessScript(): string {
 
 /** The liveness check: clamd answers `PING`. A stale database is not a reason to restart it. */
 export function livenessScript(): string {
-  return `[ "$(printf 'zPING\\0' | nc -w 5 127.0.0.1 ${PORT.clamav} | tr -d '\\0')" = "PONG" ]`;
+  return `[ "$(printf 'zPING\\0' | nc -w 5 127.0.0.1 ${CLAMAV.port} | tr -d '\\0')" = "PONG" ]`;
 }
 
 /**
- * ClamAV: the malware scanner (ADR-0139). The BFF streams what strangers send
+ * ClamAV: the malware scanner (ADR-0150). The BFF streams what strangers send
  * (attachments, and each raw message whole) through clamd's INSTREAM, and
  * serves or files nothing it did not answer `OK` for
- * (`frontends/ui/src/lib/malware-scan/`).
+ * (`apps/workspace/bff/malware-scan/`).
  *
  * One pod, three containers, the Gotenberg pattern otherwise:
  * - `seed` copies the signatures baked into the image onto an emptyDir, so a
@@ -76,7 +77,7 @@ export function livenessScript(): string {
  * scan fails `unavailable` and is retried, and nothing waits on it at boot.
  */
 export function installClamAV(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
   dependsOn: pulumi.Resource[],
@@ -104,8 +105,8 @@ export function installClamAV(
   const asClamav = {
     ...hardenedContainerSecurityContext(),
     runAsNonRoot: true,
-    runAsUser: UID.clamav,
-    runAsGroup: UID.clamavGroup,
+    runAsUser: CLAMAV.uid,
+    runAsGroup: CLAMAV.gid,
   };
   const mounts = [
     { name: "database", mountPath: CLAMAV.databasePath },
@@ -133,7 +134,7 @@ export function installClamAV(
             enableServiceLinks: false, // see platform/security.ts — service-link env collisions
             automountServiceAccountToken: false,
             terminationGracePeriodSeconds: shutdown.terminationGracePeriodSeconds,
-            securityContext: { runAsNonRoot: true, runAsUser: UID.clamav, runAsGroup: UID.clamavGroup, fsGroup: UID.clamavGroup },
+            securityContext: { runAsNonRoot: true, runAsUser: CLAMAV.uid, runAsGroup: CLAMAV.gid, fsGroup: CLAMAV.gid },
             // Beside the bff-jobs pool, whose receive jobs are its main caller.
             ...onNodeGroup(cfg.nodeGroups.batch),
             initContainers: [
@@ -157,7 +158,7 @@ export function installClamAV(
                 // `command`, not `args`: the entrypoint (`/init`) would start as
                 // root and run freshclam in this container too.
                 command: ["clamd", "--foreground", `--config-file=${CLAMAV.configPath}/clamd.conf`],
-                ports: [{ containerPort: PORT.clamav, name: "clamd" }],
+                ports: [{ containerPort: CLAMAV.port, name: "clamd" }],
                 volumeMounts: mounts,
                 resources: CLAMAV.resources,
                 startupProbe: {
@@ -204,11 +205,11 @@ export function installClamAV(
       metadata: { name, namespace, labels },
       spec: {
         selector: labels,
-        ports: [{ port: PORT.clamav, targetPort: PORT.clamav, name: "clamd" }],
+        ports: [{ port: CLAMAV.port, targetPort: CLAMAV.port, name: "clamd" }],
       },
     },
     { provider, dependsOn: deployment },
   );
 
-  return { deployment, service, url: pulumi.output(`tcp://${name}:${PORT.clamav}`) };
+  return { deployment, service, url: pulumi.output(`tcp://${name}:${CLAMAV.port}`) };
 }

@@ -24,13 +24,13 @@ import time
 import uuid
 
 import pytest
-from knowledge_layer.llamaindex import adapter as adapter_module
+from knowledge_layer.llamaindex import chosen_document_type
 from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
 from langchain_core.messages import AIMessage
 
-from aiq_agent.knowledge.document_classification import DISCIPLINE_TAGS
-from aiq_agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
-from aiq_agent.knowledge.document_classification import MAX_TAGS
+from agent.knowledge.document_classification import DISCIPLINE_TAGS
+from agent.knowledge.document_classification import DOCUMENT_TYPE_TAGS
+from agent.knowledge.document_classification import MAX_TAGS
 
 #: What the fake classifier reads, and what a person chooses instead.
 CLASSIFIED_TYPE, SECOND_CLASSIFIED_TYPE, CHOSEN_TYPE, LATER_TYPE = DOCUMENT_TYPE_TAGS[2:6]
@@ -46,20 +46,20 @@ class TestWithDocumentType:
     def test_the_chosen_type_replaces_every_classified_type_and_leads(self):
         tags = [CLASSIFIED_TYPE, CLASSIFIED_DISCIPLINE, SECOND_CLASSIFIED_TYPE]
 
-        assert adapter_module._with_document_type(tags, CHOSEN_TYPE) == [CHOSEN_TYPE, CLASSIFIED_DISCIPLINE]
+        assert chosen_document_type.with_document_type(tags, CHOSEN_TYPE) == [CHOSEN_TYPE, CLASSIFIED_DISCIPLINE]
 
     def test_no_tags_at_all_is_the_chosen_type_alone(self):
-        assert adapter_module._with_document_type(None, CHOSEN_TYPE) == [CHOSEN_TYPE]
-        assert adapter_module._with_document_type([], CHOSEN_TYPE) == [CHOSEN_TYPE]
+        assert chosen_document_type.with_document_type(None, CHOSEN_TYPE) == [CHOSEN_TYPE]
+        assert chosen_document_type.with_document_type([], CHOSEN_TYPE) == [CHOSEN_TYPE]
 
     def test_the_chosen_type_is_never_stored_twice(self):
-        assert adapter_module._with_document_type([CHOSEN_TYPE, CLASSIFIED_DISCIPLINE], CHOSEN_TYPE) == [
+        assert chosen_document_type.with_document_type([CHOSEN_TYPE, CLASSIFIED_DISCIPLINE], CHOSEN_TYPE) == [
             CHOSEN_TYPE,
             CLASSIFIED_DISCIPLINE,
         ]
 
     def test_the_tag_cap_holds(self):
-        result = adapter_module._with_document_type(list(DISCIPLINE_TAGS), CHOSEN_TYPE)
+        result = chosen_document_type.with_document_type(list(DISCIPLINE_TAGS), CHOSEN_TYPE)
 
         assert result[0] == CHOSEN_TYPE
         assert len(result) == MAX_TAGS
@@ -68,14 +68,14 @@ class TestWithDocumentType:
 class TestChosenDocumentType:
     @pytest.mark.parametrize("document_type", DOCUMENT_TYPE_TAGS)
     def test_a_type_of_the_vocabulary_is_honoured(self, document_type):
-        assert adapter_module._chosen_document_type({"document_type": document_type}) == document_type
+        assert chosen_document_type.chosen({"document_type": document_type}) == document_type
 
     @pytest.mark.parametrize("config", [{}, {"document_type": None}, {"document_type": ""}])
     def test_no_choice_is_none(self, config):
-        assert adapter_module._chosen_document_type(config) is None
+        assert chosen_document_type.chosen(config) is None
 
     def test_a_queued_value_outside_the_vocabulary_is_dropped_not_stored(self, caplog):
-        assert adapter_module._chosen_document_type({"document_type": DISCIPLINE_TAGS[0]}) is None
+        assert chosen_document_type.chosen({"document_type": DISCIPLINE_TAGS[0]}) is None
         assert "outside the vocabulary" in caplog.text
 
 
@@ -93,8 +93,8 @@ class _SummaryModel:
 
 @pytest.fixture()
 def stores(tmp_path):
-    from aiq_agent.knowledge import configure_summary_db
-    from aiq_agent.knowledge import factory
+    from agent.knowledge import configure_summary_db
+    from agent.knowledge import factory
 
     factory._document_metadata_store = None
     configure_summary_db(f"sqlite:///{tmp_path / 'summaries.db'}")
@@ -105,7 +105,7 @@ def stores(tmp_path):
 @pytest.fixture()
 def classified(monkeypatch):
     """The classifier's reading, which a test may change between reads."""
-    from aiq_agent.knowledge import document_classification
+    from agent.knowledge import document_classification
 
     reading = [CLASSIFIED_TYPE, CLASSIFIED_DISCIPLINE]
     monkeypatch.setattr(document_classification, "classify_document_tags", lambda *_a, **_k: list(reading))
@@ -147,13 +147,13 @@ def _ingest(ing, tmp_path, collection, file_name, **extra):
 
 
 def _tags(collection, file_name):
-    from aiq_agent.knowledge import get_available_documents
+    from agent.knowledge import get_available_documents
 
     return {doc.file_name: doc for doc in get_available_documents(collection)}[file_name].tags
 
 
 def _person_tags(collection, file_name):
-    from aiq_agent.knowledge import get_document_person_tags
+    from agent.knowledge import get_document_person_tags
 
     return get_document_person_tags(collection, [file_name]).get(file_name)
 
@@ -176,7 +176,7 @@ class TestTheChosenTypeIsAPersonsChoice:
         assert _tags("proj_b", "letter.txt") == [CHOSEN_TYPE, CLASSIFIED_DISCIPLINE]
 
     def test_a_new_choice_replaces_the_type_and_keeps_a_persons_disciplines(self, tmp_path, ingestor, stores):
-        from aiq_agent.knowledge import set_document_tags_by_person
+        from agent.knowledge import set_document_tags_by_person
 
         _ingest(ingestor, tmp_path, "proj_c", "letter.txt", document_type=CHOSEN_TYPE)
         set_document_tags_by_person("proj_c", "letter.txt", [CHOSEN_TYPE, PERSON_DISCIPLINE])

@@ -12,8 +12,8 @@
 >
 > The decision this produced:
 > [ADR-0060](../adr/0060-three-instruction-layers-and-tools-that-answer.md).
-> Complements [`latency-and-caching-audit-2026-09.md`](latency-and-caching-audit-2026-09.md)
-> (what a reader waits for) and [`rag-system-audit-2026-08.md`](rag-system-audit-2026-08.md)
+> Complements [`docs/audit/latency-and-caching-audit-2026-09.md`](../audit/latency-and-caching-audit-2026-09.md)
+> (what a reader waits for) and [`docs/audit/rag-system-audit-2026-08.md`](../audit/rag-system-audit-2026-08.md)
 > (retrieval quality).
 
 ---
@@ -53,7 +53,7 @@ Static prompt weight, measured (`piloti.j2`, 57 007 chars ≈ 14 250 tokens):
 `<source_priority>` 509 · `<citation_format>` 367 · `<clarification>` 310 ·
 `<query_rewriting>` 114. Plus the `emit_card` schema, whose doctrine renders
 at **918 tokens** and whose index renders at **942**
-(`aiq_agent.cards.catalog.render_card_doctrine` / `render_card_index`,
+(`agent.cards.catalog.render_card_doctrine` / `render_card_index`,
 measured through the venv).
 
 **Resolved since.** The static prefix is 8,503 tokens (`0e89484`), the card
@@ -80,7 +80,7 @@ retune · **D** = defect.
 
 | # | Constraint | Where | Removes / prescribes | Class | Real fix | Status |
 |---|---|---|---|---|---|---|
-| 1 | RIS is three tools plus a prompt-taught sequence | `configs/config_oib_openrouter.yml`, `sources/ris_adapter/src/register.py`, `piloti.j2` | Model must spend 2–3 of 7 charged calls (catalog → search → fetch) to reach one citable §; the fetched blob is not a grounding block, so nothing downstream can resolve a § | **H** | `ris_lookup` — §3 below | **In this change** (the design in §3 is what is being built) |
+| 1 | RIS is three tools plus a prompt-taught sequence | `configs/config_oib_openrouter.yml`, `packages/ris-adapter/src/register.py`, `piloti.j2` | Model must spend 2–3 of 7 charged calls (catalog → search → fetch) to reach one citable §; the fetched blob is not a grounding block, so nothing downstream can resolve a § | **H** | `ris_lookup` — §3 below | **In this change** (the design in §3 is what is being built) |
 | 2 | Research budget is charged per **emitted call**, never refunded; forced synthesis at the ceiling | `max_tool_iterations: 7`; `agent.py`, `_SYNTHESIS_ANCHOR` | A parallel round of five costs five. Trace A truncated on a family overview | **H** (the ceiling is fine; the *unit* is the hobble) | Charge **rounds**, not calls; keep 7 as a round ceiling, add a token/wall-clock stop | **In this change** |
 | 3 | `reasoning_effort: low` on `research_llm` | `configs/…` | The one role that decides *what to retrieve* is the only role denied deliberation; `clarifier`, `deep_*`, `card` all get `medium` | **H** | `medium` on the research role; re-measure latency, which is what the comment actually argues about | **In this change** |
 | 4 | Web search returns 8 snippets, each truncated to 1 000 chars, and there is no web fetch | `configs/…` `max_results: 8`, `max_content_length: 1000` | Nothing quotable comes back, and the prompt has no "fetch the page" move to offer — the RIS advice ("prefer the fetched text over search snippets") has no web twin | **H** | `web_lookup(question, conclusion=)`: search → fetch top 2 → extract passages → same grounding block. §4 | **Open** — deliberately after RIS, so the eval delta stays attributable |

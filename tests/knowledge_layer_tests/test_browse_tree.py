@@ -5,21 +5,21 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
+from knowledge_layer.browse import MAX_TREE_CARDS
+from knowledge_layer.browse import ListFilesConfig
+from knowledge_layer.browse import file_rows
+from knowledge_layer.browse import folder_cards
+from knowledge_layer.browse import list_files
+from knowledge_layer.browse import render_listing
+from knowledge_layer.browse import render_tree
+from knowledge_layer.browse import select_files
+from knowledge_layer.register import KnowledgeRetrievalConfig
 
-from aiq_agent.common.source_kinds import Shelf
-from aiq_agent.knowledge.inventory import set_turn_documents
-from aiq_agent.knowledge.schema import AvailableDocument
-from aiq_agent.knowledge.scoping import ScopedCollection
-from sources.knowledge_layer.src.browse import _LIST_FILES_DESCRIPTION
-from sources.knowledge_layer.src.browse import MAX_TREE_CARDS
-from sources.knowledge_layer.src.browse import ListFilesConfig
-from sources.knowledge_layer.src.browse import file_rows
-from sources.knowledge_layer.src.browse import folder_cards
-from sources.knowledge_layer.src.browse import list_files
-from sources.knowledge_layer.src.browse import render_listing
-from sources.knowledge_layer.src.browse import render_tree
-from sources.knowledge_layer.src.browse import select_files
-from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
+from agent.common.source_kinds import Shelf
+from agent.knowledge.inventory import set_turn_documents
+from agent.knowledge.schema import AvailableDocument
+from agent.knowledge.scoping import ScopedCollection
 
 
 def _doc(name: str, folder: str | None = None, **extra) -> AvailableDocument:
@@ -169,10 +169,10 @@ def test_the_description_teaches_the_tree_view():
 @pytest.fixture
 def scope(monkeypatch):
     monkeypatch.setattr(
-        "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("proj_1", Shelf.PROJECT)],
     )
-    monkeypatch.setattr("aiq_agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
+    monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     yield
     set_turn_documents(None)
 
@@ -208,15 +208,15 @@ class TestTheTool:
 @pytest.mark.parametrize("raw", [7, "7", " 7 ", 7.0, 0, -3, "", None, "sieben", True, False])
 def test_the_listing_and_the_store_parse_a_page_count_alike(raw):
     """One parse of a page number (``page_count.page_number``): a flag is no count, anywhere."""
-    from aiq_agent.knowledge.document_metadata_store import _decode_page_count
-    from aiq_agent.knowledge.page_count import page_number
+    from agent.knowledge.document_metadata_store import _decode_page_count
+    from agent.knowledge.page_count import page_number
 
     [row] = file_rows([{"file_name": "a.pdf", "collection": "proj_1", "page_count": raw}])
     assert row.page_count == _decode_page_count(raw) == page_number(raw)
 
 
 def test_a_small_folder_names_its_files_and_a_large_one_says_it_does_not():
-    from sources.knowledge_layer.src.browse import MAX_CARD_FILES
+    from knowledge_layer.browse import MAX_CARD_FILES
 
     few = _cards([_doc("b.pdf", "E"), _doc("a.pdf", "E"), _doc("c.pdf", "E/P")])
     assert few["E"].files == ("a.pdf", "b.pdf")  # direct documents only, by name

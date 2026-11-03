@@ -9,7 +9,7 @@ server works, how to add an operation, how to connect a client, and how to set u
 WorkOS. The rule for contributors, in short, is
 [`../contributing/headless-first.md`](../contributing/headless-first.md).
 
-Code: `frontends/ui/src/lib/agent-api/`. The route is `/api/mcp`.
+Code: `apps/workspace/bff/agent-api/`. The route is `/api/mcp`.
 
 ## How it works
 
@@ -67,8 +67,8 @@ credential every route accepts, which is a second door.
 
 ### The acting session
 
-Route handlers learn who is asking from `getGridSession()`, which reads the
-AuthKit cookie. An agent has no cookie, so `getGridSession()` has one more
+Route handlers learn who is asking from `getUserSession()`, which reads the
+AuthKit cookie. An agent has no cookie, so `getUserSession()` has one more
 answer: the session bound by `runAsActingSession` (`acting-session.ts`) to the
 async execution of one call. The binding ends with the callback, so a call cannot
 leak its person into the next one.
@@ -123,7 +123,7 @@ elicitation`, and a tool-call trace with `decision_source: elicitation`.
 
 The call travels between the two rounds in `requestState`, signed with the
 SDK's `createRequestStateCodec` under a key derived from
-`GRID_INTERNAL_API_TOKEN` (HMAC over `grid:mcp-request-state:v1`), bound to the
+`INTERNAL_API_TOKEN` (HMAC over `grid:mcp-request-state:v1`), bound to the
 organization, the person and the OAuth client, and valid for five minutes. The
 SDK refuses a state that fails verification before any handler runs; the
 second round must repeat the same call, or nothing runs. An answer without
@@ -160,12 +160,12 @@ it is null, as every door link is ([Links into the app](#links-into-the-app)).
 The call is recorded as `decision: person_required`, status 403, in PostHog and
 on the Langfuse trace, apart from the `refused` of a call the caller may not
 make. A malformed call is not refused here: today's validator answers it, so
-the agent fixes its input before the person is sent anywhere. Piloti is unaffected: its write is a
+the agent fixes its input before the person is sent anywhere. The in-product agent is unaffected: its write is a
 proposal, and accepting the card is the yes.
 
 The mark sets `destructiveHint`, so a client that asks its user from the
-annotations asks for it too. Mark writes only: Piloti runs a read without a
-card, so a marked read would reach no person on Piloti's side
+annotations asks for it too. Mark writes only: the agent runs a read without a
+card, so a marked read would reach no person on the agent's side
 (`confirmation.spec.ts` checks the catalog). Only the MCP door runs catalog
 writes for an outside agent; the A2A door calls the ask routes alone. Why:
 [ADR-0122, amendment "a decision only the person makes"](../adr/0122-everything-a-person-can-do-an-agent-can-do.md#amendment-a-decision-only-the-person-makes).
@@ -298,7 +298,7 @@ again if it is still large. The result carries `layered: true` and `field`.
 The meta-tools are written once, `metaToolsFor` in `discovery.ts`, per caller:
 the domain list is the office door's (never `platform`), and Piloti's
 `call-operation` says a write comes back as a proposal. Piloti's client reads its variant from
-`src/aiq_agent/tools/workspace/meta_tools.json`, which `meta-tools.spec.ts`
+`packages/agent/src/agent/tools/workspace/meta_tools.json`, which `meta-tools.spec.ts`
 writes (`UPDATE_FIXTURES=1`) and holds current; Python keeps no copy and renames
 only the tool names to its own (`workspace__call`).
 
@@ -330,7 +330,7 @@ Every call answers one JSON body to a client that accepts JSON
 (`createAgentDoorHandler`, `mcp-server.ts`), with one exception on the
 2026-07-28 era: the handler answers `responseMode: 'auto'`, which upgrades a
 call to SSE only when it sends a message before its result, and the only such
-call is `piloti-ask-create` with a `progressToken` ([Consulting Piloti](#consulting-piloti-and-the-a2a-door)).
+call is `agent-ask-create` with a `progressToken` ([Consulting Piloti](#consulting-piloti-and-the-a2a-door)).
 The server declares no `logging`, and asking for input is a result, not a
 message; `ask-calls.spec.ts` holds every other call to `application/json`. The
 2025-era path (Piloti's own client) is its own transport with
@@ -369,7 +369,7 @@ words are in [`../glossary.md`](../glossary.md#agent-surface-and-standard-terms)
   `lib/agent-api/` and `app/api/mcp/`, and fails on a German word (an umlaut,
   a stem or a prose word of `ci/german_stems.json`). Domain data passes only
   through its `DOMAIN_DATA` list, each entry with a reason. Its Python half is
-  `tests/aiq_agent/tools/workspace/test_english_only.py`, for what the workspace
+  `packages/agent/tests/tools/workspace/test_english_only.py`, for what the workspace
   tools tell Piloti's model.
 - Not yet: the internal routes Piloti's native tools call still refuse in German
   (`AGENT_REFUSAL_LOCALE`); see ADR-0122, "Follow-ups".
@@ -388,7 +388,7 @@ Piloti for what it cannot get elsewhere. The office door offers
   (`ifc-*`, `bim-*`), `files-list`, and the domain features that make an office
   artifact (`project-summary-generate`, `project-consistency-check`,
   `project-experience-extract`);
-- **Piloti itself**: `piloti-ask`.
+- **Piloti itself**: `agent-ask-create`, `agent-ask-get`, `agent-ask-cancel`.
 
 And it offers **Piloti's own cards**: an outside agent's host that renders MCP
 Apps draws Piloti's proposal card in the person's own chat, where they apply
@@ -453,7 +453,7 @@ policy reads it: the principal's audience is `platform` there (`audienceOf`),
 so `canSee`, search, describe and call offer what the config marks `platform`
 and nothing else; an office operation named on the platform door is unknown,
 and the reverse. The server names itself
-`piloti-platform` and gives the console's own instructions
+`workspace-platform` and gives the console's own instructions
 (`PLATFORM_MCP_INSTRUCTIONS`).
 
 Fleet-wide writes carry `destructive: true` so the client asks the operator
@@ -471,7 +471,7 @@ the office door's (below), with that URL; a short guide for operators is
 
 ## The exposure config
 
-`frontends/ui/src/lib/agent-api/exposure.config.ts` is the one place that
+`apps/workspace/bff/agent-api/exposure.config.ts` is the one place that
 decides who sees each capability (ADR-0122, amendment of 2026-10-21). Every
 catalog operation and every agent read tool has exactly one entry; a name that
 is no operation, or an operation without an entry, does not compile (the object
@@ -514,7 +514,7 @@ ceiling.
 2. `UPDATE_FIXTURES=1 bunx vitest run src/lib/agent-api/exposure.config.spec.ts src/app/api/mcp/workspace-eval.fixture.spec.ts`
    rewrites `tests/fixtures/exposure.json` (the docs' and Python's copy) and the
    workspace eval's catalog (what Piloti sees).
-3. `.venv/bin/pytest tests/aiq_agent/tools/test_exposure_config.py` checks that
+3. `.venv/bin/pytest packages/agent/tests/tools/test_exposure_config.py` checks that
    every `native:<tool>` is a tool Piloti has.
 4. A change to a `piloti` entry changes what Piloti does: run the workspace set
    of the answer suite before and after
@@ -554,7 +554,7 @@ when the person asked for it in the turn (ADR-0122, amendment of 2026-10-21).
 The exposure config says who is offered a capability; the parity registry says
 where it is shown (ADR-0128). The canvas and the chat are mirrors: what a
 person or Piloti does on the review canvas, a reader of the chat sees done, and
-the other way round. [`parity.config.ts`](../../frontends/ui/src/lib/surface-parity/parity.config.ts)
+the other way round. [`parity.config.ts`](../../apps/workspace/bff/surface-parity/parity.config.ts)
 has one entry per capability (look, point, highlight, mark, update, delete,
 reply, compare Fassungen, ask about a box, open at a place, reference a
 document with `#` in the composer, show in the asker's viewer) with its `canvas`
@@ -566,7 +566,7 @@ closed gap does not stay written down as open.
 `parity.config.spec.ts` fails when an op of `internalAnnotationRequestSchema` or
 a canvas operation of the catalog has no entry, when a side has neither mirror
 nor reason, or when a named component or card does not exist. It writes
-`tests/fixtures/surface-parity.json`; `tests/aiq_agent/tools/test_surface_parity.py`
+`tests/fixtures/surface-parity.json`; `packages/agent/tests/tools/test_surface_parity.py`
 fails when a tool of the `canvas` group, `look` or `show_in_viewer` is missing
 from it, or an entry names a tool Piloti is not bound to.
 
@@ -584,7 +584,7 @@ own and the page that runs it is the asker's. Regenerate with
 | Layer | What | Where |
 |---|---|---|
 | 1. Atomic operations | One per route method. The layer the rule is checked on | `lib/agent-api/catalog/` |
-| 2. Task-shaped tools | Where an agent needs more than CRUD: retrieval, IFC, canvas | `src/aiq_agent/tools/`, served through the MCP in phase 2 |
+| 2. Task-shaped tools | Where an agent needs more than CRUD: retrieval, IFC, canvas | `packages/agent/src/agent/tools/`, served through the MCP in phase 2 |
 | 3. Workflows and skills | "Brief me on a project"; the office's own skills, found and read by the agent | MCP prompts, `lib/agent-api/door/`; `skill-search` and `skill-get` ([below](#the-offices-skills)) |
 
 The Python-only reads (`knowledge_search`, `read_passage`, `list_files`,
@@ -732,7 +732,7 @@ sequenceDiagram
 
 | Piece | What | Where |
 |---|---|---|
-| The resource | One HTML document, the same for every office: script and styles inline, CSP declared empty (no origin to load, connect to or frame), no permission, `prefersBorder: false`. Listed in `resources/list` and read with `text/html;profile=mcp-app` | built by `scripts/build-mcp-app-views.ts` into `frontends/ui/mcp-app-views/` (`bun run build:mcp-apps`; `build` and `dev:next` run it; gitignored; copied into the image) |
+| The resource | One HTML document, the same for every office: script and styles inline, CSP declared empty (no origin to load, connect to or frame), no permission, `prefersBorder: false`. Listed in `resources/list` and read with `text/html;profile=mcp-app` | built by `scripts/build-mcp-app-views.ts` into `apps/workspace/mcp-app-views/` (`bun run build:mcp-apps`; `build` and `dev:next` run it; gitignored; copied into the image) |
 | The link | `proposal-get` carries `_meta.ui.resourceUri` (and the deprecated flat `ui/resourceUri`). In `search` mode it is listed beside the meta-tools: a host links a view to a tool, and `call-operation` runs every operation | `drawsResultOf` in `APP_VIEWS` |
 | The buttons | `proposal-card-apply`, `proposal-card-dismiss`: `_meta.ui.visibility: ["app"]`, not catalog operations (no search hit, `call-operation` answers unknown). Each runs the operation it names (`proposal-apply`, `proposal-dismiss`) through `executeOperation`, so the route's `authz`, rate limit and schema decide; a refusal carries `{ status, code }` | `APP_TOOLS`; exposure `app: true` |
 | Who gets it | An outside agent on an office door whose client can draw it: on the 2026-07-28 era, one whose request capabilities name `io.modelcontextprotocol/ui` with `text/html;profile=mcp-app` (read off each request's `_meta` before the SDK serves it); on the 2025 era, which carries no capabilities, every outside client, as before. Not Piloti (it draws its own cards and never decides a proposal), not the platform door | `declaresMcpApps`, `appHostOf`, `offersAppViews`, `isAppToolFor` |
@@ -825,7 +825,7 @@ Do this in the same change that adds or changes the route. The exemplar is
 7. **Say who sees it**: its entry in `exposure.config.ts`, `OFFERED` for office
    work, else the columns and a `reason` ([above](#the-exposure-config)). The
    catalog does not compile without it.
-8. **Name what it touches.** If Piloti may propose this write and its input
+8. **Name what it touches.** If the agent may propose this write and its input
    names an entity the card should show, or the proposal should be refused for,
    that entity must be a target type: `OPERATION_TARGET_TYPES`
    (`lib/proposals/types.ts`), the path-segment or input-key tables in
@@ -835,7 +835,7 @@ Do this in the same change that adds or changes the route. The exemplar is
    applies. Separately, an operation whose answer holds projects, documents,
    task runs or conversations declares `links:`
    ([Links into the app](#links-into-the-app)).
-9. **Run the gate**: `cd frontends/ui && bunx vitest run src/lib/agent-api/`. If
+9. **Run the gate**: `cd apps/workspace && bunx vitest run src/lib/agent-api/`. If
    your route was in the baseline, the "baseline only shrinks" test lists it;
    `UPDATE_FIXTURES=1` rewrites it and `tests/fixtures/exposure.json`; commit the diff.
 
@@ -883,8 +883,8 @@ that decides whether the call works. `summary` is one line, for search and for
 `tools` mode.
 
 A description names only operations the door offers to the same audience
-(ADR-0131, rule 8). Piloti and an outside agent see different sets, so a
-description offered to Piloti must not name an external-only operation, and the
+(ADR-0131, rule 8). The agent and an outside agent see different sets, so a
+description offered to the agent must not name an external-only operation, and the
 other way round. `description-references.spec.ts` checks both audiences against
 a baseline that only shrinks. Put the pointer in an operation the audience that
 can follow it is offered, or leave it to search.
@@ -892,9 +892,10 @@ can follow it is offered, or leave it to search.
 ### Schemas
 
 `body`, `query` and `params` are zod and are exported to JSON Schema by
-`lib/api/zod-json-schema.ts`, which refuses a node it cannot describe. If a shared
-schema fails that (`z.custom`, `z.date`), extend the exporter when the node is
-describable. Otherwise give the operation a looser `body` written for the agent
+`lib/api/zod-json-schema.ts`, Zod 4's own `z.toJSONSchema` read as input (a
+`.default()` field is optional), which refuses a node it cannot describe. If a
+shared schema fails that (`z.custom`, `z.map`, a bare transform), extend the
+exporter's `override` when the node is describable, as it does for `z.date`. Otherwise give the operation a looser `body` written for the agent
 (`z.object({...}).passthrough()` with the describable fields) and a comment that
 the route's schema is the gate. The route's schema is always the gate.
 
@@ -925,7 +926,7 @@ proposal stores the same original input.
 A hard delete with no restore is still catalogued, `destructive: true`, and says
 in the description that it cannot be undone. The client asks the person.
 
-A GET is `readOnly` by default, and Piloti runs a read-only operation without a
+A GET is `readOnly` by default, and the agent runs a read-only operation without a
 person's card (`callDecision` in `policy.ts`). So a GET route creates, mints or
 stores nothing, not even on first read: a route that would make an address, a
 token or a row when it is read gets a separate idempotent write for the
@@ -972,7 +973,7 @@ The schemas are `uploadBodySchemaWith({ ...fields })` and `rawBodySchema` in
 size). The route's own parsing stays the gate, so name the real form fields in `fields` and add a
 `agent-upload.spec.ts` beside the route that proves the dispatcher's form passes its parser. An
 Outlook archive is three operations: `mail-import-start`, `mail-import-part-upload` (once per
-part), `mail-import-complete`. They are offered to outside agents only: Piloti has no archive to
+part), `mail-import-complete`. They are offered to outside agents only: the agent has no archive to
 send, and a part is far past what a proposal may carry (`MAX_PROPOSED_INPUT_CHARS`).
 
 ### Links into the app
@@ -1016,7 +1017,7 @@ reads `read-only-writes.spec.ts` lists with why they return no secret, and:
   (403): accepting a card the agent worded is not the confirmation such a change
   needs (its entry says `piloti: false`, and `exposure.config.spec.ts` holds
   that). Nor does it see the person's own decisions: `proposal-apply`,
-  `proposal-dismiss` and `piloti-change-undo`, which the applier also refuses at
+  `proposal-dismiss` and `agent-change-undo`, which the applier also refuses at
   the click (`PROPOSAL_DECISION_OPERATIONS` in `operation-applier.ts`, its own
   reason), so a card Piloti worded never applies another.
 - **An external agent sees one only when its organization switched the class
@@ -1150,7 +1151,7 @@ What Piloti knows before its first call, and how it reports
   question about filing or finding it closes with the office's conventions,
   counted from its projects and stated as "usually" (ADR-0129, behind
   the `office-conventions` flag).
-- **The prompt's `<workspace>` facts** (`piloti_static.md`): queries in English,
+- **The prompt's `<workspace>` facts** (`chat_static.md`): queries in English,
   in the catalog's words; search and describe in one round, call in the next;
   a record is named, never cited; files and memory have their own native doors.
 - **Native tools first.** What Piloti does with a tool of its own (memory,
@@ -1184,28 +1185,34 @@ The workspace set of the answer suite measures all of it
 
 An agent can also ask Piloti itself (ADR-0124,
 [`../adr/0124-agents-consult-piloti-over-mcp-and-a2a.md`](../adr/0124-agents-consult-piloti-over-mcp-and-a2a.md)).
-`piloti-ask-create` (`catalog/consult.ts`) calls `POST /api/piloti-asks`, which
+`agent-ask-create` (`catalog/consult.ts`) calls `POST /api/agent-asks`, which
 runs a headless turn (ADR-0106) as the person in their own private thread, with
 the trigger `agent_consult`, waits up to 40 seconds and otherwise answers
-`working` for `piloti-ask-get` to poll. The organization's `piloti-ask` switch
+`working` for `agent-ask-get` to poll. The organization's `piloti-ask` switch
 gates it, and the turn's budget pays for it.
 A completed answer carries `answer.sources` (`documentId`, `name`, `page`, and a
 `url` that opens the cited page in Piloti for the asker) and `answer.confidence`,
 both as the answer's message stored them and absent where it stored none: an
 answer with neither is not grounded in a document.
+`answer.text` is plain Markdown (`lib/agent-asks/answer-text.ts`), for the MCP
+door and the A2A door alike: the answer's directive fences, `[[card:N]]`
+markers and `:project[key]` bindings go through the same projection as the copy
+button (`stripDirectives`), a binding printing the project's value, and the
+verifier's German labels become English ones. The stored message keeps the
+dialect; the chat renders it.
 
 **The wait, on the 2026-07-28 era** (`ask-calls.ts`). The ask is the one door
 call whose wait is ours; `task-run-start`, the uploads and `document-reingest`
 queue work and answer at once, so they have nothing to report. A client chooses
 how to wait, per call, in standard MCP:
 
-- *Progress.* A `piloti-ask-create` call carrying `_meta.progressToken` starts
-  the ask without the route's wait, then reads it with `piloti-ask-get` in waits
+- *Progress.* A `agent-ask-create` call carrying `_meta.progressToken` starts
+  the ask without the route's wait, then reads it with `agent-ask-get` in waits
   of at most five seconds and sends `notifications/progress` between them:
   `progress` is the elapsed seconds, `total` the wait budget (`waitSeconds`,
   default 40), `message` the ask's state. The call ends with the ask as
-  `piloti-ask-create` would have answered it. Each read is recorded as a
-  `piloti-ask-get` call.
+  `agent-ask-create` would have answered it. Each read is recorded as a
+  `agent-ask-get` call.
 - *Tasks.* The server advertises the `io.modelcontextprotocol/tasks` extension
   (SEP-2663) in `server/discover` to a caller that runs the ask operations
   itself. A call whose own `clientCapabilities` declares it gets a
@@ -1213,15 +1220,15 @@ how to wait, per call, in standard MCP:
   the ask id as `taskId`, `ttlMs: null` (the ask lives with its conversation)
   and `pollIntervalMs` from `pollAfterSeconds`; an ask that ended at once
   (budget, a busy thread) is answered as the plain call instead. `tasks/get`
-  reads the ask through `piloti-ask-get`: `submitted` and `working` are
+  reads the ask through `agent-ask-get`: `submitted` and `working` are
   `working`, `canceled` is `cancelled`, and every other end is `completed` with
   the tool result inline (a `failed` or `rejected` ask is a tool result, as
   today; the task status `failed` is for JSON-RPC errors). `tasks/cancel` runs
-  `piloti-ask-cancel` and acknowledges, also for an ask that had ended;
+  `agent-ask-cancel` and acknowledges, also for an ask that had ended;
   `tasks/update` acknowledges, since an ask never asks back. Each runs as the
   person, so the route's own rule (the asker only) decides; an id that names
   none of theirs is `-32602`, a request that does not declare the extension
-  `-32021`. The task store is the `piloti_asks` table, so any replica answers
+  `-32021`. The task store is the `agent_asks` table, so any replica answers
   and `Mcp-Name` routing is not needed. Task status notifications
   (`subscriptions/listen` with `taskIds`) are not offered; clients poll.
 
@@ -1231,7 +1238,7 @@ waits up to 40 seconds.
 **The recursion lock.** In-product Piloti only proposes writes, and
 `lib/proposals/operation-applier.ts` neither files nor applies an ask, so no
 turn asks Piloti again. Piloti does not see the three operations either
-(`piloti: false` in the exposure config), so it cannot name one or run `piloti-ask-get`.
+(`piloti: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
 
 **The A2A door.** `POST /api/a2a` serves the same asks to agents that speak A2A
 (1.0, and 0.3 without an `A2A-Version` header), through the official SDK
@@ -1318,7 +1325,7 @@ applied by the deploy.
    [`../deployment/environment-variables.md`](../deployment/environment-variables.md)):
    - `WORKOS_AUTHKIT_DOMAIN`: the AuthKit domain, without scheme. Unset, the
      external door answers 503 and Piloti in-product still works.
-   - `GRID_MCP_RESOURCE_URL`: the MCP URL, when it differs from the origin of
+   - `MCP_RESOURCE_URL`: the MCP URL, when it differs from the origin of
      `WORKOS_REDIRECT_URI` plus `/api/mcp`. The A2A and platform doors take their
      resources from its origin.
 
