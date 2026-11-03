@@ -264,8 +264,10 @@ the mail is held with what was not learned, said, never guessed:
   (the class is then `external`, which 0194 ties to a sender with no member;
   0196 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
   says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
-  is still an outsider's (no restore window), since the database cannot tell
-  it is a member's;
+  is a member's, not an outsider's: it keeps the seven days to restore, and a
+  dismissal is not erased at once either (`expiryIsFinal` in
+  `sender-class.ts`, the sweep's `pastRestore`, and 0194's
+  `inbound_mail_decisions_external_expiry_final`, which exempts the flag);
 - DKIM: the verifier's transient reason (`dkim_temperror`, `verifier_timeout`)
   stands as the verdict, so a member's mail is `unverified_writer` and waits
   for their one press;

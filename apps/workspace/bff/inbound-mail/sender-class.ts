@@ -115,6 +115,17 @@ export function senderWaitReason(mail: WaitReasonInput): InboundMailWaitReason |
 }
 
 /**
+ * Whether the mail's expiry is final: an outsider's mail that ran out is
+ * discarded, with no restore window (migration 0194,
+ * `inbound_mail_decisions_external_expiry_final`). Not one whose sender could
+ * not be checked (`sender_unchecked`): it is classed `external` for want of a
+ * member, may be a member's, and keeps a member's seven days to restore.
+ */
+export function expiryIsFinal(mail: { senderClass: InboundMailSenderClass | null; senderFlags: readonly SenderFlag[] }): boolean {
+  return mail.senderClass === 'external' && !mail.senderFlags.includes('sender_unchecked')
+}
+
+/**
  * Whether only the mail's own member may file or restore it (rule 2): it
  * claims a writer it could not prove to be. Anyone else may dismiss it.
  */

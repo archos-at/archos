@@ -167,7 +167,9 @@ ALTER TABLE "mail_thread_entries"
 --           `via = 'sender'` only on a verified writer's own clean, unflagged
 --           mail, decided by that writer; a file or restore on a mail that
 --           only claims a writer only by that writer (a file saying they sent
---           it); an outsider's expired part is not restored.
+--           it); an outsider's expired part is not restored, unless its
+--           sender could not be checked (`sender_unchecked`, migration 0196):
+--           that mail may be a member's, and keeps a member's restore.
 --   UPDATE  nothing changes but `audited_at`, once, from NULL to a time.
 --   DELETE  only after the audit trail took it (RT-S8), unless the project is
 --           gone: a purge deletes the project row first and cascades from it,
@@ -180,6 +182,7 @@ DECLARE
   part_flags text[];
   part_findings text[];
   mail_class text;
+  mail_flags text[];
   mail_sender text;
   raw_scan text;
 BEGIN
@@ -201,7 +204,7 @@ BEGIN
         USING ERRCODE = 'check_violation', CONSTRAINT = 'inbound_mail_decisions_thread_for_text',
               TABLE = 'inbound_mail_decisions';
     END IF;
-    SELECT sender_class, sender_user_id, raw_scan_status INTO mail_class, mail_sender, raw_scan
+    SELECT sender_class, sender_flags, sender_user_id, raw_scan_status INTO mail_class, mail_flags, mail_sender, raw_scan
       FROM inbound_mails
      WHERE id = NEW.mail_id AND project_id = NEW.project_id AND organization_id = NEW.organization_id;
     IF NEW.via = 'sender' AND NOT (FOUND
@@ -217,7 +220,9 @@ BEGIN
         USING ERRCODE = 'check_violation', CONSTRAINT = 'inbound_mail_decisions_claimed_sender_releases',
               TABLE = 'inbound_mail_decisions';
     END IF;
-    IF mail_class = 'external' AND NEW.action = 'restore' AND part_state = 'expired' THEN
+    -- A mail whose sender could not be checked (`sender_unchecked`, 0196) may be a member's: a member's restore.
+    IF mail_class = 'external' AND NEW.action = 'restore' AND part_state = 'expired'
+       AND NOT ('sender_unchecked' = ANY (mail_flags)) THEN
       RAISE EXCEPTION 'an outsider''s mail that ran out is discarded, never restored'
         USING ERRCODE = 'check_violation', CONSTRAINT = 'inbound_mail_decisions_external_expiry_final',
               TABLE = 'inbound_mail_decisions';

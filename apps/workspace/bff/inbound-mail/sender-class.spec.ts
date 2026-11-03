@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { directFilingEnabled } from './direct-filing'
 import { judgeSender, type SenderAuthentication } from './sender-auth'
-import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
+import { expiryIsFinal, isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput, type WaitReasonInput } from './sender-class'
 
 const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
 
@@ -142,5 +142,14 @@ describe('what the class means to a reader', () => {
     expect(onlySenderReleases(claimed, WRITER)).toBe(false)
     expect(onlySenderReleases(claimed, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(true)
     expect(onlySenderReleases({ senderClass: 'office_member', senderUserId: WRITER }, 'user_01HZX3Y4Z5A6B7C8D9E0F1G2O1')).toBe(false)
+  })
+})
+
+describe('when a mail’s expiry is final', () => {
+  it('is final for an outsider’s mail only, never for one whose sender could not be checked: that may be a member’s', () => {
+    expect(expiryIsFinal({ senderClass: 'external', senderFlags: [] })).toBe(true)
+    expect(expiryIsFinal({ senderClass: 'external', senderFlags: ['sender_unchecked'] })).toBe(false)
+    expect(expiryIsFinal({ senderClass: 'office_member', senderFlags: [] })).toBe(false)
+    expect(expiryIsFinal({ senderClass: null, senderFlags: [] })).toBe(false)
   })
 })

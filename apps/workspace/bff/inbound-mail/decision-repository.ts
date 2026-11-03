@@ -16,6 +16,7 @@ import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailD
 import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { findMailParts, OPEN_PART_STATES } from './review-read-repository'
+import { expiryIsFinal } from './sender-class'
 
 /** The mail changed since the person read it: their `ifMatch` no longer names it (C3). */
 export class MailChangedError extends Error {
@@ -223,7 +224,7 @@ export async function restoreMailParts(
       (part) =>
         (part.state === 'dismissed' || part.state === 'expired') &&
         // An outsider's mail that ran out is discarded, never restored (migration 0194 refuses it too).
-        !(part.state === 'expired' && mail.senderClass === 'external') &&
+        !(part.state === 'expired' && expiryIsFinal(mail)) &&
         part.endedAt !== null &&
         new Date(part.endedAt) > restorableAfter &&
         (part.kind === 'message' || part.storageKey !== null),

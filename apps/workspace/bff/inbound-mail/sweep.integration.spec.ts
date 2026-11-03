@@ -172,6 +172,8 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     senderUserId?: string | null
     /** The class a seed held mail carries (migration 0194); by default what its trust allows short of a writer. */
     senderClass?: 'office_member' | 'external' | 'unverified_writer'
+    /** The sender flags a seed held mail carries, e.g. `sender_unchecked` (migration 0196). */
+    senderFlags?: readonly string[]
     raw?: boolean
     read?: boolean
     /** Interval SQL, e.g. `'20 minutes'`: how long ago. */
@@ -204,7 +206,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     await rows(sql`
       INSERT INTO inbound_mails (id, organization_id, project_id, address_id, status, delivery_key, raw_size_bytes,
         staging_bucket, raw_storage_key, read_storage_key, raw_scan_status, raw_scanned_at, raw_scan_attempts,
-        sender_address, subject, sender_trust, sender_reason, sender_user_id, sender_class, dropped_reason,
+        sender_address, subject, sender_trust, sender_reason, sender_user_id, sender_class, sender_flags, dropped_reason,
         received_at, updated_at, expires_at, settled_at, original_move_pending_at, erasure_deferred_at)
       VALUES (${id}::uuid, ${ORG}, ${projectId}::uuid, ${addressId}::uuid, ${status},
         ${status === 'receiving' ? null : deliveryKey}, ${status === 'receiving' ? null : (seed.bytes ?? 4096)},
@@ -213,6 +215,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         ${status === 'receiving' || status === 'received' ? null : sql`now() - ${seed.rawScannedAgo ?? '0 seconds'}::interval`},
         ${seed.rawScanAttempts ?? 1},
         ${open ? 'sender@example.org' : null}, ${open ? 'Bescheid' : null}, ${trust}, ${reason}, ${userId}, ${senderClass},
+        ${`{${(seed.senderFlags ?? []).join(',')}}`}::text[],
         ${status === 'dropped' ? 'auto_reply' : null},
         now() - ${seed.receivedAgo ?? '0 seconds'}::interval, now() - ${seed.updatedAgo ?? '0 seconds'}::interval,
         now() + ${seed.expiresIn ?? '30 days'}::interval - ${seed.receivedAgo ?? '0 seconds'}::interval,
@@ -506,6 +509,20 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(await partRow(file)).toMatchObject({ state: 'expired', storage_key: null, filename: null })
       expect(staging.erased).toContain(stagingKey(project, mail, '1'))
       expect((await mailRow(mail))?.status).toBe('settled')
+    })
+
+    it('keeps a mail whose sender could not be checked restorable for seven days, though it is classed an outsider’s (R7)', async () => {
+      const mail = await seedMail({ trust: 'external_unverified', receivedAgo: '31 days', senderFlags: ['sender_unchecked'] })
+      const file = await seedPart(mail)
+      const dismissed = await seedPart(mail, { position: 2, state: 'dismissed', endedAgo: '1 hour' })
+
+      await sweep.sweepExpiredMails(now())
+      expect((await partRow(file))?.state).toBe('expired')
+      await sweep.sweepEndedParts(now())
+
+      expect((await partRow(file))?.storage_key).not.toBeNull()
+      expect((await partRow(dismissed))?.storage_key).not.toBeNull()
+      expect((await mailRow(mail))?.status).toBe('waiting')
     })
 
     it('tells a member their own mail ran out, and keeps it restorable for seven days', async () => {

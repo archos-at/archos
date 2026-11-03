@@ -28,11 +28,14 @@ export const RESTORE_WINDOW_MS = 7 * DAY_MS
  * (D8: nobody vouched for it, and somebody said no), and at once for an
  * outsider's part that ran out (ADR-0137's amendment: an outsider's mail is
  * discarded after its 14 days, with no restore window; migration 0194 refuses
- * the restore too, `inbound_mail_decisions_external_expiry_final`).
+ * the restore too, `inbound_mail_decisions_external_expiry_final`). Not a mail
+ * whose sender could not be checked (`sender_unchecked`, migration 0196): it is
+ * classed `external` for want of a member, may be a member's, and keeps a
+ * member's seven days.
  */
 const pastRestore = (cutoff: Date) => sql`(p.ended_at < ${cutoff.toISOString()}::timestamptz
-  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified')
-  OR (p.state = 'expired' AND m.sender_class = 'external'))`
+  OR (p.state = 'dismissed' AND m.sender_trust = 'external_unverified' AND NOT ('sender_unchecked' = ANY (m.sender_flags)))
+  OR (p.state = 'expired' AND m.sender_class = 'external' AND NOT ('sender_unchecked' = ANY (m.sender_flags))))`
 
 /** A staged object to erase, and whether a hold defers that. */
 export interface EndedPartBytes {

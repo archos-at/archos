@@ -25,7 +25,10 @@
 --     (`inbound_mails_sender_unchecked_full_window`), whatever its class: a
 --     mail tied to no member must still be `external` (0194's
 --     `inbound_mails_sender_class_member`), and this is what keeps that label
---     from shortening its life.
+--     from shortening its life;
+--   - its expiry is not final: 0194's decision guard
+--     (`inbound_mail_decisions_external_expiry_final`) lets its expired part be
+--     restored, as a member's is, for the seven days the sweep keeps it.
 --
 -- The E-Mail-Eingang says it could not be checked (`waitReason`
 -- `sender_unchecked`), not that its sender is outside the office.
