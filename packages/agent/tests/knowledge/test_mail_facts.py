@@ -92,6 +92,43 @@ class TestTheLineNamesADomainOnlyWhenASignatureConfirmedIt:
         assert label is not None and " von Unbekannt (" in label
 
 
+#: A colleague forwarded the Behörde's letter; the colleague's office domain signed the forward.
+FORWARDED = {
+    "sent_at": "2026-05-12T07:12:00Z",
+    "received_at": "2026-05-14T08:00:00Z",
+    "from_name": "Mag. Anna Huber",
+    "from_domain": "ma37.wien.gv.at",
+    "signer_domain": "buero.at",
+    "sender_trust": "member_verified",
+    "forwarded_by_name": "Max Muster",
+    "forwarded_by_domain": "buero.at",
+    "forwarded_at": "2026-05-14T07:59:00Z",
+    "locale": "de",
+}
+
+
+class TestAForwardIsCitedByItsAuthor:
+    def test_the_author_and_the_date_they_wrote_it_lead_and_the_forwarder_follows(self):
+        assert mail_origin_label(FORWARDED) == (
+            "kam mit der E-Mail vom 12.05.2026 09:12 von Mag. Anna Huber (ma37.wien.gv.at, Domain nicht bestätigt)"
+            " · Weitergeleitet von Max Muster (buero.at)"
+        )
+
+    def test_the_forwarders_signature_never_confirms_the_author(self):
+        label = mail_origin_label({**FORWARDED, "signer_domain": "ma37.wien.gv.at"})
+        assert label is not None and "Mag. Anna Huber (ma37.wien.gv.at, Domain nicht bestätigt)" in label
+
+    def test_an_unverified_forwarder_is_not_confirmed_either(self):
+        label = mail_origin_label({**FORWARDED, "sender_trust": "external_unverified", "locale": "en"})
+        assert label is not None and label.endswith("Forwarded by Max Muster (buero.at, domain not verified)")
+
+    def test_the_record_keeps_the_forwarder_without_an_address(self):
+        record = normalise_mail_origin({**FORWARDED, "forwarded_by_name": "max@buero.at"})
+        assert record is not None
+        assert "forwarded_by_name" not in record
+        assert record["forwarded_by_domain"] == "buero.at" and record["forwarded_at"] == "2026-05-14T07:59:00Z"
+
+
 class TestARecordKeepsOnlyWhatItMay:
     def test_an_address_never_survives(self):
         record = normalise_mail_origin({**HUBER, "from_name": "huber@ma37.wien.gv.at", "from_address": "x@y.at"})
@@ -268,6 +305,7 @@ class TestTheBffOwnsTheWordsAndTheVocabulary:
                 ("unverifiedDomain", copy.unverified_domain),
                 ("fromArchive", copy.from_archive),
                 ("unknownSender", copy.unknown_sender),
+                ("forwardedBy", copy.forwarded_by),
             ):
                 assert f"{key}: '{value}'" in block.group(1), (locale, key)
         assert set(MAIL_COPY) == set(MAIL_LOCALES)

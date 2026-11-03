@@ -46,8 +46,11 @@ class MailOrigin(BaseModel):
 
     Stored on the attachment's metadata row and printed by ``list_files`` and
     ``read_passage``: the signing domain when the sender was verified, and
-    otherwise the From domain with „Domain nicht bestätigt“. A display name and
-    domains only; any other key, an address included, is refused.
+    otherwise the From domain with „Domain nicht bestätigt“. A forwarded message
+    names its author in ``from_*`` and ``sent_at`` (never confirmed) and its
+    forwarder in ``forwarded_by_*`` and ``forwarded_at``; the signature and the
+    trust are the forward's. Display names and domains only; any other key, an
+    address included, is refused.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -60,13 +63,20 @@ class MailOrigin(BaseModel):
         None, description="The domain of the aligned passing DKIM signature, when there is one."
     )
     sender_trust: SenderTrust = Field(..., description="`inbound_mails.sender_trust`; `not_checked` for an archive.")
+    forwarded_by_name: _MailName | None = Field(
+        None, description="A forwarded message's forwarder, by display name; the `from_*` fields are then its author."
+    )
+    forwarded_by_domain: _MailDomain | None = Field(None, description="The forwarder's From domain.")
+    forwarded_at: AwareDatetime | None = Field(
+        None, description="When the forward was sent, clamped; `sent_at` is then when the author wrote it."
+    )
     thread_document_id: UUID | None = Field(None, description="The E-Mail-Verlauf the message was filed into.")
     locale: MailLocale = Field("de", description="The locale of that thread, which the printed line is written in.")
 
-    @field_validator("from_name")
+    @field_validator("from_name", "forwarded_by_name")
     @classmethod
     def _no_address(cls, value: str | None) -> str | None:
         """A name that is an address would print one: refused, the BFF sends the name or nothing."""
         if value is not None and "@" in value:
-            raise ValueError("from_name must be a display name, never an address")
+            raise ValueError("a mail name must be a display name, never an address")
         return value

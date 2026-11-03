@@ -256,7 +256,7 @@ async function finishInterruptedMove(run: FilingRun, mail: InboundMailRow): Prom
   if (entry) await finishOriginalMove(mail, entry)
 }
 
-/** The message an attachment came with, as its `mail_origin` names it. */
+/** The message an attachment came with, as its `mail_origin` names it: a forward's by its author (migration 0195). */
 function messageOf(mail: InboundMailRow) {
   return {
     sentAt: mail.sentAt ?? mail.receivedAt,
@@ -265,6 +265,10 @@ function messageOf(mail: InboundMailRow) {
     senderDomain: domainOf(mail.senderAddress),
     signerDomain: mail.signerDomain,
     senderTrust: mail.senderTrust ?? 'external_unverified',
+    author:
+      mail.originalAuthorName || mail.originalAuthorAddress
+        ? { name: mail.originalAuthorName, address: mail.originalAuthorAddress, sentAt: mail.originalSentAt }
+        : null,
   } as const
 }
 

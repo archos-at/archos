@@ -15,6 +15,10 @@ reader cannot disagree:
 * ``mail_origin`` on an attachment: the message it came with. ``sent_at``,
   ``received_at``, the sender's display name and domains, the ``sender_trust``
   the receive step established, the Verlauf's BFF id and the thread's locale.
+  A forwarded message (migration 0195) names its AUTHOR in ``from_*`` and the
+  time they wrote it in ``sent_at``, and its forwarder in ``forwarded_by_name``,
+  ``forwarded_by_domain`` and ``forwarded_at``: a citation says who wrote it
+  and when, and who brought it into the project.
 
 **A domain is authority only when a signature confirmed it** (RT-S2). The line
 :func:`mail_origin_label` prints names the SIGNING domain for a verified sender,
@@ -22,6 +26,10 @@ and otherwise the From domain with „Domain nicht bestätigt“, the same words
 the same rule as the Verlauf's own section headings. So the agent can attribute
 („laut E-Mail von Mag. Huber vom 12.05.2026“) and never present a sender
 nobody confirmed as the Behörde.
+
+A forward's author is attributed, never confirmed: the forwarder's signature
+covers the forward, not what it quotes, so the author's domain always carries
+„Domain nicht bestätigt“, and the signing domain names the forwarder.
 
 **No address reaches a model.** The records hold a display name and domains
 only; the BFF sends nothing else, and :func:`normalise_mail_origin` drops any
@@ -88,6 +96,8 @@ class MailCopy:
     unknown_sender: str
     #: ``kam mit der E-Mail vom {when} von {who} ({authority})``.
     came_with: str
+    #: The label of the forwarder of a forwarded message (``render-copy.ts``, ``forwardedBy``).
+    forwarded_by: str
     #: The format's name, as the Verlauf's own summary line opens (``render-copy.ts``, ``summary``).
     thread: str
     #: ``zuletzt {day}``: the newest message's day.
@@ -104,6 +114,7 @@ MAIL_COPY: dict[str, MailCopy] = {
         from_archive="aus dem Outlook-Archiv",
         unknown_sender="Unbekannt",
         came_with="kam mit der E-Mail vom {when} von {who} ({authority})",
+        forwarded_by="Weitergeleitet von",
         thread="E-Mail-Verlauf",
         latest="zuletzt {day}",
         one_message="1 E-Mail",
@@ -116,6 +127,7 @@ MAIL_COPY: dict[str, MailCopy] = {
         from_archive="from the Outlook archive",
         unknown_sender="Unknown",
         came_with="came with the mail of {when} from {who} ({authority})",
+        forwarded_by="Forwarded by",
         thread="Mail thread",
         latest="latest {day}",
         one_message="1 mail",
@@ -209,9 +221,13 @@ def normalise_mail_origin(raw: Any) -> dict[str, Any] | None:
         record["received_at"] = _stamp(received_at)
     if (name := clean_name(raw.get("from_name"))) is not None:
         record["from_name"] = name
-    for key in ("from_domain", "signer_domain"):
+    for key in ("from_domain", "signer_domain", "forwarded_by_domain"):
         if (domain := clean_domain(raw.get(key))) is not None:
             record[key] = domain
+    if (forwarder := clean_name(raw.get("forwarded_by_name"))) is not None:
+        record["forwarded_by_name"] = forwarder
+    if (forwarded_at := _moment(raw.get("forwarded_at"))) is not None:
+        record["forwarded_at"] = _stamp(forwarded_at)
     thread = raw.get("thread_document_id")
     if isinstance(thread, str) and _UUID.match(thread.strip()):
         record["thread_document_id"] = thread.strip().lower()
@@ -228,6 +244,8 @@ def sender_authority(origin: Mapping[str, Any], copy: MailCopy) -> str:
     bestätigt“, because DKIM proves a domain and nothing proved this one.
     """
     from_domain = origin.get("from_domain")
+    if is_forward(origin):
+        return ", ".join(part for part in (from_domain, copy.unverified_domain) if part)
     if origin.get("sender_trust") == "not_checked":
         return ", ".join(part for part in (from_domain, copy.from_archive) if part)
     signer = origin.get("signer_domain")
@@ -236,8 +254,31 @@ def sender_authority(origin: Mapping[str, Any], copy: MailCopy) -> str:
     return ", ".join(part for part in (from_domain, copy.unverified_domain) if part)
 
 
+#: The keys only a forwarded message's record carries.
+_FORWARD_KEYS: tuple[str, ...] = ("forwarded_by_name", "forwarded_by_domain", "forwarded_at")
+
+
+def is_forward(origin: Mapping[str, Any]) -> bool:
+    """Whether the record is a forwarded message's: its ``from_*`` are then the author, never confirmed."""
+    return any(origin.get(key) for key in _FORWARD_KEYS)
+
+
+def forwarder_label(origin: Mapping[str, Any], copy: MailCopy) -> str:
+    """``Weitergeleitet von Max Muster (buero.at)``: the forwarder, by the rule of a sender's bracket."""
+    forwarder = {
+        "from_domain": origin.get("forwarded_by_domain"),
+        "signer_domain": origin.get("signer_domain"),
+        "sender_trust": origin.get("sender_trust"),
+    }
+    who = origin.get("forwarded_by_name") or copy.unknown_sender
+    return f"{copy.forwarded_by} {who} ({sender_authority(forwarder, copy)})"
+
+
 def mail_origin_label(origin: Mapping[str, Any] | None) -> str | None:
     """``kam mit der E-Mail vom 12.05.2026 09:12 von Mag. Anna Huber (ma37.wien.gv.at)``, or ``None``.
+
+    A forward adds its forwarder: ``… (ma37.wien.gv.at, Domain nicht bestätigt) · Weitergeleitet von
+    Max Muster (buero.at)``.
 
     In the thread's locale, at the office's clock, from a record
     :func:`normalise_mail_origin` accepts.
@@ -247,11 +288,12 @@ def mail_origin_label(origin: Mapping[str, Any] | None) -> str | None:
         return None
     copy = MAIL_COPY[record["locale"]]
     when = datetime.fromisoformat(record["sent_at"].replace("Z", "+00:00")).astimezone(_OFFICE_TIME_ZONE)
-    return copy.came_with.format(
+    line = copy.came_with.format(
         when=when.strftime(copy.date_time_format),
         who=record.get("from_name") or copy.unknown_sender,
         authority=sender_authority(record, copy),
     )
+    return f"{line} · {forwarder_label(record, copy)}" if is_forward(record) else line
 
 
 def mail_thread_label(thread: Mapping[str, Any] | None) -> str | None:
