@@ -184,7 +184,7 @@ Consequences, where a reader looks for them.
 | [0117](0117-a-document-is-parsed-on-one-worker-in-a-bounded-page-pipeline.md) | A document is parsed on one worker, in a bounded page pipeline | Proposed |
 | [0118](0118-posthog-support-is-the-record-for-product-feedback.md) | PostHog Support is the record of triage for product feedback | Accepted |
 | [0119](0119-every-metric-goes-to-posthog-through-the-collector.md) | Every metric goes to PostHog, through the collector, from an agent on every node | Accepted |
-| [0120](0120-addresses-are-geocoded-by-a-self-hosted-photon.md) | Addresses are geocoded by a Photon in the cluster, over the Austrian OSM extract | Proposed |
+| [0120](0120-addresses-are-geocoded-by-a-self-hosted-photon.md) | Addresses are geocoded by a Photon in the cluster, over the Austrian OSM extract | Superseded by ADR-0151 |
 | [0121](0121-bulk-work-is-owned-by-the-server.md) | Bulk work is owned by the server: a durable run on `bff_job_queue`, never a loop in the browser | Accepted |
 | [0122](0122-everything-a-person-can-do-an-agent-can-do.md) | Everything a person can do, an agent can do: one MCP server, every agent a client | Accepted |
 | [0123](0123-piloti-works-the-office-through-its-door.md) | Piloti works the office through its door: workspace state in every turn, a work report, and an eval that measures it | Accepted |
@@ -213,6 +213,7 @@ Consequences, where a reader looks for them.
 | [0148](0148-a-list-is-worked-beside-the-real-surface-never-a-copy.md) | A list is worked beside the real surface, never a copy of it: one docked-panel primitive, and page overlays that leave it in view | Proposed |
 | [0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md) | The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS | Accepted |
 | [0150](0150-background-work-runs-on-self-hosted-hatchet.md) | Background work runs on self-hosted Hatchet, with fairness keyed on the organization, in place of our claim queues; supersedes 0076 and 0079 | Accepted |
+| [0151](0151-addresses-are-geocoded-by-komoots-public-photon.md) | Addresses are geocoded by komoot's public Photon instance, with no workload of ours; supersedes 0120 | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
