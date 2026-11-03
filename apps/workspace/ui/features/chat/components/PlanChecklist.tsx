@@ -196,7 +196,7 @@ export const PlanChecklist: FC<{
             >
               <span className="flex-1">{section}</span>
               {!disabled && plan.sections.length > 1 && (
-                <button
+                <button data-attr="chat-remove"
                   type="button"
                   onClick={() => remove(index)}
                   aria-label={t('agentPrompt.plan.removePoint', { point: section })}
@@ -372,7 +372,7 @@ const NamedRow: FC<{
         >
           {labelOf(name)}
           {!disabled && (
-            <button
+            <button data-attr="chat-remove"
               type="button"
               onClick={() => onRemove(name)}
               aria-label={removeLabel(labelOf(name))}
@@ -409,7 +409,7 @@ function ChoiceRow<T extends string>({
         {options.map((option) => {
           const selected = option === value
           return (
-            <button
+            <button data-attr="chat-pick"
               key={option}
               type="button"
               role="radio"

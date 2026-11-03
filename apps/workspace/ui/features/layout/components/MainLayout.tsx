@@ -238,7 +238,7 @@ export const MainLayout: FC<MainLayoutProps> = ({
           />
 
           {isMobile && peekedFile && previewMode !== 'modal' && previewMode !== 'expanded' && (
-            <button
+            <button data-attr="chat-expand-file"
               type="button"
               onClick={expandFile}
               // Floating over the transcript: the alpha is what `backdrop-blur`

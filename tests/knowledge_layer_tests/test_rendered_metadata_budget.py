@@ -97,14 +97,19 @@ def test_the_header_is_budgeted_against_the_chunk_size_the_job_splits_with():
     assert SentenceSplitter(chunk_size=256, chunk_overlap=32).get_nodes_from_documents([document])
 
 
-def test_a_header_that_cannot_shrink_is_reported_once_per_file(caplog):
+def test_a_file_name_longer_than_the_budget_leaves_the_header_and_the_file_chunks(caplog):
+    # The always-rendered keys go last, but they go: a long name must not lose the file
+    # (W11). The name stays stored, which is what finds and deletes the file's chunks.
     pages = [
         Document(text="Seite.", metadata={"file_name": f"{LEGEND}.pdf", "page_label": str(page)}) for page in range(3)
     ]
 
-    with caplog.at_level(logging.WARNING, logger="knowledge_layer.llamaindex.adapter"):
+    with caplog.at_level(logging.WARNING, logger="knowledge_layer.llamaindex.chunk_metadata"):
         _stamp(pages, chunk_size=1024)
 
-    over = [record for record in caplog.records if "over its 512-token budget" in record.getMessage()]
-    assert len(over) == 1
-    assert "file_name" in over[0].getMessage()
+    assert all(_rendered_metadata_tokens(page) <= 512 for page in pages)
+    assert all(page.metadata["file_name"] == f"{LEGEND}.pdf" for page in pages)
+    assert SentenceSplitter(chunk_size=1024, chunk_overlap=128).get_nodes_from_documents(pages)
+    left_out = [record for record in caplog.records if "left out of the header" in record.getMessage()]
+    assert len(left_out) == 1
+    assert "file_name" in left_out[0].getMessage()

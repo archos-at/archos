@@ -105,7 +105,7 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
             {details && (
               <>
                 {' '}
-                <button
+                <button data-attr="chat-toggle-expanded"
                   type="button"
                   onClick={() => setIsExpanded(!isExpanded)}
                   aria-expanded={isExpanded}
@@ -152,7 +152,7 @@ export const ErrorBanner: FC<ErrorBannerProps> = ({
           )}
         </AlertDescription>
         {onDismiss && (
-          <button
+          <button data-attr="chat-dismiss"
             type="button"
             onClick={onDismiss}
             aria-label={tc('actions.close')}
@@ -201,7 +201,7 @@ const RequestReference: FC<{ requestId: string }> = ({ requestId }) => {
   return (
     <div className="mt-2 flex items-center gap-1.5" data-testid="error-request-id">
       <span className="text-subtle text-xs">{t('error.reference')}</span>
-      <button
+      <button data-attr="chat-copy"
         type="button"
         onClick={() => void handleCopy()}
         aria-label={t('error.referenceCopyAria', { id: requestId })}

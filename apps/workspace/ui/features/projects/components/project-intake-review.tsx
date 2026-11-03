@@ -92,7 +92,7 @@ export function ReviewSection({
       <div className="flex items-center justify-between gap-4">
         <h3 className="text-sm font-medium">{title}</h3>
         {onEdit && (
-          <button
+          <button data-attr="project-edit"
             type="button"
             onClick={onEdit}
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors duration-quick ease-out motion-reduce:transition-none"
@@ -296,7 +296,7 @@ export function ConflictFindings({
                     ? t('intake.consistency.severity.inconsistency')
                     : t('intake.consistency.severity.warning')}
                 </span>
-                <button
+                <button data-attr="project-revise"
                   type="button"
                   onClick={() => onRevise(targetStage)}
                   className="inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"

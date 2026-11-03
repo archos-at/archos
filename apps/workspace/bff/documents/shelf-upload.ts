@@ -38,6 +38,7 @@ import { assertMayReplaceHeld } from '@/lib/upload-screening/quarantine-reviewer
 import { recordAuditEvent } from '@/lib/audit/service'
 import { admitOrDiscard, admitReplacementOrDiscard } from '@/lib/storage/admission'
 import { publishShelfChanged } from './shelf-live'
+import { announceDocumentUploaded } from '@/lib/analytics/ingest-events'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { contentDigest } from './content-digest'
 import { documentReadFamily } from './document-status'
@@ -541,6 +542,16 @@ export async function uploadToShelf(
     folderPath,
     priority: input.priority,
     revisionOf: upload.revisionOf,
+  })
+
+  // Every stored file counts here, whichever client sent it: the browser's own
+  // event is per batch and can be blocked, and the mail import has no browser.
+  announceDocumentUploaded(session.organizationId, session.userId, {
+    source: input.priority === 'bulk' ? 'mail' : 'web',
+    filename,
+    documentId,
+    uploadId: upload.uploadBatchId,
+    replaced: placed.replaced,
   })
 
   await uploadAuditEvent(session, shelf, request, {

@@ -48,7 +48,7 @@ describe('captureServer', () => {
     expect(constructed).toHaveLength(0)
   })
 
-  test('queues the event under the acting user with the organization as a PROPERTY, never a group', () => {
+  test('queues the event under the acting user with the organization as a property and as the organization group', () => {
     enable()
 
     const queued = captureServer({
@@ -64,27 +64,41 @@ describe('captureServer', () => {
     expect(sent).toEqual({
       event: 'resource_shared',
       distinctId: 'user_1',
-      properties: { resource_type: 'document', role: 'collaborator', organization_id: 'org_1' },
+      properties: {
+        resource_type: 'document',
+        role: 'collaborator',
+        organization_id: 'org_1',
+        $groups: { organization: 'org_1' },
+      },
     })
-    expect(sent).not.toHaveProperty('groups')
   })
 
-  // posthog-node sends an event without a distinct id under a fresh one, with
-  // `$process_person_profile: false` (`_prepareEventMessage`), so no person is minted.
-  test('a system action has no distinct id, which posthog-node makes personless', () => {
+  test('a system action in an office gets a stable per-office id, personless, in the office group', () => {
     enable()
 
-    captureServer({
-      event: 'job_run_started',
-      distinctId: null,
-      organizationId: 'org_1',
-      properties: { job_id: 'j1' },
-    })
+    captureServer({ event: 'job_run_started', distinctId: null, organizationId: 'org_1', properties: { job_id: 'j1' } })
 
     expect(capture).toHaveBeenCalledWith({
       event: 'job_run_started',
-      distinctId: undefined,
-      properties: { job_id: 'j1', organization_id: 'org_1' },
+      distinctId: 'organization:org_1',
+      properties: {
+        job_id: 'j1',
+        organization_id: 'org_1',
+        $groups: { organization: 'org_1' },
+        $process_person_profile: false,
+      },
+    })
+  })
+
+  test('an event with neither user nor office shares one system id instead of a fresh UUID', () => {
+    enable()
+
+    captureServer({ event: 'job_run_started', distinctId: null })
+
+    expect(capture).toHaveBeenCalledWith({
+      event: 'job_run_started',
+      distinctId: 'system',
+      properties: { $process_person_profile: false },
     })
   })
 
@@ -111,6 +125,19 @@ describe('captureServer', () => {
     getPosthogServer()
 
     expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.dev.piloti.at' })
+  })
+
+  test('a blank service name falls back, and app_host comes from the MCP resource URL when the redirect URI is unset', () => {
+    enable()
+    vi.stubEnv('GIT_SHA', 'abc1234')
+    vi.stubEnv('OTEL_SERVICE_NAME', '  ')
+    vi.stubEnv('WORKOS_REDIRECT_URI', '')
+    vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', '')
+    vi.stubEnv('MCP_RESOURCE_URL', 'https://app.example.test/api/mcp')
+
+    getPosthogServer()
+
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ app_host: 'app.example.test' }))
   })
 
   test('omits organization_id when the event has no organization', () => {

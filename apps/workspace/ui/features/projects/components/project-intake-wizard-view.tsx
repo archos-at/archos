@@ -357,7 +357,7 @@ export function ProjectIntakeWizardView({ controller }: { controller: ProjectInt
                   />
                 )
               ) : (
-                <Button type="submit" disabled={saving} className="max-sm:flex-1">
+                <Button type="submit" disabled={saving} className="max-sm:flex-1" data-attr="intake-next">
                   {t('intake.next')}
                 </Button>
               )}

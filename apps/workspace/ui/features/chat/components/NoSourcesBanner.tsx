@@ -84,7 +84,7 @@ export const NoSourcesBanner: FC<NoSourcesBannerProps> = ({ isAuthenticated = fa
           <Alert variant="warning" className="relative">
             <AlertTriangle />
             <AlertDescription className="pr-6">{t('noSources.warning')}</AlertDescription>
-            <button
+            <button data-attr="chat-dismiss"
               type="button"
               onClick={handleDismiss}
               aria-label={t('actions.dismiss')}

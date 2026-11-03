@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, test, vi } from 'vitest'
 
 const captureException = vi.fn()
 
+let tenant: unknown
 vi.mock('server-only', () => ({}))
+vi.mock('@/lib/db/tenant-context', () => ({ getTenantContext: () => tenant }))
 vi.mock('posthog-node', () => ({
   PostHog: class {
     captureException = captureException
@@ -26,6 +28,7 @@ describe('captureUpstreamError', () => {
   beforeEach(() => {
     vi.unstubAllEnvs()
     captureException.mockReset()
+    tenant = undefined
     resetPosthogServerForTests()
     resetUpstreamErrorLimiterForTests()
   })
@@ -35,14 +38,30 @@ describe('captureUpstreamError', () => {
     expect(captureException).not.toHaveBeenCalled()
   })
 
-  test('sends a personless exception carrying the store operation and code', () => {
+  test('files the exception under the acting member and office when the request had a tenant scope', () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://eu.i.posthog.com')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
+    tenant = { kind: 'tenant', organizationId: 'org_1', userId: 'user_1' }
+    const error = storeDown()
+
+    captureUpstreamError(error, 'req_1')
+
+    expect(captureException).toHaveBeenCalledWith(
+      error,
+      'user_1',
+      expect.objectContaining({ organization_id: 'org_1', $groups: { organization: 'org_1' } })
+    )
+  })
+
+  test('sends a personless exception under the system id, carrying the store operation and code', () => {
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://eu.i.posthog.com')
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
     const error = storeDown()
 
     expect(captureUpstreamError(error, 'req_1')).toBe(true)
 
-    expect(captureException).toHaveBeenCalledWith(error, undefined, {
+    expect(captureException).toHaveBeenCalledWith(error, 'system', {
+      $process_person_profile: false,
       source: 'bff-upstream-error',
       request_id: 'req_1',
       operation: 'ensureTenantBucket',

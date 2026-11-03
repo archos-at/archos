@@ -46,7 +46,7 @@ export const CopyCitationLinkButton: FC<{ citation: CitationRef; icon?: ReactNod
   // longer reflows the row it sits in.
   return (
     <>
-      <button
+      <button data-attr="chat-copy"
         type="button"
         onClick={() => void handleCopy()}
         aria-label={t('citationPeek.copyLinkAria', { label: citation.document.title })}

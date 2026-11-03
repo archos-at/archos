@@ -88,7 +88,7 @@ export const LocusRail: FC<{
                 count: loci.length,
               })}
             </span>
-            <button
+            <button data-attr="chat-step"
               type="button"
               onClick={() => step(-1)}
               disabled={activeIndex <= 0}
@@ -97,7 +97,7 @@ export const LocusRail: FC<{
             >
               <ChevronUp aria-hidden="true" className="size-3.5" />
             </button>
-            <button
+            <button data-attr="chat-step"
               type="button"
               onClick={() => step(1)}
               disabled={activeIndex === loci.length - 1}
@@ -115,7 +115,7 @@ export const LocusRail: FC<{
           const isActive = locus.key === activeKey
           return (
             <li key={locus.key} className="w-52 shrink-0 md:w-full">
-              <button
+              <button data-attr="chat-select"
                 type="button"
                 // Follow the reading position. Stepping through a document read
                 // at nine places used to walk the mark off the bottom of the

@@ -15,7 +15,7 @@ vi.mock('@/lib/upload-batches/settle', () => ({ onDocumentsSettled: vi.fn().mock
 // What PostHog hears is `lib/analytics/ingest-events.spec.ts`'s subject; here it is the
 // call reconciliation makes for the rows it moved.
 const captureServer = vi.hoisted(() => vi.fn(() => true))
-vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer }))
+vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer, getPosthogServer: () => null }))
 
 // The live channel's own subject is `shelf-live.spec.ts`; here it is which
 // shelves a reconciliation announces.
@@ -1404,6 +1404,27 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('plan')
   })
 
+  it('splits the job’s queue wait from its processing time, and says screening did not run', async () => {
+    makeDbMock()
+    backend({
+      status: 'completed',
+      submitted_at: '2026-11-02T12:00:00Z',
+      started_at: '2026-11-02T12:00:30Z',
+      completed_at: '2026-11-02T12:02:00Z',
+      file_details: [{ file_name: 'plan.pdf', status: 'success' }],
+    })
+
+    await reconcileDocumentStatuses([makeRow({ updatedAt: new Date(Date.now() - 1000) })], 'org-1')
+
+    const [[sent]] = captureServer.mock.calls as unknown as [[{ properties: Record<string, unknown> }]]
+    expect(sent.properties).toMatchObject({
+      document_id: expect.any(String),
+      queue_wait_ms: 30_000,
+      processing_ms: 90_000,
+      screening: 'not_run',
+    })
+  })
+
   it('reports a failure by its status and carries nothing of the error text', async () => {
     makeDbMock()
     backend({ status: 'failed', error_message: 'could not read secret-plan.pdf', file_details: [] })
@@ -1411,7 +1432,9 @@ describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => 
     await reconcileDocumentStatuses([makeRow()], 'org-1')
 
     expect(captureServer).toHaveBeenCalledWith(
-      expect.objectContaining({ properties: expect.objectContaining({ status: 'failed' }) })
+      expect.objectContaining({
+        properties: expect.objectContaining({ status: 'failed', document_id: 'doc-1', error_reason: 'unknown' }),
+      })
     )
     expect(JSON.stringify(captureServer.mock.calls)).not.toContain('secret')
   })
