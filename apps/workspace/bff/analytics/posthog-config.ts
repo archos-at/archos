@@ -41,6 +41,8 @@ export interface PostHogConfig {
    * come from one environment).
    */
   proxy: boolean
+  /** The deployed commit (`GIT_SHA`), registered on every browser event as `release`. Empty = unknown. */
+  release?: string
 }
 
 /**
@@ -69,6 +71,7 @@ export const DISABLED_POSTHOG_CONFIG: PostHogConfig = {
   sessionReplay: false,
   replaySampleRate: 0,
   proxy: false,
+  release: '',
 }
 
 /** Recorded share of sessions when `NEXT_PUBLIC_POSTHOG_REPLAY_SAMPLE_RATE` is unset or unusable. */
@@ -134,4 +137,5 @@ export const postHogConfigFromEnv = (env: Record<string, string | undefined>): P
   sessionReplay: parseSwitch(env.NEXT_PUBLIC_POSTHOG_SESSION_REPLAY, true),
   replaySampleRate: parseReplaySampleRate(env.NEXT_PUBLIC_POSTHOG_REPLAY_SAMPLE_RATE),
   proxy: parseSwitch(env.NEXT_PUBLIC_POSTHOG_PROXY, true),
+  release: (env.GIT_SHA ?? '').trim() === 'unknown' ? '' : (env.GIT_SHA ?? '').trim(),
 })

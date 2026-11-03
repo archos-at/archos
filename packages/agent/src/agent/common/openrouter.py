@@ -51,11 +51,13 @@ recoverable. See https://openrouter.ai/docs/guides/features/zdr.
 
 from __future__ import annotations
 
+import asyncio
 import contextvars
 import json
 import logging
 import os
 import re
+import time
 from collections.abc import Callable
 from collections.abc import Iterator
 from collections.abc import Mapping
@@ -66,6 +68,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from agent.common import credit_retry
 from agent.common import provider_limiter
 
 logger = logging.getLogger(__name__)
@@ -117,6 +120,23 @@ def targets_openrouter(url: object) -> bool:
     text = str(url)
     host = urlsplit(text).hostname if "://" in text else None
     return OPENROUTER_HOST in (host or text)
+
+
+#: Reading a page is transcription, not deliberation: a reasoning model left at its default spent
+#: 19% of ``ingest_vision`` output and 45k of 67k ``look_reading`` output tokens thinking (signals
+#: W5, 2026-11-02). A code default, not an admin group: page reading has no thinking-level dial.
+VISION_REASONING = {"effort": "low"}
+
+
+def vision_reasoning_body(base_url: object) -> dict[str, Any]:
+    """``{"reasoning": {...}}`` for a vision call to OpenRouter, else ``{}`` (other endpoints reject the field)."""
+    return {"reasoning": dict(VISION_REASONING)} if targets_openrouter(base_url) else {}
+
+
+def vision_extra_body(client: object) -> dict[str, Any]:
+    """``{"extra_body": {"reasoning": ...}}`` for an OpenAI SDK ``create`` on ``client``, else ``{}``."""
+    reasoning = vision_reasoning_body(getattr(client, "base_url", None))
+    return {"extra_body": reasoning} if reasoning else {}
 
 
 @dataclass(frozen=True)
@@ -385,19 +405,28 @@ class _PinningTransport(httpx.BaseTransport):
         if not _takes_slot(request):
             return self._inner.handle_request(request)
         model = _request_model(request)
-        try:
-            lease = provider_limiter.acquire(
-                cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
-            )
-        except provider_limiter.ProviderWaitTimeout as error:
-            raise _pool_timeout(request, error) from error
-        try:
-            response = self._inner.handle_request(request)
-            if response.status_code == 429:
-                provider_limiter.throttle(model, _scope_of_response(response.read))
-        except BaseException:
-            lease.release()
-            raise
+        for attempt in range(credit_retry.MAX_RETRIES + 1):
+            try:
+                lease = provider_limiter.acquire(
+                    cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
+                )
+            except provider_limiter.ProviderWaitTimeout as error:
+                raise _pool_timeout(request, error) from error
+            try:
+                response = self._inner.handle_request(request)
+                if response.status_code == 429:
+                    provider_limiter.throttle(model, _scope_of_response(response.read))
+                elif response.status_code == 402 and attempt < credit_retry.MAX_RETRIES:
+                    if credit_retry.is_transient_credit_402(402, response.read()):
+                        response.close()
+                        lease.release()
+                        logger.warning("Provider 402 (in-flight credits); retry %s", attempt + 1)
+                        time.sleep(credit_retry.delay_seconds(attempt))
+                        continue
+            except BaseException:
+                lease.release()
+                raise
+            break
         if response.is_closed:  # a body already read in full leaves nothing to wait for
             lease.release()
         else:
@@ -421,19 +450,28 @@ class _AsyncPinningTransport(httpx.AsyncBaseTransport):
         if not _takes_slot(request):
             return await self._inner.handle_async_request(request)
         model = _request_model(request)
-        try:
-            lease = await provider_limiter.aacquire(
-                cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
-            )
-        except provider_limiter.ProviderWaitTimeout as error:
-            raise _pool_timeout(request, error) from error
-        try:
-            response = await self._inner.handle_async_request(request)
-            if response.status_code == 429:
-                await provider_limiter.athrottle(model, await _ascope_of_response(response))
-        except BaseException:
-            await lease.arelease()
-            raise
+        for attempt in range(credit_retry.MAX_RETRIES + 1):
+            try:
+                lease = await provider_limiter.aacquire(
+                    cls=self._cls, model=model, max_wait_seconds=_slot_wait(request, self._cls)
+                )
+            except provider_limiter.ProviderWaitTimeout as error:
+                raise _pool_timeout(request, error) from error
+            try:
+                response = await self._inner.handle_async_request(request)
+                if response.status_code == 429:
+                    await provider_limiter.athrottle(model, await _ascope_of_response(response))
+                elif response.status_code == 402 and attempt < credit_retry.MAX_RETRIES:
+                    if credit_retry.is_transient_credit_402(402, await response.aread()):
+                        await response.aclose()
+                        await lease.arelease()
+                        logger.warning("Provider 402 (in-flight credits); retry %s", attempt + 1)
+                        await asyncio.sleep(credit_retry.delay_seconds(attempt))
+                        continue
+            except BaseException:
+                await lease.arelease()
+                raise
+            break
         if response.is_closed:
             await lease.arelease()
         else:

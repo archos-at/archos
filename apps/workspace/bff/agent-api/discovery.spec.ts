@@ -485,19 +485,18 @@ describe('call-operation with a file in the answer', () => {
 })
 
 describe('report-missing-operation', () => {
-  it('answers recorded and sends only the length of the description', () => {
+  it('answers recorded and hands the description over for the event', () => {
     const description = 'Export the Bauakt as a ZIP for Anna Muster'
     const result = reportMissingOperation(ctx(person), { description })
     expect(structured(result)).toEqual({ status: 'recorded' })
-    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description.length, 'missing_operation')
+    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description, 'missing_operation')
   })
 
-  it('carries the friction category and nothing of the text', () => {
+  it('carries the friction category', () => {
     const description = 'The summary of project-list for Anna Muster says nothing about paging'
     const result = reportMissingOperation(ctx(person), { description, category: 'tool_description' })
     expect(structured(result)).toEqual({ status: 'recorded' })
-    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description.length, 'tool_description')
-    expect(JSON.stringify(vi.mocked(recordOperationMissing).mock.calls)).not.toContain('Anna')
+    expect(recordOperationMissing).toHaveBeenCalledWith(expect.anything(), description, 'tool_description')
   })
 
   it('refuses a category it does not know, naming the ones it does', () => {

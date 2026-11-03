@@ -125,6 +125,7 @@ function FilingBarLine({
               aria-disabled={decision.busy !== null}
               onClick={decision.apply}
               data-testid="filing-bar-apply"
+              data-attr="files-filing-move"
             >
               {suggestion.isNew ? t('filing.createAndMove') : t('filing.move')}
             </SuggestionButton>

@@ -122,6 +122,8 @@ export const files: typeof en.files = {
     goneAction: 'Nicht mehr danach fragen',
     goneCleared: 'Frage bezieht sich nicht mehr auf diese Datei.',
     goneUndo: 'Rückgängig',
+    heldNoPreview:
+      "Die Vorschau ist nicht verfügbar, solange die Datei zurückgehalten wird. Die Gründe und „Prüfung anfragen“ stehen im Bereich Details.",
     tryAgain: 'Erneut versuchen',
     // An office file is shown through a PDF the BFF makes from it (ADR-0070).
     renditionPending: 'PDF-Vorschau wird erstellt…',

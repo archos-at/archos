@@ -162,7 +162,7 @@ function PickerRow({
   const Icon = here ? Check : root ? FolderOpen : Folder
   return (
     <li>
-      <button
+      <button data-attr="files-pick"
         type="button"
         disabled={disabled}
         onClick={onPick}

@@ -458,6 +458,8 @@ export const projects: typeof en.projects = {
       loadFailed: 'Wir konnten die Projektfragen nicht laden.',
       saveConflict:
         'Dieses Briefing wurde an anderer Stelle geändert. Bitte aktualisieren Sie und versuchen Sie es erneut.',
+      saveClosed: "Dieses Projekt ist abgeschlossen und kann nur gelesen werden. Öffnen Sie es wieder, um das Briefing zu ändern.",
+      saveForbidden: "Sie dürfen das Briefing dieses Projekts nicht ändern. Bitten Sie eine Person mit Bearbeitungsrechten um die Änderung.",
       saveFailed:
         'Wir konnten das Projekt-Briefing nicht speichern. Bitte versuchen Sie es erneut.',
     },

@@ -68,6 +68,8 @@ import re
 from collections.abc import Sequence
 from typing import Any
 
+from agent.observability.responses_cost import with_cost
+
 logger = logging.getLogger(__name__)
 
 #: Env flag the deployment sets when the Langfuse tier is on (ADR-0044).
@@ -605,7 +607,7 @@ def _find_provider_usage(node: Any, depth: int = 0) -> dict[str, Any] | None:
     if provider is not None:
         return provider
     normalized = _find_usage(responses, _is_langchain_usage, depth)
-    return _normalize_langchain_usage(normalized) if normalized is not None else None
+    return with_cost(_normalize_langchain_usage(normalized), responses, depth) if normalized is not None else None
 
 
 def extract_provider_usage(metadata_json: Any) -> dict[str, int | float] | None:

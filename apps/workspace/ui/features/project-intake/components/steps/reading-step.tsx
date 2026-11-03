@@ -157,7 +157,7 @@ export function ReadingStep({
           }
           aside={
             onNext && (
-              <button type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
+              <button data-attr="intake-next" type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
                 {t('withoutDocuments')}
               </button>
             )
@@ -180,7 +180,7 @@ export function ReadingStep({
           }
           aside={
             onNext && (
-              <button type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
+              <button data-attr="intake-next" type="button" className={ASIDE_ACTION_CLASS} onClick={onNext}>
                 {t('nextAnyway')}
               </button>
             )

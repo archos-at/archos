@@ -632,6 +632,8 @@ describe('useFileUpload — durable document uploads', () => {
     expect(capturePosthog).toHaveBeenCalledTimes(1)
     expect(capturePosthog).toHaveBeenCalledWith('document_uploaded', {
       count: 3,
+      source: 'web_batch',
+      file_count: 3,
       types: 'docx,pdf',
       shelf: 'project',
     })

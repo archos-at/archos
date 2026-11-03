@@ -14,6 +14,7 @@ import { getBackendUrl } from '@/lib/backend-proxy'
 import { projectFactsForIngest } from '@/lib/cross-project/project-facts-mirror'
 import { findDocumentInOrg, markDocumentIngestFailed, setDocumentIngestJob } from './repository'
 import { internalRead } from './document-reader'
+import { announceIngestStarted } from '@/lib/analytics/ingest-events'
 
 /**
  * Bound every server-side call to the Python backend: an unreachable backend
@@ -318,7 +319,17 @@ export async function dispatchIngest(
   const ingestJobId = attempt.jobId
 
   if (ingestJobId) {
-    await setDocumentIngestJob(documentId, organizationId, ingestJobId)
+    const moved = await setDocumentIngestJob(documentId, organizationId, ingestJobId)
+    // The start of the clock `document_ingest_finished.duration_ms` measures: a row
+    // with a start and no finish for an hour is a document waiting for somebody.
+    if (moved) {
+      announceIngestStarted(organizationId, {
+        documentId,
+        filename: attribution?.filename ?? extras.fileName ?? '',
+        attempt: (attribution?.ingestAttempts ?? 0) + 1,
+        jobId: ingestJobId,
+      })
+    }
     return { jobId: ingestJobId, status: 'pending' }
   }
   // No job id, failed or not. The backend answers 202 with a `job_id` on every

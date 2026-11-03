@@ -19,7 +19,7 @@ import type { ProjectPrimitiveValue, ProjectProfile } from '@/lib/project-profil
 import { useLocale, useTranslations } from '@/i18n'
 
 import { projectsCopy } from '@/i18n/namespaces/projects'
-import { Answers, IntakeDraft, draftShouldWinInEditMode, isQuestionSatisfied } from './project-intake-helpers'
+import { Answers, IntakeDraft, SaveRefused, draftShouldWinInEditMode, isQuestionSatisfied, saveRefusal } from './project-intake-helpers'
 
 import { zoneQuestionsFor, maxBuildingNumber } from './project-intake-buildings'
 
@@ -492,7 +492,7 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
         body: JSON.stringify(profile),
       })
       if (!res.ok) {
-        if (res.status === 409) throw new Error(t('intake.errors.saveConflict'))
+        if (res.status === 409 || res.status === 403) throw await saveRefusal(res, t)
         throw new Error('Failed to save')
       }
 
@@ -526,7 +526,7 @@ export function useProjectIntakeWizardController(props: ProjectIntakeWizardProps
     } catch (e) {
       const isConflict = e instanceof Error && e.message === t('intake.errors.saveConflict')
       setConflict(isConflict)
-      setError(isConflict ? (e as Error).message : t('intake.errors.saveFailed'))
+      setError(isConflict || e instanceof SaveRefused ? (e as Error).message : t('intake.errors.saveFailed'))
       setSaving(false)
     }
   }, [

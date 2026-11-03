@@ -28,7 +28,7 @@ import { IfcFilePreview } from './file-preview-pane-lazy'
 import type { FilePreviewController } from './use-file-preview-controller'
 
 export function FilePreviewDocumentPanel({ controller }: { controller: FilePreviewController }) {
-  const { actions, annotateLead, canPreview, file, findSimilar, handlePdfFailed, inlineViewer, isLoading, isModel, isOfficeRendition, isTextual, kind, linkedLocus, loadPreview, openReview, pdfInWell, peeking, previewFailed, previewGone, previewImageUrl, previewText, previewUrl, projectId, reader, review, setPreviewFailed, setPreviewImageUrl, setPreviewUrl, showModels, shownFinding, shownPage, shownType, sideways, t, viewerTarget, wellHostsViewer, wellRef } = controller
+  const { actions, annotateLead, canPreview, file, findSimilar, handlePdfFailed, inlineViewer, isHeld, isLoading, isModel, isOfficeRendition, isTextual, kind, linkedLocus, loadPreview, openReview, pdfInWell, peeking, previewFailed, previewGone, previewImageUrl, previewText, previewUrl, projectId, reader, review, setPreviewFailed, setPreviewImageUrl, setPreviewUrl, showModels, shownFinding, shownPage, shownType, sideways, t, viewerTarget, wellHostsViewer, wellRef } = controller
   return (
     <>
           {/* Left: live preview, or a decorative page mock while loading / when
@@ -209,7 +209,9 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     previewGone
                       ? t('preview.gone')
                       : previewFailed
-                        ? t('preview.loadFailed')
+                        ? isHeld
+                          ? t('preview.heldNoPreview')
+                          : t('preview.loadFailed')
                         : t('preview.noInlinePreview')
                   }
                   action={
@@ -233,7 +235,8 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                         <X className="size-3.5" aria-hidden />
                         {t('preview.goneAction')}
                       </Button>
-                    ) : previewFailed && (canPreview || isTextual) ? (
+                    ) : previewFailed && isHeld ? // No retry: a held file's bytes stay withheld until it is released, so it meets the same refusal.
+                    null : previewFailed && (canPreview || isTextual) ? (
                       <Button
                         type="button"
                         variant="outline"
