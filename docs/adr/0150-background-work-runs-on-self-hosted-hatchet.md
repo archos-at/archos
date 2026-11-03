@@ -130,12 +130,18 @@ no second path.
 * Each task carries `GROUP_ROUND_ROBIN` keyed on `input.organization_id`, with
   `max_runs` per organization (`INGEST_MAX_PER_ORG`, `MAX_ACTIVE_JOBS_PER_ORG`):
   a free slot goes to the organizations in turn. This replaces ADR-0076's lane
-  order.
+  order. Ingestion has two workflows, `ingest-document` and
+  `ingest-document-heavy` (files of `INGEST_HEAVY_FILE_BYTES` or more, on the
+  high-memory pool), and they share ONE such limit: a named, tenant-scoped
+  concurrency expression (`ingest-org`, `is_tenant_scoped=True`), which every
+  task that declares the name consumes. Beside it a second tenant-scoped limit,
+  `ingest-supersede`, `CANCEL_IN_PROGRESS` with one run per
+  `input.document_id`, lets a re-upload of a document cancel the run still
+  reading its old bytes (recorded superseded, never as a person's cancel).
 * Interactive work goes before bulk inside an organization through run
   priority (`Priority.HIGH` and `LOW`), replacing ADR-0079's priority column.
-* The fleet-wide vision ceiling stays the Dragonfly lease pool. A constant
-  concurrency key would cap only one task definition
-  (hatchet-dev/hatchet#4237), and page reading is not its own task.
+* The fleet-wide vision ceiling stays the Dragonfly lease pool: page reading is
+  not its own task, so no engine limit could hold the calls one task makes.
 
 **Inputs carry no tenant content.** A run input holds ids, the organization,
 the priority and our already-encrypted payload (`payload_crypto`, under
@@ -185,10 +191,15 @@ change: the previous release still claims from those tables.
 * Bad, because the KEDA query reads Hatchet's internal tables, which can change
   between releases. The image tag is pinned, and the query is checked against
   the schema of that tag (`keda-scaling.spec.ts`); an upgrade re-checks it.
-* Bad, because a concurrency key is scoped to one task (hatchet-dev/hatchet#4237,
-  closed as not planned on 2026-09-23). A limit meant to span two task
-  definitions does not; whoever splits a task must keep its strategies on the
-  task that does the capped work.
+* Bad, because an unnamed concurrency key is scoped to one task
+  (hatchet-dev/hatchet#4237, closed as not planned on 2026-09-23). A limit that
+  must span task definitions has to be a named, tenant-scoped expression
+  (`ConcurrencyExpression(name=…, is_tenant_scoped=True)`, SDK 1.44.0,
+  `hatchet_sdk/types/concurrency.py`; the docs give engine ≥ 0.106.0). The two
+  ingest workflows rely on it. On our pinned engine (v0.114.2) that is
+  **unverified** until the CI engine job (`test_ingest_hatchet_engine.py`)
+  runs both workflows against it; so is `CANCEL_IN_PROGRESS` beside a
+  round-robin limit in one chain.
 * Bad, because Hatchet delivers at least once. Research guards with an
   ownership compare-and-set; ingest relies on re-indexing replacing a file's
   chunks, and on one live run per job id (status-based idempotency on
@@ -248,7 +259,8 @@ change: the previous release still claims from those tables.
   past our peak of a few task starts per second.
 * Good, because one engine and one SDK per language serves every tier,
   scheduled runs and crons included.
-* Bad, because a concurrency key does not span task definitions (#4237).
+* Bad, because an unnamed concurrency key does not span task definitions
+  (#4237); a named tenant-scoped one does, from engine 0.106.0.
 * Bad, because v1 is from 2025 and has a shorter production record than
   Temporal.
 * Bad, because its crons are UTC only, so a schedule in an office's time zone
@@ -330,9 +342,8 @@ setup, re-check and drop RabbitMQ.
   The Postgres-only launch post (`hatchet.run/launch-week-01/pg-only-mode`)
   answered 404 on 2026-11-03.
 * Revisit when: `background-work-pg` CPU passes 50 % at normal load; RabbitMQ
-  queue depth stays over 1,000 (the `RabbitmqQueueDepth` rule); Hatchet ships
-  shared concurrency across tasks (#4237's request), which would let the vision
-  ceiling move into the engine; or an engine defect costs a production incident
+  queue depth stays over 1,000 (the `RabbitmqQueueDepth` rule); the shared
+  `ingest-org` limit fails the CI engine job on our pinned engine; or an engine defect costs a production incident
   the claim queues would not have had.
 
 ### AI-native check (2026-11-03)

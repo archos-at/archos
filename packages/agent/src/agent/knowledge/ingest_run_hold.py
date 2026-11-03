@@ -11,6 +11,9 @@ its worker beats, as every running job's does.
 
 ``run_id`` is the Hatchet run the job is, for a person's cancel
 (``agent_host.jobs.ingest_dispatch.cancel``): stored once, never sent to the BFF.
+A person's cancel also marks it (``mark_stopped_by_person``), so a run that sees
+itself cancelled can tell that cancel from the engine's own: a timeout, or a
+newer upload of the same document superseding it (``ingest_hatchet._stopped``).
 
 Best effort and fail-open, like the store: no database, no hold.
 """
@@ -28,6 +31,14 @@ logger = logging.getLogger(__name__)
 
 _HOLD = "UPDATE ingest_jobs SET held_until = {until}, run_id = COALESCE(:run_id, run_id) WHERE job_id = :job_id"
 _RELEASE = "UPDATE ingest_jobs SET held_until = NULL WHERE job_id = :job_id"
+#: What a run id begins with once a person stopped its job. In the id rather than
+#: a column of its own: the status row is written whole by the run, and only
+#: ``run_id`` is written by nobody but the dispatch and this mark.
+STOPPED_BY_PERSON = "person:"
+_MARK_STOPPED = (
+    "UPDATE ingest_jobs SET run_id = :prefix || run_id "
+    "WHERE job_id = :job_id AND run_id IS NOT NULL AND run_id NOT LIKE 'person:%'"
+)
 
 
 def _update(statement: str, params: dict, seconds: int = 0) -> bool:
@@ -82,8 +93,23 @@ def hold_cutover_rows() -> int:
         return 0
 
 
+def mark_stopped_by_person(job_id: str) -> bool:
+    """Record that a person stopped the job, before its run is cancelled; whether a run was marked."""
+    return _update(_MARK_STOPPED, {"job_id": job_id, "prefix": STOPPED_BY_PERSON})
+
+
+def stopped_by_person(job_id: str) -> bool:
+    """Whether a person stopped the job (``mark_stopped_by_person``). Never raises."""
+    return (_stored_run_id(job_id) or "").startswith(STOPPED_BY_PERSON)
+
+
 def run_id_of(job_id: str) -> str | None:
     """The Hatchet run the job is, or None. Never raises."""
+    stored = _stored_run_id(job_id)
+    return stored.removeprefix(STOPPED_BY_PERSON) if stored else None
+
+
+def _stored_run_id(job_id: str) -> str | None:
     url = store._db_url()
     if not url:
         return None

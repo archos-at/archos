@@ -24,6 +24,8 @@ the folder card builder beside the task.
 Config (env):
   CONFIG_FILE / NAT_CONFIG_FILE        the agent-runtime config the web tier runs
   INGEST_MAX_WORKERS               jobs this process runs at once (default 2)
+  INGEST_WORKER_POOL               `standard` (default, `ingest-document`) or `highmem`
+                                   (`ingest-document-heavy`, `INGEST_HEAVY_WORKER_SLOTS` slots)
   WORKER_LIVENESS_FILE            touched while the worker is alive
   HATCHET_CLIENT_*                 the Hatchet connection (the SDK's own variables)
 """
@@ -53,6 +55,12 @@ _LIVENESS_EVERY_SECONDS = 15
 CUTOVER_EVERY_SECONDS = 60
 #: How long that queue must hold nothing before the worker stops asking.
 CUTOVER_QUIET_SECONDS = 3600
+
+
+def _pool() -> str:
+    """``INGEST_WORKER_POOL``: which workflow this worker serves; anything but ``highmem`` is the standard pool."""
+    pool = os.environ.get("INGEST_WORKER_POOL", "").strip().lower()
+    return ingest_hatchet.HEAVY_POOL if pool == ingest_hatchet.HEAVY_POOL else ingest_hatchet.STANDARD_POOL
 
 
 def _slots() -> int:
@@ -157,7 +165,7 @@ def main() -> None:
     # needs the direct DSN (ADR-0083). It never LISTENs. Fail the boot, not the
     # first file.
     require_direct_dsns(listen=False)
-    ingest_hatchet.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots())
+    ingest_hatchet.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots(), pool=_pool())
 
 
 if __name__ == "__main__":

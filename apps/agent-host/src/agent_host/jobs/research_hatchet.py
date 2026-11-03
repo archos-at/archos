@@ -322,11 +322,14 @@ def run_worker() -> None:
     runs and waits for the ones it holds; a pod killed before they end is a lost
     worker, whose runs Hatchet assigns again.
     """
+    from agent.observability import hatchet_tracing
     from agent.observability import otlp_metrics
     from agent.observability.boot_timing import BootClock
 
     hatchet = hatchet_client.client()
     otlp_metrics.install_from_env()
+    # The SDK's step-run spans, into Langfuse beside the run's own (never into Hatchet's database).
+    hatchet_tracing.instrument(getattr(hatchet, "config", None))
     slots = _int_env("RESEARCH_WORKERS", 1, floor=1)
     hatchet_worker = hatchet.worker(
         f"{WORKER_NAME}-{socket.gethostname()}",

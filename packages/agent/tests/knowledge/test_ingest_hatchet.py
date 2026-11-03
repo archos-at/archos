@@ -17,7 +17,9 @@ from unittest.mock import patch
 import pytest
 from agent_testing import hatchet_fake
 from agent_testing.hatchet_fake import FakeContext
+from hatchet_sdk import ConcurrencyLimitStrategy
 from hatchet_sdk import NonRetryableException
+from hatchet_sdk import RetryAfterException
 from hatchet_sdk.exceptions import TaskRunError
 
 from agent.common import bff_http
@@ -25,6 +27,7 @@ from agent.common import hatchet_client
 from agent.common.task_failures import TransientTaskError
 from agent.knowledge import ingest_execution
 from agent.knowledge import ingest_hatchet
+from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.ingest_hatchet import IngestDocumentInput
@@ -234,6 +237,9 @@ def test_an_unreadable_payload_is_never_run_and_reads_failed(db, serving, monkey
 
 def test_a_job_a_person_cancelled_settles_cancelled_even_if_it_wrote_itself_live_again(db, serving):
     def runs_then_writes_live(prepared, still_owner):
+        ingest_status_store.put(_status(prepared.job_id, JobState.PROCESSING))
+        ingest_run_hold.hold(prepared.job_id, "run-1", 60)  # the dispatch
+        ingest_run_hold.mark_stopped_by_person(prepared.job_id)  # the cancel route, before its cancel
         ingest_status_store.settle_cancelled(prepared.job_id)  # the cancel route
         ingest_status_store.put(_status(prepared.job_id, JobState.PROCESSING))  # a write before its next check
 
@@ -353,3 +359,231 @@ def test_without_a_service_token_nothing_is_sent(monkeypatch):
     with patch.object(bff_http._opener, "open") as sent:
         assert ingest_hatchet.settle_step("job-1") == {"job_id": "job-1", "settled": 0}
     sent.assert_not_called()
+
+
+# ------------------------------------------------- two workflows, one fairness
+
+
+def test_both_workflows_share_one_org_limit_and_one_supersede_limit(hatchet):
+    standard, heavy = ingest_hatchet.ingest_workflow(), ingest_hatchet.ingest_workflow(heavy=True)
+
+    assert standard.options["name"] == "ingest-document"
+    assert heavy.options["name"] == "ingest-document-heavy"
+    for workflow in (standard, heavy):
+        org, supersede = workflow.options["concurrency"]
+        assert (org.name, org.expression, org.is_tenant_scoped) == ("ingest-org", "input.organization_id", True)
+        assert org.limit_strategy is ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN
+        assert org.max_runs == ingest_hatchet.DEFAULT_MAX_RUNS_PER_ORG
+        assert (supersede.name, supersede.expression, supersede.max_runs) == (
+            "ingest-supersede",
+            "input.document_id",
+            1,
+        )
+        assert supersede.limit_strategy is ConcurrencyLimitStrategy.CANCEL_IN_PROGRESS
+        assert supersede.is_tenant_scoped is True
+    assert [c.to_proto() for c in standard.options["concurrency"]] == [
+        c.to_proto() for c in heavy.options["concurrency"]
+    ]
+
+
+def test_the_heavy_index_needs_a_highmem_worker_to_itself(hatchet, monkeypatch):
+    monkeypatch.setenv("INGEST_HEAVY_WORKER_SLOTS", "2")
+    standard = ingest_hatchet.ingest_workflow().step("index").options
+    heavy = ingest_hatchet.ingest_workflow(heavy=True).step("index").options
+
+    assert "desired_worker_labels" not in standard and "slot_cost" not in standard
+    (label,) = heavy["desired_worker_labels"]
+    assert (label.key, label.value, label.required) == ("pool", "highmem", True)
+    assert heavy["slot_cost"] == 2
+    for options in (standard, heavy):
+        assert options["retries"] == ingest_hatchet.RETRIES + ingest_hatchet.CREDIT_WAIT_RETRIES
+        assert [limit.static_key for limit in options["rate_limits"]] == ["ingest-provider-credits"]
+
+
+@pytest.mark.parametrize(
+    ("size", "threshold", "workflow"),
+    [
+        (None, None, "ingest-document"),
+        (10 * 1024 * 1024, None, "ingest-document"),
+        (40 * 1024 * 1024, None, "ingest-document-heavy"),
+        (2_000, "1000", "ingest-document-heavy"),
+        (10**12, "0", "ingest-document"),
+    ],
+)
+def test_the_originals_size_picks_the_workflow(hatchet, db, monkeypatch, size, threshold, workflow):
+    if threshold is not None:
+        monkeypatch.setenv("INGEST_HEAVY_FILE_BYTES", threshold)
+
+    assert ingest_hatchet.trigger("job-1", "org-1", "bulk", "enc:x", document_id="doc-1", byte_size=size)
+
+    (started,) = [w for w in hatchet.workflows if w.runs]
+    assert started.options["name"] == workflow
+    run = started.runs[0]
+    assert run.input.document_id == "doc-1"
+    assert run.additional_metadata["job_id"] == "job-1"
+
+
+def test_a_job_without_a_document_supersedes_nothing_but_itself(hatchet, db):
+    ingest_hatchet.trigger("corpus-job", None, "bulk", "enc:x")
+
+    (run,) = hatchet.workflow_runs
+    assert run.input.document_id == "corpus-job"
+
+
+def test_the_heavy_pool_serves_the_heavy_workflow_with_its_label(hatchet, monkeypatch):
+    import contextlib
+
+    monkeypatch.setenv("INGEST_HEAVY_WORKER_SLOTS", "3")
+
+    @contextlib.asynccontextmanager
+    async def lifespan():
+        yield _Ingestor()
+
+    ingest_hatchet.serve(lifespan, lambda payload: None, slots=2, pool="highmem")
+    ingest_hatchet.serve(lifespan, lambda payload: None, slots=2)
+
+    heavy, standard = hatchet.workers
+    assert (heavy.labels, heavy.slots, heavy.workflows[0].options["name"]) == (
+        {"pool": "highmem"},
+        3,
+        "ingest-document-heavy",
+    )
+    assert (standard.labels, standard.slots, standard.workflows[0].options["name"]) == (
+        {"pool": "standard"},
+        2,
+        "ingest-document",
+    )
+    # The key exists before a step consumes it, and holds nothing back.
+    assert {key for key, _, _ in hatchet.rate_limits.put_calls} == {"ingest-provider-credits"}
+
+
+# -------------------------------------------------------- credits in flight
+
+IN_FLIGHT = "Error code: 402 - insufficient credits: your requests in flight have reserved the remaining credits"
+
+
+class _CreditRefusal(Exception):
+    status_code = 402
+
+
+def _credit_ctx(attempt: int = 1) -> FakeContext:
+    return FakeContext(attempt=attempt, max_attempts=1 + ingest_hatchet.INDEX_RETRIES)
+
+
+def test_a_402_for_credits_in_flight_pauses_new_starts_and_retries_after_a_minute(db, serving, hatchet):
+    serving(_Ingestor(_failed(True, f"vision failed: {IN_FLIGHT}")))
+    ctx = _credit_ctx(attempt=ingest_hatchet.ORDINARY_ATTEMPTS)  # an ordinary failure here would be final
+
+    with pytest.raises(RetryAfterException) as raised:
+        _index()(_input(), ctx)
+
+    assert raised.value.after == ingest_hatchet.CREDIT_WAIT
+    assert str(raised.value) == "ProviderCreditsInFlight (transient)"
+    ((key, until),) = ctx.paused
+    assert key == "ingest-provider-credits"
+    assert until.tzinfo is not None
+    assert ingest_status_store.get("job-1").status == JobState.PENDING
+
+
+def test_a_402_raised_by_the_job_waits_the_same_way(db, serving, hatchet):
+    def raises(prepared, still_owner):
+        raise _CreditRefusal(IN_FLIGHT)
+
+    serving(_Ingestor(while_running=raises))
+    ingest_status_store.put(_status())
+
+    with pytest.raises(RetryAfterException):
+        _index()(_input(), _credit_ctx())
+
+    assert ingest_status_store.get("job-1").status == JobState.PENDING
+
+
+def test_a_402_on_the_last_retry_fails_for_good(db, serving, hatchet):
+    serving(_Ingestor(_failed(True, IN_FLIGHT)))
+
+    with pytest.raises(NonRetryableException):
+        _index()(_input(), _credit_ctx(attempt=1 + ingest_hatchet.INDEX_RETRIES))
+
+
+def test_an_account_without_credits_is_not_waited_for(db, serving, hatchet):
+    serving(_Ingestor(_failed(True, "Error code: 402 - insufficient credits")))
+
+    with pytest.raises(RuntimeError, match="tried again") as raised:
+        _index()(_input(), _credit_ctx())
+
+    assert not isinstance(raised.value, RetryAfterException)
+
+
+def test_an_ordinary_failure_is_final_after_its_own_attempts_whatever_retries_remain(db, serving):
+    serving(_Ingestor(_failed(True, "original_download_failed: x")))
+
+    with pytest.raises(NonRetryableException):
+        _index()(_input(), _credit_ctx(attempt=ingest_hatchet.ORDINARY_ATTEMPTS))
+
+
+def test_a_retry_of_a_job_settled_for_good_runs_nothing(db, serving):
+    ingestor = serving(_Ingestor(_completed))
+    failed = _status(state=JobState.FAILED)
+    ingest_status_store.put(failed)
+
+    with pytest.raises(NonRetryableException, match="already failed"):
+        _index()(_input(), _credit_ctx(attempt=4))
+
+    assert ingestor.ran == []
+
+
+# ---------------------------------------------------------------- supersede
+
+
+def test_a_run_a_newer_upload_cancelled_is_superseded_not_a_persons_cancel(db, serving, monkeypatch):
+    pushed = []
+    monkeypatch.setattr(ingest_status_store.ingest_settle_push, "notify_settled", pushed.extend)
+
+    def runs(prepared, still_owner):
+        ingest_run_hold.hold(prepared.job_id, "run-1", 60)
+        ingest_status_store.put(_status(prepared.job_id, JobState.PROCESSING))
+
+    serving(_Ingestor(while_running=runs))
+
+    out = _index()(_input(), FakeContext(cancelled=True))
+
+    assert out["status"] == "superseded"
+    settled = ingest_status_store.get("job-1")
+    assert settled.status == JobState.CANCELLED
+    assert settled.metadata[ingest_execution.SUPERSEDED_KEY] is True
+    assert pushed == []
+
+
+def test_a_persons_cancel_is_remembered_across_the_runs_own_writes(db):
+    ingest_status_store.put(_status(state=JobState.PROCESSING))
+    ingest_run_hold.hold("job-1", "run-1", 60)
+
+    assert ingest_run_hold.stopped_by_person("job-1") is False
+    assert ingest_run_hold.mark_stopped_by_person("job-1") is True
+    ingest_status_store.put(_status(state=JobState.PROCESSING))
+
+    assert ingest_run_hold.stopped_by_person("job-1") is True
+    assert ingest_run_hold.run_id_of("job-1") == "run-1"
+    assert ingest_run_hold.mark_stopped_by_person("job-1") is False
+
+
+# --------------------------------------------------------------- the trace
+
+
+def test_each_file_trace_continues_the_trace_the_trigger_put_in_the_metadata(db, serving, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        ingest_hatchet.direct_trace, "continued_from", lambda traceparent: seen.append(traceparent) or _null()
+    )
+    serving(_Ingestor(_completed))
+    traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+
+    _index()(_input(), FakeContext(metadata={"job_id": "job-1", "traceparent": traceparent}))
+
+    assert seen == [traceparent]
+
+
+def _null():
+    import contextlib
+
+    return contextlib.nullcontext()

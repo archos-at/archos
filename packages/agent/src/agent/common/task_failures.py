@@ -10,7 +10,9 @@ stand-in built here, ``raise … from None``: the original's class name and the
 failure category, nothing else.
 
 The category is ``ingest_failures``' vocabulary, which already knows the
-timeouts, connection errors and provider 5xx/429 that pass. This adds what
+timeouts, connection errors and provider 5xx/429 that pass, and names the
+provider's in-flight-credit 402 (``credits_in_flight``), which a task waits
+out rather than retries at once. This adds what
 only a task body meets: the job database going away under it (an operational
 error, a dropped connection, a pool timeout), which ``classify`` calls
 ``transient`` so the engine tries again.
@@ -28,6 +30,7 @@ from typing import Final
 from agent.knowledge.ingest_failures import TRANSIENT
 from agent.knowledge.ingest_failures import FailureCategory
 from agent.knowledge.ingest_failures import classify_failure
+from agent.knowledge.ingest_failures import credits_in_flight
 
 #: Database errors, by class name anywhere in the MRO, that say "not now":
 #: SQLAlchemy's wrappers, the psycopg/asyncpg/sqlite3 errors under them.
@@ -56,6 +59,9 @@ class TaskFailure:
 
     exc_type: str
     category: FailureCategory
+    #: The provider's 402 for credits that requests in flight hold
+    #: (``ingest_failures.credits_in_flight``): transient, and cured by waiting.
+    credits_in_flight: bool = False
 
     @property
     def transient(self) -> bool:
@@ -86,4 +92,6 @@ def classify(exc: BaseException) -> TaskFailure:
         return TaskFailure(type(exc).__name__, TRANSIENT)
     if cause is not None and _is_transient_database_error(cause):
         return TaskFailure(type(exc).__name__, TRANSIENT)
+    if credits_in_flight(None, exc):
+        return TaskFailure(type(exc).__name__, TRANSIENT, credits_in_flight=True)
     return TaskFailure(type(exc).__name__, classify_failure(None, exc).category)
