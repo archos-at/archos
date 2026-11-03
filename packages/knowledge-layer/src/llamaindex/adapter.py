@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Any
 from typing import NamedTuple
 
+from agent.common.connect_retry import connect_retrying_client
 from agent.common.cost_tracking import USAGE_ROLE_INGEST_VISION
 from agent.common.cost_tracking import meter_openai_client
 from agent.knowledge import ingest_status_store
@@ -3965,7 +3966,6 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         """
         import io
 
-        import httpx
         from PIL import Image
         from PIL import ImageOps
 
@@ -4008,7 +4008,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         thumbnail_bytes = buf.getvalue()
 
         try:
-            with httpx.Client() as client:
+            with connect_retrying_client(read_timeout=5.0) as client:
                 resp = client.put(
                     thumbnail_upload_url,
                     content=thumbnail_bytes,

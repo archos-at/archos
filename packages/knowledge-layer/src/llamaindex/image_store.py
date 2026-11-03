@@ -34,6 +34,8 @@ import os
 from collections.abc import Callable
 from typing import Any
 
+from agent.common.connect_retry import connect_retrying_client
+
 logger = logging.getLogger(__name__)
 
 _FRONTEND_INTERNAL_URL_ENV = "FRONTEND_INTERNAL_URL"
@@ -63,17 +65,15 @@ def request_upload_slot(
     if not base_url or not token:
         return None
     try:
-        import httpx
-
         body: dict[str, Any] = {"documentId": document_id, "collection": collection, "imageIndex": image_index}
         if organization_id:
             body["organizationId"] = organization_id
-        response = httpx.post(
-            f"{base_url.rstrip('/')}{_PRESIGN_PATH}",
-            json=body,
-            headers={"x-internal-token": token},
-            timeout=_HTTP_TIMEOUT_SECONDS,
-        )
+        with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}{_PRESIGN_PATH}",
+                json=body,
+                headers={"x-internal-token": token},
+            )
         if response.status_code != 200:
             logger.info(
                 "image_store: no upload slot for image %d of document %s (HTTP %d)",
@@ -96,14 +96,8 @@ def request_upload_slot(
 
 def put_raster(upload_url: str, image_bytes: bytes) -> None:
     """PUT one raster to its presigned slot. Raises on any failure."""
-    import httpx
-
-    response = httpx.put(
-        upload_url,
-        content=image_bytes,
-        headers={"Content-Type": "image/jpeg"},
-        timeout=_HTTP_TIMEOUT_SECONDS,
-    )
+    with connect_retrying_client(read_timeout=_HTTP_TIMEOUT_SECONDS) as client:
+        response = client.put(upload_url, content=image_bytes, headers={"Content-Type": "image/jpeg"})
     response.raise_for_status()
 
 

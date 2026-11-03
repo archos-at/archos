@@ -404,7 +404,7 @@
     "packages/knowledge-layer/src/fusion.py::merge_results": 146,
     "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor.__init__": 68,
     "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor._find_previous_versions": 79,
-    "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor._generate_and_upload_thumbnail": 75,
+    "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor._generate_and_upload_thumbnail": 74,
     "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor._ingest_job": 1239,
     "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor._remember_permit": 62,
     "packages/knowledge-layer/src/llamaindex/adapter.py::LlamaIndexIngestor.delete_file": 71,
