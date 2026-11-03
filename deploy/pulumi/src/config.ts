@@ -564,7 +564,7 @@ export function loadConfig(): DeployConfig {
     dnsZoneId: dns.zoneId,
     dnsZoneName: dns.zoneName,
     dnsZoneBaseline: dns.zoneBaseline,
-    cloudflareApiToken: dns.enabled ? dns.apiToken : undefined,
+    cloudflareApiToken: cfg.getSecret("cloudflareApiToken"),
     malwareScanEnabled: malwareScan.enabled,
   });
 
