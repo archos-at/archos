@@ -131,6 +131,7 @@ __all__ = [
     "extract_page_tables",
     "extract_text_format_documents",
     "file_version",
+    "filed_document_type",
     "guideline_key",
     "ids_only_in",
     "image_coverage",
@@ -158,4 +159,5 @@ __all__ = [
     "text_quality",
     "unreadable_pdf_verdict",
     "vlm_configured",
+    "with_document_type",
 ]
