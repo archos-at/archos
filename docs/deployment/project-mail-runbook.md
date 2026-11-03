@@ -332,7 +332,8 @@ should not have been, or a sender's filing goes wrong):
 verified writer's mail keeps its class, but no sender's filing is queued for
 it: it waits in the E-Mail-Eingang for any of the project's writers, as all
 mail did before direct filing, saying „Die direkte Ablage ist ausgeschaltet“
-(wait reason `paused`), and its writers are told it waits. A sender's filing
+(wait reason `paused`), and its sender, who may file it like any writer, is
+told it waits. A sender's filing
 already queued files nothing. It is never stricter than before: colleagues can
 file the mail of a member on holiday or gone. Switched back on, what was held
 meanwhile keeps waiting for the writers; it is not filed retroactively, except

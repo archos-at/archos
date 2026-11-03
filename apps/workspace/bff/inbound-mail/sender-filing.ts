@@ -21,7 +21,8 @@
  *   else the project root (the review's own default, `initialDraft`). A text
  *   without a subject waits for the member to name its Verlauf.
  *
- * Whatever is not filed stays waiting, for the sender in the E-Mail-Eingang.
+ * Whatever is not filed stays waiting in the E-Mail-Eingang, for any of the
+ * project's writers (wait reason `not_filed`).
  * Nothing here acknowledges or releases anything: a direct filing carries no
  * acknowledgement (`inbound_mail_decisions_sender_files_clean`). Pure.
  */
