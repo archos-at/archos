@@ -183,6 +183,8 @@ backend:
 # lost a filter; only the job went. See ci.yml's `ci-ok` comment and ADR-0058's
 # "Update (2026-09-09)".
 workspace:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   - 'apps/workspace/**'
   # The BFF's model-config tests read the workflow config (the agent
   # groups it seeds are derived from `llms:`), so a PR touching only
@@ -241,6 +243,8 @@ workspace:
   - 'packages/ris-adapter/src/client.py'
   # End of the files this tier's tests read.
 site:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   # The public website (built from packages/brand).
   - 'apps/website/**'
   # The brand package: the website's `bun run check` holds the token and name copies
@@ -264,6 +268,8 @@ site:
   - '.github/actions/setup-bun/**'
   - '.github/actions/setup-task/**'
 infra:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   - 'deploy/**'
   # deploy/pulumi/src/app/web.spec.ts reads the website's Dockerfile and the
   # server its CMD starts.
@@ -310,6 +316,8 @@ infra:
 # pay for a Next.js build. The `packages` job is ~4 minutes, essentially all of
 # it packages/ifc-spatial-py, which is why it is filtered at all.
 packages:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   # The IFC packages only: packages/brand has no suite of its own and is
   # checked by the site and workspace tiers (ADR-0145).
   - 'packages/ifc-spatial*/**'
@@ -352,6 +360,8 @@ sast:
 # SDK pins, and the harness: the scripted workers and handlers, and the RLS
 # script that builds the BFF suite's database.
 hatchet:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   # The ingest workflow, and the client both Python workflows build on.
   - 'packages/agent/src/agent/common/orchestrator_client.py'
   - 'packages/agent/src/agent/knowledge/ingest_*.py'

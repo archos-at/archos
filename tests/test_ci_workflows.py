@@ -679,3 +679,15 @@ def test_only_the_pushed_frontend_build_exports_its_source_maps():
 
     assert push["with"]["export-sourcemaps"] == "${{ matrix.name == 'frontend' }}"
     assert "export-sourcemaps" not in pull_request["with"]
+
+
+def test_every_ci_job_runs_the_node_version_the_repository_pins():
+    # `node-version: "22"` took whatever 22.x the runner image had cached; an
+    # older image in the pool had one Astro refuses (run 41725318204).
+    pinned = (WORKFLOWS.parents[1] / ".node-version").read_text(encoding="utf-8").strip()
+
+    assert re.fullmatch(r"\d+\.\d+\.\d+", pinned)
+    for name, job in JOBS.items():
+        for step in job.get("steps", []):
+            if "actions/setup-node" in step.get("uses", ""):
+                assert step["with"] == {"node-version-file": ".node-version"}, name

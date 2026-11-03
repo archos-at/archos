@@ -712,7 +712,7 @@ jobs:
       # Bun is the toolchain: install, scripts, `bun check` (ADR-0103).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
@@ -762,7 +762,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
@@ -805,7 +805,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
@@ -834,7 +834,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       # The website's accessibility gate drives Chromium; this installs its system libraries
@@ -854,7 +854,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       # The program and the policy pack, each from its own lockfile; a policy
@@ -898,7 +898,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       # Keyed on the package's OWN uv.lock: the root one would restore an
       # environment this suite never uses (IfcOpenShell + shapely wheels).
@@ -936,7 +936,7 @@ jobs:
           python-version: "3.14"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
