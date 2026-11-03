@@ -20,7 +20,7 @@ vi.mock('@/lib/auth/require-auth', () => ({
 }))
 
 vi.mock('@/lib/inbound-mail/address-service', () => ({
-  rotateInboundMailAddress: vi.fn().mockResolvedValue({ state: 'active', address: 'p+haus.zyxwvuts2345@inbox.example.org' }),
+  rotateInboundMailAddress: vi.fn().mockResolvedValue({ state: 'active', address: 'project+haus.zyxwvuts2345@inbox.example.org' }),
 }))
 
 import { rotateInboundMailAddress } from '@/lib/inbound-mail/address-service'
@@ -32,7 +32,7 @@ describe('/api/projects/[id]/inbound-mail-address/rotate', () => {
   it('POST replaces the address as the caller and answers the new one', async () => {
     const res = await POST(new Request('http://localhost/x', { method: 'POST' }), { params: Promise.resolve({ id: '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' }) })
     expect(res.status).toBe(200)
-    expect((await res.json()).address).toBe('p+haus.zyxwvuts2345@inbox.example.org')
+    expect((await res.json()).address).toBe('project+haus.zyxwvuts2345@inbox.example.org')
     expect(rotateInboundMailAddress).toHaveBeenCalledWith(session, '3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d')
   })
 })

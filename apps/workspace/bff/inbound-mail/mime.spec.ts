@@ -51,7 +51,7 @@ describe('readMime: the headers', () => {
   it('reads thread headers, participants and a cleaned subject, never the body', async () => {
     const raw = message(BODY, {
       Subject: 'AW: WG: Einreichplan \u202Egnalp\r\n Teil 2',
-      To: 'Projekt <p+wohnbau.abcdefgh2345@example.org>, Bauherr <Bauherr@Example.COM>',
+      To: 'Projekt <project+wohnbau.abcdefgh2345@example.org>, Bauherr <Bauherr@Example.COM>',
       Cc: 'Statik: s1@statik-weber.at, s2@statik-weber.at;',
       'In-Reply-To': '<p1@x.at>',
       References: '<root@x.at> <p0@x.at>\r\n <p1@x.at>',
@@ -69,7 +69,7 @@ describe('readMime: the headers', () => {
     expect(mail.headers.participants.map((p) => `${p.role}:${p.address}`)).toEqual([
       'from:anna@buero-muster.at',
       'reply_to:buero@buero-muster.at',
-      'to:p+wohnbau.abcdefgh2345@example.org',
+      'to:project+wohnbau.abcdefgh2345@example.org',
       'to:bauherr@example.com',
       'cc:s1@statik-weber.at',
       'cc:s2@statik-weber.at',

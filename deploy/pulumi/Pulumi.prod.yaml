@@ -186,6 +186,7 @@ config:
   #   pulumi config set --secret inboundMailSigningKeys '{"mi-2026-10":"<openssl rand -base64 32>"}'
   #   pulumi config set        inboundMailPaused   true
   #   pulumi config set        inboundMailDomain   inbox.<the zone>   (a subdomain: the apex MX stay with Google Workspace)
+  # Project addresses then read project+<slug>.<token>@inbox.<the zone> (inboundMailLocalPart, default project).
   # First switch on subaddressing for the zone (dashboard → Email Routing → Settings; gate G0).
   # The Cloudflare token then also needs Zone:Zone Settings:Edit, Zone:Email Routing
   # Rules:Edit, Zone:Zone:Read and Account:Workers Scripts:Edit (account listed

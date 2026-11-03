@@ -106,7 +106,7 @@ describe("the program constructs with project mail on", () => {
   it("gives the frontend the domain, the local part, the pause and the key map, the map from the Secret", () => {
     const env = containerEnv("frontend");
     expect(env.find((e) => e.name === "INBOUND_MAIL_DOMAIN")?.value).toBe(DOMAIN);
-    expect(env.find((e) => e.name === "INBOUND_MAIL_LOCAL_PART")?.value).toBe("p");
+    expect(env.find((e) => e.name === "INBOUND_MAIL_LOCAL_PART")?.value).toBe("project");
     expect(env.find((e) => e.name === "INBOUND_MAIL_PAUSED")?.value).toBe("true");
     const keys = env.find((e) => e.name === "INBOUND_MAIL_SIGNING_KEYS");
     // Never inline: anything with `get pod` could read it.

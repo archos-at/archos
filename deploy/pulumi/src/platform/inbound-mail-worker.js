@@ -13,10 +13,10 @@
  * ## The one thing it decides: is this a project address at all
  *
  * One literal routing rule hands it mail: `<ADDRESS_LOCAL_PART>@<ADDRESS_DOMAIN>`
- * (`p@inbox.example.org`), and Cloudflare's subaddressing makes every
- * `p+<detail>@inbox.example.org` fall back to that rule (ADR-0138). So it
- * receives the project addresses, `p+<slug>.<token>@…`, and also the bare
- * `p@…` and whatever spam guesses after the `+`. It checks the recipient's
+ * (`project@inbox.example.org`), and Cloudflare's subaddressing makes every
+ * `project+<detail>@inbox.example.org` fall back to that rule (ADR-0138). So it
+ * receives the project addresses, `project+<slug>.<token>@…`, and also the bare
+ * `project@…` and whatever spam guesses after the `+`. It checks the recipient's
  * SHAPE, the rule of `contracts/inbound-address.json`, which the BFF's parser
  * runs too: its own domain, its own local part before the first `+`, and a
  * token after the last dot of the subaddress. A project-shaped address goes to
@@ -119,7 +119,7 @@
  * @property {string} SIGNING_KEY Its secret, base64 as in the key map.
  * @property {string} PAUSED `"true"` while deliveries are paused.
  * @property {string} ADDRESS_DOMAIN The receiving domain, `inboundMailDomain` (e.g. `inbox.example.org`), as the BFF's `INBOUND_MAIL_DOMAIN`.
- * @property {string} ADDRESS_LOCAL_PART The local part in front of the `+`, `inboundMailLocalPart` (e.g. `p`), as the BFF's `INBOUND_MAIL_LOCAL_PART`.
+ * @property {string} ADDRESS_LOCAL_PART The local part in front of the `+`, `inboundMailLocalPart` (e.g. `project`), as the BFF's `INBOUND_MAIL_LOCAL_PART`.
  */
 
 /**

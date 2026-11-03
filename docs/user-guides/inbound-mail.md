@@ -17,7 +17,7 @@ Dateien, your office does not have it yet.
 
 ## The project's address
 
-The address looks like `p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`: the
+The address looks like `project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`: the
 project's name and a random part behind the `+`. **What it is for:** put it in Cc when you write to the
 Behörde, the Statik or the Bauherrschaft, and their replies land in the
 E-Mail-Eingang; forward documents from your mail program to it. Nothing is

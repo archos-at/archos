@@ -533,7 +533,7 @@ describe("project mail (ADR-0138)", () => {
       enabled: true,
       paused: false,
       domain: "inbox.post.example.test",
-      localPart: "p",
+      localPart: "project",
       signingKeyId: SIGNING_KEY_ID,
     });
   });

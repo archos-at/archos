@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-10-27
-amended: 2026-11-03 (the address moves to a subdomain, one literal rule and subaddressing)
+amended: 2026-11-03 (the address moves to a subdomain, one literal rule and subaddressing; the default local part becomes `project`)
 decision-makers: product owner, Grid engineering
 consulted: the security and shippability red teams of the project-mail design
 informed: whoever operates the stack, Cloudflare or the edge
@@ -11,8 +11,8 @@ informed: whoever operates the stack, Cloudflare or the edge
 
 ## Context and Problem Statement
 
-ADR-0137 gives every project an address, `p+<slug>.<token>@inbox.<domain>`
-(`p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`), and holds what arrives for a
+ADR-0137 gives every project an address, `project+<slug>.<token>@inbox.<domain>`
+(`project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`), and holds what arrives for a
 person to file. Something has to receive SMTP for that domain, decide which
 addresses exist, and hand each message to the BFF without letting anyone else
 post a mail into an office's review queue.
@@ -67,8 +67,8 @@ with mailauth 8.**
 
 ```text
 sender MTA ──SMTP──▶ Cloudflare Email Routing (MX of inbox.example.org)
-                      │ subaddressing: p+<anything>@ falls back to the rule for p@
-                      │ ONE literal rule p@inbox.example.org ──▶ Email Worker (inbound-mail-worker.js)
+                      │ subaddressing: project+<anything>@ falls back to the rule for project@
+                      │ ONE literal rule project@inbox.example.org ──▶ Email Worker (inbound-mail-worker.js)
                       │                 shape check of the recipient, else setReject
                       │                 buffer message.raw, Content-Digest, RFC 9421 sign
                       ▼
@@ -81,9 +81,10 @@ sender MTA ──SMTP──▶ Cloudflare Email Routing (MX of inbox.example.org
 
 - **Email Routing on a subdomain, with one literal rule.** Project mail is
   received on `inbox.<domain>` (`inboundMailDomain`), never the apex. The
-  rule `p@inbox.<domain>` (`inboundMailLocalPart`, default `p`) points at the
-  Worker, and the zone's subaddressing makes every `p+<detail>@inbox.<domain>`
-  fall back to it. The project lives in the subaddress: `p+<slug>.<token>`.
+  rule `project@inbox.<domain>` (`inboundMailLocalPart`, default `project`)
+  points at the Worker, and the zone's subaddressing makes every
+  `project+<detail>@inbox.<domain>` fall back to it. The project lives in the
+  subaddress: `project+<slug>.<token>`.
   Details below ("The address").
 - **The Worker decides one thing**: whether the recipient is project-shaped
   (`contracts/inbound-address.json`: its `ADDRESS_DOMAIN`, its
@@ -112,7 +113,7 @@ sender MTA ──SMTP──▶ Cloudflare Email Routing (MX of inbox.example.org
 
 A project address is `<local part>+<slug>.<token>@<domain>`, or
 `<local part>+<token>@<domain>` for a name with nothing Latin in it
-(`p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`). The grammar both sides run is
+(`project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org`). The grammar both sides run is
 `contracts/inbound-address.json`: strip `<>` and the quotes of a quoted local
 part, ASCII-lowercase; the host must equal the receiving domain (not the parent
 domain, not a subdomain of it, not a look-alike that starts with it); the local
@@ -120,6 +121,14 @@ part must contain a `+` and the text before the FIRST `+` must equal the
 configured local part; the token is what follows the LAST dot of the rest, or
 the whole rest. A second `+` therefore lands in the token position and the
 recipient is no project address.
+
+The default local part is `project` (product owner, 2026-11-03), so the
+address says what it is for when a person reads it in an address book or a
+`To:` line; the first version of this amendment used `p`, which read as a typo
+or an abbreviation nobody could explain. A deployment may set another
+(`inboundMailLocalPart`). A `p+…` address is not accepted beside it: one
+routing rule serves one local part, and the `p` form never shipped (no stack
+had set `inboundMailDomain`).
 
 Why this shape (the first version used `<slug>.<token>@example.org` and the
 zone's catch-all, which cannot ship):
@@ -161,7 +170,7 @@ subdomain's literal rule: Cloudflare documents subaddressing and subdomain
 rules each, not their combination, and its dashboard adds a subdomain from the
 apex's Email Routing settings. Gate G0, with the stack still paused: switch
 subaddressing on, `cloudflare` passes, and one plain mail to
-`p+smoke.aaaaaaaaaaaa@inbox.<domain>` gets a TEMPORARY failure (the Worker
+`project+smoke.aaaaaaaaaaaa@inbox.<domain>` gets a TEMPORARY failure (the Worker
 answered, paused) rather than "Address does not exist" (no rule matched), with
 the rule shown as matched in the activity log. The same run proves that
 `email/routing/dns` enables routing on the subdomain while the apex's MX stay
@@ -347,7 +356,7 @@ runbook, with the owner gates and the launch gates G0–G9:
 - `deploy/pulumi/src/config.spec.ts`: the domain refused without the scanner,
   the zone rule, the local part's shape, the key map's shape.
 - `deploy/pulumi/src/platform/inbound-mail.spec.ts`: routing on the subdomain,
-  the one literal rule `p@<domain>` → the Worker, no catch-all and no
+  the one literal rule `project@<domain>` → the Worker, no catch-all and no
   `EmailRoutingSettings`, the address bindings.
 - `contracts/inbound-address.json`, run by `address.spec.ts` and
   `inbound-mail-worker.spec.ts`: the grammar above, case by case.

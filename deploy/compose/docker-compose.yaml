@@ -649,7 +649,7 @@ services:
       # RFC 9421 signatures are checked against: unset = the route answers 503.
       # PAUSED=true answers 503 too, and the sender retries.
       - INBOUND_MAIL_DOMAIN=${INBOUND_MAIL_DOMAIN:-}
-      - INBOUND_MAIL_LOCAL_PART=${INBOUND_MAIL_LOCAL_PART:-p}
+      - INBOUND_MAIL_LOCAL_PART=${INBOUND_MAIL_LOCAL_PART:-project}
       - INBOUND_MAIL_SIGNING_KEYS=${INBOUND_MAIL_SIGNING_KEYS:-}
       - INBOUND_MAIL_PAUSED=${INBOUND_MAIL_PAUSED:-false}
       - WORKOS_CLIENT_ID=${WORKOS_CLIENT_ID}

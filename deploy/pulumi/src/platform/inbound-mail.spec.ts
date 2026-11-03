@@ -98,7 +98,7 @@ const SCRIPT = "cloudflare:index/workersScript:WorkersScript";
 const RULE = "cloudflare:index/emailRoutingRule:EmailRoutingRule";
 const CATCH_ALL = "cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll";
 const SETTINGS = "cloudflare:index/emailRoutingSettings:EmailRoutingSettings";
-const LITERAL = [{ type: "literal", field: "to", value: `p@${DOMAIN}` }];
+const LITERAL = [{ type: "literal", field: "to", value: `project@${DOMAIN}` }];
 const ROUTING = "cloudflare:index/emailRoutingDns:EmailRoutingDns";
 
 type Binding = { name: string; type: string; text: string };
@@ -166,7 +166,7 @@ describe("project mail on Cloudflare", () => {
       { name: "SIGNING_KEY", type: "secret_text", text: SIGNING_SECRET },
       { name: "PAUSED", type: "plain_text", text: "false" },
       { name: "ADDRESS_DOMAIN", type: "plain_text", text: DOMAIN },
-      { name: "ADDRESS_LOCAL_PART", type: "plain_text", text: "p" },
+      { name: "ADDRESS_LOCAL_PART", type: "plain_text", text: "project" },
     ]);
   });
 
@@ -201,7 +201,7 @@ describe("project mail on Cloudflare", () => {
     expect(one(ROUTING).inputs).toMatchObject({ zoneId: ZONE_ID, name: DOMAIN });
   });
 
-  it("sends p@ and, through subaddressing, every p+<detail>@ to the Worker with ONE literal rule", async () => {
+  it("sends project@ and, through subaddressing, every project+<detail>@ to the Worker with ONE literal rule", async () => {
     await install(mailConfig());
     expect(one(RULE).inputs).toMatchObject({
       zoneId: ZONE_ID,

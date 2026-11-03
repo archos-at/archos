@@ -44,13 +44,13 @@ const ENV: Env = {
   SIGNING_KEY: VECTOR.secret,
   PAUSED: "false",
   ADDRESS_DOMAIN: "inbox.example.test",
-  ADDRESS_LOCAL_PART: "p",
+  ADDRESS_LOCAL_PART: "project",
 };
 
 /** The handler never touches the execution context. */
 const CTX = {} as ExecutionContext;
 
-const PROJECT_ADDRESS = "p+riverside.k3m7q2xw4pab@inbox.example.test";
+const PROJECT_ADDRESS = "project+riverside.k3m7q2xw4pab@inbox.example.test";
 
 function bytesOf(base64: string): Uint8Array {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -149,7 +149,7 @@ describe("inbound mail worker: the signed request", () => {
       SIGNING_KEY: vector.secret,
       PAUSED: "false",
       ADDRESS_DOMAIN: vector.envelope.to.slice(vector.envelope.to.lastIndexOf("@") + 1),
-      ADDRESS_LOCAL_PART: "p",
+      ADDRESS_LOCAL_PART: "project",
     });
 
     const [url, init] = fetchMock.mock.calls[0];
@@ -203,7 +203,7 @@ describe("inbound mail worker: the pause", () => {
 
   it("still refuses an address that is not project-shaped while paused", async () => {
     stubFetch(respond(202));
-    const { message, setReject } = fakeMessage("p@inbox.example.test");
+    const { message, setReject } = fakeMessage("project@inbox.example.test");
     await deliver(message, { ...ENV, PAUSED: "true" });
     expect(setReject).toHaveBeenCalledWith(UNKNOWN_ADDRESS_TEXT);
   });
@@ -381,7 +381,7 @@ describe("inbound mail worker: which recipients reach the BFF", () => {
   it.each(ADDRESSES.cases.filter((c) => !c.project))(
     "refuses any other address itself, without a request: $recipient",
     async ({ recipient }) => {
-      // Subaddressing hands the Worker every `p+<anything>` on the receiving
+      // Subaddressing hands the Worker every `project+<anything>` on the receiving
       // domain. Only project addresses are the BFF's business.
       const fetchMock = stubFetch(respond(202));
       const { message, setReject } = fakeMessage(recipient);

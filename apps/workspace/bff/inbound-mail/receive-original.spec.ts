@@ -23,7 +23,7 @@ import { OPEN_ORIGINAL_INDEX, originalFieldsOf, recordOriginal } from './receive
 
 const DOMAIN = 'inbox.example.org'
 const RECEIVED = new Date('2026-11-03T10:00:00Z')
-const context = { receivedAt: RECEIVED, domain: DOMAIN, redact: (text: string) => text.replace(/p\+[^\s>]+/g, '[address]') }
+const context = { receivedAt: RECEIVED, domain: DOMAIN, redact: (text: string) => text.replace(/project\+[^\s>]+/g, '[address]') }
 const ATTACHED = new Uint8Array(
   readFileSync(join(__dirname, '__fixtures__', 'forwards', '15-outlook-forward-as-attachment-rfc822.eml')),
 )
@@ -65,9 +65,9 @@ describe('originalFieldsOf', () => {
   })
 
   it('names no author on the project mail domain, and redacts project addresses in names and subjects (B8)', () => {
-    const ours = original({ from: { name: null, address: 'p+mail-a.aaaaaaaaaaaa@inbox.example.org' } })
+    const ours = original({ from: { name: null, address: 'project+mail-a.aaaaaaaaaaaa@inbox.example.org' } })
     expect(originalFieldsOf(ours, context)).toBeNull()
-    const named = originalFieldsOf(original({ subject: 'an p+x.bbbbbbbbbbbb@inbox.example.org' }), context)
+    const named = originalFieldsOf(original({ subject: 'an project+x.bbbbbbbbbbbb@inbox.example.org' }), context)
     expect(named?.originalSubject).toBe('an [address]')
   })
 

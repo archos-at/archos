@@ -554,7 +554,7 @@ reverting is deleting a Cloudflare zone nobody is pointed at.
 ## 3c. Project mail (Cloudflare Email Routing, ADR-0138)
 
 Every project of an office with the `inbound-mail` entitlement can have an
-address `p+<slug>.<token>@<domain>` (`<domain>` a receiving subdomain such as
+address `project+<slug>.<token>@<domain>` (`<domain>` a receiving subdomain such as
 `inbox.example.org`); mail to it waits in the project's
 E-Mail-Eingang until a person files it (ADR-0137,
 [`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
@@ -563,14 +563,14 @@ is deployed until `inboundMailDomain` is set.
 ### What it is
 
 ```text
-sender ─SMTP─▶ Cloudflare Email Routing (MX of inbox.<domain>) ─rule p@─▶ Email Worker
-                 subaddressing: p+<anything>@ falls back         shape check, buffer,
-                 to the one literal rule p@inbox.<domain>        RFC 9421 sign, post
-                                                                     │
+sender ─SMTP─▶ Cloudflare Email Routing (MX of inbox.<domain>) ─rule project@─▶ Email Worker
+                 subaddressing: project+<anything>@ falls back         shape check, buffer,
+                 to the one literal rule project@inbox.<domain>        RFC 9421 sign, post
+                                                                           │
    app.<domain> Envoy: route app-signed, Content-Length ≤ 27 MiB, no edge limit
-                                                                     ▼
+                                                                           ▼
    frontend: POST /api/internal/signed/inbound-mail ─▶ staging ─▶ bff-jobs: receive job
-                                                                  ─▶ ClamAV, /v1/mail/read
+                                                                        ─▶ ClamAV, /v1/mail/read
 ```
 
 Pieces: `deploy/pulumi/src/platform/{inbound-mail,email-routing}.ts` and the
@@ -604,8 +604,8 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
   DKIM TXT.
 - **Subaddressing** on the zone (Email Routing → Settings → Subaddressing), by
   hand: Pulumi cannot set it without onboarding the apex
-  (`platform/email-routing.ts` says why). Without it `p+<slug>.<token>@` does
-  not reach the rule for `p@`, and every project address bounces. Gate G0
+  (`platform/email-routing.ts` says why). Without it `project+<slug>.<token>@`
+  does not reach the rule for `project@`, and every project address bounces. Gate G0
   checks it and proves it on the subdomain.
 - **The scanner first.** `loadConfig` refuses an inbound domain while
   `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
@@ -626,9 +626,9 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
    `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
    `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`), `inboundMailLocalPart`
-   only to change the default `p`, and `inboundMailZoneId` only for a domain on
+   only to change the default `project`, and `inboundMailZoneId` only for a domain on
    a zone of its own. Pulumi enables Email Routing on the subdomain and creates
-   the one literal rule `p@<domain>` → the Worker.
+   the one literal rule `project@<domain>` → the Worker.
 3. `npm run preview`, then `npm run up` (gate O4).
 4. Run the launch gates against the test office (below), then set
    `inboundMailPaused: false` and promote.
@@ -658,14 +658,14 @@ probes are held mail in the TEST office, never a customer's):
 
 | Gate | Check |
 |---|---|
-| G0 | Subaddressing reaches the subdomain's rule: `cloudflare` reads `support_subaddress`, the rule and the subdomain's MX; one plain mail to `p+smoke.aaaaaaaaaaaa@<domain>` while paused gets a temporary failure (the Worker answered), not "Address does not exist" (no rule matched). A permanent refusal stops the launch: take ADR-0138's fallback, a dedicated mail domain with an apex catch-all |
+| G0 | Subaddressing reaches the subdomain's rule: `cloudflare` reads `support_subaddress`, the rule and the subdomain's MX; one plain mail to `project+smoke.aaaaaaaaaaaa@<domain>` while paused gets a temporary failure (the Worker answered), not "Address does not exist" (no rule matched). A permanent refusal stops the launch: take ADR-0138's fallback, a dedicated mail domain with an apex catch-all |
 | G1 | A DKIM-signed test mail arrives `*_verified` with its `signed_headers` (DKIM survives into `message.raw`) |
 | G2 | A throwing Worker gives a temporary failure, and the retry delivers |
 | G3 | 24 MiB is held, 26 MiB refused by Cloudflare, a truncated body gives `body-truncated`, unsigned and unknown-key requests 401 |
 | G4 | While paused, a temporary failure; after the unpause the mail is delivered |
 | G5 | Worker CPU time for a 25 MiB message (Workers Paid; Free allows 10 ms). A failure blocks the launch: there is no fallback that drops the digest |
 | G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0150) |
-| G7 | The one literal rule `p@<domain>` → the Worker; literal `postmaster@<domain>` and `abuse@<domain>` rules (RFC 2142) forward to the operator's verified mailbox, set up in the dashboard; no other rule on the receiving domain |
+| G7 | The one literal rule `project@<domain>` → the Worker; literal `postmaster@<domain>` and `abuse@<domain>` rules (RFC 2142) forward to the operator's verified mailbox, set up in the dashboard; no other rule on the receiving domain |
 | G8 | G1 and G2 again after any `COMPATIBILITY_DATE` bump of the Worker (a spec fails once the date is a year old) |
 | G9 | The aligned-DKIM share of a pilot office's real project mail, counted offline from an archive's `Authentication-Results` (`dkim-share`). It sets expectations for the trust labels and following |
 

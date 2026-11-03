@@ -1,7 +1,7 @@
 # Project mail: the E-Mail-Eingang and the E-Mail-Verläufe
 
 Every project of an office that has the feature gets an address,
-`p+<slug>.<token>@inbox.example.org` (ADR-0138: one routing rule, `p@`, on a
+`project+<slug>.<token>@inbox.example.org` (ADR-0138: one routing rule, `project@`, on a
 receiving subdomain, and Cloudflare's subaddressing). A mail a project writer
 sends from their own address, signed by their domain, is **filed directly, as
 them**; every other mail waits in the project's **E-Mail-Eingang** until a
@@ -24,7 +24,7 @@ Operating it: [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail
 ```mermaid
 flowchart LR
   subgraph Cloudflare
-    MX[Email Routing<br/>MX of inbox.domain<br/>one rule p@, subaddressing] --> W[Email Worker<br/>shape check, RFC 9421 sign]
+    MX[Email Routing<br/>MX of inbox.domain<br/>one rule project@, subaddressing] --> W[Email Worker<br/>shape check, RFC 9421 sign]
   end
   subgraph Edge
     E[Envoy route app-signed<br/>Content-Length at most 27 MiB]

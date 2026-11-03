@@ -38,7 +38,7 @@ beforeEach(() => {
 describe('InboundMailAddressCard', () => {
   it('shows the address whole and saves it as a contact', async () => {
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    expect(await screen.findByText('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')).toBeInTheDocument()
+    expect(await screen.findByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')).toBeInTheDocument()
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(download.start).toHaveBeenCalledWith('blob:card', expect.stringMatching(/-bauplatz-12-wohnbau-seestadt\.vcf$/))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'settings' })
@@ -48,9 +48,9 @@ describe('InboundMailAddressCard', () => {
     const writeText = vi.fn(() => Promise.resolve())
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.manager)} />)
-    await userEvent.click(await screen.findByRole('button', { name: /p\+bauplatz-12\.k3x7q2m9p4ab@inbox\.example\.org/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /project\+bauplatz-12\.k3x7q2m9p4ab@inbox\.example\.org/ }))
     await waitFor(() => expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_copied', { surface: 'settings' }))
-    expect(writeText).toHaveBeenCalledWith('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(writeText).toHaveBeenCalledWith('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
   })
 
   it('tells a member nothing about the office’s own signing: that is a manager’s to fix', async () => {
@@ -68,7 +68,7 @@ describe('InboundMailAddressCard', () => {
     await userEvent.click(screen.getByTestId('address-rotate-confirm'))
     await waitFor(() => expect(rotate).toHaveBeenCalledWith(PROJECT_ID))
     expect(toast.success).toHaveBeenCalledWith('New address created')
-    expect(await screen.findByText('p+bauplatz-12.w8n2c4r7t1qz@inbox.example.org')).toBeInTheDocument()
+    expect(await screen.findByText('project+bauplatz-12.w8n2c4r7t1qz@inbox.example.org')).toBeInTheDocument()
   })
 
   it('offers a member no way to change it', async () => {
@@ -149,7 +149,7 @@ describe('InboundMailAddressDialog', () => {
     const uses = await screen.findByTestId('address-uses')
     expect(uses).toHaveTextContent('Put it in Cc when you write to the authority, the structural engineer or the client')
     // The use comes before the address, and the promise is its last line.
-    expect(uses.compareDocumentPosition(screen.getByText('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(uses.compareDocumentPosition(screen.getByText('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(uses.lastElementChild).toHaveTextContent('Mail someone who may file in the project sends from their own signed address is filed directly.')
     expect(get).toHaveBeenCalledTimes(1)
   })
@@ -166,7 +166,7 @@ describe('InboundMailAddressTile', () => {
     render(<InboundMailAddressTile projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS.member)} />)
     const tile = await screen.findByTestId('inbound-mail-address-tile')
     expect(tile).toHaveTextContent('Put in Cc, it brings the replies')
-    expect(tile).toHaveTextContent('p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(tile).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
     expect(screen.getByRole('link', { name: /Open project mail/ })).toHaveAttribute('href', `/app/projects/${PROJECT_ID}/files/mail`)
     await userEvent.click(screen.getByTestId('address-save-contact'))
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_address_contact_saved', { surface: 'overview' })

@@ -261,7 +261,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
           hostile.attachment('S-101_C.pdf', 'application/pdf', hostile.pdf('S-101 C')),
         ]),
         {
-          To: `p+wohnbau.${TOKEN}@example.org`,
+          To: `project+wohnbau.${TOKEN}@example.org`,
           Date: new Date(Date.now() - 60_000).toUTCString(),
         }
       )
@@ -285,7 +285,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
   async function memberMail(file: string, headers: Record<string, string | null>, signed = true): Promise<string> {
     const raw = hostile.message(
       hostile.multipart('mixed', [hostile.BODY, hostile.attachment(file, 'application/pdf', hostile.pdf(file))]),
-      { To: `p+wohnbau.${TOKEN}@example.org`, Date: new Date(Date.now() - 60_000).toUTCString(), ...headers },
+      { To: `project+wohnbau.${TOKEN}@example.org`, Date: new Date(Date.now() - 60_000).toUTCString(), ...headers },
     )
     return signed ? hostile.sign(raw) : raw
   }
@@ -528,7 +528,7 @@ describe.skipIf(!url)('review first: nothing is filed without a person’s decis
     const before = await documentCount()
     const raw = hostile.message(hostile.BODY, {
       From: 'Wer Auch Immer <x@stranger.example>',
-      To: `p+wohnbau.${TOKEN}@example.org`,
+      To: `project+wohnbau.${TOKEN}@example.org`,
       'Message-ID': '<m7@stranger.example>',
     })
     const outsider = await stage(raw)

@@ -594,8 +594,8 @@ describe('telling (D9, DECISION §9)', () => {
 
 describe('filedForm (B8: a filed entry names no project address, its own included)', () => {
   const domain = 'example.test'
-  const own = `p+wohnbau.abcdefgh2345@${domain}`
-  const other = `p+nachbar.zzzzzzzzzzzz@${domain}`
+  const own = `project+wohnbau.abcdefgh2345@${domain}`
+  const other = `project+nachbar.zzzzzzzzzzzz@${domain}`
   const read = {
     ...unreadableRead('failed'),
     unreadable: false,

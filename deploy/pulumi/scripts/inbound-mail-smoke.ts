@@ -22,11 +22,11 @@
  *   INBOUND_MAIL_ZONE_ID       the zone the mail domain lives in
  *   INBOUND_MAIL_ACCOUNT_ID    the account that owns the Worker
  *   INBOUND_MAIL_DOMAIN        the receiving domain, e.g. inbox.example.org
- *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default p)
+ *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default project)
  *   INBOUND_MAIL_WORKER        the script name, the stack output `inboundMailWorker`
  *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.example.org, the origin of WORKOS_REDIRECT_URI
  *   INBOUND_MAIL_TEST_ADDRESS  a project address of the TEST office (never a customer's),
- *                              p+<slug>.<token>@<domain>
+ *                              project+<slug>.<token>@<domain>
  *   INBOUND_MAIL_KEY_ID        the keyid the Worker signs with (`inboundMailSigningKeyId`)
  *   INBOUND_MAIL_SIGNING_KEY   its base64 secret, from `pulumi config get --show-secrets`
  *
@@ -346,14 +346,14 @@ type Rule = {
 async function checkCloudflare(): Promise<void> {
   const zone = env("INBOUND_MAIL_ZONE_ID");
   const domain = env("INBOUND_MAIL_DOMAIN").toLowerCase();
-  const localPart = (process.env.INBOUND_MAIL_LOCAL_PART?.trim() || "p").toLowerCase();
+  const localPart = (process.env.INBOUND_MAIL_LOCAL_PART?.trim() || "project").toLowerCase();
   const worker = env("INBOUND_MAIL_WORKER");
   const account = env("INBOUND_MAIL_ACCOUNT_ID");
 
   const routing = (await cloudflareApi(`/zones/${zone}/email/routing`)) as { enabled?: boolean; status?: string };
   record("G0", "Email Routing on the zone", routing.enabled ? "pass" : "fail", `enabled=${routing.enabled} status=${routing.status}`);
 
-  // `support_subaddress` is what makes p+<slug>.<token>@ reach the rule for p@.
+  // `support_subaddress` is what makes project+<slug>.<token>@ reach the rule for project@.
   const subaddress = (routing as { support_subaddress?: boolean }).support_subaddress;
   record("G0", "subaddressing on the zone", subaddress === true ? "pass" : "fail", `support_subaddress=${subaddress}`);
 

@@ -573,7 +573,7 @@ describe.skipIf(!url)('following an E-Mail-Verlauf against Postgres', () => {
           hostile.multipart('mixed', [hostile.BODY, hostile.attachment(`S-${seed}.pdf`, 'application/pdf', hostile.pdf(`S ${seed}`))]),
           {
             // `<local part>+<slug>.<token>@<domain>` (`address.ts`): without the local part no recipient names the project.
-            To: `p+${project.slug}.${project.token}@example.org`,
+            To: `project+${project.slug}.${project.token}@example.org`,
             Subject: 'AW: Einreichplan',
             Date: new Date(Date.now() - 60_000).toUTCString(),
             'Message-ID': `<${seed}-${STAMP}@buero-muster.at>`,

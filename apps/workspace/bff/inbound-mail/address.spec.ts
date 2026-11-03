@@ -23,44 +23,44 @@ const token = (value: string) => ({ kind: 'token', token: value })
 
 describe('parseInboundAddress', () => {
   it('takes the token after the slug in the subaddress', () => {
-    expect(parseInboundAddress(`p+wohnbau-hietzing.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`project+wohnbau-hietzing.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
   it('accepts a bare token (empty slug)', () => {
-    expect(parseInboundAddress(`p+abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`project+abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
   it('lowercases the local part, the subaddress and the domain', () => {
-    expect(parseInboundAddress(`P+Wohnbau.ABCDEFGH2345@Inbox.Example-Post.ORG`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`PROJECT+Wohnbau.ABCDEFGH2345@Inbox.Example-Post.ORG`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
   it('lowercases ASCII only: a Kelvin sign or dotted capital I is not a letter of the token', () => {
-    expect(parseInboundAddress(`p+wohnbau.abcdefgh234\u212a@${DOMAIN}`, DOMAIN)).toEqual({ kind: 'malformed' })
-    expect(parseInboundAddress(`p+wohnbau.\u0130bcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual({ kind: 'malformed' })
+    expect(parseInboundAddress(`project+wohnbau.abcdefgh234\u212a@${DOMAIN}`, DOMAIN)).toEqual({ kind: 'malformed' })
+    expect(parseInboundAddress(`project+wohnbau.\u0130bcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual({ kind: 'malformed' })
   })
 
   it('takes the segment after the LAST dot, whatever sits in the slug position', () => {
     // A slug never contains a dot, but a hand-typed address may; only the
     // token resolves, so the rest is ignored rather than refused.
-    expect(parseInboundAddress(`p+a.b.wohnbau.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`project+a.b.wohnbau.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
     // …and a slug that happens to LOOK like a token is not the token.
-    expect(parseInboundAddress(`p+zzzzzzzzzzzz.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`project+zzzzzzzzzzzz.abcdefgh2345@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
   it('reads a quoted local part', () => {
-    expect(parseInboundAddress(`"p+wohnbau.abcdefgh2345"@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(`"project+wohnbau.abcdefgh2345"@${DOMAIN}`, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 
   it('matches the configured local part, whole and case-insensitively', () => {
     expect(parseInboundAddress(`Projekt+wohnbau.abcdefgh2345@${DOMAIN}`, DOMAIN, 'projekt')).toEqual(token('abcdefgh2345'))
-    expect(parseInboundAddress(`p+wohnbau.abcdefgh2345@${DOMAIN}`, DOMAIN, 'projekt')).toEqual({ kind: 'malformed' })
+    expect(parseInboundAddress(`project+wohnbau.abcdefgh2345@${DOMAIN}`, DOMAIN, 'projekt')).toEqual({ kind: 'malformed' })
   })
 
   it('calls a foreign domain foreign, including the parent domain and a lookalike', () => {
-    expect(parseInboundAddress('p+wohnbau.abcdefgh2345@example.com', DOMAIN)).toEqual({ kind: 'foreign' })
-    expect(parseInboundAddress('p+wohnbau.abcdefgh2345@example-post.org', DOMAIN)).toEqual({ kind: 'foreign' })
-    expect(parseInboundAddress(`p+wohnbau.abcdefgh2345@evil.${DOMAIN}`, DOMAIN)).toEqual({ kind: 'foreign' })
-    expect(parseInboundAddress(`p+wohnbau.abcdefgh2345@${DOMAIN}.evil.com`, DOMAIN)).toEqual({ kind: 'foreign' })
+    expect(parseInboundAddress('project+wohnbau.abcdefgh2345@example.com', DOMAIN)).toEqual({ kind: 'foreign' })
+    expect(parseInboundAddress('project+wohnbau.abcdefgh2345@example-post.org', DOMAIN)).toEqual({ kind: 'foreign' })
+    expect(parseInboundAddress(`project+wohnbau.abcdefgh2345@evil.${DOMAIN}`, DOMAIN)).toEqual({ kind: 'foreign' })
+    expect(parseInboundAddress(`project+wohnbau.abcdefgh2345@${DOMAIN}.evil.com`, DOMAIN)).toEqual({ kind: 'foreign' })
     expect(parseInboundAddress('no-at-sign', DOMAIN)).toEqual({ kind: 'foreign' })
     expect(parseInboundAddress('', DOMAIN)).toEqual({ kind: 'foreign' })
   })
@@ -68,28 +68,29 @@ describe('parseInboundAddress', () => {
   it('calls an address in our domain without a well-formed token malformed', () => {
     for (const recipient of [
       `@${DOMAIN}`,
-      `p@${DOMAIN}`,
-      `p+@${DOMAIN}`,
-      `p+wohnbau.@${DOMAIN}`,
+      `project@${DOMAIN}`,
+      `project+@${DOMAIN}`,
+      `project+wohnbau.@${DOMAIN}`,
       `wohnbau.abcdefgh2345@${DOMAIN}`, // no subaddress: the form before the subdomain move
       `q+wohnbau.abcdefgh2345@${DOMAIN}`, // another local part
+      `p+wohnbau.abcdefgh2345@${DOMAIN}`, // p, the default local part before project
       `+abcdefgh2345@${DOMAIN}`, // an empty local part
-      `p+wohnbau.abcdefgh234@${DOMAIN}`, // 11 characters
-      `p+wohnbau.abcdefgh23456@${DOMAIN}`, // 13 characters
-      `p+wohnbau.abcdefgh2301@${DOMAIN}`, // 0 and 1 are not base32
-      `p+wohnbau.abcdefgh234!@${DOMAIN}`,
-      `p+wohnbau.abcdefgh2345+plaene@${DOMAIN}`, // a second + lands in the token position
+      `project+wohnbau.abcdefgh234@${DOMAIN}`, // 11 characters
+      `project+wohnbau.abcdefgh23456@${DOMAIN}`, // 13 characters
+      `project+wohnbau.abcdefgh2301@${DOMAIN}`, // 0 and 1 are not base32
+      `project+wohnbau.abcdefgh234!@${DOMAIN}`,
+      `project+wohnbau.abcdefgh2345+plaene@${DOMAIN}`, // a second + lands in the token position
     ]) {
       expect(parseInboundAddress(recipient, DOMAIN), recipient).toEqual({ kind: 'malformed' })
     }
   })
 
   it('calls everything foreign when no domain is configured', () => {
-    expect(parseInboundAddress(`p+abcdefgh2345@${DOMAIN}`, '')).toEqual({ kind: 'foreign' })
+    expect(parseInboundAddress(`project+abcdefgh2345@${DOMAIN}`, '')).toEqual({ kind: 'foreign' })
   })
 
   it('tolerates angle brackets and whitespace around the recipient', () => {
-    expect(parseInboundAddress(` <p+abcdefgh2345@${DOMAIN}> `, DOMAIN)).toEqual(token('abcdefgh2345'))
+    expect(parseInboundAddress(` <project+abcdefgh2345@${DOMAIN}> `, DOMAIN)).toEqual(token('abcdefgh2345'))
   })
 })
 
@@ -144,9 +145,9 @@ describe('projectSlug', () => {
 describe('formatInboundAddress', () => {
   it('puts slug and token, or the token alone, in the subaddress of the local part', () => {
     expect(formatInboundAddress('wohnbau', 'abcdefgh2345', 'Inbox.Example-Post.org')).toBe(
-      'p+wohnbau.abcdefgh2345@inbox.example-post.org'
+      'project+wohnbau.abcdefgh2345@inbox.example-post.org'
     )
-    expect(formatInboundAddress('', 'abcdefgh2345', DOMAIN)).toBe(`p+abcdefgh2345@${DOMAIN}`)
+    expect(formatInboundAddress('', 'abcdefgh2345', DOMAIN)).toBe(`project+abcdefgh2345@${DOMAIN}`)
     expect(formatInboundAddress('wohnbau', 'abcdefgh2345', DOMAIN, 'Projekt')).toBe(`projekt+wohnbau.abcdefgh2345@${DOMAIN}`)
   })
 
@@ -158,41 +159,41 @@ describe('formatInboundAddress', () => {
 })
 
 describe('redactProjectAddresses', () => {
-  const other = `p+nachbar.zzzzzzzzzzzz@${DOMAIN}`
-  const ours = `p+wohnbau.abcdefgh2345@${DOMAIN}`
+  const other = `project+nachbar.zzzzzzzzzzzz@${DOMAIN}`
+  const ours = `project+wohnbau.abcdefgh2345@${DOMAIN}`
 
   it("redacts another project's token and keeps its local part, slug and the domain", () => {
     expect(redactProjectAddresses(`Bitte auch an ${other} schicken.`, DOMAIN, 'abcdefgh2345')).toBe(
-      `Bitte auch an p+nachbar.${REDACTED_TOKEN}@${DOMAIN} schicken.`
+      `Bitte auch an project+nachbar.${REDACTED_TOKEN}@${DOMAIN} schicken.`
     )
   })
 
   it('keeps the receiving token when asked, and redacts it when not (a filed entry)', () => {
     expect(redactProjectAddresses(`An: ${ours}`, DOMAIN, 'abcdefgh2345')).toBe(`An: ${ours}`)
-    expect(redactProjectAddresses(`An: ${ours}`, DOMAIN)).toBe(`An: p+wohnbau.${REDACTED_TOKEN}@${DOMAIN}`)
+    expect(redactProjectAddresses(`An: ${ours}`, DOMAIN)).toBe(`An: project+wohnbau.${REDACTED_TOKEN}@${DOMAIN}`)
   })
 
   it('finds a token however the address is dressed: case, quotes, angle brackets, a bare token', () => {
     const text = [
-      `<P+Nachbar.ZZZZZZZZZZZZ@Inbox.Example-Post.ORG>`,
-      `"p+nachbar.zzzzzzzzzzzz"@${DOMAIN}`,
-      `p+zzzzzzzzzzzz@${DOMAIN}.`,
+      `<PROJECT+Nachbar.ZZZZZZZZZZZZ@Inbox.Example-Post.ORG>`,
+      `"project+nachbar.zzzzzzzzzzzz"@${DOMAIN}`,
+      `project+zzzzzzzzzzzz@${DOMAIN}.`,
     ].join(' ')
     expect(redactProjectAddresses(text, DOMAIN)).not.toContain('zzzzzzzzzzzz')
-    expect(redactProjectAddresses(`p+zzzzzzzzzzzz@${DOMAIN}`, DOMAIN)).toBe(`p+${REDACTED_TOKEN}@${DOMAIN}`)
+    expect(redactProjectAddresses(`project+zzzzzzzzzzzz@${DOMAIN}`, DOMAIN)).toBe(`project+${REDACTED_TOKEN}@${DOMAIN}`)
   })
 
   it('leaves addresses that are not project addresses, and other domains, alone', () => {
-    const text = `kontakt@${DOMAIN}, q+nachbar.zzzzzzzzzzzz@${DOMAIN}, p+nachbar.zzzzzzzzzzzz@example.com, a@b`
+    const text = `kontakt@${DOMAIN}, q+nachbar.zzzzzzzzzzzz@${DOMAIN}, project+nachbar.zzzzzzzzzzzz@example.com, a@b`
     expect(redactProjectAddresses(text, DOMAIN)).toBe(text)
   })
 
   it('matches the domain as a whole host: a longer label is foreign, a trailing dot or subdomain keeps its rest', () => {
-    const lookalike = `p+nachbar.zzzzzzzzzzzz@${DOMAIN}x.com`
+    const lookalike = `project+nachbar.zzzzzzzzzzzz@${DOMAIN}x.com`
     expect(redactProjectAddresses(lookalike, DOMAIN)).toBe(lookalike)
-    expect(redactProjectAddresses(`an ${other}.`, DOMAIN)).toBe(`an p+nachbar.${REDACTED_TOKEN}@${DOMAIN}.`)
-    expect(redactProjectAddresses(`p+nachbar.zzzzzzzzzzzz@${DOMAIN.toUpperCase()}.evil.example`, DOMAIN)).toBe(
-      `p+nachbar.${REDACTED_TOKEN}@${DOMAIN}.evil.example`
+    expect(redactProjectAddresses(`an ${other}.`, DOMAIN)).toBe(`an project+nachbar.${REDACTED_TOKEN}@${DOMAIN}.`)
+    expect(redactProjectAddresses(`project+nachbar.zzzzzzzzzzzz@${DOMAIN.toUpperCase()}.evil.example`, DOMAIN)).toBe(
+      `project+nachbar.${REDACTED_TOKEN}@${DOMAIN}.evil.example`
     )
   })
 
@@ -203,7 +204,7 @@ describe('redactProjectAddresses', () => {
 
   it('is linear on a long run without an @ (bounded local part)', () => {
     const run = 'a'.repeat(200_000)
-    expect(redactProjectAddresses(`${run} ${other}`, DOMAIN)).toBe(`${run} p+nachbar.${REDACTED_TOKEN}@${DOMAIN}`)
+    expect(redactProjectAddresses(`${run} ${other}`, DOMAIN)).toBe(`${run} project+nachbar.${REDACTED_TOKEN}@${DOMAIN}`)
     expect(redactProjectAddresses(`${run}@${DOMAIN}`, DOMAIN)).toBe(`${run}@${DOMAIN}`)
   })
 
@@ -221,7 +222,8 @@ describe('inboundMailDomain', () => {
 })
 
 describe('inboundMailLocalPart', () => {
-  it('defaults to p when unset or blank, and is lowercased otherwise', () => {
+  it('defaults to project when unset or blank, and is lowercased otherwise', () => {
+    expect(DEFAULT_LOCAL_PART).toBe('project')
     expect(inboundMailLocalPart({})).toBe(DEFAULT_LOCAL_PART)
     expect(inboundMailLocalPart({ INBOUND_MAIL_LOCAL_PART: ' ' })).toBe(DEFAULT_LOCAL_PART)
     expect(inboundMailLocalPart({ INBOUND_MAIL_LOCAL_PART: ' Projekt ' })).toBe('projekt')

@@ -108,7 +108,7 @@ const writable = (overrides: Partial<WritableThread['thread']> = {}): WritableTh
 
 /** The reply's header block: To is present, and signed in the fixture's `signedHeaders`. */
 const RAW = new TextEncoder().encode(
-  'From: p.weber@statik-weber.at\r\nTo: p+wohnbau.abcdefgh2345@example.org\r\nSubject: AW: Statik\r\n\r\nFreigegeben.\r\n',
+  'From: p.weber@statik-weber.at\r\nTo: project+wohnbau.abcdefgh2345@example.org\r\nSubject: AW: Statik\r\n\r\nFreigegeben.\r\n',
 )
 
 function given(

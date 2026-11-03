@@ -1,5 +1,5 @@
 {
-  "$comment": "Signature test vectors for the inbound-mail webhook (RFC 9421 HTTP Message Signatures, hmac-sha256, with an RFC 9530 Content-Digest). Each vector is a Worker input (a key from the key map, the BFF origin, the clock in Unix seconds, the SMTP envelope, the raw message) and the exact request the Worker must send. Produced by the maintained libraries (http-message-signatures 1.0.6, structured-headers 2.1.1) and cross-checked against a signature base built by hand from RFC 9421 section 2.5. The envelope recipients moved to the subaddressed form (p+<slug>.<token>@inbox.<domain>, ADR-0138) on 2026-11-03; each signature was recomputed over its new base, and the BFF's spec verifies them with the library. Checked on both sides: the Worker's hand-written WebCrypto signer must produce every request byte for byte (deploy/pulumi/src/platform/inbound-mail-worker.spec.ts), and the BFF's verifier must accept every request (apps/workspace/bff/inbound-mail-signature-vectors.spec.ts). The secrets are test values, never deployed. Regenerate only with a reason, and with both specs in the same change.",
+  "$comment": "Signature test vectors for the inbound-mail webhook (RFC 9421 HTTP Message Signatures, hmac-sha256, with an RFC 9530 Content-Digest). Each vector is a Worker input (a key from the key map, the BFF origin, the clock in Unix seconds, the SMTP envelope, the raw message) and the exact request the Worker must send. Produced by the maintained libraries (http-message-signatures 1.0.6, structured-headers 2.1.1) and cross-checked against a signature base built by hand from RFC 9421 section 2.5. The envelope recipients moved to the subaddressed form (p+<slug>.<token>@inbox.<domain>, ADR-0138) on 2026-11-03, and to the local part project (project+<slug>.<token>@inbox.<domain>) later that day; each time every signature was recomputed over its new base, and the BFF's spec verifies them with the library. Checked on both sides: the Worker's hand-written WebCrypto signer must produce every request byte for byte (deploy/pulumi/src/platform/inbound-mail-worker.spec.ts), and the BFF's verifier must accept every request (apps/workspace/bff/inbound-mail-signature-vectors.spec.ts). The secrets are test values, never deployed. Regenerate only with a reason, and with both specs in the same change.",
   "vectors": [
     {
       "name": "a plain ASCII message",
@@ -8,7 +8,7 @@
       "bffUrl": "https://app.example.test",
       "created": 1792670400,
       "envelope": {
-        "to": "p+riverside.k3m7q2xw4pab@inbox.example.test",
+        "to": "project+riverside.k3m7q2xw4pab@inbox.example.test",
         "from": "sender@example.org"
       },
       "bodyBase64": "RnJvbTogU2VuZGVyIDxzZW5kZXJAZXhhbXBsZS5vcmc+DQpUbzogcml2ZXJzaWRlLmszbTdxMnh3NHBhYkBleGFtcGxlLnRlc3QNClN1YmplY3Q6IFNpdGUgdmlzaXQNCk1lc3NhZ2UtSUQ6IDx2MUBleGFtcGxlLm9yZz4NCg0KU2VlIHlvdSBvbiBNb25kYXkuDQo=",
@@ -18,12 +18,12 @@
           "content-digest": "sha-256=:NieQn1UF3uVVinkdoePWFai8PGtjekFBznViDRXvBAU=:",
           "content-length": "149",
           "content-type": "message/rfc822",
-          "x-envelope-to": "p+riverside.k3m7q2xw4pab@inbox.example.test",
+          "x-envelope-to": "project+riverside.k3m7q2xw4pab@inbox.example.test",
           "x-envelope-from": "sender@example.org",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670400;expires=1792670700;keyid=\"mi-2026-10\";alg=\"hmac-sha256\"",
-          "signature": "sig=:Ui2RCH1DeSxa+do1gawcbeiJxIHLi9Ik2vlI1iYTLEM=:"
+          "signature": "sig=:/FXf8KbJMjDIG7xLV5FNonMAy2hE2D1Db4zr8ypAOEs=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:NieQn1UF3uVVinkdoePWFai8PGtjekFBznViDRXvBAU=:\n\"content-length\": 149\n\"x-envelope-to\": p+riverside.k3m7q2xw4pab@inbox.example.test\n\"x-envelope-from\": sender@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670400;expires=1792670700;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:NieQn1UF3uVVinkdoePWFai8PGtjekFBznViDRXvBAU=:\n\"content-length\": 149\n\"x-envelope-to\": project+riverside.k3m7q2xw4pab@inbox.example.test\n\"x-envelope-from\": sender@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670400;expires=1792670700;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
       }
     },
     {
@@ -33,7 +33,7 @@
       "bffUrl": "https://app.example.test",
       "created": 1792670401,
       "envelope": {
-        "to": "p+k3m7q2xw4pab@inbox.example.test",
+        "to": "project+k3m7q2xw4pab@inbox.example.test",
         "from": ""
       },
       "bodyBase64": "U3ViamVjdDogVW5kZWxpdmVyYWJsZQ0KQ29udGVudC1UcmFuc2Zlci1FbmNvZGluZzogOGJpdA0KDQrDpAD/DQo=",
@@ -43,12 +43,12 @@
           "content-digest": "sha-256=:Wgd2iJU10NA6/PoiIfGFYpCfskuuT2/StkVXK6OSbMk=:",
           "content-length": "65",
           "content-type": "message/rfc822",
-          "x-envelope-to": "p+k3m7q2xw4pab@inbox.example.test",
+          "x-envelope-to": "project+k3m7q2xw4pab@inbox.example.test",
           "x-envelope-from": "<>",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670401;expires=1792670701;keyid=\"mi-2026-10\";alg=\"hmac-sha256\"",
-          "signature": "sig=:wA2BdZmw2x9lc+t66PSyi5gmIbnBYVlCmsZkHJF0zHo=:"
+          "signature": "sig=:TaJTho3i2/taijW9JG44Z3Gn6cf+QIRAtQE3doeSEw8=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Wgd2iJU10NA6/PoiIfGFYpCfskuuT2/StkVXK6OSbMk=:\n\"content-length\": 65\n\"x-envelope-to\": p+k3m7q2xw4pab@inbox.example.test\n\"x-envelope-from\": <>\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670401;expires=1792670701;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Wgd2iJU10NA6/PoiIfGFYpCfskuuT2/StkVXK6OSbMk=:\n\"content-length\": 65\n\"x-envelope-to\": project+k3m7q2xw4pab@inbox.example.test\n\"x-envelope-from\": <>\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670401;expires=1792670701;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
       }
     },
     {
@@ -58,7 +58,7 @@
       "bffUrl": "https://app.example.test",
       "created": 1792670402,
       "envelope": {
-        "to": "P+Riverside.K3M7Q2XW4PAB@inbox.example.test",
+        "to": "PROJECT+Riverside.K3M7Q2XW4PAB@inbox.example.test",
         "from": "zoë@example.org"
       },
       "bodyBase64": "U3ViamVjdDogPT9VVEYtOD9RP1pvPUMzPUFCPz0NCg0KaGVsbG8NCg==",
@@ -68,12 +68,12 @@
           "content-digest": "sha-256=:Ra81KoMaZIAKAqHBrwkFi4cqhLBsgbTEgIHFzstkA64=:",
           "content-length": "40",
           "content-type": "message/rfc822",
-          "x-envelope-to": "P+Riverside.K3M7Q2XW4PAB@inbox.example.test",
+          "x-envelope-to": "PROJECT+Riverside.K3M7Q2XW4PAB@inbox.example.test",
           "x-envelope-from": "zo%C3%AB@example.org",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670402;expires=1792670702;keyid=\"mi-2026-10\";alg=\"hmac-sha256\"",
-          "signature": "sig=:ZwqFI6feY94UsVXrrozXWLtwntXt7BL3td88oV/934g=:"
+          "signature": "sig=:bM94QvADAseqq0MM/txjAI+ztp7YI7BSOhCFJEkkGwE=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Ra81KoMaZIAKAqHBrwkFi4cqhLBsgbTEgIHFzstkA64=:\n\"content-length\": 40\n\"x-envelope-to\": P+Riverside.K3M7Q2XW4PAB@inbox.example.test\n\"x-envelope-from\": zo%C3%AB@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670402;expires=1792670702;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.test/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:Ra81KoMaZIAKAqHBrwkFi4cqhLBsgbTEgIHFzstkA64=:\n\"content-length\": 40\n\"x-envelope-to\": PROJECT+Riverside.K3M7Q2XW4PAB@inbox.example.test\n\"x-envelope-from\": zo%C3%AB@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670402;expires=1792670702;keyid=\"mi-2026-10\";alg=\"hmac-sha256\""
       }
     },
     {
@@ -83,7 +83,7 @@
       "bffUrl": "https://app.example.at",
       "created": 1792670403,
       "envelope": {
-        "to": "p+riverside.k3m7q2xw4pab@inbox.example.at",
+        "to": "project+riverside.k3m7q2xw4pab@inbox.example.at",
         "from": "office@example.org"
       },
       "bodyBase64": "U3ViamVjdDogUm90YXRpb24NCg0Kc2lnbmVkIHdpdGggdGhlIHNlY29uZCBrZXkNCg==",
@@ -93,12 +93,12 @@
           "content-digest": "sha-256=:LuHJ2RdAYL1B/eljgJCWBs0T1SnRp62t/zq3nP1mYAQ=:",
           "content-length": "49",
           "content-type": "message/rfc822",
-          "x-envelope-to": "p+riverside.k3m7q2xw4pab@inbox.example.at",
+          "x-envelope-to": "project+riverside.k3m7q2xw4pab@inbox.example.at",
           "x-envelope-from": "office@example.org",
           "signature-input": "sig=(\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670403;expires=1792670703;keyid=\"mi-2027-01\";alg=\"hmac-sha256\"",
-          "signature": "sig=:H1M+VK8PlxCM4K/M5A3of2nsCKhs/a4jG56fmf9Kox4=:"
+          "signature": "sig=:n1cW0I1jiLtP8Gfujn/En9lq4CInuFSHD95mTbEQ0/U=:"
         },
-        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.at/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:LuHJ2RdAYL1B/eljgJCWBs0T1SnRp62t/zq3nP1mYAQ=:\n\"content-length\": 49\n\"x-envelope-to\": p+riverside.k3m7q2xw4pab@inbox.example.at\n\"x-envelope-from\": office@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670403;expires=1792670703;keyid=\"mi-2027-01\";alg=\"hmac-sha256\""
+        "signatureBase": "\"@method\": POST\n\"@target-uri\": https://app.example.at/api/internal/signed/inbound-mail\n\"content-digest\": sha-256=:LuHJ2RdAYL1B/eljgJCWBs0T1SnRp62t/zq3nP1mYAQ=:\n\"content-length\": 49\n\"x-envelope-to\": project+riverside.k3m7q2xw4pab@inbox.example.at\n\"x-envelope-from\": office@example.org\n\"@signature-params\": (\"@method\" \"@target-uri\" \"content-digest\" \"content-length\" \"x-envelope-to\" \"x-envelope-from\");created=1792670403;expires=1792670703;keyid=\"mi-2027-01\";alg=\"hmac-sha256\""
       }
     }
   ]

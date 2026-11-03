@@ -224,7 +224,7 @@ describe('authenticateSender: addressed to the project', () => {
   it('is addressed when a signed Cc names the token, bare or behind a quoted name, in any case', async () => {
     const cc = await sign(message(undefined, { To: 'lieferant@extern.at', Cc: PROJECT_ADDRESS }))
     expect((await authenticate(cc)).signedRecipientNamesProject).toBe(true)
-    const named = await sign(message(undefined, { To: `"Projekt" <P+Wohnbau.${PROJECT_TOKEN.toUpperCase()}@${INBOUND_DOMAIN}>` }))
+    const named = await sign(message(undefined, { To: `"Projekt" <PROJECT+Wohnbau.${PROJECT_TOKEN.toUpperCase()}@${INBOUND_DOMAIN}>` }))
     expect((await authenticate(named)).signedRecipientNamesProject).toBe(true)
   })
 
@@ -239,12 +239,12 @@ describe('authenticateSender: addressed to the project', () => {
   })
 
   it('is not addressed by the token in any other domain: a look-alike is not our address', async () => {
-    const raw = await sign(message(undefined, { To: `p+wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}.evil.example` }))
+    const raw = await sign(message(undefined, { To: `project+wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}.evil.example` }))
     expect((await authenticate(raw)).signedRecipientNamesProject).toBe(false)
   })
 
   it("is not addressed to THIS project by another project's token", async () => {
-    const raw = await sign(message(undefined, { To: `p+nachbar.zzzzzzzzzzzz@${INBOUND_DOMAIN}` }))
+    const raw = await sign(message(undefined, { To: `project+nachbar.zzzzzzzzzzzz@${INBOUND_DOMAIN}` }))
     expect((await authenticate(raw)).signedRecipientNamesProject).toBe(false)
   })
 })

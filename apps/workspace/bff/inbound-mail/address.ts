@@ -3,7 +3,7 @@
  * (ADR-0138).
  *
  * An address is `<local part>+<slug>.<token>@<domain>`
- * (`p+wohnbau-hietzing.k3m7q2xw4pab@inbox.example.org`). The local part and
+ * (`project+wohnbau-hietzing.k3m7q2xw4pab@inbox.example.org`). The local part and
  * the domain are the deployment's ({@link inboundMailLocalPart},
  * {@link inboundMailDomain}): Cloudflare routes the one literal address
  * `<local part>@<domain>` to the Email Worker, and its subaddressing hands it
@@ -135,7 +135,7 @@ export function parseInboundAddress(
 }
 
 /** The local part when `INBOUND_MAIL_LOCAL_PART` is unset. */
-export const DEFAULT_LOCAL_PART = 'p'
+export const DEFAULT_LOCAL_PART = 'project'
 
 /**
  * What a local part may be: a DNS-label-like word, so it never holds the `+`

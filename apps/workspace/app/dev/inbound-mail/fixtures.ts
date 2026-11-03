@@ -146,7 +146,7 @@ export type AddressFixture = InboundMailAddressView | 'loading' | 'error'
 
 const activeAddress: InboundMailAddressView = {
   state: 'active',
-  address: 'p+bauplatz-12.k3x7q2m9p4ab@inbox.example.org',
+  address: 'project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org',
   canManage: true,
   lastReceivedAt: minutesAgo(12),
   droppedLast30Days: 0,
@@ -161,7 +161,7 @@ export const ADDRESS_VARIANTS: Record<string, AddressFixture> = {
   unavailable: { ...activeAddress, state: 'unavailable', address: null, canManage: false, lastReceivedAt: null, ownDomainVerifiedShare: null },
   'long-address': {
     ...activeAddress,
-    address: 'p+stellplatznachweis-tiefgarage-ebene-2-wohnbau-seestadt-nord.k3x7q2m9p4ab@inbox.example.org',
+    address: 'project+stellplatznachweis-tiefgarage-ebene-2-wohnbau-seestadt-nord.k3x7q2m9p4ab@inbox.example.org',
   },
   loading: 'loading',
   error: 'error',
@@ -289,7 +289,7 @@ export function fixtureAddressClient(fixture: AddressFixture): InboundMailAddres
       return answer()
     },
     rotate: () => {
-      if (typeof current === 'object') current = { ...current, address: 'p+bauplatz-12.w8n2c4r7t1qz@inbox.example.org' }
+      if (typeof current === 'object') current = { ...current, address: 'project+bauplatz-12.w8n2c4r7t1qz@inbox.example.org' }
       return answer()
     },
     remove: () => {

@@ -258,7 +258,7 @@ describe('hostile: senders', () => {
   })
 
   it('a look-alike recipient is not the project address', async () => {
-    const raw = await sign(message(undefined, { To: `p+wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}.evil.example` }))
+    const raw = await sign(message(undefined, { To: `project+wohnbau.${PROJECT_TOKEN}@${INBOUND_DOMAIN}.evil.example` }))
     const { verdict } = await judge(raw)
     expect(verdict.flags).toContain('not_addressed_to_project')
   })

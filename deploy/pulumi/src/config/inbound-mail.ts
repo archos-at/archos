@@ -12,7 +12,7 @@ const SIGNING_KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 
 /**
  * The local part when `inboundMailLocalPart` is unset: addresses are
- * `p+<slug>.<token>@<domain>`. `DEFAULT_LOCAL_PART` in the BFF's `address.ts`
+ * `project+<slug>.<token>@<domain>`. `DEFAULT_LOCAL_PART` in the BFF's `address.ts`
  * and `localPart` in `contracts/inbound-address.json` say the same.
  */
 /**
@@ -54,7 +54,7 @@ export interface InboundMailConfig {
   domain: string;
   /**
    * The local part of the one routing rule and of every project address,
-   * in front of the `+` (`inboundMailLocalPart`, default `p`). The BFF's
+   * in front of the `+` (`inboundMailLocalPart`, default `project`). The BFF's
    * `INBOUND_MAIL_LOCAL_PART`, the Worker's `ADDRESS_LOCAL_PART`.
    */
   localPart: string;
@@ -73,7 +73,7 @@ export interface InboundMailConfig {
   apiToken: pulumi.Output<string>;
 }
 
-export const DEFAULT_INBOUND_MAIL_LOCAL_PART = "p";
+export const DEFAULT_INBOUND_MAIL_LOCAL_PART = "project";
 
 /** The BFF's `LOCAL_PART_PATTERN`: no `+`, no dot, nothing a client would quote. */
 const LOCAL_PART = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
@@ -191,7 +191,7 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     // addresses no rule routes must fail at preview instead.
     throw new Error(
       `inboundMailLocalPart must be 1 to 32 of [a-z0-9-], without a hyphen at either end ` +
-        `(got "${localPart}"): it is the "p" of p+<slug>.<token>@${domain}, so never a "+" or a dot.`,
+        `(got "${localPart}"): it is the "project" of project+<slug>.<token>@${domain}, so never a "+" or a dot.`,
     );
   }
   requireSecretsTogether(

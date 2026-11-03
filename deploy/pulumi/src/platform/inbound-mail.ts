@@ -8,7 +8,7 @@ import type { MailZone } from "./email-routing";
 
 /**
  * Project mail (ADR-0138): ONE literal routing rule on `inboundMailDomain`,
- * `<inboundMailLocalPart>@<domain>` (`p@inbox.example.org`), handing its mail
+ * `<inboundMailLocalPart>@<domain>` (`project@inbox.example.org`), handing its mail
  * to one Email Worker (`inbound-mail-worker.js`), which signs project
  * addresses' mail for the BFF and refuses the rest.
  *
@@ -19,11 +19,11 @@ import type { MailZone } from "./email-routing";
  *
  * ## One rule, and subaddressing
  *
- * A project's address is `p+<slug>.<token>@inbox.example.org`. With the zone's
- * subaddressing setting on, Cloudflare matches `p+<anything>@…` against the
- * rule for `p@…` and keeps the `+detail` in `message.to`, where the Worker
- * reads the token. So one rule serves every project, and minting an address
- * needs no Cloudflare call and no credential in the BFF.
+ * A project's address is `project+<slug>.<token>@inbox.example.org`. With the
+ * zone's subaddressing setting on, Cloudflare matches `project+<anything>@…`
+ * against the rule for `project@…` and keeps the `+detail` in `message.to`,
+ * where the Worker reads the token. So one rule serves every project, and
+ * minting an address needs no Cloudflare call and no credential in the BFF.
  *
  * Subaddressing is a dashboard setting this program cannot set (the provider's
  * only handle on it onboards the zone apex; `email-routing.ts` says why), and

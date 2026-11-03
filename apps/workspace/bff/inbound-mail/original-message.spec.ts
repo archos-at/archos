@@ -31,7 +31,7 @@ function forwardOf(name: string): Uint8Array {
   const html = name.endsWith('.html')
   const headers = [
     'From: Anna Bauer <a.bauer@architekten-bauer.de>',
-    'To: p+haus-b.token@inbox.example.test',
+    'To: project+haus-b.token@inbox.example.test',
     'Subject: WG: weitergeleitet',
     'Date: Tue, 4 Nov 2026 11:00:00 +0100',
     'Message-ID: <fwd@architekten-bauer.de>',

@@ -25,8 +25,8 @@ import type { DeployConfig } from "../config";
  *
  * ## Not managed here: subaddressing
  *
- * The project addresses are `p+<slug>.<token>@<domain>` and reach the rule
- * `p@<domain>` only with the zone's subaddressing setting on. The provider
+ * The project addresses are `project+<slug>.<token>@<domain>` and reach the rule
+ * `project@<domain>` only with the zone's subaddressing setting on. The provider
  * (`@pulumi/cloudflare` 6.23.1) has `supportSubaddress` only on
  * `EmailRoutingSettings`, whose create calls the zone's Email Routing ENABLE
  * endpoint (onboarding the APEX, which fails with "Non-Cloudflare MX records
