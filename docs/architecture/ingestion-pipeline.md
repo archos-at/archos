@@ -496,6 +496,6 @@ document as before (`settled_by: read` or `sweep`).
 | Why is this page missing from search? | page triage (`page_triage.classify_page`), the render cap (`MAX_RENDERED_PAGES`), a skipped vision or OCR call (warning in the log only) |
 | What did it cost? | `llm_usage_events` where `activity = 'ingest'` and the job id |
 | Who decides the order of jobs? | The `ingest-document` task's concurrency strategy and run priority, ADR-0150; for rows left in `ingest_job_queue` until the cutover drains it, `agent.knowledge.ingest_queue.claim_next` (ADR-0076) |
-| Where is the Hatchet client? | `agent.common.hatchet_client.client`, ADR-0150; runbook `docs/deployment/hatchet.md` |
+| Where is the Hatchet client? | `agent.common.orchestrator_client.client`, ADR-0150; runbook `docs/deployment/hatchet.md` |
 | Where is the vision prompt? | `visual_analysis.build_prompt` over `visual_domains` |
 | What runs after a document settles? | `apps/workspace/bff/upload-batches/settle.ts` (`onDocumentsSettled`) |

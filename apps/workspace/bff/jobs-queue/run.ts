@@ -1,6 +1,6 @@
 /**
  * Run one slice of a job inside its organization (ADR-0079): what a `bff-job`
- * run on Hatchet does with the row it took (`./hatchet-task.ts`).
+ * run on Hatchet does with the row it took (`./task.ts`).
  *
  * The lane is the organization, so the work runs inside it and row-level
  * security applies to everything the handler reads and writes. Marked as a

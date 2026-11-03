@@ -17,7 +17,7 @@
 import 'server-only'
 import type { TaskDefinition } from '@/lib/db/schema/task-model'
 import * as tasks from '@/lib/tasks/repository'
-import { hatchetClient } from '@/lib/jobs-queue/hatchet'
+import { hatchetClient } from '@/lib/jobs-queue/orchestrator'
 import { setScheduledRunId } from './repository'
 
 export const FIRE_TASK_DEFINITION = 'fire-task-definition'

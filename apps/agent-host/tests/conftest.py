@@ -85,15 +85,15 @@ def hatchet(monkeypatch):
     A test that asserts what was handed to the SDK asks for this fixture by name.
     A test of the no-key path deletes ``JOB_PAYLOAD_KEK`` itself.
     """
-    from agent.common import hatchet_client
-    from agent_host.jobs import research_hatchet
+    from agent.common import orchestrator_client
+    from agent_host.jobs import research_workflow
 
-    from .hatchet_fake import FakeHatchet
+    from .orchestrator_fake import FakeHatchet
 
     monkeypatch.setenv("JOB_PAYLOAD_KEK", _TEST_KEK)
     fake = FakeHatchet()
-    hatchet_client.reset_for_tests(fake)
-    research_hatchet._declared.clear()
+    orchestrator_client.reset_for_tests(fake)
+    research_workflow._declared.clear()
     yield fake
-    hatchet_client.reset_for_tests(None)
-    research_hatchet._declared.clear()
+    orchestrator_client.reset_for_tests(None)
+    research_workflow._declared.clear()

@@ -21,9 +21,9 @@ from pathlib import Path
 from unittest.mock import create_autospec
 
 import pytest
-from agent_testing import hatchet_fake
-from agent_testing.hatchet_fake import take_run
-from agent_testing.hatchet_fake import waiting_runs
+from agent_testing import orchestrator_fake
+from agent_testing.orchestrator_fake import take_run
+from agent_testing.orchestrator_fake import waiting_runs
 from fastapi import APIRouter
 from fastapi import FastAPI
 from httpx import ASGITransport
@@ -109,7 +109,7 @@ def bucket(monkeypatch, tmp_path):
     ingest_status_store.get("never-existed")  # creates the status table
     with DocumentMetadataStore._get_or_create_sync_engine(ingest_status_store._db_url()).begin() as conn:
         conn.execute(text("DELETE FROM ingest_jobs"))
-    hatchet_fake.install_for(monkeypatch)
+    orchestrator_fake.install_for(monkeypatch)
     return fake
 
 
@@ -383,9 +383,9 @@ async def test_an_upload_queues_the_ingestion_of_the_file_it_stored(app, ingesto
 async def test_an_upload_hatchet_cannot_take_is_an_error_not_an_in_process_ingestion(
     app, bucket, ingestor, monkeypatch
 ):
-    from agent.knowledge import ingest_hatchet
+    from agent.knowledge import ingest_workflow
 
-    ingest_hatchet.ingest_workflow().refuse_with = ConnectionError("engine down")
+    ingest_workflow.ingest_workflow().refuse_with = ConnectionError("engine down")
 
     async with _client(app) as client:
         res = await client.post(

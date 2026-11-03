@@ -1333,7 +1333,7 @@ history surfaces, and the run-history link and job-glyph rendering that
   across daylight saving) as plain logic; `tasks.spec.ts`, the one wiring spec
   with a fake client; `repository.integration.spec.ts` (an occurrence is taken
   once, however many fires race, under `task db:test:rls`); and
-  `hatchet.integration.spec.ts` against a real engine (a scheduled fire that
+  `orchestrator.integration.spec.ts` against a real engine (a scheduled fire that
   re-arms, replace and delete on a definition change, a sweep that does not
   overlap itself), run when `HATCHET_CLIENT_TOKEN` and `HATCHET_CLIENT_HOST_PORT`
   are set.

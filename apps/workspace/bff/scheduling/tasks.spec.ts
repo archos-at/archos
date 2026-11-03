@@ -3,7 +3,7 @@
  *
  * The one wiring spec with a fake client: what the `bff-jobs` worker registers.
  * What the engine does with it (a scheduled fire, replacing a run, a cron that
- * does not overlap itself) is `hatchet.integration.spec.ts`, against a real one.
+ * does not overlap itself) is `orchestrator.integration.spec.ts`, against a real one.
  */
 import { describe, expect, it, vi } from 'vitest'
 import { ConcurrencyLimitStrategy } from '@hatchet-dev/typescript-sdk/v1'

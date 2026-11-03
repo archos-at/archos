@@ -10,7 +10,7 @@
  * an IFC) runs in THIS pod and never in a user-facing frontend pod that also
  * proxies chat. Hatchet decides which job runs when, fairly across
  * organizations; the job's row in `bff_job_queue` is what a run reads and
- * leaves behind (`bff/jobs-queue/hatchet-task.ts`).
+ * leaves behind (`bff/jobs-queue/task.ts`).
  *
  * The pod answers its probes' `/api/healthz` on `PORT` itself: an answer means
  * this process's event loop is turning.

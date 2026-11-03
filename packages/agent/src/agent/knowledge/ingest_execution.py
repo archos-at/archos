@@ -1,6 +1,6 @@
 """One ingestion job, run to its end: what the ``ingest-document`` task does, without Hatchet.
 
-The orchestrator (Hatchet, ADR-0150, registered in ``ingest_hatchet``) decides
+The orchestrator (Hatchet, ADR-0150, registered in ``ingest_workflow``) decides
 when a job runs, how often it is tried and when it is given up. Everything about
 the job itself is here, free of ``hatchet_sdk``, so the orchestrator stays
 replaceable: run the prepared job on the ingestor (``run_job``), read what it

@@ -12,15 +12,15 @@
  * nothing waits for it. The start is best effort: the row is the job, and a
  * row no run is coming for (Hatchet was briefly away, or the run came before
  * the caller's transaction committed) is started by the dispatch sweep
- * (`./hatchet-task.ts`, `dispatchStrandedJobs`) within a few minutes.
+ * (`./task.ts`, `dispatchStrandedJobs`) within a few minutes.
  */
 
 import 'server-only'
 import type { DbExecutor } from '@/lib/db/executor'
 import { BFF_JOB_PRIORITY, type BffJobKind, type BffJobPriority } from './types'
 import { insertJob } from './repository'
-import { priorityName } from './hatchet-task'
-import { triggerBffJob } from './hatchet'
+import { priorityName } from './task'
+import { triggerBffJob } from './orchestrator'
 
 export interface EnqueuedJob {
   jobId: string

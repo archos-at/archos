@@ -1,6 +1,6 @@
 """Research runs on Hatchet (ADR-0150): the code of ours around the engine.
 
-The engine itself is exercised by ``test_research_hatchet_engine.py``, against
+The engine itself is exercised by ``test_research_workflow_engine.py``, against
 a real Hatchet. Here Hatchet is the ``hatchet`` fixture's fake only for the one
 wiring test of the submit (what reaches the SDK: ids and ciphertext, never
 plaintext) and the cancel's error path; everything else is our own logic: the
@@ -29,7 +29,7 @@ from agent_host.jobs import access as job_access
 from agent_host.jobs import orchestrator_runs
 from agent_host.jobs import payload_crypto
 from agent_host.jobs import requeue_legacy
-from agent_host.jobs import research_hatchet
+from agent_host.jobs import research_workflow
 from agent_host.jobs import submit
 from agent_host.jobs import worker as worker_mod
 from agent_host.jobs.agent_job import run_agent_job
@@ -79,7 +79,7 @@ async def test_a_submit_starts_research_run_with_ids_and_ciphertext_only(db_url,
 
     [started] = hatchet.started
     run = started["input"]
-    assert isinstance(run, research_hatchet.ResearchRunInput)
+    assert isinstance(run, research_workflow.ResearchRunInput)
     assert (run.job_id, run.organization_id, run.priority) == ("job-1", "org-a", "interactive")
     assert run.payload.startswith("enc:")
     assert SECRET_QUESTION not in run.model_dump_json()
@@ -124,7 +124,7 @@ async def test_a_failed_hatchet_cancel_leaves_the_status_flip_to_stop_the_run(db
 
 
 async def test_a_job_with_no_recorded_run_cancels_nothing(db_url, hatchet):
-    assert await research_hatchet.cancel(db_url, "job-unknown") is False
+    assert await research_workflow.cancel(db_url, "job-unknown") is False
     hatchet.runs.aio_cancel.assert_not_awaited()
 
 
@@ -146,8 +146,8 @@ def _stored(**overrides: Any) -> str:
     return payload_crypto.serialize_encrypted(payload)
 
 
-def _input(stored: str) -> research_hatchet.ResearchRunInput:
-    return research_hatchet.ResearchRunInput(
+def _input(stored: str) -> research_workflow.ResearchRunInput:
+    return research_workflow.ResearchRunInput(
         job_id="job-1", organization_id="org-a", priority="interactive", payload=stored
     )
 
@@ -170,7 +170,7 @@ def replayed(monkeypatch) -> list:
 async def test_the_task_runs_the_payload_and_forgets_its_run_id(db_url, replayed):
     orchestrator_runs.record(db_url, "job-1", "run-1")
 
-    result = await research_hatchet.run_task(_input(_stored()))
+    result = await research_workflow.run_task(_input(_stored()))
 
     assert result == {"job_id": "job-1", "ran": "yes"}
     assert [kwargs["input_text"] for kwargs in replayed] == [SECRET_QUESTION]
@@ -182,7 +182,7 @@ async def test_an_unreadable_payload_records_its_verdict_and_is_not_retried(db_u
     monkeypatch.setattr(worker_mod, "record_poison_verdict", verdicts)
 
     with pytest.raises(NonRetryableException):
-        await research_hatchet.run_task(_input("enc:not-a-ciphertext"))
+        await research_workflow.run_task(_input("enc:not-a-ciphertext"))
 
     assert replayed == []
     verdicts.assert_awaited_once()
@@ -191,7 +191,7 @@ async def test_an_unreadable_payload_records_its_verdict_and_is_not_retried(db_u
 
 async def test_a_deterministic_run_failure_is_not_retried(db_url, replayed):
     with pytest.raises(NonRetryableException, match="TypeError"):
-        await research_hatchet.run_task(_input(_stored(not_a_parameter=1)))
+        await research_workflow.run_task(_input(_stored(not_a_parameter=1)))
 
 
 def _what_hatchet_stores(raised: BaseException) -> str:
@@ -209,7 +209,7 @@ async def test_a_transient_database_error_before_the_run_is_retried_and_keeps_th
     monkeypatch.setattr(worker_mod.run_ownership, "take_ownership", _database_away)
 
     with pytest.raises(TransientTaskError) as raised:
-        await research_hatchet.run_task(_input(_stored()))
+        await research_workflow.run_task(_input(_stored()))
 
     assert not isinstance(raised.value, NonRetryableException)
     assert str(raised.value) == "OperationalError (transient)"
@@ -236,7 +236,7 @@ async def test_what_hatchet_receives_names_a_class_and_a_category_never_the_mess
     monkeypatch.setattr(worker_mod, "run_agent_job", _fails)
 
     with pytest.raises(Exception) as raised:
-        await research_hatchet.run_task(_input(_stored()))
+        await research_workflow.run_task(_input(_stored()))
 
     stored = _what_hatchet_stores(raised.value)
     assert type(failure).__name__ in stored
@@ -249,7 +249,7 @@ async def test_an_unreadable_payload_reaches_hatchet_without_its_detail(db_url, 
     monkeypatch.setattr(worker_mod, "record_poison_verdict", AsyncMock())
 
     with pytest.raises(NonRetryableException) as raised:
-        await research_hatchet.run_task(_input("enc:not-a-ciphertext"))
+        await research_workflow.run_task(_input("enc:not-a-ciphertext"))
 
     assert str(raised.value) == "PoisonPayloadError (deterministic)"
     assert "undecryptable" not in _what_hatchet_stores(raised.value)
@@ -259,7 +259,7 @@ async def test_spent_attempts_fail_the_job_unless_a_verdict_stands(db_url, monke
     verdict = AsyncMock()
     monkeypatch.setattr(worker_mod, "record_exhausted_verdict", verdict)
 
-    await research_hatchet.record_failure(_input("enc:x"))
+    await research_workflow.record_failure(_input("enc:x"))
 
     verdict.assert_awaited_once_with(db_url, "job-1")
 
@@ -318,7 +318,7 @@ async def test_the_worker_lifespan_keeps_the_liveness_file_fresh(tmp_path, monke
     marker = tmp_path / "alive"
     monkeypatch.setenv("WORKER_LIVENESS_FILE", str(marker))
 
-    lifespan = research_hatchet._liveness()
+    lifespan = research_workflow._liveness()
     await lifespan.__anext__()
     import asyncio
 
@@ -359,7 +359,7 @@ async def test_the_cutover_starts_every_live_row_once_and_empties_the_old_queue(
         orchestrator_runs.record(db_url, job_id, f"run-{job_id}")
         return f"run-{job_id}"
 
-    monkeypatch.setattr(research_hatchet, "start", start)
+    monkeypatch.setattr(research_workflow, "start", start)
     old = _stored(claim_owner="host:1")
     _old_queue(
         db_url,

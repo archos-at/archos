@@ -3,7 +3,7 @@
 Fairness between organisations used to be ours: a fair in-process pool and a
 fair claim over the durable queue. It is Hatchet's now (ADR-0150): the
 ``ingest-document`` task's concurrency is keyed on the job's lane with
-``GROUP_ROUND_ROBIN`` (``ingest_hatchet``). What stays here is the lane itself,
+``GROUP_ROUND_ROBIN`` (``ingest_workflow``). What stays here is the lane itself,
 which the research queue shares, and the per-lane cap.
 
 A job with no organisation (the base-corpus sync, a RIS fetch) is its own lane,
@@ -27,7 +27,7 @@ _CAP_ENV = "INGEST_MAX_PER_ORG"
 # @required false
 # Most ingestion jobs one organisation may have running across the fleet: the
 # `max_runs` of the `ingest-document` task's per-organisation concurrency in
-# Hatchet. 0 is the default, `ingest_hatchet.DEFAULT_MAX_RUNS_PER_ORG`.
+# Hatchet. 0 is the default, `ingest_workflow.DEFAULT_MAX_RUNS_PER_ORG`.
 def per_org_cap_from_env() -> int:
     """The per-organisation cap: ``INGEST_MAX_PER_ORG``, 0 when unset or not a number."""
     raw = os.environ.get(_CAP_ENV, "").strip()

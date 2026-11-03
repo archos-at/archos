@@ -10,7 +10,7 @@ Set ``TEST_CORPUS_DB`` to a Postgres URL to run the same tests against a
 real server: the Postgres upsert, the conditional update and the advisory
 locks of ``keyed_lock`` (SQLite has none) are then exercised too. The corpus table and the
 ingest status store (one database, as in deployment) are emptied before each test, and
-Hatchet is the recording fake (``agent_testing.hatchet_fake``), with a payload key set:
+Hatchet is the recording fake (``agent_testing.orchestrator_fake``), with a payload key set:
 a job is handed over only encrypted.
 """
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from agent_testing import hatchet_fake
+from agent_testing import orchestrator_fake
 from sqlalchemy import delete
 from sqlalchemy import text
 
@@ -73,5 +73,5 @@ def install(monkeypatch, tmp_path: Path) -> FakeBucket:
     ingest_status_store.get("never-existed")
     with DocumentMetadataStore._get_or_create_sync_engine(ingest_status_store._db_url()).begin() as conn:
         conn.execute(text("DELETE FROM ingest_jobs"))
-    hatchet_fake.install_for(monkeypatch)
+    orchestrator_fake.install_for(monkeypatch)
     return bucket

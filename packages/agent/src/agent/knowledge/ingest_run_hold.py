@@ -1,6 +1,6 @@
 """The status store's vouching for a job Hatchet holds, and the run that job is.
 
-A job handed to Hatchet (``ingest_hatchet``) waits there with nobody beating for
+A job handed to Hatchet (``ingest_workflow``) waits there with nobody beating for
 its ``ingest_jobs`` row: the replica that accepted it may be gone, and no worker
 has it yet. Without a word the row would read as lost after
 ``ingest_status_store.STALE_AFTER_SECONDS`` and settle ``interrupted`` while the
@@ -13,7 +13,7 @@ its worker beats, as every running job's does.
 (``agent_host.jobs.ingest_dispatch.cancel``): stored once, never sent to the BFF.
 A person's cancel also marks it (``mark_stopped_by_person``), so a run that sees
 itself cancelled can tell that cancel from the engine's own: a timeout, or a
-newer upload of the same document superseding it (``ingest_hatchet._stopped``).
+newer upload of the same document superseding it (``ingest_workflow._stopped``).
 
 Best effort and fail-open, like the store: no database, no hold.
 """

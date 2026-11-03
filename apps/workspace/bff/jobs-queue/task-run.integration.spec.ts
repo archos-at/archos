@@ -6,10 +6,10 @@
  * failed or dead; the sweep finds the rows no run is coming for. The one fake
  * is the trigger (what Hatchet would be asked to start), recorded instead of
  * sent, and the handler is scripted (`@/test-utils/scripted-job-handlers`).
- * The same run through a real engine is `hatchet.integration.spec.ts`.
+ * The same run through a real engine is `orchestrator.integration.spec.ts`.
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
- *     npx vitest run bff/jobs-queue/hatchet-run.integration.spec.ts
+ *     npx vitest run bff/jobs-queue/task-run.integration.spec.ts
  *
  * `task db:test:rls` (scripts/rls-test-db.sh) builds that database and runs it.
  */
@@ -29,8 +29,8 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
   let db: ReturnType<typeof import('@/lib/db').getDb>
   let context: typeof import('@/lib/db/tenant-context')
   let repo: typeof import('./repository')
-  let task: typeof import('./hatchet-task')
-  let work: typeof import('./hatchet-run')
+  let task: typeof import('./task')
+  let work: typeof import('./task-run')
   const triggered: { input: unknown; options: unknown }[] = []
   const runs = {
     trigger: async (input: unknown, options: unknown) => {
@@ -43,8 +43,8 @@ describe.skipIf(!url)('a bff-job run over its row', () => {
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     repo = await import('./repository')
-    task = await import('./hatchet-task')
-    work = await import('./hatchet-run')
+    task = await import('./task')
+    work = await import('./task-run')
   }, 60_000)
 
   beforeEach(() => {

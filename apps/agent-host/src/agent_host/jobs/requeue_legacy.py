@@ -27,14 +27,14 @@ from dataclasses import dataclass
 from dataclasses import field
 
 from . import orchestrator_runs
-from . import research_hatchet
+from . import research_workflow
 from .worker import decode_payload
 
 logger = logging.getLogger(__name__)
 
 TABLE = "research_job_queue"
 #: The claim queue's lane for a job of no organization, and for a row written before lanes.
-_NO_ORGANIZATION_LANES = ("", research_hatchet.PLATFORM_LANE)
+_NO_ORGANIZATION_LANES = ("", research_workflow.PLATFORM_LANE)
 #: The claim queue's stored priority ranks.
 _PRIORITY_NAMES = {0: "interactive", 1: "bulk"}
 _TERMINAL = ("success", "failure", "interrupted")
@@ -95,7 +95,7 @@ async def _requeue_one(db_url: str, row: tuple, result: Requeued) -> None:
             result.unreadable.append(job_id)
             return
         organization_id = None if lane in _NO_ORGANIZATION_LANES else lane
-        await research_hatchet.start(db_url, job_id, payload, organization_id, _PRIORITY_NAMES.get(priority))
+        await research_workflow.start(db_url, job_id, payload, organization_id, _PRIORITY_NAMES.get(priority))
         result.started.append(job_id)
     await asyncio.to_thread(_delete_row, db_url, job_id)
 

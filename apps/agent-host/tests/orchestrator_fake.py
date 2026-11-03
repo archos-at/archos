@@ -1,8 +1,8 @@
-"""A stand-in for the Hatchet client, installed at its one seam (``hatchet_client.reset_for_tests``).
+"""A stand-in for the Hatchet client, installed at its one seam (``orchestrator_client.reset_for_tests``).
 
 It records what the research layer hands the SDK: the workflow it declares,
 the runs it starts, the runs it cancels, the worker it starts. No engine is
-reachable in tests; ``test_research_hatchet_engine.py`` runs against a real one
+reachable in tests; ``test_research_workflow_engine.py`` runs against a real one
 when ``HATCHET_CLIENT_TOKEN`` is set.
 """
 

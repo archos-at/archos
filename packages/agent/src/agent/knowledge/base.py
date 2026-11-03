@@ -119,7 +119,7 @@ class PreparedIngestJob:
 
     ``BaseIngestor.prepare_job`` makes one; whoever holds it decides where it
     runs: ``submit_prepared`` in this process's pool, or Hatchet, whose ingest
-    worker runs it with ``run_prepared`` (``agent.knowledge.ingest_hatchet``).
+    worker runs it with ``run_prepared`` (``agent.knowledge.ingest_workflow``).
     ``file_paths`` are local paths or deferred downloads, as ``submit_job`` takes them.
     """
 

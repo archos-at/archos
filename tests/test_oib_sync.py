@@ -17,13 +17,13 @@ import logging
 import threading
 
 import pytest
-from agent_testing.hatchet_fake import take_run
-from agent_testing.hatchet_fake import waiting_runs
+from agent_testing.orchestrator_fake import take_run
+from agent_testing.orchestrator_fake import waiting_runs
 
 from agent import corpus_store
 from agent import oib_sync
-from agent.knowledge import ingest_hatchet
 from agent.knowledge import ingest_status_store
+from agent.knowledge import ingest_workflow
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.ingest_scheduler import PLATFORM_LANE
 from agent_host.jobs import ingest_dispatch
@@ -83,11 +83,11 @@ def _engine():
 @contextlib.contextmanager
 def _hatchet_down():
     """Hatchet refuses every hand-over while this holds."""
-    ingest_hatchet.ingest_workflow().refuse_with = ConnectionError("engine down")
+    ingest_workflow.ingest_workflow().refuse_with = ConnectionError("engine down")
     try:
         yield
     finally:
-        ingest_hatchet.ingest_workflow().refuse_with = None
+        ingest_workflow.ingest_workflow().refuse_with = None
 
 
 class TestSync:

@@ -47,7 +47,7 @@ Which rules govern which text:
 
 A module, folder, workflow, task or test is named for what it does, never for
 the library or service that does it: `ingest/`, not `llamaindex/`;
-`ingest_workflow.py`, not `ingest_hatchet.py`; `vector_store/`, not `qdrant/`.
+`ingest_workflow.py`, not `ingest_workflow.py`; `vector_store/`, not `qdrant/`.
 The technology changes and the job does not, and a reader looking for the job
 should find it by its name. Exceptions: a vendor's own variable or config key
 (`HATCHET_CLIENT_TOKEN`), and infrastructure that deploys that product itself

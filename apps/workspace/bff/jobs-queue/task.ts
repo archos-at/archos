@@ -8,8 +8,8 @@
  * input carries ids and the priority only, never a payload: no tenant content
  * reaches Hatchet's database, and nothing needs sealing.
  *
- * This file is the contract; `./hatchet-run.ts` is what a run does, and
- * `./hatchet.ts` the only module that imports the SDK, which registers and
+ * This file is the contract; `./task-run.ts` is what a run does, and
+ * `./orchestrator.ts` the only module that imports the SDK, which registers and
  * triggers the task and passes on what this file says unchanged. Neither this
  * file nor the handlers import the SDK, so the orchestrator stays replaceable:
  *
@@ -25,7 +25,7 @@
  * - ONE COPY AT A TIME. Hatchet retries a slice past its timeout, and
  *   reassigns a lost worker's run, while the first copy may still run: no
  *   JavaScript can kill it. So the row is held by one attempt (`holderOf`,
- *   `./hatchet-run.ts`), which heartbeats while it runs, and is taken from it
+ *   `./task-run.ts`), which heartbeats while it runs, and is taken from it
  *   only once it is silent past {@link staleSeconds}, never by a retry that
  *   merely shares its run id.
  * - NO TEXT. Hatchet stores what a run throws. A failure reaches it as our

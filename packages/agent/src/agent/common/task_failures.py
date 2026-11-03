@@ -19,7 +19,7 @@ error, a dropped connection, a pool timeout), which ``classify`` calls
 
 Pure: no I/O and no import of ``hatchet_sdk``; the thin layer that registers a
 task turns a :class:`TaskFailure` into the engine's exception
-(``hatchet_client.task_error``).
+(``orchestrator_client.task_error``).
 """
 
 from __future__ import annotations

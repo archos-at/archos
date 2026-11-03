@@ -90,7 +90,7 @@ backend:
   - 'apps/workspace/bff/documents/semantic-search.ts'
   - 'apps/workspace/bff/documents/tag-vocabulary.ts'
   - 'apps/workspace/bff/jobs-queue/attempts.ts'
-  - 'apps/workspace/bff/jobs-queue/hatchet-task.ts'
+  - 'apps/workspace/bff/jobs-queue/task.ts'
   - 'apps/workspace/bff/jobs/types.ts'
   - 'apps/workspace/bff/legal/content/de.ts'
   - 'apps/workspace/bff/legal/content/en.ts'
@@ -287,7 +287,7 @@ infra:
   - 'apps/agent-host/src/agent_host/chat_socket.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_dispatch.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_worker.py'
-  - 'apps/agent-host/src/agent_host/jobs/research_hatchet.py'
+  - 'apps/agent-host/src/agent_host/jobs/research_workflow.py'
   - 'apps/agent-host/src/agent_host/roles.py'
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
@@ -301,7 +301,7 @@ infra:
   - 'apps/workspace/workers/langfuse-traces.js'
   - 'packages/agent/src/agent/common/credential_resolution.py'
   - 'packages/agent/src/agent/common/provider_limiter.py'
-  - 'packages/agent/src/agent/knowledge/ingest_hatchet.py'
+  - 'packages/agent/src/agent/knowledge/ingest_workflow.py'
   - 'packages/agent/src/agent/knowledge/ingest_scheduler.py'
   - 'packages/knowledge-layer/src/embedding.py'
   - 'packages/knowledge-layer/src/ingest/adapter.py'
@@ -348,15 +348,15 @@ sast:
 # script that builds the BFF suite's database.
 hatchet:
   # The ingest workflow, and the client both Python workflows build on.
-  - 'packages/agent/src/agent/common/hatchet_client.py'
+  - 'packages/agent/src/agent/common/orchestrator_client.py'
   - 'packages/agent/src/agent/knowledge/ingest_*.py'
-  - 'packages/agent/tests/knowledge/test_ingest_hatchet_engine.py'
-  - 'packages/agent/tests/testing/agent_testing/hatchet_engine_worker.py'
+  - 'packages/agent/tests/knowledge/test_ingest_workflow_engine.py'
+  - 'packages/agent/tests/testing/agent_testing/orchestrator_engine_worker.py'
   # The research run: submit, the worker, cancel, and the job store it shares.
   - 'apps/agent-host/src/agent_host/jobs/**'
   - 'apps/agent-host/src/agent_host/routes/job_kill.py'
-  - 'apps/agent-host/tests/test_research_hatchet_engine.py'
-  - 'apps/agent-host/tests/hatchet_engine_worker.py'
+  - 'apps/agent-host/tests/test_research_workflow_engine.py'
+  - 'apps/agent-host/tests/orchestrator_engine_worker.py'
   - 'apps/agent-host/tests/conftest.py'
   # The BFF's background jobs and the scheduler that fires them.
   - 'apps/workspace/bff/jobs-queue/**'

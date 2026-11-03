@@ -238,7 +238,7 @@ batch is one generation, its usage summed.
 One trace per ingest run (ADR-0150). The API tier's trigger opens
 `ingest-trigger` (ids only: job, document, organisation, whether it runs on
 the high-memory pool) and puts its `traceparent` in the run's Hatchet metadata.
-On the worker, the Hatchet SDK's own instrumentor (`observability/hatchet_tracing.py`,
+On the worker, the Hatchet SDK's own instrumentor (`observability/orchestrator_tracing.py`,
 on `direct_trace`'s provider, never Hatchet's collector) opens
 `hatchet.start_step_run` under it, so the queue wait is the gap between the
 two, and every file's `ingest-file` span, with the vision and transcription
@@ -246,7 +246,7 @@ generations under it, continues the same trace (`direct_trace.continued_from`).
 The instrumentor's `hatchet.payload` and `hatchet.additional_metadata`
 attributes are excluded on every span: what is left is ids, names, the retry
 count and the priority, and a step's error is the stand-in `task_failures`
-built (a class and a category). `test_hatchet_tracing.py` plants a file name,
+built (a class and a category). `test_orchestrator_tracing.py` plants a file name,
 a URL and a sentence in a run's input and metadata and fails if any span
 carries one.
 
@@ -465,7 +465,7 @@ Gotenberg has an egress policy, so no rule is needed. A spec
 | A turn's outcome on its root | `packages/agent/src/agent/observability/turn_outcome.py`, bound in `agent_host/chat_socket.py` `_drive` |
 | Runtime scores | `packages/agent/src/agent/observability/langfuse_scores.py` |
 | Model calls outside the runtime | `packages/agent/src/agent/observability/direct_trace.py` |
-| Hatchet's spans (trigger, step run) | `packages/agent/src/agent/observability/hatchet_tracing.py` |
+| Hatchet's spans (trigger, step run) | `packages/agent/src/agent/observability/orchestrator_tracing.py` |
 | Langfuse configuration as code | `packages/agent/src/agent/observability/langfuse_catalog.py`, `scripts/langfuse_provision.py` |
 | Votes, reasons, review queue | `apps/workspace/bff/langfuse/feedback-score.ts` |
 | Decisions on Piloti's proposals, marks and changes | `apps/workspace/bff/langfuse/decision-score.ts` |

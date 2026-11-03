@@ -13,7 +13,7 @@ _WORKSPACE = Path(__file__).resolve().parents[3] / "apps" / "workspace"
 # Where each BFF default is read since the claim loop moved to Hatchet (ADR-0150).
 _BFF_RUNNER = _WORKSPACE / "workers" / "jobs" / "index.js"
 _BFF_ATTEMPTS = _WORKSPACE / "bff" / "jobs-queue" / "attempts.ts"
-_BFF_TASK = _WORKSPACE / "bff" / "jobs-queue" / "hatchet-task.ts"
+_BFF_TASK = _WORKSPACE / "bff" / "jobs-queue" / "task.ts"
 
 
 @pytest.mark.parametrize(

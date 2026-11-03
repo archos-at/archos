@@ -142,7 +142,7 @@ def tracer_provider():
     """The private provider, built from the environment on first use; None when tracing is off.
 
     For an instrumentor that should export where these spans go (the Hatchet
-    SDK's, ``hatchet_tracing``), never for making it the global one.
+    SDK's, ``orchestrator_tracing``), never for making it the global one.
     """
     _current_tracer()
     return _provider
@@ -369,7 +369,7 @@ class SpanRecorder:
 
     @property
     def span(self) -> Any | None:
-        """The OpenTelemetry span, or None when tracing is off (``hatchet_tracing`` links runs to it)."""
+        """The OpenTelemetry span, or None when tracing is off (``orchestrator_tracing`` links runs to it)."""
         return self._span
 
     def finish(self, output: Mapping[str, Any], *, failed: str | None = None) -> None:

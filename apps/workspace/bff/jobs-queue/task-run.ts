@@ -1,7 +1,7 @@
 /**
  * What one `bff-job` run does (ADR-0150), and the sweep that starts the runs
- * nobody started. The contract they follow is `./hatchet-task.ts`; the SDK
- * calls in through `./hatchet.ts`, which is handed these two by the pod
+ * nobody started. The contract they follow is `./task.ts`; the SDK
+ * calls in through `./orchestrator.ts`, which is handed these two by the pod
  * (`./slice-entry.ts`), so the enqueue side never imports the handlers.
  */
 
@@ -24,7 +24,7 @@ import {
   type BffJobTaskInput,
   type BffJobTaskOutput,
   type Env,
-} from './hatchet-task'
+} from './task'
 import {
   failJob,
   finishJob,
@@ -210,7 +210,7 @@ const DISPATCH_GRACE_SECONDS = 120
 
 /**
  * Start a run for every row no run is coming for, and delete the dead rows past
- * their retention. Every `bff-jobs` replica runs it on a timer (`./hatchet.ts`);
+ * their retention. Every `bff-jobs` replica runs it on a timer (`./orchestrator.ts`);
  * a second replica's trigger of the same row is the same key, so it is no run.
  * This is also the cutover: the rows the claim queue left behind are
  * dispatched by the first sweep after the deploy.

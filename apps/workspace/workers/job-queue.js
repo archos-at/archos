@@ -2,7 +2,7 @@
 /**
  * What the plain Node processes still do to `bff_job_queue` (ADR-0079, ADR-0150).
  *
- * The BFF's jobs run on Hatchet now (`bff/jobs-queue/hatchet.ts`); the table is
+ * The BFF's jobs run on Hatchet now (`bff/jobs-queue/orchestrator.ts`); the table is
  * each job's record and saved progress, written by the BFF itself
  * (`bff/jobs-queue/repository.ts`). The claim that used to live here (the fair
  * lane order, heartbeats, release on drain, reaping) is gone with the runner

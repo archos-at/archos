@@ -284,10 +284,10 @@ def _drop_job(row: corpus_store.FileRow) -> None:
 
 def _cancel_run(job_id: str, run_id: str) -> None:
     """Cancel the job's Hatchet run; a run that already ended ignores it. Best effort."""
-    from agent.knowledge import ingest_hatchet
+    from agent.knowledge import ingest_workflow
 
     try:
-        ingest_hatchet.cancel_run(run_id)
+        ingest_workflow.cancel_run(run_id)
     except Exception as error:  # noqa: BLE001 - the status is gone; a run that still starts finds no row to resume
         logger.warning("Could not cancel the run of corpus job %s: %s", job_id, type(error).__name__)
 

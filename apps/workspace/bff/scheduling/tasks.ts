@@ -21,8 +21,8 @@
 
 import 'server-only'
 import { ConcurrencyLimitStrategy, type HatchetClient } from '@hatchet-dev/typescript-sdk/v1'
-import { hatchetClient } from '@/lib/jobs-queue/hatchet'
-import { failureText } from '@/lib/jobs-queue/hatchet-task'
+import { hatchetClient } from '@/lib/jobs-queue/orchestrator'
+import { failureText } from '@/lib/jobs-queue/task'
 import { runAsJobSlice } from '@/lib/jobs-queue/slice-scope'
 import { runWithTenantSlot, withPlatformAccess } from '@/lib/db/tenant-context'
 import { fireTaskDefinition, repairSchedules } from './fire-definition'

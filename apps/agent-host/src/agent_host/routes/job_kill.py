@@ -31,7 +31,7 @@ async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None
     the INTERRUPTED status through its CancellationMonitor and stops on its own
     (ADR-0021).
     """
-    from ..jobs import research_hatchet
+    from ..jobs import research_workflow
     from ..jobs.event_store import EventStore
 
     loop = asyncio.get_running_loop()
@@ -42,7 +42,7 @@ async def stop_interrupted_job(db_url: str, job_id: str, *, reason: str) -> None
         EventStore(db_url, job_id).store({"type": "job.cancellation_requested", "data": {"reason": reason}})
 
     await loop.run_in_executor(None, _record_cancellation_event)
-    await research_hatchet.cancel(db_url, job_id)
+    await research_workflow.cancel(db_url, job_id)
 
     # The caller wrote the verdict, so it reports it. A running worker reports
     # the same INTERRUPTED again when its abort lands, which the BFF absorbs;

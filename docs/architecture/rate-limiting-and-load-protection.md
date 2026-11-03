@@ -60,7 +60,7 @@ There is also a fourth, less structural but more immediate finding:
 |---|---|---|---|---|---|
 | 1 | `apps/workspace/server.js` (WS upgrade) | per client IP | fixed window, atomic `INCR` | Dragonfly | fail open |
 | 2 | `apps/workspace/bff/sharing/rate-limit.ts` | per subject/action | fixed window, **non-atomic** read-modify-write | Dragonfly via cache | fail open |
-| 3 | `apps/agent-host/.../jobs/submit.py`, `jobs/research_hatchet.py` | per org a **Hatchet concurrency cap** (`MAX_ACTIVE_JOBS_PER_ORG` 3) plus a **queued-length bound** (`MAX_QUEUED_JOBS_PER_ORG` 50), the only 429 | Postgres | fail open |
+| 3 | `apps/agent-host/.../jobs/submit.py`, `jobs/research_workflow.py` | per org a **Hatchet concurrency cap** (`MAX_ACTIVE_JOBS_PER_ORG` 3) plus a **queued-length bound** (`MAX_QUEUED_JOBS_PER_ORG` 50), the only 429 | Postgres | fail open |
 | 4 | `common/cost_tracking.py` + ADR-0015 | org / member / project | EUR budget, daily+monthly | Postgres ledger + rollups | read fails open, refusal fails closed |
 | 5 | `MAX_RUN_COMPLETION_TOKENS`, `MAX_QUERY_SUBMISSIONS` | per run | hard ceilings | in-process | n/a |
 

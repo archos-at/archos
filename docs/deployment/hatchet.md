@@ -97,7 +97,7 @@ engine job meets one.
 
 **Traces.** `ingest-worker`, `ingest-worker-heavy` and `agent-worker` install
 the SDK's `HatchetInstrumentor` on the provider Langfuse reads
-(`observability/hatchet_tracing.py`), with `enable_hatchet_otel_collector=False`
+(`observability/orchestrator_tracing.py`), with `enable_hatchet_otel_collector=False`
 so no span lands in Hatchet's database, and `payload` and
 `additional_metadata` excluded from every span. A trigger opens an
 `ingest-trigger` span and puts its `traceparent` in the run's metadata; the

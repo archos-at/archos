@@ -33,12 +33,12 @@ from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 from starlette.datastructures import Headers
 
-from agent.common import hatchet_client
+from agent.common import orchestrator_client
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
 from agent_host.jobs import access as job_access
-from agent_host.jobs import research_hatchet
+from agent_host.jobs import research_workflow
 from agent_host.jobs import run_envelope
 from agent_host.jobs import worker as worker_mod
 from agent_host.jobs.agent_job import run_agent_job
@@ -290,9 +290,9 @@ async def _submit_and_replay(client: TestClient, db_url: str, headers: dict[str,
         headers={"x-internal-token": SECRET, **headers},
     )
     assert response.status_code == 200, response.text
-    [started] = hatchet_client.client().started
+    [started] = orchestrator_client.client().started
     run = started["input"]
-    await research_hatchet.run_task(run)
+    await research_workflow.run_task(run)
     return {"stored": run.payload, "payload": worker_mod.decode_payload(run.payload)}
 
 

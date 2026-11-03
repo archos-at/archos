@@ -2,7 +2,7 @@
 
 Run as a dedicated container: ``python -m agent_host.jobs.worker`` (the
 ``agent-worker`` tier). :func:`main` starts the Hatchet worker that registers the
-``research-run`` task (``jobs/research_hatchet.py``); this module is what that
+``research-run`` task (``jobs/research_workflow.py``); this module is what that
 task does, and imports no orchestrator SDK, so the orchestrator stays
 replaceable. Hatchet holds fairness across organizations, priority, retries
 after a lost worker and the drain on SIGTERM; nothing here claims, heartbeats
@@ -173,7 +173,7 @@ def main() -> None:
     # Its knowledge layer takes session advisory locks, which need the direct DSN
     # (ADR-0083). It never LISTENs. Fail the boot, not the first lock.
     require_direct_dsns(listen=False)
-    from .research_hatchet import run_worker
+    from .research_workflow import run_worker
 
     run_worker()
 

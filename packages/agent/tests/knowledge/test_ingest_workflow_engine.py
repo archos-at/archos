@@ -4,9 +4,9 @@ Runs only when ``HATCHET_CLIENT_TOKEN`` and ``HATCHET_CLIENT_HOST_PORT`` name an
 engine (CI runs ``hatchet-lite`` as a service container); skipped otherwise.
 Each run gets its own namespace, so it shares the engine with nothing.
 
-One worker process (``agent_testing.hatchet_engine_worker``) serves the real
+One worker process (``agent_testing.orchestrator_engine_worker``) serves the real
 workflow, four slots, with ``INGEST_MAX_PER_ORG=2``; only the ingestor in it is
-scripted. The tests trigger runs through ``ingest_hatchet.trigger`` and read the
+scripted. The tests trigger runs through ``ingest_workflow.trigger`` and read the
 outcome from the status store the BFF reads, the engine's run status, and the
 worker's log of each attempt.
 
@@ -38,9 +38,9 @@ _WAIT_SECONDS = 120
 @pytest.fixture(scope="module")
 def engine(tmp_path_factory):
     """A namespace of our own, a status store both processes share, and the worker serving the workflow."""
-    from agent.common import hatchet_client
-    from agent.knowledge import ingest_hatchet
+    from agent.common import orchestrator_client
     from agent.knowledge import ingest_status_store
+    from agent.knowledge import ingest_workflow
 
     directory = tmp_path_factory.mktemp("hatchet-engine")
     env = {
@@ -53,10 +53,10 @@ def engine(tmp_path_factory):
     env.pop("INTERNAL_API_TOKEN", None)  # the settle step sends nothing
     saved = {key: os.environ.get(key) for key in ("HATCHET_CLIENT_NAMESPACE", "SUMMARY_DB", "INGEST_MAX_PER_ORG")}
     os.environ.update({key: env[key] for key in saved})
-    hatchet_client.reset_for_tests(None)
-    ingest_hatchet._declared = None
+    orchestrator_client.reset_for_tests(None)
+    ingest_workflow._declared = None
     worker = subprocess.Popen(  # noqa: S603 - our own module, with our own interpreter
-        [sys.executable, "-m", "agent_testing.hatchet_engine_worker", str(directory)], env=env
+        [sys.executable, "-m", "agent_testing.orchestrator_engine_worker", str(directory)], env=env
     )
     try:
         _wait_for_worker(directory)
@@ -64,8 +64,8 @@ def engine(tmp_path_factory):
     finally:
         worker.terminate()
         worker.wait(timeout=60)
-        hatchet_client.reset_for_tests(None)
-        ingest_hatchet._declared = None
+        orchestrator_client.reset_for_tests(None)
+        ingest_workflow._declared = None
         ingest_status_store._initialized.discard(env["SUMMARY_DB"])
         for key, value in saved.items():
             if value is None:
@@ -93,14 +93,14 @@ def _wait_for_worker(directory: Path) -> None:
 
 
 def _start(job_id: str, organization_id: str) -> str:
-    from agent_testing import hatchet_engine_worker as scripted
+    from agent_testing import orchestrator_engine_worker as scripted
 
-    from agent.knowledge import ingest_hatchet
     from agent.knowledge import ingest_status_store
+    from agent.knowledge import ingest_workflow
 
     job_id = f"{job_id}-{uuid.uuid4().hex[:6]}"
     ingest_status_store.put(scripted.status(job_id, organization_id=organization_id))
-    assert ingest_hatchet.trigger(job_id, organization_id, "interactive", scripted.payload(job_id, organization_id))
+    assert ingest_workflow.trigger(job_id, organization_id, "interactive", scripted.payload(job_id, organization_id))
     return job_id
 
 
@@ -112,10 +112,10 @@ def _state(job_id: str) -> str | None:
 
 
 def _run_status(job_id: str) -> str:
-    from agent.common import hatchet_client
+    from agent.common import orchestrator_client
     from agent.knowledge import ingest_run_hold
 
-    return str(hatchet_client.client().runs.get_status(ingest_run_hold.run_id_of(job_id)).value)
+    return str(orchestrator_client.client().runs.get_status(ingest_run_hold.run_id_of(job_id)).value)
 
 
 def _until(check, *, what: str, seconds: float = _WAIT_SECONDS) -> None:
@@ -166,14 +166,14 @@ def test_a_failure_of_the_bytes_is_tried_once_and_fails_the_run(engine):
 
 
 def test_a_cancelled_job_stops_and_reads_cancelled(engine):
-    from agent.knowledge import ingest_hatchet
     from agent.knowledge import ingest_run_hold
     from agent.knowledge import ingest_status_store
+    from agent.knowledge import ingest_workflow
 
     job = _start("slow", "org-cancel")
     _until(lambda: _attempts(engine, job) == 1, what="the run to start")
 
-    ingest_hatchet.cancel_run(ingest_run_hold.run_id_of(job))
+    ingest_workflow.cancel_run(ingest_run_hold.run_id_of(job))
     ingest_status_store.settle_cancelled(job)  # what ``ingest_dispatch.cancel`` does after it
 
     _until(lambda: any(e == "end" and j == job for e, j, _, _ in _events(engine)), what="the run to stop")

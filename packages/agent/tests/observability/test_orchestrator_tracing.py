@@ -20,7 +20,7 @@ from hatchet_sdk.types.trigger import TriggerWorkflowOptions
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 from agent.observability import direct_trace
-from agent.observability import hatchet_tracing
+from agent.observability import orchestrator_tracing
 
 #: What must never reach a span: a file name, a presigned URL, a payload's text.
 SECRETS = ("Bauantrag.pdf", "s3.example", "Gutachten über das Dach")
@@ -42,7 +42,7 @@ def exporter(monkeypatch):
     memory = InMemorySpanExporter()
     direct_trace.install_tracer_provider(None, env={}, exporter=memory)
     yield memory
-    hatchet_tracing.uninstrument()
+    orchestrator_tracing.uninstrument()
     direct_trace.reset_tracer_provider()
 
 
@@ -59,14 +59,14 @@ def test_without_an_endpoint_nothing_is_installed(monkeypatch):
     monkeypatch.delenv(direct_trace.ENDPOINT_ENV, raising=False)
     direct_trace.reset_tracer_provider()
 
-    assert hatchet_tracing.instrument(_config()) is False
-    assert hatchet_tracing._instrumentor is None
+    assert orchestrator_tracing.instrument(_config()) is False
+    assert orchestrator_tracing._instrumentor is None
 
 
 def test_the_instrumentor_exports_through_our_provider_and_never_to_hatchet(exporter):
-    assert hatchet_tracing.instrument(_config()) is True
+    assert orchestrator_tracing.instrument(_config()) is True
 
-    instrumentor = hatchet_tracing._instrumentor
+    instrumentor = orchestrator_tracing._instrumentor
     assert instrumentor.tracer_provider is direct_trace._provider
     # The collector exporter is the only processor the instrumentor adds; ours has one, the test's.
     assert len(direct_trace._provider._active_span_processor._span_processors) == 1
@@ -74,8 +74,8 @@ def test_the_instrumentor_exports_through_our_provider_and_never_to_hatchet(expo
 
 
 def test_a_trigger_carries_its_traceparent_and_no_payload_on_its_span(exporter):
-    hatchet_tracing.instrument(_config())
-    instrumentor: HatchetInstrumentor = hatchet_tracing._instrumentor
+    orchestrator_tracing.instrument(_config())
+    instrumentor: HatchetInstrumentor = orchestrator_tracing._instrumentor
     sent = {}
 
     def run_workflow(workflow_name, input, options):
@@ -83,7 +83,7 @@ def test_a_trigger_carries_its_traceparent_and_no_payload_on_its_span(exporter):
         return "ref"
 
     payload = json.dumps({"file_ref": "https://s3.example/Bauantrag.pdf", "text": SECRETS[2]})
-    with hatchet_tracing.linked_metadata("ingest-trigger", {"job_id": "job-1"}) as metadata:
+    with orchestrator_tracing.linked_metadata("ingest-trigger", {"job_id": "job-1"}) as metadata:
         options = TriggerWorkflowOptions(additional_metadata=metadata)
         instrumentor._wrap_run_workflow(run_workflow, None, ("test_ingest-document", payload, options), {})
 
@@ -99,9 +99,9 @@ def test_a_trigger_carries_its_traceparent_and_no_payload_on_its_span(exporter):
 
 
 async def test_a_step_run_continues_the_trigger_trace_and_names_no_document(exporter):
-    hatchet_tracing.instrument(_config())
-    instrumentor: HatchetInstrumentor = hatchet_tracing._instrumentor
-    with hatchet_tracing.linked_metadata("ingest-trigger", {"job_id": "job-1"}) as metadata:
+    orchestrator_tracing.instrument(_config())
+    instrumentor: HatchetInstrumentor = orchestrator_tracing._instrumentor
+    with orchestrator_tracing.linked_metadata("ingest-trigger", {"job_id": "job-1"}) as metadata:
         pass
     action = Action(
         worker_id="w",
@@ -120,7 +120,7 @@ async def test_a_step_run_continues_the_trigger_trace_and_names_no_document(expo
     )
 
     async def start_step_run(action):
-        with direct_trace.continued_from(hatchet_tracing.traceparent_of(action.additional_metadata)):
+        with direct_trace.continued_from(orchestrator_tracing.traceparent_of(action.additional_metadata)):
             with direct_trace.observed_span("ingest-file", metadata={"job_id": "job-1"}):
                 pass
 
@@ -145,6 +145,6 @@ def test_a_file_trace_is_a_root_without_a_traceparent(exporter):
 
 
 def test_traceparent_of_reads_only_a_string():
-    assert hatchet_tracing.traceparent_of({"traceparent": "00-ab-cd-01"}) == "00-ab-cd-01"
-    assert hatchet_tracing.traceparent_of({"traceparent": 7}) is None
-    assert hatchet_tracing.traceparent_of(None) is None
+    assert orchestrator_tracing.traceparent_of({"traceparent": "00-ab-cd-01"}) == "00-ab-cd-01"
+    assert orchestrator_tracing.traceparent_of({"traceparent": 7}) is None
+    assert orchestrator_tracing.traceparent_of(None) is None

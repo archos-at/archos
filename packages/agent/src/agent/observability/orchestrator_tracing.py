@@ -69,7 +69,7 @@ def instrument(client_config: Any) -> bool:
             return False
         provider = direct_trace.tracer_provider()
         if provider is None:
-            logger.info("hatchet_tracing: no OTLP endpoint; Hatchet spans are not exported")
+            logger.info("orchestrator_tracing: no OTLP endpoint; Hatchet spans are not exported")
             return False
         try:
             from hatchet_sdk.opentelemetry.instrumentor import HatchetInstrumentor
@@ -79,7 +79,7 @@ def instrument(client_config: Any) -> bool:
             )
             instrumentor.instrument()
         except Exception:
-            logger.warning("hatchet_tracing: could not install the Hatchet instrumentor", exc_info=True)
+            logger.warning("orchestrator_tracing: could not install the Hatchet instrumentor", exc_info=True)
             return False
         _instrumentor = instrumentor
         return True
@@ -106,7 +106,7 @@ def traceparent(recorder: direct_trace.SpanRecorder) -> dict[str, str]:
         carrier: dict[str, str] = {}
         TraceContextTextMapPropagator().inject(carrier, context=set_span_in_context(span))
     except Exception:
-        logger.debug("hatchet_tracing: could not render a traceparent", exc_info=True)
+        logger.debug("orchestrator_tracing: could not render a traceparent", exc_info=True)
         return {}
     return {TRACEPARENT: carrier[TRACEPARENT]} if TRACEPARENT in carrier else {}
 
@@ -139,7 +139,7 @@ def _attach(span: Any | None) -> Any | None:
 
         return context.attach(set_span_in_context(span))
     except Exception:
-        logger.debug("hatchet_tracing: could not make a span current", exc_info=True)
+        logger.debug("orchestrator_tracing: could not make a span current", exc_info=True)
         return None
 
 

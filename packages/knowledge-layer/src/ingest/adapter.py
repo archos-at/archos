@@ -3018,7 +3018,7 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
         status, so a caller that chooses ids looks the status up first.
 
         What runs it is the caller's choice: ``submit_prepared`` queues it in
-        this process, and Hatchet (``agent.knowledge.ingest_hatchet``) runs it
+        this process, and Hatchet (``agent.knowledge.ingest_workflow``) runs it
         on whichever ingest worker is free, on any replica. So a pending
         job is NOT registered in this process here: the process that runs it
         is the one that vouches for it (``_beat``). A job that fails validation

@@ -3,7 +3,7 @@
  *
  * A handler reads the job's saved state, does one bounded step of the work and
  * returns the state to save. It never takes, saves or finishes the row: the
- * `bff-job` run owns that (`./hatchet-run.ts`), this owns the work. That split is why a job survives a
+ * `bff-job` run owns that (`./task-run.ts`), this owns the work. That split is why a job survives a
  * restart: nothing a handler holds in memory matters, only what it returned.
  *
  * A walk (`reindex_project`, `reingest_failed`, `restore_folder_bin`) runs as

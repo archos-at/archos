@@ -9,7 +9,7 @@ from hatchet_sdk import NonRetryableException
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import OperationalError
 
-from agent.common import hatchet_client
+from agent.common import orchestrator_client
 from agent.common import task_failures
 from agent.common.bff_http import BffRefusedError
 from agent.common.task_failures import TransientTaskError
@@ -63,7 +63,7 @@ def test_a_wrapper_of_a_database_error_is_transient():
 def test_the_engine_exception_retries_only_when_asked():
     failure = task_failures.TaskFailure("OperationalError", "transient")
 
-    assert type(hatchet_client.task_error(failure, retry=True)) is TransientTaskError
-    refused = hatchet_client.task_error(failure, retry=False)
+    assert type(orchestrator_client.task_error(failure, retry=True)) is TransientTaskError
+    refused = orchestrator_client.task_error(failure, retry=False)
     assert isinstance(refused, NonRetryableException)
     assert str(refused) == "OperationalError (transient)"

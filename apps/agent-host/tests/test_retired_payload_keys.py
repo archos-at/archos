@@ -27,7 +27,7 @@ import inspect
 import pytest
 
 from agent_host.jobs import payload_crypto
-from agent_host.jobs import research_hatchet
+from agent_host.jobs import research_workflow
 from agent_host.jobs import worker as worker_mod
 from agent_host.jobs.agent_job import run_agent_job
 
@@ -69,8 +69,8 @@ def replayed(monkeypatch) -> list:
     return calls
 
 
-def _run(payload: dict) -> research_hatchet.ResearchRunInput:
-    return research_hatchet.ResearchRunInput(
+def _run(payload: dict) -> research_workflow.ResearchRunInput:
+    return research_workflow.ResearchRunInput(
         job_id=payload["job_id"],
         organization_id="org-a",
         priority="interactive",
@@ -79,7 +79,7 @@ def _run(payload: dict) -> research_hatchet.ResearchRunInput:
 
 
 async def test_an_old_payload_replays_without_its_retired_keys(db_url, replayed):
-    await research_hatchet.run_task(_run(dict(OLD_PAYLOAD)))
+    await research_workflow.run_task(_run(dict(OLD_PAYLOAD)))
 
     assert len(replayed) == 1
     assert "scheduler_address" not in replayed[0]

@@ -19,7 +19,7 @@ whole and runs them from `/app/apps/agent-host/`.
 | Add a job phase | Emit it through `jobs/phase_events.py` so the SSE stream and the event store agree. A research job's own steps (start, prepare, run, persist, finish) are functions in `jobs/agent_job.py`, `agent_job_setup.py` and `job_outcome.py`; a new step is a new function there, not a branch in `run_agent_job` | The UI's progress display and the stored history diverge, and only one of them is replayable |
 | Store job payloads | Go through `jobs/payload_crypto.py` | Job payloads carry tenant content into a shared store |
 | Remove or rename a `run_agent_job` parameter | Name the old key in `RETIRED_PAYLOAD_KEYS` (`jobs/worker.py`) in the same change, and change its field on `JobRequest` (`jobs/agent_job.py`) with it. Runs waiting on Hatchet, and runs retried after a lost worker, at the upgrade replay the old payload | Every job in flight at the upgrade fails with a TypeError. `tests/test_retired_payload_keys.py` binds replays to the real signature, and `tests/test_agent_job_phases.py` fails a parameter `JobRequest` lacks |
-| Change how a research job runs | Keep the one path: `jobs/submit.py` persists the job and starts its `research-run` on Hatchet (`jobs/research_hatchet.py`, the only research module that imports `hatchet_sdk`), the `agent-worker` tier runs it through `worker.run_stored_job`, and the cancel route flips `job_info` to INTERRUPTED for the run's `CancellationMonitor` to poll and cancels the Hatchet run by its id (ADR-0021, ADR-0150). The `chat` role submits and the `api` role streams and cancels (ADR-0082) | A second execution path forks cancel, retries and the reaper, and only one of them gets tested. `tests/test_research_hatchet.py` fakes Hatchet at `hatchet_client.reset_for_tests` and asserts what is handed to the SDK |
+| Change how a research job runs | Keep the one path: `jobs/submit.py` persists the job and starts its `research-run` on Hatchet (`jobs/research_workflow.py`, the only research module that imports `hatchet_sdk`), the `agent-worker` tier runs it through `worker.run_stored_job`, and the cancel route flips `job_info` to INTERRUPTED for the run's `CancellationMonitor` to poll and cancels the Hatchet run by its id (ADR-0021, ADR-0150). The `chat` role submits and the `api` role streams and cancels (ADR-0082) | A second execution path forks cancel, retries and the reaper, and only one of them gets tested. `tests/test_research_workflow.py` fakes Hatchet at `orchestrator_client.reset_for_tests` and asserts what is handed to the SDK |
 
 ## Rules that need more than a row
 
@@ -44,7 +44,7 @@ cause, which may name a file or a URL, go to our own logs only. Hatchet delivers
 nothing; a cancel with no INTERRUPTED recorded is the execution timeout and ends
 as FAILURE (`agent_job._finish_cancelled`). The run's id is kept in
 `research_orchestrator_runs` (`jobs/orchestrator_runs.py`) for the cancel.
-Ingestion is the `ingest-document` workflow (`agent.knowledge.ingest_hatchet`,
+Ingestion is the `ingest-document` workflow (`agent.knowledge.ingest_workflow`,
 steps `index` then `settle`): `jobs/ingest_dispatch.py` starts a run per job and
 `jobs/ingest_worker.py` is the only process that serves it; the `chat` and `api`
 roles dispatch and never run a job. Every task input carries ids, the priority

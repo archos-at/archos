@@ -11,7 +11,7 @@
  *   - a sweep runs once and does not overlap itself.
  *
  *   HATCHET_CLIENT_TOKEN=… HATCHET_CLIENT_HOST_PORT=localhost:7077 HATCHET_CLIENT_TLS_STRATEGY=none \
- *     npx vitest run bff/scheduling/hatchet.integration.spec.ts
+ *     npx vitest run bff/scheduling/orchestrator.integration.spec.ts
  *
  * The engine is real; our own database is not. What the database does with a
  * fire (taking the occurrence once, however many fires race for it) is
@@ -74,7 +74,7 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
   }
 
   beforeAll(async () => {
-    hatchet = (await import('@/lib/jobs-queue/hatchet')).hatchetClient()
+    hatchet = (await import('@/lib/jobs-queue/orchestrator')).hatchetClient()
     scheduling = await import('./scheduled-runs')
     const { fireTask, sweepTask } = await import('./tasks')
     overlapping = sweepTask(hatchet, {

@@ -4,12 +4,12 @@
  * The one piece of wiring a real engine cannot show cheaply: which SDK error
  * each of our failures becomes, through a fake client at the one seam
  * (`useHatchetForTests`). Everything the task does on an engine is
- * `hatchet.integration.spec.ts`.
+ * `orchestrator.integration.spec.ts`.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NonRetryableError, RetryAfterError } from '@hatchet-dev/typescript-sdk/v1'
-import { PermanentJobError, RetryLaterError, type BffJobTaskInput } from './hatchet-task'
-import { startBffJobWorker, triggerBffJob, useHatchetForTests, type BffJobTaskOptions, type HatchetLike } from './hatchet'
+import { PermanentJobError, RetryLaterError, type BffJobTaskInput } from './task'
+import { startBffJobWorker, triggerBffJob, useHatchetForTests, type BffJobTaskOptions, type HatchetLike } from './orchestrator'
 
 const INPUT: BffJobTaskInput = { job_id: 'job-1', kind: 'inbox_push', organization_id: 'org-1', priority: 'interactive', generation: 0 }
 

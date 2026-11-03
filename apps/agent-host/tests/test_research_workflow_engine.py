@@ -5,11 +5,11 @@ Runs when ``HATCHET_CLIENT_TOKEN`` and ``HATCHET_CLIENT_HOST_PORT`` are set
 gets its own namespace, so its workflow registration (with its own concurrency
 cap) and its runs meet nobody else's.
 
-The worker is a real one in a subprocess (``hatchet_engine_worker.py``):
-``research_hatchet.run_worker`` registers the task, Hatchet dispatches to it,
+The worker is a real one in a subprocess (``orchestrator_engine_worker.py``):
+``research_workflow.run_worker`` registers the task, Hatchet dispatches to it,
 and a run goes through ``worker.run_stored_job`` to a stand-in agent that writes
 the event store as a run does. The test process submits through
-``research_hatchet.start`` and cancels through the cancel route's own
+``research_workflow.start`` and cancels through the cancel route's own
 ``stop_interrupted_job``, against one SQLite job store both processes share.
 """
 
@@ -28,9 +28,9 @@ from pathlib import Path
 
 import pytest
 
-from agent.common import hatchet_client
+from agent.common import orchestrator_client
 from agent_host.jobs import orchestrator_runs
-from agent_host.jobs import research_hatchet
+from agent_host.jobs import research_workflow
 from agent_host.jobs.event_store import EventStore
 
 pytestmark = pytest.mark.skipif(
@@ -38,7 +38,7 @@ pytestmark = pytest.mark.skipif(
     reason="needs a Hatchet engine (HATCHET_CLIENT_TOKEN, HATCHET_CLIENT_HOST_PORT)",
 )
 
-_WORKER = Path(__file__).with_name("hatchet_engine_worker.py")
+_WORKER = Path(__file__).with_name("orchestrator_engine_worker.py")
 
 
 class Engine:
@@ -90,7 +90,7 @@ class Engine:
         deadline = time.monotonic() + 30
         while True:  # the worker registers the workflow a moment after it starts
             try:
-                return await research_hatchet.start(self.db_url, job_id, payload, organization_id, priority)
+                return await research_workflow.start(self.db_url, job_id, payload, organization_id, priority)
             except Exception:
                 if time.monotonic() > deadline:
                     raise
@@ -121,16 +121,16 @@ def _wait_for(predicate: Callable[[], bool], *, timeout: float, what: str) -> No
 def engine(hatchet, tmp_path, monkeypatch) -> Iterator[Engine]:
     """A real client (not the suite's fake) in a namespace of this test's own."""
     on_engine = Engine(tmp_path, monkeypatch)
-    hatchet_client.reset_for_tests(None)
-    research_hatchet._declared.clear()
+    orchestrator_client.reset_for_tests(None)
+    research_workflow._declared.clear()
     orchestrator_runs._ensured.clear()
     EventStore._tables_initialized.clear()
     try:
         yield on_engine
     finally:
         on_engine.stop()
-        hatchet_client.reset_for_tests(None)
-        research_hatchet._declared.clear()
+        orchestrator_client.reset_for_tests(None)
+        research_workflow._declared.clear()
 
 
 async def test_a_research_run_runs_end_to_end_and_its_events_reach_the_event_store(engine):
@@ -143,7 +143,7 @@ async def test_a_research_run_runs_end_to_end_and_its_events_reach_the_event_sto
     assert [event["type"] for event in engine.events("job-e2e")] == ["test.started", "test.finished"]
     assert run_id
     _wait_for(lambda: orchestrator_runs.run_id_for(engine.db_url, "job-e2e") is None, timeout=10, what="the id")
-    status = await hatchet_client.client().runs.aio_get_status(run_id)
+    status = await orchestrator_client.client().runs.aio_get_status(run_id)
     assert status.value == "COMPLETED"
 
 
@@ -169,7 +169,7 @@ async def test_cancel_stops_a_running_run_and_its_hatchet_run(engine, monkeypatc
 
     _wait_for(lambda: engine.times("job-cancel", "test.cancelled"), timeout=30, what="the run to be cancelled")
     assert not engine.times("job-cancel", "test.finished")
-    status = await hatchet_client.client().runs.aio_get_status(run_id)
+    status = await orchestrator_client.client().runs.aio_get_status(run_id)
     assert status.value == "CANCELLED"
 
 

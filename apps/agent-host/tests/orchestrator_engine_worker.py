@@ -1,6 +1,6 @@
 """The research worker the engine tests start in a subprocess: the real Hatchet worker, a stand-in agent.
 
-Everything up to the agent is production code: ``research_hatchet.run_worker``
+Everything up to the agent is production code: ``research_workflow.run_worker``
 registers ``research-run`` on the engine, and a run goes through
 ``worker.run_stored_job`` (decrypt, retired keys, failure mapping). Only
 ``run_agent_job`` is replaced, because the real one needs the workflow config
@@ -21,7 +21,7 @@ import os
 import time
 from pathlib import Path
 
-from agent_host.jobs import research_hatchet
+from agent_host.jobs import research_workflow
 from agent_host.jobs import run_ownership
 from agent_host.jobs import worker
 from agent_host.jobs.event_store import EventStore
@@ -56,4 +56,4 @@ if __name__ == "__main__":
     run_ownership.STALE_SECONDS = 10
     run_ownership.WAIT_SECONDS = 40
     run_ownership._POLL_SECONDS = 2
-    research_hatchet.run_worker()
+    research_workflow.run_worker()

@@ -3,10 +3,10 @@
 A job whose original is at least ``INGEST_HEAVY_FILE_BYTES`` (the BFF states its
 size as ``byte_size``) runs as ``ingest-document-heavy`` on the high-memory pool
 instead, and every job of one document carries its id, so a newer upload of it
-supersedes the run still reading the old bytes (``ingest_hatchet``).
+supersedes the run still reading the old bytes (``ingest_workflow``).
 
 ``POST /v1/ingest`` prepares a job (validated, recorded PENDING) and hands it to
-Hatchet (``agent.knowledge.ingest_hatchet``, ADR-0150), which runs it on the
+Hatchet (``agent.knowledge.ingest_workflow``, ADR-0150), which runs it on the
 ingest-worker tier (``ingest_worker``), fair across organisations: the ``chat``
 and ``api`` roles accept jobs and never run them. A job survives the restart of
 the replica that accepted it, and ingestion scales apart from the web tiers.
@@ -31,9 +31,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from agent.knowledge import ingest_hatchet
 from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
+from agent.knowledge import ingest_workflow
 from agent.knowledge.base import BaseIngestor
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.ingest_execution import UNREADABLE_JOB_MESSAGE  # noqa: F401 - re-exported
@@ -151,7 +151,7 @@ def _hand_over(prepared: PreparedIngestJob) -> bool:
     if not payload.startswith(_ENCRYPTED):
         raise QueueUnavailable("JOB_PAYLOAD_KEK is not set: a job's payload never leaves this tier in plaintext")
     try:
-        return ingest_hatchet.trigger(
+        return ingest_workflow.trigger(
             prepared.job_id,
             prepared.organization_id,
             prepared.priority,
@@ -244,7 +244,7 @@ def cancel(job_id: str) -> str:
     # Before the cancel: the run that sees it must know a person asked, not a newer upload.
     ingest_run_hold.mark_stopped_by_person(job_id)
     try:
-        ingest_hatchet.cancel_run(run_id)
+        ingest_workflow.cancel_run(run_id)
     except Exception as error:  # noqa: BLE001 - the route reports it; the job runs on
         logger.warning("Could not cancel the run of ingestion job %s: %s", job_id, type(error).__name__)
         return CANCEL_UNAVAILABLE

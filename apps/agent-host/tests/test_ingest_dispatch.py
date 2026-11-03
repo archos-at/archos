@@ -1,7 +1,7 @@
 """A job ``/v1/ingest`` accepts runs on Hatchet, and only as it was accepted.
 
 The workflow itself (its declaration, its steps, an attempt's end) is
-``packages/agent/tests/knowledge/test_ingest_hatchet.py``; these pin the half
+``packages/agent/tests/knowledge/test_ingest_workflow.py``; these pin the half
 that lives here: what the payload carries, that a worker reads back nothing the
 route would have refused, that a job Hatchet cannot take still runs, and cancel.
 """
@@ -13,12 +13,12 @@ import os
 from datetime import datetime
 
 import pytest
-from agent_testing import hatchet_fake
+from agent_testing import orchestrator_fake
 
-from agent.common import hatchet_client
-from agent.knowledge import ingest_hatchet
+from agent.common import orchestrator_client
 from agent.knowledge import ingest_run_hold
 from agent.knowledge import ingest_status_store
+from agent.knowledge import ingest_workflow
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.ingest_scheduler import PLATFORM_LANE
 from agent.knowledge.schema import IngestionJobStatus
@@ -40,9 +40,9 @@ def object_store(monkeypatch):
 
 @pytest.fixture
 def hatchet():
-    fake = hatchet_fake.install()
+    fake = orchestrator_fake.install()
     yield fake
-    hatchet_client.reset_for_tests(None)
+    orchestrator_client.reset_for_tests(None)
 
 
 @pytest.fixture
@@ -155,7 +155,7 @@ def _held(db) -> dict[str, tuple]:
 
 
 def _workflow():
-    return ingest_hatchet.ingest_workflow()
+    return ingest_workflow.ingest_workflow()
 
 
 def test_an_accepted_job_starts_its_run_with_ids_and_the_encrypted_payload_only(db, hatchet, kek):

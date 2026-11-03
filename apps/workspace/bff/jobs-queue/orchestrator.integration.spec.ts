@@ -15,7 +15,7 @@
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
  *   HATCHET_CLIENT_TOKEN=… HATCHET_CLIENT_HOST_PORT=localhost:7077 HATCHET_CLIENT_TLS_STRATEGY=none \
- *     npx vitest run bff/jobs-queue/hatchet.integration.spec.ts
+ *     npx vitest run bff/jobs-queue/orchestrator.integration.spec.ts
  */
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -51,8 +51,8 @@ describe.skipIf(!url || !engine)('bff-job on a real Hatchet engine', () => {
     context = await import('@/lib/db/tenant-context')
     db = (await import('@/lib/db')).getDb()
     enqueueJob = (await import('./enqueue')).enqueueJob
-    const { startBffJobWorker } = await import('./hatchet')
-    const work = await import('./hatchet-run')
+    const { startBffJobWorker } = await import('./orchestrator')
+    const work = await import('./task-run')
     const worker = await startBffJobWorker(`bff-jobs-it-${STAMP}`, { run: work.runBffJobTask, sweep: work.dispatchStrandedJobs })
     stop = worker.stop
   }, 120_000)

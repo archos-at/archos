@@ -1,6 +1,6 @@
 """One research job, in phases: claim, prepare, run, persist, finish.
 
-The ``research-run`` task (``jobs/research_hatchet.py``, through
+The ``research-run`` task (``jobs/research_workflow.py``, through
 ``jobs/worker.py``) awaits ``run_agent_job`` with the job's payload. This is the one place a research job runs
 (ADR-0021), and the function reads as its phases, each a function with one job:
 

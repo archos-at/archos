@@ -4,7 +4,7 @@
  * What a stopping `bff-jobs` pod gives back: the rows of the attempts still
  * running in this process, in one call, each with its own holder, and nothing
  * twice. The UPDATE itself, and that the next run takes a given-back row at
- * once, is `hatchet-run.integration.spec.ts` against Postgres.
+ * once, is `task-run.integration.spec.ts` against Postgres.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -29,7 +29,7 @@ vi.mock('./run', () => ({
     }),
 }))
 
-const { releaseInFlightJobs, runBffJobTask } = await import('./hatchet-run')
+const { releaseInFlightJobs, runBffJobTask } = await import('./task-run')
 
 const input = { job_id: 'job-1', kind: 'inbox_push', organization_id: 'org-1', priority: 'interactive' as const, generation: 0 }
 const runs = { trigger: vi.fn() }

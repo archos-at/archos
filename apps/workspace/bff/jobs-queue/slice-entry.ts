@@ -14,8 +14,8 @@ import { bootLine } from '@/lib/boot'
 import { bootstrapPlatformModelDefaults } from '@/lib/model-config/bootstrap-defaults'
 import { shutdownPosthogServer } from '@/lib/analytics/posthog-server'
 import { schedulingTasks } from '@/lib/scheduling/tasks'
-import { startBffJobWorker } from './hatchet'
-import { dispatchStrandedJobs, releaseInFlightJobs, runBffJobTask } from './hatchet-run'
+import { startBffJobWorker } from './orchestrator'
+import { dispatchStrandedJobs, releaseInFlightJobs, runBffJobTask } from './task-run'
 
 /**
  * What `instrumentation.ts` `register()` does for a Next server, minus what a

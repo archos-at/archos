@@ -18,7 +18,7 @@ from agent_host.auth import get_current_trace_tags
 
 from ..registry import get_agent_config
 from . import orchestrator_runs
-from . import research_hatchet
+from . import research_workflow
 from .access import _make_no_auth_principal
 from .access import create_job_access
 from .access import derive_project_collection
@@ -123,7 +123,7 @@ logger = logging.getLogger(__name__)
 #
 # Capacity makes a job WAIT, never fail (ADR-0079). Hatchet runs fairly across
 # organizations and holds one organization to `MAX_ACTIVE_JOBS_PER_ORG` running
-# at once (`jobs/research_hatchet.py`), so a full cluster is a longer wait, and a
+# at once (`jobs/research_workflow.py`), so a full cluster is a longer wait, and a
 # scheduled run is not skipped for it. The one refusal left is a bound on how many
 # jobs ONE organization may have waiting (`MAX_QUEUED_JOBS_PER_ORG`), which
 # stops a runaway caller and is not capacity management.
@@ -505,7 +505,7 @@ async def submit_agent_job(
 
     # Before anything is persisted: a priority nobody defined, or a missing KEK, is
     # refused where it enters, not after the job's status rows exist.
-    research_hatchet.check_submittable(priority)
+    research_workflow.check_submittable(priority)
 
     # Get agent configuration from registry
     agent_config = get_agent_config(agent_type)
@@ -598,7 +598,7 @@ async def submit_agent_job(
         )
         # Start the run LAST, once job_info AND job_access exist, so no worker
         # runs a job whose ownership/rollback state is still incomplete.
-        await research_hatchet.start(db_url, resolved_job_id, payload, organization_id, priority)
+        await research_workflow.start(db_url, resolved_job_id, payload, organization_id, priority)
     except Exception:
         await _discard_failed_submission(resolved_job_id, db_url, preexistence_verified, loop)
         raise

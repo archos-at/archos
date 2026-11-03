@@ -244,7 +244,7 @@ def credits_in_flight(error: str | None, exc: BaseException | None = None) -> bo
 
     A ``transient`` failure like any other to :func:`classify_failure`, but the
     one whose cure is known: wait until those calls finish. The orchestrator
-    waits for it instead of spending an ordinary retry (``ingest_hatchet``).
+    waits for it instead of spending an ordinary retry (``ingest_workflow``).
     ``exc`` is asked first, then the exception it wraps, then ``error``.
     """
     for candidate in (exc, getattr(exc, "__cause__", None)):

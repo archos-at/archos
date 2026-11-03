@@ -1,4 +1,4 @@
-"""A stand-in for the Hatchet client, installed at its one fake point (``hatchet_client.reset_for_tests``).
+"""A stand-in for the Hatchet client, installed at its one fake point (``orchestrator_client.reset_for_tests``).
 
 No engine is reachable in a test run, so a test asserts what OUR code hands the
 SDK: the workflow's declaration and its steps, each run's input, metadata and
@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import Any
 
-from agent.common import hatchet_client
+from agent.common import orchestrator_client
 
 
 @dataclass
@@ -134,9 +134,9 @@ class FakeHatchet:
 
 
 def install() -> FakeHatchet:
-    """Install a fresh fake as the process's client; ``hatchet_client.reset_for_tests(None)`` removes it."""
+    """Install a fresh fake as the process's client; ``orchestrator_client.reset_for_tests(None)`` removes it."""
     fake = FakeHatchet()
-    hatchet_client.reset_for_tests(fake)  # type: ignore[arg-type]
+    orchestrator_client.reset_for_tests(fake)  # type: ignore[arg-type]
     return fake
 
 
@@ -161,18 +161,18 @@ def install_for(monkeypatch) -> FakeHatchet:
     """A fresh fake for one test, undone with it, and the payload key a hand-over needs."""
     import base64
 
-    from agent.knowledge import ingest_hatchet
+    from agent.knowledge import ingest_workflow
 
     monkeypatch.setenv("JOB_PAYLOAD_KEK", base64.b64encode(b"k" * 32).decode())
     fake = FakeHatchet()
-    monkeypatch.setattr(hatchet_client, "_client", fake)
-    monkeypatch.setattr(ingest_hatchet, "_declared", None)
+    monkeypatch.setattr(orchestrator_client, "_client", fake)
+    monkeypatch.setattr(ingest_workflow, "_declared", None)
     return fake
 
 
 def waiting_runs() -> list[FakeRun]:
     """The runs started that no worker has taken and nobody cancelled, oldest first."""
-    fake = hatchet_client.client()
+    fake = orchestrator_client.client()
     gone = {*getattr(fake, "taken", set()), *fake.runs.cancelled}
     return [run for run in fake.workflow_runs if run.workflow_run_id not in gone]
 
@@ -182,6 +182,6 @@ def take_run(job_id: str | None = None) -> FakeRun | None:
     runs = [run for run in waiting_runs() if job_id is None or run.input.job_id == job_id]
     if not runs:
         return None
-    fake = hatchet_client.client()
+    fake = orchestrator_client.client()
     fake.taken = {*getattr(fake, "taken", set()), runs[0].workflow_run_id}
     return runs[0]

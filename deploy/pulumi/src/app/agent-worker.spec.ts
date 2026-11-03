@@ -154,7 +154,7 @@ describe("the agent-worker tier", () => {
   it("emits no drain variable the Hatchet worker does not read; its drain is the grace period", () => {
     // The Hatchet SDK waits for held runs on SIGTERM until the kubelet's kill,
     // so the budget reaches the worker only as terminationGracePeriodSeconds.
-    const hatchetLayer = read("apps", "agent-host", "src", "agent_host", "jobs", "research_hatchet.py");
+    const hatchetLayer = read("apps", "agent-host", "src", "agent_host", "jobs", "research_workflow.py");
     expect(hatchetLayer).not.toContain("RESEARCH_WORKER_DRAIN_SECONDS");
     expect(env.find((e) => e.name === "RESEARCH_WORKER_DRAIN_SECONDS")).toBeUndefined();
     expect(drainSeconds).toBeGreaterThan(0);
@@ -162,7 +162,7 @@ describe("the agent-worker tier", () => {
 
   it("emits the per-organization caps the Hatchet concurrency and the admission read", () => {
     const names = new Set([...env, ...backendEnvVars].map((e) => e.name));
-    const jobs = ["research_hatchet.py", "orchestrator_runs.py"]
+    const jobs = ["research_workflow.py", "orchestrator_runs.py"]
       .map((file) => read("apps", "agent-host", "src", "agent_host", "jobs", file))
       .join("\n");
 

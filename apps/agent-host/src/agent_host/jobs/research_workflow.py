@@ -50,7 +50,7 @@ from hatchet_sdk import Hatchet
 from hatchet_sdk import Priority
 from pydantic import BaseModel
 
-from agent.common import hatchet_client
+from agent.common import orchestrator_client
 from agent.common import task_failures
 from agent.knowledge.ingest_failures import DETERMINISTIC
 
@@ -192,7 +192,7 @@ async def run_task(run: ResearchRunInput, attempt: int | None = None) -> dict[st
         if not failure.transient:
             # The retry keeps the id for its cancel; a run that ends here does not need it.
             await _forget(db_url, run.job_id)
-        raise hatchet_client.task_error(failure, retry=failure.transient) from None
+        raise orchestrator_client.task_error(failure, retry=failure.transient) from None
     # A cancel ends the run too: only a lost worker leaves the id for its retry,
     # and a duplicate copy leaves it to the copy that runs.
     if ran:
@@ -208,7 +208,7 @@ async def record_failure(run: ResearchRunInput) -> None:
     except Exception as exc:
         failure = task_failures.classify(exc)
         logger.error("Job %s: its failure was not recorded: %s", run.job_id, failure.text, exc_info=exc)
-        raise hatchet_client.task_error(failure, retry=False) from None
+        raise orchestrator_client.task_error(failure, retry=False) from None
     await _forget(db_url, run.job_id)
 
 
@@ -256,7 +256,7 @@ async def start(
         priority=name,
         payload=payload_crypto.serialize_encrypted(payload),
     )
-    ref = await research_run(hatchet_client.client()).aio_run_no_wait(
+    ref = await research_run(orchestrator_client.client()).aio_run_no_wait(
         run,
         priority=priority_of(name),
         additional_metadata={"job_id": job_id, "organization_id": run.organization_id},
@@ -282,7 +282,7 @@ async def cancel(db_url: str, job_id: str) -> bool:
     if run_id is None:
         return False
     try:
-        await hatchet_client.client().runs.aio_cancel(run_id)
+        await orchestrator_client.client().runs.aio_cancel(run_id)
     except Exception:
         logger.warning("Job %s: Hatchet run %s not cancelled; INTERRUPTED stops it", job_id, run_id, exc_info=True)
         return False
@@ -322,14 +322,14 @@ def run_worker() -> None:
     runs and waits for the ones it holds; a pod killed before they end is a lost
     worker, whose runs Hatchet assigns again.
     """
-    from agent.observability import hatchet_tracing
+    from agent.observability import orchestrator_tracing
     from agent.observability import otlp_metrics
     from agent.observability.boot_timing import BootClock
 
-    hatchet = hatchet_client.client()
+    hatchet = orchestrator_client.client()
     otlp_metrics.install_from_env()
     # The SDK's step-run spans, into Langfuse beside the run's own (never into Hatchet's database).
-    hatchet_tracing.instrument(getattr(hatchet, "config", None))
+    orchestrator_tracing.instrument(getattr(hatchet, "config", None))
     slots = _int_env("RESEARCH_WORKERS", 1, floor=1)
     hatchet_worker = hatchet.worker(
         f"{WORKER_NAME}-{socket.gethostname()}",

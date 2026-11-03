@@ -41,7 +41,7 @@ const pythonSources = [
   // The per-organisation cap is read where the in-process pool and the queue share it.
   read("packages", "agent", "src", "agent", "knowledge", "ingest_scheduler.py"),
   // The heavy pool's size threshold and slots, read where the workflows are declared.
-  read("packages", "agent", "src", "agent", "knowledge", "ingest_hatchet.py"),
+  read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py"),
   // The in-process pool's size, read by the knowledge layer's adapter.
   read("packages", "knowledge-layer", "src", "ingest", "adapter.py"),
   // One file's page-read pool, OCR and vision together.
@@ -106,7 +106,7 @@ describe("the ingest-worker tier", () => {
     expect(hatchetBacklogQuery("prod", HEAVY_WORKFLOW)).toContain("'prod_ingest-document-heavy:'");
     expect("prod_ingest-document-heavy:index".startsWith("prod_ingest-document:")).toBe(false);
     // The worker reads the pool, its slots and the label value the Python side requires.
-    const python = read("packages", "agent", "src", "agent", "knowledge", "ingest_hatchet.py");
+    const python = read("packages", "agent", "src", "agent", "knowledge", "ingest_workflow.py");
     expect(python).toContain(`HEAVY_WORKFLOW_NAME = "${HEAVY_WORKFLOW}"`);
     expect(python).toContain(`HEAVY_POOL = "${HEAVY_POOL}"`);
     expect(configSource).toContain('{ name: "INGEST_WORKER_POOL", value: "highmem" }');

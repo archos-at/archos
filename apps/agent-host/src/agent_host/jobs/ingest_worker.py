@@ -2,7 +2,7 @@
 
 Run as its own container: ``PROCESS_ROLE=ingest-worker`` makes the entrypoint start
 ``python -m agent_host.jobs.ingest_worker``. It is a Hatchet worker serving the
-``ingest-document`` task (``agent.knowledge.ingest_hatchet``). Its lifespan builds
+``ingest-document`` task (``agent.knowledge.ingest_workflow``). Its lifespan builds
 the agent-runtime workflow once, which activates the ingestor exactly as the web
 roles do (same summary model, same shared Qdrant, same object store), and then
 Hatchet hands it runs, ``INGEST_MAX_WORKERS`` at once, fair across every
@@ -41,7 +41,7 @@ from collections.abc import AsyncIterator
 
 from agent.common.logging_utils import suppress_noisy_dependency_logs
 from agent.knowledge import ingest_cutover
-from agent.knowledge import ingest_hatchet
+from agent.knowledge import ingest_workflow
 from agent.knowledge.leader_lock import require_direct_dsns
 
 from . import ingest_dispatch
@@ -60,7 +60,7 @@ CUTOVER_QUIET_SECONDS = 3600
 def _pool() -> str:
     """``INGEST_WORKER_POOL``: which workflow this worker serves; anything but ``highmem`` is the standard pool."""
     pool = os.environ.get("INGEST_WORKER_POOL", "").strip().lower()
-    return ingest_hatchet.HEAVY_POOL if pool == ingest_hatchet.HEAVY_POOL else ingest_hatchet.STANDARD_POOL
+    return ingest_workflow.HEAVY_POOL if pool == ingest_workflow.HEAVY_POOL else ingest_workflow.STANDARD_POOL
 
 
 def _slots() -> int:
@@ -113,7 +113,7 @@ def _cut_over() -> bool:
     try:
         if ingest_cutover.live_rows() == 0:
             return False
-        ingest_cutover.redispatch_queued(ingest_hatchet.trigger)
+        ingest_cutover.redispatch_queued(ingest_workflow.trigger)
     except Exception as error:  # noqa: BLE001 - a failed cutover must not keep the worker down
         logger.warning("Ingest cutover pass failed (%s); the next one tries again", type(error).__name__)
     return True
@@ -165,7 +165,7 @@ def main() -> None:
     # needs the direct DSN (ADR-0083). It never LISTENs. Fail the boot, not the
     # first file.
     require_direct_dsns(listen=False)
-    ingest_hatchet.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots(), pool=_pool())
+    ingest_workflow.serve(ingestor_lifespan, ingest_dispatch.decode, slots=_slots(), pool=_pool())
 
 
 if __name__ == "__main__":

@@ -85,9 +85,9 @@ def test_the_workers_do_not_ask_for_the_listen_dsn(monkeypatch):
     def reached():
         raise sentinel
 
-    from agent_host.jobs import research_hatchet
+    from agent_host.jobs import research_workflow
 
-    monkeypatch.setattr(research_hatchet, "run_worker", reached)
+    monkeypatch.setattr(research_workflow, "run_worker", reached)
     with pytest.raises(RuntimeError, match="past the check"):
         research_worker.main()
 

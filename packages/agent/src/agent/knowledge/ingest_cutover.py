@@ -152,11 +152,11 @@ def _sealed(job_id: str, payload: str) -> bool:
 
 
 def main() -> None:
-    from . import ingest_hatchet
+    from . import ingest_workflow
 
     logging.basicConfig(level="INFO")
     moved = 0
-    while (handed := redispatch_queued(ingest_hatchet.trigger)) > 0:
+    while (handed := redispatch_queued(ingest_workflow.trigger)) > 0:
         moved += handed
     print(f"moved {moved} job(s) to Hatchet; {live_rows()} left in {TABLE}")
 

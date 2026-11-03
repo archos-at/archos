@@ -119,7 +119,7 @@ export const nextConfig: NextConfig = {
   // `ws` likewise: the wake job's chat socket (`lib/turns/headless-turn.ts`),
   // whose optional native peers (`bufferutil`, `utf-8-validate`) a bundler
   // would try to resolve and inline. The Hatchet SDK likewise (an enqueue
-  // triggers a run, `lib/jobs-queue/hatchet.ts`): a gRPC client whose agent
+  // triggers a run, `lib/jobs-queue/orchestrator.ts`): a gRPC client whose agent
   // adapters name optional peers nothing here installs.
   serverExternalPackages: ['exceljs', 'ws', '@hatchet-dev/typescript-sdk'],
 

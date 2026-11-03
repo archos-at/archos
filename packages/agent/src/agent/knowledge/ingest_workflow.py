@@ -90,10 +90,10 @@ from hatchet_sdk import StatusBasedIdempotencyConfig
 from pydantic import BaseModel
 
 from agent.common import bff_http
-from agent.common import hatchet_client
+from agent.common import orchestrator_client
 from agent.common import task_failures
 from agent.observability import direct_trace
-from agent.observability import hatchet_tracing
+from agent.observability import orchestrator_tracing
 
 from . import ingest_execution
 from . import ingest_run_hold
@@ -285,7 +285,7 @@ _declared: dict[bool, tuple[object, Any]] | None = None
 def ingest_workflow(heavy: bool = False) -> Any:
     """The ``ingest-document`` (or ``-heavy``) workflow on this process's Hatchet client."""
     global _declared
-    client = hatchet_client.client()
+    client = orchestrator_client.client()
     with _lock:
         if _declared is None:
             _declared = {}
@@ -334,7 +334,7 @@ def _sanitized(job_id: str, error: Exception, *, retry: bool = True) -> Exceptio
     """
     failure = task_failures.classify(error)
     logger.error("Ingestion job %s failed on Hatchet: %s", job_id, failure.text, exc_info=error)
-    return hatchet_client.task_error(failure, retry=retry)
+    return orchestrator_client.task_error(failure, retry=retry)
 
 
 def workflow_for(byte_size: int | None) -> bool:
@@ -357,7 +357,7 @@ def trigger(
     ``payload`` is the job as ``ingest_dispatch.encode`` stores it, encrypted.
     ``byte_size`` (the original's, as the BFF stated it) picks the workflow;
     ``document_id`` is what a later upload of the document supersedes. The run's
-    metadata carries the trigger span's ``traceparent`` (``hatchet_tracing``).
+    metadata carries the trigger span's ``traceparent`` (``orchestrator_tracing``).
     Raises when Hatchet cannot be reached; the caller decides what that costs.
     """
     rank = priority if priority in PRIORITIES else "interactive"
@@ -371,7 +371,7 @@ def trigger(
     )
     ids = {"job_id": job_id, "document_id": run_input.document_id, "organization_id": run_input.organization_id}
     # The row was written live a moment ago, so it is not stale before the hold lands.
-    with hatchet_tracing.linked_metadata("ingest-trigger", {**ids, "heavy": heavy}) as metadata:
+    with orchestrator_tracing.linked_metadata("ingest-trigger", {**ids, "heavy": heavy}) as metadata:
         try:
             ref = ingest_workflow(heavy).run(
                 run_input, wait_for_result=False, additional_metadata=metadata, priority=PRIORITIES[rank]
@@ -385,7 +385,7 @@ def trigger(
 
 def cancel_run(run_id: str) -> None:
     """Cancel a run by its id, through the SDK's runs API. Raises when Hatchet cannot be reached."""
-    hatchet_client.client().runs.cancel(run_id)
+    orchestrator_client.client().runs.cancel(run_id)
 
 
 class _Runtime:
@@ -418,7 +418,7 @@ def execute(run: IngestDocumentInput, ctx: Context) -> dict[str, Any]:
     started = _monotonic()
     metadata = getattr(ctx, "additional_metadata", None)
     try:
-        with direct_trace.continued_from(hatchet_tracing.traceparent_of(metadata)):
+        with direct_trace.continued_from(orchestrator_tracing.traceparent_of(metadata)):
             status = ingest_execution.run_job(ingestor, prepared, still_owner=lambda: not ctx.is_cancelled)
     except Exception as error:
         if task_failures.classify(error).credits_in_flight and _may_wait(ctx):
@@ -455,7 +455,7 @@ def _wait_for_credits(prepared: PreparedIngestJob, failed: Any, ctx: Context) ->
     ingest_run_hold.hold(job_id, None, hold_seconds())
     try:
         until = datetime.now(UTC) + CREDIT_PAUSE
-        ctx.pause_rate_limit(credit_rate_limit_key(hatchet_client.client()), until)
+        ctx.pause_rate_limit(credit_rate_limit_key(orchestrator_client.client()), until)
     except Exception as error:  # noqa: BLE001 - the retry below is the wait; the pause only spares the others
         logger.warning("Could not pause new ingest starts (%s); waiting without", type(error).__name__)
     return RetryAfterException("ProviderCreditsInFlight (transient)", after=CREDIT_WAIT)
@@ -516,7 +516,7 @@ def serve(
     """
     _runtime.decode = decode
     heavy = pool == HEAVY_POOL
-    client = hatchet_client.client()
+    client = orchestrator_client.client()
 
     async def worker_lifespan():
         async with lifespan() as ingestor:
@@ -526,7 +526,7 @@ def serve(
             finally:
                 _runtime.ingestor = None
 
-    hatchet_tracing.instrument(getattr(client, "config", None))
+    orchestrator_tracing.instrument(getattr(client, "config", None))
     # A static key must exist before a step consumes it; it is only ever paused.
     client.rate_limits.put(credit_rate_limit_key(client), CREDIT_RATE_LIMIT_PER_SECOND, RateLimitDuration.SECOND)
     worker = client.worker(

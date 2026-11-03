@@ -4,10 +4,10 @@
  * owner of the process's one SDK client ({@link hatchetClient}), which
  * `bff/scheduling/` uses too.
  *
- * It declares the `bff-job` task from `./hatchet-task.ts`'s spec, triggers it
+ * It declares the `bff-job` task from `./task.ts`'s spec, triggers it
  * for an enqueue (`./enqueue.ts`), and starts the worker and the dispatch sweep
  * in the `bff-jobs` pod (`./slice-entry.ts`), which hands it what a run does
- * (`./hatchet-run.ts`): the enqueue side, which every service imports, then
+ * (`./task-run.ts`): the enqueue side, which every service imports, then
  * never imports the handlers, which import those services. The handlers never see the SDK;
  * the task throws our own errors, and this file says what Hatchet makes of them:
  * {@link PermanentJobError} is the SDK's `NonRetryableError`, {@link RetryLaterError}
@@ -41,7 +41,7 @@ import {
   type BffJobTaskInput,
   type BffJobTaskOutput,
   type BffJobTaskSpec,
-} from './hatchet-task'
+} from './task'
 
 export type RunOptions = { priority: Priority; additionalMetadata: Record<string, string> }
 
@@ -72,7 +72,7 @@ export interface BffJobTaskOptions {
   fn: (input: BffJobTaskInput, ctx: BffJobContext) => Promise<BffJobTaskOutput>
 }
 
-/** What a run does and what the sweep does (`./hatchet-run.ts`), handed in by the pod that works. */
+/** What a run does and what the sweep does (`./task-run.ts`), handed in by the pod that works. */
 export interface BffJobWork {
   run(input: BffJobTaskInput, context: BffJobRunContext, runs: BffJobRuns): Promise<BffJobTaskOutput>
   sweep(runs: BffJobRuns): Promise<{ dispatched: number; failed: number; purged: number }>

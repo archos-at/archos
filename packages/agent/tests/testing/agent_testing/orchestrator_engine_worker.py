@@ -1,7 +1,7 @@
 """An ingest worker for the real-engine tests: our workflow, served with a scripted ingestor.
 
-``python -m agent_testing.hatchet_engine_worker <dir>`` serves the real
-``ingest-document`` workflow (``agent.knowledge.ingest_hatchet.serve``) against
+``python -m agent_testing.orchestrator_engine_worker <dir>`` serves the real
+``ingest-document`` workflow (``agent.knowledge.ingest_workflow.serve``) against
 the engine the ``HATCHET_CLIENT_*`` variables name. Only the ingestor is a
 stand-in, because reading a document needs Qdrant, a model and an object store;
 everything between Hatchet and the ingestor is the production code.
@@ -26,8 +26,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from agent.knowledge import ingest_hatchet
 from agent.knowledge import ingest_status_store
+from agent.knowledge import ingest_workflow
 from agent.knowledge.base import PreparedIngestJob
 from agent.knowledge.schema import FileProgress
 from agent.knowledge.schema import FileStatus
@@ -116,7 +116,7 @@ def main(directory: str) -> None:
     async def lifespan():
         yield ScriptedIngestor(events)
 
-    ingest_hatchet.serve(lifespan, decode, slots=4)
+    ingest_workflow.serve(lifespan, decode, slots=4)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
  *
  * The row is a job's record: what was asked, how far it got, whether it is
  * waiting (`queued`), being run (`claimed`) or gave up (`dead`, its reason
- * kept). Hatchet decides WHEN a job runs and on which worker (`./hatchet.ts`);
+ * kept). Hatchet decides WHEN a job runs and on which worker (`./orchestrator.ts`);
  * the row is what the run reads and leaves behind, and what the sweeps and the
  * "already running" answers read (`findOpenJobId`, `findDeadJob`). So a caller
  * still enqueues in its own transaction, a second click still finds the open
@@ -169,10 +169,10 @@ function matchingJobs(query: { kind: string; organizationId: string; matching: R
 }
 
 /*
- * A run's lifecycle. The caller opens the platform scope (`./hatchet-task.ts`):
+ * A run's lifecycle. The caller opens the platform scope (`./task.ts`):
  * a run has no tenant, and the row tells it which one it works in. The row is
  * held by one ATTEMPT, not by a run: `holder` names the Hatchet run, its retry
- * and the worker (`./hatchet-run.ts`, `holderOf`), because a retry or a
+ * and the worker (`./task-run.ts`, `holderOf`), because a retry or a
  * reassigned copy of a run may start while the attempt before it still runs
  * (JavaScript cannot kill a slice past its timeout). Every write after the
  * take is conditional on `claimed_by = holder`, so an attempt that lost the row
@@ -214,7 +214,7 @@ const silentClaim = (staleSeconds: number) =>
 /**
  * Take the job for `holder`: a row that waits and is due, or one whose holder
  * went silent for `staleSeconds` (which the caller keeps above the slice
- * timeout, `./hatchet-task.ts`). Never a row another attempt holds and may
+ * timeout, `./task.ts`). Never a row another attempt holds and may
  * still be running, not even one held under the same name. `attempts` counts
  * the take. Null when there is nothing to take: the job is gone (finished,
  * purged, its enqueue rolled back or not committed yet), held by a live
@@ -284,7 +284,7 @@ export async function finishJob(jobId: string, holder: string): Promise<boolean>
  * A slice is done and the job is not: save where it got to and queue it again
  * (not before `notBefore` when it waits on something), its attempts back to
  * none, because it made progress. `claimed_at` stays: it names this take, and
- * so the next run's key (`./hatchet-task.ts`, `generation`). Null when this
+ * so the next run's key (`./task.ts`, `generation`). Null when this
  * holder no longer held it.
  */
 export async function saveJobProgress(
