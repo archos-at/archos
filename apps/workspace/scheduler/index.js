@@ -91,7 +91,7 @@ const {
   isTransientStatus,
 } = require('../workers/failure-streak')
 
-const LOG = '[job-scheduler]'
+const { backgroundWorkLines, inboundMailSweepLines, LOG } = require('./background-work-log')
 
 // Must match bff/internal-auth.ts INTERNAL_TOKEN_HEADER — the header the
 // `internalApiRoute` factory guarding /api/internal/skills/fire expects.
@@ -203,42 +203,8 @@ async function reconcileBackgroundWork(config, fetchImpl, streak) {
     path: '/api/internal/maintenance/reconcile-background-work',
     label: 'background work sweep',
   })
-  const documents = counts?.documents
-  const filings = counts?.filings
-  if (documents && (documents.requeued > 0 || documents.failed > 0 || documents.errors > 0)) {
-    console.log(
-      `${LOG} background work sweep, documents: checked ${documents.checked}, requeued ${documents.requeued}, ` +
-        `failed ${documents.failed}, gone ${documents.gone}, errors ${documents.errors}`,
-    )
-  }
-  if (filings && (filings.filed > 0 || filings.failed > 0 || filings.errors > 0)) {
-    console.log(
-      `${LOG} background work sweep, report filings: checked ${filings.checked}, filed ${filings.filed}, ` +
-        `failed ${filings.failed}, waiting ${filings.waiting}, errors ${filings.errors}`,
-    )
-  }
-  for (const line of inboundMailSweepLines(counts?.inboundMail)) console.log(line)
+  for (const line of backgroundWorkLines(counts)) console.log(line)
   return counts
-}
-
-/**
- * The log lines of the project mail sweeps (`lib/inbound-mail/sweep.ts`,
- * ADR-0137): one per sweep that did something or failed, each count by name
- * (`expired: checked 3, expired 2, parts 5, errors 0`). A sweep that only
- * looked says nothing, as the halves above. Counts only: no id, no address.
- * An older BFF sends no `inboundMail`, which logs nothing.
- */
-function inboundMailSweepLines(inboundMail) {
-  if (!inboundMail || typeof inboundMail !== 'object') return []
-  const lines = []
-  for (const [sweep, counts] of Object.entries(inboundMail)) {
-    if (!counts || typeof counts !== 'object') continue
-    const acted = Object.entries(counts).some(([name, value]) => name !== 'checked' && Number(value) > 0)
-    if (!acted) continue
-    const parts = Object.entries(counts).map(([name, value]) => `${name} ${value}`)
-    lines.push(`${LOG} background work sweep, project mail ${sweep}: ${parts.join(', ')}`)
-  }
-  return lines
 }
 
 /**

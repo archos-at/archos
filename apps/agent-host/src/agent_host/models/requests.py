@@ -4,10 +4,8 @@ import logging
 from typing import Annotated
 from typing import Any
 from typing import Literal
-from uuid import UUID
 
 from pydantic import AliasChoices
-from pydantic import AwareDatetime
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
@@ -23,6 +21,8 @@ from agent.profile_names import normalize_profile_token
 
 from ..object_store_url import ObjectStoreUrl
 from .document_type_tag import DocumentTypeField
+from .mail_facts import MailOrigin
+from .mail_facts import MailThreadFacts
 
 logger = logging.getLogger(__name__)
 
@@ -172,63 +172,6 @@ class ProjectFactsUpdate(BaseModel):
 
     facts: ProjectFacts = Field(default_factory=ProjectFacts)
     status: ProjectStatus = Field(..., description="The project's lifecycle state (ADR-0098)")
-
-
-#: Who a mail is from, as far as the bytes and DNS could tell (``agent.knowledge.mail_facts.SENDER_TRUSTS``,
-#: the BFF's ``SENDER_TRUSTS``). Spelled out because a ``Literal`` must be; a test pins it to the tuple.
-SenderTrust = Literal["member_verified", "member_unverified", "external_verified", "external_unverified", "not_checked"]
-#: The locales a mail thread is rendered in (``agent.knowledge.mail_facts.MAIL_LOCALES``).
-MailLocale = Literal["de", "en"]
-_MailName = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
-_MailDomain = Annotated[str, StringConstraints(strip_whitespace=True, max_length=253)]
-
-
-class MailThreadFacts(BaseModel):
-    """The document is a filed E-Mail-Verlauf (ADR-0137): one Markdown section per message.
-
-    Its chunks are stamped ``source_format: mail`` (the lane ``project_mail``), and the
-    record lands on the metadata row, where the newest message's date becomes the
-    document's own date. No address and no text: what a heading says is in the bytes.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    latest_sent_at: AwareDatetime = Field(
-        ..., description="The newest message's send time, as the BFF clamped it to its receipt window."
-    )
-    message_count: int = Field(..., ge=1, le=200, description="How many messages this Fassung of the thread holds.")
-    locale: MailLocale = Field("de", description="The locale the thread is rendered in, fixed at its creation.")
-
-
-class MailOrigin(BaseModel):
-    """The message a filed attachment came with, as the receive step established it (ADR-0137).
-
-    Stored on the attachment's metadata row and printed by ``list_files`` and
-    ``read_passage``: the signing domain when the sender was verified, and
-    otherwise the From domain with „Domain nicht bestätigt“. A display name and
-    domains only; any other key, an address included, is refused.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    sent_at: AwareDatetime = Field(..., description="The message's send time, clamped by the BFF.")
-    received_at: AwareDatetime | None = Field(None, description="When the message reached the office.")
-    from_name: _MailName | None = Field(None, description="The sender's display name, never an address.")
-    from_domain: _MailDomain | None = Field(None, description="The From address's domain.")
-    signer_domain: _MailDomain | None = Field(
-        None, description="The domain of the aligned passing DKIM signature, when there is one."
-    )
-    sender_trust: SenderTrust = Field(..., description="`inbound_mails.sender_trust`; `not_checked` for an archive.")
-    thread_document_id: UUID | None = Field(None, description="The E-Mail-Verlauf the message was filed into.")
-    locale: MailLocale = Field("de", description="The locale of that thread, which the printed line is written in.")
-
-    @field_validator("from_name")
-    @classmethod
-    def _no_address(cls, value: str | None) -> str | None:
-        """A name that is an address would print one: refused, the BFF sends the name or nothing."""
-        if value is not None and "@" in value:
-            raise ValueError("from_name must be a display name, never an address")
-        return value
 
 
 class IngestRequest(BaseModel):
@@ -1026,71 +969,6 @@ class OibDocumentDeleteResponse(BaseModel):
 
     success: bool
     file_name: str
-
-
-#: Ceiling on the live lesson register a distill request may carry. Mirrors the
-#: BFF's MAX_DISTILL_REGISTER_SIZE (lib/platform-lessons/types.ts).
-MAX_DISTILL_LESSONS = 60
-
-
-class LessonRegisterEntry(BaseModel):
-    """One live platform lesson the matcher compares a new report against."""
-
-    id: str = Field(..., description="Lesson uuid (returned verbatim as match_lesson_id on a match)")
-    content: str = Field(..., description="The lesson text (anonymized German corrective)")
-
-
-class LessonDistillRequest(BaseModel):
-    """Request body for distilling ONE negative feedback report into a lesson.
-
-    Everything free-text here was already PII-scrubbed and truncated by the BFF
-    (lib/text/redact-pii.ts); the route re-bounds it anyway — a route that
-    trusts its caller's bounds is one refactor away from posting a transcript.
-    Organization, user and conversation identifiers never arrive at all.
-    """
-
-    question: str | None = Field(None, description="The user's question, scrubbed + truncated")
-    answer: str | None = Field(None, description="The rated answer's text, scrubbed + truncated")
-    reason: str | None = Field(None, description="Down-vote reason key (inaccurate|too_slow|wrong_source|other)")
-    comment: str | None = Field(None, description="The reporter's free-text comment, scrubbed + truncated")
-    existing_lessons: list[LessonRegisterEntry] = Field(
-        default_factory=list,
-        description="The live lesson register the matcher deduplicates against",
-        max_length=MAX_DISTILL_LESSONS,
-    )
-
-
-class LessonDistillResponse(BaseModel):
-    """The distiller's verdict on one report.
-
-    Exactly one of ``match_lesson_id`` / ``lesson`` is set on success; both are
-    None when the report is not generalizable. ``audit_passed`` is a SECOND
-    model's screening of the distilled text for identifying or manipulative
-    content — the BFF holds a failed-audit lesson back as a candidate instead
-    of activating it.
-    """
-
-    match_lesson_id: str | None = Field(
-        None, description="Id of the existing lesson this report restates, when one matches"
-    )
-    lesson: str | None = Field(
-        None, description="New lesson text (anonymized German corrective), when no existing lesson matches"
-    )
-    canonical_summary: str | None = Field(
-        None, description="One anonymized sentence restating what went wrong in THIS report"
-    )
-    category: str = Field("other", description="inaccurate|too_slow|wrong_source|other")
-    generalizable: bool = Field(
-        False, description="False when the complaint is instance-specific and teaches the fleet nothing"
-    )
-    audit_passed: bool = Field(False, description="Whether the auditor model cleared the distilled text")
-    error: str | None = Field(
-        default=None,
-        description=(
-            "Failure code when distillation could not complete "
-            "(llm_not_configured, llm_request_failed, llm_response_malformed); None on success"
-        ),
-    )
 
 
 #: Ceiling on the notes one embedding request may carry. Mirrors `_MAX_TEXTS`

@@ -35,8 +35,15 @@
  */
 
 import { z } from 'zod'
-import { SENDER_TRUSTS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import type { MailOriginView } from '@/lib/inbound-mail/inbound-mail-wire'
+import { mailOriginViewSchema } from './mail-origin-schema'
+
+export { mailOriginViewSchema } from './mail-origin-schema'
+export {
+  REVIEW_QUEUE_ROLES,
+  reviewQueueQuerySchema,
+  type ReviewQueueQuery,
+  type ReviewQueueResponse,
+} from './review-queue-types'
 
 /**
  * The editorial states of one version.
@@ -650,23 +657,6 @@ export const internalDocumentVersionRequestSchema = z.discriminatedUnion('op', [
 
 export type InternalDocumentVersionRequest = z.infer<typeof internalDocumentVersionRequestSchema>
 
-/**
- * A mail that brought a Fassung (D36, `MailOriginView`): the E-Mail-Verlauf's
- * message (`threadId`, `entryId`, for `mail-thread-get`), when it was sent and
- * received, the sender's display name, the signing domain and how far the
- * sender was confirmed. Never an address.
- */
-export const mailOriginViewSchema = z.object({
-  threadId: z.string(),
-  entryId: z.string(),
-  sentAt: z.string(),
-  receivedAt: z.string(),
-  fromName: z.string().nullable(),
-  signerDomain: z.string().nullable(),
-  senderTrust: z.enum(SENDER_TRUSTS),
-})
-mailOriginViewSchema satisfies z.ZodType<MailOriginView>
-
 /** One version, as the browser and the agent receive it. */
 export const documentVersionViewSchema = z.object({
   id: z.string(),
@@ -746,37 +736,6 @@ export const documentArchiveResponseSchema = z.object({
 })
 
 export type DocumentArchiveResponse = z.infer<typeof documentArchiveResponseSchema>
-
-export const REVIEW_QUEUE_ROLES = ['reviewer', 'submitter'] as const
-
-/** `GET /api/review/queue`: the versions in review that wait on the person, or that the person sent to review. */
-export const reviewQueueQuerySchema = z.object({
-  role: z
-    .enum(REVIEW_QUEUE_ROLES)
-    .default('reviewer')
-    .describe('`reviewer` (default): waiting for the person’s decision; `submitter`: sent by the person.'),
-  projectId: z.guid().optional().describe('Only this project’s documents.'),
-  limit: z.coerce.number().int().min(1).max(50).default(50).describe('Page size (default and most 50).'),
-  cursor: z.guid().optional().describe('The previous `nextCursor`.'),
-})
-
-export type ReviewQueueQuery = z.infer<typeof reviewQueueQuerySchema>
-
-export interface ReviewQueueResponse {
-  versions: {
-    documentId: string
-    documentName: string
-    projectId: string | null
-    projectName: string | null
-    versionId: string
-    versionNumber: number
-    /** The person who sent it to review. */
-    submittedBy: string | null
-    submittedByName: string | null
-    submittedAt: string | null
-  }[]
-  nextCursor: string | null
-}
 
 /**
  * The schemas exported to JSON Schema for the Python tier, by name.

@@ -217,11 +217,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/workers ./workers
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-jobs ./dist-jobs
-# The only source-tree file (besides those below) the runtime needs: the audit action+schema registry the
-# deploy-time provisioning script reconciles into WorkOS. It is shared with the
-# app (which reaches it through the bundle, not from disk), so it lives in
-# bff/audit rather than being duplicated into scripts/.
-COPY --from=builder --chown=nextjs:nodejs /app/bff/audit/schemas.mjs ./bff/audit/schemas.mjs
+# The only source-tree files (besides those below) the runtime needs: the audit action+schema registry the
+# deploy-time provisioning script reconciles into WorkOS, `schemas.mjs` and the
+# family modules it imports (`schemas-*.mjs`). It is shared with the app (which
+# reaches it through the bundle, not from disk), so it lives in bff/audit rather
+# than being duplicated into scripts/.
+COPY --from=builder --chown=nextjs:nodejs /app/bff/audit/schemas*.mjs ./bff/audit/
 # `next.config.ts` imports these at server start (AVATAR_IMAGE_PATTERNS,
 # LOCAL_IMAGE_PATTERNS); Next transpiles the config to
 # `next.config.compiled.js`, which then requires the files from disk — missing
