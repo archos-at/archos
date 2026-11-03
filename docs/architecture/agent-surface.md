@@ -1042,7 +1042,7 @@ redirect) and typing indicators. "Nobody would ask an agent to do that" is not a
 reason; an operation costs a few lines.
 
 A route exported through `internalApiRoute` (a service's token-guarded door: the
-scheduler, the purger) or `publicApiRoute` (health, signed images, the
+purger, the ingest worker's settle push) or `publicApiRoute` (health, signed images, the
 protected-resource metadata) is not a person's act, and the walker skips it
 (`personFacingRouteMethods`): it needs neither an operation nor an exemption,
 and an exemption for it fails as matching no route. A service's webhook stays

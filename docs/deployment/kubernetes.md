@@ -1344,10 +1344,9 @@ thousand documents inside one HTTP request on a frontend pod: a request that
 died half way left no record of which half. Both are now jobs, and a job is one
 `bff-job` run on Hatchet (the kind in its input), fair across offices by
 `GROUP_ROUND_ROBIN` on `input.organization_id` and ordered inside one by run
-priority ([`hatchet.md`](hatchet.md)). The claim queue this section was written
-for, `bff_job_queue` (app database, migration 0104), is kept until the cutover
-drains it; where a bullet below says "claim", "lane" or "row", it describes how
-the rows still in it run.
+priority ([`hatchet.md`](hatchet.md)). Each job's row in `bff_job_queue` (app
+database, migration 0104) is what a run takes and leaves behind; its `lane` is
+the organisation.
 
 - **The request enqueues and answers 202.** `POST /api/projects/{id}/reindex`
   and `POST /api/organization/documents/reingest-failed` check access, start
@@ -1359,34 +1358,34 @@ the rows still in it run.
   cursor and the counts) after every slice, so whichever worker claims it next
   resumes there.
 - **The `bff-jobs` Deployment runs them.** The frontend image, command
-  `node workers/jobs/index.js`: one container that supervises the BFF and a
-  Hatchet worker for `bff-job`, which POSTs each slice to its own pod's
-  `/api/internal/jobs/run`. Fairness across organisations and interactive
-  before bulk are the task's concurrency and run priority, not a claim query. **There is no Service and no
+  `node workers/jobs/index.js`: one process that loads the BFF's services,
+  bundled at image build into `dist-jobs/slice.mjs`, and runs the Hatchet
+  worker for `bff-job` and the scheduling tasks (`bff/jobs-queue/slice-entry.ts`).
+  It answers the probes' `/api/healthz` itself. Fairness across organisations
+  and interactive before bulk are the task's concurrency and run priority, not
+  a claim query (`bff/jobs-queue/task.ts`). **There is no Service and no
   HTTPRoute**, and the work runs here, never on the pods that proxy chat.
-  With `bffJobsMode: inprocess` (default `http`) the pod spawns no BFF: the
-  loop runs each slice from the services bundled at image build
-  (`dist-jobs/slice.mjs`) and answers the probes' `/api/healthz` itself
-  (ADR-0079 amendment 1).
-- **A drain never costs an attempt; a failure always does.** On SIGTERM the loop stops claiming, lets
-  the slice in hand finish (`bffJobsDrainSeconds`, 60), gives every claim back
-  without spending an attempt, and only then stops the BFF; the pod's grace
-  period is the drain plus 30 s. A claim that has held its slot for ten
-  minutes is given back the same way between two slices, so a job that runs
-  for hours (an archive import) waits its turn behind the other offices' work instead of
-  keeping the slot. A slice that answers not done with a `notBefore` (a wake
-  waiting on the person's running turn) saves its row and triggers its next run
-  for then (`saveJobProgress`, `bff/jobs-queue/task-run.ts`). A claim that lost its worker is taken again
-  after `BFF_JOBS_STALE_SECONDS`. Every other end of an attempt spends
-  it (a handler that threw, a slice past `BFF_JOBS_SLICE_TIMEOUT_MS`, a BFF
-  that answered 5xx or not at all) and the job waits `BFF_JOBS_RETRY_BACKOFF_SECONDS`,
-  doubling, before the next, so a job that always times out or kills the BFF
-  ends. After `BFF_JOBS_MAX_ATTEMPTS` the row is marked `dead` with its
-  reason in `last_error` and its payload (a report, the requester, storage keys)
-  reduced to ids; it is deleted `BFF_JOBS_DEAD_RETENTION_DAYS` later, or at
-  once with its project. It reports the `grid.queue.*` meters as `queue="bff"`
-  (`workers/jobs/queue-metrics.js`), beside the Python queues, and each death is
-  also a `[bff-jobs] … now dead` ERROR line.
+- **A run takes the job's row, runs one slice and leaves the row as it found
+  it.** The row in `bff_job_queue` (migration 0104) stays the job's record and
+  saved progress; a run holds it per attempt (`run/retry@worker`) and beats its
+  heartbeat every 15 s (`bff/jobs-queue/task-run.ts`). A slice that is not done
+  saves its place and triggers the next run, at its `notBefore` when it waits
+  (a wake waiting on the person's running turn), so every slice queues again
+  behind the other offices' work. On SIGTERM the worker stops taking runs, lets
+  the ones in hand finish for `bffJobsDrainSeconds` (60), and gives back the
+  rows of the slices it cut off (`releaseInFlightJobs`), so Hatchet's retry on
+  another pod takes them at once; the pod's grace period is the drain plus
+  30 s. A row whose holder went silent past `BFF_JOBS_STALE_SECONDS` (at least
+  the slice timeout plus 60 s) is taken over. A handler that threw or a slice
+  past `BFF_JOBS_SLICE_TIMEOUT_MS` spends an attempt, and Hatchet retries the
+  run after `BFF_JOBS_RETRY_BACKOFF_SECONDS`, doubling, at most 15 minutes.
+  After `BFF_JOBS_MAX_ATTEMPTS` the row is marked `dead` with its reason in
+  `last_error` and its payload (a report, the requester, storage keys) reduced
+  to ids; it is deleted `BFF_JOBS_DEAD_RETENTION_DAYS` later, or at once with
+  its project. Each death is a `[bff-jobs] … now dead` ERROR line on the pod;
+  Hatchet is told only the category and the error's class. A row no run is
+  coming for is started again by the dispatch sweep every `bff-jobs` replica
+  runs (`dispatchStrandedJobs`).
 - **KEDA scales it on the backlog.** A `postgresql` trigger counts the
   `bff-job` runs Hatchet holds queued or running (`hatchetBacklogQuery`, through
   the shared `hatchet-queue-auth`) and asks for ceil(runs / `bffJobsConcurrency`)
