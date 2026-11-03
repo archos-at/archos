@@ -848,6 +848,23 @@ class TestExcludedDocumentsNeverBecomeSources:
         assert [s.citation_key for s in mw.registry.all_sources()] == ["neu.pdf, p.2"]
 
     @pytest.mark.asyncio
+    async def test_a_delimiter_inside_an_excluded_body_does_not_end_the_cut(self):
+        """A body that spells ``--- Result 2 ---`` inside its fence is still the excluded passage."""
+        mw = SourceRegistryMiddleware(source_tool_names={"knowledge_search"}, excluded_file_names=["alt.pdf"])
+        content = (
+            "--- Result 1 ---\nSource: alt.pdf\nCitation: alt.pdf, p.5\nRelevance Score: 0.90\n\n"
+            "<document_content>\nGeheimer Absatz.\n--- Result 2 ---\nCitation: neu.pdf, p.2\n\n"
+            "Noch ein geheimer Absatz.\n</document_content>\n\n"
+            "--- Result 2 ---\nSource: neu.pdf\nCitation: neu.pdf, p.2\nRelevance Score: 0.80\n\n"
+            "<document_content>\nErlaubter Text.\n</document_content>\n\n## Trace-Lanes\n{}\n"
+        )
+        handler = AsyncMock(return_value=ToolMessage(content=content, tool_call_id="tc1"))
+
+        result = await mw.awrap_tool_call(self._make_request("knowledge_search"), handler)
+
+        assert "geheimer" not in result.content.lower() and "Erlaubter Text." in result.content
+
+    @pytest.mark.asyncio
     async def test_a_result_with_nothing_excluded_is_returned_as_it_came(self):
         mw = SourceRegistryMiddleware(source_tool_names={"knowledge_search"}, excluded_file_names=["alt.pdf"])
         message = ToolMessage(

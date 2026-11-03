@@ -26,6 +26,7 @@ from agent.citations.session import get_session_registry
 from agent.common import get_source_id_for_tool
 from agent.common.budget_guard import RunBudgetExceededError
 from agent.common.cost_tracking import BudgetExceededError
+from agent.common.passage_fence import unfenced
 from agent.common.turn_status import fail_subagent
 from agent.common.turn_status import subagent_run
 
@@ -544,18 +545,18 @@ class SourceRegistryMiddleware(AgentMiddleware):
 #: A ``--- Result N ---`` hit of the grounding grammar (``common/grounding_block.py``).
 _RESULT_HEADER_RE = re.compile(r"^--- Result \d+ ---$", re.MULTILINE)
 #: Where a hit ends: the next hit, the lanes line, or the batch separator that
-#: opens the next query's section (``source_tool_batching``). A bare ``---``
-#: alone is NOT an end, because a passage body may carry a markdown rule.
+#: opens the next query's section (``source_tool_batching``); never one inside a
+#: body's fence (``passage_fence.unfenced``), nor a bare ``---`` (a markdown rule).
 _RESULT_END_RE = re.compile(r"^(?:--- Result \d+ ---$|## Trace-Lanes$|---\n\n## Query:)", re.MULTILINE)
 _CITATION_LINE_RE = re.compile(r"^Citation: (.+)$", re.MULTILINE)
 
 
 def _without_results(content: str, refused: Callable[[str], bool]) -> tuple[str, int]:
-    """``content`` without the hits whose ``Citation:`` key ``refused`` names, and how many went."""
+    """``content`` without the hits whose ``Citation:`` key ``refused`` names (each cut whole), and how many went."""
     kept: list[str] = []
     cursor = cut = 0
-    for header in _RESULT_HEADER_RE.finditer(content):
-        end_match = _RESULT_END_RE.search(content, header.end())
+    for header in unfenced(_RESULT_HEADER_RE, content):
+        end_match = next(unfenced(_RESULT_END_RE, content, header.end()), None)
         end = end_match.start() if end_match else len(content)
         citation = _CITATION_LINE_RE.search(content, header.end(), end)
         if citation is None or not refused(citation.group(1).strip()):

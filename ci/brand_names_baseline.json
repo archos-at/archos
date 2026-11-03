@@ -898,7 +898,7 @@
   "packages/agent/tests/agents/piloti/test_family_coverage.py": 5,
   "packages/agent/tests/agents/piloti/test_focus_region_prompt.py": 4,
   "packages/agent/tests/agents/piloti/test_grounding.py": 6,
-  "packages/agent/tests/agents/piloti/test_history.py": 10,
+  "packages/agent/tests/agents/piloti/test_history.py": 8,
   "packages/agent/tests/agents/piloti/test_ledger.py": 4,
   "packages/agent/tests/agents/piloti/test_live_answer_card.py": 2,
   "packages/agent/tests/agents/piloti/test_live_gates_record_nothing.py": 2,

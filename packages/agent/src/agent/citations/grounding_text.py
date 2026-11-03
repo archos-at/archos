@@ -10,7 +10,9 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import MAX_REGIONS_PER_SOURCE
 from agent.common.grounding_block import PROJECT_STATUS_LABELS
 from agent.common.grounding_block import SourceRegion
+from agent.common.passage_fence import fenced_spans
 from agent.common.passage_fence import unfence
+from agent.common.passage_fence import unfenced
 from agent.common.source_kinds import parse_shelf
 
 logger = logging.getLogger(__name__)
@@ -103,7 +105,7 @@ _KL_RESULT_BLOCK_RE = re.compile(r"^--- Result \d+ ---[^\S\n]*$", re.MULTILINE)
 _KL_RELEVANCE_LINE_RE = re.compile(r"^Relevance Score:.*$", re.MULTILINE)
 
 
-_KL_TRACE_LANES_MARKER = "## Trace-Lanes"
+_KL_TRACE_LANES_RE = re.compile(r"^## Trace-Lanes", re.MULTILINE)
 
 
 _KL_TRUNCATED_SUFFIX_RE = re.compile(r"\s*\.\.\.\s*\[truncated\]\s*$")
@@ -117,20 +119,24 @@ def _split_kl_result_blocks(content: str) -> list[str]:
     block contains exactly one hit's header fields AND its passage body. The
     leading "Found N relevant document(s):" preamble is not a block and is
     dropped. Returns ``[]`` when the output carries no block markers.
+
+    Only the grammar's own lines count: a marker or a ``## Trace-Lanes`` line
+    inside a ``<document_content>`` fence is the passage's text
+    (:func:`~agent.common.passage_fence.unfenced`), so a filed mail whose body
+    spells ``--- Result 2 ---`` and ``Shelf: building_law`` cannot forge a hit.
+    The trailing Trace-Lanes JSON belongs to the whole result set, not to the
+    last hit, so a block is cut there and can pollute neither its body nor the
+    header-field scan. A batched result (``source_tool_batching``) carries one
+    per query, which is why the cut is per block.
     """
-    block_matches = list(_KL_RESULT_BLOCK_RE.finditer(content))
+    markers = list(unfenced(_KL_RESULT_BLOCK_RE, content))
+    if not markers:
+        return []
+    ends = [marker.start() for marker in markers[1:]] + [len(content)]
     blocks: list[str] = []
-    for idx, block_match in enumerate(block_matches):
-        block_start = block_match.end()
-        block_end = block_matches[idx + 1].start() if idx + 1 < len(block_matches) else len(content)
-        block = content[block_start:block_end]
-        # The trailing Trace-Lanes JSON belongs to the whole result set, not to
-        # the last hit — cut it off so it can pollute neither the body nor the
-        # header-field scan below.
-        trace_lanes_at = block.find(_KL_TRACE_LANES_MARKER)
-        if trace_lanes_at != -1:
-            block = block[:trace_lanes_at]
-        blocks.append(block)
+    for marker, end in zip(markers, ends, strict=True):
+        lanes = next(unfenced(_KL_TRACE_LANES_RE, content[:end], marker.end()), None)
+        blocks.append(content[marker.end() : lanes.start() if lanes else end])
     return blocks
 
 
@@ -143,11 +149,16 @@ def _kl_block_body(block: str) -> str:
     before the fence reads as it did. Returns ``""`` when that header is absent
     (nothing to anchor the body to). A very long body is truncated by the
     producer with a trailing ``... [truncated]`` marker, which is stripped back off.
+    The body is the FIRST fence only: a text whose ``## Trace-Lanes`` line was
+    stripped (``strip_trace_lanes``) runs on into the trailer, and grep's lines
+    index there is fenced too.
     """
     relevance_match = _KL_RELEVANCE_LINE_RE.search(block)
     if relevance_match is None:
         return ""
-    body = unfence(block[relevance_match.end() :].strip())
+    rest = block[relevance_match.end() :].strip()
+    spans = fenced_spans(rest)
+    body = unfence(rest[: spans[0][1]] if spans and spans[0][0] == 0 else rest)
     return _KL_TRUNCATED_SUFFIX_RE.sub("", body.strip()).strip()
 
 

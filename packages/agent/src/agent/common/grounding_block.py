@@ -41,6 +41,8 @@ from pydantic import ConfigDict
 from agent.common.action_rows import current_action_call
 from agent.common.passage_fence import DATA_NOTE
 from agent.common.passage_fence import fence
+from agent.common.passage_fence import neutralise_tags
+from agent.common.passage_fence import unfenced
 from agent.common.provenance import AGENT_AUTHOR
 from agent.common.provenance import AgentProvenance
 from agent.common.provenance import provenance_label
@@ -310,12 +312,15 @@ def strip_trace_lanes(text: str) -> str:
     a search with sixteen hits put ~1 000 tokens of ``{"lanes": …}`` into the
     transcript and re-sent them on every later call of the turn, and into the
     next turn's history. The passages, the keys and the trailer (``##
-    Gliederung``) stay byte-for-byte; only the one line goes. Idempotent, and
-    text with no marker is returned unchanged.
+    Gliederung``) stay byte-for-byte; only the one line goes, and never a line
+    a passage body spells inside its fence. Idempotent, and text with no marker
+    is returned unchanged.
     """
-    if TRACE_LANES_MARKER not in text:
+    lanes = next(unfenced(_TRACE_LANES_RE, text), None)
+    if lanes is None:
         return text
-    return _TRACE_LANES_RE.sub("\n\n", text, count=1).rstrip("\n") + ("\n" if text.endswith("\n") else "")
+    stripped = f"{text[: lanes.start()]}\n\n{text[lanes.end() :]}"
+    return stripped.rstrip("\n") + ("\n" if text.endswith("\n") else "")
 
 
 def render_grounding_block(block: GroundingBlock) -> str:
@@ -438,7 +443,7 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
     and the :class:`~agent.common.source_kinds.Shelf` enum cannot carry a
     newline, so they go in as they are.
     """
-    yield f"Source: {_line(hit.display_title)}"
+    yield f"Source: {_capped(_line(hit.display_title))}"
     if hit.project is not None:
         yield f"Projekt: {_project_line(hit.project)}"
         if hit.project.federal_state_note:
@@ -496,6 +501,20 @@ def _project_line(project: SourceProject) -> str:
     return f"{_line(project.name)} — {_line(status)} (project_id {_line(project.id)})"
 
 
+#: The longest title a ``Source:`` line prints. A mail's subject is its Verlauf's
+#: title and the sender wrote it (up to 1 000 characters, ``inbound-mail/mime.ts``),
+#: outside the fence; a title is a name, and a paragraph there is somebody's prose.
+MAX_SOURCE_TITLE_CHARS = 200
+
+# The block delimiter as a header value might spell it mid-line.
+_MARKER_IN_VALUE_RE = re.compile(r"-{3,}(?=\s*Result\s+\d)", re.IGNORECASE)
+
+
+def _capped(title: str) -> str:
+    """``title``, cut to :data:`MAX_SOURCE_TITLE_CHARS` with an ellipsis when longer."""
+    return title if len(title) <= MAX_SOURCE_TITLE_CHARS else f"{title[: MAX_SOURCE_TITLE_CHARS - 1].rstrip()}…"
+
+
 def _line(value: str) -> str:
     """``value`` as ONE header line: every line break becomes a single space.
 
@@ -505,9 +524,12 @@ def _line(value: str) -> str:
     document. The structured reader copies fields and never sees this, so the
     collapse is what keeps the two readers on one answer. A value with no line
     break is returned unchanged, which is why the byte-identity fixtures still
-    hold.
+    hold. A value outside the fence that spells a fence tag or the
+    ``--- Result N ---`` delimiter (a mail subject, an attachment's name) has
+    the tag escaped and the dashes made one dash, so it reads as the name it is.
     """
-    return value.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    one_line = value.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    return _MARKER_IN_VALUE_RE.sub("—", neutralise_tags(one_line))
 
 
 def _source_format_label(source_format: str) -> str:
