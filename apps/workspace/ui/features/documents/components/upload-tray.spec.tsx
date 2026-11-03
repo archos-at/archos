@@ -4,8 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { UploadTray } from './upload-tray'
 
 const requestQuarantineRelease = vi.fn(async (_documentId: string) => ({ notified: 1 }))
+const reviewAccess = vi.fn(async (_documentId: string) => ({ canReview: false, canAskForReview: true }))
+const releaseQuarantinedDocument = vi.fn(async (_documentId: string) => ({ status: 'processing' }))
 vi.mock('@/adapters/api/upload-screening-client', () => ({
   requestQuarantineRelease: (documentId: string) => requestQuarantineRelease(documentId),
+  getQuarantineReviewAccess: (documentId: string) => reviewAccess(documentId),
+  releaseQuarantinedDocument: (documentId: string) => releaseQuarantinedDocument(documentId),
 }))
 import type { TrackedFile } from '../types'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -343,8 +347,21 @@ describe('UploadTray', () => {
       const user = userEvent.setup()
       renderTray([held()])
 
-      await user.click(screen.getByTestId('upload-row-request-review'))
+      await user.click(await screen.findByTestId('upload-row-request-review'))
       expect(requestQuarantineRelease).toHaveBeenCalledWith('doc-h')
+    })
+
+    it('lets whoever may decide allow it from the row, after the question, and reads it again', async () => {
+      reviewAccess.mockResolvedValueOnce({ canReview: true, canAskForReview: false })
+      const user = userEvent.setup()
+      renderTray([held()])
+
+      await user.click(await screen.findByTestId('upload-row-allow'))
+      expect(releaseQuarantinedDocument).not.toHaveBeenCalled()
+      await user.click(screen.getByTestId('upload-row-allow-confirm'))
+      expect(releaseQuarantinedDocument).toHaveBeenCalledWith('doc-h')
+      expect(await screen.findByTestId('upload-row-allow-done')).toBeDefined()
+      expect(screen.queryByTestId('upload-row-request-review')).toBeNull()
     })
 
     it('is not retried by „Retry failed", and has no retry of its own', async () => {
@@ -398,7 +415,7 @@ describe('UploadTray', () => {
         const user = userEvent.setup()
         renderTray([replacing(true)])
 
-        await user.click(screen.getByTestId('upload-row-request-review'))
+        await user.click(await screen.findByTestId('upload-row-request-review'))
         expect(requestQuarantineRelease).toHaveBeenCalledWith('doc-earlier')
       })
 

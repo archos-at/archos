@@ -64,6 +64,11 @@ export const uploadBatches = {
       releaseRequestedToast: 'The people who may review and allow “{name}” have been notified.',
       releaseRequestNobody: 'Nobody but you may review “{name}”. You find it under Organization → Quarantine.',
       releaseRequestError: 'Could not send the request. Please try again.',
+      allowAnyway: 'Allow anyway',
+      allowAnywayTitle: 'Allow “{name}” anyway?',
+      allowAnywayDescription:
+        'Look at the finding first. If it is no real card number, IBAN or social security number, allow the file: {productName} then reads it like any other upload, and language models see its content. Your decision is logged with your name.',
+      allowedAnyway: 'Allowed. {productName} is reading the file now.',
     },
     notFound: {
       title: 'Summary not found',
