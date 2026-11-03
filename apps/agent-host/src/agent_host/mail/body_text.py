@@ -13,6 +13,21 @@ indentation are one space (outside ``<pre>``), and a block element ends a
 line. A table keeps its cells apart: each cell but a row's last ends in
 `` | ``, so "Stellplätze | 12" does not read "Stellplätze12" (RT-X3).
 
+What a reader cannot see is not text (ADR-0137, amendment of 2026-11-03): a
+mail is indexed as the project's data, and a ``display:none`` paragraph that
+tells a model what to do is the oldest trick for putting words into an index
+that no person ever read. Dropped from HTML before it is read: ``script``,
+``style``, ``head``, ``title`` and ``template``; an element hidden by its inline
+style (``display:none``, ``visibility:hidden``, ``mso-hide:all``, a zero
+``font-size`` or ``opacity``, a zero ``height`` or ``max-height`` with
+``overflow:hidden``; ``font-size`` and ``visibility`` are inherited, so a child
+that sets them back is read); the ``hidden`` attribute and ``aria-hidden="true"``; and a
+tracking pixel (an image 0 or 1 pixel wide or high). An image's ``alt`` is never
+read in any case. From every form, plain and RTF too: zero-width characters,
+the soft hyphen and the bidi controls, which split a word so a search misses it
+or turn a name around on screen. A colour equal to the background is not
+detected: the background can come from any ancestor or a stylesheet.
+
 Encapsulated HTML (an RTF body with ``\\fromhtml1``) needs no separate path:
 its markup lives in ``{\\*\\htmltag ...}`` destinations, which an RTF reader
 skips, so what is left is the text a reader saw.
@@ -67,7 +82,15 @@ _CELL_TAGS = frozenset({"td", "th"})
 #: What stands between two cells of a row.
 CELL_SEPARATOR = " | "
 
-_SKIPPED_TAGS = ("script", "style", "head", "title")
+_SKIPPED_TAGS = ("script", "style", "head", "title", "template")
+#: Characters a reader never sees that split or turn the text around them: zero-width
+#: space, non-joiner and joiner, word joiner, the byte-order mark, the soft hyphen,
+#: the directional marks, and the bidi embeddings, overrides and isolates.
+_INVISIBLE = re.compile("[\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]")
+#: A CSS length or number that is zero (``0``, ``0px``, ``0.0em``, ``0%``).
+_ZERO = re.compile(r"(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?")
+#: An image this wide or high, or less, is a tracking pixel.
+_PIXEL = 1
 #: Whitespace in markup, which a browser shows as one space (outside ``<pre>``).
 _MARKUP_SPACE = re.compile(r"\s+")
 _LINE_START_SPACE = re.compile(r"\n ")
@@ -115,8 +138,10 @@ def html_to_text(markup: str) -> str:
     if root is None:
         return ""
     # Listed first: dropping an element while iterating skips its next sibling.
-    for element in list(root.iter(*_SKIPPED_TAGS)):
+    # ``drop_tree`` keeps the element's tail, the visible text after it.
+    for element in [*root.iter(*_SKIPPED_TAGS), *_unseen(root)]:
         element.drop_tree()
+    _blank_unseen_text(root)
     _collapse_whitespace(root)
     for row in root.iter("tr"):
         cells = [child for child in row if child.tag in _CELL_TAGS]
@@ -125,6 +150,72 @@ def html_to_text(markup: str) -> str:
     for element in root.iter(*_BLOCK_TAGS):
         element.tail = "\n" + (element.tail or "")
     return _LINE_START_SPACE.sub("\n", root.text_content())
+
+
+def _unseen(root: lxml_html.HtmlElement) -> list[lxml_html.HtmlElement]:
+    """Every element nothing inside of can be seen, by its attributes, outermost and inner alike."""
+    return [
+        element for element in root.iter() if isinstance(element.tag, str) and element is not root and _hidden(element)
+    ]
+
+
+def _hidden(element: lxml_html.HtmlElement) -> bool:
+    """Hidden with everything inside it: no descendant can take it back."""
+    if element.get("hidden") is not None or (element.get("aria-hidden") or "").strip().lower() == "true":
+        return True
+    style = _declarations(element.get("style") or "")
+    if element.tag == "img" and _tracking_pixel(element, style):
+        return True
+    clipped = style.get("overflow") == "hidden" and (_is_zero(style.get("height")) or _is_zero(style.get("max-height")))
+    return clipped or style.get("display") == "none" or style.get("mso-hide") == "all" or _is_zero(style.get("opacity"))
+
+
+def _blank_unseen_text(root: lxml_html.HtmlElement) -> None:
+    """Blank the text an inherited ``font-size:0`` or ``visibility:hidden`` hides.
+
+    Both are inherited, and a child may set them back: a responsive mail puts
+    ``font-size:0`` on the cell that holds its columns, to swallow the spaces
+    between them, and gives each column its own size. So only the text whose
+    nearest declaration hides it goes, and the elements stay.
+    """
+    unseen: dict[lxml_html.HtmlElement, bool] = {}
+    for element in root.iter():
+        if not isinstance(element.tag, str):
+            continue
+        parent = element.getparent()
+        hidden = unseen.get(parent, False) if parent is not None else False
+        style = _declarations(element.get("style") or "")
+        if "font-size" in style or "visibility" in style:
+            hidden = _is_zero(style.get("font-size")) or style.get("visibility") in ("hidden", "collapse")
+        unseen[element] = hidden
+        if hidden:
+            element.text = None
+            for child in element:
+                child.tail = None
+
+
+def _declarations(style: str) -> dict[str, str]:
+    """An inline ``style`` as lowercase property → value, ``!important`` and spaces dropped; the last one wins."""
+    declarations: dict[str, str] = {}
+    for declaration in style.lower().split(";"):
+        name, colon, value = declaration.partition(":")
+        if colon:
+            declarations[name.strip()] = re.sub(r"\s+", "", value).removesuffix("!important")
+    return declarations
+
+
+def _is_zero(value: str | None) -> bool:
+    return value is not None and _ZERO.fullmatch(value) is not None
+
+
+def _tracking_pixel(image: lxml_html.HtmlElement, style: dict[str, str]) -> bool:
+    sizes = (image.get("width"), image.get("height"), style.get("width"), style.get("height"))
+    return any(_at_most_a_pixel(size) for size in sizes)
+
+
+def _at_most_a_pixel(size: str | None) -> bool:
+    match = re.fullmatch(r"\s*(\d+(?:\.\d*)?)\s*(?:px)?\s*", size or "")
+    return match is not None and float(match.group(1)) <= _PIXEL
 
 
 def _parse_bytes(markup: str) -> lxml_html.HtmlElement | None:
@@ -165,6 +256,7 @@ def body_text(plain: bytes | str | None, markup: bytes | str | None, rtf: bytes 
 
 def _tidy(text: str) -> str:
     text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
+    text = _INVISIBLE.sub("", text)
     text = _TRAILING_SPACE.sub("\n", text)
     return _BLANK_RUN.sub("\n\n", text).strip()
 

@@ -33,7 +33,7 @@
  * **Nothing a stranger wrote becomes structure.** Every name, domain, subject
  * and body goes through `lib/text/markdown-escape.ts`, after every line
  * terminator Python's `splitlines()` honours has become `\n` and every other
- * control character is gone. A body line `## 14.10.2026 · MA 37` stays a line
+ * control character, zero-width character and bidi control is gone. A body line `## 14.10.2026 · MA 37` stays a line
  * of its real sender's section.
  *
  * **Authority is never laundered** (RT-S2). A heading names the signing
@@ -367,17 +367,27 @@ export function sectionAttachment(filing: MailThreadAttachmentFiling): MailThrea
 const LINE_TERMINATORS = /\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/g
 /** Control characters that are no line break: C0 but tab and newline, DEL, C1. */
 const CONTROLS = /[\x00-\x08\x0e-\x1f\x7f-\x84\x86-\x9f]/g
+/**
+ * Characters a reader never sees that split a word or turn text around on
+ * screen: zero-width space, non-joiner and joiner, the directional marks, the
+ * bidi embeddings, overrides and isolates, the word joiner, the byte-order
+ * mark and the soft hyphen. The same set the Python reader drops
+ * (`agent_host/mail/body_text.py`, `_INVISIBLE`); this covers what does not
+ * pass it: names, subjects, file names and the Outlook archive's fields.
+ */
+const INVISIBLE = /[\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/g
 
-/** One line of a header value: every terminator and control character a space, white space collapsed. */
+/** One line of a header value: every terminator and control character a space, invisible characters gone, white space collapsed. */
 function oneLine(value: string): string {
-  return value.replace(LINE_TERMINATORS, ' ').replace(CONTROLS, ' ').replace(/\s+/g, ' ').trim()
+  return value.replace(LINE_TERMINATORS, ' ').replace(CONTROLS, ' ').replace(INVISIBLE, '').replace(/\s+/g, ' ').trim()
 }
 
-/** A body or quote as escaped Markdown: one kind of line break, no controls, at most one blank line in a row. */
+/** A body or quote as escaped Markdown: one kind of line break, no controls or invisible characters, at most one blank line in a row. */
 function bodyText(raw: string, copy: MailThreadRenderCopy): string {
   let text = raw
     .replace(LINE_TERMINATORS, '\n')
     .replace(CONTROLS, '')
+    .replace(INVISIBLE, '')
     .replace(/[ \t]+$/gm, '')
   let cut = false
   if (text.length > MAX_SECTION_TEXT_CHARS) {

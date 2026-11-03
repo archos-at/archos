@@ -470,6 +470,20 @@ describe('nothing a stranger wrote becomes structure', () => {
     expect(render([e]).markdown).toContain('\nabcde\n')
   })
 
+  it('drops zero-width characters and bidi controls, in the text and in a name', () => {
+    // A split word is missed by every search; a right-to-left override shows „Rechnung_fdp.exe“ as „Rechnung_exe.pdf“.
+    const e = entry({
+      id: 'z',
+      sentAt: at('2026-10-03T08:00:00Z'),
+      senderName: 'Mi\u200briam \u202eHuber',
+      ownText: 'Stell\u200bplatz\u200c nach\u200dweis Ab\u00adstand \u2066Rechnung_\u202efdp.exe\u2069\ufeff',
+    })
+    const markdown = render([e]).markdown
+    expect(markdown).toContain('\nStellplatz nachweis Abstand Rechnung\\_fdp.exe\n')
+    expect(markdown).toContain('Miriam Huber')
+    expect(markdown).not.toMatch(/[\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/)
+  })
+
   it('prints no address, only domains', () => {
     const markdown = render([BERGER, HUBER, FORGER, ARCHIVE]).markdown
     expect(markdown).not.toContain('@')
