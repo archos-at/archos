@@ -242,17 +242,18 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
 # only their own seeds, so they start from an empty one.
 $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/null
 
-# The job-queue suites claim from ONE table, whichever lane a job is in, so run
-# in parallel they claim each other's seeded jobs. One file at a time. The
+# The job-queue suites take and sweep ONE table, whichever lane a job is in, so
+# run in parallel they take each other's seeded jobs. One file at a time. The
 # scheduler's due-scan is the same shape over task_definitions, every tenant's.
-echo "==> running the job-queue and scheduler-claim suites one file at a time as app_rw"
+# `orchestrator.integration.spec.ts` also needs an engine (HATCHET_CLIENT_TOKEN and
+# HATCHET_CLIENT_HOST_PORT, CI's hatchet-lite); without one it skips.
+echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run --no-file-parallelism \
-    bff/jobs-queue/queue.integration.spec.ts \
     bff/jobs-queue/repository.integration.spec.ts \
-    workers/jobs/runner.integration.spec.mjs \
-    workers/jobs/slice-bundle.integration.spec.mjs \
-    scheduler/db.integration.spec.mjs
+    bff/jobs-queue/task-run.integration.spec.ts \
+    bff/jobs-queue/orchestrator.integration.spec.ts \
+    bff/scheduling/repository.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
@@ -2522,55 +2523,55 @@ restore_rls_role_names
 echo "==> 0191 policy names, the role rename and down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0192: what settling an upload batch sets off, per batch, and the
+# Migration 0193: what settling an upload batch sets off, per batch, and the
 # DOWN.
 #
-# On a database of its own, migrated to whatever precedes 0192, with one batch
-# opened before it. 0192 gives that batch, and any batch opened without naming
+# On a database of its own, migrated to whatever precedes 0193, with one batch
+# opened before it. 0193 gives that batch, and any batch opened without naming
 # them, every effect of a person's upload; it refuses an unknown revision
 # notice; it re-applies. The down drops the five columns and the CHECK; the up
 # re-applies after it. What the columns do is upload-batches.integration.spec.ts's
 # and the unit specs'.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0192 upload batch effects and its down migration on batch_effects_0192"
-migrate_before batch_effects_0192 0192_upload_batch_effects
-sql_in batch_effects_0192 <<'SQL'
+echo "==> verifying the 0193 upload batch effects and its down migration on batch_effects_0193"
+migrate_before batch_effects_0193 0193_upload_batch_effects
+sql_in batch_effects_0193 <<'SQL'
 INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count) VALUES
   ('b1b1b1b1-0000-4000-8000-000000000185', 'org_0185', 'user_1', 'office_shelf', 1);
 SQL
-EFFECTS_0192="SELECT string_agg(announces_completion::text || ',' || reviews_filing::text || ',' || starts_intake::text || ',' || revision_notice || ',' || runs_document_check::text, '|' ORDER BY id) FROM upload_batches"
+EFFECTS_0193="SELECT string_agg(announces_completion::text || ',' || reviews_filing::text || ',' || starts_intake::text || ',' || revision_notice || ',' || runs_document_check::text, '|' ORDER BY id) FROM upload_batches"
 COLUMNS_0185="SELECT count(*) FROM information_schema.columns WHERE table_name = 'upload_batches' AND column_name IN ('announces_completion', 'reviews_filing', 'starts_intake', 'revision_notice', 'runs_document_check')"
-apply_in batch_effects_0192 0192_upload_batch_effects.sql
-check_in batch_effects_0192 "$EFFECTS_0192" "true,true,true,all,true" "0192 gives a batch opened before it every effect of a person's upload"
-sql_in batch_effects_0192 <<'SQL'
+apply_in batch_effects_0193 0193_upload_batch_effects.sql
+check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true" "0193 gives a batch opened before it every effect of a person's upload"
+sql_in batch_effects_0193 <<'SQL'
 INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count) VALUES
   ('b2b2b2b2-0000-4000-8000-000000000185', 'org_0185', 'user_1', 'office_shelf', 1);
 INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, announces_completion, reviews_filing, starts_intake, revision_notice, runs_document_check) VALUES
   ('b3b3b3b3-0000-4000-8000-000000000185', 'org_0185', 'user_1', 'office_shelf', 1, false, false, false, 'marks_only', false);
 SQL
-check_in batch_effects_0192 "$EFFECTS_0192" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0192: a batch that names no effect has all of them, a quiet one keeps what it set"
-refused_in batch_effects_0192 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "an unknown revision notice"
-refused_in batch_effects_0192 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, starts_intake) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "starts_intake" "a batch with no answer to whether it starts an intake reading"
-refused_in batch_effects_0192 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, runs_document_check) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "runs_document_check" "a batch with no answer to whether its documents are checked"
-apply_in batch_effects_0192 0192_upload_batch_effects.sql
-check_in batch_effects_0192 "$EFFECTS_0192" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0192 re-applies and keeps what the batches hold"
-apply_in batch_effects_0192 0192_upload_batch_effects.down.sql
-check_in batch_effects_0192 "$COLUMNS_0185" "0" "0192 down drops the five columns"
-check_in batch_effects_0192 "SELECT count(*) FROM pg_constraint WHERE conname = 'upload_batches_revision_notice_known'" "0" "0192 down drops the CHECK"
-check_in batch_effects_0192 "SELECT count(*) FROM upload_batches" "3" "0192 down keeps every batch"
-apply_in batch_effects_0192 0192_upload_batch_effects.down.sql
-apply_in batch_effects_0192 0192_upload_batch_effects.sql
-check_in batch_effects_0192 "$EFFECTS_0192" "true,true,true,all,true|true,true,true,all,true|true,true,true,all,true" "0192 re-applies after its down, every batch back to a person's upload"
-refused_in batch_effects_0192 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "after the re-apply: an unknown revision notice"
-echo "==> 0192 upload batch effects and its down migration verified"
+check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0193: a batch that names no effect has all of them, a quiet one keeps what it set"
+refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "an unknown revision notice"
+refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, starts_intake) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "starts_intake" "a batch with no answer to whether it starts an intake reading"
+refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, runs_document_check) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "runs_document_check" "a batch with no answer to whether its documents are checked"
+apply_in batch_effects_0193 0193_upload_batch_effects.sql
+check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0193 re-applies and keeps what the batches hold"
+apply_in batch_effects_0193 0193_upload_batch_effects.down.sql
+check_in batch_effects_0193 "$COLUMNS_0185" "0" "0193 down drops the five columns"
+check_in batch_effects_0193 "SELECT count(*) FROM pg_constraint WHERE conname = 'upload_batches_revision_notice_known'" "0" "0193 down drops the CHECK"
+check_in batch_effects_0193 "SELECT count(*) FROM upload_batches" "3" "0193 down keeps every batch"
+apply_in batch_effects_0193 0193_upload_batch_effects.down.sql
+apply_in batch_effects_0193 0193_upload_batch_effects.sql
+check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true|true,true,true,all,true|true,true,true,all,true" "0193 re-applies after its down, every batch back to a person's upload"
+refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "after the re-apply: an unknown revision notice"
+echo "==> 0193 upload batch effects and its down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0193: inbound mail, mail threads and follows (ADR-0137), and the
+# Migration 0194: inbound mail, mail threads and follows (ADR-0137), and the
 # DOWN.
 #
-# On a database of its own, migrated through 0193, with two organizations and
+# On a database of its own, migrated through 0194, with two organizations and
 # a third project of the first one that a legal hold will cover. Every refusal
-# 0193 promises is a violating statement here, named by its constraint:
+# 0194 promises is a violating statement here, named by its constraint:
 # nothing is filed without a person's file decision, a system actor never
 # decides, an agent's card and a follow carry no acknowledgement, a follow is the
 # follower's own, nothing unscanned is shown or filed, a settled mail keeps no
@@ -2578,25 +2579,25 @@ echo "==> 0192 upload batch effects and its down migration verified"
 # role may do (its organization only, never a DELETE), what a decision may
 # become (audited, once), what a hold stops, what deleting a document, a
 # thread and a project takes along, and the down: refused while a row names an
-# object, clean once none does, and 0193 applies again after it.
+# object, clean once none does, and 0194 applies again after it.
 #
 # What the repository, the jobs and the sweeps do with these rows is their own
 # integration specs' (registered above); this section is what the database
 # alone guarantees.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0193 inbound mail, threads and follows and their down migration on inbound_0193"
-migrate_until inbound_0193 0193_inbound_mail
+echo "==> verifying the 0194 inbound mail, threads and follows and their down migration on inbound_0194"
+migrate_until inbound_0194 0194_inbound_mail
 # People are WorkOS user ids: the tables refuse every other shape.
 U184_A1="user_01J0MA1LUSERA00000000000A1"
 U184_A2="user_01J0MA1LUSERA00000000000A2"
-sql_in inbound_0193 <<'SQL'
+sql_in inbound_0194 <<'SQL'
 INSERT INTO projects (id, organization_id, name, created_by, collection_name) VALUES
   ('a0000000-0000-4000-8000-000000000184', 'org_0184_a', 'Mail A', 'user_01J0MA1LUSERA00000000000A1', 'proj_0184_a'),
   ('b0000000-0000-4000-8000-000000000184', 'org_0184_b', 'Mail B', 'user_01J0MA1LUSERB00000000000B1', 'proj_0184_b'),
   ('c0000000-0000-4000-8000-000000000184', 'org_0184_a', 'Mail held', 'user_01J0MA1LUSERA00000000000A1', 'proj_0184_h');
 INSERT INTO documents (id, organization_id, created_by, filename, storage_key, collection_name, status, scope, project_id) VALUES
-  ('d1000000-0000-4000-8000-000000000184', 'org_0184_a', 'user_01J0MA1LUSERA00000000000A1', 'Verlauf.md', 'k/0193/a', 'proj_0184_a', 'completed', 'project', 'a0000000-0000-4000-8000-000000000184'),
-  ('d3000000-0000-4000-8000-000000000184', 'org_0184_b', 'user_01J0MA1LUSERB00000000000B1', 'Plan.pdf', 'k/0193/b', 'proj_0184_b', 'completed', 'project', 'b0000000-0000-4000-8000-000000000184');
+  ('d1000000-0000-4000-8000-000000000184', 'org_0184_a', 'user_01J0MA1LUSERA00000000000A1', 'Verlauf.md', 'k/0194/a', 'proj_0184_a', 'completed', 'project', 'a0000000-0000-4000-8000-000000000184'),
+  ('d3000000-0000-4000-8000-000000000184', 'org_0184_b', 'user_01J0MA1LUSERB00000000000B1', 'Plan.pdf', 'k/0194/b', 'proj_0184_b', 'completed', 'project', 'b0000000-0000-4000-8000-000000000184');
 INSERT INTO inbound_mail_addresses (id, organization_id, project_id, token, slug, created_by) VALUES
   ('aa000000-0000-4000-8000-000000000184', 'org_0184_a', 'a0000000-0000-4000-8000-000000000184', 'aaaaaaaaaaaa', 'mail-a', 'user_01J0MA1LUSERA00000000000A1'),
   ('ab000000-0000-4000-8000-000000000184', 'org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'bbbbbbbbbbbb', 'mail-b', 'user_01J0MA1LUSERB00000000000B1'),
@@ -2645,7 +2646,7 @@ INSERT INTO inbound_mail_parts (id, organization_id, project_id, mail_id, positi
 INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by) VALUES
   ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', '1b000000-0000-4000-8000-000000000184', '2c000000-0000-4000-8000-000000000184', 'dismiss', 'user_01J0MA1LUSERB00000000000B1');
 SQL
-check_in inbound_0193 "SELECT count(*) FROM inbound_mail_parts WHERE state = 'waiting'" "4" "0193: parts wait for a person"
+check_in inbound_0194 "SELECT count(*) FROM inbound_mail_parts WHERE state = 'waiting'" "4" "0194: parts wait for a person"
 
 # Insert prefixes for the violating rows below. Each refusal names its rule; a
 # trigger's refusal carries its rule as the error's constraint name, which psql
@@ -2662,90 +2663,90 @@ ENTRY184="INSERT INTO mail_thread_entries (organization_id, project_id, thread_i
 FOLLOW184="INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, created_at, expires_at, ended_at, ended_by, ended_reason) VALUES ($PA184, 'ea000000-0000-4000-8000-000000000184'"
 
 # Addresses: the token's shape, global and never reused, one active per project.
-refused_in inbound_0193 "$ADDR184, 'AAAAAAAAAAAA', '', '$U184_A1', NULL, NULL, NULL)" "inbound_mail_addresses_token_shape" "a token that is not lowercase base32"
-refused_in inbound_0193 "$ADDR184, 'dddddddddddd', 'a.b', '$U184_A1', NULL, NULL, NULL)" "inbound_mail_addresses_slug_shape" "a slug with a dot"
-refused_in inbound_0193 "$ADDR184, 'dddddddddddd', '', '$U184_A1', now(), NULL, 'rotated')" "inbound_mail_addresses_revocation_attributed" "a revocation nobody made"
-refused_in inbound_0193 "$ADDR184, 'dddddddddddd', '', '$U184_A1', now(), '$U184_A1', 'lost')" "inbound_mail_addresses_revoked_reason_known" "an unknown revocation reason"
-refused_in inbound_0193 "UPDATE inbound_mail_addresses SET cap_notice = 'overflowing', cap_noticed_at = now() WHERE id = 'aa000000-0000-4000-8000-000000000184'" "inbound_mail_addresses_cap_notice_known" "a cap notice the sweep does not know"
-refused_in inbound_0193 "UPDATE inbound_mail_addresses SET cap_notice = 'full' WHERE id = 'aa000000-0000-4000-8000-000000000184'" "inbound_mail_addresses_cap_noticed_at" "a cap notice without when it was told"
-refused_in inbound_0193 "$ADDR184, 'dddddddddddd', '', '$U184_A1', NULL, NULL, NULL)" "uniq_inbound_mail_addresses_active_project" "a second active address for a project"
-sql_in inbound_0193 <<<"UPDATE inbound_mail_addresses SET revoked_at = now(), revoked_by = '$U184_A1', revoked_reason = 'rotated' WHERE id = 'ac000000-0000-4000-8000-000000000184';"
-refused_in inbound_0193 "INSERT INTO inbound_mail_addresses (organization_id, project_id, token, created_by) VALUES ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'cccccccccccc', 'u')" "uniq_inbound_mail_addresses_token" "a revoked token minted again, even in another organization"
-refused_in inbound_0193 "INSERT INTO inbound_mail_addresses (organization_id, project_id, token, created_by) VALUES ('org_0184_b', 'c0000000-0000-4000-8000-000000000184', 'dddddddddddd', 'u')" "inbound_mail_addresses_project_fkey" "an address on another organization's project"
+refused_in inbound_0194 "$ADDR184, 'AAAAAAAAAAAA', '', '$U184_A1', NULL, NULL, NULL)" "inbound_mail_addresses_token_shape" "a token that is not lowercase base32"
+refused_in inbound_0194 "$ADDR184, 'dddddddddddd', 'a.b', '$U184_A1', NULL, NULL, NULL)" "inbound_mail_addresses_slug_shape" "a slug with a dot"
+refused_in inbound_0194 "$ADDR184, 'dddddddddddd', '', '$U184_A1', now(), NULL, 'rotated')" "inbound_mail_addresses_revocation_attributed" "a revocation nobody made"
+refused_in inbound_0194 "$ADDR184, 'dddddddddddd', '', '$U184_A1', now(), '$U184_A1', 'lost')" "inbound_mail_addresses_revoked_reason_known" "an unknown revocation reason"
+refused_in inbound_0194 "UPDATE inbound_mail_addresses SET cap_notice = 'overflowing', cap_noticed_at = now() WHERE id = 'aa000000-0000-4000-8000-000000000184'" "inbound_mail_addresses_cap_notice_known" "a cap notice the sweep does not know"
+refused_in inbound_0194 "UPDATE inbound_mail_addresses SET cap_notice = 'full' WHERE id = 'aa000000-0000-4000-8000-000000000184'" "inbound_mail_addresses_cap_noticed_at" "a cap notice without when it was told"
+refused_in inbound_0194 "$ADDR184, 'dddddddddddd', '', '$U184_A1', NULL, NULL, NULL)" "uniq_inbound_mail_addresses_active_project" "a second active address for a project"
+sql_in inbound_0194 <<<"UPDATE inbound_mail_addresses SET revoked_at = now(), revoked_by = '$U184_A1', revoked_reason = 'rotated' WHERE id = 'ac000000-0000-4000-8000-000000000184';"
+refused_in inbound_0194 "INSERT INTO inbound_mail_addresses (organization_id, project_id, token, created_by) VALUES ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'cccccccccccc', 'u')" "uniq_inbound_mail_addresses_token" "a revoked token minted again, even in another organization"
+refused_in inbound_0194 "INSERT INTO inbound_mail_addresses (organization_id, project_id, token, created_by) VALUES ('org_0184_b', 'c0000000-0000-4000-8000-000000000184', 'dddddddddddd', 'u')" "inbound_mail_addresses_project_fkey" "an address on another organization's project"
 
 # Mails: idempotent per address, scanned before shown, the verdict's shape, the scrub.
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('1', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "uniq_inbound_mails_address_delivery" "the same delivery twice to one address"
-refused_in inbound_0193 "$MAIL184, 'queued', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_status_known" "an unknown status"
-refused_in inbound_0193 "$MAIL184, 'received', NULL, 1, 'b', 'pending', NULL, NULL, NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_delivery_key_when_received" "a received mail without its delivery key"
-refused_in inbound_0193 "$MAIL184, 'receiving', 'ABC', NULL, 'b', 'pending', NULL, NULL, NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_delivery_key_shape" "a delivery key that is not a sha256"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'pending', NULL, 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_waiting_is_scanned" "a mail shown before its raw message was scanned"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_member_has_user" "a member's mail that names no member"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', '$U184_A1', '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_member_has_user" "an outsider's mail that names a member"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_unverified', 'system:inbound_mail', '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_none')" "inbound_mails_sender_user_is_person" "a member that is not a person's id"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{trusted}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_sender_flags_known" "an unknown sender flag"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', 'example.org; dkim=pass header.d=y.at; SPF=temperror', NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_authentication_results_shape" "a stored evidence line that carries spf= (RT-S18)"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_unverified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_maybe')" "inbound_mails_sender_reason_known" "an unknown sender reason"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_unverified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_reason_with_trust" "a DKIM pass labelled unverified"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_fail')" "inbound_mails_reason_with_trust" "a verified sender whose signature failed"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_reason_with_trust" "a verdict that says no why"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_verified', '$U184_A1', '{bcc_own}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_bcc_own_paired" "a Bcc copy that is not also flagged as addressed elsewhere"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{not_addressed_to_project,bcc_own}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_bcc_own_paired" "an outsider's mail treated as a member's own Bcc copy"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_unverified', '$U184_A1', '{claims_member_name}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_none')" "inbound_mails_member_name_claim_external" "a member's own address flagged as claiming a member's name"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), NULL, 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_sender_while_open" "a waiting mail that says nobody wrote it"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_trust_when_shown" "a waiting mail nobody checked"
-refused_in inbound_0193 "$MAIL184, 'dropped', repeat('4', 64), 1, 'b', 'clean', now(), NULL, NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_dropped_with_reason" "a dropped mail without its reason"
-refused_in inbound_0193 "$MAIL184, 'settled', repeat('4', 64), 1, 'b', 'clean', now(), NULL, 'external_verified', NULL, '{}', NULL, NULL, 'Betreff', now() + interval '1 day', 'dkim_pass')" "inbound_mails_ended_is_scrubbed" "a settled mail that keeps its subject"
-refused_in inbound_0193 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() - interval '1 day', 'dkim_pass')" "inbound_mails_expires_after_received" "a mail that expired before it arrived"
-refused_in inbound_0193 "INSERT INTO inbound_mails (organization_id, project_id, address_id, staging_bucket, expires_at) VALUES ('org_0184_a', 'a0000000-0000-4000-8000-000000000184', 'ab000000-0000-4000-8000-000000000184', 'b', now() + interval '1 day')" "inbound_mails_address_fkey" "a mail on another organization's address"
-refused_in inbound_0193 "UPDATE inbound_mails SET raw_storage_key = 'org/org_0184_b/project/b0000000-0000-4000-8000-000000000184/_inbound-mail/1a000000-0000-4000-8000-000000000184/raw.eml' WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_staging_keys_shape" "a staged key outside the row's own project"
-refused_in inbound_0193 "UPDATE inbound_mails SET raw_storage_key = 'org/org_0184_a/project/a0000000-0000-4000-8000-000000000184/doc/x/raw.eml' WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_staging_keys_shape" "a staged key outside the reserved prefix"
-refused_in inbound_0193 "UPDATE inbound_mails SET signed_headers = '{From}' WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_signed_headers_shape" "a signed header that is not lowercase"
-refused_in inbound_0193 "UPDATE inbound_mails SET status = 'settled', settled_at = now(), sender_address = NULL, subject = NULL WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_ended_is_scrubbed" "a settled mail whose staged objects are still named"
-sql_in inbound_0193 <<<"UPDATE inbound_mails SET status = 'settled', settled_at = now(), sender_address = NULL, subject = NULL, raw_storage_key = NULL, read_storage_key = NULL, erasure_deferred_at = NULL WHERE id = '1c000000-0000-4000-8000-000000000184';"
-sql_in inbound_0193 <<<"UPDATE inbound_mails SET status = 'waiting', settled_at = NULL, sender_address = 'x@h.at', subject = 'Held' WHERE id = '1c000000-0000-4000-8000-000000000184';"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('1', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "uniq_inbound_mails_address_delivery" "the same delivery twice to one address"
+refused_in inbound_0194 "$MAIL184, 'queued', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_status_known" "an unknown status"
+refused_in inbound_0194 "$MAIL184, 'received', NULL, 1, 'b', 'pending', NULL, NULL, NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_delivery_key_when_received" "a received mail without its delivery key"
+refused_in inbound_0194 "$MAIL184, 'receiving', 'ABC', NULL, 'b', 'pending', NULL, NULL, NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_delivery_key_shape" "a delivery key that is not a sha256"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'pending', NULL, 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_waiting_is_scanned" "a mail shown before its raw message was scanned"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_member_has_user" "a member's mail that names no member"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', '$U184_A1', '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_member_has_user" "an outsider's mail that names a member"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_unverified', 'system:inbound_mail', '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_none')" "inbound_mails_sender_user_is_person" "a member that is not a person's id"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{trusted}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_sender_flags_known" "an unknown sender flag"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', 'example.org; dkim=pass header.d=y.at; SPF=temperror', NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_authentication_results_shape" "a stored evidence line that carries spf= (RT-S18)"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_unverified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_maybe')" "inbound_mails_sender_reason_known" "an unknown sender reason"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_unverified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_reason_with_trust" "a DKIM pass labelled unverified"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_fail')" "inbound_mails_reason_with_trust" "a verified sender whose signature failed"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_reason_with_trust" "a verdict that says no why"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_verified', '$U184_A1', '{bcc_own}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_bcc_own_paired" "a Bcc copy that is not also flagged as addressed elsewhere"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{not_addressed_to_project,bcc_own}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_bcc_own_paired" "an outsider's mail treated as a member's own Bcc copy"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'member_unverified', '$U184_A1', '{claims_member_name}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_none')" "inbound_mails_member_name_claim_external" "a member's own address flagged as claiming a member's name"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), NULL, 'external_verified', NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', 'dkim_pass')" "inbound_mails_sender_while_open" "a waiting mail that says nobody wrote it"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_trust_when_shown" "a waiting mail nobody checked"
+refused_in inbound_0194 "$MAIL184, 'dropped', repeat('4', 64), 1, 'b', 'clean', now(), NULL, NULL, NULL, '{}', NULL, NULL, NULL, now() + interval '1 day', NULL)" "inbound_mails_dropped_with_reason" "a dropped mail without its reason"
+refused_in inbound_0194 "$MAIL184, 'settled', repeat('4', 64), 1, 'b', 'clean', now(), NULL, 'external_verified', NULL, '{}', NULL, NULL, 'Betreff', now() + interval '1 day', 'dkim_pass')" "inbound_mails_ended_is_scrubbed" "a settled mail that keeps its subject"
+refused_in inbound_0194 "$MAIL184, 'waiting', repeat('4', 64), 1, 'b', 'clean', now(), 'x@y.at', 'external_verified', NULL, '{}', NULL, NULL, NULL, now() - interval '1 day', 'dkim_pass')" "inbound_mails_expires_after_received" "a mail that expired before it arrived"
+refused_in inbound_0194 "INSERT INTO inbound_mails (organization_id, project_id, address_id, staging_bucket, expires_at) VALUES ('org_0184_a', 'a0000000-0000-4000-8000-000000000184', 'ab000000-0000-4000-8000-000000000184', 'b', now() + interval '1 day')" "inbound_mails_address_fkey" "a mail on another organization's address"
+refused_in inbound_0194 "UPDATE inbound_mails SET raw_storage_key = 'org/org_0184_b/project/b0000000-0000-4000-8000-000000000184/_inbound-mail/1a000000-0000-4000-8000-000000000184/raw.eml' WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_staging_keys_shape" "a staged key outside the row's own project"
+refused_in inbound_0194 "UPDATE inbound_mails SET raw_storage_key = 'org/org_0184_a/project/a0000000-0000-4000-8000-000000000184/doc/x/raw.eml' WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_staging_keys_shape" "a staged key outside the reserved prefix"
+refused_in inbound_0194 "UPDATE inbound_mails SET signed_headers = '{From}' WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_signed_headers_shape" "a signed header that is not lowercase"
+refused_in inbound_0194 "UPDATE inbound_mails SET status = 'settled', settled_at = now(), sender_address = NULL, subject = NULL WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mails_ended_is_scrubbed" "a settled mail whose staged objects are still named"
+sql_in inbound_0194 <<<"UPDATE inbound_mails SET status = 'settled', settled_at = now(), sender_address = NULL, subject = NULL, raw_storage_key = NULL, read_storage_key = NULL, erasure_deferred_at = NULL WHERE id = '1c000000-0000-4000-8000-000000000184';"
+sql_in inbound_0194 <<<"UPDATE inbound_mails SET status = 'waiting', settled_at = NULL, sender_address = 'x@h.at', subject = 'Held' WHERE id = '1c000000-0000-4000-8000-000000000184';"
 
 # Parts: their one key, scanned before filed, the flags they may carry.
-refused_in inbound_0193 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/4', 'pending', NULL, '{}', '{}')" "inbound_mail_parts_storage_key_shape" "an attachment staged under another position's key"
-refused_in inbound_0193 "$PART184, 3, 'message', 'a.txt', 'text/plain', 1, repeat('e', 64), NULL, 'not_applicable', NULL, '{}', '{}')" "inbound_mail_parts_message_has_no_object" "a message part with a file name"
-sql_in inbound_0193 <<<"$PART184, 5, 'attachment', NULL, 'application/octet-stream', 1, repeat('e', 64), $KEY184/5', 'pending', NULL, '{}', '{}');"
-check_in inbound_0193 "SELECT count(*) FROM inbound_mail_parts WHERE filename IS NULL AND kind = 'attachment'" "1" "0193: a file that came without a name is staged, for the person to name"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'dismissed', ended_at = now(), storage_key = NULL WHERE id = '2d000000-0000-4000-8000-000000000184'" "inbound_mail_parts_name_with_bytes" "a file name kept after its bytes were erased"
-refused_in inbound_0193 "$PART184, 3, 'attachment', NULL, 'application/pdf', 1, repeat('e', 64), NULL, 'pending', NULL, '{}', '{}')" "inbound_mail_parts_bytes_while_open" "a waiting attachment without bytes"
-refused_in inbound_0193 "$PART184, 3, 'message', NULL, 'text/plain', 1, repeat('e', 64), NULL, 'clean', now(), '{}', '{}')" "inbound_mail_parts_scan_applies" "the text scanned on its own"
-refused_in inbound_0193 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/3', 'not_applicable', NULL, '{}', '{}')" "inbound_mail_parts_scan_applies" "an attachment exempt from the scan"
-refused_in inbound_0193 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/3', 'pending', NULL, '{harmless}', '{}')" "inbound_mail_parts_risk_flags_known" "an unknown risk flag"
-refused_in inbound_0193 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/3', 'pending', NULL, '{}', '{Gehalt}')" "inbound_mail_parts_name_stop_terms" "name-stop terms without the flag"
-refused_in inbound_0193 "$PART184, 1, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/1', 'pending', NULL, '{}', '{}')" "inbound_mail_parts_mail_position_key" "two parts at one position"
-refused_in inbound_0193 "INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status) VALUES ('org_0184_a', 'a0000000-0000-4000-8000-000000000184', '1b000000-0000-4000-8000-000000000184', 9, 'message', 'text/plain', 1, repeat('e', 64), 'not_applicable')" "inbound_mail_parts_mail_fkey" "a part of another organization's mail"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET mail_thread_entry_id = 'e1000000-0000-4000-8000-000000000184' WHERE id = '2a000000-0000-4000-8000-000000000184'" "inbound_mail_parts_entry_only_for_filed_message" "a waiting text that names an entry"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET last_failure = 'gremlins' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_failure_known" "an unknown filing failure"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'dismissed' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_ended_at" "a dismissed part that does not say when"
+refused_in inbound_0194 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/4', 'pending', NULL, '{}', '{}')" "inbound_mail_parts_storage_key_shape" "an attachment staged under another position's key"
+refused_in inbound_0194 "$PART184, 3, 'message', 'a.txt', 'text/plain', 1, repeat('e', 64), NULL, 'not_applicable', NULL, '{}', '{}')" "inbound_mail_parts_message_has_no_object" "a message part with a file name"
+sql_in inbound_0194 <<<"$PART184, 5, 'attachment', NULL, 'application/octet-stream', 1, repeat('e', 64), $KEY184/5', 'pending', NULL, '{}', '{}');"
+check_in inbound_0194 "SELECT count(*) FROM inbound_mail_parts WHERE filename IS NULL AND kind = 'attachment'" "1" "0194: a file that came without a name is staged, for the person to name"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'dismissed', ended_at = now(), storage_key = NULL WHERE id = '2d000000-0000-4000-8000-000000000184'" "inbound_mail_parts_name_with_bytes" "a file name kept after its bytes were erased"
+refused_in inbound_0194 "$PART184, 3, 'attachment', NULL, 'application/pdf', 1, repeat('e', 64), NULL, 'pending', NULL, '{}', '{}')" "inbound_mail_parts_bytes_while_open" "a waiting attachment without bytes"
+refused_in inbound_0194 "$PART184, 3, 'message', NULL, 'text/plain', 1, repeat('e', 64), NULL, 'clean', now(), '{}', '{}')" "inbound_mail_parts_scan_applies" "the text scanned on its own"
+refused_in inbound_0194 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/3', 'not_applicable', NULL, '{}', '{}')" "inbound_mail_parts_scan_applies" "an attachment exempt from the scan"
+refused_in inbound_0194 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/3', 'pending', NULL, '{harmless}', '{}')" "inbound_mail_parts_risk_flags_known" "an unknown risk flag"
+refused_in inbound_0194 "$PART184, 3, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/3', 'pending', NULL, '{}', '{Gehalt}')" "inbound_mail_parts_name_stop_terms" "name-stop terms without the flag"
+refused_in inbound_0194 "$PART184, 1, 'attachment', 'a.pdf', 'application/pdf', 1, repeat('e', 64), $KEY184/1', 'pending', NULL, '{}', '{}')" "inbound_mail_parts_mail_position_key" "two parts at one position"
+refused_in inbound_0194 "INSERT INTO inbound_mail_parts (organization_id, project_id, mail_id, position, kind, content_type, size_bytes, sha256, scan_status) VALUES ('org_0184_a', 'a0000000-0000-4000-8000-000000000184', '1b000000-0000-4000-8000-000000000184', 9, 'message', 'text/plain', 1, repeat('e', 64), 'not_applicable')" "inbound_mail_parts_mail_fkey" "a part of another organization's mail"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET mail_thread_entry_id = 'e1000000-0000-4000-8000-000000000184' WHERE id = '2a000000-0000-4000-8000-000000000184'" "inbound_mail_parts_entry_only_for_filed_message" "a waiting text that names an entry"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET last_failure = 'gremlins' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_failure_known" "an unknown filing failure"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'dismissed' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_ended_at" "a dismissed part that does not say when"
 
 # Nothing is filed without a person's file decision about THAT part (RT-S7).
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'filing', claim_expires_at = now() + interval '5 minutes' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_decision_iff_filing" "a part claimed for filing with no decision"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', 'system:inbound_mail', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_decider_is_person" "a system actor deciding"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', 'user_1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_decider_is_person" "a decider that is not a WorkOS user id"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'accept', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_action_known" "an unknown action"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'rule', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_via_known" "a decision that came by a rule"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_proposal_iff_card" "an agent's card that names no proposal"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, true)" "inbound_mail_decisions_agent_cards_file_clean" "an agent's card that acknowledges a risk (RT-S5)"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, true, false, false)" "inbound_mail_decisions_agent_cards_file_clean" "an agent's card that releases a stopped name (RT-S5)"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_destination_when_filing" "a filing with nowhere to go"
-refused_in inbound_0193 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_destination_when_filing" "a dismissal with a destination"
-refused_in inbound_0193 "${V184}$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, 'Statik', 'create', NULL, 'full', 'Statik', false, false, false)" "inbound_mail_decisions_thread_for_text" "an attachment filed into a thread"
-refused_in inbound_0193 "${V184}$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_thread_for_text" "a mail text filed outside a thread"
-refused_in inbound_0193 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, 'append', NULL, 'full', NULL, false, false, false)" "inbound_mail_decisions_thread_named" "an append that names no thread"
-refused_in inbound_0193 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, 'append', 'ea000000-0000-4000-8000-000000000184', NULL, NULL, false, false, false)" "inbound_mail_decisions_message_text" "a filed text that says neither masked nor full"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'filing', claim_expires_at = now() + interval '5 minutes' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_decision_iff_filing" "a part claimed for filing with no decision"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', 'system:inbound_mail', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_decider_is_person" "a system actor deciding"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', 'user_1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_decider_is_person" "a decider that is not a WorkOS user id"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'accept', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_action_known" "an unknown action"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'rule', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_via_known" "a decision that came by a rule"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_proposal_iff_card" "an agent's card that names no proposal"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, true)" "inbound_mail_decisions_agent_cards_file_clean" "an agent's card that acknowledges a risk (RT-S5)"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'agent_proposal', gen_random_uuid(), NULL, 'Statik', NULL, NULL, NULL, NULL, true, false, false)" "inbound_mail_decisions_agent_cards_file_clean" "an agent's card that releases a stopped name (RT-S5)"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_destination_when_filing" "a filing with nowhere to go"
+refused_in inbound_0194 "$DEC184, '2b000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_destination_when_filing" "a dismissal with a destination"
+refused_in inbound_0194 "${V184}$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, 'Statik', 'create', NULL, 'full', 'Statik', false, false, false)" "inbound_mail_decisions_thread_for_text" "an attachment filed into a thread"
+refused_in inbound_0194 "${V184}$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, 'Statik', NULL, NULL, NULL, NULL, false, false, false)" "inbound_mail_decisions_thread_for_text" "a mail text filed outside a thread"
+refused_in inbound_0194 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, 'append', NULL, 'full', NULL, false, false, false)" "inbound_mail_decisions_thread_named" "an append that names no thread"
+refused_in inbound_0194 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', NULL, NULL, NULL, 'append', 'ea000000-0000-4000-8000-000000000184', NULL, NULL, false, false, false)" "inbound_mail_decisions_message_text" "a filed text that says neither masked nor full"
 # A follow decision: the follower's own, a text appended, nothing acknowledged (D31).
-refused_in inbound_0193 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', NULL, 'append', 'ea000000-0000-4000-8000-000000000184', 'full', NULL, false, false, false)" "inbound_mail_decisions_follower_fkey" "a follow decision by someone other than the follower"
-refused_in inbound_0193 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fb000000-0000-4000-8000-000000000184', NULL, 'append', 'eb000000-0000-4000-8000-000000000184', 'full', NULL, false, false, false)" "inbound_mail_decisions_follower_fkey" "a follow decision on another organization's follow"
-refused_in inbound_0193 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', NULL, 'append', 'ea000000-0000-4000-8000-000000000184', 'full', NULL, false, true, false)" "inbound_mail_decisions_follow_appends_text_only" "a follow that acknowledges a sender"
-refused_in inbound_0193 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', 'Statik', 'create', NULL, 'full', 'Neu', false, false, false)" "inbound_mail_decisions_follow_appends_text_only" "a follow that starts a new thread"
-refused_in inbound_0193 "${V184}$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', NULL, 'append', 'ea000000-0000-4000-8000-000000000184', 'full', NULL, false, false, false)" "inbound_mail_decisions_follow_files_text" "a follow that files an attachment"
-refused_in inbound_0193 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by) VALUES ('org_0184_a', 'a0000000-0000-4000-8000-000000000184', '1b000000-0000-4000-8000-000000000184', '2c000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A1')" "inbound_mail_decisions_part_fkey" "a decision about another organization's part"
+refused_in inbound_0194 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', NULL, 'append', 'ea000000-0000-4000-8000-000000000184', 'full', NULL, false, false, false)" "inbound_mail_decisions_follower_fkey" "a follow decision by someone other than the follower"
+refused_in inbound_0194 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fb000000-0000-4000-8000-000000000184', NULL, 'append', 'eb000000-0000-4000-8000-000000000184', 'full', NULL, false, false, false)" "inbound_mail_decisions_follower_fkey" "a follow decision on another organization's follow"
+refused_in inbound_0194 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', NULL, 'append', 'ea000000-0000-4000-8000-000000000184', 'full', NULL, false, true, false)" "inbound_mail_decisions_follow_appends_text_only" "a follow that acknowledges a sender"
+refused_in inbound_0194 "$DEC184, '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', 'Statik', 'create', NULL, 'full', 'Neu', false, false, false)" "inbound_mail_decisions_follow_appends_text_only" "a follow that starts a new thread"
+refused_in inbound_0194 "${V184}$DEC184, '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', NULL, 'fa000000-0000-4000-8000-000000000184', NULL, 'append', 'ea000000-0000-4000-8000-000000000184', 'full', NULL, false, false, false)" "inbound_mail_decisions_follow_files_text" "a follow that files an attachment"
+refused_in inbound_0194 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by) VALUES ('org_0184_a', 'a0000000-0000-4000-8000-000000000184', '1b000000-0000-4000-8000-000000000184', '2c000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A1')" "inbound_mail_decisions_part_fkey" "a decision about another organization's part"
 
 # The decisions a person makes, and the parts they move.
-sql_in inbound_0193 <<SQL
+sql_in inbound_0194 <<SQL
 INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path) VALUES
   ('3a000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'app', 'Statik'),
   ('3b000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2b000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'agent', 'Statik/Plaene');
@@ -2756,17 +2757,17 @@ INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, pa
 INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, follow_id, thread_action, mail_thread_id, message_text) VALUES
   ('3d000000-0000-4000-8000-000000000184', $PA184, '1a000000-0000-4000-8000-000000000184', '2a000000-0000-4000-8000-000000000184', 'file', '$U184_A1', 'follow', 'fa000000-0000-4000-8000-000000000184', 'append', 'ea000000-0000-4000-8000-000000000184', 'full');
 SQL
-refused_in inbound_0193 "${V184}UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3c000000-0000-4000-8000-000000000184', claim_expires_at = now() + interval '5 minutes' WHERE id = '2d000000-0000-4000-8000-000000000184'" "inbound_mail_parts_decision_files" "a part filed on a dismiss decision"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3e000000-0000-4000-8000-000000000184', claim_expires_at = now() + interval '5 minutes' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_decision_fkey" "a part filed on another part's decision"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3e000000-0000-4000-8000-000000000184', claim_expires_at = now() + interval '5 minutes' WHERE id = '2d000000-0000-4000-8000-000000000184'" "inbound_mail_parts_filed_is_clean" "a part filed before its scan said clean"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3a000000-0000-4000-8000-000000000184' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_claim_while_filing" "a filing part with no claim"
+refused_in inbound_0194 "${V184}UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3c000000-0000-4000-8000-000000000184', claim_expires_at = now() + interval '5 minutes' WHERE id = '2d000000-0000-4000-8000-000000000184'" "inbound_mail_parts_decision_files" "a part filed on a dismiss decision"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3e000000-0000-4000-8000-000000000184', claim_expires_at = now() + interval '5 minutes' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_decision_fkey" "a part filed on another part's decision"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3e000000-0000-4000-8000-000000000184', claim_expires_at = now() + interval '5 minutes' WHERE id = '2d000000-0000-4000-8000-000000000184'" "inbound_mail_parts_filed_is_clean" "a part filed before its scan said clean"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'filing', decision_id = '3a000000-0000-4000-8000-000000000184' WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_claim_while_filing" "a filing part with no claim"
 # Two deciders: both decisions are kept, one compare-and-swap claims the part.
 CAS184="UPDATE inbound_mail_parts SET state = 'filing', claim_expires_at = now() + interval '5 minutes', decision_id = '%s' WHERE id = '2b000000-0000-4000-8000-000000000184' AND state = 'waiting' RETURNING 1"
-check_in inbound_0193 "WITH c AS ($(printf "$CAS184" 3a000000-0000-4000-8000-000000000184)) SELECT count(*) FROM c" "1" "0193: the first decider claims the part"
-check_in inbound_0193 "WITH c AS ($(printf "$CAS184" 3b000000-0000-4000-8000-000000000184)) SELECT count(*) FROM c" "0" "0193: the second decider's claim finds the part taken"
-check_in inbound_0193 "SELECT decided_by FROM inbound_mail_decisions d JOIN inbound_mail_parts p ON p.decision_id = d.id WHERE p.id = '2b000000-0000-4000-8000-000000000184'" "$U184_A1" "0193: the part names the decider who claimed it"
-refused_in inbound_0193 "UPDATE inbound_mail_parts SET state = 'filed', claim_expires_at = NULL, filed_at = now() WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_no_bytes_when_filed" "a filed part still holding its staged bytes"
-sql_in inbound_0193 <<'SQL'
+check_in inbound_0194 "WITH c AS ($(printf "$CAS184" 3a000000-0000-4000-8000-000000000184)) SELECT count(*) FROM c" "1" "0194: the first decider claims the part"
+check_in inbound_0194 "WITH c AS ($(printf "$CAS184" 3b000000-0000-4000-8000-000000000184)) SELECT count(*) FROM c" "0" "0194: the second decider's claim finds the part taken"
+check_in inbound_0194 "SELECT decided_by FROM inbound_mail_decisions d JOIN inbound_mail_parts p ON p.decision_id = d.id WHERE p.id = '2b000000-0000-4000-8000-000000000184'" "$U184_A1" "0194: the part names the decider who claimed it"
+refused_in inbound_0194 "UPDATE inbound_mail_parts SET state = 'filed', claim_expires_at = NULL, filed_at = now() WHERE id = '2b000000-0000-4000-8000-000000000184'" "inbound_mail_parts_no_bytes_when_filed" "a filed part still holding its staged bytes"
+sql_in inbound_0194 <<'SQL'
 UPDATE inbound_mail_parts SET state = 'filed', claim_expires_at = NULL, filed_at = now(), storage_key = NULL, filename = NULL,
        document_id = 'd1000000-0000-4000-8000-000000000184'
  WHERE id = '2b000000-0000-4000-8000-000000000184';
@@ -2775,26 +2776,26 @@ UPDATE inbound_mail_parts SET state = 'filed', decision_id = '3d000000-0000-4000
  WHERE id = '2a000000-0000-4000-8000-000000000184';
 UPDATE inbound_mail_parts SET state = 'dismissed', ended_at = now() WHERE id = '2d000000-0000-4000-8000-000000000184';
 SQL
-check_in inbound_0193 "SELECT string_agg(state, ',' ORDER BY position) FROM inbound_mail_parts WHERE mail_id = '1a000000-0000-4000-8000-000000000184'" "filed,filed,dismissed,waiting" "0193: the text appended by the follower, the attachment filed, the macro file dismissed, the nameless file still waiting"
+check_in inbound_0194 "SELECT string_agg(state, ',' ORDER BY position) FROM inbound_mail_parts WHERE mail_id = '1a000000-0000-4000-8000-000000000184'" "filed,filed,dismissed,waiting" "0194: the text appended by the follower, the attachment filed, the macro file dismissed, the nameless file still waiting"
 # A decision is append-only: it is marked audited once, and nothing else changes.
-refused_in inbound_0193 "${V184}UPDATE inbound_mail_decisions SET folder_path = 'Anderswo' WHERE id = '3a000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_immutable" "a decision rewritten"
-sql_in inbound_0193 <<<"UPDATE inbound_mail_decisions SET audited_at = now() WHERE id = '3a000000-0000-4000-8000-000000000184';"
-refused_in inbound_0193 "${V184}UPDATE inbound_mail_decisions SET audited_at = now() + interval '1 hour' WHERE id = '3a000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_immutable" "a decision audited twice"
-refused_in inbound_0193 "${V184}DELETE FROM inbound_mail_decisions WHERE id = '3b000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_audited_before_delete" "a decision deleted before the audit trail took it, even by the owner (RT-S8)"
+refused_in inbound_0194 "${V184}UPDATE inbound_mail_decisions SET folder_path = 'Anderswo' WHERE id = '3a000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_immutable" "a decision rewritten"
+sql_in inbound_0194 <<<"UPDATE inbound_mail_decisions SET audited_at = now() WHERE id = '3a000000-0000-4000-8000-000000000184';"
+refused_in inbound_0194 "${V184}UPDATE inbound_mail_decisions SET audited_at = now() + interval '1 hour' WHERE id = '3a000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_immutable" "a decision audited twice"
+refused_in inbound_0194 "${V184}DELETE FROM inbound_mail_decisions WHERE id = '3b000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_audited_before_delete" "a decision deleted before the audit trail took it, even by the owner (RT-S8)"
 
 # A decision's Dokumentart is the shared vocabulary's, whose persisted keys are
 # still German today (D6 renames them later): the code checks membership, the
 # database bounds the value to one printable line.
-sql_in inbound_0193 <<<"$DEC184, '2d000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A2', 'app', NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, false);"
-sql_in inbound_0193 <<<"INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, folder_path, document_type, audited_at) VALUES ($PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'Normen', 'Norm/Richtlinie', now());"
-refused_in inbound_0193 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, folder_path, document_type) VALUES ($PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'X', E'Bescheid\\nNorm')" "inbound_mail_decisions_lengths" "a Dokumentart that is not one printable line"
-refused_in inbound_0193 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, folder_path, document_type) VALUES ($PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'X', repeat('x', 65))" "inbound_mail_decisions_lengths" "a Dokumentart past its bound"
+sql_in inbound_0194 <<<"$DEC184, '2d000000-0000-4000-8000-000000000184', 'dismiss', '$U184_A2', 'app', NULL, NULL, NULL, NULL, NULL, NULL, NULL, false, false, false);"
+sql_in inbound_0194 <<<"INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, folder_path, document_type, audited_at) VALUES ($PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'Normen', 'Norm/Richtlinie', now());"
+refused_in inbound_0194 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, folder_path, document_type) VALUES ($PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'X', E'Bescheid\\nNorm')" "inbound_mail_decisions_lengths" "a Dokumentart that is not one printable line"
+refused_in inbound_0194 "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, folder_path, document_type) VALUES ($PA184, '1a000000-0000-4000-8000-000000000184', '2d000000-0000-4000-8000-000000000184', 'file', '$U184_A2', 'X', repeat('x', 65))" "inbound_mail_decisions_lengths" "a Dokumentart past its bound"
 
 # What came with a filed message (D36): one row per attachment, its document
 # and Fassung the live half of the link, what the section prints frozen.
-sql_in inbound_0193 <<'SQL'
+sql_in inbound_0194 <<'SQL'
 INSERT INTO document_versions (id, organization_id, document_id, project_id, version_number, state, storage_key, created_by) VALUES
-  ('f1000000-0000-4000-8000-000000000184', 'org_0184_a', 'd1000000-0000-4000-8000-000000000184', 'a0000000-0000-4000-8000-000000000184', 1, 'superseded', 'k/0193/a', 'user_01J0MA1LUSERA00000000000A1');
+  ('f1000000-0000-4000-8000-000000000184', 'org_0184_a', 'd1000000-0000-4000-8000-000000000184', 'a0000000-0000-4000-8000-000000000184', 1, 'superseded', 'k/0194/a', 'user_01J0MA1LUSERA00000000000A1');
 INSERT INTO mail_thread_entry_attachments (id, organization_id, project_id, entry_id, position, filename, disposition, not_filed_reason, document_id, document_version_id, section_name, section_folder_path) VALUES
   ('fa100000-0000-4000-8000-000000000184', 'org_0184_a', 'a0000000-0000-4000-8000-000000000184', 'e1000000-0000-4000-8000-000000000184', 1, 'S-101.pdf', 'filed', NULL, 'd1000000-0000-4000-8000-000000000184', 'f1000000-0000-4000-8000-000000000184', 'S-101.pdf', 'Statik'),
   ('fa200000-0000-4000-8000-000000000184', 'org_0184_a', 'a0000000-0000-4000-8000-000000000184', 'e1000000-0000-4000-8000-000000000184', 2, 'Rechnung.docm', 'not_filed', 'pending', NULL, NULL, NULL, NULL),
@@ -2807,154 +2808,154 @@ SQL
 # An entry's first Fassung is a Fassung of its own project's (review D,
 # finding 9): the key carries the project, so another tenant's version id is
 # refused even by a writer that names it.
-sql_in inbound_0193 <<<"INSERT INTO document_versions (id, organization_id, document_id, project_id, version_number, state, storage_key, created_by) VALUES ('f3000000-0000-4000-8000-000000000184', 'org_0184_b', 'd3000000-0000-4000-8000-000000000184', 'b0000000-0000-4000-8000-000000000184', 1, 'superseded', 'k/0193/b', 'user_01J0MA1LUSERB00000000000B1');"
-refused_in inbound_0193 "${V184}UPDATE mail_thread_entries SET first_version_id = 'f3000000-0000-4000-8000-000000000184' WHERE id = 'e1000000-0000-4000-8000-000000000184'" "mail_thread_entries_first_version_fkey" "an entry whose first Fassung is another tenant's"
-sql_in inbound_0193 <<<"UPDATE mail_thread_entries SET first_version_id = 'f1000000-0000-4000-8000-000000000184' WHERE id = 'e1000000-0000-4000-8000-000000000184';"
+sql_in inbound_0194 <<<"INSERT INTO document_versions (id, organization_id, document_id, project_id, version_number, state, storage_key, created_by) VALUES ('f3000000-0000-4000-8000-000000000184', 'org_0184_b', 'd3000000-0000-4000-8000-000000000184', 'b0000000-0000-4000-8000-000000000184', 1, 'superseded', 'k/0194/b', 'user_01J0MA1LUSERB00000000000B1');"
+refused_in inbound_0194 "${V184}UPDATE mail_thread_entries SET first_version_id = 'f3000000-0000-4000-8000-000000000184' WHERE id = 'e1000000-0000-4000-8000-000000000184'" "mail_thread_entries_first_version_fkey" "an entry whose first Fassung is another tenant's"
+sql_in inbound_0194 <<<"UPDATE mail_thread_entries SET first_version_id = 'f1000000-0000-4000-8000-000000000184' WHERE id = 'e1000000-0000-4000-8000-000000000184';"
 ATT184="INSERT INTO mail_thread_entry_attachments (organization_id, project_id, entry_id, position, disposition, not_filed_reason, document_id, document_version_id, section_name, section_folder_path) VALUES ($PA184, 'e1000000-0000-4000-8000-000000000184'"
-refused_in inbound_0193 "$ATT184, 1, 'not_filed', 'dismissed', NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_entry_position_key" "two rows for one attachment"
-refused_in inbound_0193 "$ATT184, 3, 'kept', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_disposition_known" "an unknown disposition"
-refused_in inbound_0193 "$ATT184, 3, 'filed', 'dismissed', 'd1000000-0000-4000-8000-000000000184', NULL, NULL, NULL)" "mail_thread_entry_attachments_reason_iff_not_filed" "a filed attachment with a reason it was not filed"
-refused_in inbound_0193 "$ATT184, 3, 'not_filed', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_reason_iff_not_filed" "an attachment not filed for no reason"
-refused_in inbound_0193 "$ATT184, 3, 'not_filed', 'forgotten', NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_reason_known" "an unknown reason"
-refused_in inbound_0193 "$ATT184, 3, 'not_filed', 'dismissed', 'd1000000-0000-4000-8000-000000000184', NULL, NULL, NULL)" "mail_thread_entry_attachments_not_filed_has_no_document" "an attachment not filed that names a document"
-refused_in inbound_0193 "$ATT184, 3, 'not_filed', 'dismissed', NULL, NULL, 'Gehaltsliste.xlsx', NULL)" "mail_thread_entry_attachments_section_named_when_filed" "a section that names an attachment nobody filed (RT-S13)"
-refused_in inbound_0193 "$ATT184, 3, 'filed', NULL, 'd1000000-0000-4000-8000-000000000184', NULL, NULL, 'Intern')" "mail_thread_entry_attachments_section_folder_with_name" "a section that names a folder and no file"
-refused_in inbound_0193 "$ATT184, 3, 'filed', NULL, 'd3000000-0000-4000-8000-000000000184', NULL, NULL, NULL)" "mail_thread_entry_attachments_document_fkey" "an attachment filed as another project's document"
-refused_in inbound_0193 "INSERT INTO mail_thread_entry_attachments (organization_id, project_id, entry_id, position, disposition, not_filed_reason) VALUES ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'e1000000-0000-4000-8000-000000000184', 5, 'not_filed', 'size')" "mail_thread_entry_attachments_entry_fkey" "an attachment row on another organization's entry"
-refused_in inbound_0193 "${V184}UPDATE mail_thread_entry_attachments SET section_name = 'Gehaltsliste.xlsx' WHERE id = 'fa100000-0000-4000-8000-000000000184'" "mail_thread_entry_attachments_frozen" "a section's frozen words rewritten (the superset invariant)"
-refused_in inbound_0193 "${V184}UPDATE mail_thread_entry_attachments SET disposition = 'not_filed', not_filed_reason = 'dismissed', document_id = NULL, document_version_id = NULL WHERE id = 'fa100000-0000-4000-8000-000000000184'" "mail_thread_entry_attachments_decided_once" "a filed attachment turned into one never filed"
-sql_in inbound_0193 <<<"UPDATE mail_thread_entry_attachments SET disposition = 'filed', not_filed_reason = NULL, document_id = 'd1000000-0000-4000-8000-000000000184' WHERE id = 'fa200000-0000-4000-8000-000000000184';"
-check_in inbound_0193 "SELECT disposition || ':' || coalesce(section_name, 'unnamed') FROM mail_thread_entry_attachments WHERE id = 'fa200000-0000-4000-8000-000000000184'" "filed:unnamed" "0193: an attachment that waited is filed later, and the section's words stay frozen"
-refused_in inbound_0193 "${V184}UPDATE mail_thread_entry_attachments SET document_id = 'd1000000-0000-4000-8000-000000000184', disposition = 'already_present' WHERE id = 'fa200000-0000-4000-8000-000000000184'" "mail_thread_entry_attachments_decided_once" "an attachment decided twice"
-refused_in inbound_0193 "UPDATE mail_threads SET render_lease_holder = gen_random_uuid() WHERE id = 'ea000000-0000-4000-8000-000000000184'" "mail_threads_render_lease_together" "a render lease without its end"
+refused_in inbound_0194 "$ATT184, 1, 'not_filed', 'dismissed', NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_entry_position_key" "two rows for one attachment"
+refused_in inbound_0194 "$ATT184, 3, 'kept', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_disposition_known" "an unknown disposition"
+refused_in inbound_0194 "$ATT184, 3, 'filed', 'dismissed', 'd1000000-0000-4000-8000-000000000184', NULL, NULL, NULL)" "mail_thread_entry_attachments_reason_iff_not_filed" "a filed attachment with a reason it was not filed"
+refused_in inbound_0194 "$ATT184, 3, 'not_filed', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_reason_iff_not_filed" "an attachment not filed for no reason"
+refused_in inbound_0194 "$ATT184, 3, 'not_filed', 'forgotten', NULL, NULL, NULL, NULL)" "mail_thread_entry_attachments_reason_known" "an unknown reason"
+refused_in inbound_0194 "$ATT184, 3, 'not_filed', 'dismissed', 'd1000000-0000-4000-8000-000000000184', NULL, NULL, NULL)" "mail_thread_entry_attachments_not_filed_has_no_document" "an attachment not filed that names a document"
+refused_in inbound_0194 "$ATT184, 3, 'not_filed', 'dismissed', NULL, NULL, 'Gehaltsliste.xlsx', NULL)" "mail_thread_entry_attachments_section_named_when_filed" "a section that names an attachment nobody filed (RT-S13)"
+refused_in inbound_0194 "$ATT184, 3, 'filed', NULL, 'd1000000-0000-4000-8000-000000000184', NULL, NULL, 'Intern')" "mail_thread_entry_attachments_section_folder_with_name" "a section that names a folder and no file"
+refused_in inbound_0194 "$ATT184, 3, 'filed', NULL, 'd3000000-0000-4000-8000-000000000184', NULL, NULL, NULL)" "mail_thread_entry_attachments_document_fkey" "an attachment filed as another project's document"
+refused_in inbound_0194 "INSERT INTO mail_thread_entry_attachments (organization_id, project_id, entry_id, position, disposition, not_filed_reason) VALUES ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'e1000000-0000-4000-8000-000000000184', 5, 'not_filed', 'size')" "mail_thread_entry_attachments_entry_fkey" "an attachment row on another organization's entry"
+refused_in inbound_0194 "${V184}UPDATE mail_thread_entry_attachments SET section_name = 'Gehaltsliste.xlsx' WHERE id = 'fa100000-0000-4000-8000-000000000184'" "mail_thread_entry_attachments_frozen" "a section's frozen words rewritten (the superset invariant)"
+refused_in inbound_0194 "${V184}UPDATE mail_thread_entry_attachments SET disposition = 'not_filed', not_filed_reason = 'dismissed', document_id = NULL, document_version_id = NULL WHERE id = 'fa100000-0000-4000-8000-000000000184'" "mail_thread_entry_attachments_decided_once" "a filed attachment turned into one never filed"
+sql_in inbound_0194 <<<"UPDATE mail_thread_entry_attachments SET disposition = 'filed', not_filed_reason = NULL, document_id = 'd1000000-0000-4000-8000-000000000184' WHERE id = 'fa200000-0000-4000-8000-000000000184';"
+check_in inbound_0194 "SELECT disposition || ':' || coalesce(section_name, 'unnamed') FROM mail_thread_entry_attachments WHERE id = 'fa200000-0000-4000-8000-000000000184'" "filed:unnamed" "0194: an attachment that waited is filed later, and the section's words stay frozen"
+refused_in inbound_0194 "${V184}UPDATE mail_thread_entry_attachments SET document_id = 'd1000000-0000-4000-8000-000000000184', disposition = 'already_present' WHERE id = 'fa200000-0000-4000-8000-000000000184'" "mail_thread_entry_attachments_decided_once" "an attachment decided twice"
+refused_in inbound_0194 "UPDATE mail_threads SET render_lease_holder = gen_random_uuid() WHERE id = 'ea000000-0000-4000-8000-000000000184'" "mail_threads_render_lease_together" "a render lease without its end"
 
 # Threads, entries, message ids and follows.
-refused_in inbound_0193 "$THREAD184, NULL, 'x', 'fr', '$U184_A1')" "mail_threads_locale_known" "a thread in a locale nobody renders"
-refused_in inbound_0193 "$THREAD184, NULL, 'x', 'de', 'system:archive')" "mail_threads_creator_is_person" "a thread nobody created"
-refused_in inbound_0193 "$THREAD184, 'd3000000-0000-4000-8000-000000000184', 'x', 'de', '$U184_A1')" "mail_threads_document_fkey" "a thread whose document is another project's"
-refused_in inbound_0193 "$THREAD184, 'd1000000-0000-4000-8000-000000000184', 'x', 'de', '$U184_A1')" "uniq_mail_threads_document" "a second thread on one document"
-refused_in inbound_0193 "UPDATE mail_threads SET entry_count = 201 WHERE id = 'ea000000-0000-4000-8000-000000000184'" "mail_threads_entry_count_bounded" "a thread past its entry cap"
-refused_in inbound_0193 "$ENTRY184, 'archive', NULL, gen_random_uuid(), now(), now(), 'h1', 'not_checked', '$U184_A1', 'archive_import', NULL, 'b', 'k', repeat('a', 64), 1, 'clean')" "mail_thread_entries_archive_has_no_original" "an archive entry with an original"
-refused_in inbound_0193 "$ENTRY184, 'archive', NULL, gen_random_uuid(), now(), now(), 'h1', 'external_verified', '$U184_A1', 'archive_import', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_archive_not_checked" "an archive entry that claims a checked sender"
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'archive_import', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_archive_imported" "an inbound entry filed by an import"
-refused_in inbound_0193 "$ENTRY184, 'inbound', NULL, NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_provenance" "an inbound entry that names no mail"
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', 'system:follow', 'follow', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_filer_is_person" "an entry nobody filed"
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', 'example.org; spf=pass', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_authentication_results_shape" "an entry's evidence line with spf="
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, 'b', NULL, repeat('a', 64), 1, 'clean')" "mail_thread_entries_original_together" "half an original"
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, 'b', 'org/org_0184_a/project/a0000000-0000-4000-8000-000000000184/_mail-originals/e1000000-0000-4000-8000-000000000184.eml', repeat('a', 64), 1, 'clean')" "mail_thread_entries_original_key_shape" "an original under another entry's key"
-refused_in inbound_0193 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), '21.10.2026 09:00 · Huber (statik.at)', 'external_verified', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_heading_key" "two sections with one heading"
-refused_in inbound_0193 "INSERT INTO mail_thread_message_ids (organization_id, project_id, thread_id, message_id, state) VALUES ($PA184, 'ea000000-0000-4000-8000-000000000184', 'm9@x.at', 'received')" "mail_thread_message_ids_received_by_entry" "a received id with no entry"
-refused_in inbound_0193 "INSERT INTO mail_thread_message_ids (organization_id, project_id, thread_id, message_id, state, entry_id) VALUES ($PA184, 'eb000000-0000-4000-8000-000000000184', 'm1@statik.at', 'received', 'e1000000-0000-4000-8000-000000000184')" "mail_thread_message_ids_thread_fkey" "an id in another organization's thread"
-refused_in inbound_0193 "INSERT INTO mail_thread_message_ids (organization_id, project_id, thread_id, message_id, state, entry_id) VALUES ($PA184, 'ea000000-0000-4000-8000-000000000184', 'm1@statik.at', 'received', 'e1000000-0000-4000-8000-000000000184')" "mail_thread_message_ids_key" "the same id received twice by one entry"
-refused_in inbound_0193 "$FOLLOW184, 'system:follow', now(), now() + interval '1 day', NULL, NULL, NULL)" "mail_thread_follows_follower_is_person" "a follow nobody made"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A2', now(), now() + interval '181 days', NULL, NULL, NULL)" "mail_thread_follows_window" "a follow past 180 days"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A1', now(), now() + interval '60 days', NULL, NULL, NULL)" "uniq_mail_thread_follows_active" "a second active follow by one person"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), NULL, NULL)" "mail_thread_follows_ended_with_reason" "a follow ended for no reason"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), NULL, 'unfollowed')" "mail_thread_follows_person_reason_attributed" "an unfollow nobody made"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), '$U184_A1', 'unfollowed')" "mail_thread_follows_person_reason_attributed" "an unfollow by someone else"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), '$U184_A2', 'revoked_by_manager')" "mail_thread_follows_person_reason_attributed" "a manager revoking their own follow"
-refused_in inbound_0193 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), NULL, 'bored')" "mail_thread_follows_ended_reason_known" "an unknown end reason"
+refused_in inbound_0194 "$THREAD184, NULL, 'x', 'fr', '$U184_A1')" "mail_threads_locale_known" "a thread in a locale nobody renders"
+refused_in inbound_0194 "$THREAD184, NULL, 'x', 'de', 'system:archive')" "mail_threads_creator_is_person" "a thread nobody created"
+refused_in inbound_0194 "$THREAD184, 'd3000000-0000-4000-8000-000000000184', 'x', 'de', '$U184_A1')" "mail_threads_document_fkey" "a thread whose document is another project's"
+refused_in inbound_0194 "$THREAD184, 'd1000000-0000-4000-8000-000000000184', 'x', 'de', '$U184_A1')" "uniq_mail_threads_document" "a second thread on one document"
+refused_in inbound_0194 "UPDATE mail_threads SET entry_count = 201 WHERE id = 'ea000000-0000-4000-8000-000000000184'" "mail_threads_entry_count_bounded" "a thread past its entry cap"
+refused_in inbound_0194 "$ENTRY184, 'archive', NULL, gen_random_uuid(), now(), now(), 'h1', 'not_checked', '$U184_A1', 'archive_import', NULL, 'b', 'k', repeat('a', 64), 1, 'clean')" "mail_thread_entries_archive_has_no_original" "an archive entry with an original"
+refused_in inbound_0194 "$ENTRY184, 'archive', NULL, gen_random_uuid(), now(), now(), 'h1', 'external_verified', '$U184_A1', 'archive_import', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_archive_not_checked" "an archive entry that claims a checked sender"
+refused_in inbound_0194 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'archive_import', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_archive_imported" "an inbound entry filed by an import"
+refused_in inbound_0194 "$ENTRY184, 'inbound', NULL, NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_provenance" "an inbound entry that names no mail"
+refused_in inbound_0194 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', 'system:follow', 'follow', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_filer_is_person" "an entry nobody filed"
+refused_in inbound_0194 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', 'example.org; spf=pass', NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_authentication_results_shape" "an entry's evidence line with spf="
+refused_in inbound_0194 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, 'b', NULL, repeat('a', 64), 1, 'clean')" "mail_thread_entries_original_together" "half an original"
+refused_in inbound_0194 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), 'h1', 'external_verified', '$U184_A1', 'app', NULL, 'b', 'org/org_0184_a/project/a0000000-0000-4000-8000-000000000184/_mail-originals/e1000000-0000-4000-8000-000000000184.eml', repeat('a', 64), 1, 'clean')" "mail_thread_entries_original_key_shape" "an original under another entry's key"
+refused_in inbound_0194 "$ENTRY184, 'inbound', gen_random_uuid(), NULL, now(), now(), '21.10.2026 09:00 · Huber (statik.at)', 'external_verified', '$U184_A1', 'app', NULL, NULL, NULL, NULL, NULL, NULL)" "mail_thread_entries_heading_key" "two sections with one heading"
+refused_in inbound_0194 "INSERT INTO mail_thread_message_ids (organization_id, project_id, thread_id, message_id, state) VALUES ($PA184, 'ea000000-0000-4000-8000-000000000184', 'm9@x.at', 'received')" "mail_thread_message_ids_received_by_entry" "a received id with no entry"
+refused_in inbound_0194 "INSERT INTO mail_thread_message_ids (organization_id, project_id, thread_id, message_id, state, entry_id) VALUES ($PA184, 'eb000000-0000-4000-8000-000000000184', 'm1@statik.at', 'received', 'e1000000-0000-4000-8000-000000000184')" "mail_thread_message_ids_thread_fkey" "an id in another organization's thread"
+refused_in inbound_0194 "INSERT INTO mail_thread_message_ids (organization_id, project_id, thread_id, message_id, state, entry_id) VALUES ($PA184, 'ea000000-0000-4000-8000-000000000184', 'm1@statik.at', 'received', 'e1000000-0000-4000-8000-000000000184')" "mail_thread_message_ids_key" "the same id received twice by one entry"
+refused_in inbound_0194 "$FOLLOW184, 'system:follow', now(), now() + interval '1 day', NULL, NULL, NULL)" "mail_thread_follows_follower_is_person" "a follow nobody made"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A2', now(), now() + interval '181 days', NULL, NULL, NULL)" "mail_thread_follows_window" "a follow past 180 days"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A1', now(), now() + interval '60 days', NULL, NULL, NULL)" "uniq_mail_thread_follows_active" "a second active follow by one person"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), NULL, NULL)" "mail_thread_follows_ended_with_reason" "a follow ended for no reason"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), NULL, 'unfollowed')" "mail_thread_follows_person_reason_attributed" "an unfollow nobody made"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), '$U184_A1', 'unfollowed')" "mail_thread_follows_person_reason_attributed" "an unfollow by someone else"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), '$U184_A2', 'revoked_by_manager')" "mail_thread_follows_person_reason_attributed" "a manager revoking their own follow"
+refused_in inbound_0194 "$FOLLOW184, '$U184_A2', now(), now() + interval '60 days', now(), NULL, 'bored')" "mail_thread_follows_ended_reason_known" "an unknown end reason"
 # A detach moves an entry; its message ids move with it.
-sql_in inbound_0193 <<<"UPDATE mail_thread_entries SET thread_id = 'ed000000-0000-4000-8000-000000000184' WHERE id = 'e2000000-0000-4000-8000-000000000184';"
-check_in inbound_0193 "SELECT string_agg(state || '@' || thread_id::text, ',' ORDER BY state) FROM mail_thread_message_ids WHERE message_id = 'm0@buero.at'" \
-  "received@ed000000-0000-4000-8000-000000000184,referenced@ea000000-0000-4000-8000-000000000184" "0193: a detached entry's received id moves with it; another entry's reference stays"
-refused_in inbound_0193 "UPDATE mail_thread_message_ids SET thread_id = 'ec000000-0000-4000-8000-000000000184', project_id = 'c0000000-0000-4000-8000-000000000184' WHERE entry_id = 'e1000000-0000-4000-8000-000000000184'" "mail_thread_message_ids_entry_fkey" "an entry's id moved to a thread the entry is not in"
+sql_in inbound_0194 <<<"UPDATE mail_thread_entries SET thread_id = 'ed000000-0000-4000-8000-000000000184' WHERE id = 'e2000000-0000-4000-8000-000000000184';"
+check_in inbound_0194 "SELECT string_agg(state || '@' || thread_id::text, ',' ORDER BY state) FROM mail_thread_message_ids WHERE message_id = 'm0@buero.at'" \
+  "received@ed000000-0000-4000-8000-000000000184,referenced@ea000000-0000-4000-8000-000000000184" "0194: a detached entry's received id moves with it; another entry's reference stays"
+refused_in inbound_0194 "UPDATE mail_thread_message_ids SET thread_id = 'ec000000-0000-4000-8000-000000000184', project_id = 'c0000000-0000-4000-8000-000000000184' WHERE entry_id = 'e1000000-0000-4000-8000-000000000184'" "mail_thread_message_ids_entry_fkey" "an entry's id moved to a thread the entry is not in"
 
 # The runtime role: its organization's rows only, in all nine tables, and no DELETE.
 # The runtime role answers to its deployed name, so rename the roles as the deploy does.
 rename_rls_roles
 for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mail_decisions mail_threads mail_thread_entries mail_thread_entry_attachments mail_thread_message_ids mail_thread_follows; do
-  seen=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA \
+  seen=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0194 -qtA \
     -c "SET grid.organization_id = 'org_0184_b'" \
     -c "SELECT coalesce(string_agg(DISTINCT organization_id, ','), '') FROM $table")
   if [ "$seen" != "org_0184_b" ]; then
-    echo "MIGRATION ASSERTION FAILED on inbound_0193: the runtime role in org_0184_b saw $table rows of '$seen'" >&2
+    echo "MIGRATION ASSERTION FAILED on inbound_0194: the runtime role in org_0184_b saw $table rows of '$seen'" >&2
     exit 1
   fi
 done
 for table in inbound_mail_addresses inbound_mails inbound_mail_parts inbound_mail_decisions mail_threads mail_thread_entries mail_thread_entry_attachments mail_thread_follows; do
-  if out=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA -v ON_ERROR_STOP=1 \
+  if out=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0194 -qtA -v ON_ERROR_STOP=1 \
       -c "SET grid.organization_id = 'org_0184_b'" -c "DELETE FROM $table WHERE organization_id = 'org_0184_b'" 2>&1); then
-    echo "MIGRATION ASSERTION FAILED on inbound_0193: the runtime role deleted from $table" >&2
+    echo "MIGRATION ASSERTION FAILED on inbound_0194: the runtime role deleted from $table" >&2
     exit 1
   fi
   if ! grep -q "permission denied" <<<"$out"; then
-    echo "MIGRATION ASSERTION FAILED on inbound_0193: a runtime DELETE on $table was refused for another reason: $out" >&2
+    echo "MIGRATION ASSERTION FAILED on inbound_0194: a runtime DELETE on $table was refused for another reason: $out" >&2
     exit 1
   fi
 done
-RWINS184=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0193 -qtA \
+RWINS184=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d inbound_0194 -qtA \
   -c "SET grid.organization_id = 'org_0184_a'" \
   -c "INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, expires_at) VALUES ('org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'eb000000-0000-4000-8000-000000000184', '$U184_A1', now() + interval '1 day')" 2>&1 || true)
 if ! grep -q "row-level security" <<<"$RWINS184"; then
-  echo "MIGRATION ASSERTION FAILED on inbound_0193: the runtime role in org_0184_a wrote a follow into org_0184_b ($RWINS184)" >&2
+  echo "MIGRATION ASSERTION FAILED on inbound_0194: the runtime role in org_0184_a wrote a follow into org_0184_b ($RWINS184)" >&2
   exit 1
 fi
 restore_rls_role_names
 
 # Legal hold: a held project's mail and filed messages are not deleted.
-sql_in inbound_0193 <<<"INSERT INTO legal_holds (entity_type, entity_id, organization_id, reason, created_by) VALUES ('project', 'c0000000-0000-4000-8000-000000000184', 'org_0184_a', 'rls test', 'user_1');"
-refused_in inbound_0193 "DELETE FROM inbound_mails WHERE id = '1c000000-0000-4000-8000-000000000184'" "legal hold" "a held project's mail deleted"
-refused_in inbound_0193 "DELETE FROM mail_thread_entries WHERE id = 'e3000000-0000-4000-8000-000000000184'" "legal hold" "a held project's filed message deleted"
-refused_in inbound_0193 "DELETE FROM mail_thread_entry_attachments WHERE id = 'fa300000-0000-4000-8000-000000000184'" "legal hold" "what came with a held project's filed message deleted"
-refused_in inbound_0193 "DELETE FROM mail_threads WHERE id = 'ec000000-0000-4000-8000-000000000184'" "legal hold" "a held project's thread deleted with its entries"
-sql_in inbound_0193 <<<"UPDATE legal_holds SET released_at = now() WHERE entity_id = 'c0000000-0000-4000-8000-000000000184';"
+sql_in inbound_0194 <<<"INSERT INTO legal_holds (entity_type, entity_id, organization_id, reason, created_by) VALUES ('project', 'c0000000-0000-4000-8000-000000000184', 'org_0184_a', 'rls test', 'user_1');"
+refused_in inbound_0194 "DELETE FROM inbound_mails WHERE id = '1c000000-0000-4000-8000-000000000184'" "legal hold" "a held project's mail deleted"
+refused_in inbound_0194 "DELETE FROM mail_thread_entries WHERE id = 'e3000000-0000-4000-8000-000000000184'" "legal hold" "a held project's filed message deleted"
+refused_in inbound_0194 "DELETE FROM mail_thread_entry_attachments WHERE id = 'fa300000-0000-4000-8000-000000000184'" "legal hold" "what came with a held project's filed message deleted"
+refused_in inbound_0194 "DELETE FROM mail_threads WHERE id = 'ec000000-0000-4000-8000-000000000184'" "legal hold" "a held project's thread deleted with its entries"
+sql_in inbound_0194 <<<"UPDATE legal_holds SET released_at = now() WHERE entity_id = 'c0000000-0000-4000-8000-000000000184';"
 
 # The document goes: the thread and the filed part lose it, the entries stay
 # until the sweep deletes the thread.
-sql_in inbound_0193 <<<"DELETE FROM documents WHERE id = 'd1000000-0000-4000-8000-000000000184';"
+sql_in inbound_0194 <<<"DELETE FROM documents WHERE id = 'd1000000-0000-4000-8000-000000000184';"
 # The part's Fassung goes too: once its document key has set `document_id`
 # NULL, the composite key to the Fassung is no longer checked and its own SET
 # NULL never fires, so the parts' guard clears the Fassung itself.
-check_in inbound_0193 "SELECT (SELECT coalesce(document_id::text, 'gone') FROM mail_threads WHERE id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT state || ':' || coalesce(document_id::text, 'gone') || ':' || coalesce(document_version_id::text, 'gone') FROM inbound_mail_parts WHERE id = '2b000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_entries WHERE thread_id = 'ea000000-0000-4000-8000-000000000184')" \
-  "gone,filed:gone:gone,1" "0193: deleting the document keeps the filed part, without its document or Fassung, and the entries until the sweep"
-check_in inbound_0193 "SELECT string_agg(position || ':' || disposition || ':' || coalesce(document_id::text, 'gone') || ':' || coalesce(document_version_id::text, 'gone') || ':' || coalesce(section_name, '-'), ',' ORDER BY position) FROM mail_thread_entry_attachments WHERE entry_id = 'e1000000-0000-4000-8000-000000000184'" \
-  "1:filed:gone:gone:S-101.pdf,2:filed:gone:gone:-" "0193: deleting the document keeps the record that it came, and the section's words (D36)"
+check_in inbound_0194 "SELECT (SELECT coalesce(document_id::text, 'gone') FROM mail_threads WHERE id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT state || ':' || coalesce(document_id::text, 'gone') || ':' || coalesce(document_version_id::text, 'gone') FROM inbound_mail_parts WHERE id = '2b000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_entries WHERE thread_id = 'ea000000-0000-4000-8000-000000000184')" \
+  "gone,filed:gone:gone,1" "0194: deleting the document keeps the filed part, without its document or Fassung, and the entries until the sweep"
+check_in inbound_0194 "SELECT string_agg(position || ':' || disposition || ':' || coalesce(document_id::text, 'gone') || ':' || coalesce(document_version_id::text, 'gone') || ':' || coalesce(section_name, '-'), ',' ORDER BY position) FROM mail_thread_entry_attachments WHERE entry_id = 'e1000000-0000-4000-8000-000000000184'" \
+  "1:filed:gone:gone:S-101.pdf,2:filed:gone:gone:-" "0194: deleting the document keeps the record that it came, and the section's words (D36)"
 # Sweep 9 deletes the thread: it waits for the follower's decision to be audited (RT-S8) ...
-refused_in inbound_0193 "${V184}DELETE FROM mail_threads WHERE id = 'ea000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_audited_before_delete" "a thread deleted while its follow's decision is owed to the trail"
-sql_in inbound_0193 <<<"UPDATE inbound_mail_decisions SET audited_at = now() WHERE id = '3d000000-0000-4000-8000-000000000184';"
+refused_in inbound_0194 "${V184}DELETE FROM mail_threads WHERE id = 'ea000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_audited_before_delete" "a thread deleted while its follow's decision is owed to the trail"
+sql_in inbound_0194 <<<"UPDATE inbound_mail_decisions SET audited_at = now() WHERE id = '3d000000-0000-4000-8000-000000000184';"
 # ... and then takes its entries, ids and follows, the follow's decision and the text it filed.
-sql_in inbound_0193 <<<"DELETE FROM mail_threads WHERE id = 'ea000000-0000-4000-8000-000000000184';"
-check_in inbound_0193 "SELECT (SELECT count(*) FROM mail_thread_entries WHERE thread_id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_message_ids WHERE thread_id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_follows WHERE thread_id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM inbound_mail_decisions WHERE id = '3d000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM inbound_mail_parts WHERE id = '2a000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_entry_attachments WHERE entry_id = 'e1000000-0000-4000-8000-000000000184')" \
-  "0,0,0,0,0,0" "0193: deleting a thread takes its entries, what came with them, ids, follows, the follow's decision and the text part it filed"
+sql_in inbound_0194 <<<"DELETE FROM mail_threads WHERE id = 'ea000000-0000-4000-8000-000000000184';"
+check_in inbound_0194 "SELECT (SELECT count(*) FROM mail_thread_entries WHERE thread_id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_message_ids WHERE thread_id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_follows WHERE thread_id = 'ea000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM inbound_mail_decisions WHERE id = '3d000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM inbound_mail_parts WHERE id = '2a000000-0000-4000-8000-000000000184') || ',' || (SELECT count(*) FROM mail_thread_entry_attachments WHERE entry_id = 'e1000000-0000-4000-8000-000000000184')" \
+  "0,0,0,0,0,0" "0194: deleting a thread takes its entries, what came with them, ids, follows, the follow's decision and the text part it filed"
 # Sweep 8 deletes a mail only once its decisions are audited.
-refused_in inbound_0193 "${V184}DELETE FROM inbound_mails WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_audited_before_delete" "a mail deleted while a decision about it is owed to the trail"
-refused_in inbound_0193 "DELETE FROM inbound_mail_addresses WHERE id = 'aa000000-0000-4000-8000-000000000184'" "inbound_mails_address_fkey" "an address deleted from under its mail"
+refused_in inbound_0194 "${V184}DELETE FROM inbound_mails WHERE id = '1a000000-0000-4000-8000-000000000184'" "inbound_mail_decisions_audited_before_delete" "a mail deleted while a decision about it is owed to the trail"
+refused_in inbound_0194 "DELETE FROM inbound_mail_addresses WHERE id = 'aa000000-0000-4000-8000-000000000184'" "inbound_mails_address_fkey" "an address deleted from under its mail"
 
 # The purge: deleting the project takes all nine tables, unaudited decisions included.
-sql_in inbound_0193 <<<"DELETE FROM projects WHERE id = 'a0000000-0000-4000-8000-000000000184';"
-check_in inbound_0193 "SELECT (SELECT count(*) FROM inbound_mail_addresses WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM inbound_mails WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM inbound_mail_parts WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM inbound_mail_decisions WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM mail_threads WHERE project_id = 'a0000000-0000-4000-8000-000000000184')" \
-  "0" "0193: a project purge takes its addresses, mails, parts, decisions and threads"
-check_in inbound_0193 "SELECT count(*) FROM inbound_mails WHERE organization_id = 'org_0184_b'" "1" "0193: and nothing of another project"
+sql_in inbound_0194 <<<"DELETE FROM projects WHERE id = 'a0000000-0000-4000-8000-000000000184';"
+check_in inbound_0194 "SELECT (SELECT count(*) FROM inbound_mail_addresses WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM inbound_mails WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM inbound_mail_parts WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM inbound_mail_decisions WHERE project_id = 'a0000000-0000-4000-8000-000000000184') + (SELECT count(*) FROM mail_threads WHERE project_id = 'a0000000-0000-4000-8000-000000000184')" \
+  "0" "0194: a project purge takes its addresses, mails, parts, decisions and threads"
+check_in inbound_0194 "SELECT count(*) FROM inbound_mails WHERE organization_id = 'org_0184_b'" "1" "0194: and nothing of another project"
 
 # D33: the archive import counts the Verläufe it opened and joined and the mails the project already held.
-sql_in inbound_0193 <<<"INSERT INTO mail_imports (id, organization_id, project_id, user_id, filename, size_bytes, staging_bucket, staging_key) VALUES ('ab000000-0000-4000-8000-000000000186', 'org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'user_01J0MA1LUSERB00000000000B1', 'Postfach.pst', 10, 'b', 'org/org_0184_b/project/b0000000-0000-4000-8000-000000000184/mail-imports/ab000000-0000-4000-8000-000000000186/archive');"
-check_in inbound_0193 "SELECT threads_created || ',' || threads_appended || ',' || already_in_project FROM mail_imports WHERE id = 'ab000000-0000-4000-8000-000000000186'" \
-  "0,0,0" "0193: an import has opened, joined and skipped no Verlauf before it files a mail"
-refused_in inbound_0193 "UPDATE mail_imports SET already_in_project = -1 WHERE id = 'ab000000-0000-4000-8000-000000000186'" "mail_imports_thread_counts_non_negative" "a negative Verlauf count on an import"
+sql_in inbound_0194 <<<"INSERT INTO mail_imports (id, organization_id, project_id, user_id, filename, size_bytes, staging_bucket, staging_key) VALUES ('ab000000-0000-4000-8000-000000000186', 'org_0184_b', 'b0000000-0000-4000-8000-000000000184', 'user_01J0MA1LUSERB00000000000B1', 'Postfach.pst', 10, 'b', 'org/org_0184_b/project/b0000000-0000-4000-8000-000000000184/mail-imports/ab000000-0000-4000-8000-000000000186/archive');"
+check_in inbound_0194 "SELECT threads_created || ',' || threads_appended || ',' || already_in_project FROM mail_imports WHERE id = 'ab000000-0000-4000-8000-000000000186'" \
+  "0,0,0" "0194: an import has opened, joined and skipped no Verlauf before it files a mail"
+refused_in inbound_0194 "UPDATE mail_imports SET already_in_project = -1 WHERE id = 'ab000000-0000-4000-8000-000000000186'" "mail_imports_thread_counts_non_negative" "a negative Verlauf count on an import"
 
-# Down: refused while a row names an object, clean once none does; 0193 applies again.
-apply_in inbound_0193 0193_inbound_mail.sql
-check_in inbound_0193 "SELECT count(*) FROM inbound_mails" "2" "0193 re-applies and keeps the mail"
+# Down: refused while a row names an object, clean once none does; 0194 applies again.
+apply_in inbound_0194 0194_inbound_mail.sql
+check_in inbound_0194 "SELECT count(*) FROM inbound_mails" "2" "0194 re-applies and keeps the mail"
 # The follow job counts a project's follow appends of the last day under a lock (D31 condition 8).
-check_in inbound_0193 "SELECT count(*) FROM pg_indexes WHERE indexname = 'inbound_mail_decisions_project_follow_idx'" "1" "0193 builds the project follow-cap index"
-sql_in inbound_0193 <<<"UPDATE inbound_mails SET raw_storage_key = 'org/org_0184_b/project/b0000000-0000-4000-8000-000000000184/_inbound-mail/1b000000-0000-4000-8000-000000000184/raw.eml' WHERE id = '1b000000-0000-4000-8000-000000000184';"
-refused_in inbound_0193 "$(cat migrations/0193_inbound_mail.down.sql)" "reverse 0193 refused" "the down while a mail names its staged raw message"
-check_in inbound_0193 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "9" "the refused down dropped nothing"
-sql_in inbound_0193 <<'SQL'
+check_in inbound_0194 "SELECT count(*) FROM pg_indexes WHERE indexname = 'inbound_mail_decisions_project_follow_idx'" "1" "0194 builds the project follow-cap index"
+sql_in inbound_0194 <<<"UPDATE inbound_mails SET raw_storage_key = 'org/org_0184_b/project/b0000000-0000-4000-8000-000000000184/_inbound-mail/1b000000-0000-4000-8000-000000000184/raw.eml' WHERE id = '1b000000-0000-4000-8000-000000000184';"
+refused_in inbound_0194 "$(cat migrations/0194_inbound_mail.down.sql)" "reverse 0194 refused" "the down while a mail names its staged raw message"
+check_in inbound_0194 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "9" "the refused down dropped nothing"
+sql_in inbound_0194 <<'SQL'
 INSERT INTO inbox_items (organization_id, recipient_user_id, type, resource_type, resource_id, group_key, actionable)
 VALUES ('org_0184_b', 'u', 'inbound_mail.waiting', 'project', 'b0000000-0000-4000-8000-000000000184', 'inbound_mail.waiting:p', true),
        ('org_0184_b', 'u', 'document.new_revision', 'document', 'd3000000-0000-4000-8000-000000000184', 'document.new_revision:d', false);
 UPDATE inbound_mails SET raw_storage_key = NULL;
 SQL
-apply_in inbound_0193 0193_inbound_mail.down.sql
-check_in inbound_0193 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "0" "0193 down drops the nine tables"
-check_in inbound_0193 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'mail_imports' AND column_name IN ('threads_created', 'threads_appended', 'already_in_project')" "0" "0193 down drops the import's Verlauf counts"
-check_in inbound_0193 "SELECT string_agg(type, ',') FROM inbox_items WHERE organization_id = 'org_0184_b'" "document.new_revision" "0193 down removes the mail notices and nothing else"
-check_in inbound_0193 "SELECT count(*) FROM pg_proc WHERE proname IN ('inbound_mail_decisions_guard', 'inbound_mail_parts_decision_guard', 'inbound_mail_parts_document_guard', 'refuse_held_project_row_delete', 'mail_thread_entry_attachments_guard')" "0" "0193 down drops its functions"
-check_in inbound_0193 "SELECT count(*) FROM documents WHERE id = 'd3000000-0000-4000-8000-000000000184'" "1" "0193 down leaves the documents"
-check_in inbound_0193 "SELECT count(*) FROM pg_indexes WHERE indexname = 'inbound_mail_decisions_project_follow_idx'" "0" "0193 down drops the project follow-cap index"
-apply_in inbound_0193 0193_inbound_mail.sql
-check_in inbound_0193 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "9" "0193 applies again after its down"
-check_in inbound_0193 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'mail_imports' AND column_name IN ('threads_created', 'threads_appended', 'already_in_project')" "3" "0193 adds the import's Verlauf counts again after its down"
-echo "==> 0193 inbound mail, threads and follows and their down migration verified"
+apply_in inbound_0194 0194_inbound_mail.down.sql
+check_in inbound_0194 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "0" "0194 down drops the nine tables"
+check_in inbound_0194 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'mail_imports' AND column_name IN ('threads_created', 'threads_appended', 'already_in_project')" "0" "0194 down drops the import's Verlauf counts"
+check_in inbound_0194 "SELECT string_agg(type, ',') FROM inbox_items WHERE organization_id = 'org_0184_b'" "document.new_revision" "0194 down removes the mail notices and nothing else"
+check_in inbound_0194 "SELECT count(*) FROM pg_proc WHERE proname IN ('inbound_mail_decisions_guard', 'inbound_mail_parts_decision_guard', 'inbound_mail_parts_document_guard', 'refuse_held_project_row_delete', 'mail_thread_entry_attachments_guard')" "0" "0194 down drops its functions"
+check_in inbound_0194 "SELECT count(*) FROM documents WHERE id = 'd3000000-0000-4000-8000-000000000184'" "1" "0194 down leaves the documents"
+check_in inbound_0194 "SELECT count(*) FROM pg_indexes WHERE indexname = 'inbound_mail_decisions_project_follow_idx'" "0" "0194 down drops the project follow-cap index"
+apply_in inbound_0194 0194_inbound_mail.sql
+check_in inbound_0194 "SELECT count(*) FROM pg_tables WHERE tablename LIKE 'inbound\_mail%' OR tablename LIKE 'mail\_thread%'" "9" "0194 applies again after its down"
+check_in inbound_0194 "SELECT count(*) FROM information_schema.columns WHERE table_name = 'mail_imports' AND column_name IN ('threads_created', 'threads_appended', 'already_in_project')" "3" "0194 adds the import's Verlauf counts again after its down"
+echo "==> 0194 inbound mail, threads and follows and their down migration verified"

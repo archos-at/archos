@@ -247,8 +247,8 @@ def test_http_mode_exports_what_the_server_holds(chroma_server, tmp_path):
 _DRIVER = textwrap.dedent(
     """
     import json, sys, uuid
-    from knowledge_layer.qdrant import import_vectors, schema
-    from knowledge_layer.qdrant import store as store_module
+    from knowledge_layer.vector_store import import_vectors, schema
+    from knowledge_layer.vector_store import store as store_module
 
     suffix = sys.argv[2]
     schema.ALIASES[schema.Physical.CORPUS] = f"e2e_corpus_{suffix}"

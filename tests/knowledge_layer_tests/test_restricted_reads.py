@@ -24,6 +24,7 @@ from unittest.mock import MagicMock
 import pytest
 from knowledge_layer.browse import ListFilesConfig
 from knowledge_layer.browse import list_files
+from knowledge_layer.ingest import adapter as adapter_module
 from knowledge_layer.read_passage import ReadPassageConfig
 from knowledge_layer.read_passage import read_passage
 from knowledge_layer.register import KnowledgeRetrievalConfig
@@ -268,7 +269,7 @@ async def test_read_passage_withholds_a_restricted_passage_the_bff_refuses(scope
 
 
 async def test_exact_search_reports_every_collection_its_match_table_names(monkeypatch):
-    from knowledge_layer import browse
+    from knowledge_layer.browse import tool as browse
 
     class _Retriever:
         async def find_text(self, collection, pattern, *, filters, limit):
@@ -276,9 +277,9 @@ async def test_exact_search_reports_every_collection_its_match_table_names(monke
 
     # The passages are rendered (and reported) by the grounding block; stubbed
     # here so what is left to report is the match table alone.
-    monkeypatch.setattr(importlib.import_module(f"{browse.__package__}.search_results"), "format_results", _no_passages)
+    monkeypatch.setattr(importlib.import_module("knowledge_layer.search.results"), "format_results", _no_passages)
     monkeypatch.setattr(
-        importlib.import_module(f"{browse.__package__}.read_passage"), "_passage_result", lambda chunks, query: None
+        importlib.import_module("knowledge_layer.read_passage.tool"), "_passage_result", lambda chunks, query: None
     )
     entries = [ScopedCollection(PROJ, Shelf.PROJECT), ScopedCollection(R, Shelf.PROJECT)]
 
@@ -295,7 +296,7 @@ def _no_passages(*_args, **_kwargs) -> str:
 
 
 def test_a_failed_restricted_collection_is_never_named_in_a_message():
-    from knowledge_layer import browse
+    from knowledge_layer.browse import tool as browse
 
     text = browse.search_failed_message(["Gehalt"], [PROJ, R])
 
@@ -328,7 +329,7 @@ def image_tool(monkeypatch):
 
     monkeypatch.setattr(vi, "_resolve_storage_location", _resolve)
     monkeypatch.setattr(vi, "_fetch_seaweed_bytes", lambda key, bucket=None: _png())
-    monkeypatch.setattr("knowledge_layer.llamaindex.adapter._get_vlm_api_key", lambda: "k")
+    monkeypatch.setattr(adapter_module, "_get_vlm_api_key", lambda: "k")
     monkeypatch.setattr(vi, "try_consume_image_view", lambda *_kind: True)
 
     async def view(*, file_name: str, collection: str):

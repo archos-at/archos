@@ -37,7 +37,7 @@ export interface ReingestDocumentResult {
  *    files are READ (ADR-0071 taught Word and PowerPoint to read their
  *    pictures; nothing in the upload path would notice that). Safe because the
  *    backend replaces a version only once the new one has indexed
- *    (`_retire_previous_version`, `llamaindex/adapter.py`): the old chunks stay
+ *    (`_retire_previous_version`, `ingest/adapter.py`): the old chunks stay
  *    citable for the length of the job, and stay for good if it fails.
  *    An agent-authored row is not offered this: its index entry belongs to a
  *    published version, which only `ingestPublished` may dispatch.

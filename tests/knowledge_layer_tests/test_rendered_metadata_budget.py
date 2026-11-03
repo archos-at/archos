@@ -14,10 +14,10 @@ from __future__ import annotations
 import logging
 
 import pytest
-from knowledge_layer.llamaindex.chunk_metadata import _fit_rendered_metadata
-from knowledge_layer.llamaindex.chunk_metadata import _rendered_metadata_tokens
-from knowledge_layer.llamaindex.chunk_metadata import apply_metadata_exclusions
-from knowledge_layer.llamaindex.chunk_metadata import stamp_chunk_metadata
+from knowledge_layer.ingest import apply_metadata_exclusions
+from knowledge_layer.ingest import stamp_chunk_metadata
+from knowledge_layer.ingest.chunk_metadata import _fit_rendered_metadata
+from knowledge_layer.ingest.chunk_metadata import _rendered_metadata_tokens
 from llama_index.core import Document
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import MetadataMode
@@ -104,7 +104,7 @@ def test_a_file_name_longer_than_the_budget_leaves_the_header_and_the_file_chunk
         Document(text="Seite.", metadata={"file_name": f"{LEGEND}.pdf", "page_label": str(page)}) for page in range(3)
     ]
 
-    with caplog.at_level(logging.WARNING, logger="knowledge_layer.llamaindex.chunk_metadata"):
+    with caplog.at_level(logging.WARNING, logger="knowledge_layer.ingest.chunk_metadata"):
         _stamp(pages, chunk_size=1024)
 
     assert all(_rendered_metadata_tokens(page) <= 512 for page in pages)

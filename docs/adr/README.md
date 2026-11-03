@@ -87,7 +87,7 @@ Consequences, where a reader looks for them.
 | [0018](0018-per-run-state-for-deep-research.md) | Per-run construction of deep research run state | Accepted |
 | [0019](0019-write-through-usage-rollups.md) | Write-through daily rollups for budget enforcement | Accepted |
 | [0020](0020-dragonfly-shared-cache.md) | Dragonfly as the shared cache tier | Accepted |
-| [0021](0021-db-claimed-research-workers.md) | DB-claimed workers for deep-research execution | Accepted |
+| [0021](0021-db-claimed-research-workers.md) | DB-claimed workers for deep-research execution (claim and reclaim partly superseded by 0150) | Accepted |
 | [0022](0022-org-byok-llm-credentials.md) | Enterprise BYOK LLM credentials per organization (WorkOS Vault) and the org web-search setting | Accepted |
 | [0023](0023-workflows-scheduled-research.md) | Workflows — saved research briefs with cron scheduling | Superseded by ADR-0046 |
 | [0024](0024-org-wide-document-archiv.md) | Org-wide document Archiv | Proposed |
@@ -141,10 +141,10 @@ Consequences, where a reader looks for them.
 | [0072](0072-the-knowledge-layer-has-one-backend-llamaindex.md) | The knowledge layer has one backend: llamaindex | Superseded by ADR-0115 |
 | [0073](0073-a-coverage-gap-is-stated-never-enforced.md) | A coverage gap is stated in the block, never enforced on the pool | Accepted |
 | [0074](0074-zero-data-retention-is-the-default-enforced-at-one-seam.md) | Zero data retention is the default, enforced at one OpenRouter seam | Accepted |
-| [0076](0076-ingestion-is-claimed-fairly-from-a-durable-queue.md) | Ingestion is claimed fairly from a durable queue, by a tier that scales on its depth | Proposed |
+| [0076](0076-ingestion-is-claimed-fairly-from-a-durable-queue.md) | Ingestion is claimed fairly from a durable queue, by a tier that scales on its depth | Superseded by ADR-0150 |
 | [0077](0077-prompt-context-is-loaded-over-http-not-websocket-headers.md) | Prompt context is loaded over HTTP, not carried in WebSocket headers | Accepted |
 | [0078](0078-folders-are-a-property-of-a-shelf-not-of-a-project.md) | Folders are a property of a shelf, not of a project: the Archiv gains folders through the one folder implementation | Accepted |
-| [0079](0079-background-work-runs-on-one-claim-substrate.md) | Background work runs on one claim substrate, in worker pools KEDA scales on their queues | Proposed |
+| [0079](0079-background-work-runs-on-one-claim-substrate.md) | Background work runs on one claim substrate, in worker pools KEDA scales on their queues | Superseded by ADR-0150 |
 | [0080](0080-chat-drops-affinity-for-the-conversation-bus.md) | Chat drops conversation affinity for the conversation bus, and the backend scales on turn occupancy | Proposed |
 | [0081](0081-every-model-call-passes-one-priority-aware-provider-limiter.md) | Every model call passes one priority-aware provider limiter that adapts to 429s | Proposed |
 | [0082](0082-backend-roles-are-split-by-job-and-named-after-it.md) | Backend roles are split by job, and named after it | Accepted |
@@ -184,7 +184,7 @@ Consequences, where a reader looks for them.
 | [0117](0117-a-document-is-parsed-on-one-worker-in-a-bounded-page-pipeline.md) | A document is parsed on one worker, in a bounded page pipeline | Proposed |
 | [0118](0118-posthog-support-is-the-record-for-product-feedback.md) | PostHog Support is the record of triage for product feedback | Accepted |
 | [0119](0119-every-metric-goes-to-posthog-through-the-collector.md) | Every metric goes to PostHog, through the collector, from an agent on every node | Accepted |
-| [0120](0120-addresses-are-geocoded-by-a-self-hosted-photon.md) | Addresses are geocoded by a Photon in the cluster, over the Austrian OSM extract | Proposed |
+| [0120](0120-addresses-are-geocoded-by-a-self-hosted-photon.md) | Addresses are geocoded by a Photon in the cluster, over the Austrian OSM extract | Superseded by ADR-0151 |
 | [0121](0121-bulk-work-is-owned-by-the-server.md) | Bulk work is owned by the server: a durable run on `bff_job_queue`, never a loop in the browser | Accepted |
 | [0122](0122-everything-a-person-can-do-an-agent-can-do.md) | Everything a person can do, an agent can do: one MCP server, every agent a client | Accepted |
 | [0123](0123-piloti-works-the-office-through-its-door.md) | Piloti works the office through its door: workspace state in every turn, a work report, and an eval that measures it | Accepted |
@@ -214,7 +214,9 @@ Consequences, where a reader looks for them.
 | [0147](0147-infrastructure-names-carry-no-brand.md) | Infrastructure names carry no brand: namespace `workspace`, Pulumi project `workspace`, moved by expand, switch and contract | Proposed |
 | [0148](0148-a-list-is-worked-beside-the-real-surface-never-a-copy.md) | A list is worked beside the real surface, never a copy of it: one docked-panel primitive, and page overlays that leave it in view | Proposed |
 | [0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md) | The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS | Accepted |
-| [0150](0150-attachments-from-outside-are-scanned-in-cluster-by-clamav.md) | Attachments from outside are scanned in the cluster by ClamAV before anyone can file or download them | Proposed |
+| [0150](0150-background-work-runs-on-self-hosted-hatchet.md) | Background work runs on self-hosted Hatchet, with fairness keyed on the organization, in place of our claim queues; supersedes 0076 and 0079 | Accepted |
+| [0151](0151-addresses-are-geocoded-by-komoots-public-photon.md) | Addresses are geocoded by komoot's public Photon instance, with no workload of ours; supersedes 0120 | Accepted |
+| [0152](0152-attachments-from-outside-are-scanned-in-cluster-by-clamav.md) | Attachments from outside are scanned in the cluster by ClamAV before anyone can file or download them | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

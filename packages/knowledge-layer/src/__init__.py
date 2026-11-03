@@ -13,7 +13,7 @@ The adapter modules can be used standalone without the agent runtime.
 
 Importing the package loads nothing: the agent runtime registers the three tools through
 their entry points (`pyproject.toml`), which name the modules themselves.
-Re-exporting them here made every `knowledge_layer.qdrant.*` import pay for
+Re-exporting them here made every `knowledge_layer.vector_store.*` import pay for
 the registrations and their LlamaIndex and agent-runtime imports
 (docs/audit/blast-radius-2026-10.md); import from the module that defines a
 name.

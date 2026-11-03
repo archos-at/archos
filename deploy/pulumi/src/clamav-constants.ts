@@ -1,7 +1,7 @@
 /** The malware scanner's fixed names, ports, paths and sizes, kept out of `constants.ts`. */
 
 /**
- * ClamAV (ADR-0150): clamd, the malware scanner behind `MALWARE_SCAN_URL`,
+ * ClamAV (ADR-0152): clamd, the malware scanner behind `MALWARE_SCAN_URL`,
  * with freshclam beside it. Off by default (`malwareScanEnabled`).
  *
  * The image is a knob (`malwareScanImage`, digest-pinned); the name, the port,

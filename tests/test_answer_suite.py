@@ -13,7 +13,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import create_autospec
 
 import pytest
 
@@ -660,8 +659,8 @@ def test_the_suite_reads_the_dialect_the_validator_holds():
 
 def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
     """Readiness is the corpus's chunk count in the store the ingest writes through."""
-    from knowledge_layer_testing.qdrant import record
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
 
     from agent import oib_sync
 
@@ -671,39 +670,32 @@ def test_a_corpus_in_the_store_reads_as_ready(qdrant_store):
 
 
 def _ingest_in_this_process(monkeypatch, tmp_path, *, succeed: bool):
-    """A corpus of one file, the real queue, and a "claiming source" that runs what is queued."""
+    """A corpus of one file, and an ingestor whose ``run_prepared`` does what a worker would."""
     from agent import corpus_store
     from agent import oib_sync
-    from agent_host.jobs import ingest_dispatch
     from tests.corpus_job_fakes import FakeIngestor
-    from tests.corpus_job_fakes import run_worker
+    from tests.corpus_job_fakes import finish
     from tests.object_corpus_fakes import install
 
     install(monkeypatch, tmp_path)
     ingestor = FakeIngestor()
+    ran: list = []
+    ingestor.run_prepared = lambda prepared, still_owner=None: ran.append(finish(prepared, succeed=succeed))
     monkeypatch.setattr(oib_sync, "_get_oib_ingestor", lambda: ingestor)
-
-    def claim_and_run(*_args, **_kwargs):
-        run_worker(succeed=succeed)
-        return True
-
-    # Autospecced: a call `attach` itself would refuse (a keyword it no longer takes) fails here too.
-    attach = create_autospec(ingest_dispatch.attach, side_effect=claim_and_run)
-    monkeypatch.setattr(ingest_dispatch, "attach", attach)
     corpus_store.put("a.pdf", b"%PDF-1.4 a")
     return (
-        attach,
+        ran,
         ingestor,
         lambda: corpus_store.get_file("a.pdf").needs_ingestion(oib_sync.CHUNK_FORMAT_VERSION),
     )
 
 
-def test_ingest_queues_the_corpus_jobs_and_claims_them_in_this_process(monkeypatch, tmp_path):
-    # `oib_sync.sync()` only queues; on a developer machine nothing else would run the jobs.
-    attach, ingestor, needs_ingestion = _ingest_in_this_process(monkeypatch, tmp_path, succeed=True)
+def test_ingest_runs_the_corpus_jobs_in_this_process(monkeypatch, tmp_path):
+    # `oib_sync.sync()` only hands jobs over; on a developer machine no worker would run them.
+    ran, _ingestor, needs_ingestion = _ingest_in_this_process(monkeypatch, tmp_path, succeed=True)
 
     assert suite._ingest_corpus(poll_seconds=0) is None
-    attach.assert_called_once_with(ingestor)
+    assert len(ran) == 1
     assert not needs_ingestion()
 
 
@@ -731,9 +723,8 @@ def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(m
     # could not run without a deployed stack (gate G1 waited on one for that).
     from agent import corpus_store
     from agent import oib_sync
-    from agent_host.jobs import ingest_dispatch
     from tests.corpus_job_fakes import FakeIngestor
-    from tests.corpus_job_fakes import run_worker
+    from tests.corpus_job_fakes import finish
     from tests.object_corpus_fakes import install
 
     seams = ("_request_upload_url", "_put_object", "_delete_object", "_download_object")
@@ -750,7 +741,7 @@ def test_a_local_corpus_directory_is_ingested_without_a_bff_or_an_object_store(m
     ingestor = FakeIngestor()
     monkeypatch.setattr(oib_sync, "_get_oib_ingestor", lambda: ingestor)
     downloaded: list[bytes] = []
-    monkeypatch.setattr(ingest_dispatch, "attach", lambda _ingestor: run_worker(downloaded=downloaded) or True)
+    ingestor.run_prepared = lambda prepared, still_owner=None: finish(prepared, downloaded=downloaded)
 
     assert suite.use_local_corpus(corpus) == 1
     assert suite._ingest_corpus(poll_seconds=0) is None
@@ -774,7 +765,7 @@ def test_the_startup_probe_times_only_methods_the_retriever_has():
     import re
 
     import startup_probe
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     timed = re.findall(r"retriever\.(\w+) = timed\(", Path(startup_probe.__file__).read_text())
     assert timed, "the probe times no retriever method; this test reads its source"

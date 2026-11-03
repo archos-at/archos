@@ -176,7 +176,7 @@ def test_generated_test_and_copy_files_are_not_checked(checker):
         "apps/workspace/shared/cards/generated.ts",
         "apps/workspace/ui/adapters/api/wire-v2.generated.ts",
         "apps/workspace/ui/features/chat/ChatArea.spec.tsx",
-        "apps/workspace/scheduler/index.spec.mjs",
+        "apps/workspace/purger/index.spec.mjs",
         "packages/agent/tests/test_runner.py",
         "apps/workspace/app/dev/_fixtures/stream-frames.ts",
         "apps/workspace/i18n/dictionaries/de/chat.ts",

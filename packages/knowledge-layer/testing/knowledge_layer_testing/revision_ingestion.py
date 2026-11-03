@@ -9,7 +9,7 @@ import time
 import uuid
 
 import pytest
-from knowledge_layer.llamaindex.adapter import LlamaIndexIngestor
+from knowledge_layer.ingest import LlamaIndexIngestor
 from langchain_core.messages import AIMessage
 
 
@@ -59,7 +59,7 @@ def model():
 @pytest.fixture()
 def live_ingestor(tmp_path, monkeypatch, model, qdrant_store):
     from agent.knowledge import document_classification
-    from knowledge_layer_testing.qdrant import FakeEmbedder
+    from knowledge_layer_testing.vector_store import FakeEmbedder
 
     ing = LlamaIndexIngestor({"generate_summary": True, "summary_llm": model})
     ing._embed_model = FakeEmbedder()
@@ -104,8 +104,8 @@ def _documents(collection):
 
 def _seed_previous_version(ing, stores, collection_name, file_name):
     from agent.knowledge import register_summary
-    from knowledge_layer_testing.qdrant import record
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
 
     write(collection_name, [record("Alte Fassung Seite eins", file_name, chunk_id="old-1")])
     register_summary(collection_name, file_name, "Die alte Statik.")

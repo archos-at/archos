@@ -4,7 +4,7 @@ Postgres ``projects`` (profile, status) is the authority; the BFF owns it and
 calls this whenever a project's fingerprint or lifecycle state changes, and
 from its facts sync for every project. The points carry a copy so the
 cross-project search can filter by a fact and lift similar projects inside
-the one query (``knowledge_layer.qdrant.boost``).
+the one query (``knowledge_layer.vector_store.boost``).
 
 A stale copy never widens access: who may read a point is the signed scope
 and the scope filter alone. A fact on a point only ranks and narrows.
@@ -51,7 +51,7 @@ def add_project_facts_routes(router: APIRouter):
         if not collection_name.startswith(PROJECT_COLLECTION_PREFIX):
             raise HTTPException(status_code=400, detail="project facts belong to a project collection")
         try:
-            from knowledge_layer.qdrant import retrieval
+            from knowledge_layer.vector_store import retrieval
         except ImportError as e:  # the knowledge layer's store extra is not installed here
             raise HTTPException(status_code=409, detail="this deployment has no Qdrant store") from e
         try:

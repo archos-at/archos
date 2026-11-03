@@ -1,8 +1,8 @@
 """Reading a document's stored page text (ADR-0134), or rebuilding it from its chunks when there is none.
 
 The ingest writes ``<version dir>/_text/pages.md`` and ``index.json`` per version
-(``llamaindex/page_text_store.py``, schema 1). This is the read side, and the one
-place the agent's file tools (``knowledge_layer.estate``) get a page from:
+(``ingest/page_text_store.py``, schema 1). This is the read side, and the one
+place the agent's file tools (``knowledge_layer.estate.backend``) get a page from:
 
 1. **Never from a model-supplied path.** The caller has already resolved the
    document from the turn's scoped rows; here a ``(collection, file name)`` pair

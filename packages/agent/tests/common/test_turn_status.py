@@ -963,7 +963,7 @@ class TestTheFetchFailureMarker:
         assert tool_calls.FETCH_FAILED_MARKER == "[fetch failed]"
 
     def test_both_retrieval_tools_start_their_failure_string_with_it(self) -> None:
-        from knowledge_layer.read_passage import _store_silent_message
+        from knowledge_layer.read_passage.tool import _store_silent_message
 
         assert _store_silent_message("OIB-Richtlinie 2, Pkt. 3.5.2").startswith(tool_calls.FETCH_FAILED_MARKER)
         # The search side is asserted through the agent's graph

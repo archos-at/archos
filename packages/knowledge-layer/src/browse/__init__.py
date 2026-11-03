@@ -1,0 +1,103 @@
+"""Looking at the files the way a person does: the listing (`list_files`) and the exact search."""
+
+from __future__ import annotations
+
+from agent.lazy_exports import lazy_exports
+
+# What code outside this package imports, and from where: the names it imported
+# from the submodules when the package was laid out by job, measured. Loaded on
+# first use (PEP 562), so importing one submodule does not load the others, and
+# read from the submodule every time (`cache=False`), so a test that patches a
+# submodule is seen through the package too. A name missing here is imported
+# from its submodule, and `scripts/check_package_surfaces.py` counts that.
+_LAZY: dict[str, str] = {
+    "DEFAULT_TREE_DEPTH": ".tool",
+    "FileRow": ".tool",
+    "ListFilesConfig": ".tool",
+    "MAX_CARD_FILES": ".tool",
+    "MAX_CHAIN_CHANGE_CHARS": ".tool",
+    "MAX_CHAIN_LINES": ".tool",
+    "MAX_CHANGE_CHARS": ".tool",
+    "MAX_CONTEXT_LINES": ".tool",
+    "MAX_DISTINCT_MATCHES": ".tool",
+    "MAX_MATCH_CHUNKS": ".tool",
+    "MAX_MATCH_PASSAGES": ".tool",
+    "MAX_ROW_FACTS": ".tool",
+    "MAX_ROW_REFERENCES": ".tool",
+    "MAX_SNIPPET_LINES": ".tool",
+    "MAX_TOPIC_COUNTS": ".tool",
+    "MAX_TREE_CARDS": ".tool",
+    "MAX_TYPE_COUNTS": ".tool",
+    "TREE_PARAGRAPH": ".tool",
+    "abstract_lines": ".tool",
+    "confirmed_revision_marks": ".tool",
+    "entries_on_shelf": ".tool",
+    "exact_search": ".tool",
+    "file_row": ".tool",
+    "file_rows": ".tool",
+    "fold": ".tool",
+    "folder_cards": ".tool",
+    "group_matches": ".tool",
+    "inflection_stem": ".tool",
+    "list_files": ".tool",
+    "match_snippets": ".tool",
+    "match_table": ".tool",
+    "no_match_message": ".tool",
+    "phrase_pattern": ".tool",
+    "pick_passages": ".tool",
+    "render_listing": ".tool",
+    "render_revisions": ".tool",
+    "render_tree": ".tool",
+    "restrict_rows_to_turn": ".tool",
+    "select_files": ".tool",
+    "split_alternatives": ".tool",
+    "stemmed_pattern": ".tool",
+    "user_pattern": ".tool",
+}
+
+__getattr__ = lazy_exports(__name__, _LAZY, cache=False)
+
+__all__ = [
+    "DEFAULT_TREE_DEPTH",
+    "FileRow",
+    "ListFilesConfig",
+    "MAX_CARD_FILES",
+    "MAX_CHAIN_CHANGE_CHARS",
+    "MAX_CHAIN_LINES",
+    "MAX_CHANGE_CHARS",
+    "MAX_CONTEXT_LINES",
+    "MAX_DISTINCT_MATCHES",
+    "MAX_MATCH_CHUNKS",
+    "MAX_MATCH_PASSAGES",
+    "MAX_ROW_FACTS",
+    "MAX_ROW_REFERENCES",
+    "MAX_SNIPPET_LINES",
+    "MAX_TOPIC_COUNTS",
+    "MAX_TREE_CARDS",
+    "MAX_TYPE_COUNTS",
+    "TREE_PARAGRAPH",
+    "abstract_lines",
+    "confirmed_revision_marks",
+    "entries_on_shelf",
+    "exact_search",
+    "file_row",
+    "file_rows",
+    "fold",
+    "folder_cards",
+    "group_matches",
+    "inflection_stem",
+    "list_files",
+    "match_snippets",
+    "match_table",
+    "no_match_message",
+    "phrase_pattern",
+    "pick_passages",
+    "render_listing",
+    "render_revisions",
+    "render_tree",
+    "restrict_rows_to_turn",
+    "select_files",
+    "split_alternatives",
+    "stemmed_pattern",
+    "user_pattern",
+]

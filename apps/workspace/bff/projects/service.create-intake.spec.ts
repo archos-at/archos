@@ -32,7 +32,7 @@ vi.mock('@/lib/workos/client', () => ({
 
 const recordAuditEvent = vi.fn()
 vi.mock('@/lib/audit/service', () => ({ recordAuditEvent: (...args: unknown[]) => recordAuditEvent(...args) }))
-vi.mock('@/lib/tasks/repository', () => ({ rearmOneShotsSkippedWhileParked: vi.fn() }))
+vi.mock('@/lib/scheduling/scheduled-runs', () => ({ rearmOneShotsSkippedWhileParked: vi.fn() }))
 vi.mock('@/lib/collaboration/cleanup', () => ({ neutralizeCollaborationForProject: vi.fn() }))
 vi.mock('@/lib/conversations/repository', () => ({
   lastProjectActivityByUser: vi.fn(),

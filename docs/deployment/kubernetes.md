@@ -21,17 +21,15 @@ their own namespaces.
 | `aiq-agent` (the **`chat` role**, `PROCESS_ROLE=chat`: the chat socket, the only route a turn runs through, ADR-0082) | **StatefulSet** | N (default 2) | none (no PVC; ADR-0082 step A2) | Horizontally + PDB/spread — §6.4; with `chatAffinity: false` a KEDA ScaledObject on running turns, `backendReplicas`→`backendMaxReplicas` (§6.4b; prod stays at 1) |
 | `aiq-api` (the **`api` role**, `PROCESS_ROLE=api`: every other backend HTTP route; `BACKEND_URL` names its Service, ADR-0082) | Deployment + HPA + PDB | `apiMinReplicas`→`apiMaxReplicas` (default 2→4; prod 1→3, dev 1→2) | — | Horizontally (CPU HPA, `apiHpaCpuTargetPercent`). Stateless: no volume. Drains for 60 s (the SSE close and short requests), not for a chat turn |
 | `frontend` (Next.js + BFF + WS gateway) | Deployment + HPA | `frontendMinReplicas`→`frontendMaxReplicas` (default 2→6; prod and dev 1→3) | — | Horizontally (CPU HPA) |
-| `agent-worker` (research) | Deployment + KEDA ScaledObject | `agentWorkerMinReplicas`→`agentWorkerMaxReplicas` (default 1→8; prod 1→3, dev 0→3) | — | Horizontally, on `research_job_queue` depth (§6.3) |
-| `ingest-worker` (ingestion) | Deployment + KEDA ScaledObject | `ingestWorkerMinReplicas`→`ingestWorkerMaxReplicas` (default 1→5; prod 1→8, dev 0→3) | — | Horizontally, on `ingest_job_queue` depth; the ceiling is held to the provider budget (§6.3b, §6.3d) |
-| `bff-jobs` (the BFF's background pool: reindex, rescan, IFC, rendition, report filing; no Service, no route) | Deployment + KEDA ScaledObject | `bffJobsMinReplicas`→`bffJobsMaxReplicas` (default 1→4; prod 1→4, dev 0→2) | — | Horizontally, on `bff_job_queue` depth (§6.3c) |
+| `agent-worker` (research) | Deployment + KEDA ScaledObject | `agentWorkerMinReplicas`→`agentWorkerMaxReplicas` (default 1→8; prod 1→3, dev 0→3) | — | Horizontally, on the `research-run` backlog in Hatchet (§6.3, [`hatchet.md`](hatchet.md)) |
+| `ingest-worker` (ingestion) | Deployment + KEDA ScaledObject | `ingestWorkerMinReplicas`→`ingestWorkerMaxReplicas` (default 1→5; prod 1→8, dev 0→3) | — | Horizontally, on the `ingest-document` backlog in Hatchet; the ceiling is held to the provider budget (§6.3b, §6.3d) |
+| `bff-jobs` (the BFF's background pool: reindex, rescan, IFC, rendition, report filing; no Service, no route) | Deployment + KEDA ScaledObject | `bffJobsMinReplicas`→`bffJobsMaxReplicas` (default 1→4; prod 1→4, dev 1→2; a floor below 1 fails the plan, the scheduling crons run here) | — | Horizontally, on the `bff-job` backlog in Hatchet (§6.3c) |
 | KEDA (`keda` namespace) | Helm release, chart pinned to the release the plan's CRDs are validated against | 1 operator | — | n/a; what it may read and reach is §6.3d |
 | `purger` | Deployment | 1 | — | n/a (SKIP LOCKED-safe) |
-| `skill-scheduler` | Deployment (always; fires every due schedule — the BFF skips one whose organization lacks the `skills` flag — and drives the run reconciler) | 1 | — | n/a (DB-claimed ticks) |
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
-| `geocoder` (Photon, the project dialog's address search, ADR-0120; `geocoderEnabled`, default off) | StatefulSet | 1 | RWO PVC `/data` (the jar and the Austrian index, a download), `Retain` | n/a (the frontend fails open to a plain text field while it restarts) |
-| `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0150; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
+| `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0152; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
 | `chroma-migration` (one-shot copy of the retired Chroma store into Qdrant; `chromaMigration`, default off) | Job | 1 pod | exports from the still-running `chroma` Service over HTTP, awaited before the backend tiers roll; scratch is a generic ephemeral claim | n/a ([runbook](qdrant-runbook.md#migrating-from-chroma-on-kubernetes)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
@@ -75,7 +73,7 @@ Two credentials, and they are not interchangeable:
 | Role | Used by | Can do |
 |------|---------|--------|
 | `aiq` (the application user, `pgAppUser`) | the migration Job only | owns the schema; DDL and backfills. Row-level security does **not** apply to a table's owner — that is what makes a backfill touch rows instead of silently touching none. |
-| `app_rw` | every serving container: frontend, purger, scheduler | DML only. No DDL, no `CREATEROLE`, no `BYPASSRLS`, and subject to every policy. |
+| `app_rw` | every serving container: frontend, bff-jobs, purger | DML only. No DDL, no `CREATEROLE`, no `BYPASSRLS`, and subject to every policy. |
 
 The three roles are declared on the CloudNativePG `Cluster` under
 `spec.managed.roles`, not created by a migration. That is not a preference:
@@ -576,7 +574,7 @@ Pieces: `deploy/pulumi/src/platform/{inbound-mail,email-routing}.ts` and the
 Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 `SIGNED_INTERNAL_ROUTE` in `src/signed-route-constants.ts`; the frontend's
 `INBOUND_MAIL_{DOMAIN,PAUSED,SIGNING_KEYS}`; the in-cluster ClamAV
-(`malwareScanEnabled`, ADR-0150). Config keys and their meaning:
+(`malwareScanEnabled`, ADR-0152). Config keys and their meaning:
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md) („Project mail“ rows).
 
 ### Prerequisites
@@ -654,7 +652,7 @@ probes are held mail in the TEST office, never a customer's):
 | G3 | 24 MiB is held, 26 MiB refused by Cloudflare, a truncated body gives `body-truncated`, unsigned and unknown-key requests 401 |
 | G4 | While paused, a temporary failure; after the unpause the mail is delivered |
 | G5 | Worker CPU time for a 25 MiB message (Workers Paid; Free allows 10 ms). A failure blocks the launch: there is no fallback that drops the digest |
-| G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0150) |
+| G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0152) |
 | G7 | Literal `postmaster@` and `abuse@` rules present |
 | G8 | G1 and G2 again after any `COMPATIBILITY_DATE` bump of the Worker (a spec fails once the date is a year old) |
 | G9 | The aligned-DKIM share of a pilot office's real project mail, counted offline from an archive's `Authentication-Results` (`dkim-share`). It sets expectations for the trust labels and following |
@@ -710,9 +708,9 @@ to disabled, so Cloudflare refuses unclaimed addresses at SMTP time (never
 Drop, which accepts and discards), and Pulumi deletes the Worker afterwards
 (deletions run last). The frontend loses `INBOUND_MAIL_DOMAIN`. Only then
 unset `inboundMailDomain`, if it is for good. Email Routing itself is
-`retainOnDelete`: company addresses depend on it. Reversing migration 0193
+`retainOnDelete`: company addresses depend on it. Reversing migration 0194
 needs every staged object and kept original erased first
-([`schema.md`](../database/schema.md#reversing-0193)).
+([`schema.md`](../database/schema.md#reversing-0194)).
 
 ### Privacy settings at Cloudflare
 
@@ -1044,8 +1042,8 @@ schema.
   opening at most `pgPoolerPoolSize` (default 12) server connections per
   (database, role) pair. The plan refuses a stack whose pooler worst case plus
   the direct reserve passes `max_connections` (200): `assertPgConnectionBudget`
-  prints every part. Prod is 74 pooled + 83 direct = 157; a fresh stack with
-  everything on is 196. Clients past the pool wait in PgBouncer instead of
+  prints every part. Prod is 74 pooled + 82 direct = 156; a fresh stack with
+  everything on is 197. Both ingest pools count, the high-memory one too. Clients past the pool wait in PgBouncer instead of
   failing, so saturation shows as waiting clients rather than errors:
   PgBouncer's `SHOW POOLS` reports them as `cl_waiting`, and a value above 0 for
   long means raise `pgPoolerPoolSize` (and the budget with it). The image is
@@ -1262,6 +1260,113 @@ schema.
   with the layers above, but they are the fastest way back from a bad in-place
   migration.
 
+### Moving the app archive off-cluster
+
+Production's app archive (WAL and base backups of `grid-pg`) still goes to the
+in-cluster SeaweedFS: one pod, on the same Delete-reclaim storage as the
+database, and the pod that restarted five times on 2026-11-02. The background-work
+cluster (`background-work-pg`, ADR-0150) has no in-cluster default at all. Both
+read the same knobs through `loadBarmanBackups`
+(`deploy/pulumi/src/config/barman-backups.ts`): `pgBackup*` for the app,
+`backgroundWorkPgBackup*` for Hatchet's.
+
+Two refusals hold the move in place:
+
+- An endpoint outside the cluster without its own `…BackupAccessKey` and
+  `…BackupSecretKey` fails the plan. Without them the app archive would sign for
+  the external bucket with the SeaweedFS identity and fail at the first WAL
+  segment.
+- On the `prod` stack, once any off-cluster endpoint is set (`pgBackupEndpoint`
+  or `backgroundWorkPgBackupEndpoint`), a plan that keeps the app archive on the
+  SeaweedFS fails (`refuseInClusterAppArchive`). The SeaweedFS's public route
+  (`s3Domain`) counts as in-cluster. Until such an endpoint exists, prod plans
+  as before.
+
+**Move it.**
+
+1. Create a bucket at an S3-compatible provider outside this cluster (for
+   example `grid-pg-backups`), with versioning off and an access key scoped to
+   that bucket only. The bucket must be empty: CloudNativePG refuses to archive
+   WAL into a destination that already holds a WAL archive for the same server.
+2. Set the four knobs. On prod the secret goes to ESC, never to the stack file
+   (`deploy/pulumi/README.md`):
+
+   ```bash
+   cd deploy/pulumi
+   # The CLI puts a key without a namespace in the project's.
+   pulumi config set pgBackupEndpoint  https://<endpoint> --stack prod
+   pulumi config set pgBackupBucket    <bucket>           --stack prod
+   pulumi config set pgBackupAccessKey <access-key-id>    --stack prod
+   # Only if the provider documents server-side encryption:
+   pulumi config set pgBackupEncryption AES256 --stack prod
+   # The secret, in the ESC environment Pulumi.prod.yaml imports:
+   NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
+   ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
+   esc env set "$ESC_ENV" "pulumiConfig.$NS:pgBackupSecretKey" "<secret>" --secret
+   ```
+
+   The commented block under `pgBackupSchedule` in `Pulumi.prod.yaml` is the same
+   list.
+3. `npm run preview -- --stack prod` shows the `grid-pg` Cluster's
+   `backup.barmanObjectStore` and the `grid-pg-backup-s3` Secret changing, and
+   nothing else. Apply through the normal pipeline.
+4. Take a base backup at once. The ScheduledBackup fires immediately only when it
+   is created, so without this the new archive has WAL and no base until 02:00:
+
+   ```bash
+   kubectl cnpg backup grid-pg -n grid
+   kubectl -n grid get backups.postgresql.cnpg.io --sort-by=.metadata.creationTimestamp | tail -3
+   kubectl cnpg status grid-pg -n grid   # "Continuous Backup status": WAL archiving OK, first recoverability point set
+   ```
+
+5. Keep the old SeaweedFS `grid-pg-backups` bucket until the new archive is
+   older than `pgBackupRetention` (30 days); it is the only recovery point before
+   the move.
+
+**Restore drill (do it after the move, then quarterly).** Restore into a new
+cluster beside `grid-pg`, never over it:
+
+```bash
+cat <<'EOF' | kubectl apply -n grid -f -
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: grid-pg-restore-drill
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  storage: { size: 20Gi }
+  bootstrap:
+    recovery:
+      source: grid-pg
+      # recoveryTarget: { targetTime: "2026-11-03 10:00:00+00" }   # a point in time; omit for the latest
+  externalClusters:
+    - name: grid-pg
+      barmanObjectStore:
+        serverName: grid-pg
+        destinationPath: s3://grid-pg-backups/
+        endpointURL: https://<endpoint>
+        s3Credentials:
+          accessKeyId: { name: grid-pg-backup-s3, key: ACCESS_KEY_ID }
+          secretAccessKey: { name: grid-pg-backup-s3, key: SECRET_ACCESS_KEY }
+        wal: { compression: gzip }
+EOF
+kubectl cnpg status grid-pg-restore-drill -n grid        # wait for "Cluster in healthy state"
+for db in app jobs checkpoints; do
+  kubectl cnpg psql grid-pg-restore-drill -n grid -- -d "$db" -Atc \
+    "SELECT '$db', count(*) FROM pg_stat_user_tables"
+done
+kubectl cnpg psql grid-pg-restore-drill -n grid -- -d app -Atc "SELECT max(created_at) FROM documents"
+kubectl -n grid delete cluster grid-pg-restore-drill    # and its PVC, once the numbers are recorded
+```
+
+The drill passes when the restored cluster comes up, each database has its
+tables, and the newest document is within minutes of the time you started. Write
+the date, the duration and the recovery point into the PR or incident that asked
+for it. The drill cluster carries no NetworkPolicy exception, so no app pod can
+reach it; delete it the same day, because it holds a full copy of every office's
+data.
+
 ---
 
 ## 6. How the agent scales — the important part
@@ -1300,7 +1405,7 @@ below lands.
 ### 6.2 The highest-impact code change (do this first)
 
 Per scaling-review §6.2, the single biggest capacity defect is that
-`LlamaIndexRetriever.retrieve` (`packages/knowledge-layer/src/llamaindex/retriever.py`)
+`LlamaIndexRetriever.retrieve` (`packages/knowledge-layer/src/search/retriever.py`)
 does a **synchronous** embedding call + vector query on the only event loop —
 one user's retrieval stalls every other user's chat stream. Wrapping it in
 `asyncio.to_thread` (hours of work, no behaviour change) is the difference
@@ -1311,76 +1416,76 @@ backend code change, tracked separately from this deployment.
 
 The token-heavy workload (deep research) now scales out:
 
-- **Research runs on DB-claimed workers** (ADR-0021): submission writes a
-  `SUBMITTED` `job_info` row and enqueues a claimable `research_job_queue` row
-  (`apps/agent-host/src/agent_host/jobs/queue.py`); dedicated **`agent-worker`**
-  replicas (same image, `PROCESS_ROLE=worker`) claim rows with `FOR UPDATE SKIP
-  LOCKED`, run the same `run_agent_job` body, and heartbeat the claim so a crash
-  is reclaimed. The claim is fair (below) and KEDA scales the tier on the queue,
-  not on CPU. The web tier runs no research jobs.
+- **Research runs on Hatchet** (ADR-0021, ADR-0150): submission writes a
+  `SUBMITTED` `job_info` row and starts a `research-run` task
+  (`apps/agent-host/src/agent_host/jobs/research_workflow.py`) whose input holds
+  ids, the priority and the encrypted payload; dedicated **`agent-worker`**
+  replicas (same image, `PROCESS_ROLE=worker`) run a Hatchet worker that runs
+  the same `run_agent_job` body. Hatchet keeps it fair per organization and
+  reassigns the runs of a lost worker. The web tier runs no research jobs.
 - **Cancellation works from any replica** — the cancel route flips `job_info` to
-  INTERRUPTED and drops the queue row; the runner's 1 s `CancellationMonitor`
+  INTERRUPTED and cancels the Hatchet run; the runner's 1 s `CancellationMonitor`
   honors it. No scheduler is involved.
 - **Shared vectors**: the Qdrant cluster (ADR-0115) means workers and web
   replicas read/write one store.
 - **Citation registry** already shares cross-replica via Dragonfly (ADR-0020).
 
-- **The claim is fair, and a full cluster waits** (ADR-0079). A free worker
-  takes the next job of the organisation with the fewest research jobs running
-  fleet-wide, then the one served longest ago; inside one office a `bulk` job
-  (a scheduled fire) goes after an `interactive` one. A job over capacity waits as `queued`, and a
-  scheduled task is not skipped for it. `backendMaxActiveJobsPerOrg` is the
-  claim's per-organisation cap (jobs running at once). The one refusal left is
+- **Dispatch is fair, and a full cluster waits** (ADR-0150). The `research-run`
+  task's concurrency is `GROUP_ROUND_ROBIN` on `input.organization_id`: when an
+  office has more runs than its share, its runs wait and the next free slot
+  rotates to the next office. Inside one office a `bulk` run (a scheduled fire,
+  `Priority.LOW`) goes after an `interactive` one (`Priority.HIGH`). A run over
+  capacity waits in Hatchet, and a scheduled task is not skipped for it.
+  `backendMaxActiveJobsPerOrg` is the per-organisation cap (runs at once). The
+  one refusal left is
   `backendMaxQueuedJobsPerOrg` (default 50), a bound on how many jobs one
   organisation may have waiting.
-- **KEDA scales `agent-worker` on `research_job_queue`**, replacing the CPU HPA,
-  which an LLM-bound job barely moves: its `postgresql` trigger counts the rows
-  that are not `dead` (a finished job's row is deleted) and asks for
-  ceil(jobs / `agentWorkerConcurrency`) replicas between `agentWorkerMinReplicas`
+- **KEDA scales `agent-worker` on the `research-run` backlog in Hatchet**
+  (ADR-0150), replacing the CPU HPA, which an LLM-bound job barely moves: its
+  `postgresql` trigger counts the runs queued or held by a worker and asks for
+  ceil(runs / `agentWorkerConcurrency`) replicas between `agentWorkerMinReplicas`
   and `agentWorkerMaxReplicas`. Out at once, in a pod a minute; dev's floor is 0
-  and prod's is 1. It reads the queue through `jobs-queue-auth`, the
-  TriggerAuthentication it shares with the ingest tier (one database).
+  and prod's is 1. It reads through `hatchet-queue-auth`, the
+  TriggerAuthentication every worker tier shares.
 - **A drain gives work back.** On SIGTERM the worker waits
-  `agentWorkerDrainSeconds` for the jobs it holds, then requeues what still runs
-  without spending an attempt; another worker starts it over. A job that crashes
-  every worker that takes it is kept as a `dead` row for
-  `RESEARCH_DEAD_RETENTION_DAYS`.
+  `agentWorkerDrainSeconds` for the runs it holds; Hatchet reassigns what a lost
+  worker held, up to the task's retries, and the on-failure task writes FAILURE
+  when they are spent. The old `research_job_queue` table is kept until the
+  cutover drains it ([`hatchet.md`](hatchet.md), "Cutover from the claim queues").
 
 `agentWorkerMinReplicas` /
 `agentWorkerMaxReplicas` / `agentWorkerConcurrency` size the worker tier.
 
-### 6.3b Ingestion — a fair queue and a tier KEDA scales on its depth (ADR-0076)
+### 6.3b Ingestion — fair Hatchet runs and a tier KEDA scales on their backlog (ADR-0150)
 
 Ingestion used to be two threads per backend process, FIFO across every tenant,
-lost on restart. Now:
+lost on restart, and then a claim queue of our own (ADR-0076). Now:
 
-- **`/v1/ingest` jobs go into `ingest_job_queue`** (Postgres, beside the status
-  rows). A free worker claims the next job of the organisation with the fewest
-  jobs running fleet-wide, then the one served longest ago: one office's
-  reindex no longer queues everyone else; inside one office a job's
-  `priority` (`interactive`, the default, or `bulk`) orders the claim. Claims
-  heartbeat and are taken again when a worker dies, up to three times, and then
-  kept as a `dead` row with a reason (ADR-0079). A job a person stops is marked
-  `cancelled` — terminal like `dead`, never claimed again, its payload blanked
-  and its row kept so the status store can settle the job (`cancel`, ADR-0079's
-  substrate). A worker that must exit hands
-  its claims back without spending an attempt.
+- **A document is one `ingest-document` run on Hatchet** (ADR-0150,
+  [`hatchet.md`](hatchet.md)). Its concurrency is `GROUP_ROUND_ROBIN` on
+  `input.organization_id`: one office's 556 files wait their share while
+  another office's single upload starts. Inside one office run priority puts
+  `interactive` (the default) before `bulk`. Retries with backoff are per run,
+  each attempt's error is recorded on it, and the input carries ids, the
+  priority and the encrypted payload, never document text. When a job ends the
+  worker pushes `POST /api/internal/ingest/settled`, so the document's status
+  does not wait for someone to read it. The claim queue it replaced,
+  `ingest_job_queue`, is kept until the cutover drains it.
 - **A dedicated `ingest-worker` tier** (same image, `PROCESS_ROLE=ingest-worker`,
-  no port, no PVC) claims them, and it is the only process that does: the `chat`
-  and `api` roles only enqueue (ADR-0082), so a PDF's parse never shares their
-  CPU. The tier is always deployed.
-- **KEDA scales it on the queue**, not on CPU (a job mostly waits on the
-  provider): its `postgresql` trigger counts the table's rows that are not
-  retired — `status NOT IN ('dead', 'cancelled')`, since neither will ever run —
-  and asks for
-  ceil(jobs / `ingestWorkerConcurrency`) replicas between
+  no port, no PVC) runs them, and it is the only process that does: the `chat`
+  and `api` roles only start runs (ADR-0082), so a PDF's parse never shares
+  their CPU. The tier is always deployed.
+- **KEDA scales it on the backlog**, not on CPU (a job mostly waits on the
+  provider): its `postgresql` trigger counts the `ingest-document` runs Hatchet
+  holds queued or running (`hatchetBacklogQuery`, §6.3d) and asks for
+  ceil(runs / `ingestWorkerConcurrency`) replicas between
   `ingestWorkerMinReplicas` and `ingestWorkerMaxReplicas`. Out at once, in a pod
   a minute; dev's floor is 0. Pulumi installs KEDA (`installKeda`, default on)
-  and a NetworkPolicy letting it reach Postgres.
+  and a NetworkPolicy letting it reach `background-work-pg`.
 - **The provider sees a fixed ceiling.** `VLM_FLEET_CONCURRENCY`
   (`vlmFleetConcurrency`, 32) vision calls in flight fleet-wide, a Dragonfly
-  lease pool; more workers queue on it instead of multiplying 429s on the shared
-  OpenRouter key. A vision call also holds a slot in its model's own limiter pool
+  lease pool; more workers queue on it instead of multiplying 429s on the
+  ingest tier's OpenRouter key (§6.3e). A vision call also holds a slot in its model's own limiter pool
   (`providerModelLimitCeiling`, 32), so the fleet pool is held to that too.
 
 Sizing: at `ingestWorkerMaxReplicas` the tier asks for max × the ingest-worker
@@ -1394,27 +1499,38 @@ files at once, were then OOMKilled at the 6Gi limit, and prod ran three pods
 of three files at 8Gi / 12Gi. That sizing paid for a text pass that held the
 whole document (2026-10-19, #1095); the pass now holds one page. Prod therefore
 runs the tier wide and small on the `batch` worker group (§2b, 64 GB nodes):
-up to 8 pods of 2 files, 1 CPU / 6Gi requested and 2 CPU / 6Gi limits. Memory
+up to 7 pods of 2 files, 1 CPU / 6Gi requested and 2 CPU / 6Gi limits, beside one
+`ingest-worker-heavy` pod (12Gi, one file of 40 MiB or more at a time, scaled from
+zero on `ingest-document-heavy`'s backlog; [`hatchet.md`](hatchet.md#ingestion-on-two-pools)). Memory
 request equals limit, so the scheduler never places more than a node holds,
-and all eight fit one batch node. Two files a pod because pdfplumber parses on
+and both pools at their ceilings (7 × 6 + 12 = 54 GB) fit one batch node. Two files a pod because pdfplumber parses on
 one core (the GIL): another pod adds parse speed where a third thread does
 not, and an OOM kill costs two jobs an attempt rather than three. Raise the
 memory before the ceiling if `[ingest-mem]` shows a pod near 6Gi. The ceiling
 is also bounded from the other side:
-`ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` × `vlmBatchWorkers` is the
-tier's peak of vision calls, and the program fails the deploy when that is more
-than twice `vlmFleetConcurrency` (§6.3d). Prod's 8 × 2 × 4 is 64, exactly 2 × 32: more pods only wait for a vision slot, so the next lever for drawing-heavy files is the provider pool, not the ceiling.
+`ingestWorkerMaxReplicas` × `ingestWorkerConcurrency`, plus the heavy pool's
+replicas × concurrency, is the documents read at once, and the program fails
+the deploy when that is more than `vlmFleetConcurrency`, the lease pool that
+caps vision calls (§6.3d). Each file streams its OCR and vision calls through
+`ingestPageReadParallelism` (16) threads, which bound its threads and memory,
+not the calls. Prod's 7 × 2 + 1 is 15 documents against 32 slots: more pods
+only wait for a vision slot, so the next lever for drawing-heavy files is the
+provider pool, not the ceiling.
 
-### 6.3c BFF background jobs — a pool of frontend-image pods on `bff_job_queue` (ADR-0079)
+### 6.3c BFF background jobs — a pool of frontend-image pods running `bff-job` (ADR-0079, ADR-0150)
 
 A project reindex and "Rescan failed ingestions" used to walk up to ten
 thousand documents inside one HTTP request on a frontend pod: a request that
-died half way left no record of which half. Both are now jobs:
+died half way left no record of which half. Both are now jobs, and a job is one
+`bff-job` run on Hatchet (the kind in its input), fair across offices by
+`GROUP_ROUND_ROBIN` on `input.organization_id` and ordered inside one by run
+priority ([`hatchet.md`](hatchet.md)). Each job's row in `bff_job_queue` (app
+database, migration 0104) is what a run takes and leaves behind; its `lane` is
+the organisation.
 
 - **The request enqueues and answers 202.** `POST /api/projects/{id}/reindex`
-  and `POST /api/organization/documents/reingest-failed` check access, insert
-  one `bff_job_queue` row (app database, migration 0104) in the organisation's
-  lane, and return `{ jobId }`. A second click returns the open job. The UI
+  and `POST /api/organization/documents/reingest-failed` check access, start
+  one job for the organisation, and return `{ jobId }`. A second click returns the open job. The UI
   says the work started; each document's own status is where it reports.
 - **A job is a sequence of slices.** A slice is one page of 25 documents,
   re-dispatched to `/v1/ingest` with `priority: "bulk"` (so an upload in the
@@ -1422,42 +1538,42 @@ died half way left no record of which half. Both are now jobs:
   cursor and the counts) after every slice, so whichever worker claims it next
   resumes there.
 - **The `bff-jobs` Deployment runs them.** The frontend image, command
-  `node workers/jobs/index.js`: one container that supervises the BFF and a
-  claim loop. The loop claims fairly across organisations (fewest running
-  first, fleet-wide; then the lane served longest ago; inside a lane
-  interactive before bulk, then oldest), heartbeats, and POSTs each slice to
-  its own pod's `/api/internal/jobs/run`. **There is no Service and no
+  `node workers/jobs/index.js`: one process that loads the BFF's services,
+  bundled at image build into `dist-jobs/slice.mjs`, and runs the Hatchet
+  worker for `bff-job` and the scheduling tasks (`bff/jobs-queue/slice-entry.ts`).
+  It answers the probes' `/api/healthz` itself. Fairness across organisations
+  and interactive before bulk are the task's concurrency and run priority, not
+  a claim query (`bff/jobs-queue/task.ts`). **There is no Service and no
   HTTPRoute**, and the work runs here, never on the pods that proxy chat.
-  With `bffJobsMode: inprocess` (default `http`) the pod spawns no BFF: the
-  loop runs each slice from the services bundled at image build
-  (`dist-jobs/slice.mjs`) and answers the probes' `/api/healthz` itself
-  (ADR-0079 amendment 1).
-- **A drain never costs an attempt; a failure always does.** On SIGTERM the loop stops claiming, lets
-  the slice in hand finish (`bffJobsDrainSeconds`, 60), gives every claim back
-  without spending an attempt, and only then stops the BFF; the pod's grace
-  period is the drain plus 30 s. A claim that has held its slot for ten
-  minutes is given back the same way between two slices, so a job that runs
-  for hours (an archive import) waits its turn behind the fair claim instead of
-  keeping the slot. A slice that answers not done with a `notBefore` (a wake
-  waiting on the person's running turn) gives its claim back the same way and
-  is held until then (`defer` in `workers/job-queue.js`). A claim that lost its worker is taken again
-  after `BFF_JOBS_STALE_SECONDS`. Every other end of an attempt spends
-  it (a handler that threw, a slice past `BFF_JOBS_SLICE_TIMEOUT_MS`, a BFF
-  that answered 5xx or not at all) and the job waits `BFF_JOBS_RETRY_BACKOFF_SECONDS`,
-  doubling, before the next, so a job that always times out or kills the BFF
-  ends. After `BFF_JOBS_MAX_ATTEMPTS` the row is marked `dead` with its
-  reason in `last_error` and its payload (a report, the requester, storage keys)
-  reduced to ids; it is deleted `BFF_JOBS_DEAD_RETENTION_DAYS` later, or at
-  once with its project. It reports the `grid.queue.*` meters as `queue="bff"`
-  (`workers/jobs/queue-metrics.js`), beside the Python queues, and each death is
-  also a `[bff-jobs] … now dead` ERROR line.
-- **KEDA scales it on the queue.** A `postgresql` trigger (its own
-  TriggerAuthentication, on the app database) counts the rows whose status is
-  not `dead` and asks for ceil(jobs / `bffJobsConcurrency`) replicas between
-  `bffJobsMinReplicas` and `bffJobsMaxReplicas` (prod 1 to 4, dev 0 to 2).
-  Out at once, in a pod a minute. The scaler connects as `keda_scaler`, a
-  read-only login that sees every lane of the row-level secured queue through a
-  policy of its own (§6.3d).
+- **A run takes the job's row, runs one slice and leaves the row as it found
+  it.** The row in `bff_job_queue` (migration 0104) stays the job's record and
+  saved progress; a run holds it per attempt (`run/retry@worker`) and beats its
+  heartbeat every 15 s (`bff/jobs-queue/task-run.ts`). A slice that is not done
+  saves its place and triggers the next run, at its `notBefore` when it waits
+  (a wake waiting on the person's running turn), so every slice queues again
+  behind the other offices' work. On SIGTERM the worker stops taking runs, lets
+  the ones in hand finish for `bffJobsDrainSeconds` (60), and gives back the
+  rows of the slices it cut off (`releaseInFlightJobs`), so Hatchet's retry on
+  another pod takes them at once; the pod's grace period is the drain plus
+  30 s. A row whose holder went silent past `BFF_JOBS_STALE_SECONDS` (at least
+  the slice timeout plus 60 s) is taken over. A handler that threw or a slice
+  past `BFF_JOBS_SLICE_TIMEOUT_MS` spends an attempt, and Hatchet retries the
+  run after `BFF_JOBS_RETRY_BACKOFF_SECONDS`, doubling, at most 15 minutes.
+  After `BFF_JOBS_MAX_ATTEMPTS` the row is marked `dead` with its reason in
+  `last_error` and its payload (a report, the requester, storage keys) reduced
+  to ids; it is deleted `BFF_JOBS_DEAD_RETENTION_DAYS` later, or at once with
+  its project. Each death is a `[bff-jobs] … now dead` ERROR line on the pod;
+  Hatchet is told only the category and the error's class. A row no run is
+  coming for is started again by the dispatch sweep every `bff-jobs` replica
+  runs (`dispatchStrandedJobs`).
+- **KEDA scales it on the backlog.** A `postgresql` trigger counts the
+  `bff-job` runs Hatchet holds queued or running (`hatchetBacklogQuery`, through
+  the shared `hatchet-queue-auth`) and asks for ceil(runs / `bffJobsConcurrency`)
+  replicas between `bffJobsMinReplicas` and `bffJobsMaxReplicas` (prod 1 to 4,
+  dev 1 to 2; never below 1, because the pool also runs the scheduling crons,
+  which add nothing to the backlog). Out at once, in a pod a minute. The scaler connects to
+  `background-work-pg` as its read-only `keda_scaler` (§6.3d) and reads no
+  tenant table.
 
 **Four more kinds run here as the system** (ADR-0079), because the person's
 permission was checked when the work was requested. `placement_reingest` walks
@@ -1476,8 +1592,8 @@ a project a slice at a time; the other three are one step each:
   `queued` after the queue gave up. A step whose failure a retry would not
   change (a converter that refuses the file, a requester who may no longer
   file) says so on the row and finishes.
-- **A sweep recovers what predates the jobs.** The scheduler worker calls
-  `POST /api/internal/maintenance/reconcile-background-work` on every tick: a
+- **A sweep recovers what predates the jobs.** The `reconcile-background-work` Hatchet task of
+  the bff-jobs worker (`bff/scheduling/sweeps.ts`) runs every minute: a
   document at `processing` for 15 minutes with no live job gets a new `bulk`
   one, a document whose job is dead is failed with its reason, and a report
   filing `queued` for 15 minutes whose job is gone ends as `filed` (the report
@@ -1498,7 +1614,9 @@ a project a slice at a time; the other three are one step each:
   pod's own `GOTENBERG_MAX_CONCURRENCY` and outside this ceiling: the ceiling
   bounds the jobs, not the readers.
 
-Debugging a stuck job:
+Debugging a stuck job: open the run in the Hatchet dashboard
+([`hatchet.md`](hatchet.md), "Reaching the dashboard"); every attempt's error is
+on it. A job left in the old table from before the cutover:
 
 ```sql
 -- as the schema owner; RLS does not apply to it
@@ -1506,13 +1624,14 @@ SELECT job_id, kind, lane, status, attempts, claimed_by, heartbeat_at, last_erro
 FROM bff_job_queue ORDER BY created_at;
 ```
 
-A `dead` row is a job that failed every attempt: `last_error` says why. Fix
-the cause, then delete the row and run the action again from the UI.
+A `dead` row there is a job that failed every attempt: `last_error` says why.
+Fix the cause, then delete the row and run the action again from the UI.
 
 ### 6.3d KEDA across every ScaledObject (ADR-0079)
 
 Four tiers are scaled by KEDA: `ingest-worker`, `agent-worker` and `bff-jobs` on
-their queues, `aiq-agent` on running turns. What they share is one module
+their Hatchet workflow's backlog (ADR-0150, [`hatchet.md`](hatchet.md)),
+`aiq-agent` on running turns. What they share is one module
 (`deploy/pulumi/src/app/keda-scaling.ts`), so they cannot drift apart in the
 parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
 
@@ -1534,36 +1653,30 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   floor is 1 (prod). Every step from N down to 1 is the HPA's `scaleDown`: a pod a
   minute after a five-minute stabilisation window, because each pod that leaves
   drains for up to its tier's budget.
-- **The scaler cannot write.** KEDA reads the queues as `keda_scaler`
-  (declared with the other roles on the Cluster, `data/postgres.ts`), a login with
-  nothing but `LOGIN` whose rights are SELECT on the `status` column (the one its
-  `COUNT(*) … WHERE status NOT IN ('dead', 'cancelled')` reads, so a leaked DSN cannot read a
-  payload) of `ingest_job_queue` and `research_job_queue` in `jobs` and of
-  `bff_job_queue` in `app`. That last table is secured per organisation, so the role reads it through a policy of
-  its own (`FOR SELECT TO keda_scaler`), not through `BYPASSRLS`. Its password
-  is `pgScalerPassword`, or an HMAC of `pgAppPassword` when unset, and its DSNs sit
-  in the `grid-keda-scaler` Secret, which no pod references: rotating it restarts
-  nothing. Before this, the operator held the owner's DSN for both databases.
-- **The tables exist before the scaler reads them.** On a fresh stack the Python
-  queues create their tables the first time a process touches them, which can be
-  after the ScaledObject is created. The `keda-scaler-grants` Job runs after the
-  migrations and every ScaledObject waits for it: an init container calls the
-  queues' own `ensure_table` (the one definition of their schema, which also
-  upgrades an older table), then `psql` waits for the role CloudNativePG reconciles
-  and runs the grants. A missing table fails the Job loudly; it never reaches a
-  scaler that errors on every poll. It re-runs whenever its spec changes (every
-  per-SHA image pin) and is idempotent.
+- **The scaler cannot write.** KEDA counts each worker tier's backlog in
+  Hatchet's own database, `background-work-pg`, as `keda_scaler` there: a login
+  whose rights are SELECT on the columns the count reads (`action_id` of
+  `v1_queue_item`, `id`, `inserted_at` and `action_id` of `v1_task`, `task_id` and
+  `task_inserted_at` of `v1_task_runtime`), granted by the
+  `background-work-pg-grants` Job once Hatchet's migrations made the tables. Its
+  DSN sits in the `background-work-keda-scaler` Secret, which no pod
+  references, behind the one TriggerAuthentication `hatchet-queue-auth`. The
+  claim-queue depth triggers, their grants Job (`keda-scaler-grants`) and the
+  `grid-keda-scaler` Secret are gone; the app cluster's `keda_scaler` role is
+  still kept by the rename Jobs and reads nothing.
 - **A drain is given time to give back.** The grace period of `ingest-worker`,
   `agent-worker` and `bff-jobs` is the tier's `…DrainSeconds` plus 30 s
   (`DRAIN_GIVE_BACK_SECONDS`, `agentWorkerRollout`), so the claims a drain did not
   finish are released without an attempt before the kubelet's SIGKILL.
 - **The ingest ceiling is held to the provider budget.** `vlmFleetConcurrency`,
-  `vlmBatchWorkers`, `providerLimitCeiling` and `providerModelLimitCeiling` are
+  `ingestPageReadParallelism`, `providerLimitCeiling` and `providerModelLimitCeiling` are
   stack config (and reach the pods as `VLM_FLEET_CONCURRENCY`,
-  `VLM_BATCH_WORKERS`, `PROVIDER_LIMIT_CEILING`,
-  `PROVIDER_MODEL_LIMIT_CEILING`). `assertVlmPeakFitsCeiling` fails the plan
-  when `ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` × `vlmBatchWorkers`
-  is more than twice `vlmFleetConcurrency`, or when the vision pool is larger
+  `INGEST_PAGE_READ_PARALLELISM`, `PROVIDER_LIMIT_CEILING`,
+  `PROVIDER_MODEL_LIMIT_CEILING`). The lease pool caps the calls; a file's
+  page-read pool bounds its threads and memory. `assertVlmPeakFitsCeiling` fails the plan
+  when `ingestWorkerMaxReplicas` × `ingestWorkerConcurrency` documents
+  outnumber `vlmFleetConcurrency`'s slots, when `ingestPageReadParallelism` is
+  above it, or when the vision pool is larger
   than the key-wide limit or than the vision model's own limit
   (`providerModelLimitCeiling`: every vision call holds a slot in both pools, so
   a pool above either never fills). Replicas beyond that only wait for a slot. Prod went
@@ -1579,15 +1692,69 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   when the chat tier autoscales. Nothing else in `grid` is open to the `keda`
   namespace.
 
-- **The scaler login is a direct connection.** KEDA's DSNs name
-  `grid-pg-rw.<namespace>.svc.cluster.local`, not the pooler (§5, ADR-0083), and
-  the role's `connectionLimit` (8, `KEDA_SCALER_CONNECTION_LIMIT`) is counted in
-  the budget's direct reserve.
+- **The scaler login is a direct connection.** KEDA's DSN names
+  `background-work-pg-rw.background-work.svc.cluster.local`, with no pooler in
+  front, and the role's `connectionLimit` (8, `KEDA_SCALER_CONNECTION_LIMIT`) is
+  counted in that cluster's connection budget.
 
 Debugging a tier that does not scale: `kubectl describe scaledobject <tier>`
 (its conditions say whether the trigger is readable and whether `fallback` is
 active), `kubectl -n keda logs deploy/keda-operator` (a refused login or a
-missing table is named there), and `kubectl -n grid logs job/keda-scaler-grants`.
+missing table is named there), and
+`kubectl -n background-work logs job/background-work-pg-grants`.
+
+### 6.3e One OpenRouter key per workload
+
+On 2026-10-12, 10-19 and 11-02 OpenRouter answered HTTP 402 "would exceed your
+available credits given your current in-flight requests" to chat, research and
+ingest in the same minute: all three spent one key, and a bulk ingest held its
+balance in flight. A key has its own credit limit in OpenRouter, so each
+workload now spends its own:
+
+| Stack secret | Workload | Tiers | The pod reads it as |
+|---|---|---|---|
+| `openrouterChatKey` | the conversation | `aiq-agent` (chat), `aiq-api`, `frontend` and `bff-jobs` (model catalog reads only, no completions) | `OPENROUTER_API_KEY`, and on the Python tiers also `EMBED_API_KEY`, `VLM_API_KEY` |
+| `openrouterResearchKey` | research | `agent-worker` | the same three names |
+| `openrouterIngestKey` | ingestion (vision, transcription, embeddings, summaries) | `ingest-worker`, the Chroma migration Job | the same three names |
+
+Each falls back to `openrouterApiKey` while unset, so a stack changes nothing
+until an operator sets one. The env names are the ones the code already reads;
+only which key stands behind them differs per tier
+(`deploy/pulumi/src/app/model-keys.ts`, held by `model-keys.spec.ts`). An
+organization's own key (BYOK) still wins over all of them: credential resolution
+asks for it first (`common/credential_resolution.py`), and the in-flight 402
+backoff (`common/credit_retry.py`) runs on whichever key the call carries.
+
+**Setting it up.**
+
+1. In OpenRouter (Settings, API Keys), create three keys, named for the stack
+   and workload (`grid-prod-chat`, `grid-prod-research`, `grid-prod-ingest`),
+   each with a credit limit. Size the ingest key so a bulk upload can spend what
+   it needs and no more; give chat the headroom, because it is what a person
+   waits on. The limits are OpenRouter's; this program only chooses the key.
+2. Store them. Dev and prod keep every secret in their ESC environment
+   (`deploy/pulumi/README.md`); a `pulumi config set --secret` there writes
+   ciphertext into the stack file, which shadows ESC:
+
+   ```bash
+   cd deploy/pulumi
+   NS=$(awk '/^name:/ {print $2}' Pulumi.yaml)
+   ESC_ENV=<the environment named under `environment:` in Pulumi.prod.yaml, with its org>
+   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterChatKey"     "sk-or-..." --secret
+   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterResearchKey" "sk-or-..." --secret
+   esc env set "$ESC_ENV" "pulumiConfig.$NS:openrouterIngestKey"   "sk-or-..." --secret
+   ```
+
+   On a stack without ESC: `pulumi config set --secret openrouterChatKey "sk-or-..."`,
+   and the same for the other two.
+3. Apply. `npm run preview -- --stack prod` shows the `grid-secrets` Secret and
+   the secret checksum on every consuming pod template changing; the normal
+   pipeline then rolls them. Check one pod per tier without printing a key:
+   `kubectl -n grid exec deploy/ingest-worker -- sh -c 'printf %s "$OPENROUTER_API_KEY" | sha256sum'`
+   matches `printf %s "sk-or-<ingest key>" | sha256sum` on your machine. In
+   OpenRouter's Activity view, a bulk upload now spends only the ingest key.
+4. Keep `openrouterApiKey` until all three are set; then it is only the fallback.
+   Revoke a workload's key in OpenRouter and set a new one the same way to rotate it.
 
 ### 6.4 Multi-replica chat tier — IMPLEMENTED
 
@@ -1791,15 +1958,11 @@ emitted somewhere it can read; see §10.
   With `networkPolicies` off that policy is gone; Gotenberg's
   `--libreoffice-deny-private-ips` and `--libreoffice-deny-public-ips` flags
   still refuse every URL LibreOffice would fetch.
-  The `geocoder` (`geocoder-frontend-only`, when `geocoderEnabled`) is the
-  second exception: every address a person types reaches it, so it admits the
-  frontend alone, and it may reach DNS and port 443 only, which its init
-  container needs to fetch the Photon jar and the Austrian index.
   `clamav` (`clamav-bff-only`, when `malwareScanEnabled`) is withheld from the
   intra-namespace allow too: clamd authenticates nobody and opens hostile files
   for a living, so it admits the frontend and the `bff-jobs` pool alone. Its
   egress stays open, because freshclam fetches signatures from
-  `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0150).
+  `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0152).
 - **Dragonfly authentication** (`grid-oib:dragonflyPassword` and
   `grid-oib:rateLimitStorePassword`, both **required**): `requirepass` on both
   instances, delivered as `DFLY_requirepass` from a Kubernetes Secret rather
@@ -1980,7 +2143,7 @@ find, because a from-scratch plan cannot show them:
   not be specified when strategy type is 'Recreate'`. Use `surgeRollout`
   instead, or clear the defaulted field first with
   `kubectl -n grid patch deploy <name> --type=json -p '[{"op":"remove","path":"/spec/strategy/rollingUpdate"}]'`.
-  Only purger and skill-scheduler use `Recreate`, and both were already on it.
+  Only the purger uses `Recreate`, and it was already on it.
 
 **Verifying a rollout**
 
@@ -2021,7 +2184,7 @@ incident.
 | `container-resources-bounded` | mandatory | a container missing CPU/memory requests or limits (autoscaler prerequisite, §1) |
 | `moving-tag-must-repull` | mandatory | a `latest`/untagged image without `imagePullPolicy: Always` |
 | `prefer-immutable-image-tags` | advisory | any moving tag (currently: the app images on the stack default, SeaweedFS, Dragonfly) |
-| `workload-health-probes` | advisory | a container with no probe at all (purger + scheduler are the accepted exceptions) |
+| `workload-health-probes` | advisory | a container with no probe at all (the purger is the accepted exception) |
 
 A `mandatory` violation fails the plan **before anything touches the cluster**.
 Helm-rendered charts (cert-manager, Envoy Gateway, CNPG) arrive as a single
@@ -2112,10 +2275,9 @@ Three things are true of this whole table and are easy to miss:
 | Frontend → backend (WebSocket chat) | **No** | `ws://` to the `chat` role (`BACKEND_CHAT_URL`), per-replica via the headless service (ADR-0028 conversation affinity). This is the full chat transport, including prompts and answers. |
 | Producers → OTel Collector, Collector → Langfuse | **No** | Plain OTLP on `http://otel-collector:4318`, and the collector's export to `http://langfuse-web:3000`. This traffic carries **prompts, retrieved snippets, LLM output and live presigned S3 URLs**, so it is the most sensitive plaintext channel in the namespace; Langfuse's store is likewise kept off-limits only by NetworkPolicy, which is why `langfuseEnabled` refuses to deploy with `networkPolicies=false`. |
 | Frontend and `bff-jobs` → Gotenberg | **No, and unauthenticated** | `http://gotenberg:3000`. It carries the bytes of every office file converted, and anyone who can reach it can have LibreOffice parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only. |
-| Frontend → geocoder | **No, and unauthenticated** | `http://geocoder:2322`, when `geocoderEnabled`. It carries every address typed into the project dialog, which is client data and the reason the geocoder runs in the cluster at all (ADR-0120). NetworkPolicy admits the frontend only. |
-| Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0150). |
+| Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0152). |
 | App → Qdrant | **No, but authenticated** | `http://qdrant.grid.svc.cluster.local:6333` (and gRPC 6334) with the read-write API key, which an observer of the pod network could read off the wire. NetworkPolicy admits the named callers only (`allow-app-to-qdrant`); the peers' p2p traffic (6335) is plaintext too, between the peers alone (`qdrant-peers`). The keyless metrics port (6336) admits the collector alone. |
-| Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, with the geocoder `download1.graphhopper.com`, and with the malware scanner `database.clamav.net`) | **Yes** | All HTTPS. |
+| Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, from the frontend komoot's public Photon at `photon.komoot.io`, ADR-0151, and with the malware scanner `database.clamav.net`) | **Yes** | All HTTPS. The geocoder call carries every address typed into the project dialog. |
 
 Everything in the "No" rows above is confined to the pod network of a
 single-tenant namespace, and the intra-namespace NetworkPolicy is what bounds
@@ -2229,6 +2391,7 @@ nothing else:
 | Langfuse (§9b) | traces | `langfuseEnabled` and its credentials |
 | PostHog Logs | logs | `posthogLogsEnabled` plus `posthogHost` and `posthogProjectToken` |
 | PostHog Metrics | metrics | `posthogMetricsEnabled` plus `posthogHost` and `posthogProjectToken` |
+| PostHog Tracing | traces of the Next tiers | `posthogTracesEnabled` plus `posthogHost` and `posthogProjectToken` |
 
 With none of them `pulumi preview` logs a warning and nothing is deployed: no
 collector, and no `OTEL_*` env on any producer (so the frontend's
@@ -2261,11 +2424,12 @@ render through the pinned collector's own `validate` (CI's infra job installs
 the binary).
 
 **Signals actually emitted today** (ADR-0029 Amendment 3): traces from
-backend-chat and grid-agent-worker (the agent runtime's tracing exporter); the BFF registers
-no trace provider (below); logs from all five tiers - the Python tiers via the
+backend-chat and grid-agent-worker (the agent runtime's tracing exporter), to Langfuse;
+request traces from the Next tiers (grid-ui, grid-bff-jobs) to PostHog Tracing
+(below); logs from all five tiers - the Python tiers via the
 `otelcollector_logs` logging method
 (`packages/agent/src/agent/observability/otlp_logging_method.py`, attaches to the root
-logger) and the Node tiers (grid-ui, skill-scheduler, purger) via the
+logger) and the Node tiers (grid-ui, bff-jobs, purger) via the
 `apps/workspace/observability/otel-logs.js` console bridge. **Metrics, every
 one of them, to PostHog Metrics** ([ADR-0119](../adr/0119-every-metric-goes-to-posthog-through-the-collector.md),
 [`observability/metrics.md`](../observability/metrics.md) for the catalogue):
@@ -2302,7 +2466,7 @@ scraped series also carry `service.name` (the tier, or the scraped workload's
 their `k8s.*` resource attributes instead.
 
 ```text
-grid-ui / backend-chat / grid-agent-worker / grid-skill-scheduler / grid-purger
+grid-ui / backend-chat / grid-agent-worker / grid-bff-jobs / grid-purger
         │  plain OTLP (in-cluster, no key): traces, logs, metrics
         ▼
   otel-collector ──▶ traces  ──▶ Langfuse
@@ -2441,12 +2605,12 @@ It must redirect to the AuthKit login UI. `application_not_found` means the
 client id is wrong; `invalid_redirect_uri` means step 3 was missed.
 
 **Scope:** traces from the two Python tiers (`aiq-agent` chat/web,
-`agent-worker` deep-research jobs), which share the agent runtime's config. The Next.js BFF
-registers **no trace provider**: `src/instrumentation.ts` bridges `console.*` to
-OTLP logs and nothing else (ADR-0029 Amendment 5 dropped every BFF root span at
-creation, which left a provider that recorded nothing). Sending no `traceparent`
-costs nothing downstream: the Python tiers never continued the BFF's trace, and
-a root there is an agent-runtime span with no parent
+`agent-worker` deep-research jobs), which share the agent runtime's config. The Next.js BFF's
+request spans never reach Langfuse: the `traces` pipeline drops every span whose
+`service.name` is `grid-ui` or `grid-bff-jobs` (`filter/drop_app_spans`), and
+`traces/posthog` sends exactly those to PostHog Tracing instead (ADR-0029
+Amendment 6). The BFF sends no `traceparent`: the Python tiers never continued
+the BFF's trace, and a root there is an agent-runtime span with no parent
 (`test_a_chat_root_needs_no_incoming_trace_context`). Logs appear as separate
 resources via `OTEL_SERVICE_NAME` (`grid-ui` / `backend-chat` /
 `grid-agent-worker`). The `server.js` WS proxy is not instrumented.
@@ -2672,7 +2836,7 @@ depends on §9, whose guard already refuses `networkPolicies=false`.
 - **Web and worker images must be the same Langfuse version.** They are two
   config keys because upstream publishes two images; digests are opaque, so
   nothing can verify it for you. Both defaults are pinned from the same tag
-  (4.71.0). Bump them together.
+  (4.74.0). Bump them together.
 - **ClickHouse must run UTC.** On any other server timezone Langfuse's queries
   return empty or shifted results — a dashboard reporting "no data" for a system
   that is plainly running. `TZ=UTC` is pinned on the container; do not override.

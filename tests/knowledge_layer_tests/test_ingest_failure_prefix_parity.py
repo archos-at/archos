@@ -20,14 +20,14 @@ import re
 from pathlib import Path
 
 import pytest
-from knowledge_layer.deferred_files import ORIGINAL_DOWNLOAD_FAILED
-from knowledge_layer.llamaindex.adapter import DOCUMENT_DELETED_DURING_INGEST
-from knowledge_layer.llamaindex.adapter import SCREENING_UNAVAILABLE
-from knowledge_layer.llamaindex.adapter import unreadable_pdf_verdict
-from knowledge_layer.llamaindex.screening import QUARANTINED_PREFIX
-from knowledge_layer.llamaindex.transcription import SCAN_NEEDS_VLM
-from knowledge_layer.reader_version import INGEST_READER_VERSION
-from knowledge_layer.renditions import OFFICE_RENDITION_REQUIRED
+from knowledge_layer.ingest import DOCUMENT_DELETED_DURING_INGEST
+from knowledge_layer.ingest import INGEST_READER_VERSION
+from knowledge_layer.ingest import OFFICE_RENDITION_REQUIRED
+from knowledge_layer.ingest import ORIGINAL_DOWNLOAD_FAILED
+from knowledge_layer.ingest import QUARANTINED_PREFIX
+from knowledge_layer.ingest import SCAN_NEEDS_VLM
+from knowledge_layer.ingest import SCREENING_UNAVAILABLE
+from knowledge_layer.ingest import unreadable_pdf_verdict
 
 from agent.knowledge.ingest_failures import FAILURE_CATEGORIES
 from agent.knowledge.ingest_failures import PREFIX_CATEGORIES

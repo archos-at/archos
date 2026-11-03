@@ -16,7 +16,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.browse import _LIST_FILES_DESCRIPTION
+from knowledge_layer import register as register_module
 from knowledge_layer.browse import MAX_TOPIC_COUNTS
 from knowledge_layer.browse import MAX_TYPE_COUNTS
 from knowledge_layer.browse import ListFilesConfig
@@ -30,6 +30,7 @@ from knowledge_layer.browse import pick_passages
 from knowledge_layer.browse import render_listing
 from knowledge_layer.browse import select_files
 from knowledge_layer.browse import split_alternatives
+from knowledge_layer.browse.tool import _LIST_FILES_DESCRIPTION
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
 
@@ -297,8 +298,8 @@ def search_with(monkeypatch, scope):
     """Install a retriever into ``knowledge_search`` and neutralise its boot-time reach."""
 
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
@@ -413,7 +414,7 @@ def turn_shelves(monkeypatch):
 
 def _store_retriever():
     """The production retriever over the test's Qdrant (``qdrant_store``), with no embedder: exact mode needs none."""
-    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
+    from knowledge_layer.search import LlamaIndexRetriever
 
     retriever = LlamaIndexRetriever.__new__(LlamaIndexRetriever)
     retriever._ensure_initialized = lambda: None
@@ -422,8 +423,8 @@ def _store_retriever():
 
 def _seed(name: str, rows: list[tuple[str, str, int, dict]]) -> None:
     """Write ``(file_name, text, page, metadata)`` rows into collection ``name``, as ingestion writes chunks."""
-    from knowledge_layer_testing.qdrant import record
-    from knowledge_layer_testing.qdrant import write
+    from knowledge_layer_testing.vector_store import record
+    from knowledge_layer_testing.vector_store import write
 
     write(name, [record(text, file_name, page_label=str(page), **meta) for file_name, text, page, meta in rows])
 
@@ -480,10 +481,10 @@ class TestExactSearchReadsTheBaseCorpusLikeTheRankedSearch:
 
     async def test_the_callers_filters_reach_the_base_collection_only(self, search_with):
         store = search_with(_TextStore([]))
-        await _exact(query="BA-03", filters={"doc_type": "richtlinie"})
+        await _exact(query="BA-03", filters={"content_type": "text"})
         by_collection = {call["collection"]: call["filters"] for call in store.calls}
         assert by_collection["proj_1"] is None and by_collection["archiv_1"] is None
-        assert {"doc_type": "richtlinie"} in by_collection["oib_knowledge"]["$and"]
+        assert {"content_type": "text"} in by_collection["oib_knowledge"]["$and"]
         assert {"chunking": {"$ne": "page"}} in by_collection["oib_knowledge"]["$and"]
 
 
@@ -500,7 +501,7 @@ class _FailingStore(_TextStore):
 
 class TestAStoreOutageIsNeverANo:
     def test_the_adapter_raises_on_an_outage_and_answers_empty_for_an_empty_collection(self, qdrant_store, monkeypatch):
-        from knowledge_layer.qdrant import store as store_module
+        from knowledge_layer.vector_store import store as store_module
 
         retriever = _store_retriever()
         assert retriever._find_text_sync("no_such_collection_xyz", "x", None, 5) == []

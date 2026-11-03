@@ -508,7 +508,7 @@ def _mirror_facts(collection: str, file_names: list[str] | None = None, *, folde
 
     This store stays the authority; the vector store carries a copy so a
     search can filter on a tag, a Dokumentart or a Fassung before ranking
-    instead of after. It never raises (``knowledge_layer.qdrant.writes.refresh_facts``).
+    instead of after. It never raises (``knowledge_layer.vector_store.writes.refresh_facts``).
     ``folders_only`` copies just the folder, all a folder move changed.
     """
     # The folders these files sit in are dirty for their written card (ADR-0127); never raises.
@@ -516,7 +516,7 @@ def _mirror_facts(collection: str, file_names: list[str] | None = None, *, folde
 
     mark_files(collection, file_names)
     try:
-        from knowledge_layer.qdrant import writes
+        from knowledge_layer.vector_store import writes
     except ImportError:  # the knowledge layer's store extra is not installed here
         return
     writes.refresh_facts(collection, file_names, fields=writes.FOLDER_FACTS if folders_only else None)

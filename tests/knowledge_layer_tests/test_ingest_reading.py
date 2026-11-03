@@ -118,7 +118,7 @@ def test_a_failed_dossier_keeps_the_old_summary_and_the_references(tmp_path, rea
 def test_the_predecessor_is_the_re_uploaded_name_else_the_linked_version():
     from types import SimpleNamespace
 
-    from knowledge_layer.llamaindex.adapter import _predecessor_dossier
+    from knowledge_layer.ingest.adapter import _predecessor_dossier
 
     rows = [
         SimpleNamespace(file_name="EP-05_Index-B.pdf", dossier={"facts": []}),

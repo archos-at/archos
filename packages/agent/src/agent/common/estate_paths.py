@@ -15,7 +15,7 @@ Mount                 Shelf           What
 ====================  ==============  ==========================================
 
 Pure: no store, no I/O. Everything that READS the estate lives in the knowledge
-layer (``knowledge_layer.estate``); this module is the vocabulary both it and the
+layer (``knowledge_layer.estate.backend``); this module is the vocabulary both it and the
 agent's turn plumbing (the Herleitung, the wire's ``mount``, the per-mount source
 toggle, the repeat-fetch guard) share, so a path means one thing to all of them.
 

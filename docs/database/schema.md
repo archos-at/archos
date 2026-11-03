@@ -45,8 +45,8 @@ All schemas are in `apps/workspace/bff/db/schema/` and barrel-exported from `ind
 | `tasks.ts` | `tasks` — LEGACY since 0086, same |
 | `task-model.ts` | `task_definitions`, `task_runs` — the collapsed model (migration 0086) |
 | `bff-job-queue.ts` | `bff_job_queue`, `bff_job_lane_turns` — the BFF's durable background work (migration 0104, ADR-0079) |
-| `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0193, ADR-0137) |
-| `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0193, ADR-0137) |
+| `inbound-mail.ts` | `inbound_mail_addresses`, `inbound_mails`, `inbound_mail_parts`, `inbound_mail_decisions` — project mail held until a person files it (migration 0194, ADR-0137) |
+| `mail-thread.ts` | `mail_threads`, `mail_thread_entries`, `mail_thread_entry_attachments`, `mail_thread_message_ids`, `mail_thread_follows` — the E-Mail-Verläufe (migration 0194, ADR-0137) |
 | `mail-imports.ts` | `mail_imports` — the Outlook archive import ([`mail-import.md`](../architecture/mail-import.md); its Verlauf counts below) |
 
 Two things drizzle's schema builder cannot declare live only in the migration
@@ -667,8 +667,10 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   `schedule_timezone`, `next_run_at` — *when the due scan should next look at
   this row*, which is the cron's next occurrence on a `schedule`, the `due_at`
   on a pending `once`, and NULL on a `manual` one, on anything paused, and on a
-  one-shot that has already fired (0090) — `due_at` (live only on `once`),
-  `budget_usd`, `last_run_at`, `created_at`, `updated_at`.
+  one-shot that has already fired (0090) — `scheduled_run_id` (0192: the
+  Hatchet scheduled run that fires the row at `next_run_at`, NULL when none is
+  known), `due_at` (live only on `once`), `budget_usd`, `last_run_at`,
+  `created_at`, `updated_at`.
 - `task_runs`: `id`, `organization_id`, `project_id`, `definition_id`
   (nullable, `ON DELETE SET NULL` via the composite FK below — history outlives
   the arrangement), the frozen `kind` /
@@ -695,11 +697,10 @@ trigger (`once`, no due date), which is what lets chat say „jeden Montag".
   constraints copied from 0075). `kind` has NO check, deliberately, as in 0075.
 - **Indexes:** `idx_task_definitions_project_created`,
   `idx_task_definitions_organization_id`, and the PARTIAL `idx_task_definitions_due`
-  on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scheduler's
-  due-scan, the successor of `idx_jobs_due`. 0090 moved that predicate off the
-  trigger and onto `next_run_at` so ONE index and ONE claim query serve both a
-  recurring task and a one-shot; the claim's WHERE clause must keep matching it
-  or the scan degrades to a sequential one over every definition. A claimed
+  on `(next_run_at) WHERE enabled AND next_run_at IS NOT NULL` — the scan of the
+  repair sweep (`schedule-repair`, ADR-0150), which gives an overdue row a
+  Hatchet scheduled run; its WHERE clause must keep matching the predicate or
+  the scan degrades to a sequential one over every definition. A fired
   one-shot has its `next_run_at` NULLED rather than advanced, which is what
   makes it at-most-once — and `enabled` is deliberately left alone, because it
   is the person's pause switch and a finished task is not a paused one. On runs:
@@ -921,13 +922,13 @@ who started it ([`mail-import.md`](../architecture/mail-import.md#what-the-perso
 | `sealed_at` | `timestamptz` | | The uploader's last request is done; a batch no file has come into for 30 min (counted from its newest document, or its opening) is sealed by the sweep |
 | `completed_at` | `timestamptz` | CHECK: only after `sealed_at` | Every document is terminal; set once, by a guarded UPDATE, which is what makes the inbox item exactly-once |
 | `created_at` | `timestamptz(3)` | NOT NULL, `defaultNow()` | |
-| `announces_completion` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: the settle sends no `upload.completed` |
-| `reviews_filing` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: neither filing review is queued, the name review at the seal nor the content review at the settle (`lib/filing/trigger.ts`) |
-| `starts_intake` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: the batch starts no intake reading (`lib/project-intake/trigger.ts`, ADR-0111) |
-| `revision_notice` | `text` | NOT NULL, default `'all'`, CHECK `all`/`marks_only` | **Migration `0192`**. Who hears about a new Fassung a document of this batch makes: `marks_only` reaches only the people on an open mark it leaves behind ([`revisions.md`](../architecture/revisions.md#notifications)) |
-| `runs_document_check` | `boolean` | NOT NULL, default `true` | **Migration `0192`**. Off: no settled document of the batch is checked against the project (`document_check`, ADR-0130, where the office switched it on), so an E-Mail-Verlauf's next Fassung buys no model call |
+| `announces_completion` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: the settle sends no `upload.completed` |
+| `reviews_filing` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: neither filing review is queued, the name review at the seal nor the content review at the settle (`lib/filing/trigger.ts`) |
+| `starts_intake` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: the batch starts no intake reading (`lib/project-intake/trigger.ts`, ADR-0111) |
+| `revision_notice` | `text` | NOT NULL, default `'all'`, CHECK `all`/`marks_only` | **Migration `0193`**. Who hears about a new Fassung a document of this batch makes: `marks_only` reaches only the people on an open mark it leaves behind ([`revisions.md`](../architecture/revisions.md#notifications)) |
+| `runs_document_check` | `boolean` | NOT NULL, default `true` | **Migration `0193`**. Off: no settled document of the batch is checked against the project (`document_check`, ADR-0130, where the office switched it on), so an E-Mail-Verlauf's next Fassung buys no model call |
 
-The five effect columns (migration 0192) say what settling the batch sets
+The five effect columns (migration 0193) say what settling the batch sets
 off. Their defaults are a person's upload, and only a server-side caller sets
 them (`OpenUploadBatchInput.effects` in `lib/upload-batches/service.ts`): the
 route's body has no field for them, so no browser or agent opens a quiet batch.
@@ -951,13 +952,13 @@ sends it once and a failed write is not retried.
 
 ---
 
-## Project mail (migration 0193, ADR-0137)
+## Project mail (migration 0194, ADR-0137)
 
-`apps/workspace/migrations/0193_inbound_mail.sql` (schema files
+`apps/workspace/migrations/0194_inbound_mail.sql` (schema files
 `inbound-mail.ts`, `mail-thread.ts`): mail sent to a project waits until a
 person files it, a conversation is one document, its originals are evidence,
 and a person may follow it. The migration's header says why each rule exists;
-`scripts/rls-test-db.sh` (section "Migration 0193") proves each refusal with a
+`scripts/rls-test-db.sh` (section "Migration 0194") proves each refusal with a
 violating statement. The flow: [`inbound-mail.md`](../architecture/inbound-mail.md).
 
 Nine tables, one job each:
@@ -1270,14 +1271,14 @@ sweep 12.
 ### mail_imports: the archive's Verlauf counts
 
 The Outlook archive import ([`mail-import.md`](../architecture/mail-import.md))
-renders into the same Verläufe. 0193 adds three counters to `mail_imports`,
+renders into the same Verläufe. 0194 adds three counters to `mail_imports`,
 `threads_created`, `threads_appended` and `already_in_project` (integer, NOT
 NULL, default 0, CHECK `mail_imports_thread_counts_non_negative`), counted when
 the cursor passes a mail, so a retried mail counts once.
 
-### Reversing 0193
+### Reversing 0194
 
-`0193_inbound_mail.down.sql` **refuses** (`object_in_use`) while any row still
+`0194_inbound_mail.down.sql` **refuses** (`object_in_use`) while any row still
 names a staged object or a kept original: the rows are the only record of
 those keys. Its header lists the queries to find them; erase each object by its
 key, set the column NULL (as the platform role, with the feature paused), and
@@ -1427,8 +1428,8 @@ UPDATE and any DELETE except by the platform role, which is the retention sweep.
 
 Retention: `organizations.settings.downloadLogRetentionDays` (30–365; absent,
 malformed or out of range means 365), written only by
-`PUT /api/organization/download-log/retention`. The scheduler
-(`scheduler/db.js`, `pruneDownloadLog`) deletes once a day, in batches of 1000
+`PUT /api/organization/download-log/retention`. The daily
+`download-log-retention` task (`workers/maintenance-sql.js`, `pruneDownloadLog`) deletes once a day, in batches of 1000
 and at most 50 batches a run: first everything older than 365 days, then each
 organization's own shorter cutoff. Proven against Postgres in
 `lib/download-log/download-log.integration.spec.ts`, constraints and guard
@@ -1894,10 +1895,19 @@ split is stated explicitly).
 
 ---
 
-## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079)
+## bff_job_queue / bff_job_lane_turns (migration 0104, ADR-0079; kept until the cutover drains them)
 
-The BFF's durable background work: one row is one job a `bff-jobs` replica
-claims and runs (project reindex, failed-ingestion rescan, the sort of a shelf's root
+The BFF's background work runs on Hatchet (ADR-0150): one `bff-job` run per
+job, the kind in its input, fair across offices by a `GROUP_ROUND_ROBIN`
+concurrency key on `input.organization_id` and ordered inside an office by run
+priority ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)). These two
+tables are the claim queue it replaced. Nothing new is written to them; they are
+kept until the cutover drains them (hatchet.md, "Cutover from the claim
+queues"), and a later migration drops them. What follows describes the rows
+still in them.
+
+Under the claim queue, one row was one job a `bff-jobs` replica
+claimed and ran (project reindex, failed-ingestion rescan, the sort of a shelf's root
 `root_sort`, ADR-0121, the re-read of the documents collection placement moved
 `placement_reingest`; and, one step each,
 IFC extraction `bim_extract`, office conversion `office_rendition` and research
@@ -1916,8 +1926,8 @@ bulk), then oldest, with `FOR UPDATE SKIP LOCKED`.
 | `payload` | jsonb | The job's whole state: what was asked and how far it got (a keyset cursor, the counts). Saved after every slice and read back by whichever worker claims it next. Holds the requester's identity, permissions and feature flags, never an access token. A `file_research_report` job carries the finished report itself (the backend forgets a run after a day), so it is the one payload that can be large. |
 | `status` | text | `queued`, `claimed` or `dead` (CHECK). A finished job is **deleted**; a job that failed every attempt is `dead` and stays, with its reason, until `BFF_JOBS_DEAD_RETENTION_DAYS` after `dead_at`. When a row goes dead its `payload` is reduced to `runId`, `projectId`, `documentId` and `taskRunId` (`KEPT_PAYLOAD_KEYS`): the sweeps match a dead job by them, and nothing else of the report, requester or storage keys outlives the attempt. |
 | `attempts` | integer | Claims spent. A drain or a cap gives a claim back without spending one. |
-| `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK); a claim silent for `BFF_JOBS_STALE_SECONDS` is claimed again. |
-| `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. A slice that defers (not done, with a `notBefore`) sets it to the time asked without spending an attempt. |
+| `claimed_by`, `claimed_at`, `heartbeat_at` | text, timestamptz | A `claimed` row always has a holder and a heartbeat (CHECK). The holder is one attempt of a Hatchet run (`run/retry@worker`); a claim silent for `BFF_JOBS_STALE_SECONDS`, by the newer of `heartbeat_at` and `claimed_at`, is claimed again. |
+| `not_before` | timestamptz | Migration 0104. A failed job is not claimed again before this: `BFF_JOBS_RETRY_BACKOFF_SECONDS` doubled per attempt, at most 15 minutes. NULL is no wait; a claim, a drain's release and a cap's release clear it. A slice that is not done saves its progress without spending an attempt (`attempts` back to 0) and, when it waits, sets `not_before` to the time it asked; its next run is triggered for then (`saveJobProgress`, `bff/jobs-queue/task-run.ts`). |
 | `dead_at` | timestamptz | Migration 0104. Set when the row goes dead (CHECK `bff_job_queue_dead_stamped`: a dead row always has one), and what the retention counts from. |
 | `created_at`, `last_error` | timestamptz, text | |
 
@@ -1937,13 +1947,13 @@ RLS: both are tenant tables whose predicate compares `lane` (not an
 `organization_id` column) to `current_org()`, so a request enqueues and
 reads only its own organization's jobs. The runner is cross-tenant by nature
 and steps up to `app_platform` per transaction
-(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA counts
-the table as `keda_scaler`, a login with SELECT on this table's `status`
-column and nothing else (a leaked scaler DSN cannot read a payload); it crosses the tenant boundary by a second policy,
-`grid_keda_scaler_count` (`FOR SELECT TO keda_scaler USING (true)`), which
-the Pulumi grants Job (`deploy/pulumi/src/app/queue-scaler-grants.ts`) creates
-after the migrations, not a migration: the role exists only where CloudNativePG
-declares it. `tenant_isolation` is untouched.
+(`workers/platform-scope.js`), as the purger and the scheduler do. KEDA no
+longer counts this table: the `bff-jobs` tier scales on its Hatchet backlog in
+`background-work-pg` (`hatchetBacklogQuery`, `deploy/pulumi/src/app/keda-scaling.ts`),
+read by that cluster's own `keda_scaler` login. A database that ran the claim
+queue may still carry the scaler's `grid_keda_scaler_count` policy
+(`FOR SELECT TO keda_scaler USING (true)`, a policy a Pulumi Job created, never a
+migration); it goes with the tables. `tenant_isolation` is untouched.
 
 ---
 

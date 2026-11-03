@@ -1,54 +1,52 @@
 /**
- * Run one slice of a claimed job (ADR-0079): what `POST /api/internal/jobs/run`
- * does for the `bff-jobs` runner, and what `./slice-entry.ts` does for it in
- * the runner's own process.
+ * Run one slice of a job inside its organization (ADR-0079): what a `bff-job`
+ * run on Hatchet does with the row it took (`./task.ts`).
  *
- * The runner names a job and itself, and nothing else. Everything the work
- * needs is read from the queue row here, and only a row that worker holds is
- * read at all, so the route cannot be made to run what the queue never handed
- * out, whoever holds the internal token.
+ * The lane is the organization, so the work runs inside it and row-level
+ * security applies to everything the handler reads and writes. Marked as a
+ * slice, so nothing it calls reads a request it does not have (`./slice-scope`).
  */
 
 import 'server-only'
-import { ConflictError } from '@/lib/api/errors'
-import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
+import { withTenant } from '@/lib/db/tenant-context'
 import { JOB_HANDLERS } from './handlers'
-import { findClaimedJob } from './repository'
 import { runAsJobSlice } from './slice-scope'
-import { isBffJobKind } from './types'
+import { isBffJobKind, type JobSliceResult } from './types'
 
-export interface JobSliceOutcome {
-  /** True when the job has nothing left to do; the runner then deletes the row. */
-  done: boolean
-  /** The state to save when it has not, which is what the next slice (on any worker) resumes from. */
-  payload: object
-  /**
-   * Not done and waiting: the runner gives the claim back without spending an
-   * attempt, and the job is not claimed before this ISO time
-   * (`JobSliceResult.notBefore`).
-   */
-  notBefore?: string
+/** No handler knows this kind: no attempt will find one. */
+export class UnknownJobKindError extends Error {
+  override name = 'UnknownJobKindError'
+  constructor(kind: string) {
+    super(`No handler for job kind "${kind}"`)
+  }
 }
 
-export async function runJobSlice(jobId: string, worker: string): Promise<JobSliceOutcome> {
-  const job = await withPlatformAccess('bff-jobs: read the row a worker was handed', () =>
-    findClaimedJob(jobId, worker)
-  )
-  // 409, which the runner reads as "this claim is no longer yours".
-  if (!job) throw new ConflictError('The job is not claimed by this worker')
-  const kind = job.kind
-  if (!isBffJobKind(kind)) throw new Error(`No handler for job kind "${kind}"`)
+/** Hatchet gave the attempt up before its slice started: the slice did not run. */
+export class SliceAbortedError extends Error {
+  override name = 'SliceAbortedError'
+  constructor() {
+    super('The attempt was aborted before its slice started')
+  }
+}
 
-  // The lane is the organization, so the work runs inside it and row-level
-  // security applies to everything the handler reads and writes. Marked as a
-  // slice, so nothing it calls reads a request it does not have (`./slice-scope`).
-  const result = await runAsJobSlice(() =>
-    withTenant({ organizationId: job.lane }, () =>
-      JOB_HANDLERS[kind]({ organizationId: job.lane, payload: job.payload, attempts: job.attempts })
+/**
+ * Run the slice, unless the attempt is already aborted. A slice that has
+ * started cannot be killed from here; the handler is handed `signal` to stop
+ * on its own where it can.
+ */
+export async function runHandler(job: {
+  kind: string
+  organizationId: string
+  payload: unknown
+  attempts: number
+  signal?: AbortSignal
+}): Promise<JobSliceResult<object>> {
+  const kind = job.kind
+  if (!isBffJobKind(kind)) throw new UnknownJobKindError(kind)
+  if (job.signal?.aborted) throw new SliceAbortedError()
+  return runAsJobSlice(() =>
+    withTenant({ organizationId: job.organizationId }, () =>
+      JOB_HANDLERS[kind]({ organizationId: job.organizationId, payload: job.payload, attempts: job.attempts, signal: job.signal })
     )
   )
-  if (!result.done && result.notBefore) {
-    return { done: false, payload: result.payload, notBefore: result.notBefore.toISOString() }
-  }
-  return { done: result.done, payload: result.payload }
 }

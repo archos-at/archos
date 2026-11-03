@@ -50,20 +50,13 @@ the owner's ``heartbeat`` refreshes fewer rows than it asked for, which is how
 the adapter learns to re-write its jobs within one beat rather than at its next
 status change.
 
-A JOB THE DURABLE QUEUE HOLDS IS WAITING, NOT LOST. A job queued in
-``ingest_job_queue`` is written PENDING by the replica that accepted it and
-then vouched for by nobody until a worker claims it, possibly long after that
-replica is gone. While its queue row exists (queued, claimed, or waiting to be
-claimed again) the row is never stale (``_stale_predicate``); the queue drops
-the row when the job finishes or has failed every attempt, and only then can
-the job read as interrupted.
-
-A JOB A PERSON STOPPED SETTLES CANCELLED, NOT INTERRUPTED. A cancel leaves a
-cancelled row in the queue (``claim_queue.CANCELLED``) and that row is read
-before a lost owner is settled: ``_settle_lost`` writes ``cancelled`` when the
-queue says so, the ``interrupted`` failure otherwise. So the same lost owner
-reads honestly either way, and a worker that stops at its next ownership check
-settles its own row the same way (``settle_cancelled``).
+A JOB HATCHET HOLDS IS WAITING, NOT LOST. Written PENDING by the replica that
+accepted it, it is vouched for by nobody until a worker runs it, so the dispatch
+holds its row (``ingest_run_hold``): before ``held_until`` it is never stale.
+The last attempt releases the hold, so a worker lost on it leaves the row to
+settle interrupted. A person's cancel settles the row ``cancelled`` at once,
+and the worker that stops settles it again; either tells the BFF
+(``ingest_settle_push``), as the run's last word on any other end does.
 """
 
 from __future__ import annotations
@@ -82,7 +75,7 @@ from sqlalchemy import text
 
 from agent.common.db_utils import ensure_schema
 
-from . import ingest_queue
+from . import ingest_settle_push
 from .document_metadata_store import DocumentMetadataStore
 from .ingest_failures import classify_failure
 from .schema import FileStatus
@@ -126,7 +119,14 @@ _SWEEP_LIMIT = 500
 
 #: Columns added after the table first shipped. Nullable and without defaults,
 #: so adding them never rewrites or rejects an existing row.
-_ADDED_COLUMNS = {"owner": "VARCHAR", "dispatch_key": "VARCHAR", "collection_name": "VARCHAR"}
+_ADDED_COLUMNS = {"owner": "VARCHAR", "dispatch_key": "VARCHAR", "collection_name": "VARCHAR", "run_id": "VARCHAR"}
+
+#: Holds the retired claim queue's unheld jobs (``ingest_run_hold.hold_cutover_rows``). Constants only.
+_HOLD_QUEUED_AT_CUTOVER = (
+    "UPDATE ingest_jobs SET held_until = {until} WHERE (held_until IS NULL OR held_until <= {now}) AND job_id IN "
+    "(SELECT job_id FROM ingest_job_queue WHERE status IN ('queued', 'claimed'))"
+)
+_CUTOVER_HOLD_SECONDS = 24 * 3600
 
 #: Fills ``collection_name`` on the rows that predate the column, from the status
 #: they hold. JSON extraction is the one thing the two backings spell differently.
@@ -166,19 +166,16 @@ def _ensure_table(url: str) -> None:
             )
         )
         _add_missing_columns(conn, url)
-        # `_stale_predicate` reads the queue table, so it must exist too.
-        ingest_queue.ensure_table(url, conn)
 
     # The processes of a boot all reach this at once (see `lock_schema`).
     ensure_schema(engine, "ingest_jobs", create)
-    ingest_queue.mark_ensured(url)
     _initialized.add(url)
 
 
 def _add_missing_columns(conn, url: str) -> None:
     """Additive migration: owner, heartbeat_at, dispatch_key and collection_name, then their indexes."""
     heartbeat_type = "TIMESTAMP WITH TIME ZONE" if _is_postgres(url) else "DATETIME"
-    columns = {**_ADDED_COLUMNS, "heartbeat_at": heartbeat_type}
+    columns = {**_ADDED_COLUMNS, "heartbeat_at": heartbeat_type, "held_until": heartbeat_type}
     present = {column["name"] for column in inspect(conn).get_columns("ingest_jobs")}
     guard = "IF NOT EXISTS " if _is_postgres(url) else ""
     for name, column_type in columns.items():
@@ -191,6 +188,9 @@ def _add_missing_columns(conn, url: str) -> None:
         # A constant statement picked by dialect; nothing here is user input.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
         conn.execute(text(_BACKFILL_COLLECTION_NAME[_is_postgres(url)]))
+    if "held_until" not in present and "ingest_job_queue" in inspect(conn).get_table_names():
+        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+        conn.execute(text(_HOLD_QUEUED_AT_CUTOVER.format(until=_from_now(url, _CUTOVER_HOLD_SECONDS), now=_now(url))))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_dispatch_key ON ingest_jobs (dispatch_key)"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS ix_ingest_jobs_collection_name ON ingest_jobs (collection_name)"))
 
@@ -203,16 +203,17 @@ def _ago(url: str, seconds: int) -> str:
     return f"NOW() - INTERVAL '{seconds} seconds'" if _is_postgres(url) else f"DATETIME('now', '-{seconds} seconds')"
 
 
+def _from_now(url: str, seconds: int) -> str:
+    return f"NOW() + INTERVAL '{seconds} seconds'" if _is_postgres(url) else f"DATETIME('now', '+{seconds} seconds')"
+
+
 def _stale_predicate(url: str) -> str:
     """SQL: this row's owner has stopped vouching for it. Built from constants only."""
-    retired = ", ".join(f"'{status}'" for status in ingest_queue.RETIRED)
     return (
         f"(((heartbeat_at IS NOT NULL AND heartbeat_at < {_ago(url, STALE_AFTER_SECONDS)}) "
         f"OR (heartbeat_at IS NULL AND updated_at < {_ago(url, _LEGACY_STALE_AFTER_SECONDS)})) "
-        # A retired row (dead: the queue gave up; cancelled: a person stopped it)
-        # holds nothing, so the job can settle.
-        f"AND NOT EXISTS (SELECT 1 FROM {ingest_queue.TABLE} q "
-        f"WHERE q.job_id = ingest_jobs.job_id AND q.status NOT IN ({retired})))"
+        # A job Hatchet holds is waiting for a worker (see the module docstring).
+        f"AND (held_until IS NULL OR held_until <= {_now(url)}))"
     )
 
 
@@ -263,30 +264,17 @@ def cancelled(status: IngestionJobStatus) -> IngestionJobStatus:
     return stopped
 
 
-def _queue_status(conn, job_id: str) -> str | None:
-    """The job's row in the queue table as it stands, or None. A constant statement; the id is bound."""
-    row = conn.execute(
-        # Only a module constant is interpolated; the id is bound.
-        # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
-        text(f"SELECT status FROM {ingest_queue.TABLE} WHERE job_id = :job_id"),
-        {"job_id": job_id},
-    ).scalar_one_or_none()
-    return str(row) if row is not None else None
-
-
 def _settle_lost(conn, url: str, status: IngestionJobStatus) -> IngestionJobStatus | None:
-    """Write the terminal state a lost owner leaves, unless the owner beat again since it was read.
+    """Write the ``interrupted`` failure a lost owner leaves, unless the owner beat again since it was read.
 
-    Which state is the queue's to say: ``cancelled`` when its row says a person
-    stopped the job, the ``interrupted`` failure otherwise (see the module
-    docstring). The state written, or None when the conditional update matched
-    no row: the owner beat (or wrote) between the read and this update, so the
-    row is live and the caller must read it again rather than report a state
-    that was never stored. ``owner`` is cleared so the owner, if it is alive
-    after all, sees its heartbeat miss this row (see the module docstring).
+    The state written, or None when the conditional update matched no row: the
+    owner beat (or wrote) between the read and this update, so the row is live
+    and the caller must read it again rather than report a state that was never
+    stored. ``owner`` is cleared so the owner, if it is alive after all, sees its
+    heartbeat miss this row (see the module docstring). A person's cancel never
+    reaches here: it settles the row itself (``settle_cancelled``).
     """
-    stopped = _queue_status(conn, status.job_id) == ingest_queue.CANCELLED
-    settled = cancelled(status) if stopped else interrupted(status)
+    settled = interrupted(status)
     result = conn.execute(
         # _now/_stale_predicate are dialect-chosen literals; values are bound.
         # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
@@ -299,7 +287,7 @@ def _settle_lost(conn, url: str, status: IngestionJobStatus) -> IngestionJobStat
     conn.commit()
     if result.rowcount == 0:
         return None
-    logger.warning("Ingest job %s lost its owner; recorded as %s", status.job_id, CANCELLED if stopped else INTERRUPTED)
+    logger.warning("Ingest job %s lost its owner; recorded as %s", status.job_id, INTERRUPTED)
     return settled
 
 
@@ -404,6 +392,7 @@ def settle_cancelled(job_id: str) -> bool:
     if not written:
         return False
     logger.info("Ingest job %s was cancelled; status settled", job_id)
+    ingest_settle_push.notify_settled([job_id])
     return True
 
 

@@ -2,7 +2,7 @@
 
 A stored chunk is not a slice of the document. Two things in its ``text`` are there twice:
 
-* **The breadcrumb.** A section chunk (``llamaindex/section_chunking.chunk_text``) opens with
+* **The breadcrumb.** A section chunk (``ingest/section_chunking.chunk_text``) opens with
   ``A › B › C`` and a blank line; a Punkt chunk (``clause_chunking.clause_documents``) with the
   Richtlinie's label and its ancestors' path; a table part with its caption, every part again.
   The section's heading lines are cut from the body and live only in that breadcrumb, so the

@@ -23,11 +23,11 @@ import { logicalName, objectName } from "../names";
  *  SecurityPolicy spec is a plain (typed) object, not a Pulumi resource input. */
 const SECRETS_NAME = "langfuse-secrets"; // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
-/** {@link SECRETS_NAME}, for the app workers that call Langfuse's API (purger, scheduler). */
+/** {@link SECRETS_NAME}, for the app workers that call Langfuse's API (purger, bff-jobs). */
 export const LANGFUSE_SECRETS_NAME = SECRETS_NAME;
 
 /**
- * The uid/gid both Langfuse images run as. Re-checked on the 4.71.0 bump from
+ * The uid/gid both Langfuse images run as. Re-checked on the 4.74.0 bump from
  * the images' own config, where `User` is `"1001"` on both (as on 4.68.0 and 4.63.0,
  * with identical entrypoints, commands and PATH), and it matches
  * 4.56.0's Dockerfiles (`ARG UID=1001` / `ARG GID=1001`, the `nextjs` and
@@ -182,7 +182,7 @@ export function frontendLangfuseEnv(cfg: DeployConfig): k8s.types.input.core.v1.
  * A pod's rollout checksum with the Langfuse project keys folded in, for every
  * app pod that reads them from the Langfuse Secret (`frontendLangfuseEnv`,
  * `langfuseApiEnv`): the frontend and bff-jobs, the backend tiers that write
- * scores, the purger and the scheduler.
+ * scores, and the purger.
  *
  * `secretKeyRef` is read once at container start, and the app checksum covers
  * `grid-secrets` only, so without this a key rotation would leave each of them

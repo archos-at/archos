@@ -1,0 +1,11 @@
+---
+features:
+  - >
+    When you set up a new project, the address field now suggests matching
+    Austrian addresses as you type, and choosing one fills in the municipality
+    and federal state for you.
+operators:
+  - >
+    Address search now uses komoot's public Photon instance by default
+    (stack key geocoderUrl, empty switches it off). The self-hosted geocoder
+    and its Java image are gone; no stack had it switched on.

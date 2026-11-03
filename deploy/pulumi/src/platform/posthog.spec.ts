@@ -5,6 +5,8 @@ import { loadConfig } from '../config'
 import { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } from '../config/posthog'
 import { posthogEnv } from "../app/posthog-env";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
+import { BFF_SERVICE_NAME } from "../app/config";
+import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";
 
 /**
  * One PostHog configuration for every runtime, and the logs path to it.
@@ -107,9 +109,43 @@ describe("PostHog logs in the collector, enabled", () => {
     expect(service.pipelines).not.toHaveProperty("logs");
   });
 
-  it("sends no traces to PostHog", () => {
-    // LLM traces reach PostHog through Langfuse's integration; APM is out of scope.
-    expect(collector).not.toContain("traces_endpoint: https://eu.i.posthog.com");
+  it("sends the BFF's request traces to PostHog Tracing, and only those", () => {
+    // LLM traces reach PostHog through Langfuse's integration (ADR-0100); the
+    // agent tiers' spans carry prompts and must not leave this pipeline.
+    const { exporters, processors, service } = parseCollectorConfig(collector);
+    expect(exporters["otlp_http/posthog_traces"]).toMatchObject({
+      traces_endpoint: "https://eu.i.posthog.com/i/v1/traces",
+      headers: { Authorization: "Bearer phc_test_token" },
+    });
+    expect(service.pipelines["traces/posthog"]).toEqual(
+      pipeline(["otlp_http/posthog_traces"], {
+        processors: ["filter/app_spans_only", "transform/strip_url_queries", "resource/traces_environment"],
+      }),
+    );
+    // A search box's text or a signed URL's token must not leave in a span.
+    expect(processors["transform/strip_url_queries"]).toEqual({
+      error_mode: "ignore",
+      trace_statements: [
+        'replace_pattern(span.attributes["http.target"], "[?].*$", "")',
+        'replace_pattern(span.attributes["http.url"], "[?].*$", "")',
+        'replace_pattern(span.attributes["url.full"], "[?].*$", "")',
+      ],
+    });
+    expect(processors["filter/app_spans_only"]).toEqual({
+      error_mode: "ignore",
+      // Exactly the names the Next tiers are given as OTEL_SERVICE_NAME.
+      trace_conditions: [
+        `not (resource.attributes["service.name"] == "${BFF_SERVICE_NAME}" or resource.attributes["service.name"] == "${BFF_JOBS_SERVICE_NAME}")`,
+      ],
+    });
+    expect(processors["resource/traces_environment"]).toEqual({
+      attributes: [{ key: "deployment.environment.name", value: "test", action: "insert" }],
+    });
+  });
+
+  it("keeps the BFF's spans out of Langfuse in the same config", () => {
+    const { service } = parseCollectorConfig(collector);
+    expect(service.pipelines.traces.processors).toContain("filter/drop_app_spans");
   });
 
   it("needs no env var on the pod: the token is public config, not a secret", () => {
@@ -137,6 +173,29 @@ describe("PostHog logs in the collector, by default and off", () => {
     expect(service.pipelines).not.toHaveProperty("logs/posthog");
     expect(collector).not.toContain("warn_and_above");
   }, 120_000);
+});
+
+/** A stack config key, in the namespace Pulumi gives this project's keys. */
+const stackKey = (name: string) => `${pulumi.getProject()}:${name}`;
+
+describe("PostHog request traces, switched off", () => {
+  it.each([
+    ["the stack switches traces off", { [stackKey("posthogTracesEnabled")]: "false" }],
+    ["the stack opts out of PostHog with an empty host", { [stackKey("posthogHost")]: "" }],
+  ])("is absent when %s, and Langfuse still never gets the BFF's spans", async (_why, values) => {
+    const { collector } = await deploy(values);
+    const { exporters, service } = parseCollectorConfig(collector);
+    expect(exporters).not.toHaveProperty("otlp_http/posthog_traces");
+    expect(service.pipelines).not.toHaveProperty("traces/posthog");
+    expect(service.pipelines.traces.processors).toContain("filter/drop_app_spans");
+  }, 120_000);
+
+  it("is on by default and needs the collector", () => {
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG });
+    expect(loadConfig().posthog.tracesEnabled).toBe(true);
+    pulumi.runtime.setAllConfig({ ...baseStackConfig(), ...POSTHOG, [stackKey("observabilityEnabled")]: "false" });
+    expect(loadConfig().posthog.tracesEnabled).toBe(false);
+  });
 });
 
 describe("the Python tiers' PostHog pair", () => {

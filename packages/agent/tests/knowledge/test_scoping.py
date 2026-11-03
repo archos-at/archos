@@ -5,6 +5,8 @@ import json
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+from knowledge_layer.search import scope as scope_module
+
 from agent.common.source_kinds import Shelf
 from agent.knowledge.scoping import ScopedCollection
 from agent.knowledge.scoping import _base64url_decode
@@ -411,8 +413,9 @@ class TestGetCollectionScopeFromContextOr:
 
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
-            patch(
-                "knowledge_layer.search_scope.resolve_scoped_collections",
+            patch.object(
+                scope_module,
+                "resolve_scoped_collections",
                 return_value=[ScopedCollection("oib_knowledge", Shelf.BASE)],
             ),
         ):
@@ -433,8 +436,9 @@ class TestGetCollectionScopeFromContextOr:
 
         with (
             patch("agent.knowledge.scoping.Context.get", return_value=ctx),
-            patch(
-                "knowledge_layer.search_scope.resolve_scoped_collections",
+            patch.object(
+                scope_module,
+                "resolve_scoped_collections",
                 return_value=[
                     ScopedCollection("oib_knowledge", Shelf.BASE),
                     ScopedCollection("s_abc", Shelf.SESSION),

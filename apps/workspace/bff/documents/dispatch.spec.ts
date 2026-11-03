@@ -453,6 +453,22 @@ describe('the ingest dispatch sends the document folder path', () => {
     expect(thumbnailWrite?.[2]).toEqual({ expiresIn: 86_400 })
   })
 
+  it('states the original’s size only when the row names the bytes it sends', async () => {
+    // The backend reads a file of INGEST_HEAVY_FILE_BYTES or more on its
+    // high-memory pool; a size of other bytes would send the wrong file there.
+    vi.mocked(findDocumentInOrg).mockResolvedValue(
+      makeDocument({ authoredBy: 'user', storageKey: input('plan.pdf').storageKey, fileSize: 52_428_800 }),
+    )
+    await dispatchDocument(input('plan.pdf'))
+    expect(bodyOf(0).byte_size).toBe(52_428_800)
+
+    vi.mocked(findDocumentInOrg).mockResolvedValue(
+      makeDocument({ authoredBy: 'user', storageKey: 'org/org-1/other.ifc', fileSize: 52_428_800 }),
+    )
+    await dispatchDocument(input('plan.pdf'))
+    expect(bodyOf(1).byte_size).toBeNull()
+  })
+
   it('sends the folder path the document was filed under', async () => {
     await dispatchDocument({ ...input('plan.pdf'), folderPath: 'Brandschutz/Fluchtwege' })
 

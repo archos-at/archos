@@ -6,7 +6,7 @@ Two shapes, chosen per turn:
   stock DeepAgents tools over :class:`DraftBackend`, as before ADR-0133.
 * **One namespace** (:func:`filesystem_tools`): the same tools over a
   ``CompositeBackend`` whose default is the read-only estate
-  (``knowledge_layer.estate``) and whose ``/drafts/`` route is the draft store.
+  (``knowledge_layer.estate.backend``) and whose ``/drafts/`` route is the draft store.
   ``read_file`` then reads both, and renders grounding blocks on the estate
   (``filesystem.DocumentFilesystem``).
 

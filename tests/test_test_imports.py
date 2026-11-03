@@ -74,7 +74,7 @@ def test_the_check_sees_each_spelling_and_lets_the_stable_ones_through():
             "from tests.provider_doubles import StrictProviderChatModel\n"
             "from tests.fixtures.drafting_turns import FILE\n"
             "from .conftest import BODY\n"
-            "from knowledge_layer_testing.qdrant import write\n"
+            "from knowledge_layer_testing.vector_store import write\n"
             'span.set_attribute("sources.count", 3)\n'
             "value = row['sources.0.title']\n"
             "# a comment about tests.aiq_agent.tools is prose, not an import\n"

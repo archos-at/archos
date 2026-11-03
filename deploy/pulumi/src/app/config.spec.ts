@@ -1,106 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { purgerEnv, schedulerEnv, type AppWiring } from "./config";
-import type { DeployConfig } from '../config'
+import { purgerEnv, type AppWiring } from "./config";
 
 const here = __dirname;
 // src/app -> src -> deploy/pulumi -> deploy -> repo root
 const repoRoot = join(here, "..", "..", "..", "..");
-// The whole worker, not just its entrypoint: the shared `workers/app-database.js`
-// reads the DSN, and the point of this guard is to see every name the process consumes.
-const schedulerDir = join(repoRoot, "apps", "workspace", "scheduler");
-const schedulerSource = [
-  ...readdirSync(schedulerDir)
-    .filter((file) => file.endsWith(".js") && !file.endsWith(".spec.js"))
-    .map((file) => readFileSync(join(schedulerDir, file), "utf8")),
-  // The retention window is read by the shared Langfuse client the sweep uses.
-  readFileSync(join(repoRoot, "apps", "workspace", "workers", "langfuse-traces.js"), "utf8"),
-  readFileSync(join(repoRoot, "apps", "workspace", "workers", "app-database.js"), "utf8"),
-].join("\n");
 const configSource = readFileSync(join(here, "config.ts"), "utf8");
 
-/** Every `env.X` / `process.env.X` the scheduler actually reads. */
-function envNamesReadBy(source: string): string[] {
-  const names = new Set<string>();
-  for (const match of source.matchAll(/(?:process\.)?env\.([A-Z][A-Z0-9_]+)/g)) {
-    names.add(match[1]);
-  }
-  return [...names].sort();
-}
-
-/**
- * The env names this program EMITS must be the names its consumers READ.
- *
- * This is the bug that shipped Agent Skills as an invisible feature. The
- * scheduler worker and the BFF moved to `SKILLS_ENABLED` /
- * `SKILL_SCHEDULER_*` when Workflows was replaced; this file kept emitting
- * `WORKFLOWS_ENABLED` / `WORKFLOW_SCHEDULER_*`, whose readers had been
- * deleted. Nothing failed: the stack planned clean, applied clean, every unit
- * suite on both sides passed, and the container started, read an unset start
- * gate and exited 0 exactly as designed. The only symptom was a user saying the
- * tab was not there.
- *
- * A name mismatch across a process boundary cannot be caught by testing either
- * side alone, which is why this test reads the consumer's source rather than a
- * list someone has to remember to update.
- */
 /** The Secret reference of an env var whose value is a plain (non-Output) literal in this block. */
-function secretRef(env: ReturnType<typeof schedulerEnv>, name: string) {
+function secretRef(env: ReturnType<typeof purgerEnv>, name: string) {
   const from = env.find((e) => e.name === name)?.valueFrom as
     | { secretKeyRef?: { name: string; key: string } }
     | undefined;
   return from?.secretKeyRef;
 }
-
-describe("schedulerEnv", () => {
-  const cfg = {
-    skills: { minIntervalMinutes: 15 },
-    observability: { enabled: false },
-    langfuse: { enabled: true },
-  } as unknown as DeployConfig;
-  const env = schedulerEnv({ cfg } as unknown as AppWiring);
-  // `EnvVar.name` is `Input<string>`; every entry in this block is a literal.
-  const emitted = new Set(
-    env.map((e) => e.name).filter((name): name is string => typeof name === "string"),
-  );
-
-  it("emits every env var the scheduler reads", () => {
-    const read = envNamesReadBy(schedulerSource);
-    // Sanity: if the extraction stops finding anything, the assertion below
-    // would pass vacuously and the guard would be silently dead.
-    expect(read.length).toBeGreaterThan(3);
-    expect([...read].filter((name) => !emitted.has(name))).toEqual([]);
-  });
-
-  it("emits no var the scheduler does not read", () => {
-    // The other half of the mismatch: a stale name left behind here is how the
-    // block LOOKED correct while the gate it was supposed to set stayed unset.
-    const read = new Set(envNamesReadBy(schedulerSource));
-    expect([...emitted].filter((name) => !read.has(name))).toEqual([]);
-  });
-
-  it("emits no feature switch: whether a schedule fires is the organization's flag", () => {
-    // `SKILLS_ENABLED` / `ENFORCE_FEATURE_FLAGS` were the worker's
-    // schedules gate; the BFF now checks the `skills` WorkOS flag per fire.
-    expect(emitted.has("SKILLS_ENABLED")).toBe(false);
-    expect(emitted.has("ENFORCE_FEATURE_FLAGS")).toBe(false);
-  });
-
-  it("gives the trace retention sweep Langfuse's API and a 30-day window when the tier is deployed", () => {
-    expect(env.find((e) => e.name === "LANGFUSE_HOST")?.value).toBe("http://langfuse-web:3000");
-    expect(env.find((e) => e.name === "TRACE_RETENTION_DAYS")?.value).toBe("30");
-    expect(secretRef(env, "LANGFUSE_PUBLIC_KEY")).toEqual({ name: "langfuse-secrets", key: "public-key" });
-    expect(secretRef(env, "LANGFUSE_SECRET_KEY")).toEqual({ name: "langfuse-secrets", key: "secret-key" });
-  });
-
-  it("emits nothing about Langfuse without the tier, so the sweep is its logged no-op", () => {
-    const off = schedulerEnv({
-      cfg: { ...cfg, langfuse: { enabled: false } },
-    } as unknown as AppWiring);
-    expect(off.filter((e) => /LANGFUSE/.test(String(e.name)))).toEqual([]);
-  });
-});
 
 describe("purgerEnv", () => {
   const wiring = (langfuseEnabled: boolean) =>
@@ -159,7 +73,7 @@ describe("frontendEnv", () => {
  */
 describe("backendEnv extraction switches", () => {
   const adapterSource = readFileSync(
-    join(repoRoot, "packages", "knowledge-layer", "src", "llamaindex", "adapter.py"),
+    join(repoRoot, "packages", "knowledge-layer", "src", "ingest", "adapter.py"),
     "utf8",
   );
   const switches = ["EXTRACT_TABLES", "EXTRACT_IMAGES", "EXTRACT_CHARTS"];

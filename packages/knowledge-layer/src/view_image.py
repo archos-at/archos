@@ -19,7 +19,7 @@ Three source shapes are covered, without re-ingest:
   are fetched from SeaweedFS and returned directly (re-encoded to JPEG).
 - **Stored embedded rasters** — an image the ingest pipeline cut out of a
   PDF and kept beside the document (``<doc dir>/_img/<index>.jpg``, see
-  ``llamaindex/image_store.py``). Addressed by ``image_index``; the hit's
+  ``ingest/image_store.py``). Addressed by ``image_index``; the hit's
   ``Image:`` line names the index. Fetched at its own resolution instead of
   rendering the page it sits on.
 
@@ -54,8 +54,8 @@ import os
 from dataclasses import dataclass
 from dataclasses import replace
 
-from knowledge_layer.llamaindex.pdfium_lock import detached_pil
-from knowledge_layer.llamaindex.pdfium_lock import pdfium_lock
+from knowledge_layer.ingest import detached_pil
+from knowledge_layer.ingest.pdfium_lock import pdfium_lock
 
 from agent.common import seaweed_s3
 from agent.common.image_view_budget import MAX_IMAGE_VIEWS_PER_TURN
@@ -797,7 +797,7 @@ async def _gate(
     if not try_consume_image_view("overview" if overview else "region"):
         return None, _spent(tool)
     try:
-        from knowledge_layer.llamaindex import adapter as _adapter
+        from knowledge_layer.ingest import adapter as _adapter
 
         if not _adapter._get_vlm_api_key():
             return None, (

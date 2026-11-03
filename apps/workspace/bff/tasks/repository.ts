@@ -174,21 +174,6 @@ export async function findDefinition(
 }
 
 /**
- * Load a definition by id WITHOUT an org filter — for the internal fire path,
- * which has no session. The caller uses the row's own `organizationId` for all
- * subsequent tenant-scoped work.
- */
-export async function findDefinitionById(definitionId: string): Promise<TaskDefinition | null> {
-  const db = getDb()
-  const [row] = await db
-    .select()
-    .from(taskDefinitions)
-    .where(eq(taskDefinitions.id, definitionId))
-    .limit(1)
-  return row ?? null
-}
-
-/**
  * The columns a service may update on a definition. `plan` moves as a whole
  * because the prompt and its skill snapshot are frozen together.
  */
@@ -253,14 +238,14 @@ export async function touchDefinitionLastRun(definitionId: string, at: Date): Pr
 }
 
 /**
- * Re-arm the dated one-shots of a project that the scheduler retired while the
- * project was paused or closed (ADR-0098). The claim nulls a one-shot's
- * `next_run_at` before it fires, so a skip would lose it for good; this puts
- * each one that never ran back in the due-scan, due now. A one-shot that ran,
- * one somebody switched off, and a recurring schedule (which just takes its
- * next turn) are left alone. Returns how many came back.
+ * Re-arm the dated one-shots of a project that were retired while the project
+ * was paused or closed (ADR-0098). A fire nulls a one-shot's `next_run_at`
+ * before it runs, so a skip would lose it for good; this makes each one that
+ * never ran due again, now. A one-shot that ran, one somebody switched off, and
+ * a recurring schedule (which just takes its next turn) are left alone.
+ * Returns the rows that came back, for the caller to schedule.
  */
-export async function rearmOneShotsSkippedWhileParked(projectId: string, organizationId: string): Promise<number> {
+export async function rearmOneShotsSkippedWhileParked(projectId: string, organizationId: string): Promise<TaskDefinition[]> {
   const db = getDb()
   const skipped = Object.values(SCHEDULE_SKIPPED_BECAUSE)
   const rows = await withTenant({ organizationId }, () =>
@@ -282,9 +267,9 @@ export async function rearmOneShotsSkippedWhileParked(projectId: string, organiz
           sql`NOT EXISTS (SELECT 1 FROM ${taskRuns} r WHERE r.definition_id = ${taskDefinitions.id} AND r.status <> 'skipped')`
         )
       )
-      .returning({ id: taskDefinitions.id })
+      .returning()
   )
-  return rows.length
+  return rows
 }
 
 /** Where a revision task's document is now, by document id. */

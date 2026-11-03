@@ -2,7 +2,7 @@
  * A document's reading as its search row (`document_search_facets`, ADR-0136).
  * Pure: the projector and the specs call it with what the listing parsed.
  *
- * The tokens are the Qdrant payload's own (`knowledge_layer/qdrant/payload.py`,
+ * The tokens are the Qdrant payload's own (`knowledge_layer/vector_store/payload.py`,
  * `reference_value` and `fact_value`), so a filter means the same thing on the
  * structured path and on the content search's pre-filter: a reference is
  * `kind:key` in lower case, a fact is `key=value` with the value folded (case,

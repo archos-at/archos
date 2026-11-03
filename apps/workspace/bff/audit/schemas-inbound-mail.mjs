@@ -10,7 +10,7 @@ export const INBOUND_MAIL_AUDIT_SCHEMAS = /** @type {const} */ ({
   // --- The E-Mail-Eingang (ADR-0137) -----------------------------------------
   // Mail a stranger may write. Every key below is an id, a code, a count or a
   // flag, never a sender, a subject, a file name, an address or a token: the
-  // trail outlives the scrub of a settled mail (migration 0193), and the PII
+  // trail outlives the scrub of a settled mail (migration 0194), and the PII
   // canary (`receive-job.spec.ts`) feeds distinctive values through the receive
   // path and asserts none reaches this metadata. Codes are the vocabularies'
   // own tokens (`inbound-mail-vocabulary.ts`); a list is comma-joined.

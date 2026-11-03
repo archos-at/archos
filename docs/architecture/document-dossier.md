@@ -112,7 +112,15 @@ get one: a drawing past the render cap, a vision or transcription call that fail
 a scan past the transcription cap, or no vision model configured. Such a page may
 still have its text layer in the index, so the UI says "nicht vollständig gelesen",
 not "fehlt". `reasons` keys: `render_cap`, `vision_failed`, `transcription_failed`,
-`transcription_cap`, `no_vision`. Written by `knowledge_layer.coverage.reading_coverage`.
+`transcription_cap`, `no_vision`. Written by `knowledge_layer.ingest.coverage.reading_coverage`.
+
+A standalone image is one page the vision model reads (`image_coverage`): read, it
+is `{"pages": 1, "drawings": 1, "drawings_read": 1, "not_read": 0}`; not read, it is
+`not_read: 1` with `reasons: {"vision_failed": 1}`, and the file fails, since an
+image has no text layer to index. That record reaches the file's trace and the
+job's status (`ingest_measures`), so an unread image is a count, not a gap.
+A vision call waits out the provider's 429s and its in-flight-credit 402s first
+(`ingest/vision_calls.py`); only a page still unread after that is counted.
 
 ## Findings (BFF)
 

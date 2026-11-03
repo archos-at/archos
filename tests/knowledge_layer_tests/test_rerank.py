@@ -1,4 +1,4 @@
-"""Tests for the LLM-judge reranker (``knowledge_layer.rerank``).
+"""Tests for the LLM-judge reranker (``knowledge_layer.search.rerank``).
 
 The reranker scores retrieved chunks in one batched LLM call and must fail
 open: any parse error, timeout, or transport failure leaves the input order
@@ -12,7 +12,7 @@ import json
 from types import SimpleNamespace
 
 import pytest
-from knowledge_layer.rerank import rerank_chunks
+from knowledge_layer.search import rerank_chunks
 
 
 def _chunk(chunk_id: str, content: str = "text") -> SimpleNamespace:
@@ -212,7 +212,7 @@ async def test_non_finite_and_boolean_scores_are_rejected() -> None:
 
 def test_a_chunk_without_a_page_does_not_render_p_none() -> None:
     """``page_number`` is ``int | None``, so a getattr default never fires for a null page."""
-    from knowledge_layer.rerank import _build_user_prompt
+    from knowledge_layer.search.rerank import _build_user_prompt
 
     prompt = _build_user_prompt("q", [SimpleNamespace(content="text", page_number=None, file_name="doc.pdf")])
     assert "p.None" not in prompt
@@ -221,9 +221,9 @@ def test_a_chunk_without_a_page_does_not_render_p_none() -> None:
 
 def test_excerpt_budget_shrinks_so_a_large_pool_still_fits_the_prompt() -> None:
     """Per-chunk budget yields to a whole-prompt bound rather than multiplying by it."""
-    from knowledge_layer.rerank import _MIN_EXCERPT_CHARS
-    from knowledge_layer.rerank import _TOTAL_EXCERPT_BUDGET_CHARS
-    from knowledge_layer.rerank import _excerpt_budget
+    from knowledge_layer.search.rerank import _MIN_EXCERPT_CHARS
+    from knowledge_layer.search.rerank import _TOTAL_EXCERPT_BUDGET_CHARS
+    from knowledge_layer.search.rerank import _excerpt_budget
 
     assert _excerpt_budget(20, 1200) == 1200  # small pool keeps the full budget
     assert _excerpt_budget(200, 1200) < 1200  # large pool is throttled

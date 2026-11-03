@@ -11,7 +11,7 @@ confidence. These tests hold that line.
 import json
 from types import SimpleNamespace
 
-from knowledge_layer import grounding_hits
+from knowledge_layer.search import grounding_hits
 
 from agent.common.grounding_block import SourceRegion
 

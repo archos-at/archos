@@ -5,7 +5,6 @@
  */
 
 import * as pulumi from "@pulumi/pulumi";
-import type { DeployConfig } from "../config";
 import { bool, requireSecretsTogether } from "./readers";
 
 /** The keyid shape the BFF accepts (`usableSigningKeys`, `apps/workspace/bff/internal-auth.ts`). */
@@ -54,6 +53,57 @@ function assertSigningKeys(raw: string): string[] {
   return entries.map(([keyId]) => keyId);
 }
 
+/**
+ * Project mail (ADR-0138, `platform/inbound-mail.ts`): Cloudflare Email
+ * Routing on `domain`, whose catch-all hands every unclaimed address to one
+ * Email Worker, which signs each message (RFC 9421) and posts it to the
+ * BFF's `/api/internal/signed/inbound-mail`.
+ *
+ * Three states, outermost switch first:
+ *   - **unset** (`inboundMailDomain` absent): nothing at Cloudflare, no
+ *     `INBOUND_MAIL_DOMAIN` on the frontend (the UI shows no address),
+ *     an empty key map (the route answers 503).
+ *   - **on**: routing, the catch-all pointing at the Worker, the Worker.
+ *   - **managed off** (`inboundMailEnabled: false`, the domain kept): the
+ *     catch-all stays declared but disabled, so Cloudflare refuses every
+ *     unclaimed address at SMTP time and the sender learns to write
+ *     elsewhere; the Worker is deleted once the catch-all no longer names
+ *     it. Removing the feature for good is this first, then the domain:
+ *     unsetting the domain alone would leave a catch-all naming a deleted
+ *     Worker (Email Routing itself is kept, `retainOnDelete`).
+ *
+ * `paused` is the incident lever inside "on": every delivery fails
+ * temporarily and senders retry for days; nothing bounces, nothing is lost.
+ */
+export interface InboundMailConfig {
+  /** `inboundMailDomain` is set: Email Routing and the catch-all are this stack's. */
+  configured: boolean;
+  /** Configured and not switched off: the Worker runs and the catch-all points at it. */
+  enabled: boolean;
+  /** Every delivery is answered with a temporary failure (`inboundMailPaused`). */
+  paused: boolean;
+  /**
+   * The address domain, and the APEX of the zone `zoneId` names: the app
+   * zone's own apex (the product domain, the recommended setup) or a domain
+   * of its own. Not a subdomain: Cloudflare's catch-all only exists for a
+   * zone's apex (the module header of `platform/inbound-mail.ts`).
+   */
+  domain: string;
+  /** Cloudflare zone whose apex is `domain`; `dns.zoneId` when `domain` is `dns.zoneName`. */
+  zoneId: string;
+  /**
+   * The BFF's key map, `INBOUND_MAIL_SIGNING_KEYS`: JSON, keyid →
+   * base64 secret, one or two entries. Empty while not enabled.
+   */
+  signingKeys: pulumi.Output<string>;
+  /** The keyid the Worker signs with, a key of `signingKeys`. */
+  signingKeyId: string;
+  /** Its secret, base64, bound to the Worker as `SIGNING_KEY`. */
+  signingKey: pulumi.Output<string>;
+  /** The same `cloudflareApiToken` DNS uses, with the scopes `platform/inbound-mail.ts` lists. */
+  apiToken: pulumi.Output<string>;
+}
+
 /** What `inboundMailConfig` needs from the DNS section, already validated there. */
 export interface InboundMailZoneContext {
   dnsEnabled: boolean;
@@ -71,7 +121,7 @@ export interface InboundMailZoneContext {
  * sender retries for days, then bounces), and a domain without the zone has
  * nowhere to enable routing.
  */
-export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneContext): DeployConfig["inboundMail"] {
+export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneContext): InboundMailConfig {
   const domain = (cfg.get("inboundMailDomain") ?? "").trim().toLowerCase().replace(/\.$/, "");
   // On the app zone's apex (the recommended setup: addresses on the product's
   // own domain), the zone is the DNS zone and needs no second key.
@@ -101,7 +151,7 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     // cannot file anything.
     throw new Error(
       "inboundMailDomain needs malwareScanEnabled=true: mail from anyone is scanned by " +
-        "the in-cluster ClamAV before it can be filed or downloaded (ADR-0150), and without the scanner " +
+        "the in-cluster ClamAV before it can be filed or downloaded (ADR-0152), and without the scanner " +
         "nothing that arrives could ever be filed.",
     );
   }

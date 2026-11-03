@@ -1,4 +1,4 @@
-// @disk-inputs: app/**, bff/**, i18n/**, observability/**, purger/**, scheduler/**, server.js, shared/**, types/**, ui/**, utils/**, workers/**
+// @disk-inputs: app/**, bff/**, i18n/**, observability/**, purger/**, server.js, shared/**, types/**, ui/**, utils/**, workers/**
 /**
  * @vitest-environment node
  */
@@ -82,7 +82,7 @@ describe('the code set is spelled once', () => {
   // or of class 08, or a driver code no prose would mention. A log line that
   // merely names a code, `database unavailable (57P03)`, is not a copy.
   const SPELLED = /CONNECTION_DESTROYED|['"`]57P0[0-9]['"`]|57P0\[|08\[0-9A-Z\]/
-  const ROOTS = ['app', 'bff', 'ui', 'i18n', 'shared', 'types', 'utils', 'scheduler', 'purger', 'workers', 'observability', 'server.js']
+  const ROOTS = ['app', 'bff', 'ui', 'i18n', 'shared', 'types', 'utils', 'purger', 'workers', 'observability', 'server.js']
   const HOME = path.join('workers', 'database-unavailable.js')
 
   function sourceFiles(entry) {

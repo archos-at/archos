@@ -21,12 +21,13 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-from knowledge_layer.qdrant import store as store_module
+from knowledge_layer import register as register_module
 from knowledge_layer.register import KnowledgeRetrievalConfig
 from knowledge_layer.register import knowledge_retrieval
-from knowledge_layer.search_scope import base_collection_filters
-from knowledge_layer_testing.qdrant import record
-from knowledge_layer_testing.qdrant import write
+from knowledge_layer.search import base_collection_filters
+from knowledge_layer.vector_store import store as store_module
+from knowledge_layer_testing.vector_store import record
+from knowledge_layer_testing.vector_store import write
 
 from agent.common.retrieval_settings import reset_retrieval_settings_cache
 
@@ -120,8 +121,8 @@ def search_harness(monkeypatch, qdrant_store):
     """Install a retriever and neutralise everything the search reaches outside itself."""
 
     def install(retriever):
-        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr(register_module, "_get_retriever", lambda config: retriever)
+        monkeypatch.setattr(register_module, "_initialize_ingestor", lambda config, llm: None)
         monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
         monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         monkeypatch.delenv("INTERNAL_API_TOKEN", raising=False)

@@ -7,7 +7,7 @@ layer can answer it with every member the corpus holds in ONE round.
 
 Detection is pure; :func:`agent.common.norm_registry.oib_families` turns the
 number this returns into the members. It reads the anchor vocabulary the
-requery gate reads (``knowledge_layer.requery._NARROW_ANCHOR_PATTERNS``) and
+requery gate reads (``knowledge_layer.search.requery._NARROW_ANCHOR_PATTERNS``) and
 adds the bare ``OIB 2`` spelling, which is how the question is usually asked.
 ``norm_registry`` re-exports :func:`family_query_number`, its one public name.
 """

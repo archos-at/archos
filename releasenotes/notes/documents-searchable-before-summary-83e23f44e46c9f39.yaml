@@ -1,0 +1,6 @@
+---
+improvements:
+  - >
+    A newly uploaded document can be found in search sooner: its content is
+    searchable as soon as it is read, while its summary, tags and topics are
+    still being written. It shows as finished once those are done too.

@@ -13,7 +13,7 @@ The adapters, one per call-site shape:
 - a JSON body built by hand: ``ResolvedCredential.request_body`` or
   ``PLATFORM_FIXED.apply`` / ``DataPolicy.apply``;
 - an OpenAI SDK client: ``openrouter.openai_client``;
-- the embedding client: ``knowledge_layer.llamaindex.embedding.make_embed_model``;
+- the embedding client: ``knowledge_layer.embedding.make_embed_model``;
 - a LangChain chat model: ``pin_chat_model`` / ``apply_model_override`` /
   ``RequestLLMContext.apply`` (not scanned here: those models are built by the agent runtime,
   and ``test_model_overrides`` / ``test_llm_provider`` cover them).
@@ -40,7 +40,7 @@ SCANNED = [
 RAW_CLIENT = re.compile(r"\b(?:Async)?OpenAI\(|\bNVIDIAEmbedding\(")
 RAW_CLIENT_HOMES = {
     "packages/agent/src/agent/common/openrouter.py",  # openai_client
-    "packages/knowledge-layer/src/llamaindex/embedding.py",  # make_embed_model
+    "packages/knowledge-layer/src/embedding.py",  # make_embed_model
 }
 
 #: Talking to a model endpoint directly. The module must also use an adapter.
@@ -76,7 +76,7 @@ def test_the_scan_sees_the_known_call_sites():
     """Guards the test itself: a glob that silently matched nothing would pass everything."""
     scanned = {_rel(p) for p in _python_files()}
     assert "apps/agent-host/src/agent_host/routes/generate_summary.py" in scanned
-    assert "packages/knowledge-layer/src/cross_encoder.py" in scanned
+    assert "packages/knowledge-layer/src/search/cross_encoder.py" in scanned
     assert "packages/agent/src/agent/common/decisions.py" in scanned
 
 

@@ -1,10 +1,10 @@
 """Ingestion of the base corpus: what needs it, which job carries it, what is recorded (ADR-0082, step A2).
 
-The corpus is a real table and a fake bucket (``tests/object_corpus_fakes``); the ingest queue and the
-ingest status store are the real ones, in the same database (SQLite, or Postgres when
-``TEST_CORPUS_DB`` is set). The vector store is a fake ingestor that can only PREPARE a job: it
-raises on anything that would ingest in this process. The ingest worker is played by
-:func:`run_worker`, which claims what is queued, runs its download for real, and writes the outcome the
+The corpus is a real table and a fake bucket (``tests/object_corpus_fakes``); the ingest status
+store is the real one (SQLite, or Postgres when ``TEST_CORPUS_DB`` is set), and Hatchet the
+recording fake. The vector store is a fake ingestor that can only PREPARE a job: it raises on
+anything that would ingest in this process. The ingest worker is played by :func:`run_worker`,
+which takes each run handed to Hatchet, runs its download for real, and writes the outcome the
 way the ingestor does.
 """
 
@@ -17,12 +17,13 @@ import logging
 import threading
 
 import pytest
+from agent_testing.orchestrator_fake import take_run
+from agent_testing.orchestrator_fake import waiting_runs
 
 from agent import corpus_store
 from agent import oib_sync
-from agent.common import claim_queue
-from agent.knowledge import ingest_queue
 from agent.knowledge import ingest_status_store
+from agent.knowledge import ingest_workflow
 from agent.knowledge.document_metadata_store import DocumentMetadataStore
 from agent.knowledge.ingest_scheduler import PLATFORM_LANE
 from agent_host.jobs import ingest_dispatch
@@ -47,7 +48,6 @@ def _sha(data: bytes) -> str:
 @pytest.fixture
 def bucket(monkeypatch, tmp_path) -> FakeBucket:
     monkeypatch.setattr(oib_sync, "COLLECTION_NAME", "test_collection")
-    monkeypatch.delenv("INGEST_QUEUE", raising=False)
     monkeypatch.delenv("JOB_PAYLOAD_KEK", raising=False)
     return install(monkeypatch, tmp_path)
 
@@ -73,11 +73,21 @@ def _row(name: str) -> corpus_store.FileRow:
 
 
 def _queued() -> int:
-    return ingest_queue.counts().get(ingest_queue.QUEUED, 0)
+    return len(waiting_runs())
 
 
 def _engine():
-    return DocumentMetadataStore._get_or_create_sync_engine(ingest_queue.db_url())
+    return DocumentMetadataStore._get_or_create_sync_engine(ingest_status_store._db_url())
+
+
+@contextlib.contextmanager
+def _hatchet_down():
+    """Hatchet refuses every hand-over while this holds."""
+    ingest_workflow.ingest_workflow().refuse_with = ConnectionError("engine down")
+    try:
+        yield
+    finally:
+        ingest_workflow.ingest_workflow().refuse_with = None
 
 
 class TestSync:
@@ -96,13 +106,13 @@ class TestSync:
         row = corpus_store.put("a.pdf", b"alpha")
         _sync()
 
-        claim = ingest_queue.claim_next("worker-1", stale_seconds=180, max_attempts=3)
+        run = take_run()
 
-        assert claim is not None
-        assert claim.job_id == oib_sync.job_id_for(row)
-        assert claim.lane == PLATFORM_LANE
-        assert claim.priority == claim_queue.priority_rank("bulk")
-        job = ingest_dispatch.decode(claim.payload)
+        assert run is not None
+        assert run.input.job_id == oib_sync.job_id_for(row)
+        assert run.input.organization_id == PLATFORM_LANE
+        assert run.input.priority == "bulk"
+        job = ingest_dispatch.decode(run.input.payload)
         assert job.collection_name == "test_collection"
         assert job.config["original_filenames"] == ["a.pdf"]
         assert job.config["priority"] == "bulk"
@@ -117,8 +127,7 @@ class TestSync:
         _sync()
         bucket.objects["base-corpus/a.pdf"] = b"replaced while the job waited"
 
-        claim = ingest_queue.claim_next("worker-1", stale_seconds=180, max_attempts=3)
-        download = ingest_dispatch.decode(claim.payload).file_paths[0]
+        download = ingest_dispatch.decode(take_run().input.payload).file_paths[0]
 
         with pytest.raises(corpus_store.CorpusStoreError, match="does not match"):
             download()
@@ -306,11 +315,11 @@ class TestSync:
 
 
 class TestNoInProcessFallback:
-    def test_with_the_queue_switched_off_the_cycle_errors_and_leaves_nothing_pending(self, ingestor, monkeypatch):
-        monkeypatch.setenv("INGEST_QUEUE", "off")
+    def test_without_a_payload_key_the_cycle_errors_and_starts_nothing(self, ingestor, monkeypatch):
+        monkeypatch.delenv("JOB_PAYLOAD_KEK")
         row = corpus_store.put("a.pdf", b"a")
 
-        with pytest.raises(ingest_dispatch.QueueUnavailable, match="ingest queue is off"):
+        with pytest.raises(ingest_dispatch.QueueUnavailable, match="JOB_PAYLOAD_KEK"):
             _sync()
 
         assert ingest_status_store.get(oib_sync.job_id_for(row)) is None  # no pending job nobody holds
@@ -328,23 +337,16 @@ class TestNoInProcessFallback:
         with pytest.raises(ingest_dispatch.QueueUnavailable, match="cannot run in another process"):
             _sync()
 
-    def test_a_queue_that_cannot_be_written_errors(self, ingestor, monkeypatch):
+    def test_a_hatchet_that_cannot_be_reached_errors(self, ingestor):
         corpus_store.put("a.pdf", b"a")
 
-        def refuse(*_args, **_kwargs):
-            raise ConnectionError("database down")
-
-        monkeypatch.setattr(ingest_queue, "enqueue", refuse)
-
-        with pytest.raises(ingest_dispatch.QueueUnavailable, match="ConnectionError"):
+        with _hatchet_down(), pytest.raises(ingest_dispatch.QueueUnavailable, match="ConnectionError"):
             _sync()
 
-    def test_the_cycle_comes_back_after_the_queue_does(self, ingestor, monkeypatch):
+    def test_the_cycle_comes_back_after_hatchet_does(self, ingestor):
         corpus_store.put("a.pdf", b"a")
-        monkeypatch.setenv("INGEST_QUEUE", "off")
-        with pytest.raises(ingest_dispatch.QueueUnavailable):
+        with _hatchet_down(), pytest.raises(ingest_dispatch.QueueUnavailable):
             _sync()
-        monkeypatch.delenv("INGEST_QUEUE")
 
         assert _sync().enqueued == 1
 
@@ -355,8 +357,7 @@ class TestUpload:
 
         assert queued is True
         assert _row("plan.pdf").sha256 == _sha(b"%PDF plan")
-        claim = ingest_queue.claim_next("worker-1", stale_seconds=180, max_attempts=3)
-        assert ingest_dispatch.decode(claim.payload).config["doc_class"] == "oib_guide"
+        assert ingest_dispatch.decode(take_run().input.payload).config["doc_class"] == "oib_guide"
 
     def test_a_cycle_after_an_upload_queues_nothing_more(self, ingestor):
         oib_sync.store_and_request("plan.pdf", b"%PDF plan", enqueue=ENQUEUE)
@@ -402,11 +403,9 @@ class TestUpload:
         assert corpus_store.get_file("plan.pdf") is None
         assert ingestor.prepared == []
 
-    def test_a_queue_that_is_down_leaves_the_file_stored_for_the_next_cycle(self, ingestor, monkeypatch):
-        monkeypatch.setenv("INGEST_QUEUE", "off")
-        with pytest.raises(ingest_dispatch.QueueUnavailable):
+    def test_a_hatchet_that_is_down_leaves_the_file_stored_for_the_next_cycle(self, ingestor):
+        with _hatchet_down(), pytest.raises(ingest_dispatch.QueueUnavailable):
             oib_sync.store_and_request("plan.pdf", b"%PDF plan", enqueue=ENQUEUE)
-        monkeypatch.delenv("INGEST_QUEUE")
 
         assert corpus_store.get_file("plan.pdf") is not None
         assert _sync().enqueued == 1
@@ -440,8 +439,7 @@ class TestUpload:
         upload.join(10)
         cycle.join(10)
 
-        claim = ingest_queue.claim_next("worker-1", stale_seconds=180, max_attempts=3)
-        assert ingest_dispatch.decode(claim.payload).config["doc_class"] == "law"
+        assert ingest_dispatch.decode(take_run().input.payload).config["doc_class"] == "law"
         assert _queued() == 0
 
 
@@ -567,8 +565,7 @@ class TestMarkForReingest:
         assert _row("a.pdf").ingested_sha256 is None
         assert oib_sync.request_ingestion("a.pdf", enqueue=ENQUEUE) is True
 
-        claim = ingest_queue.claim_next("worker-1", stale_seconds=180, max_attempts=3)
-        assert claim.job_id == oib_sync.job_id_for(row)
+        assert take_run().input.job_id == oib_sync.job_id_for(row)
 
     def test_a_failed_file_is_tried_again_when_an_admin_asks(self, ingestor):
         corpus_store.put("a.pdf", b"a")

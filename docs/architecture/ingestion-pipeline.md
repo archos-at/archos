@@ -9,9 +9,10 @@ Older, deeper material is still right and is linked rather than repeated:
 [`technical-reference/document-ingestion.md`](../technical-reference/document-ingestion.md)
 (the step-by-step reference, with the history of each fix),
 [`visual-ingestion.md`](visual-ingestion.md) (the drawing schema and its rules),
-ADR-0076 (the queue), ADR-0117 (the page pipeline, proposed, not built).
+ADR-0076 (the claim queue, superseded), ADR-0117 (the page pipeline, proposed,
+not built), ADR-0150 (Hatchet, which now runs the job: section 7).
 
-Short forms: **A** is `packages/knowledge-layer/src/llamaindex/adapter.py`, **S** is
+Short forms: **A** is `packages/knowledge-layer/src/ingest/adapter.py`, **S** is
 `apps/workspace/bff/documents/service.ts` as it stood before it was split (its `S:N` line references are from then; `dispatchDocument` is now in `document-dispatch.ts`, `dispatchIngest` in `ingest-dispatch.ts`), **D** is
 `apps/agent-host/src/agent_host/jobs/ingest_dispatch.py`.
 
@@ -69,7 +70,8 @@ Three things in this picture decide almost everything about speed and reliabilit
    office on the platform. It is the throughput ceiling, not CPU.
 3. **Status is pulled, never pushed.** The BFF learns a document is done when someone
    reads the document list (`reconcile-status.ts:829`), polled every 5 s and then
-   every 60 s by an open tab.
+   every 60 s by an open tab. ADR-0150 adds a push when a job ends
+   ([section 7](#7-who-runs-the-job)); the read and the sweep stay as fallbacks.
 
 ## 2. How a file reaches the queue
 
@@ -127,31 +129,101 @@ flowchart TB
 
   G[deleted? lost claim? A:4779]:::cpu --> DL[download original + rendition<br/>60 s read timeout]:::cpu
   DL --> TY{type}
-  TY -- PDF / rendition --> TX[text, page by page<br/>pdfplumber, A:1708]:::cpu
+  TY -- PDF / rendition --> PS{parsed.json for these bytes<br/>and this code?}:::cpu
+  PS -- yes --> SC
+  PS -- no --> TX[text, page by page<br/>pdfplumber, A:1708]:::cpu
   TY -- image --> EX[EXIF facts, then analyze_visual]:::model
   TY -- xlsx, md, csv --> OX[office_extractors / text_formats]:::cpu
   TY -- Word without rendition --> F1[fail: office_rendition_required]:::stop
   TX --> SC[upload screen<br/>local rules, no model]:::cpu
   SC -- match --> QU[quarantine: file FAILED with verdict]:::stop
   SC --> TB[tables, pdfplumber<br/>not on drawings vision reads]:::cpu
-  TB --> TR[page triage<br/>text / scan / garbled / drawing]:::cpu
-  TR --> OCR[transcribe scans + garbled pages<br/>1 vision call per page, cap 500]:::model
+  TB --> ST[store parsed.json<br/>text, triage, tables]:::cpu
+  ST --> TR[page triage<br/>text / scan / garbled / drawing]:::cpu
+  TR --> AH[read the triage's drawings ahead<br/>on the file's page-read pool]:::model
+  TR --> OCR[transcribe scans + garbled pages<br/>1 vision call per page, cap 500<br/>same pool, streamed]:::model
   OCR --> TH[thumbnail -> presigned PUT]:::cpu
   TH --> CH[chunk: sections, OIB clauses, or pages]:::cpu
   CH --> RD[render drawing pages<br/>cap 20 per file, A:361]:::cpu
-  RD --> VI[analyze_visual per drawing page<br/>and per embedded raster, cap 64<br/>4 threads, fleet slot each]:::model
-  VI --> SUM[summary + tags + topics<br/>first and last chunk, 4000 chars]:::model
-  VI --> DS[dossier: one strict call<br/>over a digest of every page]:::model
+  AH -. same call .-> VI
+  RD --> VI[analyze_visual per drawing page<br/>and per embedded raster, cap 64<br/>16 threads per file, fleet slot each]:::model
+  VI --> SUM[summary + tags + topics<br/>first and last chunk, 4000 chars<br/>started, not awaited]:::model
+  VI --> DS[dossier: one strict call<br/>over a digest of every page<br/>started, not awaited]:::model
   VI --> CV[coverage: pages read and why not]:::cpu
-  SUM --> PM[permit extraction<br/>only when tagged Bescheid]:::model
-  DS --> RF[references: norms, laws,<br/>plans, documents, no model]:::cpu
-  PM --> EM[embed: 1024-token chunks<br/>batches of 64, not cached]:::model
-  EM --> WR[upsert into Qdrant<br/>then retire the previous version]:::cpu
-  WR --> MD[document_metadata rows:<br/>summary, tags, topics, Plankopf, capture,<br/>dossier, doc_references, coverage]:::cpu
+  VI --> EM[embed: 1024-token chunks<br/>batches of 64, cached by embedder + text]:::model
+  EM --> WR[upsert into Qdrant, ids uuid5 of the chunk<br/>then retire the previous version<br/>searchable from here]:::cpu
+  WR --> CO[collect summary, tags, topics, dossier<br/>ingest_enrichment]:::cpu
+  SUM -.-> CO
+  DS -.-> CO
+  CO --> PM[permit extraction<br/>only when tagged Bescheid]:::model
+  CO --> RF[references: norms, laws,<br/>plans, documents, no model]:::cpu
+  PM --> MD[document_metadata rows:<br/>summary, tags, topics, Plankopf, capture,<br/>dossier, doc_references, coverage<br/>tags copied onto the points]:::cpu
   RF --> MD
   CV --> MD
   MD --> FA[Fassung: confirm, change summary<br/>or suggestion, 45 s bound]:::model
 ```
+
+**A retry does not parse again** (`ingest/parsed_store.py`). Once the upload
+screen has passed and the tables are read, the text pass's pages, the triage's verdict
+per page and the table pass's tables (with the pages it skipped) are written as
+`<version dir>/_text/parsed.json`, beside `pages.md` and `index.json`, through the same
+BFF-presigned PUT (`document-text-upload-url`, part `parsed.json`). The next attempt for
+that version reads it back with the backend's read-only credential (the presign answer
+names the key and bucket) and skips the passes. It counts only when its header names
+this file's content hash and this pipeline: the schema, the reader version, the
+thresholds, the pdfplumber and pypdfium2 versions and the source of every module the
+pass runs, so a code change parses afresh. A table pass is reused only for the same
+skipped pages. The upload screen is not stored: it depends on the office's rules, which
+may change between attempts, and runs again on the read-back text. It is bounded by
+`INGEST_PARSED_MAX_BYTES` (32 MiB; larger is not written, and logged) and fail-open.
+Measured on 24 CAD sheets of 6,000 paths each (`build_drawing_sheets_pdf`): 22.3 s for
+text, triage and tables fresh, under 0.01 s read back, the same pages, triage and
+tables, in a 4.4 kB artefact. Without screening rules the triage is measured by
+`route_pdf_pages` and is not stored.
+
+**One page-read pool per file** (`ingest/page_reads.py`,
+`INGEST_PAGE_READ_PARALLELISM`, 16). Every page read of a file, a scan's
+transcription and a drawing's, an image's or a raster's analysis, is one call
+on the same pool, submitted as soon as its page is rendered: no batch waits for
+its slowest call, and at most twice the pool's size of rendered pages are held.
+The drawings the triage already knows are rendered and read on the pool before
+the scans are transcribed, so the two run at once; the vision batch later asks
+for the same bytes and gets that call (`FilePageReads.single_flight`), and its
+renderer takes the page already rendered. The answer is the one the serial
+order gave; only a page the transcription itself calls a drawing (`[ZEICHNUNG]`)
+still waits for the transcription. Results come back in page order. The pool
+bounds a file's threads and memory; the calls in flight are capped by the
+fleet's lease pool (`VLM_FLEET_CONCURRENCY`), whose slots are shared fairly
+between offices. One consequence: a file the screen of its transcribed text
+holds may already have had its triage drawings read (their results are dropped
+with the file, and what has not started is cancelled); those pixels were never
+screenable, like an embedded raster's.
+
+**Searchable before it is described.** The summary, tags, topics, dossier and a
+base-corpus Dokumentart suggestion start once the text and visuals are read, and the
+chunks are embedded and written while they run (`ingest/enrichment.py`):
+no chunk carries them (`stamp_chunk_metadata` reads only the Dokumentart and the
+provenance). They are collected after the write, within their own bounds, and their
+rows are registered then; the tags reach the points through `register_summary`'s copy
+(`writes.refresh_facts`), the way a person's edit does. The permit extraction, which
+needs the tags, follows them. The job's terminal status, and so the settle push, comes
+only once all of it is done, so the coverage and the status are unchanged. Measured with
+each enrichment call stubbed to 2 s on the offline test harness: the write landed
+3.7 s after the job started before, 0.9 s after; the job settled at the same 4.3 s.
+
+**A chunk's id is what it is** (`ingest/chunk_identity.py`). It is `uuid5` of
+the collection, the document (its id, else its name), the version (the file's
+content hash), the chunk's ordinal and the hash of its text, no longer the
+splitter's random node id. A retried write of the same version writes the same ids
+and overwrites instead of adding a second copy; retiring the previous version leaves
+out the ids the new write holds (a re-read of the same bytes lands on them), and
+discarding a failed attempt leaves out the ids the kept version holds, so both are
+idempotent. The chunk's embedding is cached on Dragonfly by the embedder's
+fingerprint (model and endpoint, the identity `check_identity` enforces) and the
+hash of the text it embeds, as float32, for `INGEST_EMBED_CACHE_TTL_SECONDS`
+(30 days): a retry or a re-read embeds only the chunks whose text changed. On the
+offline harness, two attempts of one 40-line PDF embedded 3 + 3 chunks and left
+6 distinct ids before, 3 + 0 and 3 ids after.
 
 What fails the file, and what only makes it poorer:
 
@@ -165,13 +237,28 @@ What fails the file, and what only makes it poorer:
 | Pages over the render cap (20) or the raster cap (64) | counted on the file and in its coverage, not read | "n Seiten nicht vollständig gelesen" |
 | A worker dies or stalls | the claim goes stale after 180 s and another worker takes the job, up to 3 times, then `dead` | "unterbrochen" |
 
-A 429 or a timeout inside a vision call is retried in place (A:2274). A file whose
+A 429, an in-flight-credit 402 ("would exceed your available credits given your
+current in-flight requests", for at most 60 s from the first attempt, the transport's
+own 7 s of retries included) or a timeout inside a vision call is retried in place
+(`ingest/vision_calls.py`); a plain "insufficient credits" 402 is final. A page
+still unread after that is counted in the coverage, and a standalone image, whose
+only content is that reading, fails with `not_read: 1` (`vision_failed`) on its trace
+and job status. Every vision call carries a sticky-routing prompt-cache key built
+from the organization, the model and the prompt's identity (never the page). A
+zero-data-retention organization's page reads are EU-only via `provider.only`
+(the `OPENROUTER_PREFERRED_PROVIDERS` slugs) with `allow_fallbacks: false` and no
+non-EU fallback (`DataPolicy.for_page_reads`), which keeps OpenRouter's sticky
+routing and lets the provider's cache hit; decided 2026-11-03. Every other call
+keeps the EU-first `order` with fallbacks. When no EU endpoint can take a page read
+(OpenRouter's 404 or 503 "no allowed providers"), it waits in place within the same
+60 s and is then classified `transient` (`ingest_failures.no_allowed_provider`), so
+Hatchet retries it. A standalone
+image's reading is screened once it exists, like a scan's transcription: `partial`
+when clean, quarantined on a match, and its thumbnail drawn only after that. A file whose
 read failed for a passing reason (`transient`: an interruption, a timeout, a download
-or provider error) is sent back by the background-work sweep
-(`apps/workspace/bff/documents/transient-retry.ts`): at `bulk` priority, at most
-three attempts in all, 5 minutes after the first failure and doubling, and only for a
-failure of the last 24 hours, so a deploy never re-reads an old backlog. Every other
-failure waits for a person or the `reingest_failed` job.
+or provider error) is retried by its Hatchet task (`ingest-document`, with backoff);
+a deterministic failure is not retried. Every other failure waits for a person or
+the `reingest_failed` job.
 
 ## 4. Where the time goes
 
@@ -191,7 +278,8 @@ code paths (no Qdrant, so no write stage):
 
 Production numbers already on record: median job 138 s, mean 154 s, max 427 s; a
 133-page CAD PDF spends 103 s in the text pass and 125 s in the table pass before
-its first model call (ADR-0117). Vector CAD is where pdfplumber is slow; ordinary
+its first model call (ADR-0117). A retry of the same version no longer pays them:
+it reads the parsed document back (section 3). Vector CAD is where pdfplumber is slow; ordinary
 text PDFs are not.
 
 So the shape of a document's wall time is:
@@ -204,19 +292,24 @@ gantt
   section CPU
   text + tables + triage        :a1, 0, 8s
   render 20 pages               :a2, after a1, 6s
-  section Vision (4 threads)
-  pages 1-4                     :v1, after a2, 25s
-  pages 5-8                     :v2, after v1, 25s
-  pages 9-12                    :v3, after v2, 25s
-  pages 13-16                   :v4, after v3, 25s
-  pages 17-20 (one truncation)  :v5, after v4, 56s
+  section Vision (16 threads, one pool with OCR)
+  pages 1-16, read ahead         :v1, after a1, 25s
+  pages 17-20 (one truncation)   :v2, after v1, 56s
   section After
-  summary, tags, topics         :s1, after v5, 4s
-  embed + write                 :s2, after s1, 5s
+  embed + write (searchable)     :s2, after v2, 5s
+  summary, tags, topics, dossier :s1, after v2, 4s
 ```
 
-The vision phase is about 80 % of a drawing set's time, and it is serial in rounds
-of four. The fleet sees it differently: **every one of those 20 calls holds one of
+The vision phase is most of a drawing set's time. It used to be serial in rounds of
+four, after the OCR phase, which ran in batches of eight that each waited for their
+slowest call: on 2026-11-02 a 458 s file made 115 vision calls summing 1,219 s, an
+effective parallelism of 2.7, while 25 of the fleet's 32 slots were free. Since the
+page-read pool, OCR and vision stream through one pool of 16, and the triage's
+drawings start before the first scan is transcribed. Measured with the model call
+stubbed to a fixed 1 s, on a 52-page PDF of 12 CAD sheets and 40 scanned pages
+built from the test fixtures (`build_drawing_sheets_pdf`, a scan of rasters): 14.9 s
+before, 4.3 s after, for the same 52 calls (16 in flight at the peak, 4 before). The
+fleet sees it differently: **every one of those 20 calls holds one of
 the 32 slots every office shares**. At 25 s a call, the whole platform reads about
 4,600 drawing pages an hour, and at most 16 documents are in flight at once in
 production (8 pods × 2 jobs, `Pulumi.prod.yaml`; the code default in
@@ -229,20 +322,36 @@ What is measured in production today:
 - A Langfuse trace per file, `ingest-file`: its status, every stage's seconds, its
   pages, drawings read and pages not fully read, with every vision call
   (`ingest-vision`) and the dossier (`document-dossier`) nested under it as
-  generations (`direct_trace.observed_span`). Filter by `file_type`,
-  `organization_id` or `priority` to see where a kind of document spends its time.
-- `[ingest-perf]` log line per file: text, tables, screen, ocr, renders, rasters,
-  vision, summary, embedding, write (A:2931).
+  generations (`direct_trace.observed_span`). A nested generation writes no
+  `langfuse.trace.*` attribute, so it cannot rename its file's trace. Filter by
+  `file_type`, `organization_id` or `priority` to see where a kind of document
+  spends its time.
+- `[ingest-perf]` log line per file at INFO: text, tables, screen, ocr, renders,
+  rasters, vision, summary, dossier, embedding, write. The same seconds and the
+  coverage counts are on the job status's `metadata` (`stage_seconds`, `coverage`,
+  `ingest/measures.py`) and so on `document_ingest_finished` as `*_s`
+  and `pages_not_read` and its siblings.
 - `llm_usage_events` with `activity = ingest` per job: the one queryable cost
   breakdown (roles `ingest_vision`, `ingest_transcription`, `embedding`).
-- `document_ingest_finished` in PostHog with `duration_ms`. It is **not** a
-  processing time: it is `now − documents.updated_at` at the read that first
-  noticed the change (`bff/analytics/ingest-events.ts`), so it includes the queue
-  wait and every hour nobody looked. A rename, move or other write to the row
-  during the ingest moves `updated_at`, and the value then starts there. On 2026-11-02, 59 PDFs read in 18 s each
-  (p50 of their `ingest-file` traces) reported about 21,600 s, because no read
-  reconciled them until a chat turn six hours later. For processing time use the
-  `ingest-file` trace latency (mirrored into PostHog as `langfuse observation`).
+- `document_ingest_finished` in PostHog, one per settled document
+  (`bff/analytics/ingest-events.ts`), with `document_id`, `attempt`,
+  `failure_category` (failed only, the stored category), `settled_by` and two
+  durations:
+  - `processing_ms` is the job's own `started_at` to `completed_at`, from the
+    backend's batch status: what the worker spent, queue wait excluded. Absent
+    when the status carries either end not.
+  - `duration_ms` is `now − documents.updated_at` at the reconcile that settled
+    the row, so it includes the queue wait and every hour nobody looked. A
+    rename, move or other write to the row during the ingest moves `updated_at`,
+    and the value then starts there. On 2026-11-02, 59 PDFs read in 18 s each
+    (p50 of their `ingest-file` traces) reported about 21,600 s, because no read
+    reconciled them until a chat turn six hours later.
+  - `settled_by` says which path noticed: `push` (the worker's
+    `POST /api/internal/ingest/settled` when the job ended), `read` (a listing,
+    a detail or another read that reconciles in passing), `sweep` (the upload and
+    placement sweeps). With the push working, `duration_ms − processing_ms` is
+    the queue wait; a large gap on `read` or `sweep` rows is a push that did not
+    arrive.
 - `grid.queue.job_duration_seconds` and claim latency (OTel).
 
 ## 5. What is stored, and who reads it
@@ -301,6 +410,11 @@ plan number per chunk.
 
 ## 6. Fairness across offices
 
+On Hatchet the order below is the `ingest-document` task's `GROUP_ROUND_ROBIN`
+concurrency on `input.organization_id` and its run priority (section 7). The
+drawing is the claim queue's, kept for the rows left in `ingest_job_queue` until
+the cutover drains them.
+
 ```mermaid
 flowchart LR
   subgraph ingest_job_queue
@@ -327,13 +441,61 @@ page no longer competes with office A's fourteen running documents for a slot; i
 gets the next one. The 15 document slots are still first come within the claim
 order, so B's document waits for one document of A's to finish before it starts.
 
-## 7. The code, by question
+## 7. Who runs the job
+
+Hatchet runs the job (ADR-0150), a self-hosted workflow engine in the
+`background-work` namespace ([`docs/deployment/hatchet.md`](../deployment/hatchet.md)).
+There is no switch per tier: every stack runs it.
+
+| Tier | Hatchet task | Worker pool |
+|---|---|---|
+| Ingestion | `ingest-document` | `ingest-worker` |
+| Research runs | `research-run` | `agent-worker` |
+| BFF jobs | `bff-job` (the job kind in the input) | `bff-jobs` |
+
+Where sections 2 to 6 name `ingest_job_queue`, `claim_next` or a lane, they
+describe the claim queue Hatchet replaced. Its table is kept until the cutover
+drains it, and a later migration drops it; what it held at the cutover is
+re-dispatched to Hatchet.
+
+```mermaid
+flowchart LR
+  IN[/v1/ingest/] --> H[Hatchet engine<br/>background-work-pg] --> HW[ingest-document task] --> PL[the per-file pipeline]
+  PL --> ST[POST /api/internal/ingest/settled]
+  ST --> RC[reconcile, then document_ingest_finished]
+```
+
+How Hatchet holds it:
+
+- **The pipeline is the same code.** Section 3 runs unchanged; only a thin layer
+  registers it as the `ingest-document` task, and the pipeline never imports
+  `hatchet_sdk`.
+- **Fairness is a concurrency strategy.** `GROUP_ROUND_ROBIN` keyed on
+  `input.organization_id` replaces the lane order of section 6, and Hatchet run
+  priority replaces `interactive` before `bulk`.
+- **Retries are the engine's.** A failed attempt is retried with backoff and its
+  error is kept on the run, instead of waiting for the BFF sweep.
+- **The input carries ids, the priority and the encrypted payload** (`JOB_PAYLOAD_KEK`),
+  never document text or file names.
+- **The vision ceiling stays the Dragonfly pool** until page reading is its own task.
+  A Hatchet concurrency key holds only inside one task definition
+  (hatchet-dev/hatchet#4237), so a constant-key cap must sit on the task that makes
+  every vision call.
+
+A job that reaches a terminal status calls
+`POST /api/internal/ingest/settled` with its job id. The BFF runs its reconcile for
+those documents at once, which emits `document_ingest_finished` with `settled_by:
+push`. The call is best effort: when it fails, the next read or the sweep settles the
+document as before (`settled_by: read` or `sweep`).
+
+## 8. The code, by question
 
 | Question | Where |
 |---|---|
 | Why did this file fail? | `documents.ingest_error`, the job's `file_details`, `[ingest-perf]` and the worker log for the job id |
 | Why is this page missing from search? | page triage (`page_triage.classify_page`), the render cap (`MAX_RENDERED_PAGES`), a skipped vision or OCR call (warning in the log only) |
 | What did it cost? | `llm_usage_events` where `activity = 'ingest'` and the job id |
-| Who decides the order of jobs? | `agent.knowledge.ingest_queue.claim_next`, ADR-0076 and ADR-0079 |
+| Who decides the order of jobs? | The `ingest-document` task's concurrency strategy and run priority, ADR-0150; for rows left in `ingest_job_queue` until the cutover drains it, `agent.knowledge.ingest_queue.claim_next` (ADR-0076) |
+| Where is the Hatchet client? | `agent.common.orchestrator_client.client`, ADR-0150; runbook `docs/deployment/hatchet.md` |
 | Where is the vision prompt? | `visual_analysis.build_prompt` over `visual_domains` |
 | What runs after a document settles? | `apps/workspace/bff/upload-batches/settle.ts` (`onDocumentsSettled`) |

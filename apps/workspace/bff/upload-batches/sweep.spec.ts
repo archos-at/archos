@@ -90,7 +90,7 @@ describe('sweepUploadBatches', () => {
 
     const result = await sweepUploadBatches(NOW)
 
-    expect(reconcileDocumentStatuses).toHaveBeenCalledWith([reading], 'org-1')
+    expect(reconcileDocumentStatuses).toHaveBeenCalledWith([reading], 'org-1', 'sweep')
     expect(settleUploadBatches).toHaveBeenCalledWith('org-1', ['b1'])
     expect(result).toMatchObject({ completed: 1, failed: 0 })
   })

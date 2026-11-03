@@ -472,7 +472,7 @@ class IngestionJobStatus(BaseModel):
     reader_version: str | None = Field(
         None,
         description=(
-            "The extraction logic that read the files (`knowledge_layer.reader_version."
+            "The extraction logic that read the files (`knowledge_layer.ingest.reader_version."
             "INGEST_READER_VERSION`), stamped when a worker starts the job. A file that failed "
             "`deterministic` under one reader may read under a newer one. Null until the job runs."
         ),

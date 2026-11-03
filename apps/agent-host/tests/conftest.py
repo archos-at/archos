@@ -11,8 +11,8 @@ import types
 from pathlib import Path
 
 import pytest
-from knowledge_layer_testing.qdrant_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
-from knowledge_layer_testing.qdrant_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
+from knowledge_layer_testing.vector_store_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
+from knowledge_layer_testing.vector_store_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
 
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
 _PKG_DIR = _SRC_ROOT / "agent_host"
@@ -52,3 +52,28 @@ def _no_live_decisions(monkeypatch):
     test's fixtures to the live endpoint.
     """
     monkeypatch.setenv("DECISIONS_ENABLED", "false")
+
+
+#: A fixed test key: a research submit sends only ciphertext to Hatchet, so it needs one.
+_TEST_KEK = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+
+@pytest.fixture(autouse=True)
+def hatchet(monkeypatch):
+    """Every test runs research on a fake Hatchet (ADR-0150): no engine is reachable here.
+
+    A test that asserts what was handed to the SDK asks for this fixture by name.
+    A test of the no-key path deletes ``JOB_PAYLOAD_KEK`` itself.
+    """
+    from agent.common import orchestrator_client
+    from agent_host.jobs import research_workflow
+
+    from .orchestrator_fake import FakeHatchet
+
+    monkeypatch.setenv("JOB_PAYLOAD_KEK", _TEST_KEK)
+    fake = FakeHatchet()
+    orchestrator_client.reset_for_tests(fake)
+    research_workflow._declared.clear()
+    yield fake
+    orchestrator_client.reset_for_tests(None)
+    research_workflow._declared.clear()

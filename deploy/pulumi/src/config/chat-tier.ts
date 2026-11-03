@@ -82,8 +82,8 @@ export interface AgentWorkerConfig {
   /** Concurrent research jobs per worker process (RESEARCH_WORKERS); also KEDA's jobs-per-replica target. */
   concurrency: number;
   /**
-   * Seconds a terminating worker may spend finishing the research jobs it has
-   * already claimed (`RESEARCH_WORKER_DRAIN_SECONDS`). The pod's
+   * Seconds a terminating worker may spend finishing the research runs it
+   * holds (the Hatchet SDK waits for them on SIGTERM). The pod's
    * `terminationGracePeriodSeconds` is this plus 30 s, so the worker has time
    * to give back what it did not finish before the kubelet SIGKILLs it.
    *
