@@ -57,8 +57,14 @@ Behörde, Statik oder Bauherrschaft schreiben: die Antworten landen im
 E-Mail-Eingang.“, „Leiten Sie Unterlagen aus Ihrem Mailprogramm an sie
 weiter.“, „Abgelegt wird erst, was jemand bestätigt.“ Then the address with
 „Kopieren“ (`CopyableValue`), „Als Kontakt sichern“ (a vCard), when mail last
-arrived, how many automatic replies were dropped in 30 days, and „Anleitung“
-(the help page, `/e-mail-eingang/`, `/en/project-mail/`).
+arrived, how many automatic replies were dropped in 30 days, the size line
+„Bis 25 MB pro E-Mail, Anhänge zusammen bis etwa 18 MB. Größere Dateien direkt
+hochladen“ (the link goes to Dateien and closes the dialog; the overview tile
+carries the same line), and „Anleitung“ (the help page, `/e-mail-eingang/`,
+`/en/project-mail/`). Every number of days or bytes in this copy is a
+placeholder filled from `inbound-mail-vocabulary.ts` (`INBOUND_MAIL_RESTORE_DAYS`,
+`INBOUND_MAIL_STALE_DATE_DAYS`, `INBOUND_MAIL_ADDRESS_STATS_DAYS`,
+`INBOUND_MAIL_MAX_MESSAGE_BYTES`), so the words cannot drift from the rule.
 
 The office's own DKIM line („{n} % der E-Mails Ihres Büros der letzten 30 Tage
 waren von Ihrer Domain bestätigt“, or „Ihre Domain signiert ihre E-Mails nicht

@@ -333,6 +333,33 @@ export type InboundMailMessageText = (typeof INBOUND_MAIL_MESSAGE_TEXTS)[number]
 export const INBOUND_MAIL_WAIT_DAYS = 30
 /** How long a dismissed or expired part can be restored (D8). */
 export const INBOUND_MAIL_RESTORE_DAYS = 7
+/** A verified mail whose signed Date is more than this many days before receipt is `stale_date` (`./sender-auth`). */
+export const INBOUND_MAIL_STALE_DATE_DAYS = 7
+/**
+ * The window the address's figures look back over: the automatic mail dropped
+ * unseen, and the share of the office's own mail its domain signed
+ * (`./repository`, `droppedLast30Days`, `ownDomainVerifiedShare`).
+ */
+export const INBOUND_MAIL_ADDRESS_STATS_DAYS = 30
+
+// ------------------------------------------------------------ size
+
+/**
+ * The largest mail a project address takes, as the sender's server sends it
+ * (headers, text and every attachment, base64-encoded): 25 MiB, the most
+ * Cloudflare Email Routing hands the Worker (ADR-0138). The webhook's bound
+ * (`MAX_RAW_MESSAGE_BYTES` in `./contract`, 26 MiB) and Envoy's (27 MiB) sit
+ * above it, so this is the limit a person meets; the UI states it beside the
+ * address and offers the upload for anything larger.
+ */
+export const INBOUND_MAIL_MAX_MESSAGE_BYTES = 25 * 1024 * 1024
+
+/**
+ * How much of {@link INBOUND_MAIL_MAX_MESSAGE_BYTES} attachments can fill:
+ * base64 sends three bytes as four, so about three quarters of it. What the UI
+ * tells a person who wants to know whether their file fits.
+ */
+export const INBOUND_MAIL_MAX_ATTACHMENT_BYTES = Math.floor((INBOUND_MAIL_MAX_MESSAGE_BYTES * 3) / 4)
 
 // ------------------------------------------------------------ object keys
 

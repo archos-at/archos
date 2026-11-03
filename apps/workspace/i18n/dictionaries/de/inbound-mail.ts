@@ -32,7 +32,7 @@ export const inboundMail: typeof en.inboundMail = {
     doneText: 'Neue E-Mails an die E-Mail-Adresse des Projekts erscheinen hier.',
     showHandled: 'Bearbeitete anzeigen',
     handledTitle: 'Noch nichts bearbeitet',
-    handledText: 'Abgelegte, verworfene und abgelaufene E-Mails stehen hier noch sieben Tage nach ihrem letzten Teil.',
+    handledText: 'Abgelegte, verworfene und abgelaufene E-Mails stehen hier noch {days, plural, one {# Tag} other {# Tage}} nach ihrem letzten Teil.',
   },
 
   loadError: 'Der E-Mail-Eingang konnte nicht geladen werden.',
@@ -114,7 +114,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   flags: {
     not_addressed_to_project: 'An andere Empfänger adressiert',
-    stale_date: 'Datum liegt mehr als 7 Tage vor dem Eingang',
+    stale_date: 'Datum liegt mehr als {days, plural, one {# Tag} other {# Tage}} vor dem Eingang',
     date_out_of_range: 'Datum liegt außerhalb des erwarteten Zeitraums; es gilt der Eingang',
     already_filed: 'Liegt schon in einem E-Mail-Verlauf',
   },
@@ -204,7 +204,7 @@ export const inboundMail: typeof en.inboundMail = {
       sender_not_verified: 'Verweist auf den E-Mail-Verlauf, aber die Domain des Absenders ist nicht bestätigt',
       header_not_signed: 'Der Verweis auf den E-Mail-Verlauf ist nicht von der Domain signiert',
       not_addressed_to_project: 'Die E-Mail ist an andere Empfänger adressiert',
-      stale_date: 'Das Datum der E-Mail liegt mehr als 7 Tage zurück',
+      stale_date: 'Das Datum der E-Mail liegt mehr als {days, plural, one {# Tag} other {# Tage}} zurück',
       date_out_of_range: 'Das Datum der E-Mail ist nicht plausibel',
       claims_member_name: 'Der Name gehört einem Mitglied, die Adresse nicht',
     },
@@ -378,7 +378,7 @@ export const inboundMail: typeof en.inboundMail = {
     confirm: 'Ablegen',
     cancel: 'Abbrechen',
     dismissTitle: '{count, plural, one {# E-Mail verwerfen?} other {# E-Mails verwerfen?}}',
-    dismissText: 'Verworfene E-Mails lassen sich 7 Tage lang wiederherstellen.',
+    dismissText: 'Verworfene E-Mails lassen sich {days, plural, one {# Tag} other {# Tage}} lang wiederherstellen.',
     dismissConfirm: 'Verwerfen',
   },
 
@@ -449,8 +449,10 @@ export const inboundMail: typeof en.inboundMail = {
     loadError: 'Die E-Mail-Adresse des Projekts konnte nicht geladen werden.',
     lastReceived: 'Zuletzt eingegangen {time}',
     nothingReceived: 'Noch keine E-Mail eingegangen',
+    sizeLimit: 'Bis {limit} MB pro E-Mail, Anhänge zusammen bis etwa {attachments} MB.',
+    uploadInstead: 'Größere Dateien direkt hochladen',
     dropped:
-      '{count, plural, one {# automatische Antwort oder Zustellbericht in den letzten 30 Tagen, nicht angezeigt} other {# automatische Antworten oder Zustellberichte in den letzten 30 Tagen, nicht angezeigt}}',
+      '{count, plural, one {# automatische Antwort oder Zustellbericht in den letzten {days} Tagen, nicht angezeigt} other {# automatische Antworten oder Zustellberichte in den letzten {days} Tagen, nicht angezeigt}}',
     rotate: 'Neue Adresse erzeugen …',
     rotateTitle: 'Neue Adresse erzeugen?',
     rotateText:
@@ -465,7 +467,7 @@ export const inboundMail: typeof en.inboundMail = {
     switchedOff: 'E-Mail-Adresse des Projekts ausgeschaltet',
     created: 'E-Mail-Adresse des Projekts erzeugt',
     ownDomain: {
-      share: '{percent} % der E-Mails Ihres Büros der letzten 30 Tage waren von Ihrer Domain bestätigt',
+      share: '{percent} % der E-Mails Ihres Büros der letzten {days} Tage waren von Ihrer Domain bestätigt',
       missing: 'Ihre Domain signiert ihre E-Mails nicht – so richten Sie es ein',
       explain:
         'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“. Nicht signierte E-Mails Ihrer Kolleginnen und Kollegen brauchen vor dem Ablegen eine Bestätigung.',

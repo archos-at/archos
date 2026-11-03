@@ -14,6 +14,7 @@
 import type { JSX } from 'react'
 import { ExternalLink, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { useLocale, useTranslations } from '@/i18n'
+import { INBOUND_MAIL_ADDRESS_STATS_DAYS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { cn } from '@/lib/utils'
 import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
 
@@ -46,7 +47,7 @@ export function OwnDomainDkimLine({ share, className }: { share: number | null; 
     <div className={cn('flex flex-col gap-0.5', className)} data-testid="own-domain-dkim" data-state="share">
       <p className="text-muted-foreground flex items-start gap-1.5 text-xs leading-snug">
         <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden />
-        <span>{t('address.ownDomain.share', { percent })}</span>
+        <span>{t('address.ownDomain.share', { percent, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</span>
       </p>
       {clamped < 1 && <p className="text-muted-foreground pl-5 text-xs leading-snug">{t('address.ownDomain.explain')}</p>}
     </div>

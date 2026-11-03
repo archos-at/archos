@@ -257,6 +257,38 @@ describe('InboundMailDetail', () => {
     expect(own).toHaveTextContent('<img src=x onerror="alert(1)">')
   })
 
+  // ADR-0137, amendment of 2026-11-03: the approval view shows the extracted text and the list of attachments, never the rendered HTML.
+  it('shows the extracted text and the attachment list, and no element of the mail’s markup anywhere', () => {
+    const fixture = DETAIL_VARIANTS['external-unverified']
+    const hostile = '<script>window.pwned = 1</script><style>body{display:none}</style><iframe src="https://evil.example"></iframe><img src="https://track.example/p.gif" width="1" height="1">'
+    const { container } = render(
+      <InboundMailDetail
+        projectId={PROJECT_ID}
+        mailId={fixture.view.id}
+        initial={fixture.view}
+        initialText={text({
+          ownText: `Guten Tag,\n${hostile}\nanbei das Angebot.`,
+          quoted: [{ header: `Am 1.10. schrieb <b>X</b>:`, text: hostile }],
+          calendar: [{ summary: '<script>alert(1)</script>', start: null, end: null, allDay: false, location: '<img src=x>', status: null }],
+        })}
+        folders={FOLDERS}
+        client={fixtureClient({ detail: fixture })}
+        onChanged={vi.fn()}
+        now={FIXTURE_NOW}
+      />
+    )
+    // Nothing the mail wrote became an element: not in the text, the quote's header, the invitation, or anywhere else in the view.
+    expect(container.querySelector('script, style, iframe, object, embed, b')).toBeNull()
+    expect(container.querySelector('img[src*="track.example"], img[src="x"], iframe[src*="evil.example"]')).toBeNull()
+    expect((window as unknown as { pwned?: number }).pwned).toBeUndefined()
+    // The extracted text is printed as the text it is.
+    expect(screen.getByTestId('mail-text-own')).toHaveTextContent('<script>window.pwned = 1</script>')
+    // And each attachment is listed by name, type and size.
+    const attachment = screen.getByRole('checkbox', { name: /Angebot_2026\.pdf/ }).closest('li, div[class]')?.parentElement as HTMLElement
+    expect(attachment).toHaveTextContent('Angebot_2026.pdf')
+    expect(attachment).toHaveTextContent(/PDF · 1[.,]\d+ MB/)
+  })
+
   it('files a text with findings masked by default, whole when chosen', async () => {
     const client = fixtureClient({ detail: DETAIL_VARIANTS['content-finding'] })
     const file = vi.spyOn(client, 'file')

@@ -71,6 +71,7 @@ import { addressParser } from 'postal-mime'
 import { clampSentAt } from '@/lib/mail-thread/mail-threading'
 import { asciiLower, parseInboundAddress } from './address'
 import type { InboundSenderTrust, SenderFlag, SenderReason } from './contract'
+import { INBOUND_MAIL_STALE_DATE_DAYS } from './inbound-mail-vocabulary'
 import { headerValue, parseDateHeader, rawHeaderFields, type HeaderField } from './mime'
 
 /** RFC 5322 §3.6: fields a message carries at most once. */
@@ -105,8 +106,8 @@ export const MAX_EVIDENCE_LENGTH = 4096
 /** A member's own Bcc copy: its signed Date is at most this far from receipt. */
 export const BCC_WINDOW_MS = 24 * 60 * 60 * 1000
 
-/** A signed Date older than this before receipt is `stale_date`. */
-export const STALE_DATE_MS = 7 * 24 * 60 * 60 * 1000
+/** A signed Date older than this before receipt is `stale_date`; the UI's copy reads the same constant. */
+export const STALE_DATE_MS = INBOUND_MAIL_STALE_DATE_DAYS * 24 * 60 * 60 * 1000
 
 /** RFC 5321 dot-atom local part and an LDH domain, ASCII only. */
 const ASCII_ADDRESS = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/

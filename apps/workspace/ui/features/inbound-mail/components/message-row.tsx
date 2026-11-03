@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { FolderPickerSheet } from '@/features/documents/components/folder-picker-sheet'
 import { useTranslations } from '@/i18n'
 import { INBOUND_MAIL_FILE_NAME_MAX, type InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
+import { INBOUND_MAIL_STALE_DATE_DAYS } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { cn } from '@/lib/utils'
 import {
   appendNeedsAcknowledgement,
@@ -159,7 +160,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
                   ) : (
                     candidate.blocks.map((block) => (
                       <span key={block} className={cn('text-xs', block === 'weak_match' ? 'text-muted-foreground' : 'text-foreground font-medium')}>
-                        {t(`message.blocks.${block}`)}
+                        {t(`message.blocks.${block}`, { days: INBOUND_MAIL_STALE_DATE_DAYS })}
                       </span>
                     ))
                   )}
