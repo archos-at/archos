@@ -26,7 +26,6 @@ their own namespaces.
 | `bff-jobs` (the BFF's background pool: reindex, rescan, IFC, rendition, report filing; no Service, no route) | Deployment + KEDA ScaledObject | `bffJobsMinReplicas`→`bffJobsMaxReplicas` (default 1→4; prod 1→4, dev 0→2) | — | Horizontally, on the `bff-job` backlog in Hatchet (§6.3c) |
 | KEDA (`keda` namespace) | Helm release, chart pinned to the release the plan's CRDs are validated against | 1 operator | — | n/a; what it may read and reach is §6.3d |
 | `purger` | Deployment | 1 | — | n/a (SKIP LOCKED-safe) |
-| `skill-scheduler` | Deployment (always; fires every due schedule — the BFF skips one whose organization lacks the `skills` flag — and drives the run reconciler) | 1 | — | n/a (DB-claimed ticks) |
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
@@ -74,7 +73,7 @@ Two credentials, and they are not interchangeable:
 | Role | Used by | Can do |
 |------|---------|--------|
 | `aiq` (the application user, `pgAppUser`) | the migration Job only | owns the schema; DDL and backfills. Row-level security does **not** apply to a table's owner — that is what makes a backfill touch rows instead of silently touching none. |
-| `app_rw` | every serving container: frontend, purger, scheduler | DML only. No DDL, no `CREATEROLE`, no `BYPASSRLS`, and subject to every policy. |
+| `app_rw` | every serving container: frontend, bff-jobs, purger | DML only. No DDL, no `CREATEROLE`, no `BYPASSRLS`, and subject to every policy. |
 
 The three roles are declared on the CloudNativePG `Cluster` under
 `spec.managed.roles`, not created by a migration. That is not a preference:
@@ -1405,8 +1404,8 @@ a project a slice at a time; the other three are one step each:
   `queued` after the queue gave up. A step whose failure a retry would not
   change (a converter that refuses the file, a requester who may no longer
   file) says so on the row and finishes.
-- **A sweep recovers what predates the jobs.** The scheduler worker calls
-  `POST /api/internal/maintenance/reconcile-background-work` on every tick: a
+- **A sweep recovers what predates the jobs.** The `reconcile-background-work` Hatchet task of
+  the bff-jobs worker (`bff/scheduling/sweeps.ts`) runs every minute: a
   document at `processing` for 15 minutes with no live job gets a new `bulk`
   one, a document whose job is dead is failed with its reason, and a report
   filing `queued` for 15 minutes whose job is gone ends as `filed` (the report
@@ -1950,7 +1949,7 @@ find, because a from-scratch plan cannot show them:
   not be specified when strategy type is 'Recreate'`. Use `surgeRollout`
   instead, or clear the defaulted field first with
   `kubectl -n grid patch deploy <name> --type=json -p '[{"op":"remove","path":"/spec/strategy/rollingUpdate"}]'`.
-  Only purger and skill-scheduler use `Recreate`, and both were already on it.
+  Only the purger uses `Recreate`, and it was already on it.
 
 **Verifying a rollout**
 
@@ -1991,7 +1990,7 @@ incident.
 | `container-resources-bounded` | mandatory | a container missing CPU/memory requests or limits (autoscaler prerequisite, §1) |
 | `moving-tag-must-repull` | mandatory | a `latest`/untagged image without `imagePullPolicy: Always` |
 | `prefer-immutable-image-tags` | advisory | any moving tag (currently: the app images on the stack default, SeaweedFS, Dragonfly) |
-| `workload-health-probes` | advisory | a container with no probe at all (purger + scheduler are the accepted exceptions) |
+| `workload-health-probes` | advisory | a container with no probe at all (the purger is the accepted exception) |
 
 A `mandatory` violation fails the plan **before anything touches the cluster**.
 Helm-rendered charts (cert-manager, Envoy Gateway, CNPG) arrive as a single
@@ -2234,7 +2233,7 @@ backend-chat and grid-agent-worker (the agent runtime's tracing exporter); the B
 no trace provider (below); logs from all five tiers - the Python tiers via the
 `otelcollector_logs` logging method
 (`packages/agent/src/agent/observability/otlp_logging_method.py`, attaches to the root
-logger) and the Node tiers (grid-ui, skill-scheduler, purger) via the
+logger) and the Node tiers (grid-ui, bff-jobs, purger) via the
 `apps/workspace/observability/otel-logs.js` console bridge. **Metrics, every
 one of them, to PostHog Metrics** ([ADR-0119](../adr/0119-every-metric-goes-to-posthog-through-the-collector.md),
 [`observability/metrics.md`](../observability/metrics.md) for the catalogue):
@@ -2271,7 +2270,7 @@ scraped series also carry `service.name` (the tier, or the scraped workload's
 their `k8s.*` resource attributes instead.
 
 ```text
-grid-ui / backend-chat / grid-agent-worker / grid-skill-scheduler / grid-purger
+grid-ui / backend-chat / grid-agent-worker / grid-bff-jobs / grid-purger
         │  plain OTLP (in-cluster, no key): traces, logs, metrics
         ▼
   otel-collector ──▶ traces  ──▶ Langfuse

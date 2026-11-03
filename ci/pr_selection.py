@@ -182,7 +182,6 @@ _VITEST_INCLUDE = (
     "tests/**/*.test.ts",
     "tests/**/*.test.tsx",
     "purger/**/*.spec.mjs",
-    "scheduler/**/*.spec.mjs",
     "observability/**/*.spec.mjs",
     "workers/**/*.spec.mjs",
     "scripts/**/*.spec.mjs",

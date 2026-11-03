@@ -227,11 +227,12 @@ describe("the program constructs in the split topology", () => {
     expect(value("BACKEND_CHAT_URL")).toBe("http://chat:8000");
   });
 
-  it("creates the scheduler, because it is the run reconciler's clock", () => {
-    // Runs exist without Agent Skills (an escalated chat question is a run with
-    // no definition), and the scheduler is what closes the ones whose ending
-    // never reached the BFF. Left out, those runs would read "running" forever.
-    expect(named("kubernetes:apps/v1:Deployment")).toContain("skill-scheduler");
+  it("creates no scheduler: firing schedules and the sweeps are bff-jobs' Hatchet tasks (ADR-0150)", () => {
+    // The run reconciler, which closes runs whose ending never reached the BFF,
+    // is the `runs-reconcile` task of the bff-jobs worker now.
+    const deployments = named("kubernetes:apps/v1:Deployment");
+    expect(deployments).not.toContain("skill-scheduler");
+    expect(deployments).toContain("bff-jobs");
   });
 
   it("exports the image refs it deployed, which the staging downgrade guard reads back", () => {

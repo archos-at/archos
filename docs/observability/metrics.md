@@ -48,7 +48,7 @@ collector, so nothing is exported there and every meter is a no-op.
 | `grid.boot.phase_seconds` | `role`, `phase` | How long a backend role took to become useful, by phase (`observability/boot_timing.py`, ADR-0082) |
 | `http.server.request.duration` | `http.request.method`, `http.response.status_code`, `grid.route.class` (`api`, `page`, `static`, `health`) | Every request the BFF gateway answers (`observability/http-metrics.js`) |
 | `grid.http.requests_in_flight`, `grid.http.request_seconds` | `role` (`chat`, `api`), `kind` (`request`, `stream`) | Every HTTP request the Python web roles hold (`agent_host/inflight.py`): what the api tier would scale on |
-| `nodejs.eventloop.delay.p99` | | Every Node process: the BFF, bff-jobs, the scheduler, the purger |
+| `nodejs.eventloop.delay.p99` | | Every Node process: the BFF, bff-jobs, the purger |
 | `process.memory.usage` | `process.memory.type` (`rss`, `heap_used`) | The same |
 
 ### The cluster
@@ -144,7 +144,7 @@ threshold changes in both.
 | Hintergrundjobs ([`cc8ZCJlX`](https://eu.posthog.com/project/269895/insights/cc8ZCJlX)) | A queue's oldest job waiting 30+ min for 15 min; any job moved to dead; any KEDA ScaledObject error (a trigger it cannot read); an HPA pinned at its maximum for 30 min |
 | Datenbanken ([`66kuIQ3u`](https://eu.posthog.com/project/269895/insights/66kuIQ3u)) | A Postgres exporter reporting down; a replica 60+ s behind for 15 min; PgBouncer clients waiting for 15 min; a Qdrant peer down for 15 min; the rate-limit or Langfuse Dragonfly over 90% of its memory (the cache evicts by design); the Langfuse queue evicting anything (lost traces) |
 | Anwendung ([`Z7X5CRIF`](https://eu.posthog.com/project/269895/insights/Z7X5CRIF)) | The BFF answering 5%+ with 5xx over an hour of 200+ requests; a Node event loop's p99 delay above 0.5 s for 15 min; 30+ provider 429s in an hour |
-| Telemetrie ([`CFVybMF0`](https://eu.posthog.com/project/269895/insights/CFVybMF0)) | No metric labelled `prod` from `grid-ui`, `grid-skill-scheduler` or `grid-purger` in 20 min; one of them silent for 20 min after it had sent; cluster state silent for 20 min; a node the cluster lists whose agent is silent |
+| Telemetrie ([`CFVybMF0`](https://eu.posthog.com/project/269895/insights/CFVybMF0)) | No metric labelled `prod` from `grid-ui`, `grid-bff-jobs` or `grid-purger` in 20 min; one of them silent for 20 min after it had sent; cluster state silent for 20 min; a node the cluster lists whose agent is silent |
 
 Telemetrie is the area that reads silence as a failure. The others read a
 missing metric as healthy, so without it an exporter that died would look like

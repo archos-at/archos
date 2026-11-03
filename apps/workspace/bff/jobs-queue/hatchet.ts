@@ -1,6 +1,8 @@
 /**
  * The thin layer between the BFF's jobs and the Hatchet SDK (ADR-0150): the only
- * module under `jobs-queue/` that imports `@hatchet-dev/typescript-sdk`.
+ * module under `jobs-queue/` that imports `@hatchet-dev/typescript-sdk`, and the
+ * owner of the process's one SDK client ({@link hatchetClient}), which
+ * `bff/scheduling/` uses too.
  *
  * It declares the `bff-job` task from `./hatchet-task.ts`'s spec, triggers it
  * for an enqueue (`./enqueue.ts`), and starts the worker and the dispatch sweep
@@ -20,6 +22,7 @@
 import 'server-only'
 import {
   ConcurrencyLimitStrategy,
+  type CreateWorkerOpts,
   HatchetClient,
   IdempotencyCollisionError,
   NonRetryableError,
@@ -77,11 +80,23 @@ export interface BffJobWorker {
 /** The slice of the SDK client this module uses; specs hand in a fake here, and only here. */
 export interface HatchetLike<D extends BffJobDeclaration = BffJobDeclaration> {
   task(options: BffJobTaskOptions): D
-  worker(name: string, options: { slots: number; handleKill: false; workflows: D[] }): Promise<BffJobWorker>
+  /** `workflows`: `bff-job`, then whatever else the pod runs (`bff/scheduling/tasks.ts`). */
+  worker(name: string, options: { slots: number; handleKill: false; workflows: Array<D | WorkerWorkflow> }): Promise<BffJobWorker>
+}
+
+/** A declaration the worker also registers, as the SDK's `worker()` takes it. */
+export type WorkerWorkflow = NonNullable<CreateWorkerOpts['workflows']>[number]
+
+let sdk: HatchetClient | null = null
+
+/** The process's one Hatchet client, from the SDK's standard environment. */
+export function hatchetClient(): HatchetClient {
+  sdk ??= HatchetClient.init()
+  return sdk
 }
 
 function sdkClient(): HatchetLike<TaskWorkflowDeclaration<BffJobTaskInput, BffJobTaskOutput>> {
-  const hatchet = HatchetClient.init()
+  const hatchet = hatchetClient()
   return {
     task: (options) => hatchet.task<BffJobTaskInput, BffJobTaskOutput>(options),
     worker: (name, options) => hatchet.worker(name, options),
@@ -189,18 +204,20 @@ export function triggerBffJob(input: BffJobTaskInput, options: { notBefore?: Dat
 const SWEEP_EVERY_MS = 60_000
 
 /**
- * Register `bff-job` on a worker, start it, and start the dispatch sweep.
+ * Register `bff-job` (and `alsoRuns`, the scheduling tasks) on a worker, start
+ * it, and start the dispatch sweep.
  * `done` settles when the worker stops, or rejects when it could not run;
  * `stop` is the pod's drain. `handleKill: false`: the pod's own SIGTERM handler
  * orders the shutdown (`workers/jobs/index.js`), not the SDK.
  */
 export async function startBffJobWorker(
   name: string,
-  work: BffJobWork
+  work: BffJobWork,
+  alsoRuns: readonly WorkerWorkflow[] = []
 ): Promise<{ done: Promise<void>; stop: () => Promise<void> }> {
   installed = work
   const { client, declaration, runs, spec } = bffJobTask()
-  const worker = await client.worker(name, { slots: spec.slots, handleKill: false, workflows: [declaration] })
+  const worker = await client.worker(name, { slots: spec.slots, handleKill: false, workflows: [declaration, ...alsoRuns] })
   const done = worker.start()
   const sweep = async () => {
     try {

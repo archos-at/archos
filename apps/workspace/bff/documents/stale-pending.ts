@@ -8,7 +8,7 @@
  * window or behind 25 newer open ones, an office that went home) stayed
  * `pending` until somebody next opened its shelf: 6 hours in one office on
  * 2026-11-02, days in another on 2026-10-28. This is the clock behind them, run
- * from `POST /api/internal/maintenance/reconcile-background-work`.
+ * every minute by the `reconcile-background-work` Hatchet task (`bff/scheduling/sweeps.ts`).
  *
  * Safe from several replicas at once: a status write is guarded by the status it
  * read, and a settled row is never selected again.

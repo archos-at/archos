@@ -1,8 +1,8 @@
 # Piloti — Kubernetes deployment (Pulumi)
 
 TypeScript Pulumi program that deploys the entire Piloti stack to a Kubernetes
-cluster: the `aiq-agent` backend (the chat tier), the Next.js frontend/BFF, the purger and
-skill-scheduler workers, plus CloudNativePG Postgres, a Dragonfly cache, and
+cluster: the `aiq-agent` backend (the chat tier), the Next.js frontend/BFF, the purger,
+the bff-jobs workers, plus CloudNativePG Postgres, a Dragonfly cache, and
 SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic Let's Encrypt TLS.
 
 > Operator walkthrough (prereqs, DNS, day-2, scaling roadmap):
@@ -14,7 +14,7 @@ SeaweedFS object storage — behind Envoy Gateway (Gateway API) with automatic L
 |-------|-----------|
 | Platform | namespace `grid` (+ default-deny NetworkPolicies), cert-manager (Gateway-API) + Let's Encrypt `ClusterIssuer`, Envoy Gateway, observability (ADR-0029: `otel-collector` Deployment + Service + ConfigMap — only when `observabilityEnabled` **and** something consumes it: Langfuse, `posthogLogsEnabled` or `posthogMetricsEnabled`; with metrics, ADR-0119, an `otel-agent` DaemonSet and a read-only ServiceAccount and ClusterRole for each), Langfuse (ADR-0044: `langfuse-web` + `langfuse-worker` Deployments, `clickhouse` StatefulSet, a dedicated ingestion queue, HTTPRoute + SecurityPolicy — only when `langfuseEnabled` **and** its config deps are set; flag **on by default**), (metrics-server only on bare clusters) |
 | Data | CloudNativePG operator + `Cluster` (`jobs`, `checkpoints`, `app`) with optional PITR backups to SeaweedFS (`ScheduledBackup`), Dragonfly, SeaweedFS (one StatefulSet under `seaweedfsTopology=single`; master + volume + filer StatefulSets, and a `seaweedfs_filer` CNPG database + role, under `split`) + bucket-init Job, Qdrant, the one vector store (ADR-0115: `qdrant` StatefulSet + headless and ClusterIP Services + PDB + `qdrant-snapshot` CronJob + `qdrant-alert-rules` ConfigMap, always; operating it: [`qdrant-runbook.md`](../../docs/deployment/qdrant-runbook.md)). No Chroma: `chromaMigration` copies the retired store into Qdrant on the deploy that removes it, and its volume `data-chroma-0` is kept, unmanaged, as the way back |
-| App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, `skill-scheduler`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
+| App | `aiq-agent` StatefulSet (no PVC; +PDB/spread in db mode), `frontend` Deployment + HPA + PDB, `agent-worker` Deployment + HPA + PDB (db mode), `purger`, a one-shot `drizzle-kit migrate` Job, a one-shot WorkOS audit-schema reconcile Job (when `requireAuth`), the one-shot `chroma-migration` Job + its `chroma-migration-exporter` ConfigMap (only when `chromaMigration`) |
 | Edge | Gateway API (Envoy Gateway, HA: 2 replicas + PDB) + HTTPRoutes with cert-manager TLS for `app.<baseDomain>` and `s3.<baseDomain>` |
 | DNS | Cloudflare A records for exactly the Gateway's HTTPS listener hosts, plus optionally the zone-level `www` / `_dmarc` / apex-redirect records — only when `dnsEnabled` (off by default; records are otherwise maintained by hand) |
 

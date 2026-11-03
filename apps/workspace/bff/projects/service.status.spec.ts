@@ -23,7 +23,7 @@ vi.mock('./repository', () => ({
 }))
 
 const rearmOneShotsSkippedWhileParked = vi.fn(async () => 0)
-vi.mock('@/lib/tasks/repository', () => ({
+vi.mock('@/lib/scheduling/scheduled-runs', () => ({
   rearmOneShotsSkippedWhileParked: (...args: unknown[]) => rearmOneShotsSkippedWhileParked(...(args as [])),
 }))
 

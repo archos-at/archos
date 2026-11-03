@@ -8,7 +8,7 @@
  *   background → Hatchet (ADR-0150) on its own CloudNativePG cluster and RabbitMQ, in the
  *               `background-work` namespace: every background job runs there
  *   app       → chat (StatefulSet, the chat role), api (Deployment + HPA,
- *               the api role), each beside its legacy name until the switch, frontend (Deployment + HPA), purger, skill-scheduler, gotenberg (office
+ *               the api role), each beside its legacy name until the switch, frontend (Deployment + HPA), purger, gotenberg (office
  *               → PDF), a migration Job, a WorkOS audit-schema reconcile Job and,
  *               opt-in, the one-shot Chroma-to-Qdrant Job
  *   edge      → Gateway API (Envoy Gateway) + HTTPRoutes with cert-manager TLS,
@@ -280,7 +280,7 @@ if (cfg.auth.requireAuth) {
   reconcileAuditSchemas(wiring, cfg, secrets, [ns]);
 }
 
-// The purger, the scheduler and the sweep and housekeeping CronJobs. Ahead of
+// The purger and the sweep and housekeeping CronJobs. Ahead of
 // the tiers below only because the Chroma migration waits on two of them.
 const workers = installWorkers(wiring, cfg, secrets, [migrations]);
 
@@ -542,7 +542,6 @@ export const legacyApiService = legacyApi.service.metadata.name;
 export const frontendService = frontend.service.metadata.name;
 export const webService = web.service.metadata.name;
 export const purgerDeployment = workers.purger.metadata.name;
-export const schedulerDeployment = workers.scheduler.metadata.name;
 export const appRoute = routes.app.metadata.name;
 export const webRoute = routes.web.metadata.name;
 export const gatewayName = gatewayResources.gateway.metadata.name;

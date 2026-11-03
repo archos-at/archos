@@ -233,13 +233,13 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # scheduler's due-scan is the same shape over task_definitions, every tenant's.
 # `hatchet.integration.spec.ts` also needs an engine (HATCHET_CLIENT_TOKEN and
 # HATCHET_CLIENT_HOST_PORT, CI's hatchet-lite); without one it skips.
-echo "==> running the job-queue and scheduler-claim suites one file at a time as app_rw"
+echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run --no-file-parallelism \
     bff/jobs-queue/repository.integration.spec.ts \
     bff/jobs-queue/hatchet-run.integration.spec.ts \
     bff/jobs-queue/hatchet.integration.spec.ts \
-    scheduler/db.integration.spec.mjs
+    bff/scheduling/repository.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on

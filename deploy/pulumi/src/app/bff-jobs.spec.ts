@@ -156,6 +156,18 @@ describe("the bff-jobs pool", () => {
     expect(names).toEqual(expect.arrayContaining(["APP_DATABASE_URL", "HATCHET_CLIENT_TOKEN", "HATCHET_CLIENT_HOST_PORT"]));
   });
 
+  it("carries what the scheduling tasks read: run retention, and Langfuse's API for the trace sweeps", () => {
+    // The names `bff/scheduling/sweeps.ts` reads, and the shared trace client's window.
+    const sweeps = read("apps", "workspace", "bff", "scheduling", "sweeps.ts") + read("apps", "workspace", "workers", "langfuse-traces.js")
+    for (const name of ["SKILL_RUNS_RETENTION_DAYS", "TRACE_RETENTION_DAYS", "LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"]) {
+      expect(sweeps).toContain(name);
+    }
+    const names = env.map((e) => e.name);
+    expect(names).toContain("SKILL_RUNS_RETENTION_DAYS");
+    // Once each: the frontend's Langfuse settings are withheld and the API keys added back on their own.
+    expect(names.filter((name) => name === "LANGFUSE_HOST")).toHaveLength(names.includes("TRACE_RETENTION_DAYS") ? 1 : 0);
+  });
+
   it("sets no host mode: the pod runs the Hatchet worker in process, always (ADR-0150)", () => {
     expect(env.find((e) => e.name === "BFF_JOBS_MODE")).toBeUndefined();
   });

@@ -113,13 +113,19 @@ export const taskDefinitions = pgTable(
     scheduleCron: text('schedule_cron'),
     scheduleTimezone: text('schedule_timezone').notNull().default('UTC'),
     /**
-     * When the due scan should next look at this row — the one column the
-     * scheduler's claim reads, for every trigger (`idx_task_definitions_due`,
-     * migration 0090). The cron's next occurrence on a `schedule`, the `due_at`
-     * on a pending `once`, and NULL on a `manual` one, on anything paused, and
-     * on a one-shot the scheduler has already claimed.
+     * When this row is next due, for every trigger: the time its Hatchet
+     * scheduled run fires at, and the value a fire must find to record
+     * anything (`advanceDueDefinition`). The cron's next occurrence on a
+     * `schedule`, the `due_at` on a pending `once`, and NULL on a `manual` one,
+     * on anything paused, and on a one-shot that has already fired.
      */
     nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+    /**
+     * The Hatchet scheduled run that fires this definition at `next_run_at`
+     * (migration 0192, `bff/scheduling/scheduled-runs.ts`). NULL when none is
+     * known; the repair sweep gives an overdue row one.
+     */
+    scheduledRunId: text('scheduled_run_id'),
     /** When a `once` definition is wanted. NULL = immediately (a delegation). */
     dueAt: timestamp('due_at', { withTimezone: true }),
     /**
@@ -152,7 +158,7 @@ export const taskDefinitions = pgTable(
     // (next_run_at) WHERE enabled AND next_run_at IS NOT NULL is a PARTIAL
     // index the drizzle builder cannot express; it lives in migration 0086 and
     // was widened in 0090, the way `idx_jobs_due` lives in 0043. It backs the
-    // scheduler's claim, for recurring tasks and one-shots alike.
+    // repair sweep (`schedule-repair`), for recurring tasks and one-shots alike.
     triggerKnown: check(
       'task_definitions_trigger_known',
       sql`${table.trigger} IN ('manual', 'once', 'schedule')`

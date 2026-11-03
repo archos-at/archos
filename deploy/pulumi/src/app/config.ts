@@ -674,44 +674,6 @@ export function purgerEnv(w: AppWiring): EnvVar[] {
   ];
 }
 
-/**
- * Skill-scheduler worker environment.
- *
- * Every name here must match what `apps/workspace/scheduler/index.js` reads. It
- * did not: the worker moved to the `SKILL_*` names with Agent Skills and
- * this block kept emitting the `WORKFLOW_*` ones, so the container saw an
- * unset start gate and exited 0 as a no-op on every deployment.
- */
-export function schedulerEnv(w: AppWiring): EnvVar[] {
-  const { cfg } = w;
-  return [
-    sref("APP_DATABASE_URL"),
-    { name: "FRONTEND_INTERNAL_URL", value: `http://frontend:${PORT.frontend}` },
-    sref("INTERNAL_API_TOKEN"),
-    { name: "SKILL_SCHEDULER_POLL_MS", value: String(APP_DEFAULTS.schedulerPollMs) },
-    { name: "SKILL_SCHEDULER_BATCH", value: String(APP_DEFAULTS.schedulerBatch) },
-    { name: "SKILL_RUNS_RETENTION_DAYS", value: String(APP_DEFAULTS.skillRunsRetentionDays) },
-    // The daily Langfuse trace retention sweep (ADR-0044); a no-op without the keys.
-    ...(cfg.langfuse.enabled
-      ? [
-          ...langfuseApiEnv(cfg),
-          {
-            name: "TRACE_RETENTION_DAYS",
-            value: String(APP_DEFAULTS.langfuseTraceRetentionDays),
-          },
-        ]
-      : []),
-    // OTLP logs via the cluster collector (see frontendEnv for the gating
-    // rationale). Base URL - the JS exporter derives /v1/logs.
-    ...(cfg.observability.enabled
-      ? [
-          { name: "OTEL_SERVICE_NAME", value: "grid-skill-scheduler" },
-          { name: "OTEL_EXPORTER_OTLP_ENDPOINT", value: "http://otel-collector:4318" },
-        ]
-      : []),
-  ];
-}
-
 /** Minimal env for the drizzle migration Job. */
 export function migrationEnv(): EnvVar[] {
   // drizzle.config.ts prefers this over APP_DATABASE_URL: DDL needs the

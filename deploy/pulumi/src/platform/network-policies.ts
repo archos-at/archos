@@ -249,9 +249,10 @@ export function installNetworkPolicies(
       })
     : undefined;
 
-  // 11b. The purger and the skill-scheduler → Langfuse web, for its public API:
-  //     the purger deletes an erased chat's traces and the scheduler deletes the
-  //     ones past retention (ADR-0044; `workers/langfuse-traces.js`). Rule 2
+  // 11b. The purger and bff-jobs → Langfuse web, for its public API: the purger
+  //     deletes an erased chat's traces, and bff-jobs' Hatchet sweeps delete the
+  //     traces of chats the BFF erased and the ones past retention (ADR-0044,
+  //     ADR-0150; `workers/langfuse-traces.js`). Rule 2
   //     withholds the web tier from the wholesale allow, so each caller is named,
   //     as the collector is in rule 11. Deleting traces is theirs alone: the BFF
   //     (rule 11c) and the agent (rule 11d) write scores but delete nothing.
@@ -261,7 +262,7 @@ export function installNetworkPolicies(
         policyTypes: ["Ingress"],
         ingress: [
           {
-            from: ["purger", "skill-scheduler"].map((name) => ({
+            from: ["purger", "bff-jobs"].map((name) => ({
               podSelector: { matchLabels: { "app.kubernetes.io/name": name } },
             })),
             ports: [{ protocol: "TCP", port: PORT.langfuseWeb }],

@@ -13,6 +13,7 @@ import 'server-only'
 import { bootLine } from '@/lib/boot'
 import { bootstrapPlatformModelDefaults } from '@/lib/model-config/bootstrap-defaults'
 import { shutdownPosthogServer } from '@/lib/analytics/posthog-server'
+import { schedulingTasks } from '@/lib/scheduling/tasks'
 import { startBffJobWorker } from './hatchet'
 import { dispatchStrandedJobs, runBffJobTask } from './hatchet-run'
 
@@ -37,7 +38,11 @@ export async function shutdownSliceHost(): Promise<void> {
   await shutdownPosthogServer()
 }
 
-/** Start the Hatchet worker that runs `bff-job`, and the sweep that dispatches stranded rows. */
-export function startJobWorker(name: string) {
-  return startBffJobWorker(name, { run: runBffJobTask, sweep: dispatchStrandedJobs })
+/**
+ * Start the Hatchet worker that runs `bff-job` and the scheduling tasks (a
+ * definition's fire, the maintenance sweeps), and the sweep that dispatches
+ * stranded rows.
+ */
+export async function startJobWorker(name: string) {
+  return startBffJobWorker(name, { run: runBffJobTask, sweep: dispatchStrandedJobs }, schedulingTasks())
 }

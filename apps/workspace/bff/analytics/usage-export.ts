@@ -6,7 +6,7 @@
  * organization spent. Langfuse's export carries no organization and is not
  * reliable, and OpenRouter's warehouse source is the platform's own bill, so
  * neither can say what an office used. This sends the ledger itself, in two
- * streams, from the scheduler's clock (`POST /api/internal/analytics/usage-export`):
+ * streams, every ten minutes from the `usage-export` Hatchet task (`bff/scheduling/tasks.ts`):
  *
  * - **`llm_usage_hourly`**: one event per organization, closed UTC hour, model,
  *   activity, purpose, person, project and key, with the hour's calls, tokens,
@@ -275,7 +275,7 @@ export interface UsageExportResult {
 /**
  * One export run: the closed usage hours, then this hour's budget snapshots.
  * Throws when a send or a read failed, after giving the stream back unmoved,
- * so the scheduler's failure streak sees it.
+ * so the `usage-export` task's run records the failure.
  */
 export async function exportUsageToPosthog(now = new Date()): Promise<UsageExportResult> {
   const batch = createPosthogBatch()

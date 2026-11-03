@@ -32,7 +32,7 @@ somehow were.
 | Role | Who uses it | RLS | May do |
 |---|---|---|---|
 | the table owner (`aiq`) | drizzle migrations | **exempt** (owner) | DDL + DML |
-| `app_rw` | BFF, purger, scheduler | **enforced** | DML on granted tables |
+| `app_rw` | BFF, bff-jobs, purger | **enforced** | DML on granted tables |
 | `app_platform` | deliberate cross-tenant work | **bypassed** | DML on granted tables |
 
 The owner is exempt deliberately: with `FORCE ROW LEVEL SECURITY` a migration
@@ -203,7 +203,7 @@ Migrations and runtime use **different credentials**:
 
 | Variable | Role | Set on |
 |---|---|---|
-| `APP_DATABASE_URL` | `app_rw` | frontend, purger, skill-scheduler |
+| `APP_DATABASE_URL` | `app_rw` | frontend, bff-jobs, purger |
 | `APP_MIGRATION_DATABASE_URL` | the table owner (`aiq`) | the `migrate` service (compose) / the migration Job (Kubernetes) |
 
 `drizzle.config.ts` prefers the migration URL and falls back to the runtime one,
@@ -216,7 +216,7 @@ variable.
   `app_rw`'s password from `APP_DATABASE_URL` — one source of truth,
   no manual step. It runs in the one-shot `migrate` service **before**
   `drizzle-kit migrate`, because migration 0030 asserts the roles and aborts
-  without them. `frontend`, `purger` and `skill-scheduler` all wait on that
+  without them. `frontend`, `purger` and `bff-jobs` all wait on that
   service via `depends_on: service_completed_successfully`.
   `APP_RUNTIME_PASSWORD` only substitutes into the compose DSNs; the role's
   password follows the DSN, not the variable.

@@ -30,7 +30,6 @@ NVIDIA base-image removal — see §2, apart from the stock `qdrant/qdrant`,
 | `dragonfly` | Redis-protocol shared cache + conversation bus (ADR-0020/0028) | No (internal) |
 | `gotenberg` | Office → PDF converter (ADR-0070), called by the frontend BFF only — port 3000. Required: Word, presentation, `.xls` and `.ods` files are indexed from its PDF (ADR-0071) | No (internal) |
 | `purger` | Grace-period hard-delete worker | No |
-| `skill-scheduler` | Agent Skills cron scheduler (ADR-0046) | No |
 | `bff-jobs` | The BFF's background pool (ADR-0079): runs the BFF's jobs as `bff-job` runs on Hatchet (ADR-0150; `bff_job_queue` is kept until the cutover drains it): project reindex, failed-ingestion rescan, the sort of a shelf's root (`root_sort`, ADR-0121), the re-read of documents a folder restriction moved (`placement_reingest`), IFC model extraction (`bim_extract`), Office-to-PDF rendition through `gotenberg` (`office_rendition`) and the filing of a finished research report (`file_research_report`). `extends` the `frontend` service, so it shares its environment (`GOTENBERG_URL` included); publishes nothing. Without it none of those run: an uploaded IFC model never gets its structure, a Word or Excel file is never indexed from its PDF, a finished report is never filed, and a reindex or rescan stays queued | No (internal) |
 | `seaweedfs-init` | One-shot: creates the `grid-documents` bucket | No |
 
