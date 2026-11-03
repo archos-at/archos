@@ -1,13 +1,14 @@
 /**
  * How a tier reaches Hatchet (ADR-0150): the SDK's own environment, the same
- * four names for the Python SDK and the TypeScript one. Every tier built from
+ * names for the Python SDK and the TypeScript one, except the REST API's URL,
+ * which each SDK reads under its own name. Every tier built from
  * `backendEnv` (chat, api, the research and ingest workers, the housekeeping
  * Jobs) and from `frontendEnv` (the frontend, the bff-jobs pool) gets it: the
  * request tiers start runs, the worker tiers run them.
  */
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { HATCHET, HATCHET_GRPC_ADDRESS, HATCHET_TOKEN_SECRET } from "../platform/hatchet";
+import { HATCHET, HATCHET_API_URL, HATCHET_GRPC_ADDRESS, HATCHET_TOKEN_SECRET } from "../platform/hatchet";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -30,6 +31,11 @@ export function hatchetEnv(): EnvVar[] {
       valueFrom: { secretKeyRef: { name: HATCHET_TOKEN_SECRET, key: HATCHET.tokenKey, optional: true } },
     },
     { name: "HATCHET_CLIENT_HOST_PORT", value: HATCHET_GRPC_ADDRESS },
+    // The REST API (scheduled runs, crons, cancels, pauses). Without it both SDKs
+    // take the token's `server_url`, the dashboard's localhost, and every such
+    // call fails. Python reads the first name, TypeScript the second.
+    { name: "HATCHET_CLIENT_SERVER_URL", value: HATCHET_API_URL },
+    { name: "HATCHET_CLIENT_API_URL", value: HATCHET_API_URL },
     // Plaintext inside the cluster: the engine serves gRPC insecure (`grpcInsecure`).
     { name: "HATCHET_CLIENT_TLS_STRATEGY", value: "none" },
     { name: "HATCHET_CLIENT_NAMESPACE", value: hatchetNamespace() },

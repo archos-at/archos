@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { load } from "js-yaml";
 import { PROJECT } from "./src/names";
 import { baseStackConfig, forProject } from "./src/test-support/stack-config";
 
@@ -62,6 +63,9 @@ function find(type: string, name: string): Resource {
   if (!hit) throw new Error(`no ${type} named "${name}"`);
   return { ...hit, inputs: plain(hit.inputs) };
 }
+
+/** The chart's `hatchet-api` Service, `service.externalPort` 8080 (`charts/hatchet-api/values.yaml`). */
+const IN_CLUSTER_API = "http://hatchet-api.background-work.svc.cluster.local:8080";
 
 const RELEASE = "kubernetes:helm.sh/v3:Release";
 const CLUSTER = "kubernetes:postgresql.cnpg.io/v1:Cluster";
@@ -144,6 +148,14 @@ describe("the hatchet-ha release", () => {
       waitForJobs: true,
     });
     expect(values().sharedConfig.image.tag).toBe("v0.114.2");
+  });
+
+  it("keeps the dashboard's URL on localhost, which no client dials: each is given the in-cluster API", async () => {
+    // `serverUrl` is what the dashboard's links and cookie name, behind the
+    // port-forward, and what the engine stamps into every token as `server_url`.
+    expect(values().sharedConfig.serverUrl).toBe("http://localhost:8080");
+    const { HATCHET_API_URL } = await import("./src/platform/hatchet");
+    expect(HATCHET_API_URL).toBe(IN_CLUSTER_API);
   });
 
   it("runs two replicas of each backend component, with a PDB, spread across nodes and explicit resources", () => {
@@ -310,9 +322,33 @@ describe("the worker token", () => {
       expect(byName.HATCHET_CLIENT_HOST_PORT?.value, name).toBe("hatchet-grpc.background-work.svc.cluster.local:7070");
       expect(byName.HATCHET_CLIENT_TLS_STRATEGY?.value, name).toBe("none");
       expect(byName.HATCHET_CLIENT_NAMESPACE?.value, name).toBe("test");
+      // The REST API (scheduled runs, crons, cancels, pauses) under both SDKs'
+      // names: without them each falls back to the token's `server_url`, the
+      // port-forwarded dashboard on localhost, and every such call fails.
+      expect(byName.HATCHET_CLIENT_SERVER_URL?.value, name).toBe(IN_CLUSTER_API);
+      expect(byName.HATCHET_CLIENT_API_URL?.value, name).toBe(IN_CLUSTER_API);
       // No dual path: the orchestrator flags are gone.
       expect(Object.keys(byName).filter((k) => k.endsWith("_ORCHESTRATOR")), name).toEqual([]);
     }
+  });
+});
+
+describe("Compose's Hatchet clients", () => {
+  it("call the lite engine's API by its service name, not the token's localhost", () => {
+    type Service = { environment?: Record<string, string> | string[] };
+    const { services } = load(read("../compose/docker-compose.yaml")) as { services: Record<string, Service> };
+    const envOf = (service: Service): Record<string, string> =>
+      Array.isArray(service.environment)
+        ? Object.fromEntries(service.environment.map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]))
+        : // js-yaml 5 leaves a merge key (`<<: *backend-environment`) unresolved.
+          (({ "<<": merged, ...own }: Record<string, any>) => ({ ...merged, ...own }))(service.environment ?? {});
+    for (const name of ["chat", "api", "agent-worker", "ingest-worker", "frontend", "bff-jobs"]) {
+      const env = envOf(services[name]);
+      for (const key of ["HATCHET_CLIENT_SERVER_URL", "HATCHET_CLIENT_API_URL"]) {
+        expect(env[key], `${name} ${key}`).toBe(`\${${key}:-http://hatchet-lite:8888}`);
+      }
+    }
+    expect(services["hatchet-lite"]).toMatchObject({ ports: expect.arrayContaining(["8888:8888"]) });
   });
 });
 
@@ -335,6 +371,23 @@ describe("the background-work network policies", () => {
       for (const f of spec.ingress[0].from) expect(f.namespaceSelector.matchLabels["kubernetes.io/metadata.name"]).toBe(APP_NAMESPACE);
     }
     expect(HATCHET_CALLERS).toEqual(expect.arrayContaining(["ingest-worker", "agent-worker", "bff-jobs", "frontend", "aiq-api", "aiq-agent"]));
+  });
+
+  it("admit to the API every app workload that is told to call it", () => {
+    const admitted = new Set(
+      policy("allow-app-to-hatchet-api").spec.ingress[0].from.map((f: any) => f.podSelector.matchLabels["app.kubernetes.io/name"]),
+    );
+    const callers = RESOURCES.filter((r) => r.type === DEPLOYMENT || r.type === STATEFULSET)
+      .map((r) => find(r.type, r.name).inputs)
+      .filter((inputs) => inputs.metadata?.namespace === APP_NAMESPACE)
+      .filter((inputs) =>
+        (inputs.spec.template.spec.containers as Array<{ env?: Env[] }>).some((c) =>
+          (c.env ?? []).some((e) => e.name === "HATCHET_CLIENT_API_URL"),
+        ),
+      )
+      .map((inputs) => inputs.spec.template.metadata.labels["app.kubernetes.io/name"]);
+    expect(callers.length).toBeGreaterThanOrEqual(6);
+    expect(callers.filter((name) => !admitted.has(name))).toEqual([]);
   });
 
   it("admit the CloudNativePG operator and KEDA's operator to the cluster", () => {

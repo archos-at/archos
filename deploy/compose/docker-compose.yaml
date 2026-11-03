@@ -58,6 +58,11 @@ services:
       # is posthogEnv() in deploy/pulumi/src/app/config.ts.
       POSTHOG_HOST: ${POSTHOG_HOST:-}
       POSTHOG_PROJECT_TOKEN: ${POSTHOG_PROJECT_TOKEN:-}
+      # Hatchet's REST API (scheduled runs, cancels, pauses) by its service name.
+      # The lite engine's token says `server_url` http://localhost:8888, which
+      # inside this container is the container itself. Kubernetes: hatchetEnv().
+      HATCHET_CLIENT_SERVER_URL: ${HATCHET_CLIENT_SERVER_URL:-http://hatchet-lite:8888}
+      HATCHET_CLIENT_API_URL: ${HATCHET_CLIENT_API_URL:-http://hatchet-lite:8888}
       # Database config (with Docker defaults). Same split as Kubernetes
       # (ADR-0083): the first three go through the transaction pooler
       # (`pgbouncer`), and everything that needs ONE server connection across
@@ -627,6 +632,10 @@ services:
       # the api role serves no socket (ADR-0082).
       - BACKEND_URL=${BACKEND_URL:-http://api:8000}
       - BACKEND_CHAT_URL=${BACKEND_CHAT_URL:-http://chat:8000}
+      # Hatchet's REST API by its service name, not the token's localhost
+      # `server_url` (the backend's environment above says why).
+      - HATCHET_CLIENT_SERVER_URL=${HATCHET_CLIENT_SERVER_URL:-http://hatchet-lite:8888}
+      - HATCHET_CLIENT_API_URL=${HATCHET_CLIENT_API_URL:-http://hatchet-lite:8888}
       # Runtime connection: the least-privilege role, subject to row-level
       # security (ADR-0041). A repository that forgets its organization
       # predicate returns no rows instead of another tenant's.
