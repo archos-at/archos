@@ -6242,7 +6242,7 @@
       "post": {
         "operationId": "mail-import-complete",
         "summary": "Finish sending an Outlook archive",
-        "description": "Call once every part is sent: the parts are joined and the filing job is queued (HTTP 202). Answers the import with its status; follow it with mail-import-get. 409 if cancelled, or with `details.missingParts` (first 50) while parts are missing or mis-sized: resend them.",
+        "description": "Call once every part is sent: the parts are joined and the filing job is queued (HTTP 202). Answers the import with its status; follow it with mail-import-get. 409 if cancelled, or with `details.missingParts` (first 50): resend those parts.",
         "tags": [
           "documents"
         ],
@@ -6306,7 +6306,7 @@
       "get": {
         "operationId": "mail-import-list",
         "summary": "List a project’s mail imports",
-        "description": "The project's Outlook archive imports with their status and counts, newest first. Import ids feed mail-import-get and mail-import-cancel.",
+        "description": "The project's Outlook archive imports, newest first; ids feed mail-import-get and mail-import-cancel.",
         "tags": [
           "documents"
         ],
@@ -6326,8 +6326,10 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "Default 20, max 50.",
               "type": "integer",
-              "description": "Default 20, max 50."
+              "minimum": 1,
+              "maximum": 50
             },
             "description": "Default 20, max 50."
           },
@@ -6336,9 +6338,9 @@
             "in": "query",
             "required": false,
             "schema": {
+              "description": "The nextCursor of the previous page.",
               "type": "string",
-              "maxLength": 200,
-              "description": "The nextCursor of the previous page."
+              "maxLength": 200
             },
             "description": "The nextCursor of the previous page."
           }
@@ -6379,7 +6381,7 @@
       "post": {
         "operationId": "mail-import-start",
         "summary": "Start an Outlook archive import",
-        "description": "Registers a .pst or .ost archive (`filename`, `sizeBytes`, up to 25 GB) and answers the upload plan `{ import, partSize, partCount, uploadedParts }`. Send the parts with mail-import-part-upload, then call mail-import-complete. Filed as you, no proposal, via the upload checks, into \"E-Mail-Import/<archive name>\".",
+        "description": "Registers a .pst or .ost archive (`filename`, `sizeBytes`, up to 25 GB) and answers the upload plan `{ import, partSize, partCount, uploadedParts }`. Send parts with mail-import-part-upload, then mail-import-complete. Filed as you into \"E-Mail-Import/<archive>\".",
         "tags": [
           "documents"
         ],

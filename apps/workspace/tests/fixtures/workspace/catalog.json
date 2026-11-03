@@ -582,10 +582,10 @@
    "name": "mail-import-list",
    "domain": "documents",
    "summary": "List a project’s mail imports",
-   "description": "The project's Outlook archive imports with their status and counts, newest first. Import ids feed mail-import-get and mail-import-cancel.",
+   "description": "The project's Outlook archive imports, newest first; ids feed mail-import-get and mail-import-cancel.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"mail-import-list\",\"domain\":\"documents\",\"summary\":\"List a project’s mail imports\",\"description\":\"The project's Outlook archive imports with their status and counts, newest first. Import ids feed mail-import-get and mail-import-cancel.\",\"annotations\":{\"title\":\"List a project’s mail imports\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"description\":\"Default 20, max 50.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"description\":\"The nextCursor of the previous page.\",\"type\":\"string\",\"maxLength\":200}}}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
+   "describe": "{\"name\":\"mail-import-list\",\"domain\":\"documents\",\"summary\":\"List a project’s mail imports\",\"description\":\"The project's Outlook archive imports, newest first; ids feed mail-import-get and mail-import-cancel.\",\"annotations\":{\"title\":\"List a project’s mail imports\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The project id, from project-list.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"limit\":{\"description\":\"Default 20, max 50.\",\"type\":\"integer\",\"minimum\":1,\"maximum\":50},\"cursor\":{\"description\":\"The nextCursor of the previous page.\",\"type\":\"string\",\"maxLength\":200}}}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
   },
   {
    "name": "project-document-findings",
