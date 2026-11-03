@@ -54,14 +54,23 @@
 import { createHash } from 'node:crypto'
 import { fileTypeFromBuffer } from 'file-type'
 import PostalMime, { addressParser, type Address, type Attachment, type Email } from 'postal-mime'
-import { splitDocumentName, MAX_DOCUMENT_NAME_LENGTH } from '@/lib/documents/display-name'
-import { documentNameKey } from '@/lib/documents/name-match'
-import { numberedFilename } from '@/lib/mail-import/naming'
 import { domainOf, normalizeMessageId, parseInReplyTo, parseReferences, threadIndexGuid } from '@/lib/mail-thread/mail-threading'
 import { singleLine, truncateGraphemes } from '@/lib/text/graphemes'
 import { uploadExtensionOf } from '@/shared/config/file-upload'
 import { asciiLower } from './address'
 import type { NotStagedReason, PartRiskFlag } from './contract'
+import { NameLedger, safeFilename } from './mime-names'
+import { ARCHIVE_EXTENSIONS, isEncryptedMessage, type MessageContext, riskFlagsOf, structuralSkip } from './mime-part-kinds'
+
+export {
+  deliveryKey,
+  type HeaderField,
+  headerValue,
+  MAX_HEADER_BLOCK_BYTES,
+  rawHeaderFields,
+} from './mime-header-block'
+export { safeFilename } from './mime-names'
+export { MAX_PART_BYTES } from './mime-part-kinds'
 
 /** Forwarded mails are opened this many levels deep. */
 export const MAX_FORWARD_DEPTH = 3
@@ -75,17 +84,8 @@ export const MAX_NOT_STAGED_LISTED = 100
 /** Every MIME part of the message and its forwards together. postal-mime's own default per parse. */
 export const MAX_TOTAL_PARTS = 10_000
 
-/** One part may be at most this large. The whole message is at most 26 MiB, so this rarely binds. */
-export const MAX_PART_BYTES = 25 * 1024 * 1024
-
-/** The header block is read this far for {@link rawHeaderFields}; postal-mime's own header cap. */
-export const MAX_HEADER_BLOCK_BYTES = 2 * 1024 * 1024
-
 /** A sniff sees at most this much of a part: magic numbers and the first entries of a zip. */
 export const SNIFF_BYTES = 256 * 1024
-
-/** A PDF's encryption dictionary is looked for in this many bytes at its end, where the trailer is. */
-const PDF_TRAILER_BYTES = 1024 * 1024
 
 /** Participants kept, and their distinct domains. */
 const MAX_PARTICIPANTS = 200
@@ -94,199 +94,6 @@ const MAX_PARTICIPANT_DOMAINS = 50
 /** Display texts: a subject and a display name. */
 const MAX_SUBJECT_LENGTH = 1000
 const MAX_DISPLAY_NAME_LENGTH = 200
-
-/** Below this, an image is a tracking pixel or a spacer. */
-const TRACKING_PIXEL_MAX_BYTES = 2 * 1024
-
-/** An extension is at most this long, the dot included; past it the name has none worth keeping. */
-const MAX_EXTENSION_LENGTH = 16
-
-/** How mail clients name the images they paste into the HTML body. */
-const AUTO_NAMED_IMAGE = [
-  /^image\d{3,}\.(png|jpe?g|gif|bmp)$/i,
-  /^Outlook-.*\.(png|jpe?g|gif|bmp)$/i,
-  /^~WRL.*\.(png|jpe?g|gif|bmp)$/i,
-]
-
-const TNEF_TYPES = new Set(['application/ms-tnef', 'application/vnd.ms-tnef'])
-const SIGNATURE_TYPES = new Set([
-  'application/pkcs7-signature',
-  'application/x-pkcs7-signature',
-  'application/pgp-signature',
-])
-const ENCRYPTED_TYPES = new Set(['application/pkcs7-mime', 'application/x-pkcs7-mime', 'application/pgp-encrypted'])
-const CALENDAR_TYPES = new Set(['text/calendar', 'application/ics'])
-
-/** Archive formats by sniffed extension and by name. */
-const ARCHIVE_EXTENSIONS = new Set(['.zip', '.7z', '.rar', '.gz', '.tgz', '.tar', '.bz2', '.xz', '.zst', '.cab'])
-
-/** Office types that carry macros by design (`[Content_Types].xml` with a macro-enabled main part). */
-const MACRO_EXTENSIONS = new Set(['.docm', '.dotm', '.xlsm', '.xltm', '.xlam', '.pptm', '.potm', '.ppsm', '.ppam'])
-
-/** The Office Open XML family: a zip of XML, or a CFB container once a password encrypts it. */
-const OOXML_EXTENSIONS = new Set(['.docx', '.dotx', '.xlsx', '.xltx', '.pptx', '.potx', '.ppsx', ...MACRO_EXTENSIONS])
-
-/**
- * What `file-type` may call the bytes of a name with this extension, for the
- * types whose bytes have a signature. An OOXML file may sniff as a bare `zip`
- * when its type-revealing entry lies past {@link SNIFF_BYTES}.
- */
-const EXPECTED_SNIFFS: Readonly<Record<string, readonly string[]>> = {
-  '.pdf': ['pdf'],
-  '.png': ['png'],
-  '.jpg': ['jpg'],
-  '.jpeg': ['jpg'],
-  '.gif': ['gif'],
-  '.webp': ['webp'],
-  '.tif': ['tif'],
-  '.tiff': ['tif'],
-  '.heic': ['heic'],
-  '.bmp': ['bmp'],
-  '.doc': ['cfb'],
-  '.xls': ['cfb'],
-  '.ppt': ['cfb'],
-  '.msg': ['cfb'],
-  '.zip': ['zip'],
-  '.7z': ['7z'],
-  '.rar': ['rar'],
-  '.gz': ['gz'],
-  '.dwg': ['dwg'],
-  '.docx': ['docx', 'zip'],
-  '.dotx': ['docx', 'zip'],
-  '.docm': ['docm', 'docx', 'zip'],
-  '.dotm': ['docm', 'docx', 'zip'],
-  '.xlsx': ['xlsx', 'zip'],
-  '.xltx': ['xlsx', 'zip'],
-  '.xlsm': ['xlsm', 'xlsx', 'zip'],
-  '.xltm': ['xlsm', 'xlsx', 'zip'],
-  '.xlam': ['xlsm', 'xlsx', 'zip'],
-  '.pptx': ['pptx', 'zip'],
-  '.potx': ['pptx', 'zip'],
-  '.ppsx': ['pptx', 'zip'],
-  '.pptm': ['pptm', 'pptx', 'zip'],
-  '.potm': ['pptm', 'pptx', 'zip'],
-  '.ppsm': ['pptm', 'pptx', 'zip'],
-  '.ppam': ['pptm', 'pptx', 'zip'],
-}
-
-/** Text formats: no signature to check, and anything `file-type` recognises in them is a contradiction. */
-const TEXT_EXTENSIONS = new Set(['.txt', '.md', '.csv', '.tsv', '.html', '.htm', '.xml', '.json', '.ifc', '.ics', '.vcf'])
-
-/** What `file-type` may still find in a text file without the name lying. */
-const TEXTUAL_SNIFFS = new Set(['xml', 'svg', 'html', 'ics', 'vcf'])
-
-/** Executable formats: whatever a name says, these bytes contradict it. */
-const EXECUTABLE_SNIFFS = new Set(['exe', 'elf', 'macho', 'msi', 'apk', 'dex', 'class', 'wasm', 'swf', 'deb', 'rpm'])
-
-/** What a name may be on Windows, where these devices are not files. */
-const WINDOWS_RESERVED_STEM = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i
-
-// ---------------------------------------------------------------------------
-// The raw header block
-// ---------------------------------------------------------------------------
-
-/** One header field, its name lowercased, its value unfolded and otherwise as sent. */
-export interface HeaderField {
-  name: string
-  value: string
-}
-
-/** The byte offset where the body starts (after the first empty line), or -1 when there is none within `limit`. */
-function bodyOffset(bytes: Buffer, limit: number): number {
-  const window = bytes.subarray(0, Math.min(bytes.length, limit))
-  const lf = window.indexOf('\n\n')
-  const crlf = window.indexOf('\n\r\n')
-  const ends = [lf === -1 ? -1 : lf + 2, crlf === -1 ? -1 : crlf + 3].filter((index) => index !== -1)
-  return ends.length > 0 ? Math.min(...ends) : -1
-}
-
-function asBuffer(raw: Uint8Array): Buffer {
-  return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength)
-}
-
-/**
- * The header fields of the raw message, unfolded, in order, duplicates kept.
- * The block ends at the first empty line, as it does for mailauth's and
- * postal-mime's parsers. `null` when a line in it is neither a field nor a
- * continuation, or when no empty line ends it within
- * {@link MAX_HEADER_BLOCK_BYTES} (a message that is all header, or one
- * 8 MiB line).
- *
- * Read over the raw bytes rather than taken from either parser, because the
- * point of reading it is to catch where they would disagree: a DKIM verifier
- * signs the LAST instance of a field and a MIME parser reads the FIRST, and an
- * unsigned duplicate above a signature is how a signed mail gets a new
- * Subject, recipient or boundary. Linear in the block.
- */
-export function rawHeaderFields(raw: Uint8Array): HeaderField[] | null {
-  const bytes = asBuffer(raw)
-  const offset = bodyOffset(bytes, MAX_HEADER_BLOCK_BYTES)
-  const end = offset === -1 ? (bytes.length <= MAX_HEADER_BLOCK_BYTES ? bytes.length : -1) : offset
-  if (end === -1) return null
-  const lines = bytes.toString('utf8', 0, end).split('\n')
-  const fields: HeaderField[] = []
-  for (const rawLine of lines) {
-    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
-    if (line === '') break
-    if (line[0] === ' ' || line[0] === '\t') {
-      const last = fields.at(-1)
-      if (!last) return null
-      last.value += line
-      continue
-    }
-    const colon = line.indexOf(':')
-    if (colon <= 0) return null
-    fields.push({ name: asciiLower(line.slice(0, colon).trim()), value: line.slice(colon + 1) })
-  }
-  return fields
-}
-
-/** The value of the first field named `name` (lowercase), unfolded and trimmed. */
-export function headerValue(fields: readonly HeaderField[], name: string): string | null {
-  return fields.find((field) => field.name === name)?.value.trim() ?? null
-}
-
-/**
- * What makes two deliveries of one mail the same mail (`delivery_key`): the
- * header fields an author writes (From, To, Cc, Subject, Date, Message-ID, as
- * sent), the signature value (`b=`) of every DKIM-Signature, whitespace
- * removed, and the body bytes, hashed. Every relay on the way prepends its own
- * Received, ARC and Authentication-Results fields, so a retry by the sending
- * server after a lost answer has other raw bytes and still this key.
- *
- * The signatures are in it because the copy held is the copy judged: a copy
- * whose signature a list or forwarder stripped or broke, arriving first, must
- * not make the signed copy a `duplicate` that is erased while the mail is
- * held as unverified. Two copies that differ there are both held. A header
- * block that cannot be read (`rawHeaderFields` is null) says nothing about
- * which mail it is, so it is never a duplicate: its key is this delivery's own
- * (`mailId`), and the unique index can never match it to another.
- */
-export function deliveryKey(raw: Uint8Array, mailId: string): string {
-  const fields = rawHeaderFields(raw)
-  if (fields === null) return createHash('sha256').update(`unread-header-block:${mailId}`).digest('hex')
-  const bytes = asBuffer(raw)
-  const offset = bodyOffset(bytes, bytes.length)
-  const hash = createHash('sha256')
-  for (const name of ['from', 'to', 'cc', 'subject', 'date', 'message-id']) {
-    for (const field of fields) if (field.name === name) hash.update(`${name}:${field.value.trim()}\n`)
-  }
-  for (const field of fields) {
-    if (field.name === 'dkim-signature') hash.update(`dkim-b:${dkimSignatureValue(field.value)}\n`)
-  }
-  hash.update('\n')
-  hash.update(offset === -1 ? bytes : bytes.subarray(offset))
-  return hash.digest('hex')
-}
-
-/** The `b=` tag of a DKIM-Signature, whitespace removed (RFC 6376 §3.5 lets a relay refold it); empty when absent. */
-function dkimSignatureValue(value: string): string {
-  for (const tag of value.split(';')) {
-    const equals = tag.indexOf('=')
-    if (equals !== -1 && tag.slice(0, equals).trim() === 'b') return tag.slice(equals + 1).replace(/\s+/g, '')
-  }
-  return ''
-}
 
 // ---------------------------------------------------------------------------
 // The read
@@ -453,73 +260,6 @@ function toBytes(content: Attachment['content']): Uint8Array {
 }
 
 // ---------------------------------------------------------------------------
-// Names
-// ---------------------------------------------------------------------------
-
-/**
- * A filename that is safe to file and to download: the last path segment only
- * (some mailers send `C:\Users\…\Plan.pdf`), one line without format or
- * control characters, NFC, no characters Windows refuses, no leading dots, no
- * trailing dots or spaces, no bare device name (`CON.pdf` becomes `CON_.pdf`),
- * cut between graphemes before the extension to
- * `MAX_DOCUMENT_NAME_LENGTH`. `''` when nothing is left.
- */
-export function safeFilename(raw: string): string {
-  const base = raw.split(/[\\/]/).pop() ?? ''
-  // U+FFFD is what an undeclared 8-bit name (a scanner's Latin-1) decodes to.
-  const clean = documentNameKey(singleLine(base).replace(/\uFFFD/g, '_').replace(/[<>:"|?*]/g, '_'))
-    .replace(/^[.\s]+/, '')
-    .replace(/[.\s]+$/, '')
-    // Windows reads `CON.pdf` and `con.tar.gz` as the device: the segment before the first dot counts.
-    .replace(/^[^.]*/, (segment) => (WINDOWS_RESERVED_STEM.test(segment) ? `${segment}_` : segment))
-  const { stem, extension } = splitDocumentName(clean)
-  const kept = extension.length <= MAX_EXTENSION_LENGTH ? extension : ''
-  const head = kept ? stem : clean
-  if (head.length + kept.length <= MAX_DOCUMENT_NAME_LENGTH) return clean
-  return truncateGraphemes(head, MAX_DOCUMENT_NAME_LENGTH - kept.length).replace(/[.\s]+$/, '') + kept
-}
-
-/**
- * Distinct names in one pass: the second `Plan.pdf` becomes `Plan (2).pdf`,
- * compared on the documents' own identity key (`documentNameKey`). The same
- * bytes under the same name are staged once. Linear: each name keeps its next
- * free number, so a thousand `image.png` never rescan from `(2)`.
- */
-class NameLedger {
-  private readonly taken = new Set<string>()
-  private readonly digestsByName = new Map<string, Set<string>>()
-  private readonly nextNumber = new Map<string, number>()
-
-  /** The name to stage under, or null when these bytes already went under this name. */
-  claim(name: string, digest: string): string | null {
-    const key = documentNameKey(name)
-    const digests = this.digestsByName.get(key) ?? new Set<string>()
-    if (digests.has(digest)) return null
-    digests.add(digest)
-    this.digestsByName.set(key, digests)
-    const filename = this.taken.has(key) ? this.numbered(name, key) : name
-    this.taken.add(documentNameKey(filename))
-    return filename
-  }
-
-  private readonly namelessDigests = new Set<string>()
-
-  /** Whether these bytes, nameless, are new to this mail (and now claimed). */
-  claimNameless(digest: string): boolean {
-    if (this.namelessDigests.has(digest)) return false
-    this.namelessDigests.add(digest)
-    return true
-  }
-
-  private numbered(name: string, key: string): string {
-    let n = this.nextNumber.get(key) ?? 2
-    while (this.taken.has(documentNameKey(numberedFilename(name, n)))) n += 1
-    this.nextNumber.set(key, n + 1)
-    return documentNameKey(numberedFilename(name, n))
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Headers
 // ---------------------------------------------------------------------------
 
@@ -590,11 +330,6 @@ function readHeaders(email: Email): MailHeaders {
 // Parts
 // ---------------------------------------------------------------------------
 
-interface MessageContext {
-  encrypted: boolean
-  depth: number
-}
-
 interface Selection {
   accepted: ReadonlySet<string>
   attachments: MailAttachment[]
@@ -617,31 +352,6 @@ function skip(selection: Selection, filename: string | null, reason: NotStagedRe
   selection.notStaged.push({ filename, reason, size })
 }
 
-/** Whether a message's own Content-Type is PGP/MIME or S/MIME encryption. */
-function isEncryptedMessage(email: Email): boolean {
-  const contentType = email.headers.find((header) => header.key === 'content-type')?.value ?? ''
-  return /^\s*(multipart\/encrypted|application\/(x-)?pkcs7-mime)\b/i.test(contentType)
-}
-
-function isEmbedded(attachment: Attachment, name: string, size: number): boolean {
-  if (attachment.related && !name) return true
-  if (AUTO_NAMED_IMAGE.some((pattern) => pattern.test(name))) return true
-  return attachment.mimeType.toLowerCase().startsWith('image/') && size < TRACKING_PIXEL_MAX_BYTES
-}
-
-/** A reason a part is not staged, decided from its headers, name and size alone. */
-function structuralSkip(attachment: Attachment, name: string, size: number, context: MessageContext): NotStagedReason | null {
-  const type = attachment.mimeType.toLowerCase()
-  const lower = name.toLowerCase()
-  if (context.encrypted || ENCRYPTED_TYPES.has(type) || lower.endsWith('.p7m')) return 'encrypted'
-  if (TNEF_TYPES.has(type) || lower === 'winmail.dat') return 'tnef'
-  if (SIGNATURE_TYPES.has(type) || lower.endsWith('.p7s')) return 'signature'
-  if (CALENDAR_TYPES.has(type) || lower.endsWith('.ics')) return 'calendar'
-  if (size === 0) return 'empty'
-  if (size > MAX_PART_BYTES) return 'size'
-  return isEmbedded(attachment, name, size) ? 'embedded' : null
-}
-
 async function sniff(bytes: Uint8Array, work: MimeWork): Promise<string | null> {
   const window = bytes.subarray(0, Math.min(bytes.byteLength, SNIFF_BYTES))
   work.sniffs += 1
@@ -652,48 +362,6 @@ async function sniff(bytes: Uint8Array, work: MimeWork): Promise<string | null> 
     // A sniffer error is no verdict about the bytes; the scan and the upload still look at them.
     return null
   }
-}
-
-/** Whether the bytes are a password-protected file of a kind that says so in its structure. */
-function isEncryptedFile(bytes: Uint8Array, extension: string | null, sniffed: string | null): boolean {
-  if (extension && OOXML_EXTENSIONS.has(extension) && sniffed === 'cfb') return true
-  if (sniffed === 'zip' || extension === '.zip') {
-    // The general-purpose bit 0 of the first local file header (APPNOTE 4.4.4).
-    return bytes.byteLength > 6 && bytes[0] === 0x50 && bytes[1] === 0x4b && (bytes[6] & 1) === 1
-  }
-  if (sniffed === 'pdf') {
-    const tail = asBuffer(bytes).subarray(Math.max(0, bytes.byteLength - PDF_TRAILER_BYTES))
-    return tail.includes('/Encrypt')
-  }
-  return false
-}
-
-/** Whether the bytes contradict the name. */
-function contradictsName(extension: string | null, sniffed: string | null): boolean {
-  if (sniffed && EXECUTABLE_SNIFFS.has(sniffed)) return extension !== `.${sniffed}`
-  if (!extension) return false
-  const expected = EXPECTED_SNIFFS[extension]
-  if (expected) return sniffed === null || !expected.includes(sniffed)
-  if (TEXT_EXTENSIONS.has(extension)) return sniffed !== null && !TEXTUAL_SNIFFS.has(sniffed)
-  return false
-}
-
-function riskFlagsOf(
-  bytes: Uint8Array,
-  extension: string | null,
-  sniffed: string | null,
-  accepted: ReadonlySet<string>,
-  depth: number
-): PartRiskFlag[] {
-  const flags: PartRiskFlag[] = []
-  const isAccepted = extension !== null && accepted.has(extension)
-  if (!isAccepted) flags.push('type_not_accepted')
-  const encrypted = isEncryptedFile(bytes, extension, sniffed)
-  if (encrypted) flags.push('encrypted')
-  else if (contradictsName(extension, sniffed)) flags.push('type_mismatch')
-  if (isAccepted && extension && MACRO_EXTENSIONS.has(extension)) flags.push('macro')
-  if (depth > 0) flags.push('forwarded_inner')
-  return flags
 }
 
 async function selectPart(attachment: Attachment, context: MessageContext, selection: Selection): Promise<void> {

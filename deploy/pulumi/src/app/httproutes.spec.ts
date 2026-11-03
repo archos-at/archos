@@ -4,7 +4,7 @@ import { join } from "node:path";
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
-import { SIGNED_INTERNAL_ROUTE } from "../constants";
+import { SIGNED_INTERNAL_ROUTE } from "../signed-route-constants";
 import { decimalAtMost } from "./httproutes";
 import { HTTPRoute } from "@kubernetes-models/gateway-api/gateway.networking.k8s.io/v1/HTTPRoute";
 import { HTTPRouteFilter } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/HTTPRouteFilter";

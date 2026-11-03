@@ -58,7 +58,9 @@ import { resolvePeople } from '@/lib/sharing/directory'
 import type { DocumentVersion } from '@/lib/db/schema/document-versions'
 import type { Document } from '@/lib/db/schema/documents'
 import { getAccessibleDocument } from './access'
-import { documentMailOrigins, mailOriginsByVersion } from '@/lib/mail-thread/mail-origins'
+import { readerVersionViews, toDocumentVersionView } from './version-view'
+
+export { toDocumentVersionView } from './version-view'
 import {
   AGENT_REFUSAL_LOCALE,
   confinementRefusal,
@@ -83,7 +85,6 @@ import {
   BACKEND_PURGE_TIMEOUT_MS,
   readVersionTextForTask,
   renderVersionBytes,
-  versionBytesReadableBy,
   writeVersionContent,
 } from './version-content'
 import type { DispatchDocumentResult } from './document-dispatch'
@@ -1405,31 +1406,6 @@ export async function recordUploadedVersionOrDiscard(
 /** The version number the next upload of this document will be. */
 export { nextVersionNumber }
 
-/** One version as the wire carries it. Dates as ISO strings, no storage keys. */
-export function toDocumentVersionView(version: DocumentVersion): DocumentVersionView {
-  return {
-    id: version.id,
-    documentId: version.documentId,
-    versionNumber: version.versionNumber,
-    state: version.state,
-    contentType: version.contentType,
-    fileSize: version.fileSize,
-    contentHash: version.contentHash,
-    submittedBy: version.submittedBy,
-    submittedAt: version.submittedAt?.toISOString() ?? null,
-    reviewedBy: version.reviewedBy,
-    reviewedAt: version.reviewedAt?.toISOString() ?? null,
-    approvedBy: version.approvedBy,
-    approvedAt: version.approvedAt?.toISOString() ?? null,
-    publishedBy: version.publishedBy,
-    publishedAt: version.publishedAt?.toISOString() ?? null,
-    reviewComment: version.reviewComment,
-    createdBy: version.createdBy,
-    createdAt: version.createdAt.toISOString(),
-    updatedAt: version.updatedAt.toISOString(),
-  }
-}
-
 /** `GET /api/documents/[id]/versions` */
 export async function listDocumentVersionViews(
   session: AuthorizedSession,
@@ -1437,15 +1413,7 @@ export async function listDocumentVersionViews(
 ): Promise<DocumentVersionListResponse> {
   const document = await getAccessibleDocument(session, documentId, 'read')
   const rows = await listDocumentVersions(documentId, session.organizationId)
-  // Whether `…/versions/{id}/file` and `/content` will hand this reader the
-  // bytes (ADR-0086), so the timeline offers Öffnen only where they will.
-  const readable = await versionBytesReadableBy(session, document, rows)
-  // Which mail brought which Fassung (D36), through the threads this reader may read.
-  const origins = mailOriginsByVersion(await documentMailOrigins(session, document))
-  const versions = rows.map((version) => {
-    const mailOrigins = origins.get(version.id)
-    return { ...toDocumentVersionView(version), bytesReadable: readable(version), ...(mailOrigins ? { mailOrigins } : {}) }
-  })
+  const versions = await readerVersionViews(session, document, rows)
   const reviewerUserIds = await openReviewRound(session.organizationId, documentId, versions)
   const people = await resolvePeople(session.organizationId, [...new Set([...versionActors(versions), ...reviewerUserIds])])
   return {

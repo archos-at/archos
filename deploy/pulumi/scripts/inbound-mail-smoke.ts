@@ -306,7 +306,7 @@ const MANUAL: Array<[string, string]> = [
       "'infected' and the archive part 'failed', never 'clean'; neither may be filed; the original download of " +
       "the EICAR mail must be refused. Stop freshclam for 49 h on a staging clamd (or point it at an old " +
       "database) and confirm a scan answers 'failed' (stale-signatures). Known gap: clamd scans a zip member " +
-      "only up to MaxFileSize and answers OK without an alert (ADR-0139).",
+      "only up to MaxFileSize and answers OK without an alert (ADR-0150).",
   ],
   [
     "G7",

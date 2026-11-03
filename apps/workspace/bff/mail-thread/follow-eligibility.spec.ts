@@ -193,7 +193,7 @@ describe('followEligibility', () => {
     })
 
     it('never counts the project’s own address', () => {
-      expect(newParticipantDomains({ participantAddresses: ['a@PILOTI.at'] }, thread, ['example.org'])).toEqual([])
+      expect(newParticipantDomains({ participantAddresses: ['a@EXAMPLE.org'] }, thread, ['example.org'])).toEqual([])
     })
   })
 

@@ -6,7 +6,8 @@ import { appPullPolicy, frontendImage } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
-import { AppSecrets, AppWiring, authzCatalogEnv, folderGrantsCarryOverEnv } from "./config";
+import { AppSecrets, AppWiring } from "./config";
+import { authzCatalogEnv, folderGrantsCarryOverEnv } from "./job-env";
 import { logicalName } from "../names";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;

@@ -1,6 +1,6 @@
 /**
  * The vocabulary of the BFF job queue (ADR-0079): which kinds of job exist, what
- * a job's payload holds, and who asked for it.
+ * a job's payload holds, and who asked for it (`./requester.ts`).
  *
  * A payload is the job's whole state. It carries what was asked for AND how far
  * the job has got, because a job outlives the process that started it: the
@@ -10,8 +10,8 @@
  */
 
 import { z } from 'zod'
-import type { AuthorizedSession } from '@/lib/auth/types'
 import { BFF_JOB_PRIORITY, type BffJobPriority } from '@/lib/db/schema/bff-job-queue'
+import { requesterSchema } from './requester'
 
 /**
  * The kinds a `bff-jobs` worker knows how to run. A new kind is added here, as a
@@ -109,60 +109,7 @@ export function isBffJobKind(value: string): value is BffJobKind {
 export { BFF_JOB_PRIORITY }
 export type { BffJobPriority }
 
-/**
- * The person a job runs on behalf of, as the permission checks need them.
- *
- * The job is authorized when it is enqueued, by the route that took the request.
- * What travels here says WHO asked; the walks that run as a person
- * (`reindex_project`, `reingest_failed`, `restore_folder_bin`) do not trust
- * the rest of it: `handlers.ts` resolves the person's membership and role
- * again before every slice, so a role revoked while the job waited ends it. Only `file_research_report`, a one-step job a
- * reader's request authorizes up front, files on the snapshot. It is NOT a
- * session token. The worker has no access token and nothing here can be
- * replayed against WorkOS; a project or resource check asks WorkOS live, by the
- * membership id, as it does for a request.
- */
-export const requesterSchema = z.object({
-  userId: z.string().min(1),
-  email: z.string(),
-  organizationMembershipId: z.string().min(1),
-  role: z.string().min(1),
-  permissions: z.array(z.string()),
-  /**
-   * The feature flags the person's session carried, for the one kind that is
-   * gated on them when it files a document (`file_research_report`). Optional
-   * because a payload stored before it existed has none, and a job that does
-   * not file reads nothing from it.
-   */
-  featureFlags: z.array(z.string()).nullable().optional(),
-})
-export type JobRequester = z.infer<typeof requesterSchema>
-
-export function requesterOf(session: AuthorizedSession): JobRequester {
-  return {
-    userId: session.userId,
-    email: session.email,
-    organizationMembershipId: session.organizationMembershipId,
-    role: session.role,
-    permissions: session.permissions,
-    ...(session.featureFlags ? { featureFlags: session.featureFlags } : {}),
-  }
-}
-
-/** The session a slice runs as: the requester's identity in the job's organization, with no access token. */
-export function sessionOf(requester: JobRequester, organizationId: string): AuthorizedSession {
-  return {
-    userId: requester.userId,
-    email: requester.email,
-    name: null,
-    accessToken: '',
-    organizationId,
-    organizationMembershipId: requester.organizationMembershipId,
-    role: requester.role,
-    permissions: requester.permissions,
-    featureFlags: requester.featureFlags ?? null,
-  }
-}
+export { requesterOf, requesterSchema, sessionOf, type JobRequester } from './requester'
 
 /** One document-list keyset position (`documents/list-cursor.ts`). */
 const cursorSchema = z.object({ createdAt: z.string(), id: z.string() })
