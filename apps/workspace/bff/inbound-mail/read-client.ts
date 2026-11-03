@@ -17,7 +17,8 @@
 
 import 'server-only'
 import { z } from 'zod'
-import { getBackendUrl } from '@/lib/backend-proxy'
+import { getBackendUrl } from '@/lib/backend-url'
+import { internalServiceHeaders } from '@/lib/internal-auth'
 
 /**
  * How long a read may take, queueing included. The reader caps one read at
@@ -124,15 +125,13 @@ export class MailReadRefusedError extends Error {
  * A 200 always carries a read, whatever the bytes were: parser trouble is in
  * the read (`unreadable`), never a status. A 422 is {@link MailReadRefusedError}
  * (permanent). Anything else (502 from the store, 503 while the API restarts, a
- * timeout) throws for the job's queue to retry.
+ * timeout, no service token to send) throws for the job's queue to retry.
  */
 export async function readMail(fileRef: string): Promise<MailRead> {
-  const response = await fetch(`${getBackendUrl()}/v1/mail/read`, {
+  const baseUrl = getBackendUrl()
+  const response = await fetch(`${baseUrl}/v1/mail/read`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-internal-token': process.env.INTERNAL_API_TOKEN ?? '',
-    },
+    headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(baseUrl) },
     body: JSON.stringify({ file_ref: fileRef }),
     redirect: 'manual',
     signal: AbortSignal.timeout(MAIL_READ_TIMEOUT_MS),

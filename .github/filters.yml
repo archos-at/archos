@@ -89,9 +89,11 @@ backend:
   - 'apps/workspace/bff/documents/retry-policy.ts'
   - 'apps/workspace/bff/documents/semantic-search.ts'
   - 'apps/workspace/bff/documents/tag-vocabulary.ts'
+  - 'apps/workspace/bff/inbound-mail/inbound-mail-vocabulary.ts'
   - 'apps/workspace/bff/jobs/types.ts'
   - 'apps/workspace/bff/legal/content/de.ts'
   - 'apps/workspace/bff/legal/content/en.ts'
+  - 'apps/workspace/bff/mail-thread/render-copy.ts'
   - 'apps/workspace/bff/model-config/agent-groups.ts'
   - 'apps/workspace/bff/platform/vector-reconcile.ts'
   - 'apps/workspace/bff/project-profile/legacy-names.json'
@@ -148,6 +150,7 @@ backend:
   - 'ci/english_names_baseline_py.json'
   - 'ci/size_baseline.json'
   - 'contracts/cards/schemas.json'
+  - 'contracts/thread-index.json'
   - 'deploy/compose/docker-compose.yaml'
   - 'deploy/postgres/rename-legacy-names.sh'
   - 'deploy/posthog/support/copy.de.json'
@@ -238,11 +241,17 @@ workspace:
   - 'packages/brand/**'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
   - 'apps/agent-host/src/agent_host/models/document_type_tag.py'
+  - 'apps/agent-host/src/agent_host/models/mail_facts.py'
   - 'apps/agent-host/src/agent_host/models/requests.py'
   - 'apps/agent-host/src/agent_host/routes/ingest.py'
+  - 'contracts/inbound-address.json'
+  - 'contracts/inbound-mail-contract.json'
+  - 'contracts/inbound-mail-signature.json'
+  - 'contracts/thread-index.json'
   - 'deploy/compose/init-db.sql'
   - 'docs/technical-reference/answer-feedback-export.md'
   - 'packages/agent/src/agent/common/status_keys.py'
+  - 'packages/agent/src/agent/knowledge/doc_class_vocabulary.py'
   - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
   - 'packages/knowledge-layer/src/llamaindex/chosen_document_type.py'
@@ -277,6 +286,9 @@ infra:
   # server its CMD starts.
   - 'apps/website/Dockerfile'
   - 'apps/website/runtime/server.mjs'
+  # deploy/pulumi/src/platform/inbound-mail-worker.spec.ts reads the public site's
+  # help and privacy paths the Worker's refusal links to.
+  - 'contracts/public-site.json'
   # deploy/pulumi/src/data/qdrant-alerts.spec.ts reads the runbook it links.
   - 'docs/deployment/qdrant-runbook.md'
   - 'Taskfile.yml'

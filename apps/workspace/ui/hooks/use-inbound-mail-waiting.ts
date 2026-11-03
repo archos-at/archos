@@ -16,12 +16,29 @@
  * Arrival is not pushed to the browser (the receive job publishes to the door
  * only), so the number is read again when the tab comes back into view and
  * once a minute while it is visible, never in a hidden tab.
+ *
+ * It lives below the features because the shell's rail and phone tab bar show
+ * the number too, and `components/` may not reach into a feature
+ * (docs/contributing/module-seams.md). So it reads through the typed client
+ * (`adapters/api/inbound-mail-client.ts`) and takes any object with its `list`,
+ * which the E-Mail-Eingang's own client is.
  */
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { ApiRequestError } from '@/adapters/api/api-error'
-import { INBOUND_MAIL_LIST_MAX_LIMIT } from '@/lib/inbound-mail/inbound-mail-wire'
-import { inboundMailClient, type InboundMailClient } from '../lib/client'
+import { listInboundMails } from '@/adapters/api/inbound-mail-client'
+import {
+  INBOUND_MAIL_LIST_MAX_LIMIT,
+  type InboundMailListQuery,
+  type InboundMailListView,
+} from '@/lib/inbound-mail/inbound-mail-wire'
+
+/** The one call the count needs: the list operation (`inbound-mail-list`). */
+export interface InboundMailListReader {
+  list(projectId: string, query?: Partial<InboundMailListQuery>, signal?: AbortSignal): Promise<InboundMailListView>
+}
+
+const listReader: InboundMailListReader = { list: listInboundMails }
 
 export interface InboundMailWaiting {
   /** Mails waiting for a decision; null while unknown, or when the reader may not decide here. */
@@ -56,7 +73,7 @@ function entryFor(projectId: string): Entry {
   return entry
 }
 
-function read(projectId: string, client: InboundMailClient, force = false): Promise<void> {
+function read(projectId: string, client: InboundMailListReader, force = false): Promise<void> {
   const entry = entryFor(projectId)
   if (entry.denied) return Promise.resolve()
   if (entry.inflight) return entry.inflight
@@ -83,7 +100,7 @@ function read(projectId: string, client: InboundMailClient, force = false): Prom
 }
 
 /** Read the number again now, for every surface showing it (after a decision, a restore, an undo). */
-export function refreshInboundMailWaiting(projectId: string, client: InboundMailClient = inboundMailClient): Promise<void> {
+export function refreshInboundMailWaiting(projectId: string, client: InboundMailListReader = listReader): Promise<void> {
   return read(projectId, client, true)
 }
 
@@ -98,7 +115,7 @@ export function primeInboundMailWaiting(projectId: string, state: InboundMailWai
 export function useInboundMailWaiting(
   projectId: string | null,
   enabled: boolean,
-  client: InboundMailClient = inboundMailClient,
+  client: InboundMailListReader = listReader,
 ): InboundMailWaiting {
   const active = enabled && projectId !== null
   const subscribe = useCallback(

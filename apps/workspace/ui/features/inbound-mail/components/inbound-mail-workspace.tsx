@@ -62,9 +62,9 @@ import { inboundMailAddressClient, inboundMailClient, type InboundMailAddressCli
 import { asSuggested, fileableReason, type BulkDestination, type BulkPlan } from '../lib/completeness'
 import type { DraftCopy, FolderOption } from '../lib/draft'
 import { listSections, visibleMails } from '../lib/list-sections'
-import { inboundMailPaths, type InboundMailPaths } from '../lib/paths'
+import { inboundMailPaths, type InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { refusalOf } from '../lib/refusal'
-import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '../hooks/use-inbound-mail-waiting'
+import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mail-address'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
@@ -466,7 +466,7 @@ export function InboundMailWorkspace({
       <div className="flex min-h-0 flex-1 flex-col @3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]">
         <div className={cn('min-h-0 flex-1 flex-col @3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
           <div className="flex items-baseline justify-between gap-2 px-3 pt-3 sm:px-4">
-            <h2 className="text-sm font-semibold">{t('title')}</h2>
+            <h2 className="text-sm font-medium">{t('title')}</h2>
           </div>
           <InboundMailList
             state={list}

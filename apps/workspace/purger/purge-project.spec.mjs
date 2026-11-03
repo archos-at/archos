@@ -87,7 +87,7 @@ function makeDeps(overrides = {}) {
   return {
     backendUrl: 'http://backend:8000',
     internalToken: 'tok',
-    bucket: 'grid-documents',
+    bucket: 'documents',
     fetchImpl: vi.fn().mockResolvedValue({ ok: true }),
     deleteStoragePrefix: vi.fn().mockResolvedValue(3),
     eraseConversationTraces: vi.fn().mockResolvedValue({ configured: true, traces: 0, batches: 0 }),
@@ -125,7 +125,7 @@ describe('purgeProject', () => {
       conversation_ids: ['c1', 'c2'],
     })
     expect(deps.deleteStoragePrefix).toHaveBeenCalledWith(
-      'grid-documents',
+      'documents',
       'org/org1/project/p1/',
     )
     expect(deps.workos.authorization.deleteResourceByExternalId).toHaveBeenCalledWith({
@@ -148,11 +148,11 @@ describe('purgeProject', () => {
     await purgeProject(tx, entry, deps)
 
     expect(deps.fetchImpl).toHaveBeenCalled()
-    expect(deps.deleteStoragePrefix).toHaveBeenCalledWith('grid-documents', 'org/org1/project/p1/')
+    expect(deps.deleteStoragePrefix).toHaveBeenCalledWith('documents', 'org/org1/project/p1/')
     // A half-sent mail import is not an object; the sweep aborts it too (ADR-0085).
     const bucketRead = executed.find((step) => step.text.startsWith('SELECT DISTINCT storage_bucket'))
     expect(bucketRead.text).toContain('FROM mail_imports')
-    expect(deps.abortMultipartUploads).toHaveBeenCalledWith('grid-documents', 'org/org1/project/p1/')
+    expect(deps.abortMultipartUploads).toHaveBeenCalledWith('documents', 'org/org1/project/p1/')
     expect(executed.filter((q) => q.text.startsWith('DELETE')).at(-1).text).toContain('FROM projects')
   })
 
@@ -212,7 +212,7 @@ describe('purgeProject', () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [],
-      documentBucketRows: [{ storage_bucket: 'grid-org-org1-abcdef123456' }],
+      documentBucketRows: [{ storage_bucket: 'org-org1-abcdef123456' }],
     })
 
     const deps = makeDeps()
@@ -220,7 +220,7 @@ describe('purgeProject', () => {
 
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
       ['documents', 'org/org1/project/p1/'],
-      ['grid-org-org1-abcdef123456', 'org/org1/project/p1/'],
+      ['org-org1-abcdef123456', 'org/org1/project/p1/'],
     ])
   })
 
@@ -231,7 +231,7 @@ describe('purgeProject', () => {
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [],
-      documentBucketRows: [{ storage_bucket: 'grid-org-org1-mailonly000' }],
+      documentBucketRows: [{ storage_bucket: 'org-org1-mailonly000' }],
     })
 
     const deps = makeDeps()
@@ -241,8 +241,8 @@ describe('purgeProject', () => {
     expect(bucketRead.text).toContain('SELECT staging_bucket AS storage_bucket FROM inbound_mails WHERE project_id =')
     expect(bucketRead.text).toContain('SELECT original_bucket AS storage_bucket FROM mail_thread_entries WHERE project_id =')
     expect(deps.deleteStoragePrefix.mock.calls).toEqual([
-      ['documents', 'org/org1/project/p1/'],
-      ['grid-org-org1-mailonly000', 'org/org1/project/p1/'],
+      [deps.bucket, 'org/org1/project/p1/'],
+      ['org-org1-mailonly000', 'org/org1/project/p1/'],
     ])
   })
 
@@ -270,8 +270,8 @@ describe('purgeProject', () => {
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [],
       documentBucketRows: [
-        { storage_bucket: 'grid-documents' },
-        { storage_bucket: 'grid-org-org1-abcdef123456' },
+        { storage_bucket: 'documents' },
+        { storage_bucket: 'org-org1-abcdef123456' },
       ],
     })
 
@@ -289,7 +289,7 @@ describe('purgeProject', () => {
     const { tx } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [],
-      documentBucketRows: [{ storage_bucket: 'grid-org-org1-abcdef123456' }],
+      documentBucketRows: [{ storage_bucket: 'org-org1-abcdef123456' }],
       // Checks 1 and 2 are the pre-flight and post-backend ones; 3 guards the
       // first bucket, 4 the second. Placing the hold at 4 lets one sweep run.
       holdOnCheck: { 4: [{ held: true }] },
@@ -310,7 +310,7 @@ describe('purgeProject', () => {
     const { tx, executed } = makeTx({
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [],
-      documentBucketRows: [{ storage_bucket: 'grid-org-org1-abcdef123456' }],
+      documentBucketRows: [{ storage_bucket: 'org-org1-abcdef123456' }],
     })
     const deleteStoragePrefix = vi
       .fn()
@@ -445,7 +445,7 @@ describe('session attachments', () => {
       projectRow: { id: 'p1', collection_name: 'proj_abc' },
       conversationRows: [{ id: 's_c1' }],
       sessionDocumentRows: [
-        { conversation_id: 's_c1', collection_name: 's_c1', storage_bucket: 'grid-org-org1-abcdef123456' },
+        { conversation_id: 's_c1', collection_name: 's_c1', storage_bucket: 'org-org1-abcdef123456' },
       ],
     })
     const deps = makeDeps()
@@ -457,8 +457,8 @@ describe('session attachments', () => {
       // records another one).
       ['documents', 'org/org1/project/p1/'],
       // …and the chat's prefix, which shares no ancestor with it.
-      ['grid-documents', 'org/org1/session/s_c1/'],
-      ['grid-org-org1-abcdef123456', 'org/org1/session/s_c1/'],
+      ['documents', 'org/org1/session/s_c1/'],
+      ['org-org1-abcdef123456', 'org/org1/session/s_c1/'],
     ])
   })
 
@@ -472,7 +472,7 @@ describe('session attachments', () => {
 
     await purgeProject(tx, sessionEntry, deps)
 
-    expect(deps.deleteStoragePrefix.mock.calls).toEqual([['grid-documents', 'org/org1/project/p1/']])
+    expect(deps.deleteStoragePrefix.mock.calls).toEqual([['documents', 'org/org1/project/p1/']])
     expect(deps.fetchImpl).toHaveBeenCalledTimes(1)
   })
 

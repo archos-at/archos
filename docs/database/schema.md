@@ -1266,7 +1266,7 @@ One row per attachment a filed message carried, whatever became of it.
 | `section_name`, `section_folder_path` | `text` | a name only when not `not_filed`; a folder only with a name | What the section prints, frozen at insert; NULL is counted, never named |
 | `created_at` | | | |
 
-Trigger `grid_mail_thread_entry_attachments_guard` (`BEFORE UPDATE`): a row
+Trigger `mail_thread_entry_attachments_guard` (`BEFORE UPDATE`): a row
 learns only its document or Fassung going (and nulls the version with the
 document, as the parts guard does), and, once, a `pending` attachment being
 decided later (`…_decided_once`); anything else is

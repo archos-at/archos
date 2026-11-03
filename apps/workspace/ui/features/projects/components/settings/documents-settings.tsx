@@ -10,17 +10,16 @@
  * the memory on one long page.
  */
 
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { BookOpenCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { InboundMailAddressCard } from '@/features/inbound-mail/components/inbound-mail-address'
 import { UploadHistory } from '@/features/uploads/components/upload-history'
 import { useTranslations } from '@/i18n'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 import { uploadBatchesCopy } from '@/i18n/namespaces/upload-batches'
 import { ProjectReindexCard } from '../project-reindex-card'
-import { SettingsPanel } from './settings-panel'
+import { SettingsPanel } from '@/components/settings/settings-panel'
 
 export interface DocumentsSettingsProps {
   projectId: string
@@ -33,9 +32,11 @@ export interface DocumentsSettingsProps {
   /**
    * The project mail address card, for a reader who may decide the project's
    * held mail (`inbound-mail` and `project:documents:write`); a manager may
-   * create, replace and switch it off there. Absent: no card.
+   * create, replace and switch it off there (`InboundMailAddressCard`). Absent:
+   * no card. The route passes it in, so the projects feature never imports the
+   * inbound-mail feature (module-seams.md).
    */
-  inboundMail?: { projectName: string }
+  inboundMailAddress?: ReactNode
 }
 
 export function DocumentsSettings({
@@ -43,7 +44,7 @@ export function DocumentsSettings({
   currentUserId,
   canReindex,
   showKnowledgeLink,
-  inboundMail,
+  inboundMailAddress,
 }: DocumentsSettingsProps): JSX.Element {
   const t = useTranslations(settingsCopy)
   const tUploads = useTranslations(uploadBatchesCopy)
@@ -57,7 +58,7 @@ export function DocumentsSettings({
         <UploadHistory projectId={projectId} currentUserId={currentUserId} />
       </SettingsPanel>
 
-      {inboundMail && <InboundMailAddressCard projectId={projectId} projectName={inboundMail.projectName} />}
+      {inboundMailAddress}
 
       {canReindex && <ProjectReindexCard projectId={projectId} />}
 

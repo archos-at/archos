@@ -18,9 +18,6 @@ import type { FolderItem } from '../file-types'
 import { FileWorkspace } from './file-workspace'
 import { MailImportAction } from './mail-import-action'
 import { MailImportDialog } from './mail-import-dialog'
-import { InboundMailAddressDialog } from '@/features/inbound-mail/components/inbound-mail-address'
-import { inboundMailPaths } from '@/features/inbound-mail/lib/paths'
-import { useInboundMailWaiting } from '@/features/inbound-mail/hooks/use-inbound-mail-waiting'
 import { DocumentFindingsPanel } from './document-findings-panel'
 import { SearchWorkspace, ShelfSearchBack, useShelfSearchMode } from '@/features/search'
 
@@ -75,11 +72,13 @@ interface ProjectFileWorkspaceProps {
   /** Whether the Outlook archive import is offered (`isMailImportEnabled`, ADR-0085). Off by default. */
   mailImportEnabled?: boolean
   /**
-   * Whether this reader may decide the project's held mail (the `inbound-mail`
-   * entitlement and `project:documents:write`, ADR-0137), resolved on the
-   * server. Shows the E-Mail-Eingang entry, its count and „Per E-Mail senden …“.
+   * The E-Mail-Eingang's entry, its count and „Per E-Mail senden …“, present
+   * only for a reader who may decide the project's held mail (ADR-0137). The
+   * route composes it (`app/app/(shell)/projects/[id]/files/project-files-client.tsx`),
+   * so the documents feature never imports the inbound-mail feature
+   * (docs/contributing/module-seams.md).
    */
-  inboundMailEnabled?: boolean
+  inboundMail?: FileShelf['inboundMail']
 }
 
 /**
@@ -105,7 +104,7 @@ export function ProjectFileWorkspace({
   canManageFolderAccess = false,
   initialRootAccess = 'write',
   mailImportEnabled = false,
-  inboundMailEnabled = false,
+  inboundMail,
 }: ProjectFileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const router = useRouter()
@@ -115,8 +114,6 @@ export function ProjectFileWorkspace({
   const phone = usePhoneLayout()
   const [mailOpen, setMailOpen] = useState(false)
   const mailOffered = mailImportEnabled && initialRootAccess === 'write'
-  const [addressOpen, setAddressOpen] = useState(false)
-  const waiting = useInboundMailWaiting(projectId, inboundMailEnabled)
   // „Suche“ in place of the listing (`?mode=search`), scoped to the project and the open folder.
   const search = useShelfSearchMode()
 
@@ -130,14 +127,7 @@ export function ProjectFileWorkspace({
     folderAccess: { projectId, canManage: canManageFolderAccess, initialRootAccess },
     bin: { href: `/app/projects/${projectId}/files/bin` },
     openPoints: { href: `/app/projects/${projectId}/files/open-points` },
-    inboundMail: inboundMailEnabled
-      ? {
-          href: inboundMailPaths(projectId).list({ status: 'waiting', outcome: null }),
-          waiting: waiting.count,
-          more: waiting.more,
-          openAddress: () => setAddressOpen(true),
-        }
-      : undefined,
+    inboundMail,
     canCollaborate,
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),
@@ -200,9 +190,6 @@ export function ProjectFileWorkspace({
         )}
       />
       {mailOffered && phone && <MailImportDialog projectId={projectId} open={mailOpen} onOpenChange={setMailOpen} />}
-      {inboundMailEnabled && (
-        <InboundMailAddressDialog projectId={projectId} projectName={projectName} open={addressOpen} onOpenChange={setAddressOpen} />
-      )}
     </>
   )
 }

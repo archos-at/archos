@@ -68,7 +68,7 @@ import {
   type DocumentSubmitActor,
   type DocumentVersionOrigin,
   type DocumentVersionState,
-} from '@/lib/documents/lifecycle-types'
+} from '@/lib/documents/lifecycle-vocabulary'
 import { documents } from './documents'
 
 // Re-exported so `@/lib/db/schema` stays the one import site, exactly as

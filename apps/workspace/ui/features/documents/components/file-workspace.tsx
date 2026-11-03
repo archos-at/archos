@@ -84,7 +84,7 @@ import {
   type DocumentActionKind,
 } from './document-actions/action-entries'
 import { FileBrowserPane } from './file-browser-pane'
-import { InboundMailWaitingLine } from '@/features/inbound-mail/components/waiting-line'
+import { InboundMailWaitingLine } from './inbound-mail-waiting-line'
 import { FileDropOverlay, useWindowDragGuard } from './file-drop-overlay'
 import { FileFilterMenu } from './file-filter-menu'
 import { FilePreviewDialog } from './file-preview-dialog'

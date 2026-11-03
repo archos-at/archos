@@ -400,7 +400,7 @@
   "apps/workspace/bff/documents/generated.ts": 5,
   "apps/workspace/bff/documents/ingest-dispatch.ts": 4,
   "apps/workspace/bff/documents/lifecycle-client.ts": 1,
-  "apps/workspace/bff/documents/lifecycle-types.ts": 7,
+  "apps/workspace/bff/documents/lifecycle-types.ts": 5,
   "apps/workspace/bff/documents/lifecycle.spec.ts": 12,
   "apps/workspace/bff/documents/lifecycle.ts": 15,
   "apps/workspace/bff/documents/list-query.ts": 2,

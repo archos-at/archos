@@ -5,7 +5,7 @@ import { and, eq, ne, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withTenant } from '@/lib/db/tenant-context'
 import { documents } from '@/lib/db/schema/documents'
-import { FILING_CHOICE_METADATA_KEY } from '../filing-choice'
+import { FILING_CHOICE_METADATA_KEY } from '../filing-choice-key'
 
 /**
  * Hard-delete a project document row (the DB record; SeaweedFS + backend

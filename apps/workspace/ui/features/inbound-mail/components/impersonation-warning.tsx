@@ -31,7 +31,7 @@ export function ImpersonationWarning({ warning }: { warning: Warning }): JSX.Ele
   return (
     <Alert className="border-l-4 border-l-[color:var(--color-signal-error)] [&>svg]:text-error" data-testid="impersonation-warning" data-basis={warning.basis}>
       <ShieldAlert aria-hidden />
-      <AlertTitle className="line-clamp-none font-semibold [overflow-wrap:anywhere]">
+      <AlertTitle className="line-clamp-none font-medium [overflow-wrap:anywhere]">
         {warning.basis === 'member_name'
           ? t('impersonationWarning.memberName', { name: warning.name, address: warning.address })
           : t('impersonationWarning.rejectedSignature', { name: warning.name })}

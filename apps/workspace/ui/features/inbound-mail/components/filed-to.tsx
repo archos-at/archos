@@ -17,7 +17,7 @@
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, Repeat2 } from 'lucide-react'
-import { documentFilesHref } from '@/features/documents/lib/document-question'
+import { documentFilesHref } from '@/features/documents'
 import { useTranslations } from '@/i18n'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import type { InboundMailPartView } from '@/lib/inbound-mail/inbound-mail-wire'
