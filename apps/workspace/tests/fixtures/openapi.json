@@ -1330,7 +1330,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Add a member to a project with a role",
           "readOnlyHint": false,
@@ -1480,7 +1480,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Remove a member’s project role",
           "readOnlyHint": false,
@@ -4005,7 +4005,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Set the project’s sensitive name terms",
           "readOnlyHint": false,
@@ -6105,7 +6105,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Release a legal hold",
           "readOnlyHint": false,
@@ -8312,7 +8312,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Set who may open a project folder",
           "readOnlyHint": false,
@@ -11081,7 +11081,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Follow an email thread",
           "readOnlyHint": false,
@@ -12334,7 +12334,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Allow a held document through screening",
           "readOnlyHint": false,
@@ -18252,7 +18252,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Set who beyond the invited people may see a resource",
           "readOnlyHint": false,
@@ -18365,7 +18365,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Give a person access to a resource",
           "readOnlyHint": false,
@@ -18461,7 +18461,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Change a person’s role on a resource",
           "readOnlyHint": false,
@@ -18540,7 +18540,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Take away a person’s access to a resource",
           "readOnlyHint": false,
@@ -22480,7 +22480,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "Get a link to the audit log viewer",
           "readOnlyHint": false,
@@ -22807,7 +22807,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Set the deleted-folder content policy",
           "readOnlyHint": false,
@@ -22986,7 +22986,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Set download log retention",
           "readOnlyHint": false,
@@ -23230,7 +23230,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "Connect an LLM provider key",
           "readOnlyHint": false,
@@ -23271,7 +23271,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "List the organization’s LLM provider keys",
           "readOnlyHint": true,
@@ -23327,7 +23327,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "Revoke an LLM provider key",
           "readOnlyHint": false,
@@ -23383,7 +23383,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "Check an LLM provider key against the provider",
           "readOnlyHint": false,
@@ -23448,7 +23448,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "Choose between the organization’s key and the platform",
           "readOnlyHint": false,
@@ -24190,7 +24190,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Define a custom role",
           "readOnlyHint": false,
@@ -24285,7 +24285,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Delete a custom role",
           "readOnlyHint": false,
@@ -24376,7 +24376,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "access",
+        "x-sensitivity": "access",
         "x-mcp-annotations": {
           "title": "Change a custom role",
           "readOnlyHint": false,
@@ -24680,7 +24680,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Save the upload screening policy",
           "readOnlyHint": false,
@@ -24855,7 +24855,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Switch web search on or off",
           "readOnlyHint": false,
@@ -24916,7 +24916,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Turn zero data retention on or off",
           "readOnlyHint": false,
@@ -25998,7 +25998,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "secret",
+        "x-sensitivity": "secret",
         "x-mcp-annotations": {
           "title": "Get an Admin Portal link to the platform audit log",
           "readOnlyHint": false,
