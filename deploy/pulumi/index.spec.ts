@@ -318,7 +318,12 @@ describe("the program constructs in the split topology", () => {
     // Dev and any stack without IPAX worker groups: a nodeSelector here would
     // match no node and leave the tier Pending. `index-node-groups.spec.ts`
     // has prod's placement.
-    const withSelector = RESOURCES.filter((r) => JSON.stringify(r.inputs).includes('"nodeSelector"'));
+    // A CRD's schema names `nodeSelector` as a field it accepts; that places nothing.
+    const placing = (r: (typeof RESOURCES)[number]) =>
+      Array.isArray(r.inputs.objs)
+        ? r.inputs.objs.filter((o: { kind?: string }) => o.kind !== "CustomResourceDefinition")
+        : r.inputs;
+    const withSelector = RESOURCES.filter((r) => JSON.stringify(placing(r)).includes('"nodeSelector"'));
 
     expect(withSelector.map((r) => r.name)).toEqual([]);
   });
