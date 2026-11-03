@@ -10,8 +10,8 @@
  * a fire, a re-arm) replaces it through {@link syncScheduledRun}.
  *
  * A Hatchet call that fails is logged, never thrown: the definition was saved,
- * and the repair sweep (`./fire-definition.ts`, `repairOverdueSchedules`) gives
- * any row that passes its due time without a fire a new scheduled run.
+ * and the repair sweep (`./fire-definition.ts`, `repairSchedules`) gives
+ * any row that passes its due time without a fire, or has none, a scheduled run.
  */
 
 import 'server-only'

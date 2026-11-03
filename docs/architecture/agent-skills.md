@@ -1130,12 +1130,15 @@ on `input.organization_id`, at most 5 at once per organization.
 **Missed fires and repair.** Misfires coalesce as before: the next due time is
 computed from now, so a definition that was due during an outage fires once and
 jumps to its next future slot, never backfilling. The `schedule-repair` sweep
-(every 5 min) gives every enabled definition more than 3 minutes past its
-`next_run_at` a scheduled run due now (`repairOverdueSchedules`). That heals a
-Hatchet call that failed when the definition was saved, a fire that timed out
-in Hatchet's queue while no worker was up, and the definitions that existed
-before the cutover, which have no scheduled run until their first repair. The
-scan matches the partial index `idx_task_definitions_due`.
+(every 5 min, up to 500 definitions a run) gives every enabled definition more
+than 3 minutes past its `next_run_at` a scheduled run due now, and every enabled
+definition with no `scheduled_run_id` its run at `next_run_at`, however far
+ahead (`repairSchedules`). That heals a Hatchet call that failed when the
+definition was saved and a fire that timed out in Hatchet's queue while no
+worker was up, and it gives the definitions that existed before the cutover
+(migration 0192 has no backfill) their runs in the first repair or two, so they
+fire on time rather than a repair late. The scan matches the partial index
+`idx_task_definitions_due`.
 
 **The sweeps.** Each is a Hatchet cron task (UTC, minute granularity) with a
 constant concurrency key, `maxRuns: 1` and `CANCEL_NEWEST`, so a run that comes

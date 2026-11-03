@@ -5,7 +5,7 @@
  */
 
 import 'server-only'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, or, sql } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import { withPlatformAccess } from '@/lib/db/tenant-context'
 import { taskDefinitions, type TaskDefinition } from '@/lib/db/schema/task-model'
@@ -76,15 +76,17 @@ export async function setScheduledRunId(
 }
 
 /**
- * Enabled definitions whose due time passed more than `graceMinutes` ago,
- * oldest first: the ones whose scheduled run was never created, was lost, or
- * timed out in Hatchet's queue while no worker was up. Every organization's,
- * so it runs under the platform scope; the repair then works on each row inside
- * its own organization. The WHERE clause matches the partial index
- * `idx_task_definitions_due` (0090), so the scan stays an index scan.
+ * Enabled definitions with a due time that need a scheduled run, oldest due
+ * first: those whose due time passed more than `graceMinutes` ago (the run was
+ * never created, was lost, or timed out in Hatchet's queue while no worker was
+ * up), and those with no scheduled run at all, however far ahead they are due
+ * (every definition from before the cutover, migration 0192). Every
+ * organization's, so it runs under the platform scope; the repair then works
+ * on each row inside its own organization. The WHERE clause implies the
+ * partial index `idx_task_definitions_due` (0090), and the limit bounds it.
  */
-export function findOverdueDefinitions(graceMinutes: number, limit: number): Promise<TaskDefinition[]> {
-  return withPlatformAccess('schedule repair: find the definitions whose due time passed without a fire', () =>
+export function findDefinitionsToRepair(graceMinutes: number, limit: number): Promise<TaskDefinition[]> {
+  return withPlatformAccess('schedule repair: find the definitions that are overdue or have no scheduled run', () =>
     getDb()
       .select()
       .from(taskDefinitions)
@@ -92,7 +94,10 @@ export function findOverdueDefinitions(graceMinutes: number, limit: number): Pro
         and(
           eq(taskDefinitions.enabled, true),
           sql`${taskDefinitions.nextRunAt} IS NOT NULL`,
-          sql`${taskDefinitions.nextRunAt} < now() - make_interval(mins => ${graceMinutes})`,
+          or(
+            isNull(taskDefinitions.scheduledRunId),
+            sql`${taskDefinitions.nextRunAt} < now() - make_interval(mins => ${graceMinutes})`,
+          ),
         ),
       )
       .orderBy(taskDefinitions.nextRunAt)
