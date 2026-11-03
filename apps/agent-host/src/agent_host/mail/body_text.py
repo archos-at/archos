@@ -189,9 +189,14 @@ def _blank_unseen_text(root: lxml_html.HtmlElement) -> None:
             hidden = _is_zero(style.get("font-size")) or style.get("visibility") in ("hidden", "collapse")
         unseen[element] = hidden
         if hidden:
-            element.text = None
-            for child in element:
-                child.tail = None
+            _blank_text(element)
+
+
+def _blank_text(element: lxml_html.HtmlElement) -> None:
+    """Drop the text an element holds itself: its own text and its children's tails, never the children."""
+    element.text = None
+    for child in element:
+        child.tail = None
 
 
 def _declarations(style: str) -> dict[str, str]:
