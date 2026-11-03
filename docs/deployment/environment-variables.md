@@ -459,7 +459,7 @@ The submit path persists a deep-research job as a `research_job_queue` row; dedi
 These are set by the Pulumi stack on the respective Deployments — not part of
 `deploy/.env`. In Compose they are unset and export no-ops. Pulumi injects them
 only when the collector is deployed: `observabilityEnabled` and at least one
-consumer (Langfuse, `posthogLogsEnabled` or `posthogMetricsEnabled`) —
+consumer (Langfuse, `posthogLogsEnabled`, `posthogMetricsEnabled` or `posthogTracesEnabled`) —
 `docs/deployment/kubernetes.md` §9; otherwise they stay unset and no producer
 exports.
 
@@ -481,7 +481,7 @@ The browser and BFF read `NEXT_PUBLIC_POSTHOG_HOST` / `NEXT_PUBLIC_POSTHOG_PROJE
 
 On Kubernetes every PostHog pair is on by default: `grid-oib:posthogHost` and `grid-oib:posthogProjectToken` default to Piloti's EU project (`POSTHOG_DEFAULT_HOST` and `POSTHOG_DEFAULT_PROJECT_TOKEN` in `deploy/pulumi/src/config/posthog.ts`), so staging and production both send, told apart by each event's `environment`. A stack opts out with `grid-oib:posthogHost: ""`. Compose and a local `bun dev` still need the variables set by hand, so a developer's machine sends nothing by accident.
 
-The collector's WARN-and-above log pipeline to PostHog Logs is not an environment variable. It is the stack key `grid-oib:posthogLogsEnabled` (default true), and it needs `posthogHost`, `posthogProjectToken` and the observability tier ([`kubernetes.md`](kubernetes.md) §9). The metrics pipeline to PostHog Metrics, and the per-node agents that feed it, are the stack key `grid-oib:posthogMetricsEnabled` (default true), with the same three dependencies.
+The collector's WARN-and-above log pipeline to PostHog Logs is not an environment variable. It is the stack key `grid-oib:posthogLogsEnabled` (default true), and it needs `posthogHost`, `posthogProjectToken` and the observability tier ([`kubernetes.md`](kubernetes.md) §9). The metrics pipeline to PostHog Metrics, and the per-node agents that feed it, are the stack key `grid-oib:posthogMetricsEnabled` (default true), with the same three dependencies. The BFF's request traces to PostHog Tracing are `grid-oib:posthogTracesEnabled` (default true), with the same three as well; the BFF itself needs nothing new, it records spans whenever `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## Prompt management (Langfuse)
 

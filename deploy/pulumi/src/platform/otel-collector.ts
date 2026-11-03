@@ -96,6 +96,9 @@ export function installOtelCollector(
     renderCollectorConfig(
       composeCollectorConfig([
         ...(langfuseSecretName ? [langfuseTraces()] : []),
+        ...(cfg.posthog.tracesEnabled
+          ? [posthogTraces(cfg.posthog.host, cfg.posthog.projectToken, pulumi.getStack())]
+          : []),
         ...(cfg.posthog.logsEnabled ? [posthogLogs(cfg.posthog.host, cfg.posthog.projectToken)] : []),
         ...(qdrant ? [qdrantScrape(qdrant)] : []),
         ...(metrics
@@ -241,7 +244,27 @@ export function installOtelCollector(
 }
 
 /**
- * Traces to Langfuse (ADR-0044), the one consumer of the traces signal.
+ * The tiers whose spans are application request traces rather than LLM traces:
+ * the Next.js BFF (`grid-ui`) and the Next server inside bff-jobs. Their spans
+ * go to PostHog Tracing and never to Langfuse; every other tier's spans are the
+ * agent's and go to Langfuse only (ADR-0029 Amendment 6). The names are the
+ * `OTEL_SERVICE_NAME` values `app/config.ts` and `app/bff-jobs-env.ts` set.
+ */
+export const APP_TRACE_SERVICES = ["grid-ui", "grid-bff-jobs"] as const;
+
+/** The span attributes Next records a URL in, query string included. */
+const URL_ATTRIBUTES = ["http.target", "http.url", "url.full"] as const;
+
+/** OTTL: the span came from one of {@link APP_TRACE_SERVICES}. */
+const FROM_APP_TIER = APP_TRACE_SERVICES.map((s) => `resource.attributes["service.name"] == "${s}"`).join(" or ");
+
+/**
+ * Traces to Langfuse (ADR-0044): the agent's LLM traces, and nothing else.
+ *
+ * The BFF's request spans are dropped here: one trace per HTTP request is what
+ * flooded Langfuse before (ADR-0029 Amendment 5), and they are not LLM work.
+ * The filter is in this pipeline whether or not PostHog takes them, so
+ * switching PostHog traces off never lets the flood back in.
  *
  * `otlp_http`, NOT `otlphttp`: both resolve today, and upstream made
  * `otlphttp` the DeprecatedType. `traces_endpoint`, not `endpoint`: the latter
@@ -249,6 +272,9 @@ export function installOtelCollector(
  */
 export function langfuseTraces(): CollectorFragment {
   return {
+    processors: {
+      "filter/drop_app_spans": { error_mode: "ignore", trace_conditions: [FROM_APP_TIER] },
+    },
     exporters: {
       "otlp_http/langfuse": {
         traces_endpoint: langfuseOtlpTracesEndpoint(),
@@ -268,7 +294,59 @@ export function langfuseTraces(): CollectorFragment {
         ...boundedDelivery(2000),
       },
     },
-    pipelines: { traces: { receivers: [OTLP_RECEIVER], exporters: ["otlp_http/langfuse"] } },
+    pipelines: {
+      traces: {
+        receivers: [OTLP_RECEIVER],
+        processors: ["filter/drop_app_spans"],
+        exporters: ["otlp_http/langfuse"],
+      },
+    },
+  };
+}
+
+/**
+ * The BFF's request traces to PostHog Tracing (`/i/v1/traces`), and only
+ * those: the agent's spans carry prompts and completions and reach PostHog
+ * through Langfuse's integration (ADR-0100), so they are dropped here.
+ *
+ * Query strings are cut from the URLs Next records (`http.target` on the
+ * request, `http.url` on each `fetch`): a search box's text, a filter or a
+ * signed URL's token is tenant data, and the path is what a trace is read by.
+ *
+ * Same public `phc_` token and the same environment stamp as the metrics, so
+ * dev and prod stay apart in the one project. Volume is the BFF sampler's job
+ * (`observability/request-sampler.js`): health probes, static assets and
+ * prefetches are never recorded, so they never reach this pipeline.
+ */
+export function posthogTraces(host: string, projectToken: string, environment: string): CollectorFragment {
+  return {
+    processors: {
+      "filter/app_spans_only": { error_mode: "ignore", trace_conditions: [`not (${FROM_APP_TIER})`] },
+      "transform/strip_url_queries": {
+        error_mode: "ignore",
+        trace_statements: URL_ATTRIBUTES.map(
+          (key) => `replace_pattern(span.attributes["${key}"], "[?].*$", "")`,
+        ),
+      },
+      "resource/traces_environment": {
+        attributes: [{ key: "deployment.environment.name", value: environment, action: "insert" }],
+      },
+    },
+    exporters: {
+      "otlp_http/posthog_traces": {
+        traces_endpoint: `${host.replace(/\/+$/, "")}/i/v1/traces`,
+        headers: { Authorization: `Bearer ${projectToken}` },
+        compression: "gzip",
+        ...boundedDelivery(1000),
+      },
+    },
+    pipelines: {
+      "traces/posthog": {
+        receivers: [OTLP_RECEIVER],
+        processors: ["filter/app_spans_only", "transform/strip_url_queries", "resource/traces_environment"],
+        exporters: ["otlp_http/posthog_traces"],
+      },
+    },
   };
 }
 

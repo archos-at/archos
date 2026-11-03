@@ -149,7 +149,9 @@ describe("a stack with Langfuse and PostHog opted out", () => {
     expect(d.collector).not.toMatch(/aspire/i);
     expect(d.collector).not.toContain("OTLP_API_KEY");
     expect(d.collectorEnv).toEqual(["LANGFUSE_OTLP_AUTH"]);
-    expect(parseCollectorConfig(d.collector).service.pipelines.traces).toEqual(pipeline(["otlp_http/langfuse"]));
+    expect(parseCollectorConfig(d.collector).service.pipelines.traces).toEqual(
+      pipeline(["otlp_http/langfuse"], { processors: ["filter/drop_app_spans"] }),
+    );
   });
 
   it("still takes logs and metrics, into the collector's own nop exporter", () => {
@@ -177,9 +179,12 @@ describe("a stack with PostHog logs and no Langfuse", () => {
     expect(d.collector).not.toContain("${env:");
   });
 
-  it("ends the traces signal in nop and ships logs to PostHog only", () => {
+  it("sends the BFF's traces and the logs to PostHog only", () => {
+    // PostHog traces are on by default, so the traces signal has a consumer and
+    // needs no nop pipeline; with no Langfuse there is no `traces` pipeline.
     const { pipelines } = parseCollectorConfig(d.collector).service;
-    expect(pipelines.traces).toEqual(pipeline(["nop"]));
+    expect(pipelines).not.toHaveProperty("traces");
+    expect(pipelines["traces/posthog"].exporters).toEqual(["otlp_http/posthog_traces"]);
     expect(pipelines).toHaveProperty("logs/posthog");
     expect(pipelines).not.toHaveProperty("logs");
   });

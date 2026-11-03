@@ -495,6 +495,7 @@ export function loadConfig(): DeployConfig {
       langfuseEnabled: langfuse.enabled,
       posthogLogsEnabled: posthog.logsEnabled,
       posthogMetricsEnabled: posthog.metricsEnabled,
+      posthogTracesEnabled: posthog.tracesEnabled,
     },
   );
 

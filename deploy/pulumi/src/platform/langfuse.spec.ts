@@ -138,8 +138,18 @@ describe("with the Langfuse tier enabled", () => {
   });
 
   describe("collector fan-out", () => {
-    it("gives the traces pipeline to Langfuse alone", () => {
-      expect(parseCollectorConfig(collectorConfig).service.pipelines.traces).toEqual(pipeline(["otlp_http/langfuse"]));
+    it("gives the traces pipeline to Langfuse alone, without the BFF's request spans", () => {
+      const { processors, service } = parseCollectorConfig(collectorConfig);
+      expect(service.pipelines.traces).toEqual(
+        pipeline(["otlp_http/langfuse"], { processors: ["filter/drop_app_spans"] }),
+      );
+      // One trace per HTTP request is what flooded Langfuse (ADR-0029 Amendment 5).
+      expect(processors["filter/drop_app_spans"]).toEqual({
+        error_mode: "ignore",
+        trace_conditions: [
+          'resource.attributes["service.name"] == "grid-ui" or resource.attributes["service.name"] == "grid-bff-jobs"',
+        ],
+      });
     });
 
     it("sends it no logs and no metrics", () => {
