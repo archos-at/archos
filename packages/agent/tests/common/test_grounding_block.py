@@ -630,7 +630,7 @@ class TestAMailPassageStatesItsFormat:
 
     @pytest.mark.parametrize("reader", ["records", "text"])
     def test_both_readers_place_it_in_the_mail_lane(self, reader):
-        from agent.common.citation_verification import source_entry_to_wire
+        from agent.citations.wire import source_entry_to_wire
 
         token = begin_grounding_capture() if reader == "records" else None
         try:
@@ -647,7 +647,7 @@ class TestAMailPassageStatesItsFormat:
     def test_a_resumed_conversation_keeps_the_format(self):
         import dataclasses
 
-        from agent.common.citation_verification import _registry_from_cached_entries
+        from agent.citations.session import _registry_from_cached_entries
 
         (entry,) = extract_sources_from_tool_result("knowledge_search", self._render(source_format="mail"))
         restored = _registry_from_cached_entries([dataclasses.asdict(entry)])
