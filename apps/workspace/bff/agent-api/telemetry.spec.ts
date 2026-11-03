@@ -9,8 +9,9 @@ const principal = (actor: AgentPrincipal['actor'], clientId: string | null): Age
   ({ actor, clientId, scopes: [], session: {} }) as unknown as AgentPrincipal
 
 describe('sessionSourceOf', () => {
-  test('Piloti in a person chat is the UI', () => {
-    expect(sessionSourceOf({ principal: principal('piloti', null) })).toBe('ui')
+  test('the in-product agent in a person chat is the UI', () => {
+    const inProduct: AgentPrincipal['actor'] = 'in_product' as AgentPrincipal['actor']
+    expect(sessionSourceOf({ principal: principal(inProduct, null) })).toBe('ui')
   })
 
   test('an outside agent on an OAuth client is mcp', () => {

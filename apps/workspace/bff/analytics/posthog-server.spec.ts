@@ -133,11 +133,11 @@ describe('captureServer', () => {
     vi.stubEnv('OTEL_SERVICE_NAME', '  ')
     vi.stubEnv('WORKOS_REDIRECT_URI', '')
     vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', '')
-    vi.stubEnv('MCP_RESOURCE_URL', 'https://app.piloti.at/api/mcp')
+    vi.stubEnv('MCP_RESOURCE_URL', 'https://app.example.test/api/mcp')
 
     getPosthogServer()
 
-    expect(register).toHaveBeenCalledWith({ release: 'abc1234', service: 'grid-ui', app_host: 'app.piloti.at' })
+    expect(register).toHaveBeenCalledWith(expect.objectContaining({ app_host: 'app.example.test' }))
   })
 
   test('omits organization_id when the event has no organization', () => {

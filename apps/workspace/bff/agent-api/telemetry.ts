@@ -75,14 +75,14 @@ function doorOf({ principal, door }: McpCallContext): CallDoor {
 
 /**
  * Who is behind a call, to keep automation out of usage numbers: `ui` when
- * Piloti works in a person's chat, `mcp` when an outside agent holds an OAuth
+ * the in-product agent works in a person's chat, `mcp` when an outside agent holds an OAuth
  * client's token, `script` when an outside agent's token names no client (a
  * bare token in a script).
  */
 export type SessionSource = 'ui' | 'mcp' | 'script'
 
 export function sessionSourceOf({ principal }: Pick<McpCallContext, 'principal'>): SessionSource {
-  if (principal.actor === 'piloti') return 'ui'
+  if (principal.actor !== 'external_agent') return 'ui'
   return principal.clientId ? 'mcp' : 'script'
 }
 
