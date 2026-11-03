@@ -680,8 +680,8 @@ Python mirror to lists the TypeScript wrote. The questions are `tests/fixtures/w
 the checks (`reads`, `proposes`, `uses`, `no_write`, `no_workspace`, `no_repeat`, the
 judge's `pending` and `asks`) are explained in its header. `uses` names the tool a
 job must be done with, a native one where the exposure config hides the door's
-look-alike from Piloti (`apps/workspace/bff/agent-api/exposure.config.ts`): run
-the set before and after you change a `piloti` entry there. The report's
+look-alike from the agent (`apps/workspace/bff/agent-api/exposure.config.ts`): run
+the set before and after you change an `agent` entry there. The report's
 `## Workspace` section gives the share of runs where every check held, rounds,
 door calls by kind, searches that found nothing, tokens and seconds. No corpus
 is needed. Run it before and after a change to the prompt's workspace facts,
