@@ -1,39 +1,37 @@
-"""A job queued by the release before #887 still runs after the upgrade.
+"""A payload written by an earlier release still runs after the upgrade.
 
-Root cause: a research job's queue payload is the kwargs the worker replays with
+Root cause: a research job's payload is the kwargs the worker replays with
 ``run_agent_job(**payload)``. The release before #887 wrote ``scheduler_address``
-(its Dask scheduler) into every payload, and #887 removed that parameter. A row
-queued at the upgrade, and a running job whose claim another worker takes over,
-replay the same stored payload, so every one of them died with a TypeError.
+(its Dask scheduler) into every payload, and #887 removed that parameter; the
+release before ADR-0150 wrote ``claim_owner`` (the claim queue's worker id), and
+the move to Hatchet removed that one. A stored payload replayed after such an
+upgrade (a Hatchet retry, or the cutover's re-dispatch of the old queue's rows)
+died with a TypeError.
 
 Why missed: the worker tests stub ``run_agent_job`` with ``**kwargs``, which
 accepts anything, and no test replayed a payload written by an earlier release.
 
-The fix: ``worker.RETIRED_PAYLOAD_KEYS`` names the keys the old release wrote,
-and the worker drops exactly those after decryption. Anything else unknown still
+The fix: ``worker.RETIRED_PAYLOAD_KEYS`` names the keys old releases wrote, and
+the worker drops exactly those after decryption. Anything else unknown still
 fails loudly.
 
 Ratchet: the stub below binds against the REAL ``run_agent_job`` signature, so a
-stale or misspelled key fails here as it would in production. The rows go through
-the real queue table (and the real payload encryption when a KEK is set).
+stale or misspelled key fails here as it would in production. The payloads go
+through the real payload encryption and the real ``research-run`` task body.
 """
 
 from __future__ import annotations
 
-import base64
 import inspect
-import logging
-import os
 
 import pytest
 
-from agent_host.jobs import queue
+from agent_host.jobs import payload_crypto
+from agent_host.jobs import research_hatchet
 from agent_host.jobs import worker as worker_mod
 from agent_host.jobs.agent_job import run_agent_job
 
-from .test_job_queue import _age_heartbeat
-
-#: What the release before #887 enqueued, with the Dask scheduler key it carried.
+#: What the claim-queue releases stored, with both keys they carried.
 OLD_PAYLOAD = {
     "configure_logging": False,
     "log_level": 20,
@@ -44,7 +42,7 @@ OLD_PAYLOAD = {
     "input_text": "pre-upgrade question",
     "agent_class_path": "agent.agents.deep_researcher.agent.DeepResearcherAgent",
     "agent_config_name": "deep_research_agent",
-    "claim_owner": None,
+    "claim_owner": "host:123",
 }
 
 
@@ -52,11 +50,8 @@ OLD_PAYLOAD = {
 def db_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path}/jobs.db"
     monkeypatch.setenv("NAT_JOB_STORE_DB_URL", url)
-    monkeypatch.setenv("WORKER_LIVENESS_FILE", str(tmp_path / "alive"))
     monkeypatch.delenv("DEEP_CHECKPOINT_DB", raising=False)
-    queue.ensure_research_queue_table(url)
-    yield url
-    queue._queues.pop(url, None)
+    return url
 
 
 @pytest.fixture
@@ -73,70 +68,46 @@ def replayed(monkeypatch) -> list:
     return calls
 
 
-async def _claim_and_run(db_url: str, payload: dict) -> None:
-    queue.enqueue(db_url, payload["job_id"], payload, "org-a")
-    claim = queue.claim_next(db_url, "worker-old", stale_seconds=30, max_attempts=3)
-    assert claim is not None
-    await worker_mod.ResearchWorker()._run_claimed(claim)
+def _run(payload: dict) -> research_hatchet.ResearchRunInput:
+    return research_hatchet.ResearchRunInput(
+        job_id=payload["job_id"],
+        organization_id="org-a",
+        priority="interactive",
+        payload=payload_crypto.serialize_encrypted(payload),
+    )
 
 
-async def test_queued_payload_with_scheduler_address_replays_without_it(db_url, replayed):
-    await _claim_and_run(db_url, dict(OLD_PAYLOAD))
+async def test_an_old_payload_replays_without_its_retired_keys(db_url, replayed):
+    await research_hatchet.run_task(_run(dict(OLD_PAYLOAD)))
 
     assert len(replayed) == 1
     assert "scheduler_address" not in replayed[0]
+    assert "claim_owner" not in replayed[0]
     assert replayed[0]["input_text"] == "pre-upgrade question"
-    assert replayed[0]["claim_owner"] == worker_mod.ResearchWorker().worker_id
 
 
-async def test_encrypted_old_payload_is_filtered_after_decryption(db_url, replayed, monkeypatch):
-    monkeypatch.setenv("JOB_PAYLOAD_KEK", base64.b64encode(os.urandom(32)).decode())
-
-    await _claim_and_run(db_url, dict(OLD_PAYLOAD))
-
-    assert len(replayed) == 1
-    assert "scheduler_address" not in replayed[0]
+async def _run_and_collect_failure(payload: dict) -> BaseException:
+    with pytest.raises(Exception) as raised:
+        await worker_mod.run_stored_job("sqlite:///unused.db", payload["job_id"], _run(payload).payload)
+    return raised.value
 
 
-async def test_reclaimed_running_job_replays_the_same_old_payload(db_url, replayed):
-    """A job running at deploy time: its claim goes stale and a new worker claims the stored row again."""
-    queue.enqueue(db_url, "job-old", dict(OLD_PAYLOAD), "org-a")
-    first = queue.claim_next(db_url, "worker-before-deploy", stale_seconds=30, max_attempts=3)
-    assert first is not None
-    _age_heartbeat(db_url, "job-old", 120)  # the pre-deploy worker is gone
-    reclaimed = queue.claim_next(db_url, "worker-after-deploy", stale_seconds=30, max_attempts=3)
-    assert reclaimed is not None
-    assert reclaimed["attempts"] == 2
-
-    await worker_mod.ResearchWorker()._run_claimed(reclaimed)
-
-    assert len(replayed) == 1
-    assert "scheduler_address" not in replayed[0]
-
-
-async def _run_and_collect_failure(db_url: str, payload: dict, caplog) -> BaseException:
-    with caplog.at_level(logging.ERROR, logger=worker_mod.logger.name):
-        await _claim_and_run(db_url, payload)
-    failure = next(r for r in caplog.records if "failed in worker" in r.getMessage())
-    return failure.exc_info[1]
-
-
-async def test_unknown_key_in_a_new_payload_still_fails(db_url, replayed, caplog):
+async def test_unknown_key_in_a_new_payload_still_fails(db_url, replayed):
     """No general ignore-unknown filter: a typo or a stale key in a NEW payload must stay loud."""
-    new_payload = {k: v for k, v in OLD_PAYLOAD.items() if k != "scheduler_address"}
+    new_payload = {k: v for k, v in OLD_PAYLOAD.items() if k not in worker_mod.RETIRED_PAYLOAD_KEYS}
     new_payload.update(job_id="job-new", not_a_parameter=1)
 
-    error = await _run_and_collect_failure(db_url, new_payload, caplog)
+    error = await _run_and_collect_failure(new_payload)
 
     assert replayed == []
     assert isinstance(error, TypeError)
     assert "not_a_parameter" in str(error)
 
 
-async def test_a_retired_key_does_not_hide_an_unknown_one(db_url, replayed, caplog):
+async def test_a_retired_key_does_not_hide_an_unknown_one(db_url, replayed):
     payload = {**OLD_PAYLOAD, "job_id": "job-mixed", "not_a_parameter": 1}
 
-    error = await _run_and_collect_failure(db_url, payload, caplog)
+    error = await _run_and_collect_failure(payload)
 
     assert replayed == []
     assert isinstance(error, TypeError)
@@ -145,7 +116,12 @@ async def test_a_retired_key_does_not_hide_an_unknown_one(db_url, replayed, capl
 
 
 def test_only_the_named_retired_keys_are_dropped():
-    kwargs = worker_mod._replay_kwargs({"job_id": "j", "scheduler_address": "x", "other": 1}, "w1")
+    kwargs = worker_mod._replay_kwargs({"job_id": "j", "scheduler_address": "x", "claim_owner": "w", "other": 1})
 
-    assert kwargs == {"job_id": "j", "other": 1, "claim_owner": "w1"}
-    assert worker_mod.RETIRED_PAYLOAD_KEYS == {"scheduler_address"}
+    assert kwargs == {"job_id": "j", "other": 1}
+    assert worker_mod.RETIRED_PAYLOAD_KEYS == {"scheduler_address", "claim_owner"}
+
+
+def test_no_retired_key_is_a_parameter_again():
+    """A retired name that comes back as a parameter would be silently dropped from every payload."""
+    assert not worker_mod.RETIRED_PAYLOAD_KEYS & set(inspect.signature(run_agent_job).parameters)

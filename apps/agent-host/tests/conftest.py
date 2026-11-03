@@ -72,3 +72,28 @@ def _no_live_decisions(monkeypatch):
     test's fixtures to the live endpoint.
     """
     monkeypatch.setenv("DECISIONS_ENABLED", "false")
+
+
+#: A fixed test key: a research submit sends only ciphertext to Hatchet, so it needs one.
+_TEST_KEK = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+
+@pytest.fixture(autouse=True)
+def hatchet(monkeypatch):
+    """Every test runs research on a fake Hatchet (ADR-0150): no engine is reachable here.
+
+    A test that asserts what was handed to the SDK asks for this fixture by name.
+    A test of the no-key path deletes ``JOB_PAYLOAD_KEK`` itself.
+    """
+    from agent.common import hatchet_client
+    from agent_host.jobs import research_hatchet
+
+    from .hatchet_fake import FakeHatchet
+
+    monkeypatch.setenv("JOB_PAYLOAD_KEK", _TEST_KEK)
+    fake = FakeHatchet()
+    hatchet_client.reset_for_tests(fake)
+    research_hatchet._declared.clear()
+    yield fake
+    hatchet_client.reset_for_tests(None)
+    research_hatchet._declared.clear()

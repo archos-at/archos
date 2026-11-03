@@ -33,11 +33,12 @@ from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 from starlette.datastructures import Headers
 
+from agent.common import hatchet_client
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_HEADER
 from agent.project_context import REQUEST_CONTEXT_ENVELOPE_SIG_HEADER
 from agent.project_context import RequestContext
 from agent_host.jobs import access as job_access
-from agent_host.jobs import queue
+from agent_host.jobs import research_hatchet
 from agent_host.jobs import run_envelope
 from agent_host.jobs import worker as worker_mod
 from agent_host.jobs.agent_job import run_agent_job
@@ -224,9 +225,7 @@ def db_url(tmp_path, monkeypatch):
     monkeypatch.delenv("DEEP_CHECKPOINT_DB", raising=False)
     EventStore._tables_initialized.clear()
     job_access._job_access_schema_initialized.clear()
-    queue.ensure_research_queue_table(url)
     yield url
-    queue._queues.pop(url, None)
     EventStore._tables_initialized.clear()
     job_access._job_access_schema_initialized.clear()
 
@@ -290,10 +289,10 @@ async def _submit_and_replay(client: TestClient, db_url: str, headers: dict[str,
         headers={"x-internal-token": SECRET, **headers},
     )
     assert response.status_code == 200, response.text
-    claim = queue.claim_next(db_url, "worker-1", stale_seconds=30, max_attempts=3)
-    assert claim is not None
-    await worker_mod.ResearchWorker()._run_claimed(claim)
-    return claim
+    [started] = hatchet_client.client().started
+    run = started["input"]
+    await research_hatchet.run_task(run)
+    return {"stored": run.payload, "payload": worker_mod.decode_payload(run.payload)}
 
 
 async def _inject(kwargs: dict[str, Any]) -> Headers:
@@ -309,18 +308,15 @@ async def _inject(kwargs: dict[str, Any]) -> Headers:
     return state.metadata.get().headers
 
 
-class TestCarriedThroughTheQueue:
+class TestCarriedThroughHatchet:
     async def test_the_envelope_survives_submit_payload_and_injection_unchanged(
         self, db_url, skills_client, replayed, bff
     ):
         sent = _sign()
         claim = await _submit_and_replay(skills_client, db_url, sent)
 
-        # At rest it is inside the encrypted payload, never readable in the row.
-        from sqlalchemy import text
-
-        with queue._engine(db_url).connect() as conn:
-            stored = conn.execute(text("SELECT payload FROM research_job_queue")).scalar_one()
+        # In Hatchet it is inside the encrypted payload, never readable in the input.
+        stored = claim["stored"]
         assert stored.startswith("enc:")
         assert sent[REQUEST_CONTEXT_ENVELOPE_SIG_HEADER] not in stored
         assert claim["payload"]["request_envelope"] == _carried(sent)
