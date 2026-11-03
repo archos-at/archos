@@ -154,7 +154,8 @@ describe.skipIf(!configured)('scheduling on a real Hatchet engine', () => {
     const second = await overlapping.runNoWait({})
 
     await first.result()
-    await expect(second.result()).rejects.toThrow()
+    // A cancelled run's result() resolves (SDK 1.46), so read the run's status.
+    await eventually(async () => (await hatchet.runs.get_status(second)) === 'CANCELLED', 30_000)
     expect(sweepRuns).toBe(1)
   }, 60_000)
 })

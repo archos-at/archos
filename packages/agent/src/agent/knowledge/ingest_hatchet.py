@@ -236,7 +236,6 @@ def workflow_options(heavy: bool = False) -> dict[str, Any]:
     return {
         "name": HEAVY_WORKFLOW_NAME if heavy else WORKFLOW_NAME,
         "input_validator": IngestDocumentInput,
-        "concurrency": concurrency(),
         "default_priority": Priority.HIGH,
         "idempotency": StatusBasedIdempotencyConfig(key_expression="input.job_id", fallback_ttl=SCHEDULE_TIMEOUT),
     }
@@ -259,6 +258,8 @@ def index_options(heavy: bool = False, *, rate_limit_key: str = CREDIT_RATE_LIMI
         "backoff_factor": BACKOFF_FACTOR,
         "backoff_max_seconds": BACKOFF_MAX_SECONDS,
         "rate_limits": [RateLimit(static_key=rate_limit_key, units=1)],
+        # On the task, not the workflow: the engine refuses tenant-scoped limits on a multi-task workflow.
+        "concurrency": concurrency(),
     }
     if heavy:
         options["desired_worker_labels"] = [DesiredWorkerLabel(key=POOL_LABEL, value=HEAVY_POOL, required=True)]

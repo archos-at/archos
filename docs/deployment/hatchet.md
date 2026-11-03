@@ -67,7 +67,9 @@ Both workflows share two **tenant-scoped** concurrency limits, which span
 task definitions: `ingest-org` (`GROUP_ROUND_ROBIN` on the organisation,
 `INGEST_MAX_PER_ORG`), so an office's heavy and standard files count against
 one fairness budget, and `ingest-supersede` (`CANCEL_IN_PROGRESS`, one run per
-document), so a re-upload cancels the run still reading the old bytes. That
+document), so a re-upload cancels the run still reading the old bytes. Both sit
+on the `index` task, not the workflow: the engine refuses a tenant-scoped limit
+on a workflow of more than one task. That
 run writes its status `cancelled` with `metadata.superseded`, never as a
 person's cancel, and sends no settle push; a person's cancel marks the run id
 first (`ingest_run_hold.mark_stopped_by_person`) so the run can tell the two

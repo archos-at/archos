@@ -370,7 +370,9 @@ def test_both_workflows_share_one_org_limit_and_one_supersede_limit(hatchet):
     assert standard.options["name"] == "ingest-document"
     assert heavy.options["name"] == "ingest-document-heavy"
     for workflow in (standard, heavy):
-        org, supersede = workflow.options["concurrency"]
+        # The engine refuses tenant-scoped limits on a multi-task workflow, so they sit on index.
+        assert "concurrency" not in workflow.options
+        org, supersede = workflow.step("index").options["concurrency"]
         assert (org.name, org.expression, org.is_tenant_scoped) == ("ingest-org", "input.organization_id", True)
         assert org.limit_strategy is ConcurrencyLimitStrategy.GROUP_ROUND_ROBIN
         assert org.max_runs == ingest_hatchet.DEFAULT_MAX_RUNS_PER_ORG
@@ -381,8 +383,8 @@ def test_both_workflows_share_one_org_limit_and_one_supersede_limit(hatchet):
         )
         assert supersede.limit_strategy is ConcurrencyLimitStrategy.CANCEL_IN_PROGRESS
         assert supersede.is_tenant_scoped is True
-    assert [c.to_proto() for c in standard.options["concurrency"]] == [
-        c.to_proto() for c in heavy.options["concurrency"]
+    assert [c.to_proto() for c in standard.step("index").options["concurrency"]] == [
+        c.to_proto() for c in heavy.step("index").options["concurrency"]
     ]
 
 

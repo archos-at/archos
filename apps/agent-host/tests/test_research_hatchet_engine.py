@@ -55,6 +55,10 @@ class Engine:
         }
         for name in ("HATCHET_CLIENT_NAMESPACE", "NAT_JOB_STORE_DB_URL"):
             monkeypatch.setenv(name, self.env[name])
+        from nat.front_ends.fastapi.async_jobs.job_store import Base
+
+        # The runtime's start-up creates job_info in production; nothing here runs it.
+        Base.metadata.create_all(EventStore._get_or_create_sync_engine(self.db_url))
         self.workers: list[subprocess.Popen] = []
 
     def start_worker(self, **env: str) -> subprocess.Popen:
