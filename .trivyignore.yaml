@@ -103,6 +103,11 @@ vulnerabilities:
   # below (sdk 1.32.0, follow-redirects 1.16.1, migrate go1.26.10), and
   # neither digest carries CVE-2026-104850 (sdk 1.29.0; 4.63.0 already shipped
   # 1.31.0), so that box is gone.
+  # 4.71.0 -> 4.74.0 on 2026-11-03 cleared follow-redirects 1.16.1
+  # (CVE-2026-116689, HIGH, never boxed: it kept develop's CI, and so the
+  # staging deploy, red) and dd-trace 5.109.0 (CVE-2026-116693, boxed to
+  # 2026-11-11), both images. Verified by a local trivy 0.61.1 scan of the
+  # 4.74.0 digests with this file EMPTY: only CVE-2026-40345 below remains.
   #
   # Shared context: the Langfuse UI is reachable only through the Envoy
   # Gateway behind an OIDC flow gated on `platform:organizations:view` or
@@ -110,28 +115,6 @@ vulnerabilities:
   # public API) is reachable only from the pods a NetworkPolicy names: the
   # collector, the BFF, the backend tiers, the purger and the scheduler. There
   # is no unauthenticated surface.
-  - id: CVE-2026-116693
-    expired_at: 2026-11-11
-    statement: |
-      dd-trace 5.109.0 (GHSA-x94g-w73q-hpcw, published 2026-10-27) — the default
-      DD_TRACE_OBFUSCATION_QUERY_STRING_REGEXP backtracks excessively on a
-      crafted URL query string, applied synchronously while recording HTTP URL
-      metadata: a denial of service against the instrumented process. Fixed in
-      5.131.1 and 6.20.1. Both images, the same bundled copy.
-      No release clears it: 4.71.0 is the newest Langfuse tag and `latest`
-      resolves to the same digests as our pin (checked against ghcr.io on
-      2026-10-28). The finding comes from the promotion's CI scan of those
-      digests; trivy 0.61.1 run locally could not pull from ghcr.io.
-      Not reachable by an outsider: the web UI sits behind the Envoy Gateway
-      OIDC flow, so a crafted URL needs a signed-in person with
-      `platform:organizations:view` or `platform:observability:view`, and the
-      API and OTLP receiver answer only the pods a NetworkPolicy names, all
-      ours. The worker serves no user-supplied URL. Note this rests on the
-      network boundary, NOT on dd-trace being switched off: Langfuse's
-      `observability.config.ts` imports it unconditionally and we did not
-      verify the tracer is disabled in the running pods.
-      Drop as soon as a Langfuse release bundles dd-trace >= 5.131.1.
-
   - id: CVE-2026-40345
     expired_at: 2026-11-09
     statement: |
