@@ -1016,6 +1016,12 @@ export const collaboration = {
       inboundMailHeldForWriters: {
         title: 'Your mail to “{subject}” waits to be filed',
         body: 'You cannot file in this project, so someone who can decides where it goes.',
+        variants: {
+          // WorkOS did not answer whether the member may file here (`sender_unchecked`): never „you cannot“.
+          unchecked: {
+            body: 'When it arrived, whether you may file in this project could not be checked, so someone who can file there decides where it goes.',
+          },
+        },
       },
       inboundMailRejected: {
         title: 'Your mail to “{subject}” was dismissed',

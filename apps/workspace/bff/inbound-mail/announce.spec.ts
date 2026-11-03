@@ -361,6 +361,20 @@ describe('the sender rule’s notices (ADR-0137, amendment of 2026-11-03)', () =
     expect(emitInboxItems).not.toHaveBeenCalled()
   })
 
+  it('never tells a member “you cannot file here” when WorkOS did not answer whether they may: the unchecked variant says so', async () => {
+    await announceHeld({ ...mail({ senderFlags: ['sender_unchecked'] }), senderClass: 'office_member' })
+    const [row] = emitted()
+    expect(row).toMatchObject({ recipientUserId: MEMBER, type: 'inbound_mail.held_for_writers', payload: { variant: 'unchecked' } })
+
+    const view = { id: 'item-1', type: row!.type, href: '/app/inbox', subject: 'Wohnbau Hietzing', variant: 'unchecked', count: 1 } as InboxItemView
+    const en = buildPushMessage(view, row!.groupKey, DEFAULT_PUSH_PREFERENCES, 'en')
+    const de = buildPushMessage(view, row!.groupKey, DEFAULT_PUSH_PREFERENCES, 'de')
+    expect(en?.body).toContain('could not be checked')
+    expect(en?.body).not.toContain('You cannot file')
+    expect(de?.body).toContain('nicht zu prüfen')
+    expect(de?.body).not.toContain('Sie dürfen in diesem Projekt nicht ablegen')
+  })
+
   it('settles the held notices of a decided mail, and tells its member when it ran out', async () => {
     await settleHeld(ORG, [MAIL])
     expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({

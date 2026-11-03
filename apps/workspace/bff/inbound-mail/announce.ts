@@ -160,14 +160,20 @@ export interface HeldMail extends WaitingMail {
  * Tell the member a held mail names why it waits (the receive job, once per
  * mail): `inbound_mail.held` when it claims them as a writer and their
  * signature did not hold, so only they can release it; `inbound_mail.held_for_writers`
- * when they may not write in the project. Nothing for an outsider's mail or a
- * verified writer's (the sender job tells about that). Never throws.
+ * when they may not write in the project, or, variant `unchecked`, when
+ * WorkOS never answered whether they may (`sender_unchecked`): a degraded
+ * check must not tell them they have no write rights. Nothing for an
+ * outsider's mail or a verified writer's (the sender job tells about that).
+ * Never throws.
  */
 export async function announceHeld(mail: HeldMail): Promise<boolean> {
   const type =
     mail.senderClass === 'unverified_writer' ? INBOUND_MAIL_HELD : mail.senderClass === 'office_member' ? INBOUND_MAIL_HELD_FOR_WRITERS : null
   if (!type) return false
-  return emit(`${type} for mail ${mail.mailId}`, mail.organizationId, () => memberRow(type, mail))
+  const unchecked = type === INBOUND_MAIL_HELD_FOR_WRITERS && mail.senderFlags.includes('sender_unchecked')
+  return emit(`${type} for mail ${mail.mailId}`, mail.organizationId, () =>
+    memberRow(type, mail, unchecked ? { payload: { variant: 'unchecked' } } : {}),
+  )
 }
 
 /** The held notices of these mails, which no longer wait for their member: settled. Never throws. */
