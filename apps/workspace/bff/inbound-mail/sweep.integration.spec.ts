@@ -52,7 +52,21 @@ vi.mock('@/lib/inbound-mail/staging', () => ({
   }),
   readStagedObject: vi.fn(async (_bucket: string, key: string) => staging.written.get(key) ?? new TextEncoder().encode(`bytes of ${key}`)),
   putStagedObject: vi.fn(async (_bucket: string, key: string, body: Uint8Array) => void staging.written.set(key, body)),
+  stagedObjectUrlForBackend: vi.fn(async (_bucket: string, key: string) => `http://store.test/${key}`),
 }))
+
+/** The Python reader, as sweep 15 asks it again (B3): an answer, or still down. */
+const reader = vi.hoisted(() => ({ down: false }))
+vi.mock('@/lib/inbound-mail/read-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/inbound-mail/read-client')>()
+  return {
+    ...actual,
+    readMail: vi.fn(async () => {
+      if (reader.down) throw new Error('the mail reader answered 503')
+      return { ...actual.unreadableRead('failed'), bodySource: 'plain', ownText: 'Der Bescheid liegt bei.', unreadable: false, unreadableReasons: [] }
+    }),
+  }
+})
 
 /** What happens between a sweep's find and its act: a hold placed, a part restored (review D, finding 5). */
 const race = vi.hoisted(() => ({ afterFind: null as null | (() => Promise<unknown>) }))
@@ -338,6 +352,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     audit.events.length = 0
     posthog.events.length = 0
     scan.status = 'clean'
+    reader.down = false
   })
 
   afterAll(async () => {
@@ -621,6 +636,54 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(await partRow(spent)).toMatchObject({ scan_status: 'failed', scan_attempts: 24 })
       expect(await mailRow(mail)).toMatchObject({ raw_scan_status: 'clean', raw_scan_attempts: 4 })
       expect(result.clean).toBeGreaterThanOrEqual(2)
+    })
+  })
+
+  describe('sweep 15: texts the reader did not answer for (B3)', () => {
+    async function unreadText(seed: MailSeed & { faultAgo: string; partState?: 'waiting' | 'dismissed' }): Promise<{ mail: string; part: string }> {
+      const mail = await seedMail({ ...seed, read: false })
+      const part = await seedPart(mail, { kind: 'message', state: seed.partState ?? 'waiting' })
+      await rows(sql`UPDATE inbound_mails SET reader_fault_at = now() - ${seed.faultAgo}::interval WHERE id = ${mail}::uuid`)
+      await rows(sql`UPDATE inbound_mail_parts SET risk_flags = '{unreadable}' WHERE id = ${part}::uuid`)
+      return { mail, part }
+    }
+    const faultOf = async (mail: string) => {
+      const { at } = await one<{ at: string | null }>(sql`SELECT reader_fault_at AS at FROM inbound_mails WHERE id = ${mail}::uuid`)
+      return at === null ? null : new Date(at)
+    }
+    const textPart = async (part: string) => {
+      const row = await one<{ risk_flags: string[]; size_bytes: string }>(sql`SELECT risk_flags, size_bytes FROM inbound_mail_parts WHERE id = ${part}::uuid`)
+      return { risk_flags: row.risk_flags, size_bytes: Number(row.size_bytes) }
+    }
+
+    it('reads a due text again while its mail waits; leaves one tried too recently, one past its window and one a person decided', async () => {
+      vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
+      const due = await unreadText({ faultAgo: '1 hour' })
+      const tooSoon = await unreadText({ faultAgo: '5 minutes' })
+      const ranOut = await unreadText({ faultAgo: '1 hour', receivedAgo: '31 days', expiresIn: '30 days' })
+      const decided = await unreadText({ faultAgo: '1 hour', partState: 'dismissed' })
+
+      const result = await sweep.sweepUnreadTexts(now())
+
+      expect(await faultOf(due.mail)).toBeNull()
+      expect((await mailRow(due.mail))?.read_storage_key).toBe(stagingKey(project, due.mail, 'read.json'))
+      expect(await textPart(due.part)).toMatchObject({ risk_flags: [], size_bytes: Buffer.byteLength('Der Bescheid liegt bei.') })
+      expect(staging.written.has(stagingKey(project, due.mail, 'read.json'))).toBe(true)
+      for (const left of [tooSoon, ranOut, decided]) expect(await faultOf(left.mail)).not.toBeNull()
+      expect(result.read).toBe(1)
+      vi.unstubAllEnvs()
+    })
+
+    it('moves a text on while the reader is still down, its text still unreadable', async () => {
+      vi.stubEnv('INBOUND_MAIL_DOMAIN', 'example.org')
+      reader.down = true
+      const text = await unreadText({ faultAgo: '1 hour' })
+      const before = await faultOf(text.mail)
+
+      expect((await sweep.sweepUnreadTexts(now())).later).toBeGreaterThanOrEqual(1)
+      expect((await faultOf(text.mail))!.getTime()).toBeGreaterThan(before!.getTime())
+      expect(await textPart(text.part)).toMatchObject({ risk_flags: ['unreadable'] })
+      vi.unstubAllEnvs()
     })
   })
 

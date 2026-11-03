@@ -128,6 +128,7 @@ export const inboundMail: typeof en.inboundMail = {
     memberLeft: 'Gehört dieses Mitglied nicht mehr zum Büro, kann niemand sie ablegen: Verwerfen Sie sie, oder laden Sie das Original herunter und leiten Sie es selbst an das Projekt weiter.',
     no_write_rights: 'Wartet: Der Absender darf in diesem Projekt nicht ablegen.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Was niemand ablegt, wird nach {days} Tagen verworfen.',
+    sender_unchecked: 'Wartet: Beim Eingang war nicht zu prüfen, ob der Absender zum Büro gehört und hier ablegen darf. Bitte vor dem Ablegen prüfen.',
   },
 
   flags: {

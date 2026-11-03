@@ -1,7 +1,6 @@
 /**
  * The receive job's step for a forward (migration 0195): who wrote the mail a
- * colleague forwarded, recorded beside who forwarded it, and whether the
- * project already holds that original.
+ * colleague forwarded, recorded beside who forwarded it.
  *
  * `originalMessage` (`./original-message`) reads the original out of the raw
  * message: an attached one, or an inline forward's header block. What it
@@ -14,33 +13,31 @@
  *   project address in a name or subject is redacted (B8), as the receive job
  *   redacts the forward's own; an author address on this deployment's mail
  *   domain is no author and is left out.
- * - **Two forwards are one mail.** An attached original's Message-ID is
- *   unique per project among open mails (`uniq_inbound_mails_open_original`),
- *   and a filed one stays on its entry (`mail_thread_entries.author_message_id`).
- *   Either way this mail is a `duplicate`: the job drops it silently, the way
- *   a redelivery is dropped, and audits the drop. Never a bounce. An inline
- *   forward has no Message-ID and is never a duplicate here.
+ * - **Never a reason to drop.** An attached original's Message-ID is whatever
+ *   the forward's sender wrote into the `.eml`, before anyone checked who that
+ *   sender is: an outsider who knows the id of a mail they sent the architect
+ *   can claim it. So the id never drops or merges a delivery. Every forward is
+ *   held, its own text and attachments shown. Only at filing does the id count
+ *   (`lib/mail-thread/append.ts`): an original the project's Verläufe already
+ *   hold (`mail_thread_entries.author_message_id`) is not attributed a second
+ *   section, and the forward is filed as its forwarder's own message.
  *
  * Idempotent: a retried job writes the same values again.
  */
 
 import 'server-only'
-import { isUniqueViolation } from '@/lib/db/errors'
 import { normalizeMessageId } from '@/lib/mail-thread/mail-threading'
 import { asciiLower, redactProjectAddresses } from './address'
 import { originalMessage, type OriginalMessage } from './original-message'
 import { findAddressToken } from './receive-repository'
-import { isOriginalFiled, recordOriginalFields, type OriginalFields } from './receive-original-repository'
+import { recordOriginalFields, type OriginalFields } from './receive-original-repository'
 
-/** What the step found: no forward, a forward recorded, or a second forward of an original the project holds. */
-export type OriginalOutcome = 'none' | 'recorded' | 'duplicate'
+/** What the step found: no forward, or a forward recorded. */
+export type OriginalOutcome = 'none' | 'recorded'
 
-/** The index that makes two open forwards of one original one mail. */
-export const OPEN_ORIGINAL_INDEX = 'uniq_inbound_mails_open_original'
-
-/** Read, record and dedupe the original of a `received` mail. */
+/** Read and record the original of a `received` mail. */
 export async function recordOriginal(
-  mail: { id: string; projectId: string; addressId: string; receivedAt: Date },
+  mail: { id: string; addressId: string; receivedAt: Date },
   raw: Uint8Array,
   domain: string,
 ): Promise<OriginalOutcome> {
@@ -53,13 +50,7 @@ export async function recordOriginal(
     redact: (text) => redactProjectAddresses(text, domain, token),
   })
   if (!fields) return 'none'
-  if (fields.originalMessageId && (await isOriginalFiled(mail.projectId, fields.originalMessageId))) return 'duplicate'
-  try {
-    await recordOriginalFields(mail.id, fields)
-  } catch (error) {
-    if (isUniqueViolation(error, OPEN_ORIGINAL_INDEX)) return 'duplicate'
-    throw error
-  }
+  await recordOriginalFields(mail.id, fields)
   return 'recorded'
 }
 

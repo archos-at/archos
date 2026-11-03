@@ -624,6 +624,41 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
   until the first deploy with the feature they are simply missing in WorkOS.
   The authz catalog Job works the same way.
 
+### The migration's lock on `document_versions` (0193)
+
+0193 adds `UNIQUE (id, project_id)` to `document_versions`, so a filed
+message's entry can point at its Fassung with the project (the 0067 shape).
+`ALTER TABLE … ADD CONSTRAINT … UNIQUE` builds the index under an `ACCESS
+EXCLUSIVE` lock, and `drizzle-kit migrate` runs every pending migration in one
+transaction (0039, 0149), so the lock is held until 0193 to 0196 all commit:
+every read and write of any document's versions waits for the build (uploads,
+the viewer, retrieval's version reads). `CONCURRENTLY` cannot run in that
+transaction, and the runner has no non-transactional step.
+
+Measure before the deploy, on the production database:
+
+```sql
+SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
+       (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
+```
+
+The lock lasts as long as the index build. To know it rather than guess, time
+the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
+below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
+Longer, build the index online first, outside any transaction, as the owner:
+
+```sql
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
+  ON "document_versions" ("id", "project_id");
+-- Check it is valid; an interrupted build leaves an INVALID index: DROP INDEX CONCURRENTLY it and build again.
+SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
+```
+
+0193 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
+lock only for a catalog change. Either way, deploy outside office hours: the
+migrate Job runs before the new pods take traffic, and a document request that
+waits on the lock times out at Envoy after its route timeout.
+
 ### Setup: the first promote is paused
 
 1. In the Cloudflare dashboard, switch on subaddressing for the zone (Email
@@ -688,6 +723,18 @@ Record of runs: none yet.
   `unavailable` (storage or database), `cap_reached`, and no `received` for
   24 hours on a deployment that usually receives mail. The receive log line per
   delivery carries ids, sizes and the outcome code only.
+- **A dependency that does not answer delays mail, it does not degrade it.**
+  The receive job gives a WorkOS, DNS, reader, object-store or database fault
+  back to the queue without spending an attempt and tries again after 1, 2, 4,
+  8, 16 and 32 minutes, then hourly, about six hours in all
+  (`lib/inbound-mail/receive-faults.ts`). Each wait is a `bff-jobs` warning
+  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of 11)`. Past
+  the budget the mail is held anyway: a sender WorkOS could not place is
+  flagged `sender_unchecked` (30 days, for the writers, never filed directly),
+  a text the reader did not answer for keeps `reader_fault_at` and sweep 15
+  reads it again every 15 minutes while the mail waits. Alert on the warning
+  rate, and on any `sender_unchecked` or `reader_fault_at` row
+  (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
 - **Retention sweeps** run in the scheduler's background-work call, one log
   line per sweep that acted (§6.3c).
 - **The scanner's image.** The ClamAV pin lives in `deploy/pulumi/src/config.ts`

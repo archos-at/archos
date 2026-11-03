@@ -1,9 +1,9 @@
 // @disk-inputs: bff/inbound-mail/__fixtures__/forwards/15-outlook-forward-as-attachment-rfc822.eml
 /**
  * A forward's original at receive time (migration 0195): what the row records
- * of who wrote it, and when a second forward of one original is a duplicate.
+ * of who wrote it, and that its Message-ID never makes a delivery a duplicate.
  * The parser's own cases are `original-message.spec.ts`; the database's half
- * (the unique index, the scrub) is the 0195 section of `scripts/rls-test-db.sh`.
+ * (the scrub, the plain index) is the 0195 section of `scripts/rls-test-db.sh`.
  */
 
 import { readFileSync } from 'node:fs'
@@ -12,14 +12,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
 vi.mock('./receive-repository', () => ({ findAddressToken: vi.fn(async () => 'aaaaaaaaaaaa') }))
-vi.mock('./receive-original-repository', () => ({
-  isOriginalFiled: vi.fn(async () => false),
-  recordOriginalFields: vi.fn(async () => undefined),
-}))
+vi.mock('./receive-original-repository', () => ({ recordOriginalFields: vi.fn(async () => undefined) }))
 
 import type { OriginalMessage } from './original-message'
-import { isOriginalFiled, recordOriginalFields } from './receive-original-repository'
-import { OPEN_ORIGINAL_INDEX, originalFieldsOf, recordOriginal } from './receive-original'
+import { recordOriginalFields } from './receive-original-repository'
+import { originalFieldsOf, recordOriginal } from './receive-original'
 
 const DOMAIN = 'inbox.example.org'
 const RECEIVED = new Date('2026-11-03T10:00:00Z')
@@ -85,18 +82,15 @@ describe('recordOriginal', () => {
     expect(recordOriginalFields).toHaveBeenCalledWith('m1', expect.objectContaining({ originalSource: 'attachment' }))
   })
 
-  it('is a duplicate when the project filed that original already, and writes nothing', async () => {
-    vi.mocked(isOriginalFiled).mockResolvedValueOnce(true)
-    expect(await recordOriginal(MAIL, ATTACHED, DOMAIN)).toBe('duplicate')
-    expect(recordOriginalFields).not.toHaveBeenCalled()
-  })
-
-  it('is a duplicate when an open mail of the project holds it (the unique index refuses)', async () => {
-    const violation = Object.assign(new Error('Failed query'), {
-      cause: Object.assign(new Error('duplicate key'), { code: '23505', constraint_name: OPEN_ORIGINAL_INDEX }),
-    })
-    vi.mocked(recordOriginalFields).mockRejectedValueOnce(violation)
-    expect(await recordOriginal(MAIL, ATTACHED, DOMAIN)).toBe('duplicate')
+  it('records every forward of one original: its Message-ID is the sender’s word, never a reason to drop (B2)', async () => {
+    // An outsider's junk with a fake `.eml` claiming the real Bescheid's id, then the architect's real forward.
+    const claimed = forwardOf('real-bescheid-123@ma37.wien.gv.at', 'stranger@evil.example')
+    expect(await recordOriginal({ ...MAIL, id: 'junk' }, claimed, DOMAIN)).toBe('recorded')
+    expect(await recordOriginal({ ...MAIL, id: 'real' }, forwardOf('real-bescheid-123@ma37.wien.gv.at', 'miriam@buero.example'), DOMAIN)).toBe('recorded')
+    expect(vi.mocked(recordOriginalFields).mock.calls.map(([id, fields]) => [id, fields.originalMessageId])).toEqual([
+      ['junk', 'real-bescheid-123@ma37.wien.gv.at'],
+      ['real', 'real-bescheid-123@ma37.wien.gv.at'],
+    ])
   })
 
   it('throws any other fault, for the queue to retry', async () => {
@@ -110,3 +104,35 @@ describe('recordOriginal', () => {
     expect(recordOriginalFields).not.toHaveBeenCalled()
   })
 })
+
+/** A delivery from `from` carrying an attached original with Message-ID `<id>`, as Outlook's „Als Anlage weiterleiten“ sends it. */
+function forwardOf(id: string, from: string): Uint8Array {
+  const inner = [
+    'From: Mag. Anna Huber <anna.huber@ma37.wien.gv.at>',
+    'To: miriam@buero.example',
+    'Subject: Bescheid',
+    `Message-ID: <${id}>`,
+    'Date: Mon, 20 Oct 2026 09:15:00 +0200',
+    '',
+    'Der Bescheid.',
+  ].join('\r\n')
+  const raw = [
+    `From: ${from}`,
+    'To: project+hubergasse.aaaaaaaaaaaa@inbox.example.org',
+    'Subject: WG: Bescheid',
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/mixed; boundary="b"',
+    '',
+    '--b',
+    'Content-Type: text/plain',
+    '',
+    'Siehe Anhang.',
+    '--b',
+    'Content-Type: message/rfc822',
+    '',
+    inner,
+    '--b--',
+    '',
+  ].join('\r\n')
+  return new TextEncoder().encode(raw)
+}

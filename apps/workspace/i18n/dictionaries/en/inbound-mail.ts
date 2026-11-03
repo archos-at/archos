@@ -122,6 +122,7 @@ export const inboundMail = {
     memberLeft: 'If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
     no_write_rights: 'Waiting: the sender may not file in this project.',
     outside_office: 'Waiting: the sender is outside the office. If nobody files it, it is discarded after {days} days.',
+    sender_unchecked: 'Waiting: when it arrived, whether the sender belongs to the office and may file here could not be checked. Check before you file.',
   },
 
   flags: {

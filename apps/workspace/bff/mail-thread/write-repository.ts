@@ -181,6 +181,30 @@ export async function findEntryOfMail(
   return row ?? null
 }
 
+/**
+ * Whether ANOTHER mail's entry in the project holds this original
+ * (`author_message_id`, migration 0195). The mail's own entry does not count,
+ * so a retry of its filing renders the same section again.
+ */
+export async function isOriginalFiledByAnother(
+  projectId: string,
+  authorMessageId: string,
+  mailId: string
+): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: mailThreadEntries.id })
+    .from(mailThreadEntries)
+    .where(
+      and(
+        eq(mailThreadEntries.projectId, projectId),
+        eq(mailThreadEntries.authorMessageId, authorMessageId),
+        or(isNull(mailThreadEntries.inboundMailId), sql`${mailThreadEntries.inboundMailId} <> ${mailId}`)
+      )
+    )
+    .limit(1)
+  return row !== undefined
+}
+
 /** A document's newest Fassung, as `reader` may read the document. */
 export interface CurrentVersion {
   documentId: string

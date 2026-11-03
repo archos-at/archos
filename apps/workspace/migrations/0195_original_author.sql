@@ -7,8 +7,7 @@
 -- A colleague forwards the Behörde's mail to the project address. Until now
 -- the mail's only sender was the colleague: the From of the delivery, which
 -- DKIM checks and the audit trail keeps. Every citation then said the
--- colleague wrote what the Behörde wrote, at the time it was forwarded. And
--- when two colleagues forwarded the same letter, the project held it twice.
+-- colleague wrote what the Behörde wrote, at the time it was forwarded.
 --
 -- ## The columns
 --
@@ -35,7 +34,7 @@
 -- The code paths that end a mail were written before these columns, so a
 -- trigger clears them on the way to `settled` or `dropped` and a CHECK says it
 -- holds. The Message-ID, the date and the source stay, like `message_id`:
--- ids and times, kept for the dedupe below and for the audit.
+-- ids and times, kept for the audit.
 --
 -- `mail_thread_entries` gets the author the filed entry is attributed to
 -- (`author_*`; the entry's `original_*` columns already name the delivery's
@@ -43,29 +42,24 @@
 -- and a line under it names the forwarder (`lib/mail-thread/render.ts`). The
 -- entry outlives the mail, so the author lives where the Verlauf does.
 --
--- ## Two forwards of one original are one mail
+-- ## An original's Message-ID drops nothing
 --
--- `uniq_inbound_mails_open_original` refuses a second mail of a project
--- carrying the same original Message-ID while the first is OPEN
--- (`received`, `waiting`). The receive job writes the original before it
--- holds the mail; the loser of that race is a duplicate and is dropped
--- silently (`dropped_reason = 'duplicate_original'`), the way a redelivery of
--- the same bytes is (`uniq_inbound_mails_address_delivery`). Never a bounce.
+-- `original_message_id` is what the `.eml` inside the delivery says, written
+-- by whoever sent the delivery and read before anyone checked who that is. An
+-- outsider who knows the id of a mail they sent the architect (they wrote it)
+-- can attach a fake `.eml` that claims it. So the id is never unique and never
+-- a reason to drop: every forward is held, its own text and attachments
+-- shown, whoever claimed the id first. `inbound_mails_original_message_id_idx`
+-- is a plain index, for the reviewer's and the operator's "who else forwarded
+-- this".
 --
--- Why open only, and not "not dropped": a `settled` mail is one whose parts
--- were filed, dismissed or expired. Dismissed and expired ones must not
--- swallow a later forward of the same letter (somebody dismissed it, a
--- colleague sends it again because it does belong here): with `settled` in
--- the predicate that forward would vanish until the settled row is deleted 30
--- days later. A FILED original is caught instead by its entry
--- (`mail_thread_entries.author_message_id`, read by the receive job), which
--- lives as long as the Verlauf, and a dismissal does not create one. A first
--- mail still `waiting` with its text dismissed is within its seven days of
--- restore: the duplicate is dropped and the first can be brought back.
---
--- An inline forward has no Message-ID and is not deduplicated here: its header
--- block is the forwarder's text, and a key built from it is a key a sender can
--- write.
+-- The id counts once, at filing (`lib/mail-thread/append.ts`): when another
+-- mail's entry in the project already holds that original
+-- (`mail_thread_entries.author_message_id`), the original is not given a
+-- second section under its author's name. The forward is filed as its
+-- forwarder's own message instead, with its text and what came with it.
+-- An attachment the project already holds byte for byte is flagged
+-- `duplicate_of` at receipt, as any attachment is.
 --
 -- Additive and idempotent.
 
@@ -133,15 +127,8 @@ CREATE TRIGGER "inbound_mails_scrub_original"
   FOR EACH ROW WHEN (NEW.status IN ('settled', 'dropped'))
   EXECUTE FUNCTION inbound_mails_scrub_original();
 --> statement-breakpoint
-ALTER TABLE "inbound_mails" DROP CONSTRAINT IF EXISTS "inbound_mails_dropped_reason_known";
---> statement-breakpoint
-ALTER TABLE "inbound_mails" ADD CONSTRAINT "inbound_mails_dropped_reason_known"
-  CHECK ("dropped_reason" IS NULL
-     OR "dropped_reason" IN ('auto_reply', 'delivery_report', 'self_loop', 'duplicate_original'));
---> statement-breakpoint
-CREATE UNIQUE INDEX IF NOT EXISTS "uniq_inbound_mails_open_original"
-  ON "inbound_mails" ("organization_id", "project_id", "original_message_id")
-  WHERE "original_message_id" IS NOT NULL AND "status" IN ('received', 'waiting');
+CREATE INDEX IF NOT EXISTS "inbound_mails_original_message_id_idx"
+  ON "inbound_mails" ("project_id", "original_message_id") WHERE "original_message_id" IS NOT NULL;
 --> statement-breakpoint
 ALTER TABLE "mail_thread_entries" ADD COLUMN IF NOT EXISTS "author_address" text;
 --> statement-breakpoint
@@ -166,12 +153,12 @@ ALTER TABLE "mail_thread_entries" ADD CONSTRAINT "mail_thread_entries_author_nam
   CHECK (("author_address" IS NULL AND "author_name" IS NULL AND "author_sent_at" IS NULL AND "author_message_id" IS NULL)
      OR ("source" = 'inbound' AND ("author_address" IS NOT NULL OR "author_name" IS NOT NULL)));
 --> statement-breakpoint
--- A filed original: the receive job drops a later forward of it.
+-- A filed original: a later forward of it is filed as its forwarder's own message.
 CREATE INDEX IF NOT EXISTS "mail_thread_entries_author_message_id_idx"
   ON "mail_thread_entries" ("project_id", "author_message_id") WHERE "author_message_id" IS NOT NULL;
 --> statement-breakpoint
 COMMENT ON COLUMN "inbound_mails"."original_message_id" IS
-  'The Message-ID of the original a forward carried as an attachment. Unique per project among open mails (uniq_inbound_mails_open_original): a second forward of it is dropped as duplicate_original (migration 0195).';
+  'The Message-ID of the original a forward carried as an attachment, as the .eml said: the sender''s word, never unique and never a reason to drop a delivery. Filing reads it against mail_thread_entries.author_message_id, so an original is attributed one section per project (migration 0195).';
 --> statement-breakpoint
 COMMENT ON COLUMN "mail_thread_entries"."author_name" IS
   'Who wrote a forwarded message (its original''s From), as the forward said: attribution, never verified. The sender_* columns stay the forwarder''s (migration 0195).';

@@ -39,6 +39,10 @@ import 'server-only'
  * 5. **The original is evidence.** The commit marks the mail's raw message as
  *    moving; {@link finishOriginalMove} (`./originals.ts`) moves it to the
  *    entry's own key.
+ * 6. **An original is attributed once.** A forward whose attached original
+ *    another mail's entry already holds (`author_message_id`, migration 0195)
+ *    is filed as its forwarder's own message, never as a second section under
+ *    the original's author; the forward itself is always filed.
  *
  * Every refusal of the upload path maps to a typed failure the part waits
  * again with (`INBOUND_MAIL_FILING_FAILURES`); anything else throws for the
@@ -103,6 +107,7 @@ import {
   findEntryAttachmentRows,
   findThreadEntryRows,
   findWritableThread,
+  isOriginalFiledByAnother,
   releaseRenderLease,
   type WritableThread,
 } from './write-repository'
@@ -251,6 +256,22 @@ function authorOf(mail: InboundMailRow): Pick<NewMailThreadEntryRow, 'authorAddr
     authorSentAt: mail.originalSentAt,
     authorMessageId: mail.originalMessageId,
   }
+}
+
+/**
+ * An attached original another mail's entry already holds (migration 0195):
+ * the original is not given a second section under its author's name. Its
+ * Message-ID is the forward's sender's word, so this decides attribution only;
+ * the forward itself is always filed, its text and what came with it.
+ */
+async function originalFiledBefore(mail: InboundMailRow): Promise<boolean> {
+  if (!mail.originalMessageId) return false
+  return isOriginalFiledByAnother(mail.projectId, mail.originalMessageId, mail.id)
+}
+
+/** The mail as its forwarder's own message: no original named, so the section is headed by who sent it. */
+function asForwardersOwn(mail: InboundMailRow): InboundMailRow {
+  return { ...mail, originalAuthorAddress: null, originalAuthorName: null, originalSentAt: null, originalMessageId: null }
 }
 
 /** The entry an answer `inReplyTo` names, among the thread's: the latest filed of them. */
@@ -547,7 +568,7 @@ async function appendTo(request: AppendRequest, target: AppendTarget): Promise<A
   const unheaded = inboundEntryOf({
     id: entryId,
     threadId,
-    mail,
+    mail: (await originalFiledBefore(mail)) ? asForwardersOwn(mail) : mail,
     read: request.read,
     decision,
     heading: '',

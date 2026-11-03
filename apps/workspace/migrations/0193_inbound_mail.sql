@@ -284,14 +284,33 @@ COMMENT ON TABLE "mail_thread_follows" IS
 -- so it needs `(id, project_id)` to point at. `id` is the primary key, so this
 -- adds no restriction; it makes the pair referenceable. Added only when absent,
 -- so the migration re-applies over the key the entries already reference.
+--
+-- The lock (S9 of the 2026-11 ship review): `ADD CONSTRAINT … UNIQUE` builds
+-- its index under ACCESS EXCLUSIVE on `document_versions`, held until the
+-- whole deploy's migrations commit (the runner wraps them in one transaction,
+-- see 0039), and `CONCURRENTLY` cannot run in it. On a large table an operator
+-- builds the index beforehand with `CREATE UNIQUE INDEX CONCURRENTLY` under
+-- this name (`docs/deployment/kubernetes.md` §3c, "The migration's lock"),
+-- and a VALID one is adopted here (`USING INDEX`), which locks for a catalog
+-- change only. An invalid one (an interrupted build) is not adopted: the ADD
+-- then fails on the taken name, loudly, rather than lock for the build.
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
      WHERE conname = 'document_versions_id_project_id_key' AND conrelid = 'public.document_versions'::regclass
   ) THEN
-    ALTER TABLE "document_versions"
-      ADD CONSTRAINT "document_versions_id_project_id_key" UNIQUE ("id", "project_id");
+    IF EXISTS (
+      SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+       WHERE c.relname = 'document_versions_id_project_id_key' AND i.indrelid = 'public.document_versions'::regclass
+         AND i.indisunique AND i.indisvalid
+    ) THEN
+      ALTER TABLE "document_versions"
+        ADD CONSTRAINT "document_versions_id_project_id_key" UNIQUE USING INDEX "document_versions_id_project_id_key";
+    ELSE
+      ALTER TABLE "document_versions"
+        ADD CONSTRAINT "document_versions_id_project_id_key" UNIQUE ("id", "project_id");
+    END IF;
   END IF;
 END $$;
 --> statement-breakpoint

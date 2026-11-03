@@ -196,8 +196,12 @@ export interface InboundMailSenderRiskView {
   onlySenderReleases: boolean
 }
 
-/** Why a held mail waits, by its sender's class (`./sender-class.ts`, `senderWaitReason`). */
-export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'no_write_rights', 'outside_office'] as const
+/**
+ * Why a held mail waits, by its sender's class (`./sender-class.ts`,
+ * `senderWaitReason`), or `sender_unchecked` when who the sender is could not
+ * be asked at receipt (`./receive-faults.ts`), whatever the class says.
+ */
+export const INBOUND_MAIL_WAIT_REASONS = ['signature', 'replay', 'automatic', 'paused', 'no_write_rights', 'outside_office', 'sender_unchecked'] as const
 export type InboundMailWaitReason = (typeof INBOUND_MAIL_WAIT_REASONS)[number]
 
 // ------------------------------------------------------------ the list

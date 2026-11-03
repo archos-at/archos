@@ -177,22 +177,30 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    (`receive-original.ts`, migration 0195): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on
-   the row (`original_*`), project addresses redacted. A second forward of an
-   original the project holds is dropped as `duplicate_original`, silently and
-   audited like the other drops, never bounced: while the first is open the
-   partial unique index `uniq_inbound_mails_open_original` refuses it, and once
-   the first was filed its entry's `author_message_id` does. A dismissed or
-   expired first mail blocks nothing after it settles. An inline forward has no
-   Message-ID and is never a duplicate: its header block is the forwarder's
-   text;
+   the row (`original_*`), project addresses redacted. **An original's
+   Message-ID never drops a delivery**: it is whatever the attached `.eml`
+   says, written by the delivery's sender before anyone checked who that is,
+   so an outsider could claim the id of a mail they sent the architect and
+   have the architect's real forward dropped (B2 of the 2026-11 ship review).
+   Every forward is held with its own text and attachments. The id counts at
+   filing only (`lib/mail-thread/append.ts`): when another mail's entry in the
+   project already holds that original (`mail_thread_entries.author_message_id`),
+   the forward is filed as its forwarder's own message, never as a second
+   section under the original's author. An attachment the project already
+   holds byte for byte is flagged `duplicate_of`, as any attachment is. An
+   inline forward has no Message-ID: its header block is the forwarder's text;
 4. **authenticate the sender** (`sender-auth.ts`, mailauth 8 without an IP, so
-   SPF is never read): trust, reason, signer domain, signed headers, flags;
+   SPF is never read): trust, reason, signer domain, signed headers, flags; a
+   transient verdict is a dependency fault (below);
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the
    office's accepted types; find the member by exact address, or an outsider's
    display name that is a member's (`claims_member_name`);
 6. the **Namensprüfung** on each attachment's name and the base subject: a
    match is the part's flag `name_stop`, never a drop;
-7. **scan each attachment**;
+7. **scan each attachment**, at most four at once (`ATTACHMENT_SCANS_IN_FLIGHT`):
+   clamd runs 8 scans and queues 30 for every `bff-jobs` replica together, and
+   a mail of a hundred attachments scanned all at once came back `failed`
+   without any outage;
 8. **the Python reader**, `POST /v1/mail/read` (no model): own text, quoted
    blocks, calendar invitations; then the content check on the own text after
    the signature was removed (`content_findings`). The text is what a reader
@@ -233,9 +241,38 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
     `inbound_mail_received` (`sender_class`), and queue the agent's suggestion
     unless the sender is unconfirmed, impersonating, or the mail is automatic.
 
-On the last attempt the mail is held anyway, flagged `unreadable`, with a text
-part whose original can be downloaded once its scan is clean: mail is never lost
-to a parser bug.
+**A dependency that does not answer spends no attempt** (B3 of the 2026-11
+ship review, `receive-faults.ts`, migration 0196). The queue's three attempts
+are 30 and 60 seconds apart, shorter than a WorkOS blip or a rolling deploy of
+the reader, and 0194 freezes the verdict a hold writes: a member's mail held on
+an unreadable directory became a stranger's, discarded after 14 days, and a
+writer's mail with an unanswered write check became read-only. Now a directory
+read, a write check (`userHoldsProjectPermissionStrict`), a transient DKIM
+verdict, the reader, the object store or an unreachable database gives the
+claim back (`notBefore`, the attempt not spent) and the job tries again after
+1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Past that budget
+the mail is held with what was not learned, said, never guessed:
+
+- the directory or the write check: flag `sender_unchecked`, held for the
+  project's writers for the full 30 days even when no member could be named
+  (the class is then `external`, which 0194 ties to a sender with no member;
+  0196 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
+  says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
+  is still an outsider's (no restore window), since the database cannot tell
+  it is a member's;
+- DKIM: the verifier's transient reason (`dkim_temperror`, `verifier_timeout`)
+  stands as the verdict, so a member's mail is `unverified_writer` and waits
+  for their one press;
+- the reader: the text is held `unreadable` with `reader_fault_at`, and sweep 15
+  (`receive-reread.ts`) reads it again every 15 minutes while the mail waits,
+  then queues a verified writer's sender filing again, by name.
+
+Any other failure is a bug and retries through the queue. On the last attempt
+the mail is held anyway, flagged `unreadable`, with a text part whose original
+can be downloaded once its scan is clean: mail is never lost to a parser bug.
+Its sender keeps the verdict the run reached before it failed; a sender it never
+judged is `external_unverified` with `sender_unchecked`, 30 days, never an
+outsider's 14.
 
 ### What a mail is, and its states
 
@@ -470,7 +507,8 @@ In the order they run:
 | 3 | `expired` | `waiting` past `expires_at`: waiting parts `expired` (restorable 7 days; an outsider's never), audited; the member it came from told (`inbound_mail.expired`) | 30 days; an outsider's 14 | — (no erasure) |
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
 | 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
-| 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts | 1 h | — |
+| 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
+| 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0196), the mail waiting and within its window, the text part waiting: read again, redacted and checked, `read.json` and the part written in one compare-and-set; a verified writer's mail gets its sender filing queued again by name; a reader still down moves `reader_fault_at` on | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |
 | 12 | `follows` | running follows past `expires_at` end `expired`, those whose document is gone end `document_gone`, those in a closed project end `project_closed`; five days before the end `mail_thread.follow_expiring`, once | 60 days, day 55 | — |

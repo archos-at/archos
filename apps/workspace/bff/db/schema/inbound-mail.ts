@@ -166,6 +166,12 @@ export const inboundMails = pgTable(
     erasureDeferredAt: timestamp('erasure_deferred_at', { withTimezone: true }),
     originalMovePendingAt: timestamp('original_move_pending_at', { withTimezone: true }),
     /**
+     * The Python reader did not answer while the receive job held the mail
+     * (migration 0196): its text waits unreadable, and the sweep reads it
+     * again from this time on while the mail waits. Null once read.
+     */
+    readerFaultAt: timestamp('reader_fault_at', { withTimezone: true }),
+    /**
      * The original message a forward carried (`lib/inbound-mail/original-message.ts`,
      * migration 0195): who wrote it, when, about what. Attribution, never
      * verified; the author and subject are cleared when the mail ends (trigger).
@@ -174,7 +180,11 @@ export const inboundMails = pgTable(
     originalAuthorName: text('original_author_name'),
     originalSentAt: timestamp('original_sent_at', { withTimezone: true }),
     originalSubject: text('original_subject'),
-    /** An attached original's Message-ID: unique per project among open mails. */
+    /**
+     * An attached original's Message-ID, as the `.eml` said: the sender's word,
+     * never unique (any number of mails may claim one) and never a reason to
+     * drop a delivery. Filing reads it against the entries' `author_message_id`.
+     */
     originalMessageId: text('original_message_id'),
     originalSource: text('original_source').$type<OriginalMessageSource>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -206,12 +216,15 @@ export const inboundMails = pgTable(
     messageIdIdx: index('inbound_mails_message_id_idx')
       .on(table.projectId, table.messageId)
       .where(sql`${table.messageId} IS NOT NULL`),
-    openOriginal: uniqueIndex('uniq_inbound_mails_open_original')
-      .on(table.organizationId, table.projectId, table.originalMessageId)
-      .where(sql`${table.originalMessageId} IS NOT NULL AND ${table.status} IN ('received', 'waiting')`),
+    originalMessageIdIdx: index('inbound_mails_original_message_id_idx')
+      .on(table.projectId, table.originalMessageId)
+      .where(sql`${table.originalMessageId} IS NOT NULL`),
     erasureDeferredIdx: index('inbound_mails_erasure_deferred_idx')
       .on(table.erasureDeferredAt)
       .where(sql`${table.erasureDeferredAt} IS NOT NULL`),
+    readerFaultIdx: index('inbound_mails_reader_fault_idx')
+      .on(table.readerFaultAt)
+      .where(sql`${table.readerFaultAt} IS NOT NULL AND ${table.status} = 'waiting'`),
     originalMoveIdx: index('inbound_mails_original_move_idx')
       .on(table.originalMovePendingAt)
       .where(sql`${table.originalMovePendingAt} IS NOT NULL`),

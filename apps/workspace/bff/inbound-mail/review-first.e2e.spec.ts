@@ -105,7 +105,11 @@ vi.mock('@/lib/documents/accepted-types', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/documents/accepted-types')>()),
   acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md']),
 }))
-vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn() }))
+// The receive job asks the strict form (a failed read is a fault, `receive-faults.ts`); both answer the same here.
+vi.mock('@/lib/sharing/directory', () => {
+  const loadOrganizationDirectory = vi.fn()
+  return { loadOrganizationDirectory, loadOrganizationDirectoryStrict: loadOrganizationDirectory }
+})
 vi.mock('@/lib/upload-screening/service', async (importOriginal) => {
   const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
   return {
@@ -120,10 +124,11 @@ vi.mock('@/lib/auth/pinned-session', () => ({
   resolvePinnedRequesterSession: vi.fn(async () => null),
   resolvePinnedRequesterSessionStrict: vi.fn(),
 }))
-vi.mock('@/lib/authz/project-membership', () => ({
-  userHoldsProjectPermission: vi.fn(async (_org: unknown, _project: string, _user: string, permission: string) =>
-    store.memberWrites && permission === 'project:documents:write'),
-}))
+vi.mock('@/lib/authz/project-membership', () => {
+  const userHoldsProjectPermission = vi.fn(async (_org: unknown, _project: string, _user: string, permission: string) =>
+    store.memberWrites && permission === 'project:documents:write')
+  return { userHoldsProjectPermission, userHoldsProjectPermissionStrict: userHoldsProjectPermission }
+})
 vi.mock('./access', () => ({ requireMailReviewer: vi.fn(async () => ({ closed: false })) }))
 vi.mock('@/lib/authz/feature-flags', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/authz/feature-flags')>()),

@@ -358,6 +358,7 @@ type HeldMailColumns = Pick<
   | 'sentAtHeader'
   | 'notStaged'
   | 'ignored'
+  | 'readerFaultAt'
 >
 
 /**

@@ -86,7 +86,8 @@ function mailView(
   return withReviewDefaults({
     id: mail.id,
     senderClass: mail.senderClass,
-    waitReason: senderWaitReason(mail),
+    // A sender the receive job could not check is not called an outsider or read-only (`./receive-faults.ts`).
+    waitReason: mail.senderFlags.includes('sender_unchecked') ? 'sender_unchecked' : senderWaitReason(mail),
     onlySenderReleases: onlySenderReleases(mail, context.viewerUserId),
     projectId: mail.projectId,
     status: listStatusOf(mail, parts),
