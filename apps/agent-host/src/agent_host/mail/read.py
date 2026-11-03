@@ -97,9 +97,7 @@ async def read_message_within(raw: bytes, timeout: float = limits.READ_TIMEOUT_S
             logger.warning("mail read: stopped after %.0f s (%d bytes)", timeout, len(raw))
             return MailRead.unread(UnreadableReason.TIMEOUT)
         finally:
-            if process.returncode is None:
-                process.kill()
-                await process.wait()
+            await _reap(process)
     if process.returncode != 0:
         # Out of memory, or a crash in C: nothing the child could still report.
         logger.warning("mail read: the reading process ended with %s", process.returncode)
@@ -175,6 +173,13 @@ def _capped(
     return payload
 
 
+async def _reap(process: asyncio.subprocess.Process) -> None:
+    """Kill the reading process if it still runs, and wait for it, so no child outlives its read."""
+    if process.returncode is None:
+        process.kill()
+        await process.wait()
+
+
 def _calendar(message: EmailMessage, reasons: list[UnreadableReason]) -> tuple[list[CalendarEvent], bool]:
     """The events of every calendar part, once each, and whether any were left out."""
     events: list[CalendarEvent] = []
@@ -192,17 +197,25 @@ def _calendar(message: EmailMessage, reasons: list[UnreadableReason]) -> tuple[l
         read = calendar_events(payload)
         if read.malformed:
             _note(reasons, UnreadableReason.CALENDAR_MALFORMED)
-        truncated = truncated or read.truncated
-        for event in read.events:
-            key = (event.uid, event.sequence, event.start, event.summary)
-            if key in seen:
-                continue
-            if len(events) >= limits.MAX_CALENDAR_EVENTS:
-                truncated = True
-                break
-            seen.add(key)
-            events.append(event)
+        truncated = _add_new_events(events, seen, read.events) or truncated or read.truncated
     return events, truncated
+
+
+def _add_new_events(
+    events: list[CalendarEvent],
+    seen: set[tuple[str | None, int | None, str | None, str | None]],
+    found: tuple[CalendarEvent, ...],
+) -> bool:
+    """Append each event not seen before, up to the cap; whether one was left out for the cap."""
+    for event in found:
+        key = (event.uid, event.sequence, event.start, event.summary)
+        if key in seen:
+            continue
+        if len(events) >= limits.MAX_CALENDAR_EVENTS:
+            return True
+        seen.add(key)
+        events.append(event)
+    return False
 
 
 def _note(reasons: list[UnreadableReason], reason: UnreadableReason) -> None:
@@ -217,13 +230,17 @@ def _parts(message: EmailMessage) -> Iterator[EmailMessage]:
         part = stack.pop()
         content_type = part.get_content_type()
         if content_type.startswith("multipart/"):
-            payload = part.get_payload()
-            if isinstance(payload, list):
-                stack.extend(reversed(payload))
+            stack.extend(reversed(_children(part)))
             continue
         if content_type == "message/rfc822" and part is not message:
             continue
         yield part
+
+
+def _children(part: EmailMessage) -> list[EmailMessage]:
+    """A multipart's parts; none when its payload is not a list."""
+    payload = part.get_payload()
+    return payload if isinstance(payload, list) else []
 
 
 def _is_calendar(part: EmailMessage) -> bool:
@@ -239,16 +256,18 @@ def _is_body_rtf(part: EmailMessage) -> bool:
 
 def _is_encrypted(message: EmailMessage) -> bool:
     """The message, or the part that would be its body, is S/MIME or PGP encrypted."""
-    for part in (message, *_top_parts(message)):
-        content_type = part.get_content_type()
-        if content_type == "multipart/encrypted":
-            return True
-        if content_type in ENCRYPTED_TYPES:
-            # S/MIME also uses pkcs7-mime for opaque signing; only enveloped data is encrypted.
-            smime_type = str(part.get_param("smime-type", "enveloped-data")).lower()
-            if smime_type in {"enveloped-data", "authenveloped-data"}:
-                return True
-    return False
+    return any(_is_encrypted_part(part) for part in (message, *_top_parts(message)))
+
+
+def _is_encrypted_part(part: EmailMessage) -> bool:
+    content_type = part.get_content_type()
+    if content_type == "multipart/encrypted":
+        return True
+    if content_type not in ENCRYPTED_TYPES:
+        return False
+    # S/MIME also uses pkcs7-mime for opaque signing; only enveloped data is encrypted.
+    smime_type = str(part.get_param("smime-type", "enveloped-data")).lower()
+    return smime_type in {"enveloped-data", "authenveloped-data"}
 
 
 def _top_parts(message: EmailMessage) -> list[EmailMessage]:

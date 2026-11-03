@@ -203,6 +203,10 @@ class FilingTrace(BaseModel):
     batch_id: str = Field(..., min_length=1, max_length=64)
     project_id: str | None = Field(None, max_length=64)
     shelf: Annotated[Literal["project", "office_shelf"], BeforeValidator(_legacy_shelf)] = "project"
+    #: A mail's sender class (ADR-0137, amendment of 2026-11-03). ``verified_writer``: the
+    #: suggestion is filed by its sender's own filing, without a click, so no decision score
+    #: follows it. Metadata only; the model never reads it.
+    sender_class: Literal["verified_writer", "unverified_writer", "office_member", "external"] | None = None
 
 
 class MailContext(BaseModel):
@@ -469,10 +473,19 @@ def _system_prompt(request: FilingFitRequest) -> str:
 def _trace_metadata(request: FilingFitRequest) -> dict[str, Any]:
     """What the generation carries in Langfuse: ids and counts, never content.
 
-    A mail request names its surface (``inbound_mail``) and whether its text was placed; its
-    ``batch_id`` is the mail's id.
+    A mail request names its surface (``inbound_mail``), whether its text was placed, and its
+    sender class (a ``verified_writer``'s suggestion is filed without a person, so no decision
+    score follows it); its ``batch_id`` is the mail's id.
     """
-    mail = {"surface": "inbound_mail", "text_placed": bool(request.mail.text_id)} if request.mail is not None else {}
+    mail = (
+        {
+            "surface": "inbound_mail",
+            "text_placed": bool(request.mail.text_id),
+            "sender_class": request.trace.sender_class or "",
+        }
+        if request.mail is not None
+        else {}
+    )
     return {
         **mail,
         "batch_id": request.trace.batch_id,

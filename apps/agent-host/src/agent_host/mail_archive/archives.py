@@ -109,16 +109,20 @@ def _acquire(key: str, url: str, size: int) -> _Open:
             _open[key] = opened
         closable = _evict_over_capacity()
         if raced is not None and raced.size != size:
-            # The key now names a different object; retire the old one.
-            raced.evicted = True
-            if not raced.holders:
-                closable.append(raced)
+            _retire(raced, closable)
     _ensure_janitor()
     if dropped is not None:
         dropped.archive.close()
     for stale in closable:
         stale.archive.close()
     return entry
+
+
+def _retire(stale: _Open, closable: list[_Open]) -> None:
+    """The key now names a different object: mark the old one evicted, and close it now if nobody holds it."""
+    stale.evicted = True
+    if not stale.holders:
+        closable.append(stale)
 
 
 def _hold_cached(key: str, size: int) -> _Open | None:

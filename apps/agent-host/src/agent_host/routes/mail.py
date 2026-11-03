@@ -89,11 +89,16 @@ async def fetch_message(url: str, transport: httpx.AsyncBaseTransport | None = N
         declared = response.headers.get("content-length")
         if declared and declared.isdigit() and int(declared) > limits.MAX_MESSAGE_BYTES:
             raise MessageTooLargeError
-        chunks: list[bytes] = []
-        size = 0
-        async for chunk in response.aiter_bytes():
-            size += len(chunk)
-            if size > limits.MAX_MESSAGE_BYTES:
-                raise MessageTooLargeError
-            chunks.append(chunk)
+        return await _read_capped(response)
+
+
+async def _read_capped(response: httpx.Response) -> bytes:
+    """The body, counted as it streams; :class:`MessageTooLargeError` once it passes the message cap."""
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in response.aiter_bytes():
+        size += len(chunk)
+        if size > limits.MAX_MESSAGE_BYTES:
+            raise MessageTooLargeError
+        chunks.append(chunk)
     return b"".join(chunks)

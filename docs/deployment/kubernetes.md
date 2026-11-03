@@ -775,7 +775,9 @@ bounce text with the same `up`.
    sender job, so it waits for any of the project's writers (wait reason
    `paused`), and a sender job already queued files nothing. Mail held
    meanwhile keeps waiting for the writers after it is switched back on: it
-   is not filed retroactively. This is the first lever; pausing receipt is the next.
+   is not filed retroactively, unless a re-scan or a re-read (sweeps 7 and 15)
+   queues its sender's filing again after that. This is the first lever;
+   pausing receipt is the next.
 1. **Pause**: `inboundMailPaused: true`, promote. The Worker answers a
    temporary failure before reading anything, effective as soon as Cloudflare
    has the binding (no frontend rollout needed for that half), and the BFF

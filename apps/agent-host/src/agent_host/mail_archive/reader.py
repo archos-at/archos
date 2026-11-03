@@ -255,10 +255,9 @@ def _mail_root(root: pypff.folder) -> pypff.folder:
     """The folder a person's mail tree hangs from (see the module notes)."""
     children = [root.get_sub_folder(i) for i in range(root.number_of_sub_folders)]
     for child in children:
-        if child.name == "Root - Mailbox":
-            subtree = _child_named(child, "IPM_SUBTREE")
-            if subtree is not None:
-                return subtree
+        subtree = _child_named(child, "IPM_SUBTREE") if child.name == "Root - Mailbox" else None
+        if subtree is not None:
+            return subtree
     personal = [child for child in children if child.name not in _SYSTEM_TOP_FOLDERS]
     return personal[0] if len(personal) == 1 else root
 

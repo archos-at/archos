@@ -221,7 +221,7 @@ export const mailOperations = [
     domain: 'mail',
     summary: 'Dismiss held email',
     description:
-      'Restorable for seven days with inbound-mail-restore. Any reviewer may dismiss, mail that claims another member included. Runs only on the person’s own yes.',
+      'Restorable for seven days with inbound-mail-restore, except mail from an unconfirmed domain outside the office, which is erased. Any reviewer may dismiss, mail that claims another member included. Runs only on the person’s own yes.',
     method: 'POST',
     path: '/api/projects/[id]/inbound-mails/dismiss',
     params: projectParams,
