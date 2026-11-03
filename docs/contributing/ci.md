@@ -2,12 +2,13 @@
 
 This page is the design of the GitHub Actions setup. The workflow files carry
 the details next to the code they explain; this is the map, and the reasons.
+Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 
 ## What CI is for
 
 | Job to do | When | Where | Gate? |
 |---|---|---|---|
-| Prove a pull request, applied to its base, keeps every check its change could break | every push to a PR | `ci.yml` | **Yes: `CI OK`** is the one required status check |
+| Prove a pull request, applied to its base, keeps every check its change could break | every push to a PR | `ci.yml` | **Yes: `CI OK`**, meant as the one required status check. On 2026-11-03 the `protect-develop` ruleset required none, so a red pull request could merge: [ci-north-star.md](ci-north-star.md#decisions-only-an-owner-can-make) |
 | Prove the merged result, build its images, tag them for the commit | every push to `develop` and `release/**` | `ci.yml` | It is what the deploy waits for |
 | Put a green `develop` commit on staging | after a green push run of CI | `deploy.yml` | Staging only ever runs a commit CI passed |
 | Put the pinned commit on production | push to `prod`, with reviewers | `deploy.yml` | The `production` environment's reviewers |
@@ -66,7 +67,7 @@ It also lists the third-party image pins the change adds or moves
 | Job | Runs when | What it does |
 |---|---|---|
 | Plan (`changes`) | always | the three answers above, written to the run summary with the reason for each |
-| Repo checks (`repo`) | unless reused | pre-commit on all files, the agent-skill lockfile, ruff, the tests of `ci/`, the workflows and the release-note pipeline (`task be:test:harness`), release-note lint and (PRs) the release-note requirement, gitleaks over the commits a PR adds (a push: its full history) |
+| Repo checks, three legs side by side | unless reused | **lint, secrets** (`repo`): pre-commit on all files, ruff, gitleaks over the commits a PR adds (a push: its full history). **CI machinery tests** (`repo-tests`): `task be:test:harness`, the tests of `ci/`, the workflows and the release-note pipeline. **Release notes, skills, migrations** (`release-notes`): release-note lint and (PRs) the requirement, the agent-skill lockfile when the `skills` tier changed, and (PRs) the expand/contract check on added migrations (`ci/migration_contract.py`, label `migration:contract`). As one job they ran in series and finished last in 21 of 45 PR runs (2026-11-03) |
 | SAST (`semgrep`) | PRs touching code | Semgrep, diff-aware: blocks findings the PR introduces |
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
 | Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
@@ -84,7 +85,7 @@ It also lists the third-party image pins the change adds or moves
 | Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on all three images, and `latest` on `develop` |
 | `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green PR, records the tested tree for reuse |
 
-One more workflow runs on every push to `develop` and is not CI:
+One more workflow runs on a push to `develop` and is not CI:
 **Test database** (`testmon.yml`) records which test runs which code
 (`task be:test:testmon`) and caches it when green, for `backend-affected` to
 select from. It checks nothing, so it lives outside `ci.yml`: the staging deploy
@@ -93,7 +94,13 @@ finish. On 2026-11-03 a reused push had `CI OK` after one minute and its run
 completed after eight, every minute of the difference this job, and the next
 develop run queued behind it (a run created at 17:56 started at 18:06). A job
 that "holds nobody up" belongs in CI only if nothing waits on the run as a
-whole; the deploy does.
+whole; the deploy does. It runs only when Python, a `pyproject.toml`, the lock
+or its own harness changed: a docs or UI merge cannot change which test runs
+which function, and the run is the full backend suite, seven runner-minutes.
+
+The core shards (`task be:test:shard`) leave out the 17 files of
+`be:test:harness` (the Taskfile variable `HARNESS_TESTS`), which the CI
+machinery leg runs on every run that runs the shards. They used to run twice.
 
 `task verify` runs the same checks locally, minus the image builds, the RLS
 suite and `packages/` (see
@@ -265,11 +272,28 @@ then, no job waited more than three seconds for a runner. So the backend core
 suite runs in four shards and the UI suite in six (it had four, and they had
 grown to 7 to 11 minutes each); see [The backend lane](#the-backend-lane).
 
-One duplicate remains outside this repository's files: GitHub's **CodeQL
+One duplicate remains outside this repository's files (still on, 2026-11-03): GitHub's **CodeQL
 default setup** runs three analysis jobs on every PR push and a five-to-ten
 minute analysis on every `develop` push, beside Semgrep, which was adopted to
 replace CodeQL. Turning one of them off is a setting
 (Settings → Code security), and it is the largest remaining cost per push.
+
+## Runners and cost
+
+Every CI job runs on `${{ vars.CI_RUNNER || 'ubuntu-latest' }}`, every deploy
+on `${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}`. Moving to self-hosted runners
+(Actions Runner Controller) is setting the variable to the scale set's name.
+The runner image must carry what the hosted image gives these jobs for free:
+Docker (service containers, buildx, gitleaks), python3, jq, gh, curl and git.
+Deploys have their own variable because a runner inside the cluster it deploys
+to dies with a rollout that takes the cluster down, halfway through
+`pulumi up`. `tests/test_ci_workflows.py` fails a job that names a runner of
+its own.
+
+On a private repository every minute is billed and concurrent jobs are capped,
+so a job earns its place by what it catches, not by what it costs nothing to
+run. What this pipeline removed for that reason, and what is left, with
+numbers: [ci-north-star.md](ci-north-star.md).
 
 ## The backend lane
 
@@ -314,7 +338,7 @@ What it was made of, and what was done about each:
 
 **A pull request runs only the Python tests its change reaches.** Sharding
 made the full suite ~5 minutes; a typical change reaches a few dozen tests.
-Every push to `develop` records, with pytest-testmon, which test executed which
+Every push to `develop` that changes Python records, with pytest-testmon, which test executed which
 function, one database per suite, and caches it when every test passed. A pull
 request restores it and runs the tests whose recorded functions it changed,
 plus every test file that names a changed non-Python file (a config, a prompt,

@@ -58,11 +58,15 @@ A rollback changes the **images**. It keeps the current **program** (what
 - **Database migrations stay applied.** The migration Job
   (`deploy/pulumi/src/app/migrations-job.ts`) runs `drizzle-kit migrate` from
   the frontend image, forward only; the older image finds nothing to apply, and
-  the older build runs on the newer schema. That is safe while
-  migrations only add (columns with defaults, tables, indexes); a migration that
-  drops or renames something the older build reads breaks it. Check
-  `apps/workspace/migrations/` between the two commits before you roll back
-  across one.
+  the older build runs on the newer schema. That is safe while migrations only
+  add (columns with defaults, tables, indexes, compatibility views); one that
+  drops or renames something the older build reads breaks it. A pull request
+  adding such a migration fails Repo checks (`ci/migration_contract.py`) unless
+  it carries the `migration:contract` label, so before rolling back across a
+  range, look for merged PRs with that label in it. 0189 is the expand half
+  done right: it renamed three tables and kept each old name as a view for a
+  release, so a build from before it still runs until the contract migration
+  drops the views.
 - **The program is not rolled back.** For a fault in `deploy/pulumi` itself,
   revert the change on `develop` (staging) or in a PR to `prod`.
 - **The vector-store floor refuses some tags.** A backend from before the Chroma
