@@ -23,9 +23,11 @@ Three things this module owns, each a decision:
   (``common/prompt_caching.py``). A call now carries the key
   ``prompt_caching.prompt_cache_key`` builds from the organization, the model and
   the prompt's identity (its schema version and vocabulary fingerprint, never
-  the page or any tenant text), and its client keeps zero data retention through
-  ``provider.zdr`` and ``data_collection: deny`` without the order
-  (``DataPolicy.for_sticky_routing``).
+  the page or any tenant text). A zero-data-retention organization keeps the
+  EU-first ``provider.order`` on its page reads, by the owner's decision on
+  2026-11-03, and so caches less: OpenRouter does not route a request with a
+  manual order stickily. An organization without ZDR sends no order, and its
+  page reads stay on their cache's shard.
 * **The trace.** Each call is one ``ingest-vision`` generation, nested under its
   file's ``ingest-file`` trace by the context the vision pools copy.
 """
@@ -244,11 +246,11 @@ def _vlm_client(base_url: str, api_key: str, *, role: str = USAGE_ROLE_INGEST_VI
 
     The ingest job enters ``openrouter.data_policy_scope`` for its organization;
     anything that reaches here without one (the base corpus sync, a thread that
-    lost the context) is pinned to zero-data-retention endpoints. The policy is
-    taken without its EU-first ``provider.order`` (``for_sticky_routing``), which
-    would switch off the sticky routing the cache key drives; ``zdr`` and
-    ``data_collection: deny`` stay. Each call's usage is recorded under ``role``
-    in the job's tracker (``_ingest_cost_scope``).
+    lost the context) is pinned to zero-data-retention endpoints. A ZDR policy
+    keeps its EU-first ``provider.order``, which switches off the sticky routing
+    the cache key drives: ZDR organizations cache less, by the owner's decision
+    on 2026-11-03 (EU hosting preferred over the cache). Each call's usage is
+    recorded under ``role`` in the job's tracker (``_ingest_cost_scope``).
     """
     from agent.common.openrouter import openai_client
     from agent.common.openrouter import scoped_data_policy
@@ -257,7 +259,7 @@ def _vlm_client(base_url: str, api_key: str, *, role: str = USAGE_ROLE_INGEST_VI
         openai_client(
             base_url=base_url,
             api_key=api_key,
-            policy=scoped_data_policy().for_sticky_routing(),
+            policy=scoped_data_policy(),
             timeout=VLM_REQUEST_TIMEOUT_SECONDS,
             max_retries=1,
         ),

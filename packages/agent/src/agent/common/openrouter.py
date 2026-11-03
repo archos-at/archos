@@ -53,7 +53,6 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import dataclasses
 import json
 import logging
 import os
@@ -145,29 +144,14 @@ class DataPolicy:
     """What a model provider may keep of a request."""
 
     zdr: bool = False
-    #: Whether a ZDR request also carries the EU-first ``provider.order``. A preference, never
-    #: the guarantee: ``zdr`` and ``data_collection: deny`` are what keep a request unretained.
-    preferred_order: bool = True
-
-    def for_sticky_routing(self) -> DataPolicy:
-        """This policy without the EU-first ``order``, for a call whose prompt cache needs sticky routing.
-
-        OpenRouter does not use sticky routing for a request with a manual
-        ``provider.order`` (``common/prompt_caching.py``), so a page read keyed for
-        the cache would never reach the shard it is keyed for. The ZDR routing
-        itself (:data:`ZDR_PROVIDER_ROUTING`) is unchanged: such a request still
-        goes only to zero-data-retention endpoints, EU or not.
-        """
-        return dataclasses.replace(self, preferred_order=False)
 
     def apply(self, body: Mapping[str, Any] | None) -> dict[str, Any]:
         """Return a NEW request body carrying this policy's provider routing.
 
         Adds the EU-first ``order`` (:func:`preferred_providers`) unless the body
-        already names one or the policy is :meth:`for_sticky_routing`.
-        Non-destructive: other ``provider`` keys and every other field survive.
-        A fresh dict, so a shared build-time body is never mutated. Without ZDR
-        it is a plain copy.
+        already names one. Non-destructive: other ``provider`` keys and every
+        other field survive. A fresh dict, so a shared build-time body is never
+        mutated. Without ZDR it is a plain copy.
         """
         merged: dict[str, Any] = dict(body) if isinstance(body, Mapping) else {}
         if not self.zdr:
@@ -175,7 +159,7 @@ class DataPolicy:
         existing = merged.get("provider")
         provider = dict(existing) if isinstance(existing, Mapping) else {}
         provider.update(ZDR_PROVIDER_ROUTING)
-        order = preferred_providers() if self.preferred_order else ()
+        order = preferred_providers()
         if order and "order" not in provider:
             provider["order"] = list(order)
             provider.setdefault("allow_fallbacks", True)

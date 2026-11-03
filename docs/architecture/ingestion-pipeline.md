@@ -174,9 +174,11 @@ own 7 s of retries included) or a timeout inside a vision call is retried in pla
 still unread after that is counted in the coverage, and a standalone image, whose
 only content is that reading, fails with `not_read: 1` (`vision_failed`) on its trace
 and job status. Every vision call carries a sticky-routing prompt-cache key built
-from the organization, the model and the prompt's identity (never the page), and its
-client keeps zero data retention without the EU-first `provider.order`, which would
-switch the sticky routing off (`DataPolicy.for_sticky_routing`). A standalone
+from the organization, the model and the prompt's identity (never the page). A
+zero-data-retention organization keeps the EU-first `provider.order` on its page
+reads, which switches OpenRouter's sticky routing off, so it caches less: the
+owner's decision on 2026-11-03, EU hosting over the cache. An organization without
+ZDR sends no order, and its page reads stay on their cache's shard. A standalone
 image's reading is screened once it exists, like a scan's transcription: `partial`
 when clean, quarantined on a match, and its thumbnail drawn only after that. A file whose
 read failed for a passing reason (`transient`: an interruption, a timeout, a download

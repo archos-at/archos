@@ -66,26 +66,6 @@ class TestThePin:
         assert NO_RETENTION_LIMITS.apply(body) == body
 
 
-class TestStickyRouting:
-    """A call keyed for the prompt cache drops the EU-first order, never the zero-data-retention routing."""
-
-    def test_zdr_stays_and_the_order_goes(self, monkeypatch):
-        monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
-        sticky = ZERO_DATA_RETENTION.for_sticky_routing()
-        provider = sticky.apply({"model": "m"})["provider"]
-        assert provider == {"zdr": True, "data_collection": "deny"}
-        assert sticky.zdr and ZERO_DATA_RETENTION.is_applied_to(sticky.apply({}))
-
-    def test_a_policy_without_zdr_stays_without(self):
-        assert NO_RETENTION_LIMITS.for_sticky_routing().apply({"model": "m"}) == {"model": "m"}
-
-    def test_the_transport_pins_a_sticky_request_without_the_order(self, monkeypatch):
-        monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
-        request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions", json={"model": "m"})
-        pinned = openrouter._pinned_request(request, ZERO_DATA_RETENTION.for_sticky_routing())
-        assert json.loads(pinned.content)["provider"] == {"zdr": True, "data_collection": "deny"}
-
-
 class TestTheOrganizationsPolicy:
     def test_no_organization_is_no_restriction(self):
         assert data_policy_for(None) == NO_RETENTION_LIMITS

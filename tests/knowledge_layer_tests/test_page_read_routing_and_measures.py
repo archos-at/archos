@@ -79,7 +79,8 @@ class TestThePromptCacheKey:
         request = _read(Client(base_url="https://vlm.test/v1"))
         assert "extra_body" not in request
 
-    def test_the_client_keeps_zdr_and_drops_the_order(self, monkeypatch):
+    def test_a_zdr_client_keeps_the_eu_first_order(self, monkeypatch):
+        """The owner's decision on 2026-11-03: ZDR organizations keep the order, and cache less."""
         built = {}
         monkeypatch.setattr(openrouter, "openai_client", lambda **kwargs: built.update(kwargs) or Client())
         monkeypatch.delenv(openrouter.PREFERRED_PROVIDERS_ENV, raising=False)
@@ -87,9 +88,19 @@ class TestThePromptCacheKey:
         with openrouter.data_policy_scope(openrouter.ZERO_DATA_RETENTION):
             vision_calls._vlm_client(OPENROUTER, "k")
 
-        policy = built["policy"]
-        assert policy.zdr is True
-        assert policy.apply({})["provider"] == {"zdr": True, "data_collection": "deny"}
+        assert built["policy"] == openrouter.ZERO_DATA_RETENTION
+        provider = built["policy"].apply({})["provider"]
+        assert provider["zdr"] is True and provider["data_collection"] == "deny"
+        assert provider["order"][0] == "azure/eu"
+
+    def test_an_organization_without_zdr_sends_no_order(self, monkeypatch):
+        built = {}
+        monkeypatch.setattr(openrouter, "openai_client", lambda **kwargs: built.update(kwargs) or Client())
+
+        with openrouter.data_policy_scope(openrouter.NO_RETENTION_LIMITS):
+            vision_calls._vlm_client(OPENROUTER, "k")
+
+        assert "provider" not in built["policy"].apply({})
 
 
 def _job(*details: FileProgress) -> IngestionJobStatus:
