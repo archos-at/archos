@@ -21,6 +21,10 @@ Two things escape a ``with`` block unless you mind them:
 * ``PdfBitmap.to_pil()`` may share the bitmap's buffer. :func:`detached_pil`
   returns an image that owns its pixels and closes the bitmap, so the image can
   leave the lock.
+* Closing a pdfium-allocated ("foreign") bitmap, which is what an embedded
+  image's ``get_bitmap()`` returns, frees its buffer, and pypdfium2 logs a
+  warning on every such close. :func:`close_bitmap` is for callers that keep
+  nothing which still points into that buffer; it closes without the warning.
 
 The lock is reentrant, so a helper that takes it can be called from code that
 already holds it.
@@ -47,12 +51,25 @@ def pdfium_lock() -> Iterator[None]:
         yield
 
 
+def close_bitmap(bitmap: Any) -> None:
+    """Close ``bitmap`` once nothing derived from its buffer survives. Call inside :func:`pdfium_lock`.
+
+    pypdfium2 warns on every explicit close of a foreign bitmap, since the buffer
+    goes with it; the caller vouches it holds no view of that buffer, so the
+    warning is switched off for this close (its ``warn_on_close`` exists for that).
+    """
+    # A PdfBitmap always has close(); a test double standing in for one may not.
+    close = getattr(bitmap, "close", None)
+    if close is None:
+        return
+    if hasattr(bitmap, "warn_on_close"):
+        bitmap.warn_on_close = False
+    close()
+
+
 def detached_pil(bitmap: Any) -> Image.Image:
     """``bitmap`` as a PIL image that owns its pixels; the bitmap is closed. Call inside :func:`pdfium_lock`."""
     try:
         return bitmap.to_pil().copy()
     finally:
-        # A PdfBitmap always has close(); a test double standing in for one may not.
-        close = getattr(bitmap, "close", None)
-        if close is not None:
-            close()
+        close_bitmap(bitmap)
