@@ -82,11 +82,12 @@ def test_the_workers_do_not_ask_for_the_listen_dsn(monkeypatch):
     monkeypatch.setenv("LOCK_DB_URL", DIRECT)
     sentinel = RuntimeError("past the check")
 
-    class Reached:
-        def __init__(self):
-            raise sentinel
+    def reached():
+        raise sentinel
 
-    monkeypatch.setattr(research_worker, "ResearchWorker", Reached)
+    from agent_host.jobs import research_hatchet
+
+    monkeypatch.setattr(research_hatchet, "run_worker", reached)
     with pytest.raises(RuntimeError, match="past the check"):
         research_worker.main()
 

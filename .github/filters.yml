@@ -286,7 +286,6 @@ infra:
   - 'apps/agent-host/src/agent_host/chat_socket.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_dispatch.py'
   - 'apps/agent-host/src/agent_host/jobs/ingest_worker.py'
-  - 'apps/agent-host/src/agent_host/jobs/queue.py'
   - 'apps/agent-host/src/agent_host/jobs/worker.py'
   - 'apps/agent-host/src/agent_host/roles.py'
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'

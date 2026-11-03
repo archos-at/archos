@@ -365,6 +365,5 @@ tasks:
         bash scripts/rls-test-db.sh --exec "{{.PY}}" -X faulthandler -m pytest -q
         packages/agent/tests/common/test_claim_queue.py
         tests/knowledge_layer_tests/test_ingest_queue.py
-        apps/agent-host/tests/test_research_queue_fair.py
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py

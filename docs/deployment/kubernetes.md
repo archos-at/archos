@@ -1131,15 +1131,15 @@ backend code change, tracked separately from this deployment.
 
 The token-heavy workload (deep research) now scales out:
 
-- **Research runs on DB-claimed workers** (ADR-0021): submission writes a
-  `SUBMITTED` `job_info` row and enqueues a claimable `research_job_queue` row
-  (`apps/agent-host/src/agent_host/jobs/queue.py`); dedicated **`agent-worker`**
-  replicas (same image, `PROCESS_ROLE=worker`) claim rows with `FOR UPDATE SKIP
-  LOCKED`, run the same `run_agent_job` body, and heartbeat the claim so a crash
-  is reclaimed. The claim is fair (below) and KEDA scales the tier on the queue,
-  not on CPU. The web tier runs no research jobs.
+- **Research runs on Hatchet** (ADR-0021, ADR-0150): submission writes a
+  `SUBMITTED` `job_info` row and starts a `research-run` task
+  (`apps/agent-host/src/agent_host/jobs/research_hatchet.py`) whose input holds
+  ids, the priority and the encrypted payload; dedicated **`agent-worker`**
+  replicas (same image, `PROCESS_ROLE=worker`) run a Hatchet worker that runs
+  the same `run_agent_job` body. Hatchet keeps it fair per organization and
+  reassigns the runs of a lost worker. The web tier runs no research jobs.
 - **Cancellation works from any replica** — the cancel route flips `job_info` to
-  INTERRUPTED and drops the queue row; the runner's 1 s `CancellationMonitor`
+  INTERRUPTED and cancels the Hatchet run; the runner's 1 s `CancellationMonitor`
   honors it. No scheduler is involved.
 - **Shared vectors**: the Qdrant cluster (ADR-0115) means workers and web
   replicas read/write one store.
