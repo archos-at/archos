@@ -95,6 +95,14 @@ const SWEEPS: SweepSpec[] = [
     run: sweeps.reconcileBackgroundWork,
   },
   {
+    name: 'inbound-mail-sweep',
+    cron: '* * * * *',
+    reason:
+      'lists the project mail of every organization left half-done, running out or past its keep (ADR-0137); each row is ' +
+      'finished inside its own organization, and only the rows past their keep are deleted as the platform role',
+    run: sweeps.sweepProjectMail,
+  },
+  {
     name: 'upload-sweep',
     cron: '* * * * *',
     reason: 'lists the open upload batches and owed quarantine audits of every organization; each is settled inside its own organization',

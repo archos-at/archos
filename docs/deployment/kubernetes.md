@@ -576,6 +576,12 @@ Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
 `INBOUND_MAIL_{DOMAIN,PAUSED,SIGNING_KEYS}`; the in-cluster ClamAV
 (`malwareScanEnabled`, ADR-0152). Config keys and their meaning:
 [`deploy/pulumi/README.md`](../../deploy/pulumi/README.md) („Project mail“ rows).
+What runs in the cluster after the webhook is Hatchet's (ADR-0150): the
+receive, suggest, file and follow jobs are `bff-job` runs on the `bff-jobs`
+pool (each job's row in `bff_job_queue` keeps its payload; a run's input is
+ids and the priority only), and project mail's sweeps are the
+`inbound-mail-sweep` cron task on the same worker, every minute. There is no
+scheduler container.
 
 ### Prerequisites
 

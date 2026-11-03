@@ -16,7 +16,7 @@ import { isUniqueViolation } from '@/lib/db/errors'
 import type { DbExecutor } from '@/lib/db/executor'
 import { inboundMailAddresses, inboundMails, type NewInboundMailRow } from '@/lib/db/schema/inbound-mail'
 import { projects } from '@/lib/db/schema/projects'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 
 /** What the webhook learns from a token, and nothing more. */
@@ -165,7 +165,7 @@ export async function queueReceiveJob(
   mail: { mailId: string; organizationId: string; projectId: string },
   executor: DbExecutor = getDb(),
 ): Promise<boolean> {
-  return insertJobIfAbsent(
+  return enqueueJobIfAbsent(
     {
       kind: 'inbound_mail_receive',
       organizationId: mail.organizationId,

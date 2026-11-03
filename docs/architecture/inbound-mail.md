@@ -46,7 +46,10 @@ flowchart LR
   Q3 -.-> AV
 ```
 
-Legend: rounded boxes `[[…]]` are BFF jobs on `bff_job_queue`, cylinders are
+Legend: rounded boxes `[[…]]` are BFF jobs: each a row in `bff_job_queue`
+holding its payload, run as one `bff-job` run per slice on Hatchet (ADR-0150),
+whose input carries the job's id, kind, organization and priority only, and
+fair across organizations by its concurrency key; cylinders are
 objects in the organization's bucket or rows, dashed arrows are calls that make
 no model call. Nothing left of „decision rows“ can file: the webhook, the
 receive job, the suggest job and the sweeps import no filing code
@@ -334,16 +337,20 @@ the renewal notice and publishes the change.
 
 ## Retention: the sweeps
 
-`lib/inbound-mail/sweep.ts`, one more part of
-`POST /api/internal/maintenance/reconcile-background-work`, which the scheduler
-posts every tick (30 s); at most 50 rows per sweep per tick. Each sweep finds
+`lib/inbound-mail/sweep.ts`, run every minute by the `inbound-mail-sweep`
+Hatchet cron task of the `bff-jobs` worker (`sweepProjectMail`,
+`lib/scheduling/sweeps.ts`; one run at a time, ADR-0150); at most 50 rows per
+sweep per run. Each sweep finds
 what is due across organizations under the platform bypass (ids only), then acts
 on each row in its tenant, compare-and-set on what it saw; deletes run as the
 platform role. A sweep that erases an object takes the row first, under the
 find's whole condition with the legal hold included, and erases only then:
-erasing first would lose what a hold or a restore placed in between kept. One sweep's failure is counted and the next runs. The scheduler
-logs one line per sweep that acted, e.g.
-`[job-scheduler] background work sweep, project mail expired: checked 3, errors 0, expired 2, parts 5`.
+erasing first would lose what a hold or a restore placed in between kept. One
+sweep's failure is counted and the next runs; once all have run, a sweep that
+threw whole fails the task's run, which Hatchet records with its class only. A
+row that failed is counted, not thrown, and the next run tries it again. The
+task logs one line per sweep that acted, e.g.
+`[scheduling] project mail expired: checked 3, errors 0, expired 2, parts 5`.
 
 In the order they run:
 
@@ -358,7 +365,7 @@ In the order they run:
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25 | — |
 | 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts | 1 h | — |
-| 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
+| 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next run | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |
 | 12 | `follows` | running follows past `expires_at` end `expired`, those whose document is gone end `document_gone`, those in a closed project end `project_closed`; five days before the end `mail_thread.follow_expiring`, once | 60 days, day 55 | — |
 | 9 | `threads` | threads whose document is deleted (a binned one keeps its row), over an hour old, no lease, no running follow, nothing unaudited, not waiting for a first archive render: the thread's render lease taken under that whole condition (the hold included), then every original erased by key, then the thread deleted (cascade: entries, attachment rows, Message-IDs, ended follows, their audited decisions and the parts those filed) | 1 h | project hold: skipped; triggers backstop |

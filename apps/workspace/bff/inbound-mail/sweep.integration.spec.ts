@@ -439,7 +439,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       const notYet = await seedMail({ receivedAgo: '10 days' })
       await seedPart(notYet)
 
-      // Two scheduler replicas at once: both find the mail, one tells.
+      // Two sweep runs at once: both find the mail, one tells.
       await Promise.all([sweep.sweepExpiringMails(now()), sweep.sweepExpiringMails(now())])
       await sweep.sweepExpiringMails(now())
 
@@ -548,7 +548,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       expect(await partRow(file)).toMatchObject({ state: 'waiting', storage_key: stagingKey(project, mail, '1') })
     })
 
-    it('puts the key back when the store could not erase the bytes, for the next tick', async () => {
+    it('puts the key back when the store could not erase the bytes, for the next run', async () => {
       const mail = await seedMail()
       await seedPart(mail, { kind: 'message', state: 'waiting' })
       const file = await seedPart(mail, { state: 'dismissed', endedAgo: '8 days' })
@@ -638,7 +638,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
       }
     })
 
-    it('puts back the keys the store kept, and the deferral, for the next tick', async () => {
+    it('puts back the keys the store kept, and the deferral, for the next run', async () => {
       const { projectId: failing, addressId } = await newProject(`Release failure ${STAMP}`)
       const mail = await seedMail({ projectId: failing, addressId, status: 'settled', raw: true, read: true, erasureDeferred: true })
       const part = await seedPart(mail, { state: 'dismissed', endedAgo: '9 days', deferred: true })
@@ -725,7 +725,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
         INSERT INTO mail_thread_follows (organization_id, project_id, thread_id, user_id, created_at, expires_at)
         VALUES (${ORG}, ${project}::uuid, ${thread}::uuid, ${FOLLOWER}, now() - interval '57 days', now() + interval '3 days') RETURNING id`)
 
-      // Two scheduler replicas at once: both find the follows, one ends and one asks.
+      // Two sweep runs at once: both find the follows, one ends and one asks.
       await Promise.all([sweep.sweepFollows(now()), sweep.sweepFollows(now())])
       await sweep.sweepFollows(now())
 
@@ -919,7 +919,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
                'org/' || ${ORG} || '/project/' || ${projectId}::text || '/_inbound-mail/' || ids.id::text || '/raw.eml', now(), now() + interval '30 days'
           FROM (SELECT gen_random_uuid() AS id FROM generate_series(1, 32)) ids`)
 
-      // Two scheduler replicas at once: both find the address, one tells.
+      // Two sweep runs at once: both find the address, one tells.
       await Promise.all([sweep.sweepCaps(now()), sweep.sweepCaps(now())])
       await sweep.sweepCaps(now())
 

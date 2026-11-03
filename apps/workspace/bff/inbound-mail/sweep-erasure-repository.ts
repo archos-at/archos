@@ -75,7 +75,7 @@ export async function takeEndedPartBytes(part: { partId: string; storageKey: str
   return rows.length === 1
 }
 
-/** The store could not erase what `takeEndedPartBytes` took: the key comes back, so the next tick tries again. */
+/** The store could not erase what `takeEndedPartBytes` took: the key comes back, so the next run tries again. */
 export async function returnEndedPartKey(part: { partId: string; storageKey: string }, now: Date): Promise<void> {
   await getDb()
     .update(inboundMailParts)
@@ -300,7 +300,7 @@ export async function takeReleasedErasure(row: DeferredErasure, now: Date): Prom
 
 /**
  * The store kept some of what `takeReleasedErasure` took: those keys, and the
- * deferral, come back, so the next tick tries again. A key the store did
+ * deferral, come back, so the next run tries again. A key the store did
  * erase stays forgotten.
  */
 export async function returnReleasedErasure(row: DeferredErasure, kept: readonly string[], now: Date): Promise<void> {

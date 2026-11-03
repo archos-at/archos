@@ -55,7 +55,7 @@ import { isCoveredByActiveHold } from '@/lib/compliance/repository'
 import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
 import { acceptedTypesForOrganization } from '@/lib/documents/accepted-types'
 import { documentNameKey } from '@/lib/documents/name-match'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY, requesterOf, type InboundMailReceivePayload, type JobAttempt } from '@/lib/jobs-queue/types'
 import { baseSubject, clampSentAt, domainOf, matchThread } from '@/lib/mail-thread/mail-threading'
 import { publishProjectChanged } from '@/lib/realtime/door-events'
@@ -591,7 +591,7 @@ export function sizeBucket(bytes: number): string {
 
 /** The agent's suggestion (D21), queued once per mail; the job reads the budget and the names itself. */
 async function queueSuggestion(mail: InboundMailRow): Promise<void> {
-  await insertJobIfAbsent({
+  await enqueueJobIfAbsent({
     kind: 'inbound_mail_suggest',
     organizationId: mail.organizationId,
     priority: BFF_JOB_PRIORITY.bulk,
@@ -626,7 +626,7 @@ async function queueFollowIfEligible(
   // A follower who left the organization appends nothing; the follow job, which
   // ends such a follow, is not needed for that: the mail simply waits.
   if (!session) return false
-  return insertJobIfAbsent({
+  return enqueueJobIfAbsent({
     kind: 'inbound_mail_follow',
     organizationId: mail.organizationId,
     priority: BFF_JOB_PRIORITY.interactive,

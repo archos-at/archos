@@ -4,15 +4,18 @@ import 'server-only'
  * sweeps“): what a restart, a dead job, a running-out window or a released
  * legal hold leaves for somebody to finish, finished by the clock.
  *
- * One more part of `reconcile-background-work`, which the job scheduler posts
- * every tick (`scheduler/index.js`), so there is no cron of its own. Each
+ * Run every minute by the `inbound-mail-sweep` Hatchet cron task of the
+ * `bff-jobs` worker (`lib/scheduling/tasks.ts`, ADR-0150), which never
+ * overlaps itself. Each
  * sweep lists what is due across every organization (platform scope, ids
  * only), then acts on each row in that row's own tenant scope, compare-and-set
  * on what it saw, so a person or a job that moved a row in between wins. Rows
  * are deleted as the platform role (DELETE is revoked from the runtime role).
- * Safe on several scheduler replicas at once and more often than needed:
- * every step finds what the step before it left. A sweep that throws costs
- * its own turn, never the others'; each row's failure is counted, not thrown.
+ * Safe on two runs at once and more often than needed (a run past its
+ * timeout, an engine that delivers twice): every step finds what the step
+ * before it left. A sweep that throws costs its own turn, never the others',
+ * and fails the task's run once all have run; each row's failure is counted,
+ * not thrown.
  *
  * | # | Sweep | Window | Hold |
  * |---|---|---|---|
@@ -63,7 +66,7 @@ import { queueReceiveJob } from './repository'
 import { eraseStagedObjects, readStagedObject } from './staging'
 import * as sweeps from './sweep-repository'
 
-/** Rows one sweep takes per run; the rest wait for the next tick (30 s). */
+/** Rows one sweep takes per run; the rest wait for the next run (a minute). */
 export const SWEEP_BATCH = 50
 
 /** A reception older than this died half way (D8: 15 minutes). */
@@ -82,7 +85,7 @@ export interface SweepCounts {
   [outcome: string]: number
 }
 
-/** Every sweep's counts, by name, for the scheduler's log line. */
+/** Every sweep's counts, by name, for the task's log lines (`sweepProjectMail`). */
 export interface InboundMailSweepResult {
   staleReceptions: SweepCounts
   orphanedReceptions: SweepCounts
@@ -474,9 +477,10 @@ const ORDER: ReadonlyArray<[keyof InboundMailSweepResult, (now: Date) => Promise
 ]
 
 /**
- * Run every sweep once, in order. A sweep that throws is counted (`errors: 1`)
- * and logged, and the next one runs: one store or database fault in one part
- * never costs the others their turn. Never throws.
+ * Run every sweep once, in order. A sweep that throws is counted (`errors: 1,
+ * failed: 1`) and logged, and the next one runs: one store or database fault in
+ * one part never costs the others their turn. Never throws; the task that runs
+ * it fails its run on a `failed` sweep (`sweepProjectMail`).
  */
 export async function sweepInboundMail(now: Date = new Date()): Promise<InboundMailSweepResult> {
   const result = {} as InboundMailSweepResult
@@ -485,7 +489,8 @@ export async function sweepInboundMail(now: Date = new Date()): Promise<InboundM
       result[name] = await sweep(now)
     } catch (error) {
       console.error(`[inbound-mail] the ${name} sweep failed`, error)
-      result[name] = { ...counts(), errors: 1 }
+      // `failed` marks the sweep that threw whole, which fails the task's run (`sweepProjectMail`).
+      result[name] = { ...counts(), errors: 1, failed: 1 }
     }
   }
   return result

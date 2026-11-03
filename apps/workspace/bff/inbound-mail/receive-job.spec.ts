@@ -121,7 +121,7 @@ vi.mock('@/lib/compliance/repository', () => ({ isCoveredByActiveHold: vi.fn(asy
 vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
 vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
-vi.mock('@/lib/jobs-queue/repository', () => ({ insertJobIfAbsent: vi.fn(async () => true) }))
+vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJobIfAbsent: vi.fn(async () => true) }))
 vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
 vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true) }))
 
@@ -130,7 +130,7 @@ import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
 import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { isCoveredByActiveHold } from '@/lib/compliance/repository'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { scanForMalware } from '@/lib/malware-scan/client'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import {
@@ -255,7 +255,7 @@ function receive(raw: string, overrides: Partial<InboundMailRow> = {}) {
 const run = (attempt = NOT_LAST) => runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT }, attempt)
 const heldRow = () => state.row as InboundMailRow
 const stagedRead = () => JSON.parse(Buffer.from(state.objects.get(READ_KEY) ?? new Uint8Array()).toString()) as MailRead
-const jobKinds = () => vi.mocked(insertJobIfAbsent).mock.calls.map(([job]) => job.kind)
+const jobKinds = () => vi.mocked(enqueueJobIfAbsent).mock.calls.map(([job]) => job.kind)
 
 /** The INFO lines (the per-delivery operator trail), through the spy rather than `console`. */
 let infoSpy: ReturnType<typeof vi.spyOn>
@@ -342,7 +342,7 @@ describe('the receive job holds a mail for a person', () => {
     expect(stagedRead().ownText).toBe('Hallo, anbei die Unterlagen.')
     expect(announceWaiting).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL, senderTrust: 'member_verified' }))
     expect(jobKinds()).toEqual(['inbound_mail_suggest'])
-    expect(vi.mocked(insertJobIfAbsent).mock.calls[0][0]).toMatchObject({ jobId: inboundMailJobId('suggest', MAIL) })
+    expect(vi.mocked(enqueueJobIfAbsent).mock.calls[0][0]).toMatchObject({ jobId: inboundMailJobId('suggest', MAIL) })
     expect(row.notifiedAt).not.toBeNull()
   })
 
@@ -633,7 +633,7 @@ describe('following: the follow job is queued only when D31’s conditions 1–6
     await run()
 
     expect(jobKinds()).toContain('inbound_mail_follow')
-    const follow = vi.mocked(insertJobIfAbsent).mock.calls.find(([job]) => job.kind === 'inbound_mail_follow')?.[0]
+    const follow = vi.mocked(enqueueJobIfAbsent).mock.calls.find(([job]) => job.kind === 'inbound_mail_follow')?.[0]
     expect(follow).toMatchObject({
       jobId: inboundMailJobId('follow', MAIL),
       payload: { mailId: MAIL, projectId: PROJECT, followId: 'f0000000-0000-4000-8000-000000000001', requester: { userId: FOLLOWER_ID } },

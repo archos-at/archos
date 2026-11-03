@@ -13,7 +13,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { getDb } from '@/lib/db'
 import type { DbTransaction } from '@/lib/db/executor'
 import { inboundMailDecisions, inboundMailParts, inboundMails, type InboundMailDecisionRow, type InboundMailPartRow, type InboundMailRow, type NewInboundMailDecisionRow } from '@/lib/db/schema/inbound-mail'
-import { insertJobIfAbsent } from '@/lib/jobs-queue/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
 import { BFF_JOB_PRIORITY } from '@/lib/jobs-queue/types'
 import { findMailParts, OPEN_PART_STATES } from './review-read-repository'
 
@@ -110,7 +110,7 @@ export async function writeMailDecisions(
       await tx.update(inboundMails).set({ updatedAt: now }).where(eq(inboundMails.id, write.mailId))
     }
     if (job) {
-      await insertJobIfAbsent(
+      await enqueueJobIfAbsent(
         { kind: 'inbound_mail_file', organizationId: job.organizationId, priority: BFF_JOB_PRIORITY.interactive, jobId: job.jobId, payload: job.payload },
         tx,
       )
