@@ -135,7 +135,7 @@ class TestTheArms:
         assert pairs["functions.knowledge_search.match_modes"] == "meaning"
         # The filesystem verbs over the estate are navigation too (ADR-0133); the override switches them off.
         assert pairs["functions.shallow_research_agent.filesystem"] == "null"
-        from aiq_agent.agents.piloti.register import ResearchAgentConfig
+        from agent.agents.piloti.register import ResearchAgentConfig
 
         assert ResearchAgentConfig(llm="x", filesystem="null").filesystem is None
         assert ResearchAgentConfig(llm="x", filesystem="knowledge_search").filesystem == "knowledge_search"
@@ -171,8 +171,9 @@ class TestTheArms:
             files_eval.arm_overrides("lexical", self.TOOLS)
 
     def test_the_overrides_name_keys_the_config_and_its_schema_accept(self):
-        from aiq_agent.agents.piloti.register import ResearchAgentConfig
-        from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
+        from knowledge_layer.register import KnowledgeRetrievalConfig
+
+        from agent.agents.piloti.register import ResearchAgentConfig
 
         for arm in ("semantic", "grep"):
             pairs = dict(files_eval.arm_overrides(arm, self.TOOLS))
@@ -205,7 +206,7 @@ class TestWhatTheCommitCanDo:
         found = files_eval.available_needs()
         assert found <= set(files_eval.NEEDS)
         # Today's tools have none of the S3/S5/S6/S7 arguments; once a slice lands its row starts running.
-        schema = REPO_ROOT / "frontends" / "ui" / "tests" / "fixtures" / "backend-tools.schema.json"
+        schema = REPO_ROOT / "apps" / "workspace" / "tests" / "fixtures" / "backend-tools.schema.json"
         assert schema.exists()
 
 

@@ -18,8 +18,8 @@ is not blamed on your change and your change cannot hide behind one:
 
 ```bash
 task be:test 2>&1 | tail -5
-task fe:test 2>&1 | tail -5
-task fe:types 2>&1 | tail -20
+task workspace:test 2>&1 | tail -5
+task workspace:types 2>&1 | tail -20
 ```
 
 Write the failing test names down. Only new failures block your change, but a
@@ -34,8 +34,8 @@ change done.
 
 | You changed | Show the output of |
 |---|---|
-| Python under `src/`, `sources/` or `frontends/aiq_api/` | the targeted tests (`.venv/bin/pytest <path> -q`), then the suite they belong to (`task be:test`, `task be:test:sources`, `task be:test:api`), and `task be:lint` |
-| The UI (`frontends/ui/`) | the targeted specs, then `task fe:test`; `task fe:types` with no new errors against the baseline; `task fe:lint` exiting clean, with zero problems rather than "no new ones" |
+| Python under `src/`, the Python packages under `packages/`, or `apps/agent-host/` | the targeted tests (`.venv/bin/pytest <path> -q`), then the suite they belong to (`task be:test`, `task be:test:sources`, `task be:test:api`), and `task be:lint` |
+| The UI (`apps/workspace/`) | the targeted specs, then `task workspace:test`; `task workspace:types` with no new errors against the baseline; `task workspace:lint` exiting clean, with zero problems rather than "no new ones" |
 | A WebSocket or SSE message, or any schema two services share | both sides: the producer's tests and the consumer's parser tests, over the same field names. Where a fixture under `tests/fixtures/` is the contract, both suites read it ([cross-service contract fixtures](testing-and-verification.md#cross-service-contract-fixtures)) |
 | What shapes an answer: prompt, model, structured output, retrieval | the answer suite before and after (the obligation in [`AGENTS.md`](../../AGENTS.md#obligations)), or at least a live call proving the contract parses, with a note saying why the suite could not run |
 | Something a user can see | a capture attached to the pull request, never committed ([visual-screenshots.md](../ux/visual-screenshots.md)), and the exact user-visible copy quoted in your summary. A new component without it is not done |
@@ -73,6 +73,13 @@ looks again.
 If a test cannot be made to fail, either the fix is not doing what you think or
 the test is aimed at the wrong thing. Both are findings; say which.
 
+A lint or a check is held to the same bar, against the real offending text:
+paste it in as a fixture and watch the check fail first. The old site's claims
+lint matches `Platzhalter` and `placeholder]`; the placeholders a privacy page
+actually shipped, `[14 Tagen]` and `[EU]`, match neither, because the regex was
+written from the word someone expected rather than from the output it had to
+catch.
+
 ## An implementation nobody calls is not done
 
 Grep for a caller of every symbol you add, and test the join rather than only
@@ -101,6 +108,19 @@ Update the docs your change makes wrong in the same change:
 [documentation.md](documentation.md) says which doc goes with which kind of
 change.
 
+A move, a rename or a deleted directory is done when nothing names the old
+path: `git grep -n '<old/path>'` over the whole tree, Markdown, `Taskfile.yml`,
+`taskfiles/`, `.github/` (dependabot included), `deploy/` and `scripts/`
+included. The link and path checks see only links and one index, so a
+backticked path, a workflow filter or a Pulumi comment keeps pointing at
+nothing while every check passes.
+
+A cause written into a comment, a gotcha or a doc is measured before it is
+written, by a revert-check or a reproduction. A cause nobody measured is
+written as a hypothesis and says so. A review of the first commit of a sign-in
+fix found three claims in its comment, gotcha and doc that were not true
+(5da892028).
+
 ## Have the claim checked by someone who did not make it
 
 For a substantive claim ("the bug is fixed", "no regressions", "the profile now
@@ -127,7 +147,7 @@ evidence or by "not verified because …":
 ```text
 - Baseline captured: <failing tests before work>
 - Tests: <suite results after the change, new failures = 0>
-- Lint and types: <task be:lint / task fe:types results; task fe:lint exit code>
+- Lint and types: <task be:lint / task workspace:types results; task workspace:lint exit code>
 - `any` introduced: NONE <or each site, and why no real type was reachable>
 - New or regression tests: <names>
 - Revert-check: <"removed <fix>, N of M cases failed, restored" | why not possible>

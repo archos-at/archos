@@ -11,23 +11,23 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.browse import MAX_MATCH_CHUNKS
+from knowledge_layer.browse import MAX_SNIPPET_LINES
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import match_snippets
+from knowledge_layer.browse import user_pattern
+from knowledge_layer.qdrant import retrieval
+from knowledge_layer.qdrant.retrieval import PatternTooCostly
+from knowledge_layer.qdrant.retrieval import user_literal_tokens
+from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.register import knowledge_retrieval
 
-from aiq_agent.common.source_kinds import Shelf
-from aiq_agent.knowledge.inventory import set_turn_documents
-from aiq_agent.knowledge.schema import AvailableDocument
-from aiq_agent.knowledge.schema import Chunk
-from aiq_agent.knowledge.schema import ContentType
-from aiq_agent.knowledge.scoping import ScopedCollection
-from sources.knowledge_layer.src.browse import MAX_MATCH_CHUNKS
-from sources.knowledge_layer.src.browse import MAX_SNIPPET_LINES
-from sources.knowledge_layer.src.browse import group_matches
-from sources.knowledge_layer.src.browse import match_snippets
-from sources.knowledge_layer.src.browse import user_pattern
-from sources.knowledge_layer.src.qdrant import retrieval
-from sources.knowledge_layer.src.qdrant.retrieval import PatternTooCostly
-from sources.knowledge_layer.src.qdrant.retrieval import user_literal_tokens
-from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
-from sources.knowledge_layer.src.register import knowledge_retrieval
+from agent.common.source_kinds import Shelf
+from agent.knowledge.inventory import set_turn_documents
+from agent.knowledge.schema import AvailableDocument
+from agent.knowledge.schema import Chunk
+from agent.knowledge.schema import ContentType
+from agent.knowledge.scoping import ScopedCollection
 
 
 def _doc(name: str, folder: str | None = None) -> AvailableDocument:
@@ -44,12 +44,12 @@ PROJECT = [
 @pytest.fixture
 def scope(monkeypatch):
     monkeypatch.setattr(
-        "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection("oib_knowledge", Shelf.BASE), ScopedCollection("proj_1", Shelf.PROJECT)],
     )
-    monkeypatch.setattr("aiq_agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
+    monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
-        monkeypatch.setattr(f"aiq_agent.knowledge.factory.{name}", lambda _c, _f: {})
+        monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     set_turn_documents(PROJECT)
     yield
     set_turn_documents(None)
@@ -111,10 +111,10 @@ class _Store:
 @pytest.fixture
 def search_with(monkeypatch, scope):
     def install(retriever):
-        monkeypatch.setattr("sources.knowledge_layer.src.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("sources.knowledge_layer.src.register._initialize_ingestor", lambda config, llm: None)
-        monkeypatch.setattr("aiq_agent.knowledge.factory.configure_summary_db", lambda url: None)
-        monkeypatch.setattr("aiq_agent.knowledge.norm_store.configure_norm_store", lambda url: None)
+        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
+        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
+        monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
 
     return install
@@ -287,7 +287,7 @@ class TestFolderPushdown:
         assert store.calls == []
 
     def test_tenancy_stays_anded_on_the_pushed_down_folder(self):
-        from sources.knowledge_layer.src.qdrant.scope import scope_filter
+        from knowledge_layer.qdrant.scope import scope_filter
 
         flt = scope_filter(["proj_1"], {"folder_ancestors": "plaene"})
         keys = [getattr(condition, "key", None) for condition in flt.must]
@@ -421,7 +421,7 @@ class TestLiteralSearchIsRecorded:
     @pytest.mark.parametrize("mode", ["exact", "regex"])
     async def test_each_literal_search_leaves_one_record(self, search_with, monkeypatch, mode):
         recorded: list[str] = []
-        monkeypatch.setattr("aiq_agent.common.turn_status.emit_literal_search", recorded.append)
+        monkeypatch.setattr("agent.common.action_rows.emit_literal_search", recorded.append)
         search_with(_Store([_chunk("Grundriss_EG.pdf", "BA-03 Nord", page=2)]))
 
         await _search(query="BA-03", match=mode)
@@ -461,8 +461,8 @@ def _regex_examples(description: str) -> list[str]:
 
 class TestRegexExamplesPassTheirOwnAnchorRule:
     async def test_every_example_in_the_description_is_accepted_without_a_folder(self, search_with):
-        from sources.knowledge_layer.src.browse import _has_literal_word
-        from sources.knowledge_layer.src.register import _KNOWLEDGE_SEARCH_DESCRIPTION
+        from knowledge_layer.browse import _has_literal_word
+        from knowledge_layer.register import _KNOWLEDGE_SEARCH_DESCRIPTION
 
         examples = _regex_examples(_KNOWLEDGE_SEARCH_DESCRIPTION)
         assert examples, "the description offers no regex example"
@@ -501,8 +501,8 @@ class TestDistinctMatches:
     def test_the_list_is_bounded_and_says_what_it_left_out(self):
         import re
 
-        from sources.knowledge_layer.src.browse import MAX_DISTINCT_MATCHES
-        from sources.knowledge_layer.src.browse import match_table
+        from knowledge_layer.browse import MAX_DISTINCT_MATCHES
+        from knowledge_layer.browse import match_table
 
         body = " ".join(f"Nr{n:04d}" for n in range(MAX_DISTINCT_MATCHES + 5))
         pattern = re.compile(r"Nr\d{4}")
@@ -559,11 +559,11 @@ class TestPageEndReachesTheHit:
         [({"page_end": "5"}, 4, 5), ({"page_end": "4"}, 4, None), ({}, 4, None), ({"page_end": "x"}, 4, None)],
     )
     def test_only_a_later_numeric_end_is_stated(self, metadata, page, expected):
-        from sources.knowledge_layer.src.register import _page_end
+        from knowledge_layer.grounding_hits import _page_end
 
         assert _page_end(SimpleNamespace(metadata=metadata), page) == expected
 
     def test_a_chunk_without_a_page_states_no_end(self):
-        from sources.knowledge_layer.src.register import _page_end
+        from knowledge_layer.grounding_hits import _page_end
 
         assert _page_end(SimpleNamespace(metadata={"page_end": "5"}), None) is None

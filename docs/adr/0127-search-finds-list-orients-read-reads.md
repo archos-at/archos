@@ -19,7 +19,7 @@ used too little, and the audit says why (the design session's file audit; the me
 - **Steering.** Round 0 always prefetches a `knowledge_search`
   (`agents/piloti/decisions.py`, `prefetch_calls`). The prompt's kind definitions say
   "Retrieve first", its worked examples are searches, and the file verbs are one
-  sentence that begins "can also" (`prompts/piloti_static.md`, `<sources>`).
+  sentence that begins "can also" (`prompts/chat_static.md`, `<sources>`).
 - **A missing read primitive.** `read_passage` returns at most 12 chunks, with no page
   range and no continuation. A 40-page Gutachten cannot be read through, so reading
   beats searching only for a single Punkt.
@@ -365,7 +365,7 @@ questions.
 * The implementation lands as independent slices, each PR linking this record. The
   roadmap rows this closes are [`agent-tool-surface.md`](../architecture/agent-tool-surface.md)
   §5 rows 1 and 4; that document is updated in the slices that land them.
-* [`piloti-filesystem-design.md`](../architecture/piloti-filesystem-design.md) stays an
+* [`filesystem-design.md`](../architecture/filesystem-design.md) stays an
   exploration. This decision builds none of its namespace or mounts.
 * BM25 length, measured before tuning (2026-10-21, Qdrant 1.19.2). `avg_len` counts
   Qdrant's own tokens, the words left after the German analysis, not model tokens: on OIB
@@ -375,7 +375,7 @@ questions.
   range and well above the corpus's clause chunks, which is the opposite of the 640 to
   1,024 the plan assumed. So nothing is set by hand: the `_vN` rebuild measures the source
   collection's mean from its stored weights, records it on the new collection
-  (`aiq:bm25_length`) and recomputes the lexical vectors when it moved more than 10 %; `k`
+  (`bm25_length`) and recomputes the lexical vectors when it moved more than 10 %; `k`
   and `b` stay Qdrant's until a parity sweep sets them (`scripts/qdrant_rebuild.py
   --bm25-k/--bm25-b`). The steps are in `docs/deployment/qdrant-runbook.md`.
 * Inflected forms are an option, not a default. `match="exact"` stays literal; with

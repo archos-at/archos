@@ -1,6 +1,7 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
-import { GridConfig, pullPolicyFor } from "../config";
+import { DeployConfig } from '../config'
+import { pullPolicyFor } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { onNodeGroup } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
@@ -10,7 +11,7 @@ import { GEOCODER, PORT, UID } from "../constants";
 export interface Geocoder {
   statefulSet: k8s.apps.v1.StatefulSet;
   service: k8s.core.v1.Service;
-  /** In-cluster URL the frontend's `GRID_GEOCODER_URL` points at. */
+  /** In-cluster URL the frontend's `GEOCODER_URL` points at. */
   url: pulumi.Output<string>;
 }
 
@@ -97,7 +98,7 @@ export function fetchScript(dataPath: string = GEOCODER.dataPath): string {
  * the index.
  */
 export function installGeocoder(
-  cfg: GridConfig,
+  cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
   dependsOn: pulumi.Resource[],
