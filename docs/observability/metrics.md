@@ -36,7 +36,7 @@ collector, so nothing is exported there and every meter is a no-op.
 
 | Metric | Attributes | From |
 |---|---|---|
-| `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`), `research` (`agent_host/jobs/queue.py`) and `bff` (`workers/jobs/queue-metrics.js`). Read from the table by every replica, so chart it with `max` |
+| `grid.queue.depth` | `queue`, `status` | Every claim queue: `ingest` (`common/claim_queue.py`), `research` (`agent_host/jobs/queue.py`); `bff` is gone with its claim queue (ADR-0150): its runs are measured in Hatchet. Read from the table by every replica, so chart it with `max` |
 | `grid.queue.oldest_age_seconds` | `queue` | The same queues; `max` as well. Absent while nothing is queued |
 | `grid.queue.claim_latency_ms` | `queue` | One claim round trip |
 | `grid.queue.job_duration_seconds` | `queue`, `kind` | One claimed job, to its end or its give-back |

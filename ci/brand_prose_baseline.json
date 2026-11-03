@@ -1240,7 +1240,7 @@
   "docs/deployment/agent-authored-documents-rollout.md": 7,
   "docs/deployment/cd.md": 9,
   "docs/deployment/coolify.md": 3,
-  "docs/deployment/environment-variables.md": 72,
+  "docs/deployment/environment-variables.md": 71,
   "docs/deployment/kubernetes.md": 70,
   "docs/deployment/platform-agent-door-runbook.md": 7,
   "docs/deployment/pulumi-cloud-feature-audit.md": 5,

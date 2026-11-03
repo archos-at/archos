@@ -45,8 +45,6 @@ const SEES_EVERY_ROW: Record<string, string> = {
   // --- Sweeps over every organization or every stuck row ---------------------
   'lib/documents/repository/ingest-state.ts#listStuckProcessingDocuments':
     'Sweep: re-dispatches rows left at `processing`, which are held by definition. Returns ids to a worker, nothing to a person.',
-  'lib/documents/repository/ingest-state.ts#listTransientFailures':
-    'Sweep: re-reads documents whose read failed for a passing reason, each through `retryTransientFailure`. Ids only, to a worker.',
   'lib/documents/repository/quarantine-and-retry.ts#listFailedDocumentPageInOrg':
     'Sweep: the failed-ingestion rescan re-dispatches each id through `reingestDocument`. Ids only, to a job.',
   'lib/platform/vector-reconcile.ts#liveFilenamesByCollection':
@@ -276,10 +274,6 @@ const ELEVATED_READERS: Record<string, { makes: string[]; why: string }> = {
   'lib/documents/document-dispatch.ts#dispatchDocument': { makes: ['internal:ingest'], why: 'The one funnel every ingest passes reads its row.' },
   'lib/documents/extraction-jobs.ts#jobStillOwnsRow': { makes: ['internal:ingest'], why: 'A background job asks whether the row is still its own.' },
   'lib/documents/ingest-recovery.ts#redispatchStuckDocument': { makes: ['internal:ingest'], why: 'The sweep re-dispatches a stuck row.' },
-  'lib/documents/ingest-recovery.ts#retryTransientFailure': {
-    makes: ['internal:ingest'],
-    why: 'The transient-retry sweep re-reads the failed row it sends back; no person is asking.',
-  },
   'lib/documents/reindex.ts#runReindexSlice': {
     makes: ['internal:ingest'],
     why: 'A reindex re-dispatches every row of the project; `dispatchDocument` leaves a quarantine where it is.',

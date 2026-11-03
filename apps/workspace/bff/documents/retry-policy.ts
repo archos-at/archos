@@ -26,10 +26,9 @@
  * an indexed document re-read on purpose, a row stranded at `uploaded`, a
  * stuck in-flight row (`reingestDocument` has its own guards for those).
  *
- * One sweep retries a failed document on its own, and only a `transient`
- * one (`./transient-retry`): at most three attempts in all, `ingest_attempts`
- * as the cap, with a doubling backoff, at `bulk` priority, and only a failure of
- * the last day, so a deploy never re-reads an old backlog. Every other
+ * A `transient` failure is retried by the ingest task itself, on Hatchet
+ * (ADR-0150: retries with backoff, a deterministic failure not retried);
+ * nothing in the BFF retries a failed document on its own. Every other
  * category waits for a person, because a retry of a file that fails the same
  * way spends vision calls nobody asked for. `./stuck-processing` recovers rows
  * left at `processing`, never `failed`.

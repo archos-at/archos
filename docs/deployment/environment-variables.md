@@ -340,23 +340,24 @@ The scheduler also reuses `APP_DATABASE_URL`, `FRONTEND_INTERNAL_URL`, and `INTE
 
 ---
 
-## BFF Jobs Pool (ADR-0079)
+## BFF Jobs Pool (ADR-0079, ADR-0150)
 
-Read by `apps/workspace/workers/jobs/index.js`, the entry point of the `bff-jobs` pod: the frontend image, internal only, running the claim loop over `bff_job_queue` and the host its slices run in (the BFF, `node server.js`, by default; the bundled services with `BFF_JOBS_MODE=inprocess`). The pod also needs the frontend's whole environment (the jobs call the same services the routes do), which Pulumi and Compose give it. `APP_DATABASE_URL` is required, and `INTERNAL_API_TOKEN` in `http` mode; every variable below has a default.
+Read by `apps/workspace/workers/jobs/index.js`, the entry point of the `bff-jobs` pod (the frontend image, internal only), and by the bundled services it runs (`dist-jobs/slice.mjs`): the Hatchet worker of the `bff-job` task and the sweep that dispatches the `bff_job_queue` rows no run is coming for. The pod answers its probes' `/api/healthz` on `PORT` itself. It also needs the frontend's whole environment (the jobs call the same services the routes do), which Pulumi and Compose give it, and `APP_DATABASE_URL`. Every process that enqueues a job (the frontend and this pod) needs the `HATCHET_CLIENT_*` connection; without it a job is stored and its run starts only once a `bff-jobs` pod that has it sweeps. `BFF_JOBS_MODE`, `BFF_JOBS_URL` and `BFF_JOBS_POLL_MS` are no longer read.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `BFF_JOBS_MODE` | No | `http` | Where a slice runs. `http`: in a `node server.js` the supervisor spawns, asked per slice over the internal route. `inprocess`: in the supervisor itself, from the services bundled at image build (`dist-jobs/slice.mjs`); no server is spawned, and the supervisor answers the probes' `/api/healthz` on `PORT` (ADR-0079 amendment 1). Any other value stops the pod at start. Pulumi `bffJobsMode`. |
-| `BFF_JOBS_URL` | No | `http://127.0.0.1:$PORT` | `http` mode: the pod's own BFF, which the loop asks to run each slice (`POST /api/internal/jobs/run`). Leave unset: nothing else may run a job's work. |
-| `BFF_JOBS_CONCURRENCY` | No | `2` | Jobs one replica runs at once. Pulumi `bffJobsConcurrency`, also KEDA's jobs-per-replica target. |
-| `BFF_JOBS_POLL_MS` | No | `2000` | Idle wait between claims. |
-| `BFF_JOBS_DRAIN_SECONDS` | No | `60` | After SIGTERM the loop lets the slice in hand finish for up to this long, gives every claim back **without spending an attempt**, then stops the BFF. Pulumi `bffJobsDrainSeconds`; the pod's grace period is this plus 30 s. |
-| `BFF_JOBS_STALE_SECONDS` | No | `180` | A claim whose worker has sent no heartbeat for this long is claimed again by another worker. Never below four heartbeats (60 s). |
-| `BFF_JOBS_MAX_ATTEMPTS` | No | `3` | Claims of one job before it is marked `dead` (its reason kept in `last_error`, its payload reduced to ids; deleted after `BFF_JOBS_DEAD_RETENTION_DAYS`). Only a drain, a cap or a slice that says it waits (`notBefore`, a wake of Piloti whose person's thread is busy) gives an attempt back: a failed slice, a slice timeout and a BFF that did not answer all spend one. |
-| `BFF_JOBS_RETRY_BACKOFF_SECONDS` | No | `30` | How long a failed job waits before its second attempt; each further attempt doubles it, to at most 15 minutes. `0` retries at once. |
-| `BFF_JOBS_DEAD_RETENTION_DAYS` | No | `14` | How long a `dead` job is kept as a trace before it is deleted (checked every ten minutes by every `bff-jobs` replica). A project's purge deletes its jobs at once. |
-| `BFF_JOBS_MAX_PER_ORG` | No | `0` | Most jobs one organisation may run **across the whole fleet**; 0 for no cap. The claim is fair without it. Hard: a claim that raced past the cap gives its job back. Pulumi `bffJobsMaxPerOrg`. |
-| `BFF_JOBS_SLICE_TIMEOUT_MS` | No | `300000` | Ceiling on one slice's request to the BFF; a slice that outlives it is a failed attempt. |
+| `HATCHET_CLIENT_TOKEN` | **Yes** | — | The Hatchet SDK's API token (the SDK's own variable, read by `@hatchet-dev/typescript-sdk`). A secret. Also read by the frontend, which triggers a run for every enqueue. |
+| `HATCHET_CLIENT_HOST_PORT` | **Yes** | — | The engine's gRPC address, `host:port` (the SDK's own variable). |
+| `HATCHET_CLIENT_TLS_STRATEGY` | No | `tls` | `none` inside the cluster (the SDK's own variable). |
+| `HATCHET_CLIENT_NAMESPACE` | No | (none) | Prefix of the task and worker names, one per stack (`prod`), so stacks sharing an engine never take each other's runs (the SDK's own variable). |
+| `BFF_JOBS_CONCURRENCY` | No | `2` | Runs one replica takes at once: the Hatchet worker's slots, and the per-organization cap when `BFF_JOBS_MAX_PER_ORG` is 0. Pulumi `bffJobsConcurrency`. |
+| `BFF_JOBS_DRAIN_SECONDS` | No | `60` | After SIGTERM the worker takes no new run and lets the ones in hand finish for up to this long; a run cut off is retried by Hatchet on another pod from the progress its row saved. Pulumi `bffJobsDrainSeconds`; the pod's grace period is this plus 30 s. |
+| `BFF_JOBS_STALE_SECONDS` | No | `180` | A row held by a run that has been silent this long is taken over by the next run, or dispatched again by the sweep. Never below the slice timeout plus 60 s. |
+| `BFF_JOBS_MAX_ATTEMPTS` | No | `3` | Attempts of one job (counted on its row) before it is marked `dead` (its reason kept in `last_error`, its payload reduced to ids; deleted after `BFF_JOBS_DEAD_RETENTION_DAYS`). A slice that makes progress gives the count back. The `bff-job` task's Hatchet retries are this number; a job going dead ends them with the SDK's non-retryable error. |
+| `BFF_JOBS_RETRY_BACKOFF_SECONDS` | No | `30` | How long a failed job waits before its second attempt; each further attempt doubles it, to at most 15 minutes (Hatchet's retry-after, engine v0.111.0 or later). `0` retries at once. |
+| `BFF_JOBS_DEAD_RETENTION_DAYS` | No | `14` | How long a `dead` job is kept as a trace before it is deleted (checked every minute by every `bff-jobs` replica's sweep). A project's purge deletes its jobs at once. |
+| `BFF_JOBS_MAX_PER_ORG` | No | `0` | Most `bff-job` runs one organisation has at once **across the whole fleet**: the task's `GROUP_ROUND_ROBIN` concurrency on `input.organization_id`. 0 means `BFF_JOBS_CONCURRENCY`, because Hatchet needs a number. Pulumi `bffJobsMaxPerOrg`. |
+| `BFF_JOBS_SLICE_TIMEOUT_MS` | No | `300000` | The `bff-job` task's execution timeout: a run that outlives it is a failed attempt. |
 
 ### Filing suggestions
 
