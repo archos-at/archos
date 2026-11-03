@@ -185,7 +185,7 @@ function CollapsedSlot({
 
   return (
     <li>
-      <button
+      <button data-attr="project-open"
         type="button"
         onClick={() => setOpen((previous) => !previous)}
         aria-expanded={open}

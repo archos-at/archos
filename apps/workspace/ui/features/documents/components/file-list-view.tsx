@@ -592,7 +592,7 @@ function SortHeader({
       aria-sort={isActive ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
       className={cn('h-auto p-0', className)}
     >
-      <button
+      <button data-attr="files-sort"
         type="button"
         onClick={() => onSort(nextSort(sort, column))}
         className={cn(

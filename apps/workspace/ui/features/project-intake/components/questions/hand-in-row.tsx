@@ -65,7 +65,7 @@ export function HandInRow({
         {t('handIn.drop')}
       </p>
       {/* On a phone the row is one 44px target: what to hand in, and where it stands. */}
-      <button
+      <button data-attr="intake-pick"
         type="button"
         className="flex min-h-11 min-w-0 flex-1 flex-col items-start justify-center text-left md:hidden"
         disabled={disabled}

@@ -36,7 +36,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
             >
               <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
               {controller.t('inputArea.heldForUpload')}
-              <button
+              <button data-attr="chat-send-held-now"
                 type="button"
                 onClick={controller.sendHeldNow}
                 className="text-foreground touch-target font-medium underline-offset-2 hover:underline"

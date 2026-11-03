@@ -734,6 +734,16 @@ describe('what the marks tell PostHog (the one door every client passes)', () =>
     ])
   })
 
+  it('counts a reopen of a closed mark, and not the take-over of a proposal', async () => {
+    vi.mocked(findDocumentAnnotation).mockResolvedValue({ ...RECORD, status: 'resolved' })
+    vi.mocked(updateDocumentAnnotation).mockResolvedValue({ ...RECORD, status: 'open' })
+    await service.updateAnnotation(session, 'doc_1', 'ann_1', { status: 'open', expectedStatus: 'resolved' })
+
+    expect(events().map((capture) => [capture.event, capture.properties])).toEqual([
+      ['annotation_reopened', { document_id: 'doc_1', status: 'open', was: 'resolved', by: 'person', author_kind: 'person' }],
+    ])
+  })
+
   it('counts a proposal dismissed as a close of Piloti’s mark', async () => {
     vi.mocked(findDocumentAnnotation).mockResolvedValue(PROPOSAL)
     vi.mocked(updateDocumentAnnotation).mockResolvedValue({ ...PROPOSAL, status: 'dismissed' })

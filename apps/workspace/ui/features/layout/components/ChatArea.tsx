@@ -178,7 +178,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
               }}
               transition={controller.prefersReducedMotion ? motionInstant : motionQuick}
             >
-              <button
+              <button data-attr="chat-scroll-to-latest"
                 type="button"
                 onClick={controller.handleScrollToLatest}
                 aria-label={controller.t('chatArea.scrollToLatest')}

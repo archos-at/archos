@@ -46,9 +46,12 @@
  *   properties, not event properties ("only admins of this office", "only
  *   English"). No email, no name: pending the owner's explicit permission. `person_profiles:
  *   'identified_only'` means a signed-out visitor never creates a person.
- * - **Tenant context travels as properties, not groups.** PostHog group
- *   analytics is a paid add-on, billed on every identified event once
- *   subscribed, so `posthog.group()` is deliberately not used.
+ * - **Tenant context travels as properties and as a group.** The properties
+ *   above stay (surveys target person properties), and the office is also the
+ *   `organization` group (`posthog.group('organization', id, { name })`), so
+ *   per-office funnels and retention need no SQL join. Server events send the
+ *   same group in `$groups`. `release` (the deployed commit) is registered at
+ *   init, and again after every `reset()`, which clears super properties.
  * - **Autocapture sees words.** Element text and attributes are captured so a
  *   click reads "Export" rather than "button.btn-3". Security exceptions are not
  *   up for debate and live in two places: elements carrying `ph-no-capture`
@@ -299,7 +302,20 @@ export interface IdentityClient {
   get_distinct_id: () => string
   reset: () => void
   identify: (distinctId: string) => void
+  register?: (properties: Record<string, string>) => void
 }
+
+/** The deployed commit, kept so a `reset()` can put it back. */
+let releaseTag = ''
+
+/** Stamp `release` on every following event. */
+export const registerRelease = (client: Pick<IdentityClient, 'register'>, release: string): void => {
+  releaseTag = release
+  if (release) client.register?.({ release })
+}
+
+/** The PostHog group type of an office; the server sends the same one. */
+export const ORGANIZATION_GROUP = 'organization'
 
 /**
  * Make the SDK's person the one the server says is signed in.
@@ -336,15 +352,15 @@ export const buildPosthogInitOptions = (
   persistence: 'localStorage+cookie',
   cross_subdomain_cookie: true,
   person_profiles: 'identified_only',
-  ...(identity
-    ? {
-        bootstrap: { distinctID: identity.distinctId, isIdentifiedID: true },
-        loaded: (client: IdentityClient) => adoptServerIdentity(client, identity.distinctId),
-      }
-    : {}),
+  ...(identity ? { bootstrap: { distinctID: identity.distinctId, isIdentifiedID: true } } : {}),
+  // After the identity is adopted, because adopting may `reset()`, which clears super properties.
+  loaded: (client: IdentityClient) => {
+    if (identity) adoptServerIdentity(client, identity.distinctId)
+    registerRelease(client, config.release ?? '')
+  },
   capture_pageview: 'history_change',
   capture_heatmaps: true,
-  capture_performance: true,
+  capture_performance: { web_vitals: true, web_vitals_attribution: ['CLS', 'INP', 'LCP'], network_timing: true },
   capture_dead_clicks: true,
   // The SDK's own URL masking: query values named here become `<masked>` in
   // `$current_url`, `$referrer`, the campaign and `$initial_*` person properties,
@@ -448,6 +464,17 @@ export const registerPosthogContext = (context: PostHogContext): void => {
   }
   if (Object.keys(present).length > 0) posthog.register(present)
   posthog.setPersonProperties(person)
+  // The office as a group: every following event carries `$groups`, and the
+  // group profile gets its name. Dropped with the organization on a switch.
+  if (context.organizationId) {
+    posthog.group(
+      ORGANIZATION_GROUP,
+      context.organizationId,
+      context.organizationName ? { name: context.organizationName } : undefined
+    )
+  } else {
+    posthog.resetGroups()
+  }
 }
 
 /**
@@ -476,6 +503,7 @@ export const isPosthogOptedOut = (): boolean => {
 export const resetPosthog = (): void => {
   if (!initialized) return
   posthog.reset()
+  registerRelease(posthog, releaseTag)
 }
 
 const SESSION_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

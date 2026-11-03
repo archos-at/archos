@@ -18,6 +18,9 @@ vi.mock('@/lib/documents/transient-retry', () => ({ retryTransientFailures: () =
 const sweepInboundMail = vi.fn()
 vi.mock('@/lib/inbound-mail/sweep', () => ({ sweepInboundMail: () => sweepInboundMail() }))
 
+const reconcileStalePending = vi.fn()
+vi.mock('@/lib/documents/stale-pending', () => ({ reconcileStalePending: () => reconcileStalePending() }))
+
 import { POST } from './route'
 
 const TOKEN = 'a-real-secret-token'
@@ -34,6 +37,7 @@ const DOCUMENTS = { checked: 2, requeued: 1, failed: 1, gone: 0, errors: 0 }
 const FILINGS = { checked: 1, filed: 0, failed: 1, waiting: 0, errors: 0 }
 const MAIL_IMPORTS = { checked: 1, aborted: 0, requeued: 1, failed: 0, waiting: 0, errors: 0 }
 const TRANSIENT_FAILURES = { checked: 3, requeued: 2, failed: 0, gone: 1, errors: 0 }
+const STALE_PENDING = { checked: 4, organizations: 1, errors: 0 }
 const INBOUND_MAIL = { expired: { checked: 2, errors: 0, expired: 2, parts: 3 } }
 
 afterEach(() => {
@@ -48,6 +52,7 @@ describe('POST /api/internal/maintenance/reconcile-background-work', () => {
     recoverStuckFilings.mockResolvedValueOnce(FILINGS)
     sweepStaleMailImports.mockResolvedValueOnce(MAIL_IMPORTS)
     retryTransientFailures.mockResolvedValueOnce(TRANSIENT_FAILURES)
+    reconcileStalePending.mockResolvedValueOnce(STALE_PENDING)
     sweepInboundMail.mockResolvedValueOnce(INBOUND_MAIL)
 
     const response = await post(TOKEN)
@@ -58,6 +63,7 @@ describe('POST /api/internal/maintenance/reconcile-background-work', () => {
       filings: FILINGS,
       mailImports: MAIL_IMPORTS,
       transientFailures: TRANSIENT_FAILURES,
+      stalePending: STALE_PENDING,
       inboundMail: INBOUND_MAIL,
     })
   })
@@ -69,6 +75,7 @@ describe('POST /api/internal/maintenance/reconcile-background-work', () => {
     recoverStuckFilings.mockResolvedValueOnce(FILINGS)
     sweepStaleMailImports.mockResolvedValueOnce(MAIL_IMPORTS)
     retryTransientFailures.mockResolvedValueOnce(TRANSIENT_FAILURES)
+    reconcileStalePending.mockResolvedValueOnce(STALE_PENDING)
     sweepInboundMail.mockResolvedValueOnce(INBOUND_MAIL)
 
     const response = await post(TOKEN)
@@ -76,6 +83,7 @@ describe('POST /api/internal/maintenance/reconcile-background-work', () => {
     expect(recoverStuckFilings).toHaveBeenCalledTimes(1)
     expect(sweepStaleMailImports).toHaveBeenCalledTimes(1)
     expect(retryTransientFailures).toHaveBeenCalledTimes(1)
+    expect(reconcileStalePending).toHaveBeenCalledTimes(1)
     expect(sweepInboundMail).toHaveBeenCalledTimes(1)
     expect(response.status).toBeGreaterThanOrEqual(500)
   })

@@ -189,7 +189,12 @@ export function installSingleNodeSeaweedFS(
                   initialDelaySeconds: 30,
                   periodSeconds: 15,
                 },
-                resources: DATA_RESOURCES.seaweedfs,
+                // CPU from the constant; memory from the stack (`singleMemory`),
+                // because memory is what killed this pod under bulk ingest.
+                resources: {
+                  requests: { ...DATA_RESOURCES.seaweedfs.requests, memory: cfg.seaweedfs.singleMemory.request },
+                  limits: { ...DATA_RESOURCES.seaweedfs.limits, memory: cfg.seaweedfs.singleMemory.limit },
+                },
               },
             ],
             volumes: [{ name: "s3config", secret: { secretName: s3Secret.metadata.name } }],

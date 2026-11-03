@@ -90,7 +90,7 @@ export function RoundList({
                     {row.done ? (
                       <div className={rowClass}>{body}</div>
                     ) : (
-                      <button
+                      <button data-attr="intake-choose"
                         type="button"
                         aria-current={current ? 'true' : undefined}
                         onClick={() => onChoose(row.id)}

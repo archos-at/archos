@@ -458,6 +458,8 @@ export const projects = {
     errors: {
       loadFailed: 'We could not load the project questions.',
       saveConflict: 'This brief was changed elsewhere. Please refresh and try again.',
+      saveClosed: "This project is closed and can only be read. Reopen it to change the brief.",
+      saveForbidden: "You do not have permission to change this project's brief. Ask someone with edit rights to make the change.",
       saveFailed: 'We could not save the project brief. Please try again.',
     },
     conflictReload: 'Refresh',

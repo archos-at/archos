@@ -197,7 +197,7 @@ export function ProjectUppyUpload({
     return (
       <>
         {input}
-        <button
+        <button data-attr="project-upload-dropcard"
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={isUploading}

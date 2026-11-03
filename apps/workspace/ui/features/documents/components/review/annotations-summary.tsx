@@ -82,7 +82,7 @@ export function AnnotationsSummary({
         )}
         {ready &&
           live.slice(0, PREVIEWED).map((annotation) => (
-            <button
+            <button data-attr="annotations-summary-row"
               key={annotation.id}
               type="button"
               data-testid="annotations-summary-row"

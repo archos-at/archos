@@ -265,7 +265,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
         </p>
       </span>
       <div className="flex items-center gap-1">
-        <button
+        <button data-attr="chat-up"
           type="button"
           onClick={handleUp}
           aria-pressed={verdict === 'up'}
@@ -274,7 +274,7 @@ export const AnswerFeedback: FC<AnswerFeedbackProps> = ({
         >
           <ThumbsUp className="size-3.5 pointer-coarse:size-4" aria-hidden="true" />
         </button>
-        <button
+        <button data-attr="chat-down"
           type="button"
           onClick={handleDown}
           aria-pressed={verdict === 'down'}

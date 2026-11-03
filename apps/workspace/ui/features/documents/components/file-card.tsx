@@ -367,7 +367,7 @@ export const FileCard = memo(function FileCard({
           The behaviour was the bug; a row opens, and closing is the overlay's
           job. `aria-current` says the remaining true thing: this is the one on
           screen. */}
-      <button
+      <button data-attr="files-select"
         type="button"
         onClick={onSelect}
         aria-current={isSelected && !selection ? 'true' : undefined}

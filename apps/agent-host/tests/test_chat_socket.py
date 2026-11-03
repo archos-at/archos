@@ -3123,3 +3123,16 @@ def test_only_a_tool_step_names_a_tool():
     status = StepFinishedBody(step=StatusStep(id="s", slot="documents", key="status.documents.session"))
     assert chat_socket.tool_called_by(status) is None
     assert chat_socket.tool_called_by(TextMessageStartBody(message_id="m")) is None
+
+
+def test_a_service_token_turn_is_filed_under_the_envelope_user_not_internal():
+    wire = chat_socket.TurnWire(CONV, "t1", ChatRegistry().publish)
+    internal = {"type": "internal"}
+
+    bare = chat_socket.RunningTurn(wire=wire, asker_subject=None)
+    signed = chat_socket.RunningTurn(wire=wire, asker_subject=None, envelope_user_id="user_01")
+    verified = chat_socket.RunningTurn(wire=wire, asker_subject="user_02", envelope_user_id="user_01")
+
+    assert chat_socket.trace_user_id(bare, internal) == "internal"
+    assert chat_socket.trace_user_id(signed, internal) == "user_01"
+    assert chat_socket.trace_user_id(verified, internal) == "user_02"

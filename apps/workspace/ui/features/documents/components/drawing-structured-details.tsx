@@ -45,7 +45,7 @@ export function DrawingStructuredDetails({ structured }: { structured: DrawingSt
 
   return (
     <div className="mt-1.5">
-      <button
+      <button data-attr="files-open"
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}

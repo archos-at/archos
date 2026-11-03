@@ -138,6 +138,7 @@ from agent.common.write_fence import unbind_write_fence
 from agent.conversation_context import ContextOnlyMessage
 from agent.conversation_context import append_conversation_context
 from agent.conversation_context import format_context_turn
+from agent.observability import answer_failure
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import file_tool_scores
 from agent.observability.langfuse_scores import steer_scores
@@ -192,7 +193,13 @@ from agent_host.internal_api import ChatScreening
 from agent_host.internal_api import chat_screening_for
 from agent_host.internal_api import post_internal_conversation_message
 from agent_host.internal_api import post_internal_turn_outcome
+from agent_host.socket_identity import may_act_for
+from agent_host.socket_identity import token_expired
+from agent_host.socket_identity import trace_user_id
+from agent_host.socket_identity import verified_display_name
+from agent_host.socket_identity import verified_subject
 from agent_host.startup_banner import deployed_sha
+from agent_host.tool_calls import tool_called_by
 from agent_host.turn_fence import TurnFence
 from agent_host.turn_fence import validate_running_ttl
 from agent_host.workflow_stream import stream_workflow
@@ -394,45 +401,6 @@ async def authenticate_websocket_connection(socket: WebSocket) -> tuple[dict[str
     if not is_external:
         return detect_internal_caller(headers), None
     return None, WS_POLICY_VIOLATION
-
-
-def verified_subject(user: Mapping[str, Any]) -> str | None:
-    """The stable identity of the human holding the socket, from VERIFIED claims.
-
-    Internal and anonymous callers carry none; they are trusted by other means
-    (a service token, not a user), see :func:`may_act_for`.
-    """
-    for key in ("sub", "user_id", "id"):
-        value = user.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def verified_display_name(user: Mapping[str, Any]) -> str | None:
-    """The display name from the verified claims, preferred over a client-supplied ``author_name``."""
-    for key in ("name", "email"):
-        value = user.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()
-    return None
-
-
-def token_expired(user: Mapping[str, Any]) -> bool:
-    """Whether the handshake token has passed its ``exp``. Callers without one never expire."""
-    exp = user.get("exp")
-    return isinstance(exp, int | float) and time.time() >= exp
-
-
-def may_act_for(asker: str | None, actor: str | None, *, internal: bool) -> bool:
-    """Whether ``actor`` may stop, or answer a question of, a turn ``asker`` asked.
-
-    An internal caller may. A turn with no verified asker (an internal or
-    anonymous caller asked) has no identity to match. Everyone else must be the
-    asker: in a shared conversation a colleague is a different subject, and the
-    assistant asked one person.
-    """
-    return internal or asker is None or actor == asker
 
 
 def _handshake_envelope(scope: Mapping[str, Any]) -> RequestContext | None:
@@ -820,6 +788,9 @@ class RunningTurn:
     thread_reply: ThreadReply | None = None
     #: The socket's signed envelope as received, echoed by the thread's answer (echo, never sign).
     envelope: SignedEnvelope | None = None
+    #: The WorkOS user the BFF signed into the envelope. An internal (service-token) caller has no
+    #: verified subject of its own, so this is who the trace belongs to, not the caller's type.
+    envelope_user_id: str | None = None
     #: The answer row's write, which what follows the terminal waits for.
     persisting: asyncio.Task[Any] | None = None
     _followed: bool = field(default=False, init=False, repr=False)
@@ -1500,23 +1471,6 @@ async def _beat(wire: TurnWire) -> None:
         await wire.send(body)
 
 
-def tool_called_by(body: Any) -> str | None:
-    """The basename of the tool a ``tool`` step names, from a step body; nothing for any other body.
-
-    A file tool that stayed in the drafts (``mount`` ``drafts``, ADR-0133) is named ``draft:<tool>``: it
-    was a call, but no office-file move, so ``file_tool_scores`` counts it as neither search nor navigate.
-    """
-    step = getattr(body, "step", None)
-    if getattr(step, "kind", None) != "tool":
-        return None
-    tool = getattr(step, "tool", None) or None
-    mount = getattr(step, "mount", None)
-    if tool and mount in ("drafts", "skills"):
-        # A skill read (ADR-0135) is no office-file move either.
-        return f"{'draft' if mount == 'drafts' else 'skill'}:{tool}"
-    return tool
-
-
 async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any) -> None:
     """Send every body the turn's ``_run`` yields, in order; the stream closes in this task."""
     # One entry per call (a tool step is sent when it starts and again when it ends, under one id).
@@ -1539,6 +1493,9 @@ async def _relay_workflow(turn: RunningTurn, request: UserMessage, session: Any)
                     emit_scores(steer_scores(turn.inbox), writer="chat")
             elif isinstance(body, RunErrorBody):
                 record_turn_error(body.code, body.details or body.message)
+                answer_failure.report_turn_failed(
+                    turn, answer_failure.reason_for_text(body.details or body.message), body.code
+                )
             await turn.publish(body)
 
 
@@ -1581,7 +1538,7 @@ async def _drive(
         with pinned_trace(trace_id_for_message(turn.message_id)), user_context(caller), request_trace_tag_context(tags):
             async with session_manager.session(
                 # Never None: the agent runtime would then derive an id from the unverified headers.
-                user_id=turn.asker_subject or caller.get("type"),
+                user_id=trace_user_id(turn, caller),
                 user_message_id=request.message_id,
                 conversation_id=request.conversation_id,
                 http_connection=socket,
@@ -1616,6 +1573,8 @@ def _error_for(exc: Exception) -> RunErrorBody:
             message="The answer took too long and was stopped. Please ask again, perhaps more narrowly.",
             details=f"{DEADLINE_DETAILS}: {exc}",
         )
+    if answer_failure.reason_for(exc) == answer_failure.PROVIDER_CREDITS:
+        return RunErrorBody(code="workflow_error", message=answer_failure.CREDITS_MESSAGE, details=str(exc))
     return RunErrorBody(
         code="workflow_error",
         message="The assistant hit an unexpected error while handling your request. Please try again.",
@@ -1673,6 +1632,7 @@ async def _end_turn(turn: RunningTurn, request: UserMessage, **drive: Any) -> No
         await turn.finish_cancelled()
     except Exception as exc:  # noqa: BLE001 — every failure ends the turn with a RUN_ERROR the client can act on
         logger.warning("Turn %s failed", turn.wire.turn_id, exc_info=True)
+        answer_failure.report_turn_failed(turn, answer_failure.reason_for(exc), type(exc).__name__)
         await turn.wire.send(_error_for(exc))
 
 
@@ -1680,6 +1640,7 @@ async def _ensure_terminal(turn: RunningTurn) -> None:
     """The last line of the one-terminal rule: a turn that has none yet gets a RUN_ERROR."""
     if turn.wire.finished:
         return
+    answer_failure.report_turn_failed(turn, answer_failure.WORKFLOW_ERROR, "no_terminal")
     await turn.wire.send(RunErrorBody(code="workflow_error", message="The turn ended without a result."))
 
 
@@ -1713,6 +1674,7 @@ class ChatSocket:
         #: restricted folders a turn may draw on is asked per TURN by the agent
         #: (``agent.knowledge.restricted_use``), never fixed per socket.
         self.signed_org_id = envelope.organization_id if envelope is not None else None
+        self.signed_user_id = envelope.user_id if envelope is not None else None
         #: The envelope's bytes as received, for a write that acts as the asker (echo, never sign).
         self.signed = (
             SignedEnvelope(header=envelope.envelope_header, signature=envelope.envelope_signature)
@@ -1859,6 +1821,7 @@ class ChatSocket:
             headless=bool(self.caller.get("headless")),
             thread_reply=ThreadReply.requested_by(message),
             envelope=self.signed,
+            envelope_user_id=self.signed_user_id,
         )
         await wire.send(RunStartedBody(message_id=turn.message_id))
         if fence.refusal is not None:
