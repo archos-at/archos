@@ -140,7 +140,7 @@ beforeEach(() => {
 })
 
 describe('how a decision reached us', () => {
-  it('is the app, an outside agent acting as the person, or an agent's card, read from the call', () => {
+  it('is the app, an outside agent acting as the person, or an agent’s card, read from the call', () => {
     expect(decisionActor(session)).toEqual({ decidedBy: PERSON, via: 'app', proposalId: null })
     store.acting = true
     store.agent = true

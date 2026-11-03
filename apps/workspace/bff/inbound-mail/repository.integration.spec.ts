@@ -541,7 +541,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s receive SQL against Postgres', () 
       expect(await one(sql`SELECT count(*)::int AS n FROM inbound_mail_decisions WHERE mail_id = ${mailId}::uuid AND action = 'file'`)).toEqual({ n: 1 })
     })
 
-    it('refuses an agent's card carrying an acknowledgement, in the database (RT-S5)', async () => {
+    it('refuses an agent’s card carrying an acknowledgement, in the database (RT-S5)', async () => {
       const { mailId, fileId } = await heldMail()
       const card = { decidedBy: PERSON, via: 'agent_proposal' as const, proposalId: crypto.randomUUID() }
       await expect(

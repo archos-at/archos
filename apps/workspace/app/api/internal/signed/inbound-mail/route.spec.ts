@@ -267,7 +267,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
   })
 
   it('answers a recipient outside our domain with 503: our routing, never the sender', async () => {
-    const response = await POST(await sign({}, { 'x-envelope-to': 'someone@example.org' }))
+    const response = await POST(await sign({}, { 'x-envelope-to': 'someone@elsewhere.example' }))
 
     expect(response.status).toBe(503)
     expect(response.headers.get(VERDICT_HEADER)).toBeNull()
