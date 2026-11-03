@@ -14,23 +14,14 @@ import {
 } from "../platform/rollout";
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { AppSecrets, AppWiring, workerEnv } from "./config";
-import { JOBS_QUEUE_AUTH } from "./jobs-queue-auth";
-import { installQueueScaledObject, queueDepthQuery } from "./keda-scaling";
+import { installQueueScaledObject } from "./keda-scaling";
 import { UID } from "../constants";
 
-/** The durable queue the tier drains (`agent_host.jobs.queue.TABLE`). */
-export const QUEUE_TABLE = "research_job_queue";
+/** The Hatchet workflow the tier runs (ADR-0150). */
+export const WORKFLOW = "research-run";
 
 /**
- * KEDA's measure of the tier's work: every research job queued or held by a
- * worker, retired rows (dead, cancelled) left out (`queueDepthQuery`). A
- * FINISHED job is deleted from the table (`queue.mark_done`), so it needs no
- * clause.
- */
-export const RESEARCH_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
-
-/**
- * Research worker tier (ADR-0021, ADR-0079).
+ * Research worker tier (ADR-0021, ADR-0150).
  *
  * Dedicated worker replicas (same backend image, `PROCESS_ROLE=worker`) claim
  * deep-research jobs from Postgres and execute them, so the token-heavy
@@ -40,7 +31,7 @@ export const RESEARCH_QUEUE_DEPTH_QUERY = queueDepthQuery(QUEUE_TABLE);
  *
  * SCALED ON THE QUEUE, NOT ON CPU. A research job spends its time waiting on
  * model providers, so CPU says nothing about the backlog (the CPU HPA this
- * replaced stayed flat while jobs queued). KEDA runs `RESEARCH_QUEUE_DEPTH_QUERY`
+ * replaced stayed flat while jobs queued). KEDA counts the workflow's Hatchet backlog
  * and asks for ceil(depth / concurrency) replicas between `minReplicas` and
  * `maxReplicas`; an empty queue shrinks the tier to its floor (zero in dev).
  * The claim is fair across organizations and holds one to
@@ -167,10 +158,7 @@ export function installAgentWorker(
     minReplicas: cfg.agentWorker.minReplicas,
     maxReplicas: cfg.agentWorker.maxReplicas,
     concurrency: cfg.agentWorker.concurrency,
-    table: QUEUE_TABLE,
-    // The shared TriggerAuthentication (`jobs-queue-auth.ts`): both Python claim
-    // queues live in the same database.
-    authName: JOBS_QUEUE_AUTH,
+    workflow: WORKFLOW,
     // Before ADR-0079 this tier was scaled by a plain HPA of the same name, which
     // a stack upgraded from then still holds when the ScaledObject is created.
     adoptHpa: "agent-worker",

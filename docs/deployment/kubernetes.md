@@ -1153,13 +1153,13 @@ The token-heavy workload (deep research) now scales out:
   claim's per-organisation cap (jobs running at once). The one refusal left is
   `backendMaxQueuedJobsPerOrg` (default 50), a bound on how many jobs one
   organisation may have waiting.
-- **KEDA scales `agent-worker` on `research_job_queue`**, replacing the CPU HPA,
-  which an LLM-bound job barely moves: its `postgresql` trigger counts the rows
-  that are not `dead` (a finished job's row is deleted) and asks for
-  ceil(jobs / `agentWorkerConcurrency`) replicas between `agentWorkerMinReplicas`
+- **KEDA scales `agent-worker` on the `research-run` backlog in Hatchet**
+  (ADR-0150), replacing the CPU HPA, which an LLM-bound job barely moves: its
+  `postgresql` trigger counts the runs queued or held by a worker and asks for
+  ceil(runs / `agentWorkerConcurrency`) replicas between `agentWorkerMinReplicas`
   and `agentWorkerMaxReplicas`. Out at once, in a pod a minute; dev's floor is 0
-  and prod's is 1. It reads the queue through `jobs-queue-auth`, the
-  TriggerAuthentication it shares with the ingest tier (one database).
+  and prod's is 1. It reads through `hatchet-queue-auth`, the
+  TriggerAuthentication every worker tier shares.
 - **A drain gives work back.** On SIGTERM the worker waits
   `agentWorkerDrainSeconds` for the jobs it holds, then requeues what still runs
   without spending an attempt; another worker starts it over. A job that crashes
@@ -1327,7 +1327,8 @@ the cause, then delete the row and run the action again from the UI.
 ### 6.3d KEDA across every ScaledObject (ADR-0079)
 
 Four tiers are scaled by KEDA: `ingest-worker`, `agent-worker` and `bff-jobs` on
-their queues, `aiq-agent` on running turns. What they share is one module
+their Hatchet workflow's backlog (ADR-0150, [`hatchet.md`](hatchet.md)),
+`aiq-agent` on running turns. What they share is one module
 (`deploy/pulumi/src/app/keda-scaling.ts`), so they cannot drift apart in the
 parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
 
@@ -1349,25 +1350,17 @@ parts that are not about their own signal, and `keda-scaling.spec.ts` holds it.
   floor is 1 (prod). Every step from N down to 1 is the HPA's `scaleDown`: a pod a
   minute after a five-minute stabilisation window, because each pod that leaves
   drains for up to its tier's budget.
-- **The scaler cannot write.** KEDA reads the queues as `keda_scaler`
-  (declared with the other roles on the Cluster, `data/postgres.ts`), a login with
-  nothing but `LOGIN` whose rights are SELECT on the `status` column (the one its
-  `COUNT(*) … WHERE status NOT IN ('dead', 'cancelled')` reads, so a leaked DSN cannot read a
-  payload) of `ingest_job_queue` and `research_job_queue` in `jobs` and of
-  `bff_job_queue` in `app`. That last table is secured per organisation, so the role reads it through a policy of
-  its own (`FOR SELECT TO keda_scaler`), not through `BYPASSRLS`. Its password
-  is `pgScalerPassword`, or an HMAC of `pgAppPassword` when unset, and its DSNs sit
-  in the `grid-keda-scaler` Secret, which no pod references: rotating it restarts
-  nothing. Before this, the operator held the owner's DSN for both databases.
-- **The tables exist before the scaler reads them.** On a fresh stack the Python
-  queues create their tables the first time a process touches them, which can be
-  after the ScaledObject is created. The `keda-scaler-grants` Job runs after the
-  migrations and every ScaledObject waits for it: an init container calls the
-  queues' own `ensure_table` (the one definition of their schema, which also
-  upgrades an older table), then `psql` waits for the role CloudNativePG reconciles
-  and runs the grants. A missing table fails the Job loudly; it never reaches a
-  scaler that errors on every poll. It re-runs whenever its spec changes (every
-  per-SHA image pin) and is idempotent.
+- **The scaler cannot write.** KEDA counts each worker tier's backlog in
+  Hatchet's own database, `background-work-pg`, as `keda_scaler` there: a login
+  whose rights are SELECT on the columns the count reads (`action_id` of
+  `v1_queue_item`, `id`, `inserted_at` and `action_id` of `v1_task`, `task_id` and
+  `task_inserted_at` of `v1_task_runtime`), granted by the
+  `background-work-pg-grants` Job once Hatchet's migrations made the tables. Its
+  DSN sits in the `background-work-keda-scaler` Secret, which no pod
+  references, behind the one TriggerAuthentication `hatchet-queue-auth`. The
+  claim-queue depth triggers, their grants Job (`keda-scaler-grants`) and the
+  `grid-keda-scaler` Secret are gone; the app cluster's `keda_scaler` role is
+  still kept by the rename Jobs and reads nothing.
 - **A drain is given time to give back.** The grace period of `ingest-worker`,
   `agent-worker` and `bff-jobs` is the tier's `…DrainSeconds` plus 30 s
   (`DRAIN_GIVE_BACK_SECONDS`, `agentWorkerRollout`), so the claims a drain did not
