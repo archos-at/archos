@@ -1755,8 +1755,8 @@ run (the runner holds a `run_id`), because then the 404 means the BFF has not
 yet written the backend job id onto the row. The ledger client keeps its single
 short attempt; a lost terminal op is settled by the reconciler below.
 What the retry does not heal the BFF's run reconciler does
-(`apps/workspace/bff/runs/reconcile.ts`, driven by the `skill-scheduler`
-tick): it asks the job store for the verdict of every run still active after
+(`apps/workspace/bff/runs/reconcile.ts`, driven by the `runs-reconcile`
+Hatchet task every minute): it asks the job store for the verdict of every run still active after
 ten minutes without a check (`GET /v1/internal/jobs/{id}/outcome`, service
 token, tenant checked against `job_access`), which also hands back the run
 message rebuilt by `run_message_for_outcome`, and closes the run through the
@@ -1796,9 +1796,9 @@ job, so after a reclaim they are the new owner's resume point.
 
 **Agent Skills and Jobs (ADR-0046)**: project-level **jobs** — a prompt on a
 timer, with a skill optionally attached — can fire this same async pipeline on
-a cron schedule. A dedicated `skill-scheduler` container claims due `jobs` rows
-in `app` (`FOR UPDATE SKIP LOCKED`) and fires through the BFF's internal
-endpoint into `POST /v1/internal/skills/submit` (internal-token-guarded wrapper
+a cron schedule. A Hatchet scheduled run per due definition fires the
+`fire-task-definition` task of the `bff-jobs` worker (ADR-0150), which takes
+the occurrence in `app` and submits into `POST /v1/internal/skills/submit` (internal-token-guarded wrapper
 around `submit_agent_job`, so admission control and cost tracking apply
 unchanged). The agent follows the job's `output` (`chat` →
 `researcher`, `deep-research` → `deep_researcher`). The attached skill reaches

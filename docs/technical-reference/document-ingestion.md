@@ -131,8 +131,7 @@ original, only without a thumbnail. The re-ingest action („Erneut lesen“,
 `POST /api/documents/{id}/reingest`) takes the same path and converts again. A
 process restart during a conversion gives the claim back and another pod runs
 it. A row left at `processing` without a live job (from before the jobs, or one
-whose job died) is found by the sweep `POST /api/internal/maintenance/
-reconcile-background-work`, which the scheduler worker calls every tick: a row
+whose job died) is found by the `reconcile-background-work` Hatchet task, every minute: a row
 with no job gets a new one, a row whose job is dead is failed with its reason.
 
 **SeaweedFS config** (`apps/workspace/bff/s3.ts`):

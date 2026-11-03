@@ -1,9 +1,8 @@
 /**
  * @vitest-environment node
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  claimDue,
   conversationIsHeld,
   findConversationsAwaitingTraceErasure,
   markConversationTracesErased,
@@ -11,7 +10,7 @@ import {
   pruneOldRuns,
   PLATFORM_ROLE,
   PRUNE_BATCH,
-} from './db.js'
+} from './maintenance-sql.js'
 
 // Same fake-sql idiom as purger/db.spec.mjs: a tagged-template fn that records
 // the rendered SQL text (`join('$')` renders each interpolation as `$`) plus the
@@ -19,8 +18,8 @@ import {
 // `sql` exposes `.begin(cb)` and invokes cb with the recording tx template.
 //
 // The tx also records `.unsafe()` calls: every transaction must step up to the
-// BYPASSRLS role before it queries, because the scheduler's work spans tenants
-// and row-level security would otherwise hide every due row (ADR-0041).
+// BYPASSRLS role before it queries, because these sweeps span tenants
+// and row-level security would otherwise hide every other organization's rows (ADR-0041).
 function makeTx(executed, respond) {
   const tx = (strings, ...values) => {
     const text = strings.join('$').replace(/\s+/g, ' ').trim()
@@ -34,7 +33,8 @@ function makeTx(executed, respond) {
   return tx
 }
 
-function makeClaimSql(selectRows) {
+/** A transaction whose SELECT answers `selectRows` and whose other statements answer nothing. */
+function makeSelectSql(selectRows) {
   const executed = []
   const tx = makeTx(executed, (text) => (/^SELECT/i.test(text) ? selectRows : []))
   return { sql: { begin: (cb) => cb(tx) }, executed }
@@ -57,128 +57,6 @@ function makePruneSql(sequence) {
 function queries(executed) {
   return executed.filter((q) => !q.text.startsWith('SET LOCAL ROLE'))
 }
-
-describe('claimDue', () => {
-  // The table names are asserted verbatim: 0043 renamed skill_schedules -> jobs,
-  // then 0086 collapsed jobs into task_definitions, and a scheduler still
-  // querying the old names would not fail loudly — it would simply claim
-  // nothing and go quiet, which is the worst way for a timer to break.
-  it('claims due rows and advances each next_run_at to the computed future time', async () => {
-    const rows = [
-      { id: 's1', trigger: 'schedule', schedule_cron: '0 9 * * *', schedule_timezone: 'UTC' },
-      { id: 's2', trigger: 'schedule', schedule_cron: '*/15 * * * *', schedule_timezone: 'Europe/Vienna' },
-    ]
-    const { sql, executed } = makeClaimSql(rows)
-    const nextDate = new Date('2026-07-17T09:00:00Z')
-    const computeNext = vi.fn().mockReturnValue(nextDate)
-
-    const claimed = await claimDue(sql, 20, computeNext)
-
-    expect(claimed).toEqual(rows)
-
-    const select = queries(executed)[0]
-    expect(select.text).toMatch(
-      /^SELECT id, trigger, schedule_cron, schedule_timezone FROM task_definitions/
-    )
-    // The predicate must keep matching `idx_task_definitions_due` (0090) or the
-    // due scan silently degrades to a sequential scan over every definition.
-    expect(select.text).toContain('WHERE enabled AND next_run_at IS NOT NULL AND next_run_at <= now()')
-    expect(select.text).toContain('ORDER BY next_run_at')
-    expect(select.text).toContain('LIMIT $')
-    expect(select.text).toContain('FOR UPDATE SKIP LOCKED')
-    expect(select.values).toEqual([20]) // batch binding
-
-    // computeNext consulted per row with its own cron + timezone
-    expect(computeNext).toHaveBeenNthCalledWith(1, '0 9 * * *', 'UTC')
-    expect(computeNext).toHaveBeenNthCalledWith(2, '*/15 * * * *', 'Europe/Vienna')
-
-    // one advancing UPDATE per row, binding the computed Date then the id
-    const updates = executed.filter((q) => q.text.startsWith('UPDATE task_definitions SET next_run_at'))
-    expect(updates).toHaveLength(2)
-    expect(updates[0].values).toEqual([nextDate, 's1'])
-    expect(updates[1].values).toEqual([nextDate, 's2'])
-  })
-
-  it('disables a row whose cron is unparseable and excludes it from the claim, still advancing the rest', async () => {
-    const rows = [
-      { id: 'bad', trigger: 'schedule', schedule_cron: 'garbage', schedule_timezone: 'UTC' },
-      { id: 'good', trigger: 'schedule', schedule_cron: '0 9 * * *', schedule_timezone: 'UTC' },
-    ]
-    const { sql, executed } = makeClaimSql(rows)
-    const nextDate = new Date('2026-07-17T09:00:00Z')
-    const computeNext = vi.fn((cron) => {
-      if (cron === 'garbage') throw new Error('unparseable')
-      return nextDate
-    })
-
-    const claimed = await claimDue(sql, 20, computeNext)
-
-    // only the good row is returned to be fired
-    expect(claimed).toEqual([rows[1]])
-
-    // the bad row is disabled (and its next_run_at cleared), not advanced
-    const disable = executed.find((q) => q.text.includes('SET enabled = false'))
-    expect(disable).toBeDefined()
-    expect(disable.text).toContain('next_run_at = NULL')
-    expect(disable.values).toEqual(['bad'])
-
-    // the good row is advanced normally
-    const advance = executed.find((q) => q.text.startsWith('UPDATE task_definitions SET next_run_at'))
-    expect(advance.values).toEqual([nextDate, 'good'])
-  })
-
-  it('retires a one-shot by nulling next_run_at instead of advancing it', async () => {
-    // At-most-once for a `once` definition comes from the SAME mechanism the
-    // cron path uses — the claim transaction moves the row out of the due scan
-    // before anything fires — so a crash between claim and fire misses the run
-    // rather than repeating an expensive one.
-    const rows = [{ id: 'one', trigger: 'once', schedule_cron: null, schedule_timezone: 'UTC' }]
-    const { sql, executed } = makeClaimSql(rows)
-    const computeNext = vi.fn()
-
-    const claimed = await claimDue(sql, 20, computeNext)
-
-    expect(claimed).toEqual(rows)
-    // No cron to consult, and consulting one would throw on the null.
-    expect(computeNext).not.toHaveBeenCalled()
-
-    const retire = executed.find((q) => q.text.startsWith('UPDATE task_definitions SET next_run_at'))
-    expect(retire.text).toContain('next_run_at = NULL')
-    expect(retire.values).toEqual(['one'])
-    // `enabled` is the person's pause switch. A finished task is not a paused
-    // one, so firing must never touch it.
-    expect(executed.some((q) => q.text.includes('SET enabled'))).toBe(false)
-  })
-
-  it('clears a stale due time on a manual row without firing it', async () => {
-    // Unreachable through the write boundary, which is why it is worth pinning:
-    // if it ever happens, the row must leave the index WITHOUT spending
-    // somebody's budget on a run they never scheduled.
-    const rows = [{ id: 'manual', trigger: 'manual', schedule_cron: null, schedule_timezone: 'UTC' }]
-    const { sql, executed } = makeClaimSql(rows)
-
-    const claimed = await claimDue(sql, 20, vi.fn())
-
-    expect(claimed).toEqual([])
-    const cleared = executed.find((q) => q.text.startsWith('UPDATE task_definitions SET next_run_at'))
-    expect(cleared.text).toContain('next_run_at = NULL')
-    expect(cleared.values).toEqual(['manual'])
-  })
-
-  it('passes the batch size through as the LIMIT binding', async () => {
-    const { sql, executed } = makeClaimSql([])
-    await claimDue(sql, 5, vi.fn())
-    expect(queries(executed)[0].values).toEqual([5])
-  })
-
-  it('returns an empty array and issues no UPDATE when nothing is due', async () => {
-    const { sql, executed } = makeClaimSql([])
-    const claimed = await claimDue(sql, 20, vi.fn())
-    expect(claimed).toEqual([])
-    expect(queries(executed)).toHaveLength(1)
-    expect(queries(executed)[0].text).toMatch(/^SELECT/)
-  })
-})
 
 describe('pruneOldRuns', () => {
   it('deletes older rows in batches until a short batch, summing the total', async () => {
@@ -216,19 +94,11 @@ describe('pruneOldRuns', () => {
 
 /**
  * Losing the step-up would not fail loudly: row-level security would simply
- * hide every other tenant's rows, the due-scan would return nothing, and the
- * scheduler would go quiet while reporting healthy ticks. These assertions are
+ * hide every other tenant's rows, and the sweeps would go quiet while
+ * reporting healthy runs. These assertions are
  * the only thing standing between that and a silent outage (ADR-0041).
  */
 describe('platform scope', () => {
-  it('steps up to the BYPASSRLS role before claiming, inside the same transaction', async () => {
-    const { sql, executed } = makeClaimSql([])
-    await claimDue(sql, 20, vi.fn())
-
-    expect(executed[0].text).toBe(`SET LOCAL ROLE ${PLATFORM_ROLE}`)
-    expect(executed[1].text).toMatch(/^SELECT/)
-  })
-
   it('steps up in every prune batch, since each is its own transaction', async () => {
     const fullBatch = Array.from({ length: PRUNE_BATCH }, (_, i) => ({ id: `r${i}` }))
     const { sql, executed } = makePruneSql([fullBatch, [{ id: 'x' }]])
@@ -249,7 +119,7 @@ describe('platform scope', () => {
 
 describe('conversation trace erasure queries', () => {
   it('finds purged conversation rows that are recent, settled, unstamped and not held', async () => {
-    const { sql, executed } = makeClaimSql([{ id: 'q1', entity_id: 's_1', organization_id: 'org_1' }])
+    const { sql, executed } = makeSelectSql([{ id: 'q1', entity_id: 's_1', organization_id: 'org_1' }])
 
     const rows = await findConversationsAwaitingTraceErasure(sql, 100)
 
@@ -267,17 +137,17 @@ describe('conversation trace erasure queries', () => {
   })
 
   it('asks the hold predicate about the one conversation before its traces go', async () => {
-    const { sql, executed } = makeClaimSql([{ held: true }])
+    const { sql, executed } = makeSelectSql([{ held: true }])
     expect(await conversationIsHeld(sql, { entity_id: 's_1', organization_id: 'org_1' })).toBe(true)
     expect(executed[1].text).toContain("legal_hold_blocks('conversation', $, $)")
     expect(executed[1].values).toEqual(['s_1', 'org_1'])
 
-    const free = makeClaimSql([{ held: false }])
+    const free = makeSelectSql([{ held: false }])
     expect(await conversationIsHeld(free.sql, { entity_id: 's_1', organization_id: 'org_1' })).toBe(false)
   })
 
   it('stamps the queue row through a jsonb merge that survives a missing or non-object payload', async () => {
-    const { sql, executed } = makeClaimSql([])
+    const { sql, executed } = makeSelectSql([])
     await markConversationTracesErased(sql, 'q1')
     const update = executed.find((q) => q.text.startsWith('UPDATE deletion_queue'))
     expect(update.text).toContain("jsonb_build_object('langfuseTracesErasedAt', now())")

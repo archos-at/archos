@@ -209,10 +209,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/server.js ./server.js
 COPY --from=builder --chown=nextjs:nodejs /app/purger ./purger
-COPY --from=builder --chown=nextjs:nodejs /app/scheduler ./scheduler
 COPY --from=builder --chown=nextjs:nodejs /app/observability ./observability
-# Shared by purger/ and scheduler/ — both require ../workers/platform-scope to
-# step up to the BYPASSRLS role (ADR-0041). Without it neither worker starts.
+# Shared by purger/ and the bff-jobs worker — both require workers/platform-scope
+# to step up to the BYPASSRLS role (ADR-0041). Without it neither worker starts.
 COPY --from=builder --chown=nextjs:nodejs /app/workers ./workers
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/dist-scripts ./dist-scripts

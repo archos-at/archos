@@ -657,7 +657,6 @@
   "apps/workspace/proxy.ts": 2,
   "apps/workspace/public/sw.js": 6,
   "apps/workspace/purger/index.js": 1,
-  "apps/workspace/scheduler/index.js": 1,
   "apps/workspace/scripts/build-mcp-app-views.ts": 1,
   "apps/workspace/scripts/provision-workos-audit-schemas.mjs": 2,
   "apps/workspace/scripts/provision-workos-authz.ts": 2,

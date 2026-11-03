@@ -16,8 +16,8 @@
  * an upload, never a backlog. Without the window, the first deploy would have re-read
  * every transient failure ever recorded, at a vision call per drawing page.
  *
- * The caller is the job scheduler, through `POST /api/internal/maintenance/
- * reconcile-background-work`, beside the stuck-processing sweep. Safe from several
+ * The caller is the `reconcile-background-work` Hatchet task
+ * (`bff/scheduling/sweeps.ts`), beside the stuck-processing sweep. Safe from several
  * replicas at once: a document it sends back is no longer failed, and a second
  * dispatch for one object returns the job the first one queued.
  */

@@ -231,14 +231,14 @@ $PSQL -d grid_app -v ON_ERROR_STOP=1 -q -c "DELETE FROM bff_job_queue" >/dev/nul
 # The job-queue suites claim from ONE table, whichever lane a job is in, so run
 # in parallel they claim each other's seeded jobs. One file at a time. The
 # scheduler's due-scan is the same shape over task_definitions, every tenant's.
-echo "==> running the job-queue and scheduler-claim suites one file at a time as app_rw"
+echo "==> running the job-queue and scheduling suites one file at a time as app_rw"
 TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app" \
   npx vitest run --no-file-parallelism \
     bff/jobs-queue/queue.integration.spec.ts \
     bff/jobs-queue/repository.integration.spec.ts \
     workers/jobs/runner.integration.spec.mjs \
     workers/jobs/slice-bundle.integration.spec.mjs \
-    scheduler/db.integration.spec.mjs
+    bff/scheduling/repository.integration.spec.ts
 
 # A function, a table and a view created by a superuser (a restore, a hand-run
 # script) are what made `ALTER FUNCTION … RENAME` in migration 0190 fail on
