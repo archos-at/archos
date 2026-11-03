@@ -143,10 +143,10 @@ from dataclasses import field
 from dataclasses import replace
 from typing import Literal
 
-from agent.common.card_numbers import CARD_CONTEXT_REACH
 from agent.common.card_numbers import CARD_CONTEXT_WORDS
 from agent.common.card_numbers import CARD_PAGE_LABELS
 from agent.common.card_numbers import cards_in
+from agent.common.card_numbers import context_window
 from agent.common.card_numbers import has_word
 from agent.common.card_numbers import mask_card
 from agent.common.card_numbers import wrapped_card_layout
@@ -736,10 +736,8 @@ def _cards_said(text: str, offset: int, groups: list[tuple[str, int, int]]) -> I
 
 def _has_card_context(text: str, start: int, end: int) -> bool:
     """Whether a card's word (``card_numbers.CARD_CONTEXT_WORDS``) stands within reach of ``text[start:end]``."""
-    begin = max(0, start - CARD_CONTEXT_REACH)
-    while begin > 0 and _is_letter(text[begin - 1]):
-        begin -= 1
-    near = fold(text[begin : end + CARD_CONTEXT_REACH])
+    begin, stop = context_window(text, start, end, _is_letter)
+    near = fold(text[begin:stop])
     return has_word(near, CARD_CONTEXT_WORDS, _is_letter) or _page_says(text, CARD_PAGE_LABELS)
 
 

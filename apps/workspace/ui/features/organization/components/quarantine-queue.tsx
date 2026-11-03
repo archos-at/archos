@@ -114,7 +114,10 @@ export const QuarantineQueue: FC = () => {
   const load = useCallback(async (signal?: AbortSignal) => {
     setFailed(false)
     try {
-      setItems(await listQuarantineQueue(signal))
+      const next = await listQuarantineQueue(signal)
+      setItems(next)
+      // Picks someone else decided meanwhile no longer count against the cap.
+      setSelected((prev) => new Set(next.filter((item) => prev.has(item.id)).map((item) => item.id)))
     } catch {
       if (!signal?.aborted) setFailed(true)
     }
@@ -244,7 +247,11 @@ export const QuarantineQueue: FC = () => {
       <QuarantineSelection
         counts={counts}
         filter={activeFilter}
-        onFilterChange={setFilter}
+        onFilterChange={(next) => {
+          // Picks never hide behind a filter: what is acted on is what is shown.
+          setFilter(next)
+          setSelected(new Set())
+        }}
         shown={shown.length}
         selected={selectedShown.length}
         limit={QUARANTINE_DECISION_LIMIT}

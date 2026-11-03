@@ -12410,7 +12410,7 @@
       "post": {
         "operationId": "quarantine-decide",
         "summary": "Allow, delete or recheck several held documents at once",
-        "description": "A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it again). Every document is checked on its own and answers with its own `outcome` (`changed` when someone decided first). The decision cannot be taken back.",
+        "description": "A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it again). Every document is checked on its own; the answer is `results`, one `{ id, outcome }` per document, the outcome one of allowed, rechecking, deleted, changed (someone decided first), not_found, forbidden or failed (`changed` when someone decided first). The decision cannot be taken back.",
         "tags": [
           "review"
         ],
@@ -12437,7 +12437,8 @@
                     "type": "array",
                     "items": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "maxLength": 64
                     }
                   }
                 },

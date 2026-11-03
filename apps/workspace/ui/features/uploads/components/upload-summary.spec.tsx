@@ -236,6 +236,19 @@ describe('useUploadSummary', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
+  it('reads a settled summary again when a document changed, so an allowed file stops saying it waits', async () => {
+    const fetchMock = vi.fn(async () => Response.json(SETTLED_SUMMARY))
+    vi.stubGlobal('fetch', fetchMock)
+    const { notifyDocumentsChanged } = await import('@/lib/documents/document-changes')
+
+    const { result } = renderHook(() => useUploadSummary(SETTLED_SUMMARY.id))
+    await waitFor(() => expect(result.current.state.status).toBe('ready'))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    act(() => notifyDocumentsChanged())
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  })
+
   it('does not poll a summary that arrives complete', async () => {
     const fetchMock = vi.fn(async () => Response.json(SETTLED_SUMMARY))
     vi.stubGlobal('fetch', fetchMock)

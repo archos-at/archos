@@ -51,10 +51,10 @@
  */
 
 import {
-  CARD_CONTEXT_REACH,
   CARD_CONTEXT_WORDS,
   CARD_PAGE_LABELS,
   cardsIn,
+  contextWindow,
   type DigitGroup,
   hasWord,
   maskCard,
@@ -782,11 +782,7 @@ function* cardsSaid(text: string, offset: number, groups: readonly DigitGroup[])
 
 /** Whether a card's word stands within `CARD_CONTEXT_REACH` code points of `text[start, end)`. */
 function hasCardContext(text: string, start: number, end: number): boolean {
-  let begin = start
-  for (let step = 0; step < CARD_CONTEXT_REACH && begin > 0; step += 1) begin -= codePointBefore(text, begin).length
-  while (begin > 0 && LETTER.test(codePointBefore(text, begin))) begin -= codePointBefore(text, begin).length
-  let stop = end
-  for (let step = 0; step < CARD_CONTEXT_REACH && stop < text.length; step += 1) stop += codePointAt(text, stop).length
+  const [begin, stop] = contextWindow(text, start, end)
   return hasWord(foldContent(text.slice(begin, stop)), CARD_CONTEXT_WORDS) || pageSays(text, CARD_PAGE_LABELS)
 }
 

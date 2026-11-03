@@ -2,14 +2,20 @@
 features:
   - >
     In the quarantine you can now filter held files by what was found, select
-    several or all of them, and allow or delete them in one step.
+    several or all of them, and allow, delete or check them again with the
+    current rules in one step.
 improvements:
   - >
-    If you may review a held upload, you can allow it anyway right in the
-    upload message, after checking what was found, instead of going to the
-    quarantine first.
+    When a file is not uploaded because its name contains a sensitive term,
+    the message now offers to upload it anyway; its content is still checked.
+  - >
+    If you may review a held upload, you can view the finding and allow it
+    right in the upload message instead of going to the quarantine first.
 fixes:
   - >
-    Long order, article and meter numbers are no longer held as card numbers:
-    a number written without spaces now counts as one only when a card is
-    mentioned beside it.
+    Dates with times in spreadsheets, long order or article numbers and
+    dimension chains in drawings are no longer held as social security or
+    card numbers.
+  - >
+    File names such as Lüftungssteuerung, Personalraum or Feuchtegehalt are
+    no longer stopped as sensitive in offices that use the suggested list.

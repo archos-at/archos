@@ -185,6 +185,29 @@ export function* cardsIn(
   }
 }
 
+/**
+ * Where a card's word is looked for around `text[start, end)`: whole words,
+ * `CARD_CONTEXT_REACH` code points out. The window starts at a word start (a
+ * word cut by the left edge is skipped) and ends at a word end (a word cut by
+ * the right edge is read whole). Python's `context_window`.
+ */
+export function contextWindow(text: string, start: number, end: number): [number, number] {
+  let begin = start
+  for (let step = 0; step < CARD_CONTEXT_REACH && begin > 0; step += 1) begin -= charBefore(text, begin).length
+  let stop = end
+  for (let step = 0; step < CARD_CONTEXT_REACH && stop < text.length; step += 1) stop += charAt(text, stop).length
+  if (begin > 0 && LETTER.test(charBefore(text, begin))) {
+    while (begin < start && LETTER.test(charAt(text, begin))) begin += charAt(text, begin).length
+  }
+  while (stop < text.length && LETTER.test(charAt(text, stop))) stop += charAt(text, stop).length
+  return [begin, stop]
+}
+
+/** The code point that starts at `index`. */
+function charAt(text: string, index: number): string {
+  return String.fromCodePoint(text.codePointAt(index) ?? 0)
+}
+
 /** Whether one of `words` starts a word somewhere in `folded`, which begins at a word start. */
 export function hasWord(folded: string, words: readonly string[]): boolean {
   return words.some((word) => {

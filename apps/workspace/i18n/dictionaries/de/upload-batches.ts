@@ -74,7 +74,7 @@ export const uploadBatches: typeof en.uploadBatches = {
       viewFinding: 'Fundstelle ansehen',
       allowAnywayTitle: '„{name}“ trotzdem zulassen?',
       allowAnywayDescription:
-        'Sehen Sie sich zuerst die Fundstelle an. Ist sie keine echte Kartennummer, IBAN oder Sozialversicherungsnummer, lassen Sie die Datei zu: {productName} liest sie dann wie jeden anderen Upload, und Sprachmodelle sehen ihren Inhalt. Ihre Entscheidung wird mit Ihrem Namen protokolliert.',
+        'Sehen Sie sich zuerst die Fundstelle an. Lassen Sie die Datei nur zu, wenn sie nichts enthält, was Ihr Büro schützen will, etwa weil die Zahl keine echte Kartennummer ist oder der Begriff hier etwas anderes meint. {productName} liest sie dann wie jeden anderen Upload, und Sprachmodelle sehen ihren Inhalt. Ihre Entscheidung wird mit Ihrem Namen protokolliert.',
       allowedAnyway: 'Zugelassen. {productName} liest die Datei jetzt.',
     },
     notFound: {

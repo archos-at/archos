@@ -1874,6 +1874,43 @@
           "sample": "•••• 0002"
         }
       ]
+    },
+    {
+      "name": "a card's word cut by the right edge of the window is read whole",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "5555555555554444 Bestellung Bestellung Bestellung Bestellung  Visa",
+      "matches": [
+        {
+          "kind": "credit_card",
+          "text": "5555555555554444"
+        }
+      ],
+      "masked": "[Kartennummer entfernt] Bestellung Bestellung Bestellung Bestellung  Visa",
+      "findings": [
+        {
+          "kind": "credit_card",
+          "count": 1,
+          "sample": "•••• 4444"
+        }
+      ]
+    },
+    {
+      "name": "a word that starts out of reach does not bring its card word into the window",
+      "terms": [],
+      "detectors": [
+        "iban",
+        "at_svnr",
+        "credit_card"
+      ],
+      "text": "Visabestimmungenfürdieeinreiseundnochvieleweiterebuchstabenohneleerzeichen 4111111111111111",
+      "matches": [],
+      "masked": "Visabestimmungenfürdieeinreiseundnochvieleweiterebuchstabenohneleerzeichen 4111111111111111",
+      "findings": []
     }
   ],
   "unicode": {

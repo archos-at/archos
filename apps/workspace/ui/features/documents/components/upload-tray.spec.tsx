@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen, within } from '@/test-utils'
+import { act, render, screen, waitFor, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { UploadTray } from './upload-tray'
 
@@ -362,6 +362,27 @@ describe('UploadTray', () => {
       expect(releaseQuarantinedDocument).toHaveBeenCalledWith('doc-h')
       expect(await screen.findByTestId('upload-row-allow-done')).toBeDefined()
       expect(screen.queryByTestId('upload-row-request-review')).toBeNull()
+    })
+
+    it('asks again when the question of who may decide could not be asked, rather than offering nothing', async () => {
+      reviewAccess.mockRejectedValueOnce(new Error('offline'))
+      const user = userEvent.setup()
+      renderTray([held()])
+
+      await user.click(await screen.findByTestId('upload-row-allow-retry'))
+      expect(await screen.findByTestId('upload-row-request-review')).toBeDefined()
+    })
+
+    it('takes the allow away once someone else decided first', async () => {
+      reviewAccess.mockResolvedValueOnce({ canReview: true, canAskForReview: false })
+      const { ApiRequestError } = await import('@/adapters/api/api-error')
+      releaseQuarantinedDocument.mockRejectedValueOnce(new ApiRequestError('gone', 409))
+      const user = userEvent.setup()
+      renderTray([held()])
+
+      await user.click(await screen.findByTestId('upload-row-allow'))
+      await user.click(screen.getByTestId('upload-row-allow-confirm'))
+      await waitFor(() => expect(screen.queryByTestId('upload-row-allow')).toBeNull())
     })
 
     it('is not retried by „Retry failed", and has no retry of its own', async () => {

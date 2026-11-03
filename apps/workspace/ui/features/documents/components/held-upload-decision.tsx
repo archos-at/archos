@@ -63,20 +63,23 @@ export function HeldUploadDecision({
   const t = useTranslations(uploadBatchesCopy)
   const tOrg = useTranslations(organizationCopy)
   const tc = useTranslations(commonCopy)
-  const [access, setAccess] = useState<QuarantineReviewAccess | null>(null)
+  // `failed`: the question could not be asked, which is not a no; a retry asks again.
+  const [access, setAccess] = useState<QuarantineReviewAccess | 'failed' | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [released, setReleased] = useState(false)
+  // Someone else allowed or deleted it first: nothing is left to decide here.
+  const [decidedElsewhere, setDecidedElsewhere] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
     getQuarantineReviewAccess(documentId, controller.signal)
       .then(setAccess)
       .catch(() => {
-        // Not knowing offers nothing: both actions check for themselves anyway.
-        if (!controller.signal.aborted) setAccess({ canReview: false, canAskForReview: false })
+        if (!controller.signal.aborted) setAccess('failed')
       })
     return () => controller.abort()
-  }, [documentId])
+  }, [documentId, attempt])
 
   const release = async (): Promise<void> => {
     try {
@@ -89,7 +92,10 @@ export function HeldUploadDecision({
       // Someone else allowed or deleted it first: what was on screen was stale.
       const decided =
         error instanceof ApiRequestError && (error.status === 409 || error.status === 404)
-      if (decided) notifyDocumentsChanged()
+      if (decided) {
+        notifyDocumentsChanged()
+        setDecidedElsewhere(true)
+      }
       toast.error(decided ? tOrg('quarantine.changed') : tOrg('quarantine.releaseError'))
     }
   }
@@ -102,6 +108,24 @@ export function HeldUploadDecision({
       >
         {t('summary.files.allowedAnyway')}
       </p>
+    )
+  }
+  if (decidedElsewhere) return null
+  if (access === 'failed') {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className={className}
+        onClick={() => {
+          setAccess(null)
+          setAttempt((count) => count + 1)
+        }}
+        data-testid={`${allowTestId}-retry`}
+      >
+        {tc('actions.retry')}
+      </Button>
     )
   }
   if (access?.canAskForReview) {

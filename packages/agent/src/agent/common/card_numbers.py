@@ -158,6 +158,23 @@ def cards_in(
         first += 1
 
 
+def context_window(text: str, start: int, end: int, is_letter: Callable[[str], bool]) -> tuple[int, int]:
+    """Where a card's word is looked for around ``text[start:end]``: whole words, :data:`CARD_CONTEXT_REACH` out. Pure.
+
+    The window starts at a word start (a word cut by the left edge is skipped,
+    so ``card`` in ``Ricardo`` does not count, and neither does a word that
+    starts out of reach) and ends at a word end (a word cut by the right edge is
+    read whole, so ``Visa`` at the 47th character counts).
+    """
+    begin, stop = max(0, start - CARD_CONTEXT_REACH), min(len(text), end + CARD_CONTEXT_REACH)
+    if begin > 0 and is_letter(text[begin - 1]):
+        while begin < start and is_letter(text[begin]):
+            begin += 1
+    while stop < len(text) and is_letter(text[stop]):
+        stop += 1
+    return begin, stop
+
+
 def has_word(folded: str, words: tuple[str, ...], is_letter: Callable[[str], bool]) -> bool:
     """Whether one of ``words`` starts a word somewhere in ``folded``. Pure.
 

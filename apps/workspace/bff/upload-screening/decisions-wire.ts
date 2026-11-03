@@ -22,7 +22,7 @@ export const quarantineDecisionsSchema = z
         'allow: read each like any other upload. delete: remove each for good. recheck: screen each again with the rules in force now; a match holds it again.'
       ),
     documentIds: z
-      .array(z.string().min(1))
+      .array(z.string().min(1).max(64))
       .min(1)
       .max(QUARANTINE_DECISION_LIMIT)
       .transform((ids) => [...new Set(ids)])

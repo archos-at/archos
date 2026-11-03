@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('server-only', () => ({}))
-vi.mock('./review', () => ({ releaseQuarantinedDocument: vi.fn(), settleReleaseRequests: vi.fn() }))
+vi.mock('./review', () => ({
+  NO_DIGEST_DETAILS: { reason: 'no_digest' },
+  releaseQuarantinedDocument: vi.fn(),
+  settleReleaseRequests: vi.fn(),
+}))
 vi.mock('./quarantine-reviewers', () => ({ mayReviewQuarantine: vi.fn() }))
-vi.mock('@/lib/documents/access', () => ({ getAccessibleDocument: vi.fn() }))
+vi.mock('@/lib/documents/access', () => ({ findDocumentForSession: vi.fn() }))
 vi.mock('@/lib/documents/document-edits', () => ({ deleteDocument: vi.fn() }))
 vi.mock('@/lib/session-documents/service', () => ({ deleteSessionDocument: vi.fn() }))
 vi.mock('@/lib/documents/repository', () => ({ markForRescreening: vi.fn() }))
@@ -15,7 +19,7 @@ vi.mock('@/lib/documents/shelf-live', () => ({ publishShelfChanged: vi.fn() }))
 
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { getAccessibleDocument } from '@/lib/documents/access'
+import { findDocumentForSession } from '@/lib/documents/access'
 import { deleteDocument } from '@/lib/documents/document-edits'
 import { deleteSessionDocument } from '@/lib/session-documents/service'
 import { dispatchDocument } from '@/lib/documents/document-dispatch'
@@ -24,7 +28,7 @@ import { makeDocument } from '@/test-utils/db-fixtures'
 import { decideQuarantinedDocuments } from './decisions'
 import { quarantineDecisionsSchema, QUARANTINE_DECISION_LIMIT } from './decisions-wire'
 import { mayReviewQuarantine } from './quarantine-reviewers'
-import { releaseQuarantinedDocument, settleReleaseRequests } from './review'
+import { NO_DIGEST_DETAILS, releaseQuarantinedDocument, settleReleaseRequests } from './review'
 
 const reviewer: AuthorizedSession = {
   userId: 'user-admin',
@@ -69,8 +73,14 @@ describe('decideQuarantinedDocuments', () => {
     expect(releaseQuarantinedDocument).toHaveBeenCalledWith(reviewer, 'a', request)
   })
 
+  it('reports a release refused for want of a digest as failed, not as someone else\'s decision', async () => {
+    vi.mocked(releaseQuarantinedDocument).mockRejectedValueOnce(new ConflictError('no digest', NO_DIGEST_DETAILS))
+    const { results } = await decideQuarantinedDocuments(reviewer, { decision: 'allow', documentIds: ['a'] }, request)
+    expect(results).toEqual([{ id: 'a', outcome: 'failed' }])
+  })
+
   it('deletes a held document through its shelf, a chat attachment through the chat', async () => {
-    vi.mocked(getAccessibleDocument)
+    vi.mocked(findDocumentForSession)
       .mockResolvedValueOnce(
         makeDocument({ id: 'p', scope: 'project', projectId: 'proj-1', status: 'quarantined' })
       )
@@ -95,7 +105,7 @@ describe('decideQuarantinedDocuments', () => {
   })
 
   it('deletes nothing that is no longer held, nor what the session does not review', async () => {
-    vi.mocked(getAccessibleDocument)
+    vi.mocked(findDocumentForSession)
       .mockResolvedValueOnce(
         makeDocument({ id: 'ready', status: 'completed', authoredBy: 'agent' })
       )
@@ -127,7 +137,7 @@ describe('recheck', () => {
   })
 
   it('screens a held document again, with the bytes the reviewer saw, and releases nothing', async () => {
-    vi.mocked(getAccessibleDocument).mockResolvedValueOnce(held)
+    vi.mocked(findDocumentForSession).mockResolvedValueOnce(held)
     vi.mocked(markForRescreening).mockResolvedValueOnce(true)
 
     const { results } = await decideQuarantinedDocuments(reviewer, { decision: 'recheck', documentIds: ['q'] }, request)
@@ -140,7 +150,7 @@ describe('recheck', () => {
   })
 
   it('dispatches nothing when the row moved on, nor for a document the session does not review', async () => {
-    vi.mocked(getAccessibleDocument).mockResolvedValueOnce(held).mockResolvedValueOnce(held)
+    vi.mocked(findDocumentForSession).mockResolvedValueOnce(held).mockResolvedValueOnce(held)
     vi.mocked(markForRescreening).mockResolvedValueOnce(false)
     vi.mocked(mayReviewQuarantine).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
 

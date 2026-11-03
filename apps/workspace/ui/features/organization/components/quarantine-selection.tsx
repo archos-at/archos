@@ -32,10 +32,10 @@ export const FINDING_FILTERS = [
 ] as const
 export type FindingFilter = 'all' | (typeof FINDING_FILTERS)[number]
 
-/** The findings a row was held for: its reasons' kinds, or `unscreened` when it has none. */
+/** The findings a row was held for: its reasons' kinds, and `unscreened` when its reading ended without a verdict. */
 export function findingsOfItem(item: QuarantineQueueItem): ReadonlySet<FindingFilter> {
   const kinds = new Set<FindingFilter>((item.verdict?.reasons ?? []).map((reason) => reason.kind))
-  if (kinds.size === 0) kinds.add('unscreened')
+  if (item.held === 'unscreened') kinds.add('unscreened')
   return kinds
 }
 

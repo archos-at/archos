@@ -237,5 +237,20 @@ describe('QuarantineQueue', () => {
       await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
       expect(toast.success).toHaveBeenCalled()
     })
+
+    it('drops the picks when the filter changes, so nothing hidden is acted on', async () => {
+      stubApi([cardRow('card-a'), ITEMS[0]])
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-card-a'))
+      expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('1 selected')
+      fireEvent.click(screen.getByTestId('quarantine-filter-term'))
+      expect(screen.getByTestId('quarantine-selection')).not.toHaveTextContent('selected')
+    })
+
+    it('counts a quarantine with no readable reason under no finding, and a file not read to the end as not checked', async () => {
+      stubApi([{ ...ITEMS[2], id: 'doc-f', held: 'unscreened' }, ITEMS[2], cardRow('card-a')])
+      render(<QuarantineQueue />)
+      expect(await screen.findByTestId('quarantine-filter-unscreened')).toHaveTextContent('1')
+    })
   })
 })

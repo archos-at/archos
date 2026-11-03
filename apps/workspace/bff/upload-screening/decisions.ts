@@ -16,7 +16,7 @@
 import 'server-only'
 import { ApiError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { getAccessibleDocument } from '@/lib/documents/access'
+import { findDocumentForSession } from '@/lib/documents/access'
 import { isHeldAtRest } from '@/lib/documents/document-reader'
 import { deleteDocument } from '@/lib/documents/document-edits'
 import { dispatchDocument } from '@/lib/documents/document-dispatch'
@@ -31,7 +31,7 @@ import type {
   QuarantineDecisions,
 } from './decisions-wire'
 import { mayReviewQuarantine } from './quarantine-reviewers'
-import { releaseQuarantinedDocument, settleReleaseRequests } from './review'
+import { NO_DIGEST_DETAILS, releaseQuarantinedDocument, settleReleaseRequests } from './review'
 
 export async function decideQuarantinedDocuments(
   session: AuthorizedSession,
@@ -65,8 +65,10 @@ async function remove(
   id: string,
   request: Request
 ): Promise<QuarantineDecisionOutcome> {
-  const doc = await getAccessibleDocument(session, id)
-  if (!(await mayReviewQuarantine(session, doc))) return 'not_found'
+  // As the single delete loads it: a reviewer with `project:manage` and no
+  // `project:view` still finds the held row (`findDocumentForSession`).
+  const doc = await findDocumentForSession(session, id)
+  if (!doc || !(await mayReviewQuarantine(session, doc))) return 'not_found'
   if (!isHeldAtRest(doc)) return 'changed'
   if (doc.scope === 'session') await deleteSessionDocument(session, id, request)
   else await deleteDocument(session, id, request)
@@ -82,8 +84,10 @@ async function remove(
  * gate passed it. Not audited as a release: nothing was lifted.
  */
 async function recheck(session: AuthorizedSession, id: string): Promise<QuarantineDecisionOutcome> {
-  const doc = await getAccessibleDocument(session, id)
-  if (!(await mayReviewQuarantine(session, doc))) return 'not_found'
+  // As the single delete loads it: a reviewer with `project:manage` and no
+  // `project:view` still finds the held row (`findDocumentForSession`).
+  const doc = await findDocumentForSession(session, id)
+  if (!doc || !(await mayReviewQuarantine(session, doc))) return 'not_found'
   if (!isHeldAtRest(doc) || !doc.contentHash || !doc.storageKey) return 'changed'
   if (!(await markForRescreening(doc.id, session.organizationId, doc.contentHash))) return 'changed'
   publishShelfChanged(session.organizationId, documentShelf(doc))
@@ -118,7 +122,9 @@ async function outcomeOf(
   try {
     return await decide()
   } catch (error) {
-    if (error instanceof ApiError && OUTCOME_OF_STATUS[error.status])
+    // A release refused for want of a digest is no one else's decision: it failed.
+    const noDigest = error instanceof ApiError && error.details === NO_DIGEST_DETAILS
+    if (error instanceof ApiError && !noDigest && OUTCOME_OF_STATUS[error.status])
       return OUTCOME_OF_STATUS[error.status]
     console.warn('[quarantine] a decision about one document failed', { documentId: id, error })
     return 'failed'

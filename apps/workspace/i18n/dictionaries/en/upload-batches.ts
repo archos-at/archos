@@ -68,7 +68,7 @@ export const uploadBatches = {
       viewFinding: 'View the finding',
       allowAnywayTitle: 'Allow “{name}” anyway?',
       allowAnywayDescription:
-        'Look at the finding first. If it is no real card number, IBAN or social security number, allow the file: {productName} then reads it like any other upload, and language models see its content. Your decision is logged with your name.',
+        'Look at the finding first. Allow the file only if it holds nothing your office wants protected, for instance because the number is no real card number or the term means something else here. {productName} then reads it like any other upload, and language models see its content. Your decision is logged with your name.',
       allowedAnyway: 'Allowed. {productName} is reading the file now.',
     },
     notFound: {
