@@ -155,7 +155,7 @@ transport, tenant isolation, audit trail, legal hold.
 ## Shipped text
 
 - The app's privacy policy and sub-processor page
-  (`frontends/ui/src/lib/legal/content/{de,en}.ts`): the processing purposes,
+  (`apps/workspace/bff/legal/content/{de,en}.ts`): the processing purposes,
   the suggestion's exact inputs, Cloudflare's widened row and the ClamAV row;
   `content.spec.ts` holds the copy to them.
 - The public privacy page (`frontends/web/src/i18n/ui.ts`, `legal.datenschutz`),

@@ -35,7 +35,7 @@ from datetime import date
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "sources" / "ris_adapter" / "src"))
+sys.path.insert(0, str(REPO_ROOT / "packages" / "ris-adapter" / "src"))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import importlib.util  # noqa: E402
@@ -56,22 +56,24 @@ def _load_norm_registry_module():
     """Import norm_registry.py standalone (the package __init__ pulls langgraph/nat).
 
     The flat module only needs pydantic + yaml at import time (``resolve_federal_state``
-    imports project_context lazily), so stubbing the aiq_agent package chain is enough.
+    imports project_context lazily), so stubbing the agent package chain is enough.
     """
     import types
 
-    common_dir = REPO_ROOT / "src" / "aiq_agent" / "common"
-    for package in ("aiq_agent", "aiq_agent.common"):
+    common_dir = REPO_ROOT / "packages" / "agent" / "src" / "agent" / "common"
+    for package in ("agent", "agent.common"):
         if package not in sys.modules:
             stub = types.ModuleType(package)
             stub.__path__ = []  # package marker: no real __init__ is executed
             sys.modules[package] = stub
+    # source_kinds reads the product's name (stdlib only, beside it), so it loads first.
+    _standalone_module("agent.common.brand", common_dir / "brand.py")
     # norm_registry imports source_kinds, which is stdlib-only; loaded the same
     # way, or the builder dies on import before it verifies anything.
-    _standalone_module("aiq_agent.common.source_kinds", common_dir / "source_kinds.py")
+    _standalone_module("agent.common.source_kinds", common_dir / "source_kinds.py")
     # So does profile_names (stdlib only), for the federal-state tokens.
-    _standalone_module("aiq_agent.profile_names", common_dir.parent / "profile_names.py")
-    return _standalone_module("aiq_agent.common.norm_registry", common_dir / "norm_registry.py")
+    _standalone_module("agent.profile_names", common_dir.parent / "profile_names.py")
+    return _standalone_module("agent.common.norm_registry", common_dir / "norm_registry.py")
 
 
 _nr = _load_norm_registry_module()

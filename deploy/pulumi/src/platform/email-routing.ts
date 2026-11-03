@@ -1,6 +1,6 @@
 import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
-import type { GridConfig } from "../config";
+import type { DeployConfig } from "../config";
 
 /**
  * Cloudflare Email Routing on project mail's zone apex (`inbound-mail.ts`
@@ -148,7 +148,7 @@ export const ROUTING_RESOURCE_OPTIONS = {
  * project mail on the app zone in a stack that does not own it; the zone
  * lookup here refuses every other mismatch at preview.
  */
-export function installInboundMailZone(cfg: GridConfig): MailZone | undefined {
+export function installInboundMailZone(cfg: DeployConfig): MailZone | undefined {
   const mail = cfg.inboundMail;
   if (!mail.configured) return undefined;
   const configKeys = "grid-oib:inboundMailDomain";

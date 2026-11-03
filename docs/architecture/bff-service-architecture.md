@@ -10,7 +10,7 @@ app/api/**/route.ts        →  lib/<domain>/service.ts  →  lib/<domain>/repos
 (transport: HTTP only)        (business logic + authz)     (drizzle data access only)
 ```
 
-### 1. Route handlers (`frontends/ui/src/app/api/**/route.ts`)
+### 1. Route handlers (`apps/workspace/app/api/**/route.ts`)
 
 Routes are **thin transport adapters**. They:
 
@@ -20,13 +20,13 @@ Routes are **thin transport adapters**. They:
     `options.permission` enforces an org/platform permission from the registry
     (`@/lib/authz/permissions`) before the handler runs.
   - `internalApiRoute(label, handler, { tenancy, tokenEnv? })` — service-to-service routes
-    guarded by the `x-grid-internal-token` header (`lib/internal-auth.ts`), compared with
+    guarded by the `x-internal-token` header (`lib/internal-auth.ts`), compared with
     `timingSafeEqual`; a wrong token answers 403. Fail-closed: an unset secret, or the
     well-known dev default outside a dev environment, answers 503 and never serves.
     `tenancy` is required: `{ fromPayload: '…' }` (the handler opens its own `withTenant`
     scope once it has parsed the organization) or `{ crossTenant: 'why' }` (the audited
     bypass). `tokenEnv` names a dedicated secret for a credential handed outside the
-    cluster (`GRID_CORPUS_EXPORT_TOKEN`), so a leak opens one route. A key derived from
+    cluster (`CORPUS_EXPORT_TOKEN`), so a leak opens one route. A key derived from
     such a secret (an HMAC) takes it through `usableInternalSecret()`, which applies the
     same refusal.
   - `internalApiRoute(label, handler, { tenancy, auth: { signature: { keysEnv, components? } } })`
@@ -75,7 +75,7 @@ Routes are **thin transport adapters**. They:
 - contain **no drizzle imports, no `getDb()`, no WorkOS/SeaweedFS/backend calls,
   and no hand-rolled `NextResponse.json({ error })`.**
 
-### 2. Services (`frontends/ui/src/lib/<domain>/service.ts`)
+### 2. Services (`apps/workspace/bff/<domain>/service.ts`)
 
 Services own the business logic and the **authorization decision**:
 
@@ -91,7 +91,7 @@ Services own the business logic and the **authorization decision**:
   throw `NotFoundError` — never confirm existence to unauthorized callers.
 - Never import `next/server` and never build HTTP responses.
 
-### 3. Repositories (`frontends/ui/src/lib/<domain>/repository.ts`)
+### 3. Repositories (`apps/workspace/bff/<domain>/repository.ts`)
 
 Repositories are the **only** modules that run queries for their domain:
 
@@ -130,7 +130,7 @@ together. The pages under `app/projects` each ran their own queries, and so:
 - and none of them ran in a tenant context, so when row-level security began
   being enforced they failed closed with `MissingTenantContextError`.
 
-A page cannot rely on the tenant context being *ambient*. `getGridSession()`
+A page cannot rely on the tenant context being *ambient*. `getUserSession()`
 publishes it, but for a server component that publish uses `enterWith`, which
 does not survive the way this Next version renders a page — the scope is gone by
 the time a query runs. Going through a repository is what makes it reliable,
@@ -156,7 +156,7 @@ ambient context their API-route callers get from the route factories, which is
 sound today and becomes a bug the moment a page calls them. Scope a repository
 before you put a page in front of it.
 
-`frontends/ui/src/lib/db/server-component-db-access.spec.ts` enforces this: it
+`apps/workspace/bff/db/server-component-db-access.spec.ts` enforces this: it
 parses every file under `src/app` and fails the build when one imports values
 from `@/lib/db`. Route handlers that predate the rule are held in an explicit
 list in that spec so the count can only go down; server components and server

@@ -97,8 +97,8 @@ describe("the program with project mail on the app zone's apex, switched off", (
 
   it("takes the domain off the frontend, which hides the address in the UI, and keeps the empty key map", () => {
     const names = containerEnv("frontend").map((e) => e.name);
-    expect(names).not.toContain("GRID_INBOUND_MAIL_DOMAIN");
-    expect(names).not.toContain("GRID_INBOUND_MAIL_PAUSED");
-    expect(names).toContain("GRID_INBOUND_MAIL_SIGNING_KEYS");
+    expect(names).not.toContain("INBOUND_MAIL_DOMAIN");
+    expect(names).not.toContain("INBOUND_MAIL_PAUSED");
+    expect(names).toContain("INBOUND_MAIL_SIGNING_KEYS");
   });
 });

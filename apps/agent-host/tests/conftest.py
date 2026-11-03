@@ -1,0 +1,54 @@
+"""Register a lightweight ``agent_host`` package before submodule imports.
+
+Skips ``agent_host/__init__.py`` (plugin pulls in the agent runtime) so tests can load
+``agent_host.auth`` and peers from ``src/`` without the full runtime stack.
+"""
+
+from __future__ import annotations
+
+import sys
+import types
+from pathlib import Path
+
+import pytest
+from knowledge_layer_testing.qdrant_fixtures import fresh_qdrant_store  # noqa: F401 - a store of its own
+from knowledge_layer_testing.qdrant_fixtures import qdrant_store  # noqa: F401 - the shared store fixture
+
+_SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
+_PKG_DIR = _SRC_ROOT / "agent_host"
+
+if _PKG_DIR.is_dir():
+    if str(_SRC_ROOT) not in sys.path:
+        sys.path.insert(0, str(_SRC_ROOT))
+
+    if "agent_host" not in sys.modules:
+        _pkg = types.ModuleType("agent_host")
+        _pkg.__path__ = [str(_PKG_DIR)]
+        sys.modules["agent_host"] = _pkg
+
+
+@pytest.fixture(autouse=True)
+def _no_retry_pauses(monkeypatch):
+    """The internal-write retry pauses 5 s and 20 s between attempts; tests do not.
+
+    Every backend→BFF write goes through ``internal_retry.send_with_retry``, so
+    a test that doubles a failing BFF would otherwise wait 25 s per call. The
+    attempts still happen; only the pauses are skipped.
+    """
+    from agent_host import internal_retry
+
+    async def _instant(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(internal_retry, "_sleep", _instant)
+
+
+@pytest.fixture(autouse=True)
+def _no_live_decisions(monkeypatch):
+    """The decision model (ADR-0064) is off unless a test turns it on.
+
+    Same guard as ``tests/conftest.py``: the feedback digest now labels its
+    down-votes on it, and a developer's OpenRouter key would otherwise send a
+    test's fixtures to the live endpoint.
+    """
+    monkeypatch.setenv("DECISIONS_ENABLED", "false")

@@ -100,7 +100,7 @@ part is a card that person accepted, and it carries no override. The database
 refuses a filed part without such a decision and without a clean scan.
 
 What enforces each half is under Confirmation; the CHECKs and triggers are in
-[`schema.md`](../database/schema.md#project-mail-migration-0188-adr-0137).
+[`schema.md`](../database/schema.md#project-mail-migration-0193-adr-0137).
 
 ### The E-Mail-Eingang: a mail waits outside the project
 
@@ -433,7 +433,7 @@ on the project (and, for a mail's bytes, a custodian hold on the member it came
 from) pauses every erasure and deletion; ending still happens. The sweeps:
 [`inbound-mail.md`](../architecture/inbound-mail.md#retention-the-sweeps).
 
-### What the database holds the code to (migration 0188)
+### What the database holds the code to (migration 0193)
 
 Decided in the DDL, each deviating from the design document for a reason:
 
@@ -492,7 +492,7 @@ placement review and no document check.
 
 ### Confirmation
 
-- **Database** (`scripts/rls-test-db.sh`, the 0188 section, run by
+- **Database** (`scripts/rls-test-db.sh`, the 0193 section, run by
   `task db:test:rls`): each refusal is a violating insert or update: a filing or
   filed part without a decision, or with a decision that is not a `file`; a
   system decider; a Piloti card with an acknowledgement; a follow decision by
@@ -582,4 +582,4 @@ placement review and no document check.
   FU9 (sender policy), FU11 (merging Verläufe), FU12 (cloud links), FU15
   (re-render old archive notes).
 - The architecture: [`inbound-mail.md`](../architecture/inbound-mail.md). The
-  data: [`schema.md`](../database/schema.md#project-mail-migration-0188-adr-0137).
+  data: [`schema.md`](../database/schema.md#project-mail-migration-0193-adr-0137).

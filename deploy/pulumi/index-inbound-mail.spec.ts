@@ -104,18 +104,18 @@ describe("the program constructs with project mail on", () => {
 
   it("gives the frontend the domain, the pause and the key map, the map from the Secret", () => {
     const env = containerEnv("frontend");
-    expect(env.find((e) => e.name === "GRID_INBOUND_MAIL_DOMAIN")?.value).toBe(DOMAIN);
-    expect(env.find((e) => e.name === "GRID_INBOUND_MAIL_PAUSED")?.value).toBe("true");
-    const keys = env.find((e) => e.name === "GRID_INBOUND_MAIL_SIGNING_KEYS");
+    expect(env.find((e) => e.name === "INBOUND_MAIL_DOMAIN")?.value).toBe(DOMAIN);
+    expect(env.find((e) => e.name === "INBOUND_MAIL_PAUSED")?.value).toBe("true");
+    const keys = env.find((e) => e.name === "INBOUND_MAIL_SIGNING_KEYS");
     // Never inline: anything with `get pod` could read it.
     expect(keys?.value).toBeUndefined();
-    expect(keys?.valueFrom?.secretKeyRef?.key).toBe("GRID_INBOUND_MAIL_SIGNING_KEYS");
+    expect(keys?.valueFrom?.secretKeyRef?.key).toBe("INBOUND_MAIL_SIGNING_KEYS");
   });
 
   it("signs in the Worker with the key the BFF's map holds under the same keyid", () => {
     const secret = RESOURCES.find((r) => r.name === "grid-secrets");
     const data = reveal<Record<string, unknown>>(secret?.inputs.stringData);
-    expect(reveal(data.GRID_INBOUND_MAIL_SIGNING_KEYS)).toBe(SIGNING_KEYS);
+    expect(reveal(data.INBOUND_MAIL_SIGNING_KEYS)).toBe(SIGNING_KEYS);
 
     const script = RESOURCES.find((r) => r.type === "cloudflare:index/workersScript:WorkersScript");
     const bindings = reveal<Array<{ name: string; text: string }>>(script?.inputs.bindings);
@@ -137,17 +137,17 @@ describe("the program constructs with project mail on", () => {
 
   it("gives the bff-jobs pool the domain, but no key to verify with", () => {
     const names = containerEnv("bff-jobs").map((e) => e.name);
-    expect(names).toContain("GRID_INBOUND_MAIL_DOMAIN");
-    expect(names).not.toContain("GRID_INBOUND_MAIL_SIGNING_KEYS");
-    expect(names).not.toContain("GRID_INBOUND_MAIL_PAUSED");
+    expect(names).toContain("INBOUND_MAIL_DOMAIN");
+    expect(names).not.toContain("INBOUND_MAIL_SIGNING_KEYS");
+    expect(names).not.toContain("INBOUND_MAIL_PAUSED");
   });
 
   it("gives the web pods nothing of it", () => {
     const names = containerEnv("web").map((e) => e.name);
-    expect(names.filter((n) => n.startsWith("GRID_INBOUND_MAIL"))).toEqual([]);
+    expect(names.filter((n) => n.startsWith("INBOUND_MAIL"))).toEqual([]);
   });
 
   it("deploys the scanner the feature refuses to run without", () => {
-    expect(containerEnv("frontend").map((e) => e.name)).toContain("GRID_MALWARE_SCAN_URL");
+    expect(containerEnv("frontend").map((e) => e.name)).toContain("MALWARE_SCAN_URL");
   });
 });

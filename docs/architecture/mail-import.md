@@ -51,7 +51,7 @@ browser                     BFF (frontend)                     object store     
   that broke off is resumed by choosing the same file again (`GET …/[importId]`
   lists the held parts); a file whose modification time changed since is
   refused, because its parts would not fit the ones already sent.
-- **Reading.** `aiq_api.mail_archive` opens the staged object through
+- **Reading.** `agent_host.mail_archive` opens the staged object through
   `RangeFile`, a file object over presigned range GETs with a 64 MiB block cache.
   Items are numbered depth-first over the mail tree, so a position is a cursor.
   The folder tree and each folder's message count are read once when the
@@ -259,14 +259,14 @@ Verläufe. Each batch is:
 reads the first page. Each import shows `threadsCreated`, `threadsAppended`
 (Verläufe that existed before the import and took at least one of its mails)
 and `alreadyInProject` (`MailImportView`, columns of `mail_imports`, migration
-0188). Whether the person already has an import open is asked
+0193). Whether the person already has an import open is asked
 on its own (`findOpenMailImportOf`), never read off a page, so an open import
 older than a page of finished ones still refuses a second start with its id.
 
 **Who may run it.** An outside agent on the office door can do everything the
-dialog does. Piloti is offered only the list, the read and the cancel:
-`mail-import-start`, `-part-upload` and `-complete` are `piloti: false`
-(`exposure.config.ts`), because Piloti holds no archive and one 32 MiB part is
+dialog does. The workspace's own agent is offered only the list, the read and
+the cancel: `exposure.config.ts` hides `mail-import-start`, `-part-upload` and
+`-complete` from it (`ARCHIVE_BYTES`), because the agent holds no archive and one 32 MiB part is
 far past what a proposal may carry.
 
 ## Endings
@@ -339,7 +339,7 @@ document.
 - The BFF carries the archive's bytes; twenty gigabytes is twenty gigabytes
   through the frontend pods.
 - `libpff-python` is pinned to its first cp314 release and is labelled alpha
-  upstream; `GRID_PST_FIXTURE_DIR` runs `test_mail_archive_reader.py` over real
+  upstream; `PST_FIXTURE_DIR` runs `test_mail_archive_reader.py` over real
   archives when it moves.
 - The import emits no PostHog event and no Langfuse trace (it makes no model
   call). What happened is on the `mail_imports` row (counts, `skipped_samples`,

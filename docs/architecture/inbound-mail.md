@@ -13,7 +13,7 @@ Why it is built this way: [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-un
 [ADR-0138](../adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md)
 (transport). The scanner: [ADR-0139](../adr/0139-attachments-from-outside-are-scanned-in-cluster-by-clamav.md).
 The Outlook archive renders into the same Verläufe: [`mail-import.md`](mail-import.md).
-The tables: [`schema.md`](../database/schema.md#project-mail-migration-0188-adr-0137).
+The tables: [`schema.md`](../database/schema.md#project-mail-migration-0193-adr-0137).
 Operating it: [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138).
 
 ## The flow, from the edge to filing
@@ -54,14 +54,14 @@ receive job, the suggest job and the sweeps import no filing code
 
 ## Receiving: the webhook
 
-`POST /api/internal/signed/inbound-mail` (`frontends/ui/src/lib/inbound-mail/receive.ts`)
+`POST /api/internal/signed/inbound-mail` (`apps/workspace/bff/inbound-mail/receive.ts`)
 is an `internalApiRoute` guarded by an RFC 9421 signature
-(`GRID_INBOUND_MAIL_SIGNING_KEYS`) and excluded from the Next proxy, so it
+(`INBOUND_MAIL_SIGNING_KEYS`) and excluded from the Next proxy, so it
 streams the body. In order, before a byte of the body is read:
 
 1. the signature (method, URL, Content-Digest, Content-Length, both envelope
    headers), by the route factory;
-2. the pause switch (`GRID_INBOUND_MAIL_PAUSED=true`): 503;
+2. the pause switch (`INBOUND_MAIL_PAUSED=true`): 503;
 3. the envelope headers, percent-decoded; a malformed escape is a 400 without
    a verdict (the Worker's bug, retried);
 4. the token, resolved under the platform bypass (ids only); unknown, revoked or
@@ -404,7 +404,7 @@ A `member_unverified` mail never notifies the member it names. The Postfach row'
 ## Piloti's suggestion
 
 `lib/inbound-mail/suggest-job.ts` (`inbound_mail_suggest`, system, bulk, job id
-uuid5 of the mail). Skipped, with no model call, when `GRID_FILING_SUGGESTIONS`
+uuid5 of the mail). Skipped, with no model call, when `FILING_SUGGESTIONS`
 is off, the mail no longer waits, the sender is `external_unverified`, an
 impersonation or automatic mail, the project is closed, nothing is left to
 place, or the project's unasked budget says no (`unaskedSpendAllowed`, fail
@@ -420,7 +420,7 @@ a person reads must not make their decision stale.
 
 ## Exposure
 
-All operations live in `frontends/ui/src/lib/agent-api/catalog/mail.ts`, domain
+All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 `mail` ([`agent-surface.md`](agent-surface.md)).
 
 | Operation | Outside agents | Piloti |
@@ -481,14 +481,14 @@ file).
 
 | What | Code |
 |---|---|
-| Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `frontends/ui/src/lib/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
-| Webhook, staging, receive job | `frontends/ui/src/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts` |
+| Transport (address, sender authentication, MIME, automatic mail, the Worker contract) | `apps/workspace/bff/inbound-mail/{address,sender-auth,mime,automatic-mail,contract}.ts`; hostile corpus `__fixtures__/hostile.ts` |
+| Webhook, staging, receive job | `apps/workspace/app/api/internal/signed/inbound-mail/route.ts`; `lib/inbound-mail/{receive,staging,receive-job,screening,read-client,malware-scan}.ts` |
 | Review service, decisions, candidates, wire | `lib/inbound-mail/{service,decision,candidates,access,address-service,inbound-mail-wire,sender-risk,review-defaults,thread-groups,forwarded}.ts` |
 | Filing | `lib/inbound-mail/{file-job,filing-repository,quiet-batch,batch-effects}.ts` |
 | Threads | `lib/mail-thread/{mail-threading,render,append,originals,detach,archive,mail-origins,ingest-facts}.ts` |
 | Following | `lib/mail-thread/{follows,follow-repository,follow-eligibility}.ts`; `lib/inbound-mail/{follow-candidate,follow-job}.ts` |
 | Sweeps and notices | `lib/inbound-mail/{sweep,sweep-repository,announce,notice-repository}.ts` |
-| Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores}.ts`; `lib/filing/judge.ts`; `frontends/aiq_api/src/aiq_api/routes/filing_fit.py` |
-| The Python reader | `frontends/aiq_api/src/aiq_api/mail/`, route `routes/mail.py` |
-| The UI | `frontends/ui/src/features/inbound-mail/`; the E-Mails tab `features/documents/components/mail-thread/` ([`docs/ux/inbound-mail.md`](../ux/inbound-mail.md)) |
+| Suggestion | `lib/inbound-mail/{suggest,suggest-job,suggest-scores}.ts`; `lib/filing/judge.ts`; `apps/agent-host/src/agent_host/routes/filing_fit.py` |
+| The Python reader | `apps/agent-host/src/agent_host/mail/`, route `routes/mail.py` |
+| The UI | `apps/workspace/ui/features/inbound-mail/`; the E-Mails tab `features/documents/components/mail-thread/` ([`docs/ux/inbound-mail.md`](../ux/inbound-mail.md)) |
 | The edge | `deploy/pulumi/src/platform/{inbound-mail,inbound-mail-worker,email-routing}.*`; `shared/inbound-*.json` |

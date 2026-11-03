@@ -1,3 +1,4 @@
+<!-- history: 2026-10-28 -->
 # SEO and GEO audit of piloti.at, September 2026
 
 What we found when we audited piloti.at for search (Google, Bing) and for
@@ -117,7 +118,7 @@ the dates.
 > promise below is retired; the rest of this section stays valid for Search
 > Console and Bing. Configuration: `PUBLIC_POSTHOG_HOST` and
 > `PUBLIC_POSTHOG_PROJECT_TOKEN`, read per request by `/web-analytics.js`
-> (`frontends/web/runtime/web-analytics.mjs`).
+> (`apps/site/runtime/web-analytics.mjs`).
 
 At the time of this audit the site set no cookies and ran no tracking, and the
 privacy policy said so. **Do not add Google Analytics.** It sets cookies, it needs a consent

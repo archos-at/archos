@@ -13,7 +13,7 @@ the commit before it and rebuild only the images whose paths changed. Two things
 broke that, both silently:
 
 - The path lists were written by hand, twice, and disagreed with the
-  Dockerfile. `deploy/Dockerfile` copies `packages/ifc-spatial-py/`, and neither
+  Dockerfile. `apps/agent-host/Dockerfile` copies `packages/ifc-spatial-py/`, and neither
   list watched it, so a change there never reached a published image.
 - A push that is superseded while queued is dropped, and the next push diffs
   only against its own parent. On 2026-10-09 a merge train of nine commits
@@ -26,6 +26,7 @@ registry, which is the one place that knows, so a dropped run costs nothing.
 Usage:
   image_inputs.py hashes [REV]                  JSON {image: hash} for REV (default HEAD)
   image_inputs.py inputs IMAGE                  the paths that make up IMAGE, one per line
+  image_inputs.py build-args IMAGE              KEY=VALUE build arguments IMAGE is built with
   image_inputs.py plan --base REV               pull request: build what REV..HEAD changed
   image_inputs.py plan --registry OWNER         push: build what GHCR does not have yet
 
@@ -71,9 +72,9 @@ class Image:
 
 
 IMAGES = (
-    Image("backend", context=".", dockerfile="deploy/Dockerfile", target="release"),
-    Image("frontend", context="frontends/ui", dockerfile="frontends/ui/deploy/Dockerfile"),
-    Image("web", context="frontends/web", dockerfile="frontends/web/Dockerfile"),
+    Image("backend", context=".", dockerfile="apps/agent-host/Dockerfile", target="release"),
+    Image("frontend", context="apps/workspace", dockerfile="apps/workspace/deploy/Dockerfile"),
+    Image("web", context="apps/website", dockerfile="apps/website/Dockerfile"),
 )
 
 _INSTRUCTION = re.compile(r"^\s*(COPY|ADD)\s+(.*)$", re.IGNORECASE)
@@ -138,12 +139,41 @@ def _git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout
 
 
+def _tracks(rev: str, path: str) -> bool:
+    return (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{rev}:{path}"], check=False, cwd=ROOT, capture_output=True
+        ).returncode
+        == 0
+    )
+
+
 def inputs(image: Image, rev: str = "HEAD") -> list[str]:
     """The repository paths whose content is this image's content."""
     dockerfile = _git("show", f"{rev}:{image.dockerfile}")
     paths = {image.dockerfile, _normalise(image.context, ".dockerignore")}
     paths.update(_normalise(image.context, source) for source in copy_sources(dockerfile))
     return sorted(paths)
+
+
+PROD_STACK = "deploy/pulumi/Pulumi.prod.yaml"
+_BASE_DOMAIN = re.compile(r"^\s*[\w-]+:baseDomain:\s*[\"']?([^\s\"'#]+)", re.MULTILINE)
+
+
+def build_args(image: Image, rev: str = "HEAD") -> dict[str, str]:
+    """Build arguments that are part of what the image is.
+
+    The website bakes its own address into every canonical URL, the sitemap and
+    hreflang, so it is built with the address it is served from: the prod
+    stack's `baseDomain`. The value is hashed with the inputs, so moving the
+    domain (docs/deployment/domain-cutover.md) rebuilds the image.
+    """
+    if image.name != "web":
+        return {}
+    match = _BASE_DOMAIN.search(_git("show", f"{rev}:{PROD_STACK}"))
+    if not match:
+        raise ValueError(f"{PROD_STACK} at {rev} has no baseDomain")
+    return {"PUBLIC_SITE_URL": f"https://{match.group(1)}"}
 
 
 def iso_week(today: datetime.date) -> str:
@@ -162,8 +192,9 @@ def input_hash(image: Image, rev: str = "HEAD", *, week: str) -> str:
     missing = [path for path in missing if not path.endswith(".dockerignore")]
     if missing:
         raise ValueError(f"{image.dockerfile} copies {missing}, which {rev} does not track")
+    args = "".join(f"{key}={value}\n" for key, value in sorted(build_args(image, rev).items()))
     digest = hashlib.sha256()
-    for part in (SCHEME, image.name, image.target, week, listing):
+    for part in (SCHEME, image.name, image.target, week, listing, args):
         digest.update(part.encode())
         digest.update(b"\0")
     return digest.hexdigest()[:40]
@@ -191,9 +222,16 @@ def plan_pull_request(base: str, *, week: str) -> tuple[list[dict], list[dict]]:
     change the pull request made.
     """
     merge_base = _git("merge-base", base, "HEAD").strip()
-    head, before = hashes("HEAD", week=week), hashes(merge_base, week=week)
+    head = hashes("HEAD", week=week)
+    # An image whose Dockerfile the base does not have (new, or moved with its
+    # directory) has no inputs there to compare: it is a change, and is built.
+    before = {
+        image.name: input_hash(image, merge_base, week=week)
+        for image in IMAGES
+        if _tracks(merge_base, image.dockerfile)
+    }
     images = [_entry(image, head[image.name]) for image in IMAGES]
-    return [entry for entry in images if head[entry["name"]] != before[entry["name"]]], images
+    return [entry for entry in images if head[entry["name"]] != before.get(entry["name"])], images
 
 
 Published = Callable[[str, str], bool | None]
@@ -229,6 +267,7 @@ def main(argv: list[str]) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("hashes").add_argument("rev", nargs="?", default="HEAD")
     sub.add_parser("inputs").add_argument("image", choices=[image.name for image in IMAGES])
+    sub.add_parser("build-args").add_argument("image", choices=[image.name for image in IMAGES])
     plan = sub.add_parser("plan")
     side = plan.add_mutually_exclusive_group(required=True)
     side.add_argument("--base")
@@ -241,6 +280,10 @@ def main(argv: list[str]) -> int:
         return 0
     if args.command == "inputs":
         print("\n".join(inputs(next(image for image in IMAGES if image.name == args.image))))
+        return 0
+    if args.command == "build-args":
+        for key, value in build_args(next(image for image in IMAGES if image.name == args.image)).items():
+            print(f"{key}={value}")
         return 0
 
     if args.base:

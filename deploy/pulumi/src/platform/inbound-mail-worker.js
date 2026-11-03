@@ -32,7 +32,7 @@
  * `hmac-sha256`) over `@method`, `@target-uri`, `content-digest`,
  * `content-length` and the two envelope headers, with a `Content-Digest`
  * (RFC 9530) of the exact bytes (`requireInternalSignature` in
- * `frontends/ui/src/lib/internal-auth.ts`). So the Worker buffers the message:
+ * `apps/workspace/bff/internal-auth.ts`). So the Worker buffers the message:
  * the digest is known only after the last byte, and a fixed-length body is
  * what carries a real `Content-Length` (a stream body goes out chunked, and the
  * BFF refuses a request it cannot hold to an exact length). Workers Paid is a
@@ -52,7 +52,7 @@
  * module produce every vector's request byte for byte, and the BFF's spec
  * verifies the same vectors with the library the BFF uses.
  *
- * The key is the one entry of the BFF's key map (`GRID_INBOUND_MAIL_SIGNING_KEYS`)
+ * The key is the one entry of the BFF's key map (`INBOUND_MAIL_SIGNING_KEYS`)
  * this Worker signs with, its secret base64 as in the map. Rotation adds the
  * successor to the map first, then moves this Worker to it (the BFF accepts
  * both meanwhile), then drops the old one (`docs/deployment/kubernetes.md` §3c).
@@ -82,7 +82,7 @@
  * failure before anything is read or sent: the sending servers keep the mail
  * and retry. It is the first lever in an incident, and the state of the first
  * promote (`inboundMailPaused`). The BFF has the same switch
- * (`GRID_INBOUND_MAIL_PAUSED`), which answers 503; the Worker's takes effect
+ * (`INBOUND_MAIL_PAUSED`), which answers 503; the Worker's takes effect
  * the moment Pulumi updates the binding, without waiting for a frontend
  * rollout.
  *
@@ -114,7 +114,7 @@
  *
  * @typedef {object} Env
  * @property {string} BFF_URL The app origin, e.g. `https://app.example.at`: the origin of `WORKOS_REDIRECT_URI`, which the BFF checks `@target-uri` against.
- * @property {string} SIGNING_KEY_ID The keyid this Worker signs with, a key of `GRID_INBOUND_MAIL_SIGNING_KEYS`.
+ * @property {string} SIGNING_KEY_ID The keyid this Worker signs with, a key of `INBOUND_MAIL_SIGNING_KEYS`.
  * @property {string} SIGNING_KEY Its secret, base64 as in the key map.
  * @property {string} PAUSED `"true"` while deliveries are paused.
  */

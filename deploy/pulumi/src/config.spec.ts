@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
-import { RETIRED_VECTOR_KEYS, loadConfig } from "./config";
+import { loadConfig } from './config'
+import { RETIRED_VECTOR_KEYS } from './config/qdrant'
+import { LEGACY_PROJECT } from './names'
 import { baseStackConfig } from "./test-support/stack-config";
 import {
   APP_ZONE,
@@ -475,7 +477,7 @@ describe("chat tier scale-out (ADR-0080)", () => {
 });
 
 /**
- * The malware scanner (ADR-0139). Off by default; on, it runs an image that
+ * The malware scanner (ADR-0150). Off by default; on, it runs an image that
  * parses every hostile file strangers send, so the image is a digest, and the
  * URL the BFF gets is always this stack's own clamd.
  */
@@ -492,20 +494,20 @@ describe("malwareScan", () => {
   });
 
   it("switches on per stack", () => {
-    expect(cfgWith({ "grid-oib:malwareScanEnabled": "true" }).malwareScan.enabled).toBe(true);
+    expect(cfgWith({ [`${LEGACY_PROJECT}:malwareScanEnabled`]: "true" }).malwareScan.enabled).toBe(true);
   });
 
   it.each(["clamav/clamav:1.5.4", "clamav/clamav:latest", "clamav/clamav@sha256:abc"])(
     "refuses an image without a full digest: %s",
     (image) => {
-      expect(loadWith({ "grid-oib:malwareScanImage": image })?.message).toMatch(/malwareScanImage .* pin it by digest/);
+      expect(loadWith({ [`${LEGACY_PROJECT}:malwareScanImage`]: image })?.message).toMatch(/malwareScanImage .* pin it by digest/);
     },
   );
 
   it.each(["fake://", "fake:", "tcp://clamd.elsewhere:3310"])(
     "refuses a scanner URL on any stack, the development fake above all: %s",
     (url) => {
-      expect(loadWith({ "grid-oib:malwareScanUrl": url })?.message).toMatch(/malwareScanUrl .* is refused/);
+      expect(loadWith({ [`${LEGACY_PROJECT}:malwareScanUrl`]: url })?.message).toMatch(/malwareScanUrl .* is refused/);
     },
   );
 });

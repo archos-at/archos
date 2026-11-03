@@ -1,7 +1,7 @@
-# Piloti
+# ARCHOS
 
-Piloti is the workspace for architects: an Austrian planning office runs its
-work in it, every project and every process, and Piloti, the agent, is a
+ARCHOS is the workspace for architects: an Austrian planning office runs its
+work in it, every project and every process, and ARCHOS, the agent, is a
 colleague in that office who does part of the work, with a source for every
 claim. Building law is one of the things it knows, not the frame around it
 ([`VISION.md`](VISION.md)). This file is its domain language: what the words mean, in the product and
@@ -21,9 +21,11 @@ equivalents are in
 
 ## The office and its work
 
-**Piloti**:
-The product, and the colleague persona that works in it. The name users see.
-_Avoid_: GRID in anything a user reads; GRID is the repository's and the code's name.
+**ARCHOS**:
+The product, and the colleague persona that works in it. The name users see,
+read from `packages/brand/identity.json` wherever code shows it (ADR-0149).
+_Avoid_: a retired product name in anything a person or an agent reads, and any
+product name in an identifier.
 
 **Organization** (Büro):
 A planning office, and the boundary nothing crosses: its documents, memory,
@@ -328,19 +330,16 @@ that does not match the source word for word, or changes what it negates
 (*nicht*, *kein*, *nur*, *außer*), is marked *nicht wörtlich in der Quelle
 belegt* (not verbatim in the source) and lowers the answer's confidence.
 
-**Provenance class** (Belegart):
-Where one sentence of an answer comes from: *quoted* or *cited* (a passage),
-*record* (an object in the workspace, read this turn), *action* (a proposal this
-turn filed), *measured* (the building model), *reasoning* (an Einschätzung drawn
-from a cited sentence), *model knowledge* (nothing in the answer behind it), or
-*cited, not verified*. Every sentence shows where it comes from.
-_Code_: `claim_provenance`, `claim_stamps`.
-
 **Confidence** (Sicherheit):
-How far an answer can be relied on: high, medium or low. It is held to the
-weakest sentence the answer rests on (every statement about the law, a value
-or a deadline). A statement about the law needs a cited passage; a record or a
-measurement backs a fact about the office or the building, never the law.
+How far an answer can be relied on: high, medium or low. A grading model reads
+the answer against everything its turn retrieved and read (passages, workspace
+records, the project profile, measurements, readings off drawings) and names
+the statements it relies on that nothing backs or that a source contradicts.
+A statement about the law needs a passage of that law; a record or a
+measurement backs a fact about the office or the building, never the law. A
+quote the source does not hold word for word lowers the level. When the check
+cannot run, no level is shown (*Belegprüfung nicht verfügbar*).
+_Code_: `claim_judge`, `confidence_check`.
 
 **Answer kind**:
 The shape of an answer: *direct*, *walkthrough*, *ruling* or *handoff*. Only a
@@ -444,7 +443,7 @@ person and on their budget, in a private conversation of theirs.
 In the A2A protocol an ask is a *task*, its conversation the *context*, and
 its answer an *artifact*; that is the protocol's word, not an Aufgabe.
 _Avoid_: task, Aufgabe or job for an ask, outside the A2A wire.
-_Code_: `piloti_asks`; the states are A2A's: `submitted`, `working`,
+_Code_: `agent_asks`; the states are A2A's: `submitted`, `working`,
 `completed`, `canceled`, `failed`, `rejected`.
 
 ## Sharing and keeping

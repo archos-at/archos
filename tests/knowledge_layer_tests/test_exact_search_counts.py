@@ -22,21 +22,21 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from knowledge_layer.browse import group_matches
+from knowledge_layer.browse import match_snippets
+from knowledge_layer.browse import phrase_pattern
+from knowledge_layer.chunk_positions import own_texts
+from knowledge_layer.chunk_positions import split_prefix
+from knowledge_layer.qdrant import retrieval
+from knowledge_layer.register import KnowledgeRetrievalConfig
+from knowledge_layer.register import knowledge_retrieval
 
-from aiq_agent.common.source_kinds import Shelf
-from aiq_agent.knowledge.inventory import set_turn_documents
-from aiq_agent.knowledge.schema import AvailableDocument
-from aiq_agent.knowledge.schema import Chunk
-from aiq_agent.knowledge.schema import ContentType
-from aiq_agent.knowledge.scoping import ScopedCollection
-from sources.knowledge_layer.src.browse import group_matches
-from sources.knowledge_layer.src.browse import match_snippets
-from sources.knowledge_layer.src.browse import phrase_pattern
-from sources.knowledge_layer.src.chunk_positions import own_texts
-from sources.knowledge_layer.src.chunk_positions import split_prefix
-from sources.knowledge_layer.src.qdrant import retrieval
-from sources.knowledge_layer.src.register import KnowledgeRetrievalConfig
-from sources.knowledge_layer.src.register import knowledge_retrieval
+from agent.common.source_kinds import Shelf
+from agent.knowledge.inventory import set_turn_documents
+from agent.knowledge.schema import AvailableDocument
+from agent.knowledge.schema import Chunk
+from agent.knowledge.schema import ContentType
+from agent.knowledge.scoping import ScopedCollection
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "turn_census"))
@@ -197,7 +197,7 @@ class TestLegacyPointsWithoutAnOrdinal:
         assert _counts([first, second], "Druckknopfmelder") == [("Altbestand.pdf", 2, [4, 5])]
 
     def test_past_its_bound_a_page_is_not_compared_pairwise_and_counts_as_stored(self):
-        from sources.knowledge_layer.src.chunk_positions import MAX_LEGACY_PAGE_CHUNKS
+        from knowledge_layer.chunk_positions import MAX_LEGACY_PAGE_CHUNKS
 
         first = _legacy(f"Erster Absatz.\n{self.HEAD}", page=4, chunk_id="b")
         second = _legacy(f"{self.HEAD}\nWeiter.", page=4, chunk_id="a")
@@ -277,12 +277,12 @@ class _Store:
 @pytest.fixture
 def search_with(monkeypatch):
     monkeypatch.setattr(
-        "aiq_agent.knowledge.scoping.get_scoped_collections_from_context",
+        "agent.knowledge.scoping.get_scoped_collections_from_context",
         lambda: [ScopedCollection(COLLECTION, Shelf.PROJECT)],
     )
-    monkeypatch.setattr("aiq_agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
+    monkeypatch.setattr("agent.knowledge.ingest_status_store.in_flight_files", lambda collections: {})
     for name in ("get_document_doc_classes", "get_document_display_titles", "get_document_folder_paths"):
-        monkeypatch.setattr(f"aiq_agent.knowledge.factory.{name}", lambda _c, _f: {})
+        monkeypatch.setattr(f"agent.knowledge.factory.{name}", lambda _c, _f: {})
     set_turn_documents(
         [
             AvailableDocument(file_name=name, collection=COLLECTION, shelf="project", summary="x")
@@ -291,10 +291,10 @@ def search_with(monkeypatch):
     )
 
     def install(retriever):
-        monkeypatch.setattr("sources.knowledge_layer.src.register._get_retriever", lambda config: retriever)
-        monkeypatch.setattr("sources.knowledge_layer.src.register._initialize_ingestor", lambda config, llm: None)
-        monkeypatch.setattr("aiq_agent.knowledge.factory.configure_summary_db", lambda url: None)
-        monkeypatch.setattr("aiq_agent.knowledge.norm_store.configure_norm_store", lambda url: None)
+        monkeypatch.setattr("knowledge_layer.register._get_retriever", lambda config: retriever)
+        monkeypatch.setattr("knowledge_layer.register._initialize_ingestor", lambda config, llm: None)
+        monkeypatch.setattr("agent.knowledge.factory.configure_summary_db", lambda url: None)
+        monkeypatch.setattr("agent.knowledge.norm_store.configure_norm_store", lambda url: None)
         return retriever
 
     yield install
@@ -325,7 +325,7 @@ class TestThroughTheTool:
 
     async def test_a_capped_scan_that_read_only_breadcrumbs_is_not_a_no(self, search_with, monkeypatch):
         # Not reachable before the count read only a chunk's own text: then every capped scan had a match.
-        from sources.knowledge_layer.src import browse
+        from knowledge_layer import browse
 
         monkeypatch.setattr(browse, "MAX_MATCH_CHUNKS", 2)
         subsections = [c for c in _as_chunks(REPORT) if c.metadata.get("clause_id") in ("3.1", "3.2")]
@@ -336,7 +336,7 @@ class TestThroughTheTool:
 
 def test_the_adapter_hands_the_search_each_chunks_place_in_its_file(monkeypatch):
     """``chunk_ordinal`` is store-only metadata; without it on the hit no overlap could be found."""
-    from knowledge_layer.llamaindex.adapter import LlamaIndexRetriever
+    from knowledge_layer.llamaindex.retriever import LlamaIndexRetriever
     from knowledge_layer.qdrant import retrieval as adapter_retrieval
     from knowledge_layer.qdrant.search import Hit
 
