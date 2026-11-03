@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gateOperatorRollout, operatorManifest } from "./rabbitmq";
+import { RABBITMQ_OPERATOR_VERSION, gateOperatorRollout, operatorManifest } from "./rabbitmq";
 
 describe("the vendored RabbitMQ operator manifest", () => {
   const objects = operatorManifest();
@@ -8,6 +8,12 @@ describe("the vendored RabbitMQ operator manifest", () => {
   it("holds the operator's one Deployment and its CRDs", () => {
     expect(deployments.map((d) => (d.metadata as { name: string }).name)).toEqual(["rabbitmq-cluster-operator"]);
     expect(objects.some((o) => o.kind === "CustomResourceDefinition")).toBe(true);
+  });
+
+  // A file renamed to a new version but holding an older release would pass everything else.
+  it("is the release RABBITMQ_OPERATOR_VERSION names", () => {
+    const pod = (deployments[0].spec as { template: { spec: { containers: { image: string }[] } } }).template.spec;
+    expect(pod.containers.map((c) => c.image)).toContain(`ghcr.io/rabbitmq/cluster-operator:${RABBITMQ_OPERATOR_VERSION}`);
   });
 
   // The policy pack's mandatory rules (deploy/pulumi/policy/index.ts) refused the

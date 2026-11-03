@@ -62,6 +62,9 @@ function devStackConfig(): Record<string, string> {
 
 type Workload = { kind: string; name: string; spec: Record<string, any> };
 
+/** The pack's CREATED_WITH_POD_MANAGEMENT_POLICY, the StatefulSets created with the field. */
+const CREATED_WITH_POD_MANAGEMENT_POLICY: Record<string, string> = { qdrant: "Parallel" };
+
 const WORKLOAD_TYPES: Record<string, string> = {
   "kubernetes:apps/v1:Deployment": "Deployment",
   "kubernetes:apps/v1:StatefulSet": "StatefulSet",
@@ -99,6 +102,10 @@ function violations(w: Workload): string[] {
   if (w.kind === "StatefulSet") {
     if ((w.spec.updateStrategy?.type ?? "RollingUpdate") !== "RollingUpdate") out.push("statefulset-rollout-gated: OnDelete");
     if (!(w.spec.minReadySeconds >= 1)) out.push("statefulset-rollout-gated: minReadySeconds");
+    const policy = w.spec.podManagementPolicy;
+    if (policy !== undefined && CREATED_WITH_POD_MANAGEMENT_POLICY[w.name] !== policy) {
+      out.push("statefulset-no-immutable-field-writes: podManagementPolicy");
+    }
   }
   const grace = pod.terminationGracePeriodSeconds;
   if (grace === undefined || grace < 5) out.push("workload-graceful-termination");
