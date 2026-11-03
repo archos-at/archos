@@ -611,8 +611,8 @@ sender once, when the mail is held (`inbound_mails.sender_class`, migration
 
 | Class | When | What happens |
 |---|---|---|
-| `verified_writer` | DKIM passes aligned with the From domain (DMARC alignment), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address (or the mail is that member's own Bcc copy), and no replay or date flag is set | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
-| `unverified_writer` | The From address is such a member, but the signature fails, is absent, or carries a replay or date flag | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
+| `verified_writer` | DKIM passes aligned with the From domain (DMARC alignment), the full From address is a member of the office who holds `project:documents:write` on the project, the signature names the project address in To or Cc, and no replay or date flag is set. A member's own Bcc copy does not qualify: its flag (`bcc_own`) is told apart from a recipient re-sending the member's signed mail to the project by time alone, and time does not tell them apart | Filed directly, as that member: a decision row `via = 'sender'` in their name, and the filing job runs in their session, so folder write, the name check, quota and accepted types are asked again |
+| `unverified_writer` | The From address is such a member, but the signature fails, is absent, does not name the project (a Bcc copy included), or carries a replay or date flag | Held. Only that member can release it, by answering "Did you send this?" (`acknowledged_sender`); any writer may dismiss it |
 | `office_member` | The From address is an office member without write rights on the project | Held for the project's writers |
 | `external` | The From address is outside the office | Held for the project's writers; discarded after 14 days (`INBOUND_MAIL_EXTERNAL_WAIT_DAYS`), with no restore window |
 

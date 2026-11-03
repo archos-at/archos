@@ -6,10 +6,17 @@
  *
  * | Class | When | What happens |
  * |---|---|---|
- * | `verified_writer` | aligned DKIM pass, From = a member who may write in the project, addressed to the project (or their own Bcc copy), no replay or date flag, not automatic | filed directly, as that member (`./sender-file-job.ts`) |
- * | `unverified_writer` | From = such a member, but no aligned pass, or a replay or date flag, or automatic | held; only that member releases it, saying they sent it |
+ * | `verified_writer` | aligned DKIM pass, From = a member who may write in the project, the signed To or Cc names the project, no replay or date flag, not automatic | filed directly, as that member (`./sender-file-job.ts`) |
+ * | `unverified_writer` | From = such a member, but no aligned pass, or not addressed to the project (their own Bcc copy included), or a replay or date flag, or automatic | held; only that member releases it, saying they sent it |
  * | `office_member` | From = a member without write rights in the project | held for the project's writers |
  * | `external` | From = nobody in the office | held for the project's writers; discarded after 14 days |
+ *
+ * A member's own Bcc copy (`bcc_own`) is NOT a direct filing's evidence: the
+ * flag is told apart from a recipient re-sending the member's signed mail to
+ * someone else by time alone, and time does not tell them apart. Whoever got
+ * the mail could re-send its unchanged bytes to the project within the window
+ * and have it filed as the member. A Bcc copy waits for its member's one press
+ * („Ja, gesendet“), as following refuses it (`follow-eligibility.ts`).
  *
  * The database holds the same rule (`inbound_mails_verified_writer_evidence`),
  * so a class this module would not give is a refused statement, not a quiet
@@ -37,7 +44,8 @@ export interface SenderClassInput {
 export function isVerifiedWriterEvidence(input: Omit<SenderClassInput, 'writes'>): boolean {
   if (input.trust !== 'member_verified' || input.reason !== 'dkim_pass' || !input.senderUserId || input.automatic) return false
   if (input.flags.some((flag) => REPLAY_FLAGS.includes(flag))) return false
-  return !input.flags.includes('not_addressed_to_project') || input.flags.includes('bcc_own')
+  // A Bcc copy (`bcc_own`) is no exception: see the module header.
+  return !input.flags.includes('not_addressed_to_project')
 }
 
 /** The class of a held mail's sender. See the module header. */

@@ -47,8 +47,10 @@
  * A verified mail whose SIGNED To and Cc do not name this project's token is
  * `not_addressed_to_project`: a member's genuine mail to someone else, replayed
  * into the project by a recipient, or the member's own Bcc copy. The latter is
- * told apart by time: `member_verified` with a signed Date within
- * {@link BCC_WINDOW_MS} of receipt also gets `bcc_own`. The question is asked of
+ * guessed by time: `member_verified` with a signed Date within
+ * {@link BCC_WINDOW_MS} of receipt also gets `bcc_own`. Time does not tell a
+ * Bcc copy from a recipient re-sending the mail within the window, so the flag
+ * is a label and never a direct filing's evidence (`./sender-class`). The question is asked of
  * verified mail only; an unsigned To says whatever the sender typed, and
  * unverified mail is never pre-selected or followed anyway.
  *

@@ -5,6 +5,7 @@
  * `scripts/rls-test-db.sh`); this is the code that must never ask it for more.
  */
 import { describe, expect, it } from 'vitest'
+import { judgeSender, type SenderAuthentication } from './sender-auth'
 import { isVerifiedWriterEvidence, onlySenderReleases, senderClassOf, senderWaitReason, type SenderClassInput } from './sender-class'
 
 const WRITER = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
@@ -22,7 +23,33 @@ const input = (overrides: Partial<SenderClassInput> = {}): SenderClassInput => (
 describe('senderClassOf', () => {
   it('a writer whose domain signed the mail to the project is a verified writer', () => {
     expect(senderClassOf(input())).toBe('verified_writer')
-    expect(senderClassOf(input({ flags: ['not_addressed_to_project', 'bcc_own'] }))).toBe('verified_writer')
+  })
+
+  it('a writer’s own Bcc copy waits for that writer: time cannot tell it from a recipient re-sending their mail', () => {
+    expect(senderClassOf(input({ flags: ['not_addressed_to_project', 'bcc_own'] }))).toBe('unverified_writer')
+    expect(isVerifiedWriterEvidence(input({ flags: ['not_addressed_to_project', 'bcc_own'] }))).toBe(false)
+  })
+
+  it('a member’s signed mail to an outsider, re-sent by that outsider to the project within 24 hours, waits', () => {
+    // Signed To: the outsider, sent at 09:00; the outsider re-sends the unchanged bytes to the project at 12:00.
+    const replayed: SenderAuthentication = {
+      fromAddress: 'miriam@buero.example',
+      fromDomain: 'buero.example',
+      verified: true,
+      reason: 'dkim_pass',
+      signerDomain: 'buero.example',
+      signedHeaders: ['from', 'to', 'subject', 'date', 'message-id'],
+      signedRecipientNamesProject: false,
+      authenticationResults: 'inbox.example.org; dkim=pass header.d=buero.example',
+    }
+    const verdict = judgeSender(replayed, {
+      memberUserId: WRITER,
+      receivedAt: new Date('2026-11-03T12:00:00Z'),
+      sentAtHeader: new Date('2026-11-03T09:00:00Z'),
+    })
+    expect(verdict.flags).toEqual(['not_addressed_to_project', 'bcc_own'])
+    const { trust, reason, senderUserId, flags } = verdict
+    expect(senderClassOf({ trust, reason, senderUserId, flags, automatic: false, writes: true })).toBe('unverified_writer')
   })
 
   it('a writer’s mail without an aligned pass waits for that writer: failed, absent, or a spoofed From', () => {

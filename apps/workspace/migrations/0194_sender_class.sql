@@ -6,10 +6,13 @@
 --
 -- 0193 held every mail for a person. The product owner's rule replaces that
 -- guarantee: a mail whose From is a member who may write in the project, whose
--- domain signed it (DKIM aligned with the From, DMARC alignment), addressed to
--- the project (or the member's own Bcc copy), without a replay or date flag and
--- not sent automatically, is filed directly, AS THAT MEMBER. Everything else
--- still waits, and who may release it depends on who it claims to be from.
+-- domain signed it (DKIM aligned with the From, DMARC alignment), whose signed
+-- To or Cc names the project, without a replay or date flag and not sent
+-- automatically, is filed directly, AS THAT MEMBER. Everything else still
+-- waits, and who may release it depends on who it claims to be from. A
+-- member's own Bcc copy (`bcc_own`) waits for that member: its flag is told
+-- apart from a recipient re-sending the member's signed mail by time alone,
+-- and time does not tell them apart.
 --
 -- ## One column, written once
 --
@@ -18,7 +21,8 @@
 --
 --   verified_writer    the rule above holds: filed by its sender, without a click
 --   unverified_writer  From is such a member, but the signature fails, is absent,
---                      or carries a replay or date flag: only that member
+--                      or does not name the project (a Bcc copy included), or
+--                      carries a replay or date flag: only that member
 --                      releases it, saying they sent it (`acknowledged_sender`)
 --   office_member      From is a member without write rights in the project
 --   external           From is nobody in the office
@@ -73,14 +77,15 @@ ALTER TABLE "inbound_mails"
   ADD CONSTRAINT "inbound_mails_sender_class_member"
     CHECK ("sender_class" IS NULL OR ("sender_class" = 'external') = ("sender_trust" LIKE 'external\_%')),
   -- The evidence of a direct filing: an aligned DKIM pass for a named member,
-  -- addressed to the project or the member's own Bcc copy, no replay or date
-  -- flag, not automatic.
+  -- a signed To or Cc naming the project (never a Bcc copy: an outsider who
+  -- received the member's mail can re-send it within the Bcc window), no replay
+  -- or date flag, not automatic.
   ADD CONSTRAINT "inbound_mails_verified_writer_evidence"
     CHECK ("sender_class" IS DISTINCT FROM 'verified_writer' OR (
       "sender_trust" = 'member_verified' AND "sender_reason" = 'dkim_pass' AND "sender_user_id" IS NOT NULL
       AND NOT "automatic"
       AND NOT ("sender_flags" && ARRAY['stale_date', 'date_out_of_range', 'message_id_reused', 'already_filed']::text[])
-      AND (NOT ('not_addressed_to_project' = ANY ("sender_flags")) OR 'bcc_own' = ANY ("sender_flags"))));
+      AND NOT ('not_addressed_to_project' = ANY ("sender_flags"))));
 --> statement-breakpoint
 -- The verdict is the hold's: set in `received -> waiting` (`holdMail`'s
 -- compare-and-set) and frozen after it; a mail never goes back to `receiving`

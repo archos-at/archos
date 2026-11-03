@@ -3028,7 +3028,8 @@ M4="14000000-0000-4000-8000-000000000194"   # office_member O
 M5="15000000-0000-4000-8000-000000000194"   # external, unsigned
 M6="16000000-0000-4000-8000-000000000194"   # external, signed
 M7="17000000-0000-4000-8000-000000000194"   # verified_writer W, its raw message did not scan clean
-M8="18000000-0000-4000-8000-000000000194"   # verified_writer W, the member's own Bcc copy
+M8="18000000-0000-4000-8000-000000000194"   # unverified_writer W, the member's own Bcc copy (or a recipient's replay of it)
+M9="1a000000-0000-4000-8000-000000000194"   # verified_writer W, filed by the runtime role
 MR="19000000-0000-4000-8000-000000000194"   # received, for the holds that must be refused
 MB="1b000000-0000-4000-8000-000000000194"   # verified_writer W, in org B
 received194 "$M1"; held194 "$M1" "'member_verified', 'dkim_pass', '$W194', '{}', false, 'verified_writer'"
@@ -3039,8 +3040,12 @@ waiting194 "$M5" external_unverified dkim_none NULL external
 waiting194 "$M6" external_verified dkim_pass NULL external
 received194 "$M7"; sql_in sender_0194 <<<"UPDATE inbound_mails SET raw_scan_status = 'failed' WHERE id = '$M7';"
 held194 "$M7" "'member_verified', 'dkim_pass', '$W194', '{}', false, 'verified_writer'"
-received194 "$M8"; held194 "$M8" "'member_verified', 'dkim_pass', '$W194', '{not_addressed_to_project,bcc_own}', false, 'verified_writer'"
-check_in sender_0194 "SELECT sender_class FROM inbound_mails WHERE id = '$M8'" "verified_writer" "0194: a member's own Bcc copy of their signed mail is a verified writer's"
+received194 "$M8"
+# A Bcc copy is not told apart from a recipient re-sending the member's signed mail within the window: it waits for its member.
+refused_in sender_0194 "${V194}$HOLD194('member_verified', 'dkim_pass', '$W194', '{not_addressed_to_project,bcc_own}', false, 'verified_writer') WHERE id = '$M8'" "inbound_mails_verified_writer_evidence" "a member's Bcc copy (or a recipient's replay of their signed mail within 24 h) as a verified writer's"
+held194 "$M8" "'member_verified', 'dkim_pass', '$W194', '{not_addressed_to_project,bcc_own}', false, 'unverified_writer'"
+check_in sender_0194 "SELECT sender_class FROM inbound_mails WHERE id = '$M8'" "unverified_writer" "0194: a member's own Bcc copy of their signed mail waits for that member"
+received194 "$M9"; held194 "$M9" "'member_verified', 'dkim_pass', '$W194', '{}', false, 'verified_writer'"
 received194 "$MR"
 received194 "$MB" org_0194_b "$PB194" ab000000-0000-4000-8000-000000000194
 held194 "$MB" "'member_verified', 'dkim_pass', '$W194', '{}', false, 'verified_writer'"
@@ -3085,7 +3090,7 @@ SQL
 T1="21000000-0000-4000-8000-000000000194"; T2="22000000-0000-4000-8000-000000000194"; T3="23000000-0000-4000-8000-000000000194"
 T4="24000000-0000-4000-8000-000000000194"; T5="25000000-0000-4000-8000-000000000194"; T6="26000000-0000-4000-8000-000000000194"
 T7="27000000-0000-4000-8000-000000000194"; A1="3a000000-0000-4000-8000-000000000194"; AM="3b000000-0000-4000-8000-000000000194"
-check_in sender_0194 "SELECT count(*) FROM inbound_mail_parts" "13" "0194: every held mail has its text (MR is not held, the older outsider's has none), M1 two attachments, MB one"
+check_in sender_0194 "SELECT count(*) FROM inbound_mail_parts" "14" "0194: every held mail has its text (MR is not held, the older outsider's has none), M1 two attachments, MB one"
 DEC194="INSERT INTO inbound_mail_decisions (id, organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text, screening_release, acknowledged_sender, acknowledged_risk) VALUES"
 # A text filed as a new thread, an attachment filed into the root, a dismissal and a restore.
 text194() { echo "$DEC194 (${6:-gen_random_uuid()}, 'org_0194_a', '$P194', '$1', '$2', 'file', '$3', '$4', '', 'Verlauf', 'create', 'full', false, $5, false)"; }
@@ -3107,6 +3112,7 @@ refused_in sender_0194 "${V194}$(text194 "$M5" "$T5" "$W194" sender false)" "$OW
 refused_in sender_0194 "${V194}$(text194 "$M6" "$T6" "$W194" sender false)" "$OWN194" "a direct filing of an outsider's signed mail"
 refused_in sender_0194 "${V194}$(file194 "$M1" "$AM" "$W194" sender false)" "$OWN194" "a direct filing of a part with a macro"
 refused_in sender_0194 "${V194}$(text194 "$M7" "$T7" "$W194" sender false)" "$OWN194" "a direct filing of a mail whose raw message did not scan clean"
+refused_in sender_0194 "${V194}$(text194 "$M8" "28000000-0000-4000-8000-000000000194" "$W194" sender false)" "$OWN194" "a direct filing of a member's Bcc copy, which a recipient's replay looks like"
 refused_in sender_0194 "${V194}$(text194 "$M1" "$T1" "system:inbound_mail" sender false)" "$OWN194" "a direct filing by a system actor"
 refused_in sender_0194 "$(act194 "$M1" "$A1" dismiss "$W194" sender)" "inbound_mail_decisions_sender_files_clean" "a direct dismissal"
 refused_in sender_0194 "$(file194 "$M1" "$A1" "$W194" sender false true)" "inbound_mail_decisions_sender_files_clean" "a direct filing that releases the name check"
@@ -3152,14 +3158,14 @@ if ! grep -q "row-level security" <<<"$RW194"; then
 fi
 PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d sender_0194 -qtA -v ON_ERROR_STOP=1 \
   -c "SET grid.organization_id = 'org_0194_a'" \
-  -c "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name) VALUES ('org_0194_a', '$P194', '$M8', '28000000-0000-4000-8000-000000000194', 'file', '$W194', 'sender', '', 'Notiz')" >/dev/null 2>&1 && {
+  -c "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name) VALUES ('org_0194_a', '$P194', '$M9', '2a000000-0000-4000-8000-000000000194', 'file', '$W194', 'sender', '', 'Notiz')" >/dev/null 2>&1 && {
   echo "MIGRATION ASSERTION FAILED on sender_0194: a text decision without its thread was accepted" >&2
   exit 1
 }
 PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d sender_0194 -qtA -v ON_ERROR_STOP=1 \
   -c "SET grid.organization_id = 'org_0194_a'" \
-  -c "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text) VALUES ('org_0194_a', '$P194', '$M8', '28000000-0000-4000-8000-000000000194', 'file', '$W194', 'sender', '', 'Notiz', 'create', 'full')" >/dev/null || {
-  echo "MIGRATION ASSERTION FAILED on sender_0194: the runtime role could not file a verified writer's own Bcc copy as them" >&2
+  -c "INSERT INTO inbound_mail_decisions (organization_id, project_id, mail_id, part_id, action, decided_by, via, folder_path, file_name, thread_action, message_text) VALUES ('org_0194_a', '$P194', '$M9', '2a000000-0000-4000-8000-000000000194', 'file', '$W194', 'sender', '', 'Notiz', 'create', 'full')" >/dev/null || {
+  echo "MIGRATION ASSERTION FAILED on sender_0194: the runtime role could not file a verified writer's own mail as them" >&2
   exit 1
 }
 PL194=$(PGPASSWORD="$RUNTIME_PASSWORD" $PGBIN/psql -h 127.0.0.1 -p "$PORT" -U app_rw -d sender_0194 -qtA -v ON_ERROR_STOP=1 \
