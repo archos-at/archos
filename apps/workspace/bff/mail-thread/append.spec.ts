@@ -19,6 +19,7 @@ vi.mock('./write-repository', () => ({
   findEntryAttachmentRows: vi.fn(async () => new Map()),
   findThreadEntryRows: vi.fn(async () => []),
   findWritableThread: vi.fn(async () => null),
+  isOriginalFiledByAnother: vi.fn(async () => false),
 }))
 vi.mock('@/lib/documents/document-dispatch', () => ({ uploadDocument: vi.fn() }))
 vi.mock('@/lib/inbound-mail/repository', () => ({
@@ -79,6 +80,7 @@ import {
   findCurrentVersions,
   findThreadEntryRows,
   findWritableThread,
+  isOriginalFiledByAnother,
   releaseRenderLease,
   type AppendCommit,
 } from './write-repository'
@@ -596,6 +598,43 @@ describe('appending to a thread', () => {
     expect(vi.mocked(uploadDocument).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(commitAppend).mock.invocationCallOrder[0]!
     )
+  })
+
+  describe('a forward whose original the project already filed (B2, migration 0195)', () => {
+    const forward = (ownText: string) =>
+      request({
+        mail: heldMail({
+          originalAuthorAddress: 'anna.huber@ma37.wien.gv.at',
+          originalAuthorName: 'Mag. Anna Huber',
+          originalSentAt: new Date('2026-10-20T08:15:00Z'),
+          originalSubject: 'Bescheid Hubergasse 14',
+          originalMessageId: 'real-bescheid-123@ma37.wien.gv.at',
+          originalSource: 'attachment',
+        }),
+        read: read({ ownText, quoted: [] }),
+      })
+
+    it('names the original’s author on the first forward that files it', async () => {
+      await appendInboundMessage(forward('Zur Info, der Bescheid.'))
+      const commit = vi.mocked(commitAppend).mock.calls[0]![0] as AppendCommit
+      expect(commit.entry).toMatchObject({ authorName: 'Mag. Anna Huber', authorMessageId: 'real-bescheid-123@ma37.wien.gv.at' })
+      expect(isOriginalFiledByAnother).toHaveBeenCalledWith(PROJECT_ID, 'real-bescheid-123@ma37.wien.gv.at', MAIL_ID)
+    })
+
+    it('files a colleague’s second forward as their own message: their new text and section, never the original twice', async () => {
+      vi.mocked(isOriginalFiledByAnother).mockResolvedValueOnce(true)
+      const outcome = await appendInboundMessage(forward('Anbei mein Antwortentwurf, Antwort_v2.pdf.'))
+
+      expect(outcome).toMatchObject({ kind: 'filed' })
+      const commit = vi.mocked(commitAppend).mock.calls[0]![0] as AppendCommit
+      expect(commit.entry.ownText).toBe('Anbei mein Antwortentwurf, Antwort_v2.pdf.')
+      expect(commit.entry).not.toHaveProperty('authorName')
+      expect(commit.entry).not.toHaveProperty('authorMessageId')
+      expect(commit.entry.heading).toContain('DI Petra Weber')
+      const uploaded = await vi.mocked(uploadDocument).mock.calls[0]![1].file.text()
+      expect(uploaded).toContain('Anbei mein Antwortentwurf')
+      expect(uploaded).not.toContain('Mag. Anna Huber')
+    })
   })
 
   it('does not upload again bytes the document already holds (a retry whose answer was lost)', async () => {

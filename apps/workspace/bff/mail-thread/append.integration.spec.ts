@@ -16,6 +16,7 @@
  * columns under the entry's own key, and the raw forgotten; a detach that
  * MOVES the row (no DELETE grant) with its Message-IDs and ends the follows;
  * which mail brought a document, only through a thread the reader may read;
+ * an original another mail's entry holds, found (migration 0195);
  * and the filing job's claim, outcomes and settle as compare-and-sets.
  */
 
@@ -361,6 +362,27 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
           sql`UPDATE mail_thread_entry_attachments SET section_name = 'S-101_C.pdf' WHERE entry_id = ${commit.entry.id!}::uuid`
         )
       ).rejects.toThrow()
+    })
+  })
+
+  describe('an original filed once (B2, migration 0195)', () => {
+    it('is found from another mail of the project, never from the mail its own entry came from', async () => {
+      const mail = await heldMail()
+      const thread = await document('Bescheid.md')
+      const attachmentDoc = await document('Bescheid-Anlage.pdf')
+      const original = `orig-${STAMP}@ma37.wien.gv.at`
+      const commit = newThreadCommit(
+        mail,
+        { id: crypto.randomUUID(), documentId: thread.id, versionId: thread.versionId },
+        { documentId: attachmentDoc.id, versionId: attachmentDoc.versionId }
+      )
+      commit.entry = { ...commit.entry, authorName: 'Mag. Anna Huber', authorMessageId: original }
+      expect(await inTenant(() => write.commitAppend(commit))).toBe('committed')
+
+      expect(await inTenant(() => write.isOriginalFiledByAnother(projectId, original, crypto.randomUUID()))).toBe(true)
+      // A retry of the same mail's filing renders its section as before.
+      expect(await inTenant(() => write.isOriginalFiledByAnother(projectId, original, mail.mailId))).toBe(false)
+      expect(await inTenant(() => write.isOriginalFiledByAnother(projectId, `other-${original}`, crypto.randomUUID()))).toBe(false)
     })
   })
 

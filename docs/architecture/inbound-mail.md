@@ -168,14 +168,18 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    (`receive-original.ts`, migration 0195): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on
-   the row (`original_*`), project addresses redacted. A second forward of an
-   original the project holds is dropped as `duplicate_original`, silently and
-   audited like the other drops, never bounced: while the first is open the
-   partial unique index `uniq_inbound_mails_open_original` refuses it, and once
-   the first was filed its entry's `author_message_id` does. A dismissed or
-   expired first mail blocks nothing after it settles. An inline forward has no
-   Message-ID and is never a duplicate: its header block is the forwarder's
-   text;
+   the row (`original_*`), project addresses redacted. **An original's
+   Message-ID never drops a delivery**: it is whatever the attached `.eml`
+   says, written by the delivery's sender before anyone checked who that is,
+   so an outsider could claim the id of a mail they sent the architect and
+   have the architect's real forward dropped (B2 of the 2026-11 ship review).
+   Every forward is held with its own text and attachments. The id counts at
+   filing only (`lib/mail-thread/append.ts`): when another mail's entry in the
+   project already holds that original (`mail_thread_entries.author_message_id`),
+   the forward is filed as its forwarder's own message, never as a second
+   section under the original's author. An attachment the project already
+   holds byte for byte is flagged `duplicate_of`, as any attachment is. An
+   inline forward has no Message-ID: its header block is the forwarder's text;
 4. **authenticate the sender** (`sender-auth.ts`, mailauth 8 without an IP, so
    SPF is never read): trust, reason, signer domain, signed headers, flags;
 5. read the MIME tree (`mime.ts`, postal-mime 4 and `file-type`) against the

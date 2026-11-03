@@ -22,7 +22,7 @@
  *  3. Drop auto-replies, delivery reports and loops, erasing the raw message by
  *     its key (a legal hold defers that). List and bulk mail is kept, marked
  *     `automatic`. A forward records its original's author (`./receive-original`);
- *     a second forward of an original the project holds is dropped the same way.
+ *     its original's Message-ID is the sender's word and never drops a delivery.
  *  4. Authenticate the sender (DKIM and DMARC, `sender-auth.ts`); a transient verdict retries.
  *  5. Read the MIME tree (`mime.ts`) against the office's accepted types, then
  *     find the member by exact address, or an outsider's display name that
@@ -134,8 +134,8 @@ export async function runInboundMailReceive(
 
   const automatic = classifyAutomaticMail({ headers: rawHeaderFields(raw), envelopeFrom: mail.envelopeFrom, inboundDomain: domain })
   if (automatic.outcome === 'drop') return drop(mail, automatic.reason, attempt)
-  // A forward: who wrote the original, and a second forward of one the project holds is dropped (`./receive-original`).
-  if ((await recordOriginal(mail, raw, domain)) === 'duplicate') return drop(mail, 'duplicate_original', attempt)
+  // A forward: who wrote the original (`./receive-original`). Never a reason to drop: anyone can write its Message-ID.
+  await recordOriginal(mail, raw, domain)
 
   let held: boolean
   try {

@@ -4,5 +4,5 @@ features:
     A mail forwarded to a project address is now cited by the person who
     wrote it and the date they wrote it, marked „Domain nicht bestätigt“, with
     the colleague who forwarded it named beneath, in the E-Mail-Verlauf and in
-    answers that cite its attachments. When two colleagues forward the same
-    original mail as an attachment into one project, it is kept once.
+    answers that cite its attachments. Forwarded twice, the original is named
+    once; every forward is still kept with its own text and attachments.

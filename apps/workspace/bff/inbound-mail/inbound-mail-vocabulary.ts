@@ -53,14 +53,13 @@ export type InboundMailCapNotice = (typeof INBOUND_MAIL_CAP_NOTICES)[number]
  * - `received`: staged whole, the receive job has not read it yet.
  * - `waiting`: a person's turn (only after the whole message was scanned).
  * - `settled`: no part waits or is being filed; the row is scrubbed to ids.
- * - `dropped`: an auto-reply, a delivery report, a loop, or a second forward of
- *   an original the project already holds; counted, never shown.
+ * - `dropped`: an auto-reply, a delivery report or a loop; counted, never shown.
  */
 export const INBOUND_MAIL_STATUSES = ['receiving', 'received', 'waiting', 'settled', 'dropped'] as const
 export type InboundMailStatus = (typeof INBOUND_MAIL_STATUSES)[number]
 
-/** Why a mail was accepted and then dropped unseen (`./automatic-mail`, `./receive-original`, `dropped_reason`). */
-export const DROPPED_REASONS = ['auto_reply', 'delivery_report', 'self_loop', 'duplicate_original'] as const
+/** Why a mail was accepted and then dropped unseen (`./automatic-mail`, `dropped_reason`). A forward is never dropped for its original (migration 0195). */
+export const DROPPED_REASONS = ['auto_reply', 'delivery_report', 'self_loop'] as const
 export type DroppedReason = (typeof DROPPED_REASONS)[number]
 
 /** Where a forward's original was read (migration 0195): an attached message, or the header block of an inline forward. */

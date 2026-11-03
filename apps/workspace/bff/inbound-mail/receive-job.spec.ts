@@ -127,6 +127,13 @@ vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true), announc
 // Whether the From's member may write in the project (the sender rule): no, unless a test says so.
 vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermission: vi.fn(async () => false) }))
 vi.mock('./receive-original', () => ({ recordOriginal: vi.fn(async () => 'none') }))
+// The real original reader, where a case asks for it (B2): its row write lands on the in-memory row.
+vi.mock('./receive-repository', () => ({ findAddressToken: vi.fn(async () => 'abcdefgh2345') }))
+vi.mock('./receive-original-repository', () => ({
+  recordOriginalFields: vi.fn(async (_id: string, fields: Partial<InboundMailRow>) => {
+    if (state.row?.status === 'received') Object.assign(state.row, fields)
+  }),
+}))
 
 import { captureServer } from '@/lib/analytics/posthog-server'
 import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
@@ -140,6 +147,7 @@ import {
   attachment,
   BODY,
   bytes,
+  forwarded,
   fakeDns,
   INBOUND_DOMAIN,
   keyFor,
@@ -457,18 +465,6 @@ describe('automatic mail', () => {
     expect(state.erased).toEqual([RAW_KEY])
     expect(announceWaiting).not.toHaveBeenCalled()
     expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'auto_reply' } }))
-  })
-
-  it('drops a second forward of an original the project holds, silently, like a redelivery', async () => {
-    vi.mocked(recordOriginal).mockResolvedValueOnce('duplicate')
-    receive(message(BODY, { Subject: 'WG: Bescheid' }))
-
-    await run()
-
-    expect(heldRow()).toMatchObject({ status: 'dropped', droppedReason: 'duplicate_original', rawStorageKey: null })
-    expect(state.erased).toEqual([RAW_KEY])
-    expect(announceWaiting).not.toHaveBeenCalled()
-    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'duplicate_original' } }))
   })
 
   it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {
@@ -802,5 +798,56 @@ describe('the sender rule: the class the hold writes (ADR-0137, amendment of 202
     expect(heldRow()).toMatchObject({ senderTrust: 'external_unverified', senderClass: 'external' })
     expect(new Date(heldRow().expiresAt).getTime() - new Date(heldRow().receivedAt).getTime()).toBe(14 * DAY)
     expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ senderClass: 'external', senderUserId: null }))
+  })
+})
+
+describe('B2: an attached original’s Message-ID never drops a delivery', () => {
+  const REAL_ID = 'real-bescheid-123@ma37.wien.gv.at'
+  const bescheid = (body: string) =>
+    [
+      'From: Mag. Anna Huber <anna.huber@ma37.wien.gv.at>',
+      'To: anna@buero-muster.at',
+      'Subject: Bescheid',
+      `Message-ID: <${REAL_ID}>`,
+      'Date: Mon, 21 Sep 2026 09:15:00 +0200',
+      '',
+      body,
+    ].join('\r\n')
+  beforeEach(async () => {
+    const actual = await vi.importActual<typeof import('./receive-original')>('./receive-original')
+    vi.mocked(recordOriginal).mockImplementation(actual.recordOriginal)
+    vi.mocked(userHoldsProjectPermission).mockImplementation(async (_org, _project, userId, permission) =>
+      userId === MEMBER_ID && permission === 'project:documents:write')
+  })
+
+  it('holds an outsider’s junk claiming a real original, and then the architect’s real forward of it (suppression)', async () => {
+    receive(
+      message(multipart('mixed', [BODY, forwarded(bescheid('gefälscht'))]), { From: 'x@stranger.example', 'Message-ID': '<junk@stranger.example>' }),
+    )
+    await run()
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'external', originalMessageId: REAL_ID })
+
+    receive(await sign(message(multipart('mixed', [BODY, forwarded(bescheid('Der Bescheid.'))]), { Subject: 'WG: Bescheid' })))
+    await run()
+    expect(heldRow()).toMatchObject({ status: 'waiting', droppedReason: null, senderClass: 'verified_writer', originalMessageId: REAL_ID })
+    expect(jobKinds()).toContain('inbound_mail_sender_file')
+    expect(captureServer).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped' }))
+  })
+
+  it('holds a colleague’s mail that attaches an original the project holds, with its own text and new attachment', async () => {
+    receive(
+      await sign(
+        message(multipart('mixed', [BODY, attachment('Antwort_v2.pdf', 'application/pdf', pdf('Antwort v2')), forwarded(bescheid('Der Bescheid.'))]), {
+          Subject: 'Antwortentwurf',
+        }),
+      ),
+    )
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', originalMessageId: REAL_ID })
+    expect(state.parts.map((part) => part.kind)).toEqual(['message', 'attachment'])
+    expect(state.parts[1]).toMatchObject({ filename: 'Antwort_v2.pdf' })
+    expect(stagedRead().ownText).toBe('Hallo, anbei die Unterlagen.')
   })
 })
