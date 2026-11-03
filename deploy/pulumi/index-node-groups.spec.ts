@@ -77,7 +77,7 @@ const DATA = [
   "dragonfly-ratelimit",
   "dragonfly-langfuse",
 ];
-const BATCH = ["ingest-worker", "gotenberg"];
+const BATCH = ["ingest-worker", "ingest-worker-heavy", "gotenberg"];
 
 /** Every resource that makes pods, as `Kind/name`: what must carry a group. */
 function workloads(): string[] {

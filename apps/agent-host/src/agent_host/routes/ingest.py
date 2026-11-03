@@ -143,6 +143,8 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         # Who is waiting on it: the durable queue claims by it inside an
         # organisation, and the provider limiter ranks the job's model calls by it.
         "priority": request.priority,
+        # The original's size: a large file reads on the high-memory pool (`ingest_dispatch.original_bytes`).
+        "original_bytes": request.byte_size,
     }
     if request.thumbnail_upload_url:
         # Gated in _assert_request_urls before anything was requested.
@@ -154,13 +156,11 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     # The folder this document was filed into, as the BFF's materialised path
     # (ADR-0049), stamped onto the metadata row: a folder is part of what the
     # agent must know about a document, not only of how the object is keyed.
-    folder_path = (request.folder_path or "").strip()
-    if folder_path:
+    if folder_path := (request.folder_path or "").strip():
         config["folder_path"] = folder_path
     # A person's choice at upload: this file replaces that one (CONTEXT.md,
     # "Fassung"). The job writes the confirmed link once the file has been read.
-    revision_of = (request.revision_of or "").strip()
-    if revision_of:
+    if revision_of := (request.revision_of or "").strip():
         config["revision_of"] = revision_of
     # The org id, so the detached ingest thread resolves the tenant's BYOK
     # VLM credential and runtime model override.

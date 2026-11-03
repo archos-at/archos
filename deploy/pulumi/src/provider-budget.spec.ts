@@ -51,11 +51,21 @@ function stackKnob(stack: "dev" | "prod", key: string): string | undefined {
 }
 
 describe("the ingest tier's peak vision calls", () => {
-  it("are replicas x concurrency x the files' own parallelism", async () => {
+  it("are replicas x concurrency x the files' own parallelism, the high-memory pool's added", async () => {
     const { vlmPeakCalls } = await load();
+    const heavy = { enabled: true, maxReplicas: 2, concurrency: 1 };
 
     expect(
       vlmPeakCalls({ ingestWorker: { maxReplicas: 5, concurrency: 3 }, providerLimits: { vlmBatchWorkers: 4 } } as never),
+    ).toBe(60);
+    expect(
+      vlmPeakCalls({ ingestWorker: { maxReplicas: 5, concurrency: 3, heavy }, providerLimits: { vlmBatchWorkers: 4 } } as never),
+    ).toBe(68);
+    expect(
+      vlmPeakCalls({
+        ingestWorker: { maxReplicas: 5, concurrency: 3, heavy: { ...heavy, enabled: false } },
+        providerLimits: { vlmBatchWorkers: 4 },
+      } as never),
     ).toBe(60);
   });
 
@@ -89,7 +99,7 @@ describe("the ingest tier's peak vision calls", () => {
     const { cfg, assertVlmPeakFitsCeiling } = await load({ "grid-oib:ingestWorkerMaxReplicas": "12" });
 
     expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(
-      /ingestWorkerMaxReplicas \(12\) x ingestWorkerConcurrency \(3\) x vlmBatchWorkers \(4\) = 144 vision calls at the peak, more than 2x vlmFleetConcurrency \(32\) = 64/,
+      /\(ingestWorkerMaxReplicas \(12\) x ingestWorkerConcurrency \(3\) \+ ingestWorkerHeavyMaxReplicas \(1\) x ingestWorkerHeavyConcurrency \(1\)\) x vlmBatchWorkers \(4\) = 148 vision calls at the peak, more than 2x vlmFleetConcurrency \(32\) = 64/,
     );
     expect(() => assertVlmPeakFitsCeiling(cfg)).toThrow(/Lower ingestWorkerMaxReplicas to 5 or less, or raise vlmFleetConcurrency/);
   });
@@ -99,19 +109,19 @@ describe("the ingest tier's peak vision calls", () => {
     const over = await load({ "grid-oib:ingestWorkerMaxReplicas": "6" });
 
     expect(() => at.assertVlmPeakFitsCeiling(at.cfg)).not.toThrow();
-    expect(() => over.assertVlmPeakFitsCeiling(over.cfg)).toThrow(/= 72 vision calls/);
+    expect(() => over.assertVlmPeakFitsCeiling(over.cfg)).toThrow(/= 76 vision calls/);
   });
 
   it("follow the pool when it is raised, and the files' parallelism when it is", async () => {
     const raised = await load({
       "grid-oib:ingestWorkerMaxReplicas": "12",
-      "grid-oib:vlmFleetConcurrency": "72",
-      "grid-oib:providerModelLimitCeiling": "72",
+      "grid-oib:vlmFleetConcurrency": "74",
+      "grid-oib:providerModelLimitCeiling": "74",
     });
     const deeper = await load({ "grid-oib:vlmBatchWorkers": "8" });
 
     expect(() => raised.assertVlmPeakFitsCeiling(raised.cfg)).not.toThrow();
-    expect(() => deeper.assertVlmPeakFitsCeiling(deeper.cfg)).toThrow(/vlmBatchWorkers \(8\) = 120/);
+    expect(() => deeper.assertVlmPeakFitsCeiling(deeper.cfg)).toThrow(/vlmBatchWorkers \(8\) = 128/);
   });
 
   it("are not held to a pool that is switched off", async () => {

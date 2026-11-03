@@ -10,6 +10,7 @@ import { API_TIER, CHAT_TIER } from "./tier-names";
 import { hatchetEnv } from "./hatchet-env";
 import { openrouterKeyEnv, openrouterSecretValues } from "./model-keys";
 import type { ModelWorkload } from "../config/app-services";
+import { heavyFileBytesEnv } from "../config/workers";
 
 type EnvVar = k8s.types.input.core.v1.EnvVar;
 
@@ -334,6 +335,7 @@ export function backendEnv(w: AppWiring, otelServiceName = "backend-chat", workl
     { name: "MAX_QUEUED_JOBS_PER_ORG", value: String(cfg.backend.maxQueuedJobsPerOrg) },
     { name: "INGEST_MAX_WORKERS", value: String(cfg.backend.ingestMaxWorkers) },
     { name: "INGEST_MAX_PER_ORG", value: String(cfg.ingestWorker.maxPerOrg) },
+    { name: "INGEST_HEAVY_FILE_BYTES", value: String(heavyFileBytesEnv(cfg.ingestWorker)) },
     // No env for the base corpus: it lives in SeaweedFS and the knowledge
     // database (ADR-0082 step A2), and the per-replica cache defaults to
     // /tmp/base-corpus (BASE_CORPUS_CACHE_DIR), a place the pod may lose.
@@ -447,10 +449,9 @@ const INGEST_WITHHELD_ENV = new Set(["LANGFUSE_HOST", "LANGFUSE_PUBLIC_KEY", "LA
  * per-process concurrency.
  */
 export function ingestWorkerEnv(w: AppWiring, livenessFile: string): EnvVar[] {
-  const overridden = new Set(["INGEST_MAX_WORKERS"]);
   return [
     ...backendEnv(w, "grid-ingest-worker", "ingest").filter(
-      (e) => !(typeof e.name === "string" && (overridden.has(e.name) || INGEST_WITHHELD_ENV.has(e.name))),
+      (e) => !(typeof e.name === "string" && (e.name === "INGEST_MAX_WORKERS" || INGEST_WITHHELD_ENV.has(e.name))),
     ),
     { name: "PROCESS_ROLE", value: "ingest-worker" },
     { name: "INGEST_MAX_WORKERS", value: String(w.cfg.ingestWorker.concurrency) },

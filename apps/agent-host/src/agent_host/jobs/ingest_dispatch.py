@@ -1,5 +1,10 @@
 """Where an ingestion job runs: Hatchet's ``ingest-document`` task, on any ingest worker.
 
+A job whose original is at least ``INGEST_HEAVY_FILE_BYTES`` (the BFF states its
+size as ``byte_size``) runs as ``ingest-document-heavy`` on the high-memory pool
+instead, and every job of one document carries its id, so a newer upload of it
+supersedes the run still reading the old bytes (``ingest_hatchet``).
+
 ``POST /v1/ingest`` prepares a job (validated, recorded PENDING) and hands it to
 Hatchet (``agent.knowledge.ingest_hatchet``, ADR-0150), which runs it on the
 ingest-worker tier (``ingest_worker``), fair across organisations: the ``chat``
@@ -146,12 +151,38 @@ def _hand_over(prepared: PreparedIngestJob) -> bool:
     if not payload.startswith(_ENCRYPTED):
         raise QueueUnavailable("JOB_PAYLOAD_KEK is not set: a job's payload never leaves this tier in plaintext")
     try:
-        return ingest_hatchet.trigger(prepared.job_id, prepared.organization_id, prepared.priority, payload)
+        return ingest_hatchet.trigger(
+            prepared.job_id,
+            prepared.organization_id,
+            prepared.priority,
+            payload,
+            document_id=document_of(prepared),
+            byte_size=original_bytes(prepared),
+        )
     except Exception as error:
         # Class name only: the payload and its error carry presigned URLs.
         raise QueueUnavailable(
             f"could not hand ingestion job {prepared.job_id} to Hatchet: {type(error).__name__}"
         ) from error
+
+
+def document_of(prepared: PreparedIngestJob) -> str | None:
+    """The one document the job indexes, which a later upload of it supersedes; None for any other job.
+
+    ``POST /v1/ingest`` hands over one ``file_ref`` of one document, and a corpus
+    job one file with no document id. A job of several files is not one
+    document's, so it is keyed on its own id and supersedes nothing.
+    """
+    document_id = prepared.config.get("document_id")
+    if len(prepared.file_paths) != 1 or not isinstance(document_id, str) or not document_id:
+        return None
+    return document_id
+
+
+def original_bytes(prepared: PreparedIngestJob) -> int | None:
+    """The original's size as the BFF stated it (``byte_size``), which picks the workflow; None when unstated."""
+    size = prepared.config.get("original_bytes")
+    return size if isinstance(size, int) and not isinstance(size, bool) and size >= 0 else None
 
 
 def dispatch(ingestor: BaseIngestor, prepared: PreparedIngestJob) -> None:
@@ -210,6 +241,8 @@ def cancel(job_id: str) -> str:
     run_id = ingest_run_hold.run_id_of(job_id)
     if run_id is None:
         return CANCEL_UNAVAILABLE
+    # Before the cancel: the run that sees it must know a person asked, not a newer upload.
+    ingest_run_hold.mark_stopped_by_person(job_id)
     try:
         ingest_hatchet.cancel_run(run_id)
     except Exception as error:  # noqa: BLE001 - the route reports it; the job runs on

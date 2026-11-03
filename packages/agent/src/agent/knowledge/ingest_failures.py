@@ -212,13 +212,32 @@ def _from_exception(exc: BaseException) -> FailureCategory | None:
     return _from_status_code(exc)
 
 
-def _from_status_code(exc: BaseException) -> FailureCategory | None:
-    """An upstream HTTP answer: openai's ``status_code``, httpx's ``response.status_code``."""
+def _status_of(exc: BaseException) -> int | None:
+    """An upstream HTTP answer's status: openai's ``status_code``, httpx's ``response.status_code``."""
     status = getattr(exc, "status_code", None)
     if not isinstance(status, int):
-        response = getattr(exc, "response", None)
-        status = getattr(response, "status_code", None)
-    if not isinstance(status, int) or status < 400:
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+    return status if isinstance(status, int) else None
+
+
+def credits_in_flight(error: str | None, exc: BaseException | None = None) -> bool:
+    """Whether a failure is the provider's 402 for credits that requests in flight hold.
+
+    A ``transient`` failure like any other to :func:`classify_failure`, but the
+    one whose cure is known: wait until those calls finish. The orchestrator
+    waits for it instead of spending an ordinary retry (``ingest_hatchet``).
+    ``exc`` is asked first, then the exception it wraps, then ``error``.
+    """
+    for candidate in (exc, getattr(exc, "__cause__", None)):
+        if candidate is not None and _status_of(candidate) == 402 and _IN_FLIGHT_CREDITS.search(str(candidate)):
+            return True
+    return bool(error) and _IN_FLIGHT_CREDITS.search(error or "") is not None
+
+
+def _from_status_code(exc: BaseException) -> FailureCategory | None:
+    """An upstream HTTP answer: openai's ``status_code``, httpx's ``response.status_code``."""
+    status = _status_of(exc)
+    if status is None or status < 400:
         return None
     if status >= 500 or status in (408, 409, 425, 429):
         return TRANSIENT

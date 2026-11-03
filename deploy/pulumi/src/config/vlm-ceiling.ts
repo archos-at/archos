@@ -1,16 +1,17 @@
-import type { IngestWorkerConfig, ProviderLimitsConfig } from "./workers";
+import { ingestJobsAtCeiling, type IngestWorkerConfig, type ProviderLimitsConfig } from "./workers";
 /**
  * The VLM call ceiling: the ingest worker's peak concurrent calls against the provider limit.
  */
 
 /**
- * Vision calls the ingest tier can have in flight at its ceiling: replicas, times
- * the jobs one replica runs at once, times the files' own parallelism
- * (`VLM_BATCH_WORKERS`). Every one of them asks the shared provider key for a
- * slot of the fleet pool (`VLM_FLEET_CONCURRENCY`).
+ * Vision calls the ingest tiers can have in flight at their ceilings: each pool's
+ * replicas times the jobs one replica runs at once (the standard pool and, when it
+ * exists, the high-memory one: `ingestJobsAtCeiling`), times the files' own
+ * parallelism (`VLM_BATCH_WORKERS`). Every one of them asks the shared provider
+ * key for a slot of the fleet pool (`VLM_FLEET_CONCURRENCY`).
  */
 export function vlmPeakCalls(cfg: { ingestWorker: IngestWorkerConfig; providerLimits: ProviderLimitsConfig }): number {
-  return cfg.ingestWorker.maxReplicas * cfg.ingestWorker.concurrency * cfg.providerLimits.vlmBatchWorkers;
+  return ingestJobsAtCeiling(cfg.ingestWorker) * cfg.providerLimits.vlmBatchWorkers;
 }
 
 /**
@@ -40,13 +41,19 @@ export function assertVlmPeakFitsCeiling(cfg: { ingestWorker: IngestWorkerConfig
   const peak = vlmPeakCalls(cfg);
   const allowed = VLM_OVERSUBSCRIPTION * vlmFleetConcurrency;
   if (peak > allowed) {
-    const { maxReplicas, concurrency } = cfg.ingestWorker;
+    const { maxReplicas, concurrency, heavy } = cfg.ingestWorker;
+    const heavyJobs = heavy?.enabled ? heavy.maxReplicas * heavy.concurrency : 0;
+    const heavyTerm = heavyJobs
+      ? ` + ingestWorkerHeavyMaxReplicas (${heavy.maxReplicas}) x ingestWorkerHeavyConcurrency (${heavy.concurrency})`
+      : "";
+    const lead = heavyJobs ? "(" : "";
+    const close = heavyJobs ? ")" : "";
     throw new Error(
-      `Invalid ingest sizing: ingestWorkerMaxReplicas (${maxReplicas}) x ingestWorkerConcurrency (${concurrency}) ` +
-        `x vlmBatchWorkers (${vlmBatchWorkers}) = ${peak} vision calls at the peak, more than ` +
+      `Invalid ingest sizing: ${lead}ingestWorkerMaxReplicas (${maxReplicas}) x ingestWorkerConcurrency (${concurrency})` +
+        `${heavyTerm}${close} x vlmBatchWorkers (${vlmBatchWorkers}) = ${peak} vision calls at the peak, more than ` +
         `${VLM_OVERSUBSCRIPTION}x vlmFleetConcurrency (${vlmFleetConcurrency}) = ${allowed}. The extra replicas ` +
         "would only queue on the fleet pool and add cost without throughput. Lower ingestWorkerMaxReplicas " +
-        `to ${Math.max(1, Math.floor(allowed / (concurrency * vlmBatchWorkers)))} or less, or raise vlmFleetConcurrency ` +
+        `to ${Math.max(1, Math.floor((allowed - heavyJobs * vlmBatchWorkers) / (concurrency * vlmBatchWorkers)))} or less, or raise vlmFleetConcurrency ` +
         "(and the provider's own limit with it).",
     );
   }

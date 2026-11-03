@@ -1,8 +1,9 @@
 # Hatchet runbook
 
 Every background job of the workspace runs on Hatchet (ADR-0150): ingesting a
-document (`ingest-document`), a research run (`research-run`) and the BFF's jobs
-(`bff-job`, one task with the job kind in its input). The claim queues it
+document (`ingest-document`, and `ingest-document-heavy` for a large file), a
+research run (`research-run`) and the BFF's jobs (`bff-job`, one task with the
+job kind in its input). The claim queues it
 replaced (`ingest_job_queue`, `research_job_queue`, `bff_job_queue`) are no
 longer written; their tables stay until a later migration drops them.
 
@@ -34,7 +35,7 @@ write every Secret in its namespace. The namespace enforces `privileged` and
 warns and audits on `baseline`.
 
 The app tiers that start or run Hatchet runs (chat, api, agent-worker,
-ingest-worker, frontend, bff-jobs) get the SDK's environment
+ingest-worker, ingest-worker-heavy, frontend, bff-jobs) get the SDK's environment
 (`HATCHET_CLIENT_TOKEN`, `HATCHET_CLIENT_HOST_PORT`, the REST API's URL as
 both `HATCHET_CLIENT_SERVER_URL` (Python) and `HATCHET_CLIENT_API_URL`
 (TypeScript), `HATCHET_CLIENT_TLS_STRATEGY=none`,
@@ -44,12 +45,63 @@ Only they reach the gRPC engine (7070) and the API (8080); only Hatchet's four
 backend components reach RabbitMQ (5672); KEDA's operator reaches
 `background-work-pg` (5432). `hatchet-network-policies.ts` holds the rules.
 
-KEDA scales `ingest-worker`, `agent-worker` and `bff-jobs` on their workflow's
-backlog: the runs in `v1_queue_item` (waiting for a slot) plus those in
+KEDA scales `ingest-worker`, `ingest-worker-heavy`, `agent-worker` and
+`bff-jobs` on their workflow's backlog: the runs in `v1_queue_item` (waiting for a slot) plus those in
 `v1_task_runtime` (held by a worker), matched on the action prefix
 `<namespace>_<workflow>:` (`hatchetBacklogQuery`, `app/keda-scaling.ts`). A run
 held back by its organisation's concurrency limit is in neither table, so it
-asks for no replica it could not use.
+asks for no replica it could not use. The prefix ends in the colon, so
+`ingest-worker`'s `<namespace>_ingest-document:` never counts a run of
+`ingest-document-heavy`.
+
+## Ingestion on two pools
+
+| | `ingest-worker` | `ingest-worker-heavy` |
+|---|---|---|
+| Workflow | `ingest-document` | `ingest-document-heavy` (same steps) |
+| Takes | every file below `INGEST_HEAVY_FILE_BYTES` (40 MiB), and every file whose size the BFF did not state | a file of 40 MiB or more (`byte_size` on `/v1/ingest`) |
+| Worker | label `pool=standard`, `ingestWorkerConcurrency` slots | label `pool=highmem`, `INGEST_WORKER_POOL=highmem`; its `index` requires the label and costs the pod's slots (`slot_cost`), so a pod runs one heavy file |
+| Size (defaults) | 6Gi, 2 or 3 files a pod | 12Gi, one file, 0 to 1 pods (`ingestWorkerHeavy*`) |
+
+Both workflows share two **tenant-scoped** concurrency limits, which span
+task definitions: `ingest-org` (`GROUP_ROUND_ROBIN` on the organisation,
+`INGEST_MAX_PER_ORG`), so an office's heavy and standard files count against
+one fairness budget, and `ingest-supersede` (`CANCEL_IN_PROGRESS`, one run per
+document), so a re-upload cancels the run still reading the old bytes. That
+run writes its status `cancelled` with `metadata.superseded`, never as a
+person's cancel, and sends no settle push; a person's cancel marks the run id
+first (`ingest_run_hold.mark_stopped_by_person`) so the run can tell the two
+apart. Named tenant-scoped limits need engine ≥ 0.106.0; on our v0.114.2 they
+are exercised only by the CI engine job.
+
+Both pools count against the vision pool and Postgres's session locks
+(`ingestJobsAtCeiling`, `assertVlmPeakFitsCeiling`, `assertPgConnectionBudget`).
+Prod runs 7 standard pods and one heavy one for that reason. A stack without the
+heavy pool (`ingestWorkerHeavyEnabled: false`, and Compose) sets
+`INGEST_HEAVY_FILE_BYTES=0` on the dispatching tiers, so no file waits for a
+worker that does not exist. A heavy run that waits past `SCHEDULE_TIMEOUT` (24 h)
+is given up like any other.
+
+**Credits in flight.** When `index` fails with the provider's 402 for credits
+that requests in flight hold, the attempt pauses the rate-limit key
+`<namespace>ingest-provider-credits` for 30 s (`ctx.pause_rate_limit`; every
+`index` consumes the key, so new starts wait) and raises
+`RetryAfterException` for 60 s. Each wait spends one of the step's retries, so
+`index` has 12: two for ordinary failures, which are final after their third
+attempt however many remain, and ten for credit waits. The worker creates the
+key at start (`rate_limits.put`, a limit that holds nothing back). `RetryAfter`
+needs engine ≥ 0.111.0; the pause RPC is unverified on v0.114.2 until the CI
+engine job meets one.
+
+**Traces.** `ingest-worker`, `ingest-worker-heavy` and `agent-worker` install
+the SDK's `HatchetInstrumentor` on the provider Langfuse reads
+(`observability/hatchet_tracing.py`), with `enable_hatchet_otel_collector=False`
+so no span lands in Hatchet's database, and `payload` and
+`additional_metadata` excluded from every span. A trigger opens an
+`ingest-trigger` span and puts its `traceparent` in the run's metadata; the
+step run (`hatchet.start_step_run`) and every file's `ingest-file` trace
+continue it, so the queue wait is the gap between the trigger and the step run
+in one trace.
 
 ### Two URLs for the API
 

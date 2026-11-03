@@ -174,7 +174,12 @@ def test_an_accepted_job_starts_its_run_with_ids_and_the_encrypted_payload_only(
     dumped = run.input.model_dump_json()
     assert "secret-original" not in dumped
     assert "plan.pdf" not in dumped
-    assert run.additional_metadata == {"job_id": "job-1"}
+    assert run.additional_metadata == {
+        "job_id": "job-1",
+        "document_id": "doc-1",
+        "organization_id": "org-1",
+        "heavy": False,
+    }
     assert ingest_dispatch.decode(run.input.payload).job_id == "job-1"
     # The row is held for the run, and knows which run it is.
     assert _held(db)["job-1"] == ("run-1", True)
@@ -404,3 +409,45 @@ def test_a_waiting_status_clears_a_count_from_the_claim_queue():
     assert statuses["job-1"]["metadata"] == {"queue_ahead": None}
     assert statuses["job-2"]["metadata"] == {"queue_ahead": None}
     assert statuses["done"]["metadata"] == {}
+
+
+# ------------------------------------------------- heavy files, supersede
+
+
+def test_a_large_original_runs_heavy_and_every_run_names_its_document(db, hatchet, kek):
+    large = _prepared("large-1")
+    large.config["original_bytes"] = 64 * 1024 * 1024
+    ingest_dispatch.dispatch(FakeIngestor(), large)
+    ingest_dispatch.dispatch(FakeIngestor(), _prepared("small-1"))
+
+    by_job = {run.input.job_id: (flow.options["name"], run) for flow in hatchet.workflows for run in flow.runs}
+    assert by_job["large-1"][0] == "ingest-document-heavy"
+    assert by_job["small-1"][0] == "ingest-document"
+    assert {run.input.document_id for _, run in by_job.values()} == {"doc-1"}
+
+
+@pytest.mark.parametrize("size", [None, -1, True, "64000000"])
+def test_a_size_the_bff_did_not_state_as_a_count_is_unknown(size):
+    prepared = _prepared()
+    prepared.config["original_bytes"] = size
+
+    assert ingest_dispatch.original_bytes(prepared) is None
+
+
+def test_only_a_job_of_one_document_is_keyed_on_it():
+    assert ingest_dispatch.document_of(_prepared()) == "doc-1"
+    two = _prepared(files=[DeferredObjectDownload(_ORIGINAL), DeferredObjectDownload(_RENDITION)])
+    assert ingest_dispatch.document_of(two) is None
+    unnamed = _prepared()
+    del unnamed.config["document_id"]
+    assert ingest_dispatch.document_of(unnamed) is None
+
+
+def test_a_persons_cancel_is_marked_before_the_run_is_cancelled(db, hatchet, kek):
+    _dispatched()
+    seen = []
+    hatchet.runs.cancel = lambda run_id: seen.append(ingest_run_hold.stopped_by_person("job-1"))
+
+    assert ingest_dispatch.cancel("job-1") == ingest_dispatch.CANCEL_STOPPED
+
+    assert seen == [True]

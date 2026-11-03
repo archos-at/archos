@@ -8,13 +8,16 @@ ended as (``outcome_of``), put a job that will be tried again back to waiting
 (``reopen``), and tell the BFF a job ended for good (``settle``,
 ``ingest_settle_push``), which the workflow does in a step of its own.
 
-A job ends one of four ways:
+A job ends one of five ways:
 
 * ``done``: completed, or a person stopped it. Settled.
 * ``failed``: the adapter wrote FAILED. Whether a retry can help is the verdict
   on its failed files (``classify_failure``, stamped on each file), or on the
   job's own message when no file carries one. A retryable failure is reopened
   and tried again while attempts remain; anything else is settled.
+* ``superseded``: a newer upload of the same document cancelled the run
+  (``settle_superseded``): ``cancelled`` with ``metadata.superseded``, never
+  a person's cancel and never a failure.
 * ``live``: the run stopped without a terminal status (its run was cancelled
   or timed out, and the adapter abandoned it without a write). The status
   store's own rules settle it.
@@ -46,6 +49,8 @@ UNREADABLE_JOB_MESSAGE = "unreadable_job: the queued ingestion job could not be 
 
 #: What ``metadata`` says of a job that waits for another attempt.
 RETRYING_KEY = "retrying_after"
+#: What ``metadata`` says of a job a newer upload of its document replaced.
+SUPERSEDED_KEY = "superseded"
 
 
 @dataclass(frozen=True)
@@ -141,3 +146,22 @@ def fail_unreadable(job_id: str, reason: str) -> None:
     status = ingest_status_store.get(job_id)
     if status is not None and status.status in (JobState.PENDING, JobState.PROCESSING):
         ingest_status_store.put(unreadable_job_failure(status))
+
+
+def settle_superseded(job_id: str) -> bool:
+    """A newer upload of the job's document replaced it: ``cancelled``, marked superseded; whether written.
+
+    Never a person's cancel (``ingest_status_store.settle_cancelled``) and never
+    a failure: nothing went wrong, a newer Fassung is being read instead. No
+    settle push either. The BFF has already pointed the document at the newer
+    job, so a push for this one would find no row waiting on it, and in the
+    moment before that, would settle the row as stopped.
+    """
+    status = ingest_status_store.get(job_id)
+    if status is None or status.status not in (JobState.PENDING, JobState.PROCESSING):
+        return False
+    superseded = status.model_copy(deep=True)
+    superseded.status = JobState.CANCELLED
+    superseded.metadata = {**superseded.metadata, SUPERSEDED_KEY: True}
+    logger.info("Ingestion job %s was superseded by a newer upload of its document", job_id)
+    return ingest_status_store.put(superseded)
