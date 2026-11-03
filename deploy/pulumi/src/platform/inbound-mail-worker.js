@@ -25,7 +25,7 @@
  *
  * The shape is public, so splitting the two texts on it tells a prober
  * nothing: whether a project-shaped address EXISTS is answered only by the
- * BFF, with `REJECT_TEXT` for every refusal.
+ * BFF, with one bounce text (`REJECT_TEXT_TEMPLATE`) for every refusal.
  *
  * ## The request: RFC 9421 over a fixed-length body
  *
@@ -68,7 +68,7 @@
  *   - 2xx: accepted (held, dropped as automatic mail, or a duplicate).
  *   - 4xx WITH `x-inbound-verdict: reject`: a permanent refusal (unknown or
  *     revoked address, the office has the feature off, an oversized mail).
- *     `setReject(REJECT_TEXT)`.
+ *     `setReject` with the bounce text (`REJECT_TEXT_TEMPLATE`).
  *   - Anything else throws, so the sender retries: a refused signature, a
  *     paused deployment, a rate limit, a truncated body, 5xx, 3xx, a network
  *     error, and a BFF that has not answered within `BFF_TIMEOUT_MS`.
@@ -120,6 +120,7 @@
  * @property {string} PAUSED `"true"` while deliveries are paused.
  * @property {string} ADDRESS_DOMAIN The receiving domain, `inboundMailDomain` (e.g. `inbox.example.org`), as the BFF's `INBOUND_MAIL_DOMAIN`.
  * @property {string} ADDRESS_LOCAL_PART The local part in front of the `+`, `inboundMailLocalPart` (e.g. `project`), as the BFF's `INBOUND_MAIL_LOCAL_PART`.
+ * @property {string} [LANDING_URL] The public website's origin, `https://<webDomain>`, as the BFF's `LANDING_URL`: the bounce text's help and privacy links. Missing or malformed, the bounce carries no link.
  */
 
 /**
@@ -172,10 +173,31 @@ export const BFF_TIMEOUT_MS = 90_000;
  * SMTP reply text, which is ASCII unless the sending server negotiated
  * SMTPUTF8. The help page tells the sender what to do instead; the privacy
  * link is there because a refused mail was still received and processed.
+ *
+ * A template: `SITE_PLACEHOLDER` is the public website's origin, the
+ * `LANDING_URL` binding, so the links follow the stack's `webDomain`
+ * (`rejectText` in `contracts/inbound-mail-contract.json`).
  */
-export const REJECT_TEXT =
+export const REJECT_TEXT_TEMPLATE =
   "This message could not be delivered: the address is unknown or no longer valid. " +
-  "Help: https://example.org/e-mail-eingang/ Privacy: https://example.org/datenschutz/";
+  "Help: {site}/e-mail-eingang/ Privacy: {site}/datenschutz/";
+
+/** What `REJECT_TEXT_TEMPLATE` names the website's origin by. */
+export const SITE_PLACEHOLDER = "{site}";
+
+/** The longest origin the bounce links to, so the SMTP reply stays short. */
+export const SITE_MAX_LENGTH = 64;
+
+/**
+ * The bounce without its links, when `LANDING_URL` is missing or not an
+ * origin. Still a refusal: a misconfigured link must not turn a permanent
+ * answer into a temporary failure the sender retries for days.
+ */
+export const REJECT_TEXT_WITHOUT_SITE =
+  "This message could not be delivered: the address is unknown or no longer valid.";
+
+/** `http(s)://host[:port]`, ASCII, nothing after the host. */
+const ORIGIN = /^https?:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*(:[0-9]{1,5})?$/i;
 
 /** The bounce for an address that is not project-shaped: a typo, a name nobody routed, a guess. */
 export const UNKNOWN_ADDRESS_TEXT = "Unknown address: this message was not delivered.";
@@ -189,6 +211,19 @@ const COVERED_COMPONENTS = [
   ENVELOPE_TO_HEADER,
   ENVELOPE_FROM_HEADER,
 ];
+
+/**
+ * The bounce text for this deployment: the template with the website's
+ * origin, trimmed and without trailing slashes, or the text without links.
+ *
+ * @param {string | undefined} site
+ * @returns {string}
+ */
+function rejectText(site) {
+  const origin = (site ?? "").trim().replace(/\/+$/, "");
+  if (origin.length > SITE_MAX_LENGTH || !ORIGIN.test(origin)) return REJECT_TEXT_WITHOUT_SITE;
+  return REJECT_TEXT_TEMPLATE.split(SITE_PLACEHOLDER).join(origin);
+}
 
 /** ASCII-only lowercasing, so `K` (Kelvin) cannot fold onto `k`. */
 function asciiLower(/** @type {string} */ value) {
@@ -361,7 +396,7 @@ export default {
     if (response.status >= 200 && response.status < 300) return;
 
     if (isExplicitReject(response)) {
-      message.setReject(REJECT_TEXT);
+      message.setReject(rejectText(env.LANDING_URL));
       return;
     }
 

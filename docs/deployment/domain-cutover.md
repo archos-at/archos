@@ -42,7 +42,7 @@ NEW_DEV="dev.$NEW"
   catch-all, then moved.
 - **Every derived host.** `app.`, `s3.`, `otel.`, `langfuse.` and `qdrant.` derive from
   `baseDomain`; so do the app's `WORKOS_REDIRECT_URI`, the MCP and A2A resource URLs
-  (`apps/workspace/bff/agent-api/mcp-config.ts`), `LANDING_URL` and with it the website's
+  (`apps/workspace/bff/agent-api/mcp-config.ts`), `LANDING_URL` (and with it the help and privacy links in project mail's bounce text, through the Worker's binding of the same name, and the app's help links) and the website's
   signed-in cookie domain (`bff/auth/signed-in-cookie.ts`), the website's `PUBLIC_APP_URL`
   and Langfuse's `NEXTAUTH_URL`. One key moves them.
 - **Release notes** may link the new domain (`scripts/release_notes.py`).

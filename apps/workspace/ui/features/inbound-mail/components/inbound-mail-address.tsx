@@ -50,6 +50,8 @@ import {
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { usePublicSiteUrl } from '@/shared/context'
+import { publicSiteLink } from '@/shared/public-site'
 import { type InboundMailAddressClient } from '../lib/client'
 import { refusalOf } from '../lib/refusal'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
@@ -180,6 +182,7 @@ export function InboundMailAddressBlock({
 }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
+  const guideUrl = publicSiteLink(usePublicSiteUrl(), 'projectMail', locale)
   if (address.state !== 'active' || !address.address) return <></>
   const value = address.address
   return (
@@ -201,16 +204,18 @@ export function InboundMailAddressBlock({
         </p>
       </div>
       <AddressSizeLimit projectId={projectId} onLeave={onLeave} />
-      <a
-        href={t('address.helpUrl')}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-foreground inline-flex w-fit items-center gap-1.5 text-sm underline-offset-2 hover:underline touch-target"
-      >
-        <BookOpen className="size-4" aria-hidden />
-        {t('address.guide')}
-        <ExternalLink className="text-muted-foreground size-3" aria-hidden />
-      </a>
+      {guideUrl && (
+        <a
+          href={guideUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-foreground inline-flex w-fit items-center gap-1.5 text-sm underline-offset-2 hover:underline touch-target"
+        >
+          <BookOpen className="size-4" aria-hidden />
+          {t('address.guide')}
+          <ExternalLink className="text-muted-foreground size-3" aria-hidden />
+        </a>
+      )}
     </div>
   )
 }

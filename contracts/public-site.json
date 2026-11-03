@@ -1,8 +1,10 @@
 {
-  "$comment": "Public pages that text outside the website links to (the inbound-mail bounce texts, the UI's help links). The website's routes are held to these paths, so a moved page fails a spec rather than a sender's bounce. Paths are the site's German URLs: copy, not identifiers.",
-  "origin": "https://example.org",
+  "$comment": "Public website pages that text outside the website links to: the inbound-mail bounce text (contracts/inbound-mail-contract.json, the German paths) and the app's help links (apps/workspace/shared/public-site.ts). Paths only; the origin is configuration, LANDING_URL (https://<webDomain>), never written here. Each key is a key of ROUTES in apps/website/src/i18n/paths.ts and each `anchors` entry a section id of that page in both locales; apps/website/src/i18n/public-site.test.ts holds the website to this file, so a moved page fails a test rather than a sender's bounce. Paths are the site's URLs: copy, not identifiers.",
   "paths": {
-    "mailInbox": "/e-mail-eingang/",
-    "privacy": "/datenschutz/"
+    "projectMail": { "de": "/e-mail-eingang/", "en": "/en/project-mail/" },
+    "privacy": { "de": "/datenschutz/", "en": "/en/privacy/" }
+  },
+  "anchors": {
+    "projectMail": ["dkim"]
   }
 }

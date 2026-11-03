@@ -169,6 +169,8 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
         // INBOUND_MAIL_DOMAIN and INBOUND_MAIL_LOCAL_PART.
         { name: "ADDRESS_DOMAIN", type: "plain_text", text: mail.domain },
         { name: "ADDRESS_LOCAL_PART", type: "plain_text", text: mail.localPart },
+        // The bounce text's help and privacy links, the BFF's LANDING_URL.
+        { name: "LANDING_URL", type: "plain_text", text: cfg.ingress.webOrigin },
       ],
     },
     opts,

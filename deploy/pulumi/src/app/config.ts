@@ -503,7 +503,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
   return [
     { name: "APP_ENV", value: "production" },
     { name: "REQUIRE_AUTH", value: String(cfg.auth.requireAuth) },
-    { name: "LANDING_URL", value: `https://${cfg.ingress.webDomain}` },
+    { name: "LANDING_URL", value: cfg.ingress.webOrigin },
     // Every backend HTTP call goes to the api role; only the WebSocket proxy
     // goes to chat, and it has no fallback to the api URL (ADR-0082 step B).
     { name: "BACKEND_URL", value: BACKEND_URL },

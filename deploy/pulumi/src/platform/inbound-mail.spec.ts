@@ -153,7 +153,7 @@ describe("project mail on Cloudflare", () => {
     expect(ageDays, "bump COMPATIBILITY_DATE and re-run launch gates G1 and G2 (G8)").toBeLessThan(365);
   });
 
-  it("binds the BFF origin, the key, the pause and the address shape under the names the Worker reads", async () => {
+  it("binds the BFF origin, the key, the pause, the address shape and the website under the names the Worker reads", async () => {
     await install(mailConfig());
     const bindings = reveal(one(SCRIPT).inputs.bindings);
     // The key makes the whole list a secret in state, which is the point.
@@ -167,7 +167,15 @@ describe("project mail on Cloudflare", () => {
       { name: "PAUSED", type: "plain_text", text: "false" },
       { name: "ADDRESS_DOMAIN", type: "plain_text", text: DOMAIN },
       { name: "ADDRESS_LOCAL_PART", type: "plain_text", text: "project" },
+      // The bounce text's links: the website at the stack's webDomain, as the BFF's LANDING_URL.
+      { name: "LANDING_URL", type: "plain_text", text: "https://example.test" },
     ]);
+  });
+
+  it("links the bounce to the webDomain override, the host the website is served from", async () => {
+    await install(mailConfig({ [`${LEGACY_PROJECT}:webDomain`]: "www.example.test" }));
+    const bindings = reveal(one(SCRIPT).inputs.bindings).value as Binding[];
+    expect(bindings.find((b) => b.name === "LANDING_URL")?.text).toBe("https://www.example.test");
   });
 
   it("binds the configured local part", async () => {

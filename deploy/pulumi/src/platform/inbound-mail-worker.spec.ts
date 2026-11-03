@@ -5,7 +5,10 @@ import worker, {
   ENVELOPE_TO_HEADER,
   INBOUND_MAIL_PATH,
   NULL_SENDER,
-  REJECT_TEXT,
+  REJECT_TEXT_TEMPLATE,
+  REJECT_TEXT_WITHOUT_SITE,
+  SITE_MAX_LENGTH,
+  SITE_PLACEHOLDER,
   SIGNATURE_ALGORITHM,
   SIGNATURE_LABEL,
   SIGNATURE_LIFETIME_S,
@@ -45,7 +48,11 @@ const ENV: Env = {
   PAUSED: "false",
   ADDRESS_DOMAIN: "inbox.example.test",
   ADDRESS_LOCAL_PART: "project",
+  LANDING_URL: "https://site.example.test",
 };
+
+/** The bounce text for `ENV`: the contract's first case is its origin. */
+const REJECT_TEXT = contract.rejectText.cases[0].text;
 
 /** The handler never touches the execution context. */
 const CTX = {} as ExecutionContext;
@@ -124,7 +131,11 @@ describe("inbound mail worker: the contract file", () => {
     expect(SIGNATURE_LABEL).toBe(contract.signatureLabel);
     expect(SIGNATURE_LIFETIME_S).toBe(contract.signatureLifetimeSeconds);
     expect(BFF_TIMEOUT_MS).toBe(contract.workerTimeoutMs);
-    expect(REJECT_TEXT).toBe(contract.rejectText);
+    expect(REJECT_TEXT_TEMPLATE).toBe(contract.rejectText.template);
+    expect(SITE_PLACEHOLDER).toBe(contract.rejectText.placeholder);
+    expect(SITE_MAX_LENGTH).toBe(contract.rejectText.siteMaxLength);
+    expect(REJECT_TEXT_WITHOUT_SITE).toBe(contract.rejectText.withoutSite);
+    expect(contract.rejectText.cases[0].site).toBe(ENV.LANDING_URL);
     expect(UNKNOWN_ADDRESS_TEXT).toBe(contract.unknownAddressText);
   });
 
@@ -323,12 +334,31 @@ describe("inbound mail worker: the verdict contract", () => {
 
 describe("inbound mail worker: the bounce texts", () => {
   it("links the help and privacy pages of contracts/public-site.json", () => {
-    const { origin, paths } = publicSite;
-    expect(REJECT_TEXT).toContain(`Help: ${origin}${paths.mailInbox}`);
-    expect(REJECT_TEXT).toContain(`Privacy: ${origin}${paths.privacy}`);
+    const { paths } = publicSite;
+    expect(REJECT_TEXT_TEMPLATE).toContain(`Help: ${SITE_PLACEHOLDER}${paths.projectMail.de}`);
+    expect(REJECT_TEXT_TEMPLATE).toContain(`Privacy: ${SITE_PLACEHOLDER}${paths.privacy.de}`);
   });
 
-  it.each([REJECT_TEXT, UNKNOWN_ADDRESS_TEXT])(
+  it.each(contract.rejectText.cases)(
+    "bounces with the website's origin $site rendered as the contract says ($note)",
+    async ({ site, text }) => {
+      stubFetch(respond(404, REJECT));
+      const { message, setReject } = fakeMessage();
+      const env: Env = { ...ENV, LANDING_URL: site ?? undefined };
+      // A missing or malformed origin is a refusal without links, never a throw.
+      await expect(deliver(message, env)).resolves.toBeUndefined();
+      expect(setReject).toHaveBeenCalledWith(text);
+    },
+  );
+
+  it("fits the longest origin it links to into a short reply", () => {
+    const site = `https://${"a".repeat(SITE_MAX_LENGTH - "https://".length)}`;
+    const longest = REJECT_TEXT_TEMPLATE.split(SITE_PLACEHOLDER).join(site);
+    expect(longest).toMatch(/^[\x20-\x7e]+$/);
+    expect(longest.length).toBeLessThan(300);
+  });
+
+  it.each([REJECT_TEXT, REJECT_TEXT_WITHOUT_SITE, UNKNOWN_ADDRESS_TEXT])(
     "is printable ASCII and under 300 characters, so it survives as an SMTP reply: %s",
     (text) => {
       expect(text).toMatch(/^[\x20-\x7e]+$/);

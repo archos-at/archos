@@ -1,5 +1,5 @@
 {
-  "$comment": "The webhook contract between the inbound-mail Email Worker (deploy/pulumi/src/platform/inbound-mail-worker.js) and the BFF (apps/workspace/bff/inbound-mail/contract.ts, the route under /api/internal/signed/). The Worker posts the buffered message to `path` on the app origin (the origin of WORKOS_REDIRECT_URI), signs `signedComponents` (RFC 9421, `signatureAlgorithm`, expires = created + signatureLifetimeSeconds, label `signatureLabel`) over an RFC 9530 Content-Digest, and reads the answer by `cases`: a 2xx is accepted, a 4xx carrying `verdictHeader: verdictReject` is bounced with `rejectText`, and everything else makes it throw so the sending server retries. Neither side imports this file at runtime (the Worker is one dependency-free module; the BFF's image has no shared/): each states the values in code and a spec on each side holds them to this file (contract.spec.ts; inbound-mail-worker.spec.ts). The signature itself is pinned by contracts/inbound-mail-signature.json. ADR-0138; the bounce set is DECISION D5.",
+  "$comment": "The webhook contract between the inbound-mail Email Worker (deploy/pulumi/src/platform/inbound-mail-worker.js) and the BFF (apps/workspace/bff/inbound-mail/contract.ts, the route under /api/internal/signed/). The Worker posts the buffered message to `path` on the app origin (the origin of WORKOS_REDIRECT_URI), signs `signedComponents` (RFC 9421, `signatureAlgorithm`, expires = created + signatureLifetimeSeconds, label `signatureLabel`) over an RFC 9530 Content-Digest, and reads the answer by `cases`: a 2xx is accepted, a 4xx carrying `verdictHeader: verdictReject` is bounced with `rejectText` (a template the public site's origin fills in), and everything else makes it throw so the sending server retries. Neither side imports this file at runtime (the Worker is one dependency-free module; the BFF's image has no shared/): each states the values in code and a spec on each side holds them to this file (contract.spec.ts; inbound-mail-worker.spec.ts). The signature itself is pinned by contracts/inbound-mail-signature.json. ADR-0138; the bounce set is DECISION D5.",
   "path": "/api/internal/signed/inbound-mail",
   "signedPathPrefix": "/api/internal/signed/",
   "contentType": "message/rfc822",
@@ -14,7 +14,24 @@
   "signatureLabel": "sig",
   "signedComponents": ["@method", "@target-uri", "content-digest", "content-length", "x-envelope-to", "x-envelope-from"],
   "signatureLifetimeSeconds": 300,
-  "rejectText": "This message could not be delivered: the address is unknown or no longer valid. Help: https://example.org/e-mail-eingang/ Privacy: https://example.org/datenschutz/",
+  "rejectText": {
+    "$comment": "The one bounce text for a project-shaped address, rendered from `template` with the public website's origin in place of `placeholder` (the Worker's LANDING_URL binding, the BFF's LANDING_URL; both https://<webDomain>, so the domain cutover moves it). The origin is trimmed and loses its trailing slashes; it is used only when it is http(s)://host[:port] with an ASCII host and at most `siteMaxLength` characters, and otherwise, unset included, the text is `withoutSite`: a refusal stays a refusal with no link, never a throw (a throw is a temporary failure the sender retries for days). The paths are contracts/public-site.json's German paths of projectMail and privacy. Both sides run `cases`.",
+    "template": "This message could not be delivered: the address is unknown or no longer valid. Help: {site}/e-mail-eingang/ Privacy: {site}/datenschutz/",
+    "placeholder": "{site}",
+    "siteMaxLength": 64,
+    "withoutSite": "This message could not be delivered: the address is unknown or no longer valid.",
+    "cases": [
+      { "site": "https://site.example.test", "text": "This message could not be delivered: the address is unknown or no longer valid. Help: https://site.example.test/e-mail-eingang/ Privacy: https://site.example.test/datenschutz/" },
+      { "site": " https://site.example.test/ ", "text": "This message could not be delivered: the address is unknown or no longer valid. Help: https://site.example.test/e-mail-eingang/ Privacy: https://site.example.test/datenschutz/", "note": "trimmed, the trailing slash dropped" },
+      { "site": "http://localhost:4321", "text": "This message could not be delivered: the address is unknown or no longer valid. Help: http://localhost:4321/e-mail-eingang/ Privacy: http://localhost:4321/datenschutz/", "note": "a local website" },
+      { "site": null, "text": "This message could not be delivered: the address is unknown or no longer valid.", "note": "not bound" },
+      { "site": "", "text": "This message could not be delivered: the address is unknown or no longer valid." },
+      { "site": "site.example.test", "text": "This message could not be delivered: the address is unknown or no longer valid.", "note": "no scheme" },
+      { "site": "https://site.example.test/en", "text": "This message could not be delivered: the address is unknown or no longer valid.", "note": "an origin, not a page" },
+      { "site": "https://bücher.example.test", "text": "This message could not be delivered: the address is unknown or no longer valid.", "note": "the reply text is ASCII" },
+      { "site": "https://a-very-long-subdomain-name.of-a-website-nobody-types.example.test", "text": "This message could not be delivered: the address is unknown or no longer valid.", "note": "longer than siteMaxLength, so the reply stays short" }
+    ]
+  },
   "unknownAddressText": "Unknown address: this message was not delivered.",
   "envelopeEncoding": {
     "$comment": "How the Worker writes an SMTP envelope address into envelopeToHeader and envelopeFromHeader, and how the BFF reads it back. Every byte of the address's UTF-8 form outside 0x21-0x7E, and '%' itself, is written as %XX (uppercase hex), so decodeURIComponent restores it exactly; an ASCII address without '%' passes unchanged. A null reverse-path (an empty envelope sender, as on a bounce) is written as nullSender, never as an empty header.",

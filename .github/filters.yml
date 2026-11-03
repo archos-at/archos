@@ -239,6 +239,8 @@ workspace:
   - '.github/actions/build-image/**'
   # The brand script writes the app's icons (packages/brand/build-brand-assets.mjs).
   - 'packages/brand/**'
+  # shared/public-site.spec.ts holds the app's links into the website to it.
+  - 'contracts/public-site.json'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
   - 'apps/agent-host/src/agent_host/models/document_type_tag.py'
   - 'apps/agent-host/src/agent_host/models/mail_facts.py'
@@ -264,6 +266,8 @@ site:
   # (sync.mjs --check), the icon copies (build-brand-assets.mjs --check) and the
   # email signatures to it, and art:check holds the app's riso art to its source.
   - 'packages/brand/**'
+  # src/i18n/public-site.test.ts holds the route table to the pages text outside the site links to.
+  - 'contracts/public-site.json'
   # The brand rules the website's `bun run check` and `task website:verify` run.
   - 'scripts/check_brand_rules.mjs'
   - 'scripts/check_brand_rules.test.mjs'

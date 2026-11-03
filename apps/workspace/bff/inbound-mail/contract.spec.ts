@@ -21,7 +21,10 @@ import {
   NULL_SENDER,
   NOT_STAGED_REASONS,
   PART_RISK_FLAGS,
-  REJECT_TEXT,
+  REJECT_TEXT_TEMPLATE,
+  REJECT_TEXT_WITHOUT_SITE,
+  rejectText,
+  SITE_PLACEHOLDER,
   SENDER_FLAGS,
   SENDER_REASONS,
   SIGNATURE_LIFETIME_SECONDS,
@@ -30,6 +33,7 @@ import {
   VERDICT_REJECT,
   type DeliveryOutcome,
 } from './contract'
+import { PUBLIC_SITE_ORIGIN_MAX_LENGTH, PUBLIC_SITE_PATHS } from '@/shared/public-site'
 
 interface VerdictContract {
   path: string
@@ -40,7 +44,13 @@ interface VerdictContract {
   maxRawMessageBytes: number
   signedComponents: string[]
   signatureLifetimeSeconds: number
-  rejectText: string
+  rejectText: {
+    template: string
+    placeholder: string
+    siteMaxLength: number
+    withoutSite: string
+    cases: { site: string | null; text: string; note?: string }[]
+  }
   envelopeEncoding: { nullSender: string; cases: { address: string; header: string }[] }
   cases: { status: number; verdict: string | null; outcome: DeliveryOutcome; note?: string }[]
 }
@@ -69,7 +79,7 @@ describe('the verdict contract with the Email Worker (contracts/inbound-mail-con
       maxRawMessageBytes: MAX_RAW_MESSAGE_BYTES,
       signedComponents: [...SIGNED_COMPONENTS],
       signatureLifetimeSeconds: SIGNATURE_LIFETIME_SECONDS,
-      rejectText: REJECT_TEXT,
+      rejectText: [REJECT_TEXT_TEMPLATE, SITE_PLACEHOLDER, PUBLIC_SITE_ORIGIN_MAX_LENGTH, REJECT_TEXT_WITHOUT_SITE],
     }).toEqual({
       path: contract.path,
       envelopeToHeader: contract.envelopeToHeader,
@@ -79,7 +89,12 @@ describe('the verdict contract with the Email Worker (contracts/inbound-mail-con
       maxRawMessageBytes: contract.maxRawMessageBytes,
       signedComponents: contract.signedComponents,
       signatureLifetimeSeconds: contract.signatureLifetimeSeconds,
-      rejectText: contract.rejectText,
+      rejectText: [
+        contract.rejectText.template,
+        contract.rejectText.placeholder,
+        contract.rejectText.siteMaxLength,
+        contract.rejectText.withoutSite,
+      ],
     })
   })
 
@@ -100,10 +115,21 @@ describe('the verdict contract with the Email Worker (contracts/inbound-mail-con
   })
 })
 
-describe('REJECT_TEXT', () => {
-  it('is ASCII and names no reason, so a bounce teaches a guesser nothing', () => {
-    expect(REJECT_TEXT).toMatch(/^[\x20-\x7e]+$/)
-    expect(REJECT_TEXT).not.toMatch(/token|flag|disabled|deleted|switched/i)
+describe('rejectText', () => {
+  const contract = loadContract()
+
+  it.each(contract.rejectText.cases)('renders the website origin $site as the Worker does ($note)', ({ site, text }) => {
+    expect(rejectText(site)).toBe(text)
+  })
+
+  it('links the German help and privacy pages of contracts/public-site.json', () => {
+    expect(REJECT_TEXT_TEMPLATE).toContain(`Help: ${SITE_PLACEHOLDER}${PUBLIC_SITE_PATHS.projectMail.de}`)
+    expect(REJECT_TEXT_TEMPLATE).toContain(`Privacy: ${SITE_PLACEHOLDER}${PUBLIC_SITE_PATHS.privacy.de}`)
+  })
+
+  it.each([REJECT_TEXT_TEMPLATE, REJECT_TEXT_WITHOUT_SITE])('is ASCII and names no reason, so a bounce teaches a guesser nothing: %s', (text) => {
+    expect(text).toMatch(/^[\x20-\x7e]+$/)
+    expect(text).not.toMatch(/token|flag|disabled|deleted|switched/i)
   })
 })
 

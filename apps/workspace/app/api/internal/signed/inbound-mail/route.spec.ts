@@ -72,8 +72,10 @@ const MESSAGE =
   'Anbei der Plan.\r\n'
 
 const CONTRACT = JSON.parse(readFileSync(join(process.cwd(), '..', '..', 'contracts', 'inbound-mail-contract.json'), 'utf8')) as {
-  rejectText: string
+  rejectText: { cases: { site: string | null; text: string }[] }
 }
+/** The website the bounce links to, and the text the contract renders for it. */
+const SITE = CONTRACT.rejectText.cases[0]
 
 /** What each step was asked, in order, so the gate order can be read off one array. */
 const calls: string[] = []
@@ -103,6 +105,7 @@ beforeEach(() => {
   vi.stubEnv('INBOUND_MAIL_PAUSED', 'false')
   vi.stubEnv('WORKOS_REDIRECT_URI', '')
   vi.stubEnv('REQUIRE_AUTH', 'true')
+  vi.stubEnv('LANDING_URL', SITE.site ?? '')
   setLimitStore(createInProcessStore())
   infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -204,7 +207,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get(VERDICT_HEADER)).toBe('reject')
-    expect(await response.json()).toMatchObject({ error: CONTRACT.rejectText })
+    expect(await response.json()).toMatchObject({ error: SITE.text })
     expect(insertReception).not.toHaveBeenCalled()
     expect(putRawMessage).not.toHaveBeenCalled()
     expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_refused', properties: { reason: 'unknown_address' } }))
@@ -217,7 +220,7 @@ describe('POST /api/internal/signed/inbound-mail', () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get(VERDICT_HEADER)).toBe('reject')
-    expect(await response.json()).toMatchObject({ error: CONTRACT.rejectText })
+    expect(await response.json()).toMatchObject({ error: SITE.text })
     expect(insertReception).not.toHaveBeenCalled()
   })
 

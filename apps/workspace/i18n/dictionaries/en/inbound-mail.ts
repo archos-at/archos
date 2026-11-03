@@ -438,7 +438,6 @@ export const inboundMail = {
     tileLead: 'Put in Cc, it brings the replies of the authority, the structural engineer and the client into project mail, ready to file.',
     openInbox: 'Open project mail',
     guide: 'Guide',
-    helpUrl: 'https://example.org/en/project-mail/',
     none: 'This project has no mail address yet.',
     noneMember: 'Ask someone who manages the project to create it in the project settings.',
     create: 'Create address',
@@ -467,7 +466,6 @@ export const inboundMail = {
       share: '{percent} % of your office’s mail in the last {days} days was verified by your domain',
       missing: 'Your domain does not sign its mail – how to set it up',
       explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. Unsigned mail carrying a colleague’s address can only be filed by that colleague.',
-      helpUrl: 'https://example.org/en/project-mail/#dkim',
     },
   },
 

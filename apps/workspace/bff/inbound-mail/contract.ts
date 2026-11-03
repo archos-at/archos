@@ -14,6 +14,8 @@
  * dictionaries.
  */
 
+import { publicSiteOrigin } from '@/shared/public-site'
+
 // ---------------------------------------------------------------------------
 // The Worker ↔ webhook contract
 // ---------------------------------------------------------------------------
@@ -86,11 +88,28 @@ export const SIGNATURE_LIFETIME_SECONDS = 300
 /**
  * The one bounce text, ASCII, naming no reason: an unknown token, a deleted
  * project and an office that switched the feature off read the same, so a
- * bounce teaches a guesser nothing (ADR-0137 D5).
+ * bounce teaches a guesser nothing (ADR-0137 D5). A template:
+ * {@link SITE_PLACEHOLDER} is the public website's origin (`LANDING_URL`).
  */
-export const REJECT_TEXT =
+export const REJECT_TEXT_TEMPLATE =
   'This message could not be delivered: the address is unknown or no longer valid. ' +
-  'Help: https://example.org/e-mail-eingang/ Privacy: https://example.org/datenschutz/'
+  'Help: {site}/e-mail-eingang/ Privacy: {site}/datenschutz/'
+
+/** What {@link REJECT_TEXT_TEMPLATE} names the website's origin by. */
+export const SITE_PLACEHOLDER = '{site}'
+
+/** The bounce without links, when no website origin is configured. */
+export const REJECT_TEXT_WITHOUT_SITE = 'This message could not be delivered: the address is unknown or no longer valid.'
+
+/**
+ * The bounce text for the website at `site`, by the rule the Worker runs
+ * (`rejectText` in `contracts/inbound-mail-contract.json`): the origin as
+ * {@link publicSiteOrigin} reads it, or no links at all.
+ */
+export function rejectText(site: string | null | undefined): string {
+  const origin = publicSiteOrigin(site)
+  return origin === null ? REJECT_TEXT_WITHOUT_SITE : REJECT_TEXT_TEMPLATE.split(SITE_PLACEHOLDER).join(origin)
+}
 
 /** What the Worker does with the webhook's answer. */
 export type DeliveryOutcome = 'accepted' | 'rejected' | 'retry'

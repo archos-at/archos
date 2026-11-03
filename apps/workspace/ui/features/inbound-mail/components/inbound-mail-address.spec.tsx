@@ -26,8 +26,12 @@ import {
   INBOUND_MAIL_MAX_MESSAGE_BYTES,
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { InboundMailAddressCard, InboundMailAddressDialog, InboundMailAddressTile } from './inbound-mail-address'
+import { AppConfigProvider, type AppConfig } from '@/shared/context'
+import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
 
 const MIB = 1024 * 1024
+
+const APP_CONFIG: AppConfig = { authRequired: false, fileUpload: getFileUploadConfigFromEnv({}) }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -116,6 +120,24 @@ describe('InboundMailAddressCard', () => {
     unmount()
     render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['own-dkim-missing'])} />)
     expect(await screen.findByTestId('own-domain-dkim')).toHaveAttribute('data-state', 'missing')
+  })
+
+  it('links the guide and the signing help into the website the server names, in the reader’s language', async () => {
+    const config: AppConfig = { ...APP_CONFIG, publicSiteUrl: 'https://site.example.test' }
+    render(
+      <AppConfigProvider config={config}>
+        <InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['own-dkim-missing'])} />
+      </AppConfigProvider>
+    )
+    expect(await screen.findByRole('link', { name: /Guide/ })).toHaveAttribute('href', 'https://site.example.test/en/project-mail/')
+    expect(screen.getByRole('link', { name: /does not sign/ })).toHaveAttribute('href', 'https://site.example.test/en/project-mail/#dkim')
+  })
+
+  it('shows no link into the website when the server names none, rather than a wrong one', async () => {
+    render(<InboundMailAddressCard projectId={PROJECT_ID} projectName={PROJECT_NAME} client={fixtureAddressClient(ADDRESS_VARIANTS['own-dkim-missing'])} />)
+    expect(await screen.findByTestId('own-domain-dkim')).toHaveTextContent('does not sign')
+    expect(screen.queryByRole('link', { name: /Guide/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /does not sign/ })).not.toBeInTheDocument()
   })
 
   it('says the window its figures look back over from the constant, not from the copy', async () => {

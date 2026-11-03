@@ -8,7 +8,7 @@
  * it says plainly what happens to a mail sent to a project address.
  *
  * The `dkim` section keeps its id: the address dialog links to `#dkim`
- * (`apps/workspace/i18n/dictionaries/{de,en}/inbound-mail.ts`).
+ * (`anchors` in `contracts/public-site.json`, held here by `../public-site.test.ts`).
  */
 
 export interface ProjectMailSection {

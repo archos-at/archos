@@ -708,6 +708,10 @@ restores it from state. The Worker must post to the origin of
 `WORKOS_REDIRECT_URI` (both come from `appOrigin(cfg)` in
 `src/app/config.ts`); a domain move without it is a `bad-signature` on every
 delivery, which the senders retry.
+The bounce's help and privacy links come the same way: the Worker's
+`LANDING_URL` binding and the frontend's `LANDING_URL` are both
+`cfg.ingress.webOrigin`, the website at `webDomain`, so a domain move updates the
+bounce text with the same `up`.
 
 ### Incidents
 

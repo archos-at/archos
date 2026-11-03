@@ -60,6 +60,7 @@ import { FEATURE_FLAGS, isFeatureEnabled } from '@/lib/authz/feature-flags'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import type { VerifiedSignature } from '@/lib/internal-auth'
 import { enforceLimit } from '@/lib/limits/enforce'
+import { configuredPublicSiteOrigin } from '@/lib/public-site'
 import {
   INBOUND_MAIL_ADDRESS_LIMIT,
   INBOUND_MAIL_ORGANIZATION_LIMIT,
@@ -73,7 +74,7 @@ import {
   ENVELOPE_FROM_HEADER,
   ENVELOPE_TO_HEADER,
   MAX_RAW_MESSAGE_BYTES,
-  REJECT_TEXT,
+  rejectText,
   VERDICT_HEADER,
   VERDICT_REJECT,
 } from './contract'
@@ -138,11 +139,11 @@ const REFUSALS: ReadonlySet<DeliveryOutcomeCode> = new Set([
 /**
  * A permanent refusal: the only error the answer marks with the reject
  * verdict, and the only one the Worker bounces. One text for every reason
- * ({@link REJECT_TEXT}): an address switched off reads as unknown.
+ * ({@link rejectText}): an address switched off reads as unknown.
  */
 export class InboundMailRejectedError extends ApiError {
   constructor(readonly outcome: Extract<DeliveryOutcomeCode, 'unknown_address' | 'switched_off' | 'too_large'>) {
-    super(outcome === 'too_large' ? 413 : 404, outcome === 'too_large' ? 'PAYLOAD_TOO_LARGE' : 'NOT_FOUND', REJECT_TEXT)
+    super(outcome === 'too_large' ? 413 : 404, outcome === 'too_large' ? 'PAYLOAD_TOO_LARGE' : 'NOT_FOUND', rejectText(configuredPublicSiteOrigin()))
   }
 }
 

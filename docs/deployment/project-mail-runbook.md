@@ -24,7 +24,7 @@ waits in the project's E-Mail-Eingang, and gates G0–G9 are recorded as passed 
 
 | # | Open item | Effect | What closes it |
 |---|---|---|---|
-| B1 | **The help and privacy links are placeholders.** The bounce text every refused sender reads (`rejectText` in `contracts/inbound-mail-contract.json`, the Worker's `REJECT_TEXT`, the BFF's `contract.ts`) and the UI's „Anleitung“ links (`address.helpUrl`, `address.ownDomain.helpUrl` in `apps/workspace/i18n/dictionaries/*/inbound-mail.ts`) point at `https://example.org/…`. The brand rename replaced the real host with the placeholder (commit `5b1b6005c`) | A sender who mistypes an address is sent to `example.org`; the address dialog's „Anleitung“ opens `example.org` | A code change before the first office goes live (O7): the public website's host (`webDomain`, today `piloti.at`; `identity.json`'s domain after the cutover) in the bounce text, which the Worker and the BFF must agree on byte for byte (their specs hold both to the contract), and in the two help links. Not a stack setting |
+| B1 | **Closed 2026-11-03: the help and privacy links follow the website's host.** The brand rename had replaced the real host with `https://example.org` (commit `5b1b6005c`). The bounce text is now a template (`rejectText` in `contracts/inbound-mail-contract.json`) that the Worker and the BFF fill with `LANDING_URL`, `https://<webDomain>` from Pulumi (`webOrigin` in `deploy/pulumi/src/config/ingress.ts`), and the UI's „Anleitung“ links take the same origin from the server (`AppConfig.publicSiteUrl`). The domain cutover moves all three with the stack's `webDomain` | Before the fix, a sender who mistyped an address was sent to `example.org`. Now, with `LANDING_URL` unset or malformed, the bounce says the same without links and the dialog shows no „Anleitung“: a refusal never turns into a retry | Nothing. Check once after the first promote: the Worker's `LANDING_URL` binding in Cloudflare (Workers → the inbound-mail Worker → Settings → Variables) is the website's origin |
 | B2 | **G0 is unproven.** Cloudflare documents adding a subdomain to Email Routing from the *apex's* Email Routing settings, and onboarding an apex whose MX belong to another provider fails with error 2008 ("Non-Cloudflare MX records exist"). Pulumi enables the subdomain through the API (`email/routing/dns` with the subdomain's name), which is not documented to need the apex; the subaddressing switch exists only in the dashboard | If the subdomain cannot be routed, or subaddressing cannot be switched on, without onboarding the apex, path (b) below is blocked | Step 7 and gate G0 prove it on the real zone. The fallback, a dedicated mail-only domain with an apex catch-all, is a code change (the address grammar, the Worker's shape check, the parser and the Pulumi rule; ADR-0138, "The fallback") |
 | B3 | **Cloudflare refuses mail that passes neither SPF nor DKIM, and mail that fails the sender's DMARC policy** (Cloudflare Email Service, "Postmaster" → "Mail authentication requirement", required since 2025-07-03). ADR-0138's table says any sender is accepted and held; at Cloudflare that holds only for senders that authenticate | A small office or authority whose domain publishes neither SPF nor DKIM gets a bounce from Cloudflare, before the product sees the mail | Nothing in the product. Support says so (section 11) |
 
@@ -301,7 +301,7 @@ Afterwards: dismiss every `[smoke]` mail in the test project, and check that
 
 Per office, only after the Datenschutzberater's sign-off and the customer
 notice (Cloudflare as a transit processor: [`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)),
-and only once B1 is fixed:
+and only once the Worker's `LANDING_URL` binding names the website (B1):
 
 - [ ] WorkOS → Feature Flags → `inbound-mail` → add the office's organization.
 - [ ] Tell the office: section 11 below is what they get.
@@ -372,9 +372,12 @@ without a successor.
 **"My mail didn't arrive"**, in this order:
 1. **Did the sender get a bounce?** Ask for its text.
    - "This message could not be delivered: the address is unknown or no longer
-     valid": the address is mistyped, rotated, switched off, its project
-     deleted, or the office lacks `inbound-mail`. Compare with the address the
-     project shows now.
+     valid. Help: {site}/e-mail-eingang/ Privacy: {site}/datenschutz/", where
+     `{site}` is the website, `LANDING_URL` (`https://<webDomain>`; without one
+     the text ends after "valid."): the
+     address is mistyped, rotated, switched off, its project deleted, or the
+     office lacks `inbound-mail`. Compare with the address the project shows
+     now. The help page's "abgewiesen" section says the same to the sender.
    - "Address does not exist": no rule matched (the feature is off, or a typo
      before the `+` or in the domain).
    - "Unknown address: this message was not delivered.": not project-shaped

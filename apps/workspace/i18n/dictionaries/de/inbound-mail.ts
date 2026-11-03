@@ -451,7 +451,6 @@ export const inboundMail: typeof en.inboundMail = {
     tileLead: 'In Cc gesetzt, bringt sie die Antworten von Behörde, Statik und Bauherrschaft in den E-Mail-Eingang, bereit zum Ablegen.',
     openInbox: 'Zum E-Mail-Eingang',
     guide: 'Anleitung',
-    helpUrl: 'https://example.org/e-mail-eingang/',
     none: 'Dieses Projekt hat noch keine E-Mail-Adresse.',
     noneMember: 'Bitten Sie jemanden, der das Projekt verwaltet, sie in den Projekteinstellungen zu erzeugen.',
     create: 'Adresse erzeugen',
@@ -482,7 +481,6 @@ export const inboundMail: typeof en.inboundMail = {
       missing: 'Ihre Domain signiert ihre E-Mails nicht – so richten Sie es ein',
       explain:
         'E-Mails, die Ihre Domain signiert, tragen „Domain bestätigt“ und werden direkt abgelegt, wenn die Person im Projekt ablegen darf. Eine nicht signierte E-Mail mit der Adresse einer Kollegin oder eines Kollegen kann nur diese Person selbst ablegen.',
-      helpUrl: 'https://example.org/e-mail-eingang/#dkim',
     },
   },
 
