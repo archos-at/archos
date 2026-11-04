@@ -22,12 +22,11 @@ from pathlib import Path
 
 import pytest
 from ifc_spatial.tools import MEASURES
-from ifc_spatial.tools import RELATIONS
 from ifc_spatial.tools import ToolError
 from ifc_spatial.tools import call
 from ifc_spatial.tools import create_tools
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 NO_NORTH = FIXTURES / "house-with-rooms.ifc"
 
@@ -221,42 +220,6 @@ def test_the_tool_list_is_the_ported_surface_plus_what_the_port_added(tools: lis
     ]
 
 
-def test_every_tool_documents_itself_in_german(tools: list) -> None:
-    for tool in tools:
-        assert tool.title and tool.description
-        assert tool.input_schema["type"] == "object"
-        for name in tool.input_schema.get("required", []):
-            assert name in tool.input_schema["properties"], f"{tool.name}.{name}"
-
-
-def test_one_relations_tool_carries_every_relation(tools: list) -> None:
-    """Eleven tools would be eleven copies of one schema. What must not be
-    coarse is the meaning, so the enum documents each relation individually."""
-    relations = next(tool for tool in tools if tool.name == "relations")
-    enum = relations.input_schema["properties"]["relation"]["enum"]
-    assert enum == list(RELATIONS)
-    for name, meaning in RELATIONS.items():
-        assert f"{name} — {meaning}" in relations.description
-
-
-def test_measure_lists_every_measurement_and_corrects_the_clear_height(tools: list) -> None:
-    measure = next(tool for tool in tools if tool.name == "measure")
-    assert measure.input_schema["properties"]["measure"]["enum"] == list(MEASURES)
-    # The TS description said clearHeight returns the space solid's height and
-    # NOT the lichte Höhe. On this engine it is the lichte Höhe, measured under
-    # the lowest obstruction; keeping the old sentence would describe an
-    # operator that no longer exists.
-    assert "Lichte Raumhöhe" in MEASURES["clearHeight"]
-    assert "NICHT die Höhe des Raumkörpers" in MEASURES["clearHeight"]
-
-
-def test_the_expensive_tools_say_they_are_expensive(tools: list) -> None:
-    by_name = {tool.name: tool for tool in tools}
-    assert "5 Sekunden" in by_name["draw"].description
-    assert "Kontaktkarte" in by_name["relations"].description
-    assert "tesselliert" in by_name["measure"].description
-
-
 def test_clear_height_measures_under_the_suspended_ceiling(tools: list, house: str) -> None:
     """The one number where the engine swap changes an ANSWER.
 
@@ -363,18 +326,10 @@ def test_the_same_file_opens_twice_to_one_handle(tools: list, house: str) -> Non
     assert again["contentHash"].startswith(house)
 
 
-def test_base64_and_path_reach_the_same_model(tools: list, house: str) -> None:
-    import base64
-
-    encoded = base64.b64encode(SAMPLE_HOUSE.read_bytes()).decode("ascii")
-    opened = call(tools, "open_model", {"base64": encoded})
-    assert opened["model"] == house
-
-
-def test_a_missing_source_says_which_ones_exist(tools: list) -> None:
+def test_a_missing_path_is_named(tools: list) -> None:
     with pytest.raises(ToolError) as raised:
         call(tools, "open_model", {})
-    assert "path, url oder base64" in str(raised.value)
+    assert "path" in str(raised.value)
 
 
 def test_an_unknown_tool_names_the_ones_that_exist(tools: list) -> None:
@@ -528,13 +483,6 @@ class TestTheClearanceReachesTheSurface:
         assert answer["decidable"] is False
         assert "clearOpeningWidth()" in answer["missing"]["remedy"]
 
-    def test_the_description_does_not_let_it_be_mistaken_for_measure_clear_width(self, tools: list) -> None:
-        """Two operators, both called a lichte Breite, one surface. The tool has to
-        say which is which where the model reads it, or it will pick by name."""
-        clearance = next(tool for tool in tools if tool.name == "clearance")
-        assert "measure/clearWidth" in clearance.description
-        assert "zwei Laibungen" in clearance.description
-
 
 class TestTheDoorGraphReachesTheSurface:
     """`egressPath` was on the surface and the graph under it was not.
@@ -644,10 +592,6 @@ class TestTheSunPositionReachesTheSurface:
             {"model": handle, "when": "2026-06-21T12:00:00+02:00", "latitude": 48.2082, "longitude": 16.3738},
         )
         assert smuggled["decidable"] is False, "the tool forwarded coordinates it must not accept"
-
-    def test_the_schema_offers_no_coordinates(self, tools: list) -> None:
-        sun = next(tool for tool in tools if tool.name == "sun_position")
-        assert set(sun.input_schema["properties"]) == {"model", "when"}
 
 
 # ── nothing may be library-only ─────────────────────────────────────────────

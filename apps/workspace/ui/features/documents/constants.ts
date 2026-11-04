@@ -5,6 +5,7 @@
  * These are used as fallbacks when AppConfig is not available.
  * Runtime configuration is provided via AppConfigContext from environment variables.
  */
+import { DEFAULT_ACCEPTED_TYPES } from '@/shared/config/file-upload'
 
 /**
  * Default maximum file size in bytes per individual file (100 MB).
@@ -29,9 +30,10 @@ export const DEFAULT_MAX_FILE_COUNT = 10
  * capability, offered only when the `image-upload` flag allows AND a VLM is
  * configured (availability = flag AND capability). This constant is only the
  * fallback used when no AppConfig is available; the real accepted-types list is
- * composed server-side in getFileUploadConfigFromEnv.
+ * composed server-side in getFileUploadConfigFromEnv. The SAME constant as the
+ * server's default, re-exported: a second literal here had already drifted once.
  */
-export const DEFAULT_ACCEPTED_FILE_TYPES = '.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx'
+export const DEFAULT_ACCEPTED_FILE_TYPES = DEFAULT_ACCEPTED_TYPES
 
 /** Default accepted MIME types for upload (used for drag-drop validation) */
 export const DEFAULT_ACCEPTED_MIME_TYPES = [

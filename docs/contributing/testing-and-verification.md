@@ -155,31 +155,29 @@ minutes, on a directory most changes never touch — see below), and the
 release-note gate (it needs the PR's base and head). Run the first three by hand
 when you touch what they cover; the last only exists on a PR.
 
-## The standalone packages under `packages/`
+## The standalone package under `packages/`
 
-`packages/ifc-spatial` (TypeScript) and `packages/ifc-spatial-py` (Python) are
-two implementations of the same spatial surface over IFC (ADR-0045), and both
-sit **outside** the workspace they live next to: their own `bun.lock`
-and `uv.lock`, their own toolchains. Nothing the frontend or backend tier
-installs can run them, which is how 830 tests behind a default-ON feature that
-renders OIB compliance verdicts ended up with no gate at all — no Taskfile
-target, no CI job, no pre-commit hook. The same shape as `sources/` before it.
+`packages/ifc-spatial-py`, the IFC engine (ADR-0045), sits **outside** the uv
+workspace it lives next to: its own `uv.lock`, its own IfcOpenShell toolchain.
+Nothing the backend tier installs can run it, which is how 830 tests behind a
+default-ON feature that renders OIB compliance verdicts once had no gate at all.
+(A TypeScript twin, `packages/ifc-spatial`, was deleted on 2026-11-04; one engine.)
 
-They now run as CI's `packages` job, behind the `packages` paths filter in
-`.github/filters.yml` (`packages/ifc-spatial*/**`: a new package with a suite
-adds its own line there), and `CI OK` requires it. Locally:
+It runs as CI's `packages` job, behind the `packages` paths filter in
+`.github/filters.yml` (`packages/ifc-spatial-py/**`), and `CI OK` requires it.
+Locally:
 
 ```bash
-task pkg:install    # both toolchains (`task setup` does this too now)
-task pkg:test       # both suites
+task pkg:install    # its toolchain (`task setup` does this too)
+task pkg:test       # its suite
 ```
 
-`task verify` deliberately leaves them out. `pkg:test:py` is 636 tests in 1m40s on four workers (2026-10-22)
-(measured 2026-09-10) against its own IfcOpenShell/shapely environment; adding
-that to every local gate run is the fastest way to get people to stop running
-the gate. `pkg:test:ts` is ~10 seconds and runs **both** tsconfigs, the source
-one and `tsconfig.test.json` — a test file that no longer type-checks is how an
-operator contract silently stops being asserted.
+`task verify` deliberately leaves it out. `pkg:test:py` is about 600 tests in
+1m40s on four workers (2026-10-22) against its own IfcOpenShell/shapely
+environment; adding that to every local gate run is the fastest way to get
+people to stop running the gate. The engine also writes its vocabulary to
+`tests/fixtures/vocabulary.json`, which the agent's own suite reads to pin its
+copy of the engine's names without installing the engine.
 
 The single required status check is **CI OK**
 ([`ci.yml`](../../.github/workflows/ci.yml)), which passes only when every

@@ -80,6 +80,7 @@ from .routes.dictation import add_dictation_routes
 from .routes.document_search import add_document_search_routes
 from .routes.documents import add_document_routes
 from .routes.drafts import add_draft_routes
+from .routes.drawing_renditions import add_drawing_rendition_routes
 from .routes.feedback_digest import add_feedback_digest_routes
 from .routes.filing_fit import add_filing_fit_routes
 from .routes.folder_proposals import add_folder_proposals_routes
@@ -317,6 +318,19 @@ CHAT_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
 API_APP_REGISTRARS = (register_job_routes,)
 
 
+#: Routers the BFF calls with the internal service token, off the external
+#: allowlist, mounted where they always were in the ``api`` role's order:
+#: the agent's read tools for the BFF's MCP server, run for the person a signed
+#: envelope names (ADR-0122); the reader of an Outlook archive the BFF staged for
+#: its mail import (ADR-0085); and the DXF converter the BFF calls for a drawing's
+#: PDF rendition where it calls Gotenberg for an office file (ADR-0152).
+_INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
+    add_internal_tool_routes,
+    add_mail_archive_routes,
+    add_drawing_rendition_routes,
+)
+
+
 def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], None], ...]:
     """The routers the ``api`` role mounts on its router.
 
@@ -353,13 +367,7 @@ def api_routers(llm_configs: Mapping[str, Any]) -> tuple[Callable[[APIRouter], N
         # the close dialog's suggestions (ADR-0096). Internal-token only.
         add_project_experience_routes,
         add_ingest_routes,
-        # The agent's read tools (knowledge, passages, files, page images, BIM, RIS) for the
-        # BFF's MCP server, run for the person a signed envelope names (ADR-0122).
-        # Internal-token only, off the external allowlist.
-        add_internal_tool_routes,
-        # Reads an Outlook archive the BFF staged, for its mail import (ADR-0085).
-        # Internal-token only, off the external allowlist.
-        add_mail_archive_routes,
+        *_INTERNAL_SERVICE_ROUTERS,
         add_oib_routes,
         add_norm_routes,
         # A RIS document as text, so a RIS citation opens INSIDE Piloti rather

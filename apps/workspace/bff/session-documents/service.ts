@@ -56,6 +56,7 @@ import { listDocumentVersionObjects } from '@/lib/documents/version-repository'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { purgeCollectionChunks } from './cleanup'
 import { collectionFileRef } from '@/lib/documents/collection-file-ref'
+import { storedContentType } from '@/lib/documents/preview-types'
 import { quarantineVerdictOf, type QuarantineVerdict } from '@/lib/upload-screening/quarantine'
 import {
   deleteSessionDocument as deleteSessionDocumentRow,
@@ -257,7 +258,7 @@ export async function uploadSessionDocument(
         Bucket: storageBucket,
         Key: storageKey,
         Body: bytes,
-        ContentType: file.type || 'application/octet-stream',
+        ContentType: storedContentType(file) ?? 'application/octet-stream',
       }),
     )
 
@@ -271,7 +272,7 @@ export async function uploadSessionDocument(
         storageKey,
         storageBucket,
         fileSize: file.size,
-        contentType: file.type || null,
+        contentType: storedContentType(file),
         contentHash,
         folderId: null,
         createdBy: session.userId,
@@ -298,7 +299,7 @@ export async function uploadSessionDocument(
         storageBucket,
         collectionName,
         fileSize: file.size,
-        contentType: file.type || null,
+        contentType: storedContentType(file),
         contentHash,
         uploadBatchId,
         status: 'uploaded',
@@ -319,7 +320,7 @@ export async function uploadSessionDocument(
   await recordUploadedVersionOrDiscard(session, documentId, request, {
     storageKey,
     storageBucket,
-    contentType: file.type || null,
+    contentType: storedContentType(file),
     fileSize: file.size,
     contentHash,
   })

@@ -1008,7 +1008,6 @@
   "packages/ifc-spatial-py/src/ifc_spatial/daylight.py": 1,
   "packages/ifc-spatial-py/tests/test_daylight.py": 1,
   "packages/ifc-spatial-py/tests/test_review_regressions.py": 1,
-  "packages/ifc-spatial/test/build.spec.ts": 1,
   "packages/knowledge-layer/src/embedding.py": 1,
   "packages/knowledge-layer/src/ingest/adapter.py": 1,
   "packages/knowledge-layer/src/search/document_groups.py": 2,

@@ -1604,8 +1604,6 @@
   "packages/brand/art/riso/vignetten/PRINT.md": 4,
   "packages/brand/art/riso/vignetten/index.html": 5,
   "packages/ifc-spatial-py/src/ifc_spatial/daylight.py": 1,
-  "packages/ifc-spatial/README.md": 1,
-  "packages/ifc-spatial/test/build.spec.ts": 1,
   "packages/knowledge-layer/KNOWLEDGE-LAYER-SETUP.md": 5,
   "packages/knowledge-layer/README.md": 6,
   "packages/knowledge-layer/pyproject.toml": 2,

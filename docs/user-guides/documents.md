@@ -154,7 +154,7 @@ Your office's sensitive-data list can also hold files back, by name before they 
 
 ### Supported File Types
 
-The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx`).
+The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf`).
 
 | Extension | MIME Type |
 |-----------|-----------|
@@ -167,6 +167,7 @@ The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default
 | `.html` | `text/html` |
 | `.csv` | `text/csv` |
 | `.json` | `application/json` |
+| `.dxf` | stored as `application/dxf`, whatever the browser sends ([DXF files](#dxf-files-katasterauszüge-and-other-cad-drawings)) |
 
 Spreadsheets index one chunk per worksheet (labelled by sheet name), so a citation points at the sheet. Word files and presentations are indexed from their PDF preview, page by page and with their pictures, so a citation points at the page or slide (see [Word, Excel and PowerPoint files](#word-excel-and-powerpoint-files)). Image uploads (`.png`, `.jpg`, `.jpeg`, `.webp`) are governed by the image-upload flag plus VLM availability, not by this list (see below).
 
@@ -645,6 +646,59 @@ tables.
 Why it works this way: [ADR-0070](../adr/0070-office-files-are-viewed-through-a-pdf-rendition.md)
 for viewing, [ADR-0071](../adr/0071-word-and-presentation-files-are-indexed-from-their-rendition.md)
 for indexing.
+
+### DXF files (Katasterauszüge and other CAD drawings)
+
+A `.dxf` opens in the preview as a PDF sheet drawn **to scale**: the most
+detailed standard scale that fits on A4 or A3 (larger sheets for larger
+drawings), in a frame with a scale bar and a title block. A Katasterauszug of
+150 × 100 m comes out at 1:500 on A3. **„Als PDF herunterladen“** in the file's
+⋯ menu, in the list and in the preview, gives you that PDF to print or attach;
+Download still gives the original DXF. The same entry gives the PDF of a Word,
+Excel or PowerPoint file.
+
+**A Katasterauszug is read, not only shown.** After the drawing comes a page
+„Grundstücke“ listing every parcel in the file: its number, Katastralgemeinde,
+whether it is in the Grenz- or the Grundsteuerkataster, its area as drawn in the
+map, and the parcels it borders. You can ask about them in the chat („Wie groß
+ist 123/4, und wer grenzt an?“) and the answer cites that page. The area is
+computed from the drawn boundary: in the Grundsteuerkataster it is graphic, and
+it is never the Flächenausmaß in the Grundbuch, which the page says too.
+
+**And measured.** The agent reads the drawing's geometry, not the picture of it,
+so it can answer what a page of text cannot: how long the boundary to 123/5 is,
+how far each house stands from each boundary, what remains buildable after 3 m
+on every side and 4 m towards a neighbour, and what a coverage of 40 % or a
+floor-area ratio of 1.2 allows. The setbacks and limits are the ones you give or
+the agent looks up in the Bebauungsplan or the building code; the drawing holds
+none. Each answer carries the same caveat as the page: in the
+Grundsteuerkataster a distance is as drawn, not as surveyed. For any other DXF
+the agent finds labels and says what each layer holds („wie viel Fläche liegt
+auf GRÜNFLÄCHE?“); buildings there are the closed outlines on the layers you
+name.
+
+What to expect:
+
+- The scale comes from the unit the file names. A file that names none is drawn
+  to fit the sheet, and the title block says „Nicht maßstäblich“.
+- The text in the drawing (parcel numbers, street names, labels) is searchable
+  in the viewer and is what the file is indexed by, so a question about a parcel
+  number finds the file.
+- A Katastralmappe from BEV is drawn in BEV's own plot colours (parcel
+  boundaries black, buildings red, land use green), and the title block names
+  the Katastralgemeinde and the coordinate system. Where parcels are in the
+  Grundsteuerkataster it says that their boundaries are graphic and not legally
+  binding: a distance to the boundary for a submission needs a surveyor's plan.
+- Any other DXF is drawn in black, with its own line weights, as a CAD plot is.
+- Boundary points are marked in a simplified form; land-use symbols are not
+  drawn. Only the model space is drawn, not paper-space layouts. DWG files are
+  not shown yet.
+- A file that cannot be read („Diese DXF-Datei ließ sich nicht lesen“) needs to
+  be exported again from the CAD program; reading it again will not help.
+- A whole Katastralgemeinde takes up to a minute; the parcel list covers about
+  4,000 parcels and says how many it left out beyond that.
+
+Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) (the PDF) and [ADR-0153](../adr/0153-a-dxf-drawing-is-a-site-the-agent-measures.md) (the measuring).
 
 ---
 

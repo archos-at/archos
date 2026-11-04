@@ -4441,7 +4441,7 @@
       "get": {
         "operationId": "document-download",
         "summary": "Get a time-limited download link for a document",
-        "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
+        "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), for a person who wants it printed or attached. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
         "tags": [
           "documents"
         ],
@@ -4455,6 +4455,19 @@
               "description": "The document id, from document-list or workspace-search."
             },
             "description": "The document id, from document-list or workspace-search."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file.",
+              "type": "string",
+              "enum": [
+                "pdf"
+              ]
+            },
+            "description": "pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file."
           }
         ],
         "responses": {
@@ -19903,7 +19916,7 @@
       "post": {
         "operationId": "bim-model-query",
         "summary": "Ask a structured question of a BIM model",
-        "description": "Run one deterministic query against one model, as numbers and rows rather than prose: the body is a closed vocabulary selected by `op` (overview, health, schedule, compliance, compliance-diff, profile, takeoff, compare, types, elements, element, properties, aggregate). Use it for every count, sum and filter (\"how many external walls on the ground floor\"); never estimate such answers. Changes nothing. Get the model id from bim-model-list.",
+        "description": "Run one deterministic query against one model, as numbers and rows rather than prose: the body is a closed vocabulary selected by `op` (overview, health, schedule, compliance, compliance-diff, profile, takeoff, compare, types, elements, element, properties, aggregate). Use it for every count, sum and filter (\"how many external walls on the ground floor\"); never estimate such answers. Start with `overview` and copy storey names from it exactly; read `properties` before filtering on a property you have not seen. A missing value is a fact about the export, not the building, and a compliance result reads published values only: it is never a statement that the building complies. For a number the export does not state (a clear height, a sill height, an area without a published quantity) use ifc-measure. Changes nothing. Get the model id from bim-model-list.",
         "tags": [
           "bim"
         ],

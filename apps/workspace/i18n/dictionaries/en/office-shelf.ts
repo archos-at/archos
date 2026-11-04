@@ -53,6 +53,7 @@ export const officeShelf = {
     cancelError: "Reading couldn't be stopped. Please try again.",
     menuLabel: 'File actions',
     download: 'Download',
+    downloadPdf: 'Download as PDF',
     open: 'Open',
     ask: 'Ask about this',
     select: 'Select',

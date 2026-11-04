@@ -13,12 +13,10 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ToolDef:
-    """JSON-Schema-shaped input description. Deliberately plain dicts."""
+    """One operation by name. What it means to a model is written once, by the
+    agent's ``ifc_measure`` (``agent/tools/bim``); the engine only runs it."""
 
     name: str
-    title: str
-    description: str
-    input_schema: dict[str, Any]
     handler: Callable[[dict[str, Any]], Any]
 
 

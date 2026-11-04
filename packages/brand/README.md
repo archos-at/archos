@@ -30,6 +30,7 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 | `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `fonts/`, `identity.json` |
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
+| `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
 
 ## Two layers: website and app
 

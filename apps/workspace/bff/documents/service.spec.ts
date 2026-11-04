@@ -3427,6 +3427,30 @@ describe('an office document is viewed through its PDF rendition', () => {
     expect(s3Client.send).not.toHaveBeenCalled()
   })
 
+  it('downloads the rendition as a PDF named after the original when asked for format=pdf', async () => {
+    vi.mocked(s3Client.send).mockResolvedValue({ ContentLength: 2048 } as never)
+
+    const download = await getDocumentDownload(session, 'doc-office', { format: 'pdf' })
+
+    expect(download).toMatchObject({ filename: 'Baubeschreibung.pdf', contentType: 'application/pdf', fileSize: null })
+    expect(signedInputs()[0]).toMatchObject({ Key: RENDITION_KEY, ResponseContentType: 'application/pdf' })
+    expect(String(signedInputs()[0].ResponseContentDisposition)).toContain('attachment')
+    expect(recordDocumentAccess).toHaveBeenCalledWith(session, expect.objectContaining({ id: 'doc-office' }), 'download')
+  })
+
+  it('answers format=pdf for a stored PDF with the file itself, and refuses a file with no PDF form', async () => {
+    vi.mocked(findDocumentInOrg).mockResolvedValue(
+      makeDocument({ id: 'doc-office', filename: 'Plan.pdf', contentType: 'application/pdf', storageKey: ORIGINAL_KEY })
+    )
+    await expect(getDocumentDownload(session, 'doc-office', { format: 'pdf' })).resolves.toMatchObject({
+      filename: 'Plan.pdf',
+    })
+    vi.mocked(findDocumentInOrg).mockResolvedValue(
+      makeDocument({ id: 'doc-office', filename: 'notiz.txt', contentType: 'text/plain', storageKey: ORIGINAL_KEY })
+    )
+    await expect(getDocumentDownload(session, 'doc-office', { format: 'pdf' })).rejects.toMatchObject({ status: 415 })
+  })
+
   it('is the old 415 when conversion is not configured', async () => {
     vi.stubEnv('GOTENBERG_URL', '')
 

@@ -25,7 +25,9 @@ import { BYTES_PER_MB, maxDocumentBytesFrom, maxIfcBytesFrom } from './request-b
 // unconditionally and re-added only when the flag allows. Unlike images it has
 // no capability half — extraction runs in this process, so there is no
 // dependency that could be missing (see FEATURE_FLAGS.ifcModels).
-const DEFAULT_ACCEPTED_TYPES = '.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx'
+// `.dxf` is shown, indexed and cited through the PDF the backend draws from it
+// (ADR-0152); its converter is the backend itself, so nothing can be missing.
+export const DEFAULT_ACCEPTED_TYPES = '.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf'
 const DEFAULT_MAX_FILE_COUNT = 10
 const DEFAULT_EXPIRATION_CHECK_INTERVAL_HOURS = 0
 
@@ -62,6 +64,12 @@ const EXTENSION_TO_MIME: Record<string, string[]> = {
   // always went through (validation is by extension), which made it worse: the
   // upload worked and the app said it would not.
   '.ifczip': ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+  // DXF has a registered type that almost no browser sends: Windows reports
+  // `image/vnd.dxf` when a CAD program registered it, everything else sends
+  // `application/octet-stream` or nothing. The extension decides, as for IFC.
+  // `application/dxf` first: `mimeTypeForFileName` gives a file taken out of a ZIP
+  // the FIRST type here, and an `image/*` one would read as a photo in the browser.
+  '.dxf': ['application/dxf', 'image/vnd.dxf', 'image/x-dxf', 'application/x-dxf', 'application/octet-stream'],
 }
 
 /**

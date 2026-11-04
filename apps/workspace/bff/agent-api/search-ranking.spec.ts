@@ -46,7 +46,7 @@ const FOUND_IN_THE_FIRST_THREE: ReadonlyArray<readonly [string, string]> = [
   ['Austrian law paragraph Bauordnung', 'law-lookup'],
   ['find documents by file name', 'document-by-name-resolve'],
   ['download link for a document', 'document-download'],
-  ['IFC model storeys rooms', 'ifc-query'],
+  ['IFC model storeys rooms', 'bim-model-query'],
   ['project memory', 'project-memory-list'],
   ['list projects', 'project-list'],
   ['add member project', 'project-person-add'],

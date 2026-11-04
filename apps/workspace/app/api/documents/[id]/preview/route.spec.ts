@@ -37,11 +37,10 @@ vi.mock('@aws-sdk/s3-request-presigner', () => ({
 // The converter itself is `rendition.spec.ts`'s subject. Here only its two
 // outcomes and its switch are driven, with the real error classes, so what is
 // under test is how the route answers each.
-vi.mock('@/lib/documents/rendition', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/documents/rendition')>()),
-  isRenditionEnabled: vi.fn().mockReturnValue(true),
-  ensureRendition: vi.fn(),
-}))
+vi.mock('@/lib/documents/rendition', async (importOriginal) => {
+  const { renditionModuleMock } = await import('@/test-utils/rendition-module')
+  return renditionModuleMock(await importOriginal(), true)
+})
 
 import { GET } from './route'
 import type { getDb as getDbType } from '@/lib/db'

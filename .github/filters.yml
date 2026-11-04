@@ -80,6 +80,7 @@ backend:
   - 'apps/workspace/bff/analytics/posthog-server.ts'
   - 'apps/workspace/bff/analytics/posthog.ts'
   - 'apps/workspace/bff/analytics/request-error.ts'
+  - 'apps/workspace/bff/bim/query.ts'
   - 'apps/workspace/bff/brand.ts'
   - 'apps/workspace/bff/cross-project/project-facts-mirror.ts'
   - 'apps/workspace/bff/db/schema/budgets.ts'
@@ -160,11 +161,12 @@ backend:
   - 'packages/brand/build-brand-assets.mjs'
   - 'packages/brand/identity.json'
   - 'packages/brand/mark.svg'
-  - 'packages/ifc-spatial/test/fixtures/Ifc4_SampleHouse.ifc'
-  - 'packages/ifc-spatial/test/fixtures/floor-slab-and-window.ifc'
-  - 'packages/ifc-spatial/test/fixtures/house-with-rooms.ifc'
-  - 'packages/ifc-spatial/test/fixtures/road-ifc4x3.ifc'
-  - 'packages/ifc-spatial/test/fixtures/units-feet.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/floor-slab-and-window.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/house-with-rooms.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/road-ifc4x3.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/units-feet.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/vocabulary.json'
   # End of the files this tier's tests read.
 # NOT here, though tests read them: `ci/**`, `releasenotes/**`, the other
 # workflows and this file. Their tests (`task be:test:harness`: the workflow,
@@ -316,18 +318,15 @@ infra:
 # pay for a Next.js build. The `packages` job is ~4 minutes, essentially all of
 # it packages/ifc-spatial-py, which is why it is filtered at all.
 packages:
-  # The Node version every job of this tier runs on (setup-node reads it).
-  - '.node-version'
-  # The IFC packages only: packages/brand has no suite of its own and is
+  # The IFC engine only: packages/brand has no suite of its own and is
   # checked by the site and workspace tiers (ADR-0145).
-  - 'packages/ifc-spatial*/**'
-  # The guide for both, beside them.
+  - 'packages/ifc-spatial-py/**'
+  # The guide for it, beside it.
   - 'packages/*.md'
   - 'Taskfile.yml'
   - 'taskfiles/packages.yml'
   - '.github/workflows/ci.yml'
   - '.github/filters.yml'
-  - '.github/actions/setup-bun/**'
   - '.github/actions/setup-task/**'
 # The per-migration backfill and down checks at the end of
 # scripts/rls-test-db.sh. They read only the migrations and the script, so the

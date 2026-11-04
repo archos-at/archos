@@ -54,6 +54,7 @@ export const officeShelf = {
     cancelError: 'Das Lesen konnte nicht abgebrochen werden. Bitte versuchen Sie es erneut.',
     menuLabel: 'Dateiaktionen',
     download: 'Herunterladen',
+    downloadPdf: 'Als PDF herunterladen',
     open: 'Öffnen',
     ask: 'Danach fragen',
     select: 'Auswählen',

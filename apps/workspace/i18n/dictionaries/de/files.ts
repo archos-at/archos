@@ -329,6 +329,7 @@ export const files: typeof en.files = {
       markdown: 'Markdown',
       plainText: 'Textdatei',
       ifc: 'IFC-Modell',
+      dxf: 'CAD-Datei (DXF)',
       email: 'E-Mail',
       image: 'Bild ({format})',
       extension: '{ext}-Datei',
@@ -371,6 +372,8 @@ export const files: typeof en.files = {
   ingestFailure: {
     rendition_failed:
       'Die PDF-Vorschau dieser Datei ließ sich nicht erzeugen. Erneut lesen oder die Datei als PDF hochladen.',
+    drawing_unreadable:
+      'Diese DXF-Datei ließ sich nicht lesen oder enthält keine Zeichnung. Exportieren Sie sie im CAD-Programm erneut als DXF und laden Sie sie noch einmal hoch.',
     download_failed:
       'Die hochgeladene Datei war im Speicher nicht erreichbar. Erneut lesen oder die Datei noch einmal hochladen.',
     interrupted: 'Das Lesen wurde durch einen Neustart des Dienstes unterbrochen. Erneut lesen, um es abzuschließen.',
@@ -749,6 +752,7 @@ export const files: typeof en.files = {
     label: 'Dateiaktionen für „{name}“',
     menuLabel: 'Dateiaktionen',
     download: 'Herunterladen',
+    downloadPdf: 'Als PDF herunterladen',
     open: 'Öffnen',
     ask: 'Danach fragen',
     select: 'Auswählen',
