@@ -116,14 +116,18 @@ bounded by per-org/member/project budgets — see
   sends about 37 k prompt tokens and each later round adds about 8.3 k. If the
   first call of every turn is cold and every later round re-reads all but its
   new tokens, the miss share is (37 k + 2.65 × 8.3 k) / 197 k ≈ 30 %, which
-  is the 70 % cache share the ledger shows. So caching works within a turn and
-  carries nothing from one turn to the next, though 87 of 101 follow-up turns
-  came within 30 minutes of the previous one (median 129 s). OpenAI bills a
-  cache write at 1.25x input from GPT-5.6 on, so a cold first call costs more
-  than an uncached one used to. Why the prefix does not carry over (the
-  endpoint's in-memory TTL, or a tool payload that differs between turns) is
-  not yet measured; a probe that sends one prefix twice at a 3 s, 90 s and 6 min
-  gap on the chat routing answers it.
+  is the 70 % cache share the ledger shows. That share fits a conversation
+  whose cache carries little or nothing across turns, but it does not say which
+  calls hit. Two more signals point the same way: hours with five or more turns
+  by one person reached a 72 % share where a carried prefix would give about
+  86 %, though 87 of 101 follow-up turns came within 30 minutes of the previous
+  one (median 129 s); and driven through the code that builds the requests, a
+  follow-up repeats 31 % of what the previous turn last sent
+  (`tests/agents/piloti/test_cross_turn_prefix.py`), because the turn context
+  is not stored and the history window moves every turn. OpenAI bills a cache
+  write at 1.25x input from GPT-5.6 on, so a cold first call costs more than an
+  uncached one used to. The per-answer carry is measured from the first agent
+  call of each answer (`chat_cross_turn_cache_carry` in PostHog).
 - **What zero data retention leaves open on price (2026-11-04,
   `/api/v1/endpoints/zdr`).** Only Azure serves `openai/gpt-6.1-terra` and
   `openai/gpt-6-luna` with zero data retention; `azure/eu` lists 20 % above
