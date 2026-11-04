@@ -1354,6 +1354,77 @@ class TestAnEngineRefusalKeepsItsReason:
         assert answer == UNAVAILABLE_TEXT
 
 
+class TestADownloadCutShortIsNotABrokenFile:
+    """The connection dropped, and the file in the store is fine.
+
+    A real socket, because the point is how `read(n)` behaves: it hands back what
+    arrived and does not raise. The partial bytes would reach the engine, which
+    would truthfully call them cut off and ask for a new upload, and the spill
+    would keep that answer until the process restarts.
+    """
+
+    @pytest.fixture()
+    def serve(self):
+        """Serve ``body`` under a stated Content-Length, closing the connection after the body."""
+        import http.server
+        import threading
+
+        servers = []
+
+        def start(body: bytes, length: int, encoding: str = "") -> str:
+            class Handler(http.server.BaseHTTPRequestHandler):
+                def do_GET(self):
+                    self.send_response(200)
+                    self.send_header("Content-Length", str(length))
+                    if encoding:
+                        self.send_header("Content-Encoding", encoding)
+                    self.end_headers()
+                    self.wfile.write(body)
+
+                def log_message(self, *_args):
+                    pass
+
+            server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            servers.append(server)
+            return f"http://127.0.0.1:{server.server_address[1]}/model.ifc"
+
+        yield start
+        for server in servers:
+            server.shutdown()
+            server.server_close()
+
+    @pytest.mark.parametrize("arrived", [b"", b"ISO-10303-21;\n"], ids=["nothing", "the_start"])
+    def test_it_reads_as_the_outage_it_is(self, serve, arrived):
+        from agent.knowledge import ifc_spatial_client as client
+
+        with pytest.raises(BimQueryUnavailableError) as raised:
+            client._download(serve(arrived, 5845))
+
+        assert not isinstance(raised.value, ModelUnreadableError)
+        assert not isinstance(raised.value, ModelTooLargeError)
+
+    def test_a_complete_download_passes(self, serve):
+        from agent.knowledge import ifc_spatial_client as client
+
+        whole = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
+
+        assert client._download(serve(whole, len(whole))) == whole
+
+    def test_a_compressed_download_is_measured_by_what_was_sent(self, serve):
+        """Content-Length counts the compressed bytes, so the check runs before they are inflated."""
+        import gzip
+
+        from agent.knowledge import ifc_spatial_client as client
+
+        whole = b"ISO-10303-21;\n" * 500 + b"END-ISO-10303-21;\n"
+        packed = gzip.compress(whole)
+
+        assert client._download(serve(packed, len(packed), "gzip")) == whole
+        with pytest.raises(BimQueryUnavailableError):
+            client._download(serve(packed[:20], len(packed), "gzip"))
+
+
 class TestUnavailableIsNotRejected:
     """Could-not-look versus looked-and-your-arguments-were-wrong.
 
