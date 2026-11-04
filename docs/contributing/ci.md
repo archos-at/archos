@@ -470,7 +470,8 @@ that does not serve one of the jobs in the first table needs a reason.
 - A finding the change did not cause (a new CVE in an untouched pin) belongs in
   the weekly run, not in a check that blocks every pull request. `agent-engine`
   is an exception on purpose: what its floating install catches is what the next
-  image would ship.
+  image would ship. It ends when the image's engine install is locked; the job
+  then installs from the same lock.
 - Make CI pass by fixing the cause. Widening the `.gitleaks.toml` allowlist,
   loosening auth gating or code-owner review is a design discussion first.
 - A `CODEOWNERS` change goes with the paths it routes, or reviews go to the
