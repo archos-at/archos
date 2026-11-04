@@ -149,6 +149,9 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
 
     const agent = rows.find((entry) => entry.messageId === message && entry.agentGroup === null)
     expect(agent).toMatchObject({ calls: 2, promptTokens: 82000, firstCallPromptTokens: 37000, firstCallCachedTokens: 30000 })
+    expect(agent?.firstAgentCallAt?.toISOString()).toBe('2026-10-21T06:02:00.000Z')
+    expect(agent?.lastAgentCallAt?.toISOString()).toBe('2026-10-21T06:03:00.000Z')
+    expect(rows.find((entry) => entry.agentGroup === 'decision')?.firstAgentCallAt).toBeNull()
     const decision = rows.find((entry) => entry.agentGroup === 'decision')
     expect(decision).toMatchObject({ messageId: message, calls: 1, firstCallPromptTokens: 0 })
     const ingest = rows.find((entry) => entry.jobId === 'job_1')

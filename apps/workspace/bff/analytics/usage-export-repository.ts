@@ -182,6 +182,13 @@ export interface UsageOutcomeRow {
    */
   firstCallPromptTokens: number
   firstCallCachedTokens: number
+  /**
+   * When the group's first and last agent calls ran (NULL for a group with none):
+   * the gap from one answer's last call to the next one's first is how long the
+   * provider had to keep the conversation's prefix, which bounds the carry.
+   */
+  firstAgentCallAt: Date | null
+  lastAgentCallAt: Date | null
 }
 
 /**
@@ -230,6 +237,8 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
       priceUsd: sql<string>`coalesce(sum(${llmUsageEvents.priceUsd}), 0)`,
       firstCallPromptTokens: sql<string>`coalesce(sum(${llmUsageEvents.promptTokens}) FILTER (WHERE ${isFirstAgentCall}), 0)`,
       firstCallCachedTokens: sql<string>`coalesce(sum(${llmUsageEvents.cachedTokens}) FILTER (WHERE ${isFirstAgentCall}), 0)`,
+      firstAgentCallAt: sql<string | null>`min(${llmUsageEvents.createdAt}) FILTER (WHERE ${llmUsageEvents.agentGroup} IS NULL)`,
+      lastAgentCallAt: sql<string | null>`max(${llmUsageEvents.createdAt}) FILTER (WHERE ${llmUsageEvents.agentGroup} IS NULL)`,
     })
     .from(llmUsageEvents)
     .where(
@@ -268,6 +277,8 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
     priceUsd: num(row.priceUsd),
     firstCallPromptTokens: num(row.firstCallPromptTokens),
     firstCallCachedTokens: num(row.firstCallCachedTokens),
+    firstAgentCallAt: row.firstAgentCallAt ? new Date(row.firstAgentCallAt) : null,
+    lastAgentCallAt: row.lastAgentCallAt ? new Date(row.lastAgentCallAt) : null,
   }))
 }
 

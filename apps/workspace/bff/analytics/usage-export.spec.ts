@@ -97,6 +97,8 @@ const outcomeRow = (over: Partial<UsageOutcomeRow> = {}): UsageOutcomeRow => ({
   priceUsd: 0.2025,
   firstCallPromptTokens: 37000,
   firstCallCachedTokens: 30000,
+  firstAgentCallAt: new Date('2026-10-20T06:12:03Z'),
+  lastAgentCallAt: new Date('2026-10-20T06:12:41Z'),
   ...over,
 })
 
@@ -184,6 +186,15 @@ describe('usageOutcomeProperties', () => {
       cost_usd: 0.2025,
     })
     expect(usageOutcomeProperties(outcomeRow()).job_id).toBeUndefined()
+  })
+
+  it("names when the answer's agent calls ran, so the gap to the next answer can be read", () => {
+    expect(usageOutcomeProperties(outcomeRow())).toMatchObject({
+      first_agent_call_at: '2026-10-20T06:12:03.000Z',
+      last_agent_call_at: '2026-10-20T06:12:41.000Z',
+    })
+    const support = usageOutcomeProperties(outcomeRow({ firstAgentCallAt: null, lastAgentCallAt: null }))
+    expect(support.first_agent_call_at).toBeUndefined()
   })
 
   it("carries the first agent call's tokens only on the row that holds it, so the carry can be read per answer", () => {

@@ -184,6 +184,9 @@ export function usageOutcomeProperties(row: UsageOutcomeRow): ServerEventPropert
     // Only on the row that holds the answer's first agent call: its cached share is the cross-turn carry.
     first_call_prompt_tokens: row.firstCallPromptTokens > 0 ? row.firstCallPromptTokens : undefined,
     first_call_cached_tokens: row.firstCallPromptTokens > 0 ? row.firstCallCachedTokens : undefined,
+    // The agent's own calls of this group: the gap between two answers bounds what the provider still holds.
+    first_agent_call_at: row.firstAgentCallAt?.toISOString(),
+    last_agent_call_at: row.lastAgentCallAt?.toISOString(),
   }
 }
 
