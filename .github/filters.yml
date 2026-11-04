@@ -161,12 +161,14 @@ backend:
   - 'packages/brand/build-brand-assets.mjs'
   - 'packages/brand/identity.json'
   - 'packages/brand/mark.svg'
+  - 'packages/ifc-spatial-py/pyproject.toml'
   - 'packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/floor-slab-and-window.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/house-with-rooms.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/road-ifc4x3.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/units-feet.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/vocabulary.json'
+  - 'packages/ifc-spatial-py/uv.lock'
   # End of the files this tier's tests read.
 # NOT here, though tests read them: `ci/**`, `releasenotes/**`, the other
 # workflows and this file. Their tests (`task be:test:harness`: the workflow,
