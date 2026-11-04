@@ -10,6 +10,10 @@ features:
     lists every parcel with its area as drawn and its neighbours, so you can
     ask about your site in the chat and get a cited answer.
   - >
+    In the chat you can now measure a DXF drawing: how far a house stands from
+    each boundary, how long the boundary to a neighbour is, and what remains
+    buildable after the setbacks and the coverage you name.
+  - >
     A Katastralmappe from BEV is drawn in BEV's plot colours with its
     Katastralgemeinde and coordinate system on the sheet. Where parcels are in
     the Grundsteuerkataster, the sheet says their boundaries are not legally

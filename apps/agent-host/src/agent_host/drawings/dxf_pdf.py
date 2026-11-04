@@ -50,12 +50,13 @@ from matplotlib.figure import Figure
 from matplotlib.patches import PathPatch
 from matplotlib.patches import Polygon
 
+from agent.drawings.dxf_source import DxfSource
+from agent.drawings.parcels import read_parcels
+
 from . import cadastre_style
 from . import text_layer
-from .dxf_source import DxfSource
 from .house_style import house_style
 from .parcel_table import draw_parcel_pages
-from .parcels import read_parcels
 from .sheet import Sheet
 from .sheet import choose_sheet
 from .sheet import fitted_sheet

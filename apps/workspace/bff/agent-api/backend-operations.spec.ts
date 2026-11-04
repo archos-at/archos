@@ -86,7 +86,7 @@ afterEach(() => {
 })
 
 describe('the operations', () => {
-  it('are the seven read tools, named like the catalog and unique across it', () => {
+  it('are the eight read tools, named like the catalog and unique across it', () => {
     expect(BACKEND_OPERATIONS.map((op) => op.name)).toEqual([
       'knowledge-search',
       'passage-read',
@@ -94,6 +94,7 @@ describe('the operations', () => {
       'document-look',
       'ifc-query',
       'ifc-measure',
+      'dxf-measure',
       'law-lookup',
     ])
     const catalogNames = new Set(AGENT_OPERATIONS.map((op) => op.name))
@@ -101,7 +102,7 @@ describe('the operations', () => {
       expect(op.name).toMatch(/^[a-z]+(-[a-z]+)+$/)
       expect(op.name.length).toBeLessThanOrEqual(52)
       expect(catalogNames.has(op.name), `${op.name} is also a catalog operation`).toBe(false)
-      expect(['knowledge', 'bim']).toContain(op.domain)
+      expect(['knowledge', 'bim', 'documents']).toContain(op.domain)
     }
   })
 

@@ -665,6 +665,18 @@ ist 123/4, und wer grenzt an?“) and the answer cites that page. The area is
 computed from the drawn boundary: in the Grundsteuerkataster it is graphic, and
 it is never the Flächenausmaß in the Grundbuch, which the page says too.
 
+**And measured.** The agent reads the drawing's geometry, not the picture of it,
+so it can answer what a page of text cannot: how long the boundary to 123/5 is,
+how far each house stands from each boundary, what remains buildable after 3 m
+on every side and 4 m towards a neighbour, and what a coverage of 40 % or a
+floor-area ratio of 1.2 allows. The setbacks and limits are the ones you give or
+the agent looks up in the Bebauungsplan or the building code; the drawing holds
+none. Each answer carries the same caveat as the page: in the
+Grundsteuerkataster a distance is as drawn, not as surveyed. For any other DXF
+the agent finds labels and says what each layer holds („wie viel Fläche liegt
+auf GRÜNFLÄCHE?“); buildings there are the closed outlines on the layers you
+name.
+
 What to expect:
 
 - The scale comes from the unit the file names. A file that names none is drawn
@@ -686,7 +698,7 @@ What to expect:
 - A whole Katastralgemeinde takes up to a minute; the parcel list covers about
   4,000 parcels and says how many it left out beyond that.
 
-Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md).
+Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) (the PDF) and [ADR-0153](../adr/0153-a-dxf-drawing-is-a-site-the-agent-measures.md) (the measuring).
 
 ---
 

@@ -767,6 +767,14 @@ functions:
     _type: ifc_measure
     default_limit: 50
 
+  # A DXF drawing measured as a site (ADR-0153), above all a Katasterauszug:
+  # parcel areas, neighbours and shared boundaries, the buildings on a parcel
+  # and their distance to each boundary, what remains after setbacks, labels and
+  # layers. Read from the drawing's own geometry, the model the PDF rendition
+  # draws (ADR-0152). Not project-only: a DXF attached to a chat is measured too.
+  dxf_measure:
+    _type: dxf_measure
+
   # The FUNCTION NAME here is deliberately still `shallow_research_agent` while
   # the `_type` is `research_agent`. NAT puts the function name — not the type —
   # on the wire as `Function Start: <name>`, and the frontend persists that
@@ -820,6 +828,7 @@ functions:
       - workspace
       - ifc_query
       - ifc_measure
+      - dxf_measure
       - ask_user
     verbose: true
     # A CEILING ON ROUNDS, NOT A QUOTA ON CALLS — and the number is the floor of
@@ -1001,6 +1010,7 @@ functions:
       - surface_documents
       - ifc_query
       - ifc_measure
+      - dxf_measure
     verbose: true
     # Durable checkpointing for async deep-research jobs (T3-8), mirroring
     # workflow.checkpoint_db below: re-invoking the same job_id resumes from

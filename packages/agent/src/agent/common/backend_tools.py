@@ -33,6 +33,7 @@ BACKEND_READ_TOOLS: Final[tuple[str, ...]] = (
     "look",
     "ifc_query",
     "ifc_measure",
+    "dxf_measure",
     "ris_lookup_tool",
 )
 

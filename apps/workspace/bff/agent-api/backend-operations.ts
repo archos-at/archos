@@ -4,7 +4,7 @@ import 'server-only'
  *
  * `catalog/` covers what the BFF's routes do. Piloti's best READ tools live
  * only in the Python agent: knowledge search, passage reading, the file
- * browser, page images, the two BIM tools and RIS. An outside agent must get
+ * browser, page images, the two BIM tools, the DXF site measure and RIS. An outside agent must get
  * them too, so each is an operation here, and the MCP server lists them beside
  * the catalog's. A call goes to the backend's `POST /v1/internal/tools/{name}`
  * (`apps/agent-host/src/agent_host/routes/internal_tools.py`).
@@ -64,7 +64,7 @@ export type BackendAnnotations = Omit<ToolAnnotations, 'openWorldHint'> & { read
 export interface BackendOperation {
   /** `<entity>-<verb>`, kebab-case, unique across the catalog as well. */
   readonly name: string
-  readonly domain: Extract<AgentDomain, 'knowledge' | 'bim'>
+  readonly domain: Extract<AgentDomain, 'knowledge' | 'bim' | 'documents'>
   /** One line for `tools` and `search`. */
   readonly summary: string
   /** What an outside agent reads: this file's English description, not the Python function's. */
@@ -245,6 +245,21 @@ const ENTRIES = [
       'and the remedy verbatim. Never recompute, round or convert a returned number, and pass only GlobalIds a call returned. ' +
       'A measurement that contradicts a declared quantity is reported as a contradiction with both numbers. The first ' +
       'geometric call on a model costs seconds; later calls are fast.',
+    needsProject: true,
+  },
+  {
+    name: 'dxf-measure',
+    tool: 'dxf_measure',
+    domain: 'documents',
+    summary: 'Measure parcels, buildings, setbacks and layers in a project’s DXF drawing',
+    description:
+      'Measure a project’s DXF drawing as a site, above all an Austrian cadastral extract (BEV Katastralmappe): parcel areas, ' +
+      'neighbours and shared boundary lengths, the buildings on a parcel with coverage, each building’s distance to each ' +
+      'boundary, and what remains buildable after the setbacks and limits you pass (from the zoning plan or building code; the ' +
+      'drawing holds none). For any other DXF: labels and what each layer holds. Start with `overview`. `document` is the file ' +
+      'name from files-list; name parcels as the drawing does (`123/4`, `.57`). Tax-cadastre boundaries are graphic, not ' +
+      'binding: quote each answer’s accuracy note with its number. An undecidable answer is a finding about the file. Never ' +
+      'recompute, round or convert a returned number.',
     needsProject: true,
   },
   {

@@ -10,18 +10,21 @@ from pathlib import Path
 import ezdxf
 import pypdfium2
 import pytest
+from agent_testing.cadastre import PARCELS
+from agent_testing.cadastre import R12Writer
+from agent_testing.cadastre import bev_partial_dxf
 from fastapi import APIRouter
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from matplotlib.figure import Figure
 
+from agent.drawings.dxf_source import read_dxf
+from agent.drawings.parcels import read_parcels
 from agent_host.drawings import cadastre_style
 from agent_host.drawings import dxf_pdf
 from agent_host.drawings import house_style as house_style_module
 from agent_host.drawings.dxf_pdf import render_pdf
-from agent_host.drawings.dxf_source import read_dxf
 from agent_host.drawings.house_style import house_style
-from agent_host.drawings.parcels import read_parcels
 from agent_host.drawings.sheet import choose_sheet
 from agent_host.drawings.sheet import scale_bar_metres
 from agent_host.routes.drawing_renditions import DXF_RENDITION_PATH
@@ -30,107 +33,6 @@ from agent_host.routes.drawing_renditions import page_title
 from agent_host.routes.drawing_renditions import source_name
 
 TOKEN = "real-secret"  # pragma: allowlist secret
-
-#: A point in Mödling, Lower Austria, in MGI / Austria GK East (EPSG 31256) with
-#: the 5,000,000 of the northing dropped, as BEV writes it.
-X0, Y0 = -3139.84, 327390.65
-
-
-class _R12Writer:
-    """Group codes for a partial R12 file, the way BEV writes one: a minimal header, then entities only."""
-
-    def __init__(self) -> None:
-        self.codes = ["0", "SECTION", "2", "HEADER", "9", "$ACADVER", "1", "AC1009", "0", "ENDSEC"]
-        self.codes += ["0", "SECTION", "2", "ENTITIES"]
-
-    def polyline(self, layer: str, points: list[tuple[float, float]]) -> None:
-        self.codes += ["0", "POLYLINE", "8", layer, "66", "1", "10", "0", "20", "0", "30", "0"]
-        for dx, dy in points:
-            self.codes += ["0", "VERTEX", "8", layer, "10", f"{X0 + dx:.2f}", "20", f"{Y0 + dy:.2f}", "30", "0"]
-        self.codes += ["0", "SEQEND", "8", layer]
-
-    def insert(self, layer: str, block: str, at: tuple[float, float], value: str, tag: str, **text: float) -> None:
-        """An INSERT with one attribute, centred on its point as BEV's parcel numbers are (spec §8.3)."""
-        x, y = X0 + at[0], Y0 + at[1]
-        rotation = text.get("rotation", 0.0)
-        self.codes += ["0", "INSERT", "8", layer, "66", "1", "2", block, "10", f"{x:.3f}", "20", f"{y:.3f}", "30", "0"]
-        self.codes += [
-            "50",
-            f"{rotation:.3f}",
-            "0",
-            "ATTRIB",
-            "8",
-            layer,
-            "10",
-            f"{x:.3f}",
-            "20",
-            f"{y:.3f}",
-            "30",
-            "0",
-        ]
-        self.codes += ["40", f"{text.get('height', 2.0):.2f}", "1", value, "50", f"{rotation:.3f}", "7", "NORM"]
-        self.codes += ["72", "1", "11", f"{x:.3f}", "21", f"{y:.3f}", "31", "0", "2", tag]
-        self.codes += ["70", str(int(text.get("flags", 0))), "74", "2", "0", "SEQEND", "8", layer]
-
-    def text(self, layer: str, at: tuple[float, float], value: str, height: float, rotation: float = 0.0) -> None:
-        x, y = X0 + at[0], Y0 + at[1]
-        self.codes += ["0", "TEXT", "8", layer, "10", f"{x:.3f}", "20", f"{y:.3f}", "30", "0", "40", f"{height:.2f}"]
-        self.codes += ["1", value, "50", f"{rotation:.3f}", "72", "1", "11", f"{x:.3f}", "21", f"{y:.3f}", "31", "0"]
-        self.codes += ["73", "2"]
-
-    def bytes(self) -> bytes:
-        return ("\n".join([*self.codes, "0", "ENDSEC", "0", "EOF"]) + "\n").encode("cp1252")
-
-
-#: Parcel numbers of the fixture block, with where each sits and whether it is in the Grenzkataster.
-PARCELS = [
-    ("123/4", (10, 30), False),
-    ("123/5", (27.5, 30), True),
-    ("124", (45, 30), False),
-    ("125/1", (65, 30), False),
-    ("130", (12.5, -20), False),
-    ("131/2", (37.5, -27), False),
-    ("131/3", (62.5, -27), False),
-    ("1288", (60, -5), False),
-]
-
-
-def _bev_partial_dxf() -> bytes:
-    """A block of a Katastralmappe shaped like BEV's "BEV-DXF+CSV" file, at 1:1000.
-
-    Seven parcels on either side of a street parcel, a cadastral-community
-    boundary on the east, houses, a land-use line and boundary points. The
-    boundaries run node to node and are never closed (spec §3.2); the parcel
-    numbers and point symbols are INSERTs of blocks the file does not define (§1);
-    parcel numbers are centred on their point (§8.3) at the 1:1000 sheet's text
-    height; the sheet marker names meridian strip 34 (§3.1).
-    """
-    dxf = _R12Writer()
-    north = [0, 20, 35, 55, 75]
-    south = [0, 25, 50, 75]
-    for x in north:
-        dxf.polyline("KG" if x == 75 else "GG", [(x, 0), (x, 40)])
-    for x in south:
-        dxf.polyline("KG" if x == 75 else "GG", [(x, -10), (x, -45)])
-    for a, b in zip(north, north[1:], strict=False):
-        dxf.polyline("GG", [(a, 0), (b, 0)])
-        dxf.polyline("GG", [(a, 40), (b, 40)])
-    for a, b in zip(south, south[1:], strict=False):
-        dxf.polyline("GG", [(a, -10), (b, -10)])
-        dxf.polyline("GG", [(a, -45), (b, -45)])
-    dxf.polyline("GG", [(0, 0), (0, -10)])
-    dxf.polyline("KG", [(75, 0), (75, -10)])
-    for x0, y0, w, h in [(4, 8, 11, 13), (23, 6, 9, 15), (40, 12, 10, 10), (58, 5, 12, 11), (5, -38, 14, 10)]:
-        dxf.polyline("HG", [(x0, y0), (x0 + w, y0), (x0 + w, y0 + h), (x0, y0 + h), (x0, y0)])
-    dxf.polyline("NG", [(35, 26), (55, 26)])
-    for x in north:
-        dxf.insert("GP", "FIG024", (x, 40), "", "16117*G**", height=2.5)
-        dxf.insert("GP", "FIG020", (x, 0), "", "16117*E**", height=0.01)
-    for number, at, boundary_cadastre in PARCELS:
-        dxf.insert("GN", "GN1G" if boundary_cadastre else "GN1", at, number, "16117")
-    dxf.insert("RL", "MBNR", (-60, -60), "7856F103", "1*34*12*345*1123", height=1.0, flags=1)
-    dxf.text("SB", (30, -5), "Wiener Straße", 2.0)
-    return dxf.bytes()
 
 
 def _dxf_bytes(doc: ezdxf.document.Drawing) -> bytes:
@@ -165,7 +67,7 @@ def _centre_mm(pdf: bytes, needle: str) -> float:
 
 def test_a_header_less_bev_file_keeps_every_parcel_number():
     """ezdxf's audit deletes an INSERT whose block is missing; the reader defines a stand-in first."""
-    source = read_dxf(_bev_partial_dxf())
+    source = read_dxf(bev_partial_dxf())
     numbers = [insert.attribs[0].dxf.text for insert in source.doc.modelspace().query("INSERT[layer=='GN']")]
     assert numbers == [number for number, _at, _boundary in PARCELS]
     assert set(source.standin_blocks) == {"FIG020", "FIG024", "GN1", "GN1G", "MBNR"}
@@ -173,7 +75,7 @@ def test_a_header_less_bev_file_keeps_every_parcel_number():
 
 
 def test_a_katastralmappe_says_where_it_is_and_what_it_is_worth():
-    cadastre = read_dxf(_bev_partial_dxf()).cadastre
+    cadastre = read_dxf(bev_partial_dxf()).cadastre
     assert cadastre is not None
     assert (cadastre.meridian, cadastre.epsg) == (34, 31256)
     assert cadastre.cadastral_communities == ("16117",)
@@ -183,7 +85,7 @@ def test_a_katastralmappe_says_where_it_is_and_what_it_is_worth():
 
 def test_the_page_is_to_scale_measured_on_the_pdf():
     """123/4 and 124 are centred 35 m apart; at 1:500 that is 70 mm on the paper."""
-    pdf = render_pdf(read_dxf(_bev_partial_dxf()), title="Katasterauszug")
+    pdf = render_pdf(read_dxf(bev_partial_dxf()), title="Katasterauszug")
     width, height = _page(pdf).get_size()
     assert (round(width / 72 * 25.4), round(height / 72 * 25.4)) == (210, 297)
     text = _text(pdf)
@@ -194,7 +96,7 @@ def test_the_page_is_to_scale_measured_on_the_pdf():
 
 def test_parcel_numbers_are_sized_for_the_paper_not_for_the_sheet_they_came_from():
     """At 1:500 one millimetre is half a metre: a parcel number is 2.4 mm, a suppressed point number stays hidden."""
-    source = read_dxf(_bev_partial_dxf())
+    source = read_dxf(bev_partial_dxf())
     render_pdf(source, title="Katasterauszug")
     heights = {
         insert.dxf.layer: insert.attribs[0].dxf.height
@@ -208,7 +110,7 @@ def test_parcel_numbers_are_sized_for_the_paper_not_for_the_sheet_they_came_from
 
 
 def test_the_page_carries_the_drawing_text_and_the_cadastre_warning():
-    text = _text(render_pdf(read_dxf(_bev_partial_dxf()), title="Katasterauszug"))
+    text = _text(render_pdf(read_dxf(bev_partial_dxf()), title="Katasterauszug"))
     for expected in ("123/4", "123/5", "1288", "Wiener Straße", "16117", "EPSG 31256", "Gitternord"):
         assert expected in text
     assert "Grundsteuerkataster: Die Grenzen sind graphisch ermittelt und nicht rechtsverbindlich." in text
@@ -217,7 +119,7 @@ def test_the_page_carries_the_drawing_text_and_the_cadastre_warning():
 
 def test_the_parcels_are_rebuilt_from_the_boundary_network_with_their_areas_and_neighbours():
     """No parcel is a polygon in a DKM (spec §3.2): 20 × 40 m is 800 m², the street touches every block parcel."""
-    parcels = {parcel.number: parcel for parcel in read_parcels(read_dxf(_bev_partial_dxf()).doc)}
+    parcels = {parcel.number: parcel for parcel in read_parcels(read_dxf(bev_partial_dxf()).doc)}
     assert parcels["123/4"].area_m2 == pytest.approx(800.0)
     assert parcels["123/5"].area_m2 == pytest.approx(600.0)
     assert parcels["123/5"].boundary_cadastre is True
@@ -227,7 +129,7 @@ def test_the_parcels_are_rebuilt_from_the_boundary_network_with_their_areas_and_
 
 
 def test_a_parcel_cut_open_at_the_edge_of_an_extract_has_no_area():
-    dxf = _R12Writer()
+    dxf = R12Writer()
     dxf.polyline("GG", [(0, 0), (20, 0), (20, 30)])  # three sides only
     dxf.insert("GN", "GN1", (10, 10), "77/1", "16117")
     dxf.insert("RL", "MBNR", (-60, -60), "7856F103", "1*34*12*345*1123", height=1.0, flags=1)
@@ -237,7 +139,7 @@ def test_a_parcel_cut_open_at_the_edge_of_an_extract_has_no_area():
 
 def test_the_parcel_list_is_a_page_of_text_the_index_reads():
     """Page 2 lists every parcel, one per line, so "how big is 123/4?" finds its row."""
-    pdf = render_pdf(read_dxf(_bev_partial_dxf()), title="Katasterauszug")
+    pdf = render_pdf(read_dxf(bev_partial_dxf()), title="Katasterauszug")
     assert len(pypdfium2.PdfDocument(pdf)) == 2
     listing = _text(pdf, page=1)
     assert "123/4 16117 Grundsteuerkataster 800 m² 123/5, 1288" in listing
@@ -255,12 +157,12 @@ def test_the_sheet_names_its_maker_quietly_from_the_brand_identity():
     identity = json.loads((Path(house_style_module.__file__).with_name("brand") / "identity.json").read_text("utf-8"))
     assert style.product_name == identity["name"]
     assert style.label_face_file is not None  # the brand type unpacked, not the fallback
-    assert f"Erstellt mit {identity['name']}" in _text(render_pdf(read_dxf(_bev_partial_dxf()), title="Katasterauszug"))
+    assert f"Erstellt mit {identity['name']}" in _text(render_pdf(read_dxf(bev_partial_dxf()), title="Katasterauszug"))
 
 
 def test_a_whole_cadastral_community_renders_inside_the_budget():
     """1,600 parcels with houses, numbers and boundary points: well inside the route's 110 s, and small."""
-    dxf = _R12Writer()
+    dxf = R12Writer()
     size, count = 25.0, 40
     for i in range(count + 1):
         for j in range(count):
@@ -342,13 +244,13 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 
 def test_the_route_refuses_a_caller_without_the_internal_token(client: TestClient):
-    assert client.post(DXF_RENDITION_PATH, content=_bev_partial_dxf()).status_code == 403
+    assert client.post(DXF_RENDITION_PATH, content=bev_partial_dxf()).status_code == 403
 
 
 def test_the_route_answers_a_pdf_titled_after_the_original(client: TestClient):
     response = client.post(
         DXF_RENDITION_PATH,
-        content=_bev_partial_dxf(),
+        content=bev_partial_dxf(),
         headers={"x-internal-token": TOKEN, "x-filename": "Katasterauszug%20M%C3%B6dling.dxf"},
     )
     assert response.status_code == 200

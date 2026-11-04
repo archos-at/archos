@@ -508,6 +508,7 @@ ceiling.
 | `create_task` | `task-create`, `task-run-commission` |
 | `canvas__mark`, `canvas__update`, `canvas__delete`, `canvas__reply` | `annotation-create`, `annotation-update`, `annotation-delete`, `annotation-reply-create` |
 | `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-query`, `ifc-measure` |
+| `dxf_measure` | `dxf-measure` |
 | `read_passage`, `list_files`, `look`, `ris_lookup_tool` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
 
 Both paths stay open for the file operations Piloti also has `propose_file_change`
@@ -556,7 +557,7 @@ own and the page that runs it is the asker's. Regenerate with
 | 3. Workflows and skills | "Brief me on a project"; the office's own skills, found and read by the agent | MCP prompts, `lib/agent-api/door/`; `skill-search` and `skill-get` ([below](#the-offices-skills)) |
 
 The Python-only reads (`knowledge_search`, `read_passage`, `list_files`,
-`look`, `ifc_query`, `ifc_measure`, `ris_lookup`) reach the
+`look`, `ifc_query`, `ifc_measure`, `dxf_measure`, `ris_lookup`) reach the
 server in phase 2 through an internal backend endpoint, so an external agent
 searches with the retrieval Piloti uses.
 

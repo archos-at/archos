@@ -90,6 +90,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "cryptography" },
     { name = "deepagents" },
+    { name = "ezdxf" },
     { name = "hatchet-sdk", extra = ["otel"] },
     { name = "knowledge-layer", extra = ["all"] },
     { name = "langchain-modal" },
@@ -109,6 +110,7 @@ dependencies = [
     { name = "pygments" },
     { name = "python-multipart" },
     { name = "redis" },
+    { name = "shapely" },
 ]
 
 [package.optional-dependencies]
@@ -146,6 +148,7 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.29.0" },
     { name = "cryptography", specifier = ">=50.0.0,<51" },
     { name = "deepagents", specifier = "==0.7.32" },
+    { name = "ezdxf", specifier = ">=1.4.5,<2" },
     { name = "fakeredis", extras = ["lua"], marker = "extra == 'dev'", specifier = ">=2.40.0" },
     { name = "hatchet-sdk", extras = ["otel"], specifier = "==1.44.0" },
     { name = "knowledge-layer", extras = ["all"], editable = "packages/knowledge-layer" },
@@ -176,6 +179,7 @@ requires-dist = [
     { name = "python-multipart", specifier = ">=0.0.27,<0.1" },
     { name = "redis", specifier = ">=5.0.0,<9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "~=0.17.2" },
+    { name = "shapely", specifier = ">=2.1" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.0" },
     { name = "sphinx-autobuild", marker = "extra == 'docs'", specifier = ">=2025.8.25" },
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = ">=0.5" },

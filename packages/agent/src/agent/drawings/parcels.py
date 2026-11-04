@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from dataclasses import field
 
 from ezdxf import path as dxf_path
 from ezdxf.document import Drawing
@@ -49,6 +50,8 @@ class Parcel:
     #: Square metres from the drawn boundary, or None when its mesh is not closed in this file.
     area_m2: float | None
     neighbours: tuple[str, ...]
+    #: The mesh itself, in drawing units, for whoever measures against it (``site``); None when not closed.
+    polygon: Polygon | None = field(default=None, compare=False, repr=False)
 
 
 def read_parcels(doc: Drawing) -> list[Parcel]:
@@ -76,6 +79,7 @@ def read_parcels(doc: Drawing) -> list[Parcel]:
             boundary_cadastre=boundary,
             area_m2=None if mesh is None else float(meshes[mesh].area),
             neighbours=() if mesh is None else _neighbours(tree, meshes, mesh, numbers_by_mesh),
+            polygon=None if mesh is None else meshes[mesh],
         )
         for number, community, boundary, mesh in placed
     ]

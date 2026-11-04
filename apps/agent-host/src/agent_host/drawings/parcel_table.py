@@ -19,9 +19,10 @@ from dataclasses import replace
 
 from matplotlib.figure import Figure
 
+from agent.drawings.parcels import Parcel
+
 from .house_style import INK_MUTED
 from .house_style import house_style
-from .parcels import Parcel
 from .sheet import PAPERS_MM
 from .sheet import Sheet
 from .title_block import SheetFacts

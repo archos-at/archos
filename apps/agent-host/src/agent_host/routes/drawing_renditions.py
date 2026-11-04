@@ -25,10 +25,10 @@ from fastapi import HTTPException
 from fastapi import Request
 from fastapi import Response
 
+from agent.drawings.dxf_source import UnreadableDrawingError
+from agent.drawings.dxf_source import read_dxf
 from agent_host.drawings.dxf_pdf import EmptyDrawingError
 from agent_host.drawings.dxf_pdf import render_pdf
-from agent_host.drawings.dxf_source import UnreadableDrawingError
-from agent_host.drawings.dxf_source import read_dxf
 
 from .internal_auth import _require_internal_token
 

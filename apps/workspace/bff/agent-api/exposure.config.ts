@@ -36,8 +36,7 @@
  * operations say the ceiling: never Piloti (`exposure.config.spec.ts` holds
  * that), an external agent only behind those guards.
  *
- * Changing an entry changes `tests/fixtures/exposure.json` (the docs' and
- * Python's copy): `UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts`.
+ * Changing an entry changes `tests/fixtures/exposure.json`, the docs' and Python's copy (command in its spec).
  */
 
 import type { BackendOperationName } from './backend-operations'
@@ -712,6 +711,7 @@ export const EXPOSURE = {
   'document-look': { external: true, piloti: 'native:look', reason: NATIVE_READ },
   'ifc-query': { external: true, piloti: 'native:ifc_query', reason: NATIVE_READ },
   'ifc-measure': { external: true, piloti: 'native:ifc_measure', reason: NATIVE_READ },
+  'dxf-measure': { external: true, piloti: 'native:dxf_measure', reason: NATIVE_READ },
   'law-lookup': { external: true, piloti: 'native:ris_lookup_tool', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)

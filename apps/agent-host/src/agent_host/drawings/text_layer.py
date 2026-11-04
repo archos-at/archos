@@ -29,7 +29,7 @@ from ezdxf.entities import DXFGraphic
 from matplotlib.axes import Axes
 from matplotlib.font_manager import FontProperties
 
-from .dxf_source import DxfSource
+from agent.drawings.dxf_source import DxfSource
 
 logger = logging.getLogger(__name__)
 

@@ -50,6 +50,7 @@ research call's input ([turns audit](../audit/turns-per-answer-audit-2026-09.md)
 |---|---|---|---|
 | `ifc_measure` | Runs IfcOpenShell/OCCT over the model's bytes: areas, heights, clearances | 6,350 | `packages/agent/src/agent/tools/bim/measure_register.py` |
 | `ifc_query` | Reads the extracted IFC index | 2,300 | `packages/agent/src/agent/tools/bim/register.py` |
+| `dxf_measure` | Measures a DXF as a site: parcels, boundaries, setbacks, what remains buildable (ADR-0153) | 1,160 (o200k, 2026-11-04) | `packages/agent/src/agent/tools/drawings/register.py` |
 | `knowledge_search` | On Piloti's chat (ADR-0133 slice 6): ranked search only, with `path=` for scope and the result budget in its description; `folder`, `shelf`, `file_name` stay accepted, hidden, for one release, and a `match=` call is rejected naming the `grep` call that replaces it (`common/retired_calls.py`); only where `filesystem` is configured. For deep research, intake and the door, the full contract: ranked search; `match="exact"` is Ctrl+F across the files, `match="regex"` is grep (Python syntax, case-insensitive, needs a literal word or `folder`/`file_name`/`doc_class`, refused when it backtracks), `context=0..3` adds lines around each hit, and a scan that hits its 500-passage limit says its counts are lower bounds with a per-file upper bound from one Qdrant facet; `stemmed=true` (exact only) adds the inflected forms through a German-stemmed full-text index on a second text field (`text_stem`), the literal matches kept. `group_by="document"` (ranked only) returns one entry per document keyed by `grid_document_id`: its best passage, and a trailer table of passages in the ranked pool and pages, grouped client-side because a fused query cannot be grouped by Qdrant. For an organization with the `folder-cards` flag, one dense query over the folder card points (`kind=folder`) prints up to three `Folder:` lines after the passages, never a citation | 650 on Piloti's chat (o200k, 2026-10-27); 1,450 with the literal modes | `packages/knowledge-layer/src/register.py`, Piloti's contract `packages/knowledge-layer/src/chat_binding.py` |
 | `ris_lookup` | Austrian law by citation | 760 | `packages/ris-adapter/src/lookup/tool.py` |
 | `read_passage` | Opens one Punkt, page, page range (`pages="4-6"`, ≤30 pages, ~6k tokens, `cursor` to continue) or outline. Deep research, intake and the door; Piloti's chat reads with `read_file`; a `read_passage` call there is answered by the tool node with the tools it has | 730 | `packages/knowledge-layer/src/read_passage/tool.py` |
@@ -301,6 +302,7 @@ documents with the tool Piloti searches with.
 | `document-look` | `look` | `projectId` |
 | `ifc-query` | `ifc_query` | `projectId` |
 | `ifc-measure` | `ifc_measure` | `projectId` |
+| `dxf-measure` | `dxf_measure` | `projectId` |
 | `law-lookup` | `ris_lookup_tool` | nothing |
 
 - **One description.** The MCP description and input schema are the ones in this

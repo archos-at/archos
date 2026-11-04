@@ -29,6 +29,10 @@ model read:
 - a ``list_files`` LISTING, or an ``ls`` or ``glob`` of the estate (ADR-0133
   slice 6), is its rendered text, cut at :data:`LISTING_MAX_CHARS`. It stays an
   index, never cited, and registers no source (``citations.text_parsers``);
+- a ``dxf_measure`` ANSWER (ADR-0153) is its rendered text, cut at
+  :data:`LISTING_MAX_CHARS`: figures computed from the drawing's own geometry,
+  each naming the file (its first line, ``File: …``). A refusal names no file
+  and makes no record;
 - anything else (a refusal, which the tool words „Error …", or a notice the
   agent's own guards answered the call with) is no JSON and no record.
 
@@ -69,6 +73,11 @@ LISTING_TOOL = "list_files"
 LISTING_MAX_CHARS = 12_000
 #: How a listing refusal starts (bad argument, unknown shelf); no listing, no record.
 _LISTING_REFUSALS = re.compile(r"^(?:`\w+` must be|Invalid |Unknown )", re.IGNORECASE)
+
+#: The drawing tool (``tools/drawings``, ADR-0153), and how each of its answers starts.
+#: An answer is read off the drawing's geometry, so it is a read, like a listing.
+DRAWING_TOOL = "dxf_measure"
+_DRAWING_ANSWER_START = "File: "
 
 #: The server's text for a write it filed as a proposal (``discovery.ts``).
 PROPOSED_PREFIX = "Proposed"
@@ -142,6 +151,16 @@ def listing_record(text: str, tool: str = LISTING_TOOL) -> WorkspaceRecord | Non
     if not stripped or _LISTING_REFUSALS.match(stripped):
         return None
     return WorkspaceRecord(tool, "read", stripped[:LISTING_MAX_CHARS])
+
+
+def drawing_record(tool_name: str, text: str) -> WorkspaceRecord | None:
+    """The record a ``dxf_measure`` answer makes: its rendered text, capped; None for anything else."""
+    from agent.common.tool_calls import tool_basename
+
+    stripped = text.strip()
+    if tool_basename(tool_name or "") != DRAWING_TOOL or not stripped.startswith(_DRAWING_ANSWER_START):
+        return None
+    return WorkspaceRecord(DRAWING_TOOL, "read", stripped[:LISTING_MAX_CHARS])
 
 
 def _agent_authored(value: Any) -> bool:
@@ -247,6 +266,11 @@ def records_from_messages(messages: Sequence[Any]) -> list[WorkspaceRecord]:
             if listing is not None:
                 records.append(listing)
             continue
+        if getattr(message, "status", None) != "error":
+            drawing = drawing_record(name, _content_text(getattr(message, "content", "")))
+            if drawing is not None:
+                records.append(drawing)
+                continue
         if not is_workspace_call(name):
             continue
         call = calls.get(str(getattr(message, "tool_call_id", "") or ""))

@@ -865,6 +865,144 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
+      "description": "Measure a DXF drawing of this project, above all a Katasterauszug (BEV Katastralmappe): the site as geometry, not as a picture. Use it for questions about parcels and what stands on them: a parcel's area and shape, which parcels border it and along how much boundary, the buildings on it with their footprint and coverage, how far each building stands from each boundary, what remains buildable after setbacks you give, and what a coverage or density limit allows. For any other DXF it finds labels and says what each layer holds.\n\noperation:\n  'overview'  — what the drawing is (Katastralmappe or not, KG, coordinate system, unit), how many parcels and buildings, its layers. Start here once per file.\n  'parcels'   — every parcel as a row (KG, cadastre, area, built-up area and coverage, neighbours); `parcels` names some.\n  'parcel'    — one parcel (`parcel`): area, perimeter, enclosing rectangle, boundary length per neighbour and to the edge of the extract, the buildings on it.\n  'setbacks'  — for each building on the parcel, its shortest distance to each neighbour's boundary.\n  'buildable' — the parcel minus a band along each boundary: `setback_m` for every side, `setbacks` ({neighbour parcel: metres}) per side; `coverage_limit` (0.4 or 40 for 40 %) and `density_limit` (a floor-area ratio such as 1.2) as allowances. The values are the ones YOU pass, from the Bebauungsplan or the building code (look them up first); the drawing holds none.\n  'distance'  — the shortest distance between two things in `between`: parcel numbers or 'building N'.\n  'texts'     — labels containing `query`, with their layer, position and parcel.\n  'layers'    — what each layer holds: entity kinds, line length, closed outlines and their area.\n\n`document` is the file name as the inventory lists it; empty means the document open on the canvas or the conversation's subject. Name parcels as the drawing does ('123/4', '.57'). Every answer says how far it can be trusted: Grundsteuerkataster boundaries are graphic and not legally binding, so quote that caveat with the number. 'Undecidable' is an answer about the file: report what is missing and the remedy. Never recompute, round or convert a returned number.",
+      "inputSchema": {
+        "description": "What the model passes to ``dxf_measure``.",
+        "properties": {
+          "between": {
+            "description": "Two parcel numbers or 'building N', for 'distance'.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Between",
+            "type": "array"
+          },
+          "building_layers": {
+            "description": "Layers holding building outlines, for a DXF that is not a cadastral map.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Building Layers",
+            "type": "array"
+          },
+          "coverage_limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 100,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Maximum coverage: 0.4 or 40 (%).",
+            "title": "Coverage Limit"
+          },
+          "density_limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 20,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Maximum floor-area ratio, e.g. 1.2.",
+            "title": "Density Limit"
+          },
+          "document": {
+            "default": "",
+            "description": "The DXF's file name; empty for the open document or the subject.",
+            "title": "Document",
+            "type": "string"
+          },
+          "limit": {
+            "default": 50,
+            "description": "Rows at most, for 'parcels', 'texts' and 'layers'.",
+            "maximum": 500,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "operation": {
+            "description": "What to measure; start with 'overview'.",
+            "enum": [
+              "overview",
+              "parcels",
+              "parcel",
+              "setbacks",
+              "buildable",
+              "distance",
+              "texts",
+              "layers"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "parcel": {
+            "default": "",
+            "description": "One parcel number, for 'parcel', 'setbacks' and 'buildable'.",
+            "title": "Parcel",
+            "type": "string"
+          },
+          "parcels": {
+            "description": "Parcel numbers to list with 'parcels'.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Parcels",
+            "type": "array"
+          },
+          "query": {
+            "default": "",
+            "description": "Text to find with 'texts'; empty lists every label.",
+            "title": "Query",
+            "type": "string"
+          },
+          "setback_m": {
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Setback on every side, metres.",
+            "title": "Setback M"
+          },
+          "setbacks": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Setback per neighbouring parcel number, metres; overrides setback_m there.",
+            "title": "Setbacks",
+            "type": "object"
+          }
+        },
+        "required": [
+          "operation"
+        ],
+        "title": "DxfMeasureInput",
+        "type": "object"
+      },
+      "name": "dxf_measure"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
       "description": "Answers a question about Austrian law from RIS (Rechtsinformationssystem des Bundes) with the actual paragraphs, quotable and citable: Bauordnungen, Bautechnikgesetze, Garagengesetze and other Landesgesetze, the federal acts behind them, and court decisions; also whether an OIB requirement binds. The text of the OIB-Richtlinien themselves and the office's uploads are in knowledge_search, not here.\n\nOne call covers the whole path: it reads the address out of the question (§/Artikel, the named law, the Bundesland), takes the verified catalog pointer or searches RIS live, downloads at most two documents and cuts the paragraphs that answer the question out of them. No document number is passed.\n\nArgs:\n    question (str): The legal question, in German, as the user means it, not a search string.\n    conclusion (str): Optional. One line on what you are looking for; no effect on the call.\n    jurisdiction (str): The Bundesland (\"Wien\", \"Tirol\", …). When omitted it is taken from the instrument, the question, then the project brief, and the answer states which.\n    instrument (str): An address: \"Bauordnung für Wien\", \"§ 63 BO Wien\", a RIS document number or a ris.bka.gv.at URL. Naming a § makes the lookup deterministic: the paragraph is cut out by its number. Up to six §§ in one call (\"§§ 75 und 81 BO Wien\", \"§§ 2 bis 4 Baupolizeigesetz Salzburg\"); past six it names those it did not read.\n    application (str): Only for the non-statute corpora: \"Vfgh\", \"Vwgh\", \"Justiz\", \"Bvwg\", \"Lvwg\" for case law, \"BgblAuth\"/\"LgblAuth\" for the authentic gazettes, \"Begut\"/\"RegV\" for drafts. Empty for statute law.\n\nReturns:\n    str: Numbered passages, each with Source, Dokumentart, Punkt, a Citation key to copy verbatim, and the paragraph text. A miss says what was searched, which Bundesland was assumed and where that came from, what matched but was not read, and one concrete retry.",
       "inputSchema": {
         "properties": {
