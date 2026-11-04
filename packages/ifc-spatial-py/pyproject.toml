@@ -11,9 +11,9 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
   # Exact, and the version `uv.lock` holds. The agent image installs this package
   # with `uv pip install -e`, which reads this line and never the lock, while the
-  # suite runs on the lock: a range ships the newest release, untested. 0.9.0 got
-  # in that way, and on 0.9.0.post1 `select_ray` hands back `hit.instance` as a
-  # bare SWIG pointer with no `.id()`, so `clearHeight` raises AttributeError.
+  # suite runs on the lock: a range ships the newest release, untested. 0.9.0.post1
+  # got in that way, and on it `select_ray` hands back `hit.instance` as a bare
+  # SWIG pointer with no `.id()`, so `clearHeight` raises AttributeError.
   # Move this, `ifctester` below and the lock together, so the suite sees it first.
   "ifcopenshell==0.8.5",
   "numpy>=1.26",
