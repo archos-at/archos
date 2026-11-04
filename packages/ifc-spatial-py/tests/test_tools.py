@@ -21,6 +21,9 @@ import json
 from pathlib import Path
 
 import pytest
+from ifc_spatial.model import MAX_FILE_BYTES
+from ifc_spatial.model import ModelTooLargeError
+from ifc_spatial.model import ModelUnreadableError
 from ifc_spatial.tools import MEASURES
 from ifc_spatial.tools import ToolError
 from ifc_spatial.tools import call
@@ -349,6 +352,45 @@ def test_an_unreadable_file_is_refused_with_the_reason_a_person_can_act_on(tools
     with pytest.raises(ToolError) as raised:
         call(tools, "open_model", {"path": str(broken)})
     assert "Modell konnte nicht geöffnet werden" in str(raised.value)
+
+
+def test_a_refused_file_stays_the_cause_so_a_client_can_tell_which_refusal_it_was(tools: list, tmp_path: Path) -> None:
+    """The agent's client reads the cause, and without it every refusal reads as an outage."""
+    empty = tmp_path / "leer.ifc"
+    empty.write_bytes(b"")
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(empty)})
+    cause = raised.value.__cause__
+    assert isinstance(cause, ModelUnreadableError)
+    assert not isinstance(cause, ModelTooLargeError)
+    assert cause.reason.startswith("Diese Datei ist leer")
+
+
+def test_a_file_over_the_limit_stays_the_cause_with_both_numbers(tools: list, tmp_path: Path) -> None:
+    big = tmp_path / "gross.ifc"
+    with big.open("wb") as file:
+        file.truncate(MAX_FILE_BYTES + 1)
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(big)})
+    cause = raised.value.__cause__
+    assert isinstance(cause, ModelTooLargeError)
+    assert (cause.size, cause.limit) == (MAX_FILE_BYTES + 1, MAX_FILE_BYTES)
+
+
+def test_running_out_of_memory_is_not_reported_as_a_damaged_file(
+    tools: list, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The file may be fine and the next attempt may fit, so it must not read as a refusal of the file."""
+
+    def out_of_memory(_path: str) -> None:
+        raise MemoryError
+
+    monkeypatch.setattr("ifc_spatial.model.ifcopenshell.open", out_of_memory)
+    complete = tmp_path / "vollstaendig.ifc"
+    complete.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="ascii")
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(complete)})
+    assert isinstance(raised.value.__cause__, MemoryError)
 
 
 class TestTheEnvelopeReachesTheSurface:

@@ -29,6 +29,7 @@ import pytest
 from agent.knowledge.bim_query import BimQueryRejectedError
 from agent.knowledge.bim_query import BimQueryUnavailableError
 from agent.knowledge.ifc_spatial_client import ModelTooLargeError
+from agent.knowledge.ifc_spatial_client import ModelUnreadableError
 from agent.knowledge.ifc_spatial_client import SpatialEngineUnavailableError
 from agent.knowledge.ifc_spatial_client import SpatialToolError
 from agent.tools.bim.measure_register import ENGINE_UNAVAILABLE_TEXT
@@ -1216,6 +1217,8 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
         # Not an outage, and it says so — waiting is the wrong action.
         assert "not an outage" in text and "waiting does not help" in text
         assert text != UNAVAILABLE_TEXT
+        # Not "a larger server": no server lifts the engine's own fixed limit.
+        assert "ask for the limit to be raised" in text
         # And the half that still works is offered by name.
         assert "ifc_query" in text
         assert "Do not estimate dimensions" in text
@@ -1242,6 +1245,113 @@ class TestAModelTooBigToMeasureIsNotAnOutage:
         )
         with pytest.raises(ModelTooLargeError):
             client._download("https://example.test/big.ifc", client.MAX_MODEL_BYTES + 1)
+
+
+class TestAnEngineRefusalKeepsItsReason:
+    """The file got past this worker's gate and the engine refused it, in words.
+
+    A 70 MB export passes the memory gate of a large worker and stops at the
+    engine's own fixed 64 MiB. Cut off, empty or not IFC stops there too. The
+    engine said why, and the reader was told the service could not be reached,
+    so they waited for an outage that never ends.
+
+    The engine stands in here, because this suite runs without IfcOpenShell. What
+    it really raises, down to the cause read here, is pinned on its side of the
+    join in `packages/ifc-spatial-py/tests/test_tools.py`.
+    """
+
+    SPILLED = "/tmp/ifc-spilled.ifc"  # noqa: S108
+
+    class _Unreadable(RuntimeError):
+        def __init__(self, path, reason):
+            self.reason = reason
+            super().__init__(f"{path}: {reason}")
+
+    class _TooLarge(_Unreadable):
+        def __init__(self, path, size, limit):
+            self.size = size
+            self.limit = limit
+            super().__init__(path, "Diese Datei ist zu groß.")
+
+    @pytest.fixture(autouse=True)
+    def _context(self, monkeypatch):
+        from agent.knowledge import ifc_spatial_client as client
+        from agent.tools.bim import measure_register
+
+        monkeypatch.setattr(measure_register, "get_organization_id_from_context", lambda: "org-1")
+        monkeypatch.setattr(measure_register, "get_project_id_from_context", lambda: "proj-1")
+        monkeypatch.setattr(client, "_engine", lambda: (None, []))
+        monkeypatch.setattr(client, "_download", lambda *_: b"")
+        monkeypatch.setattr(client, "_spill", lambda *_: self.SPILLED)
+        client.reset_cache_for_tests()
+        yield
+        client.reset_cache_for_tests()
+
+    def _refused_with(self, monkeypatch, cause) -> tuple[str, str]:
+        """The tool's answer and traced outcome when the engine's `open_model` fails from ``cause``."""
+        import sys
+        import types
+
+        from agent.knowledge import ifc_spatial_client as client
+
+        class ToolError(ValueError):
+            pass
+
+        def call(_tools, _name, _args):
+            raise ToolError(f"Modell konnte nicht geöffnet werden: {cause}") from cause
+
+        monkeypatch.setitem(
+            sys.modules,
+            "ifc_spatial.tools",
+            types.SimpleNamespace(ToolError=ToolError, call=call, create_tools=lambda _cache: []),
+        )
+        monkeypatch.setitem(
+            sys.modules,
+            "ifc_spatial.model",
+            types.SimpleNamespace(ModelTooLargeError=self._TooLarge, ModelUnreadableError=self._Unreadable),
+        )
+        source = {"resolved": True, "model": {"modelId": "m1"}, "source": {"url": "https://example.test/m.ifc"}}
+        return TestTheToolBody._measure(monkeypatch, lambda *_: client.open_model(source), operation="briefing")
+
+    def test_a_file_over_the_engines_limit_reads_as_too_large(self, monkeypatch):
+        """The reported case: 70 MB on a worker whose own gate would have allowed it."""
+        answer, outcome = self._refused_with(monkeypatch, self._TooLarge(self.SPILLED, 70 * 1024**2, 64 * 1024**2))
+
+        assert outcome == "model_too_large"
+        assert "70 MB" in answer and "64 MB" in answer
+        assert "not an outage" in answer
+        assert UNAVAILABLE_TEXT not in answer
+
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            "Diese Datei ist leer (0 Bytes) — der Upload ist fehlgeschlagen.",
+            "Das ist keine IFC-SPF-Datei — sie beginnt nicht mit ISO-10303-21.",
+            "Diese Datei ist unvollständig: der Abschluss END-ISO-10303-21; fehlt.",
+        ],
+        ids=["empty", "not_ifc", "truncated"],
+    )
+    def test_a_file_the_engine_cannot_read_keeps_the_engines_reason(self, monkeypatch, reason):
+        answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, reason))
+
+        assert outcome == "model_unreadable"
+        assert reason in answer
+        assert "not an outage" in answer
+        assert not result_carries_measurement(answer)
+        # The reason is for the reader, and this worker's scratch path is not.
+        assert self.SPILLED not in answer
+
+    @pytest.mark.parametrize(
+        "cause",
+        [OSError("No space left on device"), MemoryError(), None],
+        ids=["disk", "memory", "no_cause"],
+    )
+    def test_a_failure_that_is_not_about_the_file_still_reads_as_an_outage(self, monkeypatch, cause):
+        """Here waiting is the right advice, so naming the file would be the wrong reason."""
+        answer, outcome = self._refused_with(monkeypatch, cause)
+
+        assert outcome == "service_unavailable"
+        assert answer == UNAVAILABLE_TEXT
 
 
 class TestUnavailableIsNotRejected:
@@ -2781,11 +2891,12 @@ class TestTheToolBody:
         [
             (BimQueryRejectedError("nope"), "rejected", "problem with the arguments"),
             (ModelTooLargeError(900 * 1024**2, 512 * 1024**2), "model_too_large", "too large"),
+            (ModelUnreadableError("Diese Datei ist leer."), "model_unreadable", "Diese Datei ist leer."),
             (BimQueryUnavailableError("down"), "service_unavailable", UNAVAILABLE_TEXT),
             (SpatialEngineUnavailableError(), "engine_unavailable", ENGINE_UNAVAILABLE_TEXT),
             (SpatialToolError("Bauteil 0xyz nicht enthalten"), "rejected", "find_elements"),
         ],
-        ids=["rejected", "too_large", "unavailable", "no_engine", "unrunnable"],
+        ids=["rejected", "too_large", "unreadable", "unavailable", "no_engine", "unrunnable"],
     )
     def test_every_engine_failure_maps_to_its_own_sentence_and_outcome(self, monkeypatch, raised, outcome, expected):
         """The failure table, one row at a time — the subclass before its base."""

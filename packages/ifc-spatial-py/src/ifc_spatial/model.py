@@ -388,7 +388,8 @@ class SpatialModel:
         t0 = time.perf_counter()
         try:
             self.file = ifcopenshell.open(path)
-        except ModelUnreadableError:
+        except (ModelUnreadableError, MemoryError):
+            # Out of memory says nothing about the file, so it is not a refusal of the file.
             raise
         except BaseException as error:  # noqa: BLE001 — every parser failure, one refusal
             raise ModelUnreadableError(
