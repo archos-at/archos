@@ -188,7 +188,6 @@ def test_a_pull_request_result_counts_only_on_a_green_parent():
     assert outputs["reused"] == "false"
     assert [job for job in CHECKS if not runs(job, event="push", outputs=outputs) and job != "semgrep"] == [
         "backend-affected",
-        "workspace-coverage",
     ]
 
 
@@ -197,9 +196,9 @@ def test_a_miss_runs_every_check_the_filter_selects(hit):
     outputs = plan(event="push", parent_green=True, hit=hit)
     skipped = [job for job in CHECKS if not runs(job, event="push", outputs=outputs)]
 
-    # Diff-aware SAST, the coverage comment and the selected Python run have
-    # nothing to do on a push: a push runs the full suite.
-    assert skipped == ["semgrep", "backend-affected", "workspace-coverage"]
+    # Diff-aware SAST and the selected Python run have nothing to do on a
+    # push: a push runs the full suite.
+    assert skipped == ["semgrep", "backend-affected"]
 
 
 def test_a_pull_request_runs_every_check_the_filter_selects():
@@ -270,16 +269,14 @@ def test_the_test_database_follows_every_develop_push_and_holds_nobody_up():
     assert steps[save]["with"]["key"].startswith(restore["with"]["restore-keys"].strip())
 
 
-def test_a_ui_selection_runs_the_shards_without_the_coverage_comment():
+def test_a_ui_selection_runs_the_shards():
     selected = plan(event="pull_request", ui_mode="select")
     nothing = plan(event="pull_request", ui_mode="none")
     full = plan(event="pull_request", ui_mode="full")
 
     assert runs("workspace-test", event="pull_request", outputs=selected)
-    assert not runs("workspace-coverage", event="pull_request", outputs=selected)
     assert not runs("workspace-test", event="pull_request", outputs=nothing)
     assert runs("workspace-test", event="pull_request", outputs=full)
-    assert runs("workspace-coverage", event="pull_request", outputs=full)
     # Lint, types and tenant isolation are not selected: they always run.
     assert runs("workspace", event="pull_request", outputs=nothing)
 
@@ -313,8 +310,8 @@ def test_the_marker_is_uploaded_only_by_a_passing_pull_request_gate():
     uploads = [i for i, step in enumerate(steps) if step.get("uses", "").startswith("actions/upload-artifact")]
 
     assert JOBS["ci-ok"]["if"] == "always()"
-    # Every job gates the marker, bar the coverage comment (see CI OK).
-    assert set(JOBS["ci-ok"]["needs"]) == set(JOBS) - {"ci-ok", "workspace-coverage"}
+    # Every job gates the marker.
+    assert set(JOBS["ci-ok"]["needs"]) == set(JOBS) - {"ci-ok"}
     assert len(uploads) == 1 and uploads[0] > check
     upload = steps[uploads[0]]
     # No status function: the implicit success() keeps a failed check from uploading.
@@ -353,7 +350,7 @@ def test_the_commit_is_tagged_only_after_every_check_on_its_push_passed():
     publish = JOBS["publish"]
     can_run_on_push = {job for job in CHECKS if runs(job, event="push", outputs=plan(event="push"))}
 
-    assert can_run_on_push - {"workspace-coverage"} <= set(publish["needs"])
+    assert can_run_on_push <= set(publish["needs"])
     assert "image-push" in publish["needs"]
     condition = " ".join(publish["if"].split())
     assert "github.event_name == 'push'" in condition
@@ -709,3 +706,19 @@ def test_every_ci_job_runs_the_node_version_the_repository_pins():
         for step in job.get("steps", []):
             if "actions/setup-node" in step.get("uses", ""):
                 assert step["with"] == {"node-version-file": ".node-version"}, name
+
+
+def test_no_job_posts_a_coverage_comment_or_instruments_the_ui_shards():
+    text = (WORKFLOWS / "ci.yml").read_text()
+    assert "pytest-coverage-comment" not in text and "vitest-coverage-report" not in text
+    shard = next(s for s in JOBS["workspace-test"]["steps"] if s.get("name", "").startswith("All specs"))
+    assert "COVERAGE=false" in shard["run"]
+
+
+def test_claude_runs_only_where_a_mention_can_start_it_and_one_ai_review_remains():
+    workflows = WORKFLOWS
+    claude = yaml.safe_load((workflows / "claude.yml").read_text())
+    # A review comment cannot be filtered by body before a run starts, so each
+    # bot inline comment left a skipped check behind.
+    assert set(claude[True]) == {"issue_comment", "issues"}
+    assert not (workflows / "claude-code-review.yml").exists()

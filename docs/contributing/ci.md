@@ -16,7 +16,7 @@ Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
 
-Everything else (`claude.yml`, `claude-code-review.yml`, `labels.yml`) is assistance, not verification.
+Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
 ## How a CI run decides what to run
 
@@ -381,8 +381,9 @@ which reaches ~720 specs, and the rest mostly touch a module behind
 `lib/api/errors.ts` or the schema barrel. A leaf change reaches a handful.
 `task workspace:blast-radius` holds each hub to the specs it reached when recorded;
 the hubs, and the splits that would cut them, are in
-[`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md). The
-coverage comment comes only from a full run.
+[`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md). Coverage
+is measured on the backend only (the 65% gate, total in the job summary); the
+UI shards run without instrumentation, since nothing gates on UI coverage.
 
 **What a later push to the same pull request re-runs.** Two references are
 sound, and the Plan job takes the one that forces fewer full suites, then the

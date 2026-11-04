@@ -491,9 +491,10 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # The core suite's coverage gate (65% of packages/agent/src/agent) over all four shards,
-  # and the PR comment. In `CI OK`, unlike the workspace's comment-only merge,
-  # because the gate is a check.
+  # The core suite's coverage gate (65% of packages/agent/src/agent) over all
+  # four shards. The total is in the job log and summary; the sticky PR comment
+  # it used to post listed only changed files, so it read "no changed files" on
+  # most pull requests and re-notified every push.
   backend-coverage:
     name: Backend coverage gate
     needs: [changes, backend]
@@ -502,7 +503,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: write # coverage sticky comment
     steps:
       # The sources the data names, for the report; no environment beyond
       # coverage itself, at the version the shards ran.
@@ -520,19 +520,8 @@ jobs:
           # The shards' interpreter: coverage re-parses every source file, and
           # the runner's own 3.12 cannot read 3.14 syntax (`except A, B:`).
           uvx --python 3.14 --from "$coverage" coverage combine --keep .coverage.shard*
-          uvx --python 3.14 --from "$coverage" coverage xml -o coverage.xml
-          uvx --python 3.14 --from "$coverage" coverage report --fail-under=65
-      - name: Coverage comment (backend)
-        if: github.event_name == 'pull_request'
-        continue-on-error: true # never fail CI on a comment hiccup
-        uses: MishaKav/pytest-coverage-comment@9ee59af31bd7bcada1cc496f086b407122602dbd # v1.12.3
-        with:
-          pytest-xml-coverage-path: coverage.xml
-          # The whole-tree table passed GitHub's 65,536-character comment
-          # limit, and the action then posted only the badge.
-          report-only-changed-files: true
-          title: Backend coverage (packages/agent/src/agent)
-          unique-id-for-comment: backend-coverage
+          uvx --python 3.14 --from "$coverage" coverage report --skip-covered --fail-under=65
+          echo "Backend coverage (packages/agent/src/agent): $(uvx --python 3.14 --from "$coverage" coverage report --format=total)%" >> "$GITHUB_STEP_SUMMARY"
 
   # Every Python suite but the core one, one job each. Run back to back in one
   # job they took 4:50 (sources 2:32, agent_host 1:00, the rest 0:36), the
@@ -768,58 +757,15 @@ jobs:
       - run: task workspace:install
       - name: All specs, shard ${{ matrix.shard }}/8
         if: github.event_name == 'push' || needs.changes.outputs.ui_mode == 'full'
-        # Coverage only where the comment is built from it.
-        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=${{ github.event_name == 'pull_request' }}
+        # No coverage instrumentation: nothing gates on UI coverage, and the
+        # pull request comment it fed was removed (docs/contributing/ci.md).
+        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=false
       - name: The specs this change reaches, shard ${{ matrix.shard }}/8
         if: github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'select'
         env:
           SHARD: ${{ matrix.shard }}/8
           FILES_JSON: ${{ needs.changes.outputs.ui_files }}
         run: task workspace:test:related SHARD="$SHARD" FILES="$(jq -r 'join(" ")' <<<"$FILES_JSON")"
-      # Coverage is collected per shard and merged below: a shard only loads
-      # its own slice of the app. Uploaded even when the shard failed, because
-      # the merged report is where a reviewer looks.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'full'
-        with:
-          name: vitest-blob-${{ matrix.shard }}
-          path: apps/workspace/.vitest-reports
-          include-hidden-files: true
-          retention-days: 1
-
-  # The coverage comment, and nothing else: correctness is gated by the shards.
-  # Not in `CI OK`, so a slow merge never holds the gate open, and pull request
-  # only, because on a push there is nobody to comment to.
-  workspace-coverage:
-    name: Workspace coverage
-    needs: [changes, workspace-test]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.workspace == 'true' && needs.changes.outputs.ui_mode == 'full' }}
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write # coverage sticky comment
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-      - uses: ./.github/actions/setup-bun
-      - uses: ./.github/actions/setup-task
-      - run: task workspace:install
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: vitest-blob-*
-          merge-multiple: true
-          path: apps/workspace/.vitest-reports
-      - run: task workspace:test:merge
-      - name: Coverage comment (workspace)
-        continue-on-error: true
-        uses: davelosert/vitest-coverage-report-action@8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece # v2.13.1
-        with:
-          working-directory: apps/workspace
 
   site:
     name: Website (Astro check, tests, build, a11y)
@@ -1127,10 +1073,6 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    # `workspace-coverage` is deliberately NOT here: it produces a comment,
-    # correctness is gated by the shards, and requiring it held the gate open
-    # for a minute after the last shard.
-    #
     # `retrieval-eval` used to be here. It read the real OIB Richtlinien, which
     # are now operator-provided and gitignored (data/oib/README.md), so no CI
     # checkout can hold a corpus to measure, and a job that can only pass
