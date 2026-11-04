@@ -164,6 +164,14 @@ config:
   grid-oib:ingestWorkerMaxReplicas: "3"
   grid-oib:ingestWorkerConcurrency: "2"
   grid-oib:ingestWorkerDrainSeconds: "180"
+  # The high-memory pool (`ingest-worker-heavy`, 12Gi) has no node to land on in
+  # staging: four 16Gi nodes, autoscaler at its maximum, so the pod is
+  # unschedulable and `pulumi up` fails waiting for it. Prod keeps it (batch
+  # group, 8 vCPU / 64 GB). With the pool off the program sets
+  # `INGEST_HEAVY_FILE_BYTES=0` (`heavyFileBytesEnv`), so no staging upload is
+  # routed to a workflow no worker serves and every file runs on the standard
+  # pool.
+  grid-oib:ingestWorkerHeavyEnabled: "false"
   # Staging is meant to be re-creatable, so the data resources are NOT protected
   # here — `pulumi destroy` must work without a manual unprotect. Prod keeps the
   # default (true).

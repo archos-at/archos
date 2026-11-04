@@ -24,7 +24,11 @@ import { baseStackConfig } from "./src/test-support/stack-config";
 /** The few manifest fields the assertions below read; mock inputs are untyped. */
 type Container = { env?: Array<{ name: string; value?: string }> };
 type PodSpec = { spec: { containers: Container[] } };
-type Manifest = { spec?: { concurrencyPolicy?: string; template?: PodSpec; jobTemplate?: { spec: { template: PodSpec } } } };
+type Manifest = {
+  metadata?: { name?: string };
+  data?: Record<string, string>;
+  spec?: { concurrencyPolicy?: string; template?: PodSpec; jobTemplate?: { spec: { template: PodSpec } } };
+};
 
 const RESOURCES: Array<{ type: string; name: string; inputs: Manifest }> = [];
 let STACK: Record<string, unknown> = {};
@@ -95,6 +99,20 @@ describe("the program constructs in the split topology", () => {
     expect(named("kubernetes:postgresql.cnpg.io/v1:ScheduledBackup")).toEqual([
       "pg-scheduled-backup",
     ]);
+  });
+
+  it("ships the rename script with LF line endings, whatever the checkout", () => {
+    // Git for Windows (core.autocrlf=true) checks the script out CRLF, and a
+    // shell script whose first line is `set -eu\r` is `illegal option -` to
+    // /bin/sh: the Job crash-loops and the update never gets past it. The
+    // bytes reach the ConfigMap verbatim, so the program has to normalize them.
+    const scripts = RESOURCES.filter(
+      (r) =>
+        r.type === "kubernetes:core/v1:ConfigMap" &&
+        r.inputs.data?.["rename-legacy-names.sh"] !== undefined,
+    );
+    expect(scripts.map((r) => r.name)).toEqual(["pg-rename-script"]);
+    expect(scripts[0].inputs.data?.["rename-legacy-names.sh"]).not.toContain("\r");
   });
 
   it("schedules both internal sweeps as CronJobs by default", () => {

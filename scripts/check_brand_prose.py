@@ -21,7 +21,9 @@ Over every text file git tracks:
 - **A retired name** (``RETIRED``): ``piloti`` in any case as a word, ``AIQ``/``AI-Q``
   and ``GRID`` in capitals, ``Grid`` followed by OIB, platform, operates, agent or
   workspace, and ``grid-oib``. A bare ``grid`` never counts: it is CSS, Tailwind and
-  the English layout noun.
+  the English layout noun. The `<project>:` prefix that opens every key of a Pulumi
+  stack file is not prose and not a choice (`PULUMI_PROJECT_PREFIX`): the project
+  name is `Pulumi.yaml`'s and sits in every resource's URN.
 - **The current name typed out** (``CURRENT``): ``ARCHOS`` or ``Archos`` as a word, in a
   file outside ``CURRENT_NAME_ALLOWED``. In code and the dictionaries the name is
   ``PRODUCT_NAME`` or ``{productName}``, so a literal is a string the next rename
@@ -106,6 +108,12 @@ RETIRED = re.compile(
 # clone directory (`archos/scripts/…`), an identifier the brand-names check governs.
 CURRENT = re.compile(r"\b(?:ARCHOS|Archos)\b")
 NEEDLES = ("piloti", "aiq", "ai-q", "grid", "archos")  # lowercase; every pattern above contains one
+
+# A Pulumi stack file spells every key `<project>:<key>`, and the project name is
+# `Pulumi.yaml`'s, not the line author's: it sits in every resource's URN, so renaming
+# it replaces the whole stack. Counted, it made every new config key a brand finding,
+# which the ratchet cannot tell from somebody writing the old name in a sentence.
+PULUMI_PROJECT_PREFIX = re.compile(r"(?m)^[ \t]*grid-oib(?=:)")
 
 # Where the current name may be written out: the brand's own file and package, the
 # blog's prose, dated records, and the first-impression documents (VISION, README,
@@ -205,7 +213,7 @@ def scrub(text: str) -> str:
 
 
 def count_retired(text: str) -> int:
-    return len(RETIRED.findall(OLD_HOSTS.sub(" ", scrub(text))))
+    return len(RETIRED.findall(PULUMI_PROJECT_PREFIX.sub(" ", OLD_HOSTS.sub(" ", scrub(text)))))
 
 
 def count_current(text: str) -> int:

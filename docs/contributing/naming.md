@@ -84,7 +84,11 @@ Decided in [ADR-0149](../adr/0149-the-product-name-is-copy-and-identifiers-carry
     as a bare word in prose, `grid` the CSS word (`FileGrid`, `grid-cols-2`),
     URLs, host names, the repository's own name. Not checked: ADRs, audits,
     release notes, migrations, the i18n dictionaries, site content, Markdown
-    (`EXCLUDED` in the script).
+    (`EXCLUDED` in the script). Nor is the `<project>:` prefix that opens every
+    key of a Pulumi stack file: the project name is `Pulumi.yaml`'s and sits in
+    every resource's URN, so it is the stack's identity, not a name a line picks
+    (`PULUMI_PROJECT_PREFIX` in both checks). A value that carries the old brand
+    still counts, an image name included.
   - Text: `scripts/check_brand_prose.py` against `ci/brand_prose_baseline.json`,
     over every tracked text file. It counts a retired name as a word, and the
     current name typed out where `{productName}` or `PRODUCT_NAME` belongs.

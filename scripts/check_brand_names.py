@@ -45,6 +45,11 @@ What is not a hit
 - The Kubernetes and Compose tier names `aiq-agent` and `aiq-api`
   (``PENDING_INFRA_NAMES``), until the deploy rename (ADR-0145 row 10c) moves
   them in its three operator-applied deploys.
+- The `<project>:` prefix that opens every key of a Pulumi stack file: the
+  project name comes from `Pulumi.yaml` and is part of every resource's URN, so
+  it is the stack's identity rather than a name a line chooses
+  (``PULUMI_PROJECT_PREFIX``). Renaming it replaces every resource; a value
+  naming something after the old brand (`grid-oib-backend`) still counts.
 - History and copy (``EXCLUDED``): ADRs, audits, release notes, migrations,
   the i18n dictionaries and the site's content, published assets, lockfiles,
   and Markdown, whose paths and names follow the code they describe.
@@ -134,6 +139,11 @@ REPOSITORY = re.compile(
     r"\bgrid-check/grid-oib-agent\b|\bgrid-oib-agent\b|\bgrid-check\b|(?<![\w.-])archos-at(?:/archos(?![\w-]))?(?![\w-])",
     re.IGNORECASE,
 )
+# A Pulumi stack file spells every key `<project>:<key>`, and the project name is
+# `Pulumi.yaml`'s, not the line author's: it sits in every resource's URN, so renaming
+# it replaces the whole stack. Counted, it made every new config key a brand finding,
+# which the ratchet cannot tell from somebody naming a thing after the old brand.
+PULUMI_PROJECT_PREFIX = re.compile(r"(?m)^[ \t]*grid-oib(?=:)")
 BRAND = re.compile("|".join(BRANDS), re.IGNORECASE)
 TOKEN_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
 WORD = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|\d+")
@@ -182,9 +192,10 @@ def branded_tokens(text: str) -> list[str]:
 
 
 def count_text(text: str) -> int:
-    """The brand hits in ``text``, URLs and the repository's own name left out."""
+    """The brand hits in ``text``, URLs, the repository's own name and a stack file's key prefix left out."""
     if not BRAND.search(text):
         return 0
+    text = PULUMI_PROJECT_PREFIX.sub(" ", text)
     text = PENDING_INFRA_NAMES.sub(" ", REPOSITORY.sub(" ", URL.sub(" ", text)))
     return sum(len(brand_words(token)) for token in branded_tokens(text))
 

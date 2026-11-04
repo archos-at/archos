@@ -1,0 +1,9 @@
+# Line endings a container can run.
+#
+# A shell script checked out with CRLF (Git for Windows, core.autocrlf=true)
+# fails at its first `set -eu` with `illegal option -`, and a Pulumi program
+# that reads one with `readFileSync` and ships it into a ConfigMap hands the
+# container exactly those bytes: `pg-rename-legacy-names` crash-looped for
+# sixteen minutes and blocked a whole `pulumi up` that way on 2026-11-03.
+# Pinning the working copy to LF is what makes the checkout match CI's.
+*.sh text eol=lf
