@@ -123,7 +123,7 @@ bounded by per-org/member/project budgets — see
   86 %, though 87 of 101 follow-up turns came within 30 minutes of the previous
   one (median 129 s); and driven through the code that builds the requests, a
   follow-up repeats 31 % of what the previous turn last sent
-  (`tests/agents/piloti/test_cross_turn_prefix.py`), because the turn context
+  (the agent's `test_cross_turn_prefix.py`), because the turn context
   is not stored and the history window moves every turn. OpenAI bills a cache
   write at 1.25x input from GPT-5.6 on, so a cold first call costs more than an
   uncached one used to. The per-answer carry is measured from the first agent
