@@ -1,32 +1,24 @@
 """What this package refuses to do with input it does not control.
 
-Three of these are not questions about a building. They are questions about the
-PROCESS the building is measured in, and every one of them was reproduced
-against the code before it was fixed:
+Two of these are not questions about a building. They are questions about the
+PROCESS the building is measured in, and each was reproduced against the code
+before it was fixed. (A third, ``open_model(url=…)`` reading whatever a URL
+named, went with the URL itself on 2026-11-04: the engine opens a path its host
+fetched through the host's own access check.)
 
-  - ``open_model(url=…)`` fetched whatever the URL named. The agent chooses the
-    URL and the server makes the connection, so a tool for reading a model was
-    also a reader of ``http://169.254.169.254/latest/meta-data/`` and of every
-    port on the loopback interface — and the failure text said which ports were
-    open;
   - ``write_ids(name=…)`` joined ``name`` onto the target directory, so an
     absolute name replaced the directory and a ``..`` walked out of it;
   - ``render.plan`` derived the raster HEIGHT from the model's aspect ratio and
     allocated it. A 400 m × 2 m gallery is 365 megapixels at the default width,
     which is 1.41 GB and an OOM-killed worker rather than a refused request.
 
-The first two are refusals and read as ``ToolError``: the call could not be
+The first is a refusal and read as ``ToolError``: the call could not be
 made. None of them is an ``undecidable`` — that is a finding about an export,
 and "we will not connect there" is a finding about us.
 """
 
 from __future__ import annotations
 
-import email.message
-import http.server
-import io
-import socketserver
-import threading
 from pathlib import Path
 from typing import Any
 
@@ -34,173 +26,10 @@ import ifcopenshell
 import pytest
 from ifc_spatial import render
 from ifc_spatial.model import SpatialModel
-from ifc_spatial.tools import ALLOW_PRIVATE_URLS_ENV
 from ifc_spatial.tools import ToolError
-from ifc_spatial.tools import _GuardedRedirectHandler
-from ifc_spatial.tools import _opener
-from ifc_spatial.tools import _read_source
-from ifc_spatial.tools import _refuse_unroutable_destination
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
-
-
-# ── [4] the destination of a download ───────────────────────────────────────
-
-
-class _Counter(http.server.BaseHTTPRequestHandler):
-    """Answers anything, and counts. The count is the assertion."""
-
-    hits = 0
-
-    def do_GET(self) -> None:  # noqa: N802 — BaseHTTPRequestHandler's name
-        type(self).hits += 1
-        body = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
-        self.send_response(200)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, *args: Any) -> None:  # noqa: D102 — silence the test log
-        return
-
-
-@pytest.fixture()
-def loopback_server():
-    """A real HTTP server on 127.0.0.1 — a stand-in for everything inside the
-    perimeter that a URL from an agent must not reach."""
-    handler = type("_H", (_Counter,), {"hits": 0})
-    server = socketserver.TCPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        yield handler, f"http://127.0.0.1:{server.server_address[1]}/modell.ifc"
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-def test_a_loopback_url_is_refused_before_a_socket_is_opened(loopback_server, monkeypatch) -> None:
-    """The reproduction, verbatim: this URL returned the server's bytes.
-
-    The hit count is the part that matters. A guard that refuses AFTER the
-    request has been made has already told the attacker whether the port is
-    open, which is the whole value of an SSRF probe.
-    """
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    handler, url = loopback_server
-
-    with pytest.raises(ToolError) as raised:
-        _read_source({"url": url})
-
-    assert handler.hits == 0
-    assert "öffentlichen Netzes" in str(raised.value)
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "http://127.0.0.1/modell.ifc",
-        "http://127.1/modell.ifc",
-        "http://0.0.0.0/modell.ifc",
-        # The cloud metadata endpoint — the reason link-local is on this list.
-        "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
-        "http://10.0.0.5/modell.ifc",
-        "http://172.16.0.1/modell.ifc",
-        "http://192.168.1.1/modell.ifc",
-        # Carrier-grade NAT: routable-looking, not the public internet.
-        "http://100.64.0.1/modell.ifc",
-        "http://224.0.0.1/modell.ifc",
-        "https://[::1]/modell.ifc",
-        # Loopback wearing an IPv6 hat. A check that reads only the outer form
-        # lets this one through.
-        "https://[::ffff:127.0.0.1]/modell.ifc",
-        "http://[fd00::1]/modell.ifc",
-        "http://[fe80::1]/modell.ifc",
-    ],
-)
-def test_every_address_outside_the_public_internet_is_refused(url: str, monkeypatch) -> None:
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    with pytest.raises(ToolError):
-        _refuse_unroutable_destination(url)
-
-
-def test_a_public_address_is_not_refused(monkeypatch) -> None:
-    """The guard has to leave the tool usable, which is the half that is easy to
-    lose: a check that refuses everything passes every security test."""
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    _refuse_unroutable_destination("https://93.184.216.34/modell.ifc")
-    _refuse_unroutable_destination("http://93.184.216.34:8080/modell.ifc")
-
-
-@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://example.com/m.ifc", "gopher://x/1"])
-def test_only_http_and_https_are_read(url: str, monkeypatch) -> None:
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    with pytest.raises(ToolError) as raised:
-        _read_source({"url": url})
-    assert "http://" in str(raised.value)
-
-
-def test_a_redirect_hop_is_checked_like_the_first_one(monkeypatch) -> None:
-    """A public URL answering ``302 → 169.254.169.254`` is the standard way past
-    a guard that only reads what the caller typed."""
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    import urllib.request
-
-    request = urllib.request.Request("https://93.184.216.34/modell.ifc")
-    handler = _GuardedRedirectHandler()
-
-    with pytest.raises(ToolError):
-        handler.redirect_request(
-            request,
-            io.BytesIO(b""),
-            302,
-            "Found",
-            email.message.Message(),
-            "http://169.254.169.254/latest/meta-data/",
-        )
-
-
-def test_the_download_still_goes_through_the_guarded_opener() -> None:
-    """Pins the wiring, not the behaviour.
-
-    Every hop check in this file is dead code the moment ``_read_source`` goes
-    back to a bare ``urllib.request.urlopen``, and nothing else in the suite
-    would notice.
-    """
-    assert any(isinstance(handler, _GuardedRedirectHandler) for handler in _opener.handlers)
-
-
-def test_a_failed_connection_does_not_report_which_failure_it_was(monkeypatch) -> None:
-    """„Connection refused" and „timed out" are a port scanner.
-
-    The two words are the difference between a closed port and a filtered one on
-    a host the agent cannot otherwise see, and the agent picks the URL.
-    """
-    monkeypatch.delenv(ALLOW_PRIVATE_URLS_ENV, raising=False)
-    # `.invalid` is reserved by RFC 2606 and never resolves.
-    with pytest.raises(ToolError) as raised:
-        _read_source({"url": "https://kein-modell.invalid/haus.ifc"})
-
-    text = str(raised.value)
-    assert "path verwenden" in text
-    for leak in ("Errno", "refused", "Connection", "urlopen", "timed out", "getaddrinfo"):
-        assert leak not in text
-
-
-def test_a_host_that_knows_its_own_network_can_opt_back_in(loopback_server, monkeypatch) -> None:
-    """The escape hatch a MinIO on the compose network needs.
-
-    Opt-in and not opt-out, because the two mistakes are not symmetric: a
-    deployment that needed this and did not set it reads a refusal and fixes it
-    in one environment variable, while a deployment that never needed it and was
-    never asked fetches an agent's URL from inside its own perimeter and nobody
-    finds out.
-    """
-    monkeypatch.setenv(ALLOW_PRIVATE_URLS_ENV, "1")
-    handler, url = loopback_server
-
-    assert _read_source({"url": url}).startswith(b"ISO-10303-21;")
-    assert handler.hits == 1
 
 
 # ── [30] the size of a raster ───────────────────────────────────────────────

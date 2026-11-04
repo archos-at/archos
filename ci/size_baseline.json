@@ -357,7 +357,6 @@
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py::_missing_specification": 104,
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py::answers_as_ids": 79,
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py::blind_spots_as_ids": 70,
-    "packages/ifc-spatial-py/src/ifc_spatial/mcp_server.py::create_server": 94,
     "packages/ifc-spatial-py/src/ifc_spatial/model.py::SpatialModel.space_contacts": 67,
     "packages/ifc-spatial-py/src/ifc_spatial/operators.py::_clear_opening_area": 82,
     "packages/ifc-spatial-py/src/ifc_spatial/operators.py::_faces_outside": 83,
