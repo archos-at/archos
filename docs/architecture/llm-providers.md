@@ -111,6 +111,28 @@ bounded by per-org/member/project budgets — see
   price; the OpenAI models, which cache on their own, were at 51 %. Read the
   share per model from `llm_usage_hourly` (`cached_tokens / prompt_tokens`);
   the „Costs and budgets (prod)" alert fires when Claude's drops to near zero.
+- **Where the chat cache misses (measured 2026-11-04, production, 10 days of
+  `openai/gpt-6.1-terra`).** A chat turn makes 3.65 calls on average; the first
+  sends about 37 k prompt tokens and each later round adds about 8.3 k. If the
+  first call of every turn is cold and every later round re-reads all but its
+  new tokens, the miss share is (37 k + 2.65 × 8.3 k) / 197 k ≈ 30 %, which
+  is the 70 % cache share the ledger shows. So caching works within a turn and
+  carries nothing from one turn to the next, though 87 of 101 follow-up turns
+  came within 30 minutes of the previous one (median 129 s). OpenAI bills a
+  cache write at 1.25x input from GPT-5.6 on, so a cold first call costs more
+  than an uncached one used to. Why the prefix does not carry over (the
+  endpoint's in-memory TTL, or a tool payload that differs between turns) is
+  not yet measured; a probe that sends one prefix twice at a 3 s, 90 s and 6 min
+  gap on the chat routing answers it.
+- **What zero data retention leaves open on price (2026-11-04,
+  `/api/v1/endpoints/zdr`).** Only Azure serves `openai/gpt-6.1-terra` and
+  `openai/gpt-6-luna` with zero data retention; `azure/eu` lists 20 % above
+  the global `azure` endpoint (terra $1.20 vs $1.00 per M input), and the EU
+  Claude endpoints 10 % above global. `openai/flex` (half price) and OpenAI's
+  own endpoint are not ZDR, so `service_tier: "flex"` cannot serve a ZDR call.
+  OpenRouter's Batch API (2026-09-22, about half price) keeps inputs and
+  results for 30 days, which ZDR rules out too. The cheaper routes are therefore
+  data-residency decisions, not request flags.
 - **LLM request timeouts — fixed 2026-07-16 (`590ba1a`).** Every `llms.*`
   block in `configs/config_oib_openrouter.yml` now sets `request_timeout`
   (60–180 s depending on role) and `max_retries: 2`, so an unresponsive
