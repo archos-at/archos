@@ -19,14 +19,16 @@ def _ifcopenshell_at_least(major: int, minor: int) -> bool:
 
 #: Conditional, because the image installs the engine unlocked and CI's
 #: `agent-engine` job does the same: a pin below 0.9 brings these tests back by
-#: itself. Strict, so porting the call turns them red until the marker goes.
-CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9 = pytest.mark.xfail(
+#: itself. Strict, so porting the calls turns them red until the marker goes.
+#: The cases marked reach only clear_height. The same call also breaks above, below,
+#: headroom, thresholdHeight and balustrade on 0.9, and the job stays green on those.
+TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9 = pytest.mark.xfail(
     _ifcopenshell_at_least(0, 9),
     strict=True,
     raises=(AttributeError, AssertionError),
     reason=(
         "real bug, behaviour left alone: on ifcopenshell 0.9 a tree hit's `instance` is a bare SwigPyObject, "
-        "so `hit.instance.id()` in ifc_spatial/operators_vertical.py clear_height raises, "
+        "so every `hit.instance.id()` in ifc_spatial raises. Here it is clear_height's, "
         "and a survey turns that into 'on 0 of 4 elements'"
     ),
 )

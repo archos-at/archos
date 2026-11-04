@@ -36,7 +36,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from agent_testing.ifc_engine import CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9
+from agent_testing.ifc_engine import TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9
 
 from agent.tools.bim.measure_register import _build_call
 from agent.tools.bim.measure_register import _render
@@ -230,7 +230,7 @@ class TestAnswerable:
         # And what this export cannot answer, before anything is filtered.
         assert "BLIND" in rendered and "FEHLT" in rendered
 
-    @CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9
+    @TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9
     def test_the_clear_height_is_measured_to_the_ceiling_not_the_space_solid(self, ask):
         """The number a Mindestraumhöhe is checked against.
 
@@ -473,7 +473,7 @@ class TestNoAnswerEverBecomesAVerdict:
         [
             pytest.param(
                 {"operation": "measure", "global_id": BEDROOM, "measure": "clearHeight"},
-                marks=CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9,
+                marks=TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9,
             ),
             {"operation": "measure", "global_id": WINDOW, "measure": "sillAndHead"},
             {"operation": "measure", "global_id": BEDROOM, "measure": "floorArea"},
@@ -493,7 +493,7 @@ class TestNoAnswerEverBecomesAVerdict:
         [
             pytest.param(
                 {"operation": "measure", "global_id": BEDROOM, "measure": "clearHeight"},
-                marks=CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9,
+                marks=TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9,
             ),
             {"operation": "measure", "global_id": WINDOW, "measure": "sillAndHead"},
             {"operation": "measure", "global_id": BEDROOM, "measure": "floorArea"},
@@ -520,7 +520,7 @@ class TestNoAnswerEverBecomesAVerdict:
             {"operation": "measure", "global_id": BEDROOM, "measure": "floorArea"},
             pytest.param(
                 {"operation": "measure", "global_id": BEDROOM, "measure": "clearHeight"},
-                marks=CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9,
+                marks=TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9,
             ),
             {"operation": "overhang", "global_id": ROOF, "other_global_id": NORTH_WALL},
             {"operation": "distance", "global_id": WINDOW, "other_global_id": BEDROOM, "mode": "vertical"},

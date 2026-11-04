@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 
 import pytest
-from agent_testing.ifc_engine import CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9
+from agent_testing.ifc_engine import TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9
 from langchain_core.messages import AIMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
@@ -154,7 +154,7 @@ class TestMeasurementDetectionAgainstTheRealEngine:
     own fixtures, so the text is whatever the product actually emits.
     """
 
-    @CLEAR_HEIGHT_RAISES_ON_IFCOPENSHELL_0_9
+    @TREE_HITS_RAISE_ON_IFCOPENSHELL_0_9
     def test_a_survey_that_measured_something_is_grounding(self, run):
         result = run(HOUSE, "survey", measure="clearHeight", roomKind="alle")
         assert "on 4 of 4 elements" in result
