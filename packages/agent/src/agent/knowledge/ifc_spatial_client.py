@@ -328,7 +328,9 @@ def _download(url: str, expected_bytes: Any = None) -> bytes:
             # are distinguishable without reading the whole thing first.
             data = response.read(MAX_MODEL_BYTES + 1)
             encoding = (response.headers.get("Content-Encoding") or "").lower()
-            declared = response.headers.get("Content-Length") or ""
+            # What http.client was still owed when the read ended. None unless it went
+            # by a Content-Length, so chunked framing and a bad value say nothing here.
+            missing = response.length
     except Exception as exc:  # noqa: BLE001
         logger.warning("the model source could not be downloaded: %s", type(exc).__name__)
         raise BimQueryUnavailableError("the model file could not be downloaded") from exc
@@ -336,11 +338,11 @@ def _download(url: str, expected_bytes: Any = None) -> bytes:
     if len(data) > MAX_MODEL_BYTES:
         # The store gave no Content-Length, or lied about it.
         raise ModelTooLargeError(len(data), MAX_MODEL_BYTES)
-    if declared.isdigit() and len(data) < int(declared):
+    if missing:
         # `read(n)` hands back what arrived when the connection closes early, and
         # does not raise. Spilled, those bytes would be refused as a file cut off
         # by its upload, and the file in the store is fine: this is the outage.
-        logger.warning("the model source arrived incomplete: %d of %s bytes", len(data), declared)
+        logger.warning("the model source arrived incomplete: %d bytes, %d missing", len(data), missing)
         raise BimQueryUnavailableError("the model file arrived incomplete")
     if "gzip" in encoding:
         # The internal route presigns the ORIGINAL object precisely so this

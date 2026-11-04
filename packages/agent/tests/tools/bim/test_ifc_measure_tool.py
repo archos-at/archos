@@ -1371,13 +1371,15 @@ class TestADownloadCutShortIsNotABrokenFile:
 
         servers = []
 
-        def start(body: bytes, length: int, encoding: str = "") -> str:
+        def start(body: bytes, length: int | str, encoding: str = "", chunked: bool = False) -> str:
             class Handler(http.server.BaseHTTPRequestHandler):
                 def do_GET(self):
                     self.send_response(200)
                     self.send_header("Content-Length", str(length))
                     if encoding:
                         self.send_header("Content-Encoding", encoding)
+                    if chunked:
+                        self.send_header("Transfer-Encoding", "chunked")
                     self.end_headers()
                     self.wfile.write(body)
 
@@ -1423,6 +1425,20 @@ class TestADownloadCutShortIsNotABrokenFile:
         assert client._download(serve(packed, len(packed), "gzip")) == whole
         with pytest.raises(BimQueryUnavailableError):
             client._download(serve(packed[:20], len(packed), "gzip"))
+
+    def test_a_length_that_is_no_number_says_nothing_about_the_download(self, serve):
+        """`²` counts as a digit in Python, and `int` still refuses it."""
+        from agent.knowledge import ifc_spatial_client as client
+
+        whole = b"ISO-10303-21;\nEND-ISO-10303-21;\n"
+
+        assert client._download(serve(whole, "²")) == whole
+
+    def test_a_chunked_download_is_measured_by_its_chunks(self, serve):
+        """A stray length means nothing next to chunked framing: the file arrived whole."""
+        from agent.knowledge import ifc_spatial_client as client
+
+        assert client._download(serve(b"5\r\nhello\r\n0\r\n\r\n", 5845, chunked=True)) == b"hello"
 
 
 class TestUnavailableIsNotRejected:
