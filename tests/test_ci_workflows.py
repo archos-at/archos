@@ -446,6 +446,14 @@ def test_the_agent_engine_job_runs_when_either_side_of_the_path_changes(tier):
     assert runs("agent-engine", event="pull_request", outputs=nothing | {tier: "true"})
 
 
+def test_the_agent_engine_job_runs_when_the_script_it_calls_changes():
+    # The job's `if` reads only those two tiers, and the script's own is `hatchet`.
+    filters = yaml.safe_load((WORKFLOWS.parent / "filters.yml").read_text(encoding="utf-8"))
+
+    assert any("ci/hatchet_engine.sh" in step.get("run", "") for step in JOBS["agent-engine"]["steps"])
+    assert "ci/hatchet_engine.sh" in filters["packages"]
+
+
 # --- Release notes ------------------------------------------------------------------
 
 

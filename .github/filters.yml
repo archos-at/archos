@@ -323,6 +323,8 @@ packages:
   - 'packages/ifc-spatial-py/**'
   # The guide for it, beside it.
   - 'packages/*.md'
+  # The `agent-engine` job runs on this tier and calls `require-ran` from it.
+  - 'ci/hatchet_engine.sh'
   - 'Taskfile.yml'
   - 'taskfiles/packages.yml'
   - '.github/workflows/ci.yml'
