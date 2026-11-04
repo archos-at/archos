@@ -55,6 +55,10 @@ def _add(repo: Path, path: str, text: str) -> None:
         ("GRID operates the platform", 1),
         ("Grid platform and Grid agent", 2),
         ("image grid-oib-backend", 1),
+        # The prefix that opens every key of a Pulumi stack file is the project's name
+        # from `Pulumi.yaml`, in every resource's URN, not a line's author's choice.
+        ('  grid-oib:ingestWorkerHeavyEnabled: "false"', 0),
+        ("name: grid-oib", 1),
         # CSS and the English word never count.
         ("display: grid; grid-template-columns: 1fr", 0),
         ("<div className='grid grid-cols-2'>", 0),

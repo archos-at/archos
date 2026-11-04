@@ -83,6 +83,17 @@ def test_the_archos_repository_and_org_are_not_counted_but_an_image_name_under_t
     assert checker.count_text("ARCHOS_MAX_JOBS") == 1
 
 
+def test_a_pulumi_key_prefix_is_the_projects_name_not_the_lines(checker):
+    # Every key of a stack file opens with the project name `Pulumi.yaml` holds, and it is
+    # in every resource's URN. Counting it made each new config key a finding.
+    stack = "  grid-oib:namespace: grid\n  grid-oib:ingestWorkerHeavyEnabled: \"false\"\n"
+    assert checker.count_text(stack) == 0
+    # A value that names something after the old brand still counts.
+    assert checker.count_text("  grid-oib:imageTag: ghcr.io/archos-at/grid-oib-web:latest\n") == 1
+    # The name is the project's only where a key opens with it.
+    assert checker.count_text("name: grid-oib\n") == 1
+
+
 def test_a_new_hit_fails_and_the_baseline_only_moves_down(checker, repo, capsys):
     _add(repo, "src/jobs.py", "LIMIT = os.environ['GRID_MAX_JOBS']\n")
     assert checker.main(["--rebaseline"]) == 0
