@@ -743,6 +743,9 @@ def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
     # A merge by GITHUB_TOKEN starts no push run: no images, no staging deploy.
     assert enable["env"]["MERGE_TOKEN"] == "${{ secrets.DEPENDABOT_MERGE_TOKEN }}"
     assert lines[merge].startswith('GH_TOKEN="$MERGE_TOKEN" gh pr merge')
+    # The organization lets no workflow approve: the approval is the token's.
+    approve = next(line for line in lines if "gh pr review --approve" in line)
+    assert approve.startswith('GH_TOKEN="$MERGE_TOKEN" gh pr review')
     assert enable["if"] == "steps.decide.outputs.merge == 'true'"
     # A push that makes the pull request ineligible, or metadata that could not
     # be read, turns off auto-merge an earlier push set.

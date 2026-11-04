@@ -41,7 +41,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read # the base branch's rules, and the policy script
-      pull-requests: write # approve, where the base branch requires a review
+      pull-requests: write # turn auto-merge off on an update a person must read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -78,8 +78,12 @@ jobs:
             echo "::notice::no Dependabot secret DEPENDABOT_MERGE_TOKEN; a merge by GITHUB_TOKEN would start no push run, so left for a person"
             exit 0
           fi
+          # The approval a ruleset requires comes from the merge token's owner,
+          # not from github-actions: the organization does not let workflows
+          # approve pull requests, and allowing it would let any workflow in
+          # any repository of the organization approve its own.
           if [ "$reviews" -gt 0 ]; then
-            gh pr review --approve --body "Minor or patch update; CI OK is the gate (ci/dependabot_merge.py)." "$PR_URL"
+            GH_TOKEN="$MERGE_TOKEN" gh pr review --approve --body "Automatic approval: a minor or patch update, merged only when CI OK passes (ci/dependabot_merge.py)." "$PR_URL"
           fi
           GH_TOKEN="$MERGE_TOKEN" gh pr merge --auto --squash "$PR_URL"
 
