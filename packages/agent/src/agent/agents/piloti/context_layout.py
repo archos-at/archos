@@ -127,21 +127,20 @@ def _inventories(values: dict[str, Any]) -> tuple[str, str]:
     The conversation context lists every settled file on every shelf in scope:
     the same bytes until a file settles. What a turn varies goes to its note:
     the files still being read (``knowledge.in_flight``), and, for a question
-    that lists one shelf, that shelf alone (``get_listing_shelf``), so the model
-    answers from it and cannot recite another shelf's files.
+    that lists one shelf, which shelf it asked about (``render_listing_focus``),
+    so the model answers from that group of the inventory and no other.
     """
     from agent.knowledge.in_flight import render_in_flight_note
     from agent.knowledge.inventory import get_listing_shelf
     from agent.knowledge.inventory import in_scope_shelves_from_context
     from agent.knowledge.inventory import render_inventory_block
+    from agent.knowledge.inventory import render_listing_focus
 
     documents = values.get("available_documents") or []
-    scoped = in_scope_shelves_from_context() or None
-    whole = render_inventory_block(documents, in_scope_shelves=scoped)
-    listed = get_listing_shelf()
-    shelf = render_inventory_block(documents, in_scope_shelves=scoped, focus_shelf=listed) if listed else ""
+    whole = render_inventory_block(documents, in_scope_shelves=in_scope_shelves_from_context() or None)
+    focus = render_listing_focus(documents, get_listing_shelf())
     pending = render_in_flight_note(values.get("in_flight_documents"))
-    return whole, "\n\n".join(part for part in (shelf, pending) if part)
+    return whole, "\n\n".join(part for part in (focus, pending) if part)
 
 
 def layout_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:

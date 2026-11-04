@@ -144,15 +144,27 @@ class TestTheTwoParts:
         assert "Lageplan.pdf" not in (rendered.conversation or "")
         assert rendered.conversation == _render(monkeypatch, _state()).conversation
 
-    def test_a_question_that_lists_one_shelf_gets_that_shelf_in_its_note(self, monkeypatch):
-        set_listing_shelf(Shelf.PROJECT)
+    def _listing(self, monkeypatch, shelf: Shelf, state: ResearchAgentState) -> TurnPrompt:
+        set_listing_shelf(shelf)
         try:
-            listed = _render(monkeypatch, _state())
+            return _render(monkeypatch, state)
         finally:
             set_listing_shelf(None)
-        assert "This question asked only about" in listed.context
-        assert "This question asked only about" not in (listed.conversation or "")
+
+    def test_a_question_that_lists_one_shelf_names_it_in_the_note_without_its_files_again(self, monkeypatch):
+        listed = self._listing(monkeypatch, Shelf.PROJECT, _state())
+        assert "This question asked only about **Projektwissen**" in listed.context
+        assert "Grundriss_EG.pdf" in (listed.conversation or "")
+        assert "Grundriss_EG.pdf" not in listed.context
+        assert "are not listed" not in listed.context
         assert listed.conversation == _render(monkeypatch, _state()).conversation
+
+    def test_a_question_that_lists_the_platform_corpus_gets_the_files_the_head_folds(self, monkeypatch):
+        corpus = [{"file_name": "OIB-RL_2.pdf", "shelf": "base"}, {"file_name": "Grundriss_EG.pdf", "shelf": "project"}]
+        listed = self._listing(monkeypatch, Shelf.BASE, _state(available_documents=corpus))
+        assert "OIB-RL_2.pdf" in listed.context
+        assert "OIB-RL_2.pdf" not in (listed.conversation or "")
+        assert "Grundriss_EG.pdf" not in listed.context
 
 
 class TestTheRequest:
