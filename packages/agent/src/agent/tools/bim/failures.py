@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from agent.knowledge.bim_query import BimQueryRejectedError
 from agent.knowledge.bim_query import BimQueryUnavailableError
 from agent.knowledge.ifc_spatial_client import ModelTooLargeError
+from agent.knowledge.ifc_spatial_client import ModelUnreadableError
 from agent.knowledge.ifc_spatial_client import SpatialEngineUnavailableError
 from agent.knowledge.ifc_spatial_client import SpatialToolError
 
@@ -111,9 +112,19 @@ def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
         f"Error: the model ({size}) is too large for geometric evaluation on this server "
         f"(limit {limit}). This is a statement about the FILE, not an outage — waiting does not help. "
         "Tell the user: either export the model split by building element or construction phase, "
-        "or request a larger evaluation server. Metadata questions (element lists, "
+        "or ask for the limit to be raised. Metadata questions (element lists, "
         "property values, counts) can still be answered with ifc_query — they run on the "
         "extracted index and not on the file. Do not estimate dimensions."
+    )
+
+
+def unreadable_text(reason: str) -> str:
+    """The engine refused the file and said why — a fact about the FILE, so neither waiting nor retrying helps."""
+    return (
+        f"Error: the model file could not be opened. The reason: {reason} "
+        "This is a statement about the FILE, not an outage — waiting or calling again does not help. "
+        "Pass this reason on to the user. Metadata questions can still be tried with ifc_query, which "
+        "reads the extracted index and not the file. Do NOT state anything about the building's geometry."
     )
 
 
@@ -159,6 +170,7 @@ MEASURE_FAILURES = FailureTable(
         "model_too_large",
         lambda exc: too_large_text(exc.model_bytes, exc.limit_bytes),  # type: ignore[attr-defined]
     ),
+    Failure(ModelUnreadableError, logging.INFO, "model_unreadable", lambda exc: unreadable_text(str(exc))),
     Failure(BimQueryUnavailableError, logging.WARNING, "service_unavailable", _constant(UNAVAILABLE_TEXT)),
     Failure(SpatialEngineUnavailableError, logging.WARNING, "engine_unavailable", _constant(ENGINE_UNAVAILABLE_TEXT)),
     Failure(SpatialToolError, logging.INFO, "rejected", lambda exc: unrunnable_text(str(exc))),

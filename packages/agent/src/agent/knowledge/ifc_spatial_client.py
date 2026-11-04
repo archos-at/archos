@@ -166,7 +166,7 @@ class SpatialEngineUnavailableError(RuntimeError):
 
 
 class ModelTooLargeError(BimQueryUnavailableError):
-    """This model does not fit in this worker's memory.
+    """This model is over what can be read here: this worker's memory gate, or the engine's own limit.
 
     A subclass so every existing handler keeps working, and its own type because
     the sentence a user needs is completely different. Reported as the generic
@@ -174,7 +174,7 @@ class ModelTooLargeError(BimQueryUnavailableError):
     that will never end: the service is perfectly healthy and their 300 MB
     export is never going to be measurable on this deployment. The fact is
     about the FILE, and only a message that says so lets them act — split the
-    model by building section, or ask for a bigger worker.
+    model by building section, or ask for the limit to be raised.
 
     Carries the numbers so the message can name them instead of gesturing at a
     limit the reader cannot see.
@@ -185,6 +185,14 @@ class ModelTooLargeError(BimQueryUnavailableError):
         self.limit_bytes = limit_bytes
         size = f"{model_bytes / (1024 * 1024):.0f} MB" if model_bytes else "the model"
         super().__init__(f"{size} exceeds the {limit_bytes // (1024 * 1024)} MB this worker can hold")
+
+
+class ModelUnreadableError(BimQueryUnavailableError):
+    """The engine refused this file and said why: cut off, empty, not IFC at all.
+
+    Like :class:`ModelTooLargeError`, a fact about the FILE that waiting does not
+    change. Its message is the engine's own German reason.
+    """
 
 
 class SpatialToolError(ValueError):
@@ -454,6 +462,19 @@ def _spill(identity: str, data: bytes) -> str:
     return path
 
 
+def _open_failure(refusal: Exception) -> BimQueryUnavailableError:
+    """What the engine's `open_model` failure means here; its cause says which refusal it was."""
+    from ifc_spatial.model import ModelTooLargeError as EngineTooLargeError
+    from ifc_spatial.model import ModelUnreadableError as EngineUnreadableError
+
+    cause = refusal.__cause__
+    if isinstance(cause, EngineTooLargeError):
+        return ModelTooLargeError(cause.size, cause.limit)
+    if isinstance(cause, EngineUnreadableError):
+        return ModelUnreadableError(cause.reason)
+    return BimQueryUnavailableError(str(refusal))
+
+
 def open_model(result: dict[str, Any]) -> str:
     """Open a resolved model and return the handle every operator takes.
 
@@ -515,11 +536,7 @@ def open_model(result: dict[str, Any]) -> str:
         try:
             opened = call(tools, "open_model", {"path": path})
         except ToolError as exc:
-            # `SpatialModel` refuses an unreadable file with a German reason an
-            # architect can act on — truncated upload, wrong format, too large.
-            # That sentence is the answer; burying it under a traceback would
-            # leave the agent with "es hat nicht funktioniert".
-            raise BimQueryUnavailableError(str(exc)) from None
+            raise _open_failure(exc) from None
 
         handle = str(opened.get("contentHash") or "")
         with _LOCK:
@@ -571,6 +588,7 @@ __all__ = [
     "MAX_MODEL_BYTES",
     "MAX_RESIDENT_MODELS",
     "ModelTooLargeError",
+    "ModelUnreadableError",
     "PARSE_FOOTPRINT_RATIO",
     "SpatialEngineUnavailableError",
     "SpatialToolError",
