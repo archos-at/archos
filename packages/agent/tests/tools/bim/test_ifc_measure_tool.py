@@ -1348,11 +1348,13 @@ class TestAnEngineRefusalKeepsItsReason:
 
     def test_a_reason_that_runs_on_does_not_reach_the_agent_whole(self, monkeypatch):
         """The agent is told to pass the reason on, so its length is bounded where that sentence is written."""
-        answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, "x" * 2_000_000))
+        answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, "ö" * 2_000_000))
 
         assert outcome == "model_unreadable"
         assert "not an outage" in answer
-        assert answer.count("x" * 100) == MAX_REASON_CHARS // 100
+        assert "ö" * MAX_REASON_CHARS in answer
+        assert "ö" * (MAX_REASON_CHARS + 1) not in answer
+        assert len(answer) < 1_500
 
     @pytest.mark.parametrize(
         "cause",

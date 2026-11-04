@@ -118,8 +118,9 @@ def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
     )
 
 
-#: The engine's longest refusal is 284 characters. It is another package's text
-#: and this tool tells the agent to pass it on, so it is bounded here too.
+#: The engine's longest reason for a file it cannot read is 284 characters. It is
+#: another package's text and this tool tells the agent to pass it on, so it is
+#: bounded here too.
 MAX_REASON_CHARS = 400
 
 
