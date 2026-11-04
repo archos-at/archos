@@ -410,12 +410,12 @@ Minor and patch updates merge themselves. `dependabot-auto-merge.yml` turns on
 GitHub's auto-merge for them, security fixes included, and GitHub squash-merges
 each one when `CI OK` passes; a major, anything under `deploy/pulumi` (its SDK
 pins the CLI the deploy installs, so only a deploy proves it) and a red run stay
-open for a person. The policy is `ci/dependabot_merge.py`. It acts only when all
+open for a person, and a later push that makes a pull request one of those turns its auto-merge off again. The policy is `ci/dependabot_merge.py`. It acts only when all
 of these hold, and its log says which one is missing:
 
 | Setting | Where | Why |
 |---|---|---|
-| `CI OK` is a required check on `develop` | Settings → Rules → `protect-develop` | Auto-merge on a pull request with no required check merges it at once, whatever CI says |
+| `CI OK` is a required check on `develop`, with GitHub Actions as its source (not "any source") | Settings → Rules → `protect-develop` | Auto-merge on a pull request with no required check merges it at once, whatever CI says; a check from any source could be passed by another integration |
 | Dependabot secret `DEPENDABOT_MERGE_TOKEN`: a fine-grained token, contents and pull requests read and write, this repository only | Settings → Secrets and variables → **Dependabot** (a run Dependabot triggers sees no Actions secrets) | A merge by `GITHUB_TOKEN` starts no workflow, so the push run, its images and the staging deploy would never come |
 | Allow auto-merge | Settings → General → Pull Requests | GitHub refuses auto-merge without it |
 

@@ -9,11 +9,19 @@ only which bumps nobody needs to read first.
 
 prints `merge=true|false` and `reason=...`, the lines the workflow appends to
 `$GITHUB_OUTPUT`.
+
+    gh api repos/OWNER/REPO/rules/branches/BASE | python3 ci/dependabot_merge.py rules
+
+reads the base branch's active rules and prints `ci_ok_required=true|false`
+and `reviews=<n>`, the approvals the branch requires.
 """
 
 from __future__ import annotations
 
+import json
 import sys
+from collections.abc import Iterable
+from typing import Any
 
 # A group's update type is its largest member's (fetch-metadata), so a group
 # that carries one major is held as a whole.
@@ -37,7 +45,44 @@ def decide(update_type: str, directory: str) -> tuple[bool, str]:
     return True, f"{update_type.removeprefix('version-update:semver-')} update; merges when CI OK passes"
 
 
+# The GitHub Actions app. A required check bound to it can only be passed by a
+# workflow run of this repository; one bound to no app ("any source") or to
+# another app can be passed by any integration that may write checks.
+GITHUB_ACTIONS_APP_ID = 15368
+CI_OK = "CI OK"
+
+
+def ci_ok_required(rules: Iterable[dict[str, Any]]) -> bool:
+    """Whether `CI OK`, from GitHub Actions, is a required check.
+
+    Auto-merge on a pull request with no required check merges it at once, so
+    without this rule the workflow must not turn auto-merge on.
+    """
+    for rule in rules:
+        if rule.get("type") != "required_status_checks":
+            continue
+        for check in rule.get("parameters", {}).get("required_status_checks", []):
+            if check.get("context") == CI_OK and check.get("integration_id") == GITHUB_ACTIONS_APP_ID:
+                return True
+    return False
+
+
+def required_reviews(rules: Iterable[dict[str, Any]]) -> int:
+    """The approving reviews the branch requires, the most any rule asks."""
+    counts = [
+        rule.get("parameters", {}).get("required_approving_review_count", 0)
+        for rule in rules
+        if rule.get("type") == "pull_request"
+    ]
+    return max(counts, default=0)
+
+
 def main(argv: list[str]) -> int:
+    if argv[1:] == ["rules"]:
+        rules = json.load(sys.stdin)
+        print(f"ci_ok_required={'true' if ci_ok_required(rules) else 'false'}")
+        print(f"reviews={required_reviews(rules)}")
+        return 0
     if len(argv) != 3:
         print(__doc__, file=sys.stderr)
         return 2

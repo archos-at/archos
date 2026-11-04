@@ -729,12 +729,23 @@ def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
     job = workflow["jobs"]["enable"]
     assert "dependabot[bot]" in job["if"]
     assert workflow["permissions"] == {}
-    enable = next(step for step in job["steps"] if step.get("name") == "Turn on auto-merge")
-    script = enable["run"]
-    # Auto-merge on a pull request with no required check merges at once, so
-    # the guard comes before the merge.
-    assert script.index('index("CI OK")') < script.index("gh pr merge --auto --squash")
+    steps = {step.get("name"): step for step in job["steps"]}
+    enable = steps["Turn on auto-merge"]
+    lines = [line.strip() for line in enable["run"].splitlines()]
+    merge = next(i for i, line in enumerate(lines) if "gh pr merge --auto --squash" in line)
+    # Auto-merge on a pull request with no required check merges at once: the
+    # rules are read (ci/dependabot_merge.py, tested there) and a missing CI OK
+    # leaves the step before the merge.
+    guard = lines.index('if [ "$ci_ok_required" != "true" ]; then')
+    assert "python3 ci/dependabot_merge.py rules" in lines[guard - 2]
+    assert lines[guard + 2] == "exit 0" and lines[guard + 3] == "fi"
+    assert guard < merge
     # A merge by GITHUB_TOKEN starts no push run: no images, no staging deploy.
     assert enable["env"]["MERGE_TOKEN"] == "${{ secrets.DEPENDABOT_MERGE_TOKEN }}"
-    assert 'GH_TOKEN="$MERGE_TOKEN" gh pr merge' in script
+    assert lines[merge].startswith('GH_TOKEN="$MERGE_TOKEN" gh pr merge')
     assert enable["if"] == "steps.decide.outputs.merge == 'true'"
+    # A push that makes the pull request ineligible, or metadata that could not
+    # be read, turns off auto-merge an earlier push set.
+    disable = steps["Turn off auto-merge on an update a person must read"]
+    assert disable["if"] == "always() && steps.decide.outputs.merge != 'true'"
+    assert "gh pr merge --disable-auto" in disable["run"]
