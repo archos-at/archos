@@ -854,6 +854,51 @@ jobs:
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
 
+  # The path from the agent to the engine: `ifc_measure` builds the call, the
+  # engine answers over real IFC files, the renderer writes what the model reads.
+  # The root environment has no engine, so these suites skip in every backend job,
+  # and the engine's own suite stops short of the agent. Either side can break it.
+  # Not setup-python-env: this job adds a package to the venv that action caches
+  # for every other job, under a key that does not know about it.
+  agent-engine:
+    name: Agent to engine tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.packages == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    env:
+      UV_LINK_MODE: copy # setup-python-env says why
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+      # Its own cache key: the engine's wheels are in no other job's download cache.
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+          cache-suffix: agent-engine
+      # The root environment, then the engine the way apps/agent-host/Dockerfile
+      # installs it, so the versions it resolves are the image's.
+      - name: Install the root environment and the engine
+        run: |
+          uv venv --python 3.14 .venv
+          uv sync --group dev
+          uv pip install -e './packages/ifc-spatial-py[ids]'
+      - name: Agent on the engine
+        run: >-
+          .venv/bin/python -m pytest -q -rsxX
+          packages/agent/tests/agents/piloti/test_grounding.py
+          packages/agent/tests/knowledge/test_ifc_spatial_client_concurrency.py
+          packages/agent/tests/tools/bim/test_ifc_measure_tool.py
+          packages/agent/tests/tools/bim/test_question_battery.py
+          --junitxml="$RUNNER_TEMP/agent-engine.xml"
+      # A skipped suite is green, and every one of these skips without the engine.
+      - name: Every suite ran, none skipped
+        run: bash ci/hatchet_engine.sh require-ran "$RUNNER_TEMP/agent-engine.xml"
+
   # The Hatchet layer on a real engine (ADR-0150): the ingest workflow, the
   # research run and the BFF's `bff-job`, each end to end, with its retries,
   # cancel and per-organization cap. Every suite here skips without an engine,
@@ -1025,7 +1070,7 @@ jobs:
   # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, agent-engine, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -1071,7 +1116,7 @@ jobs:
     # checkout can hold a corpus to measure, and a job that can only pass
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, agent-engine, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
