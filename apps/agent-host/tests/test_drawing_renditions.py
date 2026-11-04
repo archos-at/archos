@@ -27,6 +27,7 @@ from agent_host.drawings.dxf_pdf import render_pdf
 from agent_host.drawings.house_style import house_style
 from agent_host.drawings.sheet import choose_sheet
 from agent_host.drawings.sheet import scale_bar_metres
+from agent_host.routes import drawing_renditions
 from agent_host.routes.drawing_renditions import DXF_RENDITION_PATH
 from agent_host.routes.drawing_renditions import add_drawing_rendition_routes
 from agent_host.routes.drawing_renditions import page_title
@@ -262,6 +263,33 @@ def test_the_route_answers_a_pdf_titled_after_the_original(client: TestClient):
 def test_the_route_refuses_bytes_that_are_no_drawing(client: TestClient):
     response = client.post(DXF_RENDITION_PATH, content=b"not a dxf at all", headers={"x-internal-token": TOKEN})
     assert response.status_code == 422
+
+
+def test_a_declared_oversize_body_is_refused_before_it_is_read(client: TestClient, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(drawing_renditions, "MAX_DXF_BYTES", 8)
+    response = client.post(DXF_RENDITION_PATH, content=b"0" * 64, headers={"x-internal-token": TOKEN})
+    assert response.status_code == 413
+
+
+def test_a_render_past_its_time_answers_504_and_a_queued_one_never_starts(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    started: list[str] = []
+
+    def slow(_data: bytes, name: str | None) -> bytes:
+        started.append(name or "")
+        time.sleep(0.4)
+        return b"%PDF-"
+
+    monkeypatch.setattr(drawing_renditions, "_convert", slow)
+    monkeypatch.setattr(drawing_renditions, "RENDER_TIMEOUT_S", 0.05)
+    headers = {"x-internal-token": TOKEN}
+    blocker = drawing_renditions._RENDERS.submit(time.sleep, 0.3)  # the one worker is busy
+    response = client.post(DXF_RENDITION_PATH, content=b"x", headers={**headers, "x-filename": "queued.dxf"})
+    assert response.status_code == 504
+    blocker.result()
+    drawing_renditions._RENDERS.submit(lambda: None).result()  # drain
+    assert started == []
 
 
 def test_a_title_is_a_name_never_a_path():

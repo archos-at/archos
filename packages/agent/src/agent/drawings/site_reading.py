@@ -24,6 +24,9 @@ from .site import closed_outlines
 from .site_ops import SiteAnswer
 from .site_ops import accuracy_note
 
+#: The most of one label an answer quotes: an MTEXT can be a page of prose.
+_LABEL_CHARS = 200
+
 _LENGTH_TYPES = frozenset({"LINE", "LWPOLYLINE", "POLYLINE", "ARC", "CIRCLE", "SPLINE", "ELLIPSE"})
 
 
@@ -54,7 +57,8 @@ def texts(site: Site, query: str, limit: int = 30) -> SiteAnswer:
             continue
         on = _parcel_at(site, float(insert[0]), float(insert[1]))
         where = f", on parcel {on}" if on else ""
-        answer.lines.append(f"'{clean}' · layer {layer} · at {insert[0]:.2f}, {insert[1]:.2f}{where}")
+        shown = clean if len(clean) <= _LABEL_CHARS else f"{clean[:_LABEL_CHARS]}…"
+        answer.lines.append(f"'{shown}' · layer {layer} · at {insert[0]:.2f}, {insert[1]:.2f}{where}")
     if found == 0:
         return SiteAnswer([f"No text containing '{query}' in this drawing."])
     if found > limit:
@@ -98,14 +102,15 @@ def layers(site: Site, limit: int = 40) -> SiteAnswer:
     answer = SiteAnswer([accuracy_note(site)])
     if site.metres_per_unit is None:
         answer.lines.append("The drawing names no unit: lengths and areas are in its own units, not metres.")
+    length_unit, area_unit = ("m", "m²") if site.metres_per_unit is not None else ("drawing units", "square units")
     ordered = sorted(kinds.items(), key=lambda item: -sum(item[1].values()))
     for layer, counts in ordered[:limit]:
         parts = [", ".join(f"{kind} {count}" for kind, count in counts.most_common(4))]
         if lengths[layer]:
-            parts.append(f"lines {_number(site.metres(lengths[layer]))} m")
+            parts.append(f"lines {_number(site.metres(lengths[layer]))} {length_unit}")
         closed = areas.get(layer.upper())
         if closed:
-            parts.append(f"{closed[0]} closed outlines, {_number(site.square_metres(closed[1]))} m²")
+            parts.append(f"{closed[0]} closed outlines, {_number(site.square_metres(closed[1]))} {area_unit}")
         answer.lines.append(f"{layer}: {' · '.join(parts)}")
     if len(ordered) > limit:
         answer.lines.append(f"… {len(ordered) - limit} more layers.")

@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import PurePosixPath
 from urllib.parse import unquote
 
@@ -43,6 +44,12 @@ MAX_DXF_BYTES = 150 * 1024 * 1024
 #: Inside the BFF's own 120 s budget for one conversion, so this route answers
 #: before the caller gives up on it.
 RENDER_TIMEOUT_S = 110.0
+
+#: Renders run here, one at a time (matplotlib's state is global and `render_pdf`
+#: holds a lock anyway), not on the default executor every other `to_thread` caller
+#: in this process shares. A render that timed out cannot be stopped once it runs,
+#: but one still waiting in this queue is cancelled, so stuck requests do not pile up.
+_RENDERS = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dxf-render")
 
 
 def source_name(raw_filename: str | None) -> str:
@@ -73,17 +80,20 @@ def add_drawing_rendition_routes(router: APIRouter) -> None:
     )
     async def render_dxf(request: Request) -> Response:
         _require_internal_token(request)
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_DXF_BYTES:
+            raise HTTPException(status_code=413, detail="The DXF file is too large to draw")
         data = await request.body()
         if len(data) > MAX_DXF_BYTES:
             raise HTTPException(status_code=413, detail="The DXF file is too large to draw")
         started = time.monotonic()
+        future = _RENDERS.submit(_convert, data, request.headers.get("x-filename"))
         try:
-            pdf = await asyncio.wait_for(
-                asyncio.to_thread(_convert, data, request.headers.get("x-filename")), RENDER_TIMEOUT_S
-            )
+            pdf = await asyncio.wait_for(asyncio.wrap_future(future), RENDER_TIMEOUT_S)
         except (UnreadableDrawingError, EmptyDrawingError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from None
         except TimeoutError:
+            future.cancel()
             raise HTTPException(status_code=504, detail="The drawing took too long to draw") from None
         logger.info("dxf rendition: %d bytes in, %d bytes out, %.1fs", len(data), len(pdf), time.monotonic() - started)
         return Response(content=pdf, media_type="application/pdf")

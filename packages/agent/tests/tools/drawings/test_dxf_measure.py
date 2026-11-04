@@ -36,8 +36,8 @@ class _Store:
         data = self.data
 
         class _Body:
-            def read(self) -> bytes:
-                return data
+            def read(self, amount: int = -1) -> bytes:
+                return data if amount < 0 else data[:amount]
 
         return {"Body": _Body()}
 
@@ -51,7 +51,8 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
     async def resolve(document: str) -> Resolved | str:
         if document == "missing.dxf":
             return "Not found: 'missing.dxf'."
-        return Resolved(document or FILE, COLLECTION, signed=SignedEnvelope("ctx", "sig"))
+        # The resolver drops `signed` when the canvas id lookup fails; the tool must not care.
+        return Resolved(document or FILE, COLLECTION, signed=None)
 
     def get_json(path: str, **kwargs: Any) -> dict[str, Any]:
         looked_up.append({"path": path, **kwargs})
@@ -60,6 +61,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> _Store:
         return {"storageKey": f"p1/v3/{kwargs['query']['filename']}", "storageBucket": "documents"}
 
     monkeypatch.setattr(source, "resolve_document", resolve)
+    monkeypatch.setattr(source.project_context, "get_request_envelope_from_context", lambda: ("ctx", "sig"))
     monkeypatch.setattr(source.bff_http, "get_json", get_json)
     monkeypatch.setattr(source.seaweed_s3, "s3_client", lambda: store)
     store.looked_up = looked_up  # type: ignore[attr-defined]
@@ -146,3 +148,27 @@ def test_an_answer_is_a_record_the_answer_check_reads_and_a_refusal_is_none() ->
     (record,) = records_from_messages(messages)
     assert (record.operation, record.outcome, record.text) == ("dxf_measure", "read", answer)
     assert drawing_record("look", answer) is None
+
+
+async def test_a_run_without_an_envelope_reads_nothing(store: _Store, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(source.project_context, "get_request_envelope_from_context", lambda: (None, None))
+    assert await _run(operation="overview") == source.NO_ENVELOPE
+    assert store.looked_up == [] and store.reads == 0  # type: ignore[attr-defined]
+
+
+async def test_a_store_that_states_no_length_is_still_bounded(store: _Store, monkeypatch: pytest.MonkeyPatch) -> None:
+    store.size = 0
+    store.data = b"0" * 64
+    monkeypatch.setattr(source, "MAX_DXF_BYTES", 32)
+    assert "larger than 150 MB" in await _run(operation="overview")
+
+
+async def test_parallel_calls_on_one_file_parse_it_once(store: _Store, monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    parsed: list[int] = []
+    real = source.build_site
+    monkeypatch.setattr(source, "build_site", lambda *a: parsed.append(1) or real(*a))
+    await asyncio.gather(*(_run(operation="overview") for _ in range(4)))
+    assert parsed == [1]
+    assert store.reads == 1

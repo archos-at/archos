@@ -12,6 +12,7 @@ import io
 
 import ezdxf
 import pytest
+from agent_testing.cadastre import R12Writer
 from agent_testing.cadastre import bev_partial_dxf
 
 from agent.drawings import site_ops
@@ -81,7 +82,11 @@ def test_what_remains_buildable_follows_the_setbacks_given(site: Site) -> None:
     )
     text = answer.text()
     # x 3 … 16 and y 3 … 37: 13 × 34 m.
-    assert "Buildable area inside the setbacks: 442.0 m² (55.2% of 800.0 m²), fits in 34.00 m × 13.00 m." in text
+    assert (
+        "Buildable area inside the setbacks: 442.0 m² (55.2% of 800.0 m²); its enclosing rectangle is 34.00 m × 13.00 m"
+        in text
+    )
+    assert "not a building footprint that fits" in text
     assert "Coverage limit 40%: at most 320.0 m² built-up area; existing 143.0 m², 177.0 m² left." in text
     assert "Density limit 1.2: at most 960.0 m² gross floor area." in text
     assert "not read from law or plan" in text
@@ -122,7 +127,9 @@ def test_a_drawing_without_a_unit_measures_nothing_in_metres() -> None:
     answer = site_ops.distance(site, "building 1", "building 1")
     assert not answer.decidable
     assert "$INSUNITS" in answer.text()
-    assert "not metres" in site_reading.layers(site).text()
+    layers = site_reading.layers(site).text()
+    assert "not metres" in layers
+    assert "drawing units" in layers and " m²" not in layers
 
 
 def test_a_plain_drawing_in_millimetres_is_converted_and_its_buildings_are_the_layers_named() -> None:
@@ -135,3 +142,70 @@ def test_a_plain_drawing_in_millimetres_is_converted_and_its_buildings_are_the_l
     assert "WALLS: LWPOLYLINE 1 · lines 32.0 m · 1 closed outlines, 60.0 m²" in layers
     assert "Katastralmappe" not in site_ops.overview(site).text()
     assert not site_ops.parcel(site, "1").decidable
+
+
+def _two_communities() -> Site:
+    """Parcel „12“ in KG 16117 and again in KG 16118 across a KG boundary, and „20“ drawn in two parts."""
+    dxf = R12Writer()
+    for x in (0, 20, 40):
+        dxf.polyline("KG" if x == 20 else "GG", [(x, 0), (x, 20)])
+    for a, b in ((0, 20), (20, 40)):
+        dxf.polyline("GG", [(a, 0), (b, 0)])
+        dxf.polyline("GG", [(a, 20), (b, 20)])
+    for x0 in (60, 90):  # two separate meshes, both numbered 20 in KG 16117
+        dxf.polyline("GG", [(x0, 0), (x0 + 10, 0), (x0 + 10, 10), (x0, 10), (x0, 0)])
+    dxf.insert("GN", "GN1", (10, 10), "12", "16117")
+    dxf.insert("GN", "GN1", (30, 10), "12", "16118")
+    dxf.insert("GN", "GN1", (65, 5), "20", "16117")
+    dxf.insert("GN", "GN1", (95, 5), "20", "16117")
+    dxf.insert("RL", "MBNR", (-60, -60), "7856F103", "1*34*12*345*1123", height=1.0, flags=1)
+    return build_site(read_dxf(dxf.bytes()))
+
+
+def test_a_number_in_two_communities_asks_for_the_kg() -> None:
+    site = _two_communities()
+    answer = site_ops.parcel(site, "12")
+    assert not answer.decidable
+    assert "'12 KG 16117'" in answer.text() and "'12 KG 16118'" in answer.text()
+    east = site_ops.parcel(site, "12 KG 16118").text()
+    assert "Parcel 12, KG 16118" in east
+    assert "Boundary with 12 (KG 16117): 20.00 m." in east
+
+
+def test_a_parcel_drawn_in_two_parts_is_one_parcel() -> None:
+    text = site_ops.parcel(_two_communities(), "20").text()
+    assert "area 200.0 m²" in text
+
+
+def _l_shaped() -> Site:
+    """One L-shaped parcel, 20 × 20 with the 10 × 10 north-east quarter cut out: 300 m²."""
+    dxf = R12Writer()
+    dxf.polyline("GG", [(0, 0), (20, 0), (20, 10), (10, 10), (10, 20), (0, 20), (0, 0)])
+    dxf.insert("GN", "GN1", (5, 5), "7", "16117")
+    dxf.insert("RL", "MBNR", (-60, -60), "7856F103", "1*34*12*345*1123", height=1.0, flags=1)
+    return build_site(read_dxf(dxf.bytes()))
+
+
+def test_a_setback_band_covers_the_re_entrant_corner() -> None:
+    """Every point within 3 m of the boundary is outside what remains, the quarter circle at the inner corner too."""
+    from shapely.geometry import Polygon
+
+    site = _l_shaped()
+    parcel = site.parcel("7")
+    exact = parcel.polygon.difference(parcel.polygon.exterior.buffer(3 / site.metres_per_unit))
+    text = site_ops.buildable(site, "7", setback_m=3).text()
+    assert f"{exact.area:,.1f} m²".replace(",", " ") in text
+    assert isinstance(parcel.polygon, Polygon)
+
+
+def test_a_drawing_in_feet_names_its_unit() -> None:
+    site = _generic(2)
+    assert site.metres_per_unit == pytest.approx(0.3048)
+    assert "unit feet" in site_ops.overview(site).text()
+    assert "unit not stated" in site_ops.overview(_generic(0)).text()
+
+
+def test_naming_a_parcel_the_file_lacks_says_so() -> None:
+    text = site_ops.parcels(build_site(read_dxf(bev_partial_dxf())), ["123/4", "999"]).text()
+    assert "Not in this file: 999." in text
+    assert "more not listed" not in text

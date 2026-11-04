@@ -21,9 +21,12 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass
+from dataclasses import replace
 
 from ezdxf.document import Drawing
 from shapely.geometry import Polygon
+from shapely.geometry.base import BaseGeometry
+from shapely.ops import unary_union
 from shapely.strtree import STRtree
 
 from .dxf_source import DxfSource
@@ -46,6 +49,7 @@ class Footprint:
     number: int
     layer: str
     polygon: Polygon
+    #: The parcels it stands on, by :func:`identity` (a number is unique only within its KG).
     parcels: tuple[str, ...]
 
 
@@ -64,22 +68,49 @@ class Site:
     def is_cadastre(self) -> bool:
         return self.source.cadastre is not None
 
+    def matching(self, name: str) -> list[Parcel]:
+        """Every parcel a name can mean: „Gst. 123/4“, „123/4“, „.57“, narrowed by „KG 16117“ when given.
+
+        A number is unique only within its cadastral community (KG), so an extract
+        across a KG boundary can hold two parcels named alike.
+        """
+        community = _COMMUNITY.search(name or "")
+        number = parcel_key(_COMMUNITY.sub(" ", name or ""))
+        return [
+            parcel
+            for parcel in self.parcels
+            if parcel_key(parcel.number) == number and (community is None or parcel.community == community.group(1))
+        ]
+
     def parcel(self, name: str) -> Parcel | None:
-        """A parcel by its number as a person writes it: „Gst. 123/4“, „123/4“, „Gst-Nr. .57“."""
-        wanted = parcel_key(name)
-        return next((parcel for parcel in self.parcels if parcel_key(parcel.number) == wanted), None)
+        """The one parcel a name means; None when it means none or more than one."""
+        found = self.matching(name)
+        return found[0] if len(found) == 1 else None
+
+    def label(self, parcel: Parcel) -> str:
+        """How answers name a parcel: its number, with its KG when the number alone is ambiguous."""
+        twins = sum(1 for other in self.parcels if other.number == parcel.number)
+        return f"{parcel.number} (KG {parcel.community})" if twins > 1 and parcel.community else parcel.number
 
     def footprint(self, number: int) -> Footprint | None:
         return next((footprint for footprint in self.footprints if footprint.number == number), None)
 
-    def on_parcel(self, number: str) -> list[Footprint]:
-        return [footprint for footprint in self.footprints if number in footprint.parcels]
+    def on_parcel(self, parcel: Parcel) -> list[Footprint]:
+        return [footprint for footprint in self.footprints if identity(parcel) in footprint.parcels]
 
     def metres(self, length: float) -> float:
         return length * (self.metres_per_unit or 1.0)
 
     def square_metres(self, area: float) -> float:
         return area * (self.metres_per_unit or 1.0) ** 2
+
+
+_COMMUNITY = re.compile(r"\bKG\s*(\d+)", re.IGNORECASE)
+
+
+def identity(parcel: Parcel) -> str:
+    """A parcel's identity in one drawing: its KG and its number."""
+    return f"{parcel.community}/{parcel.number}"
 
 
 def parcel_key(name: str) -> str:
@@ -94,7 +125,7 @@ def build_site(source: DxfSource, building_layers: tuple[str, ...] = ()) -> Site
 
     ``building_layers`` names the footprint layers of a drawing that is no Katastralmappe.
     """
-    parcels = tuple(read_parcels(source.doc)) if source.cadastre is not None else ()
+    parcels = tuple(_whole(read_parcels(source.doc))) if source.cadastre is not None else ()
     layers = CADASTRE_BUILDING_LAYERS if source.cadastre is not None and not building_layers else building_layers
     outlines = closed_outlines(source.doc, tuple(layer.upper() for layer in layers))
     return Site(
@@ -104,6 +135,35 @@ def build_site(source: DxfSource, building_layers: tuple[str, ...] = ()) -> Site
         footprints=tuple(_footprints(outlines, parcels)),
         building_layers=tuple(layer.upper() for layer in layers),
     )
+
+
+def _whole(parts: list[Parcel]) -> list[Parcel]:
+    """One parcel per KG and number: a parcel drawn as several meshes (cut by a road) is one parcel.
+
+    Its area is the sum of its parts; a part not closed in this file leaves the
+    whole parcel unclosed, so no operation measures a part as if it were all.
+    """
+    grouped: dict[str, list[Parcel]] = {}
+    for part in parts:
+        grouped.setdefault(identity(part), []).append(part)
+    whole = []
+    for group in grouped.values():
+        if len(group) == 1:
+            whole.append(group[0])
+            continue
+        closed = all(part.polygon is not None for part in group)
+        shape: BaseGeometry | None = unary_union([part.polygon for part in group]) if closed else None
+        neighbours = tuple(dict.fromkeys(n for part in group for n in part.neighbours if n != group[0].number))
+        whole.append(
+            replace(
+                group[0],
+                area_m2=sum(part.area_m2 or 0.0 for part in group) if closed else None,
+                neighbours=neighbours,
+                polygon=shape,
+                boundary_cadastre=any(part.boundary_cadastre for part in group),
+            )
+        )
+    return whole
 
 
 def _footprints(outlines: list[tuple[str, Polygon]], parcels: tuple[Parcel, ...]) -> list[Footprint]:
@@ -116,7 +176,7 @@ def _footprints(outlines: list[tuple[str, Polygon]], parcels: tuple[Parcel, ...]
             for candidate in tree.query(polygon, predicate="intersects"):
                 parcel = shaped[int(candidate)]
                 if parcel.polygon.intersection(polygon).area >= _ON_PARCEL_SHARE * polygon.area:
-                    on.append(parcel.number)
+                    on.append(identity(parcel))
         footprints.append(Footprint(number=index, layer=layer, polygon=polygon, parcels=tuple(on)))
     return footprints
 

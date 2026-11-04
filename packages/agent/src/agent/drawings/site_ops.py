@@ -93,7 +93,14 @@ def _parcel_or_refusal(site: Site, name: str) -> Parcel | SiteAnswer:
     refusal = _needs_parcels(site)
     if refusal:
         return refusal
-    parcel = site.parcel(name or "")
+    candidates = site.matching(name or "")
+    if len(candidates) > 1:
+        kgs = ", ".join(f"'{candidate.number} KG {candidate.community}'" for candidate in candidates)
+        return undecidable(
+            f"'{name}' names {len(candidates)} parcels, one in each cadastral community (KG).",
+            f"name the KG with the number: {kgs}.",
+        )
+    parcel = candidates[0] if candidates else None
     if parcel is None:
         known = ", ".join(p.number for p in site.parcels[:20])
         return undecidable(
@@ -106,6 +113,27 @@ def _parcel_or_refusal(site: Site, name: str) -> Parcel | SiteAnswer:
             "upload an extract that contains the whole parcel.",
         )
     return parcel
+
+
+_UNIT_NAMES = {
+    0.001: "millimetres",
+    0.01: "centimetres",
+    0.1: "decimetres",
+    1.0: "metres",
+    1000.0: "kilometres",
+    0.0254: "inches",
+    0.3048: "feet",
+    0.9144: "yards",
+    1609.344: "miles",
+}
+
+
+def _unit_text(metres_per_unit: float | None) -> str:
+    """The drawing's unit as a reader names it; every one with a factor to metres can be measured."""
+    if metres_per_unit is None:
+        return "unit not stated: nothing can be measured in metres"
+    name = next((name for factor, name in _UNIT_NAMES.items() if abs(factor - metres_per_unit) < 1e-9), None)
+    return f"unit {name}" if name else f"unit {metres_per_unit:g} m"
 
 
 def overview(site: Site) -> SiteAnswer:
@@ -131,8 +159,7 @@ def overview(site: Site) -> SiteAnswer:
             f"{f', {open_} not closed in this file' if open_ else ''})."
         )
     else:
-        unit = {0.001: "millimetres", 0.01: "centimetres", 1.0: "metres"}.get(site.metres_per_unit or -1)
-        answer.lines.append(f"DXF drawing, unit {unit or 'not stated: nothing can be measured in metres'}.")
+        answer.lines.append(f"DXF drawing, {_unit_text(site.metres_per_unit)}.")
     layers = Counter(entity.dxf.layer for entity in msp)
     answer.lines.append(
         f"Buildings: {len(site.footprints)} closed outlines on "
@@ -151,14 +178,16 @@ def parcels(site: Site, numbers: list[str] | None = None, limit: int = 50) -> Si
     refusal = _needs_parcels(site)
     if refusal:
         return refusal
-    chosen = [site.parcel(name) for name in numbers] if numbers else list(site.parcels)
-    rows = [parcel for parcel in chosen if parcel is not None][:limit]
+    chosen = [parcel for name in numbers for parcel in site.matching(name)] if numbers else list(site.parcels)
+    unknown = [name for name in numbers or [] if not site.matching(name)]
+    rows = chosen[:limit]
     answer = SiteAnswer([accuracy_note(site, rows)])
     for parcel in rows:
         answer.lines.append(_parcel_row(site, parcel))
-    left = (len(numbers) if numbers else len(site.parcels)) - len(rows)
-    if left > 0:
-        answer.lines.append(f"… {left} more not listed (raise 'limit' or name the parcels).")
+    if len(chosen) > len(rows):
+        answer.lines.append(f"… {len(chosen) - len(rows)} more not listed (raise 'limit' or name the parcels).")
+    if unknown:
+        answer.lines.append(f"Not in this file: {', '.join(unknown)}.")
     return answer
 
 
@@ -166,7 +195,7 @@ def _parcel_row(site: Site, parcel: Parcel) -> str:
     cadastre = "Grenzkataster" if parcel.boundary_cadastre else "Grundsteuerkataster"
     area = "not closed" if parcel.area_m2 is None else _m2(parcel.area_m2)
     built = (
-        sum(footprint.polygon.intersection(parcel.polygon).area for footprint in site.on_parcel(parcel.number))
+        sum(footprint.polygon.intersection(parcel.polygon).area for footprint in site.on_parcel(parcel))
         if parcel.polygon
         else 0.0
     )
@@ -179,13 +208,13 @@ def shared_edges(site: Site, parcel: Parcel) -> list[tuple[str, BaseGeometry]]:
     """Each neighbour and the boundary it shares with this parcel; ``""`` for the part with no neighbour in the file."""
     own = parcel.polygon.boundary
     edges: list[tuple[str, BaseGeometry]] = []
-    for name in parcel.neighbours:
-        other = site.parcel(name)
-        if other is None or other.polygon is None:
+    # By geometry, not by name alone: a neighbour's number may also name a parcel in another KG.
+    for other in (other for other in site.parcels if other.number in parcel.neighbours and other is not parcel):
+        if other.polygon is None:
             continue
         shared = own.intersection(other.polygon.boundary)
         if shared.length >= _EDGE_M:
-            edges.append((name, shared))
+            edges.append((site.label(other), shared))
     rest = own.difference(unary_union([edge for _name, edge in edges])) if edges else own
     if rest.length >= _EDGE_M:
         edges.append(("", rest))
@@ -209,7 +238,7 @@ def parcel(site: Site, name: str) -> SiteAnswer:
     for neighbour, edge in shared_edges(site, found):
         where = f"with {neighbour}" if neighbour else "with no parcel in this file (edge of the extract)"
         answer.lines.append(f"Boundary {where}: {_m(edge.length)}.")
-    standing = site.on_parcel(found.number)
+    standing = site.on_parcel(found)
     built = sum(footprint.polygon.intersection(polygon).area for footprint in standing)
     for footprint in standing:
         w, d = _rectangle(footprint.polygon)
@@ -229,7 +258,7 @@ def setbacks(site: Site, name: str) -> SiteAnswer:
     found = _parcel_or_refusal(site, name)
     if isinstance(found, SiteAnswer):
         return found
-    standing = site.on_parcel(found.number)
+    standing = site.on_parcel(found)
     if not standing:
         return undecidable(
             f"no building outline stands on parcel {found.number} in this file.",
@@ -285,15 +314,8 @@ def buildable(
     )
     remaining = _inset(site, found, setback_m or 0.0, {**(setbacks_by_neighbour or {})})
     if setback_m is not None or setbacks_by_neighbour:
-        width, depth = _rectangle(remaining) if not remaining.is_empty else (0.0, 0.0)
-        answer.lines.append(
-            f"Buildable area inside the setbacks: {_m2(remaining.area)} "
-            f"({remaining.area / polygon.area:.1%} of {_m2(polygon.area)}), "
-            f"fits in {_m(width)} × {_m(depth)}."
-            if not remaining.is_empty
-            else "Nothing remains inside these setbacks."
-        )
-    built = sum(fp.polygon.intersection(polygon).area for fp in site.on_parcel(found.number))
+        answer.lines.append(_remaining_line(remaining, polygon))
+    built = sum(fp.polygon.intersection(polygon).area for fp in site.on_parcel(found))
     coverage = _fraction(coverage_limit)
     if coverage is not None:
         allowed = coverage * polygon.area
@@ -308,12 +330,29 @@ def buildable(
     return answer
 
 
+def _remaining_line(remaining: BaseGeometry, polygon: BaseGeometry) -> str:
+    """What remains inside the setbacks, said so it is not read as a building that fits."""
+    if remaining.is_empty:
+        return "Nothing remains inside these setbacks."
+    pieces = list(getattr(remaining, "geoms", [remaining]))
+    largest = max(pieces, key=lambda piece: piece.area)
+    width, depth = _rectangle(largest)
+    split = f" in {len(pieces)} separate pieces, the largest {_m2(largest.area)}" if len(pieces) > 1 else ""
+    return (
+        f"Buildable area inside the setbacks: {_m2(remaining.area)} ({remaining.area / polygon.area:.1%} of "
+        f"{_m2(polygon.area)}){split}; its enclosing rectangle is {_m(width)} × {_m(depth)} "
+        "(the area's outer bounds, not a building footprint that fits)."
+    )
+
+
 def _inset(site: Site, parcel: Parcel, default_m: float, by_neighbour: dict[str, float]) -> BaseGeometry:
     """The parcel minus a band along each boundary part, as wide as that part's setback (in drawing units)."""
-    keyed = {site.parcel(name).number: value for name, value in by_neighbour.items() if site.parcel(name) is not None}
+    keyed = {site.label(found): value for name, value in by_neighbour.items() if (found := site.parcel(name))}
     unit = site.metres_per_unit or 1.0
+    # Round ends, not flat: the band is every point closer to that boundary part than its setback,
+    # which at a re-entrant corner is a quarter circle a flat band leaves out (buildable too large).
     bands = [
-        edge.buffer(keyed.get(neighbour, default_m) / unit, cap_style="flat")
+        edge.buffer(keyed.get(neighbour, default_m) / unit)
         for neighbour, edge in shared_edges(site, parcel)
         if keyed.get(neighbour, default_m) > 0
     ]
