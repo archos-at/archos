@@ -625,8 +625,9 @@ class TestTheAgentCanLookAtThePlan:
         strict=True,
         raises=AssertionError,
         reason=(
-            "real bug, behaviour left alone: the shared `mode` check in measure_calls.py refuses first, "
-            "so operation='view' answers with the distance modes and the distance advice"
+            "real bug, behaviour left alone: the schema's `mode` literal in measure_input.py refuses first, "
+            "through `_refusal` in measure_register.py, so `_view_call`'s own sentence is never reached and "
+            "operation='view' answers with the distance modes and the distance advice"
         ),
     )
     def test_an_unknown_mode_names_the_two_that_exist(self, tools, handles):
