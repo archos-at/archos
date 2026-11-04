@@ -293,7 +293,7 @@
     "packages/agent/src/agent/common/retrieval_status.py::emit_retrieval": 89,
     "packages/agent/src/agent/knowledge/factory.py::get_retriever": 88,
     "packages/agent/src/agent/knowledge/factory.py::reconcile_collection_summaries": 101,
-    "packages/agent/src/agent/knowledge/ifc_spatial_client.py::open_model": 73,
+    "packages/agent/src/agent/knowledge/ifc_spatial_client.py::open_model": 69,
     "packages/agent/src/agent/knowledge/ingest_status_store.py::in_flight_files": 73,
     "packages/agent/src/agent/knowledge/inventory.py::allocate_inventory_detailed": 62,
     "packages/agent/src/agent/knowledge/inventory.py::render_inventory_block": 176,
