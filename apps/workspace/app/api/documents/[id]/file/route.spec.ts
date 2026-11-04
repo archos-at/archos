@@ -33,11 +33,10 @@ vi.mock('@/lib/s3', () => ({
 
 // The converter is `rendition.spec.ts`'s subject; here only its outcomes are
 // driven, with the real error classes.
-vi.mock('@/lib/documents/rendition', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/documents/rendition')>()),
-  isRenditionEnabled: vi.fn().mockReturnValue(true),
-  ensureRendition: vi.fn(),
-}))
+vi.mock('@/lib/documents/rendition', async (importOriginal) => {
+  const { renditionModuleMock } = await import('@/test-utils/rendition-module')
+  return renditionModuleMock(await importOriginal(), true)
+})
 
 import { GET } from './route'
 import { getDb } from '@/lib/db'

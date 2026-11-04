@@ -60,19 +60,8 @@ vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
 // The converter is `rendition.spec.ts`'s subject; here it is a switch and an
 // outcome, so what is under test is what dispatch does with each.
 vi.mock('./rendition', async (importOriginal) => {
-  const { isDrawingRenditionSource } = await import('./preview-types')
-  const isRenditionEnabled = vi.fn().mockReturnValue(false)
-  return {
-    ...(await importOriginal<typeof import('./rendition')>()),
-    isRenditionEnabled,
-    // The real rule over the mocked switch: a DXF always has its converter (the
-    // backend), an office file only when Gotenberg is configured.
-    isRenditionEnabledFor: vi.fn(
-      (file: { contentType?: string | null; filename?: string | null }) =>
-        isDrawingRenditionSource(file) || isRenditionEnabled(),
-    ),
-    ensureRendition: vi.fn(),
-  }
+  const { renditionModuleMock } = await import('@/test-utils/rendition-module')
+  return renditionModuleMock(await importOriginal(), false)
 })
 
 import { runBimExtraction } from '@/lib/bim/service'

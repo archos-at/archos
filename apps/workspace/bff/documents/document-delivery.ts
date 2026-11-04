@@ -101,17 +101,20 @@ export async function getDocumentDownload(
 }> {
   const doc = await getAccessibleDocument(session, documentId)
   if (!doc.storageKey) throw new NotFoundError('File not available')
-  if (options.format === 'pdf' && servedAsRendition(doc)) return renditionDownload(session, doc)
-  if (options.format === 'pdf' && doc.contentType !== 'application/pdf') {
+  const asRendition = options.format === 'pdf' && servedAsRendition(doc)
+  if (options.format === 'pdf' && !asRendition && doc.contentType !== 'application/pdf') {
     throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'This file has no PDF form', { contentType: doc.contentType })
   }
+  const key = asRendition ? await officeRenditionKey(doc, doc.contentType || 'application/octet-stream') : doc.storageKey
+  const filename = asRendition ? renditionFilename(doc.filename) : doc.filename
 
   const downloadUrl = await getSignedUrl(
     signingS3Client,
     new GetObjectCommand({
       Bucket: resolveDocumentBucket(doc.storageBucket),
-      Key: doc.storageKey,
-      ResponseContentDisposition: contentDisposition('attachment', doc.filename),
+      Key: key,
+      ResponseContentDisposition: contentDisposition('attachment', filename),
+      ...(asRendition ? { ResponseContentType: 'application/pdf' } : {}),
     }),
     { expiresIn: presignTtlSeconds() }
   )
@@ -119,28 +122,10 @@ export async function getDocumentDownload(
 
   return {
     downloadUrl,
-    filename: doc.filename,
-    contentType: doc.contentType,
-    fileSize: doc.fileSize,
+    filename,
+    contentType: asRendition ? 'application/pdf' : doc.contentType,
+    fileSize: asRendition ? null : doc.fileSize,
   }
-}
-
-/** The rendition as an attachment named after the original (`Lageplan.dxf` → `Lageplan.pdf`). */
-async function renditionDownload(session: AuthorizedSession, doc: Document) {
-  const key = await officeRenditionKey(doc, doc.contentType || 'application/octet-stream')
-  const filename = renditionFilename(doc.filename)
-  const downloadUrl = await getSignedUrl(
-    signingS3Client,
-    new GetObjectCommand({
-      Bucket: resolveDocumentBucket(doc.storageBucket),
-      Key: key,
-      ResponseContentDisposition: contentDisposition('attachment', filename),
-      ResponseContentType: 'application/pdf',
-    }),
-    { expiresIn: presignTtlSeconds() }
-  )
-  await recordDocumentAccess(session, doc, 'download')
-  return { downloadUrl, filename, contentType: 'application/pdf', fileSize: null }
 }
 
 /**
