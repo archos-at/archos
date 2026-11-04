@@ -312,6 +312,16 @@ def test_an_unsupported_schema_is_refused_with_a_reason(tmp_path: Path) -> None:
     assert "IFCNOPE" in raised.value.reason
 
 
+def test_a_length_unit_without_its_conversion_factor_is_refused_with_a_reason(tmp_path: Path) -> None:
+    """It parses, and only the unit scale trips over it, which used to escape as a bare AttributeError."""
+    path = tmp_path / "unit.ifc"
+    path.write_text(_FEET_MODEL.replace("'FOOT',#11)", "'FOOT',$)"))
+    with pytest.raises(ModelUnreadableError) as raised:
+        SpatialModel(str(path))
+    assert "beschädigt" in raised.value.reason
+    assert str(tmp_path) not in raised.value.reason
+
+
 def test_a_truncated_file_is_refused_before_the_parser_crashes(tmp_path: Path) -> None:
     """The one that is not a nicety.
 

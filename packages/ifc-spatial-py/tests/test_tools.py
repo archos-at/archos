@@ -377,20 +377,41 @@ def test_a_file_over_the_limit_stays_the_cause_with_both_numbers(tools: list, tm
     assert (cause.size, cause.limit) == (MAX_FILE_BYTES + 1, MAX_FILE_BYTES)
 
 
-def test_running_out_of_memory_is_not_reported_as_a_damaged_file(
-    tools: list, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "failure",
+    [MemoryError(), OSError(5, "Input/output error"), FileNotFoundError(2, "Path does not exist")],
+    ids=["memory", "read_failed", "gone_meanwhile"],
+)
+def test_a_failure_in_the_parser_that_is_not_about_the_file_is_not_a_refusal(
+    tools: list, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: Exception
 ) -> None:
-    """The file may be fine and the next attempt may fit, so it must not read as a refusal of the file."""
+    """The file may be fine and the next attempt may work, so it must not read as a refusal of the file."""
 
-    def out_of_memory(_path: str) -> None:
-        raise MemoryError
+    def parser_fails(_path: str) -> None:
+        raise failure
 
-    monkeypatch.setattr("ifc_spatial.model.ifcopenshell.open", out_of_memory)
+    monkeypatch.setattr("ifc_spatial.model.ifcopenshell.open", parser_fails)
     complete = tmp_path / "vollstaendig.ifc"
     complete.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="ascii")
     with pytest.raises(ToolError) as raised:
         call(tools, "open_model", {"path": str(complete)})
-    assert isinstance(raised.value.__cause__, MemoryError)
+    assert raised.value.__cause__ is failure
+
+
+def test_a_failed_read_in_the_preflight_is_not_a_refusal(
+    tools: list, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A refusal here told the reader the file was at fault, and its reason named this worker's scratch path."""
+
+    def read_fails(path: str, _mode: str) -> None:
+        raise OSError(24, "Too many open files", path)
+
+    monkeypatch.setattr("ifc_spatial.model.open", read_fails, raising=False)
+    complete = tmp_path / "vollstaendig.ifc"
+    complete.write_text("ISO-10303-21;\nEND-ISO-10303-21;\n", encoding="ascii")
+    with pytest.raises(ToolError) as raised:
+        call(tools, "open_model", {"path": str(complete)})
+    assert isinstance(raised.value.__cause__, OSError)
 
 
 class TestTheEnvelopeReachesTheSurface:

@@ -183,13 +183,12 @@ def _preflight(path: str, max_bytes: int) -> None:
     if size > max_bytes:
         raise ModelTooLargeError(path, size, max_bytes)
 
-    try:
-        with open(path, "rb") as handle:
-            head = handle.read(64)
-            handle.seek(max(0, size - 4096))
-            tail = handle.read(4096)
-    except OSError as error:
-        raise ModelUnreadableError(path, f"Diese Datei ist nicht lesbar ({error}).") from None
+    # A failed read stays an `OSError`, as in `getsize` above: it says nothing
+    # about the bytes, so it must not reach a person as a refusal of the file.
+    with open(path, "rb") as handle:
+        head = handle.read(64)
+        handle.seek(max(0, size - 4096))
+        tail = handle.read(4096)
 
     if not head.lstrip()[:12].upper().startswith(b"ISO-10303-21"):
         raise ModelUnreadableError(
@@ -388,7 +387,10 @@ class SpatialModel:
         t0 = time.perf_counter()
         try:
             self.file = ifcopenshell.open(path)
-        except ModelUnreadableError, MemoryError:  # out of memory says nothing about the file: no refusal
+            self.open_seconds = time.perf_counter() - t0
+            # In here because a unit the file cannot state is a broken file too.
+            self.unit_scale = uu.calculate_unit_scale(self.file)
+        except ModelUnreadableError, MemoryError, OSError:  # no memory or a failed read: no refusal of the file
             raise
         except BaseException as error:  # noqa: BLE001 — every parser failure, one refusal
             raise ModelUnreadableError(
@@ -396,8 +398,6 @@ class SpatialModel:
                 f"IfcOpenShell konnte diese Datei nicht lesen ({type(error).__name__}: {error}). "
                 "Entweder ist das Schema nicht unterstützt oder die Datei ist beschädigt.",
             ) from None
-        self.open_seconds = time.perf_counter() - t0
-        self.unit_scale = uu.calculate_unit_scale(self.file)
 
         self._settings = ifcopenshell.geom.settings()
         self._settings.set("use-world-coords", True)
