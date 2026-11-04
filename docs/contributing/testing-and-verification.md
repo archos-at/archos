@@ -404,9 +404,29 @@ is its own PR, the only kind that needs reading. Package families that only
 build at matching versions (`@aws-sdk/*`, `@opentelemetry/*`, `@pulumi/*`)
 take their majors together, and majors the
 toolchain cannot take yet (TypeScript 7, an `@types/node` past the Node 22
-runtime) are ignored, each with a comment saying when to lift it. Dependabot
-PRs skip the automatic Claude review: the action refuses a bot actor, and CI
-already judges a lockfile bump. Maintainability is covered by the native linters and the
+runtime) are ignored, each with a comment saying when to lift it.
+
+Minor and patch updates merge themselves. `dependabot-auto-merge.yml` turns on
+GitHub's auto-merge for them, security fixes included, and GitHub squash-merges
+each one when `CI OK` passes; a major, anything under `deploy/pulumi` (its SDK
+pins the CLI the deploy installs, so only a deploy proves it) and a red run stay
+open for a person, and a later push that makes a pull request one of those turns its auto-merge off again. The policy is `ci/dependabot_merge.py`. It acts only when all
+of these hold, and its log says which one is missing:
+
+| Setting | Where | Why |
+|---|---|---|
+| `CI OK` is a required check on `develop`, with GitHub Actions as its source (not "any source") | Settings → Rules → `require-ci-ok`, a repository ruleset beside `protect-develop` | Auto-merge on a pull request with no required check merges it at once, whatever CI says; a check from any source could be passed by another integration |
+| Dependabot secret `DEPENDABOT_MERGE_TOKEN`: a fine-grained token, contents and pull requests read and write, this repository only | Settings → Secrets and variables → **Dependabot** (a run Dependabot triggers sees no Actions secrets) | A merge by `GITHUB_TOKEN` starts no workflow, so the push run, its images and the staging deploy would never come; it also gives the approval the ruleset requires |
+| Allow auto-merge | Settings → General → Pull Requests | GitHub refuses auto-merge without it |
+
+Where the ruleset requires an approving review, the workflow approves with
+the same token, so the approval carries the token owner's name and says it is
+automatic. Not as `github-actions`: the organization does not let workflows
+approve pull requests, and allowing it would let any workflow in any of its
+repositories approve its own. `CI OK` is required by the repository ruleset
+`require-ci-ok`, beside `protect-develop`.
+
+Maintainability is covered by the native linters and the
 coverage gate in `ci.yml`. That drops Sonar's clean-as-you-code gate, so the
 `PLR09xx` refactor rules ruff ignores (too many arguments, branches, statements)
 are no longer reported on new code.

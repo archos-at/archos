@@ -722,3 +722,33 @@ def test_claude_runs_only_where_a_mention_can_start_it_and_one_ai_review_remains
     # bot inline comment left a skipped check behind.
     assert set(claude[True]) == {"issue_comment", "issues"}
     assert not (workflows / "claude-code-review.yml").exists()
+
+
+def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
+    workflow = yaml.safe_load((WORKFLOWS / "dependabot-auto-merge.yml").read_text())
+    job = workflow["jobs"]["enable"]
+    assert "dependabot[bot]" in job["if"]
+    assert workflow["permissions"] == {}
+    steps = {step.get("name"): step for step in job["steps"]}
+    enable = steps["Turn on auto-merge"]
+    lines = [line.strip() for line in enable["run"].splitlines()]
+    merge = next(i for i, line in enumerate(lines) if "gh pr merge --auto --squash" in line)
+    # Auto-merge on a pull request with no required check merges at once: the
+    # rules are read (ci/dependabot_merge.py, tested there) and a missing CI OK
+    # leaves the step before the merge.
+    guard = lines.index('if [ "$ci_ok_required" != "true" ]; then')
+    assert "python3 ci/dependabot_merge.py rules" in lines[guard - 2]
+    assert lines[guard + 2] == "exit 0" and lines[guard + 3] == "fi"
+    assert guard < merge
+    # A merge by GITHUB_TOKEN starts no push run: no images, no staging deploy.
+    assert enable["env"]["MERGE_TOKEN"] == "${{ secrets.DEPENDABOT_MERGE_TOKEN }}"
+    assert lines[merge].startswith('GH_TOKEN="$MERGE_TOKEN" gh pr merge')
+    # The organization lets no workflow approve: the approval is the token's.
+    approve = next(line for line in lines if "gh pr review --approve" in line)
+    assert approve.startswith('GH_TOKEN="$MERGE_TOKEN" gh pr review')
+    assert enable["if"] == "steps.decide.outputs.merge == 'true'"
+    # A push that makes the pull request ineligible, or metadata that could not
+    # be read, turns off auto-merge an earlier push set.
+    disable = steps["Turn off auto-merge on an update a person must read"]
+    assert disable["if"] == "always() && steps.decide.outputs.merge != 'true'"
+    assert "gh pr merge --disable-auto" in disable["run"]
