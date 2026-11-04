@@ -32,6 +32,7 @@ from agent.knowledge.ifc_spatial_client import ModelTooLargeError
 from agent.knowledge.ifc_spatial_client import ModelUnreadableError
 from agent.knowledge.ifc_spatial_client import SpatialEngineUnavailableError
 from agent.knowledge.ifc_spatial_client import SpatialToolError
+from agent.tools.bim.failures import MAX_REASON_CHARS
 from agent.tools.bim.measure_register import ENGINE_UNAVAILABLE_TEXT
 from agent.tools.bim.measure_register import NON_MEASURING_OPERATIONS
 from agent.tools.bim.measure_register import OPERATIONS
@@ -1327,7 +1328,11 @@ class TestAnEngineRefusalKeepsItsReason:
         [
             "Diese Datei ist leer (0 Bytes) — der Upload ist fehlgeschlagen.",
             "Das ist keine IFC-SPF-Datei — sie beginnt nicht mit ISO-10303-21.",
-            "Diese Datei ist unvollständig: der Abschluss END-ISO-10303-21; fehlt.",
+            # The engine's longest, in full, so a cap below it goes red here.
+            "Diese Datei ist unvollständig: der Abschluss END-ISO-10303-21; fehlt. Sie wurde "
+            "abgeschnitten — der Upload oder der Export ist abgebrochen. Eine abgeschnittene IFC-Datei "
+            "bringt den Parser zum Absturz und wird deshalb gar nicht erst geöffnet; die Datei bitte "
+            "vollständig neu hochladen.",
         ],
         ids=["empty", "not_ifc", "truncated"],
     )
@@ -1341,10 +1346,18 @@ class TestAnEngineRefusalKeepsItsReason:
         # The reason is for the reader, and this worker's scratch path is not.
         assert self.SPILLED not in answer
 
+    def test_a_reason_that_runs_on_does_not_reach_the_agent_whole(self, monkeypatch):
+        """The agent is told to pass the reason on, so its length is bounded where that sentence is written."""
+        answer, outcome = self._refused_with(monkeypatch, self._Unreadable(self.SPILLED, "x" * 2_000_000))
+
+        assert outcome == "model_unreadable"
+        assert "not an outage" in answer
+        assert answer.count("x" * 100) == MAX_REASON_CHARS // 100
+
     @pytest.mark.parametrize(
         "cause",
-        [OSError("No space left on device"), MemoryError(), None],
-        ids=["disk", "memory", "no_cause"],
+        [OSError(5, "Input/output error"), MemoryError(), None],
+        ids=["read_failed", "memory", "no_cause"],
     )
     def test_a_failure_that_is_not_about_the_file_still_reads_as_an_outage(self, monkeypatch, cause):
         """Here waiting is the right advice, so naming the file would be the wrong reason."""

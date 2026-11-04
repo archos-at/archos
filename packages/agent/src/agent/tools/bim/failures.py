@@ -118,10 +118,15 @@ def too_large_text(model_bytes: int | None, limit_bytes: int) -> str:
     )
 
 
+#: The engine's longest refusal is 284 characters. It is another package's text
+#: and this tool tells the agent to pass it on, so it is bounded here too.
+MAX_REASON_CHARS = 400
+
+
 def unreadable_text(reason: str) -> str:
     """The engine refused the file and said why — a fact about the FILE, so neither waiting nor retrying helps."""
     return (
-        f"Error: the model file could not be opened. The reason: {reason} "
+        f"Error: the model file could not be opened. The reason: {reason[:MAX_REASON_CHARS]} "
         "This is a statement about the FILE, not an outage — waiting or calling again does not help. "
         "Pass this reason on to the user. Metadata questions can still be tried with ifc_query, which "
         "reads the extracted index and not the file. Do NOT state anything about the building's geometry."

@@ -189,7 +189,7 @@
     "packages/ifc-spatial-py/src/ifc_spatial/daylight.py": 1256,
     "packages/ifc-spatial-py/src/ifc_spatial/envelope_geometry.py": 1003,
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py": 1047,
-    "packages/ifc-spatial-py/src/ifc_spatial/model.py": 966,
+    "packages/ifc-spatial-py/src/ifc_spatial/model.py": 962,
     "packages/knowledge-layer/src/ingest/adapter.py": 4976,
     "packages/knowledge-layer/src/ingest/clause_chunking.py": 723,
     "packages/knowledge-layer/src/ingest/section_chunking.py": 768,

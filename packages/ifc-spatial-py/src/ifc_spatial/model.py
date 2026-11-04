@@ -50,6 +50,7 @@ import ifcopenshell.util.unit as uu
 import numpy as np
 
 from .envelope import ElementRef
+from .parser_refusal import parser_refusal
 
 # ── kinds ───────────────────────────────────────────────────────────────────
 #
@@ -393,11 +394,7 @@ class SpatialModel:
         except ModelUnreadableError, MemoryError, OSError:  # no memory or a failed read: no refusal of the file
             raise
         except BaseException as error:  # noqa: BLE001 — every parser failure, one refusal
-            raise ModelUnreadableError(
-                str(path),
-                f"IfcOpenShell konnte diese Datei nicht lesen ({type(error).__name__}: {error}). "
-                "Entweder ist das Schema nicht unterstützt oder die Datei ist beschädigt.",
-            ) from None
+            raise ModelUnreadableError(str(path), parser_refusal(error)) from None
 
         self._settings = ifcopenshell.geom.settings()
         self._settings.set("use-world-coords", True)
