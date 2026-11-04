@@ -272,11 +272,13 @@ then, no job waited more than three seconds for a runner. So the backend core
 suite runs in four shards and the UI suite in six (it had four, and they had
 grown to 7 to 11 minutes each); see [The backend lane](#the-backend-lane).
 
-One duplicate remains outside this repository's files (still on, 2026-11-03): GitHub's **CodeQL
-default setup** runs three analysis jobs on every PR push and a five-to-ten
-minute analysis on every `develop` push, beside Semgrep, which was adopted to
-replace CodeQL. Turning one of them off is a setting
-(Settings → Code security), and it is the largest remaining cost per push.
+GitHub's **CodeQL default setup**, which ran three analysis jobs on every PR
+push and a five-to-ten minute analysis on every `develop` push beside Semgrep,
+was turned off on 2026-11-04. The organization's security configuration had
+enforced it ("Blocked by organization" on the repository's page), so it is
+switched off in that configuration, under the organization's Settings →
+Advanced Security → Configurations, not in the repository. Semgrep in `ci.yml`
+is the SAST gate.
 
 ## Runners and cost
 

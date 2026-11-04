@@ -66,6 +66,7 @@ Where the time went, and what made develop red:
 | No `[skip ci]` markers in PR text | develop | a marker can no longer skip the push run, its image tags and its deploy |
 | `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` | runners | moving to Actions Runner Controller is a variable |
 | `ci/lead_time.py` and the weekly **Lead time** workflow | all | the numbers above, every week |
+| CodeQL default setup turned off (2026-11-04; an org security configuration had enforced it, so it is switched off there, not in the repository) | PR checks | 3 Analyze jobs fewer per PR push, up to 447 s fewer per develop push; Semgrep in `ci.yml` remains the SAST gate |
 | Removed: the second AI reviewer (`claude-code-review.yml`), `@claude` runs on every review comment, both coverage PR comments and the UI coverage instrumentation behind one of them | PR noise, UI shards | ~20 skipped checks and two re-notifying comments fewer per PR; one job and eight artifact uploads fewer per full UI run |
 
 Projected merge to staging at p50: about 1 min of CI for a reused merge plus
@@ -159,7 +160,6 @@ is on the critical path of something above.
 |---|---|---|
 | Make `CI OK` and `Conventional PR title` required checks | The `protect-develop` ruleset requires no status check: a red PR can merge, and the docs said otherwise | Settings → Rules → `protect-develop` |
 | Squash merges only | 4 of 32 push runs missed reuse on two-parent merge commits, and their subjects break Conventional Commits on develop | the same ruleset, allowed merge methods |
-| Turn off CodeQL default setup | It duplicates Semgrep, which replaced it; it holds 3 jobs per PR push and up to 447 s per develop push, and on a private repository it needs GitHub Advanced Security | Settings → Code security |
 | GitHub plan once private | The merge queue and artifact attestations on a private repository need Enterprise Cloud; without it slices 2 and 3 take their plan-independent forms | billing |
 | The ARC scale set | Set `CI_RUNNER` to it when it exists, and `DEPLOY_RUNNER` to runners outside the cluster they deploy to. Its runner image needs Docker, python3, jq, gh, curl and git, and persistent volumes for the caches in slice 9 | `vars.CI_RUNNER`, `vars.DEPLOY_RUNNER` |
 | Turn `chromaMigration` off on dev | Unblocks parallel rollouts on staging (slice 11) once the Qdrant import is verified there | `deploy/pulumi/Pulumi.dev.yaml` |
