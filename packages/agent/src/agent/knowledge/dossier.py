@@ -440,7 +440,7 @@ def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) 
     """
     lifted: list[dict[str, Any]] = []
     for page, analysis in analyses:
-        for segment in (analysis or {}).get("segments") or []:
+        for segment in _segments_of(analysis):
             for quantity in segment.get("quantities") or []:
                 # Only what is printed on the sheet: a value the model inferred is not a statement.
                 if quantity.get("source") != "text":
@@ -458,6 +458,23 @@ def lifted_drawing_facts(analyses: Iterable[tuple[int | None, dict[str, Any]]]) 
                         }
                     )
     return lifted
+
+
+def _segments_of(analysis: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The segments of one analysis, in either shape it arrives in.
+
+    A whole reply holds ``segments``; a chunk's ``drawing_data`` holds the ONE
+    ``segment`` it was cut from (``visual_analysis.segment_payloads``), which is
+    the shape the ingest hands this module. Reading only ``segments`` lifted
+    nothing from any real ingest.
+    """
+    if not analysis:
+        return []
+    segments = analysis.get("segments")
+    if isinstance(segments, list):
+        return [segment for segment in segments if isinstance(segment, dict)]
+    segment = analysis.get("segment")
+    return [segment] if isinstance(segment, dict) else []
 
 
 _QUANTITY_KEYS = (
