@@ -95,6 +95,8 @@ const outcomeRow = (over: Partial<UsageOutcomeRow> = {}): UsageOutcomeRow => ({
   reasoningTokens: 300,
   costUsd: 0.2025,
   priceUsd: 0.2025,
+  firstCallPromptTokens: 37000,
+  firstCallCachedTokens: 30000,
   ...over,
 })
 
@@ -182,6 +184,16 @@ describe('usageOutcomeProperties', () => {
       cost_usd: 0.2025,
     })
     expect(usageOutcomeProperties(outcomeRow()).job_id).toBeUndefined()
+  })
+
+  it("carries the first agent call's tokens only on the row that holds it, so the carry can be read per answer", () => {
+    expect(usageOutcomeProperties(outcomeRow())).toMatchObject({
+      first_call_prompt_tokens: 37000,
+      first_call_cached_tokens: 30000,
+    })
+    const later = usageOutcomeProperties(outcomeRow({ firstCallPromptTokens: 0, firstCallCachedTokens: 0 }))
+    expect(later.first_call_prompt_tokens).toBeUndefined()
+    expect(later.first_call_cached_tokens).toBeUndefined()
   })
 
   it('names an ingest job apart from other jobs, and an answer before the job it ran in', () => {

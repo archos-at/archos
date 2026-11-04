@@ -173,7 +173,32 @@ export interface UsageOutcomeRow {
   reasoningTokens: number
   costUsd: number
   priceUsd: number
+  /**
+   * The prompt and cached tokens of the answer's FIRST agent call, on the one
+   * row that holds it (0 elsewhere). Its cached share is how much of the
+   * conversation's prefix carried over from the previous turn: every later call
+   * of a turn re-reads its own predecessor, so only the first one says whether
+   * the conversation, rather than the turn, stayed warm.
+   */
+  firstCallPromptTokens: number
+  firstCallCachedTokens: number
 }
+
+/**
+ * Whether a ledger row is its answer's first agent call: the earliest row of
+ * its organization and message with no usage role. Indexed by
+ * `idx_llm_usage_events_org_message`.
+ */
+const isFirstAgentCall = sql`(
+  ${llmUsageEvents.messageId} IS NOT NULL
+  AND ${llmUsageEvents.agentGroup} IS NULL
+  AND ${llmUsageEvents.createdAt} = (
+    SELECT min(first_call.created_at) FROM llm_usage_events AS first_call
+    WHERE first_call.organization_id = ${llmUsageEvents.organizationId}
+      AND first_call.message_id = ${llmUsageEvents.messageId}
+      AND first_call.agent_group IS NULL
+  )
+)`
 
 /**
  * The ledger in `[from, to)` summed per organization, UTC hour, outcome key
@@ -203,6 +228,8 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
       reasoningTokens: sql<string>`coalesce(sum(${llmUsageEvents.reasoningTokens}), 0)`,
       costUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}), 0)`,
       priceUsd: sql<string>`coalesce(sum(${llmUsageEvents.priceUsd}), 0)`,
+      firstCallPromptTokens: sql<string>`coalesce(sum(${llmUsageEvents.promptTokens}) FILTER (WHERE ${isFirstAgentCall}), 0)`,
+      firstCallCachedTokens: sql<string>`coalesce(sum(${llmUsageEvents.cachedTokens}) FILTER (WHERE ${isFirstAgentCall}), 0)`,
     })
     .from(llmUsageEvents)
     .where(
@@ -239,6 +266,8 @@ export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutc
     reasoningTokens: num(row.reasoningTokens),
     costUsd: num(row.costUsd),
     priceUsd: num(row.priceUsd),
+    firstCallPromptTokens: num(row.firstCallPromptTokens),
+    firstCallCachedTokens: num(row.firstCallCachedTokens),
   }))
 }
 

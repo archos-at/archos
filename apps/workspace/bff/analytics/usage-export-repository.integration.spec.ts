@@ -100,4 +100,58 @@ describe.skipIf(!url)('usage export repository against live Postgres', () => {
     // Boot-floor pricing: one credit is one US cent of cost.
     expect(rows.find((entry) => entry.organizationId === orgA)?.credits).toBeCloseTo(2, 6)
   })
+
+  it("sums the ledger per answer and job, and marks the answer's first agent call", async () => {
+    const { recordUsageEvents } = await import('@/lib/budgets/service')
+    const { withTenant } = await import('@/lib/db/tenant-context')
+    const { sumUsageByOutcome } = await import('./usage-export-repository')
+
+    const org = `org_outcome_${Date.now()}`
+    const message = `msg_${Date.now()}`
+    const call = (createdAt: Date, over: Record<string, unknown>) => ({
+      organizationId: org,
+      userId: 'user_1',
+      projectId: null,
+      conversationId: 's_1',
+      jobId: null,
+      messageId: message,
+      model: 'openai/gpt-6.1-terra',
+      promptTokens: 0,
+      completionTokens: 10,
+      totalTokens: 0,
+      cachedTokens: 0,
+      costUsd: '0.01000000',
+      costSource: 'usage_field' as const,
+      createdAt,
+      ...over,
+    })
+    await withTenant({ organizationId: org }, () =>
+      recordUsageEvents([
+        // The decision ran before the agent: it is not the agent's first call.
+        call(new Date('2026-10-21T06:01:00Z'), { agentGroup: 'decision', model: 'typesafe/jev-1.13', promptTokens: 900 }),
+        call(new Date('2026-10-21T06:02:00Z'), { promptTokens: 37000, cachedTokens: 30000, totalTokens: 37010 }),
+        call(new Date('2026-10-21T06:03:00Z'), { promptTokens: 45000, cachedTokens: 44000, totalTokens: 45010 }),
+        // An ingest job's call, no message.
+        call(new Date('2026-10-21T06:04:00Z'), {
+          messageId: null,
+          conversationId: null,
+          jobId: 'job_1',
+          activity: 'ingest',
+          agentGroup: 'ingest_vision',
+          promptTokens: 3600,
+        }),
+      ]),
+    )
+
+    const rows = (
+      await asPlatform(() => sumUsageByOutcome(new Date('2026-10-21T06:00:00Z'), new Date('2026-10-21T07:00:00Z')))
+    ).filter((entry) => entry.organizationId === org)
+
+    const agent = rows.find((entry) => entry.messageId === message && entry.agentGroup === null)
+    expect(agent).toMatchObject({ calls: 2, promptTokens: 82000, firstCallPromptTokens: 37000, firstCallCachedTokens: 30000 })
+    const decision = rows.find((entry) => entry.agentGroup === 'decision')
+    expect(decision).toMatchObject({ messageId: message, calls: 1, firstCallPromptTokens: 0 })
+    const ingest = rows.find((entry) => entry.jobId === 'job_1')
+    expect(ingest).toMatchObject({ activity: 'ingest', agentGroup: 'ingest_vision', promptTokens: 3600, firstCallPromptTokens: 0 })
+  })
 })

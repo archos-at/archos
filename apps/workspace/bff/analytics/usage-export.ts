@@ -181,6 +181,9 @@ export function usageOutcomeProperties(row: UsageOutcomeRow): ServerEventPropert
     reasoning_tokens: row.reasoningTokens,
     cost_usd: round(row.costUsd, 8),
     price_usd: round(row.priceUsd, 8),
+    // Only on the row that holds the answer's first agent call: its cached share is the cross-turn carry.
+    first_call_prompt_tokens: row.firstCallPromptTokens > 0 ? row.firstCallPromptTokens : undefined,
+    first_call_cached_tokens: row.firstCallPromptTokens > 0 ? row.firstCallCachedTokens : undefined,
   }
 }
 
