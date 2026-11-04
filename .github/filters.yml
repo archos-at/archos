@@ -166,6 +166,7 @@ backend:
   - 'packages/ifc-spatial-py/tests/fixtures/house-with-rooms.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/road-ifc4x3.ifc'
   - 'packages/ifc-spatial-py/tests/fixtures/units-feet.ifc'
+  - 'packages/ifc-spatial-py/tests/fixtures/vocabulary.json'
   # End of the files this tier's tests read.
 # NOT here, though tests read them: `ci/**`, `releasenotes/**`, the other
 # workflows and this file. Their tests (`task be:test:harness`: the workflow,
