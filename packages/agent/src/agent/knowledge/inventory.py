@@ -18,12 +18,19 @@ from collections import defaultdict
 from collections.abc import Iterable
 from collections.abc import Sequence
 from contextvars import ContextVar
-from datetime import datetime
 from typing import Any
 
 from agent.common.source_kinds import SHELF_QUALIFIERS
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import parse_shelf
+
+from .in_flight import render_in_flight_note
+from .inventory_rows import collection_of
+from .inventory_rows import file_name_of
+from .inventory_rows import file_row
+from .inventory_rows import folder_of
+from .inventory_rows import shelf_of
+from .inventory_rows import summary_of
 
 _listing_shelf: ContextVar[Shelf | None] = ContextVar("listing_shelf", default=None)
 
@@ -64,14 +71,6 @@ _norm_families: ContextVar[tuple[Any, ...]] = ContextVar("norm_families", defaul
 # User-facing shelves first; base last so the OIB corpus cannot evict them.
 _USER_SHELF_ORDER: tuple[Shelf, ...] = (Shelf.OFFICE_SHELF, Shelf.PROJECT, Shelf.SESSION)
 _INVENTORY_ORDER: tuple[Shelf, ...] = (*_USER_SHELF_ORDER, Shelf.BASE)
-
-#: How many in-flight filenames the prompt names before it counts the rest.
-#:
-#: Same rule as every other block here: carry the shape, not the list. A bulk
-#: upload can have hundreds of files in flight, and the model needs to know
-#: THAT rather than WHICH — past a handful the names stop informing the answer
-#: and start being paid for on every turn.
-_IN_FLIGHT_MAX_NAMED = 5
 
 _SHELF_BLURBS: dict[Shelf, str] = {
     Shelf.BASE: (
@@ -190,113 +189,9 @@ _SHELF_HINTS: tuple[tuple[Shelf, tuple[str, ...]], ...] = (
 )
 
 
-def _shelf_of(doc: Any) -> Shelf | None:
-    return parse_shelf(getattr(doc, "shelf", None) if not isinstance(doc, dict) else doc.get("shelf"))
-
-
-def _file_name_of(doc: Any) -> str:
-    if isinstance(doc, dict):
-        return str(doc.get("file_name") or "")
-    return str(getattr(doc, "file_name", "") or "")
-
-
-def _collection_of(doc: Any) -> str:
-    if isinstance(doc, dict):
-        return str(doc.get("collection") or "")
-    return str(getattr(doc, "collection", "") or "")
-
-
-def _summary_of(doc: Any) -> str:
-    if isinstance(doc, dict):
-        return str(doc.get("summary") or "").strip()
-    return str(getattr(doc, "summary", "") or "").strip()
-
-
-def _folder_of(doc: Any) -> str:
-    """Materialised folder path a file is filed under, or ``""`` for the root.
-
-    ADR-0049: the backend carries the PATH (``Brandschutz/Fluchtwege``), not a
-    folder id, precisely so it can be printed here without a join and so a
-    prefix match is the subtree.
-    """
-    raw = doc.get("folder_path") if isinstance(doc, dict) else getattr(doc, "folder_path", None)
-    return str(raw or "").strip()
-
-
-def _list_of(doc: Any, name: str) -> list[str]:
-    raw = doc.get(name) if isinstance(doc, dict) else getattr(doc, name, None)
-    if not raw:
-        return []
-    return [str(term) for term in raw if term]
-
-
-def _tags_of(doc: Any) -> list[str]:
-    return _list_of(doc, "tags")
-
-
-def _topics_of(doc: Any) -> list[str]:
-    return _list_of(doc, "topics")
-
-
-def _reading_bit(doc: Any) -> str:
-    """`` · Typ: fire safety concept · 2 von 40 Seiten nicht vollständig gelesen``, from the ingest's reading.
-
-    The type is the dossier's (finer than the tags), the unread pages its coverage: a model
-    that is told a document was not fully read can say so instead of answering from a gap.
-    """
-    dossier = doc.get("dossier") if isinstance(doc, dict) else getattr(doc, "dossier", None)
-    coverage = doc.get("coverage") if isinstance(doc, dict) else getattr(doc, "coverage", None)
-    bits = []
-    document_type = dossier.get("document_type") if isinstance(dossier, dict) else None
-    if isinstance(document_type, str) and document_type not in ("", "other"):
-        bits.append(f"Typ: {document_type.replace('_', ' ')}")
-    if isinstance(coverage, dict) and isinstance(coverage.get("not_read"), int) and coverage["not_read"] > 0:
-        bits.append(f"{coverage['not_read']} von {coverage.get('pages', '?')} Seiten nicht vollständig gelesen")
-    return "".join(f" · {bit}" for bit in bits)
-
-
-def _captured_on_of(doc: Any) -> str | None:
-    """The ``YYYY-MM-DD`` a camera gave the photo, or ``None``.
-
-    Reads ``captured_at`` and nothing else of ``capture``. The coordinates are
-    never read here: this line is rendered into the prompt, and a site's
-    position is not something a model is given (see ``PhotoFacts``).
-    """
-    capture = doc.get("capture") if isinstance(doc, dict) else getattr(doc, "capture", None)
-    if not isinstance(capture, dict) or not isinstance(capture.get("captured_at"), str):
-        return None
-    try:
-        return datetime.fromisoformat(capture["captured_at"]).date().isoformat()
-    except ValueError:
-        return None
-
-
-#: Replaced file names one inventory row names before it counts the rest.
-_MAX_REPLACED_NAMED = 3
-
-
-def _confirmed_revision_bit(doc: Any) -> str:
-    """What a person confirmed about this file's Fassungen, as a short row suffix.
-
-    Only the confirmed link: a suggestion is not shown to the model, and a name
-    series is `list_files`'s to mark. The older file says which one replaced it,
-    the newer says which it replaced, so the model leans on the current one.
-    """
-    newer = doc.get("superseded_by") if isinstance(doc, dict) else getattr(doc, "superseded_by", None)
-    older = _list_of(doc, "supersedes")
-    parts: list[str] = []
-    if newer:
-        parts.append(f"ersetzt durch {newer} (bestätigt)")
-    if older:
-        named = ", ".join(older[:_MAX_REPLACED_NAMED])
-        rest = len(older) - _MAX_REPLACED_NAMED
-        parts.append(f"ersetzt {named}{f' und {rest} weitere' if rest > 0 else ''} (bestätigt)")
-    return f" · {'; '.join(parts)}" if parts else ""
-
-
 def document_identity(doc: Any) -> tuple[str, str]:
     """Primary key of an inventory row: ``(collection, file_name)``."""
-    return (_collection_of(doc), _file_name_of(doc))
+    return (collection_of(doc), file_name_of(doc))
 
 
 def stamp_document(doc: Any, *, collection: str, shelf: Shelf | None) -> Any:
@@ -330,7 +225,7 @@ def _dedupe(docs: Iterable[Any]) -> list[Any]:
 
 
 def _sort_key(doc: Any) -> str:
-    return _file_name_of(doc).lower()
+    return file_name_of(doc).lower()
 
 
 def _is_user_priority(shelf: Shelf | None) -> bool:
@@ -364,7 +259,7 @@ def allocate_inventory_detailed(
     unique = _dedupe(docs)
     groups: dict[Shelf | None, list[Any]] = defaultdict(list)
     for doc in unique:
-        groups[_shelf_of(doc)].append(doc)
+        groups[shelf_of(doc)].append(doc)
     for group in groups.values():
         group.sort(key=_sort_key)
 
@@ -376,7 +271,7 @@ def allocate_inventory_detailed(
         """Per-shelf shortfall between what exists and what survived the cap."""
         kept_per_shelf: dict[Shelf | None, int] = defaultdict(int)
         for doc in kept:
-            kept_per_shelf[_shelf_of(doc)] += 1
+            kept_per_shelf[shelf_of(doc)] += 1
         return {shelf: len(group) - kept_per_shelf[shelf] for shelf, group in groups.items()}
 
     if not max_documents or max_documents < 0:
@@ -578,6 +473,41 @@ def _folded_base_lines(count: int) -> list[str]:
     ]
 
 
+def _shelf_section(
+    shelf: Shelf, rows: Sequence[Any], dropped: dict[Shelf | None, int], focused: Shelf | None
+) -> list[str]:
+    """One shelf's part of the inventory: heading, blurb, and its files, or the fold for the platform corpus."""
+    lines = [f"### {_heading(shelf)}", _SHELF_BLURBS[shelf]]
+    base_total = len(rows) + dropped.get(Shelf.BASE, 0)
+    # `base_total`, not `rows`: when user shelves spend the whole cap, every
+    # base row is dropped and the old `rows` guard fell through to
+    # "(empty — no files on this shelf)" plus a bare omission notice. That
+    # tells the model the OIB corpus is GONE, on the one shelf that is a
+    # platform constant present on every single request.
+    if shelf is Shelf.BASE and focused is not Shelf.BASE and base_total:
+        lines.extend(_folded_base_lines(base_total))
+        lines.append("")
+        return lines
+    if not rows:
+        lines.append("(empty — no files on this shelf)")
+    else:
+        lines.extend(file_row(doc) for doc in rows)
+    # Never a silent cap. Without this line the model reads a truncated
+    # shelf as the whole shelf, and the listing instruction above ("answer
+    # ONLY from that shelf's group") turns that into a confident wrong
+    # answer with no way to hedge.
+    missing = dropped.get(shelf, 0)
+    if missing > 0:
+        lines.append(
+            f"- (and {missing} more file(s) on this shelf, not listed here — "
+            f'this list is incomplete. `list_files(shelf="{shelf.value}")` shows all, '
+            f"also filtered by folder, name or date; without that call do not treat the list "
+            f"as complete)"
+        )
+    lines.append("")
+    return lines
+
+
 def render_inventory_block(
     docs: Sequence[Any],
     *,
@@ -605,9 +535,9 @@ def render_inventory_block(
     groups: dict[Shelf, list[Any]] = {shelf: [] for shelf in _INVENTORY_ORDER}
     unknown: list[Any] = []
     for doc in docs:
-        if not _file_name_of(doc):
+        if not file_name_of(doc):
             continue
-        shelf = _shelf_of(doc)
+        shelf = shelf_of(doc)
         if shelf is None:
             unknown.append(doc)
         else:
@@ -653,7 +583,7 @@ def render_inventory_block(
         "kind or date, `list_files` returns the complete, filtered list.",
         "",
     ]
-    if any(_folder_of(doc) for doc in docs):
+    if any(folder_of(doc) for doc in docs):
         lines.append(
             "Files the user filed into a folder show it as `(Ordner: Pfad/Unterpfad)`. "
             "A folder is a path, so `Brandschutz` also means everything under "
@@ -663,20 +593,9 @@ def render_inventory_block(
         )
         lines.append("")
 
-    pending = [name for name in (in_flight or []) if name]
+    pending = render_in_flight_note(in_flight)
     if pending:
-        shown = pending[:_IN_FLIGHT_MAX_NAMED]
-        rest = len(pending) - len(shown)
-        tail = f", und {rest} weitere" if rest > 0 else ""
-        lines.append(
-            "**Still being read.** These files were uploaded but their indexing has not "
-            f"finished, so they are NOT in the inventory above and a search will not find "
-            f"them yet: {', '.join(f'`{name}`' for name in shown)}{tail}. If the question "
-            "depends on one of them, say plainly that it is still being processed and "
-            "answer what you can without it — do not present an answer that omits it as "
-            "though the file had been read."
-        )
-        lines.append("")
+        lines.extend((pending, ""))
 
     if focused is not None:
         other = [SHELF_QUALIFIERS[s] for s in _INVENTORY_ORDER if s != focused]
@@ -688,58 +607,14 @@ def render_inventory_block(
 
     dropped = get_inventory_drops()
     for shelf in show:
-        rows = groups.get(shelf, [])
-        lines.append(f"### {_heading(shelf)}")
-        lines.append(_SHELF_BLURBS[shelf])
-        base_total = len(rows) + dropped.get(Shelf.BASE, 0)
-        # `base_total`, not `rows`: when user shelves spend the whole cap, every
-        # base row is dropped and the old `rows` guard fell through to
-        # "(empty — no files on this shelf)" plus a bare omission notice. That
-        # tells the model the OIB corpus is GONE, on the one shelf that is a
-        # platform constant present on every single request.
-        if shelf is Shelf.BASE and focused is not Shelf.BASE and base_total:
-            lines.extend(_folded_base_lines(base_total))
-            lines.append("")
-            continue
-        if not rows:
-            lines.append("(empty — no files on this shelf)")
-        else:
-            for doc in rows:
-                tags = _tags_of(doc)
-                tag_bit = f" [{', '.join(tags)}]" if tags else ""
-                topics = _topics_of(doc)
-                topic_bit = f" Themen: {', '.join(topics)}" if topics else ""
-                captured = _captured_on_of(doc)
-                captured_bit = f" · aufgenommen {captured}" if captured else ""
-                folder = _folder_of(doc)
-                folder_bit = f" (Ordner: {folder})" if folder else ""
-                summary = _summary_of(doc) or "No summary available"
-                revision_bit = _confirmed_revision_bit(doc)
-                reading_bit = _reading_bit(doc)
-                lines.append(
-                    f"- **{_file_name_of(doc)}**{folder_bit}{tag_bit}{topic_bit}{captured_bit}{revision_bit}"
-                    f"{reading_bit}: {summary}"
-                )
-        # Never a silent cap. Without this line the model reads a truncated
-        # shelf as the whole shelf, and the listing instruction above ("answer
-        # ONLY from that shelf's group") turns that into a confident wrong
-        # answer with no way to hedge.
-        missing = dropped.get(shelf, 0)
-        if missing > 0:
-            lines.append(
-                f"- (and {missing} more file(s) on this shelf, not listed here — "
-                f'this list is incomplete. `list_files(shelf="{shelf.value}")` shows all, '
-                f"also filtered by folder, name or date; without that call do not treat the list "
-                f"as complete)"
-            )
-        lines.append("")
+        lines.extend(_shelf_section(shelf, groups.get(shelf, []), dropped, focused))
 
     if unknown:
         lines.append("### Unattributed")
         lines.append("Shelf was not stated for these files — do not assign them to Büroablage or Basiswissen.")
         for doc in unknown:
-            summary = _summary_of(doc) or "No summary available"
-            lines.append(f"- **{_file_name_of(doc)}**: {summary}")
+            summary = summary_of(doc) or "No summary available"
+            lines.append(f"- **{file_name_of(doc)}**: {summary}")
         # Shelf-less files are capped like any other, and their drops are
         # recorded under `None` — a key no shelf in `show` ever looks up. Without
         # this the section presents a truncated list as the whole of it, which is
@@ -753,6 +628,26 @@ def render_inventory_block(
             )
         lines.append("")
 
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_listing_focus(docs: Sequence[Any], shelf: Shelf | str | None) -> str:
+    """A listing question's focus, for a request that already holds the whole inventory.
+
+    ``render_inventory_block(focus_shelf=…)`` prints one shelf INSTEAD of the
+    inventory. A request that keeps the whole inventory in a stable head (the
+    conversation layout, ADR-0154) needs only what the focus adds: the shelf
+    asked about and, for the platform corpus, the files the head folds.
+    """
+    focused = parse_shelf(shelf)
+    if focused is None:
+        return ""
+    asked = f"This question asked only about **{SHELF_QUALIFIERS[focused]}**"
+    if focused is not Shelf.BASE:
+        return f"{asked}: answer from that shelf's group in the inventory, and from no other shelf.\n"
+    rows = [doc for doc in docs if file_name_of(doc) and shelf_of(doc) is Shelf.BASE]
+    lines = [f"{asked}, whose files the inventory folds. They are:", ""]
+    lines.extend(_shelf_section(Shelf.BASE, rows, get_inventory_drops(), focused))
     return "\n".join(lines).rstrip() + "\n"
 
 

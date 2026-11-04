@@ -1,0 +1,8 @@
+---
+operators:
+  - >
+    A new chat layout lets the provider's prompt cache carry from one turn of a
+    conversation to the next instead of paying for the whole context again. It
+    is off: set CHAT_CONTEXT_LAYOUT to conversation on the backend only after
+    the answer suite has been run with it, and watch the cross-turn cache carry
+    in PostHog.
