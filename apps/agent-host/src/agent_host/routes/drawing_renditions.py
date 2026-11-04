@@ -45,15 +45,21 @@ MAX_DXF_BYTES = 150 * 1024 * 1024
 RENDER_TIMEOUT_S = 110.0
 
 
-def page_title(raw_filename: str | None) -> str:
-    """The original's name without its extension or any path, or a neutral one."""
+def source_name(raw_filename: str | None) -> str:
+    """The original's name without any path, or a neutral one."""
     name = PurePosixPath(unquote(raw_filename or "").replace("\\", "/")).name.strip()
+    return name[:160] or "DXF-Datei"
+
+
+def page_title(raw_filename: str | None) -> str:
+    """The original's name without its extension or any path, made readable."""
+    name = source_name(raw_filename)
     stem = name[: -len(".dxf")] if name.lower().endswith(".dxf") else name
-    return stem[:120] or "DXF-Datei"
+    return " ".join(stem.replace("_", " ").split())[:120] or "DXF-Datei"
 
 
-def _convert(data: bytes, title: str) -> bytes:
-    return render_pdf(read_dxf(data), title=title)
+def _convert(data: bytes, raw_filename: str | None) -> bytes:
+    return render_pdf(read_dxf(data), title=page_title(raw_filename), source_name=source_name(raw_filename))
 
 
 def add_drawing_rendition_routes(router: APIRouter) -> None:
@@ -70,10 +76,11 @@ def add_drawing_rendition_routes(router: APIRouter) -> None:
         data = await request.body()
         if len(data) > MAX_DXF_BYTES:
             raise HTTPException(status_code=413, detail="The DXF file is too large to draw")
-        title = page_title(request.headers.get("x-filename"))
         started = time.monotonic()
         try:
-            pdf = await asyncio.wait_for(asyncio.to_thread(_convert, data, title), RENDER_TIMEOUT_S)
+            pdf = await asyncio.wait_for(
+                asyncio.to_thread(_convert, data, request.headers.get("x-filename")), RENDER_TIMEOUT_S
+            )
         except (UnreadableDrawingError, EmptyDrawingError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from None
         except TimeoutError:

@@ -6,6 +6,7 @@
  *   website    tokens.css (shared tokens only), components.css, fonts/, identity.json
  *   workspace  tokens.vars.css (shared and app-scoped tokens as --ds-*), fonts/, identity.json
  *   agent      identity.json alone, which `agent.common.brand` reads the product's name from
+ *   drawings   fonts/ and identity.json, for the sheet the backend draws a DXF onto
  *
  * so the app's shadows and radius ladder never reach the website, and the website's
  * component CSS never sits unused in the app. Last, it writes the product's name into the
@@ -38,6 +39,9 @@ export const TARGETS = [
   { dir: 'apps/website/src/styles/brand', files: ['tokens.css', 'components.css', 'fonts/', 'identity.json'] },
   { dir: 'apps/workspace/shared/brand', files: ['tokens.vars.css', 'fonts/', 'identity.json'] },
   { dir: 'packages/agent/src/agent/common', files: ['identity.json'], shared: true },
+  // The sheet the backend draws a DXF onto (ADR-0152): the type of its title block,
+  // and the name for its small „Erstellt mit …“ line.
+  { dir: 'apps/agent-host/src/agent_host/drawings/brand', files: ['fonts/', 'identity.json'] },
 ]
 
 const toBuffer = (content) => (Buffer.isBuffer(content) ? content : Buffer.from(content))

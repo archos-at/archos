@@ -6,10 +6,14 @@ features:
     and a title block. „Als PDF herunterladen“ in the file's menu gives you
     that PDF to print or attach, while Download still gives the original.
   - >
-    Parcel numbers, street names and other text in a DXF are searchable and
-    can be cited. A Katastralmappe from BEV names its Katastralgemeinde and
-    coordinate system on the page, and says when parcels are in the
-    Grundsteuerkataster, whose boundaries are not legally binding.
+    A Katasterauszug is now read, not only shown: a page after the drawing
+    lists every parcel with its area as drawn and its neighbours, so you can
+    ask about your site in the chat and get a cited answer.
+  - >
+    A Katastralmappe from BEV is drawn in BEV's plot colours with its
+    Katastralgemeinde and coordinate system on the sheet. Where parcels are in
+    the Grundsteuerkataster, the sheet says their boundaries are not legally
+    binding.
   - >
     „Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint
     file.

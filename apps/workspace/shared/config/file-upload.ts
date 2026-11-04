@@ -67,7 +67,9 @@ const EXTENSION_TO_MIME: Record<string, string[]> = {
   // DXF has a registered type that almost no browser sends: Windows reports
   // `image/vnd.dxf` when a CAD program registered it, everything else sends
   // `application/octet-stream` or nothing. The extension decides, as for IFC.
-  '.dxf': ['image/vnd.dxf', 'image/x-dxf', 'application/dxf', 'application/x-dxf', 'application/octet-stream'],
+  // `application/dxf` first: `mimeTypeForFileName` gives a file taken out of a ZIP
+  // the FIRST type here, and an `image/*` one would read as a photo in the browser.
+  '.dxf': ['application/dxf', 'image/vnd.dxf', 'image/x-dxf', 'application/x-dxf', 'application/octet-stream'],
 }
 
 /**

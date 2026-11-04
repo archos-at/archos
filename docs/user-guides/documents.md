@@ -649,12 +649,21 @@ for indexing.
 
 ### DXF files (Katasterauszüge and other CAD drawings)
 
-A `.dxf` opens in the preview as a PDF drawn **to scale**: the most detailed
-standard scale that fits on A4 or A3 (larger sheets for larger drawings), with a
-scale bar and a title block. A Katasterauszug of 150 × 100 m comes out at 1:500
-on A3. **„Als PDF herunterladen“** in the file's ⋯ menu gives you that PDF to
-print or attach; Download still gives the original DXF. The same menu entry
-gives the PDF of a Word, Excel or PowerPoint file.
+A `.dxf` opens in the preview as a PDF sheet drawn **to scale**: the most
+detailed standard scale that fits on A4 or A3 (larger sheets for larger
+drawings), in a frame with a scale bar and a title block. A Katasterauszug of
+150 × 100 m comes out at 1:500 on A3. **„Als PDF herunterladen“** in the file's
+⋯ menu, in the list and in the preview, gives you that PDF to print or attach;
+Download still gives the original DXF. The same entry gives the PDF of a Word,
+Excel or PowerPoint file.
+
+**A Katasterauszug is read, not only shown.** After the drawing comes a page
+„Grundstücke“ listing every parcel in the file: its number, Katastralgemeinde,
+whether it is in the Grenz- or the Grundsteuerkataster, its area as drawn in the
+map, and the parcels it borders. You can ask about them in the chat („Wie groß
+ist 123/4, und wer grenzt an?“) and the answer cites that page. The area is
+computed from the drawn boundary: in the Grundsteuerkataster it is graphic, and
+it is never the Flächenausmaß in the Grundbuch, which the page says too.
 
 What to expect:
 
@@ -663,13 +672,19 @@ What to expect:
 - The text in the drawing (parcel numbers, street names, labels) is searchable
   in the viewer and is what the file is indexed by, so a question about a parcel
   number finds the file.
-- A Katastralmappe from BEV is recognised: the title block names the
-  Katastralgemeinde and the coordinate system, and, where parcels are in the
-  Grundsteuerkataster, says that their boundaries are graphic and not legally
-  binding. A distance to the boundary for a submission needs a surveyor's plan.
-- Boundary-point marks and land-use symbols from a BEV „BEV-DXF+CSV“ file are not
-  drawn yet; their numbers are. Only the model space is drawn, not paper-space
-  layouts. DWG files are not shown yet.
+- A Katastralmappe from BEV is drawn in BEV's own plot colours (parcel
+  boundaries black, buildings red, land use green), and the title block names
+  the Katastralgemeinde and the coordinate system. Where parcels are in the
+  Grundsteuerkataster it says that their boundaries are graphic and not legally
+  binding: a distance to the boundary for a submission needs a surveyor's plan.
+- Any other DXF is drawn in black, with its own line weights, as a CAD plot is.
+- Boundary points are marked in a simplified form; land-use symbols are not
+  drawn. Only the model space is drawn, not paper-space layouts. DWG files are
+  not shown yet.
+- A file that cannot be read („Diese DXF-Datei ließ sich nicht lesen“) needs to
+  be exported again from the CAD program; reading it again will not help.
+- A whole Katastralgemeinde takes up to a minute; the parcel list covers about
+  4,000 parcels and says how many it left out beyond that.
 
 Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md).
 

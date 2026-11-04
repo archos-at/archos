@@ -88,7 +88,7 @@ import { makeDocument } from '@/test-utils/db-fixtures'
 import { internalRead } from '@/lib/documents/document-reader'
 import { dispatchDocument, type DispatchDocumentInput } from './document-dispatch'
 import { runBimExtractJob, runOfficeRenditionJob } from './extraction-jobs'
-import { INGEST_DISPATCH_FAILED_MESSAGE, RENDITION_REQUIRED_MESSAGE } from './ingest-dispatch'
+import { DRAWING_UNREADABLE_MESSAGE, INGEST_DISPATCH_FAILED_MESSAGE, RENDITION_REQUIRED_MESSAGE } from './ingest-dispatch'
 import { redispatchStuckDocument } from './ingest-recovery'
 
 const input = (filename: string): DispatchDocumentInput => ({
@@ -712,6 +712,20 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
     expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', RENDITION_REQUIRED_MESSAGE)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('tells the reader to export a DXF again when the converter refused its bytes (ADR-0152)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.mocked(findDocumentInOrg).mockResolvedValue(officeRow('Katasterauszug.dxf', 'application/dxf'))
+    vi.mocked(ensureRendition).mockRejectedValue(
+      new RenditionFailedError('Drawing conversion answered 422', { refusedFile: true })
+    )
+
+    await dispatchDocument(input('Katasterauszug.dxf'))
+    await expect(runQueuedJob()).resolves.toBeUndefined()
+
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', DRAWING_UNREADABLE_MESSAGE)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

@@ -419,9 +419,10 @@ describe('ensureRendition for a DXF drawing', () => {
 
   it('fails, and writes nothing, when the backend refuses the file', async () => {
     fetchSpy.mockResolvedValue(new Response('{"detail":"Not a readable DXF file"}', { status: 422 }))
-    await expect(ensureRendition({ ...DXF, storageKey: DXF.storageKey.replace('doc-9', 'doc-12') })).rejects.toBeInstanceOf(
-      RenditionFailedError
-    )
+    await expect(ensureRendition({ ...DXF, storageKey: DXF.storageKey.replace('doc-9', 'doc-12') })).rejects.toMatchObject({
+      name: 'RenditionFailedError',
+      refusedFile: true,
+    })
     expect(puts()).toHaveLength(0)
   })
 

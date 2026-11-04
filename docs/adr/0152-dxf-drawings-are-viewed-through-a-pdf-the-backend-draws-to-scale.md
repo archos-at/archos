@@ -11,13 +11,14 @@ informed: everyone working in this repo
 ## Context and Problem Statement
 
 An office in Vienna had a cadastral extract (Katasterauszug) as a DXF, could not
-put it into the product, and converted it to PDF with an online tool instead
-(support ticket, 2026-11-02). Upload did not accept `.dxf`, and nothing rendered
+put it into the product, and converted it to PDF with an online tool so that it
+could (support ticket, 2026-11-02). The PDF was the workaround; what they wanted
+was the product reading their site. Upload did not accept `.dxf`, and nothing rendered
 CAD files: pilot-feedback backlog PF-11 had DWG, DXF, IFC and TIFF open after
 ADR-0070 closed the Office half, and ledger item 38 asked for this ADR.
 
-What a person does with a cadastral extract is print it to scale, attach it, and
-read parcel numbers and areas off it. A "fit to page" PDF, which is what an
+What a person does with a cadastral extract is ask about the site (which parcel,
+how large, who borders it), print it to scale, and attach it. A "fit to page" PDF, which is what an
 online converter hands out, cannot be measured. And the file says more than it
 shows: BEV's Katastralmappe DXF (Schnittstellenbeschreibung v2.6, 16.12.2024)
 carries its coordinate system in the sheet marker, marks every parcel number as
@@ -62,12 +63,27 @@ What the page carries, beyond the drawing:
   150 × 100 m extract lands on A3 at 1:500. The unit comes from `$INSUNITS`; a
   Katastralmappe is metres by its spec. No unit: fitted, labelled "Nicht
   maßstäblich".
-* **A transparent text layer** of every TEXT, MTEXT and visible ATTRIB at its
-  own place and height, as an OCR layer is.
-* **A title block and a scale bar**, and for a Katastralmappe the cadastral
-  community, MGI / GK M28/M31/M34 (EPSG 31254/5/6), grid north, and, where it
-  holds Grundsteuerkataster parcels, that their boundaries are graphic and not
-  legally binding.
+* **Text as text** (`text_layer.py`): a Katastralmappe's labels are set as PDF
+  text in the sheet's type, any other drawing's text is written invisibly over
+  ezdxf's outlines, so find, the index and a citation's highlight reach it.
+* **A Katastralmappe in BEV's plot scheme** (`cadastre_style.py`): the plot
+  column's colours as print colours, line weights per rank, administrative
+  boundaries dash-dotted, text at its paper size (the DKM's heights are set for
+  the sheet's own 1:1000/2000/5000, §4), boundary points marked as §9.2
+  describes them, buildings filled. Any other drawing is plotted monochrome with
+  its own line weights, as `monochrome.ctb` would.
+* **For a Katastralmappe, its parcels as text** (`parcels.py`,
+  `parcel_table.py`): no parcel is a polygon in a DKM (§3.2), so the boundary
+  network is polygonized with shapely and each number placed in its mesh. Pages
+  after the drawing list every parcel with its KG, cadastre, area as drawn and
+  neighbours. That page is what makes "how large is 123/4?" answerable from the
+  upload: the index reads it like any page.
+* **A sheet** (`title_block.py`): an ISO 5457 frame, a title block with labelled
+  fields, scale bar, grid-north arrow for a georeferenced drawing, notes (the
+  Grundsteuerkataster warning where it applies), and under the frame a quiet
+  „Erstellt mit {name}“ beside the app icon, in the brand's type and ink
+  (`house_style.py`; fonts and name synced by `packages/brand/sync.mjs`, the name
+  never typed, ADR-0149).
 * **"Als PDF herunterladen"**: `GET /api/documents/[id]/download?format=pdf`
   hands out the rendition, for office files as well, and the agent operation
   `document-download` takes the same query.
@@ -106,13 +122,26 @@ Rejected:
   candidate and needs its own check of fidelity and image size.
 * Bad, because one page is drawn at a time per backend process (matplotlib's
   state is global); a folder of hundreds of DXF files converts serially.
+  Measured on synthetic whole-community files: 1,600 parcels in 8 s, 3,600 in
+  19 s, 10,000 in 46 s with a 1 MB PDF and 1.3 GB peak memory (the API pods have
+  6 GiB). Before two fixes the 3,600 took 121 s and 15 MB: matplotlib recomputed
+  the data limits for every glyph outline (`_FixedLimitsBackend`), and the
+  neighbour search was quadratic.
+* Bad, because three dependencies join the backend: ezdxf (MIT), shapely (BSD,
+  bundles GEOS) and brotli (MIT, to unpack the brand's WOFF2 type).
+* Bad, because a DXF the converter refuses (unreadable, empty, too large) fails
+  with its own sentence („exportieren Sie sie erneut“), but „Erneut lesen“ stays
+  offered: the retry policy's `deterministic` category is defined against the
+  backend reader's version, which a BFF-side failure has none of.
 
 ### Confirmation
 
 * `apps/agent-host/tests/test_drawing_renditions.py` measures the scale on the
-  PDF (35 m between two parcel numbers is 175 mm at 1:200), and fails if a
-  header-less BEV file loses a parcel number, if the text layer loses an umlaut,
-  or if a unitless drawing claims a scale.
+  PDF (35 m between two parcel centres is 70 mm at 1:500), and fails if a
+  header-less BEV file loses a parcel number, if a line weight plots at a third
+  of its width, if a parcel's area or neighbours come out wrong, if the parcel
+  list leaves the PDF's text, if a unitless drawing claims a scale, if the
+  maker's name is not the synced identity's, or if 1,600 parcels take a minute.
 * `apps/workspace/bff/documents/rendition.spec.ts` pins that a DXF goes to the
   backend with the internal token and never needs Gotenberg;
   `preview-types.spec.ts` that a DXF is a rendition source, never inline, and is

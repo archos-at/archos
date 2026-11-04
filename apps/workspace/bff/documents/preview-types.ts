@@ -64,7 +64,8 @@ export const isInlinePreviewable = (contentType: string | null | undefined): boo
  * Gotenberg, and the ORIGINAL stays exactly as uploaded — the download route
  * still hands out the Word, Excel or PowerPoint file and nothing else. Keyed by
  * extension as well as by type because the stored type is whatever the browser
- * sent, and an empty one is stored as NULL.
+ * sent (a DXF's excepted, see {@link storedContentType}), and an empty one is
+ * stored as NULL.
  */
 export const OFFICE_RENDITION_CONTENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

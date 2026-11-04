@@ -98,6 +98,7 @@ class DxfSource:
 def read_dxf(data: bytes) -> DxfSource:
     """Read DXF bytes, keep every INSERT, and say what the drawing is."""
     doc = _read_document(data)
+    define_missing_styles(doc)
     standins = define_missing_blocks(doc)
     if standins:
         logger.info("dxf: %d block(s) used but not defined, drawn as stand-ins", len(standins))
@@ -139,6 +140,37 @@ def define_missing_blocks(doc: Drawing) -> tuple[str, ...]:
     for name in missing:
         doc.blocks.new(name=name)
     return tuple(missing)
+
+
+#: Stand-in patterns for line types a partial file names and does not define, in
+#: drawing units: BEV's dotted "ideelle Grenze" (``DOT``, §3.2) and its dashed
+#: underground line (``UGROUND``, §3.7). Anything else unknown is drawn dashed.
+_STANDIN_LINETYPES: dict[str, list[float]] = {
+    "DOT": [0.8, 0.0, -0.8],
+    "UGROUND": [2.0, 1.4, -0.6],
+}
+_STANDIN_DASHED = [2.0, 1.4, -0.6]
+
+
+def define_missing_styles(doc: Drawing) -> None:
+    """Define the text styles and line types the entities name and the file lacks.
+
+    BEV's texts name the style ``NORM`` and its lines ``DOT`` and ``UGROUND``, none of
+    them defined in a partial file; the audit would strip the references, and a
+    dotted boundary would draw solid.
+    """
+    styles, linetypes = set(), set()
+    for entity in doc.entitydb.values():
+        if entity.dxf.hasattr("style"):
+            styles.add(entity.dxf.style)
+        if entity.dxf.hasattr("linetype"):
+            linetypes.add(entity.dxf.linetype)
+    for name in sorted(styles):
+        if name and not doc.styles.has_entry(name):
+            doc.styles.add(name, font="DejaVuSans.ttf")
+    for name in sorted(linetypes):
+        if name and name.upper() not in {"BYLAYER", "BYBLOCK", "CONTINUOUS"} and not doc.linetypes.has_entry(name):
+            doc.linetypes.add(name, pattern=_STANDIN_LINETYPES.get(name.upper(), _STANDIN_DASHED))
 
 
 def _metres_per_unit(doc: Drawing) -> float | None:

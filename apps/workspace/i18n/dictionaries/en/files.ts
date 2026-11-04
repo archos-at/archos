@@ -331,6 +331,7 @@ export const files = {
       markdown: 'Markdown',
       plainText: 'Text file',
       ifc: 'IFC model',
+      dxf: 'CAD file (DXF)',
       email: 'Email',
       image: 'Image ({format})',
       extension: '{ext} file',
@@ -388,6 +389,8 @@ export const files = {
    */
   ingestFailure: {
     rendition_failed: "The PDF preview of this file couldn't be created. Try reading it again, or upload it as a PDF.",
+    drawing_unreadable:
+      "This DXF file couldn't be read or holds no drawing. Export it again as DXF from your CAD program and upload it once more.",
     download_failed: "The uploaded file couldn't be fetched from storage. Try reading it again, or upload it once more.",
     interrupted: 'Reading stopped when the service restarted. Read it again to finish.',
     unreadable_pages:

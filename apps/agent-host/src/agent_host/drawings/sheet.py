@@ -30,9 +30,18 @@ STANDARD_SCALES: tuple[int, ...] = (
     1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 25000,
 )  # fmt: skip
 
-#: Margin on every side, and the band at the foot that holds the title block.
-MARGIN_MM = 10.0
-TITLE_BAND_MM = 24.0
+#: The drawing frame, as ISO 5457 places it: a 20 mm filing margin on the left,
+#: 10 mm on the other sides. The title band runs along the foot inside the frame,
+#: and the drawing keeps a few millimetres clear of both.
+FRAME_LEFT_MM = 20.0
+FRAME_MM = 10.0
+TITLE_BAND_MM = 30.0
+DRAWING_INSET_MM = 3.0
+
+#: A frame narrower than this (A4 and A3 upright) has no room for the title band's
+#: four fields in one row; the notes move to a row of their own above the others.
+WIDE_FRAME_MM = 300.0
+NOTES_ROW_MM = 15.0
 
 #: The sheets an office prints and attaches, and the coarsest scale tried on them
 #: before a larger sheet is.
@@ -51,10 +60,34 @@ class Sheet:
     scale: int | None
 
     @property
-    def drawing_area_mm(self) -> tuple[float, float]:
-        """Width and height left for the drawing, inside the margins, above the title band."""
+    def frame_mm(self) -> tuple[float, float, float, float]:
+        """The frame as left, bottom, right, top on the page."""
         width, height = self.page_mm
-        return width - 2 * MARGIN_MM, height - 2 * MARGIN_MM - TITLE_BAND_MM
+        return FRAME_LEFT_MM, FRAME_MM, width - FRAME_MM, height - FRAME_MM
+
+    @property
+    def is_wide(self) -> bool:
+        """Whether the title band holds all its fields in one row."""
+        left, _bottom, right, _top = self.frame_mm
+        return right - left >= WIDE_FRAME_MM
+
+    @property
+    def title_band_mm(self) -> float:
+        """The title band's height: one row on a wide frame, two on a narrow one."""
+        return TITLE_BAND_MM if self.is_wide else TITLE_BAND_MM + NOTES_ROW_MM
+
+    @property
+    def drawing_box_mm(self) -> tuple[float, float, float, float]:
+        """Where the drawing goes: inside the frame, above the title band, inset."""
+        left, bottom, right, top = self.frame_mm
+        inset = DRAWING_INSET_MM
+        return left + inset, bottom + self.title_band_mm + inset, right - inset, top - inset
+
+    @property
+    def drawing_area_mm(self) -> tuple[float, float]:
+        """Width and height of ``drawing_box_mm``."""
+        left, bottom, right, top = self.drawing_box_mm
+        return right - left, top - bottom
 
 
 def _orientations(paper: str) -> tuple[tuple[float, float], tuple[float, float]]:
@@ -96,8 +129,32 @@ def fitted_sheet(width: float, height: float) -> Sheet:
 
 
 def scale_bar_metres(scale: int) -> float:
-    """A round length whose bar is between 25 and 60 mm long on paper at this scale."""
-    for metres in (0.01, 0.02, 0.05, 0.1, 0.2, 0.25, 0.5, 1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000):
-        if 25.0 <= metres * 1000.0 / scale <= 60.0:
+    """A round length whose bar is between 30 and 45 mm long on paper at this scale."""
+    for metres in (
+        0.01,
+        0.02,
+        0.05,
+        0.1,
+        0.2,
+        0.25,
+        0.5,
+        1,
+        2,
+        4,
+        5,
+        8,
+        10,
+        20,
+        25,
+        40,
+        50,
+        100,
+        200,
+        250,
+        400,
+        500,
+        1000,
+    ):
+        if 30.0 <= metres * 1000.0 / scale <= 45.0:
             return float(metres)
-    return scale * 0.05  # 50 mm, for a scale outside the table
+    return scale * 0.04  # 40 mm, for a scale outside the table

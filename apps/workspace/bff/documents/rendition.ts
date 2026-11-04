@@ -93,9 +93,17 @@ export class RenditionUnavailableError extends Error {
 
 /** The converter was asked and did not produce a PDF: an error status, a timeout, or bytes that are not one. */
 export class RenditionFailedError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  /**
+   * The converter looked at the bytes and refused them (the backend's 422 for a
+   * DXF no reader opens, 413 for one too large): the same file fails the same
+   * way, so the reader is told to fix the file, not to try again.
+   */
+  readonly refusedFile: boolean
+
+  constructor(message: string, options?: { cause?: unknown; refusedFile?: boolean }) {
     super(message, options)
     this.name = 'RenditionFailedError'
+    this.refusedFile = options?.refusedFile ?? false
   }
 }
 
@@ -431,7 +439,10 @@ async function convertDrawing(original: Blob, filename: string): Promise<Uint8Ar
   } catch (error) {
     throw new RenditionFailedError('Drawing conversion did not answer', { cause: error })
   }
-  if (!response.ok) throw new RenditionFailedError(`Drawing conversion answered ${response.status}`)
+  if (!response.ok) {
+    const refusedFile = response.status === 413 || response.status === 422
+    throw new RenditionFailedError(`Drawing conversion answered ${response.status}`, { refusedFile })
+  }
   return pdfFrom(response, 'Drawing conversion')
 }
 
