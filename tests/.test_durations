@@ -12739,7 +12739,6 @@
 "tests/test_js_lockfiles.py::test_every_project_is_locked_by_bun[deploy/pulumi]": 0.003,
 "tests/test_js_lockfiles.py::test_every_project_is_locked_by_bun[apps/workspace]": 0.001,
 "tests/test_js_lockfiles.py::test_every_project_is_locked_by_bun[apps/site]": 0.001,
-"tests/test_js_lockfiles.py::test_every_project_is_locked_by_bun[packages/ifc-spatial]": 0.001,
 "tests/test_js_lockfiles.py::test_no_other_package_manager_lockfile_is_tracked": 0.011,
 "tests/test_js_lockfiles.py::test_the_repo_has_javascript_projects": 0.013,
 "tests/test_langfuse_provision.py::TestCatalog::test_every_judge_variable_appears_in_its_prompt": 0.001,

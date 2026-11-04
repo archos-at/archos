@@ -28,7 +28,7 @@ import pytest
 from ifc_spatial import render
 from ifc_spatial.model import SpatialModel
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 NO_SPACES = FIXTURES / "units-feet.ifc"
 

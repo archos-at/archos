@@ -32,7 +32,7 @@ from ifc_spatial.briefing import render_briefing
 from ifc_spatial.briefing import storey_heights
 from ifc_spatial.model import SpatialModel
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 #: English room names, no IfcRelSpaceBoundary, TrueNorth and georeferencing present.
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 #: German room names, WITH IfcRelSpaceBoundary, no TrueNorth, no georeferencing.

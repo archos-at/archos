@@ -41,7 +41,7 @@ from ifc_spatial.tools import _opener
 from ifc_spatial.tools import _read_source
 from ifc_spatial.tools import _refuse_unroutable_destination
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 
 

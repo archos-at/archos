@@ -829,9 +829,9 @@ jobs:
           echo "OTELCOL_BIN=$RUNNER_TEMP/otelcol-contrib" >> "$GITHUB_ENV"
       - run: task infra:test
 
-  # packages/ sits outside both workspaces (own bun.lock, own uv.lock),
-  # so neither tier's install can run it. ~4 minutes, nearly all of it
-  # ifc-spatial-py, which is why it is filtered at all.
+  # packages/ifc-spatial-py sits outside the uv workspace (own uv.lock),
+  # so the backend tier's install cannot run it. ~4 minutes, which is why it is
+  # filtered at all.
   packages:
     name: Standalone packages (packages/)
     needs: changes
@@ -842,10 +842,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-      - uses: ./.github/actions/setup-bun
       # Keyed on the package's OWN uv.lock: the root one would restore an
       # environment this suite never uses (IfcOpenShell + shapely wheels).
       - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
@@ -853,11 +849,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: packages/ifc-spatial-py/uv.lock
       - uses: ./.github/actions/setup-task
-      - name: Install the packages' own toolchains
+      - name: Install the package's own toolchain
         run: task pkg:install
-      # Two steps, not `task pkg:test`, so the summary names the package.
-      - name: ifc-spatial (tests + typecheck)
-        run: task pkg:test:ts
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
 

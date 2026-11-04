@@ -24,7 +24,7 @@ import pytest
 pytest.importorskip("mcp", reason="der offizielle MCP-SDK ist optional: pip install ifc-spatial-py[mcp]")
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURES = ROOT.parents[0] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 WINDOW = "3cUkl32yn9qRSPvBJVyWcE"
 PARTITION = "3cUkl32yn9qRSPvBJVyWY1"
