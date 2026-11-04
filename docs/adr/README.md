@@ -216,6 +216,7 @@ Consequences, where a reader looks for them.
 | [0151](0151-addresses-are-geocoded-by-komoots-public-photon.md) | Addresses are geocoded by komoot's public Photon instance, with no workload of ours; supersedes 0120 | Accepted |
 | [0152](0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) | DXF drawings are viewed through a PDF the backend draws to scale with ezdxf, with a text layer and a title block | Accepted |
 | [0153](0153-a-dxf-drawing-is-a-site-the-agent-measures.md) | A DXF drawing is a site the agent measures: `dxf_measure` for parcels, setbacks and what remains buildable, and `dxf-measure` on the agent door | Accepted |
+| [0154](0154-a-conversation-is-one-context-that-only-grows.md) | A conversation is one context that only grows: the project and office once at the head, each turn's note stored with its question, a window that moves only when its budget makes it (`CHAT_CONTEXT_LAYOUT`) | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
