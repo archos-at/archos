@@ -32,7 +32,7 @@ describe('File Upload Configuration', () => {
       // `.ifc`/`.ifczip` ride on the `ifc-models` FLAG, and a flag fails open
       // while enforcement is off — so they are in the default list exactly as
       // images would be if they had no capability half.
-      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.ifc,.ifczip')
+      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf,.ifc,.ifczip')
     })
 
     test('uses default max size when env var not set', () => {
@@ -79,7 +79,7 @@ describe('File Upload Configuration', () => {
         ifcUploadEnabled: false,
       })
 
-      expect(enabled.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx')
+      expect(enabled.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf')
       expect(enabled.acceptedTypes).not.toContain('.png')
       expect(enabled.acceptedTypes).not.toContain('.jpg')
       expect(enabled.acceptedTypes).not.toContain('.jpeg')
@@ -110,7 +110,7 @@ describe('File Upload Configuration', () => {
     test('flag on + capability off → images excluded, reason vlm-unavailable', () => {
       const config = getFileUploadConfigFromEnv(process.env, { imageUploadEnabled: true, vlmAvailable: false, ifcUploadEnabled: false })
 
-      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx')
+      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf')
       expect(config.acceptedMimeTypes).not.toContain('image/png')
       expect(config.imageUploadBlockedReason).toBe('vlm-unavailable')
     })
@@ -118,7 +118,7 @@ describe('File Upload Configuration', () => {
     test('flag off + capability on → images excluded, no reason (product decision)', () => {
       const config = getFileUploadConfigFromEnv(process.env, { imageUploadEnabled: false, vlmAvailable: true, ifcUploadEnabled: false })
 
-      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx')
+      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf')
       expect(config.acceptedMimeTypes).not.toContain('image/png')
       expect(config.imageUploadBlockedReason).toBeNull()
     })
@@ -126,7 +126,7 @@ describe('File Upload Configuration', () => {
     test('flag off + capability off → images excluded, no reason', () => {
       const config = getFileUploadConfigFromEnv(process.env, { imageUploadEnabled: false, vlmAvailable: false, ifcUploadEnabled: false })
 
-      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx')
+      expect(config.acceptedTypes).toBe('.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf')
       expect(config.imageUploadBlockedReason).toBeNull()
     })
 

@@ -749,6 +749,7 @@ export const files: typeof en.files = {
     label: 'Dateiaktionen für „{name}“',
     menuLabel: 'Dateiaktionen',
     download: 'Herunterladen',
+    downloadPdf: 'Als PDF herunterladen',
     open: 'Öffnen',
     ask: 'Danach fragen',
     select: 'Auswählen',

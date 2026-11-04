@@ -4,7 +4,7 @@ import { memo, useEffect, useState, type CSSProperties, type ReactNode } from 'r
 import Image from 'next/image'
 import { useSeenOnce } from '@/hooks/use-seen-once'
 import { isOptimizerEligible } from '@/lib/images/optimizable'
-import { isOfficeRenditionSource } from '@/lib/documents/preview-types'
+import { isRenditionSource } from '@/lib/documents/preview-types'
 import type { FileItem } from './project-file-workspace'
 import { formatBytes } from '@/lib/format'
 import { TimeAgo } from '@/components/ui/time-ago'
@@ -141,7 +141,7 @@ export function ThumbnailWithFallback({ file, visible = true }: { file: FileItem
   const canHaveThumbnail =
     file.contentType === 'application/pdf' ||
     (file.contentType ?? '').startsWith('image/') ||
-    isOfficeRenditionSource(file)
+    isRenditionSource(file)
   const [state, setState] = useState<ThumbState>(canHaveThumbnail ? 'loading' : 'none')
   const [imgUrl, setImgUrl] = useState<string | null>(null)
 

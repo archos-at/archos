@@ -43,6 +43,13 @@ dependencies = [
     # imports them.
     "lxml>=6.1.0,<7",
     "httpx>=0.28",
+    # DXF drawings to their PDF rendition (ADR-0152): ezdxf reads the file and
+    # draws it, matplotlib writes the vector PDF. Both pure Python as far as this
+    # image is concerned (MIT, PSF); matplotlib was already here through the
+    # agent runtime's profiler and is named so it does not leave with it.
+    # ezdxf's own PDF backend needs PyMuPDF, which is AGPL, and is not used.
+    "ezdxf>=1.4.5,<2",
+    "matplotlib>=3.10",
 ]
 
 [project.optional-dependencies]

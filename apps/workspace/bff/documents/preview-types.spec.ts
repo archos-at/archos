@@ -13,6 +13,8 @@
 
 import { describe, expect, it } from 'vitest'
 import {
+  DRAWING_RENDITION_CONTENT_TYPES,
+  DRAWING_RENDITION_EXTENSIONS,
   INLINE_PREVIEW_CONTENT_TYPES,
   OFFICE_RENDITION_CONTENT_TYPES,
   OFFICE_RENDITION_EXTENSIONS,
@@ -20,7 +22,10 @@ import {
   TEXT_PREVIEW_CONTENT_TYPES,
   isInlinePreviewable,
   isIndexedFromRendition,
+  isDrawingRenditionSource,
   isOfficeRenditionSource,
+  isRenditionSource,
+  storedContentType,
 } from './preview-types'
 
 describe('the preview content-type lists', () => {
@@ -122,6 +127,7 @@ describe('isIndexedFromRendition', () => {
       'folien.odp',
       'alt.xls',
       'tabelle.ods',
+      'Katasterauszug.DXF',
     ])
       expect(isIndexedFromRendition(name), name).toBe(true)
   })
@@ -132,7 +138,48 @@ describe('isIndexedFromRendition', () => {
   })
 
   it('is a subset of the formats that have a rendition at all', () => {
-    const rendered = new Set<string>(OFFICE_RENDITION_EXTENSIONS)
+    const rendered = new Set<string>([...OFFICE_RENDITION_EXTENSIONS, ...DRAWING_RENDITION_EXTENSIONS])
     for (const ext of RENDITION_INDEXED_EXTENSIONS) expect(rendered.has(ext), ext).toBe(true)
+  })
+})
+
+/**
+ * A DXF is read through a PDF too, drawn by the backend rather than Gotenberg
+ * (ADR-0152). The general predicate is what every surface asks; the drawing one
+ * is what picks the converter.
+ */
+describe('isDrawingRenditionSource and isRenditionSource', () => {
+  it('recognises a DXF by its extension or by any of its types', () => {
+    expect(isDrawingRenditionSource({ filename: 'Katasterauszug Mödling.dxf' })).toBe(true)
+    expect(isDrawingRenditionSource({ filename: 'LAGEPLAN.DXF', contentType: 'application/octet-stream' })).toBe(true)
+    for (const contentType of DRAWING_RENDITION_CONTENT_TYPES) {
+      expect(isDrawingRenditionSource({ contentType, filename: 'ohne-endung' }), contentType).toBe(true)
+    }
+  })
+
+  it('is no office file, and every rendition source is one or the other', () => {
+    expect(isOfficeRenditionSource({ filename: 'plan.dxf' })).toBe(false)
+    expect(isDrawingRenditionSource({ filename: 'bericht.docx' })).toBe(false)
+    expect(isRenditionSource({ filename: 'plan.dxf' })).toBe(true)
+    expect(isRenditionSource({ filename: 'bericht.docx' })).toBe(true)
+    expect(isRenditionSource({ filename: 'haus.ifc' })).toBe(false)
+    expect(isRenditionSource({ filename: 'plan.dwg' })).toBe(false)
+  })
+
+  it('never overlaps the inline list, so a drawing is never served as an image', () => {
+    const inline = new Set<string>(INLINE_PREVIEW_CONTENT_TYPES)
+    for (const type of DRAWING_RENDITION_CONTENT_TYPES) expect(inline.has(type)).toBe(false)
+  })
+})
+
+describe('storedContentType', () => {
+  it('stores a DXF as application/dxf whatever the browser called it, so nothing takes it for a picture', () => {
+    expect(storedContentType({ name: 'Kataster.dxf', type: 'image/vnd.dxf' })).toBe('application/dxf')
+    expect(storedContentType({ name: 'Kataster.DXF', type: '' })).toBe('application/dxf')
+  })
+
+  it('keeps every other file’s own type, and an empty one as null', () => {
+    expect(storedContentType({ name: 'foto.jpg', type: 'image/jpeg' })).toBe('image/jpeg')
+    expect(storedContentType({ name: 'notiz', type: '' })).toBeNull()
   })
 })

@@ -59,11 +59,21 @@ vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
 
 // The converter is `rendition.spec.ts`'s subject; here it is a switch and an
 // outcome, so what is under test is what dispatch does with each.
-vi.mock('./rendition', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./rendition')>()),
-  isRenditionEnabled: vi.fn().mockReturnValue(false),
-  ensureRendition: vi.fn(),
-}))
+vi.mock('./rendition', async (importOriginal) => {
+  const { isDrawingRenditionSource } = await import('./preview-types')
+  const isRenditionEnabled = vi.fn().mockReturnValue(false)
+  return {
+    ...(await importOriginal<typeof import('./rendition')>()),
+    isRenditionEnabled,
+    // The real rule over the mocked switch: a DXF always has its converter (the
+    // backend), an office file only when Gotenberg is configured.
+    isRenditionEnabledFor: vi.fn(
+      (file: { contentType?: string | null; filename?: string | null }) =>
+        isDrawingRenditionSource(file) || isRenditionEnabled(),
+    ),
+    ensureRendition: vi.fn(),
+  }
+})
 
 import { runBimExtraction } from '@/lib/bim/service'
 import { invalidateCached } from '@/lib/cache'
@@ -653,6 +663,25 @@ describe('an office file is converted, by a job, before it is ingested', () => {
       .mocked(getSignedUrl)
       .mock.calls.find(([, command]) => (command as { input: { Key: string } }).input.Key === RENDITION_KEY)
     expect(renditionRead?.[2]).toEqual({ expiresIn: 86_400 })
+  })
+
+  it('indexes a DXF from the page the backend draws, with no Gotenberg at all (ADR-0152)', async () => {
+    vi.mocked(isRenditionEnabled).mockReturnValue(false)
+    vi.mocked(findDocumentInOrg).mockResolvedValue(officeRow('Katasterauszug.dxf', 'application/dxf'))
+    await dispatchDocument(input('Katasterauszug.dxf'))
+    await runQueuedJob()
+    await ingested()
+
+    expect(ensureRendition).toHaveBeenCalledWith({
+      bucket: 'test-bucket',
+      storageKey: 'org/org-1/project/proj-1/doc/doc-1/Katasterauszug.dxf',
+      filename: 'Katasterauszug.dxf',
+    })
+    expect(bodyOf(0)).toMatchObject({
+      preview_ref: RENDITION_URL,
+      extraction_ref: RENDITION_URL,
+      file_name: 'Katasterauszug.dxf',
+    })
   })
 
   it('carries the Fassung a person chose through the conversion to the ingest (ADR-0099)', async () => {

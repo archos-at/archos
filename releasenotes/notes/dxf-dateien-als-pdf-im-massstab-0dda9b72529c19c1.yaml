@@ -1,0 +1,15 @@
+---
+features:
+  - >
+    You can now upload DXF files such as a Katasterauszug, and they open as a
+    PDF drawn to a standard scale, for example 1:500 on A3, with a scale bar
+    and a title block. „Als PDF herunterladen“ in the file's menu gives you
+    that PDF to print or attach, while Download still gives the original.
+  - >
+    Parcel numbers, street names and other text in a DXF are searchable and
+    can be cited. A Katastralmappe from BEV names its Katastralgemeinde and
+    coordinate system on the page, and says when parcels are in the
+    Grundsteuerkataster, whose boundaries are not legally binding.
+  - >
+    „Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint
+    file.

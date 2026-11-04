@@ -21,9 +21,11 @@ import { NotFoundError } from '@/lib/api/errors'
 import {
   RenditionFailedError,
   RenditionUnavailableError,
+  DXF_RENDITION_PATH,
   ensureRendition,
   extractsFromRendition,
   isRenditionEnabled,
+  isRenditionEnabledFor,
 } from './rendition'
 
 const INPUT = {
@@ -370,5 +372,64 @@ describe('ensureRendition for a reader', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+/**
+ * A DXF goes to the backend's drawing route instead of Gotenberg (ADR-0152); the
+ * sibling key, the PDF check and the failure handling are the same.
+ */
+describe('ensureRendition for a DXF drawing', () => {
+  const DXF = {
+    bucket: 'test-bucket',
+    storageKey: 'org/org-1/project/proj-1/doc/doc-9/v1/Katasterauszug Mödling.dxf',
+    filename: 'Katasterauszug Mödling.dxf',
+  }
+  const DXF_RENDITION_KEY = 'org/org-1/project/proj-1/doc/doc-9/v1/_render.pdf'
+
+  beforeEach(() => {
+    vi.stubEnv('BACKEND_URL', 'http://backend:8000')
+    vi.stubEnv('INTERNAL_API_TOKEN', 'internal-secret')
+  })
+
+  it('is drawn by the backend with the internal token and the name, and stored beside the original', async () => {
+    await expect(ensureRendition(DXF)).resolves.toBe(DXF_RENDITION_KEY)
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit]
+    expect(url).toBe(`http://backend:8000${DXF_RENDITION_PATH}`)
+    const headers = init.headers as Record<string, string>
+    expect(headers['x-internal-token']).toBe('internal-secret')
+    expect(headers['x-filename']).toBe(encodeURIComponent('Katasterauszug Mödling.dxf'))
+    expect(puts()).toHaveLength(1)
+    expect(puts()[0]?.input.Key).toBe(DXF_RENDITION_KEY)
+  })
+
+  it('never needs Gotenberg', async () => {
+    vi.stubEnv('GOTENBERG_URL', '')
+    expect(isRenditionEnabledFor({ filename: 'Lageplan.dxf' })).toBe(true)
+    expect(isRenditionEnabledFor({ filename: 'Bericht.docx' })).toBe(false)
+    await expect(ensureRendition({ ...DXF, storageKey: DXF.storageKey.replace('doc-9', 'doc-10') })).resolves.toBe(
+      DXF_RENDITION_KEY.replace('doc-9', 'doc-10')
+    )
+  })
+
+  it('picks the backend by stored type when the name has lost its extension', async () => {
+    await ensureRendition({ ...DXF, storageKey: DXF.storageKey.replace('doc-9', 'doc-11'), filename: 'Lageplan', contentType: 'application/dxf' })
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain(DXF_RENDITION_PATH)
+  })
+
+  it('fails, and writes nothing, when the backend refuses the file', async () => {
+    fetchSpy.mockResolvedValue(new Response('{"detail":"Not a readable DXF file"}', { status: 422 }))
+    await expect(ensureRendition({ ...DXF, storageKey: DXF.storageKey.replace('doc-9', 'doc-12') })).rejects.toBeInstanceOf(
+      RenditionFailedError
+    )
+    expect(puts()).toHaveLength(0)
+  })
+
+  it('is unavailable without the internal token, and sends nothing', async () => {
+    vi.stubEnv('INTERNAL_API_TOKEN', '')
+    await expect(ensureRendition({ ...DXF, storageKey: DXF.storageKey.replace('doc-9', 'doc-13') })).rejects.toBeInstanceOf(
+      RenditionUnavailableError
+    )
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

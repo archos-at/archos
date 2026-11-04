@@ -91,6 +91,16 @@ Both on the `api` role, internal-token only and off the external allowlist. The 
 
 `422` when the file is not an archive libpff can read or the position names nothing (no retry changes that), `409` when one attachment is damaged (the BFF skips it), `502` when the store refused or timed out a range (retry). libpff reports any read failure as damage to the archive, so `RangeFile` remembers the failed fetch and the reader raises that instead; a damaged message comes back in the page as `{ kind: "unreadable", detail }` and the rest of the page files. An archive stays open per process for five minutes after its last use (at most two), keyed by `key`, so a slice's page and attachment reads do not reopen it; the URL is renewed on every request.
 
+## Drawing renditions (internal; ADR-0152)
+
+On the `api` role, internal-token only and off the external allowlist. The BFF calls it where it calls Gotenberg for an office file (`apps/workspace/bff/documents/rendition.ts`) and stores the answer as `_render.pdf`; this route keeps nothing and decides no access.
+
+| Method | Path | Description | Request | Response | Handler |
+|--------|------|-------------|---------|----------|---------|
+| `POST` | `/v1/renditions/dxf` | A DXF drawn as a one-page vector PDF: a standard scale on a standard sheet (unit from `$INSUNITS`; a Katastralmappe is metres), a transparent text layer of the drawing's text, a title block and a scale bar. A file with no unit is fitted and says it is not to scale | the DXF bytes as the body (`application/octet-stream`); the original's name percent-encoded in `x-filename`, used as the page title only | `application/pdf` | `add_drawing_rendition_routes` in `agent_host.routes.drawing_renditions` |
+
+`413` past 150 MiB, `422` when no reader can open the bytes or the drawing has nothing in it (no retry changes that), `504` when the page is not drawn within 110 s. One page is drawn at a time per process.
+
 ## Documents
 
 | Method | Path | Description | Request | Response | Handler |

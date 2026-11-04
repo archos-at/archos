@@ -48,6 +48,8 @@ export interface ActionableDocument extends NamedDocument {
   authoredBy?: string | null
   /** Where it is filed now, so a move can mark the current folder. */
   folderId?: string | null
+  /** Its stored type, read with the name to decide whether it has a PDF form to download. */
+  contentType?: string | null
 }
 
 export interface UseDocumentActionsOptions {
@@ -93,6 +95,8 @@ export interface DocumentActions {
   rename: (displayName: string | null) => Promise<boolean>
   remove: () => Promise<boolean>
   download: () => Promise<void>
+  /** The same, for the PDF the file is read as (an office rendition, a DXF to scale). */
+  downloadPdf: () => Promise<void>
   /**
    * Send the document back through ingestion (a retry, or a re-read of an
    * indexed file); resolves the row's status afterwards, or `null` on failure.
@@ -224,6 +228,16 @@ export function useDocumentActions({
     }
   }, [document.id, name])
 
+  const downloadPdf = useCallback(async (): Promise<void> => {
+    setDownloadFailed(false)
+    setIsDownloading(true)
+    try {
+      if (!(await startDocumentDownload(document.id, name, { format: 'pdf' }))) setDownloadFailed(true)
+    } finally {
+      setIsDownloading(false)
+    }
+  }, [document.id, name])
+
   /**
    * Send a document back through ingestion: a retry for a failed or lost
    * one, a re-read for an indexed one.
@@ -349,6 +363,7 @@ export function useDocumentActions({
     rename,
     remove,
     download,
+    downloadPdf,
     reingest,
     cancel,
     move,

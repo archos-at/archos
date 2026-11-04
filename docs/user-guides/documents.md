@@ -154,7 +154,7 @@ Your office's sensitive-data list can also hold files back, by name before they 
 
 ### Supported File Types
 
-The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx`).
+The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf`).
 
 | Extension | MIME Type |
 |-----------|-----------|
@@ -167,6 +167,7 @@ The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default
 | `.html` | `text/html` |
 | `.csv` | `text/csv` |
 | `.json` | `application/json` |
+| `.dxf` | stored as `application/dxf`, whatever the browser sends ([DXF files](#dxf-files-katasterauszüge-and-other-cad-drawings)) |
 
 Spreadsheets index one chunk per worksheet (labelled by sheet name), so a citation points at the sheet. Word files and presentations are indexed from their PDF preview, page by page and with their pictures, so a citation points at the page or slide (see [Word, Excel and PowerPoint files](#word-excel-and-powerpoint-files)). Image uploads (`.png`, `.jpg`, `.jpeg`, `.webp`) are governed by the image-upload flag plus VLM availability, not by this list (see below).
 
@@ -645,6 +646,32 @@ tables.
 Why it works this way: [ADR-0070](../adr/0070-office-files-are-viewed-through-a-pdf-rendition.md)
 for viewing, [ADR-0071](../adr/0071-word-and-presentation-files-are-indexed-from-their-rendition.md)
 for indexing.
+
+### DXF files (Katasterauszüge and other CAD drawings)
+
+A `.dxf` opens in the preview as a PDF drawn **to scale**: the most detailed
+standard scale that fits on A4 or A3 (larger sheets for larger drawings), with a
+scale bar and a title block. A Katasterauszug of 150 × 100 m comes out at 1:500
+on A3. **„Als PDF herunterladen“** in the file's ⋯ menu gives you that PDF to
+print or attach; Download still gives the original DXF. The same menu entry
+gives the PDF of a Word, Excel or PowerPoint file.
+
+What to expect:
+
+- The scale comes from the unit the file names. A file that names none is drawn
+  to fit the sheet, and the title block says „Nicht maßstäblich“.
+- The text in the drawing (parcel numbers, street names, labels) is searchable
+  in the viewer and is what the file is indexed by, so a question about a parcel
+  number finds the file.
+- A Katastralmappe from BEV is recognised: the title block names the
+  Katastralgemeinde and the coordinate system, and, where parcels are in the
+  Grundsteuerkataster, says that their boundaries are graphic and not legally
+  binding. A distance to the boundary for a submission needs a surveyor's plan.
+- Boundary-point marks and land-use symbols from a BEV „BEV-DXF+CSV“ file are not
+  drawn yet; their numbers are. Only the model space is drawn, not paper-space
+  layouts. DWG files are not shown yet.
+
+Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md).
 
 ---
 

@@ -224,7 +224,7 @@
     "apps/agent-host/src/agent_host/jobs/run_ledger_fold.py::RunLedgerFold.__init__": 61,
     "apps/agent-host/src/agent_host/jobs/submit.py::_build_run_agent_payload": 81,
     "apps/agent-host/src/agent_host/jobs/submit.py::submit_agent_job": 207,
-    "apps/agent-host/src/agent_host/plugin.py::api_routers": 68,
+    "apps/agent-host/src/agent_host/plugin.py::api_routers": 62,
     "apps/agent-host/src/agent_host/routes/cleanup_proposal.py::add_cleanup_proposal_routes": 63,
     "apps/agent-host/src/agent_host/routes/consistency_check.py::add_consistency_check_routes": 99,
     "apps/agent-host/src/agent_host/routes/consistency_check.py::add_consistency_check_routes.consistency_check": 85,

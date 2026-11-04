@@ -1,6 +1,6 @@
 /** The resolved citation targets a preview opens, and the pure rules about them. */
 
-import { isOfficeRenditionSource } from '@/lib/documents/preview-types'
+import { isRenditionSource } from '@/lib/documents/preview-types'
 import type { CitationLocus, CitationTarget, CitedDocument } from '../../lib/citations'
 
 export type DocumentTarget = Extract<CitationTarget, { kind: 'document' }>
@@ -26,7 +26,7 @@ export const isImageTarget = (target: DocumentTarget): boolean =>
  * shown over a file's own bytes, nor missing over a rendition.
  */
 export const isRenditionTarget = (target: DocumentTarget): boolean =>
-  target.document.type === 'stored' && isOfficeRenditionSource(target.document)
+  target.document.type === 'stored' && isRenditionSource(target.document)
 
 /**
  * The same stored document, as the file it is. What an office citation turns

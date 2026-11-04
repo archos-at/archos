@@ -758,6 +758,7 @@ export const files = {
     label: 'File actions for “{name}”',
     menuLabel: 'File actions',
     download: 'Download',
+    downloadPdf: 'Download as PDF',
     open: 'Open',
     ask: 'Ask about this',
     select: 'Select',

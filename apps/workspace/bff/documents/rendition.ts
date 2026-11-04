@@ -1,5 +1,5 @@
 /**
- * The PDF rendition of an office document (ADR-0070).
+ * The PDF rendition of an office document (ADR-0070) or a DXF drawing (ADR-0152).
  *
  * Word, Excel, PowerPoint, ODF and RTF files have no viewer in a browser, and
  * the product already has a good one for PDF. So the BFF — and only the BFF;
@@ -13,14 +13,21 @@
  * what lets the lazy path in the preview and file routes cover every office
  * file uploaded before this module existed without a backfill.
  *
- * Which files qualify is `isOfficeRenditionSource` in `./preview-types`; this
- * module does not decide that, it only converts what it is handed.
+ * Which files qualify is `isRenditionSource` in `./preview-types`; this
+ * module does not decide that, it only converts what it is handed. It does pick
+ * the CONVERTER: a DXF goes to the backend's `POST /v1/renditions/dxf`, where
+ * ezdxf draws it at a standard scale with its text as a text layer (ADR-0152),
+ * everything else to Gotenberg. The rest is shared: the sibling key, the
+ * in-flight map, the slots, the failure memory and the PDF check.
  */
 
 import 'server-only'
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3'
 import { buildRenditionStorageKey, s3Client, storageKeySegment } from '@/lib/s3'
 import { NotFoundError } from '@/lib/api/errors'
+import { getBackendUrl } from '@/lib/backend-url'
+import { InternalServiceUnavailableError, internalServiceHeaders } from '@/lib/internal-auth'
+import { isDrawingRenditionSource } from './preview-types'
 
 /**
  * Whether the backend should extract this file's TEXT from its rendition rather
@@ -107,6 +114,27 @@ export function isRenditionEnabled(): boolean {
   return gotenbergUrl() !== null
 }
 
+/**
+ * Whether THIS file can be converted here. A DXF always can: its converter is
+ * the backend every deployment runs. An office file needs Gotenberg.
+ */
+export function isRenditionEnabledFor(file: { contentType?: string | null; filename?: string | null }): boolean {
+  return isDrawingRenditionSource(file) || isRenditionEnabled()
+}
+
+/** Who converts a file: Gotenberg at its address, or the backend's drawing route. */
+type Converter = { kind: 'office'; baseUrl: string } | { kind: 'drawing' }
+
+/** The path of the backend's DXF converter (`apps/agent-host/.../routes/drawing_renditions.py`). */
+export const DXF_RENDITION_PATH = '/v1/renditions/dxf'
+
+function converterFor(input: EnsureRenditionInput): Converter {
+  if (isDrawingRenditionSource({ contentType: input.contentType, filename: input.filename })) return { kind: 'drawing' }
+  const baseUrl = gotenbergUrl()
+  if (!baseUrl) throw new RenditionUnavailableError('Office conversion is not configured (GOTENBERG_URL)')
+  return { kind: 'office', baseUrl }
+}
+
 export interface EnsureRenditionOptions {
   /**
    * Set when a PERSON is waiting on this call (the preview and file routes):
@@ -130,6 +158,8 @@ export interface EnsureRenditionInput {
    * type is whatever the browser sent and is not consulted.
    */
   filename: string
+  /** The stored type, when the caller has it: a DXF stored without its extension is still drawn by the backend. */
+  contentType?: string | null
 }
 
 /**
@@ -163,8 +193,7 @@ export async function ensureRendition(
   input: EnsureRenditionInput,
   options: EnsureRenditionOptions = {},
 ): Promise<string> {
-  const baseUrl = gotenbergUrl()
-  if (!baseUrl) throw new RenditionUnavailableError('Office conversion is not configured (GOTENBERG_URL)')
+  const converter = converterFor(input)
   const renditionKey = buildRenditionStorageKey(input.storageKey)
   if (!renditionKey) throw new RenditionUnavailableError('Storage key has no directory for a rendition')
 
@@ -183,7 +212,7 @@ export async function ensureRendition(
     throw new RenditionFailedError('Office conversion failed recently and is not retried on read')
   }
 
-  const flight = produceRendition(baseUrl, input, renditionKey, flightKey, reader)
+  const flight = produceRendition(converter, input, renditionKey, flightKey, reader)
     .then(
       (key) => {
         recentFailures.delete(flightKey)
@@ -202,7 +231,7 @@ export async function ensureRendition(
 }
 
 async function produceRendition(
-  baseUrl: string,
+  converter: Converter,
   input: EnsureRenditionInput,
   renditionKey: string,
   flightKey: string,
@@ -215,7 +244,11 @@ async function produceRendition(
   await acquireSlot(flightKey, urgent)
   try {
     const original = await readOriginal(input.bucket, input.storageKey)
-    const pdf = await convert(baseUrl, original, converterFilename(input.filename, input.storageKey))
+    const filename = converterFilename(input.filename, input.storageKey)
+    const pdf =
+      converter.kind === 'drawing'
+        ? await convertDrawing(original, filename)
+        : await convert(converter.baseUrl, original, filename)
     await s3Client.send(
       new PutObjectCommand({
         Bucket: input.bucket,
@@ -358,6 +391,50 @@ function converterFilename(filename: string, storageKey: string): string {
 
 const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d] // "%PDF-"
 
+/**
+ * Checked, not trusted: a proxy's HTML error page with a 200 would otherwise
+ * be stored as the rendition and served as a PDF until someone deletes it.
+ */
+async function pdfFrom(response: Response, converter: string): Promise<Uint8Array> {
+  const pdf = new Uint8Array(await response.arrayBuffer())
+  if (pdf.byteLength < PDF_MAGIC.length || PDF_MAGIC.some((byte, i) => pdf[i] !== byte)) {
+    throw new RenditionFailedError(`${converter} returned something that is not a PDF`)
+  }
+  return pdf
+}
+
+/**
+ * A DXF drawn by the backend (ADR-0152). Same budget as a Gotenberg call; the
+ * route answers 422 for a file no reader can open, which is remembered as a
+ * failure like any converter's refusal. The name travels URL-encoded in a
+ * header, as the page's title.
+ */
+async function convertDrawing(original: Blob, filename: string): Promise<Uint8Array> {
+  const backendUrl = getBackendUrl()
+  let headers: Record<string, string>
+  try {
+    headers = internalServiceHeaders(backendUrl)
+  } catch (error) {
+    if (error instanceof InternalServiceUnavailableError) {
+      throw new RenditionUnavailableError('Drawing conversion needs the internal service token')
+    }
+    throw error
+  }
+  let response: Response
+  try {
+    response = await fetch(`${backendUrl}${DXF_RENDITION_PATH}`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/octet-stream', 'x-filename': encodeURIComponent(filename) },
+      body: original,
+      signal: AbortSignal.timeout(GOTENBERG_TIMEOUT_MS),
+    })
+  } catch (error) {
+    throw new RenditionFailedError('Drawing conversion did not answer', { cause: error })
+  }
+  if (!response.ok) throw new RenditionFailedError(`Drawing conversion answered ${response.status}`)
+  return pdfFrom(response, 'Drawing conversion')
+}
+
 async function convert(baseUrl: string, original: Blob, filename: string): Promise<Uint8Array> {
   const form = new FormData()
   form.append('files', original, filename)
@@ -377,11 +454,5 @@ async function convert(baseUrl: string, original: Blob, filename: string): Promi
     throw new RenditionFailedError(`Office conversion answered ${response.status}`)
   }
 
-  const pdf = new Uint8Array(await response.arrayBuffer())
-  // Checked, not trusted: a proxy's HTML error page with a 200 would otherwise
-  // be stored as the rendition and served as a PDF until someone deletes it.
-  if (pdf.byteLength < PDF_MAGIC.length || PDF_MAGIC.some((byte, i) => pdf[i] !== byte)) {
-    throw new RenditionFailedError('Office conversion returned something that is not a PDF')
-  }
-  return pdf
+  return pdfFrom(response, 'Office conversion')
 }

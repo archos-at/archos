@@ -1,4 +1,4 @@
-import { INLINE_PREVIEW_CONTENT_TYPES, isOfficeRenditionSource } from '@/lib/documents/preview-types'
+import { INLINE_PREVIEW_CONTENT_TYPES, isRenditionSource } from '@/lib/documents/preview-types'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { isTextPageType } from './file-text-page'
@@ -323,7 +323,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
    * makes from them (ADR-0070). They ask the same preview route, so they are
    * `canPreview` too; what differs is what comes back and what a refusal means.
    */
-  const isOfficeRendition = isOfficeRenditionSource(file)
+  const isOfficeRendition = isRenditionSource(file)
   const canPreview = PREVIEW_TYPES.includes(file.contentType ?? '') || isOfficeRendition
   /**
    * Text, Markdown and CSV are previewable too, by a different route: the pane

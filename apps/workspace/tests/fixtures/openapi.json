@@ -4441,7 +4441,7 @@
       "get": {
         "operationId": "document-download",
         "summary": "Get a time-limited download link for a document",
-        "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
+        "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), for a person who wants it printed or attached. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
         "tags": [
           "documents"
         ],
@@ -4455,6 +4455,19 @@
               "description": "The document id, from document-list or workspace-search."
             },
             "description": "The document id, from document-list or workspace-search."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file.",
+              "type": "string",
+              "enum": [
+                "pdf"
+              ]
+            },
+            "description": "pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file."
           }
         ],
         "responses": {
