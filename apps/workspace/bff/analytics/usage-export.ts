@@ -5,7 +5,7 @@
  * The usage ledger (`llm_usage_events`) is the one record of what each
  * organization spent. Langfuse's export carries no organization and is not
  * reliable, and OpenRouter's warehouse source is the platform's own bill, so
- * neither can say what an office used. This sends the ledger itself, in two
+ * neither can say what an office used. This sends the ledger itself, in three
  * streams, every ten minutes from the `usage-export` Hatchet task (`bff/scheduling/tasks.ts`):
  *
  * - **`llm_usage_hourly`**: one event per organization, closed UTC hour, model,
@@ -13,6 +13,12 @@
  *   cost, price and credits, and `amount` in the organization's unit, the number
  *   its Budgets page shows. Hourly, not per call: the calls are thousands a day,
  *   the aggregates are a few hundred, and PostHog charts sum them the same way.
+ * - **`llm_usage_by_outcome`**: the same ledger per closed UTC hour, grouped by
+ *   the outcome its rows name instead of by person and project: the chat answer
+ *   (`message_id`), the ingest job or run (`job_id`), the conversation, with the
+ *   model and purpose. What one answer or one document cost, joined in PostHog
+ *   to `answer_completed` and to `document_ingest_started` (which carries the
+ *   job id) — the unit costs the hourly sums cannot give.
  * - **`organization_budget_snapshot`**: once an hour, per organization that spent
  *   lately or set a limit, its effective limits (the seeded allowance included),
  *   today's and this month's spend against them, and whether a budget blocks it.
@@ -43,6 +49,7 @@ import {
   getSpendSummary,
   listActivePolicies,
 } from '@/lib/budgets/service'
+import type { AnalyticsExportStream } from '@/lib/db/schema/analytics-export-cursors'
 import { UNBILLED_USAGE_ACTIVITIES, type BudgetUnit } from '@/lib/db/schema/budgets'
 import { withPlatformAccess, withTenant } from '@/lib/db/tenant-context'
 import { getOrganizationDisplayName } from '@/lib/organizations/service'
@@ -53,7 +60,9 @@ import {
   listSnapshotOrganizations,
   releaseCursor,
   sumUsageByHour,
+  sumUsageByOutcome,
   type UsageHourRow,
+  type UsageOutcomeRow,
 } from './usage-export-repository'
 
 const HOUR_MS = 60 * 60_000
@@ -143,9 +152,52 @@ export interface UsageStreamResult {
   caughtUp: boolean
 }
 
-/** Send the closed hours after the cursor. `null` when another run holds the stream or nothing closed. */
-async function exportUsageHours(batch: PosthogBatch, now: Date): Promise<UsageStreamResult | null> {
-  const stream = 'posthog_usage_hourly'
+/**
+ * What one answer, ingest job or run is, from the keys its ledger rows carry.
+ * An answer wins over the job it ran in; an ingest job is named apart from the
+ * other jobs because its cost is the one divided by pages and bytes.
+ */
+export function outcomeKind(row: Pick<UsageOutcomeRow, 'messageId' | 'jobId' | 'activity'>): string {
+  if (row.messageId) return 'answer'
+  if (row.jobId) return row.activity === 'ingest' ? 'ingest' : 'job'
+  return 'conversation'
+}
+
+/** The properties of one `llm_usage_by_outcome` event. Pure, so the spec pins the contract. */
+export function usageOutcomeProperties(row: UsageOutcomeRow): ServerEventProperties {
+  return {
+    hour: row.hour.toISOString(),
+    outcome: outcomeKind(row),
+    message_id: row.messageId ?? undefined,
+    job_id: row.jobId ?? undefined,
+    conversation_id: row.conversationId ?? undefined,
+    model: row.model,
+    activity: row.activity ?? 'chat',
+    purpose: row.agentGroup ?? 'agent',
+    calls: row.calls,
+    prompt_tokens: row.promptTokens,
+    completion_tokens: row.completionTokens,
+    cached_tokens: row.cachedTokens,
+    reasoning_tokens: row.reasoningTokens,
+    cost_usd: round(row.costUsd, 8),
+    price_usd: round(row.priceUsd, 8),
+  }
+}
+
+type ExportEvent = Parameters<PosthogBatch['capture']>[0]
+
+/**
+ * Send the closed hours after `stream`'s cursor: read them, turn them into
+ * events, send, and only then move the cursor. `null` when another run holds
+ * the stream or nothing closed. A failed read or send gives the stream back
+ * unmoved, so the next run sends the same hours.
+ */
+async function exportClosedHours(
+  batch: PosthogBatch,
+  now: Date,
+  stream: AnalyticsExportStream,
+  eventsFor: (window: { from: Date; to: Date }) => Promise<ExportEvent[]>,
+): Promise<UsageStreamResult | null> {
   const horizon = floorToHour(new Date(now.getTime() - BACKFILL_DAYS * DAY_MS))
   const cursor = await withPlatformAccess(PLATFORM_REASON, () => claimCursor(stream, horizon, LEASE_MS, now))
   if (!cursor) return null
@@ -157,33 +209,51 @@ async function exportUsageHours(batch: PosthogBatch, now: Date): Promise<UsageSt
   }
 
   try {
+    const events = await eventsFor(window)
+    await sendAll(batch, events)
+    await withPlatformAccess(PLATFORM_REASON, () => advanceCursor(stream, window.to, now))
+    return {
+      from: window.from.toISOString(),
+      to: window.to.toISOString(),
+      rows: events.length,
+      caughtUp: exportWindow(window.to, now) === null,
+    }
+  } catch (error) {
+    await withPlatformAccess(PLATFORM_REASON, () => releaseCursor(stream, now)).catch(() => undefined)
+    throw error
+  }
+}
+
+/** The ledger per outcome (answer, ingest job, run) for the closed hours after its own cursor. */
+function exportUsageByOutcome(batch: PosthogBatch, now: Date): Promise<UsageStreamResult | null> {
+  return exportClosedHours(batch, now, 'posthog_usage_by_outcome', async (window) => {
+    const rows = await withPlatformAccess(PLATFORM_REASON, () => sumUsageByOutcome(window.from, window.to))
+    return rows.map((row) => ({
+      event: 'llm_usage_by_outcome' as const,
+      distinctId: null,
+      organizationId: row.organizationId,
+      timestamp: row.hour,
+      properties: usageOutcomeProperties(row),
+    }))
+  })
+}
+
+/** Send the closed hours after the cursor. `null` when another run holds the stream or nothing closed. */
+function exportUsageHours(batch: PosthogBatch, now: Date): Promise<UsageStreamResult | null> {
+  return exportClosedHours(batch, now, 'posthog_usage_hourly', async (window) => {
     const rows = await withPlatformAccess(PLATFORM_REASON, () => sumUsageByHour(window.from, window.to))
     const units = new Map<string, BudgetUnit>()
     for (const organizationId of new Set(rows.map((row) => row.organizationId))) {
       units.set(organizationId, await withTenant({ organizationId }, () => getOrgBudgetUnit(organizationId)))
     }
-    await sendAll(
-      batch,
-      rows.map((row) => ({
-        event: 'llm_usage_hourly' as const,
-        distinctId: null,
-        organizationId: row.organizationId,
-        timestamp: row.hour,
-        properties: usageHourProperties(row, units.get(row.organizationId) ?? 'credit'),
-      })),
-    )
-    await withPlatformAccess(PLATFORM_REASON, () => advanceCursor(stream, window.to, now))
-    return {
-      from: window.from.toISOString(),
-      to: window.to.toISOString(),
-      rows: rows.length,
-      caughtUp: exportWindow(window.to, now) === null,
-    }
-  } catch (error) {
-    // Not moved: the next run sends the same hours.
-    await withPlatformAccess(PLATFORM_REASON, () => releaseCursor(stream, now)).catch(() => undefined)
-    throw error
-  }
+    return rows.map((row) => ({
+      event: 'llm_usage_hourly' as const,
+      distinctId: null,
+      organizationId: row.organizationId,
+      timestamp: row.hour,
+      properties: usageHourProperties(row, units.get(row.organizationId) ?? 'credit'),
+    }))
+  })
 }
 
 const percentOf = (used: number, limit: number | null): number | undefined =>
@@ -269,6 +339,7 @@ export interface UsageExportResult {
   /** False when PostHog is not configured: nothing was read or sent. */
   enabled: boolean
   usage: UsageStreamResult | null
+  outcomes: UsageStreamResult | null
   snapshot: SnapshotStreamResult | null
 }
 
@@ -279,11 +350,12 @@ export interface UsageExportResult {
  */
 export async function exportUsageToPosthog(now = new Date()): Promise<UsageExportResult> {
   const batch = createPosthogBatch()
-  if (!batch) return { enabled: false, usage: null, snapshot: null }
+  if (!batch) return { enabled: false, usage: null, outcomes: null, snapshot: null }
   try {
     const usage = await exportUsageHours(batch, now)
+    const outcomes = await exportUsageByOutcome(batch, now)
     const snapshot = await exportBudgetSnapshots(batch, now)
-    return { enabled: true, usage, snapshot }
+    return { enabled: true, usage, outcomes, snapshot }
   } finally {
     await batch.close()
   }

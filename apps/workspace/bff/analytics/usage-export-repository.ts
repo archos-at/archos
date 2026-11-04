@@ -153,6 +153,95 @@ export async function sumUsageByHour(from: Date, to: Date): Promise<UsageHourRow
   }))
 }
 
+/** One outcome's spend in one hour on one model and purpose: an answer, an ingest job, a run. */
+export interface UsageOutcomeRow {
+  organizationId: string
+  /** Start of the UTC hour. */
+  hour: Date
+  /** The chat answer the calls belong to (migration 0098); NULL for jobs and older rows. */
+  messageId: string | null
+  /** The ingest job or research run the calls ran in. */
+  jobId: string | null
+  conversationId: string | null
+  model: string
+  activity: UsageActivity | null
+  agentGroup: string | null
+  calls: number
+  promptTokens: number
+  completionTokens: number
+  cachedTokens: number
+  reasoningTokens: number
+  costUsd: number
+  priceUsd: number
+}
+
+/**
+ * The ledger in `[from, to)` summed per organization, UTC hour, outcome key
+ * (message, job, conversation), model, activity and purpose: what one answer or
+ * one ingest cost, which `sumUsageByHour` sums away. Rows with none of the three
+ * keys are left out; the hourly stream already carries them. Bounded by the
+ * window like `sumUsageByHour`, never by a row limit.
+ */
+export async function sumUsageByOutcome(from: Date, to: Date): Promise<UsageOutcomeRow[]> {
+  const db = getDb()
+  const hour = sql<string>`date_trunc('hour', ${llmUsageEvents.createdAt})`
+  const model = sql<string>`coalesce(${llmUsageEvents.model}, 'unknown')`
+  const rows = await db
+    .select({
+      organizationId: llmUsageEvents.organizationId,
+      hour,
+      messageId: llmUsageEvents.messageId,
+      jobId: llmUsageEvents.jobId,
+      conversationId: llmUsageEvents.conversationId,
+      model,
+      activity: llmUsageEvents.activity,
+      agentGroup: llmUsageEvents.agentGroup,
+      calls: sql<string>`count(*)`,
+      promptTokens: sql<string>`coalesce(sum(${llmUsageEvents.promptTokens}), 0)`,
+      completionTokens: sql<string>`coalesce(sum(${llmUsageEvents.completionTokens}), 0)`,
+      cachedTokens: sql<string>`coalesce(sum(${llmUsageEvents.cachedTokens}), 0)`,
+      reasoningTokens: sql<string>`coalesce(sum(${llmUsageEvents.reasoningTokens}), 0)`,
+      costUsd: sql<string>`coalesce(sum(${llmUsageEvents.costUsd}), 0)`,
+      priceUsd: sql<string>`coalesce(sum(${llmUsageEvents.priceUsd}), 0)`,
+    })
+    .from(llmUsageEvents)
+    .where(
+      and(
+        gte(llmUsageEvents.createdAt, from),
+        lt(llmUsageEvents.createdAt, to),
+        sql`(${llmUsageEvents.messageId} IS NOT NULL OR ${llmUsageEvents.jobId} IS NOT NULL OR ${llmUsageEvents.conversationId} IS NOT NULL)`,
+      ),
+    )
+    .groupBy(
+      llmUsageEvents.organizationId,
+      hour,
+      llmUsageEvents.messageId,
+      llmUsageEvents.jobId,
+      llmUsageEvents.conversationId,
+      model,
+      llmUsageEvents.activity,
+      llmUsageEvents.agentGroup,
+    )
+
+  return rows.map((row) => ({
+    organizationId: row.organizationId,
+    hour: new Date(row.hour),
+    messageId: row.messageId ?? null,
+    jobId: row.jobId ?? null,
+    conversationId: row.conversationId ?? null,
+    model: row.model,
+    activity: row.activity ?? null,
+    agentGroup: row.agentGroup ?? null,
+    calls: num(row.calls),
+    promptTokens: num(row.promptTokens),
+    completionTokens: num(row.completionTokens),
+    cachedTokens: num(row.cachedTokens),
+    reasoningTokens: num(row.reasoningTokens),
+    costUsd: num(row.costUsd),
+    priceUsd: num(row.priceUsd),
+  }))
+}
+
 /**
  * The organizations a budget snapshot is worth sending for: every one that
  * spent since `since`, and every one with an explicit organization limit. An
