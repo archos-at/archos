@@ -29,6 +29,17 @@ export const RUNTIME_ROLE = "app_rw";
 /** The script that renames the databases and the roles, shared with Compose's `postgres-rename` services. */
 export const RENAME_SCRIPT = resolve(__dirname, "../../../postgres/rename-legacy-names.sh");
 
+/**
+ * The script as the container must receive it: LF line endings, whatever the
+ * checkout has. Git for Windows (`core.autocrlf=true`) writes it CRLF, and a
+ * shell script that starts `set -eu\r` is `illegal option -` to `/bin/sh`: the
+ * Job crash-loops, the update never gets past it. `.gitattributes` pins `*.sh`
+ * to LF for new checkouts; this covers the working copy that already has CRLF.
+ */
+export function renameScriptText(): string {
+  return readFileSync(RENAME_SCRIPT, "utf8").replace(/\r\n/g, "\n");
+}
+
 /** What both Jobs need from the cluster: where it is, and the Secrets they read. */
 export interface PostgresRenameWiring {
   rwHost: string;
@@ -73,7 +84,7 @@ export function installPostgresRename(
   const labels = commonLabels("pg-rename");
   const script = new k8s.core.v1.ConfigMap(
     "pg-rename-script",
-    { metadata: { namespace, labels }, data: { "rename-legacy-names.sh": readFileSync(RENAME_SCRIPT, "utf8") } },
+    { metadata: { namespace, labels }, data: { "rename-legacy-names.sh": renameScriptText() } },
     // The Jobs run again when the script changes.
     { provider, replaceOnChanges: ["data"] },
   );
