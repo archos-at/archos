@@ -12,13 +12,14 @@ name: Claude Code
 #
 # Trigger gating happens twice: the job-level `if` avoids spinning a runner for
 # every comment on the repo, and the action itself re-checks the trigger phrase.
+#
+# Not on review comments or reviews: GitHub cannot filter a trigger by body, so
+# every CodeRabbit inline comment started a run whose job was skipped, about 20
+# "Respond to @claude" checks on one pull request. Mention @claude in the pull
+# request's conversation instead.
 on:
   issue_comment:
     types: [created]
-  pull_request_review_comment:
-    types: [created]
-  pull_request_review:
-    types: [submitted]
   issues:
     types: [opened, assigned]
 
@@ -42,8 +43,6 @@ jobs:
     # every comment in the repo would start a (billable) runner.
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -14,7 +14,7 @@ task setup         # first-time toolchain install
 Both run `lint:repo` first, then the tiers side by side (`task --parallel
 --output=group`), so a tier's output arrives whole when it finishes. They skip
 the hooks a tier repeats (ruff, the English-names test: `VERIFY_SKIP` in
-`Taskfile.yml`) and run the UI suite without coverage, which CI only comments.
+`Taskfile.yml`) and run the UI suite without coverage, as CI does.
 
 `Taskfile.yml` and the per-tier files in `taskfiles/` (included flat, so task names
 are unchanged) are the source of truth for what each check actually runs, and
@@ -126,9 +126,8 @@ release rather than trusting a green suite.
 
 CI calls the Taskfile, so there is no second copy of the commands. Only the
 scheduling differs: the workspace tier's card check, lint, types and the
-tenant-isolation suite share one job, the suite is sharded six ways
-(`workspace:test:shard`) and stitched back together by `workspace:test:merge` for the coverage
-comment, and the production UI build runs inside the frontend image build
+tenant-isolation suite share one job, the suite is sharded eight ways
+(`workspace:test:shard`, without coverage instrumentation), and the production UI build runs inside the frontend image build
 rather than as `workspace:build`. The backend core suite is sharded four ways too
 (`be:test:shard`, split by `tests/.test_durations`), and `be:test:coverage`
 combines the shards' data and applies the 65% gate that `be:test:ci` applies

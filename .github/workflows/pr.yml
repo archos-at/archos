@@ -71,6 +71,35 @@ jobs:
               print("::error::A closing keyword is followed by a list of issues, and GitHub closes only the first. Write the keyword before every number: 'Fixes #1, fixes #2'.")
               raise SystemExit(1)
 
+  skip-markers:
+    name: No CI skip markers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # GitHub skips push and pull_request workflows outright for a commit
+      # message carrying one of these, so CI OK never reports. The squash merge
+      # writes the PR's title and body into the commit message, so a marker
+      # here also skips the develop push run: no checks, no `sha-` image tags,
+      # no staging deploy, and the next merge diffs against the last green
+      # commit to make up for it. The safe way to run less is already built
+      # in: Plan selects no tier for a change that needs none, and CI OK still
+      # reports. Read from the payload through the environment.
+      - name: Title and body carry no skip marker
+        shell: python
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          import os
+          import re
+
+          text = os.environ.get("TITLE", "") + "\n" + os.environ.get("BODY", "")
+          pattern = re.compile(r"\[(skip ci|ci skip|no ci|skip actions|actions skip)\]|skip-checks:\s*true", re.IGNORECASE)
+          found = sorted({m.group(0) for m in pattern.finditer(text)})
+          if found:
+              print("::error::" + ", ".join(found) + " in the title or body would skip CI on the merge commit, and with it the image tags and the staging deploy. Remove it; Plan already runs nothing a change does not need.")
+              raise SystemExit(1)
+
   label:
     name: Auto-label by path
     runs-on: ubuntu-latest

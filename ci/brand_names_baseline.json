@@ -1,6 +1,6 @@
 {
   ".github/actions/build-image/action.yml": 1,
-  ".github/workflows/deploy.yml": 37,
+  ".github/workflows/deploy.yml": 35,
   "apps/agent-host/Dockerfile": 2,
   "apps/agent-host/src/agent_host/auth/__init__.py": 1,
   "apps/agent-host/src/agent_host/auth/utils.py": 4,
@@ -481,7 +481,6 @@
   "apps/workspace/eslint-rules/global-cache-keys.mjs": 1,
   "apps/workspace/eslint-rules/motion-vocabulary.mjs": 1,
   "apps/workspace/i18n/config.ts": 1,
-  "apps/workspace/next.config.ts": 2,
   "apps/workspace/observability/http-metrics.js": 2,
   "apps/workspace/observability/http-metrics.spec.mjs": 2,
   "apps/workspace/observability/otel-logs.js": 3,
@@ -502,7 +501,6 @@
   "apps/workspace/scripts/provision-workos-authz.ts": 4,
   "apps/workspace/scripts/provision-workos-environment.ts": 10,
   "apps/workspace/scripts/regrant-office-shelf-permission.ts": 1,
-  "apps/workspace/scripts/sourcemaps-wiring.spec.mjs": 3,
   "apps/workspace/scripts/sync-platform-skills.mjs": 1,
   "apps/workspace/shared/cards/legacy.ts": 1,
   "apps/workspace/tests/app/api/internal/skills/resolve/route.test.ts": 1,

@@ -29,12 +29,40 @@ from agent_host.jobs.event_store import EventStore
 from agent_host.jobs.runner import _update_status_if_not_terminal
 
 
+async def _record(events: EventStore, event: dict) -> None:
+    """Write one of the stand-in's events off the event loop, and see it stored.
+
+    ``EventStore.store`` is a blocking SQLite write. Called on the worker's
+    event loop it froze that loop while it waited for the write lock, and the
+    lock was held by another run's async transaction in the same process
+    (``RESEARCH_WORKERS=4``), which needed that very loop to commit: the write
+    timed out on "database is locked" and the store, best effort by design,
+    dropped it (PR 1477's runs 41722028227, 41723843561, 41725971708). In a
+    thread the loop keeps running and the other transaction commits. The read
+    back stays as a check, because these events are what the engine tests
+    measure.
+    """
+    # get_events answers [] on a failed read too, so a missing row is believed
+    # only after a whole window of reads: writing again on one empty read would
+    # store a duplicate whenever the write had landed and the read had failed.
+    for _ in range(4):
+        await asyncio.to_thread(events.store, event)
+        for _ in range(20):
+            stored = await asyncio.to_thread(
+                EventStore.get_events, events.db_url, events.job_id, event_types=[event["type"]]
+            )
+            if any((row["type"], row["data"]) == (event["type"], event["data"]) for row in stored):
+                return
+            await asyncio.sleep(0.25)
+    raise RuntimeError(f"could not record {event['type']} for {events.job_id}")
+
+
 async def stand_in_agent(*, job_id: str, db_url: str, input_text: str, **_payload) -> None:
     from nat.front_ends.fastapi.async_jobs.job_store import JobStatus
     from nat.front_ends.fastapi.async_jobs.job_store import JobStore
 
     events = EventStore(db_url, job_id)
-    events.store({"type": "test.started", "data": {"pid": os.getpid(), "at": time.time()}})
+    await _record(events, {"type": "test.started", "data": {"pid": os.getpid(), "at": time.time()}})
     mode, _, arg = input_text.partition(":")
     if mode == "exit-once" and not Path(arg).exists():
         Path(arg).write_text("first attempt died here")
@@ -43,11 +71,11 @@ async def stand_in_agent(*, job_id: str, db_url: str, input_text: str, **_payloa
         try:
             await asyncio.sleep(float(arg))
         except asyncio.CancelledError:
-            events.store({"type": "test.cancelled", "data": {"at": time.time()}})
+            await _record(events, {"type": "test.cancelled", "data": {"at": time.time()}})
             raise
     store = JobStore(scheduler_address="", db_url=db_url)
     await _update_status_if_not_terminal(store, job_id, JobStatus.SUCCESS, output="done")
-    events.store({"type": "test.finished", "data": {"at": time.time()}})
+    await _record(events, {"type": "test.finished", "data": {"at": time.time()}})
 
 
 if __name__ == "__main__":

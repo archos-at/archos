@@ -124,6 +124,22 @@ def _wait_for(predicate: Callable[[], bool], *, timeout: float, what: str) -> No
         time.sleep(0.5)
 
 
+async def _hatchet_status_settles(run_id: str, *, timeout: float) -> str:
+    """The Hatchet run's status once it has left RUNNING/QUEUED, or the last one seen at the deadline.
+
+    The worker writes the job's verdict and its last event before its task
+    returns, and the engine marks the run COMPLETED only after that return
+    reaches it: read straight after the events, a passing run can still say
+    RUNNING (PR 1477's run 41713812526).
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        status = (await orchestrator_client.client().runs.aio_get_status(run_id)).value
+        if status not in ("RUNNING", "QUEUED") or time.monotonic() > deadline:
+            return status
+        await asyncio.sleep(0.5)
+
+
 @pytest.fixture
 def engine(hatchet, tmp_path, monkeypatch) -> Iterator[Engine]:
     """A real client (not the suite's fake) in a namespace of this test's own."""
@@ -150,8 +166,7 @@ async def test_a_research_run_runs_end_to_end_and_its_events_reach_the_event_sto
     assert [event["type"] for event in engine.events("job-e2e")] == ["test.started", "test.finished"]
     assert run_id
     _wait_for(lambda: orchestrator_runs.run_id_for(engine.db_url, "job-e2e") is None, timeout=10, what="the id")
-    status = await orchestrator_client.client().runs.aio_get_status(run_id)
-    assert status.value == "COMPLETED"
+    assert await _hatchet_status_settles(run_id, timeout=30) == "COMPLETED"
 
 
 async def test_cancel_stops_a_running_run_and_its_hatchet_run(engine, monkeypatch):
@@ -176,8 +191,7 @@ async def test_cancel_stops_a_running_run_and_its_hatchet_run(engine, monkeypatc
 
     _wait_for(lambda: engine.times("job-cancel", "test.cancelled"), timeout=30, what="the run to be cancelled")
     assert not engine.times("job-cancel", "test.finished")
-    status = await orchestrator_client.client().runs.aio_get_status(run_id)
-    assert status.value == "CANCELLED"
+    assert await _hatchet_status_settles(run_id, timeout=30) == "CANCELLED"
 
 
 async def test_a_run_whose_worker_dies_runs_again_on_another_worker(engine):

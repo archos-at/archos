@@ -2,12 +2,13 @@
 
 This page is the design of the GitHub Actions setup. The workflow files carry
 the details next to the code they explain; this is the map, and the reasons.
+Where it is going, with the numbers: [ci-north-star.md](ci-north-star.md).
 
 ## What CI is for
 
 | Job to do | When | Where | Gate? |
 |---|---|---|---|
-| Prove a pull request, applied to its base, keeps every check its change could break | every push to a PR | `ci.yml` | **Yes: `CI OK`** is the one required status check |
+| Prove a pull request, applied to its base, keeps every check its change could break | every push to a PR | `ci.yml` | **Yes: `CI OK`**, meant as the one required status check. On 2026-11-03 the `protect-develop` ruleset required none, so a red pull request could merge: [ci-north-star.md](ci-north-star.md#decisions-only-an-owner-can-make) |
 | Prove the merged result, build its images, tag them for the commit | every push to `develop` and `release/**` | `ci.yml` | It is what the deploy waits for |
 | Put a green `develop` commit on staging | after a green push run of CI | `deploy.yml` | Staging only ever runs a commit CI passed |
 | Put the pinned commit on production | push to `prod`, with reviewers | `deploy.yml` | The `production` environment's reviewers |
@@ -15,7 +16,7 @@ the details next to the code they explain; this is the map, and the reasons.
 | PR hygiene: Conventional title, closing keywords, labels | PR events | `pr.yml` | The title check |
 | Publish the changelog | merge touching `releasenotes/` | `release-notes.yml` | No |
 
-Everything else (`claude.yml`, `claude-code-review.yml`, `labels.yml`) is assistance, not verification.
+Everything else (`claude.yml`, `labels.yml`) is assistance, not verification. Pull requests are reviewed by the CodeRabbit app; the `claude-code-review.yml` workflow that reviewed them a second time was removed on 2026-11-04.
 
 ## How a CI run decides what to run
 
@@ -66,10 +67,9 @@ It also lists the third-party image pins the change adds or moves
 | Job | Runs when | What it does |
 |---|---|---|
 | Plan (`changes`) | always | the three answers above, written to the run summary with the reason for each |
-| Repo checks (`repo`) | unless reused | pre-commit on all files, the agent-skill lockfile, ruff, the tests of `ci/`, the workflows and the release-note pipeline (`task be:test:harness`), release-note lint and (PRs) the release-note requirement, gitleaks over the commits a PR adds (a push: its full history) |
+| Repo checks, three legs side by side | unless reused | **lint, secrets** (`repo`): pre-commit on all files, ruff, gitleaks over the commits a PR adds (a push: its full history). **CI machinery tests** (`repo-tests`): `task be:test:harness`, the tests of `ci/`, the workflows and the release-note pipeline. **Release notes, skills, migrations** (`release-notes`): release-note lint and (PRs) the requirement, the agent-skill lockfile when the `skills` tier changed, and (PRs) the expand/contract check on added migrations (`ci/migration_contract.py`, label `migration:contract`). As one job they ran in series and finished last in 21 of 45 PR runs (2026-11-03) |
 | SAST (`semgrep`) | PRs touching code | Semgrep, diff-aware: blocks findings the PR introduces |
 | Backend affected tests (`backend-affected`) | PRs, backend tier, selection possible | per suite (core, agent_host, `sources`, the Python packages), only the tests the change reaches (`task be:test:affected`), plus the claim queues on Postgres |
-| Backend test database (`backend-testmon`) | every push to `develop` | records which test runs which code (`task be:test:testmon`) and caches it when green. Not a check |
 | Backend core (`backend`) | backend tier: pushes, and PRs testmon cannot select for | the core suite in 4 shards (`task be:test:shard`), each writing coverage data |
 | Backend coverage gate (`backend-coverage`) | backend tier | combines the shards' data, the 65% gate, the PR comment |
 | Backend suites (`backend-suites`) | backend tier | three jobs side by side: the agent_host suite, the Python packages' suites (`sources`), and the migration test with the claim-queue suites on a real Postgres (`task be:test:postgres`) |
@@ -84,6 +84,23 @@ It also lists the third-party image pins the change adds or moves
 | Image build + push (`image-push`) | pushes, image not in GHCR | builds and pushes `inputs-<hash>` and the layer cache |
 | Tag images (`publish`) | pushes, after every check passed | `sha-<commit>` on all three images, and `latest` on `develop` |
 | `CI OK` (`ci-ok`) | always | fails unless every needed job passed or was skipped; on a green PR, records the tested tree for reuse |
+
+One more workflow runs on a push to `develop` and is not CI:
+**Test database** (`testmon.yml`) records which test runs which code
+(`task be:test:testmon`) and caches it when green, for `backend-affected` to
+select from. It checks nothing, so it lives outside `ci.yml`: the staging deploy
+follows the CI run's `completed` event, and as a job in CI it was the last to
+finish. On 2026-11-03 a reused push had `CI OK` after one minute and its run
+completed after eight, every minute of the difference this job, and the next
+develop run queued behind it (a run created at 17:56 started at 18:06). A job
+that "holds nobody up" belongs in CI only if nothing waits on the run as a
+whole; the deploy does. It runs only when Python, a `pyproject.toml`, the lock
+or its own harness changed: a docs or UI merge cannot change which test runs
+which function, and the run is the full backend suite, seven runner-minutes.
+
+The core shards (`task be:test:shard`) leave out the 17 files of
+`be:test:harness` (the Taskfile variable `HARNESS_TESTS`), which the CI
+machinery leg runs on every run that runs the shards. They used to run twice.
 
 `task verify` runs the same checks locally, minus the image builds, the RLS
 suite and `packages/` (see
@@ -128,66 +145,65 @@ deploy exactly as before.
 
 | Piece | Where | What it does |
 |---|---|---|
-| Source maps and release | `image-push` for the frontend image, inside `next build` in the Docker build (`@posthog/nextjs-config`, wired in `apps/workspace/next.config.ts`) | At the end of the build, injects a chunk id into the shipped JavaScript, uploads the maps to PostHog, deletes them. The release is `grid-ui` at the commit that built the image, which is the `GIT_SHA` the container reports |
+| Source maps and release | The frontend Docker build (inject, offline) and `.github/workflows/sourcemaps.yml` (upload, after CI) | The build emits maps and injects a chunk id into each shipped chunk; `image-push` exports the maps as an artifact; the Source maps workflow uploads them for release `workspace-ui` at the commit that built the image, the `GIT_SHA` the container reports |
 | Backend release | `deploy.yml` (staging), before the plan (`PostHog/resolve-release`) | Finds or creates release `grid-agent` at the backend image's commit and hands its id to the Python tiers as `POSTHOG_RELEASE_ID` (below) |
 | Deploy marker | `deploy.yml`, after each `Pulumi up` (`deploy/pulumi/scripts/posthog-annotate.sh`) | A project annotation `deploy dev <sha>` or `deploy prod <sha>` at the time the apply finished. `continue-on-error`: a PostHog outage never turns a deploy red |
 
 | Name | Kind | Value |
 |---|---|---|
-| `POSTHOG_CLI_API_KEY` | secret | A personal API key with scopes `error_tracking:write`, `organization:read` and `annotation:write`, created at PostHog → Settings → User API keys. Repository-level, because `image-push` has no environment; the deploy jobs read the same one |
+| `POSTHOG_CLI_API_KEY` | secret | A personal API key with scopes `error_tracking:write`, `organization:read` and `annotation:write`, created at PostHog → Settings → User API keys. Repository-level; the Source maps workflow and the deploy jobs read it. The image build never does |
 | `POSTHOG_PROJECT_ID` | variable | The numeric project id (269895 for the EU staging project). Not secret |
 | `POSTHOG_CLI_HOST` | variable, optional | The PostHog **app** host. Default `https://eu.posthog.com`. Not the ingestion host `eu.i.posthog.com` |
 
 Why it is built this way:
 
-- **Inside the Docker build, not a workflow step.** The injection rewrites the
-  files the image ships. A step after the build would inject into files the
-  image never contained, and the chunk ids in the image would match nothing.
-  `PostHog/upload-source-maps` works on a directory of the runner, so it does
-  not fit an image built by BuildKit. `@posthog/nextjs-config` runs the PostHog
-  CLI from Next's own after-compile hook, which is inside the build.
-- **A BuildKit secret, never a build arg.** An arg is written into the image
-  history. The key reaches the Dockerfile as `--mount=type=secret`, and the RUN
-  that builds exports it as `POSTHOG_CLI_API_KEY` for `next.config.ts` and the
-  CLI. `build-image` passes it only for the frontend image and only from
-  `image-push`; a pull request build has no access and uploads nothing, so
-  unmerged code never creates a release.
-- **Off unless it can upload.** `next.config.ts` wraps its config with
-  `withPostHogConfig` (outermost, as the package requires) only when the key
-  and `POSTHOG_PROJECT_ID` are both present, and imports the package only then.
-  Every other build, and the running server, which loads `next.config.ts` too,
-  gets the config as written with no map flags.
-- **The maps are uploaded and not served.** Next serves `.next/static/**/*.map`,
-  original source included, to anyone. The package turns browser maps on only
-  for the uploading build and deletes them after the upload; `next.config.ts`
-  turns server maps on beside it. The same Dockerfile RUN then deletes every
-  `.map` still under `.next/static` or `.next/server` (Turbopack writes some
-  unasked, uploading or not) and fails the build if one survives. It fails as
-  well when it uploaded and no chunk id was injected, which would mean the
-  upload matches no stack frame.
-- **`symbol-set` release mode**, set explicitly: the maps are bound to the
-  release, as the CLI did before the package. The newer `event` mode injects a
-  release id for posthog-js to send per event, which the pinned posthog-js is
-  not known to read.
+- **Inject inside the build, upload after CI.** The injection rewrites the files
+  the image ships, so it runs in the Dockerfile's build RUN; a step after the
+  build would inject into files the image never contained. The upload only
+  reads the maps, so it does not belong there: done by `@posthog/nextjs-config`
+  inside `next build`, it took ~232 s of every frontend build (4360 chunks,
+  run 41688820888), on the path every deploy waited for. Now the build keeps
+  maps and injected chunks in a `sourcemaps` stage, `image-push` exports it
+  (`build-image`'s `export-sourcemaps`, seconds from the warm builder), and the
+  Source maps workflow uploads it when CI completes, beside the deploy. It is a
+  workflow of its own and not a job in `ci.yml` because the deploy follows the
+  CI run as a whole.
+- **No key in the build, so every build is the same build.** `posthog-cli
+  sourcemap inject` without a release name contacts nobody; it only insists
+  that credentials exist, and the Dockerfile gives it placeholders (measured on
+  0.18.11: with `--release-*` it calls the API, without them it logs "injecting
+  chunk ids only"). A pull request build therefore injects exactly as a push
+  does, and an image no longer differs by whether its builder held the secret.
+  The release is linked at upload (`--release-name workspace-ui --release-version
+  <commit>`), so unmerged code still never creates one.
+- **The maps are kept aside and not served.** Next serves `.next/static/**/*.map`,
+  original source included, to anyone. `next.config.ts` turns browser and
+  server maps on only for the image build (`EMIT_SOURCE_MAPS=1`); the RUN
+  copies them out, deletes every `.map` under `.next/static` and `.next/server`
+  with the `sourceMappingURL` comments that pointed at them, and fails if a map
+  survives or a chunk carries no id. The `sourcemaps` stage sits before the
+  runner, which stays the default target.
+- **`symbol-set` release mode**, the CLI's default: the maps are bound to the
+  release. The newer `event` mode injects a release id for posthog-js to send
+  per event, which the pinned posthog-js is not known to read.
 - **Why the release is a build commit.** An image whose inputs did not change is
-  re-tagged, not rebuilt (above), so an error on such a deploy names the older
-  commit that built the code. The deploy marker carries the commit that was
-  deployed. Read the pair together: the release says where the code came from,
-  the annotation says when users got it.
-- **Chunk ids are content-addressed**, so a rebuild of unchanged files yields
-  the same ids and a re-run cannot orphan an earlier upload.
-- The CLI is the `@posthog/cli` the package depends on (pinned through
-  `@posthog/nextjs-config`, an exact devDependency). Its npm package downloads
-  the binary on first use (`bun install --ignore-scripts` skips its
-  postinstall), which happens inside the build RUN, and the same RUN deletes
-  the binary. It has to: `bun install --production` over an existing
-  `node_modules` does not prune devDependencies (measured with bun 1.3.11), so
-  the later production install would let it ship in the runtime image.
-- Caching: `ARG GIT_SHA` is declared before `bun run build`, because the
-  release version is read during the build. That costs nothing a rebuild did
-  not already pay: an image is rebuilt only when its inputs changed, and then
-  the build layer re-runs anyway. `POSTHOG_PROJECT_ID` is an arg before the
-  build too, so a build with PostHog configured never reuses one without maps.
+  re-tagged, not rebuilt (above), and its run exports no maps: its chunks kept
+  their ids, and PostHog has their maps from the build that made them. The
+  deploy marker carries the commit that was deployed. Read the pair together:
+  the release says where the code came from, the annotation says when users got
+  it.
+- **The release is `workspace-ui`**, named for what it is (ADR-0149); it was
+  `grid-ui` until the upload moved out of the build, and releases made before
+  then keep that name in PostHog.
+- **Chunk ids are content-addressed** (UUIDv5 of the chunk), so a rebuild of
+  unchanged files yields the same ids and a re-run cannot orphan an upload.
+- The CLI is `@posthog/cli`, an exact devDependency of the workspace, and the
+  Source maps workflow installs that same version (a test holds the two
+  together). Its npm package downloads the binary on first use (`bun install
+  --ignore-scripts` skips its postinstall), which happens inside the build RUN,
+  and the same RUN deletes the binary: `bun install --production` over an
+  existing `node_modules` does not prune devDependencies (measured with bun
+  1.3.11), so the later production install would let it ship.
 
 An image already in GHCR under its `inputs-<hash>` is not rebuilt when the
 secret is added later, so its maps are never uploaded. Wait for the weekly
@@ -256,11 +272,33 @@ then, no job waited more than three seconds for a runner. So the backend core
 suite runs in four shards and the UI suite in six (it had four, and they had
 grown to 7 to 11 minutes each); see [The backend lane](#the-backend-lane).
 
-One duplicate remains outside this repository's files: GitHub's **CodeQL
-default setup** runs three analysis jobs on every PR push and a five-to-ten
-minute analysis on every `develop` push, beside Semgrep, which was adopted to
-replace CodeQL. Turning one of them off is a setting
-(Settings → Code security), and it is the largest remaining cost per push.
+GitHub's **CodeQL default setup**, which ran three analysis jobs on every PR
+push and a five-to-ten minute analysis on every `develop` push beside Semgrep,
+was turned off on 2026-11-04. The organization's security configuration had
+enforced it ("Blocked by organization" on the repository's page), so it is
+switched off in that configuration, under the organization's Settings →
+Advanced Security → Configurations, not in the repository. Semgrep in `ci.yml`
+is the SAST gate.
+
+## Runners and cost
+
+Every CI job runs on `${{ vars.CI_RUNNER || 'ubuntu-latest' }}`, every deploy
+on `${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}`. Moving to self-hosted runners
+(Actions Runner Controller) is setting the variable to the scale set's name.
+The runner image must carry what the hosted image gives these jobs for free:
+Docker (service containers, buildx, gitleaks), python3, jq, gh, curl and git.
+Deploys have their own variable because a runner inside the cluster it deploys
+to dies with a rollout that takes the cluster down, halfway through
+`pulumi up`. `tests/test_ci_workflows.py` fails a job that names a runner of
+its own.
+
+The runners are self-hosted, so the budget is wall time, not runner-minutes:
+a job that shortens the critical path is worth its runner, a second runner for
+a shard is cheap, and a job that duplicates another is removed because it
+holds a slot and a person's attention, not because of its bill. Self-hosting
+also allows what hosted runners cannot: warm caches that outlive a job (a
+persistent BuildKit, the venv, bun's store, `.next/cache`). What that buys,
+ranked: [ci-north-star.md](ci-north-star.md).
 
 ## The backend lane
 
@@ -305,7 +343,7 @@ What it was made of, and what was done about each:
 
 **A pull request runs only the Python tests its change reaches.** Sharding
 made the full suite ~5 minutes; a typical change reaches a few dozen tests.
-Every push to `develop` records, with pytest-testmon, which test executed which
+Every push to `develop` that changes Python records, with pytest-testmon, which test executed which
 function, one database per suite, and caches it when every test passed. A pull
 request restores it and runs the tests whose recorded functions it changed,
 plus every test file that names a changed non-Python file (a config, a prompt,
@@ -345,8 +383,9 @@ which reaches ~720 specs, and the rest mostly touch a module behind
 `lib/api/errors.ts` or the schema barrel. A leaf change reaches a handful.
 `task workspace:blast-radius` holds each hub to the specs it reached when recorded;
 the hubs, and the splits that would cut them, are in
-[`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md). The
-coverage comment comes only from a full run.
+[`docs/audit/blast-radius-2026-10.md`](../audit/blast-radius-2026-10.md). Coverage
+is measured on the backend only (the 65% gate, total in the job summary); the
+UI shards run without instrumentation, since nothing gates on UI coverage.
 
 **What a later push to the same pull request re-runs.** Two references are
 sound, and the Plan job takes the one that forces fewer full suites, then the

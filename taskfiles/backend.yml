@@ -6,6 +6,17 @@
 version: '3'
 
 vars:
+  # The tests of the repository's own machinery, which `be:test:harness` runs in
+  # CI's Repo checks on every run. One list, read by that task, by
+  # be:test:shard (which leaves them out, so a push does not run them twice) and
+  # by scripts/check_ci_filter_reads.py.
+  HARNESS_TESTS: >-
+    tests/test_ci_workflows.py tests/test_reuse_green_run.py tests/test_last_green.py
+    tests/test_image_inputs.py tests/test_pinned_images.py tests/test_plan_summary.py
+    tests/test_release_notes.py tests/test_pr_closing_keywords.py tests/test_bun_version_pin.py
+    tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
+    tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
+    tests/test_check_brand_prose.py tests/test_migration_contract.py
   # The Python packages under packages/ (ADR-0145 row 6): the uv workspace
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).
@@ -51,17 +62,13 @@ tasks:
     cmds:
       # CI's Repo checks job runs these on every pull request, so the backend
       # filter need not fire for `ci/`, `releasenotes/` or a workflow alone
-      # (.github/filters.yml). They stay in the core suite too. The product-framing
+      # (.github/filters.yml). CI's core shards leave them out (be:test:shard), since
+      # Repo checks runs them on every run that runs the shards; `be:test` keeps
+      # them, so a local run still has everything. The product-framing
       # test is here because it reads the first-impression docs, and a docs-only
       # change runs no filtered tier. The layout test is here because a new
       # top-level directory can come from any tier's change.
-      - >-
-        {{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider
-        tests/test_ci_workflows.py tests/test_reuse_green_run.py tests/test_last_green.py
-        tests/test_image_inputs.py tests/test_pinned_images.py tests/test_plan_summary.py
-        tests/test_release_notes.py tests/test_pr_closing_keywords.py tests/test_bun_version_pin.py
-        tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
-        tests/test_repo_layout.py tests/test_ci_filter_reads.py
+      - '{{.PY}} -X faulthandler -m pytest -q -p no:cacheprovider {{.HARNESS_TESTS}}'
 
   be:test:sources:
     desc: The Python packages' suites (packages/knowledge-layer, ris-adapter, tavily-web-search)
@@ -321,6 +328,7 @@ tasks:
         --splits {{.TOTAL}} --group {{.INDEX}} --splitting-algorithm least_duration
         --durations-path tests/.test_durations
         --cov=packages/agent/src/agent --cov-report=
+        {{range (splitList " " .HARNESS_TESTS)}} --ignore={{.}}{{end}}
 
   be:test:coverage:
     desc: Combine the core shards' coverage data and apply the gate CI enforces

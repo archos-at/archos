@@ -92,8 +92,6 @@ backend:
   - 'apps/workspace/bff/jobs-queue/attempts.ts'
   - 'apps/workspace/bff/jobs-queue/task.ts'
   - 'apps/workspace/bff/jobs/types.ts'
-  - 'apps/workspace/bff/legal/content/de.ts'
-  - 'apps/workspace/bff/legal/content/en.ts'
   - 'apps/workspace/bff/model-config/agent-groups.ts'
   - 'apps/workspace/bff/platform/vector-reconcile.ts'
   - 'apps/workspace/bff/project-profile/legacy-names.json'
@@ -143,9 +141,7 @@ backend:
   - 'apps/workspace/ui/features/layout/components/InputArea.tsx'
   - 'apps/workspace/workers/job-queue.js'
   - 'apps/workspace/workers/jobs/index.js'
-  - 'ci/brand_history_manifest.txt'
   - 'ci/brand_names_baseline.json'
-  - 'ci/brand_prose_baseline.json'
   - 'ci/english_names_baseline_py.json'
   - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'
@@ -169,8 +165,6 @@ backend:
   - 'packages/ifc-spatial/test/fixtures/house-with-rooms.ifc'
   - 'packages/ifc-spatial/test/fixtures/road-ifc4x3.ifc'
   - 'packages/ifc-spatial/test/fixtures/units-feet.ifc'
-  - 'releasenotes/summaries.yaml'
-  - 'releasenotes/translations/de.json'
   # End of the files this tier's tests read.
 # NOT here, though tests read them: `ci/**`, `releasenotes/**`, the other
 # workflows and this file. Their tests (`task be:test:harness`: the workflow,
@@ -189,6 +183,8 @@ backend:
 # lost a filter; only the job went. See ci.yml's `ci-ok` comment and ADR-0058's
 # "Update (2026-09-09)".
 workspace:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   - 'apps/workspace/**'
   # The BFF's model-config tests read the workflow config (the agent
   # groups it seeds are derived from `llms:`), so a PR touching only
@@ -247,6 +243,8 @@ workspace:
   - 'packages/ris-adapter/src/client.py'
   # End of the files this tier's tests read.
 site:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   # The public website (built from packages/brand).
   - 'apps/website/**'
   # The brand package: the website's `bun run check` holds the token and name copies
@@ -270,6 +268,8 @@ site:
   - '.github/actions/setup-bun/**'
   - '.github/actions/setup-task/**'
 infra:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   - 'deploy/**'
   # deploy/pulumi/src/app/web.spec.ts reads the website's Dockerfile and the
   # server its CMD starts.
@@ -316,6 +316,8 @@ infra:
 # pay for a Next.js build. The `packages` job is ~4 minutes, essentially all of
 # it packages/ifc-spatial-py, which is why it is filtered at all.
 packages:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   # The IFC packages only: packages/brand has no suite of its own and is
   # checked by the site and workspace tiers (ADR-0145).
   - 'packages/ifc-spatial*/**'
@@ -334,6 +336,16 @@ packages:
 migrations:
   - 'apps/workspace/migrations/**'
   - 'scripts/rls-test-db.sh'
+# The agent-skill lockfile check (`task agents:audit` in Repo checks): the
+# skills, apm's manifest and lockfile, and the pin of apm itself. Nothing else
+# can make apm.lock.yaml stale, and the check fetches every pinned skill
+# repository over the network.
+skills:
+  - 'skills/**'
+  - 'apm.yml'
+  - 'apm.lock.yaml'
+  - 'Taskfile.yml'
+  - 'taskfiles/repo.yml'
 # The pull request SAST scan. Semgrep is diff-aware, so it only ever reports
 # findings the change introduces; this decides whether there is code to scan.
 sast:
@@ -348,6 +360,8 @@ sast:
 # SDK pins, and the harness: the scripted workers and handlers, and the RLS
 # script that builds the BFF suite's database.
 hatchet:
+  # The Node version every job of this tier runs on (setup-node reads it).
+  - '.node-version'
   # The ingest workflow, and the client both Python workflows build on.
   - 'packages/agent/src/agent/common/orchestrator_client.py'
   - 'packages/agent/src/agent/knowledge/ingest_*.py'
