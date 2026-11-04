@@ -110,5 +110,5 @@ run before and after.
 | 0. Measure the carry | `chat_cross_turn_cache_carry`: the cached share of each answer's first call, opening turns and follow-ups apart | built (#1488) |
 | 1. The stable head | this ADR | built, off |
 | 2. Know what bounds the carry | split the carry by the gap since the previous turn (the endpoint's in-memory cache lasts minutes) | next |
-| 3. Sticky routing for chat | ZDR chat calls carry the EU-first `provider.order`, which turns OpenRouter's sticky routing off; page reads moved to `provider.only` for that reason. Chat needs the non-EU fallback, so it needs another route to the same shard | open |
+| 3. Sticky routing for chat | ZDR chat calls carry the EU-first `provider.order`, which turns OpenRouter's sticky routing off; page reads moved to `provider.only` for that reason. Chat needs the non-EU fallback, so it needs another route to the same shard. Decide it on evidence first: the ledger keeps each call's `generation_id`, and OpenRouter's `GET /api/v1/generation?id=` names the endpoint that served it, so sampling the low-carry follow-ups of slice 2 shows whether they left the endpoint that holds the cache | open |
 | 4. Retention that outlives a reading pause | where the endpoint offers it (OpenAI's 12 h retention writes at 2.5x), measured on slice 2's split | open |
