@@ -531,7 +531,7 @@ describe('the Python agent’s read tools', () => {
       destructive: false,
     })
     expect(structured(searchOperations(ctx(person), { query: '', domain: 'bim' })).operations.map((op) => op.name)).toEqual(
-      expect.arrayContaining(['ifc-query', 'ifc-measure']),
+      expect.arrayContaining(['ifc-measure']),
     )
   })
 

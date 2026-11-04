@@ -86,13 +86,12 @@ afterEach(() => {
 })
 
 describe('the operations', () => {
-  it('are the eight read tools, named like the catalog and unique across it', () => {
+  it('are the seven read tools, named like the catalog and unique across it', () => {
     expect(BACKEND_OPERATIONS.map((op) => op.name)).toEqual([
       'knowledge-search',
       'passage-read',
       'files-list',
       'document-look',
-      'ifc-query',
       'ifc-measure',
       'dxf-measure',
       'law-lookup',
@@ -255,7 +254,7 @@ describe('callBackendOperation', () => {
   })
 
   it('asks for a project when the tool needs one, and runs the law lookup without', async () => {
-    const missing = await callBackendOperation('ifc-query', {}, session, {})
+    const missing = await callBackendOperation('ifc-measure', {}, session, {})
     expect(missing).toMatchObject({ status: 400, ok: false })
     expect(fetchMock).not.toHaveBeenCalled()
 

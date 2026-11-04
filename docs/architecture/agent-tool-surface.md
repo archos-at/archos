@@ -300,7 +300,6 @@ documents with the tool Piloti searches with.
 | `passage-read` | `read_passage` | `projectId` |
 | `files-list` | `list_files` | `projectId` |
 | `document-look` | `look` | `projectId` |
-| `ifc-query` | `ifc_query` | `projectId` |
 | `ifc-measure` | `ifc_measure` | `projectId` |
 | `dxf-measure` | `dxf_measure` | `projectId` |
 | `law-lookup` | `ris_lookup_tool` | nothing |

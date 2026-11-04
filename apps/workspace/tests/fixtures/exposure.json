@@ -3598,16 +3598,6 @@
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
   },
-  "ifc-query": {
-   "kind": "backend",
-   "domain": "bim",
-   "sensitivity": null,
-   "external": true,
-   "piloti": "native:ifc_query",
-   "platform": false,
-   "withheld": null,
-   "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
-  },
   "ifc-measure": {
    "kind": "backend",
    "domain": "bim",

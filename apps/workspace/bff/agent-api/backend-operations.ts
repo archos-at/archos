@@ -4,7 +4,8 @@ import 'server-only'
  *
  * `catalog/` covers what the BFF's routes do. Piloti's best READ tools live
  * only in the Python agent: knowledge search, passage reading, the file
- * browser, page images, the two BIM tools, the DXF site measure and RIS. An outside agent must get
+ * browser, page images, the IFC measure, the DXF site measure and RIS. The
+ * IFC query is the route's own operation, `bim-model-query`, not a tool here. An outside agent must get
  * them too, so each is an operation here, and the MCP server lists them beside
  * the catalog's. A call goes to the backend's `POST /v1/internal/tools/{name}`
  * (`apps/agent-host/src/agent_host/routes/internal_tools.py`).
@@ -197,31 +198,6 @@ const ENTRIES = [
     needsProject: true,
   },
   {
-    name: 'ifc-query',
-    tool: 'ifc_query',
-    domain: 'bim',
-    summary: 'Query the properties, quantities and classification of a project’s building model',
-    description:
-      'Query the project’s IFC (BIM) model for exact facts the export states: element counts, rooms and their areas, storeys, ' +
-      'property values (fire rating, U-value, load-bearing), materials and classifications. Use it instead of knowledge-search when ' +
-      'the question is about this building rather than a regulation. `operation`: `overview` (start here), `health` (the ' +
-      'validation report: unassigned elements, rooms without area, missing property sets; read it before claiming coverage), ' +
-      '`types`, `properties` (the model’s own property vocabulary with values and counts; call it before filtering on a ' +
-      'property you have not seen), `elements`, `element` (one element by GlobalId), `schedule` (every room with storey, area and ' +
-      'volume, with totals), `takeoff` (one quantity summed per type, optionally by material), `profile` (project facts the model ' +
-      'implies, as proposals for a person to confirm), `compliance` (the OIB rule catalogue against the model: per requirement, ' +
-      'how many elements are met, not met or undecidable, and which property would decide it; pass `building_class` 1 to 5 and ' +
-      '`main_use`), `compliance-diff` and `compare` (against an older revision named by `compare_with`), and `aggregate` (count, ' +
-      'sum, avg, min or max, optionally grouped). `filters` is a JSON object (`ifcTypes`, `storeys`, `nameContains`, `material`, ' +
-      '`classification`, `properties` with operators eq, neq, contains, gt, gte, lt, lte, exists, missing); only elements, ' +
-      'aggregate and takeoff take it, and an unknown key is rejected. Storey names match exactly: copy them from `overview`. ' +
-      '`model_name` picks one model; without it only the project’s own is read, and an office-shelf model only when ' +
-      'named. A compliance result is never a statement that the building ' +
-      'complies: it reads published values only. A missing value is a fact about the export, not the building. Report numbers and ' +
-      'caveat lines as returned; never recompute them.',
-    needsProject: true,
-  },
-  {
     name: 'ifc-measure',
     tool: 'ifc_measure',
     domain: 'bim',
@@ -230,7 +206,7 @@ const ENTRIES = [
     description:
       'Measure the project’s IFC (BIM) model: dimensions, distances, areas, clear heights and widths, and spatial relations, each ' +
       'with how it was obtained. Use it when the file does not state the number and the geometry has to be read, or to check a ' +
-      'declared number another way; for counts and published values call ifc-query first. Call `operation: "briefing"` ' +
+      'declared number another way; for counts and published values call bim-model-query first. Call `operation: "briefing"` ' +
       'first, once per model: it names the storeys, the property vocabulary this export used, and what this file cannot answer; ' +
       'copy storey and property names from it. Then `find_elements` for GlobalIds, `element`, `relations`, `measure` (one ' +
       'element or a known set), `survey` (one measure across a whole selection, with the spread: use it whenever the question is ' +
