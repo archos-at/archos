@@ -143,37 +143,37 @@ class TestMeasurementDetectionAgainstTheRealEngine:
 
     Three of ``ifc_measure``'s renderers write „gemessen"/„deklariert" into
     prose that explains why NOTHING could be measured: a survey's head renders
-    „gemessen: clearHeight an 0 von 4 Bauteilen", an element profile's head
-    renders „gemessen an Wand X" whatever its aspects say, and `fire`'s
+    „gemessen: clearHeight on 0 of 4 elements", an element profile's head
+    renders „gemessen on Wand X" whatever its aspects say, and `fire`'s
     Fluchtniveau remedy ends „…dessen Höhe gemessen werden könnte". Under the
     old vocabulary match all three granted measurement grounding, so a model
     that invented a number on top of a refusal surfaced at "medium".
 
     No payload here is written by hand — the engine runs over the repository's
-    own fixtures, so the German is whatever the product actually emits.
+    own fixtures, so the text is whatever the product actually emits.
     """
 
     def test_a_survey_that_measured_something_is_grounding(self, run):
         result = run(HOUSE, "survey", measure="clearHeight", roomKind="alle")
-        assert "an 4 von 4 Bauteilen" in result
+        assert "on 4 of 4 elements" in result
         assert tool_result_is_measurement("ifc_measure", result) is True
 
     def test_a_survey_that_measured_nothing_is_not_grounding(self, run):
         """0 of 2 — and the head still opens with „gemessen:"."""
         result = run(NO_GEOMETRY, "survey", measure="clearHeight", roomKind="alle")
-        assert result.startswith("gemessen: clearHeight an 0 von 2 Bauteilen")
+        assert result.startswith("gemessen: clearHeight on 0 of 2 elements")
         assert tool_result_is_measurement("ifc_measure", result) is False
 
     def test_an_all_undecidable_element_profile_is_not_grounding(self, run):
         result = run(NO_GEOMETRY, "element_profile", globalId="2Haus0Raeume00Wall0001")
-        assert result.startswith("gemessen an Aussenwand Sued")
-        assert "NICHT ENTSCHEIDBAR" in result
+        assert result.startswith("gemessen on Aussenwand Sued")
+        assert "UNDECIDABLE" in result
         assert tool_result_is_measurement("ifc_measure", result) is False
 
     def test_an_undecidable_escape_level_is_not_grounding(self, run):
         """The report that started this: a refusal whose REMEDY says „gemessen"."""
         result = run(NO_STOREYS, "fire", kind="escape_level")
-        assert result.startswith("NICHT ENTSCHEIDBAR")
+        assert result.startswith("UNDECIDABLE")
         assert "gemessen werden könnte" in result
         assert tool_result_is_measurement("ifc_measure", result) is False
 
