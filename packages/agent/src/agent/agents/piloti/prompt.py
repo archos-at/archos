@@ -68,7 +68,7 @@ from .context_layout import CONVERSATION_LAYOUT
 from .context_layout import as_conversation_context
 from .context_layout import context_layout
 from .context_layout import conversation_request
-from .context_layout import split_values
+from .context_layout import layout_values
 from .models import ResearchAgentState
 
 logger = logging.getLogger(__name__)
@@ -401,7 +401,7 @@ def render_turn_prompt(template: str, state: ResearchAgentState, tools_info: Seq
     if context_layout() != CONVERSATION_LAYOUT:
         context = render_turn_context(template, state, tools_info)
         return TurnPrompt(system=system, context=with_answer_language(context, state.messages))
-    conversation_values, note_values = split_values(turn_context_values(state, tools_info))
+    conversation_values, note_values = layout_values(turn_context_values(state, tools_info))
     return TurnPrompt(
         system=system,
         context=with_answer_language(_render_context(template, note_values), state.messages),

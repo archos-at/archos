@@ -38,11 +38,15 @@ for a model an admin re-points us at (ADR-0014).
 
 WHAT WE DELIBERATELY DO NOT SEND
 ================================
-- ``provider.order``: "Sticky routing is not used when you specify a manual
-  provider order via ``provider.order`` — in that case, your explicit ordering
-  takes priority." Pinning the provider ourselves would *disable* the mechanism
-  we are trying to use, and would hard-fail whenever an override lands on a
-  model that provider does not serve.
+- ``provider.order`` of our own: "Sticky routing is not used when you specify a
+  manual provider order via ``provider.order`` — in that case, your explicit
+  ordering takes priority." This module adds none. The zero-data-retention
+  policy does: every ZDR call but a page read carries the EU-first ``order``
+  (``openrouter.DataPolicy.apply``), so sticky routing is OFF for ZDR chat
+  calls, which land on the first EU endpoint that serves the model instead of
+  on the shard the key names. Page reads use ``provider.only`` for that reason
+  (``DataPolicy.for_page_reads``); chat keeps the ``order`` because ``only``
+  gives up the non-EU fallback a chat turn needs.
 - ``usage: {include: true}``: "The ``usage: { include: true }`` and
   ``stream_options: { include_usage: true }`` parameters are deprecated and have
   no effect. Full usage details are now always included automatically in every

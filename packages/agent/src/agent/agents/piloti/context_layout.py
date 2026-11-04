@@ -1,42 +1,35 @@
-"""A conversation that only grows: where the turn context sits, and what the transcript keeps of it.
+"""Where a chat turn's context sits in the request: one turn context, or a stable head and a turn note.
 
 WHY
 ===
-A provider caches the prefix of a request. Within a turn every round extends
-the round before, so the rounds hit. Across turns the cache carries only as far
-as the next turn's first request repeats the previous turn's last one, and the
-turn-context layout (``prompt.request_messages``) repeats very little of it: the
-context sat right before the previous question and is not stored, and the
-history window moves every turn. Driven through this code, a three-turn
-conversation's follow-up repeats 31 % of what the turn before sent (the agent's
-``test_cross_turn_prefix.py``); in production a follow-up's
-first call was as large and as uncached as an opening turn's (2026-11-04).
+A provider caches the prefix of a request. Every call of a turn starts with
+the tool schemas and the system prompt, then the turn layout
+(``prompt.request_messages``) sends the history and, right before the newest
+question, one turn context holding everything about the turn: the project, the
+office, the inventory, and what only this turn has (the date, the asker, the
+open file). Most of that context is the same on every turn of a project, yet it
+sits after the history and is sent as new tokens on every turn, so two turns,
+or two conversations of one project, share nothing past the system prompt but
+the history the window happened to keep.
 
-The conversation layout treats a conversation as one context that only grows:
+The conversation layout splits it in two:
 
-* **What holds for the whole conversation comes first.** The blocks set by the
-  project and the office (the inventory, the project context and memory, the
-  office's instructions, its reference projects and lessons, the per-tenant
-  switches) are one ``<conversation_context>`` message right after the system
-  prompt, so every turn of the conversation, and every conversation of the same
-  project, starts with the same bytes.
-* **What a turn varies stays with that turn.** The rest (the date, the asker, the
-  open file, what woke the turn, the workspace, what was already read, the
-  skill and card shapes chosen for it, the answer language) is the turn's note,
-  sent right before its question as before. It is now also STORED with the
-  question (:data:`TURN_NOTE_KEY`), so the next turn sends the same note at the
-  same place instead of dropping it.
-* **The window moves only when the budget makes it, and then in steps.** Every
-  turn keeps its (cited) tool results until the history no longer fits; then
-  the oldest turns lose them :data:`STEP_TURNS` turns at a time
-  (:func:`stepped_window`), so the transcript is rewritten once per step and
-  only grows in between. The turn layout's window stays the fallback.
+* the **conversation context**, what the project and the office set
+  (:data:`CONVERSATION_VALUES`), one message right after the system prompt. It
+  is the same bytes on every turn and in every conversation of the project
+  until a file settles or a memory note changes, so the provider's cache holds
+  it across turns and across conversations;
+* the **turn note**, what this turn varies (:data:`TURN_VALUES`), right before
+  the question where the turn context was, and request-only as before.
 
-The answer is written back as before: the cited passages whole, the others
-reduced to their headers (``history.compact_tool_results``).
+Nothing else changes: the history window, the write-back, what is stored.
+Every value the template reads is in exactly one of the two sets, held by a
+test that parses the template, so a new value cannot land in the head unseen
+and rewrite it every turn.
 
-Behind :data:`LAYOUT_ENV`, default ``turn``: what shapes an answer changes only
-after the answer suite has measured it.
+Behind :data:`LAYOUT_ENV`, default ``turn``: moving the project's facts before
+the history changes what the model reads, so it switches on with the answer
+suite's report (ADR-0154).
 """
 
 from __future__ import annotations
@@ -45,20 +38,12 @@ import os
 from collections.abc import Sequence
 from typing import Any
 
-from langchain_core.messages import AIMessage
 from langchain_core.messages import BaseMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
-from langchain_core.messages import ToolMessage
 
 from agent.common.steering import AppliedSteer
 from agent.common.steering import with_steering
-
-from .history import _count_message_tokens
-from .history import _prose_only
-from .history import compact_tool_results
-from .history import history_window
-from .history import replay_retired_look_names
 
 # @environment_variable CHAT_CONTEXT_LAYOUT
 # @category Agent
@@ -66,27 +51,22 @@ from .history import replay_retired_look_names
 # @default turn
 # @required false
 # Where a chat turn's context sits in the request. `turn`: one turn-context
-# message right before the newest question, rebuilt every turn. `conversation`:
-# the project and office blocks once after the system prompt, the turn's own
-# note stored with its question, and a history window that moves in steps, so a
-# follow-up repeats the previous turn's request and the provider's cache carries
-# across turns (the chat agent's `context_layout.py`, ADR-0154). Switch it on
-# only with the answer suite's report.
+# message right before the newest question. `conversation`: what the project
+# and the office set once after the system prompt, the same on every turn, and
+# only the turn's own note before the question, so the provider's prompt cache
+# holds the project context across turns and conversations (the chat agent's
+# `context_layout.py`, ADR-0154). Switch it on only with the answer suite's report.
 LAYOUT_ENV = "CHAT_CONTEXT_LAYOUT"
 TURN_LAYOUT = "turn"
 CONVERSATION_LAYOUT = "conversation"
-
-#: Where a stored question keeps the note it was sent with.
-TURN_NOTE_KEY = "turn_note"
-
-#: How many turns lose their tool results at once when the history outgrows its budget.
-STEP_TURNS = 3
 
 #: The template values a turn varies: they stay in the turn's note.
 TURN_VALUES = frozenset(
     {
         "current_datetime",
         "user_info",
+        # Bound per turn: the working directory may not be.
+        "drafting_enabled",
         "skills_block",
         "card_shapes_block",
         "focus_file_name",
@@ -96,24 +76,28 @@ TURN_VALUES = frozenset(
         "trigger_block",
         "already_read_block",
         "workspace_block",
+        # Re-ordered for every question (``register._apply_reference_fit``).
+        "reference_projects",
     }
 )
 
-#: What each value is in the part it does not belong to: absent, or the switch's quiet setting.
-_ABSENT_IN_NOTE: dict[str, Any] = {
+#: What the project and the office set, and what each is in the turn's note: absent, or the
+#: switch's quiet setting. The inventory is split between the two (:func:`_inventories`).
+_QUIET_IN_NOTE: dict[str, Any] = {
     "deep_research_enabled": True,
     "confined": False,
-    "drafting_enabled": False,
     "available_documents": [],
     "in_flight_documents": None,
     "document_inventory": "",
     "project_context": None,
     "platform_lessons": None,
     "org_instructions": None,
-    "reference_projects": None,
     "oib_applicability": None,
     "parcel_note": None,
 }
+
+#: The template values that hold for the conversation: they make the conversation context.
+CONVERSATION_VALUES = frozenset(_QUIET_IN_NOTE)
 
 _TURN_TAG = "turn_context"
 _CONVERSATION_TAG = "conversation_context"
@@ -126,14 +110,44 @@ def context_layout() -> str:
 
 
 def split_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The template values for the conversation context and for the turn's note. Pure.
+    """The template values of the conversation context and of the turn's note. Pure.
 
     Every value goes to exactly one part; in the other it is absent, or a switch
     in the setting that renders nothing (deep research on, not confined).
     """
     conversation = {key: (None if key in TURN_VALUES else value) for key, value in values.items()}
     conversation["current_datetime"] = ""
-    note = {key: (value if key in TURN_VALUES else _ABSENT_IN_NOTE.get(key)) for key, value in values.items()}
+    note = {key: (value if key in TURN_VALUES else _QUIET_IN_NOTE.get(key)) for key, value in values.items()}
+    return conversation, note
+
+
+def _inventories(values: dict[str, Any]) -> tuple[str, str]:
+    """The conversation's inventory, and the turn's part of it.
+
+    The conversation context lists every settled file on every shelf in scope:
+    the same bytes until a file settles. What a turn varies goes to its note:
+    the files still being read (``knowledge.in_flight``), and, for a question
+    that lists one shelf, that shelf alone (``get_listing_shelf``), so the model
+    answers from it and cannot recite another shelf's files.
+    """
+    from agent.knowledge.in_flight import render_in_flight_note
+    from agent.knowledge.inventory import get_listing_shelf
+    from agent.knowledge.inventory import in_scope_shelves_from_context
+    from agent.knowledge.inventory import render_inventory_block
+
+    documents = values.get("available_documents") or []
+    scoped = in_scope_shelves_from_context() or None
+    whole = render_inventory_block(documents, in_scope_shelves=scoped)
+    listed = get_listing_shelf()
+    shelf = render_inventory_block(documents, in_scope_shelves=scoped, focus_shelf=listed) if listed else ""
+    pending = render_in_flight_note(values.get("in_flight_documents"))
+    return whole, "\n\n".join(part for part in (shelf, pending) if part)
+
+
+def layout_values(values: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The template values of the conversation context and of the turn's note, inventories included."""
+    conversation, note = split_values(values)
+    conversation["document_inventory"], note["document_inventory"] = _inventories(values)
     return conversation, note
 
 
@@ -154,23 +168,6 @@ def has_content(rendered: str | None) -> bool:
     return bool(inner.strip())
 
 
-def with_turn_notes(messages: Sequence[BaseMessage]) -> list[BaseMessage]:
-    """The transcript with each stored note put back in front of its question, as it was sent. Pure.
-
-    The question goes out without the note in its metadata: the request is the
-    same bytes the turn sent, whatever a provider adapter does with metadata.
-    """
-    shown: list[BaseMessage] = []
-    for message in messages:
-        note = message.additional_kwargs.get(TURN_NOTE_KEY) if isinstance(message, HumanMessage) else None
-        if isinstance(note, str) and note:
-            kwargs = {key: value for key, value in message.additional_kwargs.items() if key != TURN_NOTE_KEY}
-            shown.append(HumanMessage(content=note))
-            message = message.model_copy(update={"additional_kwargs": kwargs})
-        shown.append(message)
-    return shown
-
-
 def conversation_request(
     system: str,
     conversation: str | None,
@@ -180,9 +177,10 @@ def conversation_request(
 ) -> list[BaseMessage]:
     """One model call's request in the conversation layout. Pure.
 
-    ``[system, conversation context, *earlier turns with their notes, this
-    turn's note, newest question, *this turn]``. Steering notes index past the
-    newest question, behind everything inserted in front of it.
+    ``[system, conversation context, *earlier turns, turn note, newest
+    question, *this turn]``: the turn layout's request with the conversation's
+    part of the context moved to the head. Steering notes index past the newest
+    question, behind everything in front of it.
     """
     newest = next(
         (index for index in range(len(history) - 1, -1, -1) if isinstance(history[index], HumanMessage)),
@@ -191,84 +189,5 @@ def conversation_request(
     head: list[BaseMessage] = [SystemMessage(content=system)]
     if has_content(conversation):
         head.append(HumanMessage(content=conversation or ""))
-    earlier = with_turn_notes(history[:newest])
-    request = [*head, *earlier, HumanMessage(content=note), *history[newest:]]
-    offset = len(head) + (len(earlier) - newest) + 1
-    return with_steering(request, steering, offset=offset)
-
-
-def _newest_question(messages: Sequence[BaseMessage]) -> HumanMessage | None:
-    return next((m for m in reversed(messages) if isinstance(m, HumanMessage)), None)
-
-
-def written_back(
-    turn_messages: Sequence[BaseMessage],
-    answer: BaseMessage,
-    result_messages: Sequence[BaseMessage],
-    note: str | None,
-    cited: set[str],
-) -> list[BaseMessage]:
-    """What a finished turn writes to the transcript.
-
-    Both layouts write the turn's tool calls with their results cut to the cited
-    passages, then the answer. The conversation layout also writes the question
-    again, with the note it was sent with in its metadata: the same id, so the
-    transcript's reducer replaces it in place.
-    """
-    kept = [*compact_tool_results(list(turn_messages), cited), answer]
-    if context_layout() != CONVERSATION_LAYOUT or not note:
-        return kept
-    question = _newest_question(result_messages)
-    if question is None or not question.id:
-        return kept
-    noted = question.model_copy(update={"additional_kwargs": {**question.additional_kwargs, TURN_NOTE_KEY: note}})
-    return [noted, *kept]
-
-
-def _without_tool_results(messages: Sequence[BaseMessage]) -> list[BaseMessage]:
-    """Messages with their tool results gone: results drop, a call-only answer drops, an answer keeps its prose."""
-    kept: list[BaseMessage] = []
-    for message in messages:
-        if isinstance(message, ToolMessage):
-            continue
-        if isinstance(message, AIMessage) and getattr(message, "tool_calls", None):
-            prose = _prose_only(message)
-            if prose is not None:
-                kept.append(prose)
-            continue
-        kept.append(message)
-    return kept
-
-
-def _pruned_before(messages: list[BaseMessage], starts: list[int], boundary: int) -> list[BaseMessage]:
-    """The transcript with the turns before turn ``boundary`` reduced to what was said."""
-    if boundary <= 0:
-        return list(messages)
-    cut = starts[boundary]
-    return [*_without_tool_results(messages[:cut]), *messages[cut:]]
-
-
-def stepped_window(messages: Sequence[BaseMessage], max_tokens: int, step: int = STEP_TURNS) -> list[BaseMessage]:
-    """The history a model is handed in the conversation layout: a window that moves only when it must.
-
-    Every turn keeps its (cited) tool results while the history fits the
-    budget. When it does not, the oldest turns are reduced to what was said,
-    ``step`` turns at a time and never the previous turn, so the boundary moves
-    in jumps the budget forces and each turn in between sees the last one's
-    history plus the turn in between. When even that does not fit, the turn
-    layout's window decides, as before.
-    """
-    stored = replay_retired_look_names(list(messages))
-    starts = [index for index, message in enumerate(stored) if isinstance(message, HumanMessage)]
-    for boundary in range(0, max(len(starts) - 1, 1), step):
-        window = _pruned_before(stored, starts, boundary)
-        if _count_message_tokens(window) <= max_tokens:
-            return window
-    return history_window(stored, max_tokens)
-
-
-def conversation_window(messages: Sequence[BaseMessage], max_tokens: int) -> list[BaseMessage]:
-    """The history window of the layout this process renders."""
-    if context_layout() == CONVERSATION_LAYOUT:
-        return stepped_window(messages, max_tokens)
-    return history_window(list(messages), max_tokens)
+    request = [*head, *history[:newest], HumanMessage(content=note), *history[newest:]]
+    return with_steering(request, steering, offset=len(head) + 1)

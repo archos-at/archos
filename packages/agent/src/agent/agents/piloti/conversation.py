@@ -57,8 +57,8 @@ from agent.turn.commission import CommissionedRun
 from agent.turn.commission import CommissionRefused
 
 from .clarify import ClarifyFn
-from .context_layout import conversation_window
-from .context_layout import written_back
+from .history import compact_tool_results
+from .history import history_window
 from .markers import detect_and_strip_confidence_marker
 from .markers import detect_and_strip_escalation_marker
 from .models import ClarifyRequest
@@ -211,8 +211,8 @@ def _answer_update(
         for source in (result.verified_sources or [])
         if isinstance(source, dict) and source.get("citation_key")
     }
-    turn = [m for m in turn_messages if m is not message]
-    update["messages"] = written_back(turn, message, result.messages, result.cached_turn_context, cited)
+    kept = compact_tool_results([m for m in turn_messages if m is not message], cited)
+    update["messages"] = [*kept, message]
     update["escalate_to_deep"] = False
     # Presence is the fact: True or absent, never False.
     update["research_truncated"] = True if result.research_truncated else None
@@ -411,7 +411,7 @@ class ConversationGraph:
     def _trimmed(self, state: ConversationState) -> list[BaseMessage]:
         # The previous turn's tool results stay while they fit (a follow-up
         # answers from them); what was said always stays. Then the token budget.
-        return conversation_window(state.messages, self.max_history_tokens)
+        return history_window(state.messages, self.max_history_tokens)
 
     async def _clarifier_node(self, state: ConversationState) -> Command:
         original_query = get_latest_user_query(state.messages)

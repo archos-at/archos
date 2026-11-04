@@ -2,134 +2,113 @@
 status: proposed
 date: 2026-11-04
 decision-makers: Grid engineering, product owner
-consulted:
+consulted: two independent architecture reviews (framework adoption; necessity and correctness), 2026-11-04
 informed: everyone working in this repo
 ---
 
-# A conversation is one context that only grows
+# What the project and the office set goes at the head of a chat request
 
 ## Context and Problem Statement
 
-A provider caches the prefix of a request and bills a cache read at a twentieth
-of an uncached token (terra: $0.05 against $1.00 per million, and a write at
-$1.25). Within a chat turn every round extends the one before, so the rounds
-hit. Across turns the cache carries only as far as the next turn's first
-request repeats the previous turn's last one, and the agent rebuilds that
-request every turn:
-
-* the turn context sat right before the previous question and was never
-  stored, so the next turn sends that question without it;
-* the history window prunes the turn before last's tool calls every turn
-  (`history.prune_tool_results`, `keep_turns=1`) and slides at its token budget.
+A provider caches the prefix of a request and bills a cached token at a
+twentieth of a new one (terra: $0.05 against $1.00 per million, a write $1.25).
+A chat request is the tool schemas, the system prompt, the history, then one
+turn context right before the newest question. That turn context carries the
+inventory, the project and its memory, the office's instructions and lessons,
+and what only the turn has (the date, the asker, the open file, the workspace).
+Most of it is the same on every turn of a project, but it sits after the
+history and is never stored, so every turn and every conversation sends it as
+new tokens.
 
 Measured on 2026-11-04:
 
-* Driven through the code that builds the requests (the agent's
-  `test_cross_turn_prefix.py`), a follow-up repeats 31 %
-  of what the turn before last sent: the system prompt and the first question.
 * In production a follow-up's first call (p50 39.8 k prompt tokens) was as large
-  as an opening turn's (37.1 k), most of it turn context, and hours with five
-  or more turns by one person reached a 72 % cache share where a carried
-  prefix gives about 86 %, though 87 of 101 follow-ups came within 30 minutes.
-* The uncached part of a turn is about 85 % of what a chat turn costs.
-
-The agent is becoming the colleague that works through a conversation over many
-turns, tasks and resumptions. A layout that pays for its whole context again on
-every turn makes each of those turns cost what the first did.
+  as an opening turn's (37.1 k); 65 % of turns open a conversation, and an opening
+  turn shares nothing with the project's other conversations past the system
+  prompt. Hours with five or more turns by one person reached a 72 % cache share.
+* Driven through the request builders with the tool schemas in front
+  (`test_cross_turn_prefix.py`), a follow-up's first call sends 41 to 44 k new
+  characters, and an opening turn shares 67 % (tool schemas and system prompt)
+  with another conversation of the project.
 
 ## The north star
 
-A conversation is one context that only grows, the way a person's working
-session does. Everything that holds for the whole conversation is written once,
-at its head; each turn appends what it asked, what it was told about the moment,
-what it read and what it answered; nothing already sent is rewritten except at a
-compaction the budget forces, which then becomes the new head. A follow-up, a
-steering note, a resumed task or a background turn woken hours later starts on a
-warm prefix and pays only for what is new. The agent remembers what it read
-without reading it again, and the cost of a conversation grows with what
-happens in it, not with the number of turns.
+A conversation is a context that only grows: what holds for it is written once
+at its head, each turn appends what it asked and what it read, nothing sent is
+rewritten except at a compaction the budget forces. A follow-up, a resumed task
+or a background turn woken hours later starts on a warm prefix and pays only for
+what is new. This ADR takes the first step; the rest waits for production
+numbers (see Slices).
 
 ## Decision Outcome
 
 Proposed: the conversation layout (the chat agent's `context_layout.py`).
 
-1. **What holds for the conversation comes first.** The blocks the project and
-   the office set (the inventory, the project context and memory, the office's
-   instructions, its reference projects and lessons, the per-tenant switches)
-   are one `<conversation_context>` message right after the system prompt. The
-   asker is not in it, so two members of one office share it too.
-2. **What a turn varies stays with that turn.** The date, the asker, the open
-   file and region, the trigger, the workspace, what was already read, the
-   skill and card shapes chosen for the turn, and the answer-language line are
-   the turn's note, sent right before its question as before, and now stored on
-   the question (`additional_kwargs["turn_note"]`, written back under the
-   question's id so the reducer replaces it in place) and sent again before it
-   on every later turn.
-3. **The window moves only when the budget makes it.** Every turn keeps its
-   cited tool results until the history no longer fits; then the oldest turns
-   are reduced to what was said, three at a time and never the previous turn.
-   The turn layout's window stays the fallback.
+* The values the project and the office set (`CONVERSATION_VALUES`: the
+  inventory of settled files, the project context and memory, the office's
+  instructions and lessons, OIB applicability, the parcel note, the per-tenant
+  switches) are one `<conversation_context>` message right after the system
+  prompt.
+* What a turn varies (`TURN_VALUES`: the date, the asker, the open file and
+  region, the trigger, the workspace, what was already read, the chosen skill
+  and card shapes, the reference projects re-ordered for the question, the
+  drafting switch of the turn's binding, the files still being read, and the
+  one shelf a listing question asks about) stays the turn note, right before the
+  question, request-only as before.
+* Nothing else changes: the history window, the write-back, what is stored.
 
-The write-back is unchanged: the cited passages whole, the rest reduced to their
-headers.
-
-Measured by the same test: a follow-up repeats 85 % of the previous turn into
-turn 2 and 88 to 93 % into turns 3 to 7, rising with the length of the
-conversation, against 31 % for the turn layout.
-
-### Behind a switch until the answer suite has measured it
-
-`CHAT_CONTEXT_LAYOUT=conversation` turns it on; `turn` is the default and the
-turn layout is byte-identical to before. The layout moves the project's facts
-further from the question and keeps earlier evidence longer, which can change
-answers, so the switch flips only with `task be:eval:answer-suite` run before
-and after (`docs/contributing/testing-and-verification.md#the-answer-suite`).
+Measured by the same test: a follow-up's new characters drop to 14 to 17 k (a
+third), an opening turn shares 98 % with the project's other conversations, and
+no round sends more than in the turn layout.
 
 ### Confirmation
 
-`test_cross_turn_prefix.py` drives conversations through the request builders,
-the window and the write-back of both layouts and holds each to a floor: the
-turn layout at 30 % (what it carries today), the conversation layout at 80 %
-on every follow-up up to turn 7. A change that carries less fails it.
-`test_context_layout.py` holds the parts: every template value in exactly one
-part, the note stored under the question's id, the steering offset, a window
-that keeps every result while it fits and prunes whole steps when it does not.
-In production `chat_cross_turn_cache_carry` (PostHog) is the measure; nothing
-alerts on it yet.
-
-## Slices
-
-| Slice | What it buys | Gate | State |
-|---|---|---|---|
-| 0. Measure the carry | `chat_cross_turn_cache_carry` in PostHog: the cached share of each answer's first agent call, opening turns and follow-ups apart (`llm_usage_by_outcome`) | none, it reads | done (#1488) |
-| 1. The conversation layout | the three rules above, behind `CHAT_CONTEXT_LAYOUT` | answer suite before and after; the carry metric rises on follow-ups | built, off |
-| 2. Snapshot the conversation context | a changed inventory or memory note appended as an update in the turn note instead of rewriting the head, so an upload mid-conversation costs its delta | slice 1 on | next |
-| 3. Keep the prefix warm while the person reads | a cache retention that outlives the pause between turns where the endpoint offers one (OpenAI's 12 h retention is a 2.5x write): measure on the carry metric whether it pays | slice 1 on | open |
-| 4. Background and resumed turns | a woken turn and a resumed task continue the conversation's transcript and head instead of starting a fresh request | slice 1 on | open |
-
-## Consequences
-
-* Good: a follow-up pays for its question, its note and the answer it follows,
-  not for the whole context again. The longer the conversation, the larger the
-  saving, which is where an agent that works over many turns spends.
-* Good: the agent keeps the cited evidence of earlier turns until the budget
-  needs the room, so a follow-up needs fewer repeat fetches.
-* Good: the system prompt stays the static half alone; nothing per-turn enters it.
-* Bad: the transcript stores each turn's note, a few hundred to a few thousand
-  tokens per turn, read from the cache at a twentieth of its price.
-* Bad: the project's facts sit before the history instead of right before the
-  question. Whether that changes answers is what the answer suite decides.
-* Neutral: a change to the conversation context (an upload, a memory note)
-  rewrites the conversation once on the next turn until slice 2.
+`test_context_layout.py` fails a template value in neither set, holds the
+per-turn values out of the head, and checks the head is the same bytes for
+another turn and another asker. `test_cross_turn_prefix.py` holds the two
+measures above. In production `chat_cross_turn_cache_carry` (PostHog) is the
+measure; nothing alerts on it yet. Behind `CHAT_CONTEXT_LAYOUT`, default `turn`
+(byte-identical to before): moving the project's facts before the history
+changes what the model reads, so it switches on with `task be:eval:answer-suite`
+run before and after.
 
 ## Considered Options
 
-* **Keep the turn layout.** Every turn pays for its context again: rejected on
-  the numbers above.
-* **Store the whole turn context with each turn.** Carries the prefix, but
-  repeats the inventory and the project in every turn and fills the history
-  budget in a few turns, which forces the rewrites it was meant to avoid.
-* **Compaction by the provider** (OpenAI's server-side compaction, Anthropic's
-  context editing). Both rewrite the prefix when they act and are tied to one
-  vendor's API; the layout keeps the decision of what to keep in this code,
-  where the model a tenant chooses can change.
+* **Keep the turn layout.** Every turn and conversation pays for the project
+  context again.
+* **Adopt deepagents or LangChain middleware.** Reviewed against the installed
+  deepagents 0.7.32 and langchain 1.4.7: their prompt caching middleware acts on
+  `ChatAnthropic` only and is a no-op on the OpenRouter `openai` clients this
+  agent uses; `dynamic_prompt`, memory and skills middleware append per-turn text
+  to the system message on every call, the opposite of a stable head;
+  `ClearToolUsesEdit` and summarization rewrite the history at their trigger.
+  Middleware also runs only inside `create_agent`, which this agent's own
+  `StateGraph` (prefetch, withhold guards, steering) is not. Rejected while those
+  hold; the stored compaction event of deepagents' summarization is the shape to
+  borrow if the history ever needs compacting.
+* **Store each turn's note with its question and move the window in steps.**
+  Built and measured: it saved a further ~1.8 k new tokens on a follow-up's first
+  call but carried ~43 k more history that every round re-reads, which at a
+  twentieth of the price cancels the saving by the seventh turn, and it changed
+  what the clarifier and the deep-research hand-off receive. Rejected on that
+  measurement; it returns only with a net win that counts the reads.
+
+## Consequences
+
+* Good: the largest part of every request, the project context, is cached
+  across turns and across the project's conversations, at no extra token on
+  any round.
+* Bad: the project's facts sit before the history instead of right before the
+  question; whether that changes answers is what the answer suite decides.
+* Neutral: a settled upload or a changed memory note rewrites the head once,
+  and the history behind it, on the next turn.
+
+## Slices
+
+| Slice | What it buys | State |
+|---|---|---|
+| 0. Measure the carry | `chat_cross_turn_cache_carry`: the cached share of each answer's first call, opening turns and follow-ups apart | built (#1488) |
+| 1. The stable head | this ADR | built, off |
+| 2. Know what bounds the carry | split the carry by the gap since the previous turn (the endpoint's in-memory cache lasts minutes) | next |
+| 3. Sticky routing for chat | ZDR chat calls carry the EU-first `provider.order`, which turns OpenRouter's sticky routing off; page reads moved to `provider.only` for that reason. Chat needs the non-EU fallback, so it needs another route to the same shard | open |
+| 4. Retention that outlives a reading pause | where the endpoint offers it (OpenAI's 12 h retention writes at 2.5x), measured on slice 2's split | open |
