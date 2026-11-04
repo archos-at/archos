@@ -43,6 +43,26 @@
               "de": "Wenn Sie ein neues Projekt anlegen, schlägt das Adressfeld während der Eingabe passende österreichische Adressen vor. Wenn Sie eine auswählen, werden Gemeinde und Bundesland automatisch ergänzt."
             },
             {
+              "en": "You can now upload DXF files such as a Katasterauszug, and they open as a PDF drawn to a standard scale, for example 1:500 on A3, with a scale bar and a title block. „Als PDF herunterladen“ in the file's menu gives you that PDF to print or attach, while Download still gives the original.",
+              "de": "Sie können jetzt DXF-Dateien wie einen Katasterauszug hochladen. Diese werden als PDF in einem Standardmaßstab, etwa 1:500 auf A3, mit Maßstabsleiste und Schriftfeld dargestellt. Über „Als PDF herunterladen“ im Dateimenü erhalten Sie das PDF zum Drucken oder Anhängen; Download liefert weiterhin die Originaldatei."
+            },
+            {
+              "en": "A Katasterauszug is now read, not only shown: a page after the drawing lists every parcel with its area as drawn and its neighbours, so you can ask about your site in the chat and get a cited answer.",
+              "de": "Ein Katasterauszug wird jetzt nicht nur angezeigt, sondern auch ausgelesen: Eine Seite nach der Zeichnung sind alle Grundstücke mit ihrer Fläche laut Zeichnung und ihren Nachbargrundstücken aufgelistet. So können Sie im Chat Fragen zu Ihrem Grundstück stellen und erhalten eine Antwort mit Quellenangabe."
+            },
+            {
+              "en": "In the chat you can now measure a DXF drawing: how far a house stands from each boundary, how long the boundary to a neighbour is, and what remains buildable after the setbacks and the coverage you name.",
+              "de": "Im Chat können Sie jetzt eine DXF-Zeichnung vermessen: wie weit ein Haus von jeder Grundstücksgrenze entfernt ist, wie lang die Grenze zum Nachbarn ist und welche Fläche nach den von Ihnen angegebenen Abständen und der Bebauungsdichte noch bebaubar ist."
+            },
+            {
+              "en": "A Katastralmappe from BEV is drawn in BEV's plot colours with its Katastralgemeinde and coordinate system on the sheet. Where parcels are in the Grundsteuerkataster, the sheet says their boundaries are not legally binding.",
+              "de": "Eine Katastralmappe des BEV wird in den Grundstücksfarben des BEV dargestellt; Katastralgemeinde und Koordinatensystem sind auf dem Blatt angegeben. Bei Grundstücken im Grundsteuerkataster weist das Blatt darauf hin, dass ihre Grenzen rechtlich nicht verbindlich sind."
+            },
+            {
+              "en": "„Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint file.",
+              "de": "„Als PDF herunterladen“ lädt jetzt auch Word-, Excel- und PowerPoint-Dateien als PDF herunter."
+            },
+            {
               "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
               "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
             },
