@@ -34,7 +34,8 @@ workspace (its own `uv.lock`), so the backend tier's install cannot run it.
 
 The agent's suites that call the engine skip in the root environment. The
 `agent-engine` job installs the engine there and runs them, on a change to either
-side, so a change to an operator's text or a tool's rendering can turn it red.
+side, so a change to an operator's text or a tool's rendering can turn it red. Its
+install floats, like the image's, so a new engine dependency release can too.
 
 ```bash
 task pkg:install    # its toolchain; `task setup` does this too

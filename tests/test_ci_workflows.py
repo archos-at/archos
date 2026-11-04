@@ -415,9 +415,14 @@ def test_the_agent_engine_job_runs_every_suite_that_skips_without_the_engine():
     }
     steps = JOBS["agent-engine"]["steps"]
     suites = next(step["run"] for step in steps if "pytest" in step.get("run", ""))
+    named = {
+        match.relative_to(root).as_posix()
+        for pattern in re.findall(r"\S+/test_\S+\.py", suites)
+        for match in root.glob(pattern)
+    }
 
     assert "packages/agent/tests/tools/bim/test_question_battery.py" in gated
-    assert set(re.findall(r"\S+/test_\S+\.py", suites)) == gated
+    assert named == gated
     assert any("require-ran" in step.get("run", "") for step in steps)
 
 
