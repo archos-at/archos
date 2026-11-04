@@ -164,6 +164,12 @@ config:
   grid-oib:ingestWorkerMaxReplicas: "3"
   grid-oib:ingestWorkerConcurrency: "2"
   grid-oib:ingestWorkerDrainSeconds: "180"
+  # No high-memory pool on staging: its pod requests 12Gi, which the 16 GB app
+  # nodes here (no batch node group) never had free, so from 2026-11-03 every
+  # deploy waited 37 minutes on an unschedulable `ingest-worker-heavy` pod and
+  # failed before anything else rolled out. Off, every file goes to the standard
+  # pool (ingestHeavyFileBytes becomes 0), which is how staging ran before #1465.
+  grid-oib:ingestWorkerHeavyEnabled: "false"
   # Staging is meant to be re-creatable, so the data resources are NOT protected
   # here — `pulumi destroy` must work without a manual unprotect. Prod keeps the
   # default (true).
