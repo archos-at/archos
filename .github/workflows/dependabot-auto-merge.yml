@@ -1,0 +1,84 @@
+name: Dependabot auto-merge
+
+# Turns on GitHub's auto-merge for the Dependabot pull requests nobody needs to
+# read first: minor and patch bumps, grouped or not, security fixes included,
+# outside deploy/pulumi (ci/dependabot_merge.py holds the policy). GitHub then
+# squash-merges each one when its required checks pass, and not before. A
+# major, a held directory or a red CI stays open for a person, as before.
+# Dependabot has no setting of its own for this; this workflow is GitHub's
+# documented way ("Automating Dependabot with GitHub Actions").
+#
+# Two guards, because a wrong merge here lands on staging by itself:
+#   * `CI OK` must be a required check on the base branch. Auto-merge on a pull
+#     request with no required check merges it AT ONCE, whatever CI says, so
+#     without the rule this workflow does nothing and says why.
+#   * The merge must start the push run (images, tags, the staging deploy). A
+#     merge by GITHUB_TOKEN starts no workflow, so auto-merge is turned on with
+#     DEPENDABOT_MERGE_TOKEN, a fine-grained token (contents and pull requests:
+#     write, this repository only). A run Dependabot triggers sees only
+#     Dependabot secrets: it lives under Settings → Secrets and variables →
+#     Dependabot, not Actions. Without it this workflow does nothing and says
+#     why.
+#
+# Repository setting it needs: General → Pull Requests → Allow auto-merge.
+# Setup and the policy: docs/contributing/testing-and-verification.md.
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions: {}
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable:
+    name: Auto-merge a minor or patch update
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # the base branch's rules, and the policy script
+      pull-requests: write # approve, where the base branch requires a review
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: ci
+          persist-credentials: false
+
+      - name: Read the update
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Decide
+        id: decide
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DIRECTORY: ${{ steps.meta.outputs.directory }}
+        run: |
+          python3 ci/dependabot_merge.py "$UPDATE_TYPE" "$DIRECTORY" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Turn on auto-merge
+        if: steps.decide.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_TOKEN: ${{ secrets.DEPENDABOT_MERGE_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          rules="$(gh api "repos/$GITHUB_REPOSITORY/rules/branches/$BASE")"
+          required="$(jq '[.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] | index("CI OK") != null' <<<"$rules")"
+          if [ "$required" != "true" ]; then
+            echo "::notice::CI OK is not a required check on $BASE, so auto-merge would merge at once; left for a person"
+            exit 0
+          fi
+          if [ -z "$MERGE_TOKEN" ]; then
+            echo "::notice::no Dependabot secret DEPENDABOT_MERGE_TOKEN; a merge by GITHUB_TOKEN would start no push run, so left for a person"
+            exit 0
+          fi
+          reviews="$(jq '[.[] | select(.type == "pull_request") | .parameters.required_approving_review_count] | max // 0' <<<"$rules")"
+          if [ "$reviews" -gt 0 ]; then
+            gh pr review --approve --body "Minor or patch update; CI OK is the gate (ci/dependabot_merge.py)." "$PR_URL"
+          fi
+          GH_TOKEN="$MERGE_TOKEN" gh pr merge --auto --squash "$PR_URL"

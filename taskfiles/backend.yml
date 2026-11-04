@@ -16,7 +16,7 @@ vars:
     tests/test_release_notes.py tests/test_pr_closing_keywords.py tests/test_bun_version_pin.py
     tests/test_pr_selection.py tests/test_ci_filter_coverage.py packages/agent/tests/test_product_framing.py
     tests/test_repo_layout.py tests/test_ci_filter_reads.py tests/test_lead_time.py
-    tests/test_check_brand_prose.py tests/test_migration_contract.py
+    tests/test_check_brand_prose.py tests/test_migration_contract.py tests/test_dependabot_merge.py
   # The Python packages under packages/ (ADR-0145 row 6): the uv workspace
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).

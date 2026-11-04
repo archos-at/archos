@@ -722,3 +722,19 @@ def test_claude_runs_only_where_a_mention_can_start_it_and_one_ai_review_remains
     # bot inline comment left a skipped check behind.
     assert set(claude[True]) == {"issue_comment", "issues"}
     assert not (workflows / "claude-code-review.yml").exists()
+
+
+def test_dependabot_auto_merge_waits_for_ci_ok_and_starts_the_push_run():
+    workflow = yaml.safe_load((WORKFLOWS / "dependabot-auto-merge.yml").read_text())
+    job = workflow["jobs"]["enable"]
+    assert "dependabot[bot]" in job["if"]
+    assert workflow["permissions"] == {}
+    enable = next(step for step in job["steps"] if step.get("name") == "Turn on auto-merge")
+    script = enable["run"]
+    # Auto-merge on a pull request with no required check merges at once, so
+    # the guard comes before the merge.
+    assert script.index('index("CI OK")') < script.index("gh pr merge --auto --squash")
+    # A merge by GITHUB_TOKEN starts no push run: no images, no staging deploy.
+    assert enable["env"]["MERGE_TOKEN"] == "${{ secrets.DEPENDABOT_MERGE_TOKEN }}"
+    assert 'GH_TOKEN="$MERGE_TOKEN" gh pr merge' in script
+    assert enable["if"] == "steps.decide.outputs.merge == 'true'"
