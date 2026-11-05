@@ -18,6 +18,7 @@ import {
   type McpServer,
   credentialPath,
   renderAgentgatewayConfig,
+  resourceUrl,
 } from "./mcp-gateway-config";
 
 /**
@@ -61,6 +62,17 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
         ]
       : []),
   ];
+}
+
+/**
+ * `PLATFORM_MCP_SERVER_URLS` for the frontend: each server's public URL, so
+ * Platform → Agents lists exactly what this stack serves. Absent where the
+ * gateway does not run, and the page says so.
+ */
+export function platformMcpServerEnv(cfg: DeployConfig): k8s.types.input.core.v1.EnvVar[] {
+  if (!cfg.mcpGateway.enabled) return [];
+  const urls = mcpServers(cfg).map((server) => resourceUrl(`https://${cfg.mcpGateway.domain}`, server));
+  return [{ name: "PLATFORM_MCP_SERVER_URLS", value: urls.join(",") }];
 }
 
 export function mcpGatewayConfigYaml(cfg: DeployConfig): string {

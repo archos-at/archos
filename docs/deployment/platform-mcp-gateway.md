@@ -147,9 +147,10 @@ The wildcard resource indicator already covers the new route.
 - **Edge budget**: 300 requests a minute per client address
   (`RATE_PER_MINUTE`, in shadow mode while `rateLimitShadowMode` is on).
   **Metrics**: `:15020/stats/prometheus` on each pod (not scraped yet).
-- **Upgrade**: move the digest in `MCP_GATEWAY.image`, vendor that version's
-  `schema/config.json` over `src/test-support/agentgateway-config.v<version>.schema.json`,
-  and run the specs. The schema at the new version is what tells you a key moved.
+- **Upgrade**: move the digest in `MCP_GATEWAY.image`, and move
+  `AGENTGATEWAY_VERSION` and `AGENTGATEWAY_SCHEMA_SHA256` in CI's infra job
+  (`.github/workflows/ci.yml`) to the same tag. CI then holds the rendered file
+  against that version's published schema, which is what tells you a key moved.
 - **Off**: `mcpGatewayEnabled=false` removes the listener, record, route,
   Deployment and NetworkPolicies. Port-forward to Langfuse's MCP endpoint
   meanwhile.

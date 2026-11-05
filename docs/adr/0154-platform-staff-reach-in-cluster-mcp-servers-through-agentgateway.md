@@ -120,7 +120,8 @@ Langfuse's docs, ahead of `LANGFUSE_MCP_ALLOWED_HOSTS`.
 * Good, because one WorkOS sign-in reaches every server. Each server's
   credential stays in a Secret the person never sees.
 * Good, because the protocol work is agentgateway's. The specs hold the file we
-  generate against its published JSON schema at the pinned version, so a key it
+  generate against its published JSON schema at the pinned version, which CI
+  fetches by checksum, so a key it
   does not know fails CI and never reaches a pod.
 * Bad, because the gate is a claim check, not the live membership lookup the
   platform door makes (`resolvePinnedRequesterSession`). A person removed from
@@ -148,7 +149,7 @@ Langfuse's docs, ahead of `LANGFUSE_MCP_ALLOWED_HOSTS`.
 
 * `deploy/pulumi/index-mcp-gateway.spec.ts`: the listener, the DNS record and
   the route; the generated config against agentgateway v1.7.0's schema
-  (`src/test-support/agentgateway-config.v1.7.0.schema.json`); the audience per
+  (fetched by CI's infra job at the pinned tag, checksum-pinned); the audience per
   route, the organization and role rule, the credential mount of one key, the
   two NetworkPolicies; nothing at all when the flag is off; `loadMcpGateway`
   refusing a missing dependency, a non-`org_` id and a malformed session key.

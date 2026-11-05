@@ -2,10 +2,11 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import Ajv2020 from "ajv/dist/2020";
 import * as yaml from "js-yaml";
-import schema from "./src/test-support/agentgateway-config.v1.7.0.schema.json";
+import { readFileSync } from "node:fs";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 import { checkSessionKey, loadMcpGateway } from "./src/config/mcp-gateway";
 import { GATEWAY_NAME } from "./src/platform/gateway";
+import { MCP_GATEWAY } from "./src/platform/mcp-gateway-config";
 import { LEGACY_PROJECT } from "./src/names";
 
 /** A stack config key of the project these specs run as. */
@@ -16,12 +17,21 @@ const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
  * with it off.
  *
  * What fails here plans clean and breaks only on a cluster or at a client: a
- * config file agentgateway refuses to load (held against its own v1.7.0
- * schema, vendored), a token for another audience or organization let
+ * config file agentgateway refuses to load (held against its own schema at
+ * the pinned tag), a token for another audience or organization let
  * through, the caller's token or the whole Langfuse Secret handed to the pod,
  * a NetworkPolicy that times out every call behind a green deploy, a host in
  * DNS with no listener.
  */
+
+/**
+ * agentgateway's published config schema at the pinned tag. CI's infra job
+ * fetches it (checksum-pinned) and points `AGENTGATEWAY_SCHEMA` at it; without
+ * it that one case is reported as skipped. Locally:
+ * `curl -sSfLo /tmp/ag.json https://raw.githubusercontent.com/agentgateway/agentgateway/v1.7.0/schema/config.json`
+ * and `AGENTGATEWAY_SCHEMA=/tmp/ag.json AGENTGATEWAY_SCHEMA_VERSION=v1.7.0`.
+ */
+const SCHEMA_PATH = process.env.AGENTGATEWAY_SCHEMA;
 
 const DOMAIN = "dev.example.test";
 const HOST = `platform-mcp.${DOMAIN}`;
@@ -155,7 +165,10 @@ describe("the platform MCP gateway, switched on", () => {
     expect(gates.map((t) => t.name)).not.toContain("platform-mcp-gateway");
   });
 
-  it("writes a config agentgateway v1.7.0's own schema accepts", () => {
+  it.skipIf(SCHEMA_PATH === undefined)("writes a config the pinned agentgateway's own schema accepts", () => {
+    // The schema CI fetched is the pinned image's version, or this proves nothing.
+    expect(MCP_GATEWAY.image).toContain(`:${process.env.AGENTGATEWAY_SCHEMA_VERSION}@`);
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH!, "utf8")) as Record<string, unknown>;
     const ajv = new Ajv2020({ strict: false, allErrors: true });
     const valid = ajv.validate(schema, config());
     expect(ajv.errors ?? []).toEqual([]);
@@ -263,6 +276,18 @@ describe("the platform MCP gateway, switched on", () => {
       name: "credential-langfuse",
       mountPath: "/var/run/secrets/mcp/langfuse",
       readOnly: true,
+    });
+  });
+
+  it("tells the frontend which servers this stack serves, for Platform → Agents", () => {
+    const frontend = find<Deployment & { spec: { template: { spec: { containers: Array<{ env: Array<{ name: string; value?: string }> }> } } } }>(
+      TYPE.deployment,
+      "frontend",
+    );
+    const env = frontend.spec.template.spec.containers[0].env;
+    expect(env.find((e) => e.name === "PLATFORM_MCP_SERVER_URLS")).toEqual({
+      name: "PLATFORM_MCP_SERVER_URLS",
+      value: `https://${HOST}/langfuse/mcp`,
     });
   });
 
