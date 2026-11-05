@@ -14,7 +14,7 @@ import {
 } from "../platform/rollout";
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { AppSecrets, AppWiring, frontendEnv } from "./config";
-import { platformMcpServerEnv } from "../platform/mcp-gateway";
+import { installMcpAdmissionSecret, platformMcpServerEnv } from "../platform/mcp-gateway";
 import { formerAgentOriginsEnv } from "./former-domain";
 import { PORT, UID } from "../constants";
 
@@ -56,6 +56,7 @@ export function installFrontend(
   // an inverted request/limit pair otherwise only fails at admission time.
   assertMemoryFitsLimit("frontend", cfg.frontend.resources);
 
+  const admissionSecret = installMcpAdmissionSecret(cfg, w.provider, w.namespace);
   const deployment = new k8s.apps.v1.Deployment(
     "frontend",
     {
@@ -122,7 +123,7 @@ export function installFrontend(
     },
     {
       provider: w.provider,
-      dependsOn: [secrets.secret, ...dependsOn],
+      dependsOn: [secrets.secret, ...(admissionSecret ? [admissionSecret] : []), ...dependsOn],
       // The HPA owns spec.replicas after creation — don't let `pulumi up` revert
       // an autoscaling decision back to minReplicas.
       ignoreChanges: ["spec.replicas"],

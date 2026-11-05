@@ -521,7 +521,7 @@ if (cfg.observability.enabled) {
       gatewayResources.gateway,
       ...(langfuse ? [langfuse.webService, langfuse.secret] : []),
       ...(cmsCredential ? [cmsCredential] : []),
-      ...(rateLimitStore ? [rateLimitStore.service] : []),
+      ...(rateLimitStore ? [rateLimitStore.service] : []), frontend.service, // and with it the admission Secret
     ]);
   }
 

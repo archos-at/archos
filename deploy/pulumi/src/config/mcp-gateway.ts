@@ -34,6 +34,14 @@ export interface McpGatewayConfig {
    * secret. Rotating it ends the sessions in flight (clients reconnect).
    */
   sessionKey: pulumi.Output<string>;
+  /**
+   * The secret the gateway presents to the app's admission route
+   * (`/api/internal/platform-mcp-admission`), which admits a person whose token
+   * names another organization from their live platform membership (ADR-0154,
+   * amendment of 2026-11-05). A one-way HMAC of `pgAppPassword` under its own
+   * label, so it needs no new secret and opens that one route alone.
+   */
+  admissionToken: pulumi.Output<string>;
 }
 
 const ORG_ID = /^org_[0-9A-Za-z]+$/;
@@ -62,7 +70,10 @@ export function loadMcpGateway(
   const sessionKey =
     cfg.getSecret("mcpGatewaySessionKey") ??
     appPassword?.apply((password) => createHmac("sha256", password).update("platform-mcp-gateway-session").digest("hex"));
-  const off = { enabled: false, domain, issuer: "", platformOrgId, sessionKey: pulumi.output("") };
+  const admissionToken =
+    appPassword?.apply((password) => createHmac("sha256", password).update("platform-mcp-admission").digest("hex")) ??
+    pulumi.output("");
+  const off = { enabled: false, domain, issuer: "", platformOrgId, sessionKey: pulumi.output(""), admissionToken };
   if (!enabled) return off;
 
   const missing = [
@@ -97,6 +108,7 @@ export function loadMcpGateway(
     // Checked where the value resolves, so the plan never reads the secret
     // in the clear; a malformed key fails the preview all the same.
     sessionKey: sessionKey!.apply(checkSessionKey),
+    admissionToken,
   };
 }
 

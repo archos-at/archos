@@ -210,6 +210,27 @@ Langfuse's docs, ahead of `LANGFUSE_MCP_ALLOWED_HOSTS`.
   option would also still need a header rewrite per server for the upstream
   credential.
 
+## Amendment (2026-11-05): a token of another organization
+
+A WorkOS token names the one organization picked at sign-in, and its `roles` are
+that membership's. A platform owner who also works in an office and picked the
+office was refused, and had to authorize the client again in the platform
+organization. The gateway now asks the app for such a token, by external
+authorization (agentgateway `extAuthz`, HTTP, `failureMode: deny`): the app
+verifies the token and admits the person when their live membership of the
+platform organization holds an admitted role. A token of the platform
+organization is still decided by its claims alone.
+
+* Good, because rights still come from the platform membership, and the lookup
+  is live, so a removal bites within a minute on this path.
+* Good, because the decision stays one function in the app
+  (`platform-admission.ts`) that `platformPrincipal` mirrors for the platform door.
+* Bad, because a sign-in policy the platform organization sets for itself (SSO,
+  MFA) is not met by a sign-in through an office. Neither environment sets one
+  today; the runbook says how to switch this path off before one is set.
+* Bad, because the gateway now depends on the frontend for such a token. A
+  frontend outage refuses it (fail closed), never admits it.
+
 ## More Information
 
 * Runbook, WorkOS setup and first-deploy checks: [`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md).
