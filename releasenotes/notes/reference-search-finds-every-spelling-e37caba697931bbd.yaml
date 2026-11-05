@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    A search for documents that refer to a standard or a plan now finds them
+    however they wrote it: ÖNORM B 1600 also finds documents that wrote
+    B1600, and EP-05 also finds EP05 and EP.05. Before, a different spelling
+    left those documents out without saying so.
