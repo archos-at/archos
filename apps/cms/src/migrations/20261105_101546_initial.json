@@ -52,6 +52,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "import_hash": {
+          "name": "import_hash",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
         "stage": {
           "name": "stage",
           "type": "enum_posts_stage",
@@ -507,6 +513,12 @@
         "version_author_id": {
           "name": "version_author_id",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version_import_hash": {
+          "name": "version_import_hash",
+          "type": "varchar",
           "primaryKey": false,
           "notNull": false
         },
@@ -4140,6 +4152,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "43a52928-e64f-4754-8a44-9af7dd79b835",
+  "id": "8efbee5f-4d79-40c8-aa36-86d8accfbbc1",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

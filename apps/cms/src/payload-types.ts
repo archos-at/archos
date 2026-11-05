@@ -238,6 +238,7 @@ export interface Post {
   publishedAt: string;
   category: 'product' | 'practice' | 'technology';
   author?: (number | null) | Author;
+  importHash?: string | null;
   /**
    * Set "Ready for review" when a publisher should read it. Publishing is a publisher's.
    */
@@ -747,6 +748,7 @@ export interface PostsSelect<T extends boolean = true> {
   publishedAt?: T;
   category?: T;
   author?: T;
+  importHash?: T;
   stage?: T;
   updatedAt?: T;
   createdAt?: T;
