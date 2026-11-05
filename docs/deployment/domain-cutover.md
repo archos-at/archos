@@ -1,8 +1,11 @@
 # Domain cutover: moving every public host to the domain in `identity.json`
 
-**Status: prepared, not done** (owner decision D2, 2026-10-29: prepare, don't flip). Nothing
-here has been run. The owner triggers the cutover; every step below that changes a live system
-is marked **one-way door** or **live** and needs the owner.
+**Status: dev switching, prod prepared** (owner decision D2, 2026-10-29: prepare, don't flip;
+2026-11-05: switch dev). The new zone is in the same Cloudflare account as the former one. The
+dev stack's switch is committed in `Pulumi.dev.yaml` with the new zone's id, and dev's new
+account-owned token is in ESC, checked against both zones. Staging's WorkOS entries are added. Prod
+is unchanged: its configuration below is ready to apply. The owner triggers it; every step that
+changes a live system is marked **one-way door** or **live** and needs the owner.
 
 The product's name and domain are copy and live in one place:
 `packages/brand/identity.json` (`"domain"`). The website already reads it (canonical URLs,
@@ -40,6 +43,17 @@ NEW_DEV="dev.$NEW"
   (`deploy/pulumi/src/app/former-domain.ts`, tested in `former-domain.spec.ts`). Path and
   query carry over. Plain HTTP on the former host is first sent to HTTPS by the existing
   catch-all, then moved.
+- **The former hosts' DNS.** With `formerBaseDomain` set, the former apex and `app.` host keep
+  their A records at the Gateway, under the same Pulumi resource names they had as the stack's
+  own hosts, so the move neither deletes nor re-creates them (`deploy/pulumi/src/platform/dns.ts`).
+  When the former domain is another Cloudflare zone, `formerDnsZoneName` and `formerDnsZoneId`
+  name it, and the one `cloudflareApiToken` must edit both zones. The former `s3.`, `otel.`,
+  `langfuse.`, `qdrant.` and `cms.` records are deleted by the move, as the table above says.
+- **The token check.** `deploy/pulumi/scripts/check-cloudflare-token.sh --stack <stack>` asks the
+  Cloudflare API whether the stack's token can see, read and write each zone (by default the
+  brand's domain, the zone prod serves, and the stack's own and former zones), and prints each
+  zone's id. It needs `pulumi login`, or the token in
+  `CLOUDFLARE_API_TOKEN`; the token is Pulumi config, not a cluster Secret.
 - **Every derived host.** `app.`, `s3.`, `otel.`, `langfuse.` and `qdrant.` derive from
   `baseDomain`; so do the app's `WORKOS_REDIRECT_URI`, the MCP and A2A resource URLs
   (`apps/workspace/bff/agent-api/mcp-config.ts`), `LANDING_URL` (and with it the help and privacy links in project mail's bounce text, through the Worker's binding of the same name, and the app's help links) and the website's
@@ -50,34 +64,39 @@ NEW_DEV="dev.$NEW"
 ## Exact configuration changes
 
 The values to set on switch day, per stack. Keys are written without the project's
-namespace, as `pulumi config set <key>` takes them in `deploy/pulumi`. `Pulumi.<stack>.yaml` line numbers are as of
-2026-10-29. Never touch a `secure:` value by hand (`deploy/AGENTS.md`); set secrets with
-`pulumi config set --secret` or ESC.
+namespace, as `pulumi config set <key>` takes them in `deploy/pulumi`. Never touch a `secure:`
+value by hand (`deploy/AGENTS.md`); set secrets with `pulumi config set --secret` or ESC.
 
 ### Prod (`deploy/pulumi/Pulumi.prod.yaml`)
 
-| Line | Key | Today | Set to |
-|---|---|---|---|
-| 122 | `baseDomain` | `$OLD` | `$NEW` |
-| new | `formerBaseDomain` | (unset) | `$OLD` |
-| 452 | `dnsZoneName` | `$OLD` | `$NEW` |
-| 453 | `dnsZoneId` | the former zone's id | the id on the new zone's Cloudflare Overview page. TODO(owner): create the zone first |
-| ESC | `cloudflareApiToken` | token scoped to the former zone | a token scoped to the new zone: Zone:DNS:Edit, plus Zone:Dynamic URL Redirects:Edit (the `www` rule) |
-| 470–472 | comment on the Qdrant dashboard | `https://qdrant.$OLD/oauth2/callback` | `https://qdrant.$NEW/oauth2/callback` |
+| Key | Today | Set to |
+|---|---|---|
+| `baseDomain` | `$OLD` | `$NEW` |
+| `formerBaseDomain` | (unset) | `$OLD` |
+| `dnsZoneName` | `$OLD` | `$NEW` |
+| `dnsZoneId` | the former zone's id | the new zone's id, as dev has it |
+| `formerDnsZoneName` | (unset) | `$OLD` |
+| `formerDnsZoneId` | (unset) | the former zone's id (today's `dnsZoneId`) |
+| `cloudflareApiToken` (ESC) | prod's user token, `piloti.at` only | a new **account-owned** token (Manage Account → API Tokens). Zone Resources `$NEW` and `$OLD`: Zone → DNS → Edit, Zone → Single Redirect → Edit (the `www` rule), Zone → Zone → Read, and for project mail on `$NEW` Zone → Zone Settings → Edit and Zone → Email Routing Rules → Edit; Account Resources the account: Workers Scripts → Edit, Email Routing Addresses → Edit (the mail block's list, `src/platform/inbound-mail.ts`). Prove it with `CLOUDFLARE_API_TOKEN=<token> check-cloudflare-token.sh --stack prod` before setting it |
+| `dnsDmarc` | the former domain's policy | **unset.** `_dmarc.$NEW` has one owner, the project-mail block of `Pulumi.prod.yaml` (agreed 2026-11-05 with the mail work, archos-at/archos#1464 and its follow-up), because mail needs it before prod's switch. Two TXT records at `_dmarc` make DMARC fail, and Cloudflare accepts the second without a word. The former value also does not fit: it reports to the former registrar and was written for a domain with no mail, while `$NEW` carries Google Workspace mail. The policy itself (start at `p=none` with `sp=` set) is the owner's mail decision |
+| comment on the Qdrant dashboard | `https://qdrant.$OLD/oauth2/callback` | `https://qdrant.$NEW/oauth2/callback` |
 
 `dnsZoneBaseline: "true"` stays on prod: it publishes the new zone's apex, `www` (301 to the
-apex at Cloudflare) and `_dmarc`. `dnsDmarc` keeps its value; the record moves with the zone.
+apex at Cloudflare); `_dmarc` belongs to the mail block (row above). The former zone's `www`, `_dmarc` and `www` redirect rule
+stay where they are only after step 4 takes them out of the state.
 
 ### Dev (`deploy/pulumi/Pulumi.dev.yaml`)
 
-| Line | Key | Today | Set to |
-|---|---|---|---|
-| 62 | `baseDomain` | `$OLD_DEV` | `$NEW_DEV` |
-| new | `formerBaseDomain` | (unset) | `$OLD_DEV` |
-| 241 | `dnsZoneName` | `$OLD` | `$NEW` (the same zone as prod) |
-| 242 | `dnsZoneId` | the former zone's id | the new zone's id |
-| 243 | `cloudflareApiToken` | (secure) | the new zone's token, `pulumi config set --secret` |
-| 133–135 | comment on the Qdrant dashboard | `https://qdrant.$OLD_DEV/oauth2/callback` | `https://qdrant.$NEW_DEV/oauth2/callback` |
+Committed on 2026-11-05. The token was checked against both zones the same day and stored in ESC:
+
+| Key | Was | Now |
+|---|---|---|
+| `baseDomain` | `$OLD_DEV` | `$NEW_DEV` |
+| `formerBaseDomain` | (unset) | `$OLD_DEV` |
+| `dnsZoneName` | `$OLD` | `$NEW` (the same zone as prod) |
+| `dnsZoneId` | the former zone's id | the new zone's id (`31df51fb…`), printed by `check-cloudflare-token.sh --stack dev` on 2026-11-05 |
+| `formerDnsZoneName` / `formerDnsZoneId` | (unset) | `$OLD` and the former zone's id |
+| `cloudflareApiToken` | (secure, a user token on `$OLD` only) | removed from the stack file; a new **account-owned**, DNS-only token on `$NEW` and `$OLD` (Zone → DNS → Edit, Zone → Zone → Read) in ESC, `esc env set …/dev pulumiConfig.<project>:cloudflareApiToken` |
 
 ## Third-party allowlists (additive, before the switch)
 
@@ -86,6 +105,16 @@ are removed only after the old hosts have redirected for a while. Adding is harm
 because nothing asks for the new URLs until the switch.
 
 ### WorkOS (per environment: Staging for dev, Production for prod)
+
+**Staging: added 2026-11-05** through the WorkOS MCP server, next to the former entries: the
+AuthKit redirect URI, the CORS origin and the logout URI `https://$NEW_DEV` on the app's AuthKit
+application, the three Connect redirect URIs for `qdrant.` and `langfuse.` (`otel.` is retired),
+and the four resource indicators (`/api/mcp`, `/api/a2a`, `/api/platform/mcp`,
+`https://platform-mcp.$NEW_DEV/langfuse/mcp`). Left for after dev's deploy, because each is one
+value and changing it now would send people to a host that does not answer yet: the AuthKit
+application's initiate-login URI (`https://app.$NEW_DEV/api/auth/signin`) and homepage
+(`https://app.$NEW_DEV`), and making the new redirect URI, logout URI and `/api/mcp` resource the
+defaults. **Production: not yet.**
 
 Reconciled by `apps/workspace` `npm run provision:workos-env` (dry run by default; `--apply`
 is a **one-way door**, owner only; `docs/deployment/workos-provisioning.md`):
@@ -115,7 +144,8 @@ with the owner's go-ahead):
 
 | Setting | Today | Add or change |
 |---|---|---|
-| Authorized URLs (`app_urls`, toolbar and heatmaps) | `https://app.dev.$OLD`, `https://app.$OLD` | `https://app.$NEW`, `https://app.$NEW_DEV`, and the websites `https://$NEW`, `https://$NEW_DEV` (the website's heatmaps need them; they were never listed) |
+| Authorized URLs (`app_urls`, toolbar and heatmaps) | both former app hosts and websites, and since 2026-11-05 `https://$NEW`, `https://$NEW_DEV`, `https://app.$NEW`, `https://app.$NEW_DEV` | nothing |
+| Test account filter (`test_account_filters`) | excludes `app_host` and `$host` = `app.dev.$OLD`, and since 2026-11-05 `app.dev.$NEW` too | nothing for dev; done before dev's deploy |
 | Replay trigger "Baseline sample (production only)" | URL regex for the former app host | `^https://app\.$NEW(/|$)` with the dots escaped; during the transition match both hosts |
 | Conversations widget domains | `https://app.$OLD/`, `https://app.dev.$OLD/` | `https://app.$NEW/`, `https://app.$NEW_DEV/` |
 | Cookieless server hash mode | `0` (off) | **Stateful** (Settings → Web analytics). Independent of the move and needed now: without it PostHog drops every cookieless website event (`apps/website/README.md`, Analytics) |
@@ -159,32 +189,40 @@ the image's input hash for `web` changes.
 
 **A week before (all additive, nothing changes for a visitor):**
 
-1. Create the Cloudflare zone for `$NEW` (registrar nameservers to Cloudflare), copy its
-   zone id, create the zone-scoped token. Lower the TTL of the former zone's records to 300 s.
+1. Create the Cloudflare zone for `$NEW` (registrar nameservers to Cloudflare; done: it shares
+   the former zone's account and nameservers). Run `deploy/pulumi/scripts/check-cloudflare-token.sh
+   --stack <stack>`: every zone `ok`, and its id printed. A zone it cannot see is fixed in Cloudflare
+   by adding that zone to the token's Zone Resources; the token's value stays, so no config
+   changes. Lower the TTL of the former zone's records to 300 s.
 2. WorkOS, PostHog, Search Console: add the entries above.
 3. Agents: announce the reconnect (if option a).
 
 **Switch day, dev first, then prod after a day of dev running clean:**
 
-4. **Keep the former hosts' DNS.** The program owns the records of the zone it is given; when
-   `dnsZoneName` changes, `pulumi up` would delete the former zone's records, and the 301s
-   with them. Remove them from the stack's state so they stay in Cloudflare as they are:
+4. **Prod only: keep the former zone's baseline.** The former apex and `app.` records need
+   nothing: the program keeps them (`formerDnsZone*`). The zone-level records are different:
+   `dns-www`, `dns-dmarc` and `dns-www-redirect` move to the new zone with `dnsZoneName`, and
+   Pulumi would delete the former `www`, its redirect rule and its DMARC policy. Take those three
+   out of prod's state first, so they stay in Cloudflare as they are (`www.$OLD` then 301s to
+   `$OLD`, which 301s to `$NEW`):
    ```bash
    cd deploy/pulumi
-   pulumi stack --stack <stack> --show-urns | grep 'cloudflare:index/dnsRecord:DnsRecord'
-   pulumi state delete --stack <stack> '<urn of each former-zone record>'   # one-way for the state, not for DNS
+   pulumi stack --stack prod --show-urns | grep -E '::dns-(www|dmarc|www-redirect)$'
+   pulumi state delete --stack prod '<each of the three urns>'   # one-way for the state, not for DNS
    ```
-   On prod that is the apex, `www`, `_dmarc` and the `app.`/`s3.`/`otel.`/`langfuse.`/`qdrant.`
-   records, and the `www-redirect` ruleset; on dev its own hosts. The A records keep pointing
-   at the gateway's address (`loadBalancerIp`), which does not change.
+   Dev owns no baseline and skips this step.
 5. Open a PR with the configuration changes above for that stack. Read its `pulumi preview`
    (CI posts it; `npm run preview` with stack credentials): expected are new records in the
    new zone, two `https-former-*` listeners and their certificates, two `former-*-redirect`
    HTTPRoutes, new hostnames on every listener, and changed env on the frontend, web, api and
-   Langfuse pods. **No `DnsRecord` delete may appear**; if one does, step 4 is incomplete.
+   Langfuse pods. The former apex and `app.` records show no change. The only `DnsRecord`
+   deletes are the former `s3.`, `langfuse.`, `qdrant.`, `cms.` (and on prod any other operator)
+   hosts; a delete of the former apex, `app.`, `www` or `_dmarc` means step 4 or
+   `formerDnsZone*` is missing.
 6. Merge. CI rebuilds the `web` image with `PUBLIC_SITE_URL=https://$NEW` (the new
    `baseDomain` is part of its hash), and the deploy runs `pulumi up` (**live**). cert-manager
-   issues the new certificates over HTTP-01 within minutes; the former hosts keep their own.
+   issues the new certificates over HTTP-01 within minutes. The former hosts' listeners use new
+   Secrets (`former-web-tls`, `former-app-tls`), so they fail TLS for those minutes too.
 7. Check, from outside the cluster:
    ```bash
    curl -sI "https://$OLD/blog/?x=1"     | grep -iE '^(HTTP|location)'   # 301, location https://$NEW/blog/?x=1
@@ -207,11 +245,23 @@ Before step 8 everything goes back by reverting the PR of step 5:
 
 1. Revert the PR. The following `pulumi up` removes the new zone's records, listeners,
    certificates and redirect routes itself.
-2. The former zone's records are no longer in the state (step 4), and the reverted config
-   wants to create them: Cloudflare refuses a duplicate. Either re-import them
-   (`pulumi import cloudflare:index/dnsRecord:DnsRecord <name> <zoneId>/<recordId>`, no
-   outage) or delete them in Cloudflare right before the `up` (a few minutes of resolution
-   failures, bounded by the 300 s TTL).
+2. The former apex and `app.` records were never out of the state and need nothing. The
+   former hosts the move deleted (`s3.` and the operator hosts) are re-created by the `up`.
+   On prod, reconcile the three baseline resources of step 4 one by one before the `up`.
+   `dns-www` and `dns-www-redirect` are in the state again, but for the new zone; the reverted
+   config moves them back, and both creates collide with what step 4 left in the former zone:
+   - `dns-www` (`DnsRecord`): delete `www.$OLD` in Cloudflare right before the `up`, or
+     `pulumi state delete` the new-zone entry and import the former record over it
+     (`pulumi import cloudflare:index/dnsRecord:DnsRecord dns-www <zoneId>/<recordId>`).
+   - `dns-www-redirect` (`Ruleset`, not a record): a zone holds one entrypoint ruleset per
+     phase, so delete the former zone's `http_request_dynamic_redirect` entrypoint in
+     Cloudflare (Rules → Redirect Rules) right before the `up`, or import it with
+     `pulumi import cloudflare:index/ruleset:Ruleset dns-www-redirect zones/<zoneId>/<rulesetId>`
+     after removing the new-zone entry from the state.
+   - `dns-dmarc` (`DnsRecord`): not in the state at all, and the reverted config declares it
+     again. Import the former `_dmarc.$OLD` record as above, or delete it right before the `up`.
+   Deleting is a few minutes of resolution failures for that name, bounded by the 300 s TTL;
+   importing has none.
 3. WorkOS and PostHog need nothing: the old entries were never removed.
 
 After step 8, Search Console's Change of Address can be withdrawn in the `$OLD` property,
