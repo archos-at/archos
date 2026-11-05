@@ -24,7 +24,7 @@ export interface PublishedPost {
 /** The drafts a published post asks for, one per language it is written in. Pure. */
 export function socialDrafts(post: PublishedPost, accountId: number) {
   return LOCALES.flatMap((locale) => {
-    const title = post.title?.[locale]?.replace(/­/g, '').trim();
+    const title = post.title?.[locale]?.replace(/\u00AD/g, '').trim();
     if (!title) return [];
     const description = post.description?.[locale]?.trim();
     return [
