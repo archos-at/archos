@@ -45,7 +45,7 @@ interface MainLayoutProps {
   isAuthenticated?: boolean
   /** Callback when sign in is clicked */
   onSignIn?: () => void
-  /** Active project name — thread-header breadcrumb + composer scope chip. */
+  /** Active project name — named in the thread header's phone context row. */
   projectName?: string | null
   /**
    * Whether the collaboration surfaces are available (ADR-0032…0035): message
@@ -305,7 +305,6 @@ export const MainLayout: FC<MainLayoutProps> = ({
                 <InputArea
                   isAuthenticated={isAuthenticated}
                   connectionMode="websocket"
-                  projectName={projectName ?? undefined}
                   // Gates the composer's addressee statement (and the hand-off read
                   // behind it). False — the default — is byte-for-byte today's
                   // composer (spec NF-8).

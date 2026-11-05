@@ -55,7 +55,7 @@ interface ChatToolbarProps {
   /**
    * The active project. Named on a phone only, in the context row above the
    * pills (the chat route has no phone header to carry it); on a desktop the
-   * composer's scope chip, the rail and the URL name it, so the pills do not.
+   * rail and the URL name it, so the pills do not.
    */
   projectName?: string | null
   onNewSession?: () => void
@@ -364,9 +364,9 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
         {/* The session title (click-to-rename) — shown once a chat has started
             so the current thread is identifiable. On a fresh, empty chat there
             is no thread to name yet, so it stays hidden to keep the start
-            screen calm. The PROJECT name is deliberately absent: the composer's
-            scope chip, the rail and the URL all name it already, so here it was
-            a fourth copy paying rent in the row's scarcest space. */}
+            screen calm. The PROJECT name is deliberately absent: the rail and the
+            URL name it already, so here it would be one more copy paying rent
+            in the row's scarcest space. */}
         {isChatStarted && (sessionTitle || hasStatus) && (
           <nav
             className="flex min-w-0 flex-1 flex-col justify-center pl-1 pr-1.5 text-sm sm:flex-none sm:flex-row sm:items-center sm:gap-1.5"
@@ -401,7 +401,7 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                     // at the top of the thread, with the toolbar pinned over the
                     // conversation. The zoom is not undone on blur, so renaming a
                     // chat left the reader magnified inside their own answer.
-                    className="h-11 w-56 max-w-full rounded-control border bg-card px-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:text-base sm:h-7"
+                    className="h-11 w-56 max-w-full rounded-control border bg-card px-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:text-base sm:h-7 sm:pointer-fine:text-xs"
                   />
                 ) : (
                   // Click-to-rename, kept as the SHORTCUT rather than as the only
@@ -417,11 +417,15 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                     disabled={!canRename}
                     aria-label={tChat('breadcrumb.renameAria')}
                     title={canRename ? tChat('breadcrumb.renameAria') : sessionTitle}
-                    className="flex min-h-9 min-w-0 max-w-[420px] flex-1 items-center rounded-control px-1 py-0.5 text-left text-sm font-medium leading-snug text-foreground transition-colors duration-quick ease-out motion-reduce:transition-none enabled:cursor-text enabled:hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 sm:flex-none"
+                    className="flex min-h-9 min-w-0 max-w-[420px] flex-1 items-center rounded-control px-1 py-0.5 text-left text-sm font-medium leading-snug text-foreground sm:text-xs sm:leading-4 transition-colors duration-quick ease-out motion-reduce:transition-none enabled:cursor-text enabled:hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 sm:flex-none"
                   >
                     {/* Two lines on a phone, one on a pointer device. A name is the
                         first thing a reader checks in a thread; it is never cut to a
-                        stub to make room for chrome. */}
+                        stub to make room for chrome. From `sm` it sits beside New
+                        chat and takes that label's size (`text-xs`, 16px line), so
+                        the two read as one row rather than a heading and a button;
+                        on a phone New chat lives in the menu and the title keeps
+                        `text-sm`. */}
                     {/* `hyphens-auto` (the page is `lang="de"`): a German compound breaks at a
                         syllable, never mid-word. */}
                     <span className="line-clamp-2 hyphens-auto break-words sm:line-clamp-1">{sessionTitle}</span>
