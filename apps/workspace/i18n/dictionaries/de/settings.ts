@@ -130,6 +130,9 @@ export const settings: typeof en.settings = {
       knowledgeTitle: 'Wissensbasis',
       knowledgeDescription: 'Was die Wissensbasis des Projekts enthält, Abschnitt für Abschnitt.',
       knowledgeLink: 'Wissensbasis öffnen',
+      inboundMailTitle: 'E-Mail-Adresse des Projekts',
+      inboundMailDescription:
+        'Setzen Sie sie in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben, oder leiten Sie Unterlagen an sie weiter. Was jemand, der im Projekt ablegen darf, von der eigenen Adresse sendet und die eigene Domain bestätigt, wird direkt abgelegt. Alles andere wartet im E-Mail-Eingang unter Dateien, bis jemand es ablegt; für E-Mails von bestätigten Domains schlägt {productName} zu jedem Anhang Ordner, Namen und Dokumentart vor.',
     },
   },
 }

@@ -30,13 +30,20 @@ import { BACKEND_OPERATIONS, AGENT_TOOL_FOR } from './backend-operations'
 import { AGENT_OPERATIONS } from './catalog'
 import { EXPOSURE, type Exposure, WITHHELD_CATEGORIES } from './exposure.config'
 import { APP_TOOLS } from './catalog/app-views'
+import type { Sensitivity } from './operation'
+import { maySeeSensitive, SENSITIVE_SCOPE, visibleOperations } from './policy'
+import type { AgentPrincipal } from './principal'
+import { externalOnly, HELD_MAIL, SENSITIVE } from './exposure-presets'
+
+/** The in-product agent's actor on the wire (`AgentPrincipal['actor']`). */
+const IN_PRODUCT_ACTOR = 'piloti' as const
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/exposure.json')
 const NATIVE = /^native:[a-z][a-z0-9_]*$/
 
 const entries = EXPOSURE as Readonly<Record<string, Exposure>>
 const entry = (name: string): Exposure => entries[name] as Exposure
-const plainlyOffered = (exposure: Exposure): boolean => exposure.external && exposure.piloti === true
+const plainlyOffered = (exposure: Exposure): boolean => exposure.external && exposure.agent === true
 
 describe('the exposure config', () => {
   it('has an entry for every operation, the read tools and the app-only tools, and for nothing else (no silent default)', () => {
@@ -54,9 +61,9 @@ describe('the exposure config', () => {
       if (!exposure.withheld) continue
       expect(WITHHELD_CATEGORIES, name).toContain(exposure.withheld.category)
       expect(exposure.withheld.reason.length, name).toBeGreaterThan(30)
-      expect({ external: exposure.external, piloti: exposure.piloti, platform: exposure.platform }, name).toEqual({
+      expect({ external: exposure.external, agent: exposure.agent, platform: exposure.platform }, name).toEqual({
         external: false,
-        piloti: false,
+        agent: false,
         platform: undefined,
       })
     }
@@ -75,24 +82,66 @@ describe('the exposure config', () => {
       const exposure = entry(op.name)
       if (exposure.withheld) continue
       expect(exposure.platform === true, op.name).toBe(op.domain === 'platform')
-      if (op.domain === 'platform') expect([exposure.external, exposure.piloti], op.name).toEqual([false, false])
+      if (op.domain === 'platform') expect([exposure.external, exposure.agent], op.name).toEqual([false, false])
     }
     for (const op of BACKEND_OPERATIONS) expect(entry(op.name).platform, op.name).toBeUndefined()
   })
 
   it('never offers Piloti what it may not propose: a sensitive operation, an ask, a decision on a proposal', () => {
     for (const op of AGENT_OPERATIONS) {
-      if (op.sensitivity && !entry(op.name).withheld) expect(entry(op.name).piloti, op.name).toBe(false)
+      if (op.sensitivity && !entry(op.name).withheld) expect(entry(op.name).agent, op.name).toBe(false)
     }
     for (const name of [...AGENT_ASK_OPERATIONS, ...PROPOSAL_DECISION_OPERATIONS]) {
-      expect(entry(name).piloti, name).toBe(false)
+      expect(entry(name).agent, name).toBe(false)
+    }
+  })
+
+  it('keeps a held mail’s text and bytes from the agent, and evidence off every door (ADR-0137, D22)', () => {
+    // The agent reads a mail once a person filed it; before, metadata only (RT-S6).
+    for (const name of ['inbound-mail-text-get', 'inbound-mail-part-content-get']) expect(entry(name), name).toMatchObject(externalOnly(HELD_MAIL))
+    // The original `.eml` is proof: no model reads it, whoever asks (ADR-0122, amendment "evidence is on no door").
+    const evidence = Object.entries(entries).filter(([, exposure]) => exposure.withheld?.category === 'evidence').map(([name]) => name)
+    expect(evidence).toContain('inbound-mail-original-get')
+    for (const op of AGENT_OPERATIONS.filter((candidate) => /\/original$/.test(candidate.path))) {
+      expect(entry(op.name).withheld?.category, op.name).toBe('evidence')
+    }
+  })
+
+  it('never lets the agent make or end a standing decision to follow a mail thread (D31)', () => {
+    const follow = AGENT_OPERATIONS.find((op) => op.name === 'mail-thread-follow')
+    // It turns review down for one conversation: a control, never offered to the agent, whatever it holds.
+    expect(follow?.sensitivity).toBe('control')
+    expect(entry('mail-thread-follow')).toMatchObject(SENSITIVE)
+    expect(entry('mail-thread-unfollow')).toEqual(externalOnly(entry('mail-thread-unfollow').reason ?? ''))
+    const session = { userId: 'user_1', organizationId: 'org_1', role: 'admin', permissions: [] } as unknown as AgentPrincipal['session']
+    const inProduct: AgentPrincipal = { actor: IN_PRODUCT_ACTOR, session, clientId: null, scopes: [SENSITIVE_SCOPE], sensitiveOptIns: ['control'] }
+    const names = visibleOperations(inProduct).map((op) => op.name)
+    expect(names).not.toContain('mail-thread-follow')
+    expect(names).not.toContain('mail-thread-unfollow')
+    expect(maySeeSensitive(inProduct, 'control', true)).toBe(false)
+    // An outside agent sees it only with the office's opt-in AND the step-up scope.
+    const outside = (scopes: string[], sensitiveOptIns: Sensitivity[]): AgentPrincipal => ({
+      actor: 'external_agent',
+      session,
+      clientId: 'c',
+      scopes,
+      sensitiveOptIns,
+    })
+    expect(maySeeSensitive(outside([SENSITIVE_SCOPE], ['control']), 'control', true)).toBe(true)
+    expect(maySeeSensitive(outside([], ['control']), 'control', true)).toBe(false)
+    expect(maySeeSensitive(outside([SENSITIVE_SCOPE], []), 'control', true)).toBe(false)
+  })
+
+  it('lets the person decide held mail: filing and dismissing run for an outside agent only on their yes', () => {
+    for (const name of ['inbound-mail-file', 'inbound-mail-dismiss']) {
+      expect(AGENT_OPERATIONS.find((op) => op.name === name)?.requiresPersonConfirmation, name).toBeDefined()
     }
   })
 
   it('offers an app-only tool to a view and to no model, and names only operations on the door (ADR-0142)', () => {
     const operations = new Set(AGENT_OPERATIONS.map((op) => op.name))
     for (const tool of APP_TOOLS) {
-      expect(entry(tool.name), tool.name).toMatchObject({ external: false, piloti: false, app: true })
+      expect(entry(tool.name), tool.name).toMatchObject({ external: false, agent: false, app: true })
       expect(operations.has(tool.name), `${tool.name} must not be an operation name`).toBe(false)
       expect(entry(tool.operation).external, `${tool.operation} must be on the office door`).toBe(true)
     }
@@ -103,10 +152,10 @@ describe('the exposure config', () => {
 
   it('names a native tool by its bound name, and gives each read tool its own', () => {
     for (const [name, exposure] of Object.entries(entries)) {
-      if (typeof exposure.piloti === 'string') expect(exposure.piloti, name).toMatch(NATIVE)
+      if (typeof exposure.agent === 'string') expect(exposure.agent, name).toMatch(NATIVE)
     }
     for (const op of BACKEND_OPERATIONS) {
-      expect(entry(op.name).piloti, op.name).toBe(`native:${AGENT_TOOL_FOR[op.tool] ?? op.tool}`)
+      expect(entry(op.name).agent, op.name).toBe(`native:${AGENT_TOOL_FOR[op.tool] ?? op.tool}`)
     }
   })
 
@@ -128,7 +177,7 @@ function render(): string {
         domain,
         sensitivity,
         external: exposure.external,
-        piloti: exposure.piloti,
+        agent: exposure.agent,
         platform: exposure.platform === true,
         withheld: exposure.withheld ?? null,
         reason: exposure.reason ?? null,
@@ -146,7 +195,7 @@ function render(): string {
   const fixture = {
     comment:
       'Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts ' +
-      '(UPDATE_FIXTURES=1). `piloti` is true, false or "native:<tool>" (Piloti uses that tool; the door hides the operation from it). ' +
+      '(UPDATE_FIXTURES=1). `agent` is true, false or "native:<tool>" (the in-product agent uses that tool; the door hides the operation from it). ' +
       '`appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.',
     operations,
     appTools,

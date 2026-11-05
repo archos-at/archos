@@ -39,7 +39,7 @@ import { elementQuestionHref } from '../lib/element-question'
 import { formatPropertyValue } from '../lib/format-value'
 import { humaniseIfcType } from '../lib/stage-model'
 import type { BimElementDetail } from '../hooks/use-bim-model'
-import { CopyableValue } from './copyable-value'
+import { CopyableValue } from '@/components/ui/copyable-value'
 import {
   ViewerField,
   ViewerFieldGroup,

@@ -8,11 +8,14 @@ function Item({
   className,
   asChild = false,
   as: CompProp = 'div',
+  ref,
   ...props
-}: React.HTMLAttributes<HTMLElement> & { asChild?: boolean; as?: 'div' | 'li' }): React.JSX.Element {
+}: React.HTMLAttributes<HTMLElement> & { asChild?: boolean; as?: 'div' | 'li'; ref?: React.Ref<HTMLElement> }): React.JSX.Element {
   const Comp = asChild ? Slot : CompProp
   return (
     <Comp
+      // The element is a `div`, an `li` or the child; each is an HTMLElement, which is all a caller's ref is promised.
+      ref={ref as React.Ref<HTMLDivElement & HTMLLIElement>}
       data-slot="item"
       className={cn(
         // A row is `px-4 py-3` — the design language's list-row padding.
@@ -37,9 +40,19 @@ function Item({
         // any element under a held pointer.
         '[&:is(a,button)]:active:bg-accent/70',
         // THE SELECTED ROW of a list whose detail is open beside it (a
-        // two-pane inbox): `aria-current="true"` on the row, one tint past
-        // the hover so the pointer resting on another row never matches it.
-        'aria-[current=true]:bg-accent/60',
+        // two-pane inbox, the E-Mail-Eingang): `aria-current="true"` on the
+        // row, or `data-current` where the row's link carries `aria-current`
+        // itself. It lifts to the card and draws the selected hairline all
+        // round, inset. Not a tint: muted text on `bg-accent/70` measured
+        // 4.33:1 (axe, 2026-10-22), under AA. Not a bar down its leading
+        // edge: that is the stripe the design language retired (2026-10-27).
+        // Last in the cascade's variant order, so the hover never repaints it.
+        'aria-[current=true]:bg-card aria-[current=true]:inset-ring aria-[current=true]:inset-ring-strong',
+        'data-current:bg-card data-current:inset-ring data-current:inset-ring-strong',
+        // THE KEYBOARD'S ROW of a list walked with J/K while the focus stays
+        // where it is (`data-cursor`): the keyboard's own ring, inset, so the
+        // pointer resting on another row never matches it.
+        'data-cursor:inset-ring-2 data-cursor:inset-ring-ring/60',
         className,
       )}
       {...props}

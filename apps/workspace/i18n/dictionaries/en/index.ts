@@ -47,6 +47,8 @@ import { intakeFilingStep } from './intake-filing-step'
 import { intakeProjectStep } from './intake-project-step'
 import { intakeShell } from './intake-shell'
 import { notifications } from './notifications'
+import { inboundMail } from './inbound-mail'
+import { mailThread } from './mail-thread'
 import { search } from './search'
 import { whatsNew } from './whats-new'
 
@@ -92,6 +94,8 @@ export const en = {
   intakeProjectStep,
   intakeShell,
   notifications,
+  inboundMail,
+  mailThread,
   search,
   whatsNew,
 } as const

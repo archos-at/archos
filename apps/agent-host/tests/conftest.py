@@ -6,7 +6,6 @@ Skips ``agent_host/__init__.py`` (plugin pulls in the agent runtime) so tests ca
 
 from __future__ import annotations
 
-import socket
 import sys
 import types
 from pathlib import Path
@@ -26,32 +25,6 @@ if _PKG_DIR.is_dir():
         _pkg = types.ModuleType("agent_host")
         _pkg.__path__ = [str(_PKG_DIR)]
         sys.modules["agent_host"] = _pkg
-
-
-@pytest.fixture(autouse=True)
-def stub_private_dns(monkeypatch):
-    """Answer every hostname with a private IP, without touching real DNS.
-
-    The ingest route's SSRF resolution guard consults ``socket.getaddrinfo``;
-    letting it hit the network made the suite slow and environment-dependent
-    (the reserved ``.test`` object-store host used in fixtures does not
-    resolve at all). Private by default so the allowlisted-host exemption is
-    exercised on every happy path — the object store legitimately resolves
-    in-network in compose/Kubernetes deployments.
-    """
-
-    real_getaddrinfo = socket.getaddrinfo
-
-    def fake_getaddrinfo(*args, **kwargs):
-        host = args[0] if args else kwargs.get("host")
-        port = args[1] if len(args) > 1 else kwargs.get("port", 0)
-        if _is_ip_literal(host):
-            # An address needs no DNS. Faking it too sent the real-engine tests'
-            # REST calls for 127.0.0.1 to 10.42.0.7, where each hung to the OS timeout.
-            return real_getaddrinfo(*args, **kwargs)
-        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.42.0.7", port or 0))]
-
-    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
 
 
 @pytest.fixture(autouse=True)
@@ -104,13 +77,3 @@ def hatchet(monkeypatch):
     yield fake
     orchestrator_client.reset_for_tests(None)
     research_workflow._declared.clear()
-
-
-def _is_ip_literal(host: object) -> bool:
-    import ipaddress
-
-    try:
-        ipaddress.ip_address(host.decode() if isinstance(host, bytes) else str(host))
-    except ValueError:
-        return False
-    return True

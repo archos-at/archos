@@ -69,6 +69,7 @@ export default async function AppShellLayout({
       canAccessInbox={chrome.navFlags.canAccessInbox}
       showSkills={chrome.showSkills}
       showModels={chrome.showModels}
+      inboundMail={chrome.inboundMail}
       tours={chrome.tours}
       overlay={overlay}
       // What may dock beside the page: the Postfach, for a reader who may open it.

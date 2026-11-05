@@ -48,6 +48,12 @@ class SourceEntry:
     # and it is what ``answer_envelope._gate_verdict`` reads to refuse a
     # normative verdict resting on an office document Piloti wrote itself.
     authored_by: str | None = None
+    # The FORMAT of the document the passage came from, when it states one:
+    # ``"mail"`` for a filed E-Mail-Verlauf (``source_kinds.MAIL_SOURCE_FORMAT``),
+    # whose sections are messages. Parsed from the ``Format:`` line. It places
+    # the passage in the mail lane of its shelf (``norm_registry.lane_for_hit``),
+    # so a clerk's e-mail is cited as an e-mail and never as building law.
+    source_format: str | None = None
     # Retrieved passage body for knowledge-layer hits (the chunk content the KB
     # tool returned, truncated at 1500 chars per chunk). Used by
     # ``verify_quoted_spans`` to check that a QUOTED sentence in the answer

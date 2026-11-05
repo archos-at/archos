@@ -43,7 +43,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Clock3, FileText, LayoutDashboard, MessageSquare } from 'lucide-react'
+import { Clock3, FileText, LayoutDashboard, Mail, MessageSquare } from 'lucide-react'
 import { useMemo } from 'react'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
@@ -227,6 +227,18 @@ export function ProjectDocCount({ count, className }: { count: number; className
  * it grows rather than overhanging (`touch-target` would overlap the row's own
  * link, and the later element in the DOM would win the tap).
  */
+/**
+ * The material of a link layered above the card's stretched link (the
+ * overview shortcut, the mail waiting): quiet ink, a tint on hover, the
+ * control radius, its own focus ring. One string, so the two cannot drift
+ * apart (they had: the mail link took the surface radius).
+ */
+const LAYERED_LINK =
+  'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-accent hover:text-foreground focus-visible:outline-none motion-reduce:transition-none'
+
+/** Its labelled size: 32px on a mouse, 44px under a finger. */
+const LAYERED_LINK_LABELLED = 'h-8 px-2.5 text-xs pointer-coarse:h-11 pointer-coarse:px-3'
+
 export function ProjectOverviewLink({
   project,
   showLabel = false,
@@ -243,14 +255,52 @@ export function ProjectOverviewLink({
       href={`/app/projects/${project.id}/settings`}
       aria-label={t('card.overviewAria', { name: project.name })}
       className={cn(
-        'relative z-10 inline-flex items-center justify-center gap-1.5 rounded-control text-muted-foreground transition-colors duration-quick ease-out hover:bg-accent hover:text-foreground focus-visible:outline-none motion-reduce:transition-none',
-        showLabel ? 'h-8 px-2.5 text-xs pointer-coarse:h-11 pointer-coarse:px-3' : 'size-8 pointer-coarse:size-11',
+        LAYERED_LINK,
+        showLabel ? LAYERED_LINK_LABELLED : 'size-8 pointer-coarse:size-11',
         FOCUS_RING,
         className,
       )}
     >
       <LayoutDashboard className="size-3.5" aria-hidden />
       {showLabel && <span>{t('card.overview')}</span>}
+    </Link>
+  )
+}
+
+/**
+ * Mail waiting in the project's E-Mail-Eingang (ADR-0137): „2 E-Mails warten“,
+ * a link straight into it, layered above `ProjectOpenLink` (`relative z-10`)
+ * the way {@link ProjectOverviewLink} is. Rendered only with a count above
+ * zero, and only for a reader who may file the project's mail: the projects
+ * home reads the count with `waitingMailCounts` (`lib/inbound-mail/waiting-counts.ts`),
+ * which counts only where the reader may open the E-Mail-Eingang, so it is
+ * honest in the `project-surfaces.md` sense. Quiet ink, never a badge colour.
+ */
+export function ProjectMailWaiting({
+  project,
+  count,
+  className,
+}: {
+  project: Pick<Project, 'id' | 'name'>
+  count: number
+  className?: string
+}): JSX.Element | null {
+  const t = useTranslations(projectsCopy)
+  if (!Number.isFinite(count) || count <= 0) return null
+  return (
+    <Link
+      href={`/app/projects/${encodeURIComponent(project.id)}/files/mail`}
+      aria-label={t('card.mailWaitingAria', { count, name: project.name })}
+      data-testid="project-mail-waiting"
+      className={cn(
+        LAYERED_LINK,
+        LAYERED_LINK_LABELLED,
+        FOCUS_RING,
+        className,
+      )}
+    >
+      <Mail className="size-3.5" aria-hidden />
+      <span className="tabular-nums">{t('card.mailWaiting', { count })}</span>
     </Link>
   )
 }

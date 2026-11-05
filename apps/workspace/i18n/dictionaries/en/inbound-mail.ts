@@ -1,0 +1,532 @@
+/**
+ * inboundMail namespace: the E-Mail-Eingang (ADR-0137, DECISION §9).
+ *
+ * One word per concept (DECISION §3): „Project mail“ is the place, „file“
+ * puts a part into the project, „dismiss“ says no to a whole mail, „restore“
+ * undoes either within seven days, a „mail thread“ is the conversation
+ * document, and its states are „revision N“. The sender's trust names a
+ * domain, never a person. Never „Inbox“ (that is the notifications),
+ * never „project address“ (that is where the building stands).
+ */
+export const inboundMail = {
+  title: 'Project mail',
+  subtitle: 'Mail sent to the project mail address waits here until someone files it.',
+  back: 'Files',
+  addressButton: 'Address',
+  noSelection: 'Choose a mail to see what it contains.',
+
+  filters: {
+    label: 'Show',
+    waiting: 'Waiting to be filed',
+    handled: 'Handled',
+  },
+
+  empty: {
+    neverTitle: 'No mail to this project yet',
+    neverText:
+      'Put the address below in Cc when you write to the authority, the structural engineer or the client. What you send this way and your domain verifies is filed directly; replies from others land here until someone files them.',
+    doneTitle: 'Nothing waits to be filed',
+    doneText: 'New mail to the project mail address appears here.',
+    showHandled: 'Show handled mail',
+    handledTitle: 'Nothing handled yet',
+    handledText: 'Mail that was filed, dismissed or expired is listed here for {days, plural, one {# day} other {# days}} after its last part.',
+  },
+
+  loadError: 'Project mail could not be loaded.',
+  detailLoadError: 'This mail could not be loaded.',
+  retry: 'Try again',
+  loadMore: 'Load more',
+
+  closed: {
+    title: 'The project is closed – reopen it to file',
+    text: 'Mail keeps arriving and can still be dismissed.',
+    dismiss: 'Hide notice',
+  },
+
+  row: {
+    noSubject: '(no subject)',
+    attachments: '{count, plural, one {# attachment} other {# attachments}}',
+    automatic: 'Automatic',
+    thread: 'Mail thread “{name}” · becomes revision {version}',
+    select: 'Select “{subject}”',
+    impersonation: 'Poses as {name} · do not file',
+    // The reader's own address, rejected by their domain: said to them, never „poses as you“.
+    impersonationOwn: 'Your address, rejected by your domain · check it',
+    /** Who files a mail that names a member whose domain did not verify it. */
+    claim: {
+      own: 'Did you send it? Confirm it',
+      colleague: 'Waiting for {name}',
+    },
+    restorableUntil: 'can be restored until {date}',
+    outcome: {
+      filed: '{count, plural, one {# part filed} other {# parts filed}}',
+      dismissed: '{count, plural, one {# part dismissed} other {# parts dismissed}}',
+      expired: '{count, plural, one {# part expired} other {# parts expired}}',
+    },
+    fileAsSuggested: 'File “{subject}” as suggested',
+    needs: {
+      not_waiting: 'Already handled',
+      project_closed: 'The project is closed',
+      sender: 'Check the sender',
+      scanning: 'An attachment is still being checked …',
+      needs_person: 'Check an attachment',
+      no_thread: 'Choose a mail thread',
+      folder_missing: 'Choose a folder',
+    },
+    textFollowed: 'Text added to the mail thread (following)',
+    // A member who may file sent it from a verified domain, and direct filing did not file it all the same (`not_filed`).
+    notFiled: 'Not filed directly · {need}',
+    notFiledReady: 'Not filed directly',
+  },
+
+  readiness: {
+    ready: 'Ready ({count})',
+    needs_you: 'Needs you ({count})',
+    others: 'Waiting for others ({count})',
+    othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
+    readyHint: 'Domain verified, a place for every part, nothing to check.',
+    fileAll: 'File all {count} as suggested',
+    fileFirst: 'File the first {count} as suggested',
+  },
+
+  group: {
+    thread: 'Mail thread “{name}” · {count, plural, one {# new mail} other {# new mails}}',
+    threadAction: 'File all {count} (becomes revisions {first}–{last})',
+    threadActionFirst: 'File the first {count} (becomes revisions {first}–{last})',
+    reviewInOrder: 'Go through them in order',
+    quiet: 'Domain not verified or automatic ({count})',
+    quietHint: 'These are listed in full. {productName} makes no suggestions for them, and none of them is filed directly.',
+  },
+
+  trust: {
+    verified: 'Domain verified: {domain}',
+    bccOwn: 'Your own mail (Bcc)',
+    memberUnverified: 'Member · domain not verified',
+    impersonation: 'Poses as {name}',
+    impersonationOwn: 'Your address · rejected by your domain',
+    unverified: 'Domain not verified',
+    explain: {
+      verified:
+        'The sending domain signed this mail (DKIM). That proves the domain, not the person who wrote it.',
+      bccOwn: 'A copy of a mail you sent to someone else, with this project in Bcc. Your domain signed it.',
+      memberUnverified:
+        'The address is a member’s, but their domain did not sign this mail. Filing it needs your confirmation.',
+      memberUnverifiedOwn: 'The address is yours, but your domain did not sign this mail. File it only if you sent it yourself.',
+      memberUnverifiedClaimed: 'The address is {name}’s, but the domain did not sign this mail. Only {name} can file it; you can dismiss it.',
+      impersonation:
+        'The signature of this mail failed, or the domain’s policy refused it. Someone may be using this name. Filing it needs your confirmation.',
+      impersonationOwn:
+        'The mail carries your address, but your domain rejected it (DKIM or its policy). If you did not send it yourself, someone is using your address.',
+      impersonationMemberName:
+        'The name shown is a member’s, but the address is not theirs. Mails that try to divert a payment look like this. {productName} suggests nothing for it, and filing it needs your confirmation.',
+      unverified: 'The sending domain did not sign this mail. {productName} suggests nothing for it and selects no mail thread.',
+    },
+  },
+
+  // Why a mail waits, by its sender (only mail the domain of someone who may file in the project confirms is filed directly).
+  // One sentence per reason, ending on what the reader can do. „Own“: to the member it names. Without „Own“ (signature, replay, automatic): to everyone else, who
+  // can only dismiss it; the bar beneath says so (`bar.claimed.line`), so the line names only whom it waits for and why.
+  waitReason: {
+    signature: 'Waiting for {name}: the domain did not verify this mail.',
+    signatureOwn: 'Did you send this mail? Your domain did not verify it, so it was not filed directly. Only you can file it.',
+    replay:
+      'Waiting for {name}: the domain verified it, but it is addressed to others, oddly dated or already known. A mail sent again by someone else looks like this.',
+    replayOwn:
+      'Did you send this mail to the project? Your domain verified it, but it is addressed to others, oddly dated or already known, so it was not filed directly. Only you can file it.',
+    automatic: 'Waiting for {name}: the mail was sent automatically.',
+    automaticOwn: 'Did you send this mail? It was sent automatically, so it was not filed directly. Only you can file it.',
+    paused: 'Waiting: direct filing is switched off, so it was not filed directly. Anyone who may file in this project can file it.',
+    // A mail the domain of a member who may file verified, and which waits all the same: direct filing did not file it (or not all of it).
+    not_filed: 'Waiting: {name} sent it and the domain verified it, but it was not filed directly. Check it, then file or dismiss it.',
+    no_write_rights: 'Waiting: the sender may not file in this project. Check the mail and file what belongs in the project.',
+    outside_office: 'Waiting: the sender is outside the office. File what belongs in the project; if nobody files it, it expires after {days} days and cannot be restored.',
+    sender_unchecked: 'Waiting: when it arrived, whether the sender belongs to the office could not be checked. Check the address and the domain above before you file.',
+  },
+
+  flags: {
+    not_addressed_to_project: 'Addressed to other recipients',
+    stale_date: 'Dated more than {days, plural, one {# day} other {# days}} before it arrived',
+    date_out_of_range: 'The date is outside the expected range; the arrival time is used',
+    already_filed: 'Already in a mail thread',
+  },
+
+  header: {
+    fromShort: '{name} ‹{address}›',
+    details: 'Details',
+    sentLabel: 'Sent',
+    receivedLabel: 'Received',
+    waitsLabel: 'Waits',
+    waitsUntil: 'until {date}, then it expires',
+    expiresSoon: 'Waits only until {date}',
+    to: 'To',
+    cc: 'Cc',
+    replyTo: 'Reply to',
+    // The mail thread's words for the same forward: who wrote it first, then who forwarded it.
+    forwardedFrom: 'From {who} · domain not verified · forwarded by {forwarder}',
+    forwardedExplain: 'Read from the forwarded text. The domain verifies only the forward, not who originally wrote the mail.',
+    original: 'Download original (.eml)',
+    originalHint: 'Opens in your mail program; images from outside are loaded there.',
+    originalNotClean: 'The original contains malware and cannot be downloaded.',
+    originalScanning: 'The original is being checked for malware.',
+  },
+
+  findings: {
+    title: 'The content check found something in the text: {kinds}',
+    kinds: {
+      iban: 'IBAN',
+      at_svnr: 'social security number',
+      credit_card: 'credit card number',
+      term: 'a term of the content check',
+    },
+    choiceLabel: 'How the text is filed',
+    masked: 'File it redacted',
+    maskedHint: 'The findings are redacted in the mail thread. The original stays unchanged.',
+    own_thread: 'File separately (a mail thread of its own)',
+    own_threadHint: 'The full text goes into a new mail thread, apart from the existing one.',
+    full: 'File it unabridged into the mail thread',
+    fullHint: 'The whole mail thread is held back until someone checks it.',
+  },
+
+  text: {
+    label: 'Mail text',
+    loading: 'Loading the text …',
+    loadError: 'The text could not be loaded.',
+    showAll: 'Show the whole mail',
+    showLess: 'Show less',
+    showQuoted: 'Show quoted text ({count})',
+    hideQuoted: 'Hide quoted text',
+    masked: 'What the content check found is redacted.',
+    truncated: 'The text is shortened. The original holds all of it.',
+    unreadable: 'The text of this mail could not be read. The original holds it.',
+    empty: 'This mail has no text of its own.',
+    calendar: 'Appointment: {summary}',
+    calendarWhen: '{start} – {end}',
+    calendarAllDay: '{date}, all day',
+    calendarLocation: 'Location: {location}',
+    linkTitle: 'Link to {domain}, shown as text and not opened',
+  },
+
+  message: {
+    label: 'Mail text',
+    file: 'File the mail text',
+    append: 'File in mail thread “{name}” (becomes revision {version})',
+    create: 'File as a new mail thread',
+    nameLabel: 'Name of the mail thread',
+    folderLabel: 'Folder',
+    full: 'This mail thread is full. File the text as a new mail thread.',
+    hidden: '{count, plural, one {# possible mail thread in a folder you cannot see} other {# possible mail threads in folders you cannot see}}',
+    acknowledge: 'It belongs to this mail thread anyway',
+    alreadyFiled: 'This text is already in a mail thread.',
+    unreadable: 'The text could not be read, so it cannot be filed. The original holds it.',
+    /** Why the text cannot be filed while the whole raw message's malware check is not clean (`scan_not_clean`). */
+    rawScan: {
+      pending: 'The mail is still being checked for malware. Its text can be filed once the check passes.',
+      failed: 'The mail’s malware check failed and is being repeated. Its text can be filed once the check passes.',
+      infected: 'The mail contains malware, so its text cannot be filed.',
+    },
+    followed: 'Text added to the mail thread (following)',
+    filed: 'Filed in a mail thread',
+    filedTo: 'Filed in mail thread “{name}”',
+    followedTo: 'Text added to mail thread “{name}” (following)',
+    nameStop: 'Name check: “{terms}”',
+    releaseName: 'File anyway',
+    blocks: {
+      weak_match: 'Probably belongs to it: only the subject matches',
+      sender_not_verified: 'Refers to the mail thread, but the sender’s domain is not verified',
+      header_not_signed: 'The reference to the mail thread is not signed by the domain',
+      not_addressed_to_project: 'The mail is addressed to other recipients',
+      stale_date: 'The mail is dated more than {days, plural, one {# day} other {# days}} back',
+      date_out_of_range: 'The date of the mail is not plausible',
+      claims_member_name: 'The name is a member’s, the address is not',
+    },
+  },
+
+  attachments: {
+    label: 'Attachments',
+    unnamed: 'Attachment {position}',
+    file: 'File {name}',
+    facts: '{type} · {size}',
+    open: 'Open',
+    change: 'Change',
+    preview: 'Preview {name}',
+    status: {
+      scan_pending: 'Being checked for malware …',
+      scan_failed: 'The check failed and is repeated',
+      scan_infected: 'Malware found · cannot be filed',
+      not_offered: 'This office does not file this file type · in the original',
+      filing: 'Being filed …',
+      filed: 'Filed in Files',
+      filedTo: 'Filed in {folder}',
+      version: 'revision {version}',
+      dismissed: 'Dismissed',
+      expired: 'Expired',
+    },
+    notes: {
+      duplicate: 'Already in the project: {path}',
+      revision: 'becomes revision {version} of {name}',
+      revisionUnverified: 'could be revision {version} of {name} · domain not verified',
+      revisionHidden: 'A possible earlier revision is in a folder you cannot see',
+      nameStop: 'Name check: “{terms}”',
+      releaseName: 'File anyway',
+      macro: 'Contains macros. Open it only if you trust the sender.',
+      type_mismatch: 'The file name and its content do not match.',
+      acknowledgeRisk: 'I have read the warning. File anyway',
+      acknowledgeRevision: 'File it as the next revision anyway',
+      encrypted: 'Encrypted – {productName} cannot read its content',
+      forwarded_inner: 'From a forwarded mail',
+      image_in_mail: 'Picture in the mail',
+      lastFailure: 'Could not be filed: {reason}',
+    },
+    notStaged: {
+      tnef: '{name} · Outlook’s own attachment, not opened · in the original',
+      encrypted: '{name} · encrypted · in the original',
+      archive: '{name} · archive, not unpacked · in the original',
+      calendar: '{name} · appointment, shown in the text',
+      size: '{name} · too large to file · in the original',
+      limit: '{name} · beyond the number of attachments one mail may have · in the original',
+      layoutImages: '{count, plural, one {# picture from the signature} other {# pictures from the signature}} · in the original',
+    },
+  },
+
+  suggestion: {
+    label: '{productName}’s suggestion',
+    newFolder: 'new',
+    noFolder: 'No suggestion – choose a folder.',
+    pending: '{productName} is still reading …',
+    none: 'No suggestion for unverified or automatic mail.',
+    root: 'Files (top level)',
+    documentType: 'Document type',
+  },
+
+  target: {
+    title: 'Where {name} goes',
+    name: 'Name',
+    folder: 'Folder',
+    chooseFolder: 'Choose folder',
+    folderPickerTitle: 'File in',
+    folderNote: 'Only folders you may file into.',
+    documentType: 'Document type',
+    noDocumentType: 'None',
+    revision: 'Revision',
+    newDocument: 'A new document',
+    revisionOf: 'Revision {version} of {name}',
+    apply: 'Apply',
+    cancel: 'Cancel',
+  },
+
+  /** The warning above a mail that poses as someone (`riskLevel: 'impersonation'`). */
+  impersonationWarning: {
+    rejectedSignature: 'Careful: this mail poses as {name}. The domain rejected it.',
+    // To the member whose address it carries: a question to them, not a warning about them.
+    own: 'This mail carries your address, but your domain rejected it.',
+    ownConsequence:
+      'If you did not send it yourself, dismiss it: this is how fraud with changed bank details begins. {productName} suggests nothing and nothing is preselected.',
+    memberName: 'Careful: the name {name} belongs to a member, the address {address} does not.',
+    consequence:
+      'This is how fraud with changed bank details begins. {productName} suggests nothing and nothing is preselected. Check payment or bank detail changes by phone, never by replying.',
+    fileAnyway: 'File anyway …',
+    fileAnywayHint: 'Only once you checked by phone that the mail is genuine.',
+    fileAnywayHintOwn: 'Only if you sent this mail yourself.',
+    fileAnywayClose: 'Close filing',
+  },
+  bar: {
+    dismiss: 'Dismiss',
+    dismissBusy: 'Dismissing …',
+    fileBoth: '{count, plural, one {File # file and the mail text} other {File # files and the mail text}}',
+    fileFiles: '{count, plural, one {File # file} other {File # files}}',
+    fileText: 'File the mail text',
+    fileThread: 'File in mail thread “{name}” (becomes revision {version})',
+    fileNothing: 'File nothing',
+    busy: 'Filing …',
+    acknowledgeImpersonation: 'I checked that the mail is genuine. File it anyway',
+    acknowledgeSender: 'Domain not verified. File anyway',
+    acknowledgeOwnMail: 'Yes, I sent this mail. File it',
+    originalErased: 'The original of the mail is deleted after filing',
+    /** For everyone but the member whose address the mail carries: dismiss only, never file (`onlySenderReleases`). */
+    claimed: {
+      line: 'Only {name} can file or restore this mail. You can dismiss it.',
+      dismiss: 'Dismiss …',
+      confirmTitle: 'Dismiss this mail?',
+      confirmText:
+        'Afterwards only {name} ‹{address}› can restore it, for {days} days. If {name} has left the office, nobody will file it: download the original under “Details” first if you need it.',
+      confirm: 'Dismiss',
+      cancel: 'Cancel',
+    },
+    blockers: {
+      project_closed: 'The project is closed – reopen it to file',
+      sender_only: 'Only the member whose address the mail carries can file it.',
+      folder_missing: '{count, plural, one {Choose a folder for # attachment.} other {Choose a folder for # attachments.}}',
+      name_stop: '{count, plural, one {Confirm the name check for # attachment.} other {Confirm the name check for # attachments.}}',
+      risk: '{count, plural, one {Confirm the warning for # part.} other {Confirm the warning for # parts.}}',
+      thread_name_missing: 'Give the new mail thread a name.',
+    },
+  },
+
+  state: {
+    filing: 'Being filed …',
+    decidedByOther: 'Someone else has handled this mail in the meantime.',
+    partialFailure: '{failed} of {total} files could not be filed.',
+    partialFailureAll: '{failed, plural, one {The file could not be filed.} other {None of the # files could be filed.}}',
+    partialFailureHint: 'They wait here again. Choose another name or folder and file them again.',
+    quotaFull: 'The office’s storage is full. Nothing was filed; the mail keeps waiting.',
+    expired: 'Expired · can be restored until {date}',
+    dismissed: 'Dismissed · can be restored until {date}',
+    partsExpired: '{count, plural, one {# part expired} other {# parts expired}} · can be restored until {date}',
+    partsDismissed: '{count, plural, one {# part dismissed} other {# parts dismissed}} · can be restored until {date}',
+    restore: 'Restore',
+    restoreBusy: 'Restoring …',
+    settled: 'Everything of this mail is handled.',
+    filedOutcome: 'Filed',
+  },
+
+  toast: {
+    filed: '{count, plural, one {# file filed} other {# files filed}}',
+    filedBoth: '{count, plural, one {Filed # file and the mail text} other {Filed # files and the mail text}}',
+    textFiled: 'Mail text filed',
+    lineFile: '{name} → {folder}',
+    lineText: 'Mail text → “{name}”',
+    filing: 'Being filed …',
+    view: 'View',
+    dismissed: 'Mail dismissed',
+    dismissedMany: '{count, plural, one {# mail dismissed} other {# mails dismissed}}',
+    undo: 'Undo',
+    restored: 'Mail restored',
+    filedAsSuggested: '{count, plural, one {# mail is being filed as suggested} other {# mails are being filed as suggested}}',
+    failed: 'That did not work. Try again.',
+  },
+
+  bulk: {
+    selected: '{count} selected',
+    clear: 'Clear selection',
+    fileSuggested: 'File as suggested',
+    fileSuggestedBusy: 'Filing …',
+    dismiss: 'Dismiss',
+    blocked: {
+      not_waiting: 'Some of the selected mail is already handled.',
+      project_closed: 'The project is closed – reopen it to file.',
+      sender: '{count, plural, one {# mail needs its sender confirmed. Open it on its own.} other {# mails need their sender confirmed. Open them one by one.}}',
+      no_thread: '{count, plural, one {# mail has no mail thread to go to. Open it on its own.} other {# mails have no mail thread to go to. Open them one by one.}}',
+      needs_person: '{count, plural, one {# mail needs a decision of yours. Open it on its own.} other {# mails need a decision of yours. Open them one by one.}}',
+      scanning: '{count, plural, one {# mail is still being checked for malware.} other {# mails are still being checked for malware.}}',
+      folder_missing: '{count, plural, one {A folder is missing for # mail.} other {A folder is missing for # mails.}}',
+      too_many: 'At most {max} mails can be filed at once.',
+    },
+    confirmTitle: '{count, plural, one {File # mail as suggested?} other {File # mails as suggested?}}',
+    confirmSummary: '{files, plural, one {# file} other {# files}} and {texts, plural, one {# mail text} other {# mail texts}}',
+    destination: {
+      folder: 'In “{label}”: {count}',
+      root: 'In Files (top level): {count}',
+      new_folder: 'In the new folder “{label}”: {count}',
+      thread: 'In mail thread “{label}”: {count}',
+      new_thread: 'As the new mail thread “{label}”',
+    },
+    confirm: 'File',
+    cancel: 'Cancel',
+    dismissTitle: '{count, plural, one {Dismiss # mail?} other {Dismiss # mails?}}',
+    dismissText:
+      'Dismissed mail can be restored for {days, plural, one {# day} other {# days}}, except mail from outside the office whose domain is not verified.',
+    dismissConfirm: 'Dismiss',
+  },
+
+  refusals: {
+    stale: 'This mail changed in the meantime. It was read again; check it and decide again.',
+    part_not_waiting: 'A part of this mail no longer waits. It was read again.',
+    part_unknown: 'A part of this mail is no longer there. It was read again.',
+    scan_not_clean: 'An attachment has no clean malware check.',
+    type_not_accepted: 'This office does not file this file type.',
+    name_stop: 'The name check stopped a name. Confirm it with “File anyway”, or choose another name.',
+    risk_not_acknowledged: 'Confirm the warning before filing.',
+    sender_not_acknowledged: 'Confirm the unverified domain before filing.',
+    sender_only:
+      'This mail carries another member’s address. Only that member can file or restore it; you can dismiss it. If that member has left the office, nobody can file it: dismiss it, or download the original and forward it to the project yourself.',
+    acknowledgement_in_bulk: 'This mail needs a confirmation of yours. Open it on its own.',
+    card_carries_acknowledgement: 'This needs a confirmation only you can give. Open the mail.',
+    name_taken: 'A document of this name is already in the project. File it as its next revision, or rename it.',
+    target_unknown: 'The folder or mail thread is no longer there.',
+    thread_full: 'The mail thread is full. File the text as a new mail thread.',
+    unreadable: 'The text could not be read, so it cannot be filed.',
+    nothing_to_mask: 'There is nothing to redact in this text.',
+    not_restorable: 'This mail can no longer be restored.',
+    gone: 'The file is no longer there.',
+    original_not_clean: 'The original did not pass the malware check and cannot be downloaded.',
+    mail_not_received_here: 'Receiving mail is not set up here. Upload files directly.',
+    unknown: 'That did not work. Try again.',
+  },
+
+  failures: {
+    screened: 'held back by the content check',
+    type: 'the file type is not allowed',
+    size: 'the file is too large',
+    quota: 'the office’s storage is full',
+    access: 'you may not file into this folder',
+    name_taken: 'the name is already taken',
+    unreadable: 'the file could not be read',
+    digest_mismatch: 'the file changed while it was filed',
+    unavailable: 'the storage could not be reached',
+    thread_document_gone: 'the mail thread is no longer there',
+    scan_not_clean: 'the malware check did not pass',
+    project_closed: 'the project is closed',
+    type_not_accepted: 'this office does not file this file type',
+  },
+
+  address: {
+    dialogTitle: 'Project mail address',
+    dialogDescription: 'So correspondence lands in the project without anyone downloading it from a mail program and uploading it again.',
+    label: 'Project mail address',
+    copy: 'Copy',
+    saveContact: 'Save as contact',
+    contactName: '{productName} · {project}',
+    contactNote:
+      '{productName} files your own mail to this address that your domain verifies directly, when you may file in the project; other mail waits until someone files it.',
+    usesLabel: 'What the address is for',
+    uses: {
+      cc: 'Put it in Cc when you write to the authority, the structural engineer or the client: the replies land in Project mail.',
+      forward: 'Forward documents to it from your mail program.',
+      held: 'Mail someone who may file in the project sends from their own address, verified by their own domain, is filed directly. Everything else waits until someone files it; mail from outside the office for {days} days.',
+    },
+    tileLead: 'Put in Cc, it brings the replies of the authority, the structural engineer and the client into Project mail, ready to file.',
+    openInbox: 'Open Project mail',
+    guide: 'Guide',
+    newTab: '(opens in a new tab)',
+    none: 'This project has no mail address yet.',
+    noneMember: 'Ask someone who manages the project to create it in the project settings.',
+    create: 'Create address',
+    createBusy: 'Creating …',
+    unavailable: 'Receiving mail is not set up here. Upload files directly.',
+    loadError: 'The project mail address could not be loaded.',
+    lastReceived: 'Last mail received {time}',
+    nothingReceived: 'No mail received yet',
+    sizeLimit: 'Up to {limit} MB per mail, attachments together up to about {attachments} MB.',
+    uploadInstead: 'Upload larger files directly',
+    dropped: '{count, plural, one {# automatic reply or delivery report in the last {days} days, not shown} other {# automatic replies or delivery reports in the last {days} days, not shown}}',
+    rotate: 'Create a new address …',
+    rotateTitle: 'Create a new address?',
+    rotateText:
+      'The current address stops working at once; mail sent to it is refused. Everyone following a mail thread of this project stops following it. Give the new address to everyone who sends documents to this project.',
+    rotateConfirm: 'Create new address',
+    switchOff: 'Switch off …',
+    switchOffTitle: 'Switch off the project mail address?',
+    switchOffText: 'Mail to this address is refused from now on. Mail already waiting in Project mail stays there.',
+    switchOffConfirm: 'Switch off',
+    cancel: 'Cancel',
+    rotated: 'New address created',
+    switchedOff: 'Project mail address switched off',
+    created: 'Project mail address created',
+    ownDomain: {
+      share: '{percent} % of your office’s mail in the last {days} days was verified by your domain',
+      missing: 'Your domain does not sign its mail – how to set it up',
+      explain: 'Mail your domain signs is labelled “Domain verified” and is filed directly when its sender may file in the project. A mail carrying a member’s address that their domain does not verify can only be filed by that member.',
+    },
+  },
+
+  follow: {
+    offer: 'Follow',
+    thread: 'Mail thread “{name}”',
+    explain:
+      'Replies from verified domains already writing in the mail thread are added without a click. Attachments keep waiting here.',
+    busy: 'Following …',
+    following: 'You follow “{name}”',
+    undo: 'Undo',
+    failed: 'Following did not work. Try again.',
+  },
+}

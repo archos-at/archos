@@ -93,7 +93,9 @@ are tested on Postgres by `task be:test:postgres`, in CI's Backend job.**
 SQLite, which ranks in Python, and on Postgres, which runs production's claim
 SQL. The folder card builder's suites (`packages/agent/tests/knowledge/folder_cards/`:
 dirty queue, budget, manifests, worker) run on both too, through the
-`database_url` and `agent_db` fixtures in their `conftest.py`. Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
+`database_url` and `agent_db` fixtures in their `conftest.py`, and so does the
+metadata store's mail records (`packages/agent/tests/knowledge/test_mail_facts.py`: the
+add-column path on a table from before the columns, and the read-back). Without `TEST_POSTGRES_URL` the Postgres parameter skips, so the task
 reuses `scripts/rls-test-db.sh --exec` for a throwaway cluster and names a
 scratch database in it. Each file carries an `TEST_POSTGRES_REQUIRED` guard,
 set in CI, that fails instead of skipping. A new suite with a Postgres parameter
@@ -717,8 +719,8 @@ Python mirror to lists the TypeScript wrote. The questions are `tests/fixtures/w
 the checks (`reads`, `proposes`, `uses`, `no_write`, `no_workspace`, `no_repeat`, the
 judge's `pending` and `asks`) are explained in its header. `uses` names the tool a
 job must be done with, a native one where the exposure config hides the door's
-look-alike from Piloti (`apps/workspace/bff/agent-api/exposure.config.ts`): run
-the set before and after you change a `piloti` entry there. The report's
+look-alike from the agent (`apps/workspace/bff/agent-api/exposure.config.ts`): run
+the set before and after you change an `agent` entry there. The report's
 `## Workspace` section gives the share of runs where every check held, rounds,
 door calls by kind, searches that found nothing, tokens and seconds. No corpus
 is needed. Run it before and after a change to the prompt's workspace facts,
@@ -733,13 +735,15 @@ task be:eval:answer-suite -- --set workspace --out /tmp/ws/after --baseline /tmp
 a project's own files: what is in a folder, where a document is, how many, what a
 page range says, every occurrence of a word and how often it stands, an exact lookup
 (a Plannummer, a clause, `REI 90`, "is X mentioned anywhere" with a true negative beside
-a true positive), and a fact outside the document that is open (`open:` on a row, sent
+a true positive), a fact outside the document that is open (`open:` on a row, sent
 as the composer's "Asking about"), which tests that a path or open document is a hint
-the agent weighs, never a scope it is locked into. About 30 `pf-*` rows
+the agent weighs, never a scope it is locked into, and what a filed mail says and who
+said it. About 38 `pf-*` rows
 (`tests/fixtures/files_eval/files_questions.yaml`, whose header says what each check
 means) run through the real `list_files`, `knowledge_search` and `read_passage` in a
 fixture project (`tests/fixtures/files_eval/project.yaml`, the intake eval's project
-grown to nested folders, a 14-page report, a meeting protocol and a letter). Each row states
+grown to nested folders, a 14-page report, a meeting protocol, a letter and an
+E-Mail-Verlauf with one filed attachment). Each row states
 `expect.tools`, the move that fits it, and the report gives pass rate, rounds,
 tokens, seconds, the moves each row made and the `status:budget|repeat|width`
 counts. A row with `needs:` waits for a tool argument a later slice adds and is
@@ -801,6 +805,18 @@ neighbour, and the `pf-count-*` rows ask for counts that are wrong when either i
 counted. Seeding is idempotent and embeds only what changed; a file cut another way
 before loses its stale points. It needs the deployment's embedding key. Reseed after
 editing `project.yaml` by running the suite again.
+
+The E-Mail-Verlauf (`tests/fixtures/files_eval/mail/`, the `pf-mail-*` rows,
+ADR-0137) is cut as its own ingest cuts it, by the Markdown chunker, and stamped
+`source_format: mail` as an ingest job would: what those rows test is the message
+boundary. Its bytes are the BFF renderer's, pinned by
+`apps/workspace/bff/mail-thread/files-eval-fixture.spec.ts` from
+`parking-thread.json`; after a change to the rendition's format, rewrite them
+with `UPDATE_FIXTURES=1 bunx vitest run src/lib/mail-thread/files-eval-fixture.spec.ts`
+in `apps/workspace` and reseed. The rows' judges (`attributes_mail`,
+`quoted_as_quote`, `forged_not_authority`, `scripts/turn_census/judge.py`) ask
+whether the answer says whose mail and of when, calls a quote a quote, and never
+presents the unconfirmed sender's claim as the Behörde's.
 
 The suite starts each run from the working tree: edit nothing under `packages/agent/src/`
 while it runs, or run it from an exported copy of the commit

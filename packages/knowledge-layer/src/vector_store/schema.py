@@ -267,6 +267,9 @@ KEYWORD_FIELDS: tuple[str, ...] = (
     "authored_by",
     "approved_by",
     "producer",
+    # The document's format when it states one (``mail``: a filed E-Mail-Verlauf), so
+    # "only the correspondence" is one exact filter.
+    "source_format",
     # What the ingest read of the whole document (``payload.reading_facts``), on every chunk:
     # one condition finds the passages of a fire safety concept, of a document citing
     # ÖNORM B 1600 (``norm:önorm b 1600``), stating Gebäudeklasse 4 (``building_class=4``),
@@ -311,7 +314,8 @@ INTEGER_FIELDS: tuple[str, ...] = (
     "pages_not_read",
 )
 #: Payload field holding the document's own date: the title block's ``revision_date``, else the
-#: photo's ``capture.captured_at``, else absent. Copied from the metadata row (``payload.document_facts``).
+#: photo's ``capture.captured_at``, else a mail thread's newest message (``mail_thread.latest_sent_at``),
+#: else absent. Copied from the metadata row (``payload.document_facts``).
 DOCUMENT_DATE_FIELD = "document_date"
 #: Payload field holding when the document was first indexed under its name (the row's ``added_at``).
 ADDED_AT_FIELD = "added_at"

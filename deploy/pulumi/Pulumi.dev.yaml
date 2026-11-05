@@ -327,3 +327,22 @@ config:
   grid-oib:posthogHost: https://eu.i.posthog.com
   grid-oib:posthogProjectToken: phc_CVrz2Nt2hoJSmBQ9duYHDbWSjkdyQkQxKs7GHxDvg27X # pragma: allowlist secret (public project token)
   grid-oib:posthogSessionReplay: "true"
+  # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
+  # Off. Dev goes first: the launch gates run here before prod (runbook §8a,
+  # docs/deployment/project-mail-runbook.md). Each promotion uncomments only its own lines.
+  #
+  # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
+  # grid-oib:malwareScanEnabled: "true"
+  #
+  # Promotion 2, paused. Before it: the signing key in dev's ESC environment, never in
+  # this file (runbook §5, with the dev environment's name). The receiving domain is in
+  # the piloti.at zone, not archos.tech: Email Routing's state is one object per zone, so
+  # dev and prod each need a zone of their own (stack-files.spec.ts). piloti.at's apex
+  # has no MX, so nothing here can take anyone's mail. Its _dmarc is prod's dnsDmarc:
+  # no inboundMailDmarc here. Subaddressing is one API call after it (runbook §7).
+  # grid-oib:inboundMailDomain: inbox.dev.piloti.at
+  # grid-oib:inboundMailZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of piloti.at, Cloudflare zone Overview page)
+  #   Where postmaster@ and abuse@ forward. Not prod's address: Cloudflare keeps each
+  #   destination address once per account, and two stacks would own the same one.
+  # grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
+  # grid-oib:inboundMailPaused: "true"

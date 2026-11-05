@@ -2,9 +2,12 @@ import type { JSX } from 'react'
 import { type Metadata } from 'next'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { requireProjectAccess } from '@/lib/authz/projects'
-import { isProjectKnowledgePageEnabled } from '@/lib/authz/feature-flags'
+import { isInboundMailEnabled, isProjectKnowledgePageEnabled } from '@/lib/authz/feature-flags'
+import { requireMailReviewer } from '@/lib/inbound-mail/access'
+import { findProjectInOrg } from '@/lib/projects/repository'
 import { resolveProjectSettingsAccess } from '@/lib/projects/settings-access'
 import { DocumentsSettings } from '@/features/projects/components/settings/documents-settings'
+import { InboundMailAddressCard } from '@/features/inbound-mail/components/inbound-mail-address'
 import { getTranslations } from '@/i18n/server'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 
@@ -17,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('project.nav.documents') }
 }
 
-/** Settings → Documents & index: the upload record and the index behind answers. */
+/** Settings → Documents & index: the upload record, the project mail address and the index behind answers. */
 export default async function ProjectDocumentsSettingsPage({
   params,
 }: PageProps): Promise<JSX.Element> {
@@ -26,6 +29,11 @@ export default async function ProjectDocumentsSettingsPage({
     await requireProjectAccess(session, id, 'project:view')
 
     const access = await resolveProjectSettingsAccess(session, id)
+    // The address card, for whoever may decide the project's held mail (ADR-0137).
+    const project =
+      isInboundMailEnabled(session) && (await requireMailReviewer(session, id).then(() => true, () => false))
+        ? await findProjectInOrg(id, session.organizationId)
+        : null
 
     return (
       <DocumentsSettings
@@ -33,6 +41,7 @@ export default async function ProjectDocumentsSettingsPage({
         currentUserId={session.userId}
         canReindex={access.writeDocuments}
         showKnowledgeLink={isProjectKnowledgePageEnabled(session)}
+        inboundMailAddress={project ? <InboundMailAddressCard projectId={id} projectName={project.name} /> : undefined}
       />
     )
   })

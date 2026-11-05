@@ -92,6 +92,8 @@ export interface AppShellChromeProps {
   canAccessInbox: boolean
   showSkills: boolean
   showModels: boolean
+  /** The office receives project mail: Dateien carries the waiting count (ADR-0137). Absent: off. */
+  inboundMail?: boolean
   /** Which product tours start by themselves for this reader. */
   tours: TourEligibility
   /** The `(shell)` layout's `<main>` (with the page inside). */
@@ -225,6 +227,7 @@ export function AppShellChrome({
           canAccessInbox={chrome.canAccessInbox}
           showSkills={chrome.showSkills}
           showModels={chrome.showModels}
+          inboundMailEnabled={chrome.inboundMail}
         />
       ) : (
         <OrgHeader
@@ -269,6 +272,7 @@ export function AppShellChrome({
           projectId={projectId}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessInbox={chrome.canAccessInbox}
+          inboundMailEnabled={chrome.inboundMail}
         />
       )}
       {inProject && tabBarShown && (

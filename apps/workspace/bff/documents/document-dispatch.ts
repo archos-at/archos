@@ -17,6 +17,8 @@ import { internalRead } from './document-reader'
 import { isIfcFilename } from '@/lib/bim/types'
 import { extractsFromRendition, isRenditionEnabledFor } from './rendition'
 import { servedAsRendition } from './document-delivery'
+import type { DocumentTypeTag } from './tag-vocabulary'
+import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
 import { type AgentDocumentProvenance, INGEST_DISPATCH_FAILED_MESSAGE, type IngestPriority, RENDITION_REQUIRED_MESSAGE, dispatchIngest } from './ingest-dispatch'
 
 export interface UploadDocumentInput {
@@ -47,6 +49,12 @@ export interface UploadDocumentInput {
   revisionOf?: string | null
   /** See `ShelfUploadInput.priority`: `bulk` for a machine filing on a person's behalf. */
   priority?: IngestPriority
+  /** See `ShelfUploadInput.documentType`: what the file is, when the one filing it said so. */
+  documentType?: DocumentTypeTag
+  /** See `ShelfUploadInput.mailThread`. */
+  mailThread?: MailThreadIngestFacts
+  /** See `ShelfUploadInput.mailOrigin`. */
+  mailOrigin?: MailOriginIngestFacts
 }
 
 export type { UploadDocumentResult }
@@ -121,6 +129,16 @@ export interface DispatchDocumentInput extends BeginModelExtractionInput {
    * only: an IFC model's digest is not the file the row names.
    */
   revisionOf?: string | null
+  /** The older document's id, beside `revisionOf`; recorded for a release, never sent. */
+  revisionOfId?: string | null
+  /**
+   * The document type the filing chose (`ShelfUploadInput.documentType`). Read
+   * by the ingest paths only, like `revisionOf`.
+   */
+  documentType?: DocumentTypeTag | null
+  /** A filed mail's facts (`ShelfUploadInput.mailThread`, `.mailOrigin`). Read by the ingest paths only. */
+  mailThread?: MailThreadIngestFacts | null
+  mailOrigin?: MailOriginIngestFacts | null
 }
 
 export interface DispatchDocumentResult {
@@ -272,6 +290,10 @@ export async function dispatchDocument(
       provenance: input.provenance ?? null,
       priority: input.priority,
       revisionOf: input.revisionOf ?? null,
+      revisionOfId: input.revisionOfId ?? null,
+      documentType: input.documentType ?? null,
+      mailThread: input.mailThread ?? null,
+      mailOrigin: input.mailOrigin ?? null,
     }
   )
 }
@@ -434,5 +456,9 @@ export async function beginRenditionIngest(
     fileName,
     provenance: input.provenance ?? null,
     revisionOf: input.revisionOf ?? null,
+    revisionOfId: input.revisionOfId ?? null,
+    documentType: input.documentType ?? null,
+    mailThread: input.mailThread ?? null,
+    mailOrigin: input.mailOrigin ?? null,
   })
 }

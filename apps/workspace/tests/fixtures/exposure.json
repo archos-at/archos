@@ -1,12 +1,12 @@
 {
- "comment": "Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts (UPDATE_FIXTURES=1). `piloti` is true, false or \"native:<tool>\" (Piloti uses that tool; the door hides the operation from it). `appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.",
+ "comment": "Who sees each capability: apps/workspace/bff/agent-api/exposure.config.ts, written by exposure.config.spec.ts (UPDATE_FIXTURES=1). `agent` is true, false or \"native:<tool>\" (the in-product agent uses that tool; the door hides the operation from it). `appTools` are the MCP Apps views’ app-only tools (ADR-0142), each running the operation it names.",
  "operations": {
   "project-cleanup-confirm": {
    "kind": "catalog",
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -16,7 +16,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -26,7 +26,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -36,7 +36,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -46,7 +46,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -56,7 +56,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -66,7 +66,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -76,7 +76,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -86,7 +86,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -96,7 +96,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -106,7 +106,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -116,7 +116,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -126,7 +126,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -136,7 +136,7 @@
    "domain": "projects",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -146,7 +146,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -156,7 +156,7 @@
    "domain": "projects",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -166,7 +166,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:remember",
+   "agent": "native:remember",
    "platform": false,
    "withheld": null,
    "reason": "The agent keeps a note with its own `remember`, which records where the finding came from and keeps a restricted one in its project"
@@ -176,7 +176,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -186,7 +186,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -196,7 +196,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -206,7 +206,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -216,7 +216,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -226,7 +226,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -236,7 +236,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -246,7 +246,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -256,7 +256,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -266,7 +266,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -276,7 +276,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -286,7 +286,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -296,7 +296,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -306,7 +306,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -316,7 +316,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -326,7 +326,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -336,7 +336,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -346,7 +346,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -356,7 +356,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -366,7 +366,7 @@
    "domain": "projects",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -379,7 +379,7 @@
    "domain": "projects",
    "sensitivity": "control",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -392,7 +392,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -402,7 +402,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -412,7 +412,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -422,7 +422,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -432,7 +432,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -442,7 +442,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -452,7 +452,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -462,7 +462,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -472,7 +472,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -482,7 +482,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -492,7 +492,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -502,7 +502,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -512,7 +512,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -522,7 +522,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -532,7 +532,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -542,7 +542,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -552,7 +552,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -562,7 +562,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -572,7 +572,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -582,7 +582,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -592,7 +592,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -602,7 +602,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -612,7 +612,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -622,7 +622,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -632,7 +632,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -645,7 +645,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -655,7 +655,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -665,7 +665,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -675,7 +675,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -685,7 +685,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -695,77 +695,17 @@
    "domain": "documents",
    "sensitivity": "control",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
-  },
-  "mail-import-cancel": {
-   "kind": "catalog",
-   "domain": "documents",
-   "sensitivity": null,
-   "external": true,
-   "piloti": true,
-   "platform": false,
-   "withheld": null,
-   "reason": null
-  },
-  "mail-import-complete": {
-   "kind": "catalog",
-   "domain": "documents",
-   "sensitivity": null,
-   "external": true,
-   "piloti": false,
-   "platform": false,
-   "withheld": null,
-   "reason": "The agent holds no Outlook archive: the bytes come from the person’s disk, and a part is larger than any proposal a person can read"
-  },
-  "mail-import-get": {
-   "kind": "catalog",
-   "domain": "documents",
-   "sensitivity": null,
-   "external": true,
-   "piloti": true,
-   "platform": false,
-   "withheld": null,
-   "reason": null
-  },
-  "mail-import-list": {
-   "kind": "catalog",
-   "domain": "documents",
-   "sensitivity": null,
-   "external": true,
-   "piloti": true,
-   "platform": false,
-   "withheld": null,
-   "reason": null
-  },
-  "mail-import-part-upload": {
-   "kind": "catalog",
-   "domain": "documents",
-   "sensitivity": null,
-   "external": true,
-   "piloti": false,
-   "platform": false,
-   "withheld": null,
-   "reason": "The agent holds no Outlook archive: the bytes come from the person’s disk, and a part is larger than any proposal a person can read"
-  },
-  "mail-import-start": {
-   "kind": "catalog",
-   "domain": "documents",
-   "sensitivity": null,
-   "external": true,
-   "piloti": false,
-   "platform": false,
-   "withheld": null,
-   "reason": "The agent holds no Outlook archive: the bytes come from the person’s disk, and a part is larger than any proposal a person can read"
   },
   "project-document-findings": {
    "kind": "catalog",
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -775,7 +715,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -785,7 +725,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -795,7 +735,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -805,7 +745,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -815,7 +755,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -825,7 +765,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -835,7 +775,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -845,7 +785,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -855,7 +795,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -865,7 +805,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -875,7 +815,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -885,7 +825,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -895,7 +835,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -905,7 +845,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -915,7 +855,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -925,7 +865,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -935,7 +875,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -945,7 +885,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -955,7 +895,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -965,7 +905,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -975,7 +915,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -985,7 +925,7 @@
    "domain": "folders",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -995,7 +935,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1005,7 +945,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1015,7 +955,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1025,7 +965,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1035,7 +975,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1045,7 +985,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1055,7 +995,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1065,7 +1005,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1075,7 +1015,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1085,7 +1025,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1095,7 +1035,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1105,7 +1045,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1115,7 +1055,7 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1125,17 +1065,263 @@
    "domain": "folders",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
+  },
+  "inbound-mail-address-create": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-address-delete": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-address-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-address-rotate": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-dismiss": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-file": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-list": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-original-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "evidence",
+    "reason": "the original message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app"
+   },
+   "reason": null
+  },
+  "inbound-mail-part-content-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "held mail is unconfirmed third-party content nobody has filed yet; the agent reads it once a person filed it into the project"
+  },
+  "inbound-mail-restore": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "inbound-mail-text-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "held mail is unconfirmed third-party content nobody has filed yet; the agent reads it once a person filed it into the project"
+  },
+  "mail-import-cancel": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "mail-import-complete": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "The agent holds no Outlook archive: the bytes come from the person’s disk, and a part is larger than any proposal a person can read"
+  },
+  "mail-import-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "mail-import-list": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "mail-import-part-upload": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "The agent holds no Outlook archive: the bytes come from the person’s disk, and a part is larger than any proposal a person can read"
+  },
+  "mail-import-start": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "The agent holds no Outlook archive: the bytes come from the person’s disk, and a part is larger than any proposal a person can read"
+  },
+  "mail-thread-entry-detach": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "mail-thread-entry-original-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": false,
+   "agent": false,
+   "platform": false,
+   "withheld": {
+    "category": "evidence",
+    "reason": "a filed message as received, kept as proof of what was sent; no model reads it, a person downloads it in the app"
+   },
+   "reason": null
+  },
+  "mail-thread-follow": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": "control",
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
+  },
+  "mail-thread-get": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "mail-thread-list": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "mail-thread-unfollow": {
+   "kind": "catalog",
+   "domain": "mail",
+   "sensitivity": null,
+   "external": true,
+   "agent": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "a standing decision is the person’s own; the agent neither makes nor ends it"
   },
   "annotation-create": {
    "kind": "catalog",
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:canvas__mark",
+   "agent": "native:canvas__mark",
    "platform": false,
    "withheld": null,
    "reason": "The agent marks a document, and answers in a mark’s thread, with its own canvas tools, anchored where it looked"
@@ -1145,7 +1331,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:canvas__delete",
+   "agent": "native:canvas__delete",
    "platform": false,
    "withheld": null,
    "reason": "The agent marks a document, and answers in a mark’s thread, with its own canvas tools, anchored where it looked"
@@ -1155,7 +1341,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1165,7 +1351,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1175,7 +1361,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:canvas__reply",
+   "agent": "native:canvas__reply",
    "platform": false,
    "withheld": null,
    "reason": "The agent marks a document, and answers in a mark’s thread, with its own canvas tools, anchored where it looked"
@@ -1185,7 +1371,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1195,7 +1381,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1205,7 +1391,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:canvas__update",
+   "agent": "native:canvas__update",
    "platform": false,
    "withheld": null,
    "reason": "The agent marks a document, and answers in a mark’s thread, with its own canvas tools, anchored where it looked"
@@ -1215,7 +1401,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1225,7 +1411,7 @@
    "domain": "review",
    "sensitivity": "control",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -1235,7 +1421,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1245,7 +1431,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1255,7 +1441,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1265,7 +1451,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1275,7 +1461,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1285,7 +1471,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1295,7 +1481,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1305,7 +1491,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1315,7 +1501,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1325,7 +1511,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1335,7 +1521,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1345,7 +1531,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1355,7 +1541,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1365,7 +1551,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1375,7 +1561,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1385,7 +1571,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1395,7 +1581,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1405,7 +1591,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1415,7 +1601,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1425,7 +1611,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1435,7 +1621,7 @@
    "domain": "review",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1445,7 +1631,7 @@
    "domain": "review",
    "sensitivity": "control",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -1455,7 +1641,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "how another agent consults the workspace’s agent; the agent never asks itself (ADR-0124, the recursion lock)"
@@ -1465,7 +1651,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "how another agent consults the workspace’s agent; the agent never asks itself (ADR-0124, the recursion lock)"
@@ -1475,7 +1661,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "how another agent consults the workspace’s agent; the agent never asks itself (ADR-0124, the recursion lock)"
@@ -1485,7 +1671,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1495,7 +1681,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1505,7 +1691,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1515,7 +1701,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "model-compute",
@@ -1528,7 +1714,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1538,7 +1724,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1548,7 +1734,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1558,7 +1744,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1568,7 +1754,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1578,7 +1764,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1588,7 +1774,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1598,7 +1784,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1608,7 +1794,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1618,7 +1804,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1628,7 +1814,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1638,7 +1824,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -1651,7 +1837,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1664,7 +1850,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "model-compute",
@@ -1677,7 +1863,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1687,7 +1873,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1697,7 +1883,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1707,7 +1893,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1717,7 +1903,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1727,7 +1913,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1737,7 +1923,7 @@
    "domain": "conversations",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1747,7 +1933,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "the person decides a proposal, or undoes a change, on its own card; the agent never decides it for them"
@@ -1757,7 +1943,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1767,7 +1953,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1777,7 +1963,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1787,7 +1973,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1797,7 +1983,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1807,7 +1993,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1817,7 +2003,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1830,7 +2016,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1843,7 +2029,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1856,7 +2042,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1869,7 +2055,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1879,7 +2065,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1889,7 +2075,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1902,7 +2088,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1912,7 +2098,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "the person decides a proposal, or undoes a change, on its own card; the agent never decides it for them"
@@ -1922,7 +2108,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "the person decides a proposal, or undoes a change, on its own card; the agent never decides it for them"
@@ -1932,7 +2118,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1942,7 +2128,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -1952,7 +2138,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1965,7 +2151,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1978,7 +2164,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -1991,7 +2177,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -2004,7 +2190,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2014,7 +2200,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2024,7 +2210,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2034,7 +2220,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2044,7 +2230,7 @@
    "domain": "collaboration",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2054,7 +2240,7 @@
    "domain": "collaboration",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2064,7 +2250,7 @@
    "domain": "collaboration",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2074,7 +2260,7 @@
    "domain": "collaboration",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2084,7 +2270,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -2097,7 +2283,7 @@
    "domain": "collaboration",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -2110,7 +2296,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2120,7 +2306,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:create_task",
+   "agent": "native:create_task",
    "platform": false,
    "withheld": null,
    "reason": "The agent proposes a task, or commissions a run, with its own `create_task`, whose card the person confirms"
@@ -2130,7 +2316,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2140,7 +2326,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2150,7 +2336,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2160,7 +2346,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2170,7 +2356,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:create_task",
+   "agent": "native:create_task",
    "platform": false,
    "withheld": null,
    "reason": "The agent proposes a task, or commissions a run, with its own `create_task`, whose card the person confirms"
@@ -2180,7 +2366,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2190,7 +2376,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2200,7 +2386,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2210,7 +2396,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2220,7 +2406,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2230,7 +2416,7 @@
    "domain": "tasks",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2240,7 +2426,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2250,7 +2436,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2260,7 +2446,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2270,7 +2456,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2280,7 +2466,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2290,7 +2476,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2303,7 +2489,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2313,7 +2499,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "The agent is given the office’s skills at turn start and reads one with its own `read_file`, which the turn records; the door offers them to outside agents"
@@ -2323,7 +2509,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2333,7 +2519,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2343,7 +2529,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "model-compute",
@@ -2356,7 +2542,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "The agent is given the office’s skills at turn start and reads one with its own `read_file`, which the turn records; the door offers them to outside agents"
@@ -2366,7 +2552,7 @@
    "domain": "skills",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2376,7 +2562,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "external-service",
@@ -2389,7 +2575,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2399,7 +2585,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2409,7 +2595,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2419,7 +2605,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "external-service",
@@ -2432,7 +2618,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2442,7 +2628,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2452,7 +2638,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2462,7 +2648,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2472,7 +2658,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2482,7 +2668,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2492,7 +2678,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:ifc_query",
+   "agent": "native:ifc_query",
    "platform": false,
    "withheld": null,
    "reason": "The agent counts and reads the model with its own `ifc_query`, which says what the export cannot answer"
@@ -2502,7 +2688,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2512,7 +2698,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2522,7 +2708,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2532,7 +2718,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2542,7 +2728,7 @@
    "domain": "organization",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "external-service",
@@ -2555,7 +2741,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2568,7 +2754,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2581,7 +2767,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2594,7 +2780,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2607,7 +2793,7 @@
    "domain": "organization",
    "sensitivity": "control",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2620,7 +2806,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2630,7 +2816,7 @@
    "domain": "organization",
    "sensitivity": "control",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2643,7 +2829,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2653,7 +2839,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2666,7 +2852,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2679,7 +2865,7 @@
    "domain": "organization",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2692,7 +2878,7 @@
    "domain": "organization",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2705,7 +2891,7 @@
    "domain": "organization",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2718,7 +2904,7 @@
    "domain": "organization",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2731,7 +2917,7 @@
    "domain": "organization",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2744,7 +2930,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2754,7 +2940,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:remember",
+   "agent": "native:remember",
    "platform": false,
    "withheld": null,
    "reason": "The agent keeps a note with its own `remember`, which records where the finding came from and keeps a restricted one in its project"
@@ -2764,7 +2950,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2774,7 +2960,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2784,7 +2970,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2794,7 +2980,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2807,7 +2993,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2820,7 +3006,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2833,7 +3019,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2846,7 +3032,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2859,7 +3045,7 @@
    "domain": "organization",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2869,7 +3055,7 @@
    "domain": "organization",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2879,7 +3065,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2889,7 +3075,7 @@
    "domain": "organization",
    "sensitivity": "access",
    "external": true,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": null,
    "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
@@ -2899,7 +3085,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2912,7 +3098,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2925,7 +3111,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -2935,7 +3121,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2948,7 +3134,7 @@
    "domain": "organization",
    "sensitivity": "control",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2961,7 +3147,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2974,7 +3160,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -2987,7 +3173,7 @@
    "domain": "organization",
    "sensitivity": "control",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "external-service",
@@ -3000,7 +3186,7 @@
    "domain": "organization",
    "sensitivity": "control",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "product-config",
@@ -3013,7 +3199,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": true,
-   "piloti": true,
+   "agent": true,
    "platform": false,
    "withheld": null,
    "reason": null
@@ -3023,7 +3209,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -3036,7 +3222,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -3049,7 +3235,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -3062,7 +3248,7 @@
    "domain": "organization",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": false,
    "withheld": {
     "category": "ui-state",
@@ -3075,7 +3261,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3085,7 +3271,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3095,7 +3281,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3105,7 +3291,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3115,7 +3301,7 @@
    "domain": "platform",
    "sensitivity": "secret",
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3125,7 +3311,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3135,7 +3321,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3145,7 +3331,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3155,7 +3341,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3165,7 +3351,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3175,7 +3361,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3185,7 +3371,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3195,7 +3381,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3205,7 +3391,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3215,7 +3401,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3225,7 +3411,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3235,7 +3421,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3245,7 +3431,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3255,7 +3441,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3265,7 +3451,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3275,7 +3461,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3285,7 +3471,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3295,7 +3481,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3305,7 +3491,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3315,7 +3501,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3325,7 +3511,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3335,7 +3521,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3345,7 +3531,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3355,7 +3541,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3365,7 +3551,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3375,7 +3561,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3385,7 +3571,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3395,7 +3581,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3405,7 +3591,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3415,7 +3601,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3425,7 +3611,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3435,7 +3621,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3445,7 +3631,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3455,7 +3641,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3465,7 +3651,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3475,7 +3661,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3485,7 +3671,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3495,7 +3681,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3505,7 +3691,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3515,7 +3701,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3525,7 +3711,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3535,7 +3721,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3545,7 +3731,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3555,7 +3741,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3565,7 +3751,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3575,7 +3761,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3585,7 +3771,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3595,7 +3781,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3605,7 +3791,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3615,7 +3801,7 @@
    "domain": "platform",
    "sensitivity": null,
    "external": false,
-   "piloti": false,
+   "agent": false,
    "platform": true,
    "withheld": null,
    "reason": "the operator console is the platform operator’s, not an office’s: every write there reaches every tenant"
@@ -3625,7 +3811,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:knowledge_search",
+   "agent": "native:knowledge_search",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
@@ -3635,7 +3821,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:read_file",
+   "agent": "native:read_file",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
@@ -3645,7 +3831,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:list_files",
+   "agent": "native:list_files",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
@@ -3655,7 +3841,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:look",
+   "agent": "native:look",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
@@ -3665,7 +3851,7 @@
    "domain": "bim",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:ifc_measure",
+   "agent": "native:ifc_measure",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
@@ -3675,7 +3861,7 @@
    "domain": "documents",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:dxf_measure",
+   "agent": "native:dxf_measure",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
@@ -3685,7 +3871,7 @@
    "domain": "knowledge",
    "sensitivity": null,
    "external": true,
-   "piloti": "native:ris_lookup_tool",
+   "agent": "native:ris_lookup_tool",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"

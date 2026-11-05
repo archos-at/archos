@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * The controls of the Dateien header: view, Offene Punkte, Papierkorb, filter, search, upload.
+ * The controls of the Dateien header: view, Offene Punkte, E-Mail-Eingang, Papierkorb, filter, search, upload.
  *
  * ONE ROW ON A PHONE. The header used to stack four rows (view and filter,
  * search, upload) and put about 270px of controls between the title and the
@@ -17,9 +17,10 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { LayoutGrid, List, ListTodo, MoreHorizontal, Trash2 } from 'lucide-react'
+import { LayoutGrid, List, ListTodo, Mail, MoreHorizontal, Trash2 } from 'lucide-react'
 import { ActionMenu, type ActionMenuEntry } from '@/components/ui/action-menu'
 import { Button } from '@/components/ui/button'
+import { CountPill } from '@/components/ui/count-pill'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -35,6 +36,13 @@ export interface FilesHeaderControlsProps {
   binHref?: string
   /** Where the shelf's Offene Punkte are, the open Anmerkungen of all its documents; absent where it has none. */
   openPointsHref?: string
+  /**
+   * The project's E-Mail-Eingang (ADR-0137) and how many mails wait in it for
+   * this reader; absent where the reader may not decide held mail. The count
+   * is a muted pill: the Postfach's ink pill is the one that asks for
+   * attention, and two of them would make neither mean anything.
+   */
+  inboundMail?: { href: string; waiting: number | null }
   /** The filter menu, told whether the row has room for its word. */
   renderFilter: (compact: boolean) => ReactNode
   search: {
@@ -65,6 +73,7 @@ export function FilesHeaderControls({
   onViewChange,
   binHref,
   openPointsHref,
+  inboundMail,
   renderFilter,
   search,
   upload,
@@ -111,6 +120,20 @@ export function FilesHeaderControls({
               icon: ListTodo,
               href: openPointsHref,
               testId: 'files-open-points',
+            },
+          ]
+        : []),
+      ...(inboundMail
+        ? [
+            { type: 'separator' as const },
+            {
+              type: 'item' as const,
+              id: 'inbound-mail',
+              label: t('inboundMail.open'),
+              hint: inboundMail.waiting ? t('inboundMail.waitingLine', { count: inboundMail.waiting }) : undefined,
+              icon: Mail,
+              href: inboundMail.href,
+              testId: 'files-inbound-mail',
             },
           ]
         : []),
@@ -170,6 +193,26 @@ export function FilesHeaderControls({
           <Link href={openPointsHref} data-testid="files-open-points">
             <ListTodo />
             {t('openPoints.open')}
+          </Link>
+        </Button>
+      )}
+      {/* Mail sent to the project's address, waiting until a person files it (ADR-0137). */}
+      {inboundMail && (
+        <Button asChild variant="ghost" size="sm">
+          <Link
+            href={inboundMail.href}
+            data-testid="files-inbound-mail"
+          >
+            <Mail />
+            {t('inboundMail.open')}
+            {/* The name is the content, the visible words first (WCAG 2.5.3, label in name): an aria-label over
+                „E-Mail-Eingang“ and the pill's figure never matched the text a speech user reads off the screen. */}
+            {inboundMail.waiting ? (
+              <>
+                <CountPill count={inboundMail.waiting} tone="muted" aria-hidden />
+                <span className="sr-only"> {t('inboundMail.waitingAria', { count: inboundMail.waiting })}</span>
+              </>
+            ) : null}
           </Link>
         </Button>
       )}

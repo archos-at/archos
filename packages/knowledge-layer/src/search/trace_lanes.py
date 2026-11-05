@@ -75,6 +75,7 @@ def trace_lanes_for_hits(hits, opened_files: frozenset[str] = frozenset()) -> tu
             collection=hit.collection,
             shelf=hit.shelf,
             authored_by=hit.authored_by,
+            source_format=hit.source_format,
         )
         lanes.setdefault(key, (label, []))[1].append(hit)
     return tuple(

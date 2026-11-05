@@ -18,6 +18,7 @@ export const ROUTES = {
   buildingLaw: { de: '/baurecht/', en: '/en/building-law/' },
   revisions: { de: '/planstaende-vergleichen/', en: '/en/comparing-plan-revisions/' },
   security: { de: '/datensicherheit/', en: '/en/security/' },
+  projectMail: { de: '/e-mail-eingang/', en: '/en/project-mail/' },
   blog: { de: '/blog/', en: '/en/blog/' },
   contact: { de: '/kontakt/', en: '/en/contact/' },
   imprint: { de: '/impressum/', en: '/en/imprint/' },

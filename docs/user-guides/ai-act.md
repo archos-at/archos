@@ -21,6 +21,8 @@ ARCHOS. It provides both anyway, as described below.
 | **Chat screening** of what people type | The same content terms and number checks | No. Fixed rules |
 | **Quarantine** of an upload | Follows from a content match | No. A rule match, never a model's judgement |
 | **Who may read a note ARCHOS keeps** from a chat that could see a restricted folder | When the chat read the folder, the note is restricted to it. When the chat could only list the folder's documents, a **language model (the memory judge)** decides whether the note draws on them. If the judge gives no usable answer, the note is restricted to every restricted folder in the chat | **Yes**, for the memory judge |
+| **Project mail: sender check, thread match, malware scan** of a mail sent to a project's address | DKIM and DMARC of the sender's domain, the mail's reference headers and subject, ClamAV | No. Fixed rules; the result is a label and a default, and a person files every mail, a member's own confirmed mail by sending it |
+| **Project mail: where to file an attachment** (ARCHOS's suggestion) | A **language model** reads only the attachments' file names, the masked subject and the sender's domain, never the text or the files | **Yes**, a suggestion the person takes or changes; none for unconfirmed or automatic mail |
 | **Answers, research reports, notes ARCHOS keeps, drafts and diagrams** | Language models | **Yes** |
 
 The screening is deterministic: the same file and the same list give the same
@@ -34,6 +36,13 @@ result every time, and every verdict names the rule that matched.
 - **A name match in the upload dialog.** The uploader can release a single file
   that a name term held back, such as a Bauvertrag in a folder called
   „Verträge".
+- **Project mail.** Nothing that arrives at a project's address becomes a
+  document until a person files it in the **E-Mail-Eingang**; ARCHOS may only
+  suggest, or propose a filing as a card the person confirms. The exceptions
+  are the person's own decisions: a member's own mail, which their domain
+  confirmed and which they may file, is filed directly as them, and following
+  an E-Mail-Verlauf adds later replies' text, never attachments, in their
+  name.
 - **Chat masking.** When a message contains a match, the person chooses
   **Maskiert senden** or **Bearbeiten**. There is no way to send it unmasked.
 - **Folder access.** People decide which folders are restricted, and for which

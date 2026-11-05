@@ -113,7 +113,11 @@ function isNotFound(error: unknown): boolean {
  * generation in it. A resource WorkOS has never heard of (404) holds nothing,
  * and that answer is cached; any other failure grants nothing and is not cached.
  */
-export async function effectiveResourcePermissions(input: ResourceCheckInput): Promise<ReadonlySet<string>> {
+export async function effectiveResourcePermissions(
+  input: ResourceCheckInput,
+  /** `strict`: a failed lookup throws instead of holding nothing, for a caller that waits a fault out (the receive job). */
+  options: { strict?: boolean } = {}
+): Promise<ReadonlySet<string>> {
   const { organizationMembershipId, organizationId, resourceExternalId, resourceTypeSlug } = input
 
   const load = () =>
@@ -142,6 +146,7 @@ export async function effectiveResourcePermissions(input: ResourceCheckInput): P
     )
     return new Set(slugs)
   } catch (error) {
+    if (options.strict) throw error
     console.warn(`[authz] effective permissions failed on ${resourceTypeSlug}:${resourceExternalId}:`, error)
     return new Set()
   }

@@ -63,7 +63,8 @@ can be switched off.
    by name only**. The summary says so, so nobody takes „nothing found" for
    „nothing there".
 
-ARCHOS does not scan files for viruses or macros. The checks above look for
+ARCHOS does not scan uploads for viruses or macros (mail sent to a project's
+address is scanned for malware, see [Project mail](inbound-mail.md)). The checks above look for
 sensitive terms and numbers, not for malicious content.
 
 What ARCHOS drops on its own: system files a folder carries along, such as

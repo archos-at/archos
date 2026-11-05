@@ -12,7 +12,8 @@ import { SectionLabel } from '@/components/ui/section-label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { documentDisplayName } from '@/lib/documents/display-name'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
+import { fileMatchesQuery } from '../lib/file-query-match'
 import type { FileSearch } from '../hooks/use-file-search'
 import { useCoarsePointer } from '../hooks/use-coarse-pointer'
 import { useLevelDirection } from '../hooks/use-level-direction'
@@ -288,13 +289,6 @@ const FileTile = memo(function FileTile({
   return wrapFile ? wrapFile(file, card) : card
 })
 
-/** The names a document's older Fassungen are stored under: what a search for them should find the document by. */
-function olderRevisionNames(file: FileItem): string[] {
-  const facts = file.revision
-  if (!facts) return []
-  return (facts.history ?? facts.supersedes).map((ref) => ref.filename)
-}
-
 export function FileBrowserPane({
   files,
   selectedFileId,
@@ -350,21 +344,9 @@ export function FileBrowserPane({
   const filteredFiles = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return orderedFiles
-    // Both names, deliberately: somebody who renamed a document looks for what
-    // they called it, and somebody who uploaded it looks for the file they sent.
-    // The older Fassungen's names count too: a document is found by any name it
-    // has been stored under, and its current entry is the one that answers.
-    const matches = (searchFiles ?? files).filter(
-      (f) =>
-        documentDisplayName(f).toLowerCase().includes(q) ||
-        f.filename.toLowerCase().includes(q) ||
-        (f.summary ?? '').toLowerCase().includes(q) ||
-        (f.tags ?? []).some((tag) => tag.toLowerCase().includes(q)) ||
-        (f.topics ?? []).some((topic) => topic.toLowerCase().includes(q)) ||
-        olderRevisionNames(f).some((name) => name.toLowerCase().includes(q))
-    )
+    const matches = (searchFiles ?? files).filter((f) => fileMatchesQuery(f, q, (tag) => tagLabel(tag, t)))
     return sortFiles(withoutOlderRevisions(matches, showOlderRevisions), sort, locale)
-  }, [orderedFiles, files, searchFiles, query, sort, locale, showOlderRevisions])
+  }, [orderedFiles, files, searchFiles, query, sort, locale, showOlderRevisions, t])
 
   const currentFolderId = folderNav?.currentFolderId ?? null
   // A level the reader may only read offers no upload and no new folder

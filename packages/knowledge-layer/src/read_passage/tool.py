@@ -152,6 +152,7 @@ from .ranges import _within_budget  # noqa: F401
 from .ranges import _without_overlap  # noqa: F401
 from .revisions import _current_revision  # noqa: F401
 from .revisions import _older_revision_notice  # noqa: F401
+from .revisions import _target_notices
 from .revisions import older_revision_line  # noqa: F401
 from .suggestions import _DID_YOU_MEAN_CUTOFF  # noqa: F401
 from .suggestions import _MAX_DID_YOU_MEAN  # noqa: F401
@@ -399,7 +400,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
             format_results,
             merged,
             query,
-            notice=_older_revision_notice(targets),
+            notice=_target_notices(targets),
             reading_of=_locus_label(document, clause, page),
         )
         logger.info("read_passage: %s returned %d chunk(s)", query, len(merged.chunks))
@@ -469,7 +470,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
             format_results,
             merged,
             label,
-            notice=_older_revision_notice(targets),
+            notice=_target_notices(targets),
             trailer=trailer,
             reading_of=label,
         )
@@ -501,7 +502,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
             format_results,
             _passage_result(passages, query),
             query,
-            notice=_older_revision_notice(targets),
+            notice=_target_notices(targets),
             trailer=_outline_block(entries),
             reading_of=document,
         )
@@ -540,7 +541,7 @@ async def read_passage(config: ReadPassageConfig, _builder: Builder):
             format_results,
             merged,
             query,
-            notice=_older_revision_notice(targets),
+            notice=_target_notices(targets),
             trailer=_NO_CLAUSES_LINE,
             reading_of=document,
         )

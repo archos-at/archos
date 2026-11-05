@@ -23,6 +23,7 @@ only Piloti has"). Such an operation is still written, then withheld in
 | `product-config` | How Piloti itself works for the office | models and their versions, zero data retention, LLM keys and provider mode, budgets and usage, settings, standing instructions, upload screening, retention policies, curated skills on or off |
 | `model-compute` | Model work the caller can do itself, whose result is no office artifact | conversation titles, citation formatting, skill review |
 | `ui-state` | This person's own screen or device | push devices and preferences, the preference bag, read and unread marks |
+| `evidence` | Bytes kept as proof, which no model reads | a held or filed mail's original `.eml` (ADR-0137) |
 
 A domain feature that makes an office artifact with Piloti's knowledge stays on
 the door (`project-summary-generate`, `project-consistency-check`,
@@ -47,12 +48,12 @@ see.
 |---|---|
 | Add an `app/api` route method a person calls | Add an operation for it in the same change |
 | Add a route that is not something a person does (transport, sign-in plumbing, typing) | Add it to `NOT_AN_AGENT_CAPABILITY` in `agent-reachability.spec.ts`, with a category and a reason. A service's route on `internalApiRoute` or `publicApiRoute` needs neither |
-| Add an operation | Give it its entry in `apps/workspace/bff/agent-api/exposure.config.ts`: who sees it (`external`, `piloti`, `platform`), with a `reason` unless it is `OFFERED`. Regenerate `tests/fixtures/exposure.json` ([how](../architecture/agent-surface.md#the-exposure-config)) |
+| Add an operation | Give it its entry in `apps/workspace/bff/agent-api/exposure.config.ts`: who sees it (`external`, `agent`, `platform`), with a `reason` unless it is `OFFERED`. Regenerate `tests/fixtures/exposure.json` ([how](../architecture/agent-surface.md#the-exposure-config)) |
 | Draw a card in an outside agent's own chat (an MCP App), or give one a button | An `APP_VIEWS` entry naming the operation whose result it draws, and per button an `APP_TOOLS` entry naming the operation it runs, with its `exposure.config.ts` line `app: true`; never a route of its own ([how](../architecture/agent-surface.md#mcp-apps-cards-in-the-persons-own-assistant), ADR-0142) |
 | Add a route that is product configuration, a proxied service, model compute or screen state | Write its operation; its exposure entry is `withheld: { category, reason }` |
 | Add or change something on the review canvas or in the chat | Its entry in `apps/workspace/bff/surface-parity/parity.config.ts`, with its mirror or a reason ([how](../architecture/agent-surface.md#surface-parity-canvas-and-chat)) |
 | Offer a withheld operation again | Replace its exposure entry, and say why in the PR |
-| Give Piloti a native tool that does what an operation does | Set the operation's entry to `piloti: 'native:<tool>'`, and run the answer suite's workspace set before and after |
+| Give Piloti a native tool that does what an operation does | Set the operation's entry to `agent: 'native:<tool>'`, and run the answer suite's workspace set before and after |
 | Change a route's body, query or meaning | Update the operation's schema and description. The schema is shared, so the type checker tells you; the description only review does |
 | Move a route-local zod schema | Into `lib/<area>/<x>-wire.ts`, imported by the route and the catalog |
 | Cover a route that sits in `agent-reachability-baseline.json` | Remove it from the baseline (`UPDATE_FIXTURES=1`) |

@@ -71,6 +71,14 @@ interface ProjectFileWorkspaceProps {
   initialRootAccess?: 'read' | 'write'
   /** Whether the Outlook archive import is offered (`isMailImportEnabled`, ADR-0085). Off by default. */
   mailImportEnabled?: boolean
+  /**
+   * The E-Mail-Eingang's entry, its count and „Per E-Mail senden …“, present
+   * only for a reader who may decide the project's held mail (ADR-0137). The
+   * route composes it (`app/app/(shell)/projects/[id]/files/project-files-client.tsx`),
+   * so the documents feature never imports the inbound-mail feature
+   * (docs/contributing/module-seams.md).
+   */
+  inboundMail?: FileShelf['inboundMail']
 }
 
 /**
@@ -96,6 +104,7 @@ export function ProjectFileWorkspace({
   canManageFolderAccess = false,
   initialRootAccess = 'write',
   mailImportEnabled = false,
+  inboundMail,
 }: ProjectFileWorkspaceProps) {
   const t = useTranslations(filesCopy)
   const router = useRouter()
@@ -118,6 +127,7 @@ export function ProjectFileWorkspace({
     folderAccess: { projectId, canManage: canManageFolderAccess, initialRootAccess },
     bin: { href: `/app/projects/${projectId}/files/bin` },
     openPoints: { href: `/app/projects/${projectId}/files/open-points` },
+    inboundMail,
     canCollaborate,
     currentUserId,
     askAbout: (file) => askAboutFile({ projectId, file, navigate: (href) => router.push(href) }),

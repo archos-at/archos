@@ -39,6 +39,10 @@
  * the permissive generic schema instead, and accept the empty objects too.
  */
 
+import { INBOUND_MAIL_AUDIT_SCHEMAS } from './schemas-inbound-mail.mjs'
+
+export { AWAITING_EMITTER_AUDIT_ACTIONS } from './schemas-inbound-mail.mjs'
+
 /**
  * @typedef {'string' | 'number' | 'boolean'} AuditMetadataType
  * @typedef {{
@@ -924,17 +928,11 @@ export const AUDIT_SCHEMAS = /** @type {const} */ ({
     targets: [{ type: 'document' }],
     metadata: { subjectUserId: 'string' },
   },
+  ...INBOUND_MAIL_AUDIT_SCHEMAS,
 })
 
 /** @typedef {keyof typeof AUDIT_SCHEMAS} AuditAction */
 
-/**
- * Every action the app may emit — derived, never hand-maintained. `tsc` already
- * confines each `recordAuditEvent` call site to this union, so the compiler now
- * carries the guarantee end-to-end: call site → action → registered schema.
- *
- * @type {readonly AuditAction[]}
- */
 /**
  * Actions kept only so history reads: their schemas stay registered and their
  * labels resolve, but nothing writes them. `schemas.spec.ts` holds both halves:
@@ -947,4 +945,9 @@ export const RETIRED_AUDIT_ACTIONS = /** @type {const} */ ([
   'archiv.document.renamed',
 ])
 
+/**
+ * Every action the app may emit — derived, never hand-maintained. `tsc` already
+ * confines each `recordAuditEvent` call site to this union, so the compiler now
+ * carries the guarantee end-to-end: call site → action → registered schema.
+ */
 export const AUDIT_ACTIONS = /** @type {AuditAction[]} */ (Object.keys(AUDIT_SCHEMAS))

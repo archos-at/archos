@@ -15,7 +15,10 @@
 import { INBOX_ITEM_TYPES, type InboxItemType, type InboxTargetType } from '@/lib/db/schema/inbox'
 import { PLATFORM_PERMISSIONS } from '@/lib/authz/permissions'
 import type { PushCategory, PushUrgency } from './push-categories'
+import { IN_APP_ONLY, INBOUND_MAIL_TYPE_DEFINITIONS } from './inbound-mail-types'
 import { isMarkAnchored } from './types'
+
+export { appendedGroupAnchor } from './inbound-mail-types'
 
 /**
  * Which product gate a type lives behind.
@@ -133,8 +136,6 @@ export interface InboxPushPolicy {
 export interface InboxPushFold {
   readonly parts: Readonly<Record<string, string>>
 }
-
-const IN_APP_ONLY: InboxEmailDefault = { send: 'never' }
 
 export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> = {
   // A request for your input. Each mention is its own question, so no collapsing,
@@ -586,6 +587,7 @@ export const INBOX_TYPE_DEFINITIONS: Record<InboxItemType, InboxTypeDefinition> 
     email: { send: 'if-unread', afterMinutes: 30 },
     push: { category: 'results', urgency: 'normal' },
   },
+  ...INBOUND_MAIL_TYPE_DEFINITIONS,
 }
 
 /**

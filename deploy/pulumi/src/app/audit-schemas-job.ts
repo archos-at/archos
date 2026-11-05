@@ -6,7 +6,8 @@ import { appPullPolicy, frontendImage } from '../config/images'
 import { commonLabels } from "../platform/namespaces";
 import { hardenedContainerSecurityContext } from "../platform/security";
 import { JOB_DEFAULTS, LIGHT_WORKER_RESOURCES, UID } from "../constants";
-import { AppSecrets, AppWiring, auditSchemaEnv } from "./config";
+import { AppSecrets, AppWiring } from "./config";
+import { auditSchemaEnv } from "./job-env";
 import { logicalName } from "../names";
 
 /**

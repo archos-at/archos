@@ -20,6 +20,8 @@ repos:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
+        # The forward fixtures are what mail programs write, trailing spaces included.
+        exclude: ^apps/workspace/bff/inbound-mail/__fixtures__/forwards/
 
   - repo: local
     hooks:
@@ -175,6 +177,19 @@ repos:
         # Always, not on matching files: a commit that only deletes a baselined
         # file passes no filename, and its stale entry would fail the next
         # person's commit instead. The check takes about three seconds.
+        always_run: true
+
+      - id: nesting
+        name: no Python source function gains a third level of nesting
+        # code-conventions.md sets two levels as the floor and named Ruff's
+        # PLR1702 as the check, but pyproject.toml ignores it and Ruff 0.17 keeps
+        # it in preview, so nothing ran it and 300 files drifted past it. A
+        # ratchet on ci/nesting_baseline.json holds the rest at two levels. The
+        # venv python, so the script finds the venv's pinned Ruff beside it.
+        # Always, for the reason file-size gives. About two seconds.
+        entry: .venv/bin/python scripts/check_nesting.py
+        language: system
+        pass_filenames: false
         always_run: true
 
       - id: brand-names

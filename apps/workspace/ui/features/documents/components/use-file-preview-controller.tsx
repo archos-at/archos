@@ -4,11 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { isTextPageType } from './file-text-page'
 
 
-import type { FileItem } from './project-file-workspace'
 import { MessageSquarePlus } from 'lucide-react'
 import { firstFinding, quarantineVerdictOf, type QuarantineFinding } from '@/lib/upload-screening/quarantine'
 
-import type { RevisionLinks } from '@/lib/documents/revision-links'
 import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
 
 import { useLocale, useTranslations } from '@/i18n'
@@ -24,7 +22,7 @@ import { useSeenOnce } from '@/hooks/use-seen-once'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { PHONE_ON_ITS_SIDE_QUERY, PHONE_QUERY } from '@/hooks/use-is-mobile'
 
-import { useDocumentActions, useMoveInSheet, type DocumentScope } from './document-actions'
+import { useDocumentActions, useMoveInSheet } from './document-actions'
 import { fileTypeIcon, isCitable, isCitableStatus, isNeverIndexed, isSettlingStatus } from './document-status'
 
 import type { VisualDetail } from './page-readings'
@@ -32,7 +30,6 @@ import { useFileFacts } from '../hooks/use-file-facts'
 
 import { showsRevisionsSection } from '@/lib/documents/revision-timeline'
 
-import type { DocumentLifecyclePermission, DocumentVersionState } from '@/lib/documents/lifecycle-types'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { backLandsOn } from '@/lib/navigation/history-step'
@@ -52,80 +49,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useCurrentProject } from '@/features/projects/lib/current-project'
 
 import { usePeekState } from './file-preview-peek-state'
+import { useMailThreadRail } from './mail-thread/use-mail-thread-rail'
 import { type ReaderAnnotate } from './file-preview-reader'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-export interface FilePreviewPaneProps {
-  file: FileItem
-  /** Present for project documents; omitted for the org-wide Archiv (unused here). */
-  projectId?: string
-  /** Project display name for the indexed-metadata panel's Project row. */
-  projectName?: string
-  /**
-   * Whether the viewer may mutate the document (edit tags, re-ingest). Defaults
-   * to true (all project callers). The Archiv passes the caller's manage
-   * capability so members without `org:office_shelf:manage` get a read-only pane.
-   */
-  canManage?: boolean
-  onClose?: () => void
-  /** Notify the parent to flip local state after a successful re-ingestion. */
-  onReingested?: (fileId: string, status: string) => void
-  /**
-   * Notify the parent of the saved tags after a successful PATCH, so the
-   * workspace's file state (and thus `initialTags` on reselect) stays fresh —
-   * otherwise switching away and back reverts to the pre-edit tags.
-   */
-  onTagsUpdated?: (fileId: string, tags: string[], topics?: string[]) => void
-  /** Open another document of this shelf here, from the Fassungen section. */
-  onOpenDocument?: (fileId: string) => void
-  /** A link was confirmed or taken back: the Fassung facts of one of the two documents, so the listing moves both cards. */
-  onRevisionChanged?: (fileId: string, revision: RevisionLinks | null) => void
-  /**
-   * Whether the "Indexed by GRID" metadata panel (AI summary, key-value props,
-   * editable tags) renders (FB-8). On by default, the chat peek included,
-   * where it is the Details tab. Status/type/size rows always render.
-   */
-  showMetadataPanel?: boolean
-  /**
-   * Whether an `.ifc` preview offers the model workspace (`ifc-models`).
-   *
-   * Defaults to true: a link that does not
-   * render is a feature nobody can find, and the workspace refuses on its own
-   * if the flag is really off.
-   */
-  showModels?: boolean
-  /** Which corpus the document belongs to — decides the file operations' route. */
-  scope?: DocumentScope
-  /** The document was renamed from the header menu. */
-  onRenamed?: (fileId: string, displayName: string | null) => void
-  /** The document was deleted from the header menu; the pane closes itself. */
-  onDeleted?: (fileId: string) => void
-  canCollaborate?: boolean
-  /**
-   * What this reader may do to the document's versions, resolved on the server
-   * (`lib/documents/lifecycle-permissions.ts`). Absent means the surface did not
-   * read them — the Archiv sheet, the chat peek — and the rail then shows no
-   * Freigabe section at all rather than guessing a set.
-   */
-  lifecyclePermissions?: readonly DocumentLifecyclePermission[]
-  /** The reader, so their own acts in the version list read as „Sie". */
-  viewerUserId?: string | null
-  /** A Freigabe decision landed — the listing behind the pane moves its badge. */
-  onLifecycleChanged?: (
-    fileId: string,
-    summary: { versionState: DocumentVersionState; versionCount: number },
-  ) => void
-  /**
-   * The review read the marks, or the reader changed them: the listing's tally
-   * for this document, as the server counts it (`tallyLiveMarks`), `null` when
-   * none is live. Dateien's chip is read with the listing and would otherwise
-   * say „5 offen“ after the reader closed all five here.
-   */
-  onMarksChanged?: (fileId: string, marks: MarkTally | null) => void
-  /** Modal on Files; peek/expanded once this file is the chat subject. */
-  presentation?: 'modal' | 'peek' | 'expanded'
-  onAssigneesChanged?: (assignees: FileItem['assignees']) => void
-}
+import type { FilePreviewPaneProps } from './file-preview-pane-props'
+export type { FilePreviewPaneProps } from './file-preview-pane-props'
 
 /** The one list (`lib/documents/preview-types.ts`); this pane no longer keeps a copy. */
 const PREVIEW_TYPES: readonly string[] = INLINE_PREVIEW_CONTENT_TYPES
@@ -688,6 +617,8 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   )
   /** Which face of the peek is up (the document, or its details: the host's ⓘ), and its full screen: the review. */
   const { peekView, setPeekView } = usePeekState(peeking, file.id, reviewEnabled ? openReview : null)
+  /** A thread document's rail: its tabs, and the mail a `?mailEntry=` link opens. */
+  const mailRail = useMailThreadRail({ projectId, file, peeking, reader, setPeekView, setDetailsOpen })
   /**
    * What the approve confirm names before the signature: the open marks and
    * Piloti's untaken proposals, told apart, and the review to see them in. Until the review has read them, or when it
@@ -1074,6 +1005,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     wellHostsViewer,
     wellRef,
     wellSeen,
+    ...mailRail,
   }
 }
 

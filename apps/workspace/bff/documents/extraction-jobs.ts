@@ -11,6 +11,8 @@ import { findDocumentInOrg, markDocumentIngestFailed } from './repository'
 import { runBimExtraction } from '@/lib/bim/service'
 import type { BimExtractPayload, JobAttempt, OfficeRenditionPayload } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
+import { documentTypeOf } from './tag-vocabulary'
+import { mailOriginIngestFactsSchema, mailThreadIngestFactsSchema } from '@/lib/mail-thread/ingest-facts'
 import { RenditionFailedError, ensureRendition, extractsFromRendition } from './rendition'
 import { type DispatchDocumentInput, mayBeIndexed } from './document-dispatch'
 import {
@@ -145,6 +147,12 @@ export async function runOfficeRenditionJob(
     ...dispatchInputOf(organizationId, payload),
     provenance: payload.provenance ?? null,
     revisionOf: payload.revisionOf ?? payload.fassungOf ?? null,
+    revisionOfId: payload.revisionOfId ?? null,
+    // Read through the vocabulary: a queued value it no longer holds is no choice.
+    documentType: documentTypeOf([payload.documentType ?? '']) ?? null,
+    // Parsed as the backend parses them: a queued record that no longer fits is none.
+    mailThread: mailThreadIngestFactsSchema.safeParse(payload.mailThread).data ?? null,
+    mailOrigin: mailOriginIngestFactsSchema.safeParse(payload.mailOrigin).data ?? null,
   }
   if (!(await jobStillOwnsRow(input))) return
 
@@ -185,6 +193,10 @@ async function ingestThroughRendition(input: DispatchDocumentInput, fileName: st
       extractionRef: indexesRendition ? renditionRef : null,
       priority: input.priority,
       revisionOf: input.revisionOf ?? null,
+      revisionOfId: input.revisionOfId ?? null,
+      documentType: input.documentType ?? null,
+      mailThread: input.mailThread ?? null,
+      mailOrigin: input.mailOrigin ?? null,
     }
   )
 }

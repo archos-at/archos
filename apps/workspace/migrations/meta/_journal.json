@@ -1366,6 +1366,41 @@
       "when": 1792790000000,
       "tag": "0194_user_preferences_release_week",
       "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1792800000000,
+      "tag": "0195_upload_batch_effects",
+      "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1792810000000,
+      "tag": "0196_inbound_mail",
+      "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1792820000000,
+      "tag": "0197_sender_class",
+        "breakpoints": true
+      },
+      {
+      "idx": 198,
+      "version": "7",
+      "when": 1792830000000,
+      "tag": "0198_original_author",
+      "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "7",
+      "when": 1792840000000,
+      "tag": "0199_receive_faults",
+      "breakpoints": true
     }
   ]
 }

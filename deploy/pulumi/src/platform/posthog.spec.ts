@@ -3,7 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig, langfuseStackConfig } from "../test-support/stack-config";
 import { loadConfig } from '../config'
 import { POSTHOG_DEFAULT_HOST, POSTHOG_DEFAULT_PROJECT_TOKEN } from '../config/posthog'
-import { posthogEnv } from "../app/config";
+import { posthogEnv } from "../app/posthog-env";
 import { parseCollectorConfig, pipeline } from "../test-support/collector";
 import { BFF_SERVICE_NAME } from "../app/config";
 import { BFF_JOBS_SERVICE_NAME } from "../app/bff-jobs-env";

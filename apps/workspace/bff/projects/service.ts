@@ -20,6 +20,8 @@ import {
   listConversationIdsForProject,
 } from '@/lib/conversations/repository'
 import { countDocumentsByProject } from '@/lib/documents/repository'
+import { waitingMailCounts } from '@/lib/inbound-mail/waiting-counts'
+import { endFollowsOfClosedProject, rearmParkedOneShots } from './status-effects'
 import { computePurgeAfter, projectGraceDays } from '@/lib/deletion/policy'
 import { BadRequestError, ConflictError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -39,7 +41,6 @@ import type { ProjectSetup } from './create-project-schema'
 import { startProjectIntake } from './intake-seed'
 import { undoHalfCreatedProject } from './project-creation-undo'
 import type { GeocodeResult } from '@/lib/geocoding/types'
-import { rearmOneShotsSkippedWhileParked } from '@/lib/scheduling/scheduled-runs'
 import { nextOffsetCursor, type OffsetPage } from '@/lib/api/offset-page'
 import { deriveProjectStandards, toStandardWire } from '@/lib/oib/project-standards'
 import { shelfReaderFor } from '@/lib/upload-screening/quarantine-reviewers'
@@ -196,6 +197,8 @@ export async function getProjectsListData(
   documentCounts: Record<string, number>
   /** ISO timestamp of the caller's own last activity, keyed by project id. */
   viewerActivity: Record<string, string>
+  /** Mails waiting in the project's E-Mail-Eingang, where the caller may open it and one waits (ADR-0137). */
+  mailWaiting: Record<string, number>
 }> {
   const visible = await listProjects(session, order)
   const visibleIds = visible.map((project) => project.id)
@@ -206,15 +209,16 @@ export async function getProjectsListData(
   // (ADR-0086); each project asks its own reviewers.
   const readers = await Promise.all(visibleIds.map((projectId) => shelfReaderFor(session, { scope: 'project', projectId })))
   const reviewedProjectIds = visibleIds.filter((_, index) => readers[index].kind === 'reviewer')
-  const [documentCounts, viewerActivity] = await Promise.all([
+  const [documentCounts, viewerActivity, mailWaiting] = await Promise.all([
     countDocumentsByProject(session.organizationId, visibleIds, hiddenFolderIds, {
       kind: 'projects',
       userId: session.userId,
       reviewedProjectIds,
     }),
     lastProjectActivityByUser(session.organizationId, session.userId, visibleIds),
+    waitingMailCounts(session, visibleIds),
   ])
-  return { projects: visible, documentCounts, viewerActivity }
+  return { projects: visible, documentCounts, viewerActivity, mailWaiting }
 }
 
 /**
@@ -531,6 +535,7 @@ export async function setProjectStatus(
     throw new ConflictError('The project changed meanwhile.', { reason: 'invalid-transition', from, to: change.status })
   }
   if (change.status === 'active') await rearmParkedOneShots(projectId, session.organizationId)
+  if (change.status === 'closed') await endFollowsOfClosedProject(session, projectId, now)
   // The status is on every chunk of the project, for the cross-project search's
   // filters (design §7). Never throws; the weekly sync repairs a failed copy.
   await syncProjectFacts(session.organizationId, projectId)
@@ -557,19 +562,6 @@ export async function setProjectStatus(
     request,
   })
   return project
-}
-
-/**
- * The dated one-shots a pause or close retired, due again now that the project
- * runs (ADR-0098). After the move has committed, so a failure here is logged,
- * not turned into an error for a move that happened.
- */
-async function rearmParkedOneShots(projectId: string, organizationId: string): Promise<void> {
-  try {
-    await rearmOneShotsSkippedWhileParked(projectId, organizationId)
-  } catch (error) {
-    console.error('[projects] re-arming one-shots skipped while the project was not active failed:', error)
-  }
 }
 
 /** The Abschluss a close names, or a 400: a month within `closingBounds`, so not after this month unless the Beginn is, and never before the Beginn. */

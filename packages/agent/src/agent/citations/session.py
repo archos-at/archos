@@ -74,6 +74,7 @@ def _registry_from_cached_entries(entries: Any) -> SourceRegistry:
                             shelf=item.get("shelf"),
                             doc_class=item.get("doc_class"),
                             authored_by=item.get("authored_by"),
+                            source_format=item.get("source_format"),
                             chunk_text=item.get("chunk_text"),
                             clause=item.get("clause", item.get("punkt")),
                             score=item.get("score"),

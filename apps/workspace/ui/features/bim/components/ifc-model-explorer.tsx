@@ -23,7 +23,7 @@ import { bimCopy } from '@/i18n/namespaces/bim'
 import { cn } from '@/lib/utils'
 import { formatMeasure, formatPropertyValue } from '../lib/format-value'
 import type { BimModelSummary } from '@/lib/bim/types'
-import { CopyableValue } from './copyable-value'
+import { CopyableValue } from '@/components/ui/copyable-value'
 import type { BimHealth } from '@/lib/bim/validate'
 import {
   flattenSpatialTree,

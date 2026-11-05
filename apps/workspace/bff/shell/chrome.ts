@@ -3,7 +3,7 @@ import 'server-only'
 import { getUserSession } from '@/lib/auth/session'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { getNavFlags, type NavFlags } from '@/lib/authz/nav'
-import { isIfcModelsEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
+import { isIfcModelsEnabled, isInboundMailEnabled, isSkillsEnabled } from '@/lib/authz/feature-flags'
 import { listProjects } from '@/lib/projects/service'
 import { getOrganizationDisplayName, switchableOrganizations } from '@/lib/organizations/service'
 import type { SwitchableOrganization } from '@/lib/organizations/switchable'
@@ -40,6 +40,13 @@ export interface ShellChrome {
   showSkills: boolean
   /** IFC/BIM model surfaces (`ifc-models`, ADR-0045). */
   showModels: boolean
+  /**
+   * The office receives project mail (`inbound-mail`, ADR-0137): Dateien in
+   * the rail and the tab bar may carry the count of mail waiting. Whether this
+   * reader may decide a given project's mail is that project's answer (a 404
+   * shows no number).
+   */
+  inboundMail: boolean
   authRequired: boolean
   /** Which product tours start by themselves for this reader (a joiner's first visit). */
   tours: TourEligibility
@@ -66,6 +73,7 @@ function emptyChrome(): ShellChrome {
     navFlags: EMPTY_NAV_FLAGS,
     showSkills: false,
     showModels: false,
+    inboundMail: false,
     authRequired: isAuthRequired(),
     tours: NO_TOURS,
     whatsNew: null,
@@ -147,6 +155,7 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
     navFlags,
     showSkills: isSkillsEnabled(session),
     showModels: isIfcModelsEnabled(session),
+    inboundMail: isInboundMailEnabled(session),
     authRequired,
     tours,
     whatsNew,

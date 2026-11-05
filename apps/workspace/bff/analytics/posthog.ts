@@ -157,6 +157,12 @@ export type PostHogEvent =
   | 'whats_new_opened'
   | 'whats_new_opted_out'
   | 'whats_new_opted_in'
+  // The E-Mail-Eingang (ADR-0137): ids, codes and counts only, never a sender, subject, name or address.
+  | 'inbound_mail_details_opened'
+  | 'inbound_mail_filed_as_suggested'
+  | 'inbound_mail_filed_outcome_opened'
+  | 'inbound_mail_address_copied'
+  | 'inbound_mail_address_contact_saved'
 
 let initialized = false
 

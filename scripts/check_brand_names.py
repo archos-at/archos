@@ -126,7 +126,8 @@ EXCLUDED = re.compile(
 )
 
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\bgit@[\w.-]+:\S+")
-HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org)$")  # a host name, or an email address's
+# A host name, or an email address's. `.tech` is the brand's own domain (identity.json's "domain").
+HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org|tech)$")
 # The Kubernetes and Compose tier names `aiq-agent` and `aiq-api` are not
 # counted: renaming them recreates resources and an operator applies it (ADR-0145
 # row 10c). Delete this set with that rename.

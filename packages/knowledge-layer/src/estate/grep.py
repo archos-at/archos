@@ -54,6 +54,7 @@ from agent.common.estate_paths import EstatePath
 from agent.common.estate_paths import Mount
 from agent.common.estate_paths import PathRefused
 from agent.common.estate_paths import parse_estate_path
+from agent.common.passage_fence import fence
 
 from .backend import EstateFile
 from .backend import ToolOutput
@@ -633,11 +634,9 @@ def _context_index(picked: Sequence[tuple[DocumentMatches, int | None]], query: 
             break
     if not out:
         return ""
-    return (
-        "## Lines around the matches\n"
-        + "\n".join(out[:MAX_CONTEXT_INDEX_LINES])
-        + "\nCite the passages above, not these lines."
-    )
+    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
+    body = fence("\n".join(out[:MAX_CONTEXT_INDEX_LINES]))
+    return f"## Lines around the matches\n{body}\nCite the passages above, not these lines."
 
 
 def mount_label(mount: Mount | None) -> str:

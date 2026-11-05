@@ -174,7 +174,10 @@ class TestOneListOfNames:
 
     def test_every_score_the_bff_writes_is_defined(self):
         source = "\n".join(path.read_text() for path in (REPO / "apps/workspace/bff/langfuse").glob("*.ts"))
-        written = set(
+        # Every score module names its score in one `*_SCORE_NAME` constant, so a new one is found
+        # without this test knowing its name; the literals catch a name written inline.
+        constants = set(re.findall(r"""_SCORE_NAME = ['"]([a-z-]+)['"]""", source))
+        literals = set(
             re.findall(
                 r"""['"](user-feedback[a-z-]*|piloti-decision|revision-notice|document-check|diagram-filed)['"]""",
                 source,
@@ -182,7 +185,8 @@ class TestOneListOfNames:
         )
         defined = {definition.name for definition in SCORE_DEFINITIONS if definition.writer == "bff"}
 
-        assert written <= defined
+        assert len(constants) >= 5
+        assert constants | literals <= defined
 
     @pytest.mark.parametrize("definition", SCORE_DEFINITIONS, ids=lambda definition: definition.name)
     def test_every_score_is_documented(self, definition):

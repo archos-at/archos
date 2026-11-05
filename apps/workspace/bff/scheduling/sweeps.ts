@@ -15,6 +15,7 @@ import { exportUsageToPosthog } from '@/lib/analytics/usage-export'
 import { enqueueDueReminders } from '@/lib/annotations/due-reminders'
 import { reconcileStalePending } from '@/lib/documents/stale-pending'
 import { recoverStuckProcessing } from '@/lib/documents/stuck-processing'
+import { sweepInboundMail, type InboundMailSweepResult, type SweepCounts } from '@/lib/inbound-mail/sweep'
 import { sweepStaleMailImports } from '@/lib/mail-import/job'
 import { sweepCollectionPlacement } from '@/lib/projects/placement-sweep'
 import { reconcileStaleRuns } from '@/lib/runs/reconcile'
@@ -64,6 +65,34 @@ export async function reconcileBackgroundWork(): Promise<void> {
     report(`background work, report filings: ${JSON.stringify(filings.value)}`)
   }
   if (failed) throw failed.reason
+}
+
+/**
+ * Project mail's sweeps (ADR-0137, `lib/inbound-mail/sweep.ts`), in their
+ * order. One line per sweep that acted or saw an error, counts by name, never
+ * an id or an address. A sweep that threw whole fails the run, after every
+ * other sweep ran; a row that failed is only counted, and the next run tries it
+ * again. What Hatchet is told is the class (`reportingOnlyTheClass`).
+ */
+export async function sweepProjectMail(now: Date = new Date()): Promise<void> {
+  const result = await sweepInboundMail(now)
+  for (const line of projectMailLines(result)) report(line)
+  const failed = sweepEntries(result).filter(([, counts]) => (counts.failed ?? 0) > 0)
+  if (failed.length > 0) throw new Error(`project mail sweeps failed: ${failed.map(([name]) => name).join(', ')}`)
+}
+
+const sweepEntries = (result: InboundMailSweepResult) => Object.entries(result) as Array<[string, SweepCounts]>
+
+/** The log lines of one run of project mail's sweeps: a sweep that only looked says nothing. */
+export function projectMailLines(result: InboundMailSweepResult): string[] {
+  const lines: string[] = []
+  for (const [sweep, counts] of sweepEntries(result)) {
+    const acted = Object.entries(counts).some(([name, value]) => name !== 'checked' && value > 0)
+    if (!acted) continue
+    const parts = Object.entries(counts).map(([name, value]) => `${name} ${value}`)
+    lines.push(`project mail ${sweep}: ${parts.join(', ')}`)
+  }
+  return lines
 }
 
 export async function reconcileRuns(): Promise<void> {

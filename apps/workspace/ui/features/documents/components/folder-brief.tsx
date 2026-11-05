@@ -12,6 +12,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { formatDayRange } from '@/lib/format'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { cn } from '@/lib/utils'
 import type { BulkReingestProgress } from '../hooks/use-bulk-reingest'
 import { usePhoneLayout } from '../hooks/use-phone-layout'
@@ -322,7 +323,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
   const contentNames = contents.map(({ label }) => t(`preview.contentTypeNames.${label}`))
   const summary =
     documentTypes.length + disciplines.length > 0
-      ? [...documentTypes, ...disciplines].map(({ label }) => label).join(' · ')
+      ? [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t)).join(' · ')
       : t('brief.noTypes')
   return (
     <BriefDisclosure id="folder-brief-about" title={t('brief.aboutTitle')} summary={summary}>
@@ -497,10 +498,10 @@ function TagChip({
       <button data-attr="files-select"
         type="button"
         onClick={() => onSelect({ kind: 'tag', tag: label })}
-        title={t('brief.showTag', { tag: label })}
+        title={t('brief.showTag', { tag: tagLabel(label, t) })}
         data-testid={`folder-brief-tag-${label}`}
       >
-        <ChipLabel>{label}</ChipLabel>
+        <ChipLabel>{tagLabel(label, t)}</ChipLabel>
         <ChipCount count={count} />
       </button>
     </Chip>

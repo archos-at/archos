@@ -201,6 +201,8 @@ Consequences, where a reader looks for them.
 | [0134](0134-extracted-page-text-is-stored-per-version.md) | Extracted page text is stored per version, and the index is derived from it | Proposed |
 | [0135](0135-skills-run-on-deep-agents-skills-middleware.md) | Skills run on Deep Agents' SkillsMiddleware, in chat and in deep research | Proposed |
 | [0136](0136-search-is-one-query-over-a-projection-beside-the-index.md) | Search is one query over a projection beside the index: the dossier's facts are filtered where authorization lives | Proposed |
+| [0137](0137-mail-sent-to-a-project-waits-until-a-person-files-it.md) | Mail sent to a project waits until a person files it; a conversation is one document; its originals are evidence; a person may follow it | Proposed |
+| [0138](0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md) | Project mail arrives through Cloudflare Email Routing and a signed Worker; the BFF authenticates the sender | Proposed |
 | [0139](0139-confidence-is-a-groundedness-check-of-the-answer.md) | Confidence is a groundedness check of the answer, graded by a model on everything the turn registered | Accepted |
 | [0140](0140-a-turn-that-needs-the-person-pauses-and-a-new-run-resumes-it.md) | A turn that needs the person pauses, and a new run resumes it: LangGraph `interrupt()` with the checkpointer, as AG-UI 1.0's interrupt outcome | Proposed |
 | [0141](0141-a-person-reworks-piloti-drawing-as-an-excalidraw-sketch.md) | A person reworks Piloti's drawing as an Excalidraw sketch; the model still writes mermaid | Accepted |
@@ -219,6 +221,7 @@ Consequences, where a reader looks for them.
 | [0154](0154-platform-staff-reach-in-cluster-mcp-servers-through-agentgateway.md) | Platform staff reach the cluster's MCP servers through one gateway: agentgateway behind Envoy, signed in with WorkOS | Accepted |
 | [0155](0155-the-website-blog-is-edited-in-a-self-hosted-payload.md) | The website's blog is written in a self-hosted Payload and read on request; social posts are drafted there and published through Buffer | Proposed |
 | [0156](0156-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md) | Release notes have three tiers: the public changelog shows the weekly summaries only, members read every note by week and area in the app, internal notes reach neither | Accepted |
+| [0157](0157-attachments-from-outside-are-scanned-in-cluster-by-clamav.md) | Attachments from outside are scanned in the cluster by ClamAV before anyone can file or download them | Proposed |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off
@@ -232,17 +235,14 @@ Consequences, where a reader looks for them.
 
 ### Numbers with no record
 
-The index skips five numbers. None names a merged decision; each was drawn by
-a branch that has not landed (checked 2026-10-27 against `develop` and the
+The index skips two numbers. None names a merged decision; each was drawn by
+a branch that has not landed (checked 2026-11-03 against `develop` and the
 pull requests that cite the number):
 
 | Number | What happened to it |
 |--------|---------------------|
 | 0075 | Taken by the project mail inbox ADR on open PR #831 (and again on #1069). #833 moved its ingestion ADR from 0075 to 0076 to keep clear of it. Never merged. |
 | 0114 | Held for a while by the Qdrant scope ADR on PR #1019, which moved to 0115 and 0116 when `develop` took 0113 first. Never merged. |
-| 0137 | Taken by the inbound-mail ADR on open PR #1188. Never merged. |
-| 0138 | Taken by the Cloudflare email routing ADR on open PR #1188. Never merged. |
-| 0139 | Taken by the ClamAV attachment scanning ADR on open PR #1188, and by the claim-confidence ADR on open PR #1231. Never merged. |
 
 `--next` answers one past the highest number on disk, so it never hands
 these out again. A branch that lands with one keeps it; a second branch holding

@@ -76,7 +76,10 @@ from agent.knowledge.schema import JobState
 from agent.knowledge.schema import QuarantineVerdict
 from agent.knowledge.schema import stable_file_id
 
+from . import chosen_document_type
+from . import filed_mail
 from . import revisions
+from . import row_facts
 from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
 from .measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
@@ -4685,12 +4688,17 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # row — and an empty dict for every human document leaves
                     # those chunks byte-for-byte unchanged.
                     provenance = provenance_from_config(config)
+                    # The format rides the same loop for the same reason: a filed
+                    # E-Mail-Verlauf's chunks are placed in the mail lane where
+                    # retrieval reads them, and each `##` section the Markdown
+                    # chunker cut is one message (`text_formats.markdown_documents`).
                     stamp_chunk_metadata(
                         all_documents,
                         doc_class=doc_class,
                         provenance=provenance,
                         chunk_size=chunk_size,
                         file_name=file_name,
+                        source_format=filed_mail.source_format_from_config(config),
                     )
 
                     # Embedding is the expensive step; a run that lost its claim stops before it.
@@ -4765,6 +4773,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             segment_types=(doc.metadata.get("drawing_type") or "" for doc in text_documents),
                         )
 
+                    # A person's type at filing beats the classifier's, before the permit check reads it.
+                    chosen_type, tags = chosen_document_type.apply(config, tags)
+
                     self._remember_permit(config, collection_name, file_name, tags, text_documents)
 
                     # Standalone images must appear in the per-turn
@@ -4837,27 +4848,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         from agent.knowledge import set_document_folder_path
 
                         register_summary(collection_name, file_name, summary, tags=tags, topics=topics)
-                        # The page count the listing and the tree show: the highest page
-                        # any chunk reaches. A text file has none, which clears an old count.
-                        from agent.knowledge import set_document_page_count
-                        from agent.knowledge.page_count import largest_page
-
-                        set_document_page_count(
-                            collection_name, file_name, largest_page(doc.metadata for doc in all_documents)
+                        # Pages, title block, photo and mail, read off this Fassung (`row_facts`).
+                        revision_facts = row_facts.store_read_facts(
+                            collection_name,
+                            file_name,
+                            all_documents,
+                            photo=photo,
+                            config=config,
+                            replaced=previous is not None,
                         )
-                        # The title block (Plankopf) the vision model read on the first drawing
-                        # page that has one: Plannummer, Index, Datum. Read from the same
-                        # analysis as the chunks, so it costs no further call. A re-upload
-                        # without one clears the old sheet's facts.
-                        revision_facts = revisions.revision_facts_from_documents(all_documents)
-                        if revision_facts or previous is not None:
-                            from agent.knowledge import set_document_revision_facts
-
-                            set_document_revision_facts(collection_name, file_name, revision_facts)
-                        if photo is not None and not photo.empty:
-                            from agent.knowledge import set_document_capture
-
-                            set_document_capture(collection_name, file_name, photo.as_metadata())
 
                         # What the ingest read: the dossier, the references, the coverage.
                         # Written together, so a re-ingest replaces the whole reading.
@@ -4900,14 +4899,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         folder_path = folder_path or preserved.get("folder_path")
                         if folder_path:
                             set_document_folder_path(collection_name, file_name, folder_path)
-                        # Tags a person chose survive the re-read. The upsert above
-                        # already keeps them on a row of the same name; this
-                        # carries them from a row under another spelling, which
-                        # retiring the previous version removed.
-                        if "tags" in preserved:
-                            from agent.knowledge import set_document_tags_by_person
-
-                            set_document_tags_by_person(collection_name, file_name, json.loads(preserved["tags"]))
+                        # Tags a person chose survive the re-read, then the type chosen at filing.
+                        chosen_document_type.carry_person_tags(collection_name, file_name, preserved, chosen_type, tags)
                         if "topics" in preserved:
                             from agent.knowledge import set_document_topics_by_person
 

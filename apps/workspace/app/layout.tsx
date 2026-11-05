@@ -31,6 +31,7 @@ import './globals.css'
 import { isAuthRequired } from '@/lib/auth/auth-required'
 import { postHogConfigFromEnv, type PostHogConfig, type PostHogIdentity } from '@/lib/analytics/posthog-config'
 import { getOrganizationDisplayName } from '@/lib/organizations/service'
+import { configuredPublicSiteOrigin } from '@/lib/public-site'
 
 /** The corporate design's face, served from the synced brand copy (packages/brand). */
 const bodySans = localFont({
@@ -230,6 +231,8 @@ const getAppConfig = async (locale: string): Promise<AppConfig> => {
     // for the same reason as the host and token (`posthog-config.ts`).
     posthog,
     posthogIdentity: await getPosthogIdentity(posthog, locale),
+    // The website's origin for the help links into it (LANDING_URL, runtime).
+    publicSiteUrl: configuredPublicSiteOrigin(),
   }
 }
 

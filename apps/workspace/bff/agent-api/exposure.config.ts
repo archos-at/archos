@@ -6,10 +6,10 @@
  *
  *  - `external`: an outside agent on an office door (`/api/mcp`, the A2A door)
  *    and the OpenAPI document.
- *  - `piloti`: in-product Piloti on its workspace door. `true` offers it;
- *    `'native:<tool>'` says Piloti does this with that native tool (its name in
+ *  - `agent`: the in-product agent on its workspace door. `true` offers it;
+ *    `'native:<tool>'` says the agent does this with that native tool (its name in
  *    `configs/config_oib_openrouter.yml`, a group's as `<group>__<function>`),
- *    so the door hides the operation from Piloti; `false` hides it for the
+ *    so the door hides the operation from the agent; `false` hides it for the
  *    `reason` the entry gives.
  *  - `platform`: platform staff on the platform door (ADR-0126). Only the
  *    `platform` domain, and that domain on no other door.
@@ -19,7 +19,7 @@
  *    keeps it from the model, and offered to no other audience.
  *
  * `withheld` keeps an operation in the catalog and on no door, with its
- * category and reason (the amendment's four categories); offering it again is
+ * category and reason (the amendments' five categories); offering it again is
  * replacing the entry. Every entry that is not plainly offered to both office
  * audiences says why in `reason`.
  *
@@ -44,7 +44,6 @@ import type { OperationName } from './catalog'
 import type { AppToolName } from './catalog/app-views'
 import {
   APP_ONLY,
-  ARCHIVE_BYTES,
   ASK,
   CANVAS,
   DECISION,
@@ -56,6 +55,7 @@ import {
   SKILL_READ,
   TASK,
 } from './exposure-presets'
+import { MAIL_EXPOSURE } from './exposure-mail'
 
 /**
  * Why an operation is withheld from agents. `external-service`: a service we
@@ -63,9 +63,10 @@ import {
  * `product-config`: how the agent itself works for the office (models, keys,
  * budgets, policies, settings). `model-compute`: model work the caller can do
  * itself whose result is no office artifact. `ui-state`: this person's own
- * screen or device state.
+ * screen or device state. `evidence`: bytes kept as proof, which no model reads
+ * (a mail's original `.eml`, ADR-0137; ADR-0122's amendment of 2026-10-22).
  */
-export const WITHHELD_CATEGORIES = ['external-service', 'product-config', 'model-compute', 'ui-state'] as const
+export const WITHHELD_CATEGORIES = ['external-service', 'product-config', 'model-compute', 'ui-state', 'evidence'] as const
 export type WithheldCategory = (typeof WITHHELD_CATEGORIES)[number]
 
 export interface Withholding {
@@ -81,7 +82,7 @@ export interface Exposure {
   /** Offered to an outside agent on an office door, and in the OpenAPI document. */
   readonly external: boolean
   /** Offered to in-product Piloti, or done by Piloti with the named native tool instead. */
-  readonly piloti: boolean | NativeTool
+  readonly agent: boolean | NativeTool
   /** Offered on the platform door (the `platform` domain only). */
   readonly platform?: true
   /** An app-only tool: offered to an MCP Apps view in an outside agent's host, never to a model (ADR-0142). */
@@ -94,7 +95,7 @@ export interface Exposure {
 
 /** On no door at all, for the amendment's `category` and a `reason` a reviewer can disagree with. */
 const withheld = (category: WithheldCategory, reason: string) =>
-  ({ external: false, piloti: false, withheld: { category, reason } }) as const satisfies Exposure
+  ({ external: false, agent: false, withheld: { category, reason } }) as const satisfies Exposure
 
 /**
  * Every operation, in catalog order (domain, then name), then the read tools,
@@ -119,7 +120,7 @@ export const EXPOSURE = {
   'project-member-add': SENSITIVE,
   'project-member-list': OFFERED,
   'project-member-remove': SENSITIVE,
-  'project-memory-create': { external: true, piloti: 'native:remember', reason: MEMORY },
+  'project-memory-create': { external: true, agent: 'native:remember', reason: MEMORY },
   'project-memory-delete': OFFERED,
   'project-memory-list': OFFERED,
   'project-memory-update': OFFERED,
@@ -175,7 +176,7 @@ export const EXPOSURE = {
   'document-text-get': OFFERED,
   'document-thumbnail-get': {
     external: false,
-    piloti: false,
+    agent: false,
     withheld: {
       category: 'ui-state',
       reason: 'a link to the file grid’s thumbnail image, which an agent cannot look at; document-look shows a page',
@@ -187,12 +188,6 @@ export const EXPOSURE = {
   'hold-create': OFFERED,
   'hold-list': OFFERED,
   'hold-release': SENSITIVE,
-  'mail-import-cancel': OFFERED,
-  'mail-import-complete': ARCHIVE_BYTES,
-  'mail-import-get': OFFERED,
-  'mail-import-list': OFFERED,
-  'mail-import-part-upload': ARCHIVE_BYTES,
-  'mail-import-start': ARCHIVE_BYTES,
   'project-upload-list': OFFERED,
   'quarantine-list': OFFERED,
   'session-document-upload': OFFERED,
@@ -230,15 +225,18 @@ export const EXPOSURE = {
   'root-sort-run-get': OFFERED,
   'root-sort-run-undo': OFFERED,
 
+  // mail: `exposure-mail.ts`
+  ...MAIL_EXPOSURE,
+
   // review
-  'annotation-create': { external: true, piloti: 'native:canvas__mark', reason: CANVAS },
-  'annotation-delete': { external: true, piloti: 'native:canvas__delete', reason: CANVAS },
+  'annotation-create': { external: true, agent: 'native:canvas__mark', reason: CANVAS },
+  'annotation-delete': { external: true, agent: 'native:canvas__delete', reason: CANVAS },
   'annotation-get': OFFERED,
   'annotation-list': OFFERED,
-  'annotation-reply-create': { external: true, piloti: 'native:canvas__reply', reason: CANVAS },
+  'annotation-reply-create': { external: true, agent: 'native:canvas__reply', reason: CANVAS },
   'annotation-reply-delete': OFFERED,
   'annotation-reply-update': OFFERED,
-  'annotation-update': { external: true, piloti: 'native:canvas__update', reason: CANVAS },
+  'annotation-update': { external: true, agent: 'native:canvas__update', reason: CANVAS },
   'document-annotations-export': OFFERED,
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
@@ -331,12 +329,12 @@ export const EXPOSURE = {
 
   // tasks
   'project-task-run-list': OFFERED,
-  'task-create': { external: true, piloti: 'native:create_task', reason: TASK },
+  'task-create': { external: true, agent: 'native:create_task', reason: TASK },
   'task-delete': OFFERED,
   'task-get': OFFERED,
   'task-list': OFFERED,
   'task-run-cancel': OFFERED,
-  'task-run-commission': { external: true, piloti: 'native:create_task', reason: TASK },
+  'task-run-commission': { external: true, agent: 'native:create_task', reason: TASK },
   'task-run-document-add': OFFERED,
   'task-run-get': OFFERED,
   'task-run-review': OFFERED,
@@ -352,10 +350,10 @@ export const EXPOSURE = {
   'skill-create': OFFERED,
   'skill-curated-set-enabled': withheld('product-config', 'switches one of the agent’s platform-curated skills on or off; product configuration'),
   'skill-delete': OFFERED,
-  'skill-get': { external: true, piloti: false, reason: SKILL_READ },
+  'skill-get': { external: true, agent: false, reason: SKILL_READ },
   'skill-invocable-list': OFFERED,
   'skill-list': OFFERED,
-  'skill-search': { external: true, piloti: false, reason: SKILL_READ },
+  'skill-search': { external: true, agent: false, reason: SKILL_READ },
   'skill-review': withheld('model-compute', 'a model critiques a skill draft and stores nothing; the calling agent can review its own draft'),
   'skill-update': OFFERED,
 
@@ -375,7 +373,7 @@ export const EXPOSURE = {
   'bim-model-list': OFFERED,
   'bim-model-query': {
     external: true,
-    piloti: 'native:ifc_query',
+    agent: 'native:ifc_query',
     reason: 'The agent counts and reads the model with its own `ifc_query`, which says what the export cannot answer',
   },
   'bim-model-source-get': OFFERED,
@@ -401,7 +399,7 @@ export const EXPOSURE = {
   'organization-llm-credential-verify': withheld('product-config', 'the LLM provider keys the agent runs on; product configuration and a credential'),
   'organization-llm-provider-mode-set': withheld('product-config', 'whether the agent runs on the platform’s or the office’s provider key; product configuration'),
   'organization-member-list': OFFERED,
-  'organization-memory-create': { external: true, piloti: 'native:remember', reason: MEMORY },
+  'organization-memory-create': { external: true, agent: 'native:remember', reason: MEMORY },
   'organization-memory-delete': OFFERED,
   'organization-memory-list': OFFERED,
   'organization-memory-update': OFFERED,
@@ -489,13 +487,13 @@ export const EXPOSURE = {
   'platform-vectors-reconcile': PLATFORM,
 
   // the agent’s read tools (`backend-operations.ts`)
-  'knowledge-search': { external: true, piloti: 'native:knowledge_search', reason: NATIVE_READ },
-  'passage-read': { external: true, piloti: 'native:read_file', reason: NATIVE_READ },
-  'files-list': { external: true, piloti: 'native:list_files', reason: NATIVE_READ },
-  'document-look': { external: true, piloti: 'native:look', reason: NATIVE_READ },
-  'ifc-measure': { external: true, piloti: 'native:ifc_measure', reason: NATIVE_READ },
-  'dxf-measure': { external: true, piloti: 'native:dxf_measure', reason: NATIVE_READ },
-  'law-lookup': { external: true, piloti: 'native:ris_lookup_tool', reason: NATIVE_READ },
+  'knowledge-search': { external: true, agent: 'native:knowledge_search', reason: NATIVE_READ },
+  'passage-read': { external: true, agent: 'native:read_file', reason: NATIVE_READ },
+  'files-list': { external: true, agent: 'native:list_files', reason: NATIVE_READ },
+  'document-look': { external: true, agent: 'native:look', reason: NATIVE_READ },
+  'ifc-measure': { external: true, agent: 'native:ifc_measure', reason: NATIVE_READ },
+  'dxf-measure': { external: true, agent: 'native:dxf_measure', reason: NATIVE_READ },
+  'law-lookup': { external: true, agent: 'native:ris_lookup_tool', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)
   'proposal-card-apply': APP_ONLY,

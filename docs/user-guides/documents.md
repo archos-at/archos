@@ -6,6 +6,11 @@ Keep the office's files in folders and share them with everyone who has access t
 
 ## Uploading Documents
 
+Files can also reach a project by e-mail: mail sent to the project's own
+address waits in its **E-Mail-Eingang** until someone files it (a member's own
+mail, confirmed by their domain, is filed directly), and its text becomes an
+**E-Mail-Verlauf**. See [Project mail](inbound-mail.md).
+
 A file goes to one of two places, and the place decides who can use it:
 
 - **The project's Dateien** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). Upload with **„Hochladen“** in the Dateien header (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**), with the dashed upload card at the end of the grid, or by dropping files anywhere on the file area; on a phone „Hochladen“ floats over the foot of the list. The Büroablage has the same controls for the whole office (see [The Büroablage](#the-büroablage-adr-0024)).

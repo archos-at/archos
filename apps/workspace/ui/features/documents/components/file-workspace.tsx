@@ -29,6 +29,7 @@ import { shelfSummaryUrl, type LevelPageRequest } from '@/lib/documents/level-cl
 import type { DocumentVersionState } from '@/lib/documents/lifecycle-types'
 import type { LiveShelf } from '@/lib/documents/shelf-live-events'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { inferDocumentKind } from '../document-kind'
 import type { FileItem, FolderItem } from '../file-types'
 import { useDocParamSync, usePreviewChannel, type PreviewHandlers } from '../hooks/use-preview-channel'
@@ -40,6 +41,7 @@ import { useFileDragDrop, type DropInfo } from '../hooks/use-file-drag-drop'
 import { isInternalDragActive, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { useFileListing } from '../hooks/use-file-listing'
 import { useFileSearch } from '../hooks/use-file-search'
+import { useFilterEmptyNotice } from '../hooks/use-filter-empty-notice'
 import { useFolderParam } from '../hooks/use-folder-param'
 import { useRootSortParam } from '../hooks/use-root-sort-param'
 import { useFolderTree } from '../hooks/use-folder-tree'
@@ -69,7 +71,6 @@ import type { DocumentWireRow } from '../lib/file-item'
 import { LEVEL_SEARCH_DEBOUNCE_MS, levelSortOf, readFamiliesOf, readsWholeShelf } from '../lib/level-view'
 import {
   NO_FILE_FILTERS,
-  activeFilterCount,
   applyFileFilters,
   tagOptions as tagOptionsOf,
   type FileFilters,
@@ -83,6 +84,7 @@ import {
   type DocumentActionKind,
 } from './document-actions/action-entries'
 import { FileBrowserPane } from './file-browser-pane'
+import { InboundMailWaitingLine } from './inbound-mail-waiting-line'
 import { FileDropOverlay, useWindowDragGuard } from './file-drop-overlay'
 import { FileFilterMenu } from './file-filter-menu'
 import { FilePreviewDialog } from './file-preview-dialog'
@@ -678,7 +680,10 @@ export function FileWorkspace({
         : listedFiles.filter((file) => (file.folderId ?? null) === selectedFolderId),
     [listedFiles, selectedFolderId, tree.error]
   )
-  const tagOptions = useMemo(() => tagOptionsOf(paneFiles, locale), [paneFiles, locale])
+  const tagOptions = useMemo(
+    () => tagOptionsOf(paneFiles, locale, (tag) => tagLabel(tag, t)),
+    [paneFiles, locale, t]
+  )
 
   // What the server counted for the whole shelf: the folder tiles, the header
   // count, the brief and the delete confirmation read it on a paged level.
@@ -794,6 +799,7 @@ export function FileWorkspace({
         folderId={selectedFolderId}
         onUpload={handleUpload}
         isUploading={isUploading}
+        onSendByMail={shelf.inboundMail?.openAddress}
         {...props}
       />
     ) : undefined
@@ -827,6 +833,7 @@ export function FileWorkspace({
       onViewChange={selectView}
       binHref={shelf.bin?.href}
       openPointsHref={shelf.openPoints?.href}
+      inboundMail={shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
       renderFilter={(compact) => (
         <FileFilterMenu
           canCollaborate={canCollaborate}
@@ -967,6 +974,13 @@ export function FileWorkspace({
               <AlertCircle className="size-4" />
               <AlertDescription>{t('workspace.listTruncated', { count: listing.files.length })}</AlertDescription>
             </Alert>
+          </div>
+        )}
+
+        {/* Mail waiting in the E-Mail-Eingang, said once above the root of the shelf. */}
+        {shelf.inboundMail && selectedFolderId === null && (shelf.inboundMail.waiting ?? 0) > 0 && (
+          <div className="border-b px-4 py-2">
+            <InboundMailWaitingLine href={shelf.inboundMail.href} count={shelf.inboundMail.waiting ?? 0} more={shelf.inboundMail.more} />
           </div>
         )}
 
@@ -1365,58 +1379,6 @@ function useErrorToast(error: string | null): void {
     }
     if (!error) lastToasted.current = null
   }, [error])
-}
-
-/**
- * When a FILTER emptied the level rather than the folder being empty.
- *
- * The browser pane is handed already-filtered files and cannot tell the two
- * apart, so it drew "this folder is empty" over a folder full of documents the
- * moment a filter matched nothing. Authorship wins when several are on: it is
- * the narrower and the less obvious, so it is the one a reader needs explained.
- */
-function useFilterEmptyNotice({
-  filters,
-  setFilters,
-  canCollaborate,
-  search,
-  levelFiles,
-  levelOccupied,
-}: {
-  filters: FileFilters
-  setFilters: (next: FileFilters) => void
-  canCollaborate: boolean
-  search: ReturnType<typeof useFileSearch>
-  levelFiles: readonly FileItem[]
-  /**
-   * Whether the level holds documents before the browser's filters: the
-   * shelf summary's count on a paged level (ADR-0102), the drained rows else.
-   */
-  levelOccupied: boolean
-}) {
-  const t = useTranslations(filesCopy)
-  const { query } = search
-  const semanticActive = search.semantic.active
-  return useMemo(() => {
-    const clear = () => setFilters(NO_FILE_FILTERS)
-    if (activeFilterCount(filters, canCollaborate) === 0) return null
-    // The notice REPLACES the whole listing, so it may only exist when the
-    // listing is actually empty; a query or semantic search owns its own states.
-    if (query.trim() !== '' || semanticActive) return null
-    if (levelFiles.length > 0) return null
-    // An unfiltered-empty level is an empty folder, not a filter hiding anything.
-    if (!levelOccupied) return null
-    if (filters.agentAuthoredOnly) {
-      return { title: t('authorship.emptyTitle'), description: t('authorship.emptyDescription'), onClear: clear }
-    }
-    if (canCollaborate && filters.assignment !== 'all') {
-      const title = filters.assignment === 'mine' ? t('assignment.emptyMine') : t('assignment.emptyUnassigned')
-      return { title, description: t('assignment.emptyDescription'), onClear: clear }
-    }
-    // Type, status and tag say what they mean on the chip; what the reader needs
-    // is the fact that a filter, and not an empty folder, is why it is empty.
-    return { title: t('filters.emptyTitle'), description: t('filters.emptyDescription'), onClear: clear }
-  }, [filters, setFilters, canCollaborate, t, query, semanticActive, levelFiles, levelOccupied])
 }
 
 /** Inline pane-level load failure with a retry affordance. */

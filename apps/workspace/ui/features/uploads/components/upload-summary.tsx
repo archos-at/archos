@@ -29,6 +29,8 @@ import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { uploadBatchesCopy } from '@/i18n/namespaces/upload-batches'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
+import { filesCopy } from '@/i18n/namespaces/files'
 import { useProjectName, useUploadSummary, type UploadSummaryState } from '../hooks/use-upload-summary'
 import {
   documentHref,
@@ -56,6 +58,7 @@ function Section({ label, testId, children }: { label: string; testId: string; c
 
 export function UploadSummaryView({ summary }: { summary: UploadSummary }): JSX.Element {
   const t = useTranslations(uploadBatchesCopy)
+  const tFiles = useTranslations(filesCopy)
   const tallyLabel = useTallyLabel()
   const tally = useMemo(() => tallySummary(summary), [summary])
   const groups = useMemo(() => groupByFolder(summary.documents), [summary.documents])
@@ -82,7 +85,7 @@ export function UploadSummaryView({ summary }: { summary: UploadSummary }): JSX.
           <ul className="flex flex-wrap gap-1.5">
             {types.map(({ type, count }) => (
               <li key={type} className="max-w-full">
-                <NamedCount name={type} count={count} />
+                <NamedCount name={tagLabel(type, tFiles)} count={count} />
               </li>
             ))}
           </ul>

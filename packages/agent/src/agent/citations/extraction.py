@@ -211,6 +211,7 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         shelf=str(hit.shelf) if hit.shelf is not None else None,
         doc_class=(hit.doc_class or "").strip() or None,
         authored_by=hit.authored_by,
+        source_format=(hit.source_format or "").strip() or None,
         # The body as EVIDENCE: no truncation marker (the renderer adds it) and
         # no surrounding blank lines, so ``verify_quoted_spans`` matches an
         # answer's quote against the passage and nothing else.

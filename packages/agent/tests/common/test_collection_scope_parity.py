@@ -29,6 +29,9 @@ from agent.common.source_kinds import _LANE_KIND_PREFIXES
 from agent.common.source_kinds import AGENT_AUTHORED_LANE
 from agent.common.source_kinds import AGENT_AUTHORED_LANE_LABEL
 from agent.common.source_kinds import DEFAULT_SOURCE_KIND
+from agent.common.source_kinds import MAIL_LANE
+from agent.common.source_kinds import MAIL_LANE_LABEL
+from agent.common.source_kinds import OFFICE_MAIL_LANE
 from agent.common.source_kinds import Shelf
 from agent.common.source_kinds import shelf_for_qualifier
 
@@ -105,6 +108,22 @@ def test_the_agent_authored_lane_matches(mirror_source: str):
     # And the mirror's own lane→kind table places it in the office family
     # without a row of its own: the ``office`` prefix already covers it.
     assert AGENT_AUTHORED_LANE.startswith("office_")
+
+
+def test_the_mail_lanes_match(mirror_source: str):
+    """A filed E-Mail-Verlauf's lanes and their label, the same on both ends (ADR-0137).
+
+    Like the agent-authored lane: a key that disagrees renders as an unknown
+    sub-label, and the ``project``/``office`` prefixes place both in the
+    shelf's kind without a row of their own.
+    """
+    for name, value in (("MAIL_LANE", MAIL_LANE), ("OFFICE_MAIL_LANE", OFFICE_MAIL_LANE)):
+        found = re.search(rf"export const {name} = '([^']+)'", mirror_source)
+        assert found, f"{name} was not found in the frontend mirror"
+        assert found.group(1) == value
+    label = re.search(r"export const MAIL_LANE_LABEL = '([^']+)'", mirror_source)
+    assert label and label.group(1) == MAIL_LANE_LABEL
+    assert MAIL_LANE.startswith("project_") and OFFICE_MAIL_LANE.startswith("office_")
 
 
 def test_the_lane_fallback_kinds_match(mirror_source: str):

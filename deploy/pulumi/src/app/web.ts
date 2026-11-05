@@ -3,7 +3,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { appPullPolicy, webImage } from '../config/images'
 import { assertHpaTargetIsProportional, assertMemoryFitsLimit, toResourceRequirements } from '../config/resources'
-import { webPosthogEnv } from "./config";
+import { webPosthogEnv } from "./posthog-env";
 import { webCmsEnv } from "../platform/cms";
 import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";

@@ -155,7 +155,35 @@ export async function userHoldsProjectPermission(
   targetUserId: string,
   permission: ProjectPermission
 ): Promise<boolean> {
-  const membership = await resolveSubjectMembership(session.organizationId, targetUserId)
+  return holdsProjectPermission(session, projectId, targetUserId, permission, false)
+}
+
+/**
+ * The same question, for a caller to whom "WorkOS did not answer" and "no" lead
+ * to different decisions: a membership lookup or FGA check that fails THROWS
+ * instead of reading as "no". The receive job asks this, so a WorkOS blip is
+ * retried rather than frozen as a writer's lack of rights
+ * (`lib/inbound-mail/receive-faults.ts`).
+ */
+export async function userHoldsProjectPermissionStrict(
+  session: Pick<AuthorizedSession, 'organizationId'>,
+  projectId: string,
+  targetUserId: string,
+  permission: ProjectPermission
+): Promise<boolean> {
+  return holdsProjectPermission(session, projectId, targetUserId, permission, true)
+}
+
+async function holdsProjectPermission(
+  session: Pick<AuthorizedSession, 'organizationId'>,
+  projectId: string,
+  targetUserId: string,
+  permission: ProjectPermission,
+  strict: boolean
+): Promise<boolean> {
+  const membership = strict
+    ? await lookupSubjectMembership(session.organizationId, targetUserId)
+    : await resolveSubjectMembership(session.organizationId, targetUserId)
   if (!membership) return false
 
   // A closed project (ADR-0090), mirrored from requireProjectAccess: a write is
@@ -178,13 +206,17 @@ export async function userHoldsProjectPermission(
   }
 
   // The same cached answer `requireProjectAccess` reads for that person, so
-  // the picker and the gate cannot disagree; a failed lookup holds nothing.
-  const held = await effectiveResourcePermissions({
-    organizationMembershipId: membership.organizationMembershipId,
-    organizationId: session.organizationId,
-    resourceExternalId: projectId,
-    resourceTypeSlug: 'project',
-  })
+  // the picker and the gate cannot disagree; a failed lookup holds nothing,
+  // except for a strict caller, which is told the lookup failed.
+  const held = await effectiveResourcePermissions(
+    {
+      organizationMembershipId: membership.organizationMembershipId,
+      organizationId: session.organizationId,
+      resourceExternalId: projectId,
+      resourceTypeSlug: 'project',
+    },
+    { strict }
+  )
   return held.has(permission)
 }
 

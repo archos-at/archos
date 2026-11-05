@@ -76,6 +76,16 @@ leak its person into the next one.
 **Only `lib/agent-api/dispatch.ts` enters it**, and only with a session built by
 `resolvePinnedRequesterSession`. Never call `runAsActingSession` anywhere else.
 
+The binding also says how the call reached the route. `actingReaderIsAgent()`
+is true for a call whose answer a model reads, and `actingProposalId()` names
+the agent's proposal whose acceptance the call applies (set by the proposal
+applier through `callOperation`'s `origin`). A route that records how a person
+decided reads them: an E-Mail-Eingang decision's `via` is `agent_proposal`,
+`agent` or `app` from these, never from the body an agent writes
+(`decisionActor`, `lib/inbound-mail/service.ts`), and a card may then carry no
+acknowledgement or release (ADR-0137). `sender` comes only from the sender's
+own filing job, never from a call (ADR-0137's amendment).
+
 ### How long a revocation takes
 
 A token outlives the membership it was issued for, so how soon a removal bites
@@ -92,7 +102,7 @@ is how old the answers about the person may be:
 
 | Client | A read | A write |
 |---|---|---|
-| External agent | Runs | The client asks its user, driven by the tool annotations. On a 2026-07-28 request from a client that declares form elicitation, the door asks the person itself before a destructive write, and before deciding a proposal (`proposal-apply`, `proposal-dismiss`: `personDecides`), whatever the proposal changes (below) |
+| External agent | Runs | The client asks its user, driven by the tool annotations. On a 2026-07-28 request from a client that declares form elicitation, the door asks the person itself before a destructive write, and before deciding a proposal (`proposal-apply`, `proposal-dismiss`: `personDecides`), whatever the proposal changes (below). An operation marked `requiresPersonConfirmation` runs only on that yes, and is refused with a link for every client that cannot give it (below) |
 | Piloti in-product, in a conversation that is the person's alone | Runs if what it names lies in a project the person may chat in, after what it may carry is recorded on the conversation (below) | Becomes an `operation` proposal. The person accepts it (it runs as them) or dismisses it (ADR-0105) |
 | Piloti in-product, in a shared conversation | Runs only a document's content or a project's facts (`AUDIENCE_READS`), of the conversation's own project or one every reader may open, never of a restricted folder, recorded first; every other read is refused with a sentence the model relays | As above, refused when it names a project outside the audience's reach |
 
@@ -137,6 +147,38 @@ only what would have run without the question: visibility, the read gate, the
 sensitive-operation rule and the route's own `authz` all apply to the second
 round as to any call. Why a client's answer counts as the person's yes:
 [ADR-0122, amendment "the person confirms in their own chat"](../adr/0122-everything-a-person-can-do-an-agent-can-do.md#amendment-the-person-confirms-in-their-own-chat).
+
+#### A decision only the person makes
+
+Some decisions the product promises only a person makes: a mail from outside is
+filed into a project by a person, never by a model that read it. An operation
+that carries such a decision is marked `requiresPersonConfirmation` in its
+catalog entry, and for an outside agent it runs only on the person's yes:
+
+| The request | A marked call |
+|---|---|
+| 2026-07-28, form elicitation declared, a signing key | Put to the person as above, destructive or not; runs on their yes |
+| Anything else: a 2025-era request, no form elicitation (a URL-only client included), no signing key, a second round that dropped the capability | Refused, never run (`refusalWithoutThePerson` in `confirmation.ts`) |
+
+The refusal is a tool error the agent relays: "*operation* runs only on the
+person's own yes, and this client cannot ask them for it … Give the person this
+link", with `structuredContent` `{ decision: 'person_required', operation,
+changed: false, url }`. `url` is the deployment's pinned origin plus
+`requiresPersonConfirmation.decideAt(input)`, the app page where the person
+decides it themselves (the mail's page for one mail); without a pinned origin
+it is null, as every door link is ([Links into the app](#links-into-the-app)).
+The call is recorded as `decision: person_required`, status 403, in PostHog and
+on the Langfuse trace, apart from the `refused` of a call the caller may not
+make. A malformed call is not refused here: today's validator answers it, so
+the agent fixes its input before the person is sent anywhere. The in-product agent is unaffected: its write is a
+proposal, and accepting the card is the yes.
+
+The mark sets `destructiveHint`, so a client that asks its user from the
+annotations asks for it too. Mark writes only: the agent runs a read without a
+card, so a marked read would reach no person on the agent's side
+(`confirmation.spec.ts` checks the catalog). Only the MCP door runs catalog
+writes for an outside agent; the A2A door calls the ask routes alone. Why:
+[ADR-0122, amendment "a decision only the person makes"](../adr/0122-everything-a-person-can-do-an-agent-can-do.md#amendment-a-decision-only-the-person-makes).
 
 Not built: picking a project by elicitation. Nothing in the catalog takes a
 project by name, the agent reads ids from `project-list` (`nameContains`), and
@@ -372,6 +414,7 @@ exposure config (`withheld: { category, reason }`, [below](#the-exposure-config)
 | `product-config` | How Piloti itself works: settings, standing instructions, models and versions, zero data retention, LLM keys and provider mode, budgets and usage, upload screening, retention policies, curated skills on or off |
 | `model-compute` | Model work the caller can do itself, whose result is no office artifact (titles, citation formatting, skill review) |
 | `ui-state` | This person's own screen or device (push devices and preferences, the preference bag, read and unread marks) |
+| `evidence` | Bytes kept as proof, which no model reads (a held or filed mail's original `.eml`, ADR-0137) |
 
 A withheld operation reads as an unknown name everywhere: `tools/list`,
 `search-operations` (and no hint that it exists), `describe-operation`,
@@ -457,10 +500,10 @@ is no operation, or an operation without an entry, does not compile (the object
 | Field | Audience | Values |
 |---|---|---|
 | `external` | an outside agent on an office door (`/api/mcp`, `/api/a2a`), and the OpenAPI document | `true` / `false` |
-| `piloti` | in-product Piloti on its workspace door | `true`; `false`; `'native:<tool>'`: Piloti does it with that native tool, so the door hides the operation from it |
+| `agent` | the in-product agent on its workspace door | `true`; `false`; `'native:<tool>'`: the agent does it with that native tool, so the door hides the operation from it |
 | `platform` | platform staff on the platform door (ADR-0126) | `true` for the `platform` domain, absent elsewhere |
 | `app` | an MCP Apps view in an outside agent's host (ADR-0142) | `true` on an app-only tool (`catalog/app-views.ts`) only, with `external` and `piloti` false: a card's button, listed with `_meta.ui.visibility: ["app"]` |
-| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state` |
+| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence` |
 | `reason` | the reviewer | why the entry is not simply offered to both office audiences |
 
 The constants at the top name the common rows: `OFFERED` (both office
@@ -495,17 +538,17 @@ ceiling.
    ([testing-and-verification.md](../contributing/testing-and-verification.md#the-workspace-set));
    its `uses` rows check the job got done with the native tool.
 
-**What it holds today** (346 entries: 339 operations, 7 read tools):
+**What it holds today** (365 entries: 358 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
 
 | Column | Count |
 |---|---|
-| `external: true` | 242 |
-| `piloti: true` | 203 |
-| `piloti: 'native:…'` | 16 |
-| `piloti: false` | 127 (49 withheld, 55 platform, 12 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 skill reads) |
+| `external: true` | 259 |
+| `agent: true` | 216 |
+| `agent: 'native:…'` | 16 |
+| `agent: false` | 133 (51 withheld, 55 platform, 13 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
 | `platform: true` | 55 |
-| `withheld` | 49 (29 `product-config`, 13 `ui-state`, 4 `external-service`, 3 `model-compute`) |
-| `app: true` | 2 (the proposal card's buttons; 337 entries with them) |
+| `withheld` | 51 (29 `product-config`, 13 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
+| `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
 
 | Piloti uses | Instead of |
 |---|---|
@@ -610,7 +653,7 @@ the organization's enabled skills and the platform offers it switched on, never
 the pipeline's machinery. A skill is one SKILL.md body with no files of its
 own, so there is no file index and no third read for a referenced file. Any
 member may read; the routes are gated on the skills feature. Piloti is not
-offered either (`piloti: false`): it gets the same catalogue at turn start and
+offered either (`agent: false`): it gets the same catalogue at turn start and
 reads a body with its own `read_file` (ADR-0135).
 
 ### Output schemas and icons
@@ -759,8 +802,8 @@ Do this in the same change that adds or changes the route. The exemplar is
 `catalog/projects.ts`; copy its shape.
 
 1. **Find the domain file** in `catalog/` (`projects`, `documents`, `folders`,
-   `review`, `conversations`, `collaboration`, `tasks`, `skills`, `knowledge`,
-   `bim`, `organization`, `platform`). A new domain is a new file (its array
+   `mail`, `review`, `conversations`, `collaboration`, `tasks`, `skills`,
+   `knowledge`, `bim`, `organization`, `platform`). A new domain is a new file (its array
    `as const satisfies readonly AgentOperation[]`, so its names are a type), an
    entry in `AGENT_DOMAINS` (`operation.ts`), a spread in `catalog/index.ts` and a
    line in its `OperationName`.
@@ -821,7 +864,13 @@ Do this in the same change that adds or changes the route. The exemplar is
 create, update, delete, rename, move, add, remove, search, export, start, cancel,
 approve, reject, publish, submit, restore, archive, allow and release (a legal hold,
 a hand-off; a held upload is allowed, never released, because "release" collides
-with approval). Pick one of them before inventing another. One operation per route
+with approval). Project mail (ADR-0137) adds `file` (put a held mail's part into
+the project, „ablegen“; never "accept" or "approve", which are Freigabe's),
+`dismiss` (say no to a held mail, restorable seven days; never "reject", which
+is Freigabe's), `rotate` (replace an address, the old one stops at once),
+`follow` / `unfollow` (a standing decision; never "subscribe", which suggests
+notifications only) and `detach` (move a filed message out of its Verlauf;
+never "delete": nothing is unfiled). Pick one of them before inventing another. One operation per route
 method; never two on the same.
 
 The entity is the glossary's word: a `task` is a task definition (standing or
@@ -896,6 +945,7 @@ proposal stores the same original input.
 | `readOnly: true` | A POST that only searches or computes. Read the route's service first: a row, a file, a grant or a credential is a write. Add the operation to `read-only-writes.spec.ts` with one line saying why it writes nothing | `method === 'GET'` |
 | `destructive: true` | A person confirms it in a dialog: delete, revoke, allow, purge | `method === 'DELETE'` |
 | `idempotent: true` | Calling twice leaves the same state (a PUT-like PATCH) | GET, PUT, DELETE |
+| `requiresPersonConfirmation: { decideAt }` | The call carries a decision the product promises only a person makes, so an outside agent's client that cannot ask the person is refused ([A decision only the person makes](#a-decision-only-the-person-makes)). `decideAt(input)` names the app page where the person decides it. Writes only; say it in the description too | absent |
 
 A hard delete with no restore is still catalogued, `destructive: true`, and says
 in the description that it cannot be undone. The client asks the person.
@@ -949,12 +999,19 @@ size). The route's own parsing stays the gate, so name the real form fields in `
 Outlook archive is three operations: `mail-import-start`, `mail-import-part-upload` (once per
 part), `mail-import-complete`. They are offered to outside agents only: the agent has no archive to
 send, and a part is far past what a proposal may carry (`MAX_PROPOSED_INPUT_CHARS`).
+They live in the `mail` domain (`catalog/mail.ts`) with project mail's operations, moved there
+from `folders` unrenamed.
+
+Bytes going out follow the same rule as bytes coming in: an operation answers a held
+attachment's bytes (`inbound-mail-part-content-get`) only after a clean scan, and never to
+The agent. The originals of mail, held or filed, are bytes kept as proof and are on no door
+(`withheld`, category `evidence`, ADR-0122).
 
 ### Links into the app
 
 An agent that found a project, a document, a task run or a conversation can hand the person a
 link to it, the way PostHog's MCP puts `_posthogUrl` on its rows. An operation whose answer holds
-such objects declares `links: 'project' | 'document' | 'task-run' | 'conversation'` in its catalog
+such objects declares `links: 'project' | 'document' | 'task-run' | 'conversation' | 'inbound-mail'` in its catalog
 entry, and `fromOperationResult` adds `url`, the absolute page a person opens, through
 `withLinks` (`lib/agent-api/links.ts`). That module is the one table from kind to page: a project
 is `/app/projects/<id>`, a document and a conversation are the sharing registry's own deep links
@@ -989,7 +1046,7 @@ reads `read-only-writes.spec.ts` lists with why they return no secret, and:
 
 - **Piloti in-product never sees one** and `proposeOperation` refuses to file one
   (403): accepting a card the agent worded is not the confirmation such a change
-  needs (its entry says `piloti: false`, and `exposure.config.spec.ts` holds
+  needs (its entry says `agent: false`, and `exposure.config.spec.ts` holds
   that). Nor does it see the person's own decisions: `proposal-apply`,
   `proposal-dismiss` and `agent-change-undo`, which the applier also refuses at
   the click (`PROPOSAL_DECISION_OPERATIONS` in `operation-applier.ts`, its own
@@ -1212,7 +1269,7 @@ waits up to 40 seconds.
 **The recursion lock.** In-product Piloti only proposes writes, and
 `lib/proposals/operation-applier.ts` neither files nor applies an ask, so no
 turn asks Piloti again. Piloti does not see the three operations either
-(`piloti: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
+(`agent: false` in the exposure config), so it cannot name one or run `agent-ask-get`.
 
 **The A2A door.** `POST /api/a2a` serves the same asks to agents that speak A2A
 (1.0, and 0.3 without an `A2A-Version` header), through the official SDK

@@ -113,6 +113,13 @@ export const files: typeof en.files = {
     image: 'Bild',
     unavailable: 'Vorschau nicht verfügbar',
   },
+  // Die Dokumentart, wo sie als englisches Token gespeichert ist
+  // (`LABELLED_TAGS` in lib/documents/tag-vocabulary.ts). Die älteren
+  // Dokumentarten sind noch als deutsches Wort gespeichert und brauchen keinen
+  // Eintrag.
+  documentTag: {
+    correspondence: 'Korrespondenz',
+  },
   preview: {
     closePreview: 'Vorschau schließen',
     expandPreview: 'Große Vorschau öffnen',
@@ -908,13 +915,22 @@ export const files: typeof en.files = {
     foldersError: 'Die Ordner für diesen Upload konnten nicht angelegt werden. Es wurde nichts hochgeladen.',
     applyError: 'Dieser Ordner konnte nicht vollständig hochgeladen werden. Prüfen Sie die Liste und versuchen Sie es erneut.',
   },
+  inboundMail: {
+    open: 'E-Mail-Eingang',
+    waitingAria: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',
+    sendByMail: 'Per E-Mail senden …',
+    sendByMailHint: 'E-Mails an die E-Mail-Adresse des Projekts weiterleiten',
+    waitingLine: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',
+    waitingLineMore: 'Mehr als {count} E-Mails warten auf Ablage',
+    view: 'Ansehen',
+  },
   mailImport: {
     action: 'Outlook-Archiv importieren',
     title: 'Outlook-Archiv importieren',
     description:
-      'Wählen Sie eine .pst- oder .ost-Datei. Jede E-Mail wird ein Ordner unter „E-Mail-Import“ mit ihren Anhängen und einer Notiz mit Text und Kopfzeilen.',
+      'Wählen Sie eine .pst- oder .ost-Datei. Die Anhänge jeder E-Mail kommen in einen Ordner unter „E-Mail-Import“, ihr Text in die E-Mail-Verläufe des Projekts. Was das Projekt schon hat, wird nicht doppelt abgelegt.',
     privacy:
-      'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem Postfach geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes Postfach.',
+      'Ein Outlook-Archiv enthält die Korrespondenz aller, die diesem E-Mail-Konto geschrieben haben. Importieren Sie, was das Projekt braucht, nicht ein ganzes E-Mail-Konto.',
     choose: 'Outlook-Archiv auswählen…',
     maxSize: 'Bis {size}.',
     // Nur für Touch: ein Archiv dieser Größe sendet man vom Schreibtisch, mit stabiler Leitung.
@@ -964,6 +980,9 @@ export const files: typeof en.files = {
     progress: '{done} von {total} Einträgen',
     filed: '{mails, plural, one {# E-Mail} other {# E-Mails}}, {files, plural, one {# Anhang} other {# Anhänge}}',
     skipped: '{count, plural, one {# übersprungen} other {# übersprungen}}',
+    // Die E-Mail-Verläufe, die der Import angelegt oder ergänzt hat (die Texte der E-Mails liegen dort).
+    threads: '{created, plural, one {# neuer E-Mail-Verlauf} other {# neue E-Mail-Verläufe}}, {appended, plural, one {# ergänzt} other {# ergänzt}}',
+    alreadyInProject: '{count, plural, one {# E-Mail schon im Projekt} other {# E-Mails schon im Projekt}}',
     skippedItem: '{file} in {mail}: {reason}',
     skippedMail: '{mail}: {reason}',
     status: {

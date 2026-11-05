@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import home from '../i18n/pages/home';
 import llms from '../i18n/pages/llms';
+import projectMail from '../i18n/pages/project-mail';
 import security from '../i18n/pages/security';
 import { ROUTES, type Locale } from '../i18n/paths';
 import identity, { withName } from '../lib/identity';
@@ -19,6 +20,7 @@ type PageCopy = Record<Locale, { title: string; description: string }>;
 const PRODUCT_PAGES: { path: Record<Locale, string>; copy: PageCopy }[] = [
   { path: ROUTES.home, copy: { de: home.de.meta, en: home.en.meta } },
   { path: ROUTES.security, copy: security },
+  { path: ROUTES.projectMail, copy: projectMail },
 ];
 
 export const GET: APIRoute = async ({ site }) => {

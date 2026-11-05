@@ -18,6 +18,9 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import ToolMessage
 from langchain_core.messages import trim_messages
 
+from agent.common.passage_fence import fenced_spans
+from agent.common.passage_fence import unfenced
+
 logger = logging.getLogger(__name__)
 
 
@@ -277,7 +280,8 @@ def compact_tool_results(messages: list[BaseMessage], cited_keys: set[str]) -> l
 
 
 def _compact_block(content: str, wanted: set[str]) -> str:
-    starts = [m.start() for m in _RESULT_BLOCK_RE.finditer(content)]
+    # A delimiter a passage body spells inside its fence is the body's text, not a block.
+    starts = [m.start() for m in unfenced(_RESULT_BLOCK_RE, content)]
     if not starts:
         return content
     head = content[: starts[0]]
@@ -299,8 +303,11 @@ def _header_only(block: str) -> str:
     header, sep, rest = block.partition("\n\n")
     if not sep:
         return block
-    # The body runs to the blank line that closes it; keep whatever follows
-    # (a trailer such as the ``## Gliederung`` index belongs to the result, not
-    # to one passage).
-    _body, tail_sep, tail = rest.partition("\n\n")
+    # The body is its fence, or, rendered before the fence, runs to the blank
+    # line that closes it; keep whatever follows (a trailer such as the
+    # ``## Gliederung`` index belongs to the result, not to one passage). A
+    # fenced body may hold blank lines of its own.
+    spans = fenced_spans(rest)
+    after = rest[spans[0][1] :] if spans and spans[0][0] == 0 else None
+    _body, tail_sep, tail = after.partition("\n\n") if after is not None else rest.partition("\n\n")
     return f"{header}\n\n{UNCITED_PASSAGE_NOTE}\n\n{tail}" if tail_sep else f"{header}\n\n{UNCITED_PASSAGE_NOTE}\n"

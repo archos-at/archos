@@ -205,6 +205,9 @@ def grounding_hit(chunk, *, resolved, resolved_titles, resolved_folders, ambiguo
         body_truncated=truncated,
         regions=_hit_regions(chunk),
         page_end=_page_end(chunk, page),
+        # Stamped at ingest from the job config (`adapter._stamp_chunk_metadata`); only a filed
+        # E-Mail-Verlauf states one today.
+        source_format=_metadata_text(metadata.get("source_format")),
         # Where `read_file` opens the page around this hit (ADR-0133); none for a shelf with no mount.
         path=estate_path(shelf, folder_path, chunk.file_name) if chunk.file_name else None,
     )
