@@ -2032,6 +2032,10 @@
     "de": "In einem geteilten Chat durchsucht Piloti nur, was alle Beteiligten öffnen dürfen."
   },
   {
+    "en": "In an Outlook archive import, a line of a mail that looks like a heading, a list or a code block now stays plain text in the mail's note, so a mail can no longer pose as a section of its own when ARCHOS cites it.",
+    "de": "Beim Import eines Outlook-Archivs bleibt eine Zeile einer E-Mail, die wie eine Überschrift, Liste oder ein Codeblock aussieht, in der E-Mail-Notiz nun reiner Text, sodass eine E-Mail beim Zitieren durch ARCHOS nicht mehr als eigener Abschnitt erscheinen kann."
+  },
+  {
     "en": "In exported PDFs, the signs for less than or equal to and greater than or equal to appeared as stray letters. A limit of at most forty metres came out with an unrelated character in place of its sign, while the number beside it stayed correct.",
     "de": "In exportierten PDFs erschienen die Zeichen für „kleiner oder gleich“ und „größer oder gleich“ als fremde Buchstaben. Eine Grenze von höchstens 40 Metern erschien mit einem fremden Zeichen an der Stelle des Vergleichszeichens, während die Zahl daneben stimmte."
   },
@@ -3244,6 +3248,10 @@
     "de": "Der Steckbrief zeigt in einer Tabelle die Gebäudeklasse samt Herleitung, die geltenden OIB-Richtlinien und die von Piloti ermittelten Werte. Wenn Sie mit der Maus auf eine Quelle zeigen, wird die Passage auf der entsprechenden Seite angezeigt."
   },
   {
+    "en": "The Subprocessors page now names Cloudflare, which answers for the ARCHOS web addresses, and the search software ARCHOS really runs on its own servers.",
+    "de": "Auf der Seite „Subprocessors“ werden jetzt Cloudflare, das Anfragen zu den ARCHOS-Webadressen beantwortet, und die Suchsoftware genannt, die ARCHOS tatsächlich auf eigenen Servern betreibt."
+  },
+  {
     "en": "The address field in the new project dialog suggests Austrian addresses as you type and fills in the Bundesland.",
     "de": "Das Adressfeld im Dialog für ein neues Projekt schlägt während der Eingabe österreichische Adressen vor und füllt das Bundesland automatisch aus."
   },
@@ -3526,6 +3534,10 @@
   {
     "en": "The line above each folder that says how much Piloti has read now opens in place: it stays where you clicked it and the overview unfolds beneath it, instead of the line vanishing and a separate box appearing.",
     "de": "Die Zeile über jedem Ordner, die anzeigt, wie viel Piloti gelesen hat, klappt jetzt an Ort und Stelle auf: Sie bleibt dort, wo Sie sie angeklickt haben, und die Übersicht klappt darunter auf, statt dass die Zeile verschwindet und ein separates Feld erscheint."
+  },
+  {
+    "en": "The list of a project's Outlook imports now pages instead of stopping at the twenty newest, so an older import that is still running can always be found and cancelled.",
+    "de": "Die Liste der Outlook-Importe eines Projekts wird jetzt seitenweise angezeigt, statt nach den 20 neuesten Einträgen zu enden, sodass Sie auch ältere, noch laufende Importe jederzeit finden und abbrechen können."
   },
   {
     "en": "The list of applicable OIB-Richtlinien now uses the Fluchtniveau, the Gebäudeklasse, the uses and the underground storeys entered in the project setup, instead of listing the generic six.",
