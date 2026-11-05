@@ -201,7 +201,7 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
               data-testid={controller.failed ? 'answer-failed' : undefined}
               lang="de"
             >
-              {/* Role tab — uppercase 10.5/600. Substantive answer: near-black action
+              {/* Role tab — the eyebrow, 10.5/500. Substantive answer: near-black action
           fill + check. Meta / direct reply: quiet secondary fill + conversation icon. */}
               {controller.isNote ? (
                 <SectionLabel

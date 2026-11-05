@@ -652,10 +652,6 @@ body {
   letter-spacing: -0.04em;
 }
 
-@utility tracking-label {
-  letter-spacing: 0.24em;
-}
-
 @utility scale-press {
   transform: scale(0.98);
 }
