@@ -81,7 +81,7 @@ people who can export a few hundred messages of real project mail for G9.
 
 ## 3. Accounts and plans
 
-- [ ] **Cloudflare Workers Paid** on the account that owns the zone (owner gate
+- [x] **Cloudflare Workers Paid** (done: the owner confirmed the account has it, 2026-11-05) on the account that owns the zone (owner gate
   O2, **one-way door**: a subscription). Dashboard → Workers & Pages → Plans.
   Needed for CPU time: Free allows 10 ms per invocation, and the Worker copies
   and hashes up to 25 MiB (gate G5 measures it). Email Routing itself is free on
