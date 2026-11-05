@@ -251,8 +251,11 @@ config:
   #
   # Since the domain move this stack writes to TWO zones with one token: its
   # hosts into the new zone, the former apex and app. host into the former one.
-  # The token is an ACCOUNT-owned API token (Manage Account → API Tokens), DNS
-  # only, on both zones: Zone → DNS → Edit and Zone → Zone → Read. It lives in
+  # The token is an ACCOUNT-owned API token (Manage Account → API Tokens), on
+  # both zones: Zone → DNS → Edit and Zone → Zone → Read. Project mail (the block
+  # at the end, on piloti.at) adds Zone → Zone Settings → Edit and Zone → Email
+  # Routing Rules → Edit on piloti.at, and Account → Workers Scripts → Edit and
+  # Account → Email Routing Addresses → Edit (project-mail-runbook.md §4). It lives in
   # ESC like every other secret of this stack, not here (a stack-file value
   # would win over ESC): the `esc env set` line in step 3 above.
   # Prove it reaches both zones before a deploy needs it (it also prints the
