@@ -144,9 +144,10 @@ subaddressing switch (§7: the provider has no safe way to set it).
   Read, Zone · DNS · Read on the D1 zone, and Account · Workers Scripts · Read
   and Account · Email Routing Addresses · Read. The smoke tool never writes; a
   403 names the path it could not read.
-- [ ] **The zone id**, path (b) only: Cloudflare → `archos.tech` → Overview →
-  API → Zone ID, 32 hex digits. It goes into the stack file at §7;
-  `loadConfig` refuses anything else, the placeholder included.
+- [x] **The zone id**, path (b) only: `31df51fbdd7ea2d7ef63bcaab9a09559`
+  (Cloudflare → `archos.tech` → Overview → API → Zone ID, read 2026-11-05; the
+  same account as `piloti.at`). It is already in the commented §7 lines of
+  `Pulumi.prod.yaml`; `loadConfig` refuses anything that is not 32 hex digits.
 - [ ] **The operator mailbox (D3)**: decide its address now, on the company's
   own mail (a Google group on `archos.tech` takes the DMARC reports of path (b)
   without further DNS). Pulumi adds it as a destination address at §7. If it
