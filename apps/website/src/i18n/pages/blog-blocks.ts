@@ -15,8 +15,7 @@ const de = {
   heading: 'Bausteine für Blogbeiträge.',
   lead: 'Jeder Baustein, den die Redaktion in einen Beitrag setzen kann, mit Beispielinhalt aus einem Architekturbüro. Alle Zahlen auf dieser Seite sind Beispielwerte.',
   takeaways: {
-    name: 'Das Wichtigste in Kürze',
-    note: 'Steht am Anfang eines Beitrags: drei bis fünf Sätze, die man mitnimmt.',
+    note: 'Der Kasten „Das Wichtigste in Kürze“ steht am Anfang eines Beitrags: drei bis fünf Sätze, die man mitnimmt.',
     items: [
       'Rev. D ändert drei Dinge im Inneren des Moduls: Arbeitsplatz, Einbauschrank und Installationswand.',
       'Tragwerk, Fassade und Modultrennwände sind gleich geblieben.',
@@ -123,6 +122,7 @@ const de = {
       version: 'Ausgabe Mai 2023',
       issuer: 'Österreichisches Institut für Bautechnik',
       excerpt: 'Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.',
+      excerptLang: 'de',
       url: 'https://www.oib.or.at/',
     } satisfies LegalSourceBlock,
   },
@@ -154,8 +154,7 @@ const en: typeof de = {
   heading: 'Blocks for blog posts.',
   lead: 'Every block the editors can place in a post, with example content from an architecture office. All numbers on this page are example values.',
   takeaways: {
-    name: 'Key takeaways',
-    note: 'Sits at the top of a post: three to five sentences to take away.',
+    note: 'The key takeaways box sits at the top of a post: three to five sentences to take away.',
     items: [
       'Rev. D changes three things inside the module: the workplace, a built-in cabinet and an installation wall.',
       'Structure, facade and the walls between modules are unchanged.',
