@@ -466,7 +466,7 @@ const routes = installHttpRoutes(cfg, provider, namespace, [
   // while enforcing nothing.
   ...(rateLimitStore ? [rateLimitStore.service] : []),
 ]);
-// The website's CMS (ADR-0155) on `cms.<baseDomain>`: off unless `cmsEnabled` and licensed.
+// The website's CMS (ADR-0155) on `cms.<baseDomain>`: off unless `cmsEnabled`.
 if (cfg.cms.enabled) {
   installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway });
 }
@@ -565,7 +565,7 @@ export const geocoderUrl = cfg.geocoderUrl || "(none: geocoderUrl is empty)";
 export const pgInstances = cfg.postgres.instances;
 export const pgBackupsEnabled = cfg.postgres.backups.enabled;
 export const networkPoliciesEnabled = cfg.networkPolicies;
-export const cmsUrl = cfg.cms.enabled ? `https://${cfg.cms.domain}` : "(none: cmsEnabled=false or no cmsLicenseKey)";
+export const cmsUrl = cfg.cms.enabled ? `https://${cfg.cms.domain}` : "(none: cmsEnabled=false)";
 export const langfuseUrl = cfg.langfuse.enabled
   ? pulumi.interpolate`https://${cfg.langfuse.domain}`
   : pulumi.output("(none: langfuse disabled)");

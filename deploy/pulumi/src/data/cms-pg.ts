@@ -8,7 +8,7 @@
  * primary, a superuser or a backup with the offices' data.
  *
  * Built from the shared `cnpgClusterSpec` (`cnpg.ts`), small: one database and
- * its owner, no pooler (Directus pools per pod, `DB_POOL__MAX`). The PITR
+ * its owner, no pooler (Payload pools per pod, `DATABASE_POOL_MAX`). The PITR
  * archive (`cmsPgBackup*`) has no in-cluster default and is meant for object
  * storage outside the cluster, as for `background-work-pg`.
  */

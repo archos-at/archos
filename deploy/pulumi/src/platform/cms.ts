@@ -72,7 +72,7 @@ export function cmsEnv(cfg: DeployConfig, appNamespace: string): Record<string, 
     CMS_ADMIN_EMAIL: cfg.cms.adminEmail,
     WEBSITE_REVALIDATE_URL: `http://web.${appNamespace}.svc.cluster.local:${PORT.web}${WEBSITE_REVALIDATE_PATH}`,
     // Where an editor's browser reaches the website: the live preview frames it.
-    WEBSITE_PUBLIC_URL: `https://${cfg.baseDomain}`,
+    WEBSITE_PUBLIC_URL: `https://${cfg.ingress.webDomain}`,
   };
 }
 

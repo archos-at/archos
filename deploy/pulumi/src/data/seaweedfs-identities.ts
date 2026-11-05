@@ -39,7 +39,7 @@ import { CMS } from "../config/cms";
  * | `grid-tenant-admin` | provisioning + purge paths | `Admin` on the tenant bucket PREFIX and nothing else. |
  * | `grid-langfuse` | Langfuse (ADR-0044) | object CRUD on the Langfuse bucket only. |
  * | `grid-qdrant` | Qdrant (ADR-0115) | object CRUD on the snapshot bucket only. |
- * | `cms` | the CMS, Directus (ADR-0155) | object CRUD on its file library's bucket only. |
+ * | `cms` | the website's CMS, Payload (ADR-0155) | object CRUD on its file library's bucket only. |
  *
  * The split between `grid` and `grid-tenant-admin` is the point: SeaweedFS
  * cannot express "may create a bucket but not delete one" — `Admin:<bucket>`

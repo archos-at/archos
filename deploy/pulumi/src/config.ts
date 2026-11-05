@@ -368,7 +368,7 @@ export interface DeployConfig {
    */
   langfuse: LangfuseConfig;
 
-  /** The website's CMS, Directus in namespace `cms` (ADR-0155, `config/cms.ts`). */
+  /** The website's CMS, Payload in namespace `cms` (ADR-0155, `config/cms.ts`). */
   cms: CmsConfig;
 }
 
