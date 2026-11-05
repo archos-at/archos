@@ -69,6 +69,8 @@ export interface FinishedIngest {
   attempt?: number | null
   /** The upload gesture (batch) that wrote the bytes. */
   uploadId?: string | null
+  /** The file's size in bytes, sent as `file_bytes`: what cost per byte divides by. */
+  fileBytes?: number | null
   /** From the job's own clock: submitted to started, and started to completed. */
   queueWaitMs?: number | null
   processingMs?: number | null
@@ -235,6 +237,7 @@ export function announceIngestsFinished(
       properties: {
         document_id: ingest.documentId,
         upload_id: ingest.uploadId ?? undefined,
+        file_bytes: ingest.fileBytes ?? undefined,
         attempt: ingest.attempt ?? undefined,
         status: ingest.status,
         screening: ingest.screening ?? SCREENING_NOT_RUN,
