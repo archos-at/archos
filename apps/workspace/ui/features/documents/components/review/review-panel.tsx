@@ -381,7 +381,7 @@ const FILTERS: ReviewFilter[] = ['open', 'closed']
  * tab lists Piloti's untaken proposals too, and counts them apart, as
  * Dateien's chip does („2 offen · 12 Vorschläge"): `open` is the office's own
  * open marks, `proposed` the proposals. With „Für Sie" on its `open` is the
- * number the chip says „für Sie".
+ * number the chip says „für Sie". A tab at 0 shows no count, in the sans (Geist Mono slashes its 0).
  */
 export function tabCounts(
   annotations: readonly Pick<AnnotationView, 'status' | 'assigneeUserId'>[],
@@ -457,7 +457,7 @@ export function ReviewPanel({
                 )}
               >
                 {t(`review.filters.${option}`)}
-                <span className="text-muted-foreground font-mono tabular-nums">{count}</span>
+                {count > 0 && <span className="text-muted-foreground tabular-nums">{count}</span>}
                 {option === 'open' && counts.proposed > 0 && (
                   <span className="text-muted-foreground" data-testid="review-filter-open-proposed">
                     · {t('annotations.listedProposedShort', { count: counts.proposed })}
