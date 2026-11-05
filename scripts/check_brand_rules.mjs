@@ -11,7 +11,7 @@
  * Copy: every string of the website's dictionaries (apps/website/src/i18n/ui.ts and
  * src/i18n/pages/*.ts), both locales. Bun runs it because the dictionaries are TypeScript.
  * CSS: the website's own CSS (src/styles/site.css, <style> blocks in .astro files) and the
- * design system's component CSS (packages/brand/css/components.css).
+ * design system's stylesheets (packages/brand/css/*.css: components, motion, covers, status, blocks).
  * Media: the built pages in apps/website/dist/client, when a build exists, for the AI tag.
  *
  * The rule functions are pure and exported; check_brand_rules.test.mjs pins them.
@@ -246,7 +246,7 @@ async function main() {
 
   const defined = definedProperties(readFileSync(join(WEBSITE, 'src/styles/brand/tokens.css'), 'utf8'))
   const sheets = [
-    join(REPO, 'packages/brand/css/components.css'),
+    ...filesUnder(join(REPO, 'packages/brand/css'), '.css'),
     ...filesUnder(join(WEBSITE, 'src/styles'), '.css'),
   ]
   for (const path of sheets) {

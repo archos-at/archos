@@ -46,6 +46,25 @@ const de = {
   aiImage: 'KI-generiertes Bild',
   breadcrumbHome: 'Start',
   rssTitle: '{name} Blog',
+  // The post blocks (src/components/blocks).
+  blockTakeaways: 'Das Wichtigste in Kürze',
+  blockSource: 'Quelle',
+  blockSourceLink: 'Zur Quelle',
+  blockChartCategory: 'Kategorie',
+  blockCompareSlider: 'Trennlinie zwischen {before} und {after}',
+  blockCompareValue: 'Links {before}, rechts {after}, Trennlinie bei {position} Prozent',
+  blockMarker: 'Markierung {index}: {title}',
+  blockQuestion: 'Frage',
+  blockAnswer: 'Antwort von {name}',
+  blockDerived: 'Abgeleitet aus {count} Quellen',
+  blockDerivedOne: 'Abgeleitet aus einer Quelle',
+  sourceKinds: {
+    building_law: 'Baurecht',
+    office: 'Büroablage',
+    project: 'Projekt',
+    web: 'Web',
+    measurement: 'Modellmessung',
+  },
 };
 
 export type UiCopy = typeof de;
@@ -89,6 +108,24 @@ const en: UiCopy = {
   aiImage: 'AI-generated image',
   breadcrumbHome: 'Home',
   rssTitle: '{name} Blog',
+  blockTakeaways: 'Key takeaways',
+  blockSource: 'Source',
+  blockSourceLink: 'Open the source',
+  blockChartCategory: 'Category',
+  blockCompareSlider: 'Divider between {before} and {after}',
+  blockCompareValue: '{before} on the left, {after} on the right, divider at {position} percent',
+  blockMarker: 'Marker {index}: {title}',
+  blockQuestion: 'Question',
+  blockAnswer: 'Answer from {name}',
+  blockDerived: 'Derived from {count} sources',
+  blockDerivedOne: 'Derived from one source',
+  sourceKinds: {
+    building_law: 'Building law',
+    office: 'Office archive',
+    project: 'Project',
+    web: 'Web',
+    measurement: 'Model measurement',
+  },
 };
 
 const dictionaries: Record<Locale, UiCopy> = { de, en };

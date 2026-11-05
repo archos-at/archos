@@ -1,0 +1,49 @@
+---
+/**
+ * A norm or a law the post relies on: its title, the passage, the edition, a short excerpt in
+ * its own words and a link to the source itself. The same facts the product's citations carry,
+ * in the website's own type: no tint, no chip.
+ * Contract: contracts.ts (`LegalSourceBlock`). Rules: packages/brand/docs/components/LegalSource.md.
+ */
+import '../../styles/brand/blocks.css';
+import type { Locale } from '../../i18n/paths';
+import { t } from '../../i18n/ui';
+import type { LegalSourceBlock } from './contracts';
+
+interface Props extends LegalSourceBlock {
+  locale: Locale;
+  class?: string;
+}
+
+const { locale, title, section, version, issuer, excerpt, excerptLang, url, class: className } = Astro.props;
+const ui = t(locale);
+const kicker = [ui.sourceKinds.building_law, issuer].filter(Boolean).join(' · ');
+const meta = [section, version].filter(Boolean).join(' · ');
+const host = url ? new URL(url).hostname.replace(/^www\./, '') : undefined;
+---
+
+<figure class:list={['ui-block ui-legal', className]}>
+  <figcaption>
+    <p class="ui-legal-kind">{kicker}</p>
+    <p class="ui-legal-title">{title}</p>
+    {meta && <p class="ui-legal-meta">{meta}</p>}
+  </figcaption>
+  {
+    excerpt && (
+      <blockquote class="ui-legal-excerpt" cite={url} lang={excerptLang !== locale ? excerptLang : undefined}>
+        <p>{excerpt}</p>
+      </blockquote>
+    )
+  }
+  {
+    url && (
+      <p class="ui-legal-link">
+        <a class="ui-link" href={url}>
+          {ui.blockSourceLink}
+          <span class="ui-visually-hidden">: {title}{section && `, ${section}`}</span>
+        </a>
+        <span class="ui-legal-host">{host}</span>
+      </p>
+    )
+  }
+</figure>
