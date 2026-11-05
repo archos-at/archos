@@ -47,6 +47,14 @@ paths = [
   # signature; `generic-api-key` reads that key as a credential. A path rule like
   # the wire fixtures': every vector's key is a fixture, and history keeps them.
   '''(^|/)(contracts|shared)/inbound-mail-signature\.json$''',
+  # The project-mail fixtures: hostile mails (a forged sender, an invisible
+  # injection, a fake API key in a forwarded body) the receive pipeline must
+  # survive, and the review cases built from them. Every value is test data. A
+  # path rule, not `.gitleaksignore` fingerprints: a fingerprint names one commit,
+  # and every merge that carries the file mints a new one. Both paths, because
+  # the files lived under `frontends/ui/src/lib/` before ADR-0145 moved them, and
+  # history keeps those commits.
+  '''(^|/)(apps/workspace/bff|frontends/ui/src/lib)/inbound-mail/__fixtures__/''',
   '''(^|/)__mocks__/''',
   '''(^|/)mocks/''',
   '''\.spec\.tsx?$''',
