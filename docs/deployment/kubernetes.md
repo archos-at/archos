@@ -2575,6 +2575,7 @@ One-time setup, in the WorkOS dashboard under **Connect**:
 
    ```text
    https://qdrant.<baseDomain>/oauth2/callback   # Envoy's OIDC callback for the Qdrant dashboard
+   https://cms.<baseDomain>/oauth2/callback      # Envoy's OIDC callback for the website's CMS, where cmsEnabled
    ```
 
    Only that one: the dashboard has no login of its own behind the gate. The

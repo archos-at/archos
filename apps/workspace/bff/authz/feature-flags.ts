@@ -242,9 +242,9 @@ export const FEATURE_FLAGS = {
   /**
    * The platform door (ADR-0126): a platform operator's agent reaches the
    * operator console through its own MCP server at `/api/platform/mcp`. Read
-   * for the GRID Platform organization only, from the verified token's
-   * organization (`lib/agent-api/principal.ts`); no other organization can
-   * reach that door at all. An entitlement, off until an operator switches it
+   * for the GRID Platform organization only, whichever organization the token
+   * names (`lib/agent-api/principal.ts`, `platformPrincipal`): targeting it at
+   * an office does nothing. An entitlement, off until an operator switches it
    * on for the platform organization: every write there reaches every tenant.
    */
   platformAgentMcp: 'platform-agent-mcp',

@@ -55,20 +55,32 @@ The rules are on the collections (`src/access/`), so the admin panel, REST, the
 MCP server and scheduled publishing all meet them. `tests/` and `tests/int/` hold
 them.
 
-**Sign-in.** People sign in with a password (12 characters at least; five attempts,
-then 15 minutes locked; eight-hour sessions). Payload has no second factor of its
-own: signing in through WorkOS is the next slice (ADR-0155, slice 11).
+**Sign-in.** On a cluster the CMS host sits behind the same WorkOS gate as
+Langfuse: only platform staff (the `platform:organizations:view` permission) get
+past it, and the CMS signs them in from the token the gate forwards
+(`src/auth/edge.ts`), with no second sign-in. A first visit creates the person's
+CMS user as an editor, or as the administrator for `CMS_ADMIN_EMAIL`; after that
+the role is whatever an administrator sets. The images (`/api/media/file/`) are
+the one open path, because the website's visitors load them. Where there is no
+gate (locally), people sign in with a password: 12 characters at least, five
+attempts then 15 minutes locked, eight-hour sessions.
 
 ## Agents
 
-The MCP server is at `/api/mcp` on the CMS host. It offers find, create and update
-on posts, authors and social posts, find on accounts and media, and no delete. A
-client sends an API key as `Authorization: Bearer <key>`; the key acts as the user
-it is bound to, so an editor's or an agent's key writes drafts and nothing more.
-Make a key under Settings > API Keys: your own as a person; an administrator makes
-an agent account's, bound to that account.
+The MCP server (`/api/mcp`) offers find, create and update on posts, authors and
+social posts, find on accounts and media, and no delete. On a cluster agents reach
+it through the platform MCP gateway, signed in with WorkOS as a platform owner
+([`platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md)):
 
-Claude Code: `claude mcp add --transport http cms https://cms.<baseDomain>/api/mcp --header "Authorization: Bearer <key>"`.
+```bash
+claude mcp add --transport http cms https://platform-mcp.<baseDomain>/cms/mcp
+```
+
+The gateway presents the MCP key of an agent account the deployment provisions
+(`CMS_PLATFORM_MCP_API_KEY`, `src/provision.ts`), so every write is a draft a
+publisher reviews. The CMS host itself takes no key from outside: the gate stands
+in front of it. Locally, a key made under Settings > API Keys works directly:
+`claude mcp add --transport http cms http://localhost:3100/api/mcp --header "Authorization: Bearer <key>"`.
 
 ## Adding a block
 

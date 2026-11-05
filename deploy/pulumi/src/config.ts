@@ -504,8 +504,10 @@ export function loadConfig(): DeployConfig {
   const langfuse = loadLangfuse(cfg, baseDomain, missingOidcDeps, observabilityFlag);
 
   const qdrantDashboard = loadQdrantDashboard(cfg, baseDomain, missingOidcDeps);
-  const cms = loadCms(cfg, baseDomain);
-  const mcpGateway = loadMcpGateway(cfg, baseDomain, appServices.auth.workosAuthkitDomain, langfuse.enabled);
+  const cms = loadCms(cfg, baseDomain, missingOidcDeps);
+  const mcpGateway = loadMcpGateway(
+    cfg, baseDomain, appServices.auth.workosAuthkitDomain, langfuse.enabled || cms.enabled, cfg.requireSecret("pgAppPassword"),
+  );
 
   // ── Public DNS (Cloudflare) ────────────────────────────────────────────────
   //

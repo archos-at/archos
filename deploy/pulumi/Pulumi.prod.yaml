@@ -570,3 +570,20 @@ config:
   grid-oib:posthogHost: https://eu.i.posthog.com
   grid-oib:posthogProjectToken: phc_CVrz2Nt2hoJSmBQ9duYHDbWSjkdyQkQxKs7GHxDvg27X # pragma: allowlist secret (public project token)
   grid-oib:posthogSessionReplay: "true"
+  # ── The website's CMS (ADR-0155) ── prepared, not on yet.
+  # Payload at cms.<baseDomain>, behind the platform gate (otelOidc*, like
+  # Langfuse's): platform staff are signed in from it, as editors on a first
+  # visit, and cmsAdminEmail as administrator. The redirect URIs for both
+  # domains are on the Connect application in WorkOS Production. Turning it on
+  # is cmsEnabled "true", once cms-pg's PITR archive has an off-cluster bucket
+  # (cmsPgBackupsEnabled and cmsPgBackup*): ADR-0155, "What the owner has to
+  # decide or obtain", item 2. Until then the website serves its built-in posts.
+  grid-oib:cmsEnabled: "false"
+  grid-oib:cmsAdminEmail: biglmatthias@gmail.com
+  # ── Platform MCP gateway (ADR-0154) ──
+  # platform-mcp.<baseDomain>: /langfuse/mcp (and /cms/mcp once the CMS runs)
+  # for platform owners' agents, signed in with WorkOS. Its session key is
+  # derived from pgAppPassword. WorkOS Production has the resource indicators
+  # for both domains and the JWT template's roles claim.
+  grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:mcpGatewayPlatformOrgId: org_01KYVEVMY9X582SSN872SBTR03

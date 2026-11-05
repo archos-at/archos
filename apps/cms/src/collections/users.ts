@@ -3,15 +3,19 @@
  * panel with a password; robots (the website, the social hand-off, an agent's
  * account) use an API key: `Authorization: users API-Key <key>`.
  *
- * Payload's own sign-in, hardened until editors sign in through WorkOS (the
- * ADR's next slice; Payload's custom auth strategies take it without a plugin):
- * a long password, five attempts then a 15-minute lock, eight-hour sessions
- * that end on sign-out, and `SameSite=Strict` cookies, `Secure` over https.
- * Nobody registers: an administrator creates every account.
+ * Behind the edge gate a person is signed in by the token the gate forwards
+ * (`auth/edge.ts`, slice 11): no second sign-in. Payload's own sign-in stays as
+ * the fallback where there is no gate (local development): a long password,
+ * five attempts then a 15-minute lock, eight-hour sessions that end on
+ * sign-out, and `SameSite=Strict` cookies, `Secure` over https. Nobody
+ * registers: an administrator creates every account, or the gate's first visit.
  */
 import { ValidationError, type CollectionBeforeValidateHook, type CollectionConfig, type FieldAccess } from 'payload';
 import { canUseAdminPanel, isAdmin, ROLES } from '../access/roles';
 import { options } from '../fields/choices';
+import { edgeSettings, edgeStrategy } from '../auth/edge';
+
+const edge = edgeSettings();
 
 export const MIN_PASSWORD_LENGTH = 12;
 
@@ -51,6 +55,7 @@ export const Users: CollectionConfig = {
     lockTime: 15 * 60 * 1000,
     tokenExpiration: 8 * 60 * 60,
     useSessions: true,
+    strategies: edge ? [edgeStrategy(edge)] : [],
     // Secure whenever the CMS is served over https, which every deployment is.
     cookies: { sameSite: 'Strict', secure: (process.env.CMS_PUBLIC_URL ?? '').startsWith('https://') },
   },

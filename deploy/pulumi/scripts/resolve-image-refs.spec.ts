@@ -485,4 +485,14 @@ describe("verify-image-tag.sh", () => {
     expect(out.status).toBe(1);
     expect(out.stdout).toContain("not published for grid-oib-web");
   });
+
+  it("checks the CMS image as well when the stack runs the CMS", () => {
+    const withCms = `${all("sha-a", "200")}\narchos-at/cms:sha-a 200`;
+    expect(run("verify-image-tag.sh", { STUB_CURL_CODES: withCms, CMS_ENABLED: "true" }, ["archos-at", "sha-a"]).status).toBe(0);
+    const out = run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200"), CMS_ENABLED: "true" }, ["archos-at", "sha-a"]);
+    expect(out.status).toBe(1);
+    expect(out.stdout).toContain("not published for cms");
+    // Without the CMS, its image is not asked for.
+    expect(run("verify-image-tag.sh", { STUB_CURL_CODES: all("sha-a", "200") }, ["archos-at", "sha-a"]).status).toBe(0);
+  });
 });
