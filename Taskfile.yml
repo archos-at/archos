@@ -33,6 +33,7 @@ vars:
   # this one-line `NAME: value` shape.
   AGENT_BROWSER_VERSION: 0.27.0
   WEBSITE: apps/website
+  CMS: apps/cms
   # go-task ships its own POSIX shell, so command SYNTAX is already portable and
   # nothing below needs an OS branch. These two are the exception, because they
   # are Python packaging facts rather than shell facts: a virtualenv puts its
@@ -83,6 +84,10 @@ includes:
     dir: .
   website:
     taskfile: taskfiles/website.yml
+    flatten: true
+    dir: .
+  cms:
+    taskfile: taskfiles/cms.yml
     flatten: true
     dir: .
   infra:
@@ -175,6 +180,7 @@ tasks:
       - uv sync --group dev
       - task: workspace:install
       - task: website:install
+      - task: cms:install
       - task: infra:install
       # packages/ used to be skipped here too, so `task pkg:test` on a fresh
       # clone failed at "vitest: not found" rather than at an assertion.

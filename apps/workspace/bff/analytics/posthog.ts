@@ -148,6 +148,9 @@ export type PostHogEvent =
   | 'usage_notice_dismissed'
   | 'viewer_action_outcome'
   | 'viewer_actions_auto_changed'
+  | 'whats_new_shown'
+  | 'whats_new_dismissed'
+  | 'whats_new_opened'
 
 let initialized = false
 

@@ -1,6 +1,7 @@
 /**
  * Record that this person has seen a week's release-notes summary, so the "Neu diese Woche"
  * notice does not show it again on any device (ADR-0154, amendment). Never moves backwards.
+ * With `stop`, also turns the notice off for good ("Nicht mehr anzeigen").
  *
  * POST — any signed-in member, about themselves: the record is keyed to session.userId.
  */
@@ -11,8 +12,8 @@ import { markReleaseSummarySeen } from '@/lib/release-notes/summary-notice'
 
 export const POST = apiRoute(
   async ({ session, request }) => {
-    const { week } = await parseJsonBody(request, releaseSummarySeenBodySchema)
-    return markReleaseSummarySeen(session, week)
+    const { week, stop } = await parseJsonBody(request, releaseSummarySeenBodySchema)
+    return markReleaseSummarySeen(session, week, { stop })
   },
   {
     authz: {

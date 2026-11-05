@@ -33,6 +33,10 @@ tasks:
       - task: website:install
       - task: website:check
       - task: website:test
+      # The CMS's sync files and scripts (ADR-0155): its tests hold its cover and
+      # category choices to this app's code.
+      - task: cms:install
+      - task: cms:test
       - task: website:build
       # The brand rules' own tests, then the rules once more over the fresh build:
       # the AI-tag rule reads the built pages.

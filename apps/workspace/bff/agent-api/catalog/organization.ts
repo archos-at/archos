@@ -23,7 +23,11 @@ import { decideConventionBodySchema } from '@/lib/office-conventions/office-conv
 import { createRoleSchema, updateRoleSchema } from '@/lib/authz/role-wire'
 import { createCredentialSchema, providerModeSchema } from '@/lib/llm-credentials/credential-wire'
 import { uploadScreeningPolicySchema } from '@/lib/upload-screening/policy'
-import { releaseNoteListQuerySchema, releaseSummarySeenBodySchema } from '@/lib/release-notes/release-notes-wire'
+import {
+  releaseNoteListQuerySchema,
+  releaseNoticePreferenceBodySchema,
+  releaseSummarySeenBodySchema,
+} from '@/lib/release-notes/release-notes-wire'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -638,11 +642,33 @@ export const organizationOperations = [
     summary: 'Record that the person has seen a weekly summary',
     description:
       'Records `week` (from release-summary-unseen-get) as seen, so the app’s notice does not show it again on any ' +
-      'device. Never moves back to an older week; a week without a published summary is refused.',
+      'device; `stop: true` also turns the notice off, as release-summary-notice-set does. Never moves back to an ' +
+      'older week; a week without a published summary is refused.',
     method: 'POST',
     path: '/api/release-notes/seen',
     body: releaseSummarySeenBodySchema,
     idempotent: true,
     load: () => import('@/app/api/release-notes/seen/route'),
+  },
+  {
+    name: 'release-summary-notice-get',
+    domain: 'organization',
+    summary: 'Read whether the person wants the weekly summary notice',
+    description: 'Whether the app shows the person the newest weekly summary once, in a notice, as `{ enabled }`.',
+    method: 'GET',
+    path: '/api/release-notes/notice-preference',
+    load: () => import('@/app/api/release-notes/notice-preference/route'),
+  },
+  {
+    name: 'release-summary-notice-set',
+    domain: 'organization',
+    summary: 'Turn the weekly summary notice on or off for the person',
+    description:
+      'Sets `enabled`. Turning it back on records the newest summary as seen, so the notice resumes with the next ' +
+      'week published. Returns `{ enabled }`.',
+    method: 'PUT',
+    path: '/api/release-notes/notice-preference',
+    body: releaseNoticePreferenceBodySchema,
+    load: () => import('@/app/api/release-notes/notice-preference/route'),
   },
 ] as const satisfies readonly AgentOperation[]

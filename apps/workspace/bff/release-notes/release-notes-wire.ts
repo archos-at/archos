@@ -122,4 +122,12 @@ export const releaseSummarySeenBodySchema = z.object({
     .string()
     .regex(RELEASE_WEEK_PATTERN)
     .describe('The week whose summary the person has seen, `2026-W44`, from release-summary-unseen-get.'),
+  stop: z
+    .boolean()
+    .optional()
+    .describe('Also turn the weekly notice off for good, as the notice’s “Don’t show again” button does.'),
+})
+
+export const releaseNoticePreferenceBodySchema = z.object({
+  enabled: z.boolean().describe('Whether the person is shown the newest weekly summary once, in a notice.'),
 })

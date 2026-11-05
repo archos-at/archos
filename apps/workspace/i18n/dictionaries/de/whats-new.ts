@@ -16,6 +16,11 @@ export const whatsNew: typeof en.whatsNew = {
   newer: 'Neueste Wochen',
   older: 'Ältere Wochen',
   pageLabel: 'Seiten mit Wochen',
+  notice: {
+    title: 'Neu diese Woche',
+    open: 'Alle Neuerungen ansehen',
+    close: 'Schließen',
+  },
   areas: {
     projects: 'Projekte & Einrichtung',
     documents: 'Dateien & Büroablage',

@@ -1,4 +1,5 @@
--- 0194: the last weekly summary of the release notes a person has seen (ADR-0154, amendment).
+-- 0194: the last weekly summary of the release notes a person has seen, and whether they want
+-- to be shown the next one (ADR-0154, amendment).
 --
 -- The app shows a person the newest weekly summary once, in a small notice, and never again
 -- for that week. "Seen" is per person and across devices, so it lives beside their other
@@ -8,9 +9,15 @@
 -- shape the database can hold: an ISO week id, which also sorts as text, so "later" is `>`.
 --
 -- Nullable, no default, no backfill: NULL is "never recorded", true of everyone today, and the
--- first notice settles it. Expand only: an older build reads the table without the column.
+-- first notice settles it.
+--
+-- `release_summary_notice` is the person's own switch for that notice: "Nicht mehr anzeigen" on
+-- the notice turns it off, the profile page turns it back on. On by default, so a row that
+-- exists today, or one a preference write creates, keeps the notice. Expand only: an older build
+-- reads the table without either column.
 
 ALTER TABLE "user_preferences" ADD COLUMN IF NOT EXISTS "last_seen_release_week" text;
+ALTER TABLE "user_preferences" ADD COLUMN IF NOT EXISTS "release_summary_notice" boolean NOT NULL DEFAULT true;
 
 DO $$
 BEGIN

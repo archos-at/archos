@@ -14,6 +14,12 @@ export const whatsNew = {
   newer: 'Newest weeks',
   older: 'Older weeks',
   pageLabel: 'Pages of weeks',
+  /** The one-time notice of the newest weekly summary (`whats-new-notice.tsx`). */
+  notice: {
+    title: 'New this week',
+    open: 'See everything new',
+    close: 'Close',
+  },
   /** One label per product area, keyed by the area id the release notes carry (`release_notes_areas.py`). */
   areas: {
     projects: 'Projects and setup',

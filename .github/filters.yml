@@ -249,6 +249,10 @@ site:
   - '.node-version'
   # The public website (built from packages/brand).
   - 'apps/website/**'
+  # Its CMS (ADR-0155): the sync files and scripts, whose tests read the
+  # website's covers and categories (`task cms:test`, in website:verify).
+  - 'apps/cms/**'
+  - 'taskfiles/cms.yml'
   # The brand package: the website's `bun run check` holds the token and name copies
   # (sync.mjs --check), the icon copies (build-brand-assets.mjs --check) and the
   # email signatures to it, and art:check holds the app's riso art to its source.

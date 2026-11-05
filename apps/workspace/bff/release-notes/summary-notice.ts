@@ -14,7 +14,12 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { TourEligibility } from '@/lib/onboarding/product-tour'
 import { releaseNoteArtifact, type ReleaseNoteArtifact } from './release-notes'
 import type { ReleaseSummary, WhatsNewNoticeState } from './release-notes-wire'
-import { findLastSeenReleaseWeek, recordReleaseWeekSeen } from './seen-repository'
+import {
+  findReleaseNoticeRecord,
+  recordReleaseWeekSeen,
+  setReleaseNoticeEnabled,
+  type ReleaseNoticeRecord,
+} from './seen-repository'
 
 /** The newest week that has a summary, or null. Versions (once releases are tagged) do not count. */
 export function latestReleaseSummary(source: ReleaseNoteArtifact = releaseNoteArtifact()): ReleaseSummary | null {
@@ -25,32 +30,58 @@ export function latestReleaseSummary(source: ReleaseNoteArtifact = releaseNoteAr
   return { id: week.id, date: week.date, dateEnd: week.dateEnd, summary: week.summary }
 }
 
-/** The latest summary when the person has not seen it (or a later one), else null. Pure. */
-export function unseenSummary(latest: ReleaseSummary | null, lastSeen: string | null): ReleaseSummary | null {
-  if (!latest) return null
-  return lastSeen !== null && lastSeen >= latest.id ? null : latest
+/**
+ * The latest summary when the person wants the notice and has not seen it (or a later one), else
+ * null. Pure. Only ever the latest: a person back after weeks away gets one notice, not a backlog.
+ */
+export function unseenSummary(latest: ReleaseSummary | null, record: ReleaseNoticeRecord): ReleaseSummary | null {
+  if (!latest || !record.enabled) return null
+  return record.lastSeenWeek !== null && record.lastSeenWeek >= latest.id ? null : latest
 }
 
-/** The latest summary this person has not seen yet, or null. */
+/** The latest summary this person has not seen yet and would be shown, or null. */
 export async function getUnseenReleaseSummary(session: AuthorizedSession): Promise<ReleaseSummary | null> {
   const latest = latestReleaseSummary()
   if (!latest) return null
-  return unseenSummary(latest, await findLastSeenReleaseWeek(session.userId, session.organizationId))
+  return unseenSummary(latest, await findReleaseNoticeRecord(session.userId, session.organizationId))
 }
 
 /**
- * Record a week's summary as seen. Only a week that has a summary may be recorded, so a mistyped
- * or future week cannot silence the next real one. Returns the week now stored, which is never
- * older than before.
+ * Record a week's summary as seen; with `stop`, also turn the notice off for good ("Nicht mehr
+ * anzeigen"). Only a week that has a summary may be recorded, so a mistyped or future week cannot
+ * silence the next real one. The week stored never moves back.
  */
 export async function markReleaseSummarySeen(
   session: AuthorizedSession,
   week: string,
+  options: { stop?: boolean } = {},
   source: ReleaseNoteArtifact = releaseNoteArtifact(),
-): Promise<{ lastSeenWeek: string }> {
+): Promise<ReleaseNoticeRecord> {
   const known = source.releases.some((release) => release.kind === 'week' && release.id === week && release.summary)
   if (!known) throw new BadRequestError(`No weekly summary is published for ${week}.`)
-  return { lastSeenWeek: await recordReleaseWeekSeen(session.userId, session.organizationId, week) }
+  return recordReleaseWeekSeen(session.userId, session.organizationId, week, options.stop ? false : undefined)
+}
+
+/** Whether the person wants the weekly notice, for the switch on their profile page. */
+export async function getReleaseNoticePreference(session: AuthorizedSession): Promise<{ enabled: boolean }> {
+  const record = await findReleaseNoticeRecord(session.userId, session.organizationId)
+  return { enabled: record.enabled }
+}
+
+/**
+ * Turn the weekly notice on or off. Turning it back on records the newest summary as seen, so
+ * the notice resumes with the next week published rather than greeting the person with the one
+ * from the week they turned it off in.
+ */
+export async function setReleaseNoticePreference(
+  session: AuthorizedSession,
+  enabled: boolean,
+): Promise<{ enabled: boolean }> {
+  const latest = enabled ? latestReleaseSummary() : null
+  const record = latest
+    ? await recordReleaseWeekSeen(session.userId, session.organizationId, latest.id, true)
+    : await setReleaseNoticeEnabled(session.userId, session.organizationId, enabled)
+  return { enabled: record.enabled }
 }
 
 /**

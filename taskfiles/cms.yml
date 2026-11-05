@@ -1,0 +1,87 @@
+# The website's CMS (apps/cms: Directus, ADR-0155): its sync files, the import
+# of the git-era posts, and the social hand-off.
+#
+# Included by the root Taskfile.yml with `flatten: true`. The local instance is
+# the `cms` profile of deploy/compose (`task cms:up`); its admin token is
+# `local-admin-token`. Every task that writes defaults to a dry run or asks the
+# CLI for confirmation; nothing here touches a deployed CMS unless DIRECTUS_URL
+# and a token for it are set by hand.
+
+version: '3'
+
+vars:
+  LOCAL_URL: http://localhost:8055
+  LOCAL_TOKEN: local-admin-token
+
+tasks:
+  cms:install:
+    desc: Install the CMS scripts' dependencies (and the d6s CLI)
+    dir: '{{.CMS}}'
+    cmds:
+      - bun install --frozen-lockfile
+
+  cms:test:
+    desc: The CMS's tests - sync files against the website's code, the MDX import, the social hand-off
+    dir: '{{.CMS}}'
+    cmds:
+      - bun run test
+
+  cms:up:
+    desc: Start Directus and its Postgres locally (the `cms` profile of deploy/compose)
+    dir: deploy/compose
+    cmds:
+      - docker compose --env-file ../.env -f docker-compose.yaml --profile cms up -d cms
+
+  cms:sync:diff:
+    desc: What `cms:sync:push` would change on the local instance (never applies anything)
+    dir: '{{.CMS}}'
+    env:
+      DIRECTUS_LOCAL_TOKEN: '{{.LOCAL_TOKEN}}'
+    cmds:
+      - npx d6s sync diff --to local
+
+  cms:sync:push:
+    desc: Apply the committed schema and configuration to the local instance (merge - never deletes)
+    dir: '{{.CMS}}'
+    env:
+      DIRECTUS_LOCAL_TOKEN: '{{.LOCAL_TOKEN}}'
+    cmds:
+      - npx d6s sync push --to local
+
+  cms:sync:pull:
+    desc: Write the local instance's schema and configuration into apps/cms/directus, after a change in the Studio (roles and policies kept)
+    dir: '{{.CMS}}'
+    env:
+      DIRECTUS_LOCAL_TOKEN: '{{.LOCAL_TOKEN}}'
+    cmds:
+      # Roles and policies are left alone: an unlicensed local instance holds no
+      # permission with a rule, so pulling them would empty the committed ones
+      # (sync-files.test.mjs fails if that happens). Edit those files directly, or
+      # pull them from a licensed instance with `npx d6s sync pull --from <profile>`.
+      - npx d6s sync pull --from local --no-roles --no-policies
+
+  cms:provision:
+    desc: Create the locales, the LinkedIn account and the robot users on the local instance
+    dir: '{{.CMS}}'
+    env:
+      DIRECTUS_URL: '{{.LOCAL_URL}}'
+      DIRECTUS_ADMIN_TOKEN: '{{.LOCAL_TOKEN}}'
+      CMS_WEBSITE_TOKEN: local-website-token
+      CMS_SOCIAL_HANDOFF_TOKEN: local-handoff-token
+    cmds:
+      - node scripts/provision.mjs
+
+  cms:import:
+    desc: Import apps/website/src/content/blog into the local instance (dry run; `-- --apply` writes)
+    dir: '{{.CMS}}'
+    env:
+      DIRECTUS_URL: '{{.LOCAL_URL}}'
+      DIRECTUS_IMPORT_TOKEN: '{{.LOCAL_TOKEN}}'
+    cmds:
+      - node scripts/import-blog.mjs {{.CLI_ARGS}}
+
+  cms:social:handoff:
+    desc: Show what each approved social post would be sent to Buffer as (dry run; `-- --apply` sends, with BUFFER_API_KEY)
+    dir: '{{.CMS}}'
+    cmds:
+      - node social/handoff.mjs {{.CLI_ARGS}}
