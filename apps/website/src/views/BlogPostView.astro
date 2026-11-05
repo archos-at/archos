@@ -1,7 +1,7 @@
 ---
 import { render } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import PostBlocks from '../components/PostBlocks.astro';
+import RichText from '../components/RichText.astro';
 import PostCover from '../components/PostCover.astro';
 import TextLink from '../components/TextLink.astro';
 import copy from '../i18n/pages/blog';
@@ -12,8 +12,9 @@ import { formatDate, postPath, type Post } from '../lib/posts';
 import identity from '../lib/identity';
 import { coverImagePath } from '../lib/covers';
 import { blogPosting } from '../lib/structured-data';
+import { headingIds } from '../lib/rich-text';
 
-// Markup only. The body is the CMS's blocks (PostBlocks) or, without a CMS, the fixture's MDX;
+// Markup only. The body is the CMS's rich text (RichText) or, without a CMS, the fixture's MDX;
 // its typography lives in src/styles/site.css.
 interface Props {
   locale: Locale;
@@ -26,6 +27,7 @@ const { title, heading, description, pubDate, category, cover, translationSlug }
 const settings = cmsSettings();
 // The share image: a drawing's PNG (src/pages/media/covers), or an image cover through the CMS's share preset.
 const shareImage = cover.kind === 'drawing' ? coverImagePath(cover.id) : settings ? assetUrl(settings, cover.file, 'share') : undefined;
+const richText = post.body.kind === 'rich-text' ? post.body.root : undefined;
 const c = copy[locale];
 const cat = CATEGORIES[locale][category];
 // The language switch and hreflang point at the post's translation. A post with
@@ -76,7 +78,7 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
     <PostCover cover={cover} variant="banner" locale={locale} />
 
     <div class="post-body">
-      {Content ? <Content /> : post.body.kind === 'blocks' && <PostBlocks locale={locale} blocks={post.body.blocks} />}
+      {Content ? <Content /> : richText && <RichText locale={locale} nodes={richText.children ?? []} ids={headingIds(richText)} />}
     </div>
 
     <p class="post-back">

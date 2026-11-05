@@ -3,7 +3,7 @@
  * A post's cover. A line drawing (the default) is drawn in the brand frame (src/lib/covers.ts),
  * inlined so the pens take the design tokens, and is decorative: hidden from assistive
  * technology, because the title beside it says what the post is about. An image (a cover
- * uploaded in the CMS, ADR-0155) comes cropped at its focal point by the CMS's presets, to
+ * uploaded in the CMS, ADR-0155) comes cropped at its focal point by the CMS's image sizes, to
  * the same 3:2 card and 40:21 banner, carries its alt text, and the AI mark when a model made it.
  * `card` shows the whole 3:2 canvas (the listing's PostCard); `banner` the 1200 × 630 share
  * band, under the post's lead. The rules for drawing one: packages/brand/docs/blog-covers.md.
@@ -11,7 +11,7 @@
 import '../styles/brand/covers.css';
 import AITag from './AITag.astro';
 import type { Locale } from '../i18n/paths';
-import { assetUrl, cmsSettings } from '../lib/cms';
+import { assetUrl, cmsSettings, type ImageSize } from '../lib/cms';
 import { renderCover } from '../lib/covers';
 import type { Cover } from '../lib/post-model';
 
@@ -27,7 +27,7 @@ const banner = variant === 'banner';
 // Ids in inline SVG are document-wide: each instance gets its own prefix.
 const svg = cover.kind === 'drawing' ? renderCover(cover.id, { idPrefix: `cover-${cover.id}-${variant}`, band: banner }) : '';
 const settings = cmsSettings();
-const src = (preset: string) => (cover.kind === 'image' && settings ? assetUrl(settings, cover.file, preset) : '');
+const src = (size: ImageSize) => (cover.kind === 'image' && settings ? assetUrl(settings, cover.file, size) : '');
 const img =
   cover.kind === 'image'
     ? banner
