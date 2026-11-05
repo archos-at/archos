@@ -37,13 +37,21 @@ for tool in curl jq; do
   command -v "$tool" >/dev/null || { echo "needs $tool on the PATH" >&2; exit 2; }
 done
 
+PROJECT="$(sed -n 's/^name: *//p' "$HERE/Pulumi.yaml")"
+# A plaintext key of a committed stack file, or nothing.
+stack_key() { [[ -f "$HERE/Pulumi.$1.yaml" ]] && sed -n "s/^  $PROJECT:$2: *//p" "$HERE/Pulumi.$1.yaml" | tr -d "\"'" | head -n1 || true; }
+
 if [[ ${#ZONES[@]} -eq 0 ]]; then
   ZONES+=("$(jq -r .domain "$ROOT/packages/brand/identity.json")")
-  ZONES+=("$(sed -n "s/^  $(sed -n 's/^name: *//p' "$HERE/Pulumi.yaml"):dnsZoneName: *//p" "$HERE/Pulumi.prod.yaml" | tr -d "\"'")")
+  ZONES+=("$(stack_key prod dnsZoneName)")
+fi
+# The stack writes the redirect ruleset only into its own zone, and only with the baseline.
+BASELINE_ZONE=""
+if [[ "$(stack_key "$STACK" dnsZoneBaseline)" == "true" ]]; then
+  BASELINE_ZONE="$(stack_key "$STACK" dnsZoneName)"
 fi
 
 TOKEN="${CLOUDFLARE_API_TOKEN:-}"
-PROJECT="$(sed -n 's/^name: *//p' "$HERE/Pulumi.yaml")"
 if [[ -z "$TOKEN" ]]; then
   echo "reading $PROJECT:cloudflareApiToken from stack '$STACK'"
   TOKEN="$(cd "$HERE" && pulumi config get "$PROJECT:cloudflareApiToken" --stack "$STACK")"
@@ -69,6 +77,18 @@ else
 fi
 
 failed=0
+# The probe record of the zone being checked, deleted on any exit until the normal path has.
+probe_id=""
+probe_zone=""
+cleanup() {
+  if [[ -n "$probe_id" ]]; then
+    cf DELETE "/zones/$probe_zone/dns_records/$probe_id" >/dev/null || true
+    echo "      removed the probe record on exit"
+  fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
 for zone in "${ZONES[@]}"; do
   echo
   echo "== $zone"
@@ -96,6 +116,7 @@ for zone in "${ZONES[@]}"; do
     probe="_token-check-$RANDOM$RANDOM.$zone"
     created="$(cf POST "/zones/$id/dns_records" \
       "$(jq -nc --arg n "$probe" '{type:"TXT", name:$n, content:"\"token check, deleted at once\"", ttl:60}')")"
+    probe_zone="$id"
     probe_id="$(jq -r '.result.id // empty' <<<"$created")"
     if [[ -z "$probe_id" ]]; then
       echo "FAIL  DNS edit: $(errors <<<"$created"). The token needs Zone → DNS → Edit on $zone."
@@ -103,21 +124,31 @@ for zone in "${ZONES[@]}"; do
     else
       deleted="$(cf DELETE "/zones/$id/dns_records/$probe_id")"
       if [[ "$(jq -r .success <<<"$deleted")" == "true" ]]; then
+        probe_id=""
         echo "ok    DNS edit: created and deleted $probe"
       else
-        echo "WARN  DNS edit: created $probe but could not delete it: $(errors <<<"$deleted"). Delete it by hand."
+        probe_id=""
+        echo "FAIL  DNS edit: created $probe but could not delete it: $(errors <<<"$deleted"). Delete it by hand."
+        failed=1
       fi
     fi
   fi
 
-  # Only the stack with dnsZoneBaseline writes this ruleset (the www redirect). 404 is
-  # "none yet", which still proves the permission; 403 is the permission missing.
+  # Only the stack with dnsZoneBaseline writes this ruleset (the www redirect), and only
+  # in its own zone. 200 and 404 show the endpoint is readable, not that the token may
+  # edit it; anything else there is a FAIL, elsewhere a note.
   code="$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
     "$API/zones/$id/rulesets/phases/http_request_dynamic_redirect/entrypoint")"
   case "$code" in
     200) echo "ok    redirect rules: readable, a ruleset exists" ;;
     404) echo "ok    redirect rules: readable, none yet" ;;
-    *)   echo "WARN  redirect rules: HTTP $code. Only the zone-baseline stack (prod) needs Zone → Dynamic URL Redirects → Edit." ;;
+    *)
+      if [[ "$zone" == "$BASELINE_ZONE" ]]; then
+        echo "FAIL  redirect rules: HTTP $code. Stack '$STACK' owns this zone's baseline and needs Zone → Dynamic URL Redirects → Edit."
+        failed=1
+      else
+        echo "WARN  redirect rules: HTTP $code. Only the zone-baseline stack needs Zone → Dynamic URL Redirects → Edit."
+      fi ;;
   esac
 done
 

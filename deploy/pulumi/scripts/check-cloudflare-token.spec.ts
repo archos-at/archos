@@ -35,8 +35,8 @@ beforeAll(() => {
       '  *"/zones?name="*) echo \'{"success":true,"result":[]}\' ;;',
       '  "GET "*"/dns_records"*) echo \'{"success":true,"result":[{"type":"MX","name":"x","content":"mail","proxied":false}]}\' ;;',
       '  "POST "*"/dns_records") echo \'{"success":true,"result":{"id":"probe1"}}\' ;;',
-      '  "DELETE "*"/dns_records/probe1") echo \'{"success":true,"result":{"id":"probe1"}}\' ;;',
-      '  *"/entrypoint") printf 404 ;;',
+      '  "DELETE "*"/dns_records/probe1") [ -n "${STUB_DELETE_FAIL:-}" ] && echo \'{"success":false,"errors":[{"code":9,"message":"no"}]}\' || echo \'{"success":true,"result":{"id":"probe1"}}\' ;;',
+      '  *"/entrypoint") printf "${STUB_ENTRY_CODE:-404}" ;;',
       "esac",
     ].join("\n") + "\n",
     { mode: 0o755 },
@@ -51,9 +51,9 @@ afterAll(() => {
   rmSync(ROOT, { recursive: true, force: true });
 });
 
-function run(args: string[], visible: string) {
+function run(args: string[], visible: string, stub: Record<string, string> = {}) {
   const r = spawnSync("bash", [SCRIPT, ...args], {
-    env: { PATH: `${BIN}:${process.env.PATH}`, CLOUDFLARE_API_TOKEN: "t", STUB_VISIBLE: visible },
+    env: { PATH: `${BIN}:${process.env.PATH}`, CLOUDFLARE_API_TOKEN: "t", STUB_VISIBLE: visible, ...stub },
     encoding: "utf8",
   });
   const calls = existsSync(CALLS) ? readFileSync(CALLS, "utf8").trim().split("\n") : [];
@@ -84,6 +84,23 @@ describe("check-cloudflare-token.sh", () => {
     const r = run(["--read-only", "new.test"], "new.test");
     expect(r.status).toBe(0);
     expect(r.calls.every((c) => c.startsWith("GET"))).toBe(true);
+  });
+
+  it("fails when the probe record cannot be deleted, so a leftover record is not a pass", () => {
+    const r = run(["new.test"], "new.test", { STUB_DELETE_FAIL: "1" });
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("could not delete it");
+  });
+
+  it("fails a refused redirect ruleset only on the zone whose baseline the stack owns", () => {
+    // Prod's stack file sets dnsZoneBaseline; its dnsZoneName is the zone it writes the www rule to.
+    const prodZone = readFileSync(join(__dirname, "..", "Pulumi.prod.yaml"), "utf8").match(/:dnsZoneName: *(\S+)/)![1];
+    const owner = run(["--stack", "prod", "--read-only", prodZone], prodZone, { STUB_ENTRY_CODE: "403" });
+    expect(owner.status).toBe(1);
+    expect(owner.out).toContain("FAIL  redirect rules");
+    const other = run(["--stack", "prod", "--read-only", "new.test"], "new.test", { STUB_ENTRY_CODE: "403" });
+    expect(other.status).toBe(0);
+    expect(other.out).toContain("WARN  redirect rules");
   });
 
   it("defaults to the brand's domain and the zone prod serves today", () => {

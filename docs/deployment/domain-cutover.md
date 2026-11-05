@@ -245,12 +245,22 @@ Before step 8 everything goes back by reverting the PR of step 5:
 1. Revert the PR. The following `pulumi up` removes the new zone's records, listeners,
    certificates and redirect routes itself.
 2. The former apex and `app.` records were never out of the state and need nothing. The
-   former hosts the move deleted (`s3.` and the operator hosts) are re-created by the `up`. On
-   prod, the three baseline resources of step 4 are not in the state and the reverted config
-   wants to create them: Cloudflare refuses a duplicate. Either re-import them
-   (`pulumi import cloudflare:index/dnsRecord:DnsRecord <name> <zoneId>/<recordId>`, no
-   outage) or delete them in Cloudflare right before the `up` (a few minutes of resolution
-   failures, bounded by the 300 s TTL).
+   former hosts the move deleted (`s3.` and the operator hosts) are re-created by the `up`.
+   On prod, reconcile the three baseline resources of step 4 one by one before the `up`.
+   `dns-www` and `dns-www-redirect` are in the state again, but for the new zone; the reverted
+   config moves them back, and both creates collide with what step 4 left in the former zone:
+   - `dns-www` (`DnsRecord`): delete `www.$OLD` in Cloudflare right before the `up`, or
+     `pulumi state delete` the new-zone entry and import the former record over it
+     (`pulumi import cloudflare:index/dnsRecord:DnsRecord dns-www <zoneId>/<recordId>`).
+   - `dns-www-redirect` (`Ruleset`, not a record): a zone holds one entrypoint ruleset per
+     phase, so delete the former zone's `http_request_dynamic_redirect` entrypoint in
+     Cloudflare (Rules → Redirect Rules) right before the `up`, or import it with
+     `pulumi import cloudflare:index/ruleset:Ruleset dns-www-redirect zones/<zoneId>/<rulesetId>`
+     after removing the new-zone entry from the state.
+   - `dns-dmarc` (`DnsRecord`): not in the state at all, and the reverted config declares it
+     again. Import the former `_dmarc.$OLD` record as above, or delete it right before the `up`.
+   Deleting is a few minutes of resolution failures for that name, bounded by the 300 s TTL;
+   importing has none.
 3. WorkOS and PostHog need nothing: the old entries were never removed.
 
 After step 8, Search Console's Change of Address can be withdrawn in the `$OLD` property,

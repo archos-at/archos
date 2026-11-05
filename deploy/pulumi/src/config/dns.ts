@@ -130,6 +130,15 @@ export function loadDns(
       }
     }
     refuseStrayFormerHosts(formerHosts, { dnsZoneName, formerZoneName, formerZoneId });
+    // Each host's record is named after the host, so a former host this stack still serves
+    // would register the same resource twice: refuse it here, by name, not as a duplicate URN.
+    const shared = formerHosts.filter((host) => dnsHosts.includes(host));
+    if (shared.length > 0) {
+      throw new Error(
+        `${pulumi.getProject()}:formerBaseDomain puts ${shared.join(", ")} on a host this stack still ` +
+          "serves. Set it to the domain being left.",
+      );
+    }
     const strays = hostsOutsideZone(dnsHosts, dnsZoneName);
     if (strays.length > 0) {
       throw new Error(

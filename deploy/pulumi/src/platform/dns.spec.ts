@@ -340,6 +340,13 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
     expect(error?.message).toContain(KEY("formerDnsZoneId"));
   });
 
+  it("refuses a former host this stack still serves", async () => {
+    // s3.<base> as the former domain: its apex would be this stack's own S3 host.
+    const error = await loadWith(dnsConfig({ [KEY("formerBaseDomain")]: `s3.dev.${ZONE}` }));
+    expect(error?.message).toContain(`s3.dev.${ZONE}`);
+    expect(error?.message).toContain("still serves");
+  });
+
   it("refuses half of the former zone", async () => {
     const error = await loadWith(
       dnsConfig({
