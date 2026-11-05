@@ -62,6 +62,7 @@ function devStackConfig(): Record<string, string> {
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
     // The platform Connect application's secret: the gate in front of Langfuse and the CMS.
     [`${LEGACY_PROJECT}:otelOidcClientSecret`]: "placeholder-secret-value",
+    [`${LEGACY_PROJECT}:cloudflareApiToken`]: "placeholder-secret-value",
   };
 }
 

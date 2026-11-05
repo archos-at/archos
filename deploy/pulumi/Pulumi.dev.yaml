@@ -59,7 +59,12 @@ config:
   grid-oib:storageClass: single-replica
   # ── Ingress / TLS ── One key moves every public host: app./s3./otel. derive
   # from baseDomain (per-host appDomain/s3Domain/otelDomain keys remain as overrides).
-  grid-oib:baseDomain: dev.piloti.at
+  grid-oib:baseDomain: dev.archos.tech
+  # The domain move (docs/deployment/domain-cutover.md): the former apex and
+  # app. host keep answering, with a 301 to the same path on their new twin.
+  # Their DNS stays in the former zone (formerDnsZone* below). Unset it once
+  # nobody arrives there any more; keep it at least until prod has moved too.
+  grid-oib:formerBaseDomain: dev.piloti.at
   grid-oib:letsEncryptEmail: matthias@bigls.net
   grid-oib:useStagingIssuer: "false" # staging CA verified; prod LE certs now issue
   # Provider ships an unremovable metrics stack — don't install a second one.
@@ -130,9 +135,9 @@ config:
   grid-oib:qdrantCpu: "1"
   grid-oib:qdrantMemory: 4Gi
   grid-oib:qdrantStorageSize: 20Gi
-  # Qdrant's web dashboard at qdrant.dev.piloti.at, behind the operator gate:
+  # Qdrant's web dashboard at qdrant.<baseDomain>, behind the operator gate:
   # ON by default here, because the Connect application below (otelOidc*) is
-  # set. Register https://qdrant.dev.piloti.at/oauth2/callback on that
+  # set. Register https://qdrant.<baseDomain>/oauth2/callback on that
   # application in WorkOS before this deploys, or its sign-in fails with
   # invalid_redirect_uri (docs/deployment/qdrant-runbook.md, "Dashboard").
   # To keep it off and port-forward instead:
@@ -216,7 +221,7 @@ config:
   # drift from each other; `loadBalancerIp` above is now the one place the
   # address is written.
   #
-  # Cloudflare OPERATES the zone; piloti.at stays registered at GoDaddy with its
+  # Cloudflare OPERATES the zone; the domain stays registered at GoDaddy with its
   # NS records delegated. This is not a preference — GoDaddy's own DNS API is
   # gated behind 10+ domains or a Discount Domain Club membership, so a small
   # account cannot drive it from code at all.
@@ -226,7 +231,7 @@ config:
   # records, so the new zone can be dug directly while GoDaddy is still
   # authoritative. See docs/deployment/kubernetes.md § 3b "Cutover order".
   #   1. `dig` every record type off the live zone (GoDaddy's UI truncates).
-  #   2. Add piloti.at to Cloudflare and DELETE every record its auto-scan
+  #   2. Add the domain to Cloudflare and DELETE every record its auto-scan
   #      imported — Cloudflare round-robins duplicate A records rather than
   #      rejecting them, so an imported record plus a created one is an
   #      intermittently wrong answer, not an error.
@@ -243,11 +248,21 @@ config:
   #
   # DEV STACK IS LIVE: the delegation already moved to Cloudflare before this
   # feature merged, so dnsEnabled is "true" here with the real zone id and token.
+  #
+  # Since the domain move this stack writes to TWO zones with one token: its
+  # hosts into the new zone, the former apex and app. host into the former one.
+  # The token is an ACCOUNT-owned API token (Manage Account → API Tokens), DNS
+  # only, on both zones: Zone → DNS → Edit and Zone → Zone → Read. It lives in
+  # ESC like every other secret of this stack, not here (a stack-file value
+  # would win over ESC): the `esc env set` line in step 3 above.
+  # Prove it reaches both zones before a deploy needs it (it also prints the
+  # zone id dnsZoneId needs):
+  #   CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack dev
   grid-oib:dnsEnabled: "true"
-  grid-oib:dnsZoneName: piloti.at
-  grid-oib:dnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
-  grid-oib:cloudflareApiToken:
-    secure: AAABAD5L+SCK2AhyqX/QqKlpHgDWIgYWvBO8TlwzYzUsaLb8//GZe0dAcvp348Xg0Ikbje8EUWvTiouh2jp4H/sI2l4d3XueTw8WlLm+qV2dPbPDhA==
+  grid-oib:dnsZoneName: archos.tech
+  grid-oib:dnsZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id, printed by check-cloudflare-token.sh 2026-11-05)
+  grid-oib:formerDnsZoneName: piloti.at
+  grid-oib:formerDnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
   # ── err2issue: ERROR telemetry -> GitHub issues (ADR-0031) ──
   # A second consumer on the collector's logs signal. Requires the
   # observability tier above (it has no receiver of its own).
@@ -272,7 +287,7 @@ config:
   grid-oib:err2issueEnabled: "true"
   grid-oib:err2issueGithubRepo: GRID-check/grid-oib-agent
   # ── The website's CMS (ADR-0155) ──
-  # Payload at cms.<baseDomain> (cms.dev.piloti.at), its own namespace, the
+  # Payload at cms.<baseDomain>, its own namespace, the
   # cms-pg cluster and the cms-files bucket. Its secrets default to one-way
   # HMACs of pgAppPassword, so nothing new goes into ESC. The host is behind the
   # platform gate (otelOidc*, like Langfuse's): platform staff are signed in
