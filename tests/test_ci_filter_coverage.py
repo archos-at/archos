@@ -33,7 +33,7 @@ FLAGS = glob.GLOBSTAR | glob.DOTGLOB
 #: The families that decide whether a test tier runs. `sast` is left out: it
 #: decides whether Semgrep has code to scan, and its `apps/**` would hide a
 #: UI directory that lost its `workspace:` line.
-TEST_TIERS = ("backend", "workspace", "site", "infra", "packages", "migrations")
+TEST_TIERS = ("backend", "workspace", "site", "cms", "infra", "packages", "migrations")
 
 #: Paths that belong to no tier on purpose, each with why no tier needs them.
 #: A file a tier's tests read is named in that tier even when a pattern here

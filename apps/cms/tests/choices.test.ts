@@ -26,3 +26,10 @@ test('every call-to-action target is a route of the website', () => {
   const paths = source('src/i18n/paths.ts');
   for (const target of CTA_TARGETS) expect(paths, target).toMatch(new RegExp(`\\b${target}:\\s*\\{`));
 });
+
+test("the contracted blocks are the website's BLOCK_PARSERS, one block per contract", async () => {
+  const { CONTENT_BLOCKS } = await import('../src/blocks/content-blocks');
+  const contracts = source('src/components/blocks/contracts.ts');
+  const parsers = /export const BLOCK_PARSERS = \{([^}]*)\}/.exec(contracts)![1].match(/^\s*(\w+):/gm)!.map((k) => k.trim().replace(':', ''));
+  expect(CONTENT_BLOCKS.map((b) => b.slug).sort()).toEqual(parsers.sort());
+});
