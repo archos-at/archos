@@ -1,19 +1,22 @@
 /**
  * Gate G0 of project mail (ADR-0138), as one read-only check: does the
  * receiving subdomain route to Cloudflare while the apex keeps its own mail,
- * is subaddressing on, and does the one literal rule hand
- * `<local part>+<anything>@<domain>` to the Worker? Then the exact test mail
- * that proves the last part on the wire, because only a sent mail can.
+ * is subaddressing on, does the one literal rule hand
+ * `<local part>+<anything>@<domain>` to the Worker, do `postmaster@` and
+ * `abuse@` forward to a verified mailbox, and does the zone apex publish
+ * exactly one DMARC record? Then the exact test mail that proves the routing
+ * on the wire, because only a sent mail can.
  *
  *   cd deploy/pulumi
  *   bun scripts/inbound-mail-smoke.ts g0
  *
  * Reads, never writes: public DNS over HTTPS for both MX sets (what a sending
  * server sees, not what the zone file says), and the Cloudflare API for the
- * zone's name, its Email Routing settings and its rules. Inputs are the smoke
+ * zone's name, its Email Routing settings and its rules, and (with the account
+ * id) the account's destination addresses. Inputs are the smoke
  * tool's (`CLOUDFLARE_API_TOKEN`, `INBOUND_MAIL_ZONE_ID`, `INBOUND_MAIL_DOMAIN`,
  * optionally `INBOUND_MAIL_LOCAL_PART`, `INBOUND_MAIL_WORKER`,
- * `INBOUND_MAIL_ACCOUNT_ID`) plus one of its own:
+ * `INBOUND_MAIL_ACCOUNT_ID`, which also reads the forwards' destination) plus two of its own:
  *
  *   INBOUND_MAIL_APEX_MX   the apex's MX hosts as they must stay, comma-separated
  *                          (`smtp.google.com`), or `none` for an apex that
@@ -21,11 +24,14 @@
  *                          not Cloudflare's. `cloudflare` only where the owner
  *                          deliberately onboarded an apex that had no mail of
  *                          its own (the runbook's G0, path a).
+ *   INBOUND_MAIL_DMARC     the `_dmarc.<apex>` record as the stack sets it
+ *                          (`inboundMailDmarc`, or `dnsDmarc` on the app zone).
+ *                          Unset: any one DMARC record passes.
  *
  * The runbook that orders it: docs/deployment/project-mail-runbook.md.
  */
 
-import { DEFAULT_INBOUND_MAIL_LOCAL_PART } from "../src/config/inbound-mail";
+import { DEFAULT_INBOUND_MAIL_LOCAL_PART, RFC2142_LOCAL_PARTS } from "../src/config/inbound-mail";
 
 /** Cloudflare Email Routing's MX hosts (`route1.mx.cloudflare.net` and its siblings). */
 const CLOUDFLARE_MX = /\.mx\.cloudflare\.net\.?$/i;
@@ -53,8 +59,15 @@ export interface RoutingSettings {
   support_subaddress?: boolean;
 }
 
-/** The literal addresses RFC 2142 asks every mail domain to answer, forwarded to an operator. */
-export const RFC2142_LOCAL_PARTS = ["postmaster", "abuse"] as const;
+/** The literal addresses RFC 2142 asks every mail domain to answer; one list with the program's. */
+export { RFC2142_LOCAL_PARTS };
+
+/** A destination address as `GET /accounts/{account}/email/routing/addresses` returns it. */
+export interface DestinationAddress {
+  email?: string;
+  /** When it was verified; null or absent while the click is outstanding. */
+  verified?: string | null;
+}
 
 /** The rule's local part: `INBOUND_MAIL_LOCAL_PART`, else the program's own default. */
 export function localPartFromEnv(env: NodeJS.ProcessEnv = process.env): string {
@@ -147,7 +160,7 @@ export function subaddressFinding(settings: RoutingSettings): Finding {
     gate: "G0",
     name: "subaddressing on the zone",
     status: on ? "pass" : "fail",
-    detail: `support_subaddress=${settings.support_subaddress}${on ? "" : ": Email Routing → Settings → Subaddressing"}`,
+    detail: `support_subaddress=${settings.support_subaddress}${on ? "" : ": the runbook's §7, PATCH /zones/{zone}/email/routing {\"support_subaddress\":true}"}`,
   };
 }
 
@@ -207,6 +220,63 @@ export function ruleFindings(rules: Rule[], domain: string, localPart: string, w
   ];
 }
 
+/**
+ * G0: the forwards' destinations are verified. Cloudflare keeps a rule to an
+ * unverified address disabled, whatever its own `enabled` says.
+ */
+export function forwardDestinationFinding(rules: Rule[], domain: string, localPart: string, addresses: DestinationAddress[]): Finding {
+  const { rfc2142 } = classifyDomainRules(rules, domain, localPart);
+  const wanted = [...new Set(rfc2142.flatMap(([, rule]) => (rule ? targets(rule) : [])).map((t) => t.toLowerCase()))];
+  const verified = new Set(addresses.filter((a) => a.verified).map((a) => (a.email ?? "").toLowerCase()));
+  const pending = wanted.filter((email) => !verified.has(email));
+  return {
+    gate: "G0",
+    name: "RFC 2142 forward destination verified",
+    status: wanted.length > 0 && pending.length === 0 ? "pass" : "fail",
+    detail:
+      wanted.length === 0
+        ? "no forward to check"
+        : pending.length === 0
+          ? wanted.join(", ")
+          : `${pending.join(", ")} not verified: open Cloudflare's verification mail to it and click`,
+  };
+}
+
+/**
+ * The TXT strings of a DNS-over-HTTPS answer, each record's quoted chunks
+ * joined (a TXT record longer than 255 octets arrives split). NXDOMAIN and an
+ * empty answer are no records; any other failure status throws.
+ */
+export function txtFromDoh(answer: { Status?: number; Answer?: Array<{ type?: number; data?: string }> }): string[] {
+  if (answer.Status === 3) return [];
+  if (answer.Status !== 0) throw new Error(`DNS lookup failed with status ${answer.Status}`);
+  return (answer.Answer ?? [])
+    .filter((record) => record.type === 16 && typeof record.data === "string")
+    .map((record) => {
+      const data = (record.data as string).trim();
+      const chunks = [...data.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1].replace(/\\(.)/g, "$1"));
+      return chunks.length > 0 ? chunks.join("") : data;
+    });
+}
+
+const normalizeDmarc = (record: string) => record.replace(/\s+/g, " ").replace(/\s*;\s*/g, "; ").replace(/;\s*$/, "").trim();
+
+/**
+ * G0: exactly one DMARC record at `_dmarc.<apex>`, and the one the stack sets
+ * when `expected` is given. Two records are a permanent error for every
+ * receiver (RFC 7489 §6.6.3): neither applies.
+ */
+export function dmarcFinding(name: string, txt: string[], expected?: string): Finding {
+  const records = txt.filter((t) => /^v=DMARC1\s*(;|$)/i.test(t.trim()));
+  const finding = (status: Finding["status"], detail: string): Finding => ({ gate: "G0", name: `one DMARC record at ${name} (public DNS)`, status, detail });
+  if (records.length === 0) return finding("fail", "none: inboundMailDmarc (or dnsDmarc) unset, or DNS has not propagated");
+  if (records.length > 1) return finding("fail", `${records.length} records, so receivers apply none: ${records.join(" | ")}`);
+  if (expected !== undefined && normalizeDmarc(records[0]) !== normalizeDmarc(expected)) {
+    return finding("fail", `${records[0]}; expected ${expected}`);
+  }
+  return finding("pass", records[0]);
+}
+
 /** The probe address G0 mails: project-shaped, so the Worker answers it, and of no project. */
 export function probeAddress(localPart: string, domain: string): string {
   return `${localPart}+smoke.aaaaaaaaaaaa@${domain}`;
@@ -228,18 +298,22 @@ export function testMailSteps(localPart: string, domain: string, paused: boolean
 }
 
 /** Public DNS over HTTPS: what a sending server sees. */
-async function publicMx(name: string): Promise<string[]> {
-  const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=MX`;
+async function publicDns(name: string, type: "MX" | "TXT"): Promise<Parameters<typeof mxHostsFromDoh>[0]> {
+  const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`;
   const response = await fetch(url, { headers: { accept: "application/dns-json" }, signal: AbortSignal.timeout(15_000) });
   if (!response.ok) throw new Error(`DNS over HTTPS for ${name} answered ${response.status}`);
-  return mxHostsFromDoh((await response.json()) as Parameters<typeof mxHostsFromDoh>[0]);
+  return (await response.json()) as Parameters<typeof mxHostsFromDoh>[0];
 }
+
+const publicMx = async (name: string) => mxHostsFromDoh(await publicDns(name, "MX"));
+const publicTxt = async (name: string) => txtFromDoh(await publicDns(name, "TXT"));
 
 /** What `g0` needs from the smoke tool: its Cloudflare GET and its required-env reader. */
 export interface G0Io {
   cloudflareApi: (path: string) => Promise<unknown>;
   env: (name: string) => string;
   mx?: (name: string) => Promise<string[]>;
+  txt?: (name: string) => Promise<string[]>;
 }
 
 /** Every G0 finding, the test mail last. */
@@ -263,9 +337,15 @@ export async function g0Findings(io: G0Io): Promise<Finding[]> {
   findings.push(zoneRoutingFinding(settings), subaddressFinding(settings));
   const rules = (await io.cloudflareApi(`/zones/${zoneId}/email/routing/rules?per_page=50`)) as Rule[];
   findings.push(...ruleFindings(rules, domain, localPart, worker));
+  const dmarcName = `_dmarc.${apex}`;
+  findings.push(dmarcFinding(dmarcName, await (io.txt ?? publicTxt)(dmarcName), process.env.INBOUND_MAIL_DMARC?.trim() || undefined));
 
   let paused: boolean | undefined;
   const account = process.env.INBOUND_MAIL_ACCOUNT_ID?.trim();
+  if (account) {
+    const addresses = (await io.cloudflareApi(`/accounts/${account}/email/routing/addresses?per_page=50`)) as DestinationAddress[];
+    findings.push(forwardDestinationFinding(rules, domain, localPart, addresses));
+  }
   if (account && worker) {
     const script = (await io.cloudflareApi(`/accounts/${account}/workers/scripts/${worker}/settings`)) as {
       bindings?: Array<{ name: string; text?: string }>;

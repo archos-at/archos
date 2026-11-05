@@ -5,7 +5,9 @@ import { DEFAULT_INBOUND_MAIL_LOCAL_PART } from "../src/config/inbound-mail";
 import {
   apexMxFinding,
   classifyDomainRules,
+  dmarcFinding,
   expectedApexMx,
+  forwardDestinationFinding,
   g0Findings,
   localPartFromEnv,
   mxHostsFromDoh,
@@ -14,6 +16,7 @@ import {
   ruleFindings,
   subaddressFinding,
   testMailSteps,
+  txtFromDoh,
   type Rule,
 } from "./inbound-mail-g0";
 
@@ -133,6 +136,44 @@ describe("the zone's settings and rules", () => {
   });
 });
 
+describe("the forwards' destination and the DMARC record", () => {
+  it("passes the forwards only once their destination is verified", () => {
+    const rules = [projectRule, ...forwards];
+    expect(forwardDestinationFinding(rules, DOMAIN, LOCAL, [{ email: "OPS@example.org", verified: "2026-11-05T10:00:00Z" }]).status).toBe("pass");
+    const pending = forwardDestinationFinding(rules, DOMAIN, LOCAL, [{ email: "ops@example.org", verified: null }]);
+    expect(pending).toMatchObject({ status: "fail", detail: expect.stringContaining("not verified") });
+    expect(forwardDestinationFinding(rules, DOMAIN, LOCAL, []).status).toBe("fail");
+    expect(forwardDestinationFinding([projectRule], DOMAIN, LOCAL, []).status).toBe("fail");
+  });
+
+  it("reads TXT strings out of a DNS-over-HTTPS answer, a split record joined", () => {
+    const answer = {
+      Status: 0,
+      Answer: [
+        { type: 16, data: '"v=DMARC1; p=none; " "sp=none"' },
+        { type: 16, data: '"google-site-verification=abc"' },
+        { type: 5, data: "alias.example.org." },
+      ],
+    };
+    expect(txtFromDoh(answer)).toEqual(["v=DMARC1; p=none; sp=none", "google-site-verification=abc"]);
+    expect(txtFromDoh({ Status: 3 })).toEqual([]);
+    expect(() => txtFromDoh({ Status: 2 })).toThrow(/status 2/);
+  });
+
+  it("passes exactly one DMARC record, and the stack's when one is expected", () => {
+    const record = "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:ops@example.org";
+    expect(dmarcFinding("_dmarc.example.org", [record, "google-site-verification=abc"]).status).toBe("pass");
+    expect(dmarcFinding("_dmarc.example.org", [record], `${record.replace(/; /g, ";")};`).status).toBe("pass");
+    expect(dmarcFinding("_dmarc.example.org", [record], "v=DMARC1; p=reject").status).toBe("fail");
+  });
+
+  it("fails no DMARC record, and two, which receivers treat as none", () => {
+    expect(dmarcFinding("_dmarc.example.org", []).status).toBe("fail");
+    const two = dmarcFinding("_dmarc.example.org", ["v=DMARC1; p=none", "v=DMARC1; p=quarantine"]);
+    expect(two).toMatchObject({ status: "fail", detail: expect.stringContaining("2 records") });
+  });
+});
+
 describe("the test mail", () => {
   it("is mailed to a project-shaped address of no project", () => {
     expect(probeAddress(LOCAL, DOMAIN)).toBe(`project+smoke.aaaaaaaaaaaa@${DOMAIN}`);
@@ -167,10 +208,12 @@ describe("g0Findings", () => {
         cloudflareApi: async (path) => answers[path],
         env,
         mx: async (name) => (name === DOMAIN ? CF_MX : ["smtp.google.com"]),
+        txt: async (name) => (name === "_dmarc.example.org" ? ["v=DMARC1; p=none; sp=none"] : []),
       });
       expect(findings.filter((f) => f.status === "fail")).toEqual([]);
       expect(findings.at(-1)).toMatchObject({ status: "manual", name: "the test mail" });
       expect(findings.find((f) => f.name.startsWith("Email Routing on the zone"))?.status).toBe("info");
+      expect(findings.find((f) => f.name.startsWith("one DMARC record at _dmarc.example.org"))?.status).toBe("pass");
     } finally {
       if (before === undefined) delete process.env.INBOUND_MAIL_LOCAL_PART;
       else process.env.INBOUND_MAIL_LOCAL_PART = before;
