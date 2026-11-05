@@ -441,7 +441,7 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
 .ui-duo-card:has(> .ui-duo-photo) .ui-duo-text::before {
   content: ""; position: absolute; z-index: -1; pointer-events: none;
   inset: calc(-1 * var(--space-16)) calc(-1 * var(--space-24)) calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-scrim) 45%, transparent) calc(100% - var(--space-16)), transparent);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-scrim) 40%, transparent) calc(100% - var(--space-16)), transparent);
   -webkit-mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
   mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
 }
