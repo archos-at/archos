@@ -1,0 +1,19 @@
+---
+/**
+ * A note set off from the running text: a remark, a caveat, a definition. Two
+ * tones, both on the design system's sunken surface; `important` adds the strong
+ * rule on the left. The text is plain (escaped), not Markdown.
+ */
+interface Props {
+  tone?: 'note' | 'important';
+  title?: string;
+  text: string;
+  class?: string;
+}
+const { tone = 'note', title, text, class: className } = Astro.props;
+---
+
+<aside class:list={['ui-callout', tone === 'important' && 'ui-callout--important', className]}>
+  {title && <p class="ui-callout-title">{title}</p>}
+  <p class="ui-callout-text">{text}</p>
+</aside>

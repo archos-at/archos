@@ -217,6 +217,7 @@ Consequences, where a reader looks for them.
 | [0152](0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) | DXF drawings are viewed through a PDF the backend draws to scale with ezdxf, with a text layer and a title block | Accepted |
 | [0153](0153-a-dxf-drawing-is-a-site-the-agent-measures.md) | A DXF drawing is a site the agent measures: `dxf_measure` for parcels, setbacks and what remains buildable, and `dxf-measure` on the agent door | Accepted |
 | [0154](0154-platform-staff-reach-in-cluster-mcp-servers-through-agentgateway.md) | Platform staff reach the cluster's MCP servers through one gateway: agentgateway behind Envoy, signed in with WorkOS | Accepted |
+| [0155](0155-the-website-blog-is-edited-in-a-self-hosted-payload.md) | The website's blog is written in a self-hosted Payload and read on request; social posts are drafted there and published through Buffer | Proposed |
 | [0156](0156-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md) | Release notes have three tiers: the public changelog shows the weekly summaries only, members read every note by week and area in the app, internal notes reach neither | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every

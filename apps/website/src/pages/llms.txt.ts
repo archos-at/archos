@@ -7,10 +7,10 @@ import identity, { withName } from '../lib/identity';
 import { getBlogPosts, postPath } from '../lib/posts';
 
 // /llms.txt (llmstxt.org): what the site is, its product pages and its newest posts, in
-// plain Markdown. Generated from identity and the page copy at build time, so it cannot
-// drift from the pages. Kept short on purpose: answer engines rank from the HTML and the
-// JSON-LD; this file only spares them the guesswork.
-export const prerender = true;
+// plain Markdown. Generated from identity and the page copy, so it cannot drift from the
+// pages, and on request, so its posts are the blog's (from the CMS, ADR-0155). Kept short on
+// purpose: answer engines rank from the HTML and the JSON-LD; this file only spares them the guesswork.
+export const prerender = false;
 
 type PageCopy = Record<Locale, { title: string; description: string }>;
 
@@ -28,7 +28,7 @@ export const GET: APIRoute = async ({ site }) => {
   const pages = (locale: Locale) =>
     PRODUCT_PAGES.map((page) => line(page.copy[locale].title, page.path[locale], page.copy[locale].description));
   const posts = async (locale: Locale) =>
-    (await getBlogPosts(locale)).slice(0, 10).map((post) => line(post.data.title, postPath(locale, post), post.data.description));
+    (await getBlogPosts(locale)).slice(0, 10).map((post) => line(post.title, postPath(locale, post), post.description));
   const c = withName(llms.de);
   const en = withName(llms.en);
 

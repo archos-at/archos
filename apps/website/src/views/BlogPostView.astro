@@ -1,25 +1,36 @@
 ---
 import { render } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import LivePreview from '../components/LivePreview.astro';
+import RichText from '../components/RichText.astro';
 import PostCover from '../components/PostCover.astro';
 import TextLink from '../components/TextLink.astro';
 import copy from '../i18n/pages/blog';
 import type { Locale } from '../i18n/paths';
 import { CATEGORIES, blogPath } from '../lib/categories';
-import { formatDate, postPath, type BlogPost } from '../lib/posts';
+import { assetUrl, cmsSettings } from '../lib/cms';
+import { formatDate, postPath, type Post } from '../lib/posts';
 import identity from '../lib/identity';
 import { coverImagePath } from '../lib/covers';
 import { blogPosting } from '../lib/structured-data';
+import { headingIds } from '../lib/rich-text';
 
-// Markup only. The body is the post's MDX; its typography lives in src/styles/site.css.
+// Markup only. The body is the CMS's rich text (RichText) or, without a CMS, the fixture's MDX;
+// its typography lives in src/styles/site.css.
 interface Props {
   locale: Locale;
-  post: BlogPost;
+  post: Post;
+  /** The CMS's live preview of a draft (src/pages/blog/preview.astro): never indexed, marked, reloaded on save. */
+  preview?: { cmsOrigin: string };
 }
 
-const { locale, post } = Astro.props;
-const { Content } = await render(post);
-const { title, heading, description, pubDate, category, cover, translationSlug } = post.data;
+const { locale, post, preview } = Astro.props;
+const Content = post.body.kind === 'mdx' ? (await render(post.body.entry)).Content : undefined;
+const { title, heading, description, pubDate, category, cover, translationSlug } = post;
+const settings = cmsSettings();
+// The share image: a drawing's PNG (src/pages/media/covers), or an image cover through the CMS's share preset.
+const shareImage = cover.kind === 'drawing' ? coverImagePath(cover.id) : settings ? assetUrl(settings, cover.file, 'share') : undefined;
+const richText = post.body.kind === 'rich-text' ? post.body.root : undefined;
 const c = copy[locale];
 const cat = CATEGORIES[locale][category];
 // The language switch and hreflang point at the post's translation. A post with
@@ -29,13 +40,15 @@ const alternatePath = translationSlug ? `${blogPath(other)}${translationSlug}/` 
 // Structured data from the frontmatter; the image is the cover's share image (src/pages/media/covers).
 const site = Astro.site ?? new URL(`https://${identity.domain}`);
 const posting = blogPosting(site, {
-  headline: title,
-  description,
+  headline: post.seoTitle ?? title,
+  description: post.seoDescription ?? description,
   path: postPath(locale, post),
   published: pubDate,
+  modified: post.updated,
   locale,
   section: cat.label,
-  image: coverImagePath(cover),
+  image: shareImage ?? '/media/share-card.png',
+  author: post.author,
 });
 const crumbs = [
   { name: c.title, path: blogPath(locale) },
@@ -44,7 +57,18 @@ const crumbs = [
 const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
 ---
 
-<BaseLayout locale={locale} title={title} description={description} alternatePath={alternatePath} crumbs={crumbs} graph={[posting]} feed={feed} image={{ path: coverImagePath(cover), alt: title }}>
+<BaseLayout
+  locale={locale}
+  title={post.seoTitle ?? title}
+  description={post.seoDescription ?? description}
+  noindex={post.noindex || preview !== undefined}
+  alternatePath={alternatePath}
+  crumbs={crumbs}
+  graph={[posting]}
+  feed={feed}
+  image={shareImage ? { path: shareImage, alt: cover.kind === 'image' ? cover.alt : title } : undefined}
+>
+  {preview && <LivePreview cmsOrigin={preview.cmsOrigin} label={c.preview} />}
   <article class="ui-container post">
     <header class="post-head">
       <p class="post-meta small">
@@ -55,10 +79,10 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
       <p class="lead post-lead">{description}</p>
     </header>
 
-    <PostCover id={cover} variant="banner" />
+    <PostCover cover={cover} variant="banner" locale={locale} />
 
     <div class="post-body">
-      <Content />
+      {Content ? <Content /> : richText && <RichText locale={locale} nodes={richText.children ?? []} ids={headingIds(richText)} />}
     </div>
 
     <p class="post-back">
