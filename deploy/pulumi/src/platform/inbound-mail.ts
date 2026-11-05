@@ -4,7 +4,8 @@ import * as cloudflare from "@pulumi/cloudflare";
 import * as pulumi from "@pulumi/pulumi";
 import type { DeployConfig } from "../config";
 import { appOrigin } from "../app/config";
-import type { MailZone } from "./email-routing";
+import { installMailZoneDmarc, type MailZone } from "./email-routing";
+import { installOperatorForwards, operatorAddressStatus, type OperatorForwards } from "./inbound-mail-operator";
 
 /**
  * Project mail (ADR-0138): ONE literal routing rule on `inboundMailDomain`,
@@ -25,10 +26,11 @@ import type { MailZone } from "./email-routing";
  * where the Worker reads the token. So one rule serves every project, and
  * minting an address needs no Cloudflare call and no credential in the BFF.
  *
- * Subaddressing is a dashboard setting this program cannot set (the provider's
- * only handle on it onboards the zone apex; `email-routing.ts` says why), and
- * whether it applies to a SUBDOMAIN's rules is the one thing ADR-0138 has us
- * prove with a test address before the first unpause. If it does not, the
+ * Subaddressing is a zone setting this program cannot set (the provider's
+ * only handle on it onboards the zone apex; `email-routing.ts` says why, and
+ * which API call a person makes instead), and whether it applies to a
+ * SUBDOMAIN's rules is the one thing ADR-0138 has us prove with a test address
+ * before the first unpause. If it does not, the
  * documented fallback is a dedicated mail domain with an apex catch-all.
  *
  * ## Why a subdomain, and not the product's apex
@@ -79,14 +81,31 @@ import type { MailZone } from "./email-routing";
  * of every delivery at Cloudflare, beyond the Email Routing activity log the
  * privacy notice names.
  *
+ * ## Beside the rule: the RFC 2142 forwards and DMARC
+ *
+ * `postmaster@` and `abuse@` forward to `inboundMailOperatorAddress`
+ * (`inbound-mail-operator.ts`), and `inboundMailDmarc`, when set, is the
+ * zone apex's `_dmarc` record (`email-routing.ts`). Both are declared whenever
+ * the domain is set, switched off included.
+ *
  * ## Cloudflare API token scopes (on `cloudflareApiToken`)
  *
- *   - Account · Workers Scripts · Edit (the Worker)
- *   - Zone · Email Routing Rules · Edit (the rule), on the inbound zone
- *   - Zone · Zone Settings · Edit (enabling routing, `email/routing/dns`)
- *   - Zone · DNS · Edit (routing adds and locks the domain's MX and SPF
- *     records; the MX guard reads them)
+ * An account-owned token; the account id comes from `getZone`, never config.
+ * On the mail zone (prod: `archos.tech`):
+ *
  *   - Zone · Zone · Read (`getZone`: the zone check and the account id)
+ *   - Zone · Zone Settings · Edit (enabling routing, `email/routing/dns`; the
+ *     subaddressing call a person makes, `email-routing.ts`)
+ *   - Zone · DNS · Edit (routing adds and locks the domain's MX and SPF
+ *     records; the MX guard reads them; the DMARC record and its guard)
+ *   - Zone · Email Routing Rules · Edit (the project rule and the two forwards)
+ *
+ * On the account:
+ *
+ *   - Account · Workers Scripts · Edit (the Worker)
+ *   - Account · Email Routing Addresses · Edit (the operator's destination address)
+ *
+ * The same token carries the DNS block's scopes on the zones it manages.
  */
 
 /**
@@ -106,6 +125,10 @@ export interface InboundMail {
   script?: cloudflare.WorkersScript;
   /** The one literal rule, `<localPart>@<domain>`. */
   rule: cloudflare.EmailRoutingRule;
+  /** `postmaster@` and `abuse@`, forwarded to the operator. */
+  operator: OperatorForwards;
+  /** `_dmarc.<zone apex>`, while `inboundMailDmarc` is set. */
+  dmarc?: cloudflare.DnsRecord;
 }
 
 /** The rule's address: the base every project address is a subaddress of. */
@@ -129,6 +152,8 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
   const scriptName = workerScriptName(pulumi.getStack());
 
   const matchers = [{ type: "literal", field: "to", value: ruleAddress(mail.localPart, mail.domain) }];
+  const operator = installOperatorForwards(cfg, zone);
+  const dmarc = installMailZoneDmarc(cfg, zone);
 
   if (!mail.enabled) {
     const rule = new cloudflare.EmailRoutingRule(
@@ -145,7 +170,7 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
       },
       { ...opts, dependsOn: [zone.routing] },
     );
-    return { zone, rule };
+    return { zone, rule, operator, dmarc };
   }
 
   // `zone.accountId` comes out of the guarded zone lookup, so the Worker is
@@ -188,5 +213,18 @@ export function installInboundMail(cfg: DeployConfig, zone: MailZone | undefined
     { ...opts, dependsOn: [script, zone.routing] },
   );
 
-  return { zone, script, rule };
+  return { zone, script, rule, operator, dmarc };
+}
+
+/** The stack outputs of project mail: the Worker (or why none), the operator's address (or why none). */
+export function inboundMailOutputs(cfg: DeployConfig, mail: InboundMail | undefined) {
+  const unset = pulumi.output("(none: inboundMailDomain unset)");
+  return {
+    inboundMailWorker: mail?.script
+      ? pulumi.interpolate`${mail.script.scriptName}${cfg.inboundMail.paused ? " (paused)" : ""}`
+      : mail
+        ? pulumi.output("(none: inboundMailEnabled=false, the routing rule is disabled)")
+        : unset,
+    inboundMailOperator: mail ? operatorAddressStatus(mail.operator) : unset,
+  };
 }

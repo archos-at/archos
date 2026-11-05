@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
-import { mailStackConfig, SIGNING_KEY_ID, SIGNING_KEYS, SIGNING_SECRET } from "./src/test-support/app-zone-config";
+import { MAIL_ZONE_ID, mailStackConfig, SIGNING_KEY_ID, SIGNING_KEYS, SIGNING_SECRET } from "./src/test-support/app-zone-config";
 import { LEGACY_PROJECT } from "./src/names";
 
 /**
@@ -81,7 +81,7 @@ describe("the program constructs with project mail on", () => {
       [`${LEGACY_PROJECT}:seaweedfsPerOrgBuckets`]: "false",
       [`${LEGACY_PROJECT}:observabilityEnabled`]: "false",
       [`${LEGACY_PROJECT}:inboundMailDomain`]: DOMAIN,
-      [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-mail-1",
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: MAIL_ZONE_ID,
       [`${LEGACY_PROJECT}:inboundMailPaused`]: "true",
     });
     const stack = (await import("./index")) as Record<string, unknown>;
@@ -101,6 +101,16 @@ describe("the program constructs with project mail on", () => {
       ]),
     );
     expect(outputs.inboundMailWorker).toBe("inbound-mail-test (paused)");
+  });
+
+  it("forwards the RFC 2142 addresses and says in its output that the destination still needs its click", () => {
+    expect(RESOURCES.filter((r) => r.type === "cloudflare:index/emailRoutingAddress:EmailRoutingAddress")).toHaveLength(1);
+    const forwards = RESOURCES.filter(
+      (r) => r.type === "cloudflare:index/emailRoutingRule:EmailRoutingRule" && /^inbound-mail-(postmaster|abuse)$/.test(r.name),
+    );
+    expect(forwards).toHaveLength(2);
+    // The mock's address has no `verified` timestamp, as after the first `up`.
+    expect(outputs.inboundMailOperator).toMatch(/^mail-ops@company\.example \(NOT verified/);
   });
 
   it("gives the frontend the domain, the local part, the pause and the key map, the map from the Secret", () => {

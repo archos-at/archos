@@ -1,8 +1,15 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
-import { assertDomainInZone, assertNoForeignMx, ROUTING_RESOURCE_OPTIONS } from "./email-routing";
+import {
+  assertDomainInZone,
+  assertNoForeignDmarc,
+  assertNoForeignMx,
+  dmarcRecordComment,
+  ROUTING_RESOURCE_OPTIONS,
+} from "./email-routing";
 import { LEGACY_PROJECT } from "../names";
+import { MAIL_ZONE_ID } from "../test-support/app-zone-config";
 
 /**
  * The MX guard the inbox's Email Routing runs on the receiving domain before
@@ -14,7 +21,7 @@ import { LEGACY_PROJECT } from "../names";
  */
 
 const DOMAIN = "inbox.example.test";
-const ZONE_ID = "zone-mail-1";
+const ZONE_ID = MAIL_ZONE_ID;
 const KEY = `${LEGACY_PROJECT}:inboundMailDomain`;
 
 const mx = (content: string, name = DOMAIN) => ({ name, content });
@@ -77,7 +84,7 @@ describe("the zone check", () => {
 
   it("refuses a zone the domain is not in, a look-alike suffix included", () => {
     expect(() => assertDomainInZone(KEY, DOMAIN, ZONE_ID, "example.org")).toThrow(
-      /inboundMailDomain.*zone zone-mail-1 is "example\.org"/,
+      new RegExp(`inboundMailDomain.*zone ${ZONE_ID} is "example\\.org"`),
     );
     expect(() => assertDomainInZone(KEY, "inbox.badexample.test", ZONE_ID, "example.test")).toThrow(/apex or a subdomain/);
   });
@@ -92,5 +99,37 @@ describe("Email Routing on the zone", () => {
     expect(readFileSync(join(__dirname, "email-routing.ts"), "utf8")).toMatch(
       /new cloudflare\.EmailRoutingDns\([^;]*\{ provider, \.\.\.ROUTING_RESOURCE_OPTIONS \}/,
     );
+  });
+});
+
+describe("the DMARC guard on the zone apex", () => {
+  const NAME = "_dmarc.example.test";
+  const OURS = dmarcRecordComment("prod");
+  const txt = (content: string, comment?: string, name = NAME) => ({ name, content, comment });
+  const guard = (records: Array<{ name: string; content: string; comment?: string }>) => () =>
+    assertNoForeignDmarc(NAME, ZONE_ID, OURS, records);
+
+  it("allows a name with no record (the first run) and its own record (every later run)", () => {
+    expect(guard([])).not.toThrow();
+    expect(guard([txt("v=DMARC1; p=none; sp=none", OURS)])).not.toThrow();
+  });
+
+  it("refuses a DMARC record written by hand or by another block, quoted or not, in any case", () => {
+    // Two DMARC records at one name and receivers apply neither (RFC 7489 §6.6.3).
+    expect(guard([txt("v=DMARC1; p=quarantine")])).toThrow(/already holds a DMARC record this stack did not write/);
+    expect(guard([txt('"v=DMARC1; p=reject"')])).toThrow(/Keep one owner/);
+    expect(guard([txt("V=dmarc1;p=none", "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)")])).toThrow(/comment/);
+  });
+
+  it("refuses a foreign record beside its own", () => {
+    expect(guard([txt("v=DMARC1; p=none", OURS), txt("v=DMARC1; p=reject")])).toThrow(/p=reject/);
+  });
+
+  it("refuses the record of another stack, which carries that stack's comment", () => {
+    expect(guard([txt("v=DMARC1; p=none", dmarcRecordComment("dev"))])).toThrow(/stack dev/);
+  });
+
+  it("ignores TXT records that are not DMARC, and records on other names", () => {
+    expect(guard([txt("google-site-verification=abc"), txt("v=DMARC1; p=reject", undefined, "_dmarc.inbox.example.test")])).not.toThrow();
   });
 });

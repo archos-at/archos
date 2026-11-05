@@ -27,15 +27,39 @@ import type { DeployConfig } from "../config";
  *
  * The project addresses are `project+<slug>.<token>@<domain>` and reach the rule
  * `project@<domain>` only with the zone's subaddressing setting on. The provider
- * (`@pulumi/cloudflare` 6.23.1) has `supportSubaddress` only on
- * `EmailRoutingSettings`, whose create calls the zone's Email Routing ENABLE
- * endpoint (onboarding the APEX, which fails with "Non-Cloudflare MX records
- * exist" beside Google Workspace) without sending the field, whose update is a
- * no-op, and whose delete DISABLES Email Routing for the whole zone
- * (terraform-provider-cloudflare `internal/services/email_routing_settings`,
- * read 2026-11-03). So it is a dashboard step (Email Routing → Settings →
- * Subaddressing), checked by `scripts/inbound-mail-smoke.ts cloudflare`
- * (ADR-0138, gate G0).
+ * (`@pulumi/cloudflare` 6.23.1, which bridges terraform-provider-cloudflare at
+ * commit 9b51a582, its `upstream` submodule) has `supportSubaddress` only on
+ * `EmailRoutingSettings`, and that resource cannot be used here (read
+ * 2026-11-05 at that commit, `internal/services/email_routing_settings/resource.go`,
+ * and cloudflare-go v7.13.1, `email_routing/emailrouting.go`):
+ *
+ *   - its create calls `EmailRouting.Enable`, `POST /zones/{zone}/email/routing/enable`
+ *     with no body: the apex's onboarding ("Enable your Email Routing zone. Add
+ *     and lock the necessary MX and SPF records"), which fails with error 2008
+ *     beside Google Workspace's MX or, where it succeeds, takes the apex's mail.
+ *     `supportSubaddress` is never sent;
+ *   - its update is empty ("Update is not supported for this resource"), so a
+ *     changed `supportSubaddress` is recorded in state and never reaches Cloudflare;
+ *   - its delete calls `email/routing/disable` for the whole zone.
+ *
+ * The API that does set it is `PATCH /zones/{zone}/email/routing` with
+ * `{"support_subaddress": true}` (cloudflare-go `EmailRouting.Edit`; that
+ * endpoint's `enabled` field is documented as a no-op, "use POST/DELETE
+ * /zones/{zone_id}/email/routing/dns"), which nothing in the provider calls.
+ * So it stays one call by a person, the runbook's §7, checked by
+ * `scripts/inbound-mail-smoke.ts g0` (gate G0); `inbound-mail.spec.ts` fails
+ * if an `EmailRoutingSettings` is ever declared.
+ *
+ * ## The DMARC record, on the zone's apex
+ *
+ * `inboundMailDmarc` publishes `_dmarc.<zone apex>`, whose `sp=` covers the
+ * receiving subdomain. Cloudflare accepts a second TXT record at the same name
+ * without complaint, and a receiver that finds two DMARC records applies
+ * neither (RFC 7489 §6.6.3). So before the record is registered the preview
+ * reads the name's TXT records and refuses any DMARC record this stack did not
+ * write (told apart by its comment): one written by hand, or by the DNS block
+ * of a stack that owns the zone (`dnsDmarc`). `loadConfig` refuses the
+ * same pair within one stack, `stack-files.spec.ts` across the committed ones.
  */
 
 /** Cloudflare Email Routing's own MX hosts: `route1.mx.cloudflare.net` and its siblings. */
@@ -82,6 +106,8 @@ export interface CheckedZone {
   /** The account that owns the zone: where Workers and destination addresses live. */
   accountId: string;
   zoneId: string;
+  /** The zone's apex, e.g. `example.org`. */
+  zoneName: string;
 }
 
 /**
@@ -107,7 +133,7 @@ export function checkedRoutingZone(args: {
   return pulumi.all([zone, mx]).apply(([z, records]) => {
     args.checkZoneName(z.name);
     assertNoForeignMx(args.configKey, args.domain, args.zoneId, records.results);
-    return { accountId: z.account.id, zoneId: args.zoneId };
+    return { accountId: z.account.id, zoneId: args.zoneId, zoneName: z.name };
   });
 }
 
@@ -119,6 +145,8 @@ export interface MailZone {
   /** Taken from the guarded lookup, so nothing using them exists unless the guards passed. */
   zoneId: pulumi.Output<string>;
   accountId: pulumi.Output<string>;
+  /** The zone's apex, from the same lookup: where `_dmarc` lives. */
+  zoneName: pulumi.Output<string>;
   /** Enables Email Routing on the domain and adds (and locks) its MX and SPF records. */
   routing: cloudflare.EmailRoutingDns;
 }
@@ -193,6 +221,62 @@ export function installInboundMailZone(cfg: DeployConfig): MailZone | undefined 
     domain: mail.domain,
     zoneId: checked.zoneId,
     accountId: checked.accountId,
+    zoneName: checked.zoneName,
     routing,
   };
+}
+
+/** The comment that marks the `_dmarc` record as this stack's, for the guard below. */
+export function dmarcRecordComment(stack: string): string {
+  return `Managed by Pulumi, stack ${stack}: inboundMailDmarc (deploy/pulumi/src/platform/email-routing.ts)`;
+}
+
+/** The parts of a DNS record the DMARC guard reads. */
+export interface TxtRecord {
+  name: string;
+  content: string;
+  comment?: string | null;
+}
+
+/**
+ * Refuse a `_dmarc` name that already holds a DMARC record this stack did not
+ * write: publishing ours beside it would leave two, and a receiver then
+ * applies neither (RFC 7489 §6.6.3). Other TXT records at the name are not
+ * DMARC records and are left alone.
+ */
+export function assertNoForeignDmarc(name: string, zoneId: string, comment: string, records: readonly TxtRecord[]): void {
+  const foreign = records
+    .filter((r) => normalizeHost(r.name) === name)
+    .filter((r) => /^v=DMARC1\s*(;|$)/i.test(r.content.trim().replace(/^"|"$/g, "")))
+    .filter((r) => r.comment !== comment);
+  if (foreign.length === 0) return;
+  throw new Error(
+    `inboundMailDmarc would publish ${name} (zone ${zoneId}), but that name already holds a DMARC record ` +
+      `this stack did not write: ${foreign.map((r) => JSON.stringify(r.content)).join(", ")}${foreign[0].comment ? ` (comment: "${foreign[0].comment}")` : ""}. ` +
+      "Two DMARC records make every receiver ignore both. Keep one owner: unset inboundMailDmarc and keep that " +
+      "record, or delete it (and unset dnsDmarc on the stack that wrote it) and let this stack publish.",
+  );
+}
+
+/**
+ * The `_dmarc.<zone apex>` TXT record from `inboundMailDmarc`, or undefined
+ * while it is unset. Its zone id comes out of the DMARC guard, so the record
+ * is not registered, not even in a preview, unless the guard passed.
+ */
+export function installMailZoneDmarc(cfg: DeployConfig, zone: MailZone): cloudflare.DnsRecord | undefined {
+  const content = cfg.inboundMail.dmarc;
+  if (content === undefined) return undefined;
+  const opts = { provider: zone.provider };
+  const comment = dmarcRecordComment(pulumi.getStack());
+  const name = zone.zoneName.apply((apex) => `_dmarc.${apex}`);
+  const existing = cloudflare.getDnsRecordsOutput({ zoneId: zone.zoneId, type: "TXT", name: { exact: name } }, opts);
+  const zoneId = pulumi.all([zone.zoneId, name, existing]).apply(([id, dmarcName, records]) => {
+    assertNoForeignDmarc(dmarcName, id, comment, records.results);
+    return id;
+  });
+  return new cloudflare.DnsRecord(
+    "inbound-mail-dmarc",
+    { zoneId, name, type: "TXT", content, ttl: cfg.dns.ttl, proxied: false, comment },
+    opts,
+  );
 }

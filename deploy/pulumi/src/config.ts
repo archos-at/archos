@@ -529,10 +529,7 @@ export function loadConfig(): DeployConfig {
   // ── Project mail (Cloudflare Email Routing, ADR-0138) ──────────────────────
   const malwareScan = malwareScanConfig(cfg);
   const inboundMail = inboundMailConfig(cfg, {
-    dnsEnabled: dns.enabled,
-    dnsZoneId: dns.zoneId,
-    dnsZoneName: dns.zoneName,
-    dnsZoneBaseline: dns.zoneBaseline,
+    dns,
     // The token itself, not DNS's: an inbox zone of its own needs it while DNS is off.
     cloudflareApiToken: cfg.getSecret("cloudflareApiToken"),
     malwareScanEnabled: malwareScan.enabled,

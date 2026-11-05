@@ -24,16 +24,24 @@ export function appZoneStackConfig(): Record<string, string> {
 export const SIGNING_KEY_ID = "mi-2026-10";
 export const SIGNING_SECRET = Buffer.alloc(32, 0x11).toString("base64"); // pragma: allowlist secret
 
+/** A zone of its own for the mail domain: `loadConfig` takes only a Cloudflare zone id's shape. */
+export const MAIL_ZONE_ID = "0123456789abcdef0123456789abcdef";
+
+/** Where `postmaster@` and `abuse@` forward to (RFC 2142). */
+export const OPERATOR_ADDRESS = "mail-ops@company.example";
+
 /** A one-key map, as `inboundMailSigningKeys` holds it. */
 export const SIGNING_KEYS = JSON.stringify({ [SIGNING_KEY_ID]: SIGNING_SECRET });
 
 /**
  * Everything project mail needs besides its domain and zone: the scanner it
- * refuses to run without, the signing keys and the Cloudflare token.
+ * refuses to run without, the signing keys, the Cloudflare token and the
+ * operator's mailbox.
  */
 export function mailStackConfig(): Record<string, string> {
   return {
     [`${LEGACY_PROJECT}:malwareScanEnabled`]: "true",
+    [`${LEGACY_PROJECT}:inboundMailOperatorAddress`]: OPERATOR_ADDRESS,
     [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: SIGNING_KEYS,
     [`${LEGACY_PROJECT}:cloudflareApiToken`]: "cf-token", // pragma: allowlist secret
   };

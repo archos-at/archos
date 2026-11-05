@@ -10,7 +10,7 @@
  *
  *   cd deploy/pulumi
  *   bun scripts/inbound-mail-smoke.ts plan            # every gate, nothing sent (the default)
- *   bun scripts/inbound-mail-smoke.ts g0              # G0: both MX sets, subaddressing, the rules, the test mail (read-only)
+ *   bun scripts/inbound-mail-smoke.ts g0              # G0: both MX sets, subaddressing, the rules, DMARC, the test mail (read-only)
  *   bun scripts/inbound-mail-smoke.ts cloudflare      # G7 + the deployed edge, read-only
  *   bun scripts/inbound-mail-smoke.ts signed --run    # G3 (and G4 with --expect-paused)
  *   bun scripts/inbound-mail-smoke.ts malware --run   # G6, the parts a request can drive
@@ -19,13 +19,14 @@
  * Inputs (environment, never flags, for what is secret):
  *
  *   CLOUDFLARE_API_TOKEN       read access to the zone's Email Routing and DNS,
- *                              and to the account's Workers scripts
+ *                              and to the account's Workers scripts and Email Routing addresses
  *   INBOUND_MAIL_ZONE_ID       the zone the mail domain lives in
  *   INBOUND_MAIL_ACCOUNT_ID    the account that owns the Worker
  *   INBOUND_MAIL_DOMAIN        the receiving domain, e.g. inbox.example.org
  *   INBOUND_MAIL_LOCAL_PART    the local part of the routing rule (default: the program's,
  *                              DEFAULT_INBOUND_MAIL_LOCAL_PART in src/config/inbound-mail.ts)
  *   INBOUND_MAIL_APEX_MX       `g0` only: the apex's MX hosts as they must stay, or `none`
+ *   INBOUND_MAIL_DMARC         `g0` only: the `_dmarc.<apex>` record the stack sets (optional)
  *   INBOUND_MAIL_WORKER        the script name, inbound-mail-<stack> (the stack output
  *                              `inboundMailWorker` without its " (paused)" suffix)
  *   INBOUND_MAIL_APP_ORIGIN    e.g. https://app.example.org, the origin of WORKOS_REDIRECT_URI
@@ -268,9 +269,9 @@ function env(name: string): string {
 const MANUAL: Array<[string, string]> = [
   [
     "G0",
-    "Subaddressing on the subdomain (ADR-0138's one unproven assumption), before anything else: Cloudflare " +
-      "dashboard → the zone → Email Routing → Settings → Subaddressing on (the provider cannot set it), then " +
-      "`g0` (both MX sets, support_subaddress, the rules, and this test mail spelled out). With the stack still paused, send one plain mail to " +
+    "Subaddressing on the subdomain (ADR-0138's one unproven assumption), before anything else: one call, " +
+      "PATCH /zones/INBOUND_MAIL_ZONE_ID/email/routing {\"support_subaddress\":true} (the provider cannot set it; the runbook's §7), then " +
+      "`g0` (both MX sets, support_subaddress, the rules, the forwards' verified destination, one DMARC record, and this test mail spelled out). With the stack still paused, send one plain mail to " +
       "INBOUND_MAIL_LOCAL_PART+smoke.aaaaaaaaaaaa@INBOUND_MAIL_DOMAIN: the sender must see a TEMPORARY failure " +
       "(the Worker's pause), not 'Address does not exist' (no rule matched). Email Routing → Activity log must show " +
       "the rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN matched. A permanent 5xx here means subaddressing does not " +
@@ -318,7 +319,7 @@ const MANUAL: Array<[string, string]> = [
   [
     "G7",
     "`cloudflare` checks it: the one literal rule INBOUND_MAIL_LOCAL_PART@INBOUND_MAIL_DOMAIN → the Worker, the " +
-      "RFC 2142 forwards postmaster@ and abuse@ (set up in the dashboard), and no other rule on the receiving domain.",
+      "RFC 2142 forwards postmaster@ and abuse@ (Pulumi's, to inboundMailOperatorAddress), and no other rule on the receiving domain.",
   ],
   ["G8", "After any COMPATIBILITY_DATE bump (platform/inbound-mail.ts): G1 and G2 again."],
   [

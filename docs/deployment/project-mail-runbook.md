@@ -25,12 +25,12 @@ waits in the project's E-Mail-Eingang, and gates G0–G9 are recorded as passed 
 | # | Open item | Effect | What closes it |
 |---|---|---|---|
 | B1 | **Closed 2026-11-03: the help and privacy links follow the website's host.** The brand rename had replaced the real host with `https://example.org` (commit `5b1b6005c`). The bounce text is now a template (`rejectText` in `contracts/inbound-mail-contract.json`) that the Worker and the BFF fill with `LANDING_URL`, `https://<webDomain>` from Pulumi (`webOrigin` in `deploy/pulumi/src/config/ingress.ts`), and the UI's „Anleitung“ links take the same origin from the server (`AppConfig.publicSiteUrl`). The domain cutover moves all three with the stack's `webDomain` | Before the fix, a sender who mistyped an address was sent to `example.org`. Now, with `LANDING_URL` unset or malformed, the bounce says the same without links and the dialog shows no „Anleitung“: a refusal never turns into a retry | Nothing. Check once after the first promote: the Worker's `LANDING_URL` binding in Cloudflare (Workers → the inbound-mail Worker → Settings → Variables) is the website's origin |
-| B2 | **G0 is unproven.** Cloudflare documents adding a subdomain to Email Routing from the *apex's* Email Routing settings, and onboarding an apex whose MX belong to another provider fails with error 2008 ("Non-Cloudflare MX records exist"). Pulumi enables the subdomain through the API (`email/routing/dns` with the subdomain's name), which is not documented to need the apex; the subaddressing switch exists only in the dashboard | If the subdomain cannot be routed, or subaddressing cannot be switched on, without onboarding the apex, path (b) below is blocked | Step 7 and gate G0 prove it on the real zone. The fallback, a dedicated mail-only domain with an apex catch-all, is a code change (the address grammar, the Worker's shape check, the parser and the Pulumi rule; ADR-0138, "The fallback") |
+| B2 | **G0 is unproven.** Cloudflare documents adding a subdomain to Email Routing from the *apex's* Email Routing settings, and onboarding an apex whose MX belong to another provider fails with error 2008 ("Non-Cloudflare MX records exist"). Pulumi enables the subdomain through the API (`email/routing/dns` with the subdomain's name), which is not documented to need the apex; subaddressing is set by the zone's settings endpoint (`PATCH …/email/routing`, §7), which is not documented to work on a zone whose apex is not onboarded | If the subdomain cannot be routed, or subaddressing cannot be switched on, without onboarding the apex, path (b) below is blocked | §7 and gate G0 prove it on the real zone. The fallback, a dedicated mail-only domain with an apex catch-all, is a code change (the address grammar, the Worker's shape check, the parser and the Pulumi rule; ADR-0138, "The fallback") |
 | B3 | **Cloudflare refuses mail that passes neither SPF nor DKIM, and mail that fails the sender's DMARC policy** (Cloudflare Email Service, "Postmaster" → "Mail authentication requirement", required since 2025-07-03). ADR-0138's table says any sender is accepted and held; at Cloudflare that holds only for senders that authenticate | A small office or authority whose domain publishes neither SPF nor DKIM gets a bounce from Cloudflare, before the product sees the mail | Nothing in the product. Support says so (section 11) |
 
 ## 1. Facts as of 2026-11-03
 
-Read with `dig` or DNS over HTTPS on 2026-11-03; `scripts/inbound-mail-smoke.ts g0`
+Read with `dig` or DNS over HTTPS on 2026-11-03 (`archos.tech` re-read 2026-11-05: unchanged); `scripts/inbound-mail-smoke.ts g0`
 re-reads the live values.
 
 | | `piloti.at` | `archos.tech` |
@@ -45,7 +45,10 @@ re-reads the live values.
 
 In the product today: no stack sets `inboundMailDomain`; prod has
 `malwareScanEnabled` unset (off); the WorkOS entitlement `inbound-mail` exists
-OFF for every organization in both environments (owner gate O1, 2026-10-27).
+in both environments (owner gate O1, 2026-10-27): staging ON for all
+organizations since 2026-11-05, production OFF until §8's gates pass on prod.
+Every office is a pilot (owner, 2026-11-05), so §9 is one switch: production,
+all organizations.
 
 ## 2. Decisions to make first
 
@@ -57,14 +60,22 @@ domain later stops every address (each project gets a new one; the old ones boun
 | | (a) `inbox.piloti.at` | (b) `inbox.archos.tech` |
 |---|---|---|
 | Config | `inboundMailDomain` only: the stack's own zone, no zone id, no new token zone | `inboundMailDomain` and `inboundMailZoneId` (the brand zone's id); the token gains that zone |
-| Risk B2 | Low. The apex has no MX, so even a forced apex onboarding would succeed and take no one's mail; the owner may accept that (step 7, path a) | The real test. The apex's MX are Google's: never onboard the apex. If G0 fails here, the fallback is code |
+| Risk B2 | Low. The apex has no MX, so even a forced apex onboarding would succeed and take no one's mail; the owner may accept that (§7, path a) | The real test. The apex's MX are Google's: never onboard the apex. If G0 fails here, the fallback is code |
 | Lifetime | Ends at the domain cutover: every project mail address changes then | Survives the cutover |
 | Sender's view | The retired domain in every address | The brand in every address |
 
-Recommendation: **(b)**, if step 7 can switch subaddressing on without touching
+Recommendation: **(b)**, if §7's call can switch subaddressing on without touching
 the apex. If it cannot, decide between (a) with a planned address change at the
 cutover and the fallback's code change. Write the choice into the record of runs
 in `kubernetes.md` §3c.
+
+**Decided 2026-11-05 (owner):** prod takes (b), `inbox.archos.tech`. Dev gets
+mail too and goes first (§8a), on `inbox.dev.piloti.at` in the piloti.at zone:
+Email Routing's state is one object per zone (the provider imports
+`EmailRoutingDns` by zone id), so two stacks may not share one, and
+`stack-files.spec.ts` refuses it. The cost of that choice: dev's G0 does not
+prove what prod's must, that archos.tech's zone takes subaddressing without its
+Google apex being onboarded. Prod's G0 answers that while prod is still paused.
 
 **D2, the test office.** One WorkOS organization in production that is yours
 (the company's own office), with one project, to receive every probe. Its
@@ -72,14 +83,16 @@ manager creates the address; nobody outside the company may hold it.
 
 **D3, the operator mailbox.** The address `postmaster@` and `abuse@` of the
 receiving domain forward to (RFC 2142), on the company's own mail, e.g. a Google
-group. It must be verified in Cloudflare (step 1).
+group: `inboundMailOperatorAddress`. Pulumi registers it with Cloudflare; a
+person opens Cloudflare's verification mail to it once (§7). On path (b) it is
+also the DMARC report address (`rua=`).
 
 **D4, the pilot office.** The first customer office (gate O7), and one of its
 people who can export a few hundred messages of real project mail for G9.
 
 ## 3. Accounts and plans
 
-- [ ] **Cloudflare Workers Paid** on the account that owns the zone (owner gate
+- [x] **Cloudflare Workers Paid** (done: the owner confirmed the account has it, 2026-11-05) on the account that owns the zone (owner gate
   O2, **one-way door**: a subscription). Dashboard → Workers & Pages → Plans.
   Needed for CPU time: Free allows 10 ms per invocation, and the Worker copies
   and hashes up to 25 MiB (gate G5 measures it). Email Routing itself is free on
@@ -108,37 +121,65 @@ ENV=$(awk '/^environment:/{getline; sub(/^ *- */,""); print; exit}' Pulumi.prod.
 STACK="matthiasbigl/$P/prod"
 ```
 
-## 4. Cloudflare: tokens, destination address, subaddressing
+## 4. Cloudflare: what Pulumi cannot do for you
 
-- [ ] **The deploy token's scopes.** The prod stack already holds
-  `cloudflareApiToken` (in ESC) for its DNS. Cloudflare → My Profile → API Tokens
-  → that token → Edit, and add (editing keeps the token's value):
-  - Zone · Zone Settings · Edit (enabling routing on the subdomain)
-  - Zone · Email Routing Rules · Edit (the one rule)
-  - Zone · Zone · Read (the zone check and the account id)
-  - Zone · DNS · Edit (routing writes and locks the subdomain's MX and TXT; the MX guard reads them)
-  - Account · Workers Scripts · Edit, with the account listed under the
-    token's **Account Resources** (a token scoped to zones alone lacks it)
-  - Zone Resources: the zone of D1 (for (b), add `archos.tech` beside the existing zone).
+Pulumi creates, at promotion 2, the routing on the subdomain, the project rule,
+the Worker, the operator's destination address, the `postmaster@` and `abuse@`
+forwards and (path (b)) the DMARC record. What stays with a person: the token's
+scopes, the plan (§3), the zone id, one click in a verification mail, and the
+subaddressing switch (§7: the provider has no safe way to set it).
 
-  The source of this list: `deploy/pulumi/src/platform/inbound-mail.ts`,
-  "Cloudflare API token scopes".
+- [ ] **The deploy token.** A new account-owned token (Cloudflare → Manage
+  Account → Account API Tokens → Create), stored as `cloudflareApiToken` in the
+  prod ESC environment in place of the old one. No account-id key: Pulumi reads
+  the account from the zone (`getZone`). Its scopes for project mail:
+  - on `archos.tech` (Zone Resources):
+    - Zone · Zone · Read (the zone check and the account id)
+    - Zone · Zone Settings · Edit (enabling routing on the subdomain; the
+      subaddressing call of §7)
+    - Zone · DNS · Edit (routing writes and locks the subdomain's MX and TXT;
+      the MX guard reads them; the DMARC record and its guard)
+    - Zone · Email Routing Rules · Edit (the project rule and the two forwards)
+  - on the account:
+    - Account · Workers Scripts · Edit (the Worker)
+    - Account · Email Routing Addresses · Edit (the operator's destination address)
+
+  The same token carries the domain cutover's scopes (DNS · Edit and Single
+  Redirect · Edit on `archos.tech` and `piloti.at`, [`domain-cutover.md`](domain-cutover.md)).
+  On path (a) the four zone scopes are on `piloti.at` instead. The source of
+  this list: `deploy/pulumi/src/platform/inbound-mail.ts`, "Cloudflare API
+  token scopes". A missing scope fails the preview or the apply with a 403 at
+  the resource that needed it, and nothing after it runs.
 - [ ] **A read-only token for the gates**, separate from the deploy token:
   Zone · Zone · Read, Zone · Zone Settings · Read, Zone · Email Routing Rules ·
-  Read, Zone · DNS · Read on the D1 zone, and Account · Workers Scripts · Read.
-  The smoke tool never writes; a 403 names the path it could not read.
-- [ ] **The operator mailbox (D3) as a destination address.** Dashboard →
-  Email Routing (account level) → Destination addresses → Add, then open the
-  verification mail and confirm. Destination addresses belong to the account
-  and can be verified before anything is routed.
-- [ ] **Subaddressing, first attempt.** Dashboard → the D1 zone → Email Routing
-  → Settings → Subaddressing: on. If the page offers only "Get started" /
-  "Onboard domain" / "Add records and enable" for the apex, **do not click it**:
-  on `archos.tech` that onboarding either fails with error 2008 or, in the flow
-  that offers to delete the existing MX, takes the company's mail away from
-  Google. Leave it, carry on, and come back in step 7.
+  Read, Zone · DNS · Read on the D1 zone, and Account · Workers Scripts · Read
+  and Account · Email Routing Addresses · Read. The smoke tool never writes; a
+  403 names the path it could not read.
+- [x] **The zone id**, path (b) only: `31df51fbdd7ea2d7ef63bcaab9a09559`
+  (Cloudflare → `archos.tech` → Overview → API → Zone ID, read 2026-11-05; the
+  same account as `piloti.at`). It is already in the commented §7 lines of
+  `Pulumi.prod.yaml`; `loadConfig` refuses anything that is not 32 hex digits.
+- [ ] **The operator mailbox (D3)**: decide its address now, on the company's
+  own mail (a Google group on `archos.tech` takes the DMARC reports of path (b)
+  without further DNS). Pulumi adds it as a destination address at §7. If it
+  is already a destination address in the account (added by hand earlier, or
+  used by another zone), import it once before the promotion, or the apply
+  fails with a duplicate:
+  `pulumi import cloudflare:index/emailRoutingAddress:EmailRoutingAddress inbound-mail-operator '<account_id>/<destination address id>'`
+  (the id: `GET /accounts/<account_id>/email/routing/addresses`).
+- [ ] **Do not** add the `postmaster@`/`abuse@` rules or switch subaddressing on
+  in the dashboard. Rules made by hand beside Pulumi's are two rules for one
+  pattern (only the first in the list acts), and the dashboard's Email Routing
+  page for `archos.tech` may offer only "Get started" / "Onboard domain",
+  which on that apex either fails with error 2008 or, in the flow that offers
+  to delete the existing MX, takes the company's mail away from Google.
 
 ## 5. Secrets
+
+**Done 2026-11-05 (owner):** `inboundMailSigningKeys` is set in both ESC
+environments (dev's and prod's, `matthiasbigl/$ENV` as §3 resolves it), each
+one entry with key id `mi-2026-11` and its own 32-byte secret (the two differ).
+The commands below are for a rotation or a new stack.
 
 The prod stack keeps every secret in its ESC environment, never in
 `Pulumi.prod.yaml` (`pulumi config set --secret` would write ciphertext into the
@@ -213,41 +254,104 @@ its events (`kubectl -n grid describe pod -l app.kubernetes.io/name=clamav`). Pr
 ## 7. Promotion 2: the domain, paused
 
 - [ ] On a branch off `develop`, in the same block of `Pulumi.prod.yaml`,
-  uncomment **either** the (a) line **or** the two (b) lines (and replace the
-  zone-id placeholder with the brand zone's id: Cloudflare → `archos.tech` →
-  Overview → API), and the `inboundMailPaused: "true"` line. Merge to `develop`;
-  `stack-files.spec.ts` fails the PR if the scanner line is not on, or if
-  another stack claims the same zone.
-- [ ] Promotion PR, then `npm run preview` on its commit. Expect exactly:
-  `inbound-mail-routing` (`cloudflare:EmailRoutingDns`, on the subdomain),
-  `inbound-mail-worker` (`cloudflare:WorkersScript`, `inbound-mail-prod`),
-  `inbound-mail-rule` (`cloudflare:EmailRoutingRule`, `project@inbox.<domain>`
-  → the Worker), and `INBOUND_MAIL_DOMAIN`, `INBOUND_MAIL_LOCAL_PART`,
-  `INBOUND_MAIL_PAUSED=true`, `INBOUND_MAIL_SIGNING_KEYS` on the frontend (a
-  rolling restart). The preview **fails** and changes nothing if: the key map is
-  malformed (step 5), the token lacks a scope, the zone id names another zone,
-  or the subdomain already has MX pointing anywhere but `*.mx.cloudflare.net`.
+  uncomment **either** the (a) line **or** the (b) lines, then the
+  `inboundMailOperatorAddress` line and the `inboundMailPaused: "true"` line,
+  and fill in the placeholders:
+  - (b): `inboundMailZoneId` (§4), and `inboundMailDmarc` with `rua=mailto:`
+    the operator mailbox. The recommended record,
+    `v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:<operator>`, only
+    reports (`p=none`) and covers `inbox.` explicitly (`sp=none`); tighten it
+    later in the same key. The mail block is the one writer of
+    `_dmarc.archos.tech` until the domain cutover: no stack may set `dnsDmarc`
+    on that zone meanwhile.
+  - (a): no `inboundMailDmarc`. `piloti.at`'s `_dmarc` is the DNS block's
+    `dnsDmarc`, whose policy covers the subdomain too, and `loadConfig`
+    refuses both on one zone.
+
+  Merge to `develop`; `stack-files.spec.ts` fails the PR if the scanner line is
+  not on, if another stack claims the same zone, if the operator mailbox is
+  missing, if the DMARC record does not parse, or if another stack's
+  `dnsDmarc` writes the same zone's `_dmarc`.
+- [ ] Promotion PR, then `npm run preview` on its commit. Expect exactly, all
+  on the mail provider `cloudflare-inbound-mail`:
+  - `inbound-mail-routing` (`cloudflare:EmailRoutingDns`, on the subdomain)
+  - `inbound-mail-worker` (`cloudflare:WorkersScript`, `inbound-mail-prod`)
+  - `inbound-mail-rule` (`cloudflare:EmailRoutingRule`, `project@inbox.<domain>` → the Worker)
+  - `inbound-mail-operator` (`cloudflare:EmailRoutingAddress`, the operator mailbox, account level)
+  - `inbound-mail-postmaster` and `inbound-mail-abuse` (`cloudflare:EmailRoutingRule`, forward to it)
+  - (b) `inbound-mail-dmarc` (`cloudflare:DnsRecord`, TXT `_dmarc.archos.tech`)
+  - `INBOUND_MAIL_DOMAIN`, `INBOUND_MAIL_LOCAL_PART`, `INBOUND_MAIL_PAUSED=true`,
+    `INBOUND_MAIL_SIGNING_KEYS` on the frontend (a rolling restart).
+
+  Nothing on the apex's MX, and no `EmailRoutingSettings` (its create
+  onboards the apex: ADR-0138). The preview **fails** and changes nothing if:
+  the key map is malformed (step 5), the zone id is not 32 hex digits or names
+  another zone, the token lacks a scope, the subdomain already has MX pointing
+  anywhere but `*.mx.cloudflare.net`, or `_dmarc.<apex>` already holds a DMARC
+  record this stack did not write (one written by hand, or another stack's
+  `dnsDmarc`: two records make receivers apply neither).
 - [ ] **One-way door:** merge and approve `Pulumi up (prod)`. If the apply fails
   at `inbound-mail-routing` with error 2008 or a message about the apex, risk
   B2 has happened: nothing was routed, the apex is untouched; stop and decide D1
   again.
-- [ ] **Subaddressing, second attempt** (if step 4's failed): dashboard → the
-  zone → Email Routing. With the subdomain now routed, Settings may open without
-  onboarding the apex. Switch Subaddressing on.
-  - Still only an onboarding offer, path (b): **stop**, do not onboard
-    `archos.tech`. Turn the feature off (section 8, "Turning it off") and decide
-    D1 again.
-  - Still only an onboarding offer, path (a): the owner may onboard the apex
-    `piloti.at`, which receives no mail today. Its apex then gets Cloudflare's
-    MX, SPF and DKIM records and refuses every address with no rule. Record the
-    decision and run `g0` with `INBOUND_MAIL_APEX_MX=cloudflare`.
-- [ ] **The RFC 2142 rules.** Email Routing → Routing rules → Create address:
-  `postmaster@inbox.<domain>` → Send to an email → the D3 mailbox; the same for
-  `abuse@inbox.<domain>`. These are the only rules besides Pulumi's.
+- [ ] **The verification click.** Creating `inbound-mail-operator` makes
+  Cloudflare mail a verification link to the operator mailbox; open it and
+  click. The forward rules are created in the same apply, before the click:
+  "all routing rules are automatically disabled until the destination address
+  is validated by the user" (Cloudflare, "Email routing rules and addresses",
+  "Routing rule actions"), so they exist but deliver nothing until then, and no
+  second deploy is needed. The stack output `inboundMailOperator` reads
+  `… (NOT verified …)` until Pulumi reads it again (`pulumi refresh`); `g0`
+  reads it live.
+- [ ] **Subaddressing**, one API call with the deploy token (it has Zone
+  Settings · Edit), from the shell of §3:
+
+  ```bash
+  ZONE=<the D1 zone id>                      # (a): the prod stack's dnsZoneId
+  curl -sS -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE/email/routing" \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+    --data '{"support_subaddress":true}' | jq '{success, errors, support_subaddress: .result.support_subaddress, enabled: .result.enabled}'
+  ```
+
+  This is the zone's settings endpoint: its `enabled` field is a no-op
+  ("use POST/DELETE /zones/{zone_id}/email/routing/dns", Cloudflare's API
+  reference), so it routes nothing and onboards nothing. Never call
+  `…/email/routing/enable`: that is the apex's onboarding. Why it is not in
+  Pulumi: the provider's only handle, `EmailRoutingSettings`, calls exactly that
+  endpoint and never sends the field (ADR-0138).
+  - `success: true`, `support_subaddress: true`: run `g0` (§8).
+  - Refused (an error that the zone is not set up for Email Routing, or any
+    other), path (b): **stop**, do not onboard `archos.tech`. This is risk B2.
+    Turn the feature off (section 10, "Turning it off") and decide D1 again;
+    nothing at the apex was changed by the call.
+  - Refused, path (a): the owner may onboard the apex `piloti.at`, which
+    receives no mail today. Its apex then gets Cloudflare's MX, SPF and DKIM
+    records and refuses every address with no rule. Record the decision, call
+    the PATCH again, and run `g0` with `INBOUND_MAIL_APEX_MX=cloudflare`.
 - [ ] **The test office (D2):** WorkOS dashboard (production) → Feature Flags →
   `inbound-mail` → target the test organization only. Its sessions see it at
   their next token refresh, the webhook within 30 s. A manager of the test
   project: Einstellungen › Dokumente → „Adresse erzeugen“, then copy the address.
+
+## 8a. Dev first
+
+Dev runs §5 to §8 before prod, with these values in place of prod's. Its mail
+block is at the end of `Pulumi.dev.yaml`, commented, in the same three promotions.
+
+| | dev | prod |
+|---|---|---|
+| Stack, ESC environment | `STACK=matthiasbigl/$P/dev`; `ENV` read from `Pulumi.dev.yaml` | as §3 |
+| Receiving domain | `inbox.dev.piloti.at` | `inbox.archos.tech` |
+| `inboundMailZoneId` | `66de14f8d07a729634f5d230418bb907` (piloti.at) | `31df51fbdd7ea2d7ef63bcaab9a09559` (archos.tech) |
+| Worker | `inbound-mail-dev` | `inbound-mail-prod` |
+| Operator mailbox | `matthias.bigl+mail-dev@archos.tech` (its own destination address) | `matthias.bigl+mail-prod@archos.tech`; DMARC reports to `matthias.bigl+dmarc@archos.tech` |
+| `_dmarc` | piloti.at's, written by prod's `dnsDmarc`; no `inboundMailDmarc` on dev | `inboundMailDmarc` on archos.tech |
+| `INBOUND_MAIL_APEX_MX` for G0 | `none` | `smtp.google.com` |
+| WorkOS | Staging: `inbound-mail` for your own organization | Production: your own organization first, every office after §8 |
+| Subaddressing call (§7) | on the piloti.at zone | on the archos.tech zone |
+
+Dev's signing key is its own (§5 with dev's `ENV`), never prod's. Dev passes
+G0 to G7 before prod's promotion 2.
 
 ## 8. The launch gates, as a test protocol
 
@@ -255,7 +359,7 @@ Set up once, in the shell of §3 (in `deploy/pulumi`, with `P`, `ENV` and `STACK
 set), and close it afterwards:
 
 ```bash
-export CLOUDFLARE_API_TOKEN=<the read-only token of step 4>
+export CLOUDFLARE_API_TOKEN=<the read-only token of §4>
 export INBOUND_MAIL_ZONE_ID=<the D1 zone id>        # (a): the prod stack's dnsZoneId
 export INBOUND_MAIL_ACCOUNT_ID=<the Cloudflare account id>   # dashboard → the account → Overview
 export INBOUND_MAIL_DOMAIN=inbox.<domain>
@@ -265,6 +369,7 @@ export INBOUND_MAIL_TEST_ADDRESS=<the test project's address>
 export INBOUND_MAIL_KEY_ID=<the keyid of step 5>
 export INBOUND_MAIL_SIGNING_KEY=$(pulumi config get inboundMailSigningKeys --stack "$STACK" | jq -r --arg k "$INBOUND_MAIL_KEY_ID" '.[$k]')
 export INBOUND_MAIL_APEX_MX=<(a): none, (b): smtp.google.com>
+export INBOUND_MAIL_DMARC="$(pulumi config get inboundMailDmarc --stack "$STACK")"   # (a): dnsDmarc instead
 bun scripts/inbound-mail-smoke.ts plan                # every gate's steps; sends nothing
 ```
 
@@ -277,7 +382,7 @@ runs".
 
 | Gate | Do | Expect | If not |
 |---|---|---|---|
-| **G0** | `bun scripts/inbound-mail-smoke.ts g0`, then send the mail it prints (to `project+smoke.aaaaaaaaaaaa@inbox.<domain>`) from your own mailbox | Every line PASS: the subdomain's MX are Cloudflare's, the apex's are unchanged, `support_subaddress=true`, the rule `project@inbox.<domain>` → `inbound-mail-prod`, the two forwards, no other rule. The mail: **no bounce**; hours later your server reports a delay (the paused Worker threw, a temporary failure). Email Routing → Activity log lists it against the rule | MX of the subdomain missing: wait for DNS, re-run. Apex MX changed: someone onboarded the apex; on (b) restore Google's MX at once. `support_subaddress=false`: step 7. An immediate bounce "Address does not exist": subaddressing does not reach the subdomain's rule, **stop**, risk B2, fallback. A bounce "Unknown address: this message was not delivered.": the Worker's `ADDRESS_*` bindings differ from the address you typed |
+| **G0** | `bun scripts/inbound-mail-smoke.ts g0`, then send the mail it prints (to `project+smoke.aaaaaaaaaaaa@inbox.<domain>`) from your own mailbox | Every line PASS: the subdomain's MX are Cloudflare's, the apex's are unchanged, `support_subaddress=true`, the rule `project@inbox.<domain>` → `inbound-mail-prod`, the two forwards, their destination verified, no other rule, exactly one DMARC record at `_dmarc.<apex>` and it is `INBOUND_MAIL_DMARC`. The mail: **no bounce**; hours later your server reports a delay (the paused Worker threw, a temporary failure). Email Routing → Activity log lists it against the rule | MX of the subdomain missing: wait for DNS, re-run. Apex MX changed: someone onboarded the apex; on (b) restore Google's MX at once. `support_subaddress=false`: §7's PATCH. Forward destination not verified: the click of §7. Two DMARC records: someone added one by hand (the preview refuses that on the next deploy); delete the one that is not `inbound-mail-dmarc`. An immediate bounce "Address does not exist": subaddressing does not reach the subdomain's rule, **stop**, risk B2, fallback. A bounce "Unknown address: this message was not delivered.": the Worker's `ADDRESS_*` bindings differ from the address you typed |
 | **G4**, first half | `bun scripts/inbound-mail-smoke.ts signed --run --expect-paused`; and one real mail to the test address | `unsigned request refused` and `unknown key refused` PASS (401), `paused: a signed mail is a retry` PASS (503). The real mail is delayed, not bounced | 503 missing: the frontend has not rolled out `INBOUND_MAIL_PAUSED`; `kubectl -n grid rollout status deploy/frontend` |
 | **G7** | `bun scripts/inbound-mail-smoke.ts cloudflare` | All PASS, including `Workers observability off` and `Worker bindings` (all six, the key a secret) | A binding edited in the dashboard: never fix it there; `pulumi up` restores it from state |
 | **G8** | the same run's `compatibility date` line | INFO only. After any later `COMPATIBILITY_DATE` bump in `src/platform/inbound-mail.ts`: G1 and G2 again | — |
@@ -365,17 +470,25 @@ Within 30 s its addresses bounce as unknown; what is held stays held.
 The rule is updated to disabled, so Cloudflare refuses every address at SMTP
 time ("Address does not exist"; never Drop, which would accept and discard), the
 Worker is deleted after, the frontend loses `INBOUND_MAIL_DOMAIN` and shows
-„Diese Installation empfängt keine E-Mails.“ Held mail stays.
+„Diese Installation empfängt keine E-Mails.“ Held mail stays. `postmaster@`
+and `abuse@` keep forwarding, and the DMARC record stays: the domain still has
+its MX at Cloudflare.
 
 **Full removal**, in this order, each step applied before the next:
 1. `inboundMailEnabled: "false"`, promote (above).
-2. Comment out `inboundMailDomain`, `inboundMailZoneId`, `inboundMailPaused` and
-   `inboundMailEnabled`; remove the key from ESC
+2. Comment out `inboundMailDomain`, `inboundMailZoneId`, `inboundMailOperatorAddress`,
+   `inboundMailDmarc`, `inboundMailPaused` and `inboundMailEnabled` (`loadConfig`
+   refuses `inboundMailDmarc` without the domain); remove the key from ESC
    (`esc env rm "matthiasbigl/$ENV" "pulumiConfig.$P:inboundMailSigningKeys"`); promote. Pulumi
-   deletes the rule; Email Routing on the subdomain is kept (`retainOnDelete`).
-3. Dashboard: delete the `postmaster@` and `abuse@` rules, remove the
-   subdomain under Email Routing → Settings (its MX and TXT go with it),
-   switch Subaddressing off if nothing else uses it.
+   deletes the project rule, the two forwards and the DMARC record. Kept
+   (`retainOnDelete`): Email Routing on the subdomain, and the operator's
+   destination address, which is the account's and may serve other zones.
+   On path (b), if the domain cutover has not given `archos.tech` a `dnsDmarc`
+   yet, the zone is then without DMARC: set it there first if it should stay.
+3. Dashboard: remove the subdomain under Email Routing → Settings (its MX and
+   TXT go with it); `PATCH …/email/routing` with `{"support_subaddress":false}`
+   (the call of §7) if nothing else in the zone uses it; delete the destination
+   address if no other rule forwards to it.
 4. Remove the token's added scopes; downgrade Workers Paid if nothing else needs it.
 5. Data stays until its retention sweeps erase it. Reversing migration 0196
    needs every staged object and kept original erased first

@@ -93,9 +93,15 @@ describe("the program with project mail on a subdomain of the app zone, switched
     expect(byType("cloudflare:index/emailRoutingSettings:EmailRoutingSettings")).toEqual([]);
   });
 
-  it("keeps the rule on the app zone, disabled, and deploys no Worker", () => {
+  it("keeps the rule on the app zone, disabled, beside the RFC 2142 forwards, and deploys no Worker", () => {
     const rules = byType("cloudflare:index/emailRoutingRule:EmailRoutingRule");
-    expect(rules.map((r) => [r.inputs.zoneId, r.inputs.enabled])).toEqual([[APP_ZONE_ID, false]]);
+    const literal = (r: Recorded) => (r.inputs.matchers as Array<{ value: string }>)[0].value;
+    expect(rules.map((r) => [literal(r), r.inputs.zoneId, r.inputs.enabled]).sort()).toEqual([
+      // Switched off, the domain keeps its MX at Cloudflare: its postmaster still answers.
+      [`abuse@${INBOX}`, APP_ZONE_ID, true],
+      [`postmaster@${INBOX}`, APP_ZONE_ID, true],
+      [`project@${INBOX}`, APP_ZONE_ID, false],
+    ]);
     expect(byType("cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll")).toEqual([]);
     expect(byType("cloudflare:index/workersScript:WorkersScript")).toEqual([]);
   });

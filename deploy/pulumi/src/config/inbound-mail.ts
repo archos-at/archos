@@ -5,6 +5,8 @@
  */
 
 import * as pulumi from "@pulumi/pulumi";
+import type { DnsConfig } from "./dns";
+import { dmarcRecordProblem } from "./dmarc";
 import { bool, requireSecretsTogether } from "./readers";
 
 /** The keyid shape the BFF accepts (`usableSigningKeys`, `apps/workspace/bff/internal-auth.ts`). */
@@ -82,7 +84,29 @@ export interface InboundMailConfig {
   signingKey: pulumi.Output<string>;
   /** The same `cloudflareApiToken` DNS uses, with the scopes `platform/inbound-mail.ts` lists. */
   apiToken: pulumi.Output<string>;
+  /**
+   * The mailbox `postmaster@<domain>` and `abuse@<domain>` forward to (RFC 2142),
+   * `inboundMailOperatorAddress`: a destination address of the zone's account,
+   * live once someone opens Cloudflare's verification mail sent to it.
+   */
+  operatorAddress: string;
+  /**
+   * The `_dmarc.<zone apex>` TXT record (`inboundMailDmarc`), published by the
+   * mail block, or undefined: no record from here. Never together with the DNS
+   * block's `dnsDmarc` on the same zone, because two DMARC records make every
+   * receiver ignore both (RFC 7489 §6.6.3).
+   */
+  dmarc?: string;
 }
+
+/** The literal addresses RFC 2142 asks every mail domain to answer, forwarded to the operator. */
+export const RFC2142_LOCAL_PARTS = ["postmaster", "abuse"] as const;
+
+/** A Cloudflare zone id, as the dashboard shows it (the zone → Overview → API). */
+const ZONE_ID = /^[0-9a-f]{32}$/;
+
+/** A mailbox address, lowercased: one `@`, a dotted domain, nothing a header would quote. */
+const MAILBOX = /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/;
 
 export const DEFAULT_INBOUND_MAIL_LOCAL_PART = "project";
 
@@ -137,14 +161,109 @@ function assertSigningKeys(raw: string): string[] {
   return entries.map(([keyId]) => keyId);
 }
 
-/** What `inboundMailConfig` needs from the DNS section, already validated there. */
+/** What `inboundMailConfig` needs from the rest of the config, already validated there. */
 export interface InboundMailZoneContext {
-  dnsEnabled: boolean;
-  dnsZoneId: string;
-  dnsZoneName: string;
-  dnsZoneBaseline: boolean;
+  dns: Pick<DnsConfig, "enabled" | "zoneId" | "zoneName" | "zoneBaseline" | "dmarc">;
   cloudflareApiToken: pulumi.Output<string> | undefined;
   malwareScanEnabled: boolean;
+}
+
+/**
+ * The zone project mail routes on: present, of a zone id's shape, and on the
+ * app zone only for the stack that owns it.
+ */
+function assertMailZone(
+  domain: string,
+  zoneId: string,
+  explicitZoneId: string | undefined,
+  dns: InboundMailZoneContext["dns"],
+): void {
+  if (zoneId === "") {
+    throw new Error(
+      "inboundMailZoneId is required when inboundMailDomain is set: the " +
+        "Cloudflare zone (dashboard → the zone → Overview → API) the domain lives in. " +
+        "It may be left out when the domain is dnsZoneName or a subdomain of it.",
+    );
+  }
+  // The stack file carries a placeholder until the owner reads the real id;
+  // without this, an uncommented placeholder fails only at Cloudflare's lookup.
+  if (explicitZoneId !== undefined && !ZONE_ID.test(explicitZoneId)) {
+    throw new Error(
+      `inboundMailZoneId must be a Cloudflare zone id, 32 hex digits (got "${explicitZoneId}"): ` +
+        "dashboard → the zone → Overview → API → Zone ID.",
+    );
+  }
+  // The one mistake this can see without calling Cloudflare: a zone id that
+  // names the DNS zone for a domain outside it. `email-routing.ts` checks the
+  // general case against the zone's real name at preview time.
+  if (zoneId === dns.zoneId && dns.zoneName !== "" && !withinZone(domain, dns.zoneName)) {
+    throw new Error(
+      `inboundMailDomain "${domain}" is not in its zone ("${dns.zoneName}"). Use a subdomain ` +
+        `of it (e.g. "inbox.${dns.zoneName}") or set inboundMailZoneId to the domain's own zone.`,
+    );
+  }
+  // On the app zone Email Routing's enablement is one object per zone (the
+  // provider keys it by zone id) beside the apex's MX and `_dmarc`: it belongs
+  // to the one stack that owns the zone. A second stack would fight over it.
+  if (zoneId === dns.zoneId && (!dns.enabled || !dns.zoneBaseline)) {
+    throw new Error(
+      "inboundMailDomain on the app zone needs dnsEnabled and " +
+        "dnsZoneBaseline: Email Routing is zone-level, " +
+        "and only the stack owning the zone may manage it.",
+    );
+  }
+}
+
+/**
+ * The RFC 2142 forwards' destination: required with the domain, because a mail
+ * domain that answers neither `postmaster@` nor `abuse@` is one that other
+ * operators cannot reach (and some blocklist), and never on the receiving
+ * domain itself, where no rule but the project rule and the forwards exists.
+ */
+function assertOperatorAddress(address: string, domain: string): void {
+  if (address === "") {
+    throw new Error(
+      "inboundMailOperatorAddress is required when inboundMailDomain is set: the mailbox " +
+        `postmaster@${domain} and abuse@${domain} forward to (RFC 2142), on the company's own mail, ` +
+        'e.g. "mail-ops@example.org". Cloudflare sends it a verification mail on the first deploy.',
+    );
+  }
+  if (!MAILBOX.test(address)) {
+    throw new Error(
+      `inboundMailOperatorAddress must be one mailbox address like "mail-ops@example.org" (got "${address}"): ` +
+        "no display name, no list.",
+    );
+  }
+  if (withinZone(address.slice(address.lastIndexOf("@") + 1), domain)) {
+    throw new Error(
+      `inboundMailOperatorAddress "${address}" is on the receiving domain ${domain}, where only the ` +
+        "project rule and the two forwards exist: the forwarded mail would bounce. Use a mailbox elsewhere.",
+    );
+  }
+}
+
+/**
+ * The mail zone's DMARC record: a valid one, and the zone's only one. The DNS
+ * block's `dnsDmarc` writes `_dmarc.<dnsZoneName>` on the stack that owns the
+ * app zone; with both set on that zone Cloudflare would hold two TXT records
+ * at one name, and a receiver that finds two DMARC records applies neither
+ * (RFC 7489 §6.6.3), silently.
+ */
+function assertMailDmarc(dmarc: string, zoneId: string, dns: InboundMailZoneContext["dns"]): void {
+  const problem = dmarcRecordProblem(dmarc);
+  if (problem !== undefined) {
+    throw new Error(
+      `inboundMailDmarc is not a DMARC record: ${problem}. Recommended: ` +
+        '"v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:<inboundMailOperatorAddress>".',
+    );
+  }
+  // By id: a mail zone of its own may be a delegated child of the app zone's name.
+  if (zoneId === dns.zoneId && dns.enabled && dns.zoneBaseline && dns.dmarc !== undefined) {
+    throw new Error(
+      `inboundMailDmarc and dnsDmarc both publish _dmarc.${dns.zoneName}: two DMARC records make every ` +
+        "receiver ignore both (RFC 7489 §6.6.3). Keep one: dnsDmarc on the app zone, inboundMailDmarc on a mail zone of its own.",
+    );
+  }
 }
 
 /**
@@ -154,18 +273,20 @@ export interface InboundMailZoneContext {
  * sender retries for days, then bounces), and a domain without the zone has
  * nowhere to enable routing.
  */
-export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneContext): InboundMailConfig {
+export function inboundMailConfig(cfg: pulumi.Config, context: InboundMailZoneContext): InboundMailConfig {
+  const { dns } = context;
   const domain = (cfg.get("inboundMailDomain") ?? "").trim().toLowerCase().replace(/\.$/, "");
   const localPart = (cfg.get("inboundMailLocalPart") ?? DEFAULT_INBOUND_MAIL_LOCAL_PART).trim().toLowerCase();
   // On the app zone (the recommended setup: a subdomain of the product's own
   // domain, `inbox.example.org`), the zone is the DNS zone and needs no second key.
+  const explicitZoneId = cfg.get("inboundMailZoneId")?.trim();
   const zoneId =
-    cfg.get("inboundMailZoneId") ??
-    (domain !== "" && zone.dnsZoneName !== "" && withinZone(domain, zone.dnsZoneName) ? zone.dnsZoneId : "");
+    explicitZoneId ?? (domain !== "" && dns.zoneName !== "" && withinZone(domain, dns.zoneName) ? dns.zoneId : "");
   const configured = domain !== "";
   const enabled = configured && bool(cfg, "inboundMailEnabled", true);
   const paused = bool(cfg, "inboundMailPaused", false);
   const directFiling = bool(cfg, "inboundMailDirectFiling", true);
+  const dmarc = cfg.get("inboundMailDmarc")?.trim() || undefined;
   const off = {
     configured,
     enabled,
@@ -177,11 +298,21 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     signingKeys: pulumi.secret(""),
     signingKeyId: "",
     signingKey: pulumi.secret(""),
-    apiToken: zone.cloudflareApiToken ?? pulumi.secret(""),
+    apiToken: context.cloudflareApiToken ?? pulumi.secret(""),
+    operatorAddress: (cfg.get("inboundMailOperatorAddress") ?? "").trim().toLowerCase(),
+    dmarc,
   };
-  if (!configured) return off;
+  if (!configured) {
+    if (dmarc !== undefined) {
+      throw new Error(
+        "inboundMailDmarc is set without inboundMailDomain: the record is published on the mail zone, " +
+          "which only the domain names. Set dnsDmarc for a zone without project mail.",
+      );
+    }
+    return off;
+  }
 
-  if (!zone.malwareScanEnabled) {
+  if (!context.malwareScanEnabled) {
     // Strangers can write to a project address (DECISION D3), and every part
     // of what they send is scanned before anyone may file or download it. With
     // the scanner off every scan fails closed, so every mail would wait
@@ -213,32 +344,9 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     "when inboundMailDomain is set (a Cloudflare token that may write the Worker and the zone's " +
       "Email Routing; even managed off, the routing rule is this stack's)",
   );
-  if (zoneId === "") {
-    throw new Error(
-      "inboundMailZoneId is required when inboundMailDomain is set: the " +
-        "Cloudflare zone (dashboard → the zone → Overview → API) the domain lives in. " +
-        "It may be left out when the domain is dnsZoneName or a subdomain of it.",
-    );
-  }
-  // The one mistake this can see without calling Cloudflare: a zone id that
-  // names the DNS zone for a domain outside it. `email-routing.ts` checks the
-  // general case against the zone's real name at preview time.
-  if (zoneId === zone.dnsZoneId && zone.dnsZoneName !== "" && !withinZone(domain, zone.dnsZoneName)) {
-    throw new Error(
-      `inboundMailDomain "${domain}" is not in its zone ("${zone.dnsZoneName}"). Use a subdomain ` +
-        `of it (e.g. "inbox.${zone.dnsZoneName}") or set inboundMailZoneId to the domain's own zone.`,
-    );
-  }
-  // On the app zone Email Routing's enablement is one object per zone (the
-  // provider keys it by zone id) beside the apex's MX and `_dmarc`: it belongs
-  // to the one stack that owns the zone. A second stack would fight over it.
-  if (zoneId === zone.dnsZoneId && (!zone.dnsEnabled || !zone.dnsZoneBaseline)) {
-    throw new Error(
-      "inboundMailDomain on the app zone needs dnsEnabled and " +
-        "dnsZoneBaseline: Email Routing is zone-level, " +
-        "and only the stack owning the zone may manage it.",
-    );
-  }
+  assertMailZone(domain, zoneId, explicitZoneId, dns);
+  assertOperatorAddress(off.operatorAddress, domain);
+  if (dmarc !== undefined) assertMailDmarc(dmarc, zoneId, dns);
   if (!enabled) return off;
 
   requireSecretsTogether(
