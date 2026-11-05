@@ -2,28 +2,52 @@
   "name": "cms",
   "private": true,
   "type": "module",
-  "description": "The website's headless CMS (Directus, ADR-0155): its schema and configuration as sync files, and the scripts around it",
+  "description": "The website's CMS (Payload, ADR-0155): its collections, access rules and hooks as code, the MDX import and the social hand-off",
   "engines": {
-    "node": ">=22"
+    "node": "^22.23.4 || >=24.22.1"
   },
   "scripts": {
-    "test": "node --test scripts/*.test.mjs social/*.test.mjs",
-    "sync:pull": "d6s sync pull --from local",
-    "sync:diff": "d6s sync diff --to local",
-    "sync:push": "d6s sync push --to local",
-    "robots": "node scripts/provision-robots.mjs",
-    "import:blog": "node scripts/import-blog.mjs",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --port 3100",
+    "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=4096\" next build",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start --port 3100",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "generate": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap && cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src scripts social tests",
+    "test": "vitest run",
+    "test:db": "bash scripts/test-db.sh",
+    "import:blog": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/import-blog.ts",
+    "provision": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/provision.ts",
     "social:handoff": "node social/handoff.mjs",
     "social:release-summaries": "node social/release-summaries.mjs"
   },
   "dependencies": {
+    "@payloadcms/db-postgres": "3.93.0",
+    "@payloadcms/next": "3.93.0",
+    "@payloadcms/plugin-mcp": "3.93.0",
+    "@payloadcms/storage-s3": "3.93.0",
+    "@payloadcms/translations": "3.93.0",
+    "@payloadcms/ui": "3.93.0",
+    "cross-env": "10.1.0",
+    "graphql": "16.15.0",
+    "next": "16.4.5",
+    "payload": "3.93.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "remark-frontmatter": "5.0.0",
     "remark-mdx": "3.1.1",
     "remark-parse": "11.0.0",
+    "sharp": "0.35.5",
     "unified": "11.0.5",
     "yaml": "2.9.1"
   },
   "devDependencies": {
-    "@directus/cli": "12.5.0"
+    "@types/node": "22.19.9",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "oxlint": "1.89.0",
+    "typescript": "6.0.3",
+    "vite-tsconfig-paths": "6.1.1",
+    "vitest": "5.1.0"
   }
 }
