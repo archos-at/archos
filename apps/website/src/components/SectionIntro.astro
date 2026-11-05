@@ -1,4 +1,6 @@
 ---
+import MaskedWords from './MaskedWords.astro';
+
 interface Props {
   /** A `\n` is a deliberate line break, kept at every width */
   title: string;
@@ -28,14 +30,13 @@ const {
 } = Astro.props;
 const titleClass = { display: 'display', heading: 'heading-1', subheading: 'heading-2' }[size];
 const hasActions = Astro.slots.has('default');
-const lines = title.split('\n');
 ---
 
 <div
-  data-reveal
+  data-reveal="parts"
   class:list={['ui-intro', align === 'center' && 'ui-intro-center', layout === 'split' && 'site-intro-split', className]}
 >
-  <Title class:list={['ui-intro-title', titleClass]}>{lines.map((line, i) => (i === 0 ? line : [<br />, line]))}</Title>
+  <Title class:list={['ui-intro-title', titleClass]}><MaskedWords text={title} /></Title>
   {
     layout === 'split' ? (
       (lead || text || hasActions) && (

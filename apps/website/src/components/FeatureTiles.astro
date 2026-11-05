@@ -20,8 +20,8 @@ const cols = columns || Math.min(items.length, 4) || 3;
 
 <ol class:list={['ui-features', variant === 'cells' && 'ui-features-cells', className]} style={`--ui-cols: ${cols}`}>
   {
-    items.map((item, i) => (
-      <li class="ui-feature" data-reveal style={`--ui-reveal-step: ${i % 4}`}>
+    items.map((item) => (
+      <li class="ui-feature" data-reveal>
         <h3 class="ui-feature-title heading-3">
           {item.href ? <a class="ui-link" href={item.href}>{item.title} →</a> : item.title}
         </h3>

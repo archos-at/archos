@@ -111,6 +111,7 @@ const founders = c.founders.people.map((person, i) => ({ ...person, portrait: fo
     <SectionIntro title={c.built.title} />
     <Image
       class="home-built-image"
+      data-reveal="unveil"
       src={productImages.floorPlanQuery}
       widths={SCREENSHOT_WIDTHS}
       sizes={`(max-width: 767px) calc((100vw - 32px) * 2.25), ${SIZES.container}`}
