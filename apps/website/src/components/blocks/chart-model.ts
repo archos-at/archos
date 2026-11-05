@@ -25,9 +25,9 @@ export const PLOT_WIDTH = 1000;
 export const BAR_CAP = 36;
 /** A line's first and last point sit this far in from the plot's edges, in units. */
 const LINE_INSET = 24;
-/** Labels within this many pixels of each other collide; the later series' label is dropped. */
-const LABEL_CLEARANCE = 18;
-/** Above this many points, only every k-th horizontal label is kept on a narrow column. */
+/** Labels within this many units (pixels at full height) of each other collide; the later series' label is dropped. */
+const LABEL_CLEARANCE = 20;
+/** Above this many labels on the horizontal axis, only every k-th is kept, counted back from the last. */
 const MAX_MAJOR_LABELS = 6;
 
 export interface Tick {
@@ -58,18 +58,15 @@ export interface ValueLabel extends Placed {
   text: string;
   /** Under the mark (a negative bar) instead of above it. */
   below: boolean;
-  /** Which edge of the label sits on `left`. */
-  align: 'center' | 'end';
+  /** `center`: centred over the mark. `after`: to the right of a line's last point. */
+  align: 'center' | 'after';
 }
 
 export interface AxisLabel {
   left: number;
-  /** The band's width in percent (bars), or undefined for a point on a line. */
-  width?: number;
   text: string;
-  /** Hidden on a narrow column, where every label would collide. */
+  /** Left out where the labels would collide: a line's always, a bar chart's on a narrow column. */
   minor: boolean;
-  align: 'start' | 'center' | 'end';
 }
 
 export interface ChartModel {
@@ -87,6 +84,8 @@ export interface ChartModel {
   dense: boolean;
   /** Characters in the longest tick label, for the width of the tick column. */
   tickChars: number;
+  /** Characters in the longest value at a line's end, for the gutter on the plot's right. */
+  endChars: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,18 +139,21 @@ export function valueScale(lo: number, hi: number, zero: boolean, count = 4) {
 const round = (n: number) => Math.round(n * 100) / 100;
 const percent = (units: number) => round((units / PLOT_WIDTH) * 100);
 
-/** Which horizontal labels to hide on a narrow column: keep the first and every k-th. */
-function minorLabels(n: number): boolean[] {
+/**
+ * Which horizontal labels to leave out when there are too many: keep the last (the latest
+ * week, the current state) and every k-th before it.
+ */
+export function minorLabels(n: number): boolean[] {
   if (n <= MAX_MAJOR_LABELS + 2) return Array(n).fill(false);
   const k = Math.ceil(n / MAX_MAJOR_LABELS);
-  return Array.from({ length: n }, (_, i) => i % k !== 0);
+  return Array.from({ length: n }, (_, i) => (n - 1 - i) % k !== 0);
 }
 
 /** Drops labels that collide with an earlier one (the earlier series wins). */
 function withoutCollisions<T extends Placed>(labels: T[]): T[] {
   const kept: T[] = [];
   for (const label of labels) {
-    if (kept.every((k) => Math.abs(k.top - label.top) >= LABEL_CLEARANCE || Math.abs(k.left - label.left) > 12)) kept.push(label);
+    if (kept.every((k) => Math.abs(k.top - label.top) >= LABEL_CLEARANCE)) kept.push(label);
   }
   return kept;
 }
@@ -172,7 +174,7 @@ export function chartModel(chart: ChartBlock, locale: ChartLocale): ChartModel {
     return i === scale.values.length - 1 && unit && !chart.axisLabel ? formatValue(v, scale.decimals, unit, locale) : text;
   });
   const grid: Tick[] = scale.values.map((value, i) => ({ value, top: round(scale.toTop(value)), label: tickLabels[i], zero: value === 0 }));
-  const base = { form: chart.form, stacked, grid, tickChars: Math.max(...tickLabels.map((t) => t.length)) };
+  const base = { form: chart.form, stacked, grid, tickChars: Math.max(...tickLabels.map((t) => t.length)), endChars: 0 };
   const legend = series.length > 1 ? series.map((s, i) => ({ name: s.name, slot: i + 1 })) : [];
   const table = {
     head: series.map((s) => s.name),
@@ -203,15 +205,12 @@ export function chartModel(chart: ChartBlock, locale: ChartLocale): ChartModel {
     const ends = series.flatMap((s) => {
       const i = s.values.findLastIndex((x) => x !== null);
       const v = s.values[i] as number;
-      return i < 0 ? [] : [{ left: percent(xOf(i)), top: round(scale.toTop(v)), text: fmt(v), below: false, align: 'end' as const }];
+      return i < 0 ? [] : [{ left: percent(xOf(i)), top: round(scale.toTop(v)), text: fmt(v), below: false, align: 'after' as const }];
     });
-    const xLabels: AxisLabel[] = labels.map((text, i) => ({
-      left: percent(xOf(i)),
-      text,
-      minor: minor[i] && i !== labels.length - 1,
-      align: i === 0 ? 'start' : i === labels.length - 1 ? 'end' : 'center',
-    }));
-    return { ...base, bars: [], lines, dots, values: withoutCollisions(ends), xLabels, legend, table, dense: false };
+    const values = withoutCollisions(ends);
+    const xLabels: AxisLabel[] = labels.map((text, i) => ({ left: percent(xOf(i)), text, minor: minor[i] }));
+    const endChars = Math.max(0, ...values.map((v) => v.text.length));
+    return { ...base, endChars, bars: [], lines, dots, values, xLabels, legend, table, dense: false };
   }
 
   const band = PLOT_WIDTH / labels.length;
@@ -241,6 +240,6 @@ export function chartModel(chart: ChartBlock, locale: ChartLocale): ChartModel {
         if (v === null) return [];
         return [{ left: percent((i + 0.5) * band), top: round(scale.toTop(v)), text: fmt(v), below: v < 0, align: 'center' as const }];
       });
-  const xLabels: AxisLabel[] = labels.map((text, i) => ({ left: percent((i + 0.5) * band), width: percent(band), text, minor: minor[i], align: 'center' }));
+  const xLabels: AxisLabel[] = labels.map((text, i) => ({ left: percent((i + 0.5) * band), text, minor: minor[i] }));
   return { ...base, bars, lines: [], dots: [], values, xLabels, legend, table, dense: labels.length > 6 };
 }

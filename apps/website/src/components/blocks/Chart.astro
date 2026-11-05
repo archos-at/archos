@@ -47,7 +47,7 @@ const model = chartModel(chart, locale);
 
   {chart.axisLabel && <p class="ui-chart-axis-label" aria-hidden="true">{chart.axisLabel}</p>}
 
-  <div class="ui-chart-body" style={`--tick-chars: ${model.tickChars}`} aria-hidden="true">
+  <div class="ui-chart-body" data-form={chart.form} style={`--tick-chars: ${model.tickChars}; --end-chars: ${model.endChars}`} aria-hidden="true">
     <div class="ui-chart-ticks">
       {model.grid.map((tick) => <span class="ui-chart-tick" style={`--top: ${(tick.top / PLOT_HEIGHT) * 100}%`}>{tick.label}</span>)}
     </div>
@@ -81,7 +81,7 @@ const model = chartModel(chart, locale);
     <div class="ui-chart-xlabels" data-form={chart.form} style={`--count: ${model.xLabels.length}`}>
       {
         model.xLabels.map((label) => (
-          <span data-minor={label.minor || undefined} data-align={label.align} style={chart.form === 'line' ? `--left: ${label.left}%` : undefined}>
+          <span data-minor={label.minor || undefined} style={chart.form === 'line' ? `--left: ${label.left}%` : undefined}>
             {label.text}
           </span>
         ))
@@ -89,7 +89,8 @@ const model = chartModel(chart, locale);
     </div>
   </div>
 
-  <table class="ui-visually-hidden">
+  <div class="ui-visually-hidden">
+  <table>
     <caption>{chart.title}{chart.axisLabel && `, ${chart.axisLabel}`}</caption>
     <thead>
       <tr>
@@ -108,6 +109,7 @@ const model = chartModel(chart, locale);
       }
     </tbody>
   </table>
+  </div>
 
   <p class="ui-chart-source">
     {ui.blockSource}: {chart.sourceUrl ? <a class="ui-link" href={chart.sourceUrl}>{chart.source}</a> : chart.source}
