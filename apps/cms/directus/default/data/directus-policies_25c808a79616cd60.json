@@ -5,10 +5,20 @@
     {
       "admin_access": false,
       "app_access": false,
+      "description": "Hands approved social posts to the publishing tool and records the result. For the hand-off robot only.",
+      "enforce_tfa": false,
+      "icon": "send",
+      "id": "351ff2f0-28e5-4b47-bbcc-c3016a387aed",
+      "ip_access": null,
+      "name": "Social hand-off"
+    },
+    {
+      "admin_access": false,
+      "app_access": false,
       "description": "Publishes blog posts and approves social posts. A person only: never give it to an agent or a token.",
       "enforce_tfa": false,
       "icon": "publish",
-      "id": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "id": "46077cb6-ab7c-4a4c-a781-3f06306576c1",
       "ip_access": null,
       "name": "Content publishing"
     },
@@ -18,29 +28,19 @@
       "description": "Writes and edits drafts of blog and social posts and sends them to review. Cannot publish, approve or delete what is live. Held by editors and by agents.",
       "enforce_tfa": false,
       "icon": "edit_note",
-      "id": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "id": "5ec2af55-214f-4181-adfc-57f215687938",
       "ip_access": null,
       "name": "Content drafting"
     },
     {
       "admin_access": false,
-      "app_access": true,
-      "description": "Signs in to the Studio. Holds no content permission of its own.",
+      "app_access": false,
+      "description": "Reads what is live, for the website's token.",
       "enforce_tfa": false,
-      "icon": "desktop_windows",
-      "id": "a6f8ddf0-a0e9-4e37-84a2-f46dfd87f745",
+      "icon": "public",
+      "id": "9ce6cec5-81c6-4d1a-8bd2-c322b78bcfe6",
       "ip_access": null,
-      "name": "Studio access"
-    },
-    {
-      "admin_access": true,
-      "app_access": true,
-      "description": "$t:admin_description",
-      "enforce_tfa": false,
-      "icon": "verified",
-      "id": "aa37024f-06cc-44e2-b0af-b87b28503cce",
-      "ip_access": null,
-      "name": "Administrator"
+      "name": "Website reader"
     },
     {
       "admin_access": false,
@@ -53,24 +53,24 @@
       "name": "$t:public_label"
     },
     {
-      "admin_access": false,
-      "app_access": false,
-      "description": "Reads what is live, for the website's token.",
+      "admin_access": true,
+      "app_access": true,
+      "description": "$t:admin_description",
       "enforce_tfa": false,
-      "icon": "public",
-      "id": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "icon": "verified",
+      "id": "d3dd7752-0322-4468-9a2c-7adcdccb0771",
       "ip_access": null,
-      "name": "Website reader"
+      "name": "Administrator"
     },
     {
       "admin_access": false,
-      "app_access": false,
-      "description": "Hands approved social posts to the publishing tool and records the result. For the hand-off robot only.",
+      "app_access": true,
+      "description": "Signs in to the Studio. Holds no content permission of its own.",
       "enforce_tfa": false,
-      "icon": "send",
-      "id": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "icon": "desktop_windows",
+      "id": "dd2f58e1-c1cc-4fed-b1b9-d71ba9914691",
       "ip_access": null,
-      "name": "Social hand-off"
+      "name": "Studio access"
     }
   ]
 }

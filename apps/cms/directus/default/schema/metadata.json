@@ -1,7 +1,12 @@
 {
   "files": [
+    "block-cta_3afe6f8c94c29ce6.json",
+    "block-figure_7872879b73147d75.json",
+    "block-image_134a479bc0f67b32.json",
+    "block-markdown_793b3246f135cb79.json",
+    "block-quote_bff0b5c8ed1c1de2.json",
     "blog-authors_ea36d28de89329d0.json",
-    "blog-figures_407f792807b479b8.json",
+    "blog-posts-translations-blocks_0177a1417e1310fc.json",
     "blog-posts-translations_ddb745de0449a7dc.json",
     "blog-posts_bbaba9e7949f9ce9.json",
     "directus-activity_063739d0b530e17d.json",

@@ -33,6 +33,34 @@
   "fields": [
     {
       "collection": "blog_posts_translations",
+      "field": "blocks",
+      "meta": {
+        "collection": "blog_posts_translations",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "blocks",
+        "group": null,
+        "hidden": false,
+        "interface": "list-m2a",
+        "note": "The body, block by block. Every block is a component of the design system.",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 11,
+        "special": [
+          "m2a"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "type": "alias"
+    },
+    {
+      "collection": "blog_posts_translations",
       "field": "blog_posts_id",
       "meta": {
         "collection": "blog_posts_translations",
@@ -77,50 +105,6 @@
     },
     {
       "collection": "blog_posts_translations",
-      "field": "body",
-      "meta": {
-        "collection": "blog_posts_translations",
-        "conditions": null,
-        "display": null,
-        "display_options": null,
-        "field": "body",
-        "group": null,
-        "hidden": false,
-        "interface": "input-rich-text-md",
-        "note": "Markdown. Place a figure of this post with a line of its own: ::figure{#key}",
-        "options": null,
-        "readonly": false,
-        "required": true,
-        "searchable": true,
-        "sort": 7,
-        "special": null,
-        "translations": null,
-        "validation": null,
-        "validation_message": null,
-        "width": "full"
-      },
-      "schema": {
-        "data_type": "text",
-        "default_value": null,
-        "foreign_key_column": null,
-        "foreign_key_table": null,
-        "generation_expression": null,
-        "has_auto_increment": false,
-        "is_generated": false,
-        "is_indexed": false,
-        "is_nullable": false,
-        "is_primary_key": false,
-        "is_unique": false,
-        "max_length": null,
-        "name": "body",
-        "numeric_precision": null,
-        "numeric_scale": null,
-        "table": "blog_posts_translations"
-      },
-      "type": "text"
-    },
-    {
-      "collection": "blog_posts_translations",
       "field": "description",
       "meta": {
         "collection": "blog_posts_translations",
@@ -162,36 +146,6 @@
         "table": "blog_posts_translations"
       },
       "type": "text"
-    },
-    {
-      "collection": "blog_posts_translations",
-      "field": "figures",
-      "meta": {
-        "collection": "blog_posts_translations",
-        "conditions": null,
-        "display": null,
-        "display_options": null,
-        "field": "figures",
-        "group": null,
-        "hidden": false,
-        "interface": "list-o2m",
-        "note": null,
-        "options": {
-          "template": "{{key}} ({{component}})"
-        },
-        "readonly": false,
-        "required": false,
-        "searchable": true,
-        "sort": 10,
-        "special": [
-          "o2m"
-        ],
-        "translations": null,
-        "validation": null,
-        "validation_message": null,
-        "width": "full"
-      },
-      "type": "alias"
     },
     {
       "collection": "blog_posts_translations",
@@ -283,6 +237,101 @@
     },
     {
       "collection": "blog_posts_translations",
+      "field": "noindex",
+      "meta": {
+        "collection": "blog_posts_translations",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "noindex",
+        "group": null,
+        "hidden": false,
+        "interface": "boolean",
+        "note": "Keep this language out of search engines and the sitemap.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 9,
+        "special": [
+          "cast-boolean"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "boolean",
+        "default_value": false,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "noindex",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts_translations"
+      },
+      "type": "boolean"
+    },
+    {
+      "collection": "blog_posts_translations",
+      "field": "previous_slugs",
+      "meta": {
+        "collection": "blog_posts_translations",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "previous_slugs",
+        "group": null,
+        "hidden": false,
+        "interface": "tags",
+        "note": "Slugs this post had before. Their URLs answer with a 301 to the current one.",
+        "options": {
+          "lowercase": true,
+          "whitespace": "-"
+        },
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 10,
+        "special": [
+          "cast-json"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "json",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "previous_slugs",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts_translations"
+      },
+      "type": "json"
+    },
+    {
+      "collection": "blog_posts_translations",
       "field": "seo_description",
       "meta": {
         "collection": "blog_posts_translations",
@@ -298,7 +347,7 @@
         "readonly": false,
         "required": false,
         "searchable": true,
-        "sort": 9,
+        "sort": 8,
         "special": null,
         "translations": null,
         "validation": null,
@@ -342,7 +391,7 @@
         "readonly": false,
         "required": false,
         "searchable": true,
-        "sort": 8,
+        "sort": 7,
         "special": null,
         "translations": null,
         "validation": null,

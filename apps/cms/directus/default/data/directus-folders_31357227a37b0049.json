@@ -3,8 +3,20 @@
   "primaryKey": "id",
   "records": [
     {
-      "id": "a5cf0e04-ac63-4824-a46e-cfee276b6e63",
+      "id": "258603cb-aabd-4f5a-92ed-ba154779b917",
       "name": "Social images",
+      "parent": null,
+      "type": "files"
+    },
+    {
+      "id": "4a8cfb84-3d12-4813-8ca9-3f0c1a92fec0",
+      "name": "Covers",
+      "parent": null,
+      "type": "files"
+    },
+    {
+      "id": "d482ee56-de35-47b5-989d-933ae5e115a3",
+      "name": "Post images",
       "parent": null,
       "type": "files"
     }

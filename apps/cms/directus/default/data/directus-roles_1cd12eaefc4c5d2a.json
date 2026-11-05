@@ -3,45 +3,45 @@
   "primaryKey": "id",
   "records": [
     {
-      "description": "$t:admin_description",
-      "icon": "verified",
-      "id": "3e65a77f-fdce-4ac5-8c14-b2fd9eae456d",
-      "name": "Administrator",
+      "description": "The website's read-only token.",
+      "icon": "public",
+      "id": "20787813-ad89-4088-b3b0-b48fb8cc82df",
+      "name": "Website",
       "parent": null
     },
     {
-      "description": "The robot that hands approved social posts to the publishing tool.",
-      "icon": "send",
-      "id": "3fa594a0-173a-49e8-b809-31cf902131c7",
-      "name": "Social hand-off",
+      "description": "$t:admin_description",
+      "icon": "verified",
+      "id": "7fb4f76f-f9d0-4727-9b5e-b5ef7928e2ee",
+      "name": "Administrator",
       "parent": null
     },
     {
       "description": "Writes blog and social posts and sends them to review.",
       "icon": "edit",
-      "id": "5ae50f89-6170-4036-9f82-ad96dc411a54",
+      "id": "98978e27-8970-4029-b2f4-9e0fb0c6d9af",
       "name": "Editor",
-      "parent": null
-    },
-    {
-      "description": "Reviews, publishes blog posts and approves social posts.",
-      "icon": "verified",
-      "id": "7c72f702-972e-4d18-a3a2-23be59b6f21c",
-      "name": "Publisher",
       "parent": null
     },
     {
       "description": "An agent working through the API or MCP: drafts only, never publishes. No Studio seat.",
       "icon": "smart_toy",
-      "id": "cedd141b-2ca9-4fbb-8cb1-abf39dcedc01",
+      "id": "b17003d4-9604-4083-a011-d290bb88d111",
       "name": "Agent",
       "parent": null
     },
     {
-      "description": "The website's read-only token.",
-      "icon": "public",
-      "id": "ed8b6290-d57c-4639-89c9-b0a99782280b",
-      "name": "Website",
+      "description": "The robot that hands approved social posts to the publishing tool.",
+      "icon": "send",
+      "id": "c73fb064-0830-4888-a9f2-db490908e7a4",
+      "name": "Social hand-off",
+      "parent": null
+    },
+    {
+      "description": "Reviews, publishes blog posts and approves social posts.",
+      "icon": "verified",
+      "id": "d8c43bf3-c474-499f-acb4-71c9808f5b57",
+      "name": "Publisher",
       "parent": null
     }
   ]

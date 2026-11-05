@@ -19,7 +19,7 @@
  */
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { comparable, pairPosts, readPosts, stableJson, toRecord, updateBody } from './lib/blog-posts.mjs';
+import { comparable, pairPosts, POST_FIELDS, readPosts, stableJson, toRecord, updateBody } from './lib/blog-posts.mjs';
 import { directusFromEnv, query } from './lib/directus.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -36,7 +36,6 @@ function parseArgs(argv) {
   return args;
 }
 
-const POST_FIELDS = ['id', 'status', 'publish_date', 'category', 'cover', 'user_created', 'user_updated', 'translations.*', 'translations.figures.*'];
 
 /** The CMS post that holds any of `slugs`, or undefined; two different posts is a conflict. */
 async function findPost(cms, slugs) {
@@ -64,8 +63,8 @@ async function main() {
   console.log(`${records.length} posts read from ${args.content}`);
   if (!process.env.DIRECTUS_URL) {
     for (const r of records) {
-      const figures = r.translations.reduce((n, t) => n + t.figures.length, 0);
-      console.log(`  ${r.status.padEnd(9)} ${r.translations.map((t) => `${t.languages_code}/${t.slug}`).join(' + ')} (${figures} figures)`);
+      const blocks = r.translations.reduce((n, t) => n + t.blocks.length, 0);
+      console.log(`  ${r.status.padEnd(9)} ${r.translations.map((t) => `${t.languages_code}/${t.slug}`).join(' + ')} (${blocks} blocks)`);
     }
     console.log('Offline: every post converted. Set DIRECTUS_URL and DIRECTUS_IMPORT_TOKEN to compare with a CMS.');
     return;

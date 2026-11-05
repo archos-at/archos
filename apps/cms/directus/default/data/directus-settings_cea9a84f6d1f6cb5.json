@@ -32,7 +32,7 @@
       "mcp_oauth_dcr_enabled": false,
       "mcp_oauth_enabled": true,
       "mcp_prompts_collection": null,
-      "mcp_system_prompt": null,
+      "mcp_system_prompt": "You work in the CMS of a public website for architects, in German (de) and English (en).\nYou draft: you may create and edit blog and social posts with status draft or in_review. A person reviews, publishes and approves; never ask to be given that right.\nGerman copy is in the Sie-form, with colon gendering (Architekt:innen), no exclamation marks, and buttons that start with a verb.\nA blog post has one translation per language. Its body is a list of blocks; running text goes in block_markdown, headings from level 2.\nA social post goes to one account in one language. Leave the link out of its text: the hand-off adds it with tracking parameters.",
       "mcp_system_prompt_enabled": true,
       "module_bar": null,
       "org_name": null,
@@ -53,8 +53,54 @@
       "report_bug_url": null,
       "report_error_url": null,
       "report_feature_url": null,
-      "storage_asset_presets": null,
-      "storage_asset_transform": "all",
+      "storage_asset_presets": [
+        {
+          "fit": "cover",
+          "format": "webp",
+          "height": 1067,
+          "key": "cover",
+          "quality": 80,
+          "width": 1600,
+          "withoutEnlargement": true
+        },
+        {
+          "fit": "cover",
+          "format": "webp",
+          "height": 533,
+          "key": "cover-small",
+          "quality": 80,
+          "width": 800,
+          "withoutEnlargement": true
+        },
+        {
+          "fit": "cover",
+          "format": "jpg",
+          "height": 630,
+          "key": "share",
+          "quality": 85,
+          "width": 1200,
+          "withoutEnlargement": false
+        },
+        {
+          "fit": "inside",
+          "format": "webp",
+          "height": 1600,
+          "key": "inline",
+          "quality": 80,
+          "width": 1600,
+          "withoutEnlargement": true
+        },
+        {
+          "fit": "inside",
+          "format": "webp",
+          "height": 800,
+          "key": "inline-small",
+          "quality": 80,
+          "width": 800,
+          "withoutEnlargement": true
+        }
+      ],
+      "storage_asset_transform": "presets",
       "theme_dark_overrides": null,
       "theme_light_overrides": null,
       "visual_editor_urls": null

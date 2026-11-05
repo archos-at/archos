@@ -1,7 +1,7 @@
 {
-  "collection": "blog_figures",
+  "collection": "blog_posts_translations_blocks",
   "definition": {
-    "collection": "blog_figures",
+    "collection": "blog_posts_translations_blocks",
     "meta": {
       "accountability": "all",
       "archive_app_filter": true,
@@ -9,14 +9,14 @@
       "archive_value": null,
       "autosave_revision_interval": null,
       "collapse": "open",
-      "collection": "blog_figures",
+      "collection": "blog_posts_translations_blocks",
       "color": null,
-      "display_template": "{{key}} ({{component}})",
+      "display_template": null,
       "group": null,
-      "hidden": false,
-      "icon": "schema",
+      "hidden": true,
+      "icon": "import_export",
       "item_duplication_fields": null,
-      "note": "A drawing from the design system placed in a post with ::figure{#key}. Its props are what the component takes.",
+      "note": "The order of the blocks in a post.",
       "preview_url": null,
       "singleton": false,
       "sort": null,
@@ -27,52 +27,77 @@
       "versioning": false
     },
     "schema": {
-      "name": "blog_figures"
+      "name": "blog_posts_translations_blocks"
     }
   },
   "fields": [
     {
-      "collection": "blog_figures",
-      "field": "component",
+      "collection": "blog_posts_translations_blocks",
+      "field": "blog_posts_translations_id",
       "meta": {
-        "collection": "blog_figures",
+        "collection": "blog_posts_translations_blocks",
         "conditions": null,
         "display": null,
         "display_options": null,
-        "field": "component",
+        "field": "blog_posts_translations_id",
         "group": null,
-        "hidden": false,
-        "interface": "select-dropdown",
-        "note": "A figure component of the website (apps/website/src/components/figures/).",
-        "options": {
-          "choices": [
-            {
-              "text": "Isometric stack",
-              "value": "iso_stack"
-            },
-            {
-              "text": "Nested scopes",
-              "value": "scope"
-            },
-            {
-              "text": "Hybrid search",
-              "value": "hybrid"
-            },
-            {
-              "text": "Lesson loop",
-              "value": "lesson_loop"
-            }
-          ]
-        },
+        "hidden": true,
+        "interface": null,
+        "note": null,
+        "options": null,
         "readonly": false,
-        "required": true,
+        "required": false,
+        "searchable": true,
+        "sort": 2,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "data_type": "integer",
+        "default_value": null,
+        "foreign_key_column": "id",
+        "foreign_key_table": "blog_posts_translations",
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "blog_posts_translations_id",
+        "numeric_precision": 32,
+        "numeric_scale": 0,
+        "table": "blog_posts_translations_blocks"
+      },
+      "type": "integer"
+    },
+    {
+      "collection": "blog_posts_translations_blocks",
+      "field": "collection",
+      "meta": {
+        "collection": "blog_posts_translations_blocks",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "collection",
+        "group": null,
+        "hidden": true,
+        "interface": null,
+        "note": null,
+        "options": null,
+        "readonly": false,
+        "required": false,
         "searchable": true,
         "sort": 4,
         "special": null,
         "translations": null,
         "validation": null,
         "validation_message": null,
-        "width": "half"
+        "width": "full"
       },
       "schema": {
         "data_type": "character varying",
@@ -83,22 +108,22 @@
         "has_auto_increment": false,
         "is_generated": false,
         "is_indexed": false,
-        "is_nullable": false,
+        "is_nullable": true,
         "is_primary_key": false,
         "is_unique": false,
         "max_length": 255,
-        "name": "component",
+        "name": "collection",
         "numeric_precision": null,
         "numeric_scale": null,
-        "table": "blog_figures"
+        "table": "blog_posts_translations_blocks"
       },
       "type": "string"
     },
     {
-      "collection": "blog_figures",
+      "collection": "blog_posts_translations_blocks",
       "field": "id",
       "meta": {
-        "collection": "blog_figures",
+        "collection": "blog_posts_translations_blocks",
         "conditions": null,
         "display": null,
         "display_options": null,
@@ -120,7 +145,7 @@
       },
       "schema": {
         "data_type": "integer",
-        "default_value": "nextval('blog_figures_id_seq'::regclass)",
+        "default_value": "nextval('blog_posts_translations_blocks_id_seq'::regclass)",
         "foreign_key_column": null,
         "foreign_key_table": null,
         "generation_expression": null,
@@ -134,41 +159,33 @@
         "name": "id",
         "numeric_precision": 32,
         "numeric_scale": 0,
-        "table": "blog_figures"
+        "table": "blog_posts_translations_blocks"
       },
       "type": "integer"
     },
     {
-      "collection": "blog_figures",
-      "field": "key",
+      "collection": "blog_posts_translations_blocks",
+      "field": "item",
       "meta": {
-        "collection": "blog_figures",
+        "collection": "blog_posts_translations_blocks",
         "conditions": null,
         "display": null,
         "display_options": null,
-        "field": "key",
+        "field": "item",
         "group": null,
-        "hidden": false,
-        "interface": "input",
-        "note": "Referenced from the body as ::figure{#key}.",
+        "hidden": true,
+        "interface": null,
+        "note": null,
         "options": null,
         "readonly": false,
-        "required": true,
+        "required": false,
         "searchable": true,
         "sort": 3,
         "special": null,
         "translations": null,
-        "validation": {
-          "_and": [
-            {
-              "key": {
-                "_regex": "^[a-z0-9]+(-[a-z0-9]+)*$"
-              }
-            }
-          ]
-        },
-        "validation_message": "Lower-case letters and digits, words joined by single hyphens.",
-        "width": "half"
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
       },
       "schema": {
         "data_type": "character varying",
@@ -179,87 +196,36 @@
         "has_auto_increment": false,
         "is_generated": false,
         "is_indexed": false,
-        "is_nullable": false,
+        "is_nullable": true,
         "is_primary_key": false,
         "is_unique": false,
         "max_length": 255,
-        "name": "key",
+        "name": "item",
         "numeric_precision": null,
         "numeric_scale": null,
-        "table": "blog_figures"
+        "table": "blog_posts_translations_blocks"
       },
       "type": "string"
     },
     {
-      "collection": "blog_figures",
-      "field": "props",
+      "collection": "blog_posts_translations_blocks",
+      "field": "sort",
       "meta": {
-        "collection": "blog_figures",
+        "collection": "blog_posts_translations_blocks",
         "conditions": null,
         "display": null,
         "display_options": null,
-        "field": "props",
-        "group": null,
-        "hidden": false,
-        "interface": "input-code",
-        "note": "The component's props as JSON, alt text included. The website checks them against the component.",
-        "options": {
-          "language": "JSON",
-          "lineNumber": true
-        },
-        "readonly": false,
-        "required": true,
-        "searchable": true,
-        "sort": 5,
-        "special": [
-          "cast-json"
-        ],
-        "translations": null,
-        "validation": null,
-        "validation_message": null,
-        "width": "full"
-      },
-      "schema": {
-        "data_type": "json",
-        "default_value": null,
-        "foreign_key_column": null,
-        "foreign_key_table": null,
-        "generation_expression": null,
-        "has_auto_increment": false,
-        "is_generated": false,
-        "is_indexed": false,
-        "is_nullable": false,
-        "is_primary_key": false,
-        "is_unique": false,
-        "max_length": null,
-        "name": "props",
-        "numeric_precision": null,
-        "numeric_scale": null,
-        "table": "blog_figures"
-      },
-      "type": "json"
-    },
-    {
-      "collection": "blog_figures",
-      "field": "translation",
-      "meta": {
-        "collection": "blog_figures",
-        "conditions": null,
-        "display": null,
-        "display_options": null,
-        "field": "translation",
+        "field": "sort",
         "group": null,
         "hidden": true,
-        "interface": "select-dropdown-m2o",
+        "interface": null,
         "note": null,
         "options": null,
         "readonly": false,
         "required": false,
         "searchable": true,
-        "sort": 2,
-        "special": [
-          "m2o"
-        ],
+        "sort": 5,
+        "special": null,
         "translations": null,
         "validation": null,
         "validation_message": null,
@@ -268,8 +234,8 @@
       "schema": {
         "data_type": "integer",
         "default_value": null,
-        "foreign_key_column": "id",
-        "foreign_key_table": "blog_posts_translations",
+        "foreign_key_column": null,
+        "foreign_key_table": null,
         "generation_expression": null,
         "has_auto_increment": false,
         "is_generated": false,
@@ -278,39 +244,61 @@
         "is_primary_key": false,
         "is_unique": false,
         "max_length": null,
-        "name": "translation",
+        "name": "sort",
         "numeric_precision": 32,
         "numeric_scale": 0,
-        "table": "blog_figures"
+        "table": "blog_posts_translations_blocks"
       },
       "type": "integer"
     }
   ],
   "relations": [
     {
-      "collection": "blog_figures",
-      "field": "translation",
+      "collection": "blog_posts_translations_blocks",
+      "field": "blog_posts_translations_id",
       "meta": {
-        "junction_field": null,
-        "many_collection": "blog_figures",
-        "many_field": "translation",
+        "junction_field": "item",
+        "many_collection": "blog_posts_translations_blocks",
+        "many_field": "blog_posts_translations_id",
         "one_allowed_collections": null,
         "one_collection": "blog_posts_translations",
         "one_collection_field": null,
         "one_deselect_action": "delete",
-        "one_field": "figures",
-        "sort_field": null
+        "one_field": "blocks",
+        "sort_field": "sort"
       },
       "related_collection": "blog_posts_translations",
       "schema": {
-        "column": "translation",
-        "constraint_name": "blog_figures_translation_foreign",
+        "column": "blog_posts_translations_id",
+        "constraint_name": "blog_posts_translations_blocks_blog_posts___6431a089_foreign",
         "foreign_key_column": "id",
         "foreign_key_table": "blog_posts_translations",
         "on_delete": "CASCADE",
         "on_update": "NO ACTION",
-        "table": "blog_figures"
+        "table": "blog_posts_translations_blocks"
       }
+    },
+    {
+      "collection": "blog_posts_translations_blocks",
+      "field": "item",
+      "meta": {
+        "junction_field": "blog_posts_translations_id",
+        "many_collection": "blog_posts_translations_blocks",
+        "many_field": "item",
+        "one_allowed_collections": [
+          "block_markdown",
+          "block_figure",
+          "block_image",
+          "block_quote",
+          "block_cta"
+        ],
+        "one_collection": null,
+        "one_collection_field": "collection",
+        "one_deselect_action": "nullify",
+        "one_field": null,
+        "sort_field": null
+      },
+      "related_collection": null
     }
   ],
   "systemFields": []

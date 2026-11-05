@@ -1,5 +1,217 @@
 {
   "collection": "directus_operations",
   "primaryKey": "id",
-  "records": []
+  "records": [
+    {
+      "flow": "94aa98b2-39eb-4d92-ab42-b18699f9287d",
+      "id": "1122cda1-0caa-45d6-9a96-d56ab6e13229",
+      "key": "create",
+      "name": "Create the drafts",
+      "options": {
+        "collection": "social_posts",
+        "emitEvents": true,
+        "payload": "{{drafts.drafts}}",
+        "permissions": "$full"
+      },
+      "position_x": 91,
+      "position_y": 1,
+      "reject": null,
+      "resolve": null,
+      "type": "item-create"
+    },
+    {
+      "flow": "85535d3b-9465-4520-9585-f5939dd87f33",
+      "id": "33204d29-6802-49bc-b67d-f7b1f38897e2",
+      "key": "notify",
+      "name": "Notify them",
+      "options": {
+        "collection": "{{$trigger.collection}}",
+        "item": "{{$trigger.keys[0]}}",
+        "message": "Ein Beitrag in {{$trigger.collection}} wurde zur Freigabe geschickt. Bitte prüfen und veröffentlichen oder mit einem Kommentar zurückgeben.",
+        "permissions": "$full",
+        "recipient": "{{recipients}}",
+        "subject": "Zur Freigabe: ein Beitrag wartet auf Sie"
+      },
+      "position_x": 73,
+      "position_y": 1,
+      "reject": null,
+      "resolve": null,
+      "type": "notification"
+    },
+    {
+      "flow": "85535d3b-9465-4520-9585-f5939dd87f33",
+      "id": "3f635c6a-9075-44f2-bea6-2cfa48476005",
+      "key": "recipients",
+      "name": "Their ids",
+      "options": {
+        "code": "module.exports = async function (data) {\n  return data.publishers.map((user) => user.id);\n};"
+      },
+      "position_x": 55,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "33204d29-6802-49bc-b67d-f7b1f38897e2",
+      "type": "exec"
+    },
+    {
+      "flow": "94aa98b2-39eb-4d92-ab42-b18699f9287d",
+      "id": "5f384c8e-80c4-41f7-8617-570fdc174b99",
+      "key": "post",
+      "name": "Read the post",
+      "options": {
+        "collection": "blog_posts",
+        "key": [
+          "{{$trigger.keys[0]}}"
+        ],
+        "permissions": "$full",
+        "query": {
+          "fields": [
+            "id",
+            "translations.languages_code",
+            "translations.description",
+            "social_posts.language",
+            "social_posts.account"
+          ]
+        }
+      },
+      "position_x": 37,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "b8ef3bdd-7188-4c90-80ad-e3360c19c0a2",
+      "type": "item-read"
+    },
+    {
+      "flow": "85535d3b-9465-4520-9585-f5939dd87f33",
+      "id": "88edd099-f4ec-4c42-bf72-da5597ac3523",
+      "key": "publishers",
+      "name": "Find the publishers",
+      "options": {
+        "collection": "directus_users",
+        "permissions": "$full",
+        "query": {
+          "fields": [
+            "id"
+          ],
+          "filter": {
+            "role": {
+              "name": {
+                "_eq": "Publisher"
+              }
+            },
+            "status": {
+              "_eq": "active"
+            }
+          }
+        }
+      },
+      "position_x": 37,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "3f635c6a-9075-44f2-bea6-2cfa48476005",
+      "type": "item-read"
+    },
+    {
+      "flow": "94aa98b2-39eb-4d92-ab42-b18699f9287d",
+      "id": "931c55a1-8965-449f-a485-6d1e963870de",
+      "key": "published",
+      "name": "Published?",
+      "options": {
+        "filter": {
+          "$trigger": {
+            "payload": {
+              "status": {
+                "_eq": "published"
+              }
+            }
+          }
+        }
+      },
+      "position_x": 19,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "5f384c8e-80c4-41f7-8617-570fdc174b99",
+      "type": "condition"
+    },
+    {
+      "flow": "0e48ff7f-bf37-4192-a1b0-869f1711e855",
+      "id": "a82e647e-f8ae-4313-91b8-c324f3631011",
+      "key": "notify_website",
+      "name": "Notify the website",
+      "options": {
+        "body": "{\"collection\": \"{{$trigger.collection}}\", \"event\": \"{{$trigger.event}}\"}",
+        "headers": [
+          {
+            "header": "Authorization",
+            "value": "Bearer {{$env.WEBSITE_REVALIDATE_TOKEN}}"
+          },
+          {
+            "header": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "url": "{{$env.WEBSITE_REVALIDATE_URL}}"
+      },
+      "position_x": 19,
+      "position_y": 1,
+      "reject": null,
+      "resolve": null,
+      "type": "request"
+    },
+    {
+      "flow": "85535d3b-9465-4520-9585-f5939dd87f33",
+      "id": "b6577b4e-efa1-402c-8708-8e8498c859a8",
+      "key": "sent_to_review",
+      "name": "Sent to review?",
+      "options": {
+        "filter": {
+          "$trigger": {
+            "payload": {
+              "status": {
+                "_eq": "in_review"
+              }
+            }
+          }
+        }
+      },
+      "position_x": 19,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "88edd099-f4ec-4c42-bf72-da5597ac3523",
+      "type": "condition"
+    },
+    {
+      "flow": "94aa98b2-39eb-4d92-ab42-b18699f9287d",
+      "id": "b8ef3bdd-7188-4c90-80ad-e3360c19c0a2",
+      "key": "drafts",
+      "name": "Drafts it lacks",
+      "options": {
+        "code": "module.exports = async function (data) {\n  const post = Array.isArray(data.post) ? data.post[0] : data.post;\n  const account = 'linkedin-company';\n  const have = new Set((post.social_posts || []).filter((s) => s.account === account).map((s) => s.language));\n  const drafts = (post.translations || [])\n    .filter((t) => !have.has(t.languages_code))\n    .map((t) => ({ status: 'draft', account, language: t.languages_code, blog_post: post.id, text: t.description }));\n  return { drafts, count: drafts.length };\n};"
+      },
+      "position_x": 55,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "d9e02355-96c5-4a61-b273-db2503e4e937",
+      "type": "exec"
+    },
+    {
+      "flow": "94aa98b2-39eb-4d92-ab42-b18699f9287d",
+      "id": "d9e02355-96c5-4a61-b273-db2503e4e937",
+      "key": "any",
+      "name": "Any to draft?",
+      "options": {
+        "filter": {
+          "drafts": {
+            "count": {
+              "_gt": 0
+            }
+          }
+        }
+      },
+      "position_x": 73,
+      "position_y": 1,
+      "reject": null,
+      "resolve": "1122cda1-0caa-45d6-9a96-d56ab6e13229",
+      "type": "condition"
+    }
+  ]
 }

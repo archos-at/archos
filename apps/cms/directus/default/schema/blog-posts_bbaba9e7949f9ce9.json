@@ -50,7 +50,7 @@
         "readonly": false,
         "required": false,
         "searchable": true,
-        "sort": 6,
+        "sort": 10,
         "special": [
           "m2o"
         ],
@@ -143,14 +143,42 @@
       "field": "cover",
       "meta": {
         "collection": "blog_posts",
-        "conditions": null,
+        "conditions": [
+          {
+            "hidden": false,
+            "name": "Required for a drawing",
+            "required": true,
+            "rule": {
+              "_and": [
+                {
+                  "cover_type": {
+                    "_eq": "drawing"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "hidden": true,
+            "name": "Hidden for an image",
+            "rule": {
+              "_and": [
+                {
+                  "cover_type": {
+                    "_eq": "image"
+                  }
+                }
+              ]
+            }
+          }
+        ],
         "display": null,
         "display_options": null,
         "field": "cover",
         "group": null,
         "hidden": false,
         "interface": "select-dropdown",
-        "note": "A drawing from apps/website/src/assets/covers/. A new cover is drawn by the rules in packages/brand/docs/blog-covers.md and added in a pull request.",
+        "note": "A drawing from apps/website/src/assets/covers/. A new drawing follows packages/brand/docs/blog-covers.md and arrives by pull request.",
         "options": {
           "choices": [
             {
@@ -184,9 +212,9 @@
           ]
         },
         "readonly": false,
-        "required": true,
+        "required": false,
         "searchable": true,
-        "sort": 5,
+        "sort": 6,
         "special": null,
         "translations": null,
         "validation": null,
@@ -202,11 +230,249 @@
         "has_auto_increment": false,
         "is_generated": false,
         "is_indexed": false,
-        "is_nullable": false,
+        "is_nullable": true,
         "is_primary_key": false,
         "is_unique": false,
         "max_length": 255,
         "name": "cover",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "cover_ai_generated",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": [
+          {
+            "hidden": false,
+            "name": "Shown for an image",
+            "rule": {
+              "_and": [
+                {
+                  "cover_type": {
+                    "_eq": "image"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "display": null,
+        "display_options": null,
+        "field": "cover_ai_generated",
+        "group": null,
+        "hidden": true,
+        "interface": "boolean",
+        "note": "Made or changed by an image model. The website then marks it, as the design system requires.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 9,
+        "special": [
+          "cast-boolean"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "boolean",
+        "default_value": false,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "cover_ai_generated",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "boolean"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "cover_alt",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": [
+          {
+            "hidden": false,
+            "name": "Shown and required for an image",
+            "required": true,
+            "rule": {
+              "_and": [
+                {
+                  "cover_type": {
+                    "_eq": "image"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "display": null,
+        "display_options": null,
+        "field": "cover_alt",
+        "group": null,
+        "hidden": true,
+        "interface": "input",
+        "note": "What the image shows, for screen readers.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 8,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "cover_alt",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "cover_image",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": [
+          {
+            "hidden": false,
+            "name": "Shown and required for an image",
+            "required": true,
+            "rule": {
+              "_and": [
+                {
+                  "cover_type": {
+                    "_eq": "image"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "display": null,
+        "display_options": null,
+        "field": "cover_image",
+        "group": null,
+        "hidden": true,
+        "interface": "file-image",
+        "note": "At least 1600 x 1067 px. Set its focal point: the website crops it to 3:2 for the post and 1200 x 630 for the share card.",
+        "options": {
+          "crop": true,
+          "folder": "4a8cfb84-3d12-4813-8ca9-3f0c1a92fec0"
+        },
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 7,
+        "special": [
+          "file"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "uuid",
+        "default_value": null,
+        "foreign_key_column": "id",
+        "foreign_key_table": "directus_files",
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "cover_image",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "uuid"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "cover_type",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "cover_type",
+        "group": null,
+        "hidden": false,
+        "interface": "select-radio",
+        "note": "A line drawing from the design system, or an uploaded image (a photo or a product screenshot).",
+        "options": {
+          "choices": [
+            {
+              "text": "Line drawing",
+              "value": "drawing"
+            },
+            {
+              "text": "Image",
+              "value": "image"
+            }
+          ]
+        },
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 5,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": "drawing",
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "cover_type",
         "numeric_precision": null,
         "numeric_scale": null,
         "table": "blog_posts"
@@ -230,7 +496,7 @@
         "readonly": true,
         "required": false,
         "searchable": true,
-        "sort": 8,
+        "sort": 12,
         "special": [
           "date-created"
         ],
@@ -276,7 +542,7 @@
         "readonly": true,
         "required": false,
         "searchable": true,
-        "sort": 10,
+        "sort": 14,
         "special": [
           "date-updated"
         ],
@@ -414,7 +680,7 @@
         "readonly": false,
         "required": false,
         "searchable": true,
-        "sort": 12,
+        "sort": 16,
         "special": [
           "o2m"
         ],
@@ -510,7 +776,7 @@
         "readonly": false,
         "required": false,
         "searchable": true,
-        "sort": 11,
+        "sort": 15,
         "special": [
           "translations"
         ],
@@ -538,7 +804,7 @@
         "readonly": true,
         "required": false,
         "searchable": true,
-        "sort": 7,
+        "sort": 11,
         "special": [
           "user-created"
         ],
@@ -584,7 +850,7 @@
         "readonly": true,
         "required": false,
         "searchable": true,
-        "sort": 9,
+        "sort": 13,
         "special": [
           "user-updated"
         ],
@@ -635,6 +901,31 @@
         "constraint_name": "blog_posts_author_foreign",
         "foreign_key_column": "id",
         "foreign_key_table": "blog_authors",
+        "on_delete": "SET NULL",
+        "on_update": "NO ACTION",
+        "table": "blog_posts"
+      }
+    },
+    {
+      "collection": "blog_posts",
+      "field": "cover_image",
+      "meta": {
+        "junction_field": null,
+        "many_collection": "blog_posts",
+        "many_field": "cover_image",
+        "one_allowed_collections": null,
+        "one_collection": "directus_files",
+        "one_collection_field": null,
+        "one_deselect_action": "nullify",
+        "one_field": null,
+        "sort_field": null
+      },
+      "related_collection": "directus_files",
+      "schema": {
+        "column": "cover_image",
+        "constraint_name": "blog_posts_cover_image_foreign",
+        "foreign_key_column": "id",
+        "foreign_key_table": "directus_files",
         "on_delete": "SET NULL",
         "on_update": "NO ACTION",
         "table": "blog_posts"
