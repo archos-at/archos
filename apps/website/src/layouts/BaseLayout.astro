@@ -5,7 +5,7 @@ import '../styles/site.css';
 import ConsentNote from '../components/ConsentNote.astro';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
-import { alternateOf, type Locale } from '../i18n/paths';
+import { alternateOf, isUnlisted, type Locale } from '../i18n/paths';
 import { t } from '../i18n/ui';
 import identity from '../lib/identity';
 import { breadcrumbList, faqPage, jsonLd, siteGraph, type Crumb, type GraphNode } from '../lib/structured-data';
@@ -20,7 +20,7 @@ interface Props {
   /** The home page: `<brand> – <title>` */
   brandFirst?: boolean;
   description: string;
-  /** Keeps the page out of search results */
+  /** Keeps the page out of search results (an unlisted page in paths.ts always is) */
   noindex?: boolean;
   /** Renders without header and footer (the split pages: Demo) */
   bare?: boolean;
@@ -44,7 +44,7 @@ const {
   title,
   brandFirst = false,
   description,
-  noindex = false,
+  noindex: noindexProp = false,
   bare = false,
   alternatePath,
   crumbs = [],
@@ -53,6 +53,7 @@ const {
   feed,
 } = Astro.props;
 const ui = t(locale);
+const noindex = noindexProp || isUnlisted(Astro.url.pathname);
 const pageTitle = brandFirst ? `${identity.name} – ${title}` : `${title} – ${identity.name}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 // hreflang: the page and its other-locale twin, German as x-default.

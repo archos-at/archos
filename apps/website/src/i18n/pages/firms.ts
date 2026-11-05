@@ -15,10 +15,10 @@
 const de = {
   title: 'KI für Architekturbüros',
   description:
-    '{name} ist der Workspace für Architektur- und Planungsbüros. Er durchsucht Baurecht, vergleicht Planstände und prüft Modelle. Entwerfen bleibt Ihre Sache.',
+    '{name} ist der Workspace für Architekturbüros. Er durchsucht Baurecht, vergleicht Planstände und prüft Modelle. Entwerfen bleibt Ihre Sache.',
   hero: {
     title: 'KI für Architekturbüros. Dort, wo geplant wird.',
-    text: '{name} ist der Workspace für Architektur- und Planungsbüros. Pläne, Modelle, Unterlagen und Bürowissen liegen an einem Ort, und {name} übernimmt dort die regelgeleitete Arbeit.',
+    text: '{name} ist der Workspace für Architekturbüros. Pläne, Modelle, Unterlagen und Bürowissen liegen an einem Ort, und {name} übernimmt dort die regelgeleitete Arbeit.',
   },
   today: {
     title: 'Was {name} heute übernimmt.',
@@ -109,10 +109,10 @@ const de = {
 const en: typeof de = {
   title: 'AI for architecture firms',
   description:
-    '{name} is the workspace for architecture and planning firms. It searches building law, compares plan revisions and checks models. Design stays with you.',
+    '{name} is the workspace for architecture firms. It searches building law, compares plan revisions and checks models. Design stays with you.',
   hero: {
     title: 'AI for architecture firms. Where the planning happens.',
-    text: '{name} is the workspace for architecture and planning firms. Plans, models, documents and office knowledge sit in one place, and {name} takes over the rule-based work there.',
+    text: '{name} is the workspace for architecture firms. Plans, models, documents and office knowledge sit in one place, and {name} takes over the rule-based work there.',
   },
   today: {
     title: 'What {name} takes over today.',

@@ -107,7 +107,7 @@ agent can read and act on the same records (AI-native tooling).
 ## Accessibility
 
 `bun run check:a11y` (`scripts/check-accessibility.mjs`) serves `dist/` and runs axe-core with the
-WCAG 2.0, 2.1 and 2.2 A/AA rules on every page in the sitemap plus the 404 page, at 1280 and 390 px,
+WCAG 2.0, 2.1 and 2.2 A/AA rules on every page in the sitemap plus the unlisted pages and the 404 page, at 1280 and 390 px,
 with the mobile menu open and a form in its sent state. Text on a photo, which axe can only flag for
 review, is measured against every pixel behind it. It fails on any finding, and `task website:verify`
 runs it.
@@ -211,7 +211,10 @@ and scripts check those rows through the table and never spell them.
 is in the sitemap with its other-locale twin as the `xhtml:link` pair (`sitemap.mjs`). For its
 `lastmod`, add its view and copy file to `PAGE_SOURCES` in `sitemap.mjs` (the date of their last
 commit; the image build has no git, so there the page carries no date). Posts pair through
-`translationSlug` and are dated by `pubDate`. JSON-LD comes from `BaseLayout`: every page has
+`translationSlug` and are dated by `pubDate`. A route in `UNLISTED_ROUTES` (same file) is built and
+answers, but is left out of the sitemap, the navigation and `llms.txt` and carries `noindex`
+(`BaseLayout`); `src/lib/unlisted-routes.test.ts` fails a link to it, and `check:a11y` still visits
+it. JSON-LD comes from `BaseLayout`: every page has
 `Organization` and `WebSite`; every indexed inner page gets a `BreadcrumbList` (Start › title;
 pass `crumbs` for the levels between); a page that renders `FAQ` passes the same items as `faq`
 and gets an `FAQPage`; anything else goes in `graph` (`SoftwareApplication` on home, `BlogPosting`
@@ -220,7 +223,7 @@ and there are no public reviews. `bun run check:structured-data` holds all of it
 
 **Feeds and llms.txt.** `/rss.xml` and `/en/rss.xml` (`src/lib/feed.ts`, `@astrojs/rss`) keep the
 old feed addresses; blog pages link them in `<head>`. `/llms.txt` is generated from identity, the
-product pages' own titles and descriptions and the newest posts (`src/pages/llms.txt.ts`, copy in
+listed product pages' own titles and descriptions and the newest posts (`src/pages/llms.txt.ts`, copy in
 `src/i18n/pages/llms.ts`).
 
 **Social previews.** Every page shares `share-card.png` (the wordmark and the tagline, drawn by

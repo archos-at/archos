@@ -405,3 +405,33 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
     @starting-style { opacity: 0; transform: translateY(calc(-1 * var(--travel-sm))); }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Added 2026-11-05 (owner feedback on the reference site), on purpose beyond the
+   handover. Kept together at the end of the file.
+   --------------------------------------------------------------------------- */
+
+/* Feature cells: FeatureTiles (variant="cells") on a .ui-band, each point a square
+   cell on the page surface. The handover's tiles are whitespace only; the data
+   security page's points have to stand apart from the rest of the page. No line,
+   no shadow: the band's grey between the cells is the only division. */
+.ui-features-cells { gap: var(--space-2); }
+.ui-features-cells > .ui-feature { box-sizing: border-box; padding: var(--space-8); background: var(--surface); }
+.ui-features-cells .ui-feature-text { max-width: 380px; }
+@media (min-width: 768px) and (max-width: 1023px) { .ui-features-cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .ui-features-cells { gap: var(--space-2); } .ui-features-cells > .ui-feature { padding: var(--space-6); } }
+
+/* Contact: the details and the form, clearly apart (they sat 32px apart in a
+   two-column feature grid). From 1024px twelve columns: details in 1–5, the form
+   in 7–12, so a whole column and two gaps lie between them. Below, stacked, the
+   form after a wide gap and no wider than the reading measure. */
+.ui-contact { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-16); }
+.ui-contact-details > * { margin: 0; }
+.ui-contact-details > * + * { margin-top: var(--space-8); }
+.ui-contact-form { max-width: var(--measure); }
+@media (min-width: 1024px) {
+  .ui-contact { grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--space-8); }
+  .ui-contact-details { grid-column: 1 / span 5; }
+  .ui-contact-form { grid-column: 7 / span 6; max-width: none; }
+}
+@media (max-width: 767px) { .ui-contact { row-gap: var(--space-12); } }

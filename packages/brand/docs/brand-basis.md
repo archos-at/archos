@@ -34,7 +34,7 @@ When two sources disagree, the first matching rule decides. The owner may revise
 | ™ | Wordmark set as „ARCHOS™“ (MB p.1, p.14) | Text: „ARCHOS, ohne ™“ | No ™ in running text or UI; the wordmark component carries none either (there is no vector artwork yet) | P1 |
 | Product noun | MB p.9 offers „Der KI-Workspace, in dem Ihr Projekt entsteht.“ | – | Not used: MB p.12 forbids „KI-Workspace“ | P2 |
 | Mission | „Wir nehmen Planer:innen alles ab, was nicht Planung ist.“ (MB p.2) | – | Public wording „Wir übernehmen, was Planer:innen vom Planen abhält.“ (MB p.12's own „So“) | P2 |
-| Hero line | „Der Workspace für Planungsbüros.“ (MB p.9, p.12) | „Der Workspace für Architekturbüros.“ (reference site) | Audience „Architektur- und Planungsbüros“; the website's hero copy is the website's decision | P2 |
+| Hero line | „Der Workspace für Planungsbüros.“ (MB p.9, p.12) | „Der Workspace für Architekturbüros.“ (reference site) | „Der Workspace für Architekturbüros.“ on the website's home page, its title and `llms.txt`, without „und Planungsbüros“ (owner decision, 2026-11-05). Elsewhere the audience stays „Architektur- und Planungsbüros“ | P2 |
 | Address | „euch“ (MB p.4) and „Ihr Projekt“ (MB p.9–11) | „Sie“ | „Sie“ | P2 (the brand book itself uses „Ihr“ in product sentences) |
 | Look model | „ähnlich wie bei Harvey“ (MB p.13); Harvey screenshot (MS s.7) | – | Never shown or named | P3 |
 

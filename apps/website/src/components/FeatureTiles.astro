@@ -9,14 +9,16 @@ interface FeatureItem {
 interface Props {
   items: FeatureItem[];
   columns?: 2 | 3 | 4;
+  /** plain: whitespace only (the handover) · cells: each point a cell on the page surface, for a `.ui-band` */
+  variant?: 'plain' | 'cells';
   class?: string;
 }
 
-const { items, columns, class: className } = Astro.props;
+const { items, columns, variant = 'plain', class: className } = Astro.props;
 const cols = columns || Math.min(items.length, 4) || 3;
 ---
 
-<ol class:list={['ui-features', className]} style={`--ui-cols: ${cols}`}>
+<ol class:list={['ui-features', variant === 'cells' && 'ui-features-cells', className]} style={`--ui-cols: ${cols}`}>
   {
     items.map((item, i) => (
       <li class="ui-feature" data-reveal style={`--ui-reveal-step: ${i % 4}`}>

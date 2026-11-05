@@ -173,6 +173,8 @@ The handover (design system 3.0) is the reference; these are the recorded differ
 | Duo cards on a phone | min-height 0, body 360px | min-height 440px, body 390px | The handover's own README and the reference site |
 | Video play button on a phone | 56px | 48px | Proportion on a 390px screen |
 | Demo logos | page class `demo-logos` | `ui-split-logos`, part of `SplitPage` | Component classes carry the `ui-` prefix |
+| Feature tiles on the data security page | whitespace only, on white | `variant="cells"` (`ui-features-cells`): each point a square cell on `surface`, on a full-width `ui-band` | Owner feedback 2026-11-05: the protections must stand apart from the rest of the page |
+| Contact page columns | two-column feature grid, 32px apart | `ui-contact`: details in columns 1–5, form in 7–12 from 1024px, stacked below | Owner feedback 2026-11-05: the columns sat too close together |
 
 ## Contrast of the line tokens
 

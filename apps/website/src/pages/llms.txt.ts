@@ -1,9 +1,6 @@
 import type { APIRoute } from 'astro';
-import buildingLaw from '../i18n/pages/building-law';
-import firms from '../i18n/pages/firms';
 import home from '../i18n/pages/home';
 import llms from '../i18n/pages/llms';
-import revisions from '../i18n/pages/revisions';
 import security from '../i18n/pages/security';
 import { ROUTES, type Locale } from '../i18n/paths';
 import identity, { withName } from '../lib/identity';
@@ -17,11 +14,10 @@ export const prerender = true;
 
 type PageCopy = Record<Locale, { title: string; description: string }>;
 
+// The unlisted pages (UNLISTED_ROUTES in src/i18n/paths.ts) are not offered here either.
+
 const PRODUCT_PAGES: { path: Record<Locale, string>; copy: PageCopy }[] = [
   { path: ROUTES.home, copy: { de: home.de.meta, en: home.en.meta } },
-  { path: ROUTES.firms, copy: firms },
-  { path: ROUTES.buildingLaw, copy: buildingLaw },
-  { path: ROUTES.revisions, copy: revisions },
   { path: ROUTES.security, copy: security },
 ];
 

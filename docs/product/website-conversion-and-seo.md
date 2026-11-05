@@ -29,14 +29,21 @@ measured in PostHog (`apps/website/README.md`, "Analytics").
 
 ## Pages and the searches they meet
 
-The header stays Plattform · Datensicherheit · Blog (design system). The product pages are in the
-footer's product column and linked from home and from each other.
+The header stays Plattform · Datensicherheit · Blog (design system). The footer's product column
+lists Plattform, Datensicherheit and Neuerungen.
+
+**Unlisted since 2026-11-05 (owner decision).** The three product sub pages (`/ki-fuer-architekturbueros/`,
+`/planstaende-vergleichen/`, `/baurecht/` and their English twins) are still built and answer at their
+address, and the old addresses below still redirect to them, but nothing on the site links them, they
+are out of the sitemap and `llms.txt`, and they carry `noindex` (`UNLISTED_ROUTES` in
+`apps/website/src/i18n/paths.ts`). Whether they come back, are rewritten or are removed (then with a
+route fate in `redirects.mjs`) is open.
 
 | Cluster (German first) | Page | Status |
 |---|---|---|
-| KI im Architekturbüro, KI Architekturbüro Software, KI Planungsbüro, ChatGPT für Architekten | `/ki-fuer-architekturbueros/` · `/en/ai-for-architecture-firms/`, and the journal post it links to | live |
-| Pläne vergleichen, Planänderungen erkennen, Planstand vergleichen, Raumprogramm prüfen | `/planstaende-vergleichen/` · `/en/comparing-plan-revisions/` | live |
-| OIB-Richtlinien, Bauordnung, Gebäudeklasse vs. Bauklasse, Einreichung prüfen | `/baurecht/` · `/en/building-law/` (the old hub's address, kept) | live |
+| KI im Architekturbüro, KI Architekturbüro Software, KI Planungsbüro, ChatGPT für Architekten | `/ki-fuer-architekturbueros/` · `/en/ai-for-architecture-firms/`, and the journal post it links to | unlisted |
+| Pläne vergleichen, Planänderungen erkennen, Planstand vergleichen, Raumprogramm prüfen | `/planstaende-vergleichen/` · `/en/comparing-plan-revisions/` | unlisted |
+| OIB-Richtlinien, Bauordnung, Gebäudeklasse vs. Bauklasse, Einreichung prüfen | `/baurecht/` · `/en/building-law/` (the old hub's address, kept) | unlisted |
 | KI und Datenschutz im Büro | `/datensicherheit/` · `/en/security/` | live |
 | Wissensmanagement Architekturbüro, Projektwissen, Büroarchiv | `/projektwissen/` · `/en/project-knowledge/` | wave 2; home and the journal meanwhile |
 | IFC-Modell prüfen, IFC im Browser, Raumbuch | `/modelle-pruefen/` · `/en/model-checking/` | wave 2 |

@@ -1,14 +1,14 @@
 ---
 import BlogPostView from '../../../views/BlogPostView.astro';
-import { CATEGORY_IDS } from '../../../lib/categories';
+import { categorySegments } from '../../../lib/categories';
 import { getBlogPosts, postSlug } from '../../../lib/posts';
 
 export async function getStaticPaths() {
   const posts = await getBlogPosts('en');
   return posts.map((post) => {
     const slug = postSlug(post.id);
-    if ((CATEGORY_IDS as readonly string[]).includes(slug)) {
-      throw new Error(`Post slug "${slug}" equals a category id; /en/blog/${slug}/ would collide with the category page.`);
+    if (categorySegments('en').includes(slug)) {
+      throw new Error(`Post slug "${slug}" equals a category segment; /en/blog/${slug}/ would collide with the category page.`);
     }
     return { params: { slug }, props: { post } };
   });

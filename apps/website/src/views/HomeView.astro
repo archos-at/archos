@@ -15,8 +15,6 @@ import Video from '../components/Video.astro';
 import { navigation } from '../i18n/nav';
 import copy from '../i18n/pages/home';
 import { localePath, type Locale } from '../i18n/paths';
-import { t } from '../i18n/ui';
-import TextLink from '../components/TextLink.astro';
 import identity from '../lib/identity';
 import { softwareApplication } from '../lib/structured-data';
 import { withName } from '../lib/identity';
@@ -31,13 +29,6 @@ interface Props {
 const { locale } = Astro.props;
 const c = withName(copy[locale]);
 const nav = navigation(locale);
-const ui = t(locale);
-// The work pages that explain what the workload section names (internal links, plan rule 2).
-const workPages = [
-  { label: ui.navBuildingLaw, href: localePath('buildingLaw', locale) },
-  { label: ui.navRevisions, href: localePath('revisions', locale) },
-  { label: ui.navFirms, href: localePath('firms', locale) },
-];
 const site = Astro.site ?? new URL(`https://${identity.domain}`);
 const product = softwareApplication(site, locale, c.meta.description, localePath('home', locale));
 
@@ -90,9 +81,7 @@ const galleryItems = c.gallery.items.map((item, i) => ({ ...item, image: gallery
   </Hero>
 
   <section class="ui-container ui-section">
-    <SectionIntro layout="split" title={c.workload.title} lead={c.workload.lead} text={c.workload.text}>
-      {workPages.map((page) => <TextLink href={page.href} arrow>{page.label}</TextLink>)}
-    </SectionIntro>
+    <SectionIntro layout="split" title={c.workload.title} lead={c.workload.lead} text={c.workload.text} />
   </section>
 
   <Gallery locale={locale} items={galleryItems} label={c.gallery.label} id="funktionen" />

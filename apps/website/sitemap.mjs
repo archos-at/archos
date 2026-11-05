@@ -14,7 +14,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { ROUTES } from './src/i18n/paths.ts'
+import { ROUTES, isUnlisted } from './src/i18n/paths.ts'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
 
@@ -113,7 +113,8 @@ export function serializeSitemapItem(item) {
   return item
 }
 
-/** @astrojs/sitemap `filter`: no error page, and nothing that only redirects. */
+/** @astrojs/sitemap `filter`: no error page, nothing that only redirects, and no unlisted page (paths.ts). */
 export function sitemapFilter(page) {
-  return !/\/(404|sign-in)(\/|$)/.test(new URL(page).pathname)
+  const { pathname } = new URL(page)
+  return !/\/(404|sign-in)(\/|$)/.test(pathname) && !isUnlisted(pathname)
 }
