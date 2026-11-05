@@ -13,7 +13,7 @@
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate": "cross-env NODE_OPTIONS=--no-deprecation payload generate:importmap && cross-env NODE_OPTIONS=--no-deprecation payload generate:types",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint src scripts social tests",
+    "lint": "oxlint --deny-warnings src scripts social tests",
     "test": "vitest run",
     "test:db": "bash scripts/test-db.sh",
     "import:blog": "cross-env NODE_OPTIONS=--no-deprecation payload run scripts/import-blog.ts",
