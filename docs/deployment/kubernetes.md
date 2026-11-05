@@ -437,8 +437,9 @@ from code at all while they serve it.
 |---|---|
 | `dnsEnabled` | Master switch. Everything else is unread while false |
 | `dnsZoneId` | Cloudflare zone → Overview → API section |
-| `dnsZoneName` | The zone **apex** (`piloti.at`), which need not equal `baseDomain` — a stack may live on a subdomain of its zone |
-| 🔒 `cloudflareApiToken` | Scoped to that one zone: `Zone:DNS:Edit`, plus `Zone:Dynamic URL Redirects:Edit` on the `dnsZoneBaseline` stack |
+| `dnsZoneName` | The zone **apex** (`example.com`), which need not equal `baseDomain` — a stack may live on a subdomain of its zone |
+| 🔒 `cloudflareApiToken` | Scoped to that one zone (both zones during a domain move): `Zone:DNS:Edit`, plus `Zone:Dynamic URL Redirects:Edit` on the `dnsZoneBaseline` stack. `deploy/pulumi/scripts/check-cloudflare-token.sh --stack <stack>` proves it against the API |
+| `formerDnsZoneName` / `formerDnsZoneId` | During a domain move, the zone of `formerBaseDomain` when it is not this stack's zone ([`domain-cutover.md`](domain-cutover.md)) |
 | `dnsTtl` | Default 600s |
 | `dnsZoneBaseline` | Whether this stack owns the zone-level records (`www`, `_dmarc`, the apex). **At most one stack**, and required on the stack that serves the apex |
 | `dnsDmarc` | Value of the `_dmarc` TXT record, when the baseline is owned here |

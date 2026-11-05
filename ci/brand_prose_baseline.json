@@ -1084,7 +1084,7 @@
   "deploy/posthog/support/reply-poke.hog": 6,
   "deploy/posthog/support/slack-alert.hog": 3,
   "deploy/posthog/surveys/chat-message-count.hog": 1,
-  "deploy/pulumi/Pulumi.dev.yaml": 130,
+  "deploy/pulumi/Pulumi.dev.yaml": 132,
   "deploy/pulumi/Pulumi.prod.yaml": 144,
   "deploy/pulumi/Pulumi.yaml": 3,
   "deploy/pulumi/README.md": 27,
