@@ -32,6 +32,11 @@ describe('projectSiteAddress', () => {
     )
   })
 
+  test('prefers site_address when an old row holds both keys', () => {
+    const facts = { site_address: 'Erdberger Lände 3, 1030 Wien', [LEGACY_ADDRESS_KEY]: 'Stiftsplatz 1, 3400 Klosterneuburg' }
+    expect(projectSiteAddress(withFacts(facts))).toBe('Erdberger Lände 3, 1030 Wien')
+  })
+
   test('is null when there is no address, a blank one, or not a string', () => {
     expect(projectSiteAddress(withFacts({}))).toBeNull()
     expect(projectSiteAddress(withFacts({ site_address: '   ' }))).toBeNull()
