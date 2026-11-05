@@ -24,7 +24,10 @@
   height: auto;
   aspect-ratio: 6 / 5;
   border-radius: var(--radius-surface);
-  background: var(--muted);
+  background: var(--ds-surface-sunken);
+  /* The sheet's edge: in dark the sunken ground is only a step below the page. */
+  outline: var(--ds-stroke-hairline) solid var(--border);
+  outline-offset: calc(-1 * var(--ds-stroke-hairline));
 }
 .status-drawing * {
   fill: none;
@@ -33,8 +36,8 @@
   stroke-linejoin: miter;
   vector-effect: non-scaling-stroke;
 }
-.status-drawing .sheet-ground { fill: var(--muted); }
-.status-drawing .sheet-grid { stroke: var(--border); stroke-width: var(--ds-stroke-hairline); }
+.status-drawing .sheet-ground { fill: var(--ds-surface-sunken); }
+.status-drawing .sheet-grid { stroke: var(--ds-line); stroke-width: var(--ds-stroke-hairline); }
 .status-drawing .pen-cut { stroke: var(--foreground); stroke-width: var(--ds-stroke-strong); }
 .status-drawing .pen-view { stroke: var(--foreground); stroke-width: var(--ds-stroke-hairline); }
 .status-drawing .pen-hidden { stroke: var(--foreground); stroke-width: var(--ds-stroke-hairline); stroke-dasharray: 6 4; }

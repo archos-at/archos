@@ -76,7 +76,7 @@
   --stagger-max: 240ms;
   --rise-bleed: 0.16em;
   --unveil-scale: 1.03;
-  --font-sans: "General Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "General Sans", "General Sans Fallback", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-logo: Switzer, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --text-display-xl: 500 72px/78px var(--font-sans);
   --text-display: 500 64px/70px var(--font-sans);
@@ -181,6 +181,14 @@
   font-weight: 200 700;
   font-style: normal;
   font-display: swap;
+}
+@font-face {
+  font-family: "General Sans Fallback";
+  src: local("Arial"), local("Liberation Sans");
+  size-adjust: 103.2%;
+  ascent-override: 97.87%;
+  descent-override: 23.26%;
+  line-gap-override: 9.69%;
 }
 @font-face {
   font-family: "Switzer";

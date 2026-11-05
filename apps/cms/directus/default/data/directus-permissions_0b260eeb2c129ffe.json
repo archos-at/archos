@@ -881,7 +881,8 @@
         "blog_post",
         "link_url",
         "utm_campaign",
-        "image"
+        "image",
+        "source_ref"
       ],
       "id": 55,
       "permissions": null,

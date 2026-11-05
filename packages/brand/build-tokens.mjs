@@ -86,17 +86,33 @@ function textClasses(tokens) {
 }
 
 function fontFaces(tokens) {
-  return tokens.type.fonts.map((f) => {
+  return tokens.type.fonts.flatMap((f) => {
     const file = f.file.replace(/^\.\//, '')
     const format = FORMATS[extname(file)]
-    return `@font-face {
+    const face = `@font-face {
   font-family: "${f.family}";
   src: url("./${file}") format("${format}");
   font-weight: ${f.weight};
   font-style: ${f.style};
   font-display: swap;
 }`
+    return f.fallback ? [face, fallbackFace(f.fallback)] : [face]
   })
+}
+
+/**
+ * A local system font scaled to the web font's metrics. It sits next in the stack, so the
+ * text wraps the same before the web font arrives and the swap moves nothing (no layout shift).
+ */
+function fallbackFace(fb) {
+  return `@font-face {
+  font-family: "${fb.family}";
+  src: ${fb.local.map((name) => `local("${name}")`).join(', ')};
+  size-adjust: ${fb.sizeAdjust};
+  ascent-override: ${fb.ascentOverride};
+  descent-override: ${fb.descentOverride};
+  line-gap-override: ${fb.lineGapOverride};
+}`
 }
 
 /**
