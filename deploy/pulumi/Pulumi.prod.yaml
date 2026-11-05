@@ -205,10 +205,10 @@ config:
   #   domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks it).
   #   sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is the
   #   operator's mailbox: on archos.tech itself, or that domain must authorize the reports.
-  # grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:<inboundMailOperatorAddress>"
+  # grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
   #   Both: where postmaster@ and abuse@ forward; Cloudflare mails it a verification link on
   #   the first up, and the forwards work after the click (stack output inboundMailOperator).
-  # grid-oib:inboundMailOperatorAddress: <the operator mailbox, e.g. a Google group on archos.tech>
+  # grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-prod@archos.tech
   # grid-oib:inboundMailPaused: "true"
   #
   # Promotion 3, after G0, G4 (paused) and G7 pass, only the test office entitled: the pause "false".

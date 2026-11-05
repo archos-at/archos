@@ -306,5 +306,5 @@ config:
   # grid-oib:inboundMailZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id of piloti.at, Cloudflare zone Overview page)
   #   Where postmaster@ and abuse@ forward. Not prod's address: Cloudflare keeps each
   #   destination address once per account, and two stacks would own the same one.
-  # grid-oib:inboundMailOperatorAddress: mail-ops+dev@archos.tech
+  # grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-dev@archos.tech
   # grid-oib:inboundMailPaused: "true"

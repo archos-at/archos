@@ -336,7 +336,7 @@ block is at the end of `Pulumi.dev.yaml`, commented, in the same three promotion
 | Receiving domain | `inbox.dev.piloti.at` | `inbox.archos.tech` |
 | `inboundMailZoneId` | `66de14f8d07a729634f5d230418bb907` (piloti.at) | `31df51fbdd7ea2d7ef63bcaab9a09559` (archos.tech) |
 | Worker | `inbound-mail-dev` | `inbound-mail-prod` |
-| Operator mailbox | `mail-ops+dev@archos.tech` (its own destination address) | `mail-ops@archos.tech` |
+| Operator mailbox | `matthias.bigl+mail-dev@archos.tech` (its own destination address) | `matthias.bigl+mail-prod@archos.tech`; DMARC reports to `matthias.bigl+dmarc@archos.tech` |
 | `_dmarc` | piloti.at's, written by prod's `dnsDmarc`; no `inboundMailDmarc` on dev | `inboundMailDmarc` on archos.tech |
 | `INBOUND_MAIL_APEX_MX` for G0 | `none` | `smtp.google.com` |
 | WorkOS | Staging: `inbound-mail` for your own organization | Production: your own organization first, every office after §8 |
