@@ -378,17 +378,9 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
 @media (max-width: 767px) { .ui-gallery-card { min-height: 480px; } .ui-gallery-card .ui-gallery-media img { height: 440px; } }
 
 /* Motion. Each movement tells the reader something; at rest nothing moves, and
-   with reduced motion none of it runs: the still page is the finished page. */
+   with reduced motion none of it runs: the still page is the finished page.
+   Arrival on load and on scroll ([data-reveal]) lives in motion.css. */
 @media (prefers-reduced-motion: no-preference) {
-  /* A block arrives as it scrolls into view, once. The script marks only blocks
-     below the fold as pending, so nothing on screen at load ever moves, and
-     without the script nothing is hidden. */
-  [data-reveal] {
-    transition: opacity var(--duration-slow) var(--ease-settle), transform var(--duration-slow) var(--ease-settle);
-    transition-delay: calc(var(--ui-reveal-step, 0) * var(--stagger-row));
-  }
-  [data-reveal].is-pending { opacity: 0; transform: translateY(var(--travel-sm)); }
-
   /* An FAQ answer opens by its height instead of appearing at once. */
   .ui-faq { interpolate-size: allow-keywords; }
   .ui-faq details::details-content {

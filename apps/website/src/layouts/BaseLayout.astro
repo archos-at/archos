@@ -1,6 +1,7 @@
 ---
 import '../styles/brand/tokens.css';
 import '../styles/brand/components.css';
+import '../styles/brand/motion.css';
 import '../styles/site.css';
 import ConsentNote from '../components/ConsentNote.astro';
 import Footer from '../components/Footer.astro';
@@ -127,17 +128,40 @@ const structuredData = jsonLd(siteGraph(site, locale, nodes));
     <ConsentNote locale={locale} />
     <script>
       // Blocks below the fold arrive once as they scroll into view (styles in
-      // packages/brand/css/components.css, [data-reveal]). Anything on screen at
-      // load is left alone, and reduced motion leaves the page as it is.
-      if (!matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+      // packages/brand/css/motion.css). Anything on screen at load is left alone,
+      // and reduced motion or print leaves the page as it is.
+      //
+      // The blocks that come into view together are one batch: each gets its index in
+      // reading order (`--ui-reveal-index`), so a row of tiles arrives left to right and a
+      // tile that arrives alone does not wait. A block reached from above, or already in
+      // view when the observer first reports (a restored scroll, an anchor), is shown at once.
+      const motion = matchMedia('screen and (prefers-reduced-motion: no-preference)');
+      if (motion.matches && 'IntersectionObserver' in window) {
+        const inReadingOrder = (a: IntersectionObserverEntry, b: IntersectionObserverEntry) =>
+          a.target.compareDocumentPosition(b.target) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+        const showAtOnce = (block: HTMLElement) => {
+          block.classList.add('is-instant');
+          block.classList.remove('is-pending');
+          // Kept for a frame, so the style change lands without a transition.
+          requestAnimationFrame(() => requestAnimationFrame(() => block.classList.remove('is-instant')));
+        };
+        let first = true;
         const arrive = new IntersectionObserver((entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            entry.target.classList.remove('is-pending');
-            arrive.unobserve(entry.target);
+          const arriving = entries.filter((entry) => entry.isIntersecting).sort(inReadingOrder);
+          let index = 0;
+          for (const entry of arriving) {
+            const block = entry.target as HTMLElement;
+            arrive.unobserve(block);
+            if (first || entry.boundingClientRect.top < 0) {
+              showAtOnce(block);
+              continue;
+            }
+            block.style.setProperty('--ui-reveal-index', String(index++));
+            block.classList.remove('is-pending');
           }
-        }, { rootMargin: '0px 0px -10% 0px' });
-        for (const block of document.querySelectorAll('[data-reveal]')) {
+          first = false;
+        }, { rootMargin: '0px 0px -8% 0px' });
+        for (const block of document.querySelectorAll<HTMLElement>('[data-reveal]')) {
           if (block.getBoundingClientRect().top < innerHeight) continue;
           block.classList.add('is-pending');
           arrive.observe(block);

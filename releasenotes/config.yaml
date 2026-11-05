@@ -1,22 +1,28 @@
 # reno configuration — https://docs.openstack.org/reno/latest/
 #
 # Release notes in this repo are written for CUSTOMERS, not for the commit log.
-# The public sections below are published verbatim (translated into German) to
-# the changelog on piloti.at, so they are the ones a reader of that page can act
-# on — not reno's full upstream set. The internal ones (`security`, `incident`,
-# `operators`) are kept in the repository and never published.
+# Three tiers read them (ADR-0154):
+#
+#   customers  every note in a customer section, verbatim (translated into
+#              German), in the app's "What's new" for signed-in members,
+#              grouped by week and product area;
+#   public     the website's /changelog/ shows only the weekly summaries in
+#              releasenotes/summaries.yaml, never a single note;
+#   internal   `security`, `incident` and `operators` are kept here and reach
+#              neither.
 #
 # Authoring:  task release:note -- <slug>
 # Linting:    task release:lint     (also runs in CI on every PR)
+# Summaries:  task release:week -- 2026-W44, then releasenotes/summaries.yaml
 # Publishing: automatic, on merge to develop (.github/workflows/release-notes.yml)
 
-# The section set. The order here is the order the changelog renders the public
-# ones in: what you gained, what got better, what got fixed, then the small
-# print. `issues` and `critical` (reno defaults) are deliberately absent — a
-# known-issues list belongs in support docs, not on a marketing page.
+# The section set. The order here is the order the app lists the customer ones
+# in: what you gained, what got better, what got fixed, then the small print.
+# `issues` and `critical` (reno defaults) are deliberately absent: a known-issues
+# list belongs in support docs, not in product news.
 #
-# Which sections stay off the page is decided by INTERNAL_SECTIONS in
-# scripts/release_notes.py; the three at the bottom are those.
+# Which sections reach no reader is decided by INTERNAL_SECTIONS in
+# scripts/release_notes_rules.py; the three at the bottom are those.
 sections:
   - [features, New features]
   - [improvements, Improvements]
@@ -24,8 +30,9 @@ sections:
   - [deprecations, Deprecations]
   - [upgrade, Upgrade notes]
   - [other, Other]
-  # Never published from here down. The changelog is product news for
-  # architects, not a bug register; `task release:preview` still lists these.
+  # Never published from here down, neither in the app nor on the website. The
+  # notes are product news for architects, not a bug register;
+  # `task release:preview` still lists these.
   #
   # A vulnerability, a hardening, a dependency bumped for a CVE. A customer who
   # must know is told directly; a public line only advertises the hole.
@@ -45,8 +52,8 @@ semver_minor: [features]
 semver_patch: [fixes, improvements, security, incident]
 
 # The repo tags nothing yet (`git tag` is empty) and merges continuously into
-# `develop`, so in practice every note lands unreleased and the changelog groups
-# it by the date it shipped. Once release tagging starts, tagged versions group
+# `develop`, so in practice every note lands unreleased and both artifacts group
+# it by the week it shipped. Once release tagging starts, tagged versions group
 # under the tag instead — no config change needed.
 default_branch: develop
 unreleased_version_title: Unreleased
@@ -56,9 +63,19 @@ add_release_date: true
 # because that is the only moment anyone reads them.
 template: |
   ---
-  # One entry per user-visible change. The public sections are PUBLISHED, in
-  # English and in German translation, to https://piloti.at/changelog — write
-  # them for the architect using Piloti, not for the reviewer of your diff.
+  # area: choose one of projects, documents, answers, search, building-law, bim,
+  #   collaboration, tasks, office-knowledge, administration, agents, general
+  #
+  # Keep the line above with one area: where in the product the reader meets
+  # this change. The app's "What's new" filters by it.
+  #
+  # Who reads what you write below:
+  #   - every member of every office, in the app's "What's new", in English and
+  #     in German translation: every entry in a customer section (features to
+  #     other). Write it for the architect, not for the reviewer of your diff.
+  #   - nobody outside the repository: `security`, `incident`, `operators`.
+  #   - the public website shows none of it; it shows the week's summary,
+  #     written later from the notes (releasenotes/summaries.yaml).
   #
   #   - English. The German is generated from it; a German note fails the lint.
   #   - At most two sentences and 400 characters: what the reader can now do,
@@ -68,8 +85,7 @@ template: |
   #     model defaults, a deployment step)? Put it under `operators`.
   #   - A security fix goes under `security`; a severe fix (data lost or kept
   #     after deletion, a permission or legal hold that did not hold) under
-  #     `incident`. `security`, `incident` and `operators` are kept here and
-  #     never published, and a note in them still satisfies the PR check.
+  #     `incident`. A note in them still satisfies the PR check.
   #
   # Good: Uploading a corrected plan under the same name now replaces the old
   #       one instead of adding a second copy.

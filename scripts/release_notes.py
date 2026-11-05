@@ -50,6 +50,7 @@ Usage
 
     python scripts/release_notes.py lint
     python scripts/release_notes.py publish [--check] [--no-translate]
+    python scripts/release_notes.py week 2026-W44
 
 reno itself is deliberately *not* a repo dependency (it is needed by two
 commands and a workflow, not by the product), so the Taskfile runs this script
@@ -189,6 +190,25 @@ def cmd_publish(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_week(args: argparse.Namespace) -> int:
+    """One week's customer notes by area, from the committed app artifact: what its summary is written from."""
+    artifact = json.loads(Path(args.customer_output).read_text(encoding="utf-8"))
+    release = next((item for item in artifact["releases"] if item["id"] == args.week), None)
+    if release is None:
+        print(f"{args.week} has no customer notes. Weeks: {', '.join(r['id'] for r in artifact['releases'])}")
+        return 1
+    print(f"{args.week} ({release['date']} to {release['dateEnd']}), {len(release['notes'])} notes")
+    if release["summary"]:
+        print(f"\nSummary: {release['summary']['en']}")
+    for area in artifact["areas"]:
+        notes = [note for note in release["notes"] if note["area"] == area]
+        if notes:
+            print(f"\n{area} ({len(notes)})")
+            for note in notes:
+                print(f"  [{note['section']}] {note['text']['en']}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -221,6 +241,11 @@ def main(argv: list[str] | None = None) -> int:
         help="verify the committed artifacts match the notes; write nothing",
     )
     publish.set_defaults(func=cmd_publish)
+
+    week = sub.add_parser("week", help="list one week's customer notes by area, to write its summary from")
+    week.add_argument("week", help="an ISO week id, such as 2026-W44")
+    week.add_argument("--customer-output", default=str(CUSTOMER_FILE))
+    week.set_defaults(func=cmd_week)
 
     args = parser.parse_args(argv)
     return args.func(args)
