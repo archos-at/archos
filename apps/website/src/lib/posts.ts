@@ -20,11 +20,20 @@ export type { Post } from './post-model';
  */
 const includeDrafts = import.meta.env.PUBLIC_INCLUDE_DRAFTS === '1';
 
-/** Every post in `locale`, from whichever source this server has. */
+/**
+ * Every post in `locale`, from whichever source this server has. A CMS that does
+ * not answer, with no copy of its posts in memory yet (a pod that just started,
+ * or a CMS that is down), leaves the blog on the MDX fixtures the site was built
+ * with instead of a 500: the blog keeps its posts while the CMS comes up.
+ */
 async function allPosts(locale: Locale): Promise<Post[]> {
   const settings = cmsSettings();
   if (settings) {
-    return (await getCmsPosts(settings)).map((p) => fromCms(p, locale)).filter((p): p is Post => p !== undefined);
+    try {
+      return (await getCmsPosts(settings)).map((p) => fromCms(p, locale)).filter((p): p is Post => p !== undefined);
+    } catch (error) {
+      console.error(`cms: unreachable and nothing cached, serving the built-in posts: ${String(error)}`);
+    }
   }
   const entries = await getCollection('blog', ({ id, data }) => (includeDrafts || !data.draft) && id.startsWith(`${locale}/`));
   return entries.map(fromFixture);

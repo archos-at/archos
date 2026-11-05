@@ -70,7 +70,13 @@ async function build(extra: Record<string, string>) {
 
 describe("the CMS, switched on", () => {
   beforeAll(async () => {
-    await build({ [key("cmsEnabled")]: "true", [key("imageRegistry")]: "registry.example.test/owner", [key("imageTag")]: "sha-0123456789abcdef0123456789abcdef01234567" });
+    await build({
+      [key("cmsEnabled")]: "true",
+      [key("imageRegistry")]: "registry.example.test/owner",
+      [key("imageTag")]: "sha-0123456789abcdef0123456789abcdef01234567",
+      [key("registryUsername")]: "deploy-bot",
+      [key("registryPassword")]: "placeholder-secret-value", // pragma: allowlist secret
+    });
   }, 120_000);
 
   it("adds an https-cms listener that admits routes from the cms namespace only", () => {
@@ -155,6 +161,16 @@ describe("the CMS, switched on", () => {
     expect(env.CMS_PUBLIC_URL).toBe(`https://${HOST}`);
     expect(env.CMS_API_KEY).toEqual({ secretKeyRef: { name: "web-cms", key: "CMS_API_KEY" } });
     expect(env.CMS_REVALIDATE_TOKEN).toEqual({ secretKeyRef: { name: "web-cms", key: "CMS_REVALIDATE_TOKEN" } });
+  });
+
+  it("pulls its private image with a pull Secret of its own namespace, as the app's pods do", () => {
+    // The 2026-11-05 first deploy: no Secret in `cms`, so GHCR answered 401 and the
+    // pod sat in ImagePullBackOff until the apply timed out.
+    const secret = find("kubernetes:core/v1:Secret", "cms-registry-pull");
+    expect(secret.metadata.namespace).toBe("cms");
+    expect(secret.type).toBe("kubernetes.io/dockerconfigjson");
+    const pod = podOf("kubernetes:apps/v1:Deployment", "cms") as PodSpec & { imagePullSecrets?: Array<{ name: string }> };
+    expect(pod.imagePullSecrets).toEqual([{ name: secret.metadata.name }]);
   });
 
   it("runs no config Job: the CMS migrates and provisions itself on start", () => {

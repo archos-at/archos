@@ -7,6 +7,8 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from "../config";
+import { buildRegistryPullSecret, PULL_SECRET_NAME } from "../app/config";
+import { CMS } from "../config/cms";
 import { installCmsPostgres } from "../data/cms-pg";
 import { installCms, installCmsNamespace, installCmsNetworkPolicies, installCmsRoute } from "./cms";
 
@@ -23,7 +25,10 @@ export function installCmsTier(
   const ns = installCmsNamespace(provider);
   installCmsNetworkPolicies(provider, appNamespace, [ns, deps.appNamespace]);
   const pg = installCmsPostgres(cfg, provider, [ns, deps.postgresOperator]);
-  const cms = installCms(cfg, provider, appNamespace, [ns, pg.cluster, deps.bucketInit]);
+  // The CMS image is as private as the app's, and a pull Secret is namespaced: the
+  // CMS's namespace gets its own copy, or the pod meets GHCR's 401 and never starts.
+  const pull = buildRegistryPullSecret(cfg, provider, CMS.namespace, "cms-registry-pull", [ns]);
+  const cms = installCms(cfg, provider, appNamespace, [ns, pg.cluster, deps.bucketInit, ...(pull ? [pull] : [])], pull ? [{ name: PULL_SECRET_NAME }] : []);
   installCmsRoute(cfg, provider, appNamespace, [cms.service, deps.gateway]);
   return { service: cms.service };
 }
