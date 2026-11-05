@@ -1,0 +1,115 @@
+---
+/**
+ * A bar or line chart from a small table, drawn on the server: an SVG for the marks, HTML for
+ * every word and number, and the same values as a table for a screen reader. No script.
+ * Geometry: chart-model.ts. Contract: contracts.ts (`ChartBlock`). Rules: packages/brand/docs/components/Chart.md.
+ */
+import '../../styles/brand/blocks.css';
+import type { Locale } from '../../i18n/paths';
+import { t } from '../../i18n/ui';
+import { PLOT_HEIGHT, PLOT_WIDTH, chartModel } from './chart-model';
+import type { ChartBlock } from './contracts';
+
+interface Props extends ChartBlock {
+  locale: Locale;
+  class?: string;
+}
+
+const { locale, class: className, ...chart } = Astro.props;
+const ui = t(locale);
+const model = chartModel(chart, locale);
+---
+
+<figure class:list={['ui-block ui-chart', className]} data-dense={model.dense || undefined}>
+  <figcaption>
+    <p class="ui-chart-title">{chart.title}</p>
+    {chart.caption && <p class="ui-chart-caption">{chart.caption}</p>}
+  </figcaption>
+
+  {
+    model.legend.length > 0 && (
+      <ul class="ui-chart-legend" aria-hidden="true">
+        {model.legend.map((entry) => (
+          <li>
+            {chart.form === 'line' ? (
+              <svg class="ui-chart-key" viewBox="0 0 24 8">
+                <path class="ui-chart-line" data-slot={entry.slot} d="M2 4H22" />
+              </svg>
+            ) : (
+              <span class="ui-chart-swatch" data-slot={entry.slot} />
+            )}
+            {entry.name}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  {chart.axisLabel && <p class="ui-chart-axis-label" aria-hidden="true">{chart.axisLabel}</p>}
+
+  <div class="ui-chart-body" style={`--tick-chars: ${model.tickChars}`} aria-hidden="true">
+    <div class="ui-chart-ticks">
+      {model.grid.map((tick) => <span class="ui-chart-tick" style={`--top: ${(tick.top / PLOT_HEIGHT) * 100}%`}>{tick.label}</span>)}
+    </div>
+    <div class="ui-chart-plot">
+      <svg class="ui-chart-svg" viewBox={`0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`} preserveAspectRatio="none" focusable="false">
+        {model.grid.filter((tick) => !tick.zero).map((tick) => <line class="ui-chart-grid" x1="0" x2={PLOT_WIDTH} y1={tick.top} y2={tick.top} />)}
+        {
+          model.bars.map((bar) => (
+            <rect class="ui-chart-bar" data-slot={bar.slot} x={bar.x} y={bar.y} width={bar.w} height={bar.h}>
+              <title>{bar.title}</title>
+            </rect>
+          ))
+        }
+        {model.lines.map((line) => <path class="ui-chart-line" data-slot={line.slot} d={line.path} />)}
+        {model.grid.filter((tick) => tick.zero).map((tick) => <line class="ui-chart-grid" data-zero x1="0" x2={PLOT_WIDTH} y1={tick.top} y2={tick.top} />)}
+      </svg>
+      {model.dots.map((dot) => <span class="ui-chart-dot" data-slot={dot.slot} style={`--left: ${dot.left}%; --top: ${(dot.top / PLOT_HEIGHT) * 100}%`} />)}
+      {
+        model.values.map((value) => (
+          <span
+            class="ui-chart-value"
+            data-below={value.below || undefined}
+            data-align={value.align}
+            style={`--left: ${value.left}%; --top: ${(value.top / PLOT_HEIGHT) * 100}%`}
+          >
+            {value.text}
+          </span>
+        ))
+      }
+    </div>
+    <div class="ui-chart-xlabels" data-form={chart.form} style={`--count: ${model.xLabels.length}`}>
+      {
+        model.xLabels.map((label) => (
+          <span data-minor={label.minor || undefined} data-align={label.align} style={chart.form === 'line' ? `--left: ${label.left}%` : undefined}>
+            {label.text}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+
+  <table class="ui-visually-hidden">
+    <caption>{chart.title}{chart.axisLabel && `, ${chart.axisLabel}`}</caption>
+    <thead>
+      <tr>
+        <th scope="col">{ui.blockChartCategory}</th>
+        {model.table.head.map((name) => <th scope="col">{name}</th>)}
+      </tr>
+    </thead>
+    <tbody>
+      {
+        model.table.rows.map((row) => (
+          <tr>
+            <th scope="row">{row.label}</th>
+            {row.cells.map((cell) => <td>{cell}</td>)}
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+
+  <p class="ui-chart-source">
+    {ui.blockSource}: {chart.sourceUrl ? <a class="ui-link" href={chart.sourceUrl}>{chart.source}</a> : chart.source}
+  </p>
+</figure>

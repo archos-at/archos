@@ -1,0 +1,120 @@
+---
+/**
+ * A CMS post's body (Lexical's JSON, ADR-0155) as the design system draws it:
+ * Markdown's elements for text (styled by `.post-body` in src/styles/site.css),
+ * and the design system's components for blocks (PostBlock.astro). Every node
+ * type the editor can make is drawn here and nothing else; an unknown node is
+ * left out. No node's content is ever HTML: texts are escaped, links pass
+ * `safeHref`, blocks are components with typed props.
+ *
+ * The markup is the MDX pipeline's for the same content (heading ids by
+ * github-slugger, a nested list inside its item, a table's first row as its
+ * head), so a post moved from a fixture to the CMS renders the same.
+ */
+import MarkedText from './MarkedText.astro';
+import PostBlock from './PostBlock.astro';
+import type { Locale } from '../i18n/paths';
+import { INLINE_BLOCK_PROPS } from '../lib/post-blocks';
+import { headingTag, safeHref, textMarks, type LexicalNode } from '../lib/rich-text';
+
+interface Props {
+  locale: Locale;
+  nodes: LexicalNode[];
+  /** Heading ids for the whole body, computed once at the root (`headingIds`). */
+  ids: Map<LexicalNode, string>;
+}
+
+const { locale, nodes, ids } = Astro.props;
+
+/** A list's items, a nested list folded into the item before it as the MDX pipeline nests it. */
+function listItems(list: LexicalNode) {
+  const items: Array<{ inline: LexicalNode[]; nested: LexicalNode[] }> = [];
+  for (const item of list.children ?? []) {
+    const children = item.children ?? [];
+    const onlyList = children.length > 0 && children.every((c) => c.type === 'list');
+    if (onlyList && items.length > 0) items[items.length - 1].nested.push(...children);
+    else items.push({ inline: children.filter((c) => c.type !== 'list'), nested: children.filter((c) => c.type === 'list') });
+  }
+  return items;
+}
+
+/** A cell's content: the inline nodes of its paragraphs. */
+const cellInline = (cell: LexicalNode) => (cell.children ?? []).flatMap((p) => (p.type === 'paragraph' ? (p.children ?? []) : [p]));
+const fieldsOf = (node: LexicalNode) => (node.fields ?? {}) as Record<string, unknown>;
+const abbreviation = (node: LexicalNode) =>
+  fieldsOf(node).blockType === 'abbreviation' ? INLINE_BLOCK_PROPS.abbreviation(fieldsOf(node)) : undefined;
+---
+
+{
+  nodes.map((node) => {
+    const children = node.children ?? [];
+    switch (node.type) {
+      case 'text':
+        return <MarkedText text={String(node.text ?? '')} marks={textMarks(node.format)} />;
+      case 'linebreak':
+        return <br />;
+      case 'paragraph':
+        return children.length > 0 && <p><Astro.self locale={locale} nodes={children} ids={ids} /></p>;
+      case 'heading': {
+        const Tag = headingTag(node.tag);
+        return <Tag id={ids.get(node)}><Astro.self locale={locale} nodes={children} ids={ids} /></Tag>;
+      }
+      case 'link':
+      case 'autolink': {
+        const fields = fieldsOf(node);
+        const href = safeHref(fields.url);
+        if (!href) return <Astro.self locale={locale} nodes={children} ids={ids} />;
+        return fields.newTab === true ? (
+          <a href={href} target="_blank" rel="noopener noreferrer"><Astro.self locale={locale} nodes={children} ids={ids} /></a>
+        ) : (
+          <a href={href}><Astro.self locale={locale} nodes={children} ids={ids} /></a>
+        );
+      }
+      case 'list': {
+        const Tag = node.listType === 'number' ? 'ol' : 'ul';
+        const start = Tag === 'ol' && typeof node.start === 'number' && node.start !== 1 ? node.start : undefined;
+        return (
+          <Tag start={start}>
+            {listItems(node).map((item) => (
+              <li>
+                <Astro.self locale={locale} nodes={item.inline} ids={ids} />
+                <Astro.self locale={locale} nodes={item.nested} ids={ids} />
+              </li>
+            ))}
+          </Tag>
+        );
+      }
+      case 'quote':
+        return <blockquote><p><Astro.self locale={locale} nodes={children} ids={ids} /></p></blockquote>;
+      case 'table': {
+        const [head, ...body] = children;
+        return (
+          <div class="post-table">
+            <table>
+              {head && (
+                <thead>
+                  <tr>{(head.children ?? []).map((cell) => <th scope="col"><Astro.self locale={locale} nodes={cellInline(cell)} ids={ids} /></th>)}</tr>
+                </thead>
+              )}
+              <tbody>
+                {body.map((row) => (
+                  <tr>{(row.children ?? []).map((cell) => <td><Astro.self locale={locale} nodes={cellInline(cell)} ids={ids} /></td>)}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      case 'horizontalrule':
+        return <hr />;
+      case 'block':
+        return <PostBlock locale={locale} fields={node.fields} />;
+      case 'inlineBlock': {
+        const abbr = abbreviation(node);
+        return abbr && <abbr title={abbr.expansion}>{abbr.text}</abbr>;
+      }
+      default:
+        return null;
+    }
+  })
+}

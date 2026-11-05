@@ -1,27 +1,28 @@
 /**
  * A blog post as the views render it, whichever source it came from: the CMS
- * (Directus, ADR-0155) or the MDX fixtures in src/content/blog that the site
- * falls back to without one. Pure: `fromCms` maps the CMS's JSON, and the tests
- * hold it to the shape the CMS's sync files define (apps/cms/directus).
+ * (Payload, apps/cms, ADR-0155) or the MDX fixtures in src/content/blog that the
+ * site falls back to without one. Pure: `fromCms` maps the CMS's JSON (a post
+ * read with `locale=all`, every localized field an object by locale).
  */
 import type { CollectionEntry } from 'astro:content';
 import type { Locale } from '../i18n/paths';
 import { CATEGORY_IDS, type Category } from './categories';
+import type { ImageSize } from './cms';
+import { isLexicalRoot, type LexicalNode } from './rich-text';
 
-export type Cover =
-  | { kind: 'drawing'; id: string }
-  | { kind: 'image'; file: string; alt: string; aiGenerated: boolean };
+/** An uploaded image as the CMS serves it (apps/cms/src/collections/media.ts), populated by `depth=1`. */
+export interface MediaFile {
+  url: string;
+  alt?: string | null;
+  aiGenerated?: boolean | null;
+  width?: number | null;
+  height?: number | null;
+  sizes?: Partial<Record<ImageSize, { url?: string | null; width?: number | null; height?: number | null } | null>> | null;
+}
 
-export type FigureComponent = 'iso_stack' | 'scope' | 'hybrid' | 'lesson_loop';
+export type Cover = { kind: 'drawing'; id: string } | { kind: 'image'; file: MediaFile; alt: string; aiGenerated: boolean };
 
-export type Block =
-  | { kind: 'markdown'; text: string }
-  | { kind: 'figure'; component: FigureComponent; props: Record<string, unknown> }
-  | { kind: 'image'; file: string; alt: string; caption?: string; aiGenerated: boolean }
-  | { kind: 'quote'; quote: string; name: string; role?: string; office?: string }
-  | { kind: 'cta'; title: string; text?: string; primary?: string; secondary?: string };
-
-export type PostBody = { kind: 'mdx'; entry: CollectionEntry<'blog'> } | { kind: 'blocks'; blocks: Block[] };
+export type PostBody = { kind: 'mdx'; entry: CollectionEntry<'blog'> } | { kind: 'rich-text'; root: LexicalNode };
 
 export interface Post {
   locale: Locale;
@@ -47,103 +48,75 @@ export interface Post {
   body: PostBody;
 }
 
-const SOFT_HYPHEN = /­/g;
-const FIGURES: FigureComponent[] = ['iso_stack', 'scope', 'hybrid', 'lesson_loop'];
+const SOFT_HYPHEN = /\u00AD/g;
 
-/* The CMS's JSON, as the `fields` in cms.ts read it. Loose on purpose: it crosses a network. */
-interface CmsBlockRow {
-  collection: string;
-  item: Record<string, unknown> | null;
-}
-interface CmsTranslation {
-  languages_code: string;
-  title: string;
-  slug: string;
-  description: string;
-  seo_title?: string | null;
-  seo_description?: string | null;
-  noindex?: boolean | null;
-  previous_slugs?: string[] | null;
-  blocks?: CmsBlockRow[] | null;
-}
+/** A localized field read with `locale=all`. */
+type Localized<T> = Partial<Record<Locale, T | null>> | null | undefined;
+
+/* The CMS's JSON, as cms.ts reads it. Loose on purpose: it crosses a network. */
 export interface CmsPost {
-  id: string;
-  publish_date: string;
-  date_updated?: string | null;
+  id: number | string;
+  publishedAt: string;
+  updatedAt?: string | null;
   category: string;
-  cover_type?: string | null;
+  coverType?: string | null;
   cover?: string | null;
-  cover_image?: string | null;
-  cover_alt?: string | null;
-  cover_ai_generated?: boolean | null;
-  author?: { name: string; job_title?: string | null; profile_url?: string | null } | null;
-  translations: CmsTranslation[];
+  coverImage?: MediaFile | number | null;
+  coverAlt?: Localized<string>;
+  author?: { name: string; jobTitle?: Localized<string>; profileUrl?: string | null } | number | null;
+  title: Localized<string>;
+  slug: Localized<string>;
+  description: Localized<string>;
+  seo?: { title?: Localized<string>; description?: Localized<string>; noindex?: Localized<boolean> } | null;
+  previousSlugs?: Localized<string[]>;
+  body?: Localized<unknown>;
 }
 
 const text = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() !== '' ? value : undefined);
+const media = (value: unknown): MediaFile | undefined =>
+  value && typeof value === 'object' && typeof (value as MediaFile).url === 'string' ? (value as MediaFile) : undefined;
 
-/** One block row, or undefined for a kind this site does not render (a newer CMS than the site). */
-export function blockFromCms(row: CmsBlockRow): Block | undefined {
-  const item = row.item ?? {};
-  switch (row.collection) {
-    case 'block_markdown':
-      return text(item.text) ? { kind: 'markdown', text: item.text as string } : undefined;
-    case 'block_figure': {
-      const component = item.component as FigureComponent;
-      if (!FIGURES.includes(component) || typeof item.props !== 'object' || item.props === null) return undefined;
-      return { kind: 'figure', component, props: item.props as Record<string, unknown> };
-    }
-    case 'block_image':
-      if (!text(item.image) || !text(item.alt)) return undefined;
-      return { kind: 'image', file: item.image as string, alt: item.alt as string, caption: text(item.caption), aiGenerated: item.ai_generated === true };
-    case 'block_quote':
-      if (!text(item.quote) || !text(item.name)) return undefined;
-      return { kind: 'quote', quote: item.quote as string, name: item.name as string, role: text(item.role), office: text(item.office) };
-    case 'block_cta':
-      if (!text(item.title)) return undefined;
-      return { kind: 'cta', title: item.title as string, text: text(item.text), primary: text(item.primary), secondary: text(item.secondary) };
-    default:
-      return undefined;
-  }
-}
-
-function coverFromCms(post: CmsPost): Cover | undefined {
-  if (post.cover_type === 'image') {
-    if (!post.cover_image || !post.cover_alt) return undefined;
-    return { kind: 'image', file: post.cover_image, alt: post.cover_alt, aiGenerated: post.cover_ai_generated === true };
+function coverFromCms(post: CmsPost, locale: Locale): Cover | undefined {
+  if (post.coverType === 'image') {
+    const file = media(post.coverImage);
+    const alt = text(post.coverAlt?.[locale]);
+    return file && alt ? { kind: 'image', file, alt, aiGenerated: file.aiGenerated === true } : undefined;
   }
   return post.cover ? { kind: 'drawing', id: post.cover } : undefined;
 }
 
 /**
- * The post in `locale`, or undefined when it has no such translation or holds
- * something this site cannot show (an unknown category, no cover).
+ * The post in `locale`, or undefined when it has no such version or holds
+ * something this site cannot show (an unknown category, no cover, no body).
  */
 export function fromCms(post: CmsPost, locale: Locale): Post | undefined {
-  const own = post.translations.find((t) => t.languages_code === locale);
+  const slug = text(post.slug?.[locale]);
+  const title = text(post.title?.[locale]);
+  const description = text(post.description?.[locale]);
+  const body = post.body?.[locale];
   const category = post.category as Category;
-  const cover = coverFromCms(post);
-  if (!own || !CATEGORY_IDS.includes(category) || !cover) return undefined;
-  const twin = post.translations.find((t) => t.languages_code !== locale);
+  const cover = coverFromCms(post, locale);
+  if (!slug || !title || !description || !isLexicalRoot(body) || !CATEGORY_IDS.includes(category) || !cover) return undefined;
+  const other: Locale = locale === 'de' ? 'en' : 'de';
+  const twin = text(post.slug?.[other]) && text(post.title?.[other]) ? post.slug?.[other] ?? undefined : undefined;
+  const author = typeof post.author === 'object' && post.author?.name ? post.author : undefined;
   return {
     locale,
-    slug: own.slug,
-    title: own.title.replace(SOFT_HYPHEN, ''),
-    heading: own.title,
-    description: own.description,
-    pubDate: new Date(post.publish_date),
-    updated: post.date_updated ? new Date(post.date_updated) : undefined,
+    slug,
+    title: title.replace(SOFT_HYPHEN, ''),
+    heading: title,
+    description,
+    pubDate: new Date(post.publishedAt),
+    updated: post.updatedAt ? new Date(post.updatedAt) : undefined,
     category,
     cover,
-    translationSlug: twin?.slug,
-    seoTitle: text(own.seo_title),
-    seoDescription: text(own.seo_description),
-    noindex: own.noindex === true,
-    previousSlugs: own.previous_slugs ?? [],
-    author: post.author?.name
-      ? { name: post.author.name, jobTitle: text(post.author.job_title), url: text(post.author.profile_url) }
-      : undefined,
-    body: { kind: 'blocks', blocks: (own.blocks ?? []).map(blockFromCms).filter((b): b is Block => b !== undefined) },
+    translationSlug: twin,
+    seoTitle: text(post.seo?.title?.[locale]),
+    seoDescription: text(post.seo?.description?.[locale]),
+    noindex: post.seo?.noindex?.[locale] === true,
+    previousSlugs: (post.previousSlugs?.[locale] ?? []).filter((s): s is string => typeof s === 'string'),
+    author: author ? { name: author.name, jobTitle: text(author.jobTitle?.[locale]), url: text(author.profileUrl) } : undefined,
+    body: { kind: 'rich-text', root: body.root },
   };
 }
 
