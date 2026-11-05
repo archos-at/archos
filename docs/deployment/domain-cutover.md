@@ -77,11 +77,11 @@ value by hand (`deploy/AGENTS.md`); set secrets with `pulumi config set --secret
 | `formerDnsZoneName` | (unset) | `$OLD` |
 | `formerDnsZoneId` | (unset) | the former zone's id (today's `dnsZoneId`) |
 | `cloudflareApiToken` (ESC) | prod's token | unchanged, once `check-cloudflare-token.sh --stack prod` passes for both zones; otherwise add the new zone to the token in Cloudflare (its value stays) |
-| `dnsDmarc` | the former domain's policy | **TODO(owner), a mail decision:** `$NEW` carries Google Workspace mail (MX `smtp.google.com`, SPF `include:_spf.google.com`) and has no `_dmarc` today. The former value reports to the former registrar and was written for a domain with no mail. Set a policy for Google mail (start at `v=DMARC1; p=none; rua=mailto:<a mailbox you read>`) or remove the key |
+| `dnsDmarc` | the former domain's policy | **unset.** `_dmarc.$NEW` has one owner, the project-mail block of `Pulumi.prod.yaml` (agreed 2026-11-05 with the mail work, archos-at/archos#1464 and its follow-up), because mail needs it before prod's switch. Two TXT records at `_dmarc` make DMARC fail, and Cloudflare accepts the second without a word. The former value also does not fit: it reports to the former registrar and was written for a domain with no mail, while `$NEW` carries Google Workspace mail. The policy itself (start at `p=none` with `sp=` set) is the owner's mail decision |
 | comment on the Qdrant dashboard | `https://qdrant.$OLD/oauth2/callback` | `https://qdrant.$NEW/oauth2/callback` |
 
 `dnsZoneBaseline: "true"` stays on prod: it publishes the new zone's apex, `www` (301 to the
-apex at Cloudflare) and `_dmarc`. The former zone's `www`, `_dmarc` and `www` redirect rule
+apex at Cloudflare); `_dmarc` belongs to the mail block (row above). The former zone's `www`, `_dmarc` and `www` redirect rule
 stay where they are only after step 4 takes them out of the state.
 
 ### Dev (`deploy/pulumi/Pulumi.dev.yaml`)
