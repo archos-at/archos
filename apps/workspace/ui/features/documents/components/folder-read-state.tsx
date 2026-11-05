@@ -40,16 +40,24 @@ export function FolderReadState({
   tally,
   withUnplaced = false,
   dotOnly = false,
+  exceptionsOnly = false,
   className,
 }: {
   tally: KnowledgeTally | undefined
   withUnplaced?: boolean
   dotOnly?: boolean
+  /**
+   * The tile's form: nothing while the subtree is read (the normal case is
+   * quiet, the UI revision's rule), the swatch and its words when something
+   * failed, is held or is still being read.
+   */
+  exceptionsOnly?: boolean
   className?: string
 }): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const mark = tally ? readMarkOf(tally, { withUnplaced }) : null
   if (!mark) return null
+  if (exceptionsOnly && (mark.state === 'allRead' || mark.state === 'unplaced')) return null
   const words = t(READ_MARK_KEY[mark.state], { count: mark.count })
   return (
     <span

@@ -85,7 +85,9 @@ export function FileSearchField({
         label={searchLabel}
         clearLabel={resetLabel}
         size={size}
-        inputClassName="pr-10 md:pr-9"
+        // A filled field, not a drawn box: one tone below the page until it has the focus, when the
+        // field's own focus (its border turning to ink) takes over. The header holds no outlines.
+        inputClassName="pr-10 md:pr-9 border-transparent bg-muted/80 shadow-none hover:bg-muted focus-visible:bg-card"
         clearClassName={cn(
           'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
           size === 'sm' ? 'size-7' : 'size-9'

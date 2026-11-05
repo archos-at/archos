@@ -35,7 +35,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { folderDragProps, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { cn } from '@/lib/utils'
 import { TimeAgo } from '@/components/ui/time-ago'
-import { FileTileBody, FileTileFooter, FileTileMedia, GridTileShell } from './file-tile'
+import { FileTileBody, GridTileShell } from './file-tile'
 import { FolderAccessMark, FolderReadOnlyBadge, useFolderOwnAccessLabel } from './folder-access-mark'
 import { FolderReadState } from './folder-read-state'
 import type { KnowledgeTally } from '../lib/folder-knowledge'
@@ -151,7 +151,8 @@ export function FolderBreadcrumbRow({
       // card shows through. It is the list's first child and scrolled away with
       // the cards, taking „Neuer Ordner" and the way up with it; on a phone it
       // was left half-hidden under the controls. Pinned, it is whole, never cut.
-      className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b bg-background px-4 py-2.5 phone:py-1.5"
+      // No hairline under it: whitespace and the title's weight end the row, as the UI revision asks.
+      className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 bg-background px-4 pb-2 pt-4 phone:pt-2"
       data-testid="folder-breadcrumb-row"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -183,7 +184,7 @@ export function FolderBreadcrumbRow({
         <BreadcrumbList className="flex-nowrap overflow-x-auto">
           <BreadcrumbItem>
             {currentFolderId === null ? (
-              <BreadcrumbPage className="whitespace-nowrap font-medium">{t('folders.allFiles')}</BreadcrumbPage>
+              <BreadcrumbPage className="whitespace-nowrap text-[15px] font-medium">{t('folders.allFiles')}</BreadcrumbPage>
             ) : (
               crumb(
                 null,
@@ -221,7 +222,7 @@ export function FolderBreadcrumbRow({
                     transition={motionQuick}
                   >
                     {index === path.length - 1 ? (
-                      <BreadcrumbPage className="max-w-48 truncate font-medium">{folder.name}</BreadcrumbPage>
+                      <BreadcrumbPage className="max-w-48 truncate text-[15px] font-medium">{folder.name}</BreadcrumbPage>
                     ) : (
                       crumb(
                         folder.id,
@@ -566,8 +567,7 @@ export const FOLDER_ROWS_ON_PHONE = 'phone:[&>*:has([data-folder-tile])]:col-spa
  * The folder glyph's well: 124px of media on a card, a 44px square beside the
  * name on a phone, where the tile is a row (see {@link FolderCard}).
  */
-const FOLDER_WELL =
-  'flex h-[124px] items-center justify-center bg-muted/30 phone:size-10 phone:h-10 phone:shrink-0 phone:rounded-control phone:border-0'
+const FOLDER_WELL = 'flex size-9 shrink-0 items-center justify-center rounded-control'
 
 /**
  * A folder as a grid tile — visually DISTINCT from {@link FileCard}.
@@ -588,7 +588,7 @@ const FOLDER_WELL =
 export function FolderCard({
   folder,
   itemCount,
-  lastModified,
+  // The tile says how much it holds; when it last changed is the list view's column.
   knowledge,
   onOpen,
   onRenameFolder,
@@ -605,7 +605,6 @@ export function FolderCard({
 }: FolderTileProps): JSX.Element {
   const t = useTranslations(filesCopy)
   const { openLabel, lockLabel } = useFolderLabels(folder)
-  const { locale } = useLocale()
   const [uncontrolledEditing, setUncontrolledEditing] = useState(false)
   const editing = editingProp ?? uncontrolledEditing
   const setEditing = onEditingChange ?? setUncontrolledEditing
@@ -624,12 +623,13 @@ export function FolderCard({
   return (
     <GridTileShell
       interactive
-      // On a phone a folder is a row across the grid, not a 166px tile: the
-      // first screen shows where the files are before it shows what holds them.
-      // The grid spans it (`FOLDER_ROWS_ON_PHONE`, found by this mark).
+      // A folder is a compact tile at every width, one tone darker than the page,
+      // not a 230px card with an empty well: the first screen shows the files,
+      // and the folders read as a group (the fill) before they are read one by
+      // one. On a phone the grid spans it into a row (`FOLDER_ROWS_ON_PHONE`).
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group phone:bg-card phone:[contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
+      className={cn('group bg-muted/70 p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -638,7 +638,7 @@ export function FolderCard({
       {...drop.dropProps}
     >
       <div
-        className="absolute right-1.5 top-1.5 z-[1] phone:top-1/2 phone:-translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+        className="absolute right-1.5 top-1/2 z-[1] -translate-y-1/2 pointer-coarse:opacity-100 md:opacity-0 md:group-hover:opacity-100 group-focus-within:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
       >
@@ -660,51 +660,34 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        <FileTileBody className="flex-1 p-0 phone:flex phone:items-center phone:gap-3 phone:bg-transparent phone:p-2 phone:shadow-none">
-          <FileTileMedia className={FOLDER_WELL}>
-            {/*
-              ONE GLYPH, AND NO SECOND MOTION FOR ONE GESTURE.
-
-              This used to swap `Folder` for `FolderOpen` on hover, driven by
-              `useState` through `onMouseEnter`/`onMouseLeave` — a render per
-              pointer crossing on every tile in the grid, and a hard cut in the
-              middle of a scale, so what a person saw was a flicker rather than
-              a folder opening.
-
-              Rebuilding it as a CSS cross-fade fixed the flicker and the
-              renders and left the real problem: it was an affordance only a
-              MOUSE could reach. `mobile-affordances.spec.ts` says so by name —
-              an `opacity-0` revealed by `group-hover` alone, on a device that
-              generates no hover — and the escapes it offers do not apply,
-              because showing both stacked glyphs on a phone is not the answer.
-
-              So the swap is gone. What says "this opens" is what already said
-              it on every input: the tile lifts under the pointer (the shell's
-              own `whileHover`), the cursor changes, and the label reads as a
-              folder because a folder is drawn in the well.
-            */}
-            <Folder className="size-10 text-muted-foreground phone:size-5" strokeWidth={1.4} aria-hidden />
-          </FileTileMedia>
-          <div className="px-3.5 pb-3 pt-[11px] phone:min-w-0 phone:flex-1 phone:p-0">
+        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-2.5 pr-10">
+          {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
+          <span className={FOLDER_WELL}>
+            <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
+          </span>
+          <div className="min-w-0 flex-1">
             {editing ? (
               <FolderNameEditor folder={folder} onRenameFolder={onRenameFolder} onDone={() => setEditing(false)} />
             ) : (
               <div className="flex min-w-0 items-center gap-1.5">
                 {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
-                <p className="min-w-0 text-sm font-medium leading-tight text-foreground phone:text-[15px]">
+                <p className="min-w-0 truncate text-[13px] font-medium leading-tight text-foreground">
                   <FileName text={folder.name} />
                 </p>
                 {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-                {/* The dot alone, after the name: what a folder holds at a
-                    glance, without a line of words on every tile. */}
-                <FolderReadState tally={knowledge} dotOnly className="ml-auto" />
               </div>
             )}
-            {/* What belongs in it, in the folder owner's words: one quiet line,
-                whole on hover. */}
+            {/* What it holds, and only what departs from „all read“ (the normal case is quiet). */}
+            {!editing && (
+              <p className="text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1.5 text-xs tabular-nums">
+                <span className="shrink-0">{t('folders.items', { count: itemCount })}</span>
+                <FolderReadState tally={knowledge} exceptionsOnly className="min-w-0" />
+              </p>
+            )}
+            {/* What belongs in it, in the folder owner's words, whole on hover. */}
             {!editing && folder.description && (
               <p
-                className="mt-1 truncate text-xs leading-tight text-muted-foreground"
+                className="mt-0.5 truncate text-xs leading-tight text-muted-foreground"
                 title={folder.description}
                 data-testid={`folder-description-${folder.id}`}
               >
@@ -713,22 +696,6 @@ export function FolderCard({
             )}
           </div>
         </FileTileBody>
-        {/* On a phone the count sits at the row's right, clear of the ⋯ (44px
-            on a coarse pointer), and the age stays in the detail view: the row
-            has the width for the name or for the date, and the name wins. */}
-        <FileTileFooter className="min-w-0 gap-1.5 px-3.5 pb-2.5 pt-[9px] text-xs text-muted-foreground phone:mt-0 phone:w-auto phone:shrink-0 phone:py-0 phone:pl-0 phone:pr-14">
-          <span className="min-w-0 truncate tabular-nums">
-            {t('folders.items', { count: itemCount })}
-            {lastModified && (
-              <span className="phone:hidden">
-                <span aria-hidden className="mx-1.5 text-muted-foreground/40">
-                  ·
-                </span>
-                <TimeAgo date={lastModified} locale={locale} className="tabular-nums" />
-              </span>
-            )}
-          </span>
-        </FileTileFooter>
       </FolderCardFrame>
     </GridTileShell>
   )
@@ -746,13 +713,13 @@ function FolderCardFrame({
   openLabel: string
   children: ReactNode
 }): JSX.Element {
-  if (editing) return <div className="flex h-full w-full flex-col text-left phone:flex-row phone:items-center">{children}</div>
+  if (editing) return <div className="flex h-full w-full flex-row items-center text-left">{children}</div>
   return (
     <button data-attr="files-open"
       type="button"
       onClick={onOpen}
       aria-label={openLabel}
-      className="flex h-full w-full flex-col text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 phone:flex-row phone:items-center"
+      className="flex h-full w-full flex-row items-center rounded-surface text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
     >
       {children}
     </button>
@@ -924,23 +891,16 @@ export function FolderRow({
 /** A {@link FolderCard} before its name arrives. */
 export function FolderCardSkeleton(): JSX.Element {
   return (
-    <GridTileShell
-      interactive={false}
-      data-folder-tile=""
-      className="phone:flex-row phone:items-center phone:bg-card"
-      data-testid="folder-card-skeleton"
-    >
-      <FileTileBody className="flex-1 p-0 phone:flex phone:items-center phone:gap-3 phone:bg-transparent phone:p-2 phone:shadow-none">
-        <FileTileMedia className={FOLDER_WELL}>
-          <Folder className="size-10 text-muted-foreground/25 phone:size-5" strokeWidth={1.4} aria-hidden />
-        </FileTileMedia>
-        <div className="px-3.5 pb-3 pt-[11px] phone:p-0">
-          <Skeleton className="h-4 w-24" />
+    <GridTileShell interactive={false} data-folder-tile="" className="bg-muted/70 p-0" data-testid="folder-card-skeleton">
+      <FileTileBody className="flex flex-1 items-center gap-3 p-2.5">
+        <span className={FOLDER_WELL}>
+          <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />
+        </span>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <Skeleton className="h-3.5 w-24" />
+          <Skeleton className="h-3 w-12" />
         </div>
       </FileTileBody>
-      <FileTileFooter className="gap-1.5 px-3.5 pb-2.5 pt-[9px] phone:mt-0 phone:w-auto phone:py-0 phone:pl-0 phone:pr-4">
-        <Skeleton className="h-3 w-12" />
-      </FileTileFooter>
     </GridTileShell>
   )
 }

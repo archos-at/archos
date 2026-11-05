@@ -119,12 +119,13 @@ describe('FileBrowserPane — card grid', () => {
     }
   })
 
-  it('shows the tinted extension chip and size, and a status badge only when the document is not citable', () => {
+  it('says the format and size in the facts line, and a status badge only when the document is not citable', () => {
     const { unmount } = renderPane()
     const card = screen.getAllByTestId('file-card').find((c) => within(c).queryByText('site-plan.pdf'))!
-    expect(within(card).getByText('PDF')).toBeInTheDocument()
-    // The size is in the footer, the card button's sibling.
-    expect(within(card.nextElementSibling as HTMLElement).getByText(/1 kB/)).toBeInTheDocument()
+    // The format and the size are in the footer, the card button's sibling: ink, not a tinted chip.
+    const footer = card.nextElementSibling as HTMLElement
+    expect(within(footer).getByText('PDF')).toBeInTheDocument()
+    expect(within(footer).getByText(/1 kB/)).toBeInTheDocument()
     // Citable is the normal state: the card says nothing about it.
     expect(within(card).queryByText('Citable')).not.toBeInTheDocument()
     unmount()
@@ -653,9 +654,8 @@ describe('FileBrowserPane — folder aggregates', () => {
     // One document + one subfolder directly inside: two items, not the three
     // things that exist underneath it.
     expect(within(card).getByText('2 items')).toBeInTheDocument()
-    // The newest thing under it is in the SUBFOLDER, so the walk has to reach
-    // it — the folder's own document is two months older.
-    expect(within(card).getByRole('time')).toHaveAttribute('datetime', '2026-03-09T00:00:00Z')
+    // The tile says how much it holds; when it last changed is the list's column.
+    expect(within(card).queryByRole('time')).not.toBeInTheDocument()
   })
 
   it('counts one entry per document: a replaced Fassung leaves the tile unless older ones are shown', () => {
@@ -691,7 +691,7 @@ describe('FileBrowserPane — folder aggregates', () => {
     expect(within(screen.getByTestId('folder-card-root-a')).getByText('3 items')).toBeInTheDocument()
   })
 
-  it('marks a folder tile with the dot alone and spells the state out on the list view\'s row', () => {
+  it('says on a folder tile only what departs from „all read“, in words, and spells the state out on the list view\'s row', () => {
     const failed: FileItem = { ...files[1], id: 'broken', folderId: 'root-a', status: 'failed' }
     const nav = {
       folders: tree,
@@ -704,9 +704,8 @@ describe('FileBrowserPane — folder aggregates', () => {
     const { unmount } = renderPane({ files: [], searchFiles: [...corpus, failed], folderNav: nav })
     const dot = within(screen.getByTestId('folder-card-root-a')).getByTestId('folder-read-state')
     expect(dot).toHaveAttribute('data-state', 'failed')
-    // The words are there for a screen reader and on hover, not drawn on the tile.
-    expect(dot).toHaveAttribute('title', '1 failed')
-    expect(within(dot).getByText('1 failed')).toHaveClass('sr-only')
+    // An exception carries its words on the tile: a colour never travels alone.
+    expect(within(dot).getByText('1 failed')).not.toHaveClass('sr-only')
     unmount()
 
     renderPane({ files: [], searchFiles: [...corpus, failed], folderNav: nav, view: 'list' })

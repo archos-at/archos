@@ -51,7 +51,8 @@ describe('Dateien on a phone', () => {
 
   it('the breadcrumb row pins to the top of the list at every width, on the base surface', () => {
     const row = source('folder-navigation.tsx')
-    expect(row).toContain('className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b bg-background')
+    // No hairline under it: whitespace and the title's weight end the row.
+    expect(row).toContain('className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 bg-background')
     expect(row).not.toContain('phone:sticky')
     // Sticky only sticks inside a parent as tall as the content.
     expect(source('file-browser-pane.tsx')).toContain('<div className="flex min-h-full flex-col">')

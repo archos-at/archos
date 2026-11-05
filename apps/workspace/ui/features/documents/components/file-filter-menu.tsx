@@ -134,7 +134,8 @@ export function FileFilterMenu({
       <PopoverTrigger asChild>
         <Button
           type="button"
-          variant="outline"
+          // Quiet like its neighbours (the view toggle, the Papierkorb): the count says when a filter is on.
+          variant="ghost"
           size={compact ? 'icon' : 'sm'}
           className={compact ? 'relative shrink-0' : 'gap-2'}
           data-testid="file-filter-menu-trigger"

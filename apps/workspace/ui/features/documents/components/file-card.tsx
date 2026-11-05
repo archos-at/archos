@@ -14,7 +14,7 @@ import { filesCopy } from '@/i18n/namespaces/files'
 import { documentDisplayName } from '@/lib/documents/display-name'
 import { documentDragProps } from '../hooks/use-document-drag'
 import { sourceTint } from '@/lib/ui/source-tint'
-import { extChipTint, fileExtensionLabel, inferDocumentKind } from '../document-kind'
+import { fileExtensionLabel, inferDocumentKind } from '../document-kind'
 import { DocumentKindThumbnail } from './document-kind-thumbnail'
 import { AuthorshipLine } from './authorship-line'
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
@@ -340,9 +340,9 @@ export const FileCard = memo(function FileCard({
       interactive
       className={cn(
         'group/card',
-        (isSelected || selection?.checked) && 'ring-2 ring-ring shadow-md',
+        // Chosen: the hover's fill held, and the ring the keyboard knows.
+        (isSelected || selection?.checked) && 'bg-accent ring-2 ring-ring/70',
         isBusy && 'cursor-progress opacity-70',
-        !isSelected && 'hover:border-border/80',
         lit && HIGHLIGHT_OUTLINE
       )}
       // Dragging is opt-in per surface: the Archiv has no folders to drop into,
@@ -408,32 +408,22 @@ export const FileCard = memo(function FileCard({
             )}
           </FileTileMedia>
 
-          <div className="px-3.5 pb-3 pt-[11px] phone:px-2.5">
-            <div className="flex items-center gap-2">
-              {source && sourceLabel && (
-                <span
-                  className="inline-flex shrink-0 items-center rounded-control px-2 py-[3px] text-xs font-semibold leading-none tracking-[0.02em]"
-                  style={SOURCE_TINT[source]}
-                >
-                  {sourceLabel}
-                </span>
-              )}
-              <span className="flex-1" />
-              {ext !== '' && (
-                <span
-                  className="inline-flex shrink-0 items-center rounded-control px-1.5 py-[2.5px] text-[10.5px] font-medium uppercase leading-none tracking-wider"
-                  style={extChipTint(ext)}
-                >
-                  {ext}
-                </span>
-              )}
-            </div>
+          <div className="px-1 pt-2.5">
+            {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
+            {source && sourceLabel && (
+              <span
+                className="mb-1.5 inline-flex shrink-0 items-center rounded-control px-2 py-[3px] text-xs font-semibold leading-none tracking-[0.02em]"
+                style={SOURCE_TINT[source]}
+              >
+                {sourceLabel}
+              </span>
+            )}
 
             {/* The name the document goes by. The format chip beside it still
                 comes from the FILE name, because that is what the bytes are —
                 a rename changes the label, never the format. */}
             {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
-            <p className="mt-[10px] min-w-0 text-xs font-medium leading-[1.4] text-foreground">
+            <p className="min-w-0 text-[13px] font-medium leading-[1.35] text-foreground">
               <FileName text={name} />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
@@ -517,10 +507,11 @@ export const FileCard = memo(function FileCard({
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot cursor-pointer flex-wrap justify-between gap-1.5 px-3.5 pb-2.5 pt-[9px] text-xs text-muted-foreground phone:px-2.5"
+          className="@container/foot group/foot cursor-pointer flex-wrap justify-start gap-1.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
-          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {/* Left, under the name: one edge for everything on the tile. */}
+          <span className="flex min-w-0 items-center gap-1.5 empty:hidden">
             <FilingSuggestionSlot documentId={file.id} className="min-w-[4.5rem]" />
             {footerLead}
           </span>
@@ -528,6 +519,15 @@ export const FileCard = memo(function FileCard({
               phone's card keeps 10px of padding (the title's too) and a tighter
               gap: the age used to run into the edge the title keeps clear. */}
           <span className="flex shrink-0 items-center gap-1.5 phone:gap-1">
+            {/* The format in words, with the facts: a type is not a signal, so it is ink like them, never a tinted chip. */}
+            {ext !== '' && (
+              <>
+                <span className="font-medium uppercase tracking-wider text-[10.5px]">{ext}</span>
+                <span aria-hidden className="text-muted-foreground/40">
+                  ·
+                </span>
+              </>
+            )}
             <span className="tabular-nums">{formatBytes(file.fileSize, locale)}</span>
             <span className="flex items-center gap-1.5 phone:gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
               <span aria-hidden className="text-muted-foreground/40">

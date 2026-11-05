@@ -166,13 +166,8 @@ describe('extChipTint', () => {
     }
   })
 
-  it('groups extensions sensibly and is case-insensitive', () => {
-    expect(extChipTint('PDF')).toEqual(extChipTint('docx'))
-    expect(extChipTint('dwg')).toEqual(extChipTint('ifc'))
-    expect(extChipTint('jpg')).toEqual(extChipTint('png'))
-    expect(extChipTint('pdf')).not.toEqual(extChipTint('dwg'))
-    // Unknown extensions get the neutral tint.
-    expect(extChipTint('zzz')).toEqual(extChipTint(''))
+  it('gives every format the same quiet tint: a format is not a provenance signal', () => {
+    for (const ext of ['PDF', 'docx', 'dwg', 'ifc', 'jpg', 'png', 'zzz', '']) expect(extChipTint(ext)).toEqual(extChipTint('pdf'))
   })
 })
 

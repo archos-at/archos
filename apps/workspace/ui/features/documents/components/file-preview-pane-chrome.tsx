@@ -256,7 +256,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               className="pointer-coarse:min-w-11 @md:px-3 h-8 shrink-0 gap-1.5 px-2"
               onClick={() => void actions.download()}

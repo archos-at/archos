@@ -107,7 +107,10 @@ const ToggleGroup = React.forwardRef<
               // and a 15px bar under a 32px control is louder than the thing
               // it describes; the row still scrolls by drag, wheel and
               // keyboard, and focusing a segment scrolls it into view.
-              'w-fit max-w-full gap-0 overflow-x-auto rounded-control border border-border bg-card p-0.5 shadow-2xs scrollbar-hide'
+              //
+              // A track, not a box: one tone below the page with no border,
+              // and the chosen segment a raised sheet on it (the pill below).
+              'w-fit max-w-full gap-0 overflow-x-auto rounded-control bg-muted p-0.5 scrollbar-hide'
             : 'flex-wrap gap-1.5',
           className
         )}
@@ -130,7 +133,7 @@ ToggleGroup.displayName = ToggleGroupPrimitive.Root.displayName
  * element. Non-segmented groups never render it and are untouched.
  */
 const SEGMENTED_PILL_BG: Record<string, string> = {
-  default: 'bg-accent',
+  default: 'bg-card shadow-xs',
   outline: 'bg-card',
   inverted: 'bg-foreground',
 }
