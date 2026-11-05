@@ -11,9 +11,11 @@ or a brand string changes here and reaches every surface on the next sync.
 | `tokens.json` | **Source of truth** for colours, type, spacing, radii, strokes, layout, motion. Every token carries its `usage` in German; a token with `"scope": "app"` belongs to the workspace only (see [Two layers](#two-layers-website-and-app)). |
 | `identity.json` | Every brand string: name, claim, legal entity, address, e-mail, domain, hosting city. |
 | `css/components.css` | Hand-maintained component classes (prefix `ui-`). Values come from the tokens. |
+| `css/covers.css` | The blog covers' pens and fills (`ui-cover`), from the tokens: [docs/blog-covers.md](docs/blog-covers.md). |
 | `fonts/` | The two WOFF2 files (General Sans variable, Switzer Semibold). |
 | `assets/logos/` | Client logos in grey (Pilotbüros, funding logo). The brand video is not here; it lives with the website. |
 | `docs/components/` | One Markdown rules sheet per component, plus `ColorUsage.md`. |
+| `docs/blog-covers.md` | The blog's cover format: canvas, frame, pens, composition, and how to draw the next one. |
 | `docs/brand-basis.md` | What the brand says and stands for (Markenbasis): positioning, mission, values, antonyms, tonality, Belegpflicht, image families, logo clear space and minimum size, and which source wins when the Markenbasis and the design system disagree. |
 | `build-tokens.mjs` | Builds `dist/tokens.css` (the website layer: shared tokens only) and `dist/tokens.vars.css` (the app layer: every token, app-scoped ones included, as variables prefixed `--ds-`, dark under `.dark` too) from `tokens.json`, and copies `css/` and `fonts/` into `dist/`. The workspace imports `tokens.vars.css` and maps its own names onto it rather than typing a value. |
 | `sync.mjs` | Copies each app the files of its layer (`TARGETS`) and deletes any it no longer receives; copies `identity.json` alone into the agent's package (a `shared` target: nothing else there is touched); writes the product's name into the files listed in `name-copies.mjs`. `--check` writes nothing and fails on a stale, missing or unexpected file. |
@@ -27,7 +29,7 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 | Copy | Receives |
 |---|---|
-| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `fonts/`, `identity.json` |
+| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `covers.css`, `fonts/`, `identity.json` |
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
@@ -123,6 +125,7 @@ Full text: the component sheets in `docs/components/`.
 
 - Real rooms, real people, product cut-outs on exactly `--surface-sunken`. No device mock-ups, no icons, no stock holograms.
 - AI-generated images carry the `AITag` mark, bottom right.
+- Every blog post has a cover: a line drawing on the 40-unit grid, drawn with the construction drawing's pens and one solid element that is the post's point ([docs/blog-covers.md](docs/blog-covers.md)).
 - Pilot-office logos are grey, in `--line-strong`.
 
 **German copy** (the product's public voice; the full voice, values and antonyms: [`docs/brand-basis.md`](docs/brand-basis.md))

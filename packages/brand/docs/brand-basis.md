@@ -139,7 +139,11 @@ From MB p.14, with the design system's formats.
 3. **Linie**: fine line drawings instead of illustrations: floor-plan fragments, figure-
    ground plans, axes, axonometries. Black on light, the same stroke weights as the rest
    of the brand (`stroke-hairline`, `stroke-strong`), no shadows, no fills, no colour. The
-   blog's line figures (`apps/website/src/components/figures/`) belong to this family.
+   blog's line figures (`apps/website/src/components/figures/`) belong to this family, and
+   so do the blog covers, its one fixed format ([blog-covers.md](blog-covers.md)). A cover
+   allows three fills a construction drawing has too: white paper for a sheet lying on
+   another, the hatch of a cut material, and one solid black element, as in a
+   figure-ground plan.
 4. **Produkt**: flat product cut-outs on exactly `surface-sunken`, never floating laptop or
    phone mock-ups; rather a detail (a plan excerpt with ARCHOS's answer beside it) than a
    whole screen.
