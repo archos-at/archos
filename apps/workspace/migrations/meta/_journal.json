@@ -1359,6 +1359,13 @@
       "when": 1792780000000,
       "tag": "0193_usage_by_outcome_stream",
       "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1792790000000,
+      "tag": "0194_user_preferences_release_week",
+      "breakpoints": true
     }
   ]
 }

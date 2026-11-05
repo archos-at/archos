@@ -78,8 +78,10 @@
 @keyframes ui-status-fade {
   from { opacity: 0; }
 }
+/* The leaf is not there until its wall is: it appears as it starts to turn. */
 @keyframes ui-status-swing {
-  from { transform: rotate(-90deg); }
+  0% { transform: rotate(-90deg); opacity: 0; }
+  10% { opacity: 1; }
 }
 @keyframes ui-status-level {
   from { transform: none; }

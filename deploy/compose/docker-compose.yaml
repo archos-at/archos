@@ -1427,6 +1427,78 @@ services:
       - app
     restart: unless-stopped
 
+  # ===========================================================================
+  # The website's CMS (ADR-0155): Directus and its own Postgres
+  # ===========================================================================
+  #
+  # OPT-IN: both services carry `profiles: [cms]`. Kubernetes runs the same
+  # image on its own CloudNativePG cluster with files in SeaweedFS
+  # (deploy/pulumi/src/platform/cms.ts); here the files stay on a volume.
+  #
+  #   docker compose --env-file ../.env -f docker-compose.yaml --profile cms up -d
+  #   task cms:sync:push && task cms:provision && task cms:import   # schema, robots, posts
+  #
+  # Studio: http://localhost:8055 (admin@example.com / local-admin-password;
+  # local only). Without a license key Directus runs its core tier, which
+  # refuses the review permissions: everything else works, and apps/cms/README.md
+  # says what that means locally. The website reads it with CMS_URL and
+  # CMS_TOKEN=local-website-token (apps/website/README.md, "Blog").
+  cms-postgres:
+    image: postgres:16-alpine
+    profiles: [cms]
+    environment:
+      POSTGRES_USER: directus
+      POSTGRES_PASSWORD: directus
+      POSTGRES_DB: directus
+    volumes:
+      - cms-postgres-data:/var/lib/postgresql/data
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d directus -U directus"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  cms:
+    # Pinned to the version Kubernetes runs (CMS_IMAGE, deploy/pulumi/src/config/cms.ts).
+    image: directus/directus:12.6.1
+    profiles: [cms]
+    depends_on:
+      cms-postgres:
+        condition: service_healthy
+    ports:
+      - "8055:8055"
+    environment:
+      PUBLIC_URL: http://localhost:8055
+      SECRET: local-cms-secret-not-for-production
+      DB_CLIENT: pg
+      DB_HOST: cms-postgres
+      DB_PORT: "5432"
+      DB_DATABASE: directus
+      DB_USER: directus
+      DB_PASSWORD: directus
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: local-admin-password
+      ADMIN_TOKEN: local-admin-token
+      LICENSE_KEY: ${CMS_LICENSE_KEY:-}
+      TELEMETRY: "false"
+      FLOWS_ENV_ALLOW_LIST: WEBSITE_REVALIDATE_URL,WEBSITE_REVALIDATE_TOKEN
+      # The website's dev server on the host (`bun run dev` in apps/website).
+      WEBSITE_REVALIDATE_URL: http://host.docker.internal:4321/api/cms/revalidate
+      WEBSITE_REVALIDATE_TOKEN: local-revalidate-token
+      # Directus refuses requests to private addresses by default; the host is one.
+      IMPORT_IP_DENY_LIST: 169.254.169.254
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - cms-uploads:/directus/uploads
+    networks:
+      - app
+    restart: unless-stopped
+
 volumes:
   # No `chroma_data` any more (ADR-0115). An installation that ran Chroma still
   # has the volume (`compose_chroma_data` with the default project name):
@@ -1446,6 +1518,10 @@ volumes:
   hatchet-postgres-data:
     driver: local
   hatchet-lite-config:
+    driver: local
+  cms-postgres-data:
+    driver: local
+  cms-uploads:
     driver: local
 
 networks:

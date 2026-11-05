@@ -23,7 +23,7 @@ import { decideConventionBodySchema } from '@/lib/office-conventions/office-conv
 import { createRoleSchema, updateRoleSchema } from '@/lib/authz/role-wire'
 import { createCredentialSchema, providerModeSchema } from '@/lib/llm-credentials/credential-wire'
 import { uploadScreeningPolicySchema } from '@/lib/upload-screening/policy'
-import { releaseNoteListQuerySchema } from '@/lib/release-notes/release-notes-wire'
+import { releaseNoteListQuerySchema, releaseSummarySeenBodySchema } from '@/lib/release-notes/release-notes-wire'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -619,5 +619,30 @@ export const organizationOperations = [
     path: '/api/release-notes',
     query: releaseNoteListQuerySchema,
     load: () => import('@/app/api/release-notes/route'),
+  },
+  {
+    name: 'release-summary-unseen-get',
+    domain: 'organization',
+    summary: 'Read the newest weekly summary the person has not seen',
+    description:
+      'The newest week’s release-notes summary, in English and German, when the person has not seen it yet; ' +
+      '`{ summary: null }` once they have, or when the newest week has no summary. What the app’s notice shows. ' +
+      'To read the summaries themselves, use release-note-list.',
+    method: 'GET',
+    path: '/api/release-notes/unseen-summary',
+    load: () => import('@/app/api/release-notes/unseen-summary/route'),
+  },
+  {
+    name: 'release-summary-seen-mark',
+    domain: 'organization',
+    summary: 'Record that the person has seen a weekly summary',
+    description:
+      'Records `week` (from release-summary-unseen-get) as seen, so the app’s notice does not show it again on any ' +
+      'device. Never moves back to an older week; a week without a published summary is refused.',
+    method: 'POST',
+    path: '/api/release-notes/seen',
+    body: releaseSummarySeenBodySchema,
+    idempotent: true,
+    load: () => import('@/app/api/release-notes/seen/route'),
   },
 ] as const satisfies readonly AgentOperation[]

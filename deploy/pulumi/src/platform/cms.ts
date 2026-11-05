@@ -131,12 +131,16 @@ export function installCms(
       spec: {
         replicas: 1,
         strategy: { type: "Recreate" },
+        // The policy pack's soak; Recreate is allowed for a declared singleton.
+        minReadySeconds: 10,
         selector: { matchLabels: labels },
         template: {
           metadata: { labels },
           spec: {
             enableServiceLinks: false,
             automountServiceAccountToken: false,
+            // Requests are short; an MCP session or an upload in flight gets 30 s to finish.
+            terminationGracePeriodSeconds: 30,
             securityContext: { runAsNonRoot: true, runAsUser: CMS.uid, runAsGroup: CMS.uid, seccompProfile: { type: "RuntimeDefault" } },
             ...onNodeGroup(cfg.nodeGroups.app),
             containers: [

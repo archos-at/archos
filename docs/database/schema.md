@@ -1171,6 +1171,7 @@ import { jsonb, pgTable, text } from 'drizzle-orm/pg-core'
 export const userPreferences = pgTable('user_preferences', {
   workosUserId: text('workos_user_id').primaryKey(),
   prefs: jsonb('prefs').notNull().default({}),
+  lastSeenReleaseWeek: text('last_seen_release_week'),
 })
 ```
 
@@ -1178,6 +1179,7 @@ export const userPreferences = pgTable('user_preferences', {
 |--------|------|-------------|-------|
 | `workos_user_id` | `text` | PK | Maps 1:1 to a WorkOS user |
 | `prefs` | `jsonb` | NOT NULL, DEFAULT `{}` | Arbitrary user preferences |
+| `last_seen_release_week` | `text` | NULL, CHECK ISO week id (`2026-W44`) | The newest weekly release-notes summary the person has seen; the app's "Neu diese Woche" notice shows a newer one once (0194, ADR-0154 amendment) |
 
 ---
 

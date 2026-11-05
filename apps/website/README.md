@@ -44,7 +44,11 @@ Or from the repo root: `task website:install`, `task website:check`, `task websi
 - **Cache-Control** for static files (`runtime/cache-control.mjs`).
 
 Unknown addresses get `src/pages/404.astro`, rendered on request so `/en/...` answers in English,
-with status 404 and `noindex`. Old public addresses and their fates (301, or 410 Gone) are in
+with status 404 and `noindex`. A page rendered on request that throws (the 404 page itself, `/sign-in`,
+`/web-analytics.js`) gets `src/pages/500.astro` the same way, with status 500: Astro renders it
+for the failing address, so its "reload" asks for that address again, and logs the error, which the
+page never shows. The 404, 410 and 500 pages share `StatusBlock` and `StatusDrawing` (the
+drawing's motion: `packages/brand/css/status.css`). Old public addresses and their fates (301, or 410 Gone) are in
 `redirects.mjs`; see [SEO](#seo). `runtime/gone.mjs` turns the 404 of a gone address into 410.
 
 ## Changelog
@@ -84,7 +88,7 @@ What is measured, all by the SDK unless named:
 | Page views, page leaves with scroll depth (`$prev_pageview_max_scroll_percentage`), referrer, UTM parameters | `$pageview`, `$pageleave`, automatic |
 | Web vitals (LCP, INP, CLS, FCP) | `capture_performance.web_vitals` |
 | Clicks on links and buttons, form submits and changes, rage and dead clicks | autocapture |
-| Where a call to action sits | `data-ph-capture-attribute-cta-area` and `-cta-label` on `Button`, `TextLink`, `CTABand` (areas: `header`, `mobile_menu`, `founders`, `security_cta`, `contact_info`; labels: `demo`, `login`, `open_app`, `contact`) |
+| Where a call to action sits | `data-ph-capture-attribute-cta-area` and `-cta-label` on `Button`, `TextLink`, `CTABand` (areas: `header`, `mobile_menu`, `founders`, `security_cta`, `contact_info`, `not_found`, `server_error`; labels: `demo`, `login`, `open_app`, `contact`, `home`, `blog`, `retry`) |
 | Language switch | `data-ph-capture-attribute-language-switch` (`de-en`, `en-de`) on the header link |
 | Which form | `data-ph-capture-attribute-form` (`contact`, `demo`) on the form |
 | `form_submitted` `{ form, method: 'mailto', locale, newsletter? }` | `MailForm.astro`, the one thing autocapture cannot see: the mail hand-off. No field values |

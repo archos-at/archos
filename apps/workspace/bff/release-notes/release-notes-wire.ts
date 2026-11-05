@@ -83,3 +83,43 @@ export interface LocalizedReleaseNoteList {
   readonly areas: readonly { readonly id: ReleaseNoteArea; readonly count: number }[]
   readonly weeks: readonly LocalizedReleaseNoteWeek[]
 }
+
+/** One string in both product languages. */
+export interface Bilingual {
+  readonly en: string
+  readonly de: string
+}
+
+/**
+ * An ISO week id, `2026-W44`. The same shape the `user_preferences.last_seen_release_week` CHECK
+ * holds (migration 0194), and one that sorts as text: a later week is the greater string.
+ */
+export const RELEASE_WEEK_PATTERN = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/
+
+/** The newest weekly summary, as the "Neu diese Woche" notice shows it (ADR-0154, amendment). */
+export interface ReleaseSummary {
+  /** The week, `2026-W44`. */
+  readonly id: string
+  /** Its Monday and Sunday, `YYYY-MM-DD`. */
+  readonly date: string
+  readonly dateEnd: string
+  readonly summary: Bilingual
+}
+
+/** What the shell's notice needs: the summary to show, or a week to record quietly. */
+export interface WhatsNewNoticeState {
+  readonly summary: ReleaseSummary
+  /**
+   * Record the week as seen without showing anything: the person is new here and about to be
+   * given the product tour, and a "what changed" note means nothing to someone who never saw the
+   * product before.
+   */
+  readonly quietly: boolean
+}
+
+export const releaseSummarySeenBodySchema = z.object({
+  week: z
+    .string()
+    .regex(RELEASE_WEEK_PATTERN)
+    .describe('The week whose summary the person has seen, `2026-W44`, from release-summary-unseen-get.'),
+})

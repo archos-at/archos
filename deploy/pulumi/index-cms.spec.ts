@@ -28,8 +28,8 @@ pulumi.runtime.setMocks(
   false,
 );
 
-type Container = { image: string; env?: Array<{ name: string; value?: string; valueFrom?: unknown }>; args?: string[] };
-type PodSpec = { containers: Container[]; securityContext?: Record<string, unknown>; volumes?: unknown[] };
+type Container = { image: string; resources?: unknown; env?: Array<{ name: string; value?: string; valueFrom?: unknown }>; args?: string[] };
+type PodSpec = { containers: Container[]; securityContext?: Record<string, unknown>; volumes?: unknown[]; terminationGracePeriodSeconds?: number };
 const find = (type: string, name: string) => {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
   expect(hit, `${type} ${name}`).toBeDefined();
@@ -91,7 +91,13 @@ describe("the CMS, switched on and licensed", () => {
       STORAGE_S3_ENDPOINT: "http://seaweedfs.grid.svc.cluster.local:8333",
       WEBSITE_REVALIDATE_URL: "http://web.grid.svc.cluster.local:4321/api/cms/revalidate",
     });
-    expect(find("kubernetes:apps/v1:Deployment", "directus").spec.strategy).toEqual({ type: "Recreate" });
+    const deployment = find("kubernetes:apps/v1:Deployment", "directus").spec;
+    // The policy pack: a declared singleton may Recreate, but still soaks and states its grace period.
+    expect(deployment.strategy).toEqual({ type: "Recreate" });
+    expect(deployment.replicas).toBe(1);
+    expect(deployment.minReadySeconds).toBeGreaterThan(0);
+    expect(pod.terminationGracePeriodSeconds).toBe(30);
+    expect(container.resources).toMatchObject({ requests: { cpu: expect.any(String), memory: expect.any(String) }, limits: { cpu: expect.any(String), memory: expect.any(String) } });
   });
 
   it("keeps every credential out of the pod spec, in cms-env", () => {

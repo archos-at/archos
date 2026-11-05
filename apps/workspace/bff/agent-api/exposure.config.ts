@@ -461,6 +461,8 @@ export const EXPOSURE = {
   // What changed in the product (ADR-0154): read-only product news, the same for every office. Offered: an
   // outside agent asked "can it do X now?" and the in-product agent asked "what's new?" both answer from it.
   'release-note-list': OFFERED,
+  'release-summary-seen-mark': withheld('ui-state', 'whether this person has closed the weekly summary notice; their own screen'),
+  'release-summary-unseen-get': withheld('ui-state', 'which summary the notice still owes this person; release-note-list reads them'),
 
   // platform
   'platform-answer-feedback-digest-get': PLATFORM,

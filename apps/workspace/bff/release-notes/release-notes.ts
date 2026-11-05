@@ -16,17 +16,12 @@ import type { Locale } from '@/i18n/config'
 import {
   RELEASE_NOTE_AREAS,
   WEEKS_PER_PAGE,
+  type Bilingual,
   type LocalizedReleaseNoteList,
   type ReleaseNoteArea,
   type ReleaseNoteListQuery,
   type ReleaseNoteSection,
 } from './release-notes-wire'
-
-/** One string in both product languages. */
-export interface Bilingual {
-  readonly en: string
-  readonly de: string
-}
 
 export interface ReleaseNote {
   readonly section: ReleaseNoteSection
@@ -65,6 +60,8 @@ export interface ReleaseNoteList {
   readonly areas: readonly { readonly id: ReleaseNoteArea; readonly count: number }[]
   readonly weeks: readonly ReleaseNoteWeek[]
 }
+
+export type { Bilingual }
 
 const DATA = artifact as unknown as ReleaseNoteArtifact
 
