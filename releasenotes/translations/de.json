@@ -344,12 +344,24 @@
     "de": "Bei einer Datei, deren Upload noch läuft, steht wieder „Wird hochgeladen“ statt „Wird gelesen“."
   },
   {
+    "en": "A file you filed as the next revision of another, and that the content check held back, is now linked to that older revision once a reviewer allows it, instead of arriving on its own. If the older revision has been archived or removed by then, the allowed file arrives on its own; if it was renamed, the link still finds it.",
+    "de": "Eine Datei, die Sie als nächste Revision einer anderen eingereicht haben und die bei der Inhaltsprüfung zurückgehalten wurde, wird nach der Freigabe durch einen Prüfer nun mit der älteren Revision verknüpft, statt eigenständig zu erscheinen. Ist die ältere Revision zu diesem Zeitpunkt archiviert oder entfernt, erscheint die freigegebene Datei eigenständig; wurde sie umbenannt, wird sie für die Verknüpfung weiterhin gefunden."
+  },
+  {
     "en": "A file you upload no longer shows you as having approved it. Nobody reviewed it, and the history now says so.",
     "de": "Bei einer von Ihnen hochgeladenen Datei wird nicht mehr angezeigt, dass Sie sie genehmigt haben. Niemand hat sie geprüft, und der Verlauf zeigt das jetzt."
   },
   {
     "en": "A filed Recherchebericht now always lands in the project its research was run for. Before, a report from a run started outside a project, or from an older run reopened while another project was open, could end up in the wrong project, with that project's Bundesland on its cover sheet.",
     "de": "Ein abgelegter Recherchebericht landet jetzt immer in dem Projekt, für das die Recherche tatsächlich durchgeführt wurde. Früher konnte ein Bericht aus einem außerhalb eines Projekts gestarteten Recherchelauf oder aus einem älteren, bei geöffnetem anderem Projekt wieder geöffneten Lauf im falschen Projekt landen, mit dem Bundesland dieses Projekts auf dem Deckblatt."
+  },
+  {
+    "en": "A filed Verlauf has an „E-Mails“ tab in its preview, with each mail's attachments, its original, „Vergleichen“ and „Herauslösen …“ for a mail filed into the wrong conversation. A file that came by mail shows which mail brought it, and each Fassung names its mail.",
+    "de": "Ein abgelegter Verlauf hat in der Vorschau einen Tab „E-Mails“ mit den Anhängen jeder E-Mail, ihrem Original sowie den Optionen „Vergleichen“ und „Herauslösen …“, um eine falsch zugeordnete E-Mail aus der Konversation zu lösen. Eine per E-Mail eingegangene Datei zeigt, mit welcher E-Mail sie eingegangen ist, und jede Fassung nennt die zugehörige E-Mail."
+  },
+  {
+    "en": "A filed conversation becomes one E-Mail-Verlauf: each mail is a section, each later reply adds a Fassung, and the original mail is kept beside it for download. ARCHOS answers from it and cites the mail a statement came from.",
+    "de": "Eine abgelegte Konversation wird zu einem E-Mail-Verlauf: Jede E-Mail bildet einen Abschnitt, jede spätere Antwort fügt eine Fassung hinzu und die ursprüngliche E-Mail bleibt daneben zum Download erhalten. ARCHOS antwortet auf dieser Grundlage und zitiert die E-Mail, aus der eine Aussage stammt."
   },
   {
     "en": "A filed draft can be sent for review, from the card or by asking Piloti, and it then appears in the reviewer's inbox. Approving, publishing and archiving stay with people: Piloti can send a draft for review, but it cannot approve, publish or archive it.",
@@ -448,6 +460,14 @@
     "de": "Eine lange Recherche, die eine Weile nichts meldet, wird nicht mehr getrennt, als wäre sie abgestürzt."
   },
   {
+    "en": "A mail carrying your address that could not be filed directly (your domain did not confirm it, it is your Bcc copy, it reads as re-sent or misdated, or it was sent automatically) waits for you alone, and the Postfach asks whether you sent it. If your domain rejected it outright, the E-Mail-Eingang says so in your own words.",
+    "de": "Eine E-Mail mit Ihrer Adresse, die nicht direkt abgelegt werden konnte (Ihre Domain hat sie nicht bestätigt, es handelt sich um Ihre Bcc-Kopie, sie wirkt weitergeleitet oder falsch datiert oder wurde automatisch versendet), wartet nur auf Sie, und das Postfach fragt, ob Sie sie gesendet haben. Wenn Ihre Domain sie direkt abgelehnt hat, sagt der E-Mail-Eingang das in Ihren eigenen Worten."
+  },
+  {
+    "en": "A mail forwarded to a project's address is now cited by the person who wrote it and the date they wrote it, marked „Domain nicht bestätigt“, with the colleague who forwarded it named beneath, in the E-Mail-Verlauf and in answers that cite its attachments. Forwarded twice, the original is named once; every forward is still kept with its own text and attachments.",
+    "de": "Eine an eine Projektadresse weitergeleitete E-Mail wird im E-Mail-Verlauf und in Antworten, die auf ihre Anhänge verweisen, nun mit dem Namen der verfassenden Person und dem Datum des Schreibens zitiert und als „Domain nicht bestätigt“ gekennzeichnet; darunter steht der Name der weiterleitenden Person. Wird die E-Mail zweimal weitergeleitet, wird die ursprüngliche Person nur einmal genannt; jede Weiterleitung bleibt mit eigenem Text und eigenen Anhängen erhalten."
+  },
+  {
     "en": "A member budget can no longer be set for someone who does not belong to the organization; such a limit used to be saved and never applied.",
     "de": "Ein Mitgliederbudget lässt sich nicht mehr für jemanden festlegen, der der Organisation nicht angehört; so ein Limit wurde bisher gespeichert und griff nie."
   },
@@ -478,6 +498,10 @@
   {
     "en": "A one-off task now has the same colour on its card as its block in the timetable.",
     "de": "Eine einmalige Aufgabe trägt auf ihrer Karte jetzt dieselbe Farbe wie ihr Block im Stundenplan."
+  },
+  {
+    "en": "A part of an Outlook archive that arrives cut short on its way to ARCHOS is now sent again by the browser, rather than stopping the import.",
+    "de": "Ein Teil eines Outlook-Archivs, der auf dem Weg zu ARCHOS unvollständig ankommt, wird nun vom Browser erneut gesendet, statt den Import abzubrechen."
   },
   {
     "en": "A passage that runs over a page break now shows its page range, for example pages 4 to 5, instead of only the first page.",
@@ -792,6 +816,10 @@
     "de": "Eine Wortsuche, die nicht alle Ihre Dokumente durchsuchen konnte, wird in der Herleitung nicht mehr als vollständig angezeigt. Sie ist mit einem gestrichelten Ring markiert und weist darauf hin, dass ein fehlender Treffer kein Beweis ist; eine unvollständige Suche ohne Treffer erscheint unter „Offen“."
   },
   {
+    "en": "ARCHOS suggests a folder and a Dokumentart for each attachment of a waiting mail, from the file names, the masked subject and the sender's domain only. Several complete mails can then be filed as suggested with one press.",
+    "de": "ARCHOS schlägt für jeden Anhang einer wartenden Mail anhand des Dateinamens, des maskierten Betreffs und ausschließlich der Domain des Absenders einen Ordner und eine Dokumentart vor. Mehrere vollständige Mails lassen sich anschließend mit einem Klick wie vorgeschlagen ablegen."
+  },
+  {
     "en": "Above the folder view, a named way back such as „Zurück zu Planung“ now accompanies the breadcrumb trail.",
     "de": "Über der Ordneransicht steht jetzt ein benannter Weg nach oben wie „Zurück zu Planung“ neben der Pfadleiste."
   },
@@ -842,6 +870,10 @@
   {
     "en": "After creating an organization, a short tour walks through the project overview, and after the first project a second tour shows Frag Piloti, Dateien, the Archiv and how answers show their sources. Both can be skipped and restarted from the account menu.",
     "de": "Nach dem Anlegen einer Organisation führt eine kurze Tour durch die Projektübersicht, nach dem ersten Projekt zeigt eine zweite Tour Frag Piloti, Dateien, das Archiv und wie Antworten ihre Quellen zeigen. Beide lassen sich überspringen und über das Kontomenü neu starten."
+  },
+  {
+    "en": "After filing, each part says which folder it went to and which Fassung it became.",
+    "de": "Nach der Ablage sehen Sie für jeden Teil, in welchem Ordner er abgelegt wurde und zu welcher Fassung er geworden ist."
   },
   {
     "en": "After you answer a clarifying question, a note at the bottom of the chat now shows that Piloti is still working. The chat used to look finished while the answer was still coming.",
@@ -1004,6 +1036,10 @@
     "de": "Ein Eintrag wird unabhängig davon, wie Sie ihn aufrufen, als gelesen markiert: über eine Benachrichtigung auf Ihrem Gerät oder durch Öffnen der zugehörigen Anmerkung in der Prüfansicht."
   },
   {
+    "en": "An imported Outlook archive now files each mail's text into the project's mail threads, beside the mail that came to the project's address, instead of a note per mail. A reply joins its conversation, and a mail the project already has is not filed twice.",
+    "de": "Beim Import eines Outlook-Archivs wird der Text jeder E-Mail nun im Mail-Thread des Projekts abgelegt, neben der E-Mail an die Projektadresse, statt als eigene Notiz. Antworten werden dem jeweiligen Gespräch zugeordnet, und bereits im Projekt vorhandene E-Mails werden nicht doppelt abgelegt."
+  },
+  {
     "en": "An office's default language under Organisation → Einstellungen is now \"Nicht festgelegt\" until an administrator picks one, and each person then starts in their browser's language. Offices that had the English preset stored have it reset; set it again there if your office wants English.",
     "de": "Die Standardsprache eines Büros unter Organisation → Einstellungen ist jetzt „Nicht festgelegt“, bis ein Administrator eine Sprache auswählt. Anschließend startet jede Person in der Sprache ihres Browsers. Bei Büros, bei denen Englisch als Voreinstellung gespeichert war, wird diese zurückgesetzt. Wählen Sie Englisch dort erneut aus, wenn Ihr Büro Englisch verwenden möchte."
   },
@@ -1022,6 +1058,10 @@
   {
     "en": "An open file shows its summary, page count and tags as soon as Piloti has finished reading it, without closing and reopening it.",
     "de": "Eine geöffnete Datei zeigt ihre Zusammenfassung, Seitenzahl und Schlagwörter, sobald Piloti sie fertig gelesen hat, ohne dass Sie sie schließen und neu öffnen müssen."
+  },
+  {
+    "en": "An opened mail starts with its text: sender, confirmed domain and arrival stand in one line, and the recipients, the original and the expiry date under „Details“.",
+    "de": "Eine geöffnete E-Mail zeigt zuerst ihren Text: Absender, bestätigte Domain und Eingang stehen in einer Zeile; Empfänger, Original und Ablaufdatum finden Sie unter „Details“."
   },
   {
     "en": "An outside agent can now ask which OIB guidelines apply to a project and what would settle the open ones, and read the register of laws Piloti knows by number. It can also search the shared building-law corpus without choosing a project first.",
@@ -1364,6 +1404,10 @@
     "de": "Wer ein Dokument oder eine Anmerkung aus der Suche öffnet und wieder schließt, kehrt zur Suche zurück, wie sie war: mit Suchbegriff, Filtern, Ansicht und Sortierung."
   },
   {
+    "en": "Closing a project ends every follow of its E-Mail-Verläufe.",
+    "de": "Beim Schließen eines Projekts endet das Folgen aller zugehörigen E-Mail-Verläufe."
+  },
+  {
     "en": "Closing a project now asks how it ended, completed or not realized, and in which month, then what the office keeps, then what to clear out, one step at a time.",
     "de": "Beim Abschließen eines Projekts werden Sie jetzt Schritt für Schritt gefragt, ob es fertiggestellt oder nicht realisiert wurde und in welchem Monat, was das Büro behält und was aussortiert werden soll."
   },
@@ -1696,6 +1740,14 @@
     "de": "Jede Aufgabe ist eine Karte, die ihre Details öffnet. Sie ist nach heute, gestern und dieser Woche gruppiert und trägt eine farbige Statusmarkierung. Filter zeigen laufende, noch nicht geprüfte und fehlgeschlagene Aufgaben."
   },
   {
+    "en": "Each waiting mail says whether the sender's domain confirmed it, and a mail that poses as a member of your office stands behind a warning with „Verwerfen“ as the first button. It can never be filed together with other mails.",
+    "de": "Jede wartende Mail zeigt an, ob die Domain des Absenders bestätigt wurde. Eine Mail, die sich als Mitglied Ihres Büros ausgibt, wird mit einem Warnhinweis angezeigt, bei dem „Verwerfen“ an erster Stelle steht. Sie kann niemals gemeinsam mit anderen Mails abgelegt werden."
+  },
+  {
+    "en": "Each waiting mail says why it waits and what to do next, in the detail and on its row. Mail from outside the office waits 14 days instead of 30, then expires for good, and nobody outside the office is told anything.",
+    "de": "Jede wartende Mail zeigt in der Detailansicht und in ihrer Zeile, warum sie wartet und was als Nächstes zu tun ist. Mails von außerhalb des Büros warten statt 30 nur 14 Tage, verfallen danach endgültig, und niemand außerhalb des Büros wird informiert."
+  },
+  {
     "en": "Every answer can be downloaded as a Word document, with the question, the list of sources, the cards and the confidence note. The button sits next to the copy buttons under the answer.",
     "de": "Jede Antwort lässt sich als Word-Dokument herunterladen, mit Frage, Quellenverzeichnis, Karten und Vertrauenshinweis. Die Schaltfläche sitzt neben den Kopier-Schaltflächen unter der Antwort."
   },
@@ -1796,6 +1848,10 @@
     "de": "Im Projekt-Assistenten hochgeladene Dateien erhalten jetzt dieselbe Meldung im Postfach und dieselbe Upload-Zusammenfassung wie jeder andere Upload und erscheinen im Upload-Verlauf des Projekts."
   },
   {
+    "en": "Filing an attachment the E-Mail-Eingang had suggested a folder for no longer fails.",
+    "de": "Das Ablegen eines Anhangs in einem vom E-Mail-Eingang vorgeschlagenen Ordner schlägt nicht mehr fehl."
+  },
+  {
     "en": "Filing happens under your own name and your own permissions. Piloti files as the person who asked, so a document it puts into a project is one you could have put there yourself, and the history says who asked for it.",
     "de": "Das Ablegen geschieht unter Ihrem Namen und mit Ihren eigenen Berechtigungen. Piloti legt im Namen der Person ab, die gefragt hat, sodass ein Dokument, das es ins Projekt legt, eines ist, das Sie selbst dort hätten ablegen können, und der Verlauf zeigt, wer darum gebeten hat."
   },
@@ -1890,6 +1946,10 @@
   {
     "en": "For a very long text file, a note under the text now says that only the beginning is shown, so the last visible line no longer reads like the end of the document.",
     "de": "Bei einer sehr langen Textdatei steht jetzt unter dem Text, dass nur der Anfang angezeigt wird, damit die letzte sichtbare Zeile nicht wie das Ende des Dokuments wirkt."
+  },
+  {
+    "en": "For offices that have it switched on, every project can have its own mail address, and mail sent to it waits in the project's E-Mail-Eingang in Dateien until someone files it. Apart from a member's own mail, nothing becomes part of the project without a person's decision, and every attachment is checked for malware before anyone can open or file it.",
+    "de": "Für Büros, die diese Funktion aktiviert haben, kann jedes Projekt eine eigene E-Mail-Adresse haben. An diese Adresse gesendete Mails bleiben im E-Mail-Eingang des Projekts unter Dateien, bis sie jemand ablegt. Abgesehen von der eigenen Mail eines Mitglieds wird nichts ohne die Entscheidung einer Person Teil des Projekts. Jeder Anhang wird auf Malware geprüft, bevor ihn jemand öffnen oder ablegen kann."
   },
   {
     "en": "For people who work in more than one office, the top bar above the projects filled the whole window and hid the page. The bar is back to its normal height, and switching offices now lives in the menu behind your picture.",
@@ -2048,6 +2108,10 @@
     "de": "In manchen Projekten behandelt Piloti gespeicherte Notizen als bestätigte Projektfakten. Das ist nicht mehr der Fall: Piloti arbeitet nun mit den im Projektprofil bestätigten Fakten."
   },
   {
+    "en": "In the E-Mail-Eingang the waiting mails stand under „Bereit“ and „Braucht Sie“. A complete mail is filed with one press on „Wie vorgeschlagen ablegen“; every other mail says what it still needs.",
+    "de": "Im E-Mail-Eingang stehen wartende E-Mails unter „Bereit“ und „Braucht Sie“. Eine vollständige E-Mail legen Sie mit einem Klick auf „Wie vorgeschlagen ablegen“ ab; bei allen anderen E-Mails wird angezeigt, was noch fehlt."
+  },
+  {
     "en": "In the Herleitung a passage read by point now shows the point, such as „Pkt. 3.5.2“, before the page.",
     "de": "In der Herleitung steht bei einer punktgenau gelesenen Stelle jetzt der Punkt, etwa „Pkt. 3.5.2“, vor der Seite."
   },
@@ -2174,6 +2238,14 @@
   {
     "en": "Long text documents now scroll correctly in the side preview.",
     "de": "Lange Textdokumente lassen sich in der Seitenvorschau jetzt korrekt scrollen."
+  },
+  {
+    "en": "Mail that reaches a project during a short outage now waits until it can be read properly instead of being mislabelled: a colleague's mail is no longer taken for a stranger's and discarded after 14 days, and a text that could not be read at first is read again later.",
+    "de": "Mail, die während eines kurzen Ausfalls bei einem Projekt eintrifft, wird jetzt zurückgehalten, bis sie korrekt gelesen werden kann, statt falsch eingestuft zu werden: Die Mail eines Kollegen wird nicht mehr für die eines Fremden gehalten und nach 14 Tagen gelöscht, und ein Text, der zunächst nicht gelesen werden konnte, wird später erneut gelesen."
+  },
+  {
+    "en": "Mail you send to a project's address from your own office address is now filed directly, as you, when your own domain signed it, it names the project's address in To or Cc, and you may file in the project. Forward the Behörde's letter and it is in the project, with anything lacking a clear place or carrying a warning waiting for you in the E-Mail-Eingang.",
+    "de": "E-Mails, die Sie von Ihrer Büro-Adresse an die Adresse eines Projekts senden, werden jetzt direkt Ihnen zugeordnet, wenn Ihre eigene Domain sie signiert hat und die Projektadresse im An- oder Cc-Feld steht. Sie können die E-Mails im Projekt ablegen. Leiten Sie das Schreiben der Behörde weiter, und es landet im Projekt. Alles, was sich nicht eindeutig zuordnen lässt oder eine Warnung enthält, wartet im E-Mail-Eingang auf Sie."
   },
   {
     "en": "Markdown, text and CSV files can now be cited and opened by section or by lines rather than only as a whole file, and every part of a long table, spreadsheet or CSV keeps its column headings.",
@@ -2748,6 +2820,10 @@
     "de": "Projekt-Admins können einen Ordner im Papierkorb sofort endgültig löschen. Eine rechtliche Sperre auf dem Ordner, seinem Projekt oder einem Dokument darin verhindert das."
   },
   {
+    "en": "Project mail now keeps only the text a person can see: hidden paragraphs, tracking images and invisible characters that split words or turn a file name around are left out of the mail text and its E-Mail-Verlauf. What you read in a mail is exactly what search and answers work from.",
+    "de": "Projekt-Mail enthält jetzt nur noch den Text, den eine Person sehen kann: Ausgeblendete Absätze, Tracking-Bilder und unsichtbare Zeichen, die Wörter trennen oder Dateinamen verdrehen, werden aus dem Mailtext und dem E-Mail-Verlauf entfernt. Was Sie in einer Mail lesen, ist genau die Grundlage für Suche und Antworten."
+  },
+  {
     "en": "Project memory now finds older notes when they fit the question, and a correction reaches the note it means, however long ago it was written.",
     "de": "Das Projektgedächtnis findet jetzt auch ältere Notizen, wenn sie zur Frage passen, und eine Korrektur trifft die gemeinte Notiz, auch wenn sie lange zurückliegt."
   },
@@ -3148,6 +3224,10 @@
     "de": "Die Büroablage öffnet sich jetzt unter /app/office-shelf. Lesezeichen, geteilte Links und Postfach-Einträge, die auf /app/archiv verweisen, funktionieren weiterhin und führen dorthin."
   },
   {
+    "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
+    "de": "Der E-Mail-Verlauf kennzeichnet eine direkt abgelegte E-Mail. Beim Ursprung eines weitergeleiteten Dokuments wird angegeben, wer es verfasst und wer es weitergeleitet hat. Die Projekteinstellungen, der Adressdialog und die Anleitung auf der Website beschreiben das direkte Ablegen."
+  },
+  {
     "en": "The English home page no longer plays the knowledge animation, whose frames carry German text; it shows the section's text alone until an English version exists. Website headings no longer break short words with an automatic hyphen (\"com-pares\"); a long German word breaks only where the text marks it.",
     "de": "Die englische Startseite spielt die Wissensanimation mit deutschen Texten in den Frames nicht mehr ab; bis eine englische Version verfügbar ist, wird nur der Abschnittstext angezeigt. Website-Überschriften trennen kurze Wörter nicht mehr automatisch mit einem Bindestrich („com-pares“); lange deutsche Wörter werden nur an den im Text gekennzeichneten Stellen getrennt."
   },
@@ -3230,6 +3310,14 @@
   {
     "en": "The Postfach says who: a row shows the colleague's face and names them in the title, „Anna Weber hat in „Atrium“ geschrieben“. A row about an Anmerkung opens it with „Zur Anmerkung“, and an Anmerkung assigned to you, or Piloti's question, can be answered or resolved right in the row.",
     "de": "Das Postfach zeigt, von wem eine Nachricht stammt: Jede Zeile zeigt das Gesicht der Kollegin oder des Kollegen und nennt die Person im Titel: „Anna Weber hat in „Atrium“ geschrieben“. Eine Zeile zu einer Anmerkung öffnet diese mit „Zur Anmerkung“; eine Ihnen zugewiesene Anmerkung oder eine Frage von Piloti können Sie direkt in der Zeile beantworten oder erledigen."
+  },
+  {
+    "en": "The Postfach tells you when mail waits, when it is about to expire, when your own mail was filed, when filing failed and when a followed Verlauf grew, without showing a sender, subject or file name.",
+    "de": "Das Postfach informiert Sie, wenn Post wartet, bald abläuft, Ihre eigene Post abgelegt wurde, die Ablage fehlgeschlagen ist oder ein von Ihnen verfolgter Verlauf wächst – ohne Absender, Betreff oder Dateinamen anzuzeigen."
+  },
+  {
+    "en": "The Postfach tells you when your own mail to a project waits, was filed, was dismissed or expired, and tells everyone who may file in the project when a mail waits for them.",
+    "de": "Das Postfach informiert Sie, wenn Ihre eigene Mail an ein Projekt noch offen ist, abgelegt, abgelehnt oder abgelaufen ist, und alle, die im Projekt ablegen dürfen, wenn eine Mail auf sie wartet."
   },
   {
     "en": "The Prüfansicht works without a mouse: choose the comment, area or Piloti tool with its key and a crosshair appears, which the arrow keys move and Enter sets. Marks can be placed and asked about from the keyboard alone.",
@@ -3536,6 +3624,10 @@
     "de": "Die Zeile über jedem Ordner, die anzeigt, wie viel Piloti gelesen hat, klappt jetzt an Ort und Stelle auf: Sie bleibt dort, wo Sie sie angeklickt haben, und die Übersicht klappt darunter auf, statt dass die Zeile verschwindet und ein separates Feld erscheint."
   },
   {
+    "en": "The list of Outlook imports shows how many mail threads an import started or added to, and how many mails the project already had.",
+    "de": "Die Liste der Outlook-Importe zeigt, wie viele Mail-Threads ein Import neu erstellt oder ergänzt hat und wie viele Mails das Projekt bereits hat."
+  },
+  {
     "en": "The list of a project's Outlook imports now pages instead of stopping at the twenty newest, so an older import that is still running can always be found and cancelled.",
     "de": "Die Liste der Outlook-Importe eines Projekts wird jetzt seitenweise angezeigt, statt nach den 20 neuesten Einträgen zu enden, sodass Sie auch ältere, noch laufende Importe jederzeit finden und abbrechen können."
   },
@@ -3658,6 +3750,10 @@
   {
     "en": "The project's Steckbrief now fills itself: the project's members appear without being typed in, someone taken off the project stays on as a former member, and the start is the month the project was created until you change it.",
     "de": "Der Steckbrief des Projekts füllt sich jetzt automatisch: Die Projektmitglieder werden ohne manuelle Eingabe angezeigt, entfernte Personen bleiben als ehemalige Mitglieder eingetragen und als Start ist zunächst der Monat der Projekterstellung hinterlegt, bis Sie ihn ändern."
+  },
+  {
+    "en": "The project's mail address is on the project overview and says what it is for: put it in Cc when you write to the Behörde, the Statik or the Bauherrschaft.",
+    "de": "Die Mailadresse des Projekts steht in der Projektübersicht und zeigt, wofür sie gedacht ist: Setzen Sie sie in Cc, wenn Sie an die Behörde, die Statik oder die Bauherrschaft schreiben."
   },
   {
     "en": "The replaced document keeps its identity: references from answers, the link in the chat and its folder stay intact.",
@@ -4424,6 +4520,10 @@
     "de": "Wenn Ihr Büro die Funktion aktiviert hat, gleicht Piloti ein neu hochgeladenes Dokument jetzt mit den übrigen Projektdokumenten ab. Weicht eine Kennzahl ab, etwa die Anzahl der Wohneinheiten, markiert Piloti die betreffende Stelle als Vorschlag und nennt beide Quellen; stimmen alle Angaben überein, gibt es keinen Hinweis."
   },
   {
+    "en": "Wherever the project's mail address is shown, it now says how large a mail may be, 25 MB with about 18 MB of attachments, and links to Dateien to upload anything larger. The days in the E-Mail-Eingang's texts now always match how long mail can actually be restored.",
+    "de": "Überall, wo die E-Mail-Adresse des Projekts angezeigt wird, steht jetzt, wie groß eine E-Mail sein darf: 25 MB, davon etwa 18 MB für Anhänge; für größere Dateien führt ein Link zu Dateien. Die in den Texten des E-Mail-Eingangs genannten Tage entsprechen jetzt immer der tatsächlichen Wiederherstellungsdauer von E-Mails."
+  },
+  {
     "en": "While Piloti reads a new project's documents, the setup shows how far it has got: the site, how many documents are read, and the values, contradictions and gaps found so far. You can leave and ask the project chat meanwhile; your Postfach tells you when Piloti is done.",
     "de": "Während Piloti die Dokumente eines neuen Projekts liest, zeigt das Setup den aktuellen Stand: das Grundstück, die Anzahl der bereits gelesenen Dokumente sowie die bisher gefundenen Werte, Widersprüche und Lücken. Sie können die Ansicht verlassen und in der Zwischenzeit den Projekt-Chat befragen; Ihr Postfach informiert Sie, wenn Piloti fertig ist."
   },
@@ -4486,6 +4586,10 @@
   {
     "en": "You can cancel a running task from its block. The research so far stays; only the report is not written.",
     "de": "Sie können eine laufende Aufgabe in ihrem Block abbrechen. Die bisherige Recherche bleibt erhalten; nur der Bericht wird nicht geschrieben."
+  },
+  {
+    "en": "You can follow an E-Mail-Verlauf, so the text of later replies from confirmed domains already in the conversation is added without a click. Attachments still wait for you.",
+    "de": "Sie können einem E-Mail-Verlauf folgen, sodass der Text späterer Antworten von bestätigten Domains, die bereits im Verlauf vorkommen, ohne Klick hinzugefügt wird. Anhänge müssen Sie weiterhin selbst hinzufügen."
   },
   {
     "en": "You can import an Outlook archive (.pst or .ost, up to 25 GB) into a project's files, and every email becomes a folder with its attachments and a note holding its sender, recipients, date and text. Piloti can then find and cite your correspondence; your administrator switches the import on.",
@@ -4566,6 +4670,10 @@
   {
     "en": "Your answer to a question Piloti asked in an Anmerkung now reaches Piloti, and it answers in the thread. In the Postfach such a question leads to the Prüfansicht to be answered there, and a row offers „Antworten“ and „Erledigen“ only when you can do that.",
     "de": "Piloti erhält Ihre Antwort auf eine in einer Anmerkung gestellte Frage und antwortet im Thread. Im Postfach führt eine solche Frage zur Prüfansicht, wo Sie sie beantworten können; eine Zeile zeigt „Antworten“ und „Erledigen“ nur an, wenn diese Aktionen für Sie verfügbar sind."
+  },
+  {
+    "en": "Your colleagues see such a mail under „Wartet auf andere“, with your name, and can only dismiss it. The confirmation tells them that only you can restore it.",
+    "de": "Ihre Kolleginnen und Kollegen sehen eine solche Mail unter „Wartet auf andere“ mit Ihrem Namen und können sie nur ausblenden. Die Bestätigung informiert sie darüber, dass nur Sie sie wiederherstellen können."
   },
   {
     "en": "Your connected assistant now works with what only Piloti has: your office's projects, documents, reviews and tasks, Piloti's building-law knowledge and BIM analysis, and Piloti itself. Your organization's settings, models, budgets and policies, web search and your notifications stay with you in Piloti.",

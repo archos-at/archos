@@ -83,6 +83,110 @@
           "section": "features",
           "area": "documents",
           "text": {
+            "en": "A mail forwarded to a project's address is now cited by the person who wrote it and the date they wrote it, marked „Domain nicht bestätigt“, with the colleague who forwarded it named beneath, in the E-Mail-Verlauf and in answers that cite its attachments. Forwarded twice, the original is named once; every forward is still kept with its own text and attachments.",
+            "de": "Eine an eine Projektadresse weitergeleitete E-Mail wird im E-Mail-Verlauf und in Antworten, die auf ihre Anhänge verweisen, nun mit dem Namen der verfassenden Person und dem Datum des Schreibens zitiert und als „Domain nicht bestätigt“ gekennzeichnet; darunter steht der Name der weiterleitenden Person. Wird die E-Mail zweimal weitergeleitet, wird die ursprüngliche Person nur einmal genannt; jede Weiterleitung bleibt mit eigenem Text und eigenen Anhängen erhalten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "For offices that have it switched on, every project can have its own mail address, and mail sent to it waits in the project's E-Mail-Eingang in Dateien until someone files it. Apart from a member's own mail, nothing becomes part of the project without a person's decision, and every attachment is checked for malware before anyone can open or file it.",
+            "de": "Für Büros, die diese Funktion aktiviert haben, kann jedes Projekt eine eigene E-Mail-Adresse haben. An diese Adresse gesendete Mails bleiben im E-Mail-Eingang des Projekts unter Dateien, bis sie jemand ablegt. Abgesehen von der eigenen Mail eines Mitglieds wird nichts ohne die Entscheidung einer Person Teil des Projekts. Jeder Anhang wird auf Malware geprüft, bevor ihn jemand öffnen oder ablegen kann."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A filed conversation becomes one E-Mail-Verlauf: each mail is a section, each later reply adds a Fassung, and the original mail is kept beside it for download. ARCHOS answers from it and cites the mail a statement came from.",
+            "de": "Eine abgelegte Konversation wird zu einem E-Mail-Verlauf: Jede E-Mail bildet einen Abschnitt, jede spätere Antwort fügt eine Fassung hinzu und die ursprüngliche E-Mail bleibt daneben zum Download erhalten. ARCHOS antwortet auf dieser Grundlage und zitiert die E-Mail, aus der eine Aussage stammt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "You can follow an E-Mail-Verlauf, so the text of later replies from confirmed domains already in the conversation is added without a click. Attachments still wait for you.",
+            "de": "Sie können einem E-Mail-Verlauf folgen, sodass der Text späterer Antworten von bestätigten Domains, die bereits im Verlauf vorkommen, ohne Klick hinzugefügt wird. Anhänge müssen Sie weiterhin selbst hinzufügen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Each waiting mail says whether the sender's domain confirmed it, and a mail that poses as a member of your office stands behind a warning with „Verwerfen“ as the first button. It can never be filed together with other mails.",
+            "de": "Jede wartende Mail zeigt an, ob die Domain des Absenders bestätigt wurde. Eine Mail, die sich als Mitglied Ihres Büros ausgibt, wird mit einem Warnhinweis angezeigt, bei dem „Verwerfen“ an erster Stelle steht. Sie kann niemals gemeinsam mit anderen Mails abgelegt werden."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "ARCHOS suggests a folder and a Dokumentart for each attachment of a waiting mail, from the file names, the masked subject and the sender's domain only. Several complete mails can then be filed as suggested with one press.",
+            "de": "ARCHOS schlägt für jeden Anhang einer wartenden Mail anhand des Dateinamens, des maskierten Betreffs und ausschließlich der Domain des Absenders einen Ordner und eine Dokumentart vor. Mehrere vollständige Mails lassen sich anschließend mit einem Klick wie vorgeschlagen ablegen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A filed Verlauf has an „E-Mails“ tab in its preview, with each mail's attachments, its original, „Vergleichen“ and „Herauslösen …“ for a mail filed into the wrong conversation. A file that came by mail shows which mail brought it, and each Fassung names its mail.",
+            "de": "Ein abgelegter Verlauf hat in der Vorschau einen Tab „E-Mails“ mit den Anhängen jeder E-Mail, ihrem Original sowie den Optionen „Vergleichen“ und „Herauslösen …“, um eine falsch zugeordnete E-Mail aus der Konversation zu lösen. Eine per E-Mail eingegangene Datei zeigt, mit welcher E-Mail sie eingegangen ist, und jede Fassung nennt die zugehörige E-Mail."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In the E-Mail-Eingang the waiting mails stand under „Bereit“ and „Braucht Sie“. A complete mail is filed with one press on „Wie vorgeschlagen ablegen“; every other mail says what it still needs.",
+            "de": "Im E-Mail-Eingang stehen wartende E-Mails unter „Bereit“ und „Braucht Sie“. Eine vollständige E-Mail legen Sie mit einem Klick auf „Wie vorgeschlagen ablegen“ ab; bei allen anderen E-Mails wird angezeigt, was noch fehlt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "An opened mail starts with its text: sender, confirmed domain and arrival stand in one line, and the recipients, the original and the expiry date under „Details“.",
+            "de": "Eine geöffnete E-Mail zeigt zuerst ihren Text: Absender, bestätigte Domain und Eingang stehen in einer Zeile; Empfänger, Original und Ablaufdatum finden Sie unter „Details“."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "After filing, each part says which folder it went to and which Fassung it became.",
+            "de": "Nach der Ablage sehen Sie für jeden Teil, in welchem Ordner er abgelegt wurde und zu welcher Fassung er geworden ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The project's mail address is on the project overview and says what it is for: put it in Cc when you write to the Behörde, the Statik or the Bauherrschaft.",
+            "de": "Die Mailadresse des Projekts steht in der Projektübersicht und zeigt, wofür sie gedacht ist: Setzen Sie sie in Cc, wenn Sie an die Behörde, die Statik oder die Bauherrschaft schreiben."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Closing a project ends every follow of its E-Mail-Verläufe.",
+            "de": "Beim Schließen eines Projekts endet das Folgen aller zugehörigen E-Mail-Verläufe."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The Postfach tells you when mail waits, when it is about to expire, when your own mail was filed, when filing failed and when a followed Verlauf grew, without showing a sender, subject or file name.",
+            "de": "Das Postfach informiert Sie, wenn Post wartet, bald abläuft, Ihre eigene Post abgelegt wurde, die Ablage fehlgeschlagen ist oder ein von Ihnen verfolgter Verlauf wächst – ohne Absender, Betreff oder Dateinamen anzuzeigen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
             "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
             "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
           }
@@ -93,6 +197,86 @@
           "text": {
             "en": "Uploading a new version of a document while the old one is still being read now stops the old reading and reads only the new file. The old one is not shown as failed or as stopped by you.",
             "de": "Wenn Sie eine neue Version eines Dokuments hochladen, während die alte noch gelesen wird, wird das Lesen der alten Datei jetzt beendet und nur die neue Datei gelesen. Die alte Version wird weder als fehlgeschlagen noch als von Ihnen gestoppt angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "An imported Outlook archive now files each mail's text into the project's mail threads, beside the mail that came to the project's address, instead of a note per mail. A reply joins its conversation, and a mail the project already has is not filed twice.",
+            "de": "Beim Import eines Outlook-Archivs wird der Text jeder E-Mail nun im Mail-Thread des Projekts abgelegt, neben der E-Mail an die Projektadresse, statt als eigene Notiz. Antworten werden dem jeweiligen Gespräch zugeordnet, und bereits im Projekt vorhandene E-Mails werden nicht doppelt abgelegt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The list of Outlook imports shows how many mail threads an import started or added to, and how many mails the project already had.",
+            "de": "Die Liste der Outlook-Importe zeigt, wie viele Mail-Threads ein Import neu erstellt oder ergänzt hat und wie viele Mails das Projekt bereits hat."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Mail you send to a project's address from your own office address is now filed directly, as you, when your own domain signed it, it names the project's address in To or Cc, and you may file in the project. Forward the Behörde's letter and it is in the project, with anything lacking a clear place or carrying a warning waiting for you in the E-Mail-Eingang.",
+            "de": "E-Mails, die Sie von Ihrer Büro-Adresse an die Adresse eines Projekts senden, werden jetzt direkt Ihnen zugeordnet, wenn Ihre eigene Domain sie signiert hat und die Projektadresse im An- oder Cc-Feld steht. Sie können die E-Mails im Projekt ablegen. Leiten Sie das Schreiben der Behörde weiter, und es landet im Projekt. Alles, was sich nicht eindeutig zuordnen lässt oder eine Warnung enthält, wartet im E-Mail-Eingang auf Sie."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A mail carrying your address that could not be filed directly (your domain did not confirm it, it is your Bcc copy, it reads as re-sent or misdated, or it was sent automatically) waits for you alone, and the Postfach asks whether you sent it. If your domain rejected it outright, the E-Mail-Eingang says so in your own words.",
+            "de": "Eine E-Mail mit Ihrer Adresse, die nicht direkt abgelegt werden konnte (Ihre Domain hat sie nicht bestätigt, es handelt sich um Ihre Bcc-Kopie, sie wirkt weitergeleitet oder falsch datiert oder wurde automatisch versendet), wartet nur auf Sie, und das Postfach fragt, ob Sie sie gesendet haben. Wenn Ihre Domain sie direkt abgelehnt hat, sagt der E-Mail-Eingang das in Ihren eigenen Worten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Your colleagues see such a mail under „Wartet auf andere“, with your name, and can only dismiss it. The confirmation tells them that only you can restore it.",
+            "de": "Ihre Kolleginnen und Kollegen sehen eine solche Mail unter „Wartet auf andere“ mit Ihrem Namen und können sie nur ausblenden. Die Bestätigung informiert sie darüber, dass nur Sie sie wiederherstellen können."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Each waiting mail says why it waits and what to do next, in the detail and on its row. Mail from outside the office waits 14 days instead of 30, then expires for good, and nobody outside the office is told anything.",
+            "de": "Jede wartende Mail zeigt in der Detailansicht und in ihrer Zeile, warum sie wartet und was als Nächstes zu tun ist. Mails von außerhalb des Büros warten statt 30 nur 14 Tage, verfallen danach endgültig, und niemand außerhalb des Büros wird informiert."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The E-Mail-Verlauf marks a directly filed mail, and a forwarded document's origin names who wrote it and who forwarded it. The project settings, the address dialog and the guide on the website describe direct filing.",
+            "de": "Der E-Mail-Verlauf kennzeichnet eine direkt abgelegte E-Mail. Beim Ursprung eines weitergeleiteten Dokuments wird angegeben, wer es verfasst und wer es weitergeleitet hat. Die Projekteinstellungen, der Adressdialog und die Anleitung auf der Website beschreiben das direkte Ablegen."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "The Postfach tells you when your own mail to a project waits, was filed, was dismissed or expired, and tells everyone who may file in the project when a mail waits for them.",
+            "de": "Das Postfach informiert Sie, wenn Ihre eigene Mail an ein Projekt noch offen ist, abgelegt, abgelehnt oder abgelaufen ist, und alle, die im Projekt ablegen dürfen, wenn eine Mail auf sie wartet."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Project mail now keeps only the text a person can see: hidden paragraphs, tracking images and invisible characters that split words or turn a file name around are left out of the mail text and its E-Mail-Verlauf. What you read in a mail is exactly what search and answers work from.",
+            "de": "Projekt-Mail enthält jetzt nur noch den Text, den eine Person sehen kann: Ausgeblendete Absätze, Tracking-Bilder und unsichtbare Zeichen, die Wörter trennen oder Dateinamen verdrehen, werden aus dem Mailtext und dem E-Mail-Verlauf entfernt. Was Sie in einer Mail lesen, ist genau die Grundlage für Suche und Antworten."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Wherever the project's mail address is shown, it now says how large a mail may be, 25 MB with about 18 MB of attachments, and links to Dateien to upload anything larger. The days in the E-Mail-Eingang's texts now always match how long mail can actually be restored.",
+            "de": "Überall, wo die E-Mail-Adresse des Projekts angezeigt wird, steht jetzt, wie groß eine E-Mail sein darf: 25 MB, davon etwa 18 MB für Anhänge; für größere Dateien führt ein Link zu Dateien. Die in den Texten des E-Mail-Eingangs genannten Tage entsprechen jetzt immer der tatsächlichen Wiederherstellungsdauer von E-Mails."
           }
         },
         {
@@ -331,6 +515,14 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "A file you filed as the next revision of another, and that the content check held back, is now linked to that older revision once a reviewer allows it, instead of arriving on its own. If the older revision has been archived or removed by then, the allowed file arrives on its own; if it was renamed, the link still finds it.",
+            "de": "Eine Datei, die Sie als nächste Revision einer anderen eingereicht haben und die bei der Inhaltsprüfung zurückgehalten wurde, wird nach der Freigabe durch einen Prüfer nun mit der älteren Revision verknüpft, statt eigenständig zu erscheinen. Ist die ältere Revision zu diesem Zeitpunkt archiviert oder entfernt, erscheint die freigegebene Datei eigenständig; wurde sie umbenannt, wird sie für die Verknüpfung weiterhin gefunden."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "A brief connection hiccup while a file was being read no longer leaves it without its page previews, images or thumbnail. Large drawings and long documents no longer lose the document type and key facts {productName} reads from them.",
             "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
           }
@@ -363,8 +555,32 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "A part of an Outlook archive that arrives cut short on its way to ARCHOS is now sent again by the browser, rather than stopping the import.",
+            "de": "Ein Teil eines Outlook-Archivs, der auf dem Weg zu ARCHOS unvollständig ankommt, wird nun vom Browser erneut gesendet, statt den Import abzubrechen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Mail that reaches a project during a short outage now waits until it can be read properly instead of being mislabelled: a colleague's mail is no longer taken for a stranger's and discarded after 14 days, and a text that could not be read at first is read again later.",
+            "de": "Mail, die während eines kurzen Ausfalls bei einem Projekt eintrifft, wird jetzt zurückgehalten, bis sie korrekt gelesen werden kann, statt falsch eingestuft zu werden: Die Mail eines Kollegen wird nicht mehr für die eines Fremden gehalten und nach 14 Tagen gelöscht, und ein Text, der zunächst nicht gelesen werden konnte, wird später erneut gelesen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "Drawings, photos and scanned pages are read even when many uploads arrive at once: a page that could not be read at first is tried again a moment later instead of being left out, and a photo no longer fails for that reason. A page that still cannot be read is counted as not fully read.",
             "de": "Pläne, Fotos und eingescannte Seiten werden auch dann ausgelesen, wenn viele Uploads gleichzeitig eingehen: Eine Seite, die zunächst nicht gelesen werden kann, wird kurz darauf erneut ausgelesen, statt ausgelassen zu werden, und Fotos scheitern aus diesem Grund nicht mehr. Eine Seite, die weiterhin nicht gelesen werden kann, wird als nicht vollständig gelesen gewertet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Filing an attachment the E-Mail-Eingang had suggested a folder for no longer fails.",
+            "de": "Das Ablegen eines Anhangs in einem vom E-Mail-Eingang vorgeschlagenen Ordner schlägt nicht mehr fehl."
           }
         },
         {
