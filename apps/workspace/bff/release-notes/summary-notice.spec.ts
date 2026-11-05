@@ -9,10 +9,16 @@ vi.mock('./seen-repository', () => ({
   recordReleaseWeekSeen: vi.fn(),
   setReleaseNoticeEnabled: vi.fn(),
 }))
+// The specs read their own weeks, never the committed artifact: that file is whatever the
+// release-notes workflow last wrote, and the current week may have no summary yet.
+vi.mock('./release-notes', async (original) => ({
+  ...(await original<typeof import('./release-notes')>()),
+  releaseNoteArtifact: vi.fn(),
+}))
 
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { NO_TOURS } from '@/lib/onboarding/product-tour'
-import type { ReleaseNoteArtifact } from './release-notes'
+import { releaseNoteArtifact, type ReleaseNoteArtifact } from './release-notes'
 import { RELEASE_NOTE_AREAS, RELEASE_NOTE_SECTIONS } from './release-notes-wire'
 import { findReleaseNoticeRecord, recordReleaseWeekSeen, setReleaseNoticeEnabled } from './seen-repository'
 import {
@@ -46,7 +52,10 @@ const SOURCE: ReleaseNoteArtifact = {
 const ON = { lastSeenWeek: null, enabled: true }
 
 describe('the weekly summary notice (ADR-0154, amendment)', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(releaseNoteArtifact).mockReturnValue(SOURCE)
+  })
 
   it('takes the newest week that has a summary, and nothing when none has', () => {
     expect(latestReleaseSummary(SOURCE)?.id).toBe('2026-W44')
