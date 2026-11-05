@@ -176,6 +176,11 @@ subaddressing switch (§7: the provider has no safe way to set it).
 
 ## 5. Secrets
 
+**Done 2026-11-05 (owner):** `inboundMailSigningKeys` is set in both ESC
+environments (dev's and prod's, `matthiasbigl/$ENV` as §3 resolves it), each
+one entry with key id `mi-2026-11` and its own 32-byte secret (the two differ).
+The commands below are for a rotation or a new stack.
+
 The prod stack keeps every secret in its ESC environment, never in
 `Pulumi.prod.yaml` (`pulumi config set --secret` would write ciphertext into the
 committed file, and stack config wins over ESC). Set the signing key now; it is
