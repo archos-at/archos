@@ -1,7 +1,7 @@
 ---
 improvements:
   - >
-    The sidebar entry for talking to Piloti is now simply called "Chat", on the
+    The sidebar entry that opens a conversation is now simply called "Chat", on the
     desktop and on the phone.
   - >
     Section headings and table headers are no longer set in capitals.
