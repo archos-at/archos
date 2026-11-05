@@ -57,6 +57,13 @@ paths = [
   '''(^|/)(apps/workspace/bff|frontends/ui/src/lib)/inbound-mail/__fixtures__/''',
   '''(^|/)__mocks__/''',
   '''(^|/)mocks/''',
+  # `__fixtures__/` is the same kind of directory as `__mocks__/` above: a
+  # corpus that exists to be fed to a parser, not data the app ships. The
+  # inbound-mail parser's hostile corpus holds mail bodies it must reject, one
+  # of them a `PROJECT_TOKEN = ...` line, and `generic-api-key` reads that as a
+  # credential. A path rule rather than an inline marker because the scan walks
+  # full history, where the commit that added the fixture stays.
+  '''(^|/)__fixtures__/''',
   '''\.spec\.tsx?$''',
   '''test_.*\.py$''',
   '''conftest\.py$''',
@@ -88,6 +95,13 @@ regexes = [
   # for every PR in the repo.
   '''^a1b2c3d4e5f6$''', # pragma: allowlist secret
   '''^f6e5d4c3b2a1$''', # pragma: allowlist secret
+  # The rotating HMAC key in the inbound-mail signing test vector
+  # (`shared/inbound-mail-signature.json`): it signs a recorded envelope that the
+  # Worker and the BFF both verify against, so the same vector proves the two
+  # implementations agree. The file has since left the tree, and the commit that
+  # added it stays in the history the scan walks. Exact literal, for the reason
+  # above: a path rule would also hide a genuine key beside the fixture.
+  '''CzBVep/E6Q4zWH2ix\+wRNluApcrvFDleg6jN8hc8YYar0PUaP2SJrtP4HUJnjLHW''', # pragma: allowlist secret
   # Piloti's PostHog project token, the Pulumi program's default
   # (`POSTHOG_DEFAULT_PROJECT_TOKEN`, ADR-0100). A `phc_` key is PostHog's
   # public client key: it ships in every browser bundle and can only write
