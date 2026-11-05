@@ -204,9 +204,9 @@ describe('InboundMailWorkspace', () => {
   it('teaches the address when nothing ever arrived, and says „all done“ otherwise', async () => {
     renderWorkspace('empty')
     expect(await screen.findByTestId('inbound-mail-never')).toHaveTextContent('No mail to this project yet')
-    // The address is in the page's header (copy for Cc); the empty list offers the contact card beside it, not the address again.
-    expect(await screen.findByTestId('inbound-mail-address')).not.toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
-    expect(screen.getByTestId('address-save-contact')).toBeInTheDocument()
+    // Never used, the page is about the address: it stands in the empty list with one press that copies it.
+    expect(await screen.findByTestId('inbound-mail-address')).toHaveTextContent('project+bauplatz-12.k3x7q2m9p4ab@inbox.example.org')
+    expect(screen.getByTestId('address-copy')).toBeInTheDocument()
   })
 
   it('says „nothing waits“ for a project that had mail', async () => {

@@ -84,6 +84,8 @@ export interface InboundMailListProps {
    * and someone who manages the project has to (`ask`).
    */
   neverCase?: 'address' | 'create' | 'ask'
+  /** The Wartet/Bearbeitet switch; off while nothing ever arrived, when there is nothing to switch between. */
+  showFilter?: boolean
   /** The selection bar, pinned under the list while something is selected. */
   selectionBar: ReactNode
   /** The closed-project notice, above the rows. */
@@ -92,11 +94,11 @@ export interface InboundMailListProps {
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
-  const { status, onFilterChange, waitingCount } = props
+  const { status, onFilterChange, waitingCount, showFilter = true } = props
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
-      <div className="flex flex-col gap-2 border-b px-3 py-3 sm:px-4">
+      <div className={cn('flex flex-col gap-2 border-b px-3 py-3 sm:px-4', !showFilter && 'hidden')}>
         <ToggleGroup
           type="single"
           segmented
@@ -183,8 +185,9 @@ function ListBody({
     if (everReceived === false) {
       return (
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6" data-testid="inbound-mail-never">
+          {/* One sheet holds the address below: the words above it stand on the page, not in a second box. */}
           <EmptyState
-            variant="panel"
+            variant="bare"
             icon={InboxGlyph}
             title={t('empty.neverTitle')}
             description={t(neverCase === 'create' ? 'empty.neverNoAddress' : neverCase === 'ask' ? 'empty.neverNoAddressMember' : 'empty.neverText')}
@@ -273,8 +276,9 @@ function ListBody({
                   <BusyButton
                     type="button"
                     size="sm"
-                    variant="outline"
-                    className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left pointer-coarse:h-auto pointer-coarse:min-h-11"
+                    // A quiet action under the thread's line, as the „Bereit“ heading's: the detail's bar is the one primary.
+                    variant="ghost"
+                    className="-ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11"
                     busy={fileGroupBusy === groupKey}
                     busyLabel={t('bulk.fileSuggestedBusy')}
                     onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
@@ -290,7 +294,7 @@ function ListBody({
                 ) : (
                   // Every mail of this half needs the person, so no press files it: the way in is its first mail. No
                   // Fassung range either, which would depend on what is filed before it.
-                  <Button asChild size="sm" variant="outline" className="h-auto min-h-8 w-full justify-start whitespace-normal py-1.5 text-left pointer-coarse:h-auto pointer-coarse:min-h-11">
+                  <Button asChild size="sm" variant="ghost" className="-ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11">
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
                       {t('group.reviewInOrder')}
                     </Link>

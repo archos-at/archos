@@ -113,7 +113,8 @@ export function InboundMailRow({
   return (
     <Item
       as="li"
-      className="group/row relative items-start px-3 sm:px-4 pointer-coarse:min-h-11"
+      // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
+      className="group/row relative items-start px-3 sm:px-4 pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}
@@ -145,10 +146,11 @@ export function InboundMailRow({
           data-testid="inbound-mail-row-link"
           className="flex min-w-0 flex-1 items-start gap-3 rounded-sm outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"
         >
+          {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). */}
           <PersonAvatar
             person={{ userId: mail.senderDomain ?? who, name: who }}
             size="sm"
-            className="mt-0.5 shrink-0"
+            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-muted [&_[data-slot=avatar-fallback]]:!text-muted-foreground"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex min-w-0 items-baseline gap-2">
@@ -213,7 +215,9 @@ export function InboundMailRow({
         </Link>
         {offerFile && (
           // Above the link's full-row press area, like the checkbox; aligned with the text column, past the disc.
-          <div className="relative z-10 pl-10">
+          // Offered where the reader is: on the open row, under the pointer or the keyboard, and always under a finger.
+          // Nine rows with nine buttons was a column of competing presses beside the detail's one primary.
+          <div className="relative z-10 hidden pl-10 group-hover/row:block group-focus-within/row:block group-data-[current]/row:block pointer-coarse:block">
             <BusyButton
               type="button"
               size="sm"

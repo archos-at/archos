@@ -24,12 +24,16 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, springGlide } from '@/components/motion'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
+import { CountPill } from '@/components/ui/count-pill'
 
 export interface SectionNavItem {
   key: string
   href: string
   icon: LucideIcon
   label: string
+  /** A quiet count after the label (mail waiting); none at zero. `countLabel` is what a screen reader hears. */
+  count?: number | null
+  countLabel?: string
 }
 
 export interface SectionNavProps {
@@ -56,6 +60,8 @@ export interface SectionNavProps {
    * nothing.
    */
   railTopClassName?: string
+  /** The path to mark the current section by, for a `/dev` preview that renders a page at its own URL. */
+  pathname?: string
   'data-testid'?: string
 }
 
@@ -77,9 +83,11 @@ export function SectionNav({
   pillId,
   orientation = 'rail',
   railTopClassName = 'lg:top-24',
+  pathname: pathnameOverride,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
-  const pathname = usePathname()
+  const currentPathname = usePathname()
+  const pathname = pathnameOverride ?? currentPathname
 
   return (
     <nav aria-label={label} data-testid={testId}>
@@ -213,6 +221,9 @@ function SectionNavLink({
       )}
       <Icon className="size-4 shrink-0" aria-hidden />
       {item.label}
+      {item.count != null && item.count > 0 && (
+        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} />
+      )}
     </Link>
   )
 }

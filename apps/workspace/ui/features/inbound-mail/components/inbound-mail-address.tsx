@@ -28,7 +28,7 @@ import type { JSX } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { AtSign, BookOpen, CircleSlash, ContactRound, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
+import { AtSign, BookOpen, Check, CircleSlash, ContactRound, Copy, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -41,6 +41,7 @@ import { CopyableValue } from '@/components/ui/copyable-value'
 import { EmailAddress } from '@/components/ui/email-address'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { useLocale, useTranslations } from '@/i18n'
+import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { startBrowserDownload } from '@/lib/browser-download'
 import type { InboundMailAddressView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -114,6 +115,28 @@ function AddressValue({ value, surface, className }: { value: string; surface: A
     >
       <EmailAddress address={value} />
     </CopyableValue>
+  )
+}
+
+/** The one thing an unused address asks for: copy it into a Cc line. The press says it landed. */
+function CopyAddressButton({ value, surface }: { value: string; surface: AddressSurface }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const [copied, raise] = useTransientFlag()
+  return (
+    <Button
+      type="button"
+      size="sm"
+      onClick={() =>
+        void navigator.clipboard?.writeText(value).then(() => {
+          raise()
+          capturePosthog('inbound_mail_address_copied', { surface })
+        }, () => {})
+      }
+      data-testid="address-copy"
+    >
+      {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+      {t('address.copy')}
+    </Button>
   )
 }
 
@@ -193,11 +216,21 @@ export function InboundMailAddressBlock({
       <QuietPanel>
         {/* The eyebrow names the value; in the dialog its title already does. */}
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
-        {showValue && <AddressValue value={value} surface={surface} className="w-full justify-between" />}
+        {showValue &&
+          (surface === 'never_used' ? (
+            // Never used, the address is the page's focal point: a size up, read here and copied by the button below.
+            <p className="text-foreground font-mono text-base [overflow-wrap:anywhere]" data-testid="address-value">
+              <EmailAddress address={value} />
+            </p>
+          ) : (
+            <AddressValue value={value} surface={surface} className="w-full justify-between" />
+          ))}
         <div className="flex flex-wrap gap-2">
+          {surface === 'never_used' && <CopyAddressButton value={value} surface={surface} />}
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
         </div>
-        <p className="text-muted-foreground text-xs">
+        {/* Under the never-used list's own „Noch keine E-Mails“ the line would say it twice. */}
+        <p className={cn('text-muted-foreground text-xs', surface === 'never_used' && !address.lastReceivedAt && address.droppedLast30Days === 0 && 'hidden')}>
           {address.lastReceivedAt
             ? t('address.lastReceived', { time: formatRelativeTime(address.lastReceivedAt, locale) })
             : t('address.nothingReceived')}

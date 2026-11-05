@@ -66,4 +66,29 @@ describe('ProjectSectionFrame', () => {
     const heading = screen.getByRole('heading', { level: 1, name: 'Automation' })
     expect(heading.closest('header')).toContainElement(action)
   })
+
+  test("Dateien's places are tabs: the E-Mail-Eingang only for whoever may decide the project's mail, the open one current", () => {
+    pathname = '/app/projects/p1/files/mail'
+    const { unmount } = render(
+      <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien" inboundMail>
+        <p>mail body</p>
+      </ProjectSectionFrame>,
+    )
+    const tabs = screen.getByTestId('files-tabs')
+    const names = Array.from(tabs.querySelectorAll('a')).map((link) => link.textContent)
+    expect(names).toEqual(['All files', 'Project mail', 'Open points', 'Bin'])
+    expect(screen.getByRole('link', { name: 'Project mail' })).toHaveAttribute('aria-current', 'page')
+    // The section stays the title; the open place says what it is for.
+    expect(screen.getByRole('heading', { level: 1, name: 'Files' })).toBeInTheDocument()
+    unmount()
+
+    pathname = '/app/projects/p1/files'
+    render(
+      <ProjectSectionFrame projectId="p1" projectName="Stadthaus Wien">
+        <p>files body</p>
+      </ProjectSectionFrame>,
+    )
+    expect(screen.queryByRole('link', { name: 'Project mail' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'All files' })).toHaveAttribute('aria-current', 'page')
+  })
 })

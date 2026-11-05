@@ -192,6 +192,8 @@ export function InboundMailWorkspace({
 
   // An empty waiting list is „never used“ or „all done“: the address says which, and is shown in the first.
   const empty = list.kind === 'ready' && list.items.length === 0
+  // Never used: the page is about one thing, the address, so the empty list holds it and the header does not.
+  const never = empty && status === 'waiting' && everReceived === false
 
   // ------------------------------------------------------------ selection and bulk
 
@@ -444,7 +446,7 @@ export function InboundMailWorkspace({
   return (
     <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
-        <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />
+        {!never && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
       <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]')}>
@@ -501,8 +503,6 @@ export function InboundMailWorkspace({
                   projectName={projectName}
                   surface="never_used"
                   showUses={false}
-                  // The header shows the address and copies it: here only the contact card, the limit and the guide.
-                  showValue={false}
                 />
               ) : addressView?.canManage ? (
                 <Button type="button" size="sm" className="w-fit" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-never-create">
@@ -511,6 +511,7 @@ export function InboundMailWorkspace({
                 </Button>
               ) : null
             }
+            showFilter={!never}
             neverCase={!addressView || addressView.address ? 'address' : addressView.canManage ? 'create' : 'ask'}
             selectionBar={selectionBar}
             notice={notice}

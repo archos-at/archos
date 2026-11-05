@@ -340,8 +340,8 @@ export const FileCard = memo(function FileCard({
       interactive
       className={cn(
         'group/card',
-        // Chosen: the hover's fill held, and the ring the keyboard knows.
-        (isSelected || selection?.checked) && 'bg-accent ring-2 ring-ring/70',
+        // Chosen: the hover's fill held (the keyboard's own ring is the button's focus-visible).
+        (isSelected || selection?.checked) && 'bg-accent',
         isBusy && 'cursor-progress opacity-70',
         lit && HIGHLIGHT_OUTLINE
       )}

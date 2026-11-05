@@ -5,7 +5,7 @@ import type { JSX } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { FileItem } from './project-file-workspace'
-import { DocumentStatusBadge } from './document-status'
+import { DocumentStatusBadge, isCitableStatus } from './document-status'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
@@ -483,7 +483,7 @@ const FileListRowItem = memo(function FileListRowItem({
             the badge's word ellipsizes and its glyph stays whole; `title`
             carries the full label for the states that do get cut, which
             are the transient ones. */}
-        {file.status && (
+        {file.status && !isCitableStatus(file.status) && (
           <DocumentStatusBadge
             status={file.status}
             queueAhead={file.queueAhead}

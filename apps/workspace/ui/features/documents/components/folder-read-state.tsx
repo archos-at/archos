@@ -10,9 +10,9 @@ import { readMarkOf, type KnowledgeTally, type ReadMark } from '../lib/folder-kn
 export const READ_MARK_TONE: Record<ReadMark['state'], MeterTone> = {
   failed: 'destructive',
   held: 'warning',
-  reading: 'info',
+  reading: 'inkSoft',
   unplaced: 'muted',
-  allRead: 'success',
+  allRead: 'ink',
 }
 
 /** The dictionary key a mark reads as; every one takes `{count}`. */

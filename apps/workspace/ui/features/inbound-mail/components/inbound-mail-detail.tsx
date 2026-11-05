@@ -470,7 +470,7 @@ export function InboundMailDetail({
 
         {!stopped && !readOnly && messagePart && draft?.message && (
           <section className="flex flex-col gap-2" aria-label={t('message.label')}>
-            <ItemList className="bg-card">
+            <ItemList className="bg-card border-0 shadow-2xs">
               <MessageRow
                 projectId={projectId}
                 view={view}
@@ -488,7 +488,7 @@ export function InboundMailDetail({
           <section className="flex flex-col gap-2" aria-label={t('attachments.label')}>
             <SectionLabel as="h3">{t('attachments.label')}</SectionLabel>
             {attachments.length > 0 && (
-              <ItemList as="ul" className="bg-card">
+              <ItemList as="ul" className="bg-card border-0 shadow-2xs">
                 {attachments.map((entry) => {
                   const attachmentDraft = draft.attachments.find((candidate) => candidate.partId === entry.part.id)
                   if (!attachmentDraft) return null
@@ -614,7 +614,7 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
         <Skeleton className="h-3.5 w-9/12" />
       </div>
       {/* The attachments' own list, so the rows land where their skeletons stood. */}
-      <ItemList className="bg-card">
+      <ItemList className="bg-card border-0 shadow-2xs">
         {[0, 1, 2].map((row) => (
           <Item key={row} className="px-3 sm:px-4">
             <Skeleton className="size-4" />

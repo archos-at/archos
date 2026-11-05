@@ -831,9 +831,9 @@ export function FileWorkspace({
       phone={phone}
       view={view}
       onViewChange={selectView}
-      binHref={shelf.bin?.href}
-      openPointsHref={shelf.openPoints?.href}
-      inboundMail={shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
+      binHref={shelf.source === 'project' ? undefined : shelf.bin?.href}
+      openPointsHref={shelf.source === 'project' ? undefined : shelf.openPoints?.href}
+      inboundMail={shelf.source !== 'project' && shelf.inboundMail ? { href: shelf.inboundMail.href, waiting: shelf.inboundMail.waiting } : undefined}
       renderFilter={(compact) => (
         <FileFilterMenu
           canCollaborate={canCollaborate}

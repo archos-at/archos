@@ -30,8 +30,8 @@ import {
 
 /** Read state → the tone its swatch and meter segment are drawn in. */
 export const READ_STATE_TONE: Record<ReadState, MeterTone> = {
-  readable: 'success',
-  reading: 'info',
+  readable: 'ink',
+  reading: 'inkSoft',
   failed: 'destructive',
   held: 'warning',
   unindexed: 'muted',
@@ -166,8 +166,8 @@ export function FolderBrief({
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 py-0 transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
-        collapsed && 'border-transparent bg-transparent shadow-none'
+        '-mx-3 gap-0 border-0 py-0 shadow-2xs transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"
       data-state={open ? 'open' : 'closed'}
@@ -217,7 +217,7 @@ export function FolderBrief({
               trouble sits, each folded to one line that already names its content.
               Open in full, the brief was taller than a laptop screen and the
               listing it introduces started below the fold. */}
-          <div className="flex flex-col divide-y border-t" data-testid="folder-brief-sections">
+          <div className="flex flex-col gap-1 pb-1.5" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
               onSelect={onSelect}
@@ -406,7 +406,7 @@ function DeferredAboutSection({
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           className="h-7 self-start"
           onClick={onLoadDetails}
           disabled={loading}
@@ -546,7 +546,7 @@ function NeedsYouSection({
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               className="h-7 gap-1.5"
               onClick={onReadAgain}
               disabled={Boolean(readAgainProgress)}

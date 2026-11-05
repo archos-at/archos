@@ -50,6 +50,9 @@ export const nav: typeof en.nav = {
   },
   /** A page inside a section (Dateien › E-Mail-Eingang): its title and subtitle; the section is the breadcrumb above. */
   subpages: {
+    'files/all': {
+      title: 'Alle Dateien',
+    },
     'files/mail': {
       title: 'E-Mail-Eingang',
       subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
@@ -63,7 +66,7 @@ export const nav: typeof en.nav = {
       subtitle: 'Was in den Dokumenten dieses Projekts offen ist, über alle Dokumente: die Liste für den Jour fixe.',
     },
   },
-  breadcrumb: 'Pfad',
+  filesPlaces: 'Orte der Dateien',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',

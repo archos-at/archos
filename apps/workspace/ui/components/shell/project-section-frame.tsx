@@ -18,13 +18,14 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight } from 'lucide-react'
+import { FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
+import { SectionNav, type SectionNavItem } from './section-nav'
 import { cn } from '@/lib/utils'
 
 const PROJECT_SECTION_KEYS = [
@@ -61,11 +62,12 @@ const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
 const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['members', 'model'])
 
 /**
- * Pages inside a section that head themselves through this frame: the page's
- * title and subtitle, with the section as the breadcrumb above („Dateien ›“).
- * One header, so a sub-page never draws a second title under the section's,
- * nor its own way back (the breadcrumb is it). The key is `<section>/<page>`,
- * as in `nav.subpages`.
+ * Pages inside a section: Dateien's places. The section header stays the
+ * section's („Dateien“), says what the open place is for (its subtitle), and
+ * carries the places as tabs (Alle Dateien, E-Mail-Eingang, Offene Punkte,
+ * Papierkorb), so a sub-page never draws a second title or its own way back,
+ * and the E-Mail-Eingang is a place beside the files rather than a link in a
+ * toolbar. The key is `<section>/<page>`, as in `nav.subpages`.
  */
 const SUBPAGES = ['files/mail', 'files/bin', 'files/open-points'] as const
 type Subpage = (typeof SUBPAGES)[number]
@@ -135,17 +137,56 @@ export function SectionActionsInline({ children }: { children: ReactNode }): JSX
   )
 }
 
+/** Dateien's places as tabs, the E-Mail-Eingang only for whoever may decide the project's mail. */
+function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; inboundMail: boolean; pathname: string }): JSX.Element {
+  const t = useTranslations(navCopy)
+  const waiting = useInboundMailWaitingShown(inboundMail ? projectId : null)
+  const base = `/app/projects/${projectId}/files`
+  const items: SectionNavItem[] = [
+    { key: 'files', href: base, icon: FolderOpen, label: t('subpages.files/all.title') },
+    ...(inboundMail
+      ? [
+          {
+            key: 'mail',
+            href: `${base}/mail`,
+            icon: Mail,
+            label: t('subpages.files/mail.title'),
+            count: waiting.count,
+            countLabel: waiting.count ? t('inboundMailWaiting', { count: waiting.count }) : undefined,
+          },
+        ]
+      : []),
+    { key: 'open-points', href: `${base}/open-points`, icon: ListTodo, label: t('subpages.files/open-points.title') },
+    { key: 'bin', href: `${base}/bin`, icon: Trash2, label: t('subpages.files/bin.title') },
+  ]
+  // `pathname`: a preview renders a project page at its own URL, and the tabs read the path it heads.
+  return (
+    <SectionNav
+      label={t('filesPlaces')}
+      items={items}
+      rootHref={base}
+      pillId="files-places-pill"
+      orientation="tabs"
+      pathname={pathname}
+      data-testid="files-tabs"
+    />
+  )
+}
+
 export function ProjectSectionFrame({
   projectId,
   projectName,
   children,
   pathname: pathnameOverride,
+  inboundMail = false,
 }: {
   projectId: string
   projectName: string
   children: ReactNode
   /** The path to head, for a `/dev` preview that renders a project page at its own URL. */
   pathname?: string
+  /** The reader may decide the project's held mail (ADR-0137): Dateien shows the E-Mail-Eingang as a tab. */
+  inboundMail?: boolean
 }): JSX.Element {
   const currentPathname = usePathname()
   const pathname = pathnameOverride ?? currentPathname ?? ''
@@ -175,22 +216,11 @@ export function ProjectSectionFrame({
     <ActionsContext.Provider value={setActions}>
       <div className="flex h-full min-h-0 flex-col">
         <div className={SECTION_HEADER_CLASS}>
-          {subpage ? (
-            <div className="flex flex-col gap-1">
-              <nav aria-label={t('breadcrumb')}>
-                <Link
-                  href={`/app/projects/${projectId}/${segment}`}
-                  className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-sm text-xs transition-colors duration-quick ease-out motion-reduce:transition-none focus-visible:ring-ring/60 outline-none focus-visible:ring-2"
-                  data-testid="section-breadcrumb"
-                >
-                  {sectionLabel}
-                  <ChevronRight className="size-3" aria-hidden />
-                </Link>
-              </nav>
-              <PageHeader title={t(`subpages.${subpage}.title`)} subtitle={t(`subpages.${subpage}.subtitle`)} action={actions} />
+          <PageHeader title={sectionLabel} subtitle={subpage ? t(`subpages.${subpage}.subtitle`) : sectionSubtitle} action={actions} />
+          {segment === 'files' && (
+            <div className="-mb-2 mt-3 phone:mt-2">
+              <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
-          ) : (
-            <PageHeader title={sectionLabel} subtitle={sectionSubtitle} action={actions} />
           )}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>

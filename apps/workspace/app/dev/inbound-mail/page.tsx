@@ -61,7 +61,7 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
     <I18nProvider initialLocale={locale} fixedLocale>
       <main className="bg-background flex h-dvh min-h-0 flex-col" data-testid="inbound-mail-preview">
         {/* The real section frame, as the project's Dateien › E-Mail-Eingang heads it. */}
-        <ProjectSectionFrame projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={`/app/projects/${PROJECT_ID}/files/mail`}>
+        <ProjectSectionFrame projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={`/app/projects/${PROJECT_ID}/files/mail`} inboundMail>
         <InboundMailWorkspace
           key={`${variant}:${status}:${outcome ?? ''}:${mailId ?? ''}`}
           projectId={PROJECT_ID}
