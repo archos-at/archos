@@ -349,10 +349,8 @@ export const files = {
     retryingIngestion: 'Retrying…',
     retryIngestionError: "Reading couldn't be restarted. Please try again.",
     dialogLabel: 'File preview: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'File view',
-      document: 'Document',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -1101,10 +1099,10 @@ export const files = {
   brief: {
     scopeFolder: 'in “{name}” and its subfolders',
     scopeProject: 'in this project',
-    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
-    headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
+    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
+    headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
     headlineNothingToRead: '{count, plural, one {# document, not part of the knowledge base} other {# documents, none part of the knowledge base}}',

@@ -349,10 +349,8 @@ export const files: typeof en.files = {
     retryIngestionError:
       'Das erneute Lesen konnte nicht gestartet werden. Bitte versuchen Sie es noch einmal.',
     dialogLabel: 'Dateivorschau: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'Ansicht der Datei',
-      document: 'Dokument',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -1074,10 +1072,10 @@ export const files: typeof en.files = {
   brief: {
     scopeFolder: 'in „{name}“ und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
-    /** Alles Lesbare gelesen, daneben Dokumente, die nie in die Wissensbasis kommen: „alle“ sagt, wessen. */
-    headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
+    /** Alles Lesbare gelesen, daneben Dokumente, die nie in die Wissensbasis kommen: „alle“ sagt, wessen. */
+    headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
     headlineNone: '{count, plural, one {Das Dokument ist noch nicht gelesen} other {Noch keines der # Dokumente gelesen}}',
     headlineNothingToRead: '{count, plural, one {# Dokument, nicht in der Wissensbasis} other {# Dokumente, keines in der Wissensbasis}}',
