@@ -5,6 +5,7 @@ import type { IBackendTrafficPolicySpec } from "@kubernetes-models/envoy-gateway
 import { edgeRateLimit, edgeRetry, perClientRules } from "../app/httproutes";
 import { DeployConfig } from "../config";
 import { EDGE_TIMEOUT, LANGFUSE, PORT } from "../constants";
+import { CMS_GATEWAY_CREDENTIAL_KEY, CMS_GATEWAY_CREDENTIAL_SECRET, CMS_INTERNAL_URL } from "./cms";
 import { GATEWAY_NAME } from "./gateway";
 import { LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "./langfuse";
 import { commonLabels } from "./namespaces";
@@ -58,6 +59,18 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             // that project, prompts included (`ADMITTED_ROLES`).
             credential: { secretName: LANGFUSE_SECRETS_NAME, secretKey: LANGFUSE_SECRET_KEYS.otlpBasicAuth },
             timeout: "300s",
+          },
+        ]
+      : []),
+    ...(cfg.cms.enabled
+      ? [
+          {
+            name: "cms",
+            url: `${CMS_INTERNAL_URL}/api/mcp`,
+            // The CMS's MCP key of its agent account (apps/cms/src/provision.ts):
+            // every write is a draft that a publisher reviews in the admin panel.
+            credential: { secretName: CMS_GATEWAY_CREDENTIAL_SECRET, secretKey: CMS_GATEWAY_CREDENTIAL_KEY },
+            timeout: "120s",
           },
         ]
       : []),
