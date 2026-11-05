@@ -712,7 +712,9 @@ body {
      (brand design system), and the wide tracking existed only to make capitals
      readable — on sentence-case text it reads as a rendering fault. */
   .card-eyebrow {
-    font-size: 10.5px;
+    /* 12px, the ramp's caption step: at 10.5px a section label was the smallest type on screen and
+       read as fine print, not as the name of what follows it (design-language.md, „Type ramp“). */
+    font-size: 12px;
     font-weight: 500;
   }
 

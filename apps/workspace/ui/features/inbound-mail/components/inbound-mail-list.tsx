@@ -16,7 +16,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { ChevronDown, CheckCircle2, History, Inbox as InboxGlyph, MailOpen, Repeat2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2, ChevronDown, FileInput, History, Inbox as InboxGlyph, MailOpen, Repeat2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -249,7 +249,8 @@ function ListBody({
               <div className="flex min-h-7 items-center justify-between gap-2">
                 <SectionLabel as="h3">{t(`readiness.${section.readiness}`, { count: section.mails.length })}</SectionLabel>
                 {ready && batch.length > 1 && (
-                  <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                  <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 text-xs" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                    <FileInput className="size-3.5" aria-hidden />
                     {/* One request decides at most twenty mails: past that, the press says it files the first ones. */}
                     {t(batch.length < section.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}
                   </Button>
@@ -278,7 +279,8 @@ function ListBody({
                     size="sm"
                     // A quiet action under the thread's line, as the „Bereit“ heading's: the detail's bar is the one primary.
                     variant="ghost"
-                    className="-ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11"
+                    className="text-muted-foreground hover:text-foreground gap-1.5 -ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11"
+                    icon={<FileInput aria-hidden />}
                     busy={fileGroupBusy === groupKey}
                     busyLabel={t('bulk.fileSuggestedBusy')}
                     onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
@@ -294,8 +296,9 @@ function ListBody({
                 ) : (
                   // Every mail of this half needs the person, so no press files it: the way in is its first mail. No
                   // Fassung range either, which would depend on what is filed before it.
-                  <Button asChild size="sm" variant="ghost" className="-ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11">
+                  <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground gap-1.5 -ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11">
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
+                      <ArrowRight className="size-3.5" aria-hidden />
                       {t('group.reviewInOrder')}
                     </Link>
                   </Button>

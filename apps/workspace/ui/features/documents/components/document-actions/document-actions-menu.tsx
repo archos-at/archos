@@ -288,7 +288,8 @@ export function DocumentActionsMenu({
               size="icon"
               className={cn(
                 'size-8 shrink-0',
-                surface === 'floating' && 'border border-border bg-background shadow-2xs',
+                // A frosted disc over the thumbnail: legible on any page without drawing a ring around it.
+                surface === 'floating' && 'bg-background/85 shadow-xs backdrop-blur-sm',
               )}
               aria-label={t('actions.label', { name })}
               title={t('actions.menuLabel')}

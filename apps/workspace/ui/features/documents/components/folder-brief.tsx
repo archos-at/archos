@@ -166,7 +166,7 @@ export function FolderBrief({
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 border-0 py-0 shadow-2xs transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        '-mx-3 gap-0 border-0 py-0 shadow-xs ring-0 transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
         collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"

@@ -522,7 +522,7 @@ export const FileCard = memo(function FileCard({
             {/* The format in words, with the facts: a type is not a signal, so it is ink like them, never a tinted chip. */}
             {ext !== '' && (
               <>
-                <span className="font-medium uppercase tracking-wider text-[10.5px]">{ext}</span>
+                <span className="font-medium uppercase tracking-wide">{ext}</span>
                 <span aria-hidden className="text-muted-foreground/40">
                   ·
                 </span>

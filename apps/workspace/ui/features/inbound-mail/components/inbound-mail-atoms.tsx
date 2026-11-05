@@ -60,12 +60,16 @@ export function CheckLine({
   )
 }
 
-/** The bottom edge of the detail: pinned, on the page's paper, the home indicator's inset below it. */
+/**
+ * The bottom edge of the detail: pinned, a frosted strip of the page's paper with the home indicator's inset
+ * below it. No rule on top: the material (blur, and a soft shadow cast upward over what scrolls under it) ends
+ * the text, as a floating toolbar does.
+ */
 export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
   return (
     <div
       className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 border-t px-3 pt-3 backdrop-blur sm:px-4',
+        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 px-3 pt-3 shadow-[0_-8px_16px_-12px_color-mix(in_oklch,var(--foreground)_18%,transparent)] backdrop-blur sm:px-4',
         'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
         className
       )}

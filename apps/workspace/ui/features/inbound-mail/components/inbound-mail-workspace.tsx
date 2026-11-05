@@ -446,7 +446,12 @@ export function InboundMailWorkspace({
   return (
     <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
-        {!never && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
+        {!never && (
+          // An opened mail on a phone shows the mail: the address is a press away, back in the list.
+          <div className={cn(mailId && 'phone:hidden')}>
+            <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />
+          </div>
+        )}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
       <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]')}>

@@ -218,7 +218,9 @@ export function ProjectSectionFrame({
         <div className={SECTION_HEADER_CLASS}>
           <PageHeader title={sectionLabel} subtitle={subpage ? t(`subpages.${subpage}.subtitle`) : sectionSubtitle} action={actions} />
           {segment === 'files' && (
-            <div className="-mb-2 mt-3 phone:mt-2">
+            // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
+            // places would only push its subject below the fold.
+            <div className={cn('-mb-2 mt-3 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
               <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
           )}

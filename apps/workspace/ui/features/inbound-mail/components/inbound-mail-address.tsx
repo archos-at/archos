@@ -146,8 +146,10 @@ function SaveContactButton({ value, projectName, surface }: { value: string; pro
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="sm"
+      // A sheet on the quiet panel it sits in (the panel is the secondary tone itself).
+      className="bg-card hover:bg-accent shadow-xs"
       onClick={() => {
         saveContact(value, projectName, t('address.contactName', { project: projectName }), t('address.contactNote'))
         capturePosthog('inbound_mail_address_contact_saved', { surface })

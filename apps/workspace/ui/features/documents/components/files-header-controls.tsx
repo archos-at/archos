@@ -161,7 +161,7 @@ export function FilesHeaderControls({
           mode="dropdown"
           entries={entries}
           trigger={
-            <Button type="button" variant="outline" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
+            <Button type="button" variant="ghost" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
               <MoreHorizontal aria-hidden />
             </Button>
           }

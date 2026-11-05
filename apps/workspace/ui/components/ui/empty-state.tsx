@@ -20,7 +20,8 @@ export type EmptyStateDiscTone = 'muted' | 'destructive' | 'warning'
 export type EmptyStateDiscSize = 'md' | 'sm'
 
 const EMPTY_STATE_DISC_TONES: Record<EmptyStateDiscTone, string> = {
-  muted: 'border bg-card text-muted-foreground',
+  // A tile of the page's quiet tone, no ring: the glyph names the state, the tile only seats it.
+  muted: 'bg-muted text-muted-foreground',
   destructive: 'border-transparent bg-danger-subtle text-error',
   warning: 'border-transparent bg-warning-subtle text-warning',
 }
