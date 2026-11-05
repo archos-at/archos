@@ -7,16 +7,18 @@
  * overwrites a draft someone has worked on.
  *
  *   node social/release-summaries.mjs --week 2026-W44                 # dry run, offline
- *   DIRECTUS_URL=… CMS_DRAFTING_TOKEN=… SITE_URL=https://… \
+ *   CMS_URL=… CMS_DRAFTING_API_KEY=… SITE_URL=https://… \
  *     node social/release-summaries.mjs --week 2026-W44 --apply
  *
  * The German text is the summary's translation in releasenotes/translations/de.json.
+ * CMS_DRAFTING_API_KEY is the API key of a user who drafts (an editor or the
+ * agent): the CMS lets that key write drafts and nothing more.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
-import { directusFromEnv, query } from '../scripts/lib/directus.mjs';
+import { cmsFromEnv } from './cms-client.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const RELEASENOTES = path.resolve(HERE, '../../../releasenotes');
@@ -35,15 +37,15 @@ export function weekSummary(week, dir = RELEASENOTES) {
 }
 
 /** The draft for one language. */
-export function summaryPost(week, text, language, siteUrl) {
+export function summaryPost(week, text, language, siteUrl, account = ACCOUNT) {
   return {
     status: 'draft',
-    account: ACCOUNT,
+    account,
     language,
     text,
-    link_url: new URL(language === 'en' ? '/en/changelog/' : '/changelog/', siteUrl).href,
-    utm_campaign: `changelog-${week.toLowerCase()}`,
-    source_ref: `release-summary:${week}:${language}`,
+    linkUrl: new URL(language === 'en' ? '/en/changelog/' : '/changelog/', siteUrl).href,
+    utmCampaign: `changelog-${week.toLowerCase()}`,
+    sourceRef: `release-summary:${week}:${language}`,
   };
 }
 
@@ -61,19 +63,21 @@ async function main() {
     .filter(([, text]) => text)
     .map(([language, text]) => summaryPost(week, text, language, siteUrl));
   if (!summary.de) console.log(`${week} has no German translation yet; drafting English only.`);
-  if (!process.env.DIRECTUS_URL) {
-    for (const d of drafts) console.log(`would draft ${d.source_ref}: ${d.text.slice(0, 80)}…`);
+  if (!process.env.CMS_URL) {
+    for (const d of drafts) console.log(`would draft ${d.sourceRef}: ${d.text.slice(0, 80)}…`);
     return;
   }
-  const cms = directusFromEnv('CMS_DRAFTING_TOKEN');
+  const cms = cmsFromEnv('CMS_DRAFTING_API_KEY');
+  const [account] = await cms.find('social-accounts', { where: { key: { equals: ACCOUNT } } });
+  if (!account) throw new Error(`No social account ${ACCOUNT} in the CMS.`);
   for (const draft of drafts) {
-    const existing = await cms.get(`/items/social_posts${query({ filter: { source_ref: { _eq: draft.source_ref } }, fields: 'id' })}`);
+    const existing = await cms.find('social-posts', { where: { sourceRef: { equals: draft.sourceRef } }, depth: 0 });
     if (existing.length > 0) {
-      console.log(`exists   ${draft.source_ref}`);
+      console.log(`exists   ${draft.sourceRef}`);
       continue;
     }
-    if (apply) await cms.post('/items/social_posts', draft);
-    console.log(`${apply ? 'drafted ' : 'would draft'} ${draft.source_ref}`);
+    if (apply) await cms.create('social-posts', { ...draft, account: account.id });
+    console.log(`${apply ? 'drafted ' : 'would draft'} ${draft.sourceRef}`);
   }
 }
 
