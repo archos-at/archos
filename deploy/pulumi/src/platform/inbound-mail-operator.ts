@@ -13,13 +13,14 @@ import type { MailZone } from "./email-routing";
  * ## The verification click
  *
  * Creating the destination address makes Cloudflare send a verification mail
- * to it, and "all routing rules are automatically disabled until the
+ * to it. Its docs say "all routing rules are automatically disabled until the
  * destination address is validated by the user" (developers.cloudflare.com
  * /email-service/configuration/email-routing-addresses/, "Routing rule
- * actions", last updated 2026-10-15). So the first `up` creates the address
- * and both rules, and the forwards deliver once someone opens that mail and
- * clicks; no second deploy is needed. The stack output `inboundMailOperator`
- * says which state Pulumi last read.
+ * actions"), but the API refuses to create a forward to an unverified address:
+ * `400`, code `2054`, "Destination address is not verified" (dev, 2026-11-05).
+ * So the first `up` creates the address and fails at both rules; after the
+ * click, a second `up` creates them (runbook §7). The stack output
+ * `inboundMailOperator` says which state Pulumi last read.
  *
  * ## Account-level, and kept
  *

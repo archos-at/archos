@@ -296,11 +296,13 @@ its events (`kubectl -n grid describe pod -l app.kubernetes.io/name=clamav`). Pr
   again.
 - [ ] **The verification click.** Creating `inbound-mail-operator` makes
   Cloudflare mail a verification link to the operator mailbox; open it and
-  click. The forward rules are created in the same apply, before the click:
-  "all routing rules are automatically disabled until the destination address
-  is validated by the user" (Cloudflare, "Email routing rules and addresses",
-  "Routing rule actions"), so they exist but deliver nothing until then, and no
-  second deploy is needed. The stack output `inboundMailOperator` reads
+  click. **The first apply fails at the two forward rules**, `inbound-mail-postmaster`
+  and `inbound-mail-abuse`: Cloudflare's API refuses a forward to an
+  unverified destination with `400`, code `2054`, "Destination address is not
+  verified" (seen on dev, 2026-11-05), although its docs say such rules are
+  created and kept disabled. Everything else of the apply is in place by then.
+  Click the link, then re-run the failed `Pulumi up` job: the second apply
+  creates the two rules. The stack output `inboundMailOperator` reads
   `… (NOT verified …)` until Pulumi reads it again (`pulumi refresh`); `g0`
   reads it live.
 - [ ] **Subaddressing**, one API call with the deploy token (it has Zone
