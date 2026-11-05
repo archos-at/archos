@@ -1074,6 +1074,8 @@ export const files: typeof en.files = {
   brief: {
     scopeFolder: 'in „{name}“ und seinen Unterordnern',
     scopeProject: 'in diesem Projekt',
+    /** Alles Lesbare gelesen, daneben Dokumente, die nie in die Wissensbasis kommen: „alle“ sagt, wessen. */
+    headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
@@ -1089,7 +1091,7 @@ export const files: typeof en.files = {
     allRead: 'Alles gelesen',
     unplacedShort: '{count} ohne Dokumentart',
     /** Neben der Legende: Dokumente, die Piloti nie liest. Nicht in der Summe der Überschrift („von N“). */
-    unindexedAside: 'dazu {count} nicht in der Wissensbasis',
+    unindexedAside: '{count} weitere nicht in der Wissensbasis',
     /** Laufende Beschriftung der beiden Chip-Familien unter „Worum es hier geht“. */
     typesLabel: 'Dokumentart',
     disciplinesLabel: 'Fachbereich',

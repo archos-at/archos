@@ -1101,6 +1101,8 @@ export const files = {
   brief: {
     scopeFolder: 'in “{name}” and its subfolders',
     scopeProject: 'in this project',
+    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
+    headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
@@ -1116,7 +1118,7 @@ export const files = {
     allRead: 'All read',
     unplacedShort: '{count} without a document type',
     /** Beside the legend: documents Piloti never reads. Not part of the headline's “of N”. */
-    unindexedAside: 'plus {count} not in the knowledge base',
+    unindexedAside: '{count} more not in the knowledge base',
     /** Run-in labels of the two chip families under “What this is about”. */
     typesLabel: 'Document type',
     disciplinesLabel: 'Discipline',

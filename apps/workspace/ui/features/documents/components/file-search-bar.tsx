@@ -4,6 +4,7 @@ import { Sparkles, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SearchField } from '@/components/ui/search-field'
 import { Spinner } from '@/components/ui/spinner'
+import type { ControlSize } from '@/components/ui/control-height'
 import { cn } from '@/lib/utils'
 
 interface FileSearchFieldProps {
@@ -23,6 +24,8 @@ interface FileSearchFieldProps {
   runButton?: { label: string; isSearching: boolean }
   /** Sizing for the form. Defaults to filling its row (the sticky band). */
   className?: string
+  /** The `size` of the buttons in the field's row, so the field stands as tall as they do. */
+  size?: ControlSize
 }
 
 interface FileSearchBannerProps {
@@ -62,10 +65,11 @@ export function FileSearchField({
   resetLabel,
   runButton,
   className,
+  size = 'default',
 }: FileSearchFieldProps) {
   return (
     <form
-      className={cn('flex min-h-9 min-w-0 items-center gap-2', className)}
+      className={cn('flex min-w-0 items-center gap-2', size === 'sm' ? 'min-h-8' : 'min-h-9', className)}
       onSubmit={(e) => {
         e.preventDefault()
         onSubmit()
@@ -80,8 +84,12 @@ export function FileSearchField({
         placeholder={placeholder}
         label={searchLabel}
         clearLabel={resetLabel}
+        size={size}
         inputClassName="pr-10 md:pr-9"
-        clearClassName="right-1 size-9 pointer-coarse:size-11 md:right-1.5 md:size-6"
+        clearClassName={cn(
+          'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
+          size === 'sm' ? 'size-7' : 'size-9'
+        )}
       />
       {runButton && (
         <Button

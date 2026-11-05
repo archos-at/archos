@@ -15,7 +15,7 @@ import type { MissingDocument } from '@/lib/document-roles/prompt-loader'
  * corpus holds three replaced Fassungen (one a failed read); the brief and the
  * rows count one entry per document, so the root reads „35 von 44“ over 48
  * files and no replaced Fassung is listed under failures. The Fassungen timeline is at `/dev/fassungen`.
- * `?section=a|b|c|d|e|f|g` shows just one of them, for captures; the default
+ * `?section=a|b|c|d|e|f|g|h` shows just one of them, for captures; the default
  * shows all seven. Section g is a folder read page by page (ADR-0102): its
  * brief is counted from the shelf summary and offers to load the details.
  *
@@ -45,7 +45,7 @@ import type { BulkReingestProgress } from '@/features/documents/hooks/use-bulk-r
 import { FILES, FOLDERS, PROJECT_NAME } from './fixtures'
 import { SectionLabel } from '@/components/ui/section-label'
 
-const SECTIONS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const
+const SECTIONS = ['a', 'b', 'c', 'd', 'h', 'e', 'f', 'g'] as const
 type SectionId = (typeof SECTIONS)[number]
 
 const ROOT_BRIEF = buildFolderBrief(FILES, FOLDERS, null)
@@ -89,6 +89,16 @@ function summaryOf(files: readonly FileItem[]): ShelfSummary {
   }
 }
 const SUMMARY_BRIEF = buildFolderBriefFromSummary(summaryOf(FILES), FOLDERS, null)
+/** Ticket #38's case: every one of 27 documents Piloti reads is read, beside 16 it never reads. */
+const QUIET_BRIEF = buildFolderBriefFromSummary(
+  {
+    folders: [{ folderId: null, total: 43, readable: 27, reading: 0, failed: 0, held: 0, unindexed: 16, latest: null }],
+    failed: [],
+    failedTruncated: false,
+  },
+  FOLDERS,
+  null
+)
 
 const noop = (): void => {}
 const resolveFalse = (): Promise<boolean> => Promise.resolve(false)
@@ -261,6 +271,20 @@ function FolderBriefPreview(): JSX.Element {
               brief={BASIS_BRIEF}
               folderName="01_Grundlagen"
               shelfKind="project"
+              onSelect={noop}
+              onOpenFolder={noop}
+              collapsed={false}
+              onCollapsedChange={noop}
+            />
+          </Section>
+        )}
+
+        {shows('h') && (
+          <Section id="h" title="Everything read, beside documents never read (the quiet case)">
+            <FolderBrief
+              brief={QUIET_BRIEF}
+              folderName={null}
+              shelfKind="office"
               onSelect={noop}
               onOpenFolder={noop}
               collapsed={false}

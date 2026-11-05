@@ -38,20 +38,24 @@ export const READ_STATE_TONE: Record<ReadState, MeterTone> = {
 
 /**
  * The states Piloti is meant to read, in the order the legend reads them: what
- * Piloti has, then what is moving, then what needs a person. Their counts add
- * up to the headline's „von N", which is the whole point of listing them
- * apart from `unindexed`: a reader who adds up the legend gets the headline.
+ * Piloti has, then what is moving, then what needs a person. The headline's read
+ * count and the legend's counts add up to its „von N", which is the whole point
+ * of listing them apart from `unindexed`.
  */
 const MEANT_TO_READ: readonly ReadState[] = ['readable', 'reading', 'failed', 'held']
 
 /**
- * The states the bar and the legend draw. `unindexed` is out of the headline's
- * denominator (`readShare`), so it is out of the bar too and named as an aside
- * (`UnindexedAside`), unless it is all there is.
+ * The states the bar draws. `unindexed` is out of the headline's denominator
+ * (`readShare`), so it is out of the bar too and named as an aside, unless it is
+ * all there is. The legend leaves out `readable`: the headline says how many
+ * are read, and a number is said once.
  */
 function meterStates(tally: KnowledgeTally): readonly ReadState[] {
   return tally.total - tally.unindexed > 0 ? MEANT_TO_READ : ['unindexed']
 }
+
+const meterSegments = (tally: KnowledgeTally) =>
+  meterStates(tally).map((state) => ({ key: state, value: tally[state], tone: READ_STATE_TONE[state] }))
 
 /** Whether the documents Piloti never reads are named beside the legend rather than in it. */
 function hasUnindexedAside(tally: KnowledgeTally): boolean {
@@ -157,6 +161,7 @@ export function FolderBrief({
   // The `-mx-3` holds in both states, so the line's text stays on the
   // listing's edge whether or not a border is drawn around it.
   const open = !collapsed
+  const allRead = everythingRead(tally)
   return (
     <Card
       className={cn(
@@ -198,13 +203,13 @@ export function FolderBrief({
         </h2>
 
         <CollapsibleContent id="folder-brief-body">
-          <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5">
-            <SegmentMeter
-              label={meterLabel}
-              segments={meterStates(tally).map((state) => ({ key: state, value: tally[state], tone: READ_STATE_TONE[state] }))}
-            />
-            <ReadStateLegend tally={tally} onSelect={onSelect} />
-          </div>
+          {/* All read is the quiet case: no bar. While something is open, a hairline, never a band. */}
+          {(!allRead || hasUnindexedAside(tally) || tally.pages > 0) && (
+            <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5" data-testid="folder-brief-meter">
+              {!allRead && <SegmentMeter className="h-1" label={meterLabel} segments={meterSegments(tally)} />}
+              <ReadStateLegend tally={tally} onSelect={onSelect} />
+            </div>
+          )}
 
           {/* Ordered by what the reader has to do: what needs them first, open;
               then what Piloti is missing, what the folder is about and where the
@@ -255,7 +260,8 @@ function briefHeadline(tally: KnowledgeTally, t: Translate): string {
   const share = readShare(tally)
   if (share === null) return t('brief.headlineNothingToRead', { count: tally.total })
   const meantToRead = tally.total - tally.unindexed
-  if (tally.readable === meantToRead) return t('brief.headlineAll', { count: meantToRead })
+  // Beside documents Piloti never reads, „all" says what it counts: the knowledge base's.
+  if (tally.readable === meantToRead) return t(tally.unindexed > 0 ? 'brief.headlineAllOfKnowledge' : 'brief.headlineAll', { count: meantToRead })
   if (tally.readable === 0) return t('brief.headlineNone', { count: meantToRead })
   return t('brief.headlineSome', { readable: tally.readable, count: meantToRead })
 }
@@ -268,15 +274,16 @@ function legendSentence(tally: KnowledgeTally, t: Translate): string {
   return states.join(', ')
 }
 
-/** Each state with documents in it, as swatch + count + word — and a way into exactly those documents. */
+/** Each state the headline does not name (never `readable`), as swatch + count + word, and a way into exactly those documents. */
 function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect: (s: BriefSelection) => void }) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
-  const states = meterStates(tally).filter((state) => tally[state] > 0)
+  const states = tally.total > tally.unindexed ? MEANT_TO_READ.filter((state) => state !== 'readable' && tally[state] > 0) : []
+  if (hasUnindexedAside(tally)) states.push('unindexed')
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
       {states.map((state) => (
-        <button data-attr="files-select"
+        <button data-attr={state === 'unindexed' ? 'folder-brief-state-unindexed' : 'files-select'}
           key={state}
           type="button"
           onClick={() => onSelect({ kind: 'state', state })}
@@ -285,23 +292,13 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
           data-testid={`folder-brief-state-${state}`}
         >
           <ToneSwatch tone={READ_STATE_TONE[state]} />
-          <span>{t(`brief.states.${state}`, { count: tally[state] })}</span>
+          <span>
+            {state === 'unindexed'
+              ? t('brief.unindexedAside', { count: tally.unindexed })
+              : t(`brief.states.${state}`, { count: tally[state] })}
+          </span>
         </button>
       ))}
-      {hasUnindexedAside(tally) && (
-        <button data-attr="folder-brief-state-unindexed"
-          type="button"
-          onClick={() => onSelect({ kind: 'state', state: 'unindexed' })}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring touch-target inline-flex items-center gap-1.5 rounded-control px-1.5 py-0.5 text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
-          title={t('brief.showState', { state: t('brief.slice.unindexed') })}
-          data-testid="folder-brief-state-unindexed"
-        >
-          <span aria-hidden className="text-muted-foreground/40">
-            ·
-          </span>
-          <span>{t('brief.unindexedAside', { count: tally.unindexed })}</span>
-        </button>
-      )}
       {tally.pages > 0 && (
         <span className="text-muted-foreground ml-auto px-1.5 text-xs tabular-nums">
           {t('brief.pages', { count: tally.pages, formatted: tally.pages.toLocaleString(locale) })}
