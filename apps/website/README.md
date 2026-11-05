@@ -264,12 +264,27 @@ privacy policy (`src/i18n/pages/privacy.ts`, "Anmeldestatus").
 
 ## Blog
 
-Posts are MDX in `src/content/blog/<locale>/<slug>.mdx` (schema in
-`src/content.config.ts`), figures in `src/components/figures/`. A post's file name is its
-slug; `translationSlug` names its twin in the other locale for the language switch and
-hreflang. Drafts build only with `PUBLIC_INCLUDE_DRAFTS=1`.
+**Where posts come from** ([ADR-0155](../../docs/adr/0155-the-website-blog-is-edited-in-a-self-hosted-directus.md)).
+The blog's pages (`/blog/`, its category pages, every post, the feeds, `/sitemap-blog.xml`,
+`/llms.txt`) are rendered on request. With `CMS_URL` and `CMS_TOKEN` set, they read the posts
+from the CMS, Directus (`apps/cms`), so a post a publisher publishes there is on the site
+within a minute, without a build: `src/lib/cms.ts` keeps the live posts in memory for 60 s,
+serves the last good copy while it refreshes or when the CMS is down, and drops them when the
+CMS's `Refresh the website` flow calls `POST /api/cms/revalidate` (bearer
+`CMS_REVALIDATE_TOKEN`). A post in the CMS has both languages as translations of one item, so
+its twin is never a slug typed by hand, and its body is a list of blocks, each drawn by a
+component of the design system (`src/components/PostBlocks.astro`): Markdown (no raw HTML), a
+figure from `src/components/figures/`, an image, a quote, a call to action. A former slug in
+`previous_slugs` answers with a 301. `CMS_PUBLIC_URL` is where browsers load its images, through
+its transform presets, and the only origin the CSP adds (`img-src`).
 
-Every post's frontmatter, checked by the schema:
+**Without a CMS** (`CMS_URL` unset: a local build, CI, every check) the same routes serve the
+fixtures, the MDX posts in `src/content/blog/<locale>/<slug>.mdx` (schema in
+`src/content.config.ts`). They were the blog's source before the CMS, and `apps/cms`'s import
+(`task cms:import`) writes them into a CMS keyed by slug. A fixture's file name is its slug;
+`translationSlug` names its twin. Drafts are served only with `PUBLIC_INCLUDE_DRAFTS=1`.
+
+Every fixture's frontmatter, checked by the schema:
 
 | Field | Required | Holds |
 |---|---|---|
@@ -291,7 +306,10 @@ Journal and Bautagebuch, redirect to Praxiserfahrungen and Technologie
 (`RETIRED_BLOG_CATEGORIES` in `redirects.mjs`).
 
 **Covers.** Every post names its `cover`, a line drawing in `src/assets/covers/<id>.svg`
-shared only with its translation; the schema fails a post without one. `src/lib/covers.ts`
+shared only with its translation; the schema fails a post without one. In the CMS a post may
+instead take an uploaded image (`cover_type: image`), cropped at its focal point by the CMS's
+`cover` and `share` presets, with its alt text and the AI mark when a model made it; the
+CMS's list of drawings is held to this folder by `apps/cms`'s tests. `src/lib/covers.ts`
 puts the drawing in the shared frame (ground, module grid, hatch), `PostCover.astro`
 inlines it on the card (the whole 3:2 canvas) and under the post's lead (the 1200 × 630
 band), styled by the brand's `covers.css`, and `src/pages/media/covers/[id].png.ts` renders

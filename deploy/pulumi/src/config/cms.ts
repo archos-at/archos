@@ -86,9 +86,10 @@ export function loadCms(cfg: pulumi.Config, baseDomain: string): CmsConfig {
   const flag = bool(cfg, "cmsEnabled", false);
   const licenseKey = cfg.getSecret("cmsLicenseKey");
   const policies = bool(cfg, "networkPolicies", true);
+  const key = (name: string) => `${pulumi.getProject()}:${name}`;
   const missing = [
-    licenseKey === undefined ? "grid-oib:cmsLicenseKey (the core tier refuses the review permissions)" : undefined,
-    policies ? undefined : "grid-oib:networkPolicies (the CMS's database and API are reachable only through them)",
+    licenseKey === undefined ? `${key("cmsLicenseKey")} (the core tier refuses the review permissions)` : undefined,
+    policies ? undefined : `${key("networkPolicies")} (the CMS's database and API are reachable only through them)`,
   ].filter((m): m is string => m !== undefined);
   if (flag && missing.length > 0) {
     pulumi.log.warn(`The CMS (ADR-0155) is not deployed: missing ${missing.join(", ")}. Set it, or cmsEnabled=false.`);

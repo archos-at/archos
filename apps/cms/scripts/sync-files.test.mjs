@@ -81,6 +81,12 @@ test('the public and the website read only what is live', () => {
   }
 });
 
+test('signing in to the Studio takes a second factor', () => {
+  const studio = records('directus-policies').find((p) => p.name === 'Studio access');
+  assert.equal(studio.app_access, true);
+  assert.equal(studio.enforce_tfa, true);
+});
+
 test('the MCP server is on, signs agents in as their person, and cannot delete', () => {
   const [settings] = records('directus-settings');
   assert.equal(settings.mcp_enabled, true);

@@ -2,6 +2,15 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { cmsConfigFiles, cmsConfigScript } from "./src/platform/cms-config-job";
+import { readFileSync } from "node:fs";
+import { objectName } from "./src/names";
+
+/** The program's project (Pulumi.yaml), the prefix of every stack key. */
+const PROJECT = /^name:\s*(\S+)/m.exec(readFileSync(new URL("./Pulumi.yaml", import.meta.url), "utf8"))![1];
+const key = (name: string) => `${PROJECT}:${name}`;
+/** The app namespace, the Gateway and the app's S3 identity, by the names this project gives them (src/names.ts). */
+const appNs = () => objectName("namespace", PROJECT);
+const gatewayName = () => objectName("gateway", PROJECT);
 
 /**
  * The website's CMS (ADR-0155), the whole program built once with it on and
@@ -23,7 +32,7 @@ pulumi.runtime.setMocks(
     },
     call: () => ({}),
   },
-  "grid-oib",
+  PROJECT,
   "test",
   false,
 );
@@ -41,7 +50,7 @@ const unwrap = (data: any) => (data && typeof data.value === "object" ? data.val
 
 async function build(extra: Record<string, string>) {
   RESOURCES.length = 0;
-  pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:baseDomain": "dev.example.test", ...extra });
+  pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key("baseDomain")]: "dev.example.test", ...extra });
   vi.resetModules();
   const stack = (await import("./index")) as Record<string, unknown>;
   await Promise.all(
@@ -53,11 +62,11 @@ async function build(extra: Record<string, string>) {
 
 describe("the CMS, switched on and licensed", () => {
   beforeAll(async () => {
-    await build({ "grid-oib:cmsEnabled": "true", "grid-oib:cmsLicenseKey": "oig-key" }); // pragma: allowlist secret
+    await build({ [key("cmsEnabled")]: "true", [key("cmsLicenseKey")]: "oig-key" }); // pragma: allowlist secret
   }, 120_000);
 
   it("adds an https-cms listener that admits routes from the cms namespace only", () => {
-    const gateway = RESOURCES.find((r) => r.name === "grid-gateway")!.inputs.spec as { listeners: Array<Record<string, any>> };
+    const gateway = RESOURCES.find((r) => (r.inputs as { metadata?: { name?: string } }).metadata?.name === gatewayName() && r.type.endsWith(":Gateway"))!.inputs.spec as { listeners: Array<Record<string, any>> };
     expect(gateway.listeners.find((l) => l.name === "https-cms")).toEqual({
       name: "https-cms",
       port: 443,
@@ -71,7 +80,7 @@ describe("the CMS, switched on and licensed", () => {
   it("routes the host to Directus from the cms namespace, naming the Gateway's namespace", () => {
     const route = find("kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "cms-route");
     expect(route.metadata.namespace).toBe("cms");
-    expect(route.spec.parentRefs).toEqual([{ name: "grid-gateway", namespace: "grid", sectionName: "https-cms" }]);
+    expect(route.spec.parentRefs).toEqual([{ name: gatewayName(), namespace: appNs(), sectionName: "https-cms" }]);
     expect(route.spec.hostnames).toEqual([HOST]);
     expect(route.spec.rules[0].backendRefs).toEqual([{ name: "directus", port: 8055 }]);
   });
@@ -88,8 +97,8 @@ describe("the CMS, switched on and licensed", () => {
       DB_SSL__CA_FILE: "/etc/cms-pg-ca/ca.crt",
       STORAGE_S3_BUCKET: "cms-files",
       STORAGE_S3_KEY: "cms",
-      STORAGE_S3_ENDPOINT: "http://seaweedfs.grid.svc.cluster.local:8333",
-      WEBSITE_REVALIDATE_URL: "http://web.grid.svc.cluster.local:4321/api/cms/revalidate",
+      STORAGE_S3_ENDPOINT: `http://seaweedfs.${appNs()}.svc.cluster.local:8333`,
+      WEBSITE_REVALIDATE_URL: `http://web.${appNs()}.svc.cluster.local:4321/api/cms/revalidate`,
     });
     const deployment = find("kubernetes:apps/v1:Deployment", "directus").spec;
     // The policy pack: a declared singleton may Recreate, but still soaks and states its grace period.
@@ -138,7 +147,7 @@ describe("the CMS, switched on and licensed", () => {
     const s3 = JSON.parse(unwrap(find("kubernetes:core/v1:Secret", "seaweedfs-s3-config").stringData)["s3.json"]);
     const cms = s3.identities.find((i: { name: string }) => i.name === "cms");
     expect(cms.actions).toEqual(["Read:cms-files", "Write:cms-files", "List:cms-files", "Tagging:cms-files"]);
-    const app = s3.identities.find((i: { name: string }) => i.name === "grid");
+    const app = s3.identities.find((i: { name: string }) => i.name === appNs());
     expect(app.actions.some((a: string) => a.includes("cms-files"))).toBe(false);
   });
 
@@ -164,7 +173,7 @@ describe("the CMS's config files", () => {
 
 describe("the CMS, switched on without a license", () => {
   beforeAll(async () => {
-    await build({ "grid-oib:cmsEnabled": "true" });
+    await build({ [key("cmsEnabled")]: "true" });
   }, 120_000);
 
   it("deploys nothing of it, and the website reads no CMS", () => {

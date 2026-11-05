@@ -65,8 +65,8 @@
     {
       "admin_access": false,
       "app_access": true,
-      "description": "Signs in to the Studio. Holds no content permission of its own.",
-      "enforce_tfa": false,
+      "description": "Signs in to the Studio, with a second factor. Holds no content permission of its own.",
+      "enforce_tfa": true,
       "icon": "desktop_windows",
       "id": "dd2f58e1-c1cc-4fed-b1b9-d71ba9914691",
       "ip_access": null,
