@@ -715,7 +715,6 @@
   "apps/workspace/ui/features/a2ui/react-catalog.tsx": 1,
   "apps/workspace/ui/features/agent-connect/components/connect-agent-card.spec.tsx": 1,
   "apps/workspace/ui/features/agent-connect/components/connect-agent-card.tsx": 2,
-  "apps/workspace/ui/features/agent-connect/lib/guide.ts": 2,
   "apps/workspace/ui/features/automation/lib/automation-tab.ts": 1,
   "apps/workspace/ui/features/bim/components/ifc-model-explorer.spec.tsx": 1,
   "apps/workspace/ui/features/bim/components/model-file-ownership.tsx": 2,

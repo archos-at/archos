@@ -37,7 +37,7 @@ import { formerDomainRedirects, formerDomainRouteSpec } from "./former-domain";
  * entirely would mean no retries, and setting only `numRetries` would inherit
  * the unsafe default triggers.
  */
-const edgeRetry: IRetry = {
+export const edgeRetry: IRetry = {
   numRetries: EDGE_RETRY.numRetries,
   retryOn: { triggers: ["connect-failure", "refused-stream", "reset-before-request"] },
   perRetry: {
@@ -119,7 +119,7 @@ function perClientIpRule(
  * 2 replicas behind one LoadBalancer, so a "30/min" local limit is really
  * 60/min — and changes meaning the moment the fleet scales.
  */
-function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?: IRateLimitSpec } {
+export function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?: IRateLimitSpec } {
   if (!cfg.rateLimit.enabled) return {};
   return { rateLimit: { type: "Global", global: { rules } } };
 }
@@ -137,7 +137,7 @@ function edgeRateLimit(cfg: DeployConfig, rules: IRateLimitRule[]): { rateLimit?
  * rule simply never fires — a few unused descriptors, and no way to be silently
  * uncovered the day the cluster gains an IPv6 address.
  */
-function perClientRules(
+export function perClientRules(
   cfg: DeployConfig,
   requestsPerMinute: number,
   pathPrefix?: string,

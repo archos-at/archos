@@ -356,6 +356,11 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `clickhouseStorageSize` | `50Gi` | The trace store is the tier's unbounded resource — see the retention note above. The server's own system logs are TTL-bounded at 14 days (`system-log-ttl.xml` in `src/data/clickhouse.ts`) and cannot fill the disk the way `system.trace_log` did on dev in August 2026. Growing the PVC is a PVC patch (`volumeClaimTemplates` is immutable and `ignoreChanges`d) |
 | `langfuseV4HistoricBackfill` | `false` | Rewrite historic traces into v4's tables. Needs about three times the current ClickHouse disk as headroom |
 | `langfuseQueueMaxmemory` / `langfuseQueueMemoryLimit` | `512mb` / `1Gi` | Ingestion-queue dataset cap and pod memory limit. Eviction is OFF, so "full" means ingestion stops (loudly) rather than oldest-drops (silently) |
+| **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
+| `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
+| `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |
+| `mcpGatewayPlatformOrgId` | — | WorkOS id (`org_…`) of the platform organization: a token with any other `org_id` gets 403. Not `platformOrgExternalId` |
+| 🔒 `mcpGatewaySessionKey` | — | 64 hex characters (`openssl rand -hex 32`). agentgateway encrypts MCP session ids with it, and both replicas share it. Rotating it ends open sessions; clients reconnect |
 
 ## Validation (no target cluster required)
 

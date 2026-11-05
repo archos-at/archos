@@ -827,6 +827,21 @@ jobs:
           echo "${OTELCOL_SHA256}  $RUNNER_TEMP/otelcol.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/otelcol.tar.gz" -C "$RUNNER_TEMP" otelcol-contrib
           echo "OTELCOL_BIN=$RUNNER_TEMP/otelcol-contrib" >> "$GITHUB_ENV"
+      # agentgateway's published config schema at the tag its image pins
+      # (`MCP_GATEWAY.image` in deploy/pulumi/src/platform/mcp-gateway-config.ts):
+      # `index-mcp-gateway.spec.ts` holds the file the program renders against it,
+      # which refuses a key agentgateway does not know before a pod would. Bump
+      # the version and checksum together with that digest.
+      - name: Fetch agentgateway's config schema (config validation)
+        env:
+          AGENTGATEWAY_VERSION: "v1.7.0"
+          AGENTGATEWAY_SCHEMA_SHA256: "8d757c092bc30a5ed5fd38a07a47d72602941c8344203c2d1f86e02d6dbb2bd3"
+        run: |
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/agentgateway-config.schema.json" \
+            "https://raw.githubusercontent.com/agentgateway/agentgateway/${AGENTGATEWAY_VERSION}/schema/config.json"
+          echo "${AGENTGATEWAY_SCHEMA_SHA256}  $RUNNER_TEMP/agentgateway-config.schema.json" | sha256sum -c -
+          echo "AGENTGATEWAY_SCHEMA=$RUNNER_TEMP/agentgateway-config.schema.json" >> "$GITHUB_ENV"
+          echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
       - run: task infra:test
 
   # packages/ifc-spatial-py sits outside the uv workspace (own uv.lock),
