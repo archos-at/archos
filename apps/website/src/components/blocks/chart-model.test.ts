@@ -93,8 +93,8 @@ describe('chartModel', () => {
   });
 
   test('the unit rides on the top tick unless the axis has a label', () => {
-    expect(chartModel(bar({ unit: 'h' }), 'de').grid.at(-1)?.label).toBe('15 h');
-    expect(chartModel(bar({ unit: 'h', axisLabel: 'Stunden' }), 'de').grid.at(-1)?.label).toBe('15');
+    expect(chartModel(bar({ unit: 'h' }), 'de').ticks.at(-1)?.label).toBe('15 h');
+    expect(chartModel(bar({ unit: 'h', axisLabel: 'Stunden' }), 'de').ticks.at(-1)?.label).toBe('15');
   });
 
   test('grouped bars sit side by side in their band, without value labels', () => {

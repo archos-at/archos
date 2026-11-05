@@ -116,15 +116,17 @@ const de = {
   legal: {
     name: 'Rechtsquelle',
     note: 'Eine Norm oder ein Gesetz, auf das sich der Beitrag stützt: Fundstelle, Fassung, Wortlaut und der Weg zur Quelle.',
-    block: {
-      title: 'OIB-Richtlinie 3',
-      section: 'Punkt 11.2.1',
-      version: 'Ausgabe Mai 2023',
-      issuer: 'Österreichisches Institut für Bautechnik',
-      excerpt: 'Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.',
-      excerptLang: 'de',
-      url: 'https://www.oib.or.at/',
-    } satisfies LegalSourceBlock,
+    blocks: [
+      {
+        title: 'OIB-Richtlinie 3',
+        section: 'Punkt 11.2.1',
+        version: 'Ausgabe Mai 2023',
+        issuer: 'Österreichisches Institut für Bautechnik',
+        excerpt: 'Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.',
+        excerptLang: 'de',
+        url: 'https://www.oib.or.at/',
+      },
+    ] satisfies LegalSourceBlock[],
   },
   qa: {
     name: 'Frage und Antwort',
@@ -255,15 +257,17 @@ const en: typeof de = {
   legal: {
     name: 'Legal source',
     note: 'A norm or a law the post relies on: the passage, the edition, its wording and the way to the source.',
-    block: {
-      title: 'OIB-Richtlinie 3',
-      section: 'Point 11.2.1',
-      version: 'Edition May 2023',
-      issuer: 'Austrian Institute of Construction Engineering',
-      excerpt: 'Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.',
-      excerptLang: 'de',
-      url: 'https://www.oib.or.at/',
-    },
+    blocks: [
+      {
+        title: 'OIB-Richtlinie 3',
+        section: 'Point 11.2.1',
+        version: 'Edition May 2023',
+        issuer: 'Austrian Institute of Construction Engineering',
+        excerpt: 'Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.',
+        excerptLang: 'de',
+        url: 'https://www.oib.or.at/',
+      },
+    ],
   },
   qa: {
     name: 'Question and answer',

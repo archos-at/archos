@@ -63,7 +63,7 @@ const plan = (src: string, alt: string): BlockImage => ({ src, alt, width: 1600,
 
       <h2>{c.legal.name}</h2>
       <p>{c.legal.note}</p>
-      <LegalSource locale={locale} {...c.legal.block} />
+      {c.legal.blocks.map((source) => <LegalSource locale={locale} {...source} />)}
 
       <h2>{c.qa.name}</h2>
       <p>{c.qa.note}</p>
