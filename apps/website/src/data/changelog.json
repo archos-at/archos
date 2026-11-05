@@ -125,6 +125,14 @@
               "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
             },
             {
+              "en": "Heights and other values printed on a drawing, such as a room height in a section, now reach the document's facts after upload. Before, a drawing's printed values were read but never kept, so only what the text pages said showed up there.",
+              "de": "Höhen und andere Werte, die auf einer Zeichnung eingetragen sind, etwa eine Raumhöhe in einem Schnitt, werden nach dem Upload nun auch in den Dokument-Fakten berücksichtigt. Bisher wurden diese Werte zwar ausgelesen, aber nicht gespeichert, sodass dort nur Angaben aus den Textseiten aufschienen."
+            },
+            {
+              "en": "The knowledge base and the platform's document list now show when a file was read in, and what kind of file it is, for older files too. Before, both went blank a day after the upload.",
+              "de": "Die Wissensdatenbank und die Dokumentenliste der Plattform zeigen jetzt auch bei älteren Dateien an, wann sie eingelesen wurden und um welchen Dateityp es sich handelt. Bisher wurden beide Angaben einen Tag nach dem Upload nicht mehr angezeigt."
+            },
+            {
               "en": "A brief connection hiccup while a file was being read no longer leaves it without its page previews, images or thumbnail. Large drawings and long documents no longer lose the document type and key facts {productName} reads from them.",
               "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
             },
@@ -143,6 +151,14 @@
             {
               "en": "File names such as Lüftungssteuerung, Personalraum or Feuchtegehalt are no longer stopped as sensitive in offices that use the suggested list.",
               "de": "Dateinamen wie Lüftungssteuerung, Personalraum oder Feuchtegehalt werden in Büros, die die vorgeschlagene Liste verwenden, nicht mehr als sensibel blockiert."
+            },
+            {
+              "en": "A search for documents that refer to a standard or a plan now finds them however they wrote it: ÖNORM B 1600 also finds documents that wrote B1600, and EP-05 also finds EP05 and EP.05. Before, a different spelling left those documents out without saying so.",
+              "de": "Eine Suche nach Dokumenten, die auf eine Norm oder einen Plan verweisen, findet diese jetzt unabhängig von der Schreibweise: ÖNORM B 1600 findet auch Dokumente mit B1600, und EP-05 auch Dokumente mit EP05 und EP.05. Bisher wurden Dokumente mit abweichender Schreibweise nicht gefunden, ohne dass darauf hingewiesen wurde."
+            },
+            {
+              "en": "When you mention {productName} on a mark, reply in its thread, or hand it a mark, and when it checks a new document, it now reads the document you are working in even after the document was renamed. Before, a renamed document lost the focus, and the answer drew on the whole project instead.",
+              "de": "Wenn Sie {productName} in einer Markierung erwähnen, im zugehörigen Thread antworten oder {productName} eine Markierung zuweisen, liest {productName} beim Prüfen eines neuen Dokuments jetzt das Dokument, an dem Sie gerade arbeiten – auch wenn es umbenannt wurde. Bisher verlor ein umbenanntes Dokument den Fokus, und die Antwort stützte sich stattdessen auf das gesamte Projekt."
             }
           ]
         }

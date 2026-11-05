@@ -684,6 +684,10 @@
     "de": "Eine Suche nach einem Wort, das in keinem Dokument vorkommt, füllt die Liste nicht mehr mit irrelevanten Dateien, während eine anders formulierte Frage weiterhin die passenden Passagen findet."
   },
   {
+    "en": "A search for documents that refer to a standard or a plan now finds them however they wrote it: ÖNORM B 1600 also finds documents that wrote B1600, and EP-05 also finds EP05 and EP.05. Before, a different spelling left those documents out without saying so.",
+    "de": "Eine Suche nach Dokumenten, die auf eine Norm oder einen Plan verweisen, findet diese jetzt unabhängig von der Schreibweise: ÖNORM B 1600 findet auch Dokumente mit B1600, und EP-05 auch Dokumente mit EP05 und EP.05. Bisher wurden Dokumente mit abweichender Schreibweise nicht gefunden, ohne dass darauf hingewiesen wurde."
+  },
+  {
     "en": "A search over your files or the Archiv that failed to run, for instance because it timed out, used to report \"no matches for …\", a statement about your own documents that Piloti had no way of making. Now it says the search failed and offers to run the same query again.",
     "de": "Eine Suche in Ihren Dateien oder im Archiv, die nicht laufen konnte, etwa weil die Zeit abgelaufen ist, meldete bisher „keine Treffer für …“. Das war eine Aussage über Ihre eigenen Dokumente, die Piloti gar nicht beurteilen konnte. Jetzt sagt Piloti, dass die Suche fehlgeschlagen ist, und bietet an, dieselbe Anfrage erneut auszuführen."
   },
@@ -1878,6 +1882,10 @@
   {
     "en": "Going back in the browser returns a page to where you had scrolled it, instead of keeping the scroll position of the page you just left.",
     "de": "Wenn Sie im Browser zurückgehen, springt die Seite zu ihrer vorherigen Scrollposition zurück, statt die Scrollposition der gerade verlassenen Seite beizubehalten."
+  },
+  {
+    "en": "Heights and other values printed on a drawing, such as a room height in a section, now reach the document's facts after upload. Before, a drawing's printed values were read but never kept, so only what the text pages said showed up there.",
+    "de": "Höhen und andere Werte, die auf einer Zeichnung eingetragen sind, etwa eine Raumhöhe in einem Schnitt, werden nach dem Upload nun auch in den Dokument-Fakten berücksichtigt. Bisher wurden diese Werte zwar ausgelesen, aber nicht gespeichert, sodass dort nur Angaben aus den Textseiten aufschienen."
   },
   {
     "en": "Hold a file or folder you are dragging over a folder for a moment and it opens, so you can move things into folders that are not on screen. Every move now offers to undo it.",
@@ -3460,6 +3468,10 @@
     "de": "Die Oberfläche wirkt ruhiger und reagiert schneller: Buttons geben bei jedem Klick dezent nach, beim Kopieren einer Antwort erscheint ein Häkchen, und Ladeplatzhalter schimmern, statt grau aufzublitzen."
   },
   {
+    "en": "The knowledge base and the platform's document list now show when a file was read in, and what kind of file it is, for older files too. Before, both went blank a day after the upload.",
+    "de": "Die Wissensdatenbank und die Dokumentenliste der Plattform zeigen jetzt auch bei älteren Dateien an, wann sie eingelesen wurden und um welchen Dateityp es sich handelt. Bisher wurden beide Angaben einen Tag nach dem Upload nicht mehr angezeigt."
+  },
+  {
     "en": "The legal notices in the app (imprint, privacy policy, terms, AI notice and the list of providers who process data) now say ARCHOS (formerly Piloti), so it is clear they cover your account from before the rename, and they name the operator, its address and its contact e-mail.",
     "de": "Die rechtlichen Hinweise in der App (Impressum, Datenschutzerklärung, Nutzungsbedingungen, KI-Hinweis und Liste der Anbieter, die Daten verarbeiten) nennen jetzt ARCHOS (vormals Piloti), sodass klar ist, dass sie auch für Ihr Konto aus der Zeit vor der Umbenennung gelten; außerdem nennen sie den Betreiber, seine Adresse und seine Kontakt-E-Mail-Adresse."
   },
@@ -4242,6 +4254,10 @@
   {
     "en": "When you mention Piloti in an annotation's thread, or hand an open annotation to Piloti, your inbox tells you when it is done or when it has a question for you. Taking an annotation back from Piloti stops the work.",
     "de": "Wenn Sie Piloti im Thread einer Anmerkung erwähnen oder Piloti eine offene Anmerkung übergeben, informiert Sie Ihre Inbox, sobald die Aufgabe erledigt ist oder Piloti eine Rückfrage hat. Wenn Sie eine Anmerkung von Piloti zurücknehmen, wird die Arbeit gestoppt."
+  },
+  {
+    "en": "When you mention {productName} on a mark, reply in its thread, or hand it a mark, and when it checks a new document, it now reads the document you are working in even after the document was renamed. Before, a renamed document lost the focus, and the answer drew on the whole project instead.",
+    "de": "Wenn Sie {productName} in einer Markierung erwähnen, im zugehörigen Thread antworten oder {productName} eine Markierung zuweisen, liest {productName} beim Prüfen eines neuen Dokuments jetzt das Dokument, an dem Sie gerade arbeiten – auch wenn es umbenannt wurde. Bisher verlor ein umbenanntes Dokument den Fokus, und die Antwort stützte sich stattdessen auf das gesamte Projekt."
   },
   {
     "en": "When you move through the file list with the keyboard, your place is kept instead of jumping back to the first row. Home and End jump to the start and end of the list.",
