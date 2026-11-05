@@ -5,13 +5,15 @@
  * the CMS lacks is created. Both languages of a post land in one document.
  *
  *   bun run import:blog                 # dry run: what would be created, updated, skipped
- *   bun run import:blog -- --apply      # write it
+ *   bun run import:blog apply           # write it
+ *
+ * Words, not flags: `payload run` passes a script its positional arguments only.
  *
  * Needs `DATABASE_URL` and `PAYLOAD_SECRET` of the CMS to write to (locally,
  * `task cms:import`). A post edited in the CMS since the import wrote it (its
  * content no longer matches `importHash`) is skipped and reported, unless
- * `--overwrite`: after the cutover the CMS is the source, and a re-run must not
- * undo an editor's work. `--content <dir>` reads another copy of the posts.
+ * `overwrite`: after the cutover the CMS is the source, and a re-run must not
+ * undo an editor's work. `content <dir>` reads another copy of the posts.
  *
  * The import runs as the system (no user): it publishes what the files say is
  * published, and asks for no LinkedIn drafts of old news.
@@ -30,9 +32,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 function parseArgs(argv: string[]) {
   const args = { apply: false, overwrite: false, content: path.resolve(HERE, '../../website/src/content/blog') };
   for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === '--apply') args.apply = true;
-    else if (argv[i] === '--overwrite') args.overwrite = true;
-    else if (argv[i] === '--content') args.content = path.resolve(argv[(i += 1)]);
+    const word = argv[i].replace(/^--/, '');
+    if (word === 'apply') args.apply = true;
+    else if (word === 'overwrite') args.overwrite = true;
+    else if (word === 'content') args.content = path.resolve(argv[(i += 1)]);
     else throw new Error(`Unknown argument ${argv[i]}`);
   }
   return args;
@@ -92,7 +95,7 @@ async function main() {
     if (args.apply && (step.action === 'create' || step.action === 'update')) await write(payload, record, step.id);
   }
   const summary = Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(', ');
-  console.log(args.apply ? `Applied: ${summary}.` : `Dry run: ${summary}. Pass --apply to write.`);
+  console.log(args.apply ? `Applied: ${summary}.` : `Dry run: ${summary}. Run again with "apply" to write.`);
 }
 
 // Top-level await: `payload run` ends the process once this module has evaluated.
