@@ -52,5 +52,17 @@ fi
 
 echo "==> migrating a fresh database as its owner"
 npx --no-install cross-env NODE_OPTIONS=--no-deprecation payload migrate
+# A collection or field changed without its migration would reach production as a server
+# that cannot start; here it is a red suite. `--skip-empty` writes nothing when there is no drift.
+echo "==> the config and the migrations agree"
+before="$(ls src/migrations)"
+cp src/migrations/index.ts "$WORKDIR/migrations-index.ts"
+npx --no-install cross-env NODE_OPTIONS=--no-deprecation payload migrate:create drift --skip-empty </dev/null >/dev/null
+if [ "$(ls src/migrations)" != "$before" ]; then
+  echo "error: the Payload config differs from src/migrations. Run \`bun run test:db -- payload migrate:create <name>\` locally and commit it." >&2
+  rm -f src/migrations/*_drift.ts src/migrations/*_drift.json
+  cp "$WORKDIR/migrations-index.ts" src/migrations/index.ts
+  exit 1
+fi
 echo "==> the integration suite"
 CMS_TEST_DATABASE_URL="$DATABASE_URL" npx --no-install vitest run --config vitest.int.config.mts

@@ -4,15 +4,22 @@
  * (ADR-0155). The block's fields become the component's props in
  * src/lib/post-blocks.ts; this file says which component draws which block.
  *
- * Adding a block: its config in apps/cms/src/blocks/post-blocks.ts, its props in
- * `BLOCK_PROPS` (src/lib/post-blocks.ts), and its line in `FIGURES` or the
- * `switch` below. A block this site does not draw yet is left out.
+ * Adding a block: its config in apps/cms/src/blocks/, its props in `BLOCK_PROPS`
+ * (src/lib/post-blocks.ts; a contracted block's parser is its props), and its line
+ * in `FIGURES` or the `switch` below. A block this site does not draw yet is left out.
  */
 import AITag from './AITag.astro';
 import Callout from './Callout.astro';
 import CTABand from './CTABand.astro';
 import Gallery from './Gallery.astro';
 import Quote from './Quote.astro';
+import AnnotatedImage from './blocks/AnnotatedImage.astro';
+import Chart from './blocks/Chart.astro';
+import Compare from './blocks/Compare.astro';
+import KeyFigures from './blocks/KeyFigures.astro';
+import KeyTakeaways from './blocks/KeyTakeaways.astro';
+import LegalSource from './blocks/LegalSource.astro';
+import QaExcerpt from './blocks/QaExcerpt.astro';
 import FigureFrame from './figures/FigureFrame.astro';
 import HybridFigure from './figures/HybridFigure.astro';
 import IsoStackFigure from './figures/IsoStackFigure.astro';
@@ -23,7 +30,7 @@ import { localePath } from '../i18n/paths';
 import { t } from '../i18n/ui';
 import { assetUrl, cmsSettings, type ImageSize } from '../lib/cms';
 import type { MediaFile } from '../lib/post-model';
-import { blockOf, type CtaTarget } from '../lib/post-blocks';
+import { blockOf, type CtaTarget, type ResolveImage } from '../lib/post-blocks';
 
 interface Props {
   locale: Locale;
@@ -31,7 +38,19 @@ interface Props {
 }
 
 const { locale, fields } = Astro.props;
-const block = blockOf(fields);
+const settings = cmsSettings();
+const url = (file: MediaFile, size: ImageSize) => (settings ? assetUrl(settings, file, size) : '');
+const srcset = (file: MediaFile, small: ImageSize, large: ImageSize) => `${url(file, small)} 800w, ${url(file, large)} 1600w`;
+// A contracted block's image: the CMS's inline size, with its intrinsic size against layout shift.
+const resolveImage: ResolveImage = (file, alt) => ({
+  src: url(file, 'inline'),
+  srcset: srcset(file, 'inline-small', 'inline'),
+  sizes: '(min-width: 1280px) 1200px, 100vw',
+  width: file.sizes?.inline?.width ?? file.width ?? 0,
+  height: file.sizes?.inline?.height ?? file.height ?? 0,
+  alt,
+});
+const block = blockOf(fields, resolveImage);
 const ui = t(locale);
 
 // The figures take their props exactly as the CMS holds them (as an MDX post passed them).
@@ -47,9 +66,6 @@ const FIGURES = {
 const CTA_LABELS: Record<CtaTarget, string> = { demo: ui.demo, contact: ui.kontakt, security: ui.navSecurity };
 const ctaLink = (target?: CtaTarget) => target && { label: CTA_LABELS[target], href: localePath(target, locale), key: target };
 
-const settings = cmsSettings();
-const url = (file: MediaFile, size: ImageSize) => (settings ? assetUrl(settings, file, size) : '');
-const srcset = (file: MediaFile, small: ImageSize, large: ImageSize) => `${url(file, small)} 800w, ${url(file, large)} 1600w`;
 const Figure = block && block.slug in FIGURES ? FIGURES[block.slug] : undefined;
 ---
 
@@ -100,6 +116,21 @@ const Figure = block && block.slug in FIGURES ? FIGURES[block.slug] : undefined;
           return <CTABand title={block.props.title} text={block.props.text} primary={ctaLink(block.props.primary)} secondary={ctaLink(block.props.secondary)} area="blog_post" />;
         case 'code':
           return <pre class="post-code" data-language={block.props.language}><code>{block.props.code}</code></pre>;
+        // The contracted blocks (src/components/blocks): their parsed contract is their props.
+        case 'chart':
+          return <Chart locale={locale} {...block.props} />;
+        case 'keyFigures':
+          return <KeyFigures locale={locale} {...block.props} />;
+        case 'compare':
+          return <Compare locale={locale} {...block.props} />;
+        case 'annotatedImage':
+          return <AnnotatedImage locale={locale} {...block.props} />;
+        case 'legalSource':
+          return <LegalSource locale={locale} {...block.props} />;
+        case 'qaExcerpt':
+          return <QaExcerpt locale={locale} {...block.props} />;
+        case 'keyTakeaways':
+          return <KeyTakeaways locale={locale} {...block.props} />;
         default:
           return null;
       }

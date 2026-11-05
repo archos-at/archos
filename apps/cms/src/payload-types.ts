@@ -1359,6 +1359,187 @@ export interface CodeBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ChartBlock".
+ */
+export interface ChartBlock {
+  form: 'bar' | 'line';
+  /**
+   * Bars with two or three series: side by side (default) or stacked.
+   */
+  stacking?: ('grouped' | 'stacked') | null;
+  /**
+   * The finding, as a statement: „Die Antwortzeit sank um ein Drittel.“
+   */
+  title: string;
+  caption?: string | null;
+  /**
+   * %, h, m², Tage
+   */
+  unit?: string | null;
+  axisLabel?: string | null;
+  decimals?: number | null;
+  /**
+   * Lines: start the axis at zero (unticked: from the data).
+   */
+  startAtZero?: boolean | null;
+  /**
+   * Paste from a spreadsheet, or type rows with ; between cells. First row: the series; first column: the labels. 2 to 24 rows, 1 to 3 series.
+   */
+  table: string;
+  /**
+   * Where the numbers come from.
+   */
+  source: string;
+  sourceUrl?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'chart';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "KeyFiguresBlock".
+ */
+export interface KeyFiguresBlock {
+  items: {
+    /**
+     * As it is read: 3,5 or 1.284.
+     */
+    value: string;
+    unit?: string | null;
+    label: string;
+    source?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'keyFigures';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CompareBlock".
+ */
+export interface CompareBlock {
+  before: number | Media;
+  beforeAlt: string;
+  after: number | Media;
+  afterAlt: string;
+  /**
+   * e.g. Rev. C, 12.09.
+   */
+  beforeLabel: string;
+  afterLabel: string;
+  caption?: string | null;
+  /**
+   * Where the divider starts, in percent from the left (50).
+   */
+  start?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'compare';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AnnotatedImageBlock".
+ */
+export interface AnnotatedImageBlock {
+  image: number | Media;
+  imageAlt: string;
+  markers: {
+    /**
+     * Percent of the width, from the left.
+     */
+    x: number;
+    /**
+     * Percent of the height, from the top.
+     */
+    y: number;
+    title: string;
+    text?: string | null;
+    id?: string | null;
+  }[];
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'annotatedImage';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LegalSourceBlock".
+ */
+export interface LegalSourceBlock {
+  /**
+   * OIB-Richtlinie 2.2, Wiener Bauordnung
+   */
+  title: string;
+  section?: string | null;
+  /**
+   * Ausgabe Mai 2023, Fassung vom 01.01.2025
+   */
+  version?: string | null;
+  issuer?: string | null;
+  /**
+   * The wording, short and verbatim.
+   */
+  excerpt?: string | null;
+  /**
+   * The excerpt's language, when it is not the page's.
+   */
+  excerptLang?: ('de' | 'en') | null;
+  url?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'legalSource';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "QaExcerptBlock".
+ */
+export interface QaExcerptBlock {
+  question: string;
+  /**
+   * Markdown: paragraphs, bold, lists. Raw HTML is shown as text.
+   */
+  answer: string;
+  sources?:
+    | {
+        kind: 'building_law' | 'office' | 'project' | 'web' | 'measurement';
+        title: string;
+        detail?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * How many sources the answer drew on, when more than shown.
+   */
+  sourceCount?: number | null;
+  /**
+   * Who asked, without a name: Projektleiterin, Wohnbau in Wien.
+   */
+  asker?: string | null;
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'qaExcerpt';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "KeyTakeawaysBlock".
+ */
+export interface KeyTakeawaysBlock {
+  /**
+   * Empty: „Das Wichtigste in Kürze“ / „Key takeaways“.
+   */
+  title?: string | null;
+  items: {
+    text: string;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'keyTakeaways';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "AbbreviationInlineBlock".
  */
 export interface AbbreviationInlineBlock {

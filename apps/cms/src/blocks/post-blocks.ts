@@ -4,13 +4,15 @@
  * props as typed fields, so a block holds nothing the component cannot draw and
  * there is no block that takes raw HTML, MDX or script.
  *
- * Adding a block is two files and a migration (apps/cms/README.md, "Adding a
- * block"): its config here, added to `POST_BLOCKS` or `POST_INLINE_BLOCKS`, and
- * its case in apps/website/src/components/PostBlock.astro. The website's
+ * Adding a block is one config here (or in `content-blocks.ts`), added to
+ * `POST_BLOCKS` or `POST_INLINE_BLOCKS`, and one renderer entry on the website
+ * (apps/cms/README.md, "Adding a block"). A block changes no table: the body is
+ * one JSON column, so it needs no migration. The website's
  * `src/lib/rich-text.test.ts` fails a block slug that the website does not draw.
  */
 import type { Block, Field } from 'payload';
 import { CTA_TARGETS, options } from '../fields/choices';
+import { CONTENT_BLOCKS } from './content-blocks';
 
 /** The frame every figure sits in (apps/website/src/components/figures/FigureFrame.astro). */
 const FRAME: Field[] = [
@@ -239,5 +241,7 @@ export const POST_BLOCKS: Block[] = [
   QuoteBlock,
   CtaBlock,
   CodeBlock,
+  // Charts, key figures, before and after, annotated images, legal sources, Q&A, takeaways.
+  ...CONTENT_BLOCKS,
 ];
 export const POST_INLINE_BLOCKS: Block[] = [AbbreviationInlineBlock];

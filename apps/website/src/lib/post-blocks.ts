@@ -5,9 +5,12 @@
  * its component needs, which leaves it out rather than drawing half of it.
  *
  * Adding a block on this side is two lines: its props here, its component in
- * `src/components/PostBlock.astro`. `src/lib/rich-text.test.ts` fails a block of
- * the CMS that has no entry here, and one here that PostBlock.astro does not draw.
+ * `src/components/PostBlock.astro`. A block with a contract in
+ * src/components/blocks/contracts.ts needs only the second: its parser is its
+ * props. `src/lib/rich-text.test.ts` fails a block of the CMS that has no entry
+ * here, and one here that PostBlock.astro does not draw.
  */
+import { BLOCK_PARSERS, type BlockImage, type Parsed } from '../components/blocks/contracts';
 import type { ImageSize } from './cms';
 import type { MediaFile } from './post-model';
 
@@ -62,6 +65,26 @@ export const CTA_TARGETS = ['demo', 'contact', 'security'] as const;
 export type CtaTarget = (typeof CTA_TARGETS)[number];
 const cta = (value: unknown): CtaTarget | undefined => CTA_TARGETS.find((t) => t === value);
 
+/** An upload and its alt text as the contracts' `BlockImage`, through the CMS's image sizes. */
+export type ResolveImage = (file: MediaFile, alt: string) => BlockImage;
+
+/** Without a CMS to serve them (a test), an image is its own URL. */
+const ownUrl: ResolveImage = (file, alt) => ({ src: file.url, width: file.width ?? 0, height: file.height ?? 0, alt });
+
+/** A contracted block's fields with each upload (`<name>` + `<name>Alt`) turned into a `BlockImage`. */
+function withImages(fields: Fields, resolve: ResolveImage): unknown {
+  const out: Fields = { ...fields };
+  for (const [key, value] of Object.entries(fields)) {
+    const file = mediaOf(value);
+    const alt = text(fields[`${key}Alt`]);
+    if (file && alt) out[key] = resolve(file, alt);
+  }
+  return plainProps(out);
+}
+
+/** A contract's verdict as props: the value, or undefined (left out) when the fields do not parse. */
+const valueOf = <T>(parsed: Parsed<T>): T | undefined => (parsed.ok ? parsed.value : undefined);
+
 /** Every block of the CMS, by its slug, and the props its component takes. */
 export const BLOCK_PROPS = {
   isoStackFigure: figure('layers'),
@@ -90,7 +113,15 @@ export const BLOCK_PROPS = {
       : undefined,
   cta: (fields: Fields) => (text(fields.title) ? { title: fields.title as string, text: text(fields.text), primary: cta(fields.primary), secondary: cta(fields.secondary) } : undefined),
   code: (fields: Fields) => (typeof fields.code === 'string' ? { language: text(fields.language) ?? 'text', code: fields.code } : undefined),
-} satisfies Record<string, (fields: Fields) => unknown>;
+  // The contracted blocks (src/components/blocks/contracts.ts): their parser is their props.
+  chart: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.chart(withImages(f, r))),
+  keyFigures: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.keyFigures(withImages(f, r))),
+  compare: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.compare(withImages(f, r))),
+  annotatedImage: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.annotatedImage(withImages(f, r))),
+  legalSource: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.legalSource(withImages(f, r))),
+  qaExcerpt: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.qaExcerpt(withImages(f, r))),
+  keyTakeaways: (f: Fields, r: ResolveImage = ownUrl) => valueOf(BLOCK_PARSERS.keyTakeaways(withImages(f, r))),
+} satisfies Record<string, (fields: Fields, resolve?: ResolveImage) => unknown>;
 
 /** Inline blocks, inside a paragraph. */
 export const INLINE_BLOCK_PROPS = {
@@ -101,11 +132,11 @@ export type BlockSlug = keyof typeof BLOCK_PROPS;
 export type BlockProps<S extends BlockSlug> = NonNullable<ReturnType<(typeof BLOCK_PROPS)[S]>>;
 
 /** The block's slug and props, or undefined for a block this site does not draw (a newer CMS than the site). */
-export function blockOf(fields: unknown): { [S in BlockSlug]: { slug: S; props: BlockProps<S> } }[BlockSlug] | undefined {
+export function blockOf(fields: unknown, resolve: ResolveImage = ownUrl): { [S in BlockSlug]: { slug: S; props: BlockProps<S> } }[BlockSlug] | undefined {
   const f = (fields ?? {}) as Fields;
   const slug = f.blockType as BlockSlug;
   if (!(slug in BLOCK_PROPS)) return undefined;
-  const props = BLOCK_PROPS[slug](f);
+  const props = (BLOCK_PROPS[slug] as (fields: Fields, resolve: ResolveImage) => unknown)(f, resolve);
   return props ? ({ slug, props } as never) : undefined;
 }
 

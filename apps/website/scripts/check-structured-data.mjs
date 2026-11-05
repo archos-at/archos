@@ -142,7 +142,7 @@ function freePort() {
 async function checkBlog() {
   const port = await freePort()
   const base = `http://127.0.0.1:${port}`
-  const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), CMS_URL: '', CMS_TOKEN: '', PUBLIC_POSTHOG_HOST: '', PUBLIC_POSTHOG_PROJECT_TOKEN: '' }
+  const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), CMS_URL: '', CMS_API_KEY: '', PUBLIC_POSTHOG_HOST: '', PUBLIC_POSTHOG_PROJECT_TOKEN: '' }
   const server = spawn(process.execPath, [fileURLToPath(new URL('../runtime/server.mjs', import.meta.url))], { env, stdio: 'ignore' })
   try {
     let sitemap

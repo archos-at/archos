@@ -90,25 +90,25 @@ const model = chartModel(chart, locale);
   </div>
 
   <div class="ui-visually-hidden">
-  <table>
-    <caption>{chart.title}{chart.axisLabel && `, ${chart.axisLabel}`}</caption>
-    <thead>
-      <tr>
-        <th scope="col">{ui.blockChartCategory}</th>
-        {model.table.head.map((name) => <th scope="col">{name}</th>)}
-      </tr>
-    </thead>
-    <tbody>
-      {
-        model.table.rows.map((row) => (
-          <tr>
-            <th scope="row">{row.label}</th>
-            {row.cells.map((cell) => <td>{cell}</td>)}
-          </tr>
-        ))
-      }
-    </tbody>
-  </table>
+    <table>
+      <caption>{chart.title}{chart.axisLabel && `, ${chart.axisLabel}`}</caption>
+      <thead>
+        <tr>
+          <th scope="col">{ui.blockChartCategory}</th>
+          {model.table.head.map((name) => <th scope="col">{name}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {
+          model.table.rows.map((row) => (
+            <tr>
+              <th scope="row">{row.label}</th>
+              {row.cells.map((cell) => <td>{cell}</td>)}
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
   </div>
 
   <p class="ui-chart-source">

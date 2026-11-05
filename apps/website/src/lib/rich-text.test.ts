@@ -63,11 +63,29 @@ describe('the blocks of a post body', () => {
   });
 
   test('every block and inline block of the CMS has its props here', () => {
-    const cms = read('../../../cms/src/blocks/post-blocks.ts');
+    const cms = read('../../../cms/src/blocks/post-blocks.ts') + read('../../../cms/src/blocks/content-blocks.ts');
     const slugs = [...cms.matchAll(/^\s+slug: '([^']+)',$/gm)].map((m) => m[1]);
     expect(slugs.length).toBeGreaterThan(5);
     for (const slug of slugs) expect(slug in BLOCK_PROPS || slug in INLINE_BLOCK_PROPS, slug).toBe(true);
     for (const slug of [...Object.keys(BLOCK_PROPS), ...Object.keys(INLINE_BLOCK_PROPS)]) expect(slugs, slug).toContain(slug);
+  });
+
+  test('a contracted block is parsed by its contract, its uploads turned into images first', () => {
+    const file = { url: '/api/media/file/plan.webp', width: 2400, height: 1500 };
+    const fields = { blockType: 'compare', id: 'x', before: file, beforeAlt: 'Rev. C', after: file, afterAlt: 'Rev. D', beforeLabel: 'C', afterLabel: 'D', caption: null, start: null };
+    expect(blockOf(fields)).toEqual({
+      slug: 'compare',
+      props: {
+        before: { src: '/api/media/file/plan.webp', width: 2400, height: 1500, alt: 'Rev. C' },
+        after: { src: '/api/media/file/plan.webp', width: 2400, height: 1500, alt: 'Rev. D' },
+        beforeLabel: 'C',
+        afterLabel: 'D',
+      },
+    });
+    expect(blockOf({ ...fields, afterAlt: null })).toBeUndefined();
+    const chart = blockOf({ blockType: 'chart', form: 'bar', title: 'T', source: 'S', table: 'Phase; A\nVorentwurf; 4\nEntwurf; 6', startAtZero: null });
+    expect(chart?.slug).toBe('chart');
+    expect(blockOf({ blockType: 'keyTakeaways', items: [{ id: '1', text: 'Eins.' }] })).toBeUndefined();
   });
 
   test('every block with props is drawn by PostBlock.astro', () => {
