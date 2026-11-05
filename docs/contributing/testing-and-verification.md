@@ -334,6 +334,28 @@ is a second contract that drifts: `tests/test_no_twin_fixtures.py` fails any
 file under the repo-root `tests/` that is byte-identical to one under
 `apps/workspace/tests/fixtures/`.
 
+### Inside one language: feed the reader what the writer writes
+
+The same failure happens without a language boundary, whenever one module
+stores a value and another reads it back later. A reader whose test builds its
+input by hand builds it in the shape the reader expects, so the test agrees with
+itself. One sweep on 2026-11-04 found four such pairs, each green on both sides
+and broken in production:
+
+| Writer | Reader | What the reader got |
+|---|---|---|
+| `visual_analysis.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
+| The wake and the document check sent the display name | Retrieval matches `focus_file_name` against the stored filename | No focus on any renamed document (#1492) |
+| `references.norm_key` keeps the document's spacing | The `refers_to` filter used the asker's spelling | No match for `B1600` against `B 1600` (#1493) |
+| Only the plain-text reader stamps chunk dates | The file listing read only those | No ingest date a day after upload (#1494) |
+
+When you write or change a reader of stored data (a payload field, chunk
+metadata, a wire field another service sends), the test runs the real writer
+and hands its output to the real reader: `segment_payloads` →
+`json.loads(drawing_data)` → `lifted_drawing_facts`, or `extract_references` →
+`prefilter.plan`. Spell out a hand-built input only for a shape the writer
+cannot produce, and say in the test why.
+
 ## Security and static analysis
 
 Two halves, by what can cause a finding. A change can introduce a secret, a new
