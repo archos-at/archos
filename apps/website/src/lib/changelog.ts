@@ -85,7 +85,7 @@ export function changelogFeed(locale: Locale, site: URL | undefined, source: Cha
     title: c.feed.title,
     description: c.meta.description,
     site: new URL(page, site ?? `https://${identity.domain}`).href,
-    trailingSlash: false,
+    trailingSlash: true,
     customData: locale === 'de' ? '<language>de-at</language>' : '<language>en</language>',
     items: getReleases(source).map((release) => ({
       title: releaseTitle(release, locale, c.unreleased),
