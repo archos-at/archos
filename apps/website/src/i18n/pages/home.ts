@@ -110,19 +110,16 @@ const de = {
       {
         name: 'Jonathan Uhlemann',
         role: 'Architektur und Produkt',
-        portrait: '/media/jonathan-uhlemann.webp',
         portraitAlt: 'Portrait von Jonathan Uhlemann',
       },
       {
         name: 'Matthias Bigl',
         role: 'Software und KI',
-        portrait: '/media/matthias-bigl.webp',
         portraitAlt: 'Portrait von Matthias Bigl',
       },
       {
         name: 'Ferdinand Rubenbauer',
         role: 'Business und Vertrieb',
-        portrait: '/media/ferdinand-rubenbauer.webp',
         portraitAlt: 'Portrait von Ferdinand Rubenbauer',
       },
     ],
@@ -236,19 +233,16 @@ const en: typeof de = {
       {
         name: 'Jonathan Uhlemann',
         role: 'Architecture and product',
-        portrait: '/media/jonathan-uhlemann.webp',
         portraitAlt: 'Portrait of Jonathan Uhlemann',
       },
       {
         name: 'Matthias Bigl',
         role: 'Software and AI',
-        portrait: '/media/matthias-bigl.webp',
         portraitAlt: 'Portrait of Matthias Bigl',
       },
       {
         name: 'Ferdinand Rubenbauer',
         role: 'Business and sales',
-        portrait: '/media/ferdinand-rubenbauer.webp',
         portraitAlt: 'Portrait of Ferdinand Rubenbauer',
       },
     ],

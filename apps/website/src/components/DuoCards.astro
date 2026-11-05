@@ -1,19 +1,24 @@
 ---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import AITag from './AITag.astro';
 import type { Locale } from '../i18n/paths';
+import { PHOTO_QUALITY, PHOTO_WIDTHS, SIZES } from '../lib/media';
 
 export interface DuoItem {
   title: string;
   text?: string;
   /** default: first light, second dark */
   theme?: 'light' | 'dark';
-  /** Photo filling the whole card; keeps its width while the card widens on hover */
-  photo?: string;
+  /**
+   * Photo filling the whole card (from `src/lib/media.ts`); keeps its width while the card widens
+   * on hover. It shows in its own colours: the text's contrast comes from the scrim the design
+   * system lays behind the text (`components.css`, "Duo photo scrim"), never from a filter.
+   */
+  photo?: ImageMetadata;
   alt?: string;
-  /** Inline CSS for the photo (object-position, filter), as the reference sets it per card */
+  /** Inline CSS for the photo's crop (object-position) */
   photoStyle?: string;
-  /** Second, masked layer over the photo (the reference's mirror layer), with its own inline style */
-  photoMaskStyle?: string;
   /** Text in on-ink over a light photo */
   onPhoto?: boolean;
   /** Shows the AI tag */
@@ -42,9 +47,16 @@ const { locale, items, class: className } = Astro.props;
         : undefined;
       return (
         <div class:list={['ui-duo-card', item.photo && item.onPhoto && 'ui-duo-on-photo']} data-theme={theme} style={cardStyle}>
-          {item.photo && <img class="ui-duo-photo" src={item.photo} alt={item.alt || ''} style={item.photoStyle} loading="lazy" decoding="async" />}
-          {item.photo && item.photoMaskStyle && (
-            <img class="ui-duo-photo" src={item.photo} alt="" aria-hidden="true" style={item.photoMaskStyle} loading="lazy" decoding="async" />
+          {item.photo && (
+            <Image
+              class="ui-duo-photo"
+              src={item.photo}
+              widths={PHOTO_WIDTHS}
+              sizes={SIZES.duo}
+              quality={PHOTO_QUALITY}
+              alt={item.alt || ''}
+              style={item.photoStyle}
+            />
           )}
           {item.ai && <AITag locale={locale} ink={!item.onPhoto} />}
           <div class="ui-duo-text">

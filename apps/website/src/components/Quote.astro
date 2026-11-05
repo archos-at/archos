@@ -1,11 +1,15 @@
 ---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { PHOTO_QUALITY, PHOTO_WIDTHS, SIZES } from '../lib/media';
+
 interface Props {
   quote: string;
   name: string;
   role?: string;
   office?: string;
-  /** Portrait (4:5) to the right, portrait-width wide */
-  portrait?: string;
+  /** Portrait (4:5, from `src/lib/media.ts`) to the right, portrait-width wide */
+  portrait?: ImageMetadata;
   portraitAlt?: string;
   class?: string;
 }
@@ -27,7 +31,7 @@ const meta = [role, office].filter(Boolean).join(', ');
         </figcaption>
       </figure>
       <div class="ui-quote-portrait">
-        <img src={portrait} alt={portraitAlt} />
+        <Image src={portrait} widths={PHOTO_WIDTHS} sizes={SIZES.portrait} quality={PHOTO_QUALITY} alt={portraitAlt} />
       </div>
     </div>
   ) : (

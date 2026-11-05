@@ -260,7 +260,7 @@ TEMPLATE_MARKERS = [
 ]
 
 
-def _clean(text: str) -> str:
+def clean(text: str) -> str:
     """Collapse the YAML folding artefacts so the page gets one clean sentence."""
     return " ".join(text.split()).strip()
 
@@ -364,7 +364,7 @@ def lint_text(
     max_sentences: int = MAX_SENTENCES,
 ) -> list[str]:
     """The published-prose rules, applied to one entry. Every message names the fix."""
-    text = _clean(entry)
+    text = clean(entry)
     if not text:
         return ["the entry is blank. Fix: write it, or delete the entry."]
     lowered = text.lower()
