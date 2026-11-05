@@ -14,7 +14,11 @@
  * config, collections and jobs as code) stay off.
  */
 import type { MCPPluginConfig } from '@payloadcms/plugin-mcp';
+import type { Field, FieldAccess } from 'payload';
 import { isAdmin } from './access/roles';
+
+/** Who a key is bound to: set once, by an administrator when it is not their own; never changed. */
+const USER_FIELD_ACCESS: { create: FieldAccess; update: FieldAccess } = { create: ({ req }) => isAdmin(req.user), update: () => false };
 
 const DRAFT_ONLY = { find: true, create: true, update: true, delete: false };
 
@@ -45,8 +49,6 @@ export const MCP_OPTIONS: MCPPluginConfig = {
       update: ({ req }) => (isAdmin(req.user) ? true : req.user ? { user: { equals: req.user.id } } : false),
       delete: ({ req }) => (isAdmin(req.user) ? true : req.user ? { user: { equals: req.user.id } } : false),
     },
-    fields: collection.fields.map((field) =>
-      'name' in field && field.name === 'user' ? { ...field, access: { create: ({ req }) => isAdmin(req.user), update: () => false } } : field,
-    ),
+    fields: collection.fields.map((field): Field => ('name' in field && field.name === 'user' ? ({ ...field, access: USER_FIELD_ACCESS } as Field) : field)),
   }),
 };

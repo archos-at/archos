@@ -274,16 +274,18 @@ export function parseCell(cell: string): number | null | undefined {
  * Labels and series from a table pasted from a spreadsheet or typed by hand: one row per
  * label, the first column the label, one column per series; the first row names the series.
  * Columns are separated by tabs (a spreadsheet's paste), semicolons or, without either, `|`.
+ * A row shorter than the header is missing its last values.
  *
  *   Planstand; Büro A; Büro B
  *   Rev. A; 12; 9
  *   Rev. B; 7,5; 6
  */
 export function parseChartTable(table: string): Parsed<{ labels: string[]; series: ChartSeries[] }> {
+  // Spaces around a row go, tabs stay: a spreadsheet ends a row with an empty cell as a tab.
   const rows = table
     .split(/\r?\n/)
-    .map((row) => row.trim())
-    .filter((row) => row !== '' && !/^\|?[\s:|-]+\|?$/.test(row));
+    .map((row) => row.replace(/^ +| +$/g, ''))
+    .filter((row) => row.trim() !== '' && !/^\|?[\s:|-]+\|?$/.test(row));
   const separator = rows.some((r) => r.includes('\t')) ? '\t' : rows.some((r) => r.includes(';')) ? ';' : '|';
   const cells = rows.map((row) => row.replace(/^\||\|$/g, '').split(separator).map((c) => c.trim()));
   const issues: string[] = [];
@@ -294,7 +296,8 @@ export function parseChartTable(table: string): Parsed<{ labels: string[]; serie
   const series: ChartSeries[] = names.map((name) => ({ name, values: [] }));
   const labels: string[] = [];
   body.forEach((row, r) => {
-    if (row.length !== head.length) issues.push(`table: row ${r + 2} has ${row.length} columns, the header ${head.length}`);
+    // A shorter row is missing its last values (a spreadsheet drops trailing empty cells).
+    if (row.length > head.length) issues.push(`table: row ${r + 2} has ${row.length} columns, the header ${head.length}`);
     labels.push(row[0] ?? '');
     names.forEach((_, s) => {
       const value = parseCell(row[s + 1] ?? '');
