@@ -9,7 +9,7 @@
  * Tokens only: the share images are rendered from this same file (src/pages/media/covers).
  */
 .ui-cover { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; background: var(--surface-sunken); }
-.ui-cover :is(path, rect, circle, ellipse, line, polyline, polygon) { fill: none; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+.ui-cover * { fill: none; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
 
 /* Ground and module grid: drawn by the frame, never by a cover. */
 .ui-cover .ground { fill: var(--surface-sunken); }
@@ -24,7 +24,8 @@
 .ui-cover .hatch-line { stroke: var(--ink-faint); stroke-width: var(--stroke-hairline); }
 
 /* The fills: paper for a sheet or a surface, tone for a quiet second plane, the hatch for a cut
-   material, and solid for the one element the cover is about. Later rules win over the pens. */
+   material (`--hatch` is the frame's pattern, set on the root by src/lib/covers.ts), and solid
+   for the one element the cover is about. */
 .ui-cover .paper { fill: var(--surface); }
 .ui-cover .tone { fill: var(--line); }
 .ui-cover .hatch { fill: var(--hatch); }

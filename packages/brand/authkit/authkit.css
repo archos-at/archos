@@ -152,8 +152,10 @@
   flex-direction: column !important;
 }
 .ak-AuthMethodsProviders { order: -2; }
+/* Only the separator between providers and e-mail moves. MFA enrollment has its
+   own ("dann", between scanning and entering the code), which stays put. */
+:has(> .ak-AuthMethodsProviders) > .ak-TextSeparator { order: -1; }
 .ak-TextSeparator {
-  order: -1;
   background: transparent !important;
   margin: 24px 0 !important;
   text-transform: none !important;

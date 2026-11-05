@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from release_notes_areas import lint_area
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 _IDENTITY = json.loads((REPO_ROOT / "packages" / "brand" / "identity.json").read_text(encoding="utf-8"))
@@ -27,9 +28,9 @@ FORMER_DOMAIN = "piloti.at"
 
 PRELUDE_SECTION = "prelude"
 
-# Sections reno keeps and the public changelog never shows. The changelog on
-# piloti.at is product news for the architect using Piloti, not a bug register,
-# so three kinds of note are kept in the repository and off the page:
+# Sections reno keeps and no reader ever sees, neither on the public changelog
+# nor in the app's list. The notes are product news for the architect, not a bug
+# register, so three kinds of note are kept in the repository and off both:
 #
 # * `operators`: only the people running the platform can act on it (model
 #   defaults, the Platform area, deployment and migration steps);
@@ -46,9 +47,11 @@ INTERNAL_SECTIONS = frozenset({"operators", "security", "incident"})
 
 # ── Authoring rules ─────────────────────────────────────────────────────────
 #
-# Every note is published verbatim to a public page, so the lint is about
-# readability for a customer, not about YAML validity. Each rule below exists
-# because the failure it prevents is invisible until it is on the website.
+# Every note in a customer section is shown verbatim to every member of every
+# office (the app's "What's new"), and the week's public summary is written from
+# them, so the lint is about readability for a customer, not about YAML
+# validity. Each rule below exists because the failure it prevents is invisible
+# until it is in front of one.
 
 MIN_LENGTH = 20
 MAX_LENGTH = 400
@@ -65,7 +68,7 @@ INTERNAL_MAX_SENTENCES = 4
 # into German for /changelog, which is how 344 German sentences reached the
 # English page before this check existed. Function words decide it: they occur in
 # every sentence, and the two sets do not overlap. Quoted UI labels are removed
-# first, because an English note may quote „Von Piloti erstellt" verbatim.
+# first, because an English note may quote a UI label such as „Freigeben" verbatim.
 # (A language-identification library was the alternative; the lint runs outside
 # the project environment on every PR, and the question here is only ever
 # "English or German", which this answers without a model download.)
@@ -102,14 +105,14 @@ SEVERE_PATTERNS = re.compile(
 )
 
 # Words a reader of the public changelog should not have to meet. The changelog is
-# written for an architect who uses Piloti, so a word goes here when that reader
+# written for an architect who uses the product, so a word goes here when that reader
 # cannot act on it. Four kinds are listed: the names of the services underneath
-# Piloti (databases, object storage, the tracing platform, the model gateway); the
+# the product (databases, object storage, the tracing platform, the model gateway); the
 # interfaces and formats the services speak (API, webhook, JSON, schema); the
 # mechanics of shipping and running software (deploy, staging, pipeline, commit,
 # container); and the internals of search and the model (index, embedding, token,
 # prompt, cache), together with the switches and measurements an engineer reads
-# (feature flag, configuration, latency, trace). The words the Piloti screens
+# (feature flag, configuration, latency, trace). The words the product's screens
 # themselves show (Papierkorb, Quarantäne, Steckbrief, IFC and the rest) are product
 # terms, not jargon, and are deliberately not here. Matching ignores case and a
 # trailing s or es; a space in a term matches any space; a hyphen is a hyphen.
@@ -229,7 +232,7 @@ RST_PATTERNS = [
     (re.compile(r":(ref|doc|class|func|meth|py:\w+):"), "reStructuredText role"),
 ]
 
-# Internal references. A reader of piloti.at has no issue tracker, no repository
+# Internal references. A reader of the changelog has no issue tracker, no repository
 # and no module names — a note that mentions them was written for the reviewer.
 INTERNAL_PATTERNS = [
     (re.compile(r"(?<![\w#])#\d+\b"), "issue or PR number"),
@@ -238,7 +241,7 @@ INTERNAL_PATTERNS = [
     (re.compile(r"\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b"), "commit sha"),
     (re.compile(r"\b\w+\.(py|ts|tsx|astro|yml|yaml|json|mjs)\b"), "file name"),
     (re.compile(r"\b(src|frontends|sources|configs|deploy)/"), "repository path"),
-    (re.compile(rf"https?://(?!(www\.)?({re.escape(SITE_DOMAIN)}|piloti\.at))"), "link off the website"),
+    (re.compile(rf"https?://(?!(www\.)?({re.escape(SITE_DOMAIN)}|{re.escape(FORMER_DOMAIN)}))"), "link off the website"),
 ]
 
 # Sentences shipped by the `reno new` template. A note still carrying one was
@@ -276,7 +279,7 @@ def lint_note(filename: str, raw: str, valid_sections: set[str]) -> list[str]:
     if not content:
         return [f"{filename}: the file is empty. Fix: write the note, or delete the file."]
 
-    problems: list[str] = []
+    problems: list[str] = lint_area(filename, raw)
     for section, body in content.items():
         entries, problem = _section_entries(section, body, valid_sections)
         if problem:
@@ -348,7 +351,7 @@ def jargon_hits(text: str) -> list[str]:
 def _jargon_issue(word: str) -> str:
     return (
         f'uses "{word}", a technical word a reader of the changelog cannot act on. Fix: say what '
-        "the reader sees or can do, in the words the Piloti screens use (Papierkorb, Archiv, "
+        "the reader sees or can do, in the words the product's screens use (Papierkorb, Archiv, "
         "Steckbrief); leave out the name of the system and the mechanism behind it."
     )
 
@@ -378,7 +381,7 @@ def lint_text(
     if public and OPERATOR_PATTERNS.search(text):
         issues.append(
             "reads as a note for the people who run the platform. Fix: move it to the `operators` "
-            "section, which stays off the public changelog; or rewrite it for the architect using Piloti."
+            "section, which stays off the public changelog; or rewrite it for the architect using the product."
         )
     if public and SEVERE_PATTERNS.search(text):
         issues.append(
@@ -412,7 +415,7 @@ def lint_text(
 
 
 def _unquoted(text: str) -> str:
-    """The text with quoted labels removed: „Von Piloti erstellt" is a UI string, not prose."""
+    """The text with quoted labels removed: „Freigeben" is a UI string, not prose."""
     return QUOTED.sub("X", text)
 
 
@@ -438,8 +441,14 @@ def sentence_count(text: str) -> int:
 SUMMARY_KEY = re.compile(r"^(\d{4}-W\d{2}|\d+\.\d+\.\d+)$")
 
 
-def lint_summaries(raw: str) -> list[str]:
-    """The rules for releasenotes/summaries.yaml: known group ids, and short English prose."""
+def lint_summaries(raw: str, today: date | None = None) -> list[str]:
+    """The rules for releasenotes/summaries.yaml: known group ids, weeks that have begun, short English prose.
+
+    A summary is the public changelog's only content for its week, so it is held
+    to the note rules with a little more room, and it cannot be written ahead: a
+    week that has not started has shipped nothing to summarise.
+    """
+    today = today or date.today()
     try:
         content = yaml.safe_load(raw) or {}
     except yaml.YAMLError as exc:
@@ -454,7 +463,23 @@ def lint_summaries(raw: str) -> list[str]:
         if not isinstance(body, str):
             problems.append(f"summaries.yaml ({key}): the summary must be one block of text.")
             continue
+        monday = week_monday(str(key))
+        if "-W" in str(key) and monday is None:
+            problems.append(f"summaries.yaml: `{key}` is no ISO week (weeks run from W01 to W52 or W53).")
+            continue
+        if monday and monday > today:
+            problems.append(f"summaries.yaml ({key}): the week has not started. Fix: write it once the week shipped.")
         issues = lint_text(body, max_length=SUMMARY_MAX_LENGTH, max_sentences=SUMMARY_MAX_SENTENCES)
         problems.extend(f"summaries.yaml ({key}): {issue}" for issue in issues)
     return problems
 
+
+def week_monday(group_id: str) -> date | None:
+    """The Monday of an ISO week id (`2026-W39`), or None for a version or anything else."""
+    match = re.fullmatch(r"(\d{4})-W(\d{2})", group_id)
+    if not match:
+        return None
+    try:
+        return date.fromisocalendar(int(match.group(1)), int(match.group(2)), 1)
+    except ValueError:
+        return None
