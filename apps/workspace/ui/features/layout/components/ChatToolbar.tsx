@@ -419,13 +419,8 @@ export const ChatToolbar: FC<ChatToolbarProps> = memo(function ChatToolbar({
                     title={canRename ? tChat('breadcrumb.renameAria') : sessionTitle}
                     className="flex min-h-9 min-w-0 max-w-[420px] flex-1 items-center rounded-control px-1 py-0.5 text-left text-sm font-medium leading-snug text-foreground sm:text-xs sm:leading-4 transition-colors duration-quick ease-out motion-reduce:transition-none enabled:cursor-text enabled:hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 pointer-coarse:min-h-11 sm:flex-none"
                   >
-                    {/* Two lines on a phone, one on a pointer device. A name is the
-                        first thing a reader checks in a thread; it is never cut to a
-                        stub to make room for chrome. From `sm` it sits beside New
-                        chat and takes that label's size (`text-xs`, 16px line), so
-                        the two read as one row rather than a heading and a button;
-                        on a phone New chat lives in the menu and the title keeps
-                        `text-sm`. */}
+                    {/* Two lines on a phone, one on a pointer device, never cut to a stub
+                        for chrome. From `sm` it takes New chat's `text-xs`, one row. */}
                     {/* `hyphens-auto` (the page is `lang="de"`): a German compound breaks at a
                         syllable, never mid-word. */}
                     <span className="line-clamp-2 hyphens-auto break-words sm:line-clamp-1">{sessionTitle}</span>
