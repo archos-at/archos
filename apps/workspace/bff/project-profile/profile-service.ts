@@ -184,7 +184,10 @@ export async function patchProjectProfile(
     // they are wrapped with `user_confirmed` provenance and persisted.
     validateProfilePatchVocabulary(operations)
     normalized = normalizeProfilePatchOperations(operations)
-    profile = pruneResolvedUnknowns(applyProjectProfilePatch(current.profile, normalized))
+    // A row an older pod wrote still holds the German keys; patched raw, a remove
+    // of `site_address` left `standort_adresse` behind for the tile to show.
+    const stored = normalizeLegacyProfile(current.profile) as ProjectProfile
+    profile = pruneResolvedUnknowns(applyProjectProfilePatch(stored, normalized))
   } catch (error) {
     throw new BadRequestError(
       error instanceof Error ? error.message : 'Invalid project profile patch.'

@@ -27,6 +27,7 @@ import {
   HardDrive,
   LayoutGrid,
   MessageSquarePlus,
+  Plug,
   Scale,
   ShieldCheck,
   SlidersHorizontal,
@@ -79,6 +80,9 @@ export const PLATFORM_SECTION_GROUPS = [
     sections: [
       { key: 'storage', href: '/app/platform/storage', icon: HardDrive },
       { key: 'maintenance', href: '/app/platform/maintenance', icon: DatabaseZap },
+      // Where staff connect their own assistant to this console and to the
+      // cluster's MCP servers (ADR-0126, ADR-0154).
+      { key: 'agents', href: '/app/platform/agents', icon: Plug },
     ],
   },
 ] as const satisfies readonly {

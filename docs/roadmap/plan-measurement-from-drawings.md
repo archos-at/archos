@@ -146,8 +146,10 @@ Provenance = Literal[
 
 ### Task 1.3 — MCP surface
 
-- [ ] `packages/plan-measure-py/src/plan_measure/mcp_server.py`, following
-      `ifc_spatial/mcp_server.py` exactly
+- [ ] No MCP server of its own: the IFC engine's was deleted on 2026-11-04
+      (one definition per capability, ADR-0153's sibling change). The
+      measurement is an agent tool, offered to other agents on `/api/mcp`
+      like `ifc-measure`
 - [ ] Tools: `load_sheet`, `calibrate`, `measure_span`, `measure_area`, `list_dimension_strings`
 - [ ] Mirror `ifc_spatial`'s test that no operator is implemented, tested and reachable
       from nothing (`test_no_operator_is_implemented_tested_and_reachable_from_nothing`)

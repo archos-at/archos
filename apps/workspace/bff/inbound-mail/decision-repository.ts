@@ -76,7 +76,7 @@ export interface DecisionsWritten {
  *    has the job that files it and a job never reads a decision that is not there.
  *
  * The database holds the rest: a claim needs a `file` decision about that very
- * part, a clean scan, a person's id (migration 0194).
+ * part, a clean scan, a person's id (migration 0196).
  */
 export async function writeMailDecisions(
   writes: readonly MailDecisionWrite[],

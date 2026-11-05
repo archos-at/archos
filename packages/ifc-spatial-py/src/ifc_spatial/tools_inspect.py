@@ -8,7 +8,6 @@ from typing import Any
 
 from ifc_spatial.tools_constants import _PROFILE_DROPS
 from ifc_spatial.tools_constants import GEOMETRIC_RELATIONS
-from ifc_spatial.tools_constants import KINDS
 from ifc_spatial.tools_constants import MEASURE_EXPENSIVE
 from ifc_spatial.tools_constants import MEASURE_FN
 from ifc_spatial.tools_constants import MEASURE_SUBJECT
@@ -249,7 +248,7 @@ def room_inventory(resolve: Callable[[Any], SpatialModel], args: dict[str, Any])
     on it, and an MCP client sees a crash where every other enum in this file
     produces a German sentence naming the allowed values. The agent-runtime tool layer
     happened to validate ``kind`` before this was reached, but this module is
-    documented as transport-free and ``mcp_server`` hands arguments here
+    the engine's own entry point, and a host may hand arguments here
     unfiltered.
     """
     model = resolve(args.get("model"))
@@ -265,156 +264,24 @@ def room_inventory(resolve: Callable[[Any], SpatialModel], args: dict[str, Any])
 
 
 def _find_elements_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="find_elements",
-        title="Bauteile suchen",
-        description=(
-            "Findet Bauteile nach IFC-Typ, Namensbestandteil, Geschoß oder Art und gibt ihre GlobalIds "
-            "zurück — die Eingabe für jedes andere Werkzeug hier. Geschoßnamen wörtlich aus dem Briefing "
-            "übernehmen."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "ifcType": {"type": "string", "description": "z. B. IfcWall, IfcWindow, IfcSpace"},
-                "nameContains": {"type": "string"},
-                "storey": {"type": "string", "description": "Geschoßname, wörtlich aus dem Briefing"},
-                "kind": {"type": "string", "enum": KINDS},
-                "limit": {"type": "number", "default": 50},
-            },
-            "required": ["model"],
-        },
-        handler=partial(find_elements, resolve),
-    )
+    return ToolDef(name="find_elements", handler=partial(find_elements, resolve))
 
 
 def _element_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="element",
-        title="Ein Bauteil",
-        description=(
-            "Alles über EIN Bauteil: Typ, Name, Geschoß, Container — und welche Relationen es überhaupt "
-            "hat. Kostet keine Geometrie."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {"model": {"type": "string"}, "globalId": {"type": "string"}},
-            "required": ["model", "globalId"],
-        },
-        handler=partial(element, resolve),
-    )
+    return ToolDef(name="element", handler=partial(element, resolve))
 
 
 def _relations_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="relations",
-        title="Räumliche Beziehungen",
-        description=(
-            "Die topologischen Operatoren. Jede Antwort sagt, WOHER sie kommt: `declared` steht so in "
-            "der Datei, `computed` haben wir aus anderen Relationen oder aus der Geometrie abgeleitet. "
-            'Ein leeres Ergebnis heißt „dieses Bauteil hat keine solche Beziehung"; `decidable: false` '
-            'heißt „dieser Export schreibt diese Relation gar nicht" — das ist ein Befund über den '
-            "Export, nicht über das Gebäude, und `missing` sagt, was ihn behebt.\n\n"
-            + "\n".join(f"  {name} — {meaning}" for name, meaning in RELATIONS.items())
-            + "\n\nbounds, enclosedBy, opensTo und adjacentSpaces greifen auf die Geometrie zurück, wenn "
-            "die Datei keine IfcRelSpaceBoundary schreibt (der Normalfall). Der erste solche Aufruf "
-            "baut eine Kontaktkarte über alle Räume — einige Sekunden, danach sofort."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "globalId": {"type": "string"},
-                "relation": {"type": "string", "enum": list(RELATIONS)},
-            },
-            "required": ["model", "globalId", "relation"],
-        },
-        handler=partial(relations, resolve),
-    )
+    return ToolDef(name="relations", handler=partial(relations, resolve))
 
 
 def _element_profile_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="element_profile",
-        title="Alles Messbare an einem Bauteil",
-        description=(
-            "Misst ALLE Kennwerte, die für dieses eine Bauteil definiert sind, in einem Aufruf — "
-            "welche das sind, ergibt sich aus seinem IFC-Typ. Der Griff, sobald ein Bauteil "
-            "interessant geworden ist: der Ausreißer aus einem survey, der Raum aus der Frage, die "
-            "Tür, um die es geht. Statt zwanzig Mal `measure` mit geratenem Kennwert.\n\n"
-            "Teure Kennwerte (Fluchtweg, Erreichbarkeit, Bewegungsfläche, Türvorfeld) laufen nur mit "
-            'include="expensive" mit; sie brauchen den Türgraph oder ein Raster über das Modell. '
-            "Was NICHT gemessen wurde, steht mit Begründung in der Antwort — das ist eine Aussage "
-            "über die Frage, nicht über das Gebäude."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "globalId": {"type": "string"},
-                "include": {
-                    "type": "string",
-                    "enum": ["expensive"],
-                    "description": "Teure Kennwerte mitmessen (Sekunden statt Millisekunden).",
-                },
-            },
-            "required": ["model", "globalId"],
-        },
-        handler=partial(element_profile, resolve),
-    )
+    return ToolDef(name="element_profile", handler=partial(element_profile, resolve))
 
 
 def _shopping_list_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="shopping_list",
-        title="Fehlende Angaben als IDS-Datei",
-        description=(
-            "Schreibt die blinden Flecken dieses Modells als buildingSMART-IDS-Datei (Version 1.0) "
-            "— also das, was der Export NICHT hergibt, in einem Format, das die Architektin in "
-            "Solibri, BIMcollab oder ifctester gegen ihr eigenes Modell laufen lassen kann. Nach der "
-            "Korrektur nochmals laufen lassen beweist, dass die Ergänzung angekommen ist.\n\n"
-            "Die Datei verlangt nur, DASS ein Merkmal vorhanden und auswertbar ist, nie WELCHEN WERT "
-            "es haben muss: Grenzwerte stehen in der OIB-Richtlinie, und einen erfundenen Grenzwert "
-            "in das Prüfwerkzeug einer Architektin zu schreiben wäre der schwerste Fehler, den "
-            "dieses Werkzeug machen könnte.\n\n"
-            "Nicht jeder blinde Fleck lässt sich als IDS ausdrücken — fehlende IfcRelSpaceBoundary "
-            "etwa nicht. Was nicht ausdrückbar ist, wird gemeldet und NICHT stillschweigend "
-            "weggelassen; die Zusammenfassung nennt beide Zahlen."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "title": {"type": "string", "description": "Titel der IDS-Datei"},
-                "author": {"type": "string", "description": "E-Mail oder Name für den IDS-Kopf"},
-            },
-            "required": ["model"],
-        },
-        handler=partial(shopping_list, resolve),
-    )
+    return ToolDef(name="shopping_list", handler=partial(shopping_list, resolve))
 
 
 def _room_inventory_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="room_inventory",
-        title="Räume nach vermuteter Nutzung",
-        description=(
-            "Ordnet Räume nach Namen einer vermuteten Nutzung zu (Aufenthaltsraum, Nebenraum, "
-            "Erschließung). Das Ergebnis ist ausdrücklich `inferred`: ob ein Raum ein Aufenthaltsraum "
-            "ist, ist eine rechtliche Einstufung und keine geometrische. Als Vorschlag zur Bestätigung "
-            "behandeln, nie als Feststellung."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "kind": {
-                    "type": "string",
-                    "enum": ["habitable_room", "ancillary_room", "circulation"],
-                },
-            },
-            "required": ["model", "kind"],
-        },
-        handler=partial(room_inventory, resolve),
-    )
+    return ToolDef(name="room_inventory", handler=partial(room_inventory, resolve))

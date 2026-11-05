@@ -8,12 +8,11 @@ version: '3'
 tasks:
   # ── standalone packages (packages/) ─────────────────────────────────────────
   #
-  # Two implementations of the same spatial surface over IFC (ADR-0045), each
-  # OUTSIDE the workspace it sits next to: `ifc-spatial` has its own
-  # bun.lock and is not in the UI's bun workspace; `ifc-spatial-py` has
-  # its own uv.lock and is not in the root uv workspace. That is why they get
-  # their own tasks instead of riding `workspace:*` or `be:*` — neither toolchain can
-  # see them.
+  # The IFC engine (ADR-0045), OUTSIDE the workspace it sits next to:
+  # `ifc-spatial-py` has its own uv.lock and is not in the root uv workspace.
+  # That is why it gets its own tasks instead of riding `be:*`. (A TypeScript
+  # twin, `packages/ifc-spatial`, was deleted 2026-11-04: one engine, one
+  # definition.)
   #
   # Until now nothing ran either suite: no Taskfile target, no CI job, no
   # pre-commit hook. 830 tests behind a default-ON feature that renders OIB
@@ -23,21 +22,9 @@ tasks:
   pkg:install:
     desc: Install the standalone packages' own toolchains (own lockfiles, outside every workspace)
     cmds:
-      # `--frozen-lockfile`: the lockfile is the contract here exactly as it is
-      # for the UI and for deploy/pulumi.
-      - bun install --frozen-lockfile --cwd packages/ifc-spatial
       # The Python package builds its env on first `uv run`; syncing here means
       # `pkg:test:py` measures the suite rather than the download.
       - uv sync --project packages/ifc-spatial-py --all-extras
-
-  pkg:test:ts:
-    desc: 'packages/ifc-spatial: tests + typecheck (own lockfile, ~10s)'
-    cmds:
-      - bun run --cwd packages/ifc-spatial test
-      # `typecheck` runs BOTH tsconfigs — the source one and tsconfig.test.json.
-      # A test file that no longer type-checks is how an operator contract
-      # silently stops being asserted.
-      - bun run --cwd packages/ifc-spatial typecheck
 
   pkg:test:py:
     desc: 'packages/ifc-spatial-py: pytest against its own uv.lock (636 tests, ~2 min on four workers)'
@@ -52,7 +39,6 @@ tasks:
       - uv run --project packages/ifc-spatial-py --all-extras pytest packages/ifc-spatial-py/tests -q -n logical --dist loadfile
 
   pkg:test:
-    desc: Both standalone package suites (packages/ifc-spatial + ifc-spatial-py)
+    desc: The standalone package suite (packages/ifc-spatial-py)
     cmds:
-      - task: pkg:test:ts
       - task: pkg:test:py

@@ -607,7 +607,7 @@ export function IfcPropertyPanel({ element, isLoading, error }: IfcPropertyPanel
   return (
     <div className="space-y-4 text-sm">
       <div>
-        <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">
+        <h3 className="mb-1 text-xs font-medium text-muted-foreground">
           {t('properties.identity')}
         </h3>
         <dl className="space-y-0.5">
@@ -622,7 +622,7 @@ export function IfcPropertyPanel({ element, isLoading, error }: IfcPropertyPanel
 
       {element.materials.length > 0 && (
         <div>
-          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">
+          <h3 className="mb-1 text-xs font-medium text-muted-foreground">
             {t('properties.materials')}
           </h3>
           <ol className="list-inside list-decimal space-y-0.5">
@@ -635,7 +635,7 @@ export function IfcPropertyPanel({ element, isLoading, error }: IfcPropertyPanel
 
       {element.classifications.length > 0 && (
         <div>
-          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">
+          <h3 className="mb-1 text-xs font-medium text-muted-foreground">
             {t('properties.classifications')}
           </h3>
           <ul className="space-y-0.5">
@@ -652,7 +652,7 @@ export function IfcPropertyPanel({ element, isLoading, error }: IfcPropertyPanel
 
       {Object.entries(element.properties).map(([setName, properties]) => (
         <div key={setName}>
-          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">{setName}</h3>
+          <h3 className="mb-1 text-xs font-medium text-muted-foreground">{setName}</h3>
           <dl className="space-y-0.5">
             {Object.entries(properties).map(([name, value]) => (
               <div key={name} className="flex justify-between gap-3">
@@ -666,7 +666,7 @@ export function IfcPropertyPanel({ element, isLoading, error }: IfcPropertyPanel
 
       {Object.entries(element.quantities).map(([setName, quantities]) => (
         <div key={setName}>
-          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground">{setName}</h3>
+          <h3 className="mb-1 text-xs font-medium text-muted-foreground">{setName}</h3>
           <dl className="space-y-0.5">
             {Object.entries(quantities).map(([name, value]) => (
               <div key={name} className="flex justify-between gap-3">

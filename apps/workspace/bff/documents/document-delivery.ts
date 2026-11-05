@@ -20,8 +20,8 @@ import { decodeTextBytes } from '@/lib/text/decode-text'
 import { getAccessibleDocument } from './access'
 import { hasPassedScreening, SCREENED_ONLY } from './document-reader'
 import { recordDocumentAccess } from '@/lib/download-log/service'
-import { INLINE_PREVIEW_CONTENT_TYPES, TEXT_PREVIEW_CONTENT_TYPES as SHARED_TEXT_PREVIEW_CONTENT_TYPES, isOfficeRenditionSource } from './preview-types'
-import { RenditionFailedError, RenditionUnavailableError, ensureRendition, isRenditionEnabled } from './rendition'
+import { INLINE_PREVIEW_CONTENT_TYPES, TEXT_PREVIEW_CONTENT_TYPES as SHARED_TEXT_PREVIEW_CONTENT_TYPES, isRenditionSource } from './preview-types'
+import { RenditionFailedError, RenditionUnavailableError, ensureRendition, isRenditionEnabledFor } from './rendition'
 
 const PREVIEW_CONTENT_TYPES: readonly string[] = INLINE_PREVIEW_CONTENT_TYPES
 
@@ -83,10 +83,16 @@ const presignTtlSeconds = (): number => Number(process.env.SEAWEED_PRESIGNED_URL
  */
 const RENDITION_READER_WAIT_MS = 85_000
 
-/** Presign a browser-facing download URL for a document. */
+/**
+ * Presign a browser-facing download URL for a document: the original, or with
+ * `format: 'pdf'` the PDF a person reads it as. That is the reason a DXF was
+ * uploaded at all, more often than not: the drawing to scale, on paper
+ * (ADR-0152). A stored PDF answers itself; a file with no rendition is a 415.
+ */
 export async function getDocumentDownload(
   session: AuthorizedSession,
-  documentId: string
+  documentId: string,
+  options: { format?: 'pdf' } = {}
 ): Promise<{
   downloadUrl: string
   filename: string
@@ -95,13 +101,20 @@ export async function getDocumentDownload(
 }> {
   const doc = await getAccessibleDocument(session, documentId)
   if (!doc.storageKey) throw new NotFoundError('File not available')
+  const asRendition = options.format === 'pdf' && servedAsRendition(doc)
+  if (options.format === 'pdf' && !asRendition && doc.contentType !== 'application/pdf') {
+    throw new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'This file has no PDF form', { contentType: doc.contentType })
+  }
+  const key = asRendition ? await officeRenditionKey(doc, doc.contentType || 'application/octet-stream') : doc.storageKey
+  const filename = asRendition ? renditionFilename(doc.filename) : doc.filename
 
   const downloadUrl = await getSignedUrl(
     signingS3Client,
     new GetObjectCommand({
       Bucket: resolveDocumentBucket(doc.storageBucket),
-      Key: doc.storageKey,
-      ResponseContentDisposition: contentDisposition('attachment', doc.filename),
+      Key: key,
+      ResponseContentDisposition: contentDisposition('attachment', filename),
+      ...(asRendition ? { ResponseContentType: 'application/pdf' } : {}),
     }),
     { expiresIn: presignTtlSeconds() }
   )
@@ -109,9 +122,9 @@ export async function getDocumentDownload(
 
   return {
     downloadUrl,
-    filename: doc.filename,
-    contentType: doc.contentType,
-    fileSize: doc.fileSize,
+    filename,
+    contentType: asRendition ? 'application/pdf' : doc.contentType,
+    fileSize: asRendition ? null : doc.fileSize,
   }
 }
 
@@ -131,16 +144,20 @@ export async function getDocumentDownload(
  * last few minutes is answered as failed at once instead of converted again on
  * every open. The background ingest and its retry do not take that shortcut.
  */
-async function officeRenditionKey(doc: Pick<Document, 'storageKey' | 'storageBucket' | 'filename'>, contentType: string): Promise<string> {
+async function officeRenditionKey(
+  doc: Pick<Document, 'storageKey' | 'storageBucket' | 'filename' | 'contentType'>,
+  contentType: string
+): Promise<string> {
   const unsupported = () =>
     new ApiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Preview not available for this file type', { contentType })
-  if (!isRenditionEnabled() || !doc.storageKey) throw unsupported()
+  if (!isRenditionEnabledFor(doc) || !doc.storageKey) throw unsupported()
   try {
     return await ensureRendition(
       {
         bucket: resolveDocumentBucket(doc.storageBucket),
         storageKey: doc.storageKey,
         filename: doc.filename,
+        contentType: doc.contentType,
       },
       { readerWaitMs: RENDITION_READER_WAIT_MS }
     )
@@ -168,7 +185,7 @@ function renditionFilename(filename: string): string {
 export function servedAsRendition(doc: Pick<Document, 'contentType' | 'filename'>): boolean {
   const contentType = doc.contentType || 'application/octet-stream'
   if (PREVIEW_CONTENT_TYPES.includes(contentType)) return false
-  return isOfficeRenditionSource({ contentType: doc.contentType, filename: doc.filename })
+  return isRenditionSource({ contentType: doc.contentType, filename: doc.filename })
 }
 
 export interface DocumentPreview {

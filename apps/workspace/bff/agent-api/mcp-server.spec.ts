@@ -210,7 +210,9 @@ describe('what tools mode costs a client', () => {
   // minimums, `.regex()` patterns and defaults zod always enforced and the hand-written converter dropped
   // (measured 1,042, +22 a tool). They are constraints an agent otherwise learns from a 400, not ballast;
   // the exporter drops the keywords that only restate an absence (`lib/api/zod-json-schema.ts`).
-  const MAX_AVERAGE_CHARS = 1_050
+  // Raised to 1,060 on 2026-11-04 for `dxf-measure` (ADR-0153): about 3,000 characters, its eight operations and the
+  // setbacks and limits `buildable` takes; one tool for a site's geometry, not ballast. Measured 1,055 with it.
+  const MAX_AVERAGE_CHARS = 1_060
   const MAX_OPERATION_CHARS = 9_000
 
   it(`stays under ${MAX_AVERAGE_CHARS} characters a tool on average, and ${MAX_OPERATION_CHARS} for any catalog operation`, async () => {

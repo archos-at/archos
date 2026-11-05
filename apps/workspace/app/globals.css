@@ -12,6 +12,8 @@
 @import '../shared/brand/tokens.vars.css';
 @import '../ui/styles/tokens.css';
 @import '../ui/styles/data-palette.css';
+/* The status screens' line drawing (not found, no access, an error): ui/components/brand/status-drawing.tsx. */
+@import '../ui/styles/status-drawing.css' layer(components);
 @import 'tw-animate-css';
 
 /* The wordmark's face (packages/brand: the logo is the one element set in
@@ -113,6 +115,9 @@ body {
 
 body {
   font-family: var(--font-sans);
+  /* The light end, raised (`--font-weight-normal` in tokens.css): unstyled
+     text inherits it, so running text is never thinner than `font-normal`. */
+  font-weight: var(--font-weight-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -201,7 +206,10 @@ body {
      drew a second box inside it.
    - A row of a bordered list (`data-focus-inset`, the inbox's rows under j/k)
      keeps the outline, inside its own edge: drawn outside, the list's rounded,
-     clipped frame cut it to two black bars along the dividers. */
+     clipped frame cut it to two black bars along the dividers.
+   A text field switches it off itself (`FIELD_FOCUS_RING`, an important
+   utility): its focus is its border turning ink, and a click into a field is a
+   focus-visible too, so the outline was drawn on every click (Notion #38). */
 :focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
@@ -652,10 +660,6 @@ body {
   letter-spacing: -0.04em;
 }
 
-@utility tracking-label {
-  letter-spacing: 0.24em;
-}
-
 @utility scale-press {
   transform: scale(0.98);
 }
@@ -695,12 +699,13 @@ body {
      CalloutCard, whose eyebrow carries the tone's ink instead.
      Deliberately sets NO line-height: `SectionLabel` has ~39 call sites across
      the product that inherit theirs today, and a step here would move all of
-     them. */
+     them.
+     Sentence case, no tracking: the wordmark is the only element in capitals
+     (brand design system), and the wide tracking existed only to make capitals
+     readable — on sentence-case text it reads as a rendering fault. */
   .card-eyebrow {
     font-size: 10.5px;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   /* Meta — ordinals, chips, units, ± bands, counts. */
@@ -715,19 +720,22 @@ body {
   .card-caption {
     font-size: 12px;
     line-height: 1.625;
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
   }
 
-  /* Body — every row of every list. The default. */
+  /* Body — every row of every list. The default. The answer's one text size
+     (`--text-answer`, tokens.css): a card's row reads at the size of the prose
+     around it, because a smaller row said nothing about rank (Notion #38). */
   .card-body {
-    font-size: 13.5px;
+    font-size: var(--text-answer);
     line-height: 1.55;
-    font-weight: 400;
+    font-weight: var(--font-weight-normal);
   }
 
-  /* Title — the card title, and nothing else. */
+  /* Title — the card title, and nothing else. The body's size: the title's
+     rank is its weight (500, content weight) and its ink, not a 0.5px step. */
   .card-title {
-    font-size: 14px;
+    font-size: var(--text-answer);
     line-height: 1.35;
     font-weight: 500;
   }
@@ -743,13 +751,14 @@ body {
     letter-spacing: -0.04em;
   }
 
-  /* Figure — the one thing the card exists to say, and the only element a card
-     may carry above 14px. Four sizes because the charter spends four: 15px
-     inside a dense list (a takeaway, a tally, an outcome row), 20px for a value
-     standing on its own, 24px for a computed result, 30px for a verdict.
+  /* Figure — the one thing the card exists to say, and with the headline the
+     only element a card may set larger than its body. Four sizes because the charter spends four: 16px
+     inside a dense list (a takeaway, a tally, an outcome row: the body's size,
+     set apart by weight and tabular figures), 20px for a value standing on its
+     own, 24px for a computed result, 30px for a verdict.
      Named by their size so `grep card-figure-` finds every figure in the set
      and a fifth size cannot appear without appearing here first. */
-  .card-figure-15,
+  .card-figure-16,
   .card-figure-20,
   .card-figure-24,
   .card-figure-30 {
@@ -757,8 +766,8 @@ body {
     font-variant-numeric: tabular-nums;
   }
 
-  .card-figure-15 {
-    font-size: 15px;
+  .card-figure-16 {
+    font-size: var(--text-answer);
     line-height: 1.35;
   }
 
@@ -1207,29 +1216,35 @@ body {
   z-index: 100;
 }
 
-/* Global scrollbar styles — thin, trackless, alpha thumb (macOS-like) */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--background-color-accent-gray) transparent;
-}
+/* Global scrollbar styles — thin, trackless, alpha thumb (macOS-like).
+   In `@layer base`, so a utility can override them. Unlayered, `* { scrollbar-width:
+   thin }` beat `scrollbar-hide` (a utility, so layered) on every element: the
+   transcript kept a 10px scrollbar the composer below it does not have, and the
+   answer stood 5px left of the input it should share a column with (#38). */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--background-color-accent-gray) transparent;
+  }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-  background: transparent;
-}
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-thumb {
-  background-color: var(--background-color-accent-gray);
-  border-radius: 9999px;
-}
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--background-color-accent-gray);
+    border-radius: 9999px;
+  }
 
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--background-color-accent-gray-hover);
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--background-color-accent-gray-hover);
+  }
 }
 
 /* The chart and meter palette (spend, usage, storage) lives in ui/styles/data-palette.css. */

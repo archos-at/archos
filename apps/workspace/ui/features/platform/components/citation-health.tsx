@@ -728,7 +728,7 @@ function OrganizationsCard({
                       <button
                         type="button"
                         className={cn(
-                          'hover:text-foreground inline-flex items-center gap-1 rounded-sm uppercase tracking-wider outline-none',
+                          'hover:text-foreground inline-flex items-center gap-1 rounded-sm outline-none',
                           FOCUS_RING_INSET,
                           active && 'text-foreground'
                         )}

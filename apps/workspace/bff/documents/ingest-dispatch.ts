@@ -103,6 +103,14 @@ export const INGEST_JOB_REF_TTL_SECONDS = 86_400
 export const RENDITION_REQUIRED_MESSAGE = 'The PDF version of this file could not be created'
 
 /**
+ * Why a DXF was not indexed: the backend refused its bytes (ADR-0152), a file no
+ * DXF reader can open or one with nothing drawn in it. Its own sentence, because
+ * the remedy is the reader's: export it again from the CAD program. Reading it
+ * again changes nothing, and the generic sentence would say it might.
+ */
+export const DRAWING_UNREADABLE_MESSAGE = 'This DXF drawing could not be read'
+
+/**
  * Dispatch a document to the backend ingest API and persist the outcome. The
  * upload and re-ingest paths share this so the success path (status pending +
  * jobId) and the failure path (status failed + errorMessage) stay identical.

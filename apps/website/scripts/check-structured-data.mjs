@@ -5,15 +5,33 @@
  *
  *   bun run build && bun run check:structured-data
  *
- * Reads dist/client/**\/*.html. Also holds the site's own rules: every indexed inner page
+ * Reads dist/client/**\/*.html, and the blog's pages, which are rendered on request
+ * (ADR-0155), from the production server (`runtime/server.mjs`, without a CMS: the
+ * fixtures), every page `/sitemap-blog.xml` lists. Also holds the site's own rules: every indexed inner page
  * has a BreadcrumbList that ends at itself, a page with an FAQ has an FAQPage with the same
  * number of questions, the home page has a SoftwareApplication without price or rating.
  */
+import { spawn } from 'node:child_process'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const CLIENT = fileURLToPath(new URL('../dist/client/', import.meta.url))
+const BLOG = fileURLToPath(new URL('../src/content/blog/', import.meta.url))
+
+/** Every published post's address, read from the content: each must carry a BlogPosting. */
+function postPaths() {
+  const paths = new Set()
+  for (const [locale, base] of [['de', '/blog/'], ['en', '/en/blog/']]) {
+    for (const file of readdirSync(join(BLOG, locale)).filter((f) => f.endsWith('.mdx'))) {
+      if (/^draft:\s*true$/m.test(readFileSync(join(BLOG, locale, file), 'utf8'))) continue
+      paths.add(`${base}${file.replace(/\.mdx$/, '')}/`)
+    }
+  }
+  return paths
+}
+const POSTS = postPaths()
 
 /** Required fields per type. A value that is an empty string or array counts as missing. */
 const REQUIRED = {
@@ -58,13 +76,13 @@ const missing = (node, field) => {
 const problems = []
 let blocks = 0
 let nodes = 0
-for (const file of htmlFiles(CLIENT)) {
-  const page = `/${relative(CLIENT, file)}`.replace(/index\.html$/, '')
-  const html = readFileSync(file, 'utf8')
+
+/** Every rule above, on one page's HTML. */
+function checkPage(page, html) {
   const scripts = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => m[1])
   if (scripts.length === 0) {
     problems.push(`${page}: no JSON-LD`)
-    continue
+    return
   }
   const all = []
   for (const text of scripts) {
@@ -103,10 +121,47 @@ for (const file of htmlFiles(CLIENT)) {
     if (!faq) problems.push(`${page}: renders an FAQ without FAQPage`)
     else if (faq.mainEntity.length !== questions) problems.push(`${page}: FAQPage has ${faq.mainEntity.length} questions, the page ${questions}`)
   }
-  if (/^\/(en\/)?blog\/(?!journal\/|bautagebuch\/)[^/]+\/$/.test(page) && !types.includes('BlogPosting')) {
-    problems.push(`${page}: blog post without BlogPosting`)
+  // A post, ticked off the content's list; anything left on it was never built.
+  if (POSTS.delete(page) && !types.includes('BlogPosting')) problems.push(`${page}: blog post without BlogPosting`)
+}
+
+for (const file of htmlFiles(CLIENT)) checkPage(`/${relative(CLIENT, file)}`.replace(/index\.html$/, ''), readFileSync(file, 'utf8'))
+
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const probe = createServer()
+    probe.once('error', reject)
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address()
+      probe.close(() => resolve(port))
+    })
+  })
+}
+
+/** The blog's pages from the production server, without a CMS. */
+async function checkBlog() {
+  const port = await freePort()
+  const base = `http://127.0.0.1:${port}`
+  const env = { ...process.env, HOST: '127.0.0.1', PORT: String(port), CMS_URL: '', CMS_API_KEY: '', PUBLIC_POSTHOG_HOST: '', PUBLIC_POSTHOG_PROJECT_TOKEN: '' }
+  const server = spawn(process.execPath, [fileURLToPath(new URL('../runtime/server.mjs', import.meta.url))], { env, stdio: 'ignore' })
+  try {
+    let sitemap
+    for (let i = 0; i < 50 && !sitemap; i += 1) {
+      sitemap = await fetch(`${base}/sitemap-blog.xml`).then((r) => (r.ok ? r.text() : undefined), () => undefined)
+      if (!sitemap) await new Promise((r) => setTimeout(r, 200))
+    }
+    if (!sitemap) throw new Error('the server did not answer /sitemap-blog.xml')
+    for (const [, loc] of sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)) {
+      const page = new URL(loc).pathname
+      checkPage(page, await (await fetch(`${base}${page}`)).text())
+    }
+  } finally {
+    server.kill()
   }
 }
+await checkBlog()
+
+for (const page of POSTS) problems.push(`${page}: a published post with no built page`)
 
 if (problems.length > 0) {
   console.error(`structured data: ${problems.length} problem(s)`)

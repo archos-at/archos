@@ -84,9 +84,11 @@ export function FilesHeaderControls({
   const choose = (value: string): void => {
     if (value === 'cards' || value === 'list') onViewChange(value)
   }
+  // As tall as its neighbours: the wide row's buttons are `sm`, the phone's filter and ⋯ are `icon` (the default height).
   const searchField = (className: string): JSX.Element => (
     <FileSearchField
       className={className}
+      size={phone ? 'default' : 'sm'}
       value={search.value}
       onChange={search.onChange}
       onSubmit={search.onSubmit}

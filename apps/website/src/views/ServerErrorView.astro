@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Button from '../components/Button.astro';
+import StatusBlock from '../components/StatusBlock.astro';
+import copy from '../i18n/pages/server-error';
+import { localePath, type Locale } from '../i18n/paths';
+import { withName } from '../lib/identity';
+
+// Markup only. Text comes from src/i18n/pages/server-error.ts, in both locales.
+interface Props {
+  locale: Locale;
+  /** The address that failed, path and query: "reload" asks for it again */
+  retryHref: string;
+}
+
+const { locale, retryHref } = Astro.props;
+const c = withName(copy[locale]);
+---
+
+<BaseLayout locale={locale} title={c.title} description={c.description} noindex alternatePath={localePath('home', locale === 'de' ? 'en' : 'de')}>
+  <StatusBlock code={c.hero.code} title={c.hero.title} text={c.hero.text} drawing="fault">
+    <Button href={retryHref} variant="primary" size="lg" cta="server_error" ctaLabel="retry">{c.retry}</Button>
+    <Button href={localePath('home', locale)} variant="secondary" size="lg" cta="server_error" ctaLabel="home">{c.home}</Button>
+    <Button href={localePath('contact', locale)} variant="text" size="lg" cta="server_error" ctaLabel="contact">{c.contact}</Button>
+  </StatusBlock>
+</BaseLayout>

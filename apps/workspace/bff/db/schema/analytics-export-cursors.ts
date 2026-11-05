@@ -9,7 +9,7 @@ import { pgTable, text, timestamp } from 'drizzle-orm/pg-core'
  * `leaseUntil` is set while a run holds the stream. Platform bookkeeping, no
  * tenant data.
  */
-export const ANALYTICS_EXPORT_STREAMS = ['posthog_usage_hourly', 'posthog_budget_snapshot'] as const
+export const ANALYTICS_EXPORT_STREAMS = ['posthog_usage_hourly', 'posthog_budget_snapshot', 'posthog_usage_by_outcome'] as const
 export type AnalyticsExportStream = (typeof ANALYTICS_EXPORT_STREAMS)[number]
 
 export const analyticsExportCursors = pgTable('analytics_export_cursors', {

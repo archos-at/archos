@@ -133,6 +133,8 @@ export interface IngestAnnouncementFacts {
   attempt: number | null
   /** The upload gesture that wrote the bytes, or null. */
   uploadBatchId: string | null
+  /** The stored file's size in bytes, or null: what an ingest's cost is divided by for cost per byte. */
+  fileSize: number | null
 }
 
 /**
@@ -148,7 +150,12 @@ export async function findIngestAnnouncementFacts(
   try {
     const rows = await withTenant({ organizationId }, () =>
       getDb()
-        .select({ id: documents.id, attempts: documents.ingestAttempts, uploadBatchId: documents.uploadBatchId })
+        .select({
+          id: documents.id,
+          attempts: documents.ingestAttempts,
+          uploadBatchId: documents.uploadBatchId,
+          fileSize: documents.fileSize,
+        })
         .from(documents)
         .where(and(eq(documents.organizationId, organizationId), inArray(documents.id, documentIds))),
     )
@@ -156,6 +163,7 @@ export async function findIngestAnnouncementFacts(
       facts.set(row.id, {
         attempt: row.attempts === null || row.attempts === undefined ? null : Number(row.attempts),
         uploadBatchId: row.uploadBatchId ?? null,
+        fileSize: row.fileSize === null || row.fileSize === undefined ? null : Number(row.fileSize),
       })
     }
   } catch (error) {

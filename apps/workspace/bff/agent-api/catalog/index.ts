@@ -18,6 +18,7 @@ import { mailOperations } from './mail'
 import { organizationOperations } from './organization'
 import { platformOperations } from './platform'
 import { projectsOperations } from './projects'
+import { releaseNotesOperations } from './release-notes'
 import { reviewOperations } from './review'
 import { savedSearchOperations } from './saved-searches'
 import { skillsOperations } from './skills'
@@ -42,6 +43,7 @@ export type OperationName = (
   | typeof knowledgeOperations
   | typeof bimOperations
   | typeof organizationOperations
+  | typeof releaseNotesOperations
   | typeof platformOperations
 )[number]['name']
 
@@ -60,6 +62,7 @@ const unordered: readonly AgentOperation[] = [
   ...knowledgeOperations,
   ...bimOperations,
   ...organizationOperations,
+  ...releaseNotesOperations,
   ...platformOperations,
 ]
 

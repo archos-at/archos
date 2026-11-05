@@ -303,7 +303,25 @@ class TestTheEnumsMatchTheEngine:
 
     @staticmethod
     def _engine():
-        return pytest.importorskip("ifc_spatial.tools", reason="the spatial engine is not installed")
+        """The engine's vocabulary as its own suite writes it (``ifc-spatial-py/tests/fixtures/vocabulary.json``).
+
+        Read from the file, not imported: this suite runs without IfcOpenShell, and
+        an ``importorskip`` here skipped every test in this class on every CI run.
+        """
+        import json
+        from types import SimpleNamespace
+
+        fixture = (
+            pathlib.Path(__file__).resolve().parents[5]
+            / "packages"
+            / "ifc-spatial-py"
+            / "tests"
+            / "fixtures"
+            / "vocabulary.json"
+        )
+        vocabulary = json.loads(fixture.read_text(encoding="utf-8"))
+        tools = [SimpleNamespace(name=name) for name in vocabulary.pop("TOOLS")]
+        return SimpleNamespace(**vocabulary, create_tools=lambda: tools)
 
     def test_the_relations_are_the_engine_s_relations(self):
         from agent.tools.bim.measure_register import RELATIONS
@@ -1400,7 +1418,9 @@ class TestTheSameModelIsParsedOncePerProcess:
     #: the engine — resolving it relatively made it fire on a `pytest` run
     #: started from anywhere but the repository root instead, and a suite that
     #: skips silently proves nothing about the cache it is here to prove.
-    FIXTURE = pathlib.Path(__file__).resolve().parents[4] / "packages/ifc-spatial/test/fixtures/Ifc4_SampleHouse.ifc"
+    FIXTURE = (
+        pathlib.Path(__file__).resolve().parents[5] / "packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc"
+    )
 
     @pytest.fixture()
     def engine(self):

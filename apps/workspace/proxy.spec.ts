@@ -28,6 +28,8 @@ describe('AuthKit v4 proxy', () => {
           unauthenticatedPaths: [
             '/',
             '/api/healthz',
+            // The backend health proxy: the deploy's smoke check has no session.
+            '/api/health',
             '/api/auth/callback',
             '/api/auth/signin',
             '/api/auth/websocket-scope',
@@ -177,6 +179,31 @@ describe('a redirect that cannot complete', () => {
     const response = await throughProxy(request, authkitRedirect())
 
     expect(locationOf(response).pathname).toBe('/api/auth/signin')
+  })
+
+  // Next's middleware adapter reads every Location with `new NextURL(location)`
+  // and no base: a relative one throws, and the request answered 500.
+  test('names the sign-in route by an absolute URL on the public origin', async () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', 'https://app.dev.piloti.at/api/auth/callback')
+    const request = new NextRequest('http://frontend:3000/app/projects', { headers: { accept: 'application/json' } })
+
+    const location = (await throughProxy(request, authkitRedirect()))?.headers.get('location') ?? ''
+
+    expect(() => new URL(location)).not.toThrow()
+    expect(new URL(location).origin).toBe('https://app.dev.piloti.at')
+    expect(new URL(location).pathname).toBe('/api/auth/signin')
+    vi.unstubAllEnvs()
+  })
+
+  test('falls back to the request origin when no redirect URI is configured', async () => {
+    vi.stubEnv('WORKOS_REDIRECT_URI', '')
+    vi.stubEnv('NEXT_PUBLIC_WORKOS_REDIRECT_URI', '')
+    const request = new NextRequest('https://app.dev.piloti.at/app/projects', { headers: { accept: 'application/json' } })
+
+    const location = (await throughProxy(request, authkitRedirect()))?.headers.get('location') ?? ''
+
+    expect(new URL(location).origin).toBe('https://app.dev.piloti.at')
+    vi.unstubAllEnvs()
   })
 
   test('is replaced even when AuthKit only clears a stale verifier', async () => {

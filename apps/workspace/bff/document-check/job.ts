@@ -50,6 +50,7 @@ import type { JobAttempt, JobSliceResult, DocumentCheckPayload } from '@/lib/job
 import { recordDocumentCheckScore } from '@/lib/langfuse/document-check-score'
 import { askAnswerMessageId } from '@/lib/turns/answer-ids'
 import { leaveNotice, noticeThread } from '@/lib/revision-notice/leave'
+import { documentFocus } from '@/lib/turns/document-focus'
 import { chatSocketUrl, runHeadlessTurn, type HeadlessUserMessage } from '@/lib/turns/headless-turn'
 import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
@@ -113,9 +114,8 @@ export function checkTurnMessage(input: {
     message_id: payload.checkId,
     text: checkInstruction({ id: document.id, name }),
     author_name: input.authorName,
-    focus_file_name: name,
+    ...documentFocus(document),
     focus_shelf: 'project',
-    focus_document_id: document.id,
     trigger: { kind: 'new_document', event_id: payload.checkId, annotation_id: null },
     if_idle: true,
   }

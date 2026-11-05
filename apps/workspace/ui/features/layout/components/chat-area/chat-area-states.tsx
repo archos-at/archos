@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useChatStore } from '@/features/chat/store'
 import { useElapsedSeconds, formatElapsed } from '@/features/chat'
 import { cn } from '@/lib/utils'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { useAuth } from '@/adapters/auth'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
@@ -21,7 +22,7 @@ import { TOOLBAR_CLEAR_PADDING } from '../../lib/toolbar-clearance'
  * findable when scrolling a long thread without competing with the messages, and
  * it must not read as an error state.
  *
- * Deliberately the house eyebrow (hairline border + uppercase muted label), not
+ * Deliberately the house eyebrow (hairline border + muted label), not
  * full-strength ink: this is a *reading-position* marker, and at ink weight it was
  * the loudest thing in the column — out-shouting the agent's answer, which is the
  * one element that must stay dominant. The two full-width rules are what make it
@@ -123,7 +124,9 @@ export const MessageListSkeleton: FC = () => {
   return (
     <div
       className={cn(
-        'mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 sm:px-6',
+        THREAD_COLUMN,
+        THREAD_GUTTER,
+        'flex flex-col gap-4',
         TOOLBAR_CLEAR_PADDING
       )}
       style={{ paddingBottom: 'calc(var(--composer-h, 11rem) + 1.5rem)' }}

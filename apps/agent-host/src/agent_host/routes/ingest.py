@@ -481,6 +481,10 @@ def _infer_suffix(content_type: str, url: str) -> str:
         "text/rtf": ".rtf",
         "image/png": ".png",
         "image/jpeg": ".jpg",
+        # A DXF is indexed from the PDF rendition the backend draws (ADR-0152);
+        # its own suffix still decides that it needs one.
+        "image/vnd.dxf": ".dxf",
+        "application/dxf": ".dxf",
     }
     # MIME types are case-insensitive, and the macro-enabled ones are commonly
     # sent as `...macroEnabled.12`.

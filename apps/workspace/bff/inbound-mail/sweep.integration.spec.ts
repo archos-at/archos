@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The E-Mail-Eingang's retention sweeps (`./sweep.ts`, DECISION §5) against a
- * REAL Postgres with migration 0194, through the restricted runtime role
+ * REAL Postgres with migration 0196, through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \

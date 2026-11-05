@@ -6,17 +6,18 @@ import { type CitedDocument } from '../../lib/citations'
  * The agent is asked to lead with the ruling or the number. That rule is the
  * `<stimme>` section of the researcher's system prompt („Der erste Satz ist die
  * Antwort"), unconditional on every answering turn since the `piloti-voice`
- * platform skill was folded into it. The answer arrives with its conclusion first —
- * but a conclusion set at exactly the weight of the reasoning beneath it is a
- * conclusion the reader still has to go looking for.
- * One notch of size and air is enough to make the answer legible before the
- * audit trail is read, without turning the reply into a document with a title.
+ * platform skill was folded into it. The answer arrives with its conclusion first,
+ * and its place is what marks it.
  *
- * Applied only when it earns its keep: a short reply IS its own lede, and
- * enlarging its single paragraph would just look like a font bug.
+ * It no longer takes a size of its own. It was one notch up (17px over the
+ * 16px paragraphs), and in an answer that also set its steps at 15px and its
+ * card rows at 13.5px the notch read as one more size among many rather than
+ * as rank (Notion #38): an answer's text is one size, `text-answer`. What is
+ * left is a little air.
+ *
+ * Applied only when it earns its keep: a short reply IS its own lede.
  */
 export const LEDE_CLASS =
-  '[&>.markdown-content>p:first-child]:text-[1.0625rem] ' +
   '[&>.markdown-content>p:first-child]:leading-[1.65] ' +
   '[&>.markdown-content>p:first-child]:mb-4'
 

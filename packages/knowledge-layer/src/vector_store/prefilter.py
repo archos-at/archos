@@ -154,13 +154,21 @@ def plan(
     """The pushdown for one search.
 
     ``refers_to`` is what the caller names ("ÖNORM B 1600", "EP-05", "Brandschutzkonzept"),
-    read into the ``references`` values a document carries (``references.reference_keys_for``).
+    read into the ``references`` values a document carries (``references.reference_keys_for``),
+    in every spelling a document can have stored it under (``references.spellings``).
     """
     from knowledge_layer.references import reference_keys_for
+    from knowledge_layer.references import spellings
 
     from .payload import reference_value
 
-    references = tuple(reference_value(kind, key) for kind, key in reference_keys_for(refers_to or ""))
+    references = tuple(
+        dict.fromkeys(
+            reference_value(kind, spelling)
+            for kind, key in reference_keys_for(refers_to or "")
+            for spelling in spellings(kind, key)
+        )
+    )
     return Pushdown(
         doc_class=doc_class or None,
         folder=folder_key(folder),

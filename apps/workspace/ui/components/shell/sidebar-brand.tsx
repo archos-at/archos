@@ -14,6 +14,7 @@ import { useSidebar } from '@/components/ui/sidebar'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
+import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 
 export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   const t = useTranslations(navCopy)
@@ -21,7 +22,10 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   const collapsed = state === 'collapsed'
 
   return (
-    <div className={cn('flex items-center', iconRail ? 'flex-col' : 'px-1.5')}>
+    // Icon rail: the mark over the fold control, 18px down. Expanded: the wordmark
+    // in the org header's own row and inset (`brand-slot.ts`), so it does not move
+    // when the overview gives way to a project.
+    <div className={cn(iconRail ? 'flex flex-col items-center pt-[18px]' : [BRAND_ROW, BRAND_INSET_RAIL])}>
       <Link
         href="/app/projects"
         aria-label={t('allProjects')}

@@ -88,7 +88,7 @@ export const SkillFindingList: FC<SkillFindingListProps> = ({
                 <p className="text-foreground text-xs font-medium">
                   {variant === 'full' && (
                     <>
-                      <span className="text-muted-foreground font-mono text-[10.5px] uppercase tracking-wider">
+                      <span className="text-muted-foreground font-mono text-[10.5px]">
                         {t(`editor.review.fields.${finding.field}`)}
                       </span>{' '}
                     </>

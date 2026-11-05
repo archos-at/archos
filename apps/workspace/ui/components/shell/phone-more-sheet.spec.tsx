@@ -51,9 +51,9 @@ describe('PhoneMoreSheet', () => {
 
     const sheet = await screen.findByRole('dialog')
     const links = within(sheet).getAllByRole('link').map((link) => link.getAttribute('data-destination'))
-    expect(links).toEqual(['automation', 'officeShelf', 'search', 'profile', 'organization'])
+    expect(links).toEqual(['automation', 'officeShelf', 'search', 'profile', 'whats-new', 'organization'])
     // None of the bar's own tabs is repeated.
-    for (const name of ['Ask Piloti', 'Files', 'Overview']) {
+    for (const name of ['Chat', 'Files', 'Overview']) {
       expect(within(sheet).queryByRole('link', { name })).toBeNull()
     }
     expect(within(sheet).getByRole('button', { name: /sign out/i })).toBeInTheDocument()

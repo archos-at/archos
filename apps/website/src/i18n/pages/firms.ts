@@ -15,10 +15,10 @@
 const de = {
   title: 'KI für Architekturbüros',
   description:
-    '{name} ist der Workspace für Architektur- und Planungsbüros. Er durchsucht Baurecht, vergleicht Planstände und prüft Modelle. Entwerfen bleibt Ihre Sache.',
+    '{name} ist der Workspace für Architekturbüros. Er durchsucht Baurecht, vergleicht Planstände und prüft Modelle. Entwerfen bleibt Ihre Sache.',
   hero: {
     title: 'KI für Architekturbüros. Dort, wo geplant wird.',
-    text: '{name} ist der Workspace für Architektur- und Planungsbüros. Pläne, Modelle, Unterlagen und Bürowissen liegen an einem Ort, und {name} übernimmt dort die regelgeleitete Arbeit.',
+    text: '{name} ist der Workspace für Architekturbüros. Pläne, Modelle, Unterlagen und Bürowissen liegen an einem Ort, und {name} übernimmt dort die regelgeleitete Arbeit.',
   },
   today: {
     title: 'Was {name} heute übernimmt.',
@@ -56,7 +56,7 @@ const de = {
   difference: {
     title: 'Mehr als ein Chat.',
     text: 'Allgemeine Chat-Assistenten helfen beim Formulieren. Für die Arbeit an einem Projekt braucht ein Büro mehr.',
-    postLink: 'Im Journal: Sechs Fragen an jedes Werkzeug',
+    postLink: 'Im Blog: Sechs Fragen an jedes Werkzeug',
     items: [
       {
         title: 'Für das ganze Team',
@@ -109,10 +109,10 @@ const de = {
 const en: typeof de = {
   title: 'AI for architecture firms',
   description:
-    '{name} is the workspace for architecture and planning firms. It searches building law, compares plan revisions and checks models. Design stays with you.',
+    '{name} is the workspace for architecture firms. It searches building law, compares plan revisions and checks models. Design stays with you.',
   hero: {
     title: 'AI for architecture firms. Where the planning happens.',
-    text: '{name} is the workspace for architecture and planning firms. Plans, models, documents and office knowledge sit in one place, and {name} takes over the rule-based work there.',
+    text: '{name} is the workspace for architecture firms. Plans, models, documents and office knowledge sit in one place, and {name} takes over the rule-based work there.',
   },
   today: {
     title: 'What {name} takes over today.',
@@ -150,7 +150,7 @@ const en: typeof de = {
   difference: {
     title: 'More than a chat.',
     text: 'General chat assistants help with wording. Working on a project takes more.',
-    postLink: 'In the journal: six questions for any tool',
+    postLink: 'On the blog: six questions for any tool',
     items: [
       {
         title: 'For the whole team',

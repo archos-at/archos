@@ -1,0 +1,31 @@
+---
+/**
+ * Three to five sentences a reader takes from the post, at its top. A heading of its own, so a
+ * screen reader finds it in the list of headings.
+ * Contract: contracts.ts (`KeyTakeawaysBlock`). Rules: packages/brand/docs/components/KeyTakeaways.md.
+ */
+import '../../styles/brand/blocks.css';
+import type { Locale } from '../../i18n/paths';
+import { t } from '../../i18n/ui';
+import { blockId } from './block-id';
+import type { KeyTakeawaysBlock } from './contracts';
+
+interface Props extends KeyTakeawaysBlock {
+  locale: Locale;
+  /** The heading's level in the page's outline: 2 at the top of a post. */
+  level?: 2 | 3;
+  class?: string;
+}
+
+const { locale, title, items, level = 2, class: className } = Astro.props;
+const ui = t(locale);
+const id = blockId('takeaways', items);
+const Heading = `h${level}` as 'h2' | 'h3';
+---
+
+<aside class:list={['ui-block ui-takeaways', className]} aria-labelledby={id}>
+  <Heading class="ui-takeaways-title" id={id}>{title ?? ui.blockTakeaways}</Heading>
+  <ul class="ui-takeaways-list" role="list">
+    {items.map((item) => <li class="ui-takeaways-item">{item}</li>)}
+  </ul>
+</aside>

@@ -34,6 +34,7 @@ import { recordAuditEvent } from '@/lib/audit/service'
 import type { ProjectPersonRow } from '@/lib/db/schema/project-people'
 import { loadOrganizationDirectory } from '@/lib/sharing/directory'
 import { findProjectProfile } from './repository'
+import { projectSiteAddress } from './site-address'
 import { currentMonth, dateToMonth, isOrderedPeriod, monthToDate, type Month } from './month'
 import { closingOf, isProjectClosed, projectClosedError } from './project-status'
 import { loadProjectTeam } from './project-team'
@@ -90,8 +91,8 @@ function startOf(period: ProjectPeriodRow): { startedOn: Month | null; isDefault
 }
 
 function addressOf(profile: Awaited<ReturnType<typeof findProjectProfile>>): string | null {
-  const value = profile?.facts?.site_address?.value
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+  // The same rule the project tiles read the Standort by, so they never disagree.
+  return profile ? projectSiteAddress({ profile }) : null
 }
 
 export async function getProjectRecord(session: AuthorizedSession, projectId: string): Promise<ProjectRecordView> {

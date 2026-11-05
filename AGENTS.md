@@ -215,10 +215,11 @@ calls the same definitions but schedules them differently, so a local pass is
 strong evidence rather than a guarantee. `task verify:fast` skips two production
 builds, `workspace:build` and `website:build`.
 
-Three gates sit outside `task verify` and are still required: `task db:test:rls`
+Four gates sit outside `task verify` and are still required: `task db:test:rls`
 whenever you touch the tenant boundary, `task be:test:postgres` whenever you touch
-a Python claim queue's SQL (the BFF queue's is covered by `db:test:rls`), and `task pkg:test` whenever you touch `packages/`. CI runs
-all three (the Frontend, Backend and packages jobs), so a PR cannot merge without them; they stay
+a Python claim queue's SQL (the BFF queue's is covered by `db:test:rls`), `task cms:test:db` whenever you touch
+`apps/cms` (the review rules and the migrations on Postgres), and `task pkg:test` whenever you touch `packages/`. CI runs
+all four (the Frontend, Backend, CMS and packages jobs), so a PR cannot merge without them; they stay
 out of `verify` because each needs something a per-commit gate should not pay
 for — PostgreSQL server binaries, and four minutes of IfcOpenShell.
 

@@ -14,7 +14,7 @@ task setup         # first-time toolchain install
 Both run `lint:repo` first, then the tiers side by side (`task --parallel
 --output=group`), so a tier's output arrives whole when it finishes. They skip
 the hooks a tier repeats (ruff, the English-names test: `VERIFY_SKIP` in
-`Taskfile.yml`) and run the UI suite without coverage, which CI only comments.
+`Taskfile.yml`) and run the UI suite without coverage, as CI does.
 
 `Taskfile.yml` and the per-tier files in `taskfiles/` (included flat, so task names
 are unchanged) are the source of truth for what each check actually runs, and
@@ -131,9 +131,8 @@ release rather than trusting a green suite.
 
 CI calls the Taskfile, so there is no second copy of the commands. Only the
 scheduling differs: the workspace tier's card check, lint, types and the
-tenant-isolation suite share one job, the suite is sharded six ways
-(`workspace:test:shard`) and stitched back together by `workspace:test:merge` for the coverage
-comment, and the production UI build runs inside the frontend image build
+tenant-isolation suite share one job, the suite is sharded eight ways
+(`workspace:test:shard`, without coverage instrumentation), and the production UI build runs inside the frontend image build
 rather than as `workspace:build`. The backend core suite is sharded four ways too
 (`be:test:shard`, split by `tests/.test_durations`), and `be:test:coverage`
 combines the shards' data and applies the 65% gate that `be:test:ci` applies
@@ -161,31 +160,29 @@ minutes, on a directory most changes never touch — see below), and the
 release-note gate (it needs the PR's base and head). Run the first three by hand
 when you touch what they cover; the last only exists on a PR.
 
-## The standalone packages under `packages/`
+## The standalone package under `packages/`
 
-`packages/ifc-spatial` (TypeScript) and `packages/ifc-spatial-py` (Python) are
-two implementations of the same spatial surface over IFC (ADR-0045), and both
-sit **outside** the workspace they live next to: their own `bun.lock`
-and `uv.lock`, their own toolchains. Nothing the frontend or backend tier
-installs can run them, which is how 830 tests behind a default-ON feature that
-renders OIB compliance verdicts ended up with no gate at all — no Taskfile
-target, no CI job, no pre-commit hook. The same shape as `sources/` before it.
+`packages/ifc-spatial-py`, the IFC engine (ADR-0045), sits **outside** the uv
+workspace it lives next to: its own `uv.lock`, its own IfcOpenShell toolchain.
+Nothing the backend tier installs can run it, which is how 830 tests behind a
+default-ON feature that renders OIB compliance verdicts once had no gate at all.
+(A TypeScript twin, `packages/ifc-spatial`, was deleted on 2026-11-04; one engine.)
 
-They now run as CI's `packages` job, behind the `packages` paths filter in
-`.github/filters.yml` (`packages/ifc-spatial*/**`: a new package with a suite
-adds its own line there), and `CI OK` requires it. Locally:
+It runs as CI's `packages` job, behind the `packages` paths filter in
+`.github/filters.yml` (`packages/ifc-spatial-py/**`), and `CI OK` requires it.
+Locally:
 
 ```bash
-task pkg:install    # both toolchains (`task setup` does this too now)
-task pkg:test       # both suites
+task pkg:install    # its toolchain (`task setup` does this too)
+task pkg:test       # its suite
 ```
 
-`task verify` deliberately leaves them out. `pkg:test:py` is 636 tests in 1m40s on four workers (2026-10-22)
-(measured 2026-09-10) against its own IfcOpenShell/shapely environment; adding
-that to every local gate run is the fastest way to get people to stop running
-the gate. `pkg:test:ts` is ~10 seconds and runs **both** tsconfigs, the source
-one and `tsconfig.test.json` — a test file that no longer type-checks is how an
-operator contract silently stops being asserted.
+`task verify` deliberately leaves it out. `pkg:test:py` is about 600 tests in
+1m40s on four workers (2026-10-22) against its own IfcOpenShell/shapely
+environment; adding that to every local gate run is the fastest way to get
+people to stop running the gate. The engine also writes its vocabulary to
+`tests/fixtures/vocabulary.json`, which the agent's own suite reads to pin its
+copy of the engine's names without installing the engine.
 
 The single required status check is **CI OK**
 ([`ci.yml`](../../.github/workflows/ci.yml)), which passes only when every
@@ -342,6 +339,28 @@ is a second contract that drifts: `tests/test_no_twin_fixtures.py` fails any
 file under the repo-root `tests/` that is byte-identical to one under
 `apps/workspace/tests/fixtures/`.
 
+### Inside one language: feed the reader what the writer writes
+
+The same failure happens without a language boundary, whenever one module
+stores a value and another reads it back later. A reader whose test builds its
+input by hand builds it in the shape the reader expects, so the test agrees with
+itself. One sweep on 2026-11-04 found four such pairs, each green on both sides
+and broken in production:
+
+| Writer | Reader | What the reader got |
+|---|---|---|
+| `visual_analysis.segment_payloads`: one `segment` per chunk | `dossier.lifted_drawing_facts` iterated `segments` | No printed fact from any drawing (#1491) |
+| The wake and the document check sent the display name | Retrieval matches `focus_file_name` against the stored filename | No focus on any renamed document (#1492) |
+| `references.norm_key` keeps the document's spacing | The `refers_to` filter used the asker's spelling | No match for `B1600` against `B 1600` (#1493) |
+| Only the plain-text reader stamps chunk dates | The file listing read only those | No ingest date a day after upload (#1494) |
+
+When you write or change a reader of stored data (a payload field, chunk
+metadata, a wire field another service sends), the test runs the real writer
+and hands its output to the real reader: `segment_payloads` →
+`json.loads(drawing_data)` → `lifted_drawing_facts`, or `extract_references` →
+`prefilter.plan`. Spell out a hand-built input only for a shape the writer
+cannot produce, and say in the test why.
+
 ## Security and static analysis
 
 Two halves, by what can cause a finding. A change can introduce a secret, a new
@@ -410,9 +429,29 @@ is its own PR, the only kind that needs reading. Package families that only
 build at matching versions (`@aws-sdk/*`, `@opentelemetry/*`, `@pulumi/*`)
 take their majors together, and majors the
 toolchain cannot take yet (TypeScript 7, an `@types/node` past the Node 22
-runtime) are ignored, each with a comment saying when to lift it. Dependabot
-PRs skip the automatic Claude review: the action refuses a bot actor, and CI
-already judges a lockfile bump. Maintainability is covered by the native linters and the
+runtime) are ignored, each with a comment saying when to lift it.
+
+Minor and patch updates merge themselves. `dependabot-auto-merge.yml` turns on
+GitHub's auto-merge for them, security fixes included, and GitHub squash-merges
+each one when `CI OK` passes; a major, anything under `deploy/pulumi` (its SDK
+pins the CLI the deploy installs, so only a deploy proves it) and a red run stay
+open for a person, and a later push that makes a pull request one of those turns its auto-merge off again. The policy is `ci/dependabot_merge.py`. It acts only when all
+of these hold, and its log says which one is missing:
+
+| Setting | Where | Why |
+|---|---|---|
+| `CI OK` is a required check on `develop`, with GitHub Actions as its source (not "any source") | Settings → Rules → `require-ci-ok`, a repository ruleset beside `protect-develop` | Auto-merge on a pull request with no required check merges it at once, whatever CI says; a check from any source could be passed by another integration |
+| Dependabot secret `DEPENDABOT_MERGE_TOKEN`: a fine-grained token, contents and pull requests read and write, this repository only | Settings → Secrets and variables → **Dependabot** (a run Dependabot triggers sees no Actions secrets) | A merge by `GITHUB_TOKEN` starts no workflow, so the push run, its images and the staging deploy would never come; it also gives the approval the ruleset requires |
+| Allow auto-merge | Settings → General → Pull Requests | GitHub refuses auto-merge without it |
+
+Where the ruleset requires an approving review, the workflow approves with
+the same token, so the approval carries the token owner's name and says it is
+automatic. Not as `github-actions`: the organization does not let workflows
+approve pull requests, and allowing it would let any workflow in any of its
+repositories approve its own. `CI OK` is required by the repository ruleset
+`require-ci-ok`, beside `protect-develop`.
+
+Maintainability is covered by the native linters and the
 coverage gate in `ci.yml`. That drops Sonar's clean-as-you-code gate, so the
 `PLR09xx` refactor rules ruff ignores (too many arguments, branches, statements)
 are no longer reported on new code.

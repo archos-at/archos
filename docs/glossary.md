@@ -119,7 +119,7 @@ English.
 | Revision | One state of a document in its timeline | none | `revision` ([above](#german-domain-term-english-code-name)) | Fassung |
 | Annotation | A mark on one page of one revision, with its thread | W3C Web Annotation | `lib/annotations/` | Anmerkung |
 | Answer envelope | The JSON object a research answer is generated as (prose, kind, verdict, cards). Not the signed request context | none | `packages/agent/src/agent/common/answer_envelope.py` | none |
-| Allow (a held upload) | A reviewer lets an upload the content check held back through. Never "release", which collides with approval | none | operations `document-quarantine-allow`, `document-quarantine-allow-request` (routes still `…/release`, a follow-up) | zulassen |
+| Allow (a held upload) | A reviewer lets an upload the content check held back through. Never "release", which collides with approval | none | operations `document-quarantine-allow`, `document-quarantine-allow-request`, `quarantine-decide` (several at once) (routes still `…/release`, a follow-up) | zulassen |
 | Conversation | A thread with Piloti and people in it | A2A `contextId` | `conversations`; agents read "conversation" | Chat |
 | Assignee | The person an annotation is assigned to, who answers it and closes it | none | `assigneeUserId` (`lib/annotations/`) | Zuständig |
 
@@ -215,7 +215,7 @@ replaced `agent_capability_missing`.
 | AGENTS.md, CLAUDE.md bridge | Each area's guide is an `AGENTS.md`; a one-line `CLAUDE.md` beside it imports it for Claude | [`docs/contributing/agent-onboarding-files.md`](contributing/agent-onboarding-files.md) |
 | Skill or document | A repo skill exists only for agent-specific procedure; anything a contributor needs too is a document | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
 | apm, `apm.lock.yaml` | The agent package manager that installs third-party skills, and the lockfile that hashes them; `task agents:audit` fails on drift | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
-| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the changelog. The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
+| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the app's What's new, by week and product area; the public changelog shows the weekly summaries (ADR-0156). The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
 | oxlint, `grid/*` rules | The UI linter, and the repo's own rules it runs as a JS plugin (tenant scope, tenant cache key, motion vocabulary, card type scale, restricted syntax) | [`docs/contributing/lint-evaluation.md`](contributing/lint-evaluation.md) |
 
 ## CI

@@ -32,7 +32,8 @@ import type { PendingJob } from '../orchestrator'
 import { markSessionHasCollection } from '../persistence'
 import { notifyDocumentsChanged } from '@/lib/documents/document-changes'
 import { loadUploadScreeningPolicy } from '@/adapters/api/upload-screening-policy'
-import { screenUploadName, type NameMatch } from '@/lib/upload-screening/name-screen'
+import type { NameMatch } from '@/lib/upload-screening/name-screen'
+import { screenFileNames, uploadAnywayOffer } from '../lib/name-screened-files'
 import { describeScreenedOut } from '@/lib/upload-screening/quarantine'
 import type { UploadScreeningPolicy } from '@/lib/upload-screening/policy'
 import { exclusionsByTerm, openUploadBatch, sealUploadBatch } from '../lib/upload-batch'
@@ -238,6 +239,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
   const setUploading = useDocumentsStore((s) => s.setUploading)
   const setError = useDocumentsStore((s) => s.setError)
   const clearError = useDocumentsStore((s) => s.clearError)
+  const setNameStopped = useDocumentsStore((s) => s.setNameStopped)
 
   const sessionFiles = useMemo(
     () => (collectionName ? trackedFiles.filter((f) => f.collectionName === collectionName) : []),
@@ -377,18 +379,12 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
         setError(t('errors.screeningPolicyUnavailable'))
         return 0
       }
-      const screenedOut: Array<{ file: File; matches: NameMatch[] }> = []
-      const validFiles = validationResult.validFiles.filter((file) => {
-        if (options?.screeningReleased?.(file)) return true
-        const verdict = screenUploadName(policy, {
-          filename: file.name,
-          originPath: file.webkitRelativePath || null,
-          folderPath: options?.folderPathFor?.(file) ?? null,
-        })
-        if (verdict.blocked) screenedOut.push({ file, matches: verdict.matches })
-        return !verdict.blocked
-      })
-      const screenedMessage = describeScreenedOut(screenedOut, t)
+      const named = screenFileNames(validationResult.validFiles, policy, t, options)
+      const validFiles = named.allowed
+      const screenedMessage = named.message
+      // „Trotzdem hochladen" in the message: the same batch again, these files released.
+      const offerAnyway = (stopped: File[]) => setNameStopped(uploadAnywayOffer(stopped, options, uploadFiles))
+      offerAnyway(named.stopped.map(({ file }) => file))
       if (validFiles.length === 0) {
         setError(screenedMessage ?? localizedSummary)
         return 0
@@ -473,7 +469,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           expectedCount: entries.length,
           excluded: exclusionsByTerm([
             ...(options?.excludedByScreening ?? []),
-            ...screenedOut.map(({ matches }) => matches),
+            ...named.stopped.map(({ matches }) => matches),
           ]),
         })
         let unchangedCount = 0
@@ -650,7 +646,8 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
           onError?.(firstFailure.reason instanceof Error ? firstFailure.reason : new Error(message))
         } else if (serverStopped.length > 0) {
           // Every file not uploaded, the browser's stops and the server's, in one sentence.
-          setError(describeScreenedOut([...screenedOut, ...serverStopped], t) ?? failureCopy.failed)
+          setError(describeScreenedOut([...named.stopped, ...serverStopped], t) ?? failureCopy.failed)
+          offerAnyway([...named.stopped, ...serverStopped].map(({ file }) => file))
         } else if (heldReplaced.length > 0 && !screenedMessage) {
           setError(heldReplaced[0])
         }
@@ -733,6 +730,7 @@ export const useFileUpload = (options: UseFileUploadOptions = {}): UseFileUpload
       setUploading,
       clearError,
       setError,
+      setNameStopped,
       onError,
       removeRecentlyDeletedIds,
       failureCopy,

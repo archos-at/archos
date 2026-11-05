@@ -32,7 +32,7 @@ from agent.common import LLMProvider
 from agent.common.data_source_registry import reset_registry
 from agent.tools.bim.measure_register import _render
 
-FIXTURES = Path(__file__).resolve().parents[5] / "packages" / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parents[5] / "packages" / "ifc-spatial-py" / "tests" / "fixtures"
 #: Geometry everywhere — the fixture that actually measures.
 HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 #: Two named rooms and four walls, and not one body the geometry kernel accepts.

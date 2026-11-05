@@ -50,6 +50,7 @@ import { notifications } from './notifications'
 import { inboundMail } from './inbound-mail'
 import { mailThread } from './mail-thread'
 import { search } from './search'
+import { whatsNew } from './whats-new'
 import type { Dictionary } from '../index'
 
 export const de: Dictionary = {
@@ -97,4 +98,5 @@ export const de: Dictionary = {
   inboundMail,
   mailThread,
   search,
+  whatsNew,
 }

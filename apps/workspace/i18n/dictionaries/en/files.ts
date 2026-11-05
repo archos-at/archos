@@ -339,6 +339,7 @@ export const files = {
       markdown: 'Markdown',
       plainText: 'Text file',
       ifc: 'IFC model',
+      dxf: 'CAD file (DXF)',
       email: 'Email',
       image: 'Image ({format})',
       extension: '{ext} file',
@@ -356,10 +357,8 @@ export const files = {
     retryingIngestion: 'Retrying…',
     retryIngestionError: "Reading couldn't be restarted. Please try again.",
     dialogLabel: 'File preview: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'File view',
-      document: 'Document',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -396,6 +395,8 @@ export const files = {
    */
   ingestFailure: {
     rendition_failed: "The PDF preview of this file couldn't be created. Try reading it again, or upload it as a PDF.",
+    drawing_unreadable:
+      "This DXF file couldn't be read or holds no drawing. Export it again as DXF from your CAD program and upload it once more.",
     download_failed: "The uploaded file couldn't be fetched from storage. Try reading it again, or upload it once more.",
     interrupted: 'Reading stopped when the service restarted. Read it again to finish.',
     unreadable_pages:
@@ -766,6 +767,7 @@ export const files = {
     label: 'File actions for “{name}”',
     menuLabel: 'File actions',
     download: 'Download',
+    downloadPdf: 'Download as PDF',
     open: 'Open',
     ask: 'Ask about this',
     select: 'Select',
@@ -1059,7 +1061,11 @@ export const files = {
     uploadStorageFull: "Your office's storage is full. Nothing was uploaded.",
     // Not uploaded by the name check (ADR-0086): on a path with no upload
     // dialog, such as a chat attachment, or by the server's repeat of it.
-    screenedOut: '{count} file(s) not uploaded because your office marks them as sensitive: {files}',
+    screenedOut:
+      '{count, plural, one {One file was not uploaded} other {# files were not uploaded}} because its name contains a term your office marked as sensitive: {files}',
+    uploadAnyway: '{count, plural, one {Upload anyway} other {Upload all # anyway}}',
+    uploadAnywayHint:
+      'The name alone does not decide: {productName} still checks the content after the upload. Your release is logged.',
     screenedOutFile: '“{name}” ({reason})',
     // The office's list could not be read: without it nothing is sent, not
     // even against Piloti's suggestion (ADR-0086).
@@ -1116,6 +1122,8 @@ export const files = {
     scopeProject: 'in this project',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
+    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
+    headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
     headlineNothingToRead: '{count, plural, one {# document, not part of the knowledge base} other {# documents, none part of the knowledge base}}',
@@ -1129,7 +1137,7 @@ export const files = {
     allRead: 'All read',
     unplacedShort: '{count} without a document type',
     /** Beside the legend: documents Piloti never reads. Not part of the headline's “of N”. */
-    unindexedAside: 'plus {count} not in the knowledge base',
+    unindexedAside: '{count} more not in the knowledge base',
     /** Run-in labels of the two chip families under “What this is about”. */
     typesLabel: 'Document type',
     disciplinesLabel: 'Discipline',

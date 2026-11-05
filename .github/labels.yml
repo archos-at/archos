@@ -34,6 +34,10 @@
   color: "e4e669"
   description: "Exempt from the mandatory release note — no user can observe this change"
 
+- name: migration:contract
+  color: "d93f0b"
+  description: "This PR's migration removes an old shape on purpose; production is past every build that reads it (ci/migration_contract.py)"
+
 - name: answer-suite
   color: "5319e7"
   description: "No CI reads this label; run task be:eval:answer-suite and attach the report to the PR"

@@ -1,5 +1,6 @@
 /** The review operations (ADR-0122). See `projects.ts` for the shape and `docs/architecture/agent-surface.md` for the rules. */
 
+import { quarantineDecisionsSchema } from '@/lib/upload-screening/decisions-wire'
 import { z } from 'zod'
 import {
   createAnnotationRequestSchema,
@@ -369,6 +370,24 @@ export const reviewOperations = [
     destructive: true,
     sensitivity: 'control',
     load: () => import('@/app/api/documents/[id]/quarantine/release/route'),
+  },
+  {
+    name: 'quarantine-decide',
+    domain: 'review',
+    summary: 'Allow, delete or recheck several held documents at once',
+    description:
+      'A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other ' +
+      'upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it ' +
+      'again). Every document is checked on its own; the answer is `results`, one `{ id, outcome }` per document, ' +
+      'the outcome one of allowed, rechecking, deleted, changed (someone decided first), not_found, forbidden or failed ' +
+      '(`changed` when someone decided first). The decision cannot be taken back.',
+    method: 'POST',
+    path: '/api/quarantine/decisions',
+    body: quarantineDecisionsSchema,
+    destructive: true,
+    sensitivity: 'control',
+    examples: [{ body: { decision: 'allow', documentIds: ['doc_1', 'doc_2'] } }],
+    load: () => import('@/app/api/quarantine/decisions/route'),
   },
 
   // ---- Revisions: how one document replaces another ----

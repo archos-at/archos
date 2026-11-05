@@ -77,7 +77,7 @@ because `:root` and `.dark` have equal specificity there. Decorative overlays
 that paint the card's colour over content (the streaming caret's veil) are
 hidden under `contrast-more:` and `forced-colors:`.
 
-**Ink ramp (light):** #1f2023 (foreground/action) → #55565a secondary → #6f706c muted → #8a8a86 placeholder → #b3b3af ghost. Borders are **alpha ink hairlines** (`rgba(28,30,33,…)` equivalents at .08 base / .12 input / .16 strong / .22–.32 selected), so they composite on any surface. Focus ring is ink-based (`--ring`), never blue, and it is for the keyboard: the global `:focus-visible` outline is unlayered on purpose, so it survives every control's `outline-none` and gives the keyboard its 3:1 indicator on top of the softer `FOCUS_RING` halo (in a cascade layer, `outline-none` once dropped it app-wide); an overlay's panel never draws one when it takes the focus itself on open. **A focus ring snaps.** No transition list in a control names `box-shadow` (a Tailwind ring is a box-shadow) or, on a field, `border-color` (a field's focus is its border turning to `--ring`): a ring that fades in is a ring that is not there yet when the reader looks for it.
+**Ink ramp (light):** #1f2023 (foreground/action) → #55565a secondary → #6f706c muted → #8a8a86 placeholder → #b3b3af ghost. Borders are **alpha ink hairlines** (`rgba(28,30,33,…)` equivalents at .08 base / .12 input / .16 strong / .22–.32 selected), so they composite on any surface. Focus ring is ink-based (`--ring`), never blue, and it is for the keyboard: the global `:focus-visible` outline is unlayered on purpose, so it survives every control's `outline-none` and gives the keyboard its 3:1 indicator on top of the softer `FOCUS_RING` halo (in a cascade layer, `outline-none` once dropped it app-wide); an overlay's panel never draws one when it takes the focus itself on open. **A field's focus is its border, nothing more.** A text field (`Input`, `Textarea`, `Select`, every search bar, the chat composer) shows `:focus-visible` on a mouse click, so a halo or the global outline on it is drawn on every click: three bands where the reader wanted a caret (Notion #38). `FIELD_FOCUS_RING` / `FIELD_FOCUS_WITHIN_RING` (`components/ui/focus-ring.ts`) turn the 1px border to `--ring` and switch the global outline off (`outline-hidden!`, which forced colours still draw); that border is above 3:1 against paper and against the resting border in both themes. Buttons keep `FOCUS_RING`. **A focus ring snaps.** No transition list in a control names `box-shadow` (a Tailwind ring is a box-shadow) or, on a field, `border-color` (a field's focus is its border turning to `--ring`): a ring that fades in is a ring that is not there yet when the reader looks for it.
 
 **Provenance signal system** — each signal has a base color, a `-tint` surface (for chips/rows on cards), and a `-text` variant (AA-readable on the tint), both modes:
 
@@ -135,7 +135,7 @@ made. **Do not reintroduce a general accent token.** If a future surface needs
 
 ## Type ramp (Tailwind classes — use verbatim)
 
-The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **uppercase ~10.5px eyebrow/label convention** (wide tracking, muted ink).
+The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **~10.5px eyebrow/label convention** (sentence case, medium weight, muted ink). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
 
 | Role | Classes |
 |---|---|
@@ -143,7 +143,8 @@ The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero
 | Page title (≈20px) | `text-xl font-medium tracking-tight` |
 | Section heading | `text-lg font-medium tracking-tight` |
 | Card/subsection title | `text-sm font-medium` |
-| Eyebrow / label (uppercase ≈10.5px) | `text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground`, written once as `.card-eyebrow` (`tracking-wider` is its 0.05em) and reached through `SectionLabel`; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Eyebrow / label (sentence case ≈10.5px) | `text-[10.5px] font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Answer text (16px) | `text-answer` (`--text-answer`, `ui/styles/tokens.css`): the ONE size of an answer's text: prose, lede, standfirst, a block's body, a card's body and title (`.card-body` and `.card-title` read the token). Headings, figures and the caption/meta/eyebrow steps keep their own; a size step inside an answer that expresses no rank is the defect it removed (Notion #38) |
 | Body | `text-sm` (leading-relaxed for prose) |
 | Body secondary | `text-sm text-muted-foreground` |
 | Caption / meta | `text-xs text-muted-foreground` |
@@ -158,9 +159,13 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 
 - **Content weight is 500.** Emphasis is size and ink, never 600 or 700: a
   title is `font-medium` at a larger size or in `text-foreground`, its
-  context in `text-muted-foreground`. Secondary running text is 400
-  (`font-normal`). The card scale in `globals.css` (`.card-title`,
-  `.card-headline`, `.card-figure-*`) is 500 as well.
+  context in `text-muted-foreground`. Secondary running text is the
+  light end, `font-normal`, which is **440, not 400**: General Sans is
+  variable and its 400 read thin on paper and charcoal alike (Notion #38).
+  `--font-weight-normal` in `tokens.css` sets it once, `body` reads it, and
+  nothing is set lighter (`tests/brand-literals.spec.ts`). The card scale in `globals.css` (`.card-title`,
+  `.card-headline`, `.card-figure-*`) is 500 as well; its caption and body
+  steps read `--font-weight-normal`.
 - **One documented exception to 600:** numerals and initials set at 12px or
   smaller inside a badge, marker, count or avatar (a citation marker, a count
   pill, a stepper numeral, a collaborator's initials), where 500 loses against
@@ -176,6 +181,11 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 - **Body face** is General Sans (`--font-sans`). **Geist Mono** is the app's
   monospace for code, keycaps, identifiers and the skill editor
   (`--font-mono`); the brand has no mono, and the app keeps one on purpose.
+  Its 0 is plain, never slashed: a slashed 0 in a count read as a crossed-out
+  zero. The face's own stylistic set (`ss09`) does it, switched on once with
+  the family (`--font-mono--font-feature-settings` in `tokens.css`), which is
+  why the font comes from the `geist` package and not Google Fonts, whose copy
+  has no plain 0 ([gotcha](../contributing/gotchas.md)).
 - **The brand has no colour of its own.** It is black and white: warm white `--ds-surface` (#fafaf9), black `--ds-ink` (#0f0e0d) and one light grey `--ds-surface-sunken` (#f2f1f0). The app's hues (provenance signals, status, the data palette, the energy scale) are functional and documented exceptions; add no new one.
 - **No pure white.** Surfaces are `--ds-surface` (paper), `--ds-surface-raised`
   (`--card`, `--popover`, overlays) and `--ds-surface-sunken`. Pure white stays
@@ -542,8 +552,8 @@ shortfall. Measured at 390px, the History subtitle rendered 44px wide across
 eight lines, one word per line. Never reintroduce a bare `shrink-0` here;
 `page-header.spec.ts` fails it.
 
-**Project section chrome** — every project section except **Ask Piloti**
-(chat) opens with the same block: a muted `{project} / {section}` breadcrumb
+**Project section chrome** — every project section except **Chat**
+opens with the same block: a muted `{project} / {section}` breadcrumb
 trail, then the `PageHeader` title + one-line subtitle, then optional actions
 on the right. The two shapes are an action button (Files' view toggle,
 Automation's "New job"/"New skill") and title-only (Settings, Knowledge). The
@@ -556,7 +566,7 @@ its own toolbar, not a content page. Evidence: `/dev/project-chrome`.
 **Section** — eyebrow label + content, no heavy chrome:
 ```tsx
 <section className="space-y-3">
-  <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{label}</h2>
+  <SectionLabel as="h2">{label}</SectionLabel>
   {content}
 </section>
 ```

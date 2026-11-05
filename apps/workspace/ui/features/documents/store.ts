@@ -22,6 +22,7 @@ const initialState: DocumentsState = {
   loadedSessionId: null,
   recentlyDeletedIds: new Set<string>(),
   error: null,
+  nameStopped: null,
   shownBannersForJobs: {},
 }
 
@@ -201,7 +202,11 @@ export const useDocumentsStore = create<DocumentsStore>()(
       },
 
       clearError: () => {
-        set({ error: null }, false, 'clearError')
+        set({ error: null, nameStopped: null }, false, 'clearError')
+      },
+
+      setNameStopped: (nameStopped) => {
+        set({ nameStopped }, false, 'setNameStopped')
       },
 
       // --------------------------------------------------------------------------

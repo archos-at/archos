@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  *
- * The receive side's SQL against a REAL Postgres with migration 0194, through
+ * The receive side's SQL against a REAL Postgres with migration 0196, through
  * the restricted runtime role (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \

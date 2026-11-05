@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { UploadAnywayButton } from '@/features/documents'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion, motionEntrance, motionQuickExit } from '@/components/motion'
@@ -17,8 +18,8 @@ export function ComposerField({ controller }: { controller: InputAreaController 
         // 16px on a coarse pointer keeps iOS Safari from zooming the page
         // when the composer gains focus; a mouse gets the body ramp step. The
         // pointer axis, not `md:` — see the note in `ui/input.tsx`.
-        // The composer CARD signals focus with its focus-within ring (see the
-        // card class above), so the textarea shows no ring/border/outline of
+        // The composer CARD signals focus with its border turning ink
+        // (`FIELD_FOCUS_WITHIN_RING` in InputArea), so the textarea shows no ring/border/outline of
         // its own. `outline-hidden!` beats the app's global :focus-visible
         // outline (globals.css, unlayered) with an important utility — otherwise
         // focus is drawn twice: a nested box inside the card's ring.
@@ -164,7 +165,10 @@ export function ComposerField({ controller }: { controller: InputAreaController 
           >
             <Alert variant="destructive" className="mt-2">
               <AlertDescription className="flex w-full items-start justify-between gap-2">
-                <span>{controller.uploadError}</span>
+                <span>
+                  {controller.uploadError}
+                  <UploadAnywayButton className="flex" />
+                </span>
                 <button data-attr="chat-clear-error"
                   type="button"
                   onClick={controller.clearError}
@@ -216,14 +220,12 @@ export function ComposerField({ controller }: { controller: InputAreaController 
         )}
       </AnimatePresence>
 
-      {/* Bottom control row, spaced from the textarea, no rule between.
-                Order per the click dummy: scope · Datengrundlage · Deep-Research,
-                then attach + send pushed right. */}
+      {/* Bottom control row, spaced from the textarea, no rule between:
+                the controls pushed right. */}
       {/* On a phone: the hold (when there is one), then ONE row of controls
-                that never wraps (the scope chip gives way, truncating the project
-                name, so Send cannot be orphaned on a line of its own), then the
-                addressee line. From `sm` the two wrappers dissolve (`contents`) and
-                the pieces sit in one wrapping row as they always have: scope, the
+                that never wraps, so Send cannot be orphaned on a line of its own,
+                then the addressee line. From `sm` the two wrappers dissolve
+                (`contents`) and the pieces sit in one wrapping row: the
                 statements, the buttons pushed right. */}
     </>
   )

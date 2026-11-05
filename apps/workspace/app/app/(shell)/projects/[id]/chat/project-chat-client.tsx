@@ -23,7 +23,7 @@ export interface ProjectChatClientProps {
   canCollaborate?: boolean
   /** Whether the reader holds `project:chat` on this project. */
   canChatInProject?: boolean
-  /** Project name for the thread-header breadcrumb + composer scope chip. */
+  /** Project name for the thread header. */
   projectName: string | null
 }
 
@@ -64,7 +64,7 @@ const ProjectChatContent = ({
   const filePrefill = searchParams?.get('file') ?? null
   const consumedAskRef = useRef<string | null>(null)
 
-  // Sidebar "Frag Piloti" entry point: /projects/:id/chat?new=1 always lands on
+  // Sidebar "Chat" entry point: /projects/:id/chat?new=1 always lands on
   // a fresh, empty chat rather than the last thread. Consume the flag once —
   // reset the store to a new-session draft via the SAME mechanism the toolbar's
   // "New chat" uses (startNewSessionDraft) — then strip ?new so a refresh or
@@ -76,7 +76,7 @@ const ProjectChatContent = ({
     if (!newParam || !isAuthenticated || consumedNewRef.current) return
     consumedNewRef.current = true
     startNewSessionDraft()
-    // Sidebar Frag Piloti (`?new=1` alone) is an empty draft — drop the
+    // Sidebar Chat (`?new=1` alone) is an empty draft — drop the
     // previous peek (#441). `?new=1&doc=` is "new chat ABOUT this file"
     // from Piloti dazu fragen; closing the peek there leaves no visual
     // of the subject.

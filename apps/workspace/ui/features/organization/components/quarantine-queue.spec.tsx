@@ -132,22 +132,23 @@ describe('QuarantineQueue', () => {
     expect(screen.getByTestId('quarantine-row-doc-2')).toBeInTheDocument()
   })
 
-  it.each([
-    ['doc-1', '/api/documents/doc-1'],
-    ['doc-2', '/api/documents/doc-2'],
-    ['doc-3', '/api/session/documents/doc-3'],
-  ])('delete of %s goes through its shelf route %s and removes the row', async (id, route) => {
-    stubApi()
-    render(<QuarantineQueue />)
-    fireEvent.click(await screen.findByTestId(`quarantine-delete-${id}`))
-    fireEvent.click(screen.getByTestId('quarantine-delete-confirm'))
-    await waitFor(() => expect(screen.queryByTestId(`quarantine-row-${id}`)).not.toBeInTheDocument())
-    expect(calledWith(route, 'DELETE')).toBe(true)
-  })
+  it.each(['doc-1', 'doc-2', 'doc-3'])(
+    'delete of %s goes through the decision route, which deletes only what is still held, and removes the row',
+    async (id) => {
+      stubApi(ITEMS, (url) =>
+        url === '/api/quarantine/decisions' ? Response.json({ results: [{ id, outcome: 'deleted' }] }) : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId(`quarantine-delete-${id}`))
+      fireEvent.click(screen.getByTestId('quarantine-delete-confirm'))
+      await waitFor(() => expect(screen.queryByTestId(`quarantine-row-${id}`)).not.toBeInTheDocument())
+      expect(calledWith('/api/quarantine/decisions', 'POST')).toBe(true)
+    }
+  )
 
   it('keeps the row when the delete is refused, and says why for a chat attachment', async () => {
-    stubApi(ITEMS, (url, init) =>
-      init?.method === 'DELETE' && url.startsWith('/api/session/') ? new Response(null, { status: 404 }) : undefined
+    stubApi(ITEMS, (url) =>
+      url === '/api/quarantine/decisions' ? Response.json({ results: [{ id: 'doc-3', outcome: 'not_found' }] }) : undefined
     )
     render(<QuarantineQueue />)
     fireEvent.click(await screen.findByTestId('quarantine-delete-doc-3'))
@@ -169,5 +170,106 @@ describe('QuarantineQueue', () => {
     stubApi([])
     render(<QuarantineQueue />)
     expect(await screen.findByTestId('quarantine-empty')).toHaveTextContent('Nothing is waiting for review')
+  })
+
+  describe('several at once', () => {
+    const CARD: QuarantineReason = { kind: 'credit_card', sample: '•••• 4444', count: 1 }
+    const cardRow = (id: string) => ({ ...ITEMS[0], id, filename: `${id}.pdf`, verdict: { reasons: [CARD], checked: 'full' } })
+    const decisions = () =>
+      vi.mocked(fetch).mock.calls.filter(([url]) => url === '/api/quarantine/decisions').map(([, init]) => JSON.parse(String(init?.body)))
+
+    it('filters by what held the files, picks all shown, and allows them in one request', async () => {
+      stubApi([cardRow('card-a'), cardRow('card-b'), ITEMS[0]], (url, init) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({
+              results: (JSON.parse(String(init?.body)).documentIds as string[]).map((id) => ({ id, outcome: 'allowed' })),
+            })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-filter-credit_card'))
+      expect(screen.queryByTestId('quarantine-row-doc-1')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('quarantine-select-all'))
+      expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('2 selected')
+      fireEvent.click(screen.getByTestId('quarantine-release-selected'))
+      fireEvent.click(await screen.findByTestId('quarantine-release-confirm'))
+
+      await waitFor(() => expect(decisions()).toEqual([{ decision: 'allow', documentIds: ['card-a', 'card-b'] }]))
+      await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
+      expect(toast.success).toHaveBeenCalled()
+      // The card filter is empty now, so the list falls back to everything left.
+      expect(screen.getByTestId('quarantine-row-doc-1')).toBeInTheDocument()
+    })
+
+    it('keeps a file the server could not decide, selected, and says so', async () => {
+      stubApi([cardRow('card-a'), cardRow('card-b')], (url) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({ results: [{ id: 'card-a', outcome: 'deleted' }, { id: 'card-b', outcome: 'failed' }] })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-card-a'))
+      fireEvent.click(screen.getByTestId('quarantine-select-card-b'))
+      fireEvent.click(screen.getByTestId('quarantine-delete-selected'))
+      fireEvent.click(await screen.findByTestId('quarantine-delete-confirm'))
+
+      await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
+      expect(decisions()).toEqual([{ decision: 'delete', documentIds: ['card-a', 'card-b'] }])
+      expect(screen.getByTestId('quarantine-row-card-b')).toBeInTheDocument()
+      expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('1 selected')
+      expect(toast.error).toHaveBeenCalled()
+    })
+
+    it('checks the selection again with the rules in force now; the rows leave until they match again', async () => {
+      stubApi([cardRow('card-a'), cardRow('card-b')], (url, init) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({
+              results: (JSON.parse(String(init?.body)).documentIds as string[]).map((id) => ({ id, outcome: 'rechecking' })),
+            })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-all'))
+      fireEvent.click(screen.getByTestId('quarantine-recheck-selected'))
+
+      await waitFor(() => expect(decisions()).toEqual([{ decision: 'recheck', documentIds: ['card-a', 'card-b'] }]))
+      await waitFor(() => expect(screen.queryByTestId('quarantine-row-card-a')).not.toBeInTheDocument())
+      expect(toast.success).toHaveBeenCalled()
+    })
+
+    it('drops the picks when the filter changes, so nothing hidden is acted on', async () => {
+      stubApi([cardRow('card-a'), ITEMS[0]])
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-card-a'))
+      expect(screen.getByTestId('quarantine-selection')).toHaveTextContent('1 selected')
+      fireEvent.click(screen.getByTestId('quarantine-filter-term'))
+      expect(screen.getByTestId('quarantine-selection')).not.toHaveTextContent('selected')
+    })
+
+    it('counts a quarantine with no readable reason under no finding, and a file not read to the end as not checked', async () => {
+      stubApi([{ ...ITEMS[2], id: 'doc-f', held: 'unscreened' }, ITEMS[2], cardRow('card-a')])
+      render(<QuarantineQueue />)
+      expect(await screen.findByTestId('quarantine-filter-unscreened')).toHaveTextContent('1')
+    })
+
+    it('picks at most what one request decides when more rows are shown', async () => {
+      const rows = Array.from({ length: 51 }, (_, index) => cardRow(`card-${index}`))
+      stubApi(rows, (url, init) =>
+        url === '/api/quarantine/decisions'
+          ? Response.json({
+              results: (JSON.parse(String(init?.body)).documentIds as string[]).map((id) => ({ id, outcome: 'allowed' })),
+            })
+          : undefined
+      )
+      render(<QuarantineQueue />)
+      fireEvent.click(await screen.findByTestId('quarantine-select-all'))
+      expect(screen.getByTestId('quarantine-selection-limit')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('quarantine-release-selected'))
+      fireEvent.click(await screen.findByTestId('quarantine-release-confirm'))
+
+      await waitFor(() => expect(decisions()).toHaveLength(1))
+      expect(decisions()[0].documentIds).toHaveLength(50)
+    })
   })
 })

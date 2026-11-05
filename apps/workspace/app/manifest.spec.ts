@@ -18,10 +18,6 @@ import manifest from './manifest'
 import { THEME_COLOR } from './theme-boot'
 import { PRODUCT_NAME } from '@/lib/brand'
 
-vi.mock('next/font/google', () => {
-  const font = (options: Record<string, unknown>) => ({ className: '', variable: String(options.variable), style: {} })
-  return { Geist_Mono: font }
-})
 vi.mock('next/font/local', () => ({
   default: (options: Record<string, unknown>) => ({ className: '', variable: String(options.variable), style: {} }),
 }))

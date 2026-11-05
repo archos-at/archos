@@ -106,7 +106,7 @@ export const ListCase: FC<{ active: boolean; muted: boolean; id?: string; compac
     id={id}
     data-active={active ? 'true' : undefined}
     className={cn(
-      compact ? 'text-sm' : 'text-base',
+      compact ? 'text-sm' : 'text-answer',
       muted ? 'text-muted-foreground' : 'text-foreground',
       active && '-ml-2 rounded-control bg-success-subtle py-0.5 pl-2'
     )}
@@ -193,7 +193,7 @@ export const StepLine: FC<{
       <span className="flex min-w-0 flex-1 flex-wrap items-start gap-x-2 gap-y-1">
         <span
           className={cn(
-            'min-w-0 flex-[1_1_9rem] text-left text-[15px] leading-[1.5]',
+            'min-w-0 flex-[1_1_9rem] text-left text-answer leading-[1.5]',
             phase === 'current' ? 'font-medium text-foreground' : 'text-default',
             phase === 'done' && 'text-muted-foreground'
           )}
@@ -266,7 +266,7 @@ export const DetailsFrame: FC<{ children: ReactNode }> = ({ children }) => <div 
 /** A `details` summary line. */
 export const DetailsSummary: FC<{ children: ReactNode; open: boolean }> = ({ children, open }) => (
   <>
-    <span className="min-w-0 flex-1 text-[15px] font-medium leading-[1.5] text-foreground">{children}</span>
+    <span className="min-w-0 flex-1 text-answer font-medium leading-[1.5] text-foreground">{children}</span>
     <ChevronDown
       aria-hidden="true"
       className={cn(
@@ -866,7 +866,7 @@ export const SubsumptionStep: FC<{
       </span>
       <div
         className={cn(
-          'min-w-0 text-[15px] leading-relaxed [&_figure]:my-0 [&_p:last-child]:mb-0 [&_ul]:mb-0',
+          'min-w-0 text-answer [&_figure]:my-0 [&_p:last-child]:mb-0 [&_ul]:mb-0',
           part === 'result' && 'font-medium text-foreground'
         )}
       >

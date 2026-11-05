@@ -588,11 +588,11 @@ export function DocumentRevisions({
         {/* The heading IS the trigger: a disclosure whose label is not the thing
             you press has a second target for the same job. */}
         {/* The same header line as every other section of the rail
-            (`InspectorSection`): inset to the groups' content edge, uppercase.
+            (`InspectorSection`): inset to the groups' content edge.
             `[text-transform:inherit]` because the preflight resets a button's
-            case, which drew this one heading in mixed case under three
-            uppercase ones. */}
-        <SectionLabel as="h3" className="px-3 font-medium tracking-[0.05em]">
+            case, so the trigger follows whatever case the eyebrow sets rather
+            than drifting from the other section heads. */}
+        <SectionLabel as="h3" className="px-3">
           <CollapsibleTrigger asChild>
             <button data-attr="document-revisions-toggle"
               type="button"

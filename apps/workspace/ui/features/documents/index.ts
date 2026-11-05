@@ -16,6 +16,8 @@
 export { useFileUpload } from './hooks/use-file-upload'
 export { useFileDragDrop } from './hooks/use-file-drag-drop'
 export { FileUploadZone } from './components/FileUploadZone'
+export { HeldUploadDecision } from './components/held-upload-decision'
+export { UploadAnywayButton } from './components/upload-anyway'
 // The E-Mail-Eingang files attachments into Dateien: it picks the folder, shows
 // the extension chip, and links a filed document.
 export { FolderPickerSheet } from './components/folder-picker-sheet'

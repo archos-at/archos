@@ -2,7 +2,7 @@
 
 `packages/` also holds packages that are not part of this Python workspace:
 `ifc-spatial-py` keeps its own `uv.lock` so IfcOpenShell stays out of the main
-one, and `ifc-spatial` and `brand` are not Python. So nothing globs
+one, and `brand` is not Python. So nothing globs
 `packages/*`, and each workspace package is named in the root `pyproject.toml`
 (the uv workspace and pytest's `testpaths`) and in `taskfiles/backend.yml`
 (`PY_PACKAGES`, the suite `be:test:sources` runs; the agent's own suite is in the core

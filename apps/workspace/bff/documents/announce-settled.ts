@@ -27,7 +27,7 @@ export async function announceSettledIngests(
   const finished: FinishedIngest[] = announced.flatMap(([id, resolution]) => {
     const row = rowsById.get(id)
     if (!row) return []
-    return [{ ...finishedIngestOf(row, resolution, metaByRow.get(id)), attempt: facts.get(id)?.attempt, uploadId: facts.get(id)?.uploadBatchId }]
+    return [{ ...finishedIngestOf(row, resolution, metaByRow.get(id)), attempt: facts.get(id)?.attempt, uploadId: facts.get(id)?.uploadBatchId, fileBytes: facts.get(id)?.fileSize }]
   })
   announceIngestsFinished(organizationId, finished, settledBy)
 }

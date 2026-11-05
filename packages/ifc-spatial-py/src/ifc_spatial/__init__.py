@@ -1,11 +1,11 @@
-"""``ifc-spatial`` on IfcOpenShell — the engine-swap spike.
+"""``ifc-spatial`` on IfcOpenShell — the one IFC engine (ADR-0045).
 
-The TypeScript package at ``packages/ifc-spatial`` is the reference
-implementation and stays that way until the parity table says otherwise. This
-package answers one question: can IfcOpenShell serve the ENTIRE operator surface
-without changing a single sentence the architect reads?
+It began as a port of a TypeScript engine (``packages/ifc-spatial``, deleted
+2026-11-04 once this package served every operator and the parity table held;
+the docstrings that say "a port of" name that history). Its reference numbers
+stay in ``tests/test_parity.py``.
 
-What must survive the port is not the geometry — it is
+What had to survive the port was not the geometry — it is
 :mod:`ifc_spatial.envelope`: ``declared`` / ``computed`` / ``inferred`` /
 ``undecidable``, a tolerance and a method on every measurement, a German
 ``missing.what`` and ``remedy`` on every refusal, and an exception — never an

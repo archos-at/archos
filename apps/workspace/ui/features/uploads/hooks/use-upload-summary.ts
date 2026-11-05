@@ -11,10 +11,11 @@
  * good summary away.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { getProjectName, getUploadSummary, type UploadSummary } from '@/adapters/api/upload-batches-client'
 import { isSettling } from '../lib/upload-summary'
+import { useDocumentsGeneration } from '@/lib/documents/document-changes'
 
 export const UPLOAD_SUMMARY_POLL_MS = 10_000
 
@@ -56,6 +57,18 @@ export function useUploadSummary(
     void load(controller.signal)
     return () => controller.abort()
   }, [load])
+
+  // A file allowed from this summary (or anywhere else) is read again: hear
+  // it, quietly, so its row stops saying it waits for review.
+  const generation = useDocumentsGeneration()
+  const seenGeneration = useRef(generation)
+  useEffect(() => {
+    if (generation === seenGeneration.current) return
+    seenGeneration.current = generation
+    const controller = new AbortController()
+    void load(controller.signal)
+    return () => controller.abort()
+  }, [generation, load])
 
   const settling = state.status === 'ready' && isSettling(state.summary)
   useEffect(() => {

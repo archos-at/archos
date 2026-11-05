@@ -10,23 +10,25 @@ Files can also reach a project by e-mail: mail sent to the project's own
 address waits in its **E-Mail-Eingang** until someone files it, and its text
 becomes an **E-Mail-Verlauf**. See [Project mail](inbound-mail.md).
 
-There are two upload zones in the UI:
+A file goes to one of two places, and the place decides who can use it:
 
-- **Project upload zone** — appears in the Data Sources panel when a project is active. Files uploaded here are scoped to the project (`proj_{projectId}` collection) and shared with everyone who has access to that project.
-- **Chat upload zone** — appears within a conversation. Files uploaded here are scoped to that session (`s_{conversationId}` collection) and visible only within that conversation.
+- **The project's Dateien** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). Upload with **„Hochladen“** in the Dateien header (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**), with the dashed upload card at the end of the grid, or by dropping files anywhere on the file area; on a phone „Hochladen“ floats over the foot of the list. The Büroablage has the same controls for the whole office (see [The Büroablage](#the-büroablage-adr-0024)).
+- **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
-To upload, drag and drop files onto the upload zone or click to browse. Multiple files can be uploaded at once.
+In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Dateien, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in Dateien („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
 
-The project Files workspace shows folders, the file grid, and the preview side by side on desktop. On small screens the panes stack — folders above the file grid — and selecting a file opens the preview as a full-screen overlay with a close button.
+Every way of uploading takes several files at once.
+
+In Dateien, folders are the drill-down inside the listing: each level shows its folders as tiles (or rows, in the list view) beside its files, and the breadcrumb above names the path and walks back out. That row, with „Neuer Ordner“, stays pinned at the top while the listing scrolls. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
-The folder tree in the left pane is the project's filing system, and it supports the full set of operations — not just creating folders.
+The folders are the project's filing system, and they support the full set of operations — not just creating folders.
 
-- **Create** — `New folder` at the bottom of the tree adds a top-level folder; hovering a row reveals a `+` (`Add subfolder in {name}`) that nests one inside it. Both open an inline name field; Enter commits, Escape cancels.
-- **Rename** — the row's `⋯` menu → `Rename…` turns the row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
+- **Create** — **„Neuer Ordner“** beside the breadcrumb opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
+- **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
-- **Delete** — the same menu's `Delete…`. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+- **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 
@@ -158,7 +160,7 @@ Your office's sensitive-data list can also hold files back, by name before they 
 
 ### Supported File Types
 
-The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx`).
+The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default: `.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf`).
 
 | Extension | MIME Type |
 |-----------|-----------|
@@ -171,6 +173,7 @@ The accepted file types are configured via `FILE_UPLOAD_ACCEPTED_TYPES` (default
 | `.html` | `text/html` |
 | `.csv` | `text/csv` |
 | `.json` | `application/json` |
+| `.dxf` | stored as `application/dxf`, whatever the browser sends ([DXF files](#dxf-files-katasterauszüge-and-other-cad-drawings)) |
 
 Spreadsheets index one chunk per worksheet (labelled by sheet name), so a citation points at the sheet. Word files and presentations are indexed from their PDF preview, page by page and with their pictures, so a citation points at the page or slide (see [Word, Excel and PowerPoint files](#word-excel-and-powerpoint-files)). Image uploads (`.png`, `.jpg`, `.jpeg`, `.webp`) are governed by the image-upload flag plus VLM availability, not by this list (see below).
 
@@ -678,6 +681,59 @@ Why it works this way: [ADR-0070](../adr/0070-office-files-are-viewed-through-a-
 for viewing, [ADR-0071](../adr/0071-word-and-presentation-files-are-indexed-from-their-rendition.md)
 for indexing.
 
+### DXF files (Katasterauszüge and other CAD drawings)
+
+A `.dxf` opens in the preview as a PDF sheet drawn **to scale**: the most
+detailed standard scale that fits on A4 or A3 (larger sheets for larger
+drawings), in a frame with a scale bar and a title block. A Katasterauszug of
+150 × 100 m comes out at 1:500 on A3. **„Als PDF herunterladen“** in the file's
+⋯ menu, in the list and in the preview, gives you that PDF to print or attach;
+Download still gives the original DXF. The same entry gives the PDF of a Word,
+Excel or PowerPoint file.
+
+**A Katasterauszug is read, not only shown.** After the drawing comes a page
+„Grundstücke“ listing every parcel in the file: its number, Katastralgemeinde,
+whether it is in the Grenz- or the Grundsteuerkataster, its area as drawn in the
+map, and the parcels it borders. You can ask about them in the chat („Wie groß
+ist 123/4, und wer grenzt an?“) and the answer cites that page. The area is
+computed from the drawn boundary: in the Grundsteuerkataster it is graphic, and
+it is never the Flächenausmaß in the Grundbuch, which the page says too.
+
+**And measured.** The agent reads the drawing's geometry, not the picture of it,
+so it can answer what a page of text cannot: how long the boundary to 123/5 is,
+how far each house stands from each boundary, what remains buildable after 3 m
+on every side and 4 m towards a neighbour, and what a coverage of 40 % or a
+floor-area ratio of 1.2 allows. The setbacks and limits are the ones you give or
+the agent looks up in the Bebauungsplan or the building code; the drawing holds
+none. Each answer carries the same caveat as the page: in the
+Grundsteuerkataster a distance is as drawn, not as surveyed. For any other DXF
+the agent finds labels and says what each layer holds („wie viel Fläche liegt
+auf GRÜNFLÄCHE?“); buildings there are the closed outlines on the layers you
+name.
+
+What to expect:
+
+- The scale comes from the unit the file names. A file that names none is drawn
+  to fit the sheet, and the title block says „Nicht maßstäblich“.
+- The text in the drawing (parcel numbers, street names, labels) is searchable
+  in the viewer and is what the file is indexed by, so a question about a parcel
+  number finds the file.
+- A Katastralmappe from BEV is drawn in BEV's own plot colours (parcel
+  boundaries black, buildings red, land use green), and the title block names
+  the Katastralgemeinde and the coordinate system. Where parcels are in the
+  Grundsteuerkataster it says that their boundaries are graphic and not legally
+  binding: a distance to the boundary for a submission needs a surveyor's plan.
+- Any other DXF is drawn in black, with its own line weights, as a CAD plot is.
+- Boundary points are marked in a simplified form; land-use symbols are not
+  drawn. Only the model space is drawn, not paper-space layouts. DWG files are
+  not shown yet.
+- A file that cannot be read („Diese DXF-Datei ließ sich nicht lesen“) needs to
+  be exported again from the CAD program; reading it again will not help.
+- A whole Katastralgemeinde takes up to a minute; the parcel list covers about
+  4,000 parcels and says how many it left out beyond that.
+
+Why it works this way: [ADR-0152](../adr/0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) (the PDF) and [ADR-0153](../adr/0153-a-dxf-drawing-is-a-site-the-agent-measures.md) (the measuring).
+
 ---
 
 ## Project-Scoped vs Session-Scoped Documents
@@ -709,19 +765,17 @@ component, two shelves** (`FileWorkspace`; see
 Everything described for a project's Dateien above — folders, moving files by
 menu or drag, uploading a whole folder, the cards/list toggle, filters and sort,
 search, the preview and its `?doc=` link — works the same here, with the same
-words. It keeps the gold office mark (the Büroablage provenance signal used
-across the app) and what is specific to the office:
+words, and it looks the same: the header of a project section, the same cards and
+rows. What is specific to the office:
 
 - **Folders** — the office's own tree, separate from every project's. Members
   with `org:office_shelf:manage` create, rename, move and delete folders and re-file
   documents; deleting a folder never deletes documents, it re-files them into the
   parent. Everyone else can open folders, search, filter, preview and download
   but sees no upload, drag, create, rename, move or delete.
-- **Gold kind chip and provenance footer** — a card shows the document's kind
-  (floor plan, notice, …) on a gold chip, and cards whose documents carry
-  ingestion tags show them as an "Aus: …"/"From: …" line. Documents without
-  tags show none, and there is no "verified" marker — the Büroablage has no review
-  workflow.
+- **Cards as in a project** — a Büroablage card is a project's card: no kind
+  chip and no provenance line of its own. There is no "verified" marker — the
+  Büroablage has no review workflow.
 - **Category filter** — the filter menu offers „Kategorie“, derived from the
   controlled ingestion tags actually present on the loaded documents (document
   type + OIB discipline). Categories come from the documents themselves;

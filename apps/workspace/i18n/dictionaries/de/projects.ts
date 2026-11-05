@@ -295,8 +295,6 @@ export const projects: typeof en.projects = {
     },
   },
   card: {
-    summaryFallback:
-      'Arbeitsbereich des Planungsbüros. Fügen Sie Dokumente und ein Briefing hinzu, damit {productName} aus diesem Projekt arbeiten kann.',
     status: {
       active: 'Aktiv',
       paused: 'Ruhend',

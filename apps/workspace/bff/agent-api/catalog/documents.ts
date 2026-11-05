@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { archiveRequestSchema } from '@/lib/documents/lifecycle-types'
 import { byNameRequestSchema } from '@/lib/documents/by-name-types'
 import {
+  documentDownloadQuerySchema,
   documentFileQuerySchema,
   documentSummaryQuerySchema,
   moveDocumentSchema,
@@ -342,11 +343,14 @@ export const documentsOperations = [
     summary: 'Get a time-limited download link for a document',
     description:
       'Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. ' +
+      'With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), ' +
+      'for a person who wants it printed or attached. ' +
       'The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. ' +
       'The bytes are not sent here; for a PDF use document-file-get. Records the access.',
     method: 'GET',
     path: '/api/documents/[id]/download',
     params: documentParams,
+    query: documentDownloadQuerySchema,
     load: () => import('@/app/api/documents/[id]/download/route'),
   },
   {

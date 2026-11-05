@@ -241,6 +241,21 @@ class TestLiftedFacts:
             {"key": "room_height", "value": "2,60", "unit": "m", "page": 2, "quote": None}
         ]
 
+    def test_a_chunks_drawing_data_holding_one_segment_lifts_its_facts(self):
+        # The shape the ingest hands over: one segment per chunk (``segment_payloads``).
+        stored = {
+            "schema_version": 5,
+            "segment": {
+                "quantities": [
+                    {"object": "Wohnen", "property": "lichte Raumhöhe", "value": "2,60", "unit": "m", "source": "text"}
+                ]
+            },
+            "document": {},
+        }
+        assert d.lifted_drawing_facts([(3, stored)]) == [
+            {"key": "room_height", "value": "2,60", "unit": "m", "page": 3, "quote": None}
+        ]
+
     def test_no_analysis_lifts_nothing(self):
         assert d.lifted_drawing_facts([(1, None), (2, {})]) == []
 

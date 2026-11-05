@@ -394,7 +394,7 @@ export const collaboration = {
       waiting: 'Waiting on you',
       news: 'News',
       late: '{count} overdue',
-      nothingWaiting: 'Nothing is waiting on you.',
+      nothingWaiting: 'No open requests.',
       newsRead: 'Mark as read',
       chat: 'Chat',
     },

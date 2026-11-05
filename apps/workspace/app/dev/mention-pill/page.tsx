@@ -29,6 +29,7 @@ import { MentionPeopleProvider } from '@/features/collaboration/context/mention-
 import { I18nProvider } from '@/i18n'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const person = (userId: string, name: string) => ({
   userId,
@@ -45,9 +46,9 @@ const ROSTER = [ME, ANNA, SABINE]
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-1.5">
-    <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+    <SectionLabel as="h2">
       {label}
-    </h2>
+    </SectionLabel>
     <p className="text-foreground text-sm leading-relaxed">{children}</p>
   </section>
 )
@@ -106,9 +107,9 @@ export default function MentionPillPreviewPage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+            <SectionLabel as="h2">
               Die Karte hinter der Erwähnung
-            </h2>
+            </SectionLabel>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="bg-popover w-64 rounded-2xl border p-3 shadow-md">
                 <PersonPeek person={SABINE} isParticipant />

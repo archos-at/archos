@@ -104,16 +104,33 @@ beforeEach(() => {
 })
 
 describe('OfficeShelfWorkspace — library listing', () => {
-  it('loads the Archiv and renders the shared card grid with the gold Büroablage chip', async () => {
+  // Ticket #38, topic 14: a Büroablage document is shown as a project's is. The
+  // gold kind chip and the tags restated as „Aus …" labelled it twice.
+  it('loads the Archiv into the shared card grid, with the cards a project shows and nothing added', async () => {
     render(<OfficeShelfWorkspace canManage />)
 
     expect(await screen.findByText('brandschutz-gutachten.pdf')).toBeInTheDocument()
     expect(screen.getAllByTestId('file-card')).toHaveLength(2)
-    // Real AI summary is surfaced, and the card says where it came from.
     expect(screen.getByText('Brandschutzkonzept für mehrgeschossigen Holzbau.')).toBeInTheDocument()
-    expect(screen.getByText('From: Brandschutz · Gutachten')).toBeInTheDocument()
-    // The card's chip is the document KIND, in the Büroablage's own wording.
-    expect(screen.getAllByText('Document').length).toBeGreaterThan(0)
+    expect(screen.queryByText('From: Brandschutz · Gutachten')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('office-shelf-provenance')).not.toBeInTheDocument()
+    expect(screen.queryByText('Document')).not.toBeInTheDocument()
+  })
+
+  it('opens with the project section header: a title, no mark beside it, and the controls in its action slot', async () => {
+    render(<OfficeShelfWorkspace canManage trailingActions={<button type="button">Close</button>} />)
+    const header = await screen.findByTestId('office-shelf-header')
+    expect(within(header).getByRole('heading', { level: 1, name: /Office filing/ })).toBeInTheDocument()
+    // The gold Archive mark is gone; every glyph left in the header belongs to a control.
+    for (const glyph of header.querySelectorAll('svg')) expect(glyph.closest('button, a, label, input, [role="group"]')).not.toBeNull()
+    expect(within(header).getByTestId('office-shelf-controls')).toBeInTheDocument()
+    expect(within(header).getByRole('button', { name: 'Close' })).toBeInTheDocument()
+  })
+
+  it('pins the row with „All files" and „New folder" while the listing scrolls', async () => {
+    render(<OfficeShelfWorkspace canManage />)
+    const row = await screen.findByTestId('folder-breadcrumb-row')
+    expect(row).toHaveClass('sticky', 'top-0', 'z-10', 'bg-background')
   })
 
   // The count is the shelf's, counted by the server (ADR-0102): the listing on

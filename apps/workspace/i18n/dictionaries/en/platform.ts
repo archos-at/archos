@@ -577,6 +577,56 @@ export const platform = {
       timing: 'The execution timeline of each turn: which step took how long and where it failed.',
     },
   },
+  /** Platform → Agents: connect your own assistant to the console and to the cluster's MCP servers. */
+  agents: {
+    urlLabel: 'MCP server address',
+    urlCode: 'MCP URL',
+    signIn:
+      'The client opens the WorkOS sign-in in your browser. Choose the platform organization there: with an office organization the server refuses.',
+    clients: {
+      claudeCode: { name: 'Claude Code', step: 'Add the server with this command, then pick it under /mcp:' },
+      cursor: { name: 'Cursor', step: 'Add the server to ~/.cursor/mcp.json:' },
+      other: {
+        name: 'Other clients',
+        step: 'Any client that speaks MCP over HTTP and signs in with OAuth can connect: add the address as a remote server.',
+      },
+    },
+    console: {
+      title: 'Operator console',
+      description:
+        'Your assistant works in this console as you do, through an MCP server of its own. Whatever the sections on the left can do, it can do.',
+      notConfiguredTitle: 'Not set up in this installation',
+      notConfiguredBody:
+        'The external sign-in for agents (WORKOS_AUTHKIT_DOMAIN) is missing here, so no assistant can connect.',
+      can: {
+        title: 'What your agent can do here',
+        organizations: 'Look at organizations and change their budgets, storage and upload limits',
+        models: 'Read and set default models, reasoning effort, retrieval settings and prices',
+        quality: 'Review answer quality, feedback, lessons and citation health',
+        knowledge: 'Maintain base knowledge, the norm catalog and skills',
+        maintenance: 'Maintenance: clean up the vector store, stop stuck research',
+      },
+      stays: {
+        title: 'What stays the same',
+        permissions: 'Your role decides: with Platform Support your agent only reads.',
+        confirm: 'A change that reaches every organization is one the client asks you to confirm first, each time.',
+        organization: 'Access is switched on for the platform organization only and works for no office organization.',
+      },
+    },
+    cluster: {
+      title: 'MCP servers in the cluster',
+      description:
+        "The team's services that run only inside the cluster, such as Langfuse, behind one gateway. The services stay private: your assistant signs in with WorkOS, and the gateway hands each service its own key, which you never see.",
+      serverLabel: 'Server {name}',
+      access:
+        'Only with the Platform owner role in the platform organization. Platform Support is refused, because the keys behind these servers also write, prompts in Langfuse for one.',
+      notDeployedTitle: 'Not rolled out in this environment',
+      notDeployedBody:
+        'The gateway does not run here (mcpGatewayEnabled is off). Until it is switched on, these servers are reached by port-forward only.',
+    },
+    runbook: 'Setup and checks',
+    runbookHint: 'For operations: WorkOS settings, stack keys and the checks after the first deploy.',
+  },
   nav: {
     label: 'Platform sections',
     scrollable: 'Platform sections, scrolls sideways',
@@ -598,6 +648,7 @@ export const platform = {
     norms: 'Norm catalog',
     storage: 'Storage',
     maintenance: 'Maintenance',
+    agents: 'Agents',
   },
   answerFeedback: {
     title: 'Answer feedback',
@@ -843,6 +894,10 @@ export const platform = {
       title: 'Maintenance',
       subtitle:
         'Two repairs that reach every organization: clean up the vector store and stop stuck research. Rarely needed.',
+    },
+    agents: {
+      title: 'Connect agents',
+      subtitle: 'Connect your own AI assistant to the operator console and to the MCP servers in the cluster.',
     },
   },
   /** Platform → lessons: the failure-learning register (bandage-framed). */

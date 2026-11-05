@@ -34,6 +34,10 @@ const middleware = authkitMiddleware({
       // Liveness probe — must return 200 even when auth is required, so the
       // container / Coolify / Traefik health check never redirects to login.
       '/api/healthz',
+      // The backend health proxy (its route is `publicApiRoute`): the deploy's
+      // smoke check calls it without a session, and so does the client's
+      // backend-health poll before sign-in.
+      '/api/health',
       '/api/auth/callback',
       // Sign-in entry point behind /?sign-in (the landing site's "Anmelden"
       // target). Like the callback it runs BEFORE a session exists — it mints
@@ -214,6 +218,26 @@ function returnPathnameFor(request: NextRequest): string | null {
   return query ? `${pathname}?${query}` : pathname
 }
 
+/**
+ * The origin people reach the app at, for an absolute Location. It has to be
+ * absolute: Next's middleware adapter parses every Location with
+ * `new NextURL(location)` and no base, so a relative one threw
+ * `TypeError: Invalid URL` and every rerouted request answered 500 (staging,
+ * 2026-11-04); the adapter turns a same-host URL back into a relative one
+ * itself. `request.url` is the internal address behind the gateway, so the
+ * origin is the configured redirect URI's, as the callback route takes it,
+ * and the request's own only when none is configured (auth off).
+ */
+function publicOrigin(request: NextRequest): string {
+  const configured = process.env.WORKOS_REDIRECT_URI ?? process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI
+  try {
+    if (configured) return new URL(configured).origin
+  } catch {
+    // An unparseable setting falls back to the request, as with none.
+  }
+  return request.nextUrl.origin
+}
+
 function rerouteIncompleteSignIn(request: NextRequest, response: Response): Response {
   if (response.status < 300 || response.status >= 400) return response
   if (!isAuthorizeRedirect(response.headers.get('location'))) return response
@@ -223,11 +247,9 @@ function rerouteIncompleteSignIn(request: NextRequest, response: Response): Resp
   const returnPathname = returnPathnameFor(request)
   const query = returnPathname ? `?returnPathname=${encodeURIComponent(returnPathname)}` : ''
 
-  // A relative Location: `request.url` is the internal address behind
-  // Traefik, exactly as the callback route's baseURL comment warns.
   const rerouted = new NextResponse(null, {
     status: request.method === 'GET' || request.method === 'HEAD' ? 307 : 303,
-    headers: { location: `${SIGN_IN_PATH}${query}` },
+    headers: { location: `${publicOrigin(request)}${SIGN_IN_PATH}${query}` },
   })
   // The response we are replacing may be clearing an expired session cookie;
   // carry that, and stay as uncacheable as AuthKit's own redirect.
