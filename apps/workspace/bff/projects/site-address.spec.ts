@@ -2,6 +2,9 @@ import { describe, expect, test } from 'vitest'
 import type { Project } from '@/lib/db/schema/projects'
 import { projectSiteAddress } from './site-address'
 
+// The legacy fact key is stored data, not a name of ours (migration 0159).
+const LEGACY_ADDRESS_KEY = 'standort_adresse'
+
 const withFacts = (facts: Record<string, unknown>): Pick<Project, 'profile'> => ({
   profile: {
     facts: Object.fromEntries(
@@ -24,7 +27,7 @@ describe('projectSiteAddress', () => {
   })
 
   test('falls back to the key an older pod still writes (migration 0159)', () => {
-    expect(projectSiteAddress(withFacts({ standort_adresse: 'Stiftsplatz 1, 3400 Klosterneuburg' }))).toBe(
+    expect(projectSiteAddress(withFacts({ [LEGACY_ADDRESS_KEY]: 'Stiftsplatz 1, 3400 Klosterneuburg' }))).toBe(
       'Stiftsplatz 1, 3400 Klosterneuburg',
     )
   })
