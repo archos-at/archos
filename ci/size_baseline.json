@@ -67,7 +67,7 @@
     "apps/workspace/bff/projects/folder-bin.ts": 707,
     "apps/workspace/bff/projects/memory-service.ts": 1246,
     "apps/workspace/bff/projects/repository.ts": 688,
-    "apps/workspace/bff/projects/service.ts": 779,
+    "apps/workspace/bff/projects/service.ts": 773,
     "apps/workspace/bff/request-context.ts": 649,
     "apps/workspace/bff/runs/service.ts": 643,
     "apps/workspace/bff/sharing/service.ts": 625,

@@ -51,7 +51,6 @@ const ids = { visible: '', hidden: '' }
 vi.mock('@/lib/authz/resource-check', async () => {
   const { PROJECT_PERMISSION_SPECS } = await import('@/lib/authz/catalog')
   return {
-    checkResourcePermission: vi.fn(async (input: { resourceExternalId: string }) => input.resourceExternalId === ids.visible),
     effectiveResourcePermissions: vi.fn(
       async (input: { resourceExternalId: string }) =>
         new Set(input.resourceExternalId === ids.visible ? PROJECT_PERMISSION_SPECS.map(({ slug }) => slug) : [])
