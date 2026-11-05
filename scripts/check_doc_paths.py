@@ -102,8 +102,11 @@ def check(errors: list[str]) -> list[str]:
     tracked = tracked_paths()
     claims = path_claims(INDEX.read_text(encoding="utf-8"))
     for claim in claims:
-        beside_index = (INDEX.parent / claim).as_posix()
-        if claim in tracked or beside_index in tracked:
+        # A directory may be written with its trailing slash (`apps/cms/social/`); git's
+        # parents carry none, so compare without it.
+        bare = claim.rstrip("/")
+        beside_index = (INDEX.parent / bare).as_posix()
+        if bare in tracked or beside_index in tracked:
             continue
         if Path(claim).exists():
             errors.append(f"{INDEX}: `{claim}` exists but git does not track it, so the row is dead for other readers.")

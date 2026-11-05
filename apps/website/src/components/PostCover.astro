@@ -1,0 +1,23 @@
+---
+/**
+ * A post's cover: its line drawing in the brand frame (src/lib/covers.ts), inlined so the
+ * pens take the design tokens. `card` shows the whole 3:2 canvas (the listing's PostCard);
+ * `banner` the 1200 × 630 share band, under the post's lead. Decorative: hidden from
+ * assistive technology, because the title beside it says what the post is about.
+ * The rules for drawing one: packages/brand/docs/blog-covers.md.
+ */
+import '../styles/brand/covers.css';
+import { renderCover } from '../lib/covers';
+
+interface Props {
+  /** The cover's id: its file name in src/assets/covers/, as the post's frontmatter names it. */
+  id: string;
+  variant: 'card' | 'banner';
+}
+
+const { id, variant } = Astro.props;
+// Ids in inline SVG are document-wide: each instance gets its own prefix.
+const svg = renderCover(id, { idPrefix: `cover-${id}-${variant}`, band: variant === 'banner' });
+---
+
+{variant === 'banner' ? <div class="ui-cover-banner" set:html={svg} /> : <Fragment set:html={svg} />}

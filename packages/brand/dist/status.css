@@ -1,0 +1,88 @@
+/* Status pages: the page for an address that does not exist (404, 410) and the page for a
+   fault on our side (500). Values come from tokens.css; class prefix ui-.
+
+   The text says what happened and what to do, in the plain house voice. The drawing next to
+   it says the same in the language of a construction drawing, with the blog covers' pens
+   (covers.css): a door that opens onto a room that was never built (404), the same opening
+   walled up (410), a beam that lost its column and stands on a temporary prop (500).
+
+   The drawing is drawn once as the page loads, then holds still. A wall or a line is drawn
+   along its own path: the pen keeps its width, and a mask of the same path, set wider and in
+   user units, is uncovered with stroke-dashoffset (a dash on the pen itself would be measured
+   in screen pixels under `vector-effect: non-scaling-stroke`). Each part waits
+   `--ui-step` steps of --duration-quick (set on the part). With reduced motion, in print and without CSS
+   animation the still drawing is the finished drawing: every animation runs `backwards`
+   from a start state and ends on the element's own resting style. */
+
+/* ---- Layout: text left, drawing right; stacked below 1024px ---- */
+.ui-status { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--space-8); row-gap: var(--space-12); align-items: center; padding-top: var(--space-16); padding-bottom: var(--space-24); }
+.ui-status-copy { grid-column: 1 / span 6; }
+.ui-status-figure { grid-column: 7 / span 6; margin: 0; }
+.ui-status-code { margin: 0 0 var(--space-6); color: var(--ink-muted); }
+.ui-status-title { margin: 0; }
+.ui-status-text { margin: var(--space-8) 0 0; max-width: 480px; }
+.ui-status-actions { margin-top: var(--space-12); }
+/* The heading rises like a hero title (motion.css); the text and the actions arrive after it. */
+@media screen and (prefers-reduced-motion: no-preference) {
+  .ui-status-text { animation: ui-arrive var(--duration-slow) var(--ease-settle) var(--stagger-max) backwards; }
+  .ui-status-actions { animation: ui-arrive var(--duration-slow) var(--ease-settle) calc(var(--stagger-max) + var(--stagger-row)) backwards; }
+}
+@media (max-width: 1023px) {
+  .ui-status-copy, .ui-status-figure { grid-column: 1 / -1; }
+  .ui-status-figure { max-width: 640px; }
+}
+@media (max-width: 767px) {
+  .ui-status { grid-template-columns: minmax(0, 1fr); column-gap: 0; row-gap: var(--space-8); padding-top: var(--space-6); padding-bottom: var(--space-16); }
+  .ui-status-code { margin-bottom: var(--space-4); }
+  .ui-status-text { margin-top: var(--space-6); }
+  .ui-status-actions { margin-top: var(--space-8); }
+  .ui-status-actions > .ui-btn:not(.ui-btn-text) { flex: 1 1 160px; }
+  /* On a phone the drawing comes first, cropped to a band, so it is seen without scrolling. */
+  .ui-status-figure { order: -1; }
+}
+
+/* ---- The drawing: the covers' frame and pens, on a 6:5 canvas (960 × 800) ---- */
+.ui-cover.ui-status-drawing { aspect-ratio: 6 / 5; }
+@media (max-width: 767px) { .ui-cover.ui-status-drawing { aspect-ratio: 3 / 2; } }
+/* The masks that uncover a part: drawn in user units, so pathLength and the dash agree. */
+.ui-cover .ui-status-mask { fill: none; stroke: var(--ink); stroke-linecap: square; stroke-linejoin: miter; vector-effect: none; }
+/* A part that turns (the door leaf, the beam) turns about its own point (`--ui-hinge`, in
+   drawing units). The beam rests where it sagged to (`--ui-sag`). */
+.ui-status-drawing :is(.ui-status-leaf, .ui-status-leaf > *, .ui-status-sag) { transform-box: view-box; transform-origin: var(--ui-hinge); }
+.ui-status-drawing .ui-status-sag { transform: rotate(var(--ui-sag)); }
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  /* A line or a wall is drawn from its start. */
+  .ui-status-drawing .ui-status-mask { animation: ui-status-draw var(--duration-reveal) var(--ease-draft) backwards; }
+  .ui-status-drawing .ui-status-mask.is-quick { animation-duration: var(--duration-slow); }
+  /* Something seen beyond, a dimension: it arrives. */
+  .ui-status-drawing .ui-status-fade { animation: ui-status-fade var(--duration-slow) var(--ease-settle) backwards; }
+  /* The door swings open about its hinge. */
+  .ui-status-drawing .ui-status-leaf { animation: ui-status-swing var(--duration-reveal) var(--ease-settle) backwards; }
+  /* The beam is drawn level and sags onto the prop. */
+  .ui-status-drawing .ui-status-sag { animation: ui-status-level var(--duration-reveal) var(--ease-settle) backwards; }
+  /* Each part waits its step. Last, so no shorthand above resets it. */
+  .ui-status-drawing [style*="--ui-step"] { animation-delay: calc(var(--ui-step) * var(--duration-quick)); }
+}
+
+/* A pointer resting on the drawing moves the door a little, as a draught would. */
+@media screen and (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .ui-status-drawing .ui-status-leaf > * { transition: transform var(--duration-slow) var(--ease-settle); }
+  .ui-status-figure:hover .ui-status-leaf > * { transform: rotate(-14deg); }
+}
+
+@keyframes ui-status-draw {
+  from { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  to { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+}
+@keyframes ui-status-fade {
+  from { opacity: 0; }
+}
+/* The leaf is not there until its wall is: it appears as it starts to turn. */
+@keyframes ui-status-swing {
+  0% { transform: rotate(-90deg); opacity: 0; }
+  10% { opacity: 1; }
+}
+@keyframes ui-status-level {
+  from { transform: none; }
+}

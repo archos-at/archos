@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- Working on a document together: a floor plan in a review. An area marked round the shaft, a point in a room, two colleagues pointing, and the agent (solid) at the stair. -->
+  <rect class="paper cut" x="160" y="160" width="880" height="480"/>
+  <path class="cut hatch" d="M200 200H1000V600H200Z M216 216V584H984V216Z" fill-rule="evenodd"/>
+  <line class="cut" x1="440" y1="216" x2="440" y2="360"/>
+  <line class="cut" x1="440" y1="408" x2="440" y2="584"/>
+  <line class="cut" x1="216" y1="420" x2="380" y2="420"/>
+  <line class="cut" x1="720" y1="216" x2="720" y2="584"/>
+  <line class="cut" x1="720" y1="440" x2="984" y2="440"/>
+  <line class="cut" x1="860" y1="440" x2="860" y2="584"/>
+  <line class="view" x1="464" y1="236" x2="572" y2="236"/>
+  <line class="view" x1="588" y1="236" x2="696" y2="236"/>
+  <line class="view" x1="464" y1="248" x2="572" y2="248"/>
+  <line class="view" x1="588" y1="248" x2="696" y2="248"/>
+  <line class="view" x1="464" y1="260" x2="572" y2="260"/>
+  <line class="view" x1="588" y1="260" x2="696" y2="260"/>
+  <line class="view" x1="464" y1="272" x2="572" y2="272"/>
+  <line class="view" x1="588" y1="272" x2="696" y2="272"/>
+  <line class="view" x1="464" y1="284" x2="572" y2="284"/>
+  <line class="view" x1="588" y1="284" x2="696" y2="284"/>
+  <line class="view" x1="464" y1="296" x2="572" y2="296"/>
+  <line class="view" x1="588" y1="296" x2="696" y2="296"/>
+  <line class="view" x1="464" y1="308" x2="572" y2="308"/>
+  <line class="view" x1="588" y1="308" x2="696" y2="308"/>
+  <line class="view" x1="464" y1="320" x2="572" y2="320"/>
+  <line class="view" x1="588" y1="320" x2="696" y2="320"/>
+  <line class="view" x1="464" y1="332" x2="572" y2="332"/>
+  <line class="view" x1="588" y1="332" x2="696" y2="332"/>
+  <line class="view" x1="464" y1="344" x2="572" y2="344"/>
+  <line class="view" x1="588" y1="344" x2="696" y2="344"/>
+  <line class="view" x1="464" y1="356" x2="572" y2="356"/>
+  <line class="view" x1="588" y1="356" x2="696" y2="356"/>
+  <line class="view" x1="464" y1="368" x2="572" y2="368"/>
+  <line class="view" x1="588" y1="368" x2="696" y2="368"/>
+  <line class="view" x1="464" y1="380" x2="572" y2="380"/>
+  <line class="view" x1="588" y1="380" x2="696" y2="380"/>
+  <rect class="view" x="572" y="236" width="16" height="144"/>
+  <line class="cut" x1="456" y1="216" x2="456" y2="392"/>
+  <line class="cut" x1="704" y1="216" x2="704" y2="392"/>
+  <path class="view" d="M518 380V252H642V372"/>
+  <circle class="paper view" cx="518" cy="380" r="5"/>
+  <line class="view" x1="642" y1="384" x2="634" y2="366"/>
+  <line class="view" x1="642" y1="384" x2="650" y2="366"/>
+  <rect class="view" x="752" y="240" width="64" height="64"/>
+  <path class="view" d="M752 240L816 304M816 240L752 304"/>
+  <rect class="hidden" x="740" y="228" width="88" height="88"/>
+  <rect class="paper view" x="828" y="216" width="12" height="12"/>
+  <circle class="paper view" cx="320" cy="500" r="7"/>
+  <circle class="view" cx="320" cy="500" r="20"/>
+  <polygon class="paper view" points="846,300 846,342 857.2,332.2 864.2,347.6 872.6,343.4 865.6,328 879.6,328"/>
+  <polygon class="paper view" points="342,522 342,564 353.2,554.2 360.2,569.6 368.6,565.4 361.6,550 375.6,550"/>
+  <polygon class="solid" points="624,316 624,358 635.2,348.2 642.2,363.6 650.6,359.4 643.6,344 657.6,344"/>
+</svg>

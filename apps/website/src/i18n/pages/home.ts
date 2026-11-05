@@ -6,12 +6,12 @@
  */
 const de = {
   meta: {
-    title: 'Der Workspace für Architektur- und Planungsbüros',
+    title: 'Der Workspace für Architekturbüros',
     description:
       'Projektwissen, Unterlagen, Pläne und Modelle in einem Workspace. {name} durchsucht Projekte, vergleicht Planstände und prüft Modelle gegen Vorgaben und Baurecht.',
   },
   hero: {
-    title: 'Der Workspace für Architektur- und Planungsbüros.',
+    title: 'Der Workspace für Architekturbüros.',
     text: '{name} bringt KI in den Planungsprozess.\nFür Teams, die neue Standards setzen.',
     alt: '{name}: Planänderungen seit Rev. C – drei Änderungen mit Quellen, daneben der Grundriss mit markierten Stellen',
   },
@@ -110,19 +110,16 @@ const de = {
       {
         name: 'Jonathan Uhlemann',
         role: 'Architektur und Produkt',
-        portrait: '/media/jonathan-uhlemann.webp',
         portraitAlt: 'Portrait von Jonathan Uhlemann',
       },
       {
         name: 'Matthias Bigl',
         role: 'Software und KI',
-        portrait: '/media/matthias-bigl.webp',
         portraitAlt: 'Portrait von Matthias Bigl',
       },
       {
         name: 'Ferdinand Rubenbauer',
         role: 'Business und Vertrieb',
-        portrait: '/media/ferdinand-rubenbauer.webp',
         portraitAlt: 'Portrait von Ferdinand Rubenbauer',
       },
     ],
@@ -132,12 +129,12 @@ const de = {
 
 const en: typeof de = {
   meta: {
-    title: 'The workspace for architecture and planning firms',
+    title: 'The workspace for architecture firms',
     description:
       'Project knowledge, documents, plans and models in one workspace. {name} searches projects, compares plan revisions and checks models against requirements and building law.',
   },
   hero: {
-    title: 'The workspace for architecture and planning firms.',
+    title: 'The workspace for architecture firms.',
     text: '{name} brings AI into the planning process.\nFor teams that set new standards.',
     alt: '{name}: changes to the plan since Rev. C, three changes with their sources, beside the floor plan with the changes marked',
   },
@@ -236,19 +233,16 @@ const en: typeof de = {
       {
         name: 'Jonathan Uhlemann',
         role: 'Architecture and product',
-        portrait: '/media/jonathan-uhlemann.webp',
         portraitAlt: 'Portrait of Jonathan Uhlemann',
       },
       {
         name: 'Matthias Bigl',
         role: 'Software and AI',
-        portrait: '/media/matthias-bigl.webp',
         portraitAlt: 'Portrait of Matthias Bigl',
       },
       {
         name: 'Ferdinand Rubenbauer',
         role: 'Business and sales',
-        portrait: '/media/ferdinand-rubenbauer.webp',
         portraitAlt: 'Portrait of Ferdinand Rubenbauer',
       },
     ],

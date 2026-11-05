@@ -1,4 +1,6 @@
 ---
+import MaskedWords from './MaskedWords.astro';
+
 interface Props {
   /** display-xl, left over eight columns */
   title: string;
@@ -18,7 +20,7 @@ const multiline = textLines.length > 1;
 <section class={className}>
   <div class="ui-container">
     <div class:list={['ui-hero', !hasMedia && 'ui-hero-plain']}>
-      <Title class="ui-hero-title display-xl">{title}</Title>
+      <Title class="ui-hero-title display-xl"><MaskedWords text={title} /></Title>
       {
         text && (
           <p class:list={['ui-hero-text', 'lead', multiline && 'site-hero-text-lines']}>

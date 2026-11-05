@@ -1,13 +1,18 @@
 ---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+import { PHOTO_QUALITY, PHOTO_WIDTHS, SIZES } from '../lib/media';
+
 /**
  * A row of portraits, one per person: a 4:5 photo, the name under it in body
  * ink, the role under that in small muted ink. One column below 768px.
- * The people (names, roles, portraits, alt text) come from the page copy.
+ * The people (names, roles, alt text) come from the page copy, the portraits
+ * from `src/lib/media.ts`.
  */
 interface Member {
   name: string;
   role: string;
-  portrait: string;
+  portrait: ImageMetadata;
   portraitAlt: string;
 }
 
@@ -22,11 +27,12 @@ const { members } = Astro.props;
   {
     members.map((member) => (
       <li class="ui-team-member">
-        <img
+        <Image
           src={member.portrait}
+          widths={PHOTO_WIDTHS}
+          sizes={SIZES.founder}
+          quality={PHOTO_QUALITY}
           alt={member.portraitAlt}
-          loading="lazy"
-          decoding="async"
         />
         <p class="body ui-team-name">{member.name}</p>
         <p class="small ui-team-role">{member.role}</p>
@@ -59,6 +65,8 @@ const { members } = Astro.props;
   .ui-team-member img {
     display: block;
     width: 100%;
+    /* <Image> writes width and height attributes; the crop is the aspect ratio's. */
+    height: auto;
     aspect-ratio: 4 / 5;
     object-fit: cover;
     border-radius: var(--radius-none);

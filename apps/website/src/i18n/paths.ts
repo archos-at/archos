@@ -28,9 +28,25 @@ export const ROUTES = {
 
 export type RouteKey = keyof typeof ROUTES
 
+/**
+ * Pages that are built and answer at their address, but that the site does not offer: no
+ * link in the navigation, the footer, another page or `llms.txt`, no sitemap entry, and
+ * `noindex` (BaseLayout reads this list). Old addresses may still redirect to them
+ * (redirects.mjs). Owner decision 2026-11-05: the three product sub pages are taken off
+ * the site but kept until it is decided what replaces them.
+ * Moving a key back out of this list offers the page again everywhere.
+ */
+export const UNLISTED_ROUTES: readonly RouteKey[] = ['firms', 'buildingLaw', 'revisions']
+
 /** `/blog/` and `/blog` are the same page: the site builds directory URLs. */
 function trimSlash(path: string): string {
   return path.length > 1 ? path.replace(/\/$/, '') : path
+}
+
+/** Whether `pathname` is one of the unlisted pages, in either locale. */
+export function isUnlisted(pathname: string): boolean {
+  const here = trimSlash(pathname)
+  return UNLISTED_ROUTES.some((key) => here === trimSlash(ROUTES[key].de) || here === trimSlash(ROUTES[key].en))
 }
 
 /** The path of route `key` in `locale`, with its trailing slash as the table gives it. */

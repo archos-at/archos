@@ -11,9 +11,13 @@ or a brand string changes here and reaches every surface on the next sync.
 | `tokens.json` | **Source of truth** for colours, type, spacing, radii, strokes, layout, motion. Every token carries its `usage` in German; a token with `"scope": "app"` belongs to the workspace only (see [Two layers](#two-layers-website-and-app)). |
 | `identity.json` | Every brand string: name, claim, legal entity, address, e-mail, domain, hosting city. |
 | `css/components.css` | Hand-maintained component classes (prefix `ui-`). Values come from the tokens. |
+| `css/motion.css` | Arrival on load and on scroll: the hero's entrance, the one unveiled drawing, the timeline's line, and text arriving (`data-reveal`). Values come from the tokens; the website's `src/scripts/reveal.ts` decides when a block goes. |
+| `css/covers.css` | The blog covers' pens and fills (`ui-cover`), from the tokens: [docs/blog-covers.md](docs/blog-covers.md). |
+| `css/status.css` | The website's 404, 410 and 500 pages (`ui-status`): the layout, and the motion of their drawings, which use the covers' pens. The workspace draws the same scenes on its own tokens (`apps/workspace/ui/styles/status-drawing.css`). |
 | `fonts/` | The two WOFF2 files (General Sans variable, Switzer Semibold). |
 | `assets/logos/` | Client logos in grey (Pilotbüros, funding logo). The brand video is not here; it lives with the website. |
 | `docs/components/` | One Markdown rules sheet per component, plus `ColorUsage.md`. |
+| `docs/blog-covers.md` | The blog's cover format: canvas, frame, pens, composition, and how to draw the next one. |
 | `docs/brand-basis.md` | What the brand says and stands for (Markenbasis): positioning, mission, values, antonyms, tonality, Belegpflicht, image families, logo clear space and minimum size, and which source wins when the Markenbasis and the design system disagree. |
 | `build-tokens.mjs` | Builds `dist/tokens.css` (the website layer: shared tokens only) and `dist/tokens.vars.css` (the app layer: every token, app-scoped ones included, as variables prefixed `--ds-`, dark under `.dark` too) from `tokens.json`, and copies `css/` and `fonts/` into `dist/`. The workspace imports `tokens.vars.css` and maps its own names onto it rather than typing a value. |
 | `sync.mjs` | Copies each app the files of its layer (`TARGETS`) and deletes any it no longer receives; copies `identity.json` alone into the agent's package (a `shared` target: nothing else there is touched); writes the product's name into the files listed in `name-copies.mjs`. `--check` writes nothing and fails on a stale, missing or unexpected file. |
@@ -27,7 +31,7 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 | Copy | Receives |
 |---|---|
-| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `fonts/`, `identity.json` |
+| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `motion.css`, `covers.css`, `status.css`, `fonts/`, `identity.json` |
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
@@ -70,7 +74,7 @@ rule ported from the handover picked it up. From the old names: `radius-sm` → 
 
 ## Workflow
 
-1. Edit `tokens.json`, `identity.json` or `css/components.css`.
+1. Edit `tokens.json`, `identity.json` or a file in `css/`.
 2. `node packages/brand/build-tokens.mjs`, which regenerates `dist/`.
 3. `node packages/brand/sync.mjs`, which writes the app copies.
 4. `node packages/brand/sync.mjs --check` must exit 0. CI runs it.
@@ -117,12 +121,13 @@ Full text: the component sheets in `docs/components/`.
 - Two widths: content in a 1280px container with 32px margins; header and hero image full width with 64px margins. Mobile margins are 16px.
 - The website stays crisp: controls 4px (`radius-md`), images, cards, fields and sections square. The app has its own ladder ([Two layers](#two-layers-website-and-app)): the same kind of element always takes the same step; a radius inside another is the outer one minus the padding between them.
 - Lines only where they carry a function: field borders, underlines, FAQ and info list dividers, the timeline. No line between sections, and none under the header, also not while scrolling.
-- Motion is quiet and architectural: things arrive and come to rest, nothing bounces. Tokens `--duration-*`, `--ease-settle`/`--ease-draft`, `--stagger-row`, `--travel-sm` (the vocabulary of `docs/ux/motion.md`); hover is `--duration-quick` (200ms) `ease-out`, the gallery 400ms, the duo cards 450ms, as handed over. Added beyond the handover, on purpose: a block below the fold arrives once on scroll (`data-reveal`, 8px, 480ms), an FAQ answer opens by height, the mobile menu settles in. Nothing on screen at load moves; with `prefers-reduced-motion` none of it runs and the still page is complete.
+- Motion is quiet and architectural: the page is drawn as the reader arrives, then holds still; nothing bounces. Tokens `--duration-*` (`--duration-reveal` 800ms for an entrance), `--ease-settle`/`--ease-unveil`/`--ease-draft`, `--stagger-row`/`--stagger-word`/`--stagger-max`, `--travel-sm`, `--rise-bleed`, `--unveil-scale`; hover is `--duration-quick` (200ms) `ease-out`, the gallery 400ms, the duo cards 450ms, as handed over. Added beyond the handover, on purpose (`css/motion.css`), few moments and each with a reason. *The hero*, once on load: its headline's words rise out of their line (`MaskedWords`, 30ms apart) and its image is uncovered from the top edge, settling from 3% larger with the mask's sides held still. *Unveil*: the one drawing below the hero (the floor plan) is uncovered from its top edge like a sheet pulled off a drawing, at its own size, once it is decoded. *Draw*: the timeline's line is drawn step by step. A section intro arrives as one unit, and tiles, logos, a quote and a band's text arrive 8px up in 480ms, staggered among the siblings that arrive together. Photos, videos, cards and panels do not move: scrolling brings them in. A heading below the hero is never split into words. Nothing else on screen at load moves, a block reached by scrolling back up is simply there, an FAQ answer opens by height, the mobile menu settles in. With `prefers-reduced-motion`, without script and in print none of it runs and the still page is complete.
 
 **Imagery**
 
 - Real rooms, real people, product cut-outs on exactly `--surface-sunken`. No device mock-ups, no icons, no stock holograms.
 - AI-generated images carry the `AITag` mark, bottom right.
+- Every blog post has a cover: a line drawing on the 40-unit grid, drawn with the construction drawing's pens and one solid element that is the post's point ([docs/blog-covers.md](docs/blog-covers.md)).
 - Pilot-office logos are grey, in `--line-strong`.
 
 **German copy** (the product's public voice; the full voice, values and antonyms: [`docs/brand-basis.md`](docs/brand-basis.md))
@@ -164,7 +169,7 @@ The handover (design system 3.0) is the reference; these are the recorded differ
 |---|---|---|---|
 | Radius names | `radius-md` 4px | `radius-md` 4px; the app's ladder under names of its own | 4px renamed to `radius-sm` was a trap (above) |
 | App layer | none | app-scoped shadows and radius ladder, in the app's copy only | The workspace's softer level is chosen by the owner |
-| Motion | hover, gallery, duo | plus reveal on scroll, FAQ height, mobile menu, as tokens | Quiet arrival; off with reduced motion |
+| Motion | hover, gallery, duo | plus the hero's entrance, one unveiled drawing, the timeline's draw, text arriving on scroll, FAQ height, mobile menu, as tokens | Quiet arrival; off with reduced motion |
 | Line under the header | none | none (a scroll hairline was removed on 2026-10-29) | Handover: "Keine Trennlinien … auch nicht unter dem Header" |
 | CTA field on a phone | README: buttons side by side; reference site: they share the width and wrap | as the reference: side by side from about 400px, stacked full width at 390px and 360px | The reference site decides (`datensicherheit.html`, measured at 390 and 360); the port had forced a column at every phone width |
 | Hero title on a phone | `display-xl` 44/46, hero sheet 40/44 | 40/44, shrinking with the viewport below 385px | The hero sheet and the reference site are the specific rule; „Architekturbüros.“ must fit 360px |
@@ -173,6 +178,8 @@ The handover (design system 3.0) is the reference; these are the recorded differ
 | Duo cards on a phone | min-height 0, body 360px | min-height 440px, body 390px | The handover's own README and the reference site |
 | Video play button on a phone | 56px | 48px | Proportion on a 390px screen |
 | Demo logos | page class `demo-logos` | `ui-split-logos`, part of `SplitPage` | Component classes carry the `ui-` prefix |
+| Feature tiles on the data security page | whitespace only, on white | `variant="cells"` (`ui-features-cells`): each point a square cell on `surface`, on a full-width `ui-band` | Owner feedback 2026-11-05: the protections must stand apart from the rest of the page |
+| Contact page columns | two-column feature grid, 32px apart | `ui-contact`: details in columns 1–5, form in 7–12 from 1024px, stacked below | Owner feedback 2026-11-05: the columns sat too close together |
 
 ## Contrast of the line tokens
 
@@ -198,4 +205,4 @@ The client logos were renamed from German to English when copied. The mapping:
 
 ## AuthKit
 
-`authkit/authkit.css` is the hosted sign-in page in this design. WorkOS cannot read `tokens.css`, so it carries the literals; paste it into an environment's branding as global custom CSS (or set `customCssElements.authkitGlobal` through the WorkOS API). Run `node packages/brand/authkit/build.mjs` and paste `dist/authkit.css`. It needs the TwoColumn sign-in layout with the content panel on the right and custom HTML `<div class="panel-photo"></div>`. Staging has it; Production gets it at the rebrand. AuthKit loads only Google Fonts, so the type falls back to system sans there.
+`authkit/authkit.css` is the hosted sign-in page in this design. WorkOS cannot read `tokens.css`, so it carries the literals; paste it into an environment's branding as global custom CSS (or set `customCssElements.authkitGlobal` through the WorkOS API). Run `node packages/brand/authkit/build.mjs` and paste `dist/authkit.css`. It needs the TwoColumn sign-in layout with the content panel on the right and custom HTML `<div class="panel-photo"></div>`. Only sign-in and sign-up get that layout: the other steps (organization selection, MFA, magic code, e-mail verification) render the form column alone, and the stylesheet centres it. `https://<authkit domain>/ui-previews/organization-selection` (also `mfa-enrollment`, `auth-methods`) renders a step with the environment's CSS and no account, for checking a change. Staging has it; Production gets it at the rebrand. AuthKit loads only Google Fonts, so the type falls back to system sans there.

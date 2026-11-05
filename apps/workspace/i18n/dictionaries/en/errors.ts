@@ -13,6 +13,11 @@ export const errors = {
     description: 'An unexpected error occurred. You can try again, or head back to your projects.',
     action: 'Try again',
     backAction: 'Back to projects',
+    report: 'Report the error',
+    reference: 'Reference: {reference}',
+    reportSubject: 'Error in {productName}',
+    reportAddress: 'Address: {address}',
+    reportPrompt: 'What were you doing just now?',
   },
   access: {
     code: 'Access',

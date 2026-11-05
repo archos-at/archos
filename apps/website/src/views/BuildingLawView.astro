@@ -7,7 +7,6 @@ import FeatureTiles from '../components/FeatureTiles.astro';
 import Hero from '../components/Hero.astro';
 import InfoList from '../components/InfoList.astro';
 import SectionIntro from '../components/SectionIntro.astro';
-import TextLink from '../components/TextLink.astro';
 import { navigation } from '../i18n/nav';
 import copy from '../i18n/pages/building-law';
 import { localePath, type Locale } from '../i18n/paths';
@@ -31,9 +30,7 @@ const security = { label: ui.navSecurity, href: localePath('security', locale), 
   <Hero title={c.hero.title} text={c.hero.text} />
 
   <section class="ui-container page-section">
-    <SectionIntro title={c.intro.title} text={c.intro.text}>
-      <TextLink href={localePath('revisions', locale)} arrow>{ui.navRevisions}</TextLink>
-    </SectionIntro>
+    <SectionIntro title={c.intro.title} text={c.intro.text} />
     <Image
       src={productImages.floorPlanQuery}
       widths={SCREENSHOT_WIDTHS}
