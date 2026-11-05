@@ -2,9 +2,9 @@ import { timingSafeEqual } from 'node:crypto';
 import type { APIRoute } from 'astro';
 import { invalidateCmsPosts } from '../../../lib/cms';
 
-// The CMS's `Refresh the website` flow (ADR-0155, apps/cms) posts here when a post changes,
-// with `Authorization: Bearer <CMS_REVALIDATE_TOKEN>`: the posts this pod holds turn stale and
-// the next request reads the CMS. Without the token configured the address does not exist.
+// The CMS (ADR-0155, apps/cms/src/hooks/revalidate-website.ts) posts here when what is live
+// changes, with `Authorization: Bearer <CMS_REVALIDATE_TOKEN>`: the posts this pod holds turn
+// stale and the next request reads the CMS. Without the token configured the address does not exist.
 export const prerender = false;
 
 function sameSecret(given: string, expected: string): boolean {

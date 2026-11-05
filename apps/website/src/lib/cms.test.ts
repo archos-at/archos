@@ -1,41 +1,31 @@
 import { describe, expect, test } from 'bun:test';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { blogEntries } from './blog-sitemap';
-import { assetUrl, cmsSettings, fetchCmsPosts, POST_FIELDS, postsUrl, swrCache } from './cms';
-import { markdownToHtml } from './markdown';
-import { blockFromCms, fromCms, type CmsPost, type Post } from './post-model';
+import { assetUrl, authorization, cmsSettings, fetchCmsPosts, postsUrl, swrCache } from './cms';
+import { previewRequestUrl } from './cms-preview';
+import { fromCms, type CmsPost, type Post } from './post-model';
 
-/** A post as the CMS answers `postsUrl` (shape read from Directus 12.6.1 on 2026-11-05). */
+const text = (value: string, format = 0) => ({ type: 'text', version: 1, detail: 0, format, mode: 'normal', style: '', text: value });
+const body = (...children: unknown[]) => ({ root: { type: 'root', version: 1, direction: null, format: '', indent: 0, children } });
+
+/** A post as the CMS answers `postsUrl` (`locale=all&depth=1`; shape read from Payload 3.93.0 on 2026-11-05). */
 const CMS_POST: CmsPost = {
-  id: '3d72c481',
-  publish_date: '2026-08-27T00:00:00.000Z',
-  date_updated: '2026-09-01T10:00:00.000Z',
+  id: 3,
+  publishedAt: '2026-08-27T00:00:00.000Z',
+  updatedAt: '2026-09-01T10:00:00.000Z',
   category: 'technology',
-  cover_type: 'drawing',
+  coverType: 'drawing',
   cover: 'answer-pipeline',
-  cover_image: null,
-  cover_alt: null,
-  cover_ai_generated: false,
-  author: { name: 'Anna Muster', job_title: 'Architektin', profile_url: null },
-  translations: [
-    {
-      languages_code: 'de',
-      title: 'Wie das Arbeits­buch funktioniert',
-      slug: 'so-arbeitet-der-workspace',
-      description: 'Ein Rundgang.',
-      seo_title: null,
-      seo_description: '',
-      noindex: false,
-      previous_slugs: ['alter-slug'],
-      blocks: [
-        { collection: 'block_markdown', item: { text: 'Absatz.\n' } },
-        { collection: 'block_figure', item: { component: 'iso_stack', props: { alt: 'Stapel', layers: [] } } },
-        { collection: 'block_gallery', item: { images: [] } },
-      ],
-    },
-    { languages_code: 'en', title: 'How it works', slug: 'how-the-workspace-works', description: 'A tour.', blocks: [] },
-  ],
+  coverImage: null,
+  coverAlt: null,
+  author: { name: 'Anna Muster', jobTitle: { de: 'Architektin', en: 'Architect' }, profileUrl: null },
+  title: { de: 'Wie das Arbeits­buch funktioniert', en: 'How it works' },
+  slug: { de: 'so-arbeitet-der-workspace', en: 'how-the-workspace-works' },
+  description: { de: 'Ein Rundgang.', en: 'A tour.' },
+  seo: { title: { de: null, en: null }, description: { de: '', en: null }, noindex: { de: false, en: false } },
+  previousSlugs: { de: ['alter-slug'], en: [] },
+  body: { de: body({ type: 'paragraph', children: [text('Absatz.')] }), en: body() },
 };
 
 describe('a CMS post', () => {
@@ -50,69 +40,68 @@ describe('a CMS post', () => {
     expect(de.previousSlugs).toEqual(['alter-slug']);
     expect(de.updated?.toISOString()).toBe('2026-09-01T10:00:00.000Z');
     expect(de.author).toEqual({ name: 'Anna Muster', jobTitle: 'Architektin', url: undefined });
-    // A block kind this site does not know yet is left out, never rendered half.
-    expect(de.body).toEqual({
-      kind: 'blocks',
-      blocks: [
-        { kind: 'markdown', text: 'Absatz.\n' },
-        { kind: 'figure', component: 'iso_stack', props: { alt: 'Stapel', layers: [] } },
-      ],
-    });
+    expect(de.body.kind).toBe('rich-text');
+    expect(fromCms(CMS_POST, 'en')!.author?.jobTitle).toBe('Architect');
   });
 
   test('is left out where the site cannot show it', () => {
-    expect(fromCms({ ...CMS_POST, translations: [CMS_POST.translations[0]] }, 'en')).toBeUndefined();
+    expect(fromCms({ ...CMS_POST, slug: { de: 'nur-deutsch', en: null } }, 'en')).toBeUndefined();
+    expect(fromCms({ ...CMS_POST, slug: { de: 'nur-deutsch', en: null } }, 'de')?.translationSlug).toBeUndefined();
     expect(fromCms({ ...CMS_POST, category: 'news' }, 'de')).toBeUndefined();
-    expect(fromCms({ ...CMS_POST, cover_type: 'image', cover_image: 'f1', cover_alt: null }, 'de')).toBeUndefined();
-    const image = fromCms({ ...CMS_POST, cover_type: 'image', cover_image: 'f1', cover_alt: 'Ein Plan', cover_ai_generated: true }, 'de');
-    expect(image?.cover).toEqual({ kind: 'image', file: 'f1', alt: 'Ein Plan', aiGenerated: true });
-  });
-
-  test('blocks without what their component needs are dropped', () => {
-    expect(blockFromCms({ collection: 'block_image', item: { image: 'f1' } })).toBeUndefined();
-    expect(blockFromCms({ collection: 'block_quote', item: { quote: 'Q' } })).toBeUndefined();
-    expect(blockFromCms({ collection: 'block_figure', item: { component: 'pie', props: {} } })).toBeUndefined();
-    expect(blockFromCms({ collection: 'block_cta', item: { title: 'T', primary: 'demo' } })).toEqual({
-      kind: 'cta', title: 'T', text: undefined, primary: 'demo', secondary: undefined,
-    });
+    expect(fromCms({ ...CMS_POST, body: { de: { blocks: [] } } }, 'de')).toBeUndefined();
+    const file = { url: '/api/media/file/f1.png', aiGenerated: true, sizes: { share: { url: '/api/media/file/f1-1200x630.jpg' } } };
+    expect(fromCms({ ...CMS_POST, coverType: 'image', coverImage: file, coverAlt: { de: null } }, 'de')).toBeUndefined();
+    // An image that did not populate (an id) is no cover either.
+    expect(fromCms({ ...CMS_POST, coverType: 'image', coverImage: 9, coverAlt: { de: 'Ein Plan' } }, 'de')).toBeUndefined();
+    const image = fromCms({ ...CMS_POST, coverType: 'image', coverImage: file, coverAlt: { de: 'Ein Plan' } }, 'de');
+    expect(image?.cover).toEqual({ kind: 'image', file, alt: 'Ein Plan', aiGenerated: true });
   });
 });
 
 describe('the CMS client', () => {
-  test('reads only with a URL and a token, and serves assets from the public URL', () => {
+  test('reads only with a URL and an API key, and serves images from the public URL', () => {
     expect(cmsSettings({})).toBeUndefined();
-    expect(cmsSettings({ CMS_URL: 'http://cms:8055' })).toBeUndefined();
-    const settings = cmsSettings({ CMS_URL: 'http://cms:8055', CMS_TOKEN: 't', CMS_PUBLIC_URL: 'https://cms.example.com' })!;
-    expect(assetUrl(settings, 'f 1', 'share')).toBe('https://cms.example.com/assets/f%201?key=share');
+    expect(cmsSettings({ CMS_URL: 'http://cms:3000' })).toBeUndefined();
+    const settings = cmsSettings({ CMS_URL: 'http://cms:3000', CMS_API_KEY: 'k', CMS_PUBLIC_URL: 'https://cms.example.com/' })!;
+    const file = { url: 'http://cms:3000/api/media/file/a%20b.png', sizes: { share: { url: '/api/media/file/a%20b-1200x630.jpg' } } };
+    expect(assetUrl(settings, file, 'share')).toBe('https://cms.example.com/api/media/file/a%20b-1200x630.jpg');
+    // A size the CMS did not make (an image smaller than it) is the original.
+    expect(assetUrl(settings, file, 'cover')).toBe('https://cms.example.com/api/media/file/a%20b.png');
+    expect(authorization(settings)).toBe('users API-Key k');
   });
 
-  test('asks for what is live only, whatever the token could read', () => {
-    const url = new URL(postsUrl({ url: 'http://cms:8055/', token: 't', publicUrl: '' }));
-    expect(url.pathname).toBe('/items/blog_posts');
-    expect(JSON.parse(url.searchParams.get('filter')!)).toEqual({ _and: [{ status: { _eq: 'published' } }, { publish_date: { _lte: '$NOW' } }] });
-    expect(url.searchParams.get('fields')!.split(',')).toEqual(POST_FIELDS);
+  test('asks for what is live only, whatever the key could read', () => {
+    const now = new Date('2026-11-05T10:00:00Z');
+    const url = new URL(postsUrl({ url: 'http://cms:3000/', apiKey: 'k', publicUrl: '' }, now));
+    expect(url.pathname).toBe('/api/posts');
+    expect(url.searchParams.get('where[and][0][_status][equals]')).toBe('published');
+    expect(url.searchParams.get('where[and][1][publishedAt][less_than_equal]')).toBe('2026-11-05T10:00:00.000Z');
+    expect([url.searchParams.get('locale'), url.searchParams.get('depth'), url.searchParams.get('limit')]).toEqual(['all', '1', '0']);
   });
 
-  test('reads every block field the CMS schema defines', () => {
-    const schema = join(import.meta.dir, '../../../cms/directus/default/schema');
-    for (const file of readdirSync(schema).filter((f) => f.startsWith('block-'))) {
-      const { collection, fields } = JSON.parse(readFileSync(join(schema, file), 'utf8'));
-      for (const { field } of fields.filter((f: { field: string }) => f.field !== 'id')) {
-        expect(POST_FIELDS).toContain(`translations.blocks.item:${collection}.${field}`);
-      }
-    }
-  });
-
-  test('sends the token and fails on an error answer', async () => {
+  test('sends the key and fails on an error answer', async () => {
     const seen: string[] = [];
-    const ok = (async (url: string, init: RequestInit) => {
+    const ok = (async (_url: string, init: RequestInit) => {
       seen.push(String((init.headers as Record<string, string>).Authorization));
-      return new Response(JSON.stringify({ data: [CMS_POST] }));
+      return new Response(JSON.stringify({ docs: [CMS_POST] }));
     }) as unknown as typeof fetch;
-    expect(await fetchCmsPosts({ url: 'http://cms', token: 'tok', publicUrl: '' }, ok)).toHaveLength(1);
-    expect(seen).toEqual(['Bearer tok']);
+    expect(await fetchCmsPosts({ url: 'http://cms', apiKey: 'key', publicUrl: '' }, ok)).toHaveLength(1);
+    expect(seen).toEqual(['users API-Key key']);
     const denied = (async () => new Response('{}', { status: 403 })) as unknown as typeof fetch;
-    expect(fetchCmsPosts({ url: 'http://cms', token: 'tok', publicUrl: '' }, denied)).rejects.toThrow('403');
+    expect(fetchCmsPosts({ url: 'http://cms', apiKey: 'key', publicUrl: '' }, denied)).rejects.toThrow('403');
+  });
+
+  test('forwards a preview link to the CMS, and nothing without all four parts', () => {
+    const search = new URLSearchParams({ id: '3', locale: 'de', expires: '1', signature: 'abc', extra: 'x' });
+    expect(previewRequestUrl({ url: 'http://cms:3000' }, search)).toBe('http://cms:3000/api/posts/preview?id=3&locale=de&expires=1&signature=abc');
+    search.delete('signature');
+    expect(previewRequestUrl({ url: 'http://cms:3000' }, search)).toBeUndefined();
+  });
+
+  test('the CMS sends the bearer the revalidate route checks, from the same variable names', () => {
+    const hook = readFileSync(join(import.meta.dir, '../../../cms/src/hooks/revalidate-website.ts'), 'utf8');
+    expect(hook).toContain('WEBSITE_REVALIDATE_TOKEN');
+    expect(hook).toContain('Authorization: `Bearer ${settings.token}`');
   });
 });
 
@@ -139,16 +128,6 @@ describe('the posts cache', () => {
     expect(await cache.get()).toBe(2);
     await new Promise((r) => setTimeout(r, 0));
     expect(await cache.get()).toBe(2);
-  });
-});
-
-describe('a Markdown block', () => {
-  test('renders tables and links, and escapes raw HTML', () => {
-    const html = markdownToHtml('| a |\n|---|\n| b |\n\n[Demo](/demo/) <script>alert(1)</script> [x](javascript:alert(1))');
-    expect(html).toContain('<table>');
-    expect(html).toContain('<a href="/demo/">Demo</a>');
-    expect(html).not.toContain('<script>');
-    expect(html).not.toContain('javascript:');
   });
 });
 
