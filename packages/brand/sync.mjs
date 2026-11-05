@@ -3,7 +3,7 @@
  * Copies the built brand files into each reader, because neither app's Docker build sees
  * packages/. Each target gets only the layer it reads:
  *
- *   website    tokens.css (shared tokens only), components.css, motion.css, covers.css, status.css, fonts/, identity.json
+ *   website    tokens.css (shared tokens only), components.css, motion.css, covers.css, status.css, blocks.css, fonts/, identity.json
  *   workspace  tokens.vars.css (shared and app-scoped tokens as --ds-*), fonts/, identity.json
  *   agent      identity.json alone, which `agent.common.brand` reads the product's name from
  *   drawings   fonts/ and identity.json, for the sheet the backend draws a DXF onto
@@ -36,7 +36,7 @@ const REPO = resolve(BRAND, '../..')
  * writes its files there and never deletes anything else in it.
  */
 export const TARGETS = [
-  { dir: 'apps/website/src/styles/brand', files: ['tokens.css', 'components.css', 'motion.css', 'covers.css', 'status.css', 'fonts/', 'identity.json'] },
+  { dir: 'apps/website/src/styles/brand', files: ['tokens.css', 'components.css', 'motion.css', 'covers.css', 'status.css', 'blocks.css', 'fonts/', 'identity.json'] },
   { dir: 'apps/workspace/shared/brand', files: ['tokens.vars.css', 'fonts/', 'identity.json'] },
   { dir: 'packages/agent/src/agent/common', files: ['identity.json'], shared: true },
   // The sheet the backend draws a DXF onto (ADR-0152): the type of its title block,

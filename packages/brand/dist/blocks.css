@@ -1,0 +1,181 @@
+/* Post blocks: the content components an editor puts into a blog post
+   (apps/website/src/components/blocks, one rules sheet each in docs/components/).
+   Values come from tokens.css. Each element's rule carries its block's class twice over
+   (`.ui-legal .ui-legal-title`), so it outranks the post body's element rules
+   (`.post-body p`, site.css) whichever stylesheet the page loads first. */
+
+/* ---------------------------------------------------------------- shared */
+
+.ui-block { margin: var(--space-12) 0; }
+.ui-block.ui-block-wide { max-width: none; }
+/* Drawings and screenshots break out of the text column from 1280px, as a post's figures do
+   (FigureFrame): the column starts at the container's left edge, so they grow to the right. */
+@media (min-width: 1280px) {
+  .ui-block.ui-block-wide { width: min(1040px, calc(100vw - 2 * var(--gutter-wide))); }
+}
+.ui-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.ui-block .ui-block-caption { margin: var(--space-4) 0 0; font: var(--text-small); color: var(--ink-muted); }
+
+/* ---------------------------------------------------------------- chart
+   Series are steps of the one ink, never hues: the website has no signal colours. Three at
+   most, each 3:1 or more against the surface (ink 18.9, ink-muted 6.5, line-strong 3.4),
+   validated as an ordinal ramp (docs/components/Chart.md). Lines add a dash per series, so
+   identity never rests on the grey alone. */
+
+.ui-chart { container-type: inline-size; --chart-1: var(--ink); --chart-2: var(--ink-muted); --chart-3: var(--line-strong); --plot-height: 240px; }
+.ui-chart .ui-chart-title { margin: 0; font: var(--text-heading-3); letter-spacing: 0.005em; color: var(--ink); text-wrap: balance; }
+.ui-chart .ui-chart-caption { margin: var(--space-1) 0 0; font: var(--text-small); color: var(--ink-muted); }
+.ui-chart .ui-chart-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: var(--space-4) 0 0; padding: 0; list-style: none; font: var(--text-small); color: var(--ink); }
+.ui-chart .ui-chart-legend li { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; }
+.ui-chart-swatch { flex: none; width: 12px; height: 12px; background: var(--chart-1); }
+.ui-chart-swatch[data-slot='2'] { background: var(--chart-2); }
+.ui-chart-swatch[data-slot='3'] { background: var(--chart-3); }
+.ui-chart-key { flex: none; width: 24px; height: 8px; overflow: visible; }
+.ui-chart .ui-chart-axis-label { margin: var(--space-6) 0 0; font: var(--text-small); color: var(--ink-muted); }
+
+.ui-chart-body { display: grid; grid-template-columns: calc(var(--tick-chars) * 1ch + var(--space-3)) minmax(0, 1fr); margin-top: var(--space-8); font: var(--text-small); font-variant-numeric: tabular-nums; }
+.ui-chart-axis-label + .ui-chart-body { margin-top: var(--space-6); }
+.ui-chart-ticks, .ui-chart-plot { position: relative; height: var(--plot-height); }
+.ui-chart-tick { position: absolute; right: var(--space-3); top: var(--top); transform: translateY(-50%); color: var(--ink-muted); white-space: nowrap; }
+.ui-chart-svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
+.ui-chart-svg * { vector-effect: non-scaling-stroke; }
+.ui-chart-grid { stroke: var(--line); stroke-width: var(--stroke-hairline); }
+.ui-chart-grid[data-zero] { stroke: var(--line-strong); }
+/* The surface-coloured edge is the 2px gap between touching bars and stacked segments. */
+.ui-chart-bar { fill: var(--chart-1); stroke: var(--surface); stroke-width: var(--stroke-strong); }
+.ui-chart-bar[data-slot='2'] { fill: var(--chart-2); }
+.ui-chart-bar[data-slot='3'] { fill: var(--chart-3); }
+.ui-chart-line { fill: none; stroke: var(--chart-1); stroke-width: var(--stroke-strong); stroke-linejoin: round; stroke-linecap: round; }
+.ui-chart-line[data-slot='2'] { stroke: var(--chart-2); stroke-dasharray: 6 4; stroke-linecap: butt; }
+.ui-chart-line[data-slot='3'] { stroke: var(--chart-3); stroke-dasharray: 0.1 5; }
+.ui-chart-dot { position: absolute; left: var(--left); top: var(--top); width: 8px; height: 8px; border: var(--stroke-strong) solid var(--surface); border-radius: 50%; background: var(--chart-1); transform: translate(-50%, -50%); }
+.ui-chart-dot[data-slot='2'] { background: var(--chart-2); }
+.ui-chart-dot[data-slot='3'] { background: var(--chart-3); }
+.ui-chart-value { position: absolute; left: var(--left); top: var(--top); transform: translate(-50%, calc(-100% - var(--space-1))); color: var(--ink); white-space: nowrap; }
+.ui-chart-value[data-below] { transform: translate(-50%, var(--space-1)); }
+.ui-chart-value[data-align='end'] { transform: translate(calc(-100% + var(--space-1)), calc(-100% - var(--space-2))); }
+/* Bars: one grid cell per band, so a long label wraps inside its own band. Lines: each label
+   at its point, on one line. */
+.ui-chart-xlabels { grid-column: 2; position: relative; margin-top: var(--space-2); color: var(--ink-muted); }
+.ui-chart-xlabels[data-form='bar'] { display: grid; grid-template-columns: repeat(var(--count), minmax(0, 1fr)); text-align: center; overflow-wrap: break-word; hyphens: auto; }
+.ui-chart-xlabels[data-form='bar'] > span { padding: 0 var(--space-1); }
+.ui-chart-xlabels[data-form='line'] { height: 20px; }
+.ui-chart-xlabels[data-form='line'] > span { position: absolute; left: var(--left); transform: translateX(-50%); white-space: nowrap; }
+.ui-chart-xlabels[data-form='line'] > span[data-align='start'] { transform: translateX(calc(-1 * var(--space-2))); }
+.ui-chart-xlabels[data-form='line'] > span[data-align='end'] { transform: translateX(calc(-100% + var(--space-2))); }
+.ui-chart .ui-chart-source { margin: var(--space-6) 0 0; font: var(--text-small); color: var(--ink-muted); }
+@container (max-width: 520px) {
+  .ui-chart-xlabels > span[data-minor] { visibility: hidden; }
+  .ui-chart[data-dense] .ui-chart-value { display: none; }
+}
+@media (max-width: 767px) {
+  .ui-chart { --plot-height: 200px; }
+}
+
+/* ---------------------------------------------------------------- key figures */
+
+.ui-figures .ui-figures-list { display: grid; grid-template-columns: repeat(var(--count), minmax(0, 1fr)); gap: var(--space-8); margin: 0; padding: 0; list-style: none; }
+.ui-figures .ui-figures-item { margin: 0; padding-top: var(--space-4); border-top: var(--stroke-hairline) solid var(--line-strong); }
+.ui-figures .ui-figures-value { margin: 0; font: var(--text-heading-1); color: var(--ink); white-space: nowrap; }
+.ui-figures-unit { margin-left: var(--space-1); font: var(--text-heading-3); }
+.ui-figures .ui-figures-label { margin: var(--space-2) 0 0; font: var(--text-body); color: var(--ink-muted); }
+.ui-figures-ref { margin-left: 2px; font: var(--text-small); vertical-align: super; line-height: 0; }
+.ui-figures-ref a { color: var(--ink-muted); text-decoration: none; }
+.ui-figures-ref a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ui-figures .ui-figures-notes { margin: var(--space-6) 0 0; padding: 0; list-style: none; font: var(--text-small); color: var(--ink-muted); }
+.ui-figures .ui-figures-notes li { display: flex; gap: var(--space-2); margin: var(--space-1) 0 0; }
+@media (max-width: 767px) {
+  .ui-figures .ui-figures-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-6) var(--space-4); }
+  .ui-figures .ui-figures-value { font-size: 34px; line-height: 38px; }
+}
+
+/* ---------------------------------------------------------------- before / after
+   Without script both states stand one above the other, each with its name. The script
+   (`data-ready`) lays them on top of each other and lets a range input move the divider. */
+
+.ui-compare .ui-compare-stage { display: grid; gap: var(--space-6); }
+.ui-compare-pane { position: relative; margin: 0; }
+.ui-compare-pane img { display: block; width: 100%; height: auto; }
+.ui-compare .ui-compare-label { display: block; margin: 0 0 var(--space-2); font: var(--text-small); color: var(--ink); }
+.ui-compare-range, .ui-compare-handle { display: none; }
+
+.ui-compare[data-ready] .ui-compare-stage { position: relative; gap: 0; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.ui-compare[data-ready] .ui-compare-pane { grid-area: 1 / 1; }
+.ui-compare[data-ready] .ui-compare-pane[data-side='after'] { clip-path: inset(0 0 0 50%); }
+.ui-compare[data-ready] .ui-compare-label { position: absolute; top: var(--space-3); left: var(--space-3); z-index: 1; margin: 0; padding: var(--space-1) var(--space-2); background: var(--surface); }
+.ui-compare[data-ready] .ui-compare-pane[data-side='after'] .ui-compare-label { left: auto; right: var(--space-3); }
+.ui-compare[data-ready] .ui-compare-range { display: block; position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; -webkit-appearance: none; appearance: none; touch-action: pan-y; }
+/* A thumb as tall as the drawing and a fingertip wide: where a phone lets a range be dragged. */
+.ui-compare-range::-webkit-slider-thumb { width: 44px; height: 100vh; -webkit-appearance: none; appearance: none; }
+.ui-compare-range::-moz-range-thumb { width: 44px; height: 100vh; border: 0; }
+.ui-compare[data-ready] .ui-compare-handle { display: block; position: absolute; top: 0; bottom: 0; left: 50%; z-index: 1; width: 0; border-left: var(--stroke-strong) solid var(--ink); transform: translateX(-1px); pointer-events: none; }
+.ui-compare-knob { position: absolute; top: 50%; left: -1px; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-md); background: var(--ink); color: var(--on-ink); transform: translate(-50%, -50%); }
+.ui-compare-knob svg { display: block; width: 20px; height: 12px; }
+.ui-compare-range:focus-visible + .ui-compare-handle .ui-compare-knob { box-shadow: var(--focus-ring); }
+
+/* ---------------------------------------------------------------- annotated image
+   Numbered markers on a drawing, like the product's pins and a drawing's axis bubbles, and the
+   same numbers in the list below. Marker and entry light up together; without script a
+   marker is a link to its entry, and `:target` marks it. */
+
+.ui-annotated .ui-annotated-stage { position: relative; }
+.ui-annotated-stage img { display: block; width: 100%; height: auto; }
+.ui-annotated-pin, .ui-annotated .ui-annotated-num { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 28px; height: 28px; border: var(--stroke-strong) solid var(--surface); border-radius: 50%; background: var(--ink); color: var(--on-ink); font: var(--text-small); font-variant-numeric: tabular-nums; text-decoration: none; transition: background-color var(--duration-quick) ease-out, color var(--duration-quick) ease-out, border-color var(--duration-quick) ease-out; }
+.ui-annotated-pin { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); }
+.ui-annotated-pin:focus-visible, .ui-annotated .ui-annotated-num:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ui-annotated-pin[data-active], .ui-annotated-pin:target, .ui-annotated-item[data-active] .ui-annotated-num, .ui-annotated-item:target .ui-annotated-num { border-color: var(--ink); background: var(--surface); color: var(--ink); }
+.ui-annotated .ui-annotated-list { margin: var(--space-6) 0 0; padding: 0; list-style: none; }
+.ui-annotated .ui-annotated-item { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: var(--space-4); margin: 0; padding: var(--space-3) var(--space-4); border-top: var(--stroke-hairline) solid var(--line); transition: background-color var(--duration-quick) ease-out; }
+.ui-annotated .ui-annotated-item:last-child { border-bottom: var(--stroke-hairline) solid var(--line); }
+.ui-annotated .ui-annotated-item[data-active], .ui-annotated .ui-annotated-item:target { background: var(--surface-sunken); }
+.ui-annotated .ui-annotated-title { margin: 2px 0 0; font: var(--text-body); color: var(--ink); }
+.ui-annotated .ui-annotated-text { margin: var(--space-1) 0 0; font: var(--text-body); color: var(--ink-muted); }
+@media (hover: hover) and (pointer: fine) {
+  .ui-annotated-pin:hover { border-color: var(--ink); background: var(--surface); color: var(--ink); }
+}
+@media (max-width: 767px) {
+  .ui-annotated .ui-annotated-item { gap: var(--space-3); padding: var(--space-3) 0; }
+}
+
+/* ---------------------------------------------------------------- legal source */
+
+.ui-legal { padding: var(--space-8) 40px; background: var(--surface-sunken); }
+.ui-legal .ui-legal-kind { margin: 0; font: var(--text-small); color: var(--ink-muted); }
+.ui-legal .ui-legal-title { margin: var(--space-2) 0 0; font: var(--text-heading-3); letter-spacing: 0.005em; color: var(--ink); }
+.ui-legal .ui-legal-meta { margin: var(--space-1) 0 0; font: var(--text-small); color: var(--ink); }
+.ui-legal .ui-legal-excerpt { margin: var(--space-6) 0 0; padding: 0 0 0 var(--space-6); border-left: var(--stroke-strong) solid var(--line-strong); font: var(--text-body); color: var(--ink); }
+.ui-legal .ui-legal-excerpt p { margin: 0; font: inherit; }
+.ui-legal .ui-legal-link { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: baseline; margin: var(--space-6) 0 0; font: var(--text-small); }
+.ui-legal-host { color: var(--ink-muted); }
+@media (max-width: 767px) {
+  .ui-legal { padding: var(--space-6) var(--space-4); }
+}
+
+/* ---------------------------------------------------------------- Q&A excerpt
+   A question and the answer as the product gives them, without the app's chrome: the question
+   set apart on the right, the answer in the text column, its sources named by kind. */
+
+.ui-qa .ui-qa-role { margin: 0; font: var(--text-small); color: var(--ink-muted); }
+.ui-qa .ui-qa-question { max-width: 85%; margin: 0 0 0 auto; }
+.ui-qa .ui-qa-question .ui-qa-role { text-align: right; }
+.ui-qa .ui-qa-question-text { margin: var(--space-2) 0 0; padding: var(--space-3) var(--space-4); background: var(--surface-sunken); font: var(--text-body); color: var(--ink); }
+.ui-qa .ui-qa-answer { margin-top: var(--space-8); }
+.ui-qa .ui-qa-answer-text { margin-top: var(--space-2); }
+.ui-qa .ui-qa-answer-text > :first-child { margin-top: 0; }
+.ui-qa .ui-qa-sources { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
+.ui-qa .ui-qa-source { margin: 0; padding: 2px var(--space-2); background: var(--surface-sunken); font: var(--text-small); color: var(--ink); }
+.ui-qa-kind { color: var(--ink-muted); }
+.ui-qa-kind::after { content: ' · '; }
+.ui-qa .ui-qa-derived { margin: var(--space-3) 0 0; font: var(--text-small); color: var(--ink-muted); }
+@media (max-width: 767px) {
+  .ui-qa .ui-qa-question { max-width: 92%; }
+}
+
+/* ---------------------------------------------------------------- key takeaways
+   At the top of a post: a heavy rule like a drawing's title block, the points below it. */
+
+.ui-takeaways { padding-top: var(--space-4); border-top: var(--stroke-strong) solid var(--ink); }
+.ui-takeaways .ui-takeaways-title { margin: 0; font: var(--text-heading-3); letter-spacing: 0.005em; color: var(--ink); }
+.ui-takeaways .ui-takeaways-list { margin: var(--space-4) 0 0; padding: 0; list-style: none; }
+.ui-takeaways .ui-takeaways-item { position: relative; margin: var(--space-3) 0 0; padding-left: var(--space-6); font: var(--text-body); color: var(--ink); }
+.ui-takeaways .ui-takeaways-item::before { content: ''; position: absolute; top: 9px; left: 0; width: 6px; height: 6px; background: var(--ink); }

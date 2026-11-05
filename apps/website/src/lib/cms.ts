@@ -1,79 +1,70 @@
 /**
- * The blog's posts from the CMS (Directus, ADR-0155), read server-side with the
- * website's read-only token and kept in memory, stale-while-revalidate:
+ * The blog's posts from the CMS (Payload, apps/cms, ADR-0155), read server-side
+ * with the website's API key (role `website`: what is live, nothing else) and
+ * kept in memory, stale-while-revalidate:
  *
  * - fresh for `FRESH_MS`: served from memory;
  * - older: served from memory while one request refreshes it in the background;
  * - CMS unreachable: the last good copy keeps being served, and the failure is logged;
- * - `invalidateCmsPosts()` (the CMS's `Refresh the website` flow calls
- *   /api/cms/revalidate) marks the copy stale, so the next request refreshes it.
+ * - `invalidateCmsPosts()` (the CMS calls /api/cms/revalidate when what is live
+ *   changes) marks the copy stale, so the next request refreshes it.
  *
- * Each web pod holds its own copy: a publish shows at once on the pod the flow
+ * Each web pod holds its own copy: a publish shows at once on the pod the CMS
  * reached and within `FRESH_MS` on the others.
  *
- * The query asks for what is live (`published`, publish date passed) even though
- * the token can read nothing else, so a token with wider rights can never leak
- * a draft onto the site.
+ * The query asks for what is live (published, publish date passed) even though
+ * the key can read nothing else, so a key with wider rights can never leak a
+ * draft onto the site. `locale=all` brings both languages of a post in one
+ * document; `depth=1` brings the author, the cover image and the images in a
+ * body's blocks.
  */
-import type { CmsPost } from './post-model';
+import type { CmsPost, MediaFile } from './post-model';
 
 export const FRESH_MS = 60_000;
 const TIMEOUT_MS = 5_000;
 
 export interface CmsSettings {
-  /** Where the website reaches Directus (inside the cluster: http://directus.cms.svc.cluster.local:8055). */
+  /** Where the website reaches the CMS (inside the cluster: http://cms.cms.svc.cluster.local:3000). */
   url: string;
-  token: string;
-  /** Where a visitor's browser reaches its assets: https://cms.<domain>. */
+  /** The `website` user's API key. */
+  apiKey: string;
+  /** Where a visitor's browser reaches its images: https://cms.<domain>. */
   publicUrl: string;
 }
 
 /** The CMS this server reads, or undefined: then the site serves the MDX fixtures in src/content/blog. */
 export function cmsSettings(env: Record<string, string | undefined> = process.env): CmsSettings | undefined {
   const url = env.CMS_URL?.trim();
-  const token = env.CMS_TOKEN?.trim();
-  if (!url || !token) return undefined;
-  return { url, token, publicUrl: env.CMS_PUBLIC_URL?.trim() || url };
+  const apiKey = env.CMS_API_KEY?.trim();
+  if (!url || !apiKey) return undefined;
+  return { url, apiKey, publicUrl: env.CMS_PUBLIC_URL?.trim() || url };
 }
 
-const BLOCK_FIELDS = {
-  block_markdown: ['text'],
-  block_figure: ['component', 'props'],
-  block_image: ['image', 'alt', 'caption', 'ai_generated'],
-  block_quote: ['quote', 'name', 'role', 'office'],
-  block_cta: ['title', 'text', 'primary', 'secondary'],
-};
+/** The request header Payload reads an API key from (`<collection> API-Key <key>`). */
+export const authorization = (settings: Pick<CmsSettings, 'apiKey'>) => `users API-Key ${settings.apiKey}`;
 
-export const POST_FIELDS = [
-  'id', 'publish_date', 'date_updated', 'category', 'cover_type', 'cover', 'cover_image', 'cover_alt', 'cover_ai_generated',
-  'author.name', 'author.job_title', 'author.profile_url',
-  'translations.languages_code', 'translations.title', 'translations.slug', 'translations.description',
-  'translations.seo_title', 'translations.seo_description', 'translations.noindex', 'translations.previous_slugs',
-  'translations.blocks.collection',
-  ...Object.entries(BLOCK_FIELDS).flatMap(([collection, fields]) => fields.map((f) => `translations.blocks.item:${collection}.${f}`)),
-];
-
-/** The request for every live post, newest first, blocks in their order. */
-export function postsUrl(settings: CmsSettings): string {
+/** The request for every live post, newest first. */
+export function postsUrl(settings: CmsSettings, now: Date = new Date()): string {
   const params = new URLSearchParams({
-    fields: POST_FIELDS.join(','),
-    filter: JSON.stringify({ _and: [{ status: { _eq: 'published' } }, { publish_date: { _lte: '$NOW' } }] }),
-    deep: JSON.stringify({ translations: { blocks: { _sort: ['sort'] } } }),
-    sort: '-publish_date',
-    limit: '-1',
+    'where[and][0][_status][equals]': 'published',
+    'where[and][1][publishedAt][less_than_equal]': now.toISOString(),
+    locale: 'all',
+    depth: '1',
+    limit: '0',
+    sort: '-publishedAt',
   });
-  return `${settings.url.replace(/\/+$/, '')}/items/blog_posts?${params}`;
+  return `${settings.url.replace(/\/+$/, '')}/api/posts?${params}`;
 }
 
 export async function fetchCmsPosts(settings: CmsSettings, fetchImpl: typeof fetch = fetch): Promise<CmsPost[]> {
   const res = await fetchImpl(postsUrl(settings), {
-    headers: { Authorization: `Bearer ${settings.token}` },
+    headers: { Authorization: authorization(settings) },
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`The CMS answered ${res.status} for the blog posts`);
-  const body = (await res.json()) as { data?: CmsPost[] };
-  if (!Array.isArray(body.data)) throw new Error('The CMS answered without a list of posts');
-  return body.data;
+  const body = (await res.json()) as { docs?: CmsPost[] };
+  if (!Array.isArray(body.docs)) throw new Error('The CMS answered without a list of posts');
+  return body.docs;
 }
 
 /** A stale-while-revalidate holder around one loader; exported for its tests. */
@@ -110,7 +101,7 @@ let cachedFor: string | undefined;
 
 /** Every live post, from memory when it can. */
 export function getCmsPosts(settings: CmsSettings): Promise<CmsPost[]> {
-  const key = `${settings.url}|${settings.token}`;
+  const key = `${settings.url}|${settings.apiKey}`;
   if (!cache || cachedFor !== key) {
     cache = swrCache(() => fetchCmsPosts(settings), FRESH_MS);
     cachedFor = key;
@@ -123,7 +114,16 @@ export function invalidateCmsPosts(): void {
   cache?.invalidate();
 }
 
-/** A CMS file's URL through one of its transform presets (apps/cms settings: cover, cover-small, share, inline, inline-small). */
-export function assetUrl(settings: Pick<CmsSettings, 'publicUrl'>, file: string, preset: string): string {
-  return `${settings.publicUrl.replace(/\/+$/, '')}/assets/${encodeURIComponent(file)}?key=${encodeURIComponent(preset)}`;
+/** The CMS's image sizes (apps/cms/src/collections/media.ts). */
+export type ImageSize = 'cover' | 'cover-small' | 'share' | 'inline' | 'inline-small';
+
+/**
+ * An image's URL in one of the CMS's sizes, on the CMS's public host, or the
+ * original when that size was not made (an image smaller than the size).
+ */
+export function assetUrl(settings: Pick<CmsSettings, 'publicUrl'>, file: MediaFile, size: ImageSize): string {
+  const url = file.sizes?.[size]?.url ?? file.url;
+  // Payload answers with its own server URL or a path; either way the browser loads it from the public host.
+  const { pathname, search } = new URL(url, 'http://cms');
+  return `${settings.publicUrl.replace(/\/+$/, '')}${pathname}${search}`;
 }
