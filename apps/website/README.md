@@ -183,6 +183,7 @@ section order there.
 | `pilot-office-feld72.svg` | `1310a1a557.svg` | Pilot office logo row (home, demo) |
 | `pilot-office-bewe-emp.svg` | `9e162c17b0.svg` | Pilot office logo row (home, demo) |
 | `funding-aws-gray.png` | `e8ea93f801.png` | Footer, funding note (Austria Wirtschaftsservice) |
+| `login-photo.webp` | `10_Login_Arbeitsraum.png` (Drive, Fotos-und-Grafiken), 1441 × 1800, the same file as `packages/brand/authkit/login-photo.webp` | Not on a page: the photo beside the hosted AuthKit sign-in, which loads it from here (`docs/deployment/workos-authkit-branding.md`). Keep the address |
 
 The reference fonts (`.woff2`) are not here: the design system ships them in `src/styles/brand/fonts/`.
 
