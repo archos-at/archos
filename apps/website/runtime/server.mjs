@@ -22,7 +22,7 @@ import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { cacheControlFor } from './cache-control.mjs'
-import { HEALTH_PATH, cmsImageOrigins, securityHeaders } from './security-headers.mjs'
+import { HEALTH_PATH, cmsImageOrigins, isPreviewPath, securityHeaders } from './security-headers.mjs'
 import { analyticsOrigins, webAnalyticsConfig } from './web-analytics.mjs'
 import { goneStatus } from './gone.mjs'
 
@@ -60,10 +60,15 @@ function setCacheControl(req, res) {
 }
 
 // The policy names the PostHog origins only when this container has analytics on.
-const SECURITY_HEADERS = securityHeaders(analyticsOrigins(webAnalyticsConfig(process.env)), cmsImageOrigins(process.env))
+const ANALYTICS = analyticsOrigins(webAnalyticsConfig(process.env))
+const CMS_ORIGINS = cmsImageOrigins(process.env)
+const SECURITY_HEADERS = securityHeaders(ANALYTICS, CMS_ORIGINS)
+// The blog's preview, framed by the CMS's admin panel (ADR-0155): its origin may frame it, nobody else.
+const PREVIEW_HEADERS = securityHeaders(ANALYTICS, CMS_ORIGINS, CMS_ORIGINS)
 
 const server = http.createServer((req, res) => {
-  for (const [name, value] of SECURITY_HEADERS) res.setHeader(name, value)
+  const pathname = (req.url ?? '/').split(/[?#]/, 1)[0]
+  for (const [name, value] of isPreviewPath(pathname) && CMS_ORIGINS.length ? PREVIEW_HEADERS : SECURITY_HEADERS) res.setHeader(name, value)
   // Liveness and readiness: the process answers. Cheap, uncached, never logged
   // as a page view, and not dependent on any file in dist/.
   if ((req.url ?? '').split('?', 1)[0] === HEALTH_PATH) {
