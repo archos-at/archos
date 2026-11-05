@@ -1,77 +1,67 @@
 /**
- * The website's CMS (ADR-0155): Directus in its own namespace, on its own
- * CloudNativePG cluster, with its files in a SeaweedFS bucket of its own.
+ * The website's CMS (ADR-0155): Payload, our own image `grid-oib-cms` built from
+ * apps/cms like the other apps, in its own namespace, on its own CloudNativePG
+ * cluster, with its files in a SeaweedFS bucket of its own.
  *
- * Off unless `cmsEnabled`, and then deployed only with `cmsLicenseKey` set: a
- * Directus without a license runs its core tier, which refuses every
- * permission with a filter or a field list, and the review step (an editor or
- * an agent drafts, a person publishes) is made of exactly those. Without the
- * key the config Job would fail on the first permission it pushes, so the plan
- * warns and deploys nothing instead.
- *
- * Every credential but the license defaults to a one-way HMAC of
- * `pgAppPassword` under its own label (like `config/background-work.ts`), so
- * turning the CMS on needs no new secret beyond the key. Set a key to rotate
- * its credential on its own.
+ * Off unless `cmsEnabled`, and then deployed only with network policies on: the
+ * CMS's database and its API are reachable only through them. Every credential
+ * defaults to a one-way HMAC of `pgAppPassword` under its own label (like
+ * `config/background-work.ts`), so turning the CMS on needs no new secret. Set a
+ * key to rotate its credential on its own.
  */
 import * as pulumi from "@pulumi/pulumi";
 import { type BarmanBackups, loadBarmanBackups } from "./barman-backups";
+import { type ImagesConfig } from "./images";
 import { derivedScalerPassword } from "./postgres";
 import { bool, positiveInt } from "./readers";
 
-/** Fixed names the namespace, the cluster, the Service, the Job and the policies agree on. */
+/** Fixed names the namespace, the cluster, the Service and the policies agree on. */
 export const CMS = {
   namespace: "cms",
-  app: "directus",
+  app: "cms",
   cluster: "cms-pg",
-  database: "directus",
-  owner: "directus",
+  database: "cms",
+  owner: "cms",
   bucket: "cms-files",
   s3Identity: "cms",
-  port: 8055,
-  /** `node`, the user both images run as (Directus' and `node:26-alpine`). */
-  uid: 1000,
-  /** Gateway listener and HTTPRoute for the Studio, the API and `/mcp`. */
+  /** `next start` in apps/cms/Dockerfile. */
+  port: 3000,
+  /** `nextjs`, the user apps/cms/Dockerfile runs as. */
+  uid: 1001,
+  /** Gateway listener and HTTPRoute for the admin panel, the REST API and `/api/mcp`. */
   listenerName: "https-cms",
   routeName: "cms",
   tlsSecret: "cms-tls",
-  /** `max_connections` of `cms-pg`; Directus pools at `DB_POOL__MAX` per pod. */
+  /** `max_connections` of `cms-pg`; Payload pools at `DATABASE_POOL_MAX` per pod. */
   maxConnections: 50,
   poolMax: 10,
 } as const;
 
-/** Directus 12.6.1 (2026-11-04), the multi-arch index digest of Docker Hub's `12.6.1` tag, read 2026-11-05. */
-export const CMS_IMAGE =
-  "directus/directus:12.6.1@sha256:e1561b5e526e8e7a2ac19b7bb6eab63611dd84a862a8c45b864118768a2baff4";
-/** The config Job's runtime: Node with npm, for `@directus/cli`. `node:26-alpine`, read 2026-11-05. */
-export const CMS_SYNC_IMAGE =
-  "node:26-alpine@sha256:c6ad9e9c1d80f6eb607c26b4b0a132ff7a2344fad1c78ea3baa2a7d4c8de6d94";
-/** `@directus/cli` (`d6s`): the newest 12.x on npm on 2026-11-05. The sync files carry the server version they were pulled from. */
-export const CMS_CLI_VERSION = "12.5.0";
+/** The CMS image: `cmsImage` when set, else the commit's own build, like the other app images. */
+export function cmsImage(images: ImagesConfig, override: string | undefined): string {
+  return override ?? `${images.registry}/grid-oib-cms:${images.tag}`;
+}
 
 export interface CmsConfig {
-  /** `cmsEnabled` AND `cmsLicenseKey` set AND network policies on. */
+  /** `cmsEnabled` AND network policies on. */
   enabled: boolean;
   /** `cms.<baseDomain>` unless `cmsDomain`. */
   domain: string;
-  image: string;
-  syncImage: string;
-  cliVersion: string;
+  /** A full image reference that replaces the commit's `grid-oib-cms` (a rollback, a hotfix). */
+  imageOverride?: string;
   resources: { requests: Record<string, string>; limits: Record<string, string> };
-  /** The license key (Open Innovation Grant or paid), `LICENSE_KEY`. */
-  licenseKey: pulumi.Output<string>;
-  /** `SECRET`: signs Directus' session and access tokens. */
+  /** `PAYLOAD_SECRET`: signs sessions and encrypts API keys at rest. */
   secret: pulumi.Output<string>;
-  /** The first administrator, created on the first boot only. */
+  /** The first administrator, created only while the CMS has none. */
   adminEmail: string;
   adminPassword: pulumi.Output<string>;
-  /** The administrator's static token: the config Job pushes the sync files with it. */
-  adminToken: pulumi.Output<string>;
-  /** Static tokens of the robot users `apps/cms/scripts/provision.mjs` keeps. */
-  websiteToken: pulumi.Output<string>;
-  socialHandoffToken: pulumi.Output<string>;
-  /** The bearer the website's revalidate endpoint accepts from the `Refresh the website` flow. */
+  /** The API keys of the two robots `apps/cms/src/provision.ts` keeps. */
+  websiteApiKey: pulumi.Output<string>;
+  socialHandoffApiKey: pulumi.Output<string>;
+  /** The bearer the website's revalidate endpoint accepts from the CMS. */
   revalidateToken: pulumi.Output<string>;
+  /** Signs the live-preview links the admin panel frames (`apps/cms/src/preview.ts`). */
+  previewSecret: pulumi.Output<string>;
   s3AccessKey: string;
   s3SecretKey: pulumi.Output<string>;
   postgres: {
@@ -84,35 +74,28 @@ export interface CmsConfig {
 
 export function loadCms(cfg: pulumi.Config, baseDomain: string): CmsConfig {
   const flag = bool(cfg, "cmsEnabled", false);
-  const licenseKey = cfg.getSecret("cmsLicenseKey");
   const policies = bool(cfg, "networkPolicies", true);
-  const key = (name: string) => `${pulumi.getProject()}:${name}`;
-  const missing = [
-    licenseKey === undefined ? `${key("cmsLicenseKey")} (the core tier refuses the review permissions)` : undefined,
-    policies ? undefined : `${key("networkPolicies")} (the CMS's database and API are reachable only through them)`,
-  ].filter((m): m is string => m !== undefined);
-  if (flag && missing.length > 0) {
-    pulumi.log.warn(`The CMS (ADR-0155) is not deployed: missing ${missing.join(", ")}. Set it, or cmsEnabled=false.`);
+  if (flag && !policies) {
+    pulumi.log.warn(
+      `The CMS (ADR-0155) is not deployed: ${pulumi.getProject()}:networkPolicies is off, and the CMS's database and API are reachable only through them. Turn them on, or cmsEnabled=false.`,
+    );
   }
   const app = cfg.requireSecret("pgAppPassword");
   const derived = (label: string, key: string) => cfg.getSecret(key) ?? derivedScalerPassword(app, `cms-${label}`);
   const cpu = cfg.get("cmsCpu") ?? "1";
   const memory = cfg.get("cmsMemory") ?? "1Gi";
   return {
-    enabled: flag && missing.length === 0,
+    enabled: flag && policies,
     domain: cfg.get("cmsDomain") ?? `cms.${baseDomain}`,
-    image: cfg.get("cmsImage") ?? CMS_IMAGE,
-    syncImage: CMS_SYNC_IMAGE,
-    cliVersion: CMS_CLI_VERSION,
+    imageOverride: cfg.get("cmsImage"),
     resources: { requests: { cpu: "250m", memory }, limits: { cpu, memory } },
-    licenseKey: licenseKey ?? pulumi.output(""),
     secret: derived("secret", "cmsSecret"),
     adminEmail: cfg.get("cmsAdminEmail") ?? cfg.require("letsEncryptEmail"),
     adminPassword: derived("admin-password", "cmsAdminPassword"),
-    adminToken: derived("admin-token", "cmsAdminToken"),
-    websiteToken: derived("website-token", "cmsWebsiteToken"),
-    socialHandoffToken: derived("social-handoff-token", "cmsSocialHandoffToken"),
+    websiteApiKey: derived("website-api-key", "cmsWebsiteApiKey"),
+    socialHandoffApiKey: derived("social-handoff-api-key", "cmsSocialHandoffApiKey"),
     revalidateToken: derived("revalidate-token", "cmsRevalidateToken"),
+    previewSecret: derived("preview-secret", "cmsPreviewSecret"),
     s3AccessKey: CMS.s3Identity,
     s3SecretKey: derived("s3", "cmsS3SecretKey"),
     postgres: {
@@ -124,7 +107,7 @@ export function loadCms(cfg: pulumi.Config, baseDomain: string): CmsConfig {
         bucket: "cms-pg-backups",
         retention: "30d",
         schedule: "0 15 2 * * *",
-        holds: "the website's posts, their revisions and the CMS users",
+        holds: "the website's posts, their versions and the CMS users",
       }),
     },
   };
