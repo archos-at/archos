@@ -171,7 +171,7 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
 
   test('a social post goes out only once a publisher approved it, and the hand-off records only what it did', async () => {
     const [account] = (await payload.find({ collection: 'social-accounts' })).docs;
-    const draft = await payload.create({ collection: 'social-posts', data: { account: account.id, language: 'de', text: 'Neu im Blog.' }, ...as('agent') });
+    const draft = await payload.create({ collection: 'social-posts', data: { account: account.id, language: 'de', text: 'Neu im Blog.' }, ...as('agent') } as never);
     await payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'in_review' }, ...as('agent') });
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'approved' }, ...as('editor') })).rejects.toThrow(/not allowed/i);
     await expect(payload.update({ collection: 'social-posts', id: draft.id, data: { status: 'scheduled' }, ...as('handoff') })).rejects.toThrow(/not allowed/i);

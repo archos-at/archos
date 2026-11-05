@@ -11,6 +11,9 @@ const NOW = new Date('2026-11-05T10:00:00Z');
 /** A `social-posts` document as the hand-off reads it (`locale=all&depth=2`). */
 const account = { id: 1, key: 'linkedin-company', network: 'linkedin', maxLength: 3000, publisherChannelId: 'chan-1', active: true };
 const blogPost = { id: 7, coverType: 'drawing', cover: 'welcome', publishedAt: '2026-11-01T00:00:00Z', slug: { de: 'willkommen', en: 'welcome' } };
+type Built = { input: { text: string; channelId: string; mode: string; dueAt?: string; assets?: unknown[] }; error: string };
+/** createPostInput, typed for the assertions (buffer.mjs is plain JavaScript). */
+const build = (post: object, ctx: { siteUrl: string; cmsPublicUrl: string; now: Date }) => createPostInput(post, ctx) as unknown as Built;
 const approved = (extra: Record<string, unknown> = {}) => ({ id: 12345678901, status: 'approved', language: 'de', text: 'Neu im Blog.', linkUrl: null, utmCampaign: null, image: null, scheduledAt: null, account, blogPost, ...extra });
 
 test('a tracked link carries the four UTM parameters and drops old ones', () => {
@@ -25,7 +28,7 @@ test('a tracked link carries the four UTM parameters and drops old ones', () => 
 });
 
 test('an approved post becomes a queued Buffer post with its tracked link and share image', () => {
-  const { input } = createPostInput(approved(), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
+  const { input } = build(approved(), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
   assert.equal(input.channelId, 'chan-1');
   assert.equal(input.mode, 'addToQueue');
   assert.match(input.text, /^Neu im Blog\.\n\nhttps:\/\/example\.com\/blog\/willkommen\/\?utm_source=linkedin&utm_medium=social&utm_campaign=willkommen&utm_content=linkedin-company-12345678$/);
@@ -34,25 +37,25 @@ test('an approved post becomes a queued Buffer post with its tracked link and sh
 
 test('a scheduled post goes at its time, and its own image wins over the share image', () => {
   const image = { url: '/api/media/file/f1.png', sizes: { share: { url: '/api/media/file/f1-1200x630.jpg' } } };
-  const { input } = createPostInput(approved({ scheduledAt: '2026-11-06T08:00:00Z', image }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
+  const { input } = build(approved({ scheduledAt: '2026-11-06T08:00:00Z', image }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
   assert.equal(input.mode, 'customScheduled');
   assert.equal(input.dueAt, '2026-11-06T08:00:00.000Z');
   assert.deepEqual(input.assets, [{ image: { url: 'https://cms.example.com/api/media/file/f1-1200x630.jpg' } }]);
   // An image cover's share size stands in when the post has no image of its own.
   const covered = { ...blogPost, coverType: 'image', cover: null, coverImage: { sizes: { share: { url: '/api/media/file/c-1200x630.jpg' } } } };
-  const { input: second } = createPostInput(approved({ blogPost: covered }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
+  const { input: second } = build(approved({ blogPost: covered }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
   assert.deepEqual(second.assets, [{ image: { url: 'https://cms.example.com/api/media/file/c-1200x630.jpg' } }]);
 });
 
 test('nothing is handed over that a person has not approved, or that would break', () => {
   const ctx = { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW };
-  assert.match(createPostInput(approved({ status: 'in_review' }), ctx).error, /not approved/);
-  assert.match(createPostInput(approved({ account: { ...account, publisherChannelId: null } }), ctx).error, /by hand/);
-  assert.match(createPostInput(approved({ scheduledAt: '2026-10-01T00:00:00Z' }), ctx).error, /before the blog post/);
-  assert.match(createPostInput(approved({ language: 'fr' }), ctx).error, /no fr version/);
+  assert.match(build(approved({ status: 'in_review' }), ctx).error, /not approved/);
+  assert.match(build(approved({ account: { ...account, publisherChannelId: null } }), ctx).error, /by hand/);
+  assert.match(build(approved({ scheduledAt: '2026-10-01T00:00:00Z' }), ctx).error, /before the blog post/);
+  assert.match(build(approved({ language: 'fr' }), ctx).error, /no fr version/);
   // An id that did not populate: the hand-off may read only live posts.
-  assert.match(createPostInput(approved({ blogPost: 7 }), ctx).error, /not live/);
-  assert.match(createPostInput(approved({ text: 'x'.repeat(2950) }), ctx).error, /over the account's 3000/);
+  assert.match(build(approved({ blogPost: 7 }), ctx).error, /not live/);
+  assert.match(build(approved({ text: 'x'.repeat(2950) }), ctx).error, /over the account's 3000/);
 });
 
 test('Buffer answers are read as an id or an error', async () => {
