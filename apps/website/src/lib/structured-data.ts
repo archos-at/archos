@@ -105,7 +105,7 @@ export function faqPage(site: URL, path: string, items: { q: string; a: string }
 /** A blog post, from its frontmatter (no schema change: `dateModified` is `pubDate` until a post has an update date). */
 export function blogPosting(
   site: URL,
-  post: { headline: string; description: string; path: string; published: Date; locale: Locale; section: string },
+  post: { headline: string; description: string; path: string; published: Date; locale: Locale; section: string; image: string },
 ): GraphNode {
   const url = new URL(post.path, site).href;
   return {
@@ -118,7 +118,7 @@ export function blogPosting(
     dateModified: post.published.toISOString(),
     inLanguage: post.locale,
     articleSection: post.section,
-    image: new URL('/media/share-card.png', site).href,
+    image: new URL(post.image, site).href,
     author: { '@id': organizationId(site) },
     publisher: { '@id': organizationId(site) },
   };

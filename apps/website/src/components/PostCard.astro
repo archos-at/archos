@@ -1,25 +1,41 @@
 ---
+import PostCover from './PostCover.astro';
+
 interface Props {
   title: string;
   text?: string;
   date?: string;
+  /** The post's category, printed before the date */
+  label?: string;
   href?: string;
+  /** A blog post's cover: its id in src/assets/covers/ (wins over `image`) */
+  cover?: string;
   /** Image 3:2 */
   image?: string;
   imageAlt?: string;
   class?: string;
 }
 
-const { title, text, date, href, image, imageAlt = '', class: className } = Astro.props;
+const { title, text, date, label, href, cover, image, imageAlt = '', class: className } = Astro.props;
 // A card without a real URL is a plain block, not a link.
 const Tag = href ? 'a' : 'div';
 ---
 
 <li class:list={['ui-post', className]}>
   <Tag href={href}>
-    <div class="ui-post-media">{image && <img src={image} alt={imageAlt} loading="lazy" decoding="async" />}</div>
+    <div class="ui-post-media">
+      {cover ? <PostCover id={cover} variant="card" /> : image && <img src={image} alt={imageAlt} loading="lazy" decoding="async" />}
+    </div>
     <h3 class="ui-post-title heading-3">{title}</h3>
     {text && <p class="ui-post-text body">{text}</p>}
-    {date && <p class="ui-post-date small">{date}</p>}
+    {
+      (label || date) && (
+        <p class="ui-post-date small">
+          {label && <span>{label}</span>}
+          {label && date && <span aria-hidden="true"> · </span>}
+          {date}
+        </p>
+      )
+    }
   </Tag>
 </li>

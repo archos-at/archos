@@ -22,12 +22,15 @@ const cat = category ? CATEGORIES[locale][category] : undefined;
 const title = cat ? cat.label : c.title;
 const description = cat ? cat.descriptor : c.hero.text;
 const heroTitle = cat ? cat.label : c.hero.title;
-// A category page sits under the blog in the breadcrumbs; the feed covers both strands.
+// A category page sits under the blog in the breadcrumbs; the feed covers every category.
 const crumbs = cat ? [{ name: c.title, path: blogPath(locale) }] : [];
+// Category segments are translated (src/lib/categories.ts), so the switch and hreflang need the twin.
+const other: Locale = locale === 'de' ? 'en' : 'de';
+const alternatePath = blogPath(other, category);
 const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
 ---
 
-<BaseLayout locale={locale} title={title} description={description} crumbs={crumbs} feed={feed}>
+<BaseLayout locale={locale} title={title} description={description} alternatePath={alternatePath} crumbs={crumbs} feed={feed}>
   <Hero title={heroTitle} text={description} />
 
   <section class="ui-container page-section">
@@ -57,7 +60,9 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
             title={post.data.heading}
             text={post.data.description}
             date={formatDate(post.data.pubDate, locale)}
+            label={CATEGORIES[locale][post.data.category].label}
             href={postPath(locale, post)}
+            cover={post.data.cover}
           />
         ))
       }
