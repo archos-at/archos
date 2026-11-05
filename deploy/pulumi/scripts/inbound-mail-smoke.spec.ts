@@ -123,7 +123,10 @@ describe("G9: the aligned DKIM share", () => {
   });
 });
 
-describe("the command line", () => {
+// Each case starts the script in its own `bun` process, which takes seconds on a
+// busy machine (a parallel `task verify`): past vitest's 5 s default it failed
+// the case with nothing wrong in it.
+describe("the command line", { timeout: 30_000 }, () => {
   const run = (...args: string[]) =>
     spawnSync("bun", [SCRIPT, ...args], { encoding: "utf8", env: { PATH: process.env.PATH ?? "" } });
 
