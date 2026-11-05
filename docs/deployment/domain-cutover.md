@@ -2,8 +2,8 @@
 
 **Status: dev switching, prod prepared** (owner decision D2, 2026-10-29: prepare, don't flip;
 2026-11-05: switch dev). The new zone is in the same Cloudflare account as the former one. The
-dev stack's switch is committed in `Pulumi.dev.yaml` and deploys once its `dnsZoneId` holds the
-new zone's id (the placeholder fails `pulumi preview`). Staging's WorkOS entries are added. Prod
+dev stack's switch is committed in `Pulumi.dev.yaml` with the new zone's id, and dev's new
+account-owned token is in ESC, checked against both zones. Staging's WorkOS entries are added. Prod
 is unchanged: its configuration below is ready to apply. The owner triggers it; every step that
 changes a live system is marked **one-way door** or **live** and needs the owner.
 
@@ -87,14 +87,14 @@ stay where they are only after step 4 takes them out of the state.
 
 ### Dev (`deploy/pulumi/Pulumi.dev.yaml`)
 
-Committed on 2026-11-05, except the one value marked TODO(owner) in the file:
+Committed on 2026-11-05. The token was checked against both zones the same day and stored in ESC:
 
 | Key | Was | Now |
 |---|---|---|
 | `baseDomain` | `$OLD_DEV` | `$NEW_DEV` |
 | `formerBaseDomain` | (unset) | `$OLD_DEV` |
 | `dnsZoneName` | `$OLD` | `$NEW` (the same zone as prod) |
-| `dnsZoneId` | the former zone's id | `REPLACE_ME` until the id from `check-cloudflare-token.sh --stack dev` replaces it |
+| `dnsZoneId` | the former zone's id | the new zone's id (`31df51fb…`), printed by `check-cloudflare-token.sh --stack dev` on 2026-11-05 |
 | `formerDnsZoneName` / `formerDnsZoneId` | (unset) | `$OLD` and the former zone's id |
 | `cloudflareApiToken` | (secure, a user token on `$OLD` only) | removed from the stack file; a new **account-owned**, DNS-only token on `$NEW` and `$OLD` (Zone → DNS → Edit, Zone → Zone → Read) in ESC, `esc env set …/dev pulumiConfig.<project>:cloudflareApiToken` |
 

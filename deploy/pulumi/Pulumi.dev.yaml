@@ -260,9 +260,7 @@ config:
   #   CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack dev
   grid-oib:dnsEnabled: "true"
   grid-oib:dnsZoneName: archos.tech
-  # TODO(owner): the id from check-cloudflare-token.sh. `loadConfig` refuses
-  # anything but a zone id, so this stack does not deploy until it is set.
-  grid-oib:dnsZoneId: REPLACE_ME
+  grid-oib:dnsZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id, printed by check-cloudflare-token.sh 2026-11-05)
   grid-oib:formerDnsZoneName: piloti.at
   grid-oib:formerDnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
   # ── err2issue: ERROR telemetry -> GitHub issues (ADR-0031) ──
