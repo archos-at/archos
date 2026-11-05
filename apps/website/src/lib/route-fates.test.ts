@@ -8,7 +8,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { PENDING_TARGETS, ROUTE_FATES, fateOf, redirects } from '../../redirects.mjs';
 import { ROUTES } from '../i18n/paths';
-import { CATEGORY_IDS } from './categories';
+import { CATEGORY_IDS, blogPath } from './categories';
 
 const CONTENT = join(import.meta.dir, '../content/blog');
 
@@ -20,7 +20,7 @@ function livePaths(): Set<string> {
     live.add(route.en);
   }
   for (const [locale, base] of [['de', '/blog/'], ['en', '/en/blog/']] as const) {
-    for (const category of CATEGORY_IDS) live.add(`${base}${category}/`);
+    for (const category of CATEGORY_IDS) live.add(blogPath(locale, category));
     for (const file of readdirSync(join(CONTENT, locale))) {
       if (/^draft:\s*true$/m.test(readFileSync(join(CONTENT, locale, file), 'utf8'))) continue;
       live.add(`${base}${file.replace(/\.mdx$/, '')}/`);
@@ -72,6 +72,11 @@ describe('route fates', () => {
     expect(fate('/fuer/baumeister-bautraeger/')).toEqual({ status: 410 });
     expect(fate('/bildmaterial/alle.zip')).toEqual({ status: 410 });
     expect(fate('/llms-full.txt')).toEqual({ status: 301, location: '/llms.txt' });
+    expect(fate('/blog/journal/')).toEqual({ status: 301, location: blogPath('de', 'practice') });
+    expect(fate('/blog/bautagebuch/')).toEqual({ status: 301, location: blogPath('de', 'technology') });
+    expect(fate('/en/blog/journal/')).toEqual({ status: 301, location: blogPath('en', 'practice') });
+    expect(fate('/en/blog/bautagebuch/')).toEqual({ status: 301, location: blogPath('en', 'technology') });
+    expect(fate('/de/blog/journal/')).toEqual({ status: 301, location: blogPath('de', 'practice') });
   });
 
   test('old aliases resolve straight to the final target', () => {

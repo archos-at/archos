@@ -188,12 +188,6 @@ button.ui-nav-link {
   }
 }
 
-/* Home: the portrait beside the feld72 quote is grayscale, as the reference and the
-   media table say. */
-.home-quote .ui-quote-portrait img {
-  filter: grayscale(1);
-}
-
 /* Home: the founders' call to action sits at the bottom of its column on a desktop. */
 .home-founders-action {
   display: flex;

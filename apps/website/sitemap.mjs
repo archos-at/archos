@@ -6,6 +6,8 @@
  * own. So each item gets its `xhtml:link` pair from the route table (src/i18n/paths.ts)
  * or from the post's `translationSlug`, and a `lastmod`:
  *   - a post: its `pubDate`;
+ *   - a blog category page: its twin from src/lib/categories.ts (the segment is translated)
+ *     and the blog's date;
  *   - a page in the route table: the last commit that touched its view or its copy, when
  *     git is there (a local or CI build); the image build has no git, and then the page
  *     carries no date rather than a wrong one.
@@ -14,7 +16,8 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { ROUTES } from './src/i18n/paths.ts'
+import { ROUTES, isUnlisted } from './src/i18n/paths.ts'
+import { CATEGORY_IDS, blogPath } from './src/lib/categories.ts'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
 
@@ -83,6 +86,12 @@ function pageTable() {
     const lastmod = key === 'blog' ? newestPost && new Date(newestPost).toISOString() : PAGE_SOURCES[key] && lastCommitDate(PAGE_SOURCES[key])
     for (const locale of ['de', 'en']) table.set(route[locale], { pair: route, lastmod })
   }
+  // A category page's segment is translated, so the plugin's /en prefix rule would pair it wrongly.
+  const blogDate = table.get(ROUTES.blog.de)?.lastmod
+  for (const category of CATEGORY_IDS) {
+    const pair = { de: blogPath('de', category), en: blogPath('en', category) }
+    for (const locale of ['de', 'en']) table.set(pair[locale], { pair, lastmod: blogDate })
+  }
   for (const post of all) {
     const other = post.locale === 'de' ? 'en' : 'de'
     const twin = post.translationSlug && all.find((p) => p.locale === other && p.slug === post.translationSlug)
@@ -113,7 +122,8 @@ export function serializeSitemapItem(item) {
   return item
 }
 
-/** @astrojs/sitemap `filter`: no error page, and nothing that only redirects. */
+/** @astrojs/sitemap `filter`: no error page, nothing that only redirects, and no unlisted page (paths.ts). */
 export function sitemapFilter(page) {
-  return !/\/(404|sign-in)(\/|$)/.test(new URL(page).pathname)
+  const { pathname } = new URL(page)
+  return !/\/(404|500|sign-in)(\/|$)/.test(pathname) && !isUnlisted(pathname)
 }

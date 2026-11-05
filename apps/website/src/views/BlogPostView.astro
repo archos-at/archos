@@ -1,12 +1,14 @@
 ---
 import { render } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import PostCover from '../components/PostCover.astro';
 import TextLink from '../components/TextLink.astro';
 import copy from '../i18n/pages/blog';
 import type { Locale } from '../i18n/paths';
 import { CATEGORIES, blogPath } from '../lib/categories';
 import { formatDate, postPath, type BlogPost } from '../lib/posts';
 import identity from '../lib/identity';
+import { coverImagePath } from '../lib/covers';
 import { blogPosting } from '../lib/structured-data';
 
 // Markup only. The body is the post's MDX; its typography lives in src/styles/site.css.
@@ -17,14 +19,14 @@ interface Props {
 
 const { locale, post } = Astro.props;
 const { Content } = await render(post);
-const { title, heading, description, pubDate, category, translationSlug } = post.data;
+const { title, heading, description, pubDate, category, cover, translationSlug } = post.data;
 const c = copy[locale];
 const cat = CATEGORIES[locale][category];
 // The language switch and hreflang point at the post's translation. A post with
 // none falls back to the other locale's blog index, so the switch never 404s.
 const other: Locale = locale === 'de' ? 'en' : 'de';
 const alternatePath = translationSlug ? `${blogPath(other)}${translationSlug}/` : blogPath(other);
-// Structured data from the frontmatter as it is (owner decision D13: no schema change).
+// Structured data from the frontmatter; the image is the cover's share image (src/pages/media/covers).
 const site = Astro.site ?? new URL(`https://${identity.domain}`);
 const posting = blogPosting(site, {
   headline: title,
@@ -33,6 +35,7 @@ const posting = blogPosting(site, {
   published: pubDate,
   locale,
   section: cat.label,
+  image: coverImagePath(cover),
 });
 const crumbs = [
   { name: c.title, path: blogPath(locale) },
@@ -41,7 +44,7 @@ const crumbs = [
 const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
 ---
 
-<BaseLayout locale={locale} title={title} description={description} alternatePath={alternatePath} crumbs={crumbs} graph={[posting]} feed={feed}>
+<BaseLayout locale={locale} title={title} description={description} alternatePath={alternatePath} crumbs={crumbs} graph={[posting]} feed={feed} image={{ path: coverImagePath(cover), alt: title }}>
   <article class="ui-container post">
     <header class="post-head">
       <p class="post-meta small">
@@ -51,6 +54,8 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
       <h1 class="heading-1 post-title">{heading}</h1>
       <p class="lead post-lead">{description}</p>
     </header>
+
+    <PostCover id={cover} variant="banner" />
 
     <div class="post-body">
       <Content />

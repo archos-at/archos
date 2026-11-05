@@ -6,7 +6,7 @@ so, and where a picture explains the moment better than an icon disc:
 
 | Art id | Slot in the app | What it has to say |
 |---|---|---|
-| `vignetten/bauplatz/empty` | not-found page (`app/not-found.tsx`) | "Not in the plan": there is nothing built here |
+| `vignetten/bauplatz/empty` | none since 2026-11-05: the not-found page draws a line drawing (`ui/components/brand/status-drawing.tsx`); the print stays in `/dev/riso-art` | "Not in the plan": there is nothing built here |
 | `vignetten/abstecken/empty` | projects home, no projects yet | A project starts here: the plot is staked out, nothing built yet |
 | `vignetten/planschrank/empty` | a project's documents, none uploaded | The drawer where the drawings go is open and empty |
 

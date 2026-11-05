@@ -182,7 +182,6 @@
   "apps/workspace/app/dev/skill-editor-advanced/page.tsx": 4,
   "apps/workspace/app/dev/skill-editor/page.tsx": 2,
   "apps/workspace/app/dev/skills-panel/page.tsx": 5,
-  "apps/workspace/app/error.tsx": 1,
   "apps/workspace/app/globals.css": 1,
   "apps/workspace/bff/a2a/agent-card.spec.ts": 1,
   "apps/workspace/bff/a2a/request-handler.ts": 1,

@@ -2,7 +2,7 @@
 
 Zwei Karten, die die zwei Seiten einer Aussage zeigen: links hell und warm (Menschen), rechts dunkel und kühl (Maschine). Gleich breit; beim Überfahren wird eine Karte breiter und die andere tritt zurück.
 
-**Props:** `items` – genau zwei `{ title, text, theme }` plus entweder `media` (füllt den unteren Teil) oder `photo` (Foto über die ganze Karte, `photoStyle` für Ausschnitt und Bearbeitung, `onPhoto` für Text in `on-ink`, `ai` für das Kennzeichen). Standard: erste hell, zweite dunkel.
+**Props:** `items` – genau zwei `{ title, text, theme }` plus entweder `media` (füllt den unteren Teil) oder `photo` (Foto über die ganze Karte, in seinen eigenen Farben; `photoStyle` nur für den Ausschnitt, nie für einen Filter: den Kontrast für den Text gibt ein Verlauf hinter dem Textblock, `ui-duo-text::before`; `onPhoto` für Text in `on-ink`, `ai` für das Kennzeichen). Standard: erste hell, zweite dunkel.
 
 - Steht unter einem mittigen `display`-Statement in einem Band-Abschnitt (`ui-band`).
 - Titel `heading-1`, Text `body`, Innenabstand `space-12`, eckig.
