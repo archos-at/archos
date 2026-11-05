@@ -21,6 +21,7 @@ import { I18nProvider } from '@/i18n'
 import type { CitationSource } from '@/features/chat/types'
 import type { Findings } from '@/lib/conversations/message-findings'
 import type { PlanDocument } from '@/lib/runs/plan-documents'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const DOCUMENTS: PlanDocument[] = [
   { name: 'Einreichplan_EG.pdf', title: 'Einreichplan Erdgeschoß', shelf: 'project' },
@@ -142,7 +143,7 @@ const REPORT = [
 
 const Section = ({ label, children }: { label: string; children: ReactNode }) => (
   <section className="flex flex-col gap-3">
-    <h2 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">{label}</h2>
+    <SectionLabel as="h2">{label}</SectionLabel>
     {children}
   </section>
 )

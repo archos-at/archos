@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * "Neu diese Woche": the newest weekly summary, shown once to a signed-in person (ADR-0154,
+ * "Neu diese Woche": the newest weekly summary, shown once to a signed-in person (ADR-0156,
  * amendment). Only the summary, never the single notes; its link leads to the full "Neuerungen".
  *
  * The server decides whether there is one to show (`resolveWhatsNewNotice`); this decides when.

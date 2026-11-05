@@ -2,7 +2,7 @@
 
 /**
  * What's new: every change to the product, a page of weeks at a time, narrowed by product area
- * (ADR-0154). The organism of `/app/whats-new`.
+ * (ADR-0156). The organism of `/app/whats-new`.
  *
  * It renders what the server already chose: the page, the area and the reader's language
  * (`localizeReleaseNotes`). The filter and the pager are links, so a filtered page has an address

@@ -12,7 +12,7 @@ const de = {
     title: 'Neuerungen.',
     text: 'Was sich in {name} geändert hat, Woche für Woche zusammengefasst.',
   },
-  // Every single change is in the app, behind sign-in (ADR-0154); this page carries the week's summary.
+  // Every single change is in the app, behind sign-in (ADR-0156); this page carries the week's summary.
   inApp: 'Jede einzelne Änderung, nach Bereich sortiert, finden Sie nach der Anmeldung in {name} unter Neuerungen.',
   formerName: 'Einträge aus der Zeit vor der Umbenennung nennen {name} bei seinem früheren Namen.',
   unreleased: 'In Kürze',

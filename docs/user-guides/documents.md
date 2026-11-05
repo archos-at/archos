@@ -6,23 +6,25 @@ Keep the office's files in folders and share them with everyone who has access t
 
 ## Uploading Documents
 
-There are two upload zones in the UI:
+A file goes to one of two places, and the place decides who can use it:
 
-- **Project upload zone** — appears in the Data Sources panel when a project is active. Files uploaded here are scoped to the project (`proj_{projectId}` collection) and shared with everyone who has access to that project.
-- **Chat upload zone** — appears within a conversation. Files uploaded here are scoped to that session (`s_{conversationId}` collection) and visible only within that conversation.
+- **The project's Dateien** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). Upload with **„Hochladen“** in the Dateien header (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**), with the dashed upload card at the end of the grid, or by dropping files anywhere on the file area; on a phone „Hochladen“ floats over the foot of the list. The Büroablage has the same controls for the whole office (see [The Büroablage](#the-büroablage-adr-0024)).
+- **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
-To upload, drag and drop files onto the upload zone or click to browse. Multiple files can be uploaded at once.
+In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Dateien, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in Dateien („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
 
-The project Files workspace shows folders, the file grid, and the preview side by side on desktop. On small screens the panes stack — folders above the file grid — and selecting a file opens the preview as a full-screen overlay with a close button.
+Every way of uploading takes several files at once.
+
+In Dateien, folders are the drill-down inside the listing: each level shows its folders as tiles (or rows, in the list view) beside its files, and the breadcrumb above names the path and walks back out. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
-The folder tree in the left pane is the project's filing system, and it supports the full set of operations — not just creating folders.
+The folders are the project's filing system, and they support the full set of operations — not just creating folders.
 
-- **Create** — `New folder` at the bottom of the tree adds a top-level folder; hovering a row reveals a `+` (`Add subfolder in {name}`) that nests one inside it. Both open an inline name field; Enter commits, Escape cancels.
-- **Rename** — the row's `⋯` menu → `Rename…` turns the row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
+- **Create** — **„Neuer Ordner“** beside the breadcrumb opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
+- **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
-- **Delete** — the same menu's `Delete…`. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+- **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 

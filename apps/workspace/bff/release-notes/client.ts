@@ -1,5 +1,5 @@
 /**
- * The browser's half of the "Neu diese Woche" notice (ADR-0154, amendment): record that the
+ * The browser's half of the "Neu diese Woche" notice (ADR-0156, amendment): record that the
  * person has seen a week's summary, and their switch for the notice. Fails soft, like the preferences client: a notice that could
  * not record itself shows once more on the next load, which beats a broken frame.
  */

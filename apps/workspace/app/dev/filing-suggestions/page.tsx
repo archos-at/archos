@@ -38,6 +38,7 @@ import type { TrackedFile } from '@/features/documents/types'
 import type { ListedProposal, ProposedChangeView } from '@/lib/proposals/types'
 import { useFakeProposalClient } from '../_fixtures/fake-proposals'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 type FileProposal = Extract<ProposedChangeView, { kind: 'file_operation' }>
 
@@ -197,7 +198,7 @@ function Stage({ title, note, children }: { title: string; note: string; childre
 function State({ label, children }: { label: string; children: ReactNode }): JSX.Element {
   return (
     <div className="space-y-1.5 p-4">
-      <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wider">{label}</p>
+      <SectionLabel as="p">{label}</SectionLabel>
       {children}
     </div>
   )

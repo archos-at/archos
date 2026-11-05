@@ -2,7 +2,7 @@
 # (/changelog/). Keyed by the group id the changelog uses: an ISO week like
 # 2026-W39, or a version like 1.2.0 once releases are tagged.
 #
-# The public page shows these and nothing else (ADR-0154). Every note of the
+# The public page shows these and nothing else (ADR-0156). Every note of the
 # week is in the app's "What's new" for signed-in members; the summary is what
 # anyone may read: what an architect would tell a colleague about the week, the
 # headline changes in the words of the screens, never the mechanism, never a

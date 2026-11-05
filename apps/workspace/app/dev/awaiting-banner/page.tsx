@@ -23,6 +23,7 @@ import { notFound } from 'next/navigation'
 import { AwaitingBanner } from '@/features/collaboration/components/AwaitingBanner'
 import { I18nProvider } from '@/i18n'
 import type { AwaitingStateResponse, PendingMentionView } from '@/lib/mentions/types'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const person = (userId: string, name: string) => ({
   userId,
@@ -110,9 +111,9 @@ const ME: AwaitingStateResponse = {
 
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-2">
-    <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+    <SectionLabel as="h2">
       {label}
-    </h2>
+    </SectionLabel>
     {children}
   </section>
 )

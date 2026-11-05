@@ -205,6 +205,22 @@ describe('the tools', () => {
     expect(screen.getByTestId('review-tool-hint')).toHaveTextContent('Click the place · Esc cancels')
   })
 
+  it.each(['region', 'point'] as const)('puts the %s tool down when it is picked again: the palette is back on „Auswählen“', async (tool) => {
+    serve([])
+    render(<Host />)
+    await screen.findByTestId('review-empty')
+    const button = screen.getByTestId(`review-tool-${tool}`)
+
+    await userEvent.click(button)
+    expect(button).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('review-tool-select')).toHaveAttribute('aria-pressed', 'false')
+
+    await userEvent.click(button)
+    expect(button).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('review-tool-select')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('review-tool-hint')).toBeNull()
+  })
+
   it('keeps the cursor chat apart from the comment tool: its own glyph, and no pointer to open at from its button', async () => {
     serve([])
     render(<Host />)
@@ -644,6 +660,15 @@ describe('pins and cards to a screen reader', () => {
     expect(screen.queryByRole('tab')).toBeNull()
     expect(screen.getByTestId('review-filter-open')).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByTestId('review-filter-closed')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('shows a filter its count only above zero, never a 0 in the slashed mono face (ticket #38)', async () => {
+    serve([view({ id: 'ann_1' })])
+    render(<Host />)
+    await screen.findByTestId('review-row')
+    expect(screen.getByTestId('review-filter-open')).toHaveTextContent(/^Open1$/)
+    expect(screen.getByTestId('review-filter-closed')).toHaveTextContent(/^Done$/)
+    expect(screen.getByTestId('review-filter-open').querySelector('.font-mono')).toBeNull()
   })
 })
 

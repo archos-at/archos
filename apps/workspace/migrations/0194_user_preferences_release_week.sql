@@ -1,5 +1,5 @@
 -- 0194: the last weekly summary of the release notes a person has seen, and whether they want
--- to be shown the next one (ADR-0154, amendment).
+-- to be shown the next one (ADR-0156, amendment).
 --
 -- The app shows a person the newest weekly summary once, in a small notice, and never again
 -- for that week. "Seen" is per person and across devices, so it lives beside their other

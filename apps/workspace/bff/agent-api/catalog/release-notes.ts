@@ -1,6 +1,6 @@
 /**
  * What changed in the product: the release notes members read under What’s new, and the
- * person's own record for the weekly summary notice (ADR-0154 and its amendment). In the
+ * person's own record for the weekly summary notice (ADR-0156 and its amendment). In the
  * organization domain, beside the office's other reads; a file of its own so that one stays
  * under the size limit. See `projects.ts` for the shape.
  */

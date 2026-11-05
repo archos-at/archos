@@ -1,5 +1,5 @@
 /**
- * The person's own record for the weekly-summary notice (migration 0194, ADR-0154 amendment):
+ * The person's own record for the weekly-summary notice (migration 0194, ADR-0156 amendment):
  * `user_preferences.last_seen_release_week`, the newest summary they have seen, and
  * `release_summary_notice`, whether they want the notice at all. The only module that reads or
  * writes those columns.

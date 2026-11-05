@@ -2,6 +2,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import { Check } from 'lucide-react'
+import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { intakeQuestionsStepCopy } from '@/i18n/namespaces/intake-questions-step'
 import { cn } from '@/lib/utils'
@@ -65,12 +66,9 @@ export function RoundList({
         if (inGroup.length === 0) return null
         return (
           <section key={group} aria-labelledby={`questions-group-${group}`} data-testid={`questions-group-${group}`}>
-            <h2
-              id={`questions-group-${group}`}
-              className="text-muted-foreground mb-1.5 ml-2.5 mt-[18px] text-[11px] font-normal uppercase tracking-[0.06em]"
-            >
+            <SectionLabel as="h2" id={`questions-group-${group}`} className="mb-1.5 ml-2.5 mt-[18px]">
               {t(`groups.${group}`)}
-            </h2>
+            </SectionLabel>
             <ul>
               {inGroup.map((row) => {
                 const current = row.id === currentId

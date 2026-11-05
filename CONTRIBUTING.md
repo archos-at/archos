@@ -59,7 +59,7 @@ convention. Notes are written with [reno](https://docs.openstack.org/reno/latest
 and published automatically when the PR merges, in German and English: every
 note to the app's "What's new" for signed-in members, by week and product area;
 the public changelog on the website shows only the weekly summaries
-(ADR-0154). Each note names its area in its first line (`# area: documents`).
+(ADR-0156). Each note names its area in its first line (`# area: documents`).
 
 ```bash
 task release:note -- re-index-projects   # creates releasenotes/notes/<slug>-<hash>.yaml

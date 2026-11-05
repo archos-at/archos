@@ -193,7 +193,7 @@ replaced `agent_capability_missing`.
 | AGENTS.md, CLAUDE.md bridge | Each area's guide is an `AGENTS.md`; a one-line `CLAUDE.md` beside it imports it for Claude | [`docs/contributing/agent-onboarding-files.md`](contributing/agent-onboarding-files.md) |
 | Skill or document | A repo skill exists only for agent-specific procedure; anything a contributor needs too is a document | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
 | apm, `apm.lock.yaml` | The agent package manager that installs third-party skills, and the lockfile that hashes them; `task agents:audit` fails on drift | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
-| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the app's What's new, by week and product area; the public changelog shows the weekly summaries (ADR-0154). The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
+| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the app's What's new, by week and product area; the public changelog shows the weekly summaries (ADR-0156). The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
 | oxlint, `grid/*` rules | The UI linter, and the repo's own rules it runs as a JS plugin (tenant scope, tenant cache key, motion vocabulary, card type scale, restricted syntax) | [`docs/contributing/lint-evaluation.md`](contributing/lint-evaluation.md) |
 
 ## CI

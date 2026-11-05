@@ -89,6 +89,51 @@ describe('ProjectCard', () => {
   })
 })
 
+describe('ProjectCard location line', () => {
+  const summary = 'Wohnbau mit 214 Wohneinheiten in Gebäudeklasse 5, geplant als Holz-Hybridbau mit'
+
+  test('shows where the project is under its name, not the brief cut to one line', () => {
+    render(
+      <ProjectCard
+        project={createProject({
+          profile: {
+            facts: {
+              site_address: {
+                value: '  Janis-Joplin-Promenade 12, 1220 Wien ',
+                confidence: 'confirmed',
+                source: 'onboarding',
+                updatedAt: '2026-01-01T00:00:00Z',
+              },
+            },
+            goals: {},
+            unknowns: [],
+            assumptions: {},
+          },
+          profileDisplay: { title: 'Alpha', summary, keyFacts: [], missingInfo: [] },
+        })}
+      />,
+    )
+
+    const line = screen.getByTestId('project-location')
+    expect(line).toHaveTextContent('Janis-Joplin-Promenade 12, 1220 Wien')
+    // The full address is the tooltip, for when the line truncates.
+    expect(line).toHaveAttribute('title', 'Janis-Joplin-Promenade 12, 1220 Wien')
+    expect(screen.queryByText(summary)).not.toBeInTheDocument()
+  })
+
+  test('shows no second line, and no invitation, when the project has no address', () => {
+    render(
+      <ProjectCard
+        project={createProject({ profileDisplay: { title: 'Alpha', summary, keyFacts: [], missingInfo: [] } })}
+      />,
+    )
+
+    expect(screen.queryByTestId('project-location')).not.toBeInTheDocument()
+    expect(screen.queryByText(summary)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Add documents and a brief/)).not.toBeInTheDocument()
+  })
+})
+
 describe('getProjectStatus', () => {
   test('reads the stored status (ADR-0098): active, paused, or closed', () => {
     expect(getProjectStatus({ status: 'active' })).toBe('active')

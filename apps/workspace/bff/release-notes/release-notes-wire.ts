@@ -96,7 +96,7 @@ export interface Bilingual {
  */
 export const RELEASE_WEEK_PATTERN = /^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$/
 
-/** The newest weekly summary, as the "Neu diese Woche" notice shows it (ADR-0154, amendment). */
+/** The newest weekly summary, as the "Neu diese Woche" notice shows it (ADR-0156, amendment). */
 export interface ReleaseSummary {
   /** The week, `2026-W44`. */
   readonly id: string

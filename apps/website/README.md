@@ -54,7 +54,7 @@ drawing's motion: `packages/brand/css/status.css`). Old public addresses and the
 ## Changelog
 
 `/changelog/` and `/en/changelog/` render `src/data/changelog.json`: the weekly summaries from
-`releasenotes/summaries.yaml` and nothing else (ADR-0154; every single note is in the app, behind
+`releasenotes/summaries.yaml` and nothing else (ADR-0156; every single note is in the app, behind
 sign-in). `scripts/release_notes.py publish` writes it and the release-notes workflow commits it on
 every merge to `develop` (`docs/contributing/release-notes.md`). Never edit the JSON; write a summary.
 `src/lib/changelog.ts` reads it and builds the RSS feeds (`/changelog/rss.xml`, `/en/changelog/rss.xml`),

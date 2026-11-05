@@ -192,7 +192,7 @@ export const UserMessage: FC<UserMessageProps> = ({
     // every mount, reloads and thread switches included.
     return (
       <div className="flex w-full flex-col items-end">
-        {/* "Eingabe" role tab — uppercase 10.5/600, inset from the bubble edge */}
+        {/* "Eingabe" role tab — the eyebrow, 10.5/500, inset from the bubble edge */}
         <SectionLabel as="div" className="mr-[14px] inline-flex items-center gap-1.5 rounded-t-md bg-accent px-2.5 py-1">
           <User className="size-2.5" aria-hidden="true" />
           {t('roles.input')}

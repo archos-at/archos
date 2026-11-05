@@ -34,12 +34,13 @@ import { EngagementNotice } from '@/features/collaboration/components/Engagement
 import { I18nProvider } from '@/i18n'
 import type { ConversationEngagement } from '@/lib/db/schema/conversations'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-2">
-    <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+    <SectionLabel as="h2">
       {label}
-    </h2>
+    </SectionLabel>
     <div className="bg-card rounded-lg border px-4 py-3">{children}</div>
   </section>
 )

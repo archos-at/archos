@@ -10,6 +10,7 @@
 import { type ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { SectionLabel } from '@/components/ui/section-label'
 import { getLegalDocument, legalNavEntries } from '@/lib/legal'
 import { isLegalSlug } from '@/lib/legal/types'
 import { getLocale, getTranslations } from '@/i18n/server'
@@ -89,9 +90,7 @@ const LegalPage = async ({ params }: LegalPageProps): Promise<ReactNode> => {
       ))}
 
       <nav aria-label={t('nav.otherDocuments')} className="mt-12 border-t border-border pt-6">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {t('nav.otherDocuments')}
-        </p>
+        <SectionLabel as="p">{t('nav.otherDocuments')}</SectionLabel>
         <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm">
           {legalNavEntries(locale)
             .filter((entry) => entry.slug !== slug)
