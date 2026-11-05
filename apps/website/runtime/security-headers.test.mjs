@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { cmsImageOrigins, contentSecurityPolicy, securityHeaders } from './security-headers.mjs'
+import { cmsImageOrigins, contentSecurityPolicy, isPreviewPath, securityHeaders } from './security-headers.mjs'
 import { analyticsOrigins } from './web-analytics.mjs'
 
 const OFF = analyticsOrigins(null)
