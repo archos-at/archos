@@ -5,24 +5,6 @@ export const officeShelf = {
   backToApp: 'Zurück zu den Projekten',
   backToProject: 'Zurück zum Projekt',
   backToNamedProject: 'Zurück zu {name}',
-  // What only the Büroablage card says: the gold kind chip and where it came from.
-  library: {
-    provenance: 'Aus „{source}“',
-    kind: {
-      floorplan: 'Grundriss',
-      section: 'Schnitt / Ansicht',
-      siteplan: 'Lageplan',
-      notice: 'Bescheid',
-      photo: 'Foto',
-      // `model` fehlte, obwohl `inferDocumentKind` es für jede `.ifc` liefert —
-      // die Karte zeigte den rohen Schlüssel. Ein Gebäude ist kein Dokument,
-      // und die Bezeichnung sagt das.
-      model: 'Gebäudemodell',
-      sheet: 'Tabelle',
-      text: 'Notiz',
-      document: 'Dokument',
-    },
-  },
   toast: {
     // Sobald die asynchrone Verarbeitung abgeschlossen ist und das Dokument
     // organisationsweit zitierbar wird.

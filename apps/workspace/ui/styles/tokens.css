@@ -443,6 +443,34 @@
   --ease-cycle: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
+/* The lightest weight in the app, and the only one below content weight (500).
+
+   General Sans is a variable face (200–700, `app/layout.tsx`), and at 400 its
+   regular reads thin on the warm paper and on charcoal alike (Notion #38,
+   „Die dünnste Schrift anheben"). So the light end is 440, set once: `body`
+   and the card ramp's caption and body steps read it in `globals.css`, and
+   overriding Tailwind's own `--font-weight-normal` moves every `font-normal`
+   with it. Weights 500 and up are untouched. `static` for the same reason as
+   the easings above: the name is Tailwind's namespace, and hand-written CSS
+   reads the property. Nothing may be set lighter than this
+   (`tests/brand-literals.spec.ts`). */
+@theme static {
+  --font-weight-normal: 440;
+}
+
+/* The one size of an answer's text: its prose, its lede, the bodies of its
+   blocks and of its cards (Notion #38, „Schriftgrößen im Chat-Output
+   vereinheitlichen"). It was 17px for the lede and the standfirst, 16px for
+   the paragraphs, 15px in a step or a callout and 13.5px in a card row, and
+   none of those differences said anything about rank. `text-answer` is the
+   utility; the card ramp (`.card-body`, `.card-title`) reads the property.
+   What keeps its own size is what says something by it: headings, figures,
+   and the micro-metadata steps (caption, meta, eyebrow). */
+@theme static {
+  --text-answer: 1rem;
+  --text-answer--line-height: 1.625;
+}
+
 /* Expose the shadcn vars as Tailwind theme colors (bg-background, text-primary
    is taken by a legacy utility — shadcn primitives use bg-primary/text-foreground
    etc. via these mappings). The provenance signal vars are mapped too, so

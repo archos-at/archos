@@ -25,11 +25,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type,
         // driving the pointer, which is the same axis the touch sizes use.
         // 40px is under the 44px touch floor — see the Button size comment.
         'file:text-foreground placeholder:text-muted-foreground border-input flex h-10 w-full min-w-0 rounded-control border bg-input-background px-3.5 py-1 text-sm transition-[color,opacity] duration-quick ease-out motion-reduce:transition-none outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11 pointer-coarse:text-base',
-        // A field takes the field ring (border promotion + halo), never the
-        // offset control ring — composed, not re-spelled. Radius is the
+        // A field takes the field focus (its border turns ink, nothing else),
+        // never the offset control ring — composed, not re-spelled. Radius is the
         // control radius (`rounded-control`, 4px, the brand rule).
         FIELD_FOCUS_RING,
-        'aria-invalid:ring-destructive/20 aria-invalid:border-destructive',
+        'aria-invalid:border-destructive',
         className
       )}
       {...props}

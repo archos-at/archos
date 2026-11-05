@@ -17,7 +17,9 @@ import { type FC, memo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 
+import { FIELD_FOCUS_WITHIN_RING } from '@/components/ui/focus-ring'
 import { cn } from '@/lib/utils'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { FileSourcesTab } from './FileSourcesTab'
 import { trackedFileToFileItem } from '@/features/documents/types'
 import { FilePreviewDialog } from '@/features/documents/components/file-preview-dialog'
@@ -50,7 +52,11 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
   return (
     <div
       ref={controller.composerRootRef}
-      className="mx-auto flex w-full max-w-4xl flex-col pt-3 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(0.75rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pl-[max(1rem,env(safe-area-inset-left))] sm:pt-4 sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pb-4 sm:pl-[max(1.5rem,env(safe-area-inset-left))]"
+      className={cn(
+        THREAD_COLUMN,
+        THREAD_GUTTER,
+        'flex flex-col pt-3 pb-[max(0.75rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] sm:pt-4 sm:pb-4'
+      )}
     >
       {/* The mention picker is anchored to the composer CARD and opens above it,
           spanning its full width — the Slack/Linear placement. Caret-pixel tracking
@@ -79,12 +85,15 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
               // field in the kit carries, one step up from the generic
               // `border` — draws the edge of the card so it reads as a field to
               // type into rather than as a floating patch of glass. Focus is
-              // still signalled by the ring on top of it, never by thickening
-              // the outline. Textarea on top, control row below with no rule
+              // that edge turning to `--ring` (`FIELD_FOCUS_WITHIN_RING`, the
+              // focus every field in the app takes), never a ring around it:
+              // the 2px ring it had was the "too thick" mark of Notion #38.
+              // `@container`: the control row folds by the CARD's width, not the
+              // window's (a split view narrows it on a wide screen).
+              // Textarea on top, control row below with no rule
               // between them: a hairline there read as a stray line across the
               // card, and the card's own edge already groups the two.
-              // The ring is the neutral `ring-ring`, the same focus state every
-              // other field in the app uses. It was `accent-pop` — a green glow
+              // The focus is neutral ink. It was `accent-pop` — a green glow
               // meant to read as "live" — and the accent was withdrawn: on the
               // one surface where a colour is on screen for the whole time
               // somebody is composing, green did not read as liveness so much as
@@ -97,7 +106,8 @@ export const InputArea: FC<InputAreaProps> = memo(function InputArea(props) {
               // in the textarea shrank the whole composer — text, chips and all — on
               // every mousedown, which reads as the surface flinching away from the
               // click rather than as a control acknowledging a press.
-              'bg-card/90 supports-[backdrop-filter]:bg-card/85 focus-within:ring-ring/40 duration-quick border-input relative flex flex-col rounded-xl border px-3 py-2.5 shadow-md backdrop-blur-md transition-[box-shadow,border-color] ease-out focus-within:ring-2 sm:px-4',
+              '@container bg-card/90 supports-[backdrop-filter]:bg-card/85 border-input relative flex flex-col rounded-xl border px-3 py-2.5 shadow-md backdrop-blur-md sm:px-4',
+              FIELD_FOCUS_WITHIN_RING,
               controller.isDisabledByAuth && 'opacity-60'
             )}
           >
