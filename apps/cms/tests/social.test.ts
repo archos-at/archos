@@ -59,12 +59,12 @@ test('nothing is handed over that a person has not approved, or that would break
 });
 
 test('Buffer answers are read as an id or an error', async () => {
-  const reply = (status: number, body: unknown) => async (url: string, init: { headers: Record<string, string>; body: string }) => {
+  const reply = (status: number, body: unknown) => (async (url: string, init: { headers: Record<string, string>; body: string }) => {
     assert.equal(url, 'https://api.buffer.com');
     assert.equal(init.headers.Authorization, 'Bearer key');
     assert.equal(JSON.parse(init.body).query, CREATE_POST_MUTATION);
     return { ok: status < 400, status, json: async () => body };
-  };
+  }) as unknown as typeof fetch;
   assert.deepEqual(await sendToBuffer({}, 'key', reply(200, { data: { createPost: { post: { id: 'p9' } } } })), { id: 'p9' });
   assert.deepEqual(await sendToBuffer({}, 'key', reply(200, { data: { createPost: { message: 'Channel paused' } } })), { error: 'Channel paused' });
   assert.match((await sendToBuffer({}, 'key', reply(401, { errors: [{ message: 'bad key' }] }))).error, /401/);
@@ -87,10 +87,10 @@ test("the CMS client speaks Payload's REST query string and its API-key header",
   const { cms, query } = await import('../social/cms-client.mjs');
   assert.equal(query({ where: { status: { equals: 'approved' } }, depth: 2 }), '?where%5Bstatus%5D%5Bequals%5D=approved&depth=2');
   const seen: string[] = [];
-  const client = cms('http://cms:3100/', 'key', async (url: string, init: { headers: Record<string, string> }) => {
+  const client = cms('http://cms:3100/', 'key', (async (url: string, init: { headers: Record<string, string> }) => {
     seen.push(`${url} ${init.headers.Authorization}`);
     return new Response(JSON.stringify({ docs: [{ id: 1 }] }));
-  });
+  }) as unknown as typeof fetch);
   assert.deepEqual(await client.find('social-posts'), [{ id: 1 }]);
   assert.deepEqual(seen, ['http://cms:3100/api/social-posts?limit=0 users API-Key key']);
 });
