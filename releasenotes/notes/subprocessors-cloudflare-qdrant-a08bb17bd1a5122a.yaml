@@ -1,0 +1,5 @@
+---
+fixes:
+  - >
+    The Subprocessors page now names Cloudflare, which answers for the ARCHOS
+    web addresses, and the search software ARCHOS really runs on its own servers.

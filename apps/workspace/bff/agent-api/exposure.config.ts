@@ -42,11 +42,25 @@
 import type { BackendOperationName } from './backend-operations'
 import type { OperationName } from './catalog'
 import type { AppToolName } from './catalog/app-views'
+import {
+  APP_ONLY,
+  ARCHIVE_BYTES,
+  ASK,
+  CANVAS,
+  DECISION,
+  MEMORY,
+  NATIVE_READ,
+  OFFERED,
+  PLATFORM,
+  SENSITIVE,
+  SKILL_READ,
+  TASK,
+} from './exposure-presets'
 
 /**
  * Why an operation is withheld from agents. `external-service`: a service we
  * only proxy or switch, which a calling agent already has its own tool for.
- * `product-config`: how Piloti itself works for the office (models, keys,
+ * `product-config`: how the agent itself works for the office (models, keys,
  * budgets, policies, settings). `model-compute`: model work the caller can do
  * itself whose result is no office artifact. `ui-state`: this person's own
  * screen or device state.
@@ -78,58 +92,9 @@ export interface Exposure {
   readonly reason?: string
 }
 
-/** Offered to an outside agent and to Piloti. */
-const OFFERED = { external: true, piloti: true } as const satisfies Exposure
-
-/** GRID's operator console: the platform door only (ADR-0126). */
-const PLATFORM = {
-  external: false,
-  piloti: false,
-  platform: true,
-  reason: 'the operator console is GRID’s, not an office’s: every write there reaches every tenant',
-} as const satisfies Exposure
-
-const SENSITIVE = {
-  external: true,
-  piloti: false,
-  reason:
-    'its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under ' +
-    'the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs',
-} as const satisfies Exposure
-
-const DECISION = {
-  external: true,
-  piloti: false,
-  reason: 'the person decides a proposal, or undoes a change, on its own card; the agent never decides it for them',
-} as const satisfies Exposure
-
-const ASK = {
-  external: true,
-  piloti: false,
-  reason: 'how another agent consults the workspace’s agent; the agent never asks itself (ADR-0124, the recursion lock)',
-} as const satisfies Exposure
-
-/** A control on an MCP Apps card (ADR-0142): the person presses it, the model never sees it, Piloti never decides. */
-const APP_ONLY = {
-  external: false,
-  piloti: false,
-  app: true,
-  reason:
-    'pressed by the person on the agent’s card inside their own assistant (an MCP App); listed with `visibility: ["app"]`, so ' +
-    'the host keeps it from the model, and it runs the catalog operation it names through that operation’s route',
-} as const satisfies Exposure
-
 /** On no door at all, for the amendment's `category` and a `reason` a reviewer can disagree with. */
 const withheld = (category: WithheldCategory, reason: string) =>
   ({ external: false, piloti: false, withheld: { category, reason } }) as const satisfies Exposure
-
-const NATIVE_READ = 'The agent reads with this native tool itself; the door offers it to outside agents'
-const MEMORY =
-  'The agent keeps a note with its own `remember`, which records where the finding came from and keeps a restricted one in its project'
-const TASK = 'The agent proposes a task, or commissions a run, with its own `create_task`, whose card the person confirms'
-const SKILL_READ =
-  'The agent is given the office’s skills at turn start and reads one with its own `read_file`, which the turn records; the door offers them to outside agents'
-const CANVAS ='The agent marks a document, and answers in a mark’s thread, with its own canvas tools, anchored where it looked'
 
 /**
  * Every operation, in catalog order (domain, then name), then the read tools,
@@ -223,11 +188,11 @@ export const EXPOSURE = {
   'hold-list': OFFERED,
   'hold-release': SENSITIVE,
   'mail-import-cancel': OFFERED,
-  'mail-import-complete': OFFERED,
+  'mail-import-complete': ARCHIVE_BYTES,
   'mail-import-get': OFFERED,
   'mail-import-list': OFFERED,
-  'mail-import-part-upload': OFFERED,
-  'mail-import-start': OFFERED,
+  'mail-import-part-upload': ARCHIVE_BYTES,
+  'mail-import-start': ARCHIVE_BYTES,
   'project-upload-list': OFFERED,
   'quarantine-list': OFFERED,
   'session-document-upload': OFFERED,

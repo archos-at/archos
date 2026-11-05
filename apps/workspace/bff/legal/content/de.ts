@@ -270,7 +270,7 @@ export const de: LegalContent = {
 
   subprocessors: {
     title: 'Externe Dienste & Subunternehmer',
-    updated: '2026-10-29',
+    updated: '2026-11-03',
     intro:
       'Alle externen Dienste, die bei der Nutzung von ' + PRODUCT_NAME + ' (vormals Piloti) Daten verarbeiten können, sowie die vom Betreiber selbst betriebene Infrastruktur. Diese Seite setzt die in der Datenschutzerklärung genannte Transparenzzusage um.',
     sections: [
@@ -350,6 +350,13 @@ export const de: LegalContent = {
               'Optional (nur falls konfiguriert)',
             ],
             [
+              'Cloudflare, Inc.',
+              'DNS für die Domains von ' + PRODUCT_NAME + '; Weiterleitung der www-Adresse auf die Hauptdomain',
+              'DNS-Abfragen der Domainnamen; nur bei Aufrufen der www-Adresse die IP-Adresse der Besucherin bzw. des Besuchers und die aufgerufene Adresse. Die Anwendung selbst wird direkt erreicht, nicht über Cloudflare',
+              'USA (weltweites Netzwerk)',
+              'Ja',
+            ],
+            [
               // Anbieter und Ort wie auf der Website (apps/website/src/i18n/pages/security.ts) und in docs/deployment/kubernetes.md.
               'IPAX (Hosting-Anbieter)',
               'Betrieb der Anwendung, Datenbanken und des Objektspeichers',
@@ -369,7 +376,7 @@ export const de: LegalContent = {
           rows: [
             ['PostgreSQL', 'Anwendungsdatenbank', 'Projekte, Konversationen, Memory, Nutzungsledger, Konfiguration'],
             ['SeaweedFS (S3-kompatibel)', 'Objektspeicher', 'Hochgeladene Dokumente'],
-            ['ChromaDB', 'Vektorindex', 'Embeddings von Dokumenten und Vorschriften'],
+            ['Qdrant', 'Vektorindex', 'Embeddings von Dokumenten und Vorschriften'],
             ['Dragonfly (Redis-kompatibel)', 'Cache, Rate-Limiting', 'Kurzlebige Betriebsdaten'],
           ],
         },

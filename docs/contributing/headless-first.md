@@ -46,7 +46,7 @@ see.
 | When you | You must |
 |---|---|
 | Add an `app/api` route method a person calls | Add an operation for it in the same change |
-| Add a route that is not something a person does (transport, sign-in plumbing, typing) | Add it to `NOT_AN_AGENT_CAPABILITY` in `agent-reachability.spec.ts`, with a category and a reason |
+| Add a route that is not something a person does (transport, sign-in plumbing, typing) | Add it to `NOT_AN_AGENT_CAPABILITY` in `agent-reachability.spec.ts`, with a category and a reason. A service's route on `internalApiRoute` or `publicApiRoute` needs neither |
 | Add an operation | Give it its entry in `apps/workspace/bff/agent-api/exposure.config.ts`: who sees it (`external`, `piloti`, `platform`), with a `reason` unless it is `OFFERED`. Regenerate `tests/fixtures/exposure.json` ([how](../architecture/agent-surface.md#the-exposure-config)) |
 | Draw a card in an outside agent's own chat (an MCP App), or give one a button | An `APP_VIEWS` entry naming the operation whose result it draws, and per button an `APP_TOOLS` entry naming the operation it runs, with its `exposure.config.ts` line `app: true`; never a route of its own ([how](../architecture/agent-surface.md#mcp-apps-cards-in-the-persons-own-assistant), ADR-0142) |
 | Add a route that is product configuration, a proxied service, model compute or screen state | Write its operation; its exposure entry is `withheld: { category, reason }` |
@@ -64,7 +64,8 @@ see.
 - [ ] The route method has an operation, or an exemption with a category and a reason.
 - [ ] The operation has its entry in `exposure.config.ts`: office work, domain knowledge or Piloti itself is offered; anything else is `withheld`.
 - [ ] `name` is `<entity>-<verb>`, at most 52 characters, one operation per route method.
-- [ ] The description says when to call it, what comes back, where ids come from, what to call next.
+- [ ] The description says when to call it, what comes back, where ids come from, what to call next. It names only operations the same audience is offered (`description-references.spec.ts`).
+- [ ] A GET route writes nothing, not even on first read; creation is its own idempotent write.
 - [ ] `body` and `query` are the route's own schemas, not copies.
 - [ ] `destructive`, `readOnly` and `idempotent` are right where the defaults are not.
 - [ ] `cd apps/workspace && bunx vitest run src/lib/agent-api/` is green.

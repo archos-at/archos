@@ -26,7 +26,7 @@ import {
   sealUploadBatchSchema,
   uploadHistoryQuerySchema,
 } from '@/lib/upload-batches/batch-wire'
-import { startMailImportSchema } from '@/lib/mail-import/types'
+import { mailImportListQuerySchema, startMailImportSchema } from '@/lib/mail-import/types'
 import type { AgentOperation } from '../operation'
 import { rawBodySchema } from '../upload-wire'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -308,12 +308,11 @@ export const foldersOperations = [
     name: 'mail-import-list',
     domain: 'documents',
     summary: 'List a project’s mail imports',
-    description:
-      "The project's Outlook archive imports with their status and counts. Import ids feed " +
-      'mail-import-get and mail-import-cancel.',
+    description: "The project's Outlook archive imports, newest first; ids feed mail-import-get and mail-import-cancel.",
     method: 'GET',
     path: '/api/projects/[id]/mail-imports',
     params: projectParams,
+    query: mailImportListQuerySchema,
     load: () => import('@/app/api/projects/[id]/mail-imports/route'),
   },
   {
@@ -333,8 +332,8 @@ export const foldersOperations = [
     domain: 'documents',
     summary: 'Cancel a mail import',
     description:
-      'Cancels an import and discards the parts already sent. Only the person who started it, or an org ' +
-      'project administrator, may cancel. Import ids come from mail-import-list.',
+      'Cancels an import for good: sent parts and the staged archive are discarded. Filed mails stay (document-bin removes them). ' +
+      'Only the person who started it, or an org project administrator, may cancel.',
     method: 'DELETE',
     path: '/api/projects/[id]/mail-imports/[importId]',
     params: mailImportParams,
@@ -477,7 +476,7 @@ export const foldersOperations = [
     summary: 'Start an Outlook archive import',
     description:
       'Registers a .pst or .ost archive (`filename`, `sizeBytes`, up to 25 GB) and answers the upload plan `{ import, partSize, ' +
-      'partCount, uploadedParts }`. Send the parts with mail-import-part-upload, then call mail-import-complete.',
+      'partCount, uploadedParts }`. Send parts with mail-import-part-upload, then mail-import-complete. Filed as you into "E-Mail-Import/<archive>".',
     method: 'POST',
     path: '/api/projects/[id]/mail-imports',
     params: projectParams,
@@ -507,7 +506,7 @@ export const foldersOperations = [
     summary: 'Finish sending an Outlook archive',
     description:
       'Call once every part is sent: the parts are joined and the filing job is queued (HTTP 202). Answers the import with its ' +
-      'status; follow it with mail-import-get. Refused with 409 when the import was cancelled meanwhile, and with 400 when a part is missing.',
+      'status; follow it with mail-import-get. 409 if cancelled, or with `details.missingParts` (first 50): resend those parts.',
     method: 'POST',
     path: '/api/projects/[id]/mail-imports/[importId]/complete',
     params: mailImportParams,
