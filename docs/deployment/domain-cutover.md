@@ -144,8 +144,8 @@ with the owner's go-ahead):
 
 | Setting | Today | Add or change |
 |---|---|---|
-| Authorized URLs (`app_urls`, toolbar and heatmaps) | both former app hosts and websites, plus `https://$NEW` and `https://$NEW_DEV` (read 2026-11-05) | `https://app.$NEW`, `https://app.$NEW_DEV` |
-| Test account filter (`test_account_filters`) | excludes `app_host` = `app.dev.$OLD` and `$host` = `app.dev.$OLD` | add `app.dev.$NEW` to both, **before dev's deploy**, or staging's traffic counts as production in every insight |
+| Authorized URLs (`app_urls`, toolbar and heatmaps) | both former app hosts and websites, and since 2026-11-05 `https://$NEW`, `https://$NEW_DEV`, `https://app.$NEW`, `https://app.$NEW_DEV` | nothing |
+| Test account filter (`test_account_filters`) | excludes `app_host` and `$host` = `app.dev.$OLD`, and since 2026-11-05 `app.dev.$NEW` too | nothing for dev; done before dev's deploy |
 | Replay trigger "Baseline sample (production only)" | URL regex for the former app host | `^https://app\.$NEW(/|$)` with the dots escaped; during the transition match both hosts |
 | Conversations widget domains | `https://app.$OLD/`, `https://app.dev.$OLD/` | `https://app.$NEW/`, `https://app.$NEW_DEV/` |
 | Cookieless server hash mode | `0` (off) | **Stateful** (Settings → Web analytics). Independent of the move and needed now: without it PostHog drops every cookieless website event (`apps/website/README.md`, Analytics) |
