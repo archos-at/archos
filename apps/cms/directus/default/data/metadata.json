@@ -1,0 +1,18 @@
+{
+  "files": [
+    "directus-access_75d8b18950a22622.json",
+    "directus-dashboards_7a4d1436ce343d31.json",
+    "directus-flows_3353475ea0a3148b.json",
+    "directus-folders_31357227a37b0049.json",
+    "directus-operations_f92cb66ab368b8d6.json",
+    "directus-panels_e4146ab8a7cf6c48.json",
+    "directus-permissions_0b260eeb2c129ffe.json",
+    "directus-policies_25c808a79616cd60.json",
+    "directus-presets_859e095cc911d113.json",
+    "directus-roles_1cd12eaefc4c5d2a.json",
+    "directus-settings_cea9a84f6d1f6cb5.json",
+    "directus-translations_278a02bf12b242cf.json"
+  ],
+  "incomplete": [],
+  "source": "http://localhost:8055"
+}

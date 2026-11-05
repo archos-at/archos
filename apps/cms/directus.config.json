@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "local": {
+      "url": "http://localhost:8055",
+      "auth": {
+        "type": "token"
+      }
+    }
+  }
+}

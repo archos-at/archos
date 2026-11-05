@@ -1,0 +1,15 @@
+{
+  "collection": "directus_activity",
+  "definition": null,
+  "fields": [],
+  "relations": [],
+  "systemFields": [
+    {
+      "collection": "directus_activity",
+      "field": "timestamp",
+      "schema": {
+        "is_indexed": true
+      }
+    }
+  ]
+}

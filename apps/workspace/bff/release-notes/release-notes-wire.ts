@@ -28,22 +28,32 @@ export type ReleaseNoteArea = (typeof RELEASE_NOTE_AREAS)[number]
 export const RELEASE_NOTE_SECTIONS = ['features', 'improvements', 'fixes', 'deprecations', 'upgrade', 'other'] as const
 export type ReleaseNoteSection = (typeof RELEASE_NOTE_SECTIONS)[number]
 
-/** Weeks per page: about a month, which is what a returning member catches up on. */
+/** Weeks a page holds by default: about a month, which is what a returning member catches up on. */
 export const WEEKS_PER_PAGE = 4
+/** The most weeks one page answers. */
+export const WEEKS_PAGE_MAX = 26
 
 export const releaseNoteListQuerySchema = z.object({
   area: z
     .enum(RELEASE_NOTE_AREAS)
     .optional()
     .describe('Only the changes in this product area; omit for every area.'),
-  page: z.coerce
+  limit: z.coerce
     .number()
     .int()
     .min(1)
+    .max(WEEKS_PAGE_MAX)
+    .default(WEEKS_PER_PAGE)
+    .describe(`Weeks per page, newest first (default ${WEEKS_PER_PAGE}, most ${WEEKS_PAGE_MAX}).`),
+  cursor: z
+    .string()
+    .min(1)
+    .max(32)
     .optional()
-    .describe(`Which page of weeks, newest first, ${WEEKS_PER_PAGE} weeks a page; 1 when omitted.`),
+    .describe('The previous `nextCursor`: the page starts with the week after it.'),
 })
-export type ReleaseNoteListQuery = z.infer<typeof releaseNoteListQuerySchema>
+/** What a caller asks for: the parsed query, every field optional for callers inside the app. */
+export type ReleaseNoteListQuery = Partial<z.output<typeof releaseNoteListQuerySchema>>
 
 /** One note as a reader of one language sees it. */
 export interface LocalizedReleaseNote {
@@ -66,8 +76,10 @@ export interface LocalizedReleaseNoteWeek {
 /** One page of the list, in one language. */
 export interface LocalizedReleaseNoteList {
   readonly area: ReleaseNoteArea | null
-  readonly page: number
-  readonly pageCount: number
+  /** The cursor this page was asked with; null on the newest page. */
+  readonly cursor: string | null
+  /** Pass as `cursor` for the next, older page; null on the last. */
+  readonly nextCursor: string | null
   readonly areas: readonly { readonly id: ReleaseNoteArea; readonly count: number }[]
   readonly weeks: readonly LocalizedReleaseNoteWeek[]
 }

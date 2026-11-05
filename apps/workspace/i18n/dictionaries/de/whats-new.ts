@@ -13,7 +13,7 @@ export const whatsNew: typeof en.whatsNew = {
   unreleased: 'In Kürze',
   noteCount: '{count} Änderungen',
   fixesSummary: '{count} Fehlerbehebungen',
-  newer: 'Neuere Wochen',
+  newer: 'Neueste Wochen',
   older: 'Ältere Wochen',
   pageLabel: 'Seiten mit Wochen',
   areas: {

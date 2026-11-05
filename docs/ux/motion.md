@@ -1,8 +1,35 @@
 # Motion on the public site
 
-> **Status (2026-10-29):** `apps/site` is retired; the website (`apps/website`) moves only as the
-> design system defines (`packages/brand/css/components.css`, reduced motion included). This page
-> is the record of the old site's motion language and its reasoning, kept for the principles.
+> **Status (2026-11-05):** `apps/site` is retired; the website (`apps/website`) moves only as the
+> design system defines (`packages/brand/css/motion.css` for arrival, `components.css` for hover,
+> the FAQ and the menu; reduced motion included). The section [The website](#the-website) says what
+> it does and why; the rest of this page is the record of the old site's motion language and its
+> reasoning, kept for the principles.
+
+## The website
+
+Three verbs, defined in `packages/brand/css/motion.css` and listed in `packages/brand/README.md`:
+a heading's words *rise* out of their own line, an image or panel is *unveiled* from its top edge,
+the timeline's line is *drawn*. Paragraphs, tiles and buttons arrive 8px up. The hero plays once on
+load in CSS; every `data-reveal` block plays once on scroll, let go by `apps/website/src/scripts/reveal.ts`.
+
+What the first version got wrong, measured on 2026-11-05, and the rule that now holds each:
+
+| Fault | Rule |
+|---|---|
+| Large blocks (the gallery, the video, the duo cards, the quote: 60 to 70% of a screen) faded in as one grey slab, 8px, so a third of the screen could be blank while the reader looked at it | A block holds still and its parts move (`data-reveal="parts"`); media is uncovered from the edge the reader scrolls toward |
+| The stagger came from the item's index modulo four, so the second row of a three-column grid arrived middle, right, left, and a tile on a phone (one column) waited up to 180ms alone | The stagger counts among the siblings that come into view together, in document order |
+| The hero never moved while everything below it did | The hero has its own entrance, on load, in CSS (no script, no flash) |
+| Marking a block pending played a fade-out (the transition lived on the element) | Transitions live on the settled state only |
+| A block reached by scrolling back up, or after a jump, rose in front of the reader | Only a block first seen in the lower half of the screen animates; anything else is shown at once |
+| A lazy image was unveiled before it had loaded: the wipe uncovered the grey placeholder and the picture popped in after | The script waits for the images in view to decode, at most 400ms |
+| Print kept pending blocks invisible | Every hiding rule sits in `@media screen and (prefers-reduced-motion: no-preference)` |
+
+A heading split into words is one string to a screen reader and to rendered text (`innerText`, the
+accessibility name), but not to a regex over raw HTML: a check that looks for a phrase in a page reads
+its text with the tags removed (`scripts/check-route-fates.mjs`).
+
+## The old site
 
 The motion language of `apps/site`: what moves, why, how, and the longer
 list of what does not. Read it before you animate anything on the site, and

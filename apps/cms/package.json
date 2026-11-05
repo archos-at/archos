@@ -1,0 +1,29 @@
+{
+  "name": "cms",
+  "private": true,
+  "type": "module",
+  "description": "The website's headless CMS (Directus, ADR-0155): its schema and configuration as sync files, and the scripts around it",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test scripts/*.test.mjs social/*.test.mjs",
+    "sync:pull": "d6s sync pull --from local",
+    "sync:diff": "d6s sync diff --to local",
+    "sync:push": "d6s sync push --to local",
+    "robots": "node scripts/provision-robots.mjs",
+    "import:blog": "node scripts/import-blog.mjs",
+    "social:handoff": "node social/handoff.mjs",
+    "social:release-summaries": "node social/release-summaries.mjs"
+  },
+  "dependencies": {
+    "remark-frontmatter": "5.0.0",
+    "remark-mdx": "3.1.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5",
+    "yaml": "2.9.1"
+  },
+  "devDependencies": {
+    "@directus/cli": "12.5.0"
+  }
+}

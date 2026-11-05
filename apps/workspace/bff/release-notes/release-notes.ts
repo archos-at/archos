@@ -57,8 +57,10 @@ export interface ReleaseNoteArtifact {
 
 export interface ReleaseNoteList {
   readonly area: ReleaseNoteArea | null
-  readonly page: number
-  readonly pageCount: number
+  /** The cursor this page was asked with; null on the newest page. */
+  readonly cursor: string | null
+  /** Pass as `cursor` for the next, older page; null on the last. */
+  readonly nextCursor: string | null
   /** Every area with how many notes it has across all weeks, in the vocabulary's order. */
   readonly areas: readonly { readonly id: ReleaseNoteArea; readonly count: number }[]
   readonly weeks: readonly ReleaseNoteWeek[]
@@ -69,26 +71,30 @@ const DATA = artifact as unknown as ReleaseNoteArtifact
 /**
  * One page of weeks, newest first, optionally narrowed to one area. Narrowed, a week keeps only the
  * notes in that area and drops out when none is left; its summary goes with it, because a summary
- * speaks for the whole week.
+ * speaks for the whole week. The cursor is the id of the last week of the previous page; one that
+ * names no week starts from the newest.
  */
 export function listReleaseNotes(query: ReleaseNoteListQuery = {}, source: ReleaseNoteArtifact = DATA): ReleaseNoteList {
   const area = query.area ?? null
+  const limit = query.limit ?? WEEKS_PER_PAGE
   const weeks = area
     ? source.releases
         .map((week) => ({ ...week, summary: null, notes: week.notes.filter((note) => note.area === area) }))
         .filter((week) => week.notes.length > 0)
     : source.releases
-  const pageCount = Math.max(1, Math.ceil(weeks.length / WEEKS_PER_PAGE))
-  const page = Math.min(query.page ?? 1, pageCount)
+  const after = query.cursor ? weeks.findIndex((week) => week.id === query.cursor) : -1
+  const start = after + 1
+  const page = weeks.slice(start, start + limit)
+  const hasMore = start + limit < weeks.length
   return {
     area,
-    page,
-    pageCount,
+    cursor: after >= 0 ? (query.cursor ?? null) : null,
+    nextCursor: hasMore && page.length > 0 ? page[page.length - 1].id : null,
     areas: RELEASE_NOTE_AREAS.map((id) => ({
       id,
       count: source.releases.reduce((sum, week) => sum + week.notes.filter((note) => note.area === id).length, 0),
     })),
-    weeks: weeks.slice((page - 1) * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE),
+    weeks: page,
   }
 }
 

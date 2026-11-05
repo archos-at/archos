@@ -25,7 +25,7 @@ export default async function WhatsNewPage({ searchParams }: WhatsNewPageProps):
   return withPageSession(async () => {
     const t = await getTranslations(whatsNewCopy)
     const locale = await getLocale()
-    // A hand-edited address (an area that does not exist, page 0) shows the first page of everything.
+    // A hand-edited address (an area that does not exist) shows the newest page of everything.
     const parsed = releaseNoteListQuerySchema.safeParse(await searchParams)
     const list = localizeReleaseNotes(listReleaseNotes(parsed.success ? parsed.data : {}), locale)
 

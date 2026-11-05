@@ -11,8 +11,9 @@
 
    Two triggers. The hero plays once on load (CSS only, so it needs no script and runs
    before it). Everything marked [data-reveal] plays once as it scrolls into view: the
-   site's script (apps/website/src/scripts/reveal.ts) marks only blocks below the fold `.is-pending`, so nothing
-   on screen at load moves and nothing is hidden without the script. A block's index among
+   site's script (apps/website/src/scripts/reveal.ts) marks only blocks below the fold
+   `.is-pending`, so nothing on screen at load moves and nothing is hidden without the
+   script. A block the reader did not scroll down onto is shown at once. A block's index among
    the siblings that arrive with it (`--ui-reveal-index`, set by that script) staggers it in
    reading order, so a row of tiles arrives left to right and a tile arriving alone never waits.
 
@@ -40,9 +41,11 @@
     animation-delay: min(calc(var(--ui-rise-i, 0) * var(--stagger-word)), var(--stagger-max));
   }
   .ui-hero-text { animation: ui-arrive var(--duration-slow) var(--ease-settle) var(--stagger-max) backwards; }
+  /* No delay: the hero image is the page's largest paint, so it starts uncovering on the
+     first frame instead of holding back Largest Contentful Paint. */
   .ui-hero-media > * {
     transform-origin: 50% 0;
-    animation: ui-unveil var(--duration-reveal) var(--ease-unveil) calc(2 * var(--stagger-row)) backwards;
+    animation: ui-unveil var(--duration-reveal) var(--ease-unveil) backwards;
   }
 
   /* ---- On scroll: where each part waits, after its block's own delay ---- */

@@ -1,0 +1,15 @@
+{
+  "collection": "directus_oauth_consents",
+  "definition": null,
+  "fields": [],
+  "relations": [],
+  "systemFields": [
+    {
+      "collection": "directus_oauth_consents",
+      "field": "client",
+      "schema": {
+        "is_indexed": true
+      }
+    }
+  ]
+}

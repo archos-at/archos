@@ -40,11 +40,11 @@ export interface WhatsNewListProps {
   basePath?: string
 }
 
-/** The address of one page of the list. */
-export function whatsNewHref(basePath: string, area: ReleaseNoteArea | null, page = 1): string {
+/** The address of one page of the list: an area, and the cursor the page starts after. */
+export function whatsNewHref(basePath: string, area: ReleaseNoteArea | null, cursor: string | null = null): string {
   const query = new URLSearchParams()
   if (area) query.set('area', area)
-  if (page > 1) query.set('page', String(page))
+  if (cursor) query.set('cursor', cursor)
   const search = query.toString()
   return search ? `${basePath}?${search}` : basePath
 }
@@ -187,12 +187,12 @@ function NoteItems({
 }
 
 function Pager({ list, basePath, t }: { list: LocalizedReleaseNoteList; basePath: string; t: Translator }): JSX.Element | null {
-  if (list.pageCount <= 1) return null
+  if (!list.cursor && !list.nextCursor) return null
   return (
     <nav aria-label={t('pageLabel')} className="flex items-center justify-between gap-2">
-      {list.page > 1 ? (
+      {list.cursor ? (
         <Button asChild variant="outline" size="sm">
-          <Link href={whatsNewHref(basePath, list.area, list.page - 1)}>
+          <Link href={whatsNewHref(basePath, list.area)}>
             <ChevronLeft className="size-4" aria-hidden />
             {t('newer')}
           </Link>
@@ -200,9 +200,9 @@ function Pager({ list, basePath, t }: { list: LocalizedReleaseNoteList; basePath
       ) : (
         <span />
       )}
-      {list.page < list.pageCount && (
+      {list.nextCursor && (
         <Button asChild variant="outline" size="sm">
-          <Link href={whatsNewHref(basePath, list.area, list.page + 1)}>
+          <Link href={whatsNewHref(basePath, list.area, list.nextCursor)}>
             {t('older')}
             <ChevronRight className="size-4" aria-hidden />
           </Link>

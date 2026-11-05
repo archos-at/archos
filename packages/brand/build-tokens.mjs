@@ -16,6 +16,7 @@
  *   components.css    copied from css/components.css (class prefix ui-)
  *   motion.css        copied from css/motion.css (arrival on load and on scroll)
  *   covers.css        copied from css/covers.css (the blog covers' frame and pens, docs/blog-covers.md)
+ *   status.css        copied from css/status.css (the 404 and 500 pages and their drawings)
  *   fonts/            copied from fonts/
  *
  * sync.mjs imports renderDist() and writeDist() from here, so the copies in the apps
@@ -141,6 +142,7 @@ export function renderDist() {
   out.set('components.css', readFileSync(join(BRAND, 'css/components.css')))
   out.set('motion.css', readFileSync(join(BRAND, 'css/motion.css')))
   out.set('covers.css', readFileSync(join(BRAND, 'css/covers.css')))
+  out.set('status.css', readFileSync(join(BRAND, 'css/status.css')))
   for (const file of readdirSync(join(BRAND, 'fonts')).sort()) {
     out.set(`fonts/${file}`, readFileSync(join(BRAND, 'fonts', file)))
   }

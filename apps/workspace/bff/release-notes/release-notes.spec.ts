@@ -32,12 +32,17 @@ const SOURCE: ReleaseNoteArtifact = {
 }
 
 describe('release notes for members (ADR-0154)', () => {
-  it('pages the weeks, newest first, and counts every area across all of them', () => {
+  it('pages the weeks by cursor, newest first, and counts every area across all of them', () => {
     const first = listReleaseNotes({}, SOURCE)
     expect(first.weeks.map((w) => w.id)).toEqual(['2026-W45', '2026-W40', '2026-W39', '2026-W38'])
-    expect(first.pageCount).toBe(2)
+    expect(first.cursor).toBeNull()
+    expect(first.nextCursor).toBe('2026-W38')
     expect(first.areas.find((a) => a.id === 'documents')?.count).toBe(WEEKS_PER_PAGE + 2)
-    expect(listReleaseNotes({ page: 9 }, SOURCE).page).toBe(2)
+    const second = listReleaseNotes({ cursor: first.nextCursor ?? undefined }, SOURCE)
+    expect(second.weeks.map((w) => w.id)).toEqual(['2026-W37', '2026-W36'])
+    expect(second.nextCursor).toBeNull()
+    // A cursor that names no week starts from the newest.
+    expect(listReleaseNotes({ cursor: '1999-W01' }, SOURCE).weeks[0].id).toBe('2026-W45')
   })
 
   it('narrowed to an area, a week keeps only its notes, drops its summary, and drops out when empty', () => {

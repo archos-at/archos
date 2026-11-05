@@ -4,8 +4,8 @@ import type { LocalizedReleaseNoteList } from '@/lib/release-notes/release-notes
 
 export const WHATS_NEW_FIXTURE: LocalizedReleaseNoteList = {
   area: null,
-  page: 1,
-  pageCount: 3,
+  cursor: null,
+  nextCursor: '2026-W44',
   areas: [
     { id: 'documents', count: 3 },
     { id: 'search', count: 1 },

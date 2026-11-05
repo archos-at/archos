@@ -1,0 +1,1175 @@
+{
+  "collection": "directus_permissions",
+  "primaryKey": "id",
+  "records": [
+    {
+      "action": "read",
+      "collection": "blog_posts",
+      "fields": [
+        "id",
+        "status",
+        "publish_date",
+        "category",
+        "cover",
+        "author",
+        "translations",
+        "date_updated"
+      ],
+      "id": 1,
+      "permissions": {
+        "_and": [
+          {
+            "status": {
+              "_eq": "published"
+            }
+          },
+          {
+            "publish_date": {
+              "_lte": "$NOW"
+            }
+          }
+        ]
+      },
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "id",
+        "blog_posts_id",
+        "languages_code",
+        "title",
+        "slug",
+        "description",
+        "body",
+        "seo_title",
+        "seo_description",
+        "figures"
+      ],
+      "id": 2,
+      "permissions": {
+        "blog_posts_id": {
+          "_and": [
+            {
+              "status": {
+                "_eq": "published"
+              }
+            },
+            {
+              "publish_date": {
+                "_lte": "$NOW"
+              }
+            }
+          ]
+        }
+      },
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_figures",
+      "fields": [
+        "id",
+        "translation",
+        "key",
+        "component",
+        "props"
+      ],
+      "id": 3,
+      "permissions": {
+        "translation": {
+          "blog_posts_id": {
+            "_and": [
+              {
+                "status": {
+                  "_eq": "published"
+                }
+              },
+              {
+                "publish_date": {
+                  "_lte": "$NOW"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_authors",
+      "fields": [
+        "id",
+        "name",
+        "job_title",
+        "profile_url"
+      ],
+      "id": 4,
+      "permissions": null,
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "languages",
+      "fields": [
+        "*"
+      ],
+      "id": 5,
+      "permissions": null,
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts",
+      "fields": [
+        "id",
+        "status",
+        "publish_date",
+        "category",
+        "cover",
+        "author",
+        "translations",
+        "date_updated"
+      ],
+      "id": 6,
+      "permissions": {
+        "_and": [
+          {
+            "status": {
+              "_eq": "published"
+            }
+          },
+          {
+            "publish_date": {
+              "_lte": "$NOW"
+            }
+          }
+        ]
+      },
+      "policy": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "id",
+        "blog_posts_id",
+        "languages_code",
+        "title",
+        "slug",
+        "description",
+        "body",
+        "seo_title",
+        "seo_description",
+        "figures"
+      ],
+      "id": 7,
+      "permissions": {
+        "blog_posts_id": {
+          "_and": [
+            {
+              "status": {
+                "_eq": "published"
+              }
+            },
+            {
+              "publish_date": {
+                "_lte": "$NOW"
+              }
+            }
+          ]
+        }
+      },
+      "policy": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_figures",
+      "fields": [
+        "id",
+        "translation",
+        "key",
+        "component",
+        "props"
+      ],
+      "id": 8,
+      "permissions": {
+        "translation": {
+          "blog_posts_id": {
+            "_and": [
+              {
+                "status": {
+                  "_eq": "published"
+                }
+              },
+              {
+                "publish_date": {
+                  "_lte": "$NOW"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "policy": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_authors",
+      "fields": [
+        "id",
+        "name",
+        "job_title",
+        "profile_url"
+      ],
+      "id": 9,
+      "permissions": null,
+      "policy": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "languages",
+      "fields": [
+        "*"
+      ],
+      "id": 10,
+      "permissions": null,
+      "policy": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 11,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 12,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review"
+          ]
+        }
+      }
+    },
+    {
+      "action": "update",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 13,
+      "permissions": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review"
+          ]
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review"
+          ]
+        }
+      }
+    },
+    {
+      "action": "delete",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 14,
+      "permissions": {
+        "status": {
+          "_eq": "draft"
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 15,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 16,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 17,
+      "permissions": {
+        "blog_posts_id": {
+          "status": {
+            "_in": [
+              "draft",
+              "in_review"
+            ]
+          }
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 18,
+      "permissions": {
+        "blog_posts_id": {
+          "status": {
+            "_in": [
+              "draft",
+              "in_review"
+            ]
+          }
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_figures",
+      "fields": [
+        "*"
+      ],
+      "id": 19,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "blog_figures",
+      "fields": [
+        "*"
+      ],
+      "id": 20,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "blog_figures",
+      "fields": [
+        "*"
+      ],
+      "id": 21,
+      "permissions": {
+        "translation": {
+          "blog_posts_id": {
+            "status": {
+              "_in": [
+                "draft",
+                "in_review"
+              ]
+            }
+          }
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "blog_figures",
+      "fields": [
+        "*"
+      ],
+      "id": 22,
+      "permissions": {
+        "translation": {
+          "blog_posts_id": {
+            "status": {
+              "_in": [
+                "draft",
+                "in_review"
+              ]
+            }
+          }
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_authors",
+      "fields": [
+        "*"
+      ],
+      "id": 23,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "blog_authors",
+      "fields": [
+        "*"
+      ],
+      "id": 24,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "blog_authors",
+      "fields": [
+        "*"
+      ],
+      "id": 25,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "languages",
+      "fields": [
+        "*"
+      ],
+      "id": 26,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "social_accounts",
+      "fields": [
+        "*"
+      ],
+      "id": 27,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "social_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 28,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "social_posts",
+      "fields": [
+        "status",
+        "account",
+        "language",
+        "scheduled_at",
+        "text",
+        "blog_post",
+        "link_url",
+        "utm_campaign",
+        "image"
+      ],
+      "id": 29,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review"
+          ]
+        }
+      }
+    },
+    {
+      "action": "update",
+      "collection": "social_posts",
+      "fields": [
+        "status",
+        "account",
+        "language",
+        "scheduled_at",
+        "text",
+        "blog_post",
+        "link_url",
+        "utm_campaign",
+        "image"
+      ],
+      "id": 30,
+      "permissions": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review"
+          ]
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review"
+          ]
+        }
+      }
+    },
+    {
+      "action": "delete",
+      "collection": "social_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 31,
+      "permissions": {
+        "status": {
+          "_eq": "draft"
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "directus_files",
+      "fields": [
+        "*"
+      ],
+      "id": 32,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "directus_files",
+      "fields": [
+        "*"
+      ],
+      "id": 33,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "directus_files",
+      "fields": [
+        "*"
+      ],
+      "id": 34,
+      "permissions": {
+        "uploaded_by": {
+          "_eq": "$CURRENT_USER"
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "directus_folders",
+      "fields": [
+        "*"
+      ],
+      "id": 35,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "directus_versions",
+      "fields": [
+        "*"
+      ],
+      "id": 36,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "directus_versions",
+      "fields": [
+        "*"
+      ],
+      "id": 37,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": {
+        "collection": {
+          "_in": [
+            "blog_posts"
+          ]
+        }
+      }
+    },
+    {
+      "action": "update",
+      "collection": "directus_versions",
+      "fields": [
+        "*"
+      ],
+      "id": 38,
+      "permissions": {
+        "user_created": {
+          "_eq": "$CURRENT_USER"
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "directus_versions",
+      "fields": [
+        "*"
+      ],
+      "id": 39,
+      "permissions": {
+        "user_created": {
+          "_eq": "$CURRENT_USER"
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "directus_comments",
+      "fields": [
+        "*"
+      ],
+      "id": 40,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "directus_comments",
+      "fields": [
+        "*"
+      ],
+      "id": 41,
+      "permissions": null,
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "directus_comments",
+      "fields": [
+        "*"
+      ],
+      "id": 42,
+      "permissions": {
+        "user_created": {
+          "_eq": "$CURRENT_USER"
+        }
+      },
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 43,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 44,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 45,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 46,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 47,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "blog_figures",
+      "fields": [
+        "*"
+      ],
+      "id": 48,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "blog_figures",
+      "fields": [
+        "*"
+      ],
+      "id": 49,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "blog_authors",
+      "fields": [
+        "*"
+      ],
+      "id": 50,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "social_posts",
+      "fields": [
+        "status",
+        "account",
+        "language",
+        "scheduled_at",
+        "text",
+        "blog_post",
+        "link_url",
+        "utm_campaign",
+        "image"
+      ],
+      "id": 51,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review",
+            "approved"
+          ]
+        }
+      }
+    },
+    {
+      "action": "update",
+      "collection": "social_posts",
+      "fields": [
+        "status",
+        "account",
+        "language",
+        "scheduled_at",
+        "text",
+        "blog_post",
+        "link_url",
+        "utm_campaign",
+        "image"
+      ],
+      "id": 52,
+      "permissions": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review",
+            "approved",
+            "failed"
+          ]
+        }
+      },
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "draft",
+            "in_review",
+            "approved",
+            "archived"
+          ]
+        }
+      }
+    },
+    {
+      "action": "delete",
+      "collection": "social_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 53,
+      "permissions": {
+        "status": {
+          "_nin": [
+            "scheduled",
+            "published"
+          ]
+        }
+      },
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "create",
+      "collection": "social_accounts",
+      "fields": [
+        "*"
+      ],
+      "id": 54,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "social_accounts",
+      "fields": [
+        "*"
+      ],
+      "id": 55,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "directus_files",
+      "fields": [
+        "*"
+      ],
+      "id": 56,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "directus_files",
+      "fields": [
+        "*"
+      ],
+      "id": 57,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "directus_versions",
+      "fields": [
+        "*"
+      ],
+      "id": 58,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "delete",
+      "collection": "directus_versions",
+      "fields": [
+        "*"
+      ],
+      "id": 59,
+      "permissions": null,
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "social_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 60,
+      "permissions": {
+        "status": {
+          "_in": [
+            "approved",
+            "scheduled"
+          ]
+        }
+      },
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "update",
+      "collection": "social_posts",
+      "fields": [
+        "status",
+        "external_id",
+        "published_url",
+        "published_at",
+        "publish_error"
+      ],
+      "id": 61,
+      "permissions": {
+        "status": {
+          "_in": [
+            "approved",
+            "scheduled"
+          ]
+        }
+      },
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "presets": null,
+      "validation": {
+        "status": {
+          "_in": [
+            "scheduled",
+            "published",
+            "failed"
+          ]
+        }
+      }
+    },
+    {
+      "action": "read",
+      "collection": "social_accounts",
+      "fields": [
+        "*"
+      ],
+      "id": 62,
+      "permissions": null,
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts",
+      "fields": [
+        "*"
+      ],
+      "id": 63,
+      "permissions": {
+        "_and": [
+          {
+            "status": {
+              "_eq": "published"
+            }
+          },
+          {
+            "publish_date": {
+              "_lte": "$NOW"
+            }
+          }
+        ]
+      },
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "blog_posts_translations",
+      "fields": [
+        "*"
+      ],
+      "id": 64,
+      "permissions": {
+        "blog_posts_id": {
+          "_and": [
+            {
+              "status": {
+                "_eq": "published"
+              }
+            },
+            {
+              "publish_date": {
+                "_lte": "$NOW"
+              }
+            }
+          ]
+        }
+      },
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "directus_files",
+      "fields": [
+        "*"
+      ],
+      "id": 65,
+      "permissions": null,
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "presets": null,
+      "validation": null
+    },
+    {
+      "action": "read",
+      "collection": "directus_files",
+      "fields": [
+        "id",
+        "type",
+        "filesize",
+        "width",
+        "height",
+        "filename_download",
+        "modified_on"
+      ],
+      "id": 66,
+      "permissions": {
+        "folder": {
+          "_eq": "a5cf0e04-ac63-4824-a46e-cfee276b6e63"
+        }
+      },
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "presets": null,
+      "validation": null
+    }
+  ]
+}

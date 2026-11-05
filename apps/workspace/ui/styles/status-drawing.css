@@ -1,0 +1,92 @@
+/* The drawing on the status screens (not found, no access, an error): a line drawing in the
+   pens of a construction drawing, drawn once as the screen opens. Component:
+   `ui/components/brand/status-drawing.tsx`. The website draws the same scenes with the same
+   pens and the same motion (packages/brand/css/status.css); this is the app's copy, on the
+   app's tokens, so it follows light and dark (`.dark` swaps every `--ds-*`).
+
+   Pens (ISO 128-2, as on the blog covers): `pen-cut` thick, what the drawing cuts;
+   `pen-view` thin, what is seen; `pen-hidden` dashed, what is behind or missing; `pen-axis`
+   dash-dot; `pen-dim` the dimension lines. Fills: `body-solid` the one filled element,
+   `body-paper` a surface lying on another, `body-hatch` a cut material. (Prefixed: the
+   covers' bare `hidden` and `grid` are Tailwind utilities here.) The pens keep their width at every size
+   (`vector-effect: non-scaling-stroke`).
+
+   A part is drawn along its own path: a mask of the same path, wider and in user units, is
+   uncovered with stroke-dashoffset (a dash on the pen itself would be measured in screen
+   pixels). Each part waits `--step` steps of --ds-duration-quick. With reduced motion the
+   global rule in globals.css ends every animation at once, and every animation here runs
+   `backwards` from a start state to the element's own resting style, so the still drawing
+   is the finished one. */
+
+.status-drawing {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 6 / 5;
+  border-radius: var(--radius-surface);
+  background: var(--muted);
+}
+.status-drawing * {
+  fill: none;
+  stroke: none;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+}
+.status-drawing .sheet-ground { fill: var(--muted); }
+.status-drawing .sheet-grid { stroke: var(--border); stroke-width: var(--ds-stroke-hairline); }
+.status-drawing .pen-cut { stroke: var(--foreground); stroke-width: var(--ds-stroke-strong); }
+.status-drawing .pen-view { stroke: var(--foreground); stroke-width: var(--ds-stroke-hairline); }
+.status-drawing .pen-hidden { stroke: var(--foreground); stroke-width: var(--ds-stroke-hairline); stroke-dasharray: 6 4; }
+.status-drawing .pen-axis { stroke: var(--ds-line-strong); stroke-width: var(--ds-stroke-hairline); stroke-dasharray: 18 4 2 4; }
+.status-drawing .pen-dim { stroke: var(--ds-line-strong); stroke-width: var(--ds-stroke-hairline); }
+.status-drawing .pen-hatch { stroke: var(--ds-ink-faint); stroke-width: var(--ds-stroke-hairline); }
+.status-drawing .body-paper { fill: var(--background); }
+.status-drawing .body-hatch { fill: var(--hatch); }
+.status-drawing .body-solid { fill: var(--foreground); }
+.status-drawing .draw-mask {
+  fill: none;
+  stroke: var(--foreground);
+  stroke-linecap: square;
+  vector-effect: none;
+}
+
+/* A part that turns (the door leaf, the beam) turns about its own point (`--hinge`, in
+   drawing units); the beam rests where it sagged to (`--sag`). */
+.status-drawing :is(.leaf, .leaf > *, .sag) { transform-box: view-box; transform-origin: var(--hinge); }
+.status-drawing .sag { transform: rotate(var(--sag)); }
+.status-drawing .pulse { transform-box: fill-box; transform-origin: center; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .status-drawing .draw-mask { animation: status-draw var(--ds-duration-reveal) var(--ds-ease-draft) backwards; }
+  .status-drawing .draw-mask.is-quick { animation-duration: var(--ds-duration-slow); }
+  .status-drawing .fade { animation: status-fade var(--ds-duration-slow) var(--ds-ease-settle) backwards; }
+  .status-drawing .leaf { animation: status-swing var(--ds-duration-reveal) var(--ds-ease-settle) backwards; }
+  .status-drawing .sag { animation: status-level var(--ds-duration-reveal) var(--ds-ease-settle) backwards; }
+  .status-drawing .pulse { animation: status-pulse var(--ds-duration-slow) var(--ds-ease-draft) backwards; }
+  /* Last, so no shorthand above resets it. */
+  .status-drawing [style*='--step'] { animation-delay: calc(var(--step) * var(--ds-duration-quick)); }
+}
+
+/* A pointer resting on the drawing moves an open door a little, as a draught would. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .status-drawing .leaf > * { transition: transform var(--ds-duration-slow) var(--ds-ease-settle); }
+  .status-drawing:hover .leaf.is-open > * { transform: rotate(-14deg); }
+}
+
+@keyframes status-draw {
+  from { stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+  to { stroke-dasharray: 1 1; stroke-dashoffset: 0; }
+}
+@keyframes status-fade {
+  from { opacity: 0; }
+}
+@keyframes status-swing {
+  from { transform: rotate(var(--swing-from, -90deg)); }
+}
+@keyframes status-level {
+  from { transform: none; }
+}
+@keyframes status-pulse {
+  50% { transform: scale(1.04); }
+}

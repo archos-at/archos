@@ -1,0 +1,15 @@
+{
+  "collection": "directus_oauth_clients",
+  "definition": null,
+  "fields": [],
+  "relations": [],
+  "systemFields": [
+    {
+      "collection": "directus_oauth_clients",
+      "field": "date_created",
+      "schema": {
+        "is_indexed": true
+      }
+    }
+  ]
+}

@@ -21,18 +21,18 @@ describe('WhatsNewList', () => {
     expect(screen.getByText(/Ctrl\+K now searches everything/)).toBeInTheDocument()
   })
 
-  it('pages by links that keep the area', () => {
-    render(<WhatsNewList list={{ ...WHATS_NEW_FIXTURE, area: 'documents', page: 2 }} />)
+  it('pages by cursor links that keep the area', () => {
+    render(<WhatsNewList list={{ ...WHATS_NEW_FIXTURE, area: 'documents', cursor: '2026-W46' }} />)
     const pager = screen.getByRole('navigation', { name: 'Pages of weeks' })
-    expect(within(pager).getByRole('link', { name: 'Newer weeks' })).toHaveAttribute('href', '/app/whats-new?area=documents')
+    expect(within(pager).getByRole('link', { name: 'Newest weeks' })).toHaveAttribute('href', '/app/whats-new?area=documents')
     expect(within(pager).getByRole('link', { name: 'Older weeks' })).toHaveAttribute(
       'href',
-      '/app/whats-new?area=documents&page=3',
+      '/app/whats-new?area=documents&cursor=2026-W44',
     )
   })
 
   it('says so when an area had no changes in these weeks', () => {
-    render(<WhatsNewList list={{ ...WHATS_NEW_FIXTURE, weeks: [], pageCount: 1 }} />)
+    render(<WhatsNewList list={{ ...WHATS_NEW_FIXTURE, weeks: [], nextCursor: null }} />)
     expect(screen.getByText('Nothing has changed in this area in these weeks.')).toBeInTheDocument()
   })
 
@@ -41,6 +41,6 @@ describe('WhatsNewList', () => {
     // ICU sets the range dash between thin spaces.
     expect(weekTitle(week, 'de', 'x').replace(/\s/g, ' ')).toBe('26. Oktober – 1. November 2026')
     expect(weekTitle({ ...week, kind: 'version', version: '1.2.0' }, 'en', 'x')).toBe('1.2.0')
-    expect(whatsNewHref('/app/whats-new', null, 1)).toBe('/app/whats-new')
+    expect(whatsNewHref('/app/whats-new', null)).toBe('/app/whats-new')
   })
 })

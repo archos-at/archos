@@ -11,7 +11,7 @@ export const whatsNew = {
   unreleased: 'Coming up',
   noteCount: '{count} changes',
   fixesSummary: '{count} fixes',
-  newer: 'Newer weeks',
+  newer: 'Newest weeks',
   older: 'Older weeks',
   pageLabel: 'Pages of weeks',
   /** One label per product area, keyed by the area id the release notes carry (`release_notes_areas.py`). */

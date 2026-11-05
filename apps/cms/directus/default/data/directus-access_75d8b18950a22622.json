@@ -1,0 +1,76 @@
+{
+  "collection": "directus_access",
+  "primaryKey": "id",
+  "records": [
+    {
+      "id": "25fb5e7d-0923-4a72-aef9-f173ef8dd288",
+      "policy": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "role": null,
+      "sort": 1,
+      "user": null
+    },
+    {
+      "id": "3d7e894a-a09d-4277-a36c-ada54cd1a696",
+      "policy": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "role": "ed8b6290-d57c-4639-89c9-b0a99782280b",
+      "sort": 1,
+      "user": null
+    },
+    {
+      "id": "496410cc-7698-49fa-af99-4301037e3a31",
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "role": "cedd141b-2ca9-4fbb-8cb1-abf39dcedc01",
+      "sort": 1,
+      "user": null
+    },
+    {
+      "id": "4a35722e-1a31-465f-b8bd-44fd3b4d75e2",
+      "policy": "a6f8ddf0-a0e9-4e37-84a2-f46dfd87f745",
+      "role": "7c72f702-972e-4d18-a3a2-23be59b6f21c",
+      "sort": 1,
+      "user": null
+    },
+    {
+      "id": "55a8bac2-977b-4e05-981f-ec1aba2c6b39",
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "role": "7c72f702-972e-4d18-a3a2-23be59b6f21c",
+      "sort": 2,
+      "user": null
+    },
+    {
+      "id": "9cccc06a-97a5-4b98-a2d6-95e4d51f7ee3",
+      "policy": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "role": "7c72f702-972e-4d18-a3a2-23be59b6f21c",
+      "sort": 3,
+      "user": null
+    },
+    {
+      "id": "b8c2cd38-614c-4bb8-815b-152e5776f1c8",
+      "policy": "a6f8ddf0-a0e9-4e37-84a2-f46dfd87f745",
+      "role": "5ae50f89-6170-4036-9f82-ad96dc411a54",
+      "sort": 1,
+      "user": null
+    },
+    {
+      "id": "bd17811d-fa67-4a8e-a09a-1d74012d373d",
+      "policy": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "role": "5ae50f89-6170-4036-9f82-ad96dc411a54",
+      "sort": 2,
+      "user": null
+    },
+    {
+      "id": "c6d67151-66f7-4a41-9304-8389d6bced81",
+      "policy": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "role": "3fa594a0-173a-49e8-b809-31cf902131c7",
+      "sort": 1,
+      "user": null
+    },
+    {
+      "id": "dd1dd3b2-9dd2-45ce-b110-e22cb855bb41",
+      "policy": "aa37024f-06cc-44e2-b0af-b87b28503cce",
+      "role": "3e65a77f-fdce-4ac5-8c14-b2fd9eae456d",
+      "sort": null,
+      "user": null
+    }
+  ]
+}

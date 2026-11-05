@@ -23,7 +23,7 @@ import { decideConventionBodySchema } from '@/lib/office-conventions/office-conv
 import { createRoleSchema, updateRoleSchema } from '@/lib/authz/role-wire'
 import { createCredentialSchema, providerModeSchema } from '@/lib/llm-credentials/credential-wire'
 import { uploadScreeningPolicySchema } from '@/lib/upload-screening/policy'
-import { WEEKS_PER_PAGE, releaseNoteListQuerySchema } from '@/lib/release-notes/release-notes-wire'
+import { releaseNoteListQuerySchema } from '@/lib/release-notes/release-notes-wire'
 import type { AgentOperation } from '../operation'
 import { PRODUCT_NAME } from '@/lib/brand'
 
@@ -610,11 +610,11 @@ export const organizationOperations = [
     domain: 'organization',
     summary: 'List what changed in the product, week by week',
     description:
-      'The release notes members read under What’s new: every change to the product, newest week first, ' +
-      `${WEEKS_PER_PAGE} weeks a page (\`page\`), each with its section (features, improvements, fixes, ` +
-      'deprecations, upgrade, other), its product area and its text in English and German, plus the week’s summary once written. Narrow to one area with ' +
-      '`area`; `areas` in the answer counts the changes per area. The same for every organization. Use it to answer ' +
-      'whether the product can do something now, or what changed since a date.',
+      'The release notes members read under What’s new: every change to the product, newest week first, each with ' +
+      'its section (features, improvements, fixes, deprecations, upgrade, other), its product area and its text in ' +
+      'English and German, plus the week’s summary once written. Page by weeks with `limit` and `nextCursor`; narrow ' +
+      'to one area with `area`, and `areas` in the answer counts the changes per area. The same for every ' +
+      'organization. Use it to answer whether the product can do something now, or what changed since a date.',
     method: 'GET',
     path: '/api/release-notes',
     query: releaseNoteListQuerySchema,

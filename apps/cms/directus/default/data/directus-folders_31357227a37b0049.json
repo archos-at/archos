@@ -1,0 +1,12 @@
+{
+  "collection": "directus_folders",
+  "primaryKey": "id",
+  "records": [
+    {
+      "id": "a5cf0e04-ac63-4824-a46e-cfee276b6e63",
+      "name": "Social images",
+      "parent": null,
+      "type": "files"
+    }
+  ]
+}

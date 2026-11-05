@@ -11,6 +11,7 @@ or a brand string changes here and reaches every surface on the next sync.
 | `tokens.json` | **Source of truth** for colours, type, spacing, radii, strokes, layout, motion. Every token carries its `usage` in German; a token with `"scope": "app"` belongs to the workspace only (see [Two layers](#two-layers-website-and-app)). |
 | `identity.json` | Every brand string: name, claim, legal entity, address, e-mail, domain, hosting city. |
 | `css/components.css` | Hand-maintained component classes (prefix `ui-`). Values come from the tokens. |
+| `css/motion.css` | Arrival on load and on scroll: the hero's entrance and every `data-reveal` block (rise, unveil, draw). Values come from the tokens; the website's `src/scripts/reveal.ts` decides when a block goes. |
 | `css/covers.css` | The blog covers' pens and fills (`ui-cover`), from the tokens: [docs/blog-covers.md](docs/blog-covers.md). |
 | `fonts/` | The two WOFF2 files (General Sans variable, Switzer Semibold). |
 | `assets/logos/` | Client logos in grey (Pilotbüros, funding logo). The brand video is not here; it lives with the website. |
@@ -29,7 +30,7 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 | Copy | Receives |
 |---|---|
-| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `covers.css`, `fonts/`, `identity.json` |
+| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `motion.css`, `covers.css`, `fonts/`, `identity.json` |
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
@@ -72,7 +73,7 @@ rule ported from the handover picked it up. From the old names: `radius-sm` → 
 
 ## Workflow
 
-1. Edit `tokens.json`, `identity.json` or `css/components.css`.
+1. Edit `tokens.json`, `identity.json` or a file in `css/`.
 2. `node packages/brand/build-tokens.mjs`, which regenerates `dist/`.
 3. `node packages/brand/sync.mjs`, which writes the app copies.
 4. `node packages/brand/sync.mjs --check` must exit 0. CI runs it.
@@ -119,7 +120,7 @@ Full text: the component sheets in `docs/components/`.
 - Two widths: content in a 1280px container with 32px margins; header and hero image full width with 64px margins. Mobile margins are 16px.
 - The website stays crisp: controls 4px (`radius-md`), images, cards, fields and sections square. The app has its own ladder ([Two layers](#two-layers-website-and-app)): the same kind of element always takes the same step; a radius inside another is the outer one minus the padding between them.
 - Lines only where they carry a function: field borders, underlines, FAQ and info list dividers, the timeline. No line between sections, and none under the header, also not while scrolling.
-- Motion is quiet and architectural: things arrive and come to rest, nothing bounces. Tokens `--duration-*`, `--ease-settle`/`--ease-draft`, `--stagger-row`, `--travel-sm` (the vocabulary of `docs/ux/motion.md`); hover is `--duration-quick` (200ms) `ease-out`, the gallery 400ms, the duo cards 450ms, as handed over. Added beyond the handover, on purpose: a block below the fold arrives once on scroll (`data-reveal`, 8px, 480ms), an FAQ answer opens by height, the mobile menu settles in. Nothing on screen at load moves; with `prefers-reduced-motion` none of it runs and the still page is complete.
+- Motion is quiet and architectural: the page is drawn as the reader arrives, then holds still; nothing bounces. Tokens `--duration-*` (`--duration-reveal` 800ms for an entrance), `--ease-settle`/`--ease-unveil`/`--ease-draft`, `--stagger-row`/`--stagger-word`/`--stagger-max`, `--travel-sm`, `--rise-bleed`, `--unveil-scale`; hover is `--duration-quick` (200ms) `ease-out`, the gallery 400ms, the duo cards 450ms, as handed over. Added beyond the handover, on purpose (`css/motion.css`): three verbs. *Rise*: a heading's words come up out of their own line (`MaskedWords`, 30ms apart). *Unveil*: an image or a panel is uncovered from its top edge like a sheet pulled off a drawing, a photo settling from 3% larger with the mask's sides held still. *Draw*: the timeline's line is drawn step by step. Paragraphs, tiles and buttons arrive 8px up in 480ms. The hero plays once on load; everything else plays once as it scrolls into view, staggered among the siblings that arrive together, an image only once it is decoded. Nothing else on screen at load moves, a block reached by scrolling back up is simply there, an FAQ answer opens by height, the mobile menu settles in. With `prefers-reduced-motion`, without script and in print none of it runs and the still page is complete.
 
 **Imagery**
 
@@ -167,7 +168,7 @@ The handover (design system 3.0) is the reference; these are the recorded differ
 |---|---|---|---|
 | Radius names | `radius-md` 4px | `radius-md` 4px; the app's ladder under names of its own | 4px renamed to `radius-sm` was a trap (above) |
 | App layer | none | app-scoped shadows and radius ladder, in the app's copy only | The workspace's softer level is chosen by the owner |
-| Motion | hover, gallery, duo | plus reveal on scroll, FAQ height, mobile menu, as tokens | Quiet arrival; off with reduced motion |
+| Motion | hover, gallery, duo | plus the hero's entrance, rise, unveil and draw on scroll, FAQ height, mobile menu, as tokens | Quiet arrival; off with reduced motion |
 | Line under the header | none | none (a scroll hairline was removed on 2026-10-29) | Handover: "Keine Trennlinien … auch nicht unter dem Header" |
 | CTA field on a phone | README: buttons side by side; reference site: they share the width and wrap | as the reference: side by side from about 400px, stacked full width at 390px and 360px | The reference site decides (`datensicherheit.html`, measured at 390 and 360); the port had forced a column at every phone width |
 | Hero title on a phone | `display-xl` 44/46, hero sheet 40/44 | 40/44, shrinking with the viewport below 385px | The hero sheet and the reference site are the specific rule; „Architekturbüros.“ must fit 360px |

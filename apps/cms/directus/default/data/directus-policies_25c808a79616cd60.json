@@ -1,0 +1,76 @@
+{
+  "collection": "directus_policies",
+  "primaryKey": "id",
+  "records": [
+    {
+      "admin_access": false,
+      "app_access": false,
+      "description": "Publishes blog posts and approves social posts. A person only: never give it to an agent or a token.",
+      "enforce_tfa": false,
+      "icon": "publish",
+      "id": "02e0e9af-769a-40ed-9090-1f456b5020ea",
+      "ip_access": null,
+      "name": "Content publishing"
+    },
+    {
+      "admin_access": false,
+      "app_access": false,
+      "description": "Writes and edits drafts of blog and social posts and sends them to review. Cannot publish, approve or delete what is live. Held by editors and by agents.",
+      "enforce_tfa": false,
+      "icon": "edit_note",
+      "id": "777a245b-f5ce-4c71-b051-9f7d7de83141",
+      "ip_access": null,
+      "name": "Content drafting"
+    },
+    {
+      "admin_access": false,
+      "app_access": true,
+      "description": "Signs in to the Studio. Holds no content permission of its own.",
+      "enforce_tfa": false,
+      "icon": "desktop_windows",
+      "id": "a6f8ddf0-a0e9-4e37-84a2-f46dfd87f745",
+      "ip_access": null,
+      "name": "Studio access"
+    },
+    {
+      "admin_access": true,
+      "app_access": true,
+      "description": "$t:admin_description",
+      "enforce_tfa": false,
+      "icon": "verified",
+      "id": "aa37024f-06cc-44e2-b0af-b87b28503cce",
+      "ip_access": null,
+      "name": "Administrator"
+    },
+    {
+      "admin_access": false,
+      "app_access": false,
+      "description": "$t:public_description",
+      "enforce_tfa": false,
+      "icon": "public",
+      "id": "abf8a154-5b1c-4a46-ac9c-7300570f4f17",
+      "ip_access": null,
+      "name": "$t:public_label"
+    },
+    {
+      "admin_access": false,
+      "app_access": false,
+      "description": "Reads what is live, for the website's token.",
+      "enforce_tfa": false,
+      "icon": "public",
+      "id": "c3bedbb7-73d6-4894-abf3-f46a6d546f7c",
+      "ip_access": null,
+      "name": "Website reader"
+    },
+    {
+      "admin_access": false,
+      "app_access": false,
+      "description": "Hands approved social posts to the publishing tool and records the result. For the hand-off robot only.",
+      "enforce_tfa": false,
+      "icon": "send",
+      "id": "e93b58a6-5083-4545-99c9-d74f02449f5a",
+      "ip_access": null,
+      "name": "Social hand-off"
+    }
+  ]
+}

@@ -1,0 +1,645 @@
+{
+  "collection": "blog_posts",
+  "definition": {
+    "collection": "blog_posts",
+    "meta": {
+      "accountability": "all",
+      "archive_app_filter": true,
+      "archive_field": "status",
+      "archive_value": "archived",
+      "autosave_revision_interval": null,
+      "collapse": "open",
+      "collection": "blog_posts",
+      "color": null,
+      "display_template": "{{translations.title}}",
+      "group": null,
+      "hidden": false,
+      "icon": "article",
+      "item_duplication_fields": null,
+      "note": "One blog post, in German and English. Only `published` posts whose publish date has passed are public.",
+      "preview_url": null,
+      "singleton": false,
+      "sort": null,
+      "sort_field": null,
+      "status": "active",
+      "translations": null,
+      "unarchive_value": "draft",
+      "versioning": true
+    },
+    "schema": {
+      "name": "blog_posts"
+    }
+  },
+  "fields": [
+    {
+      "collection": "blog_posts",
+      "field": "author",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "author",
+        "group": null,
+        "hidden": false,
+        "interface": "select-dropdown-m2o",
+        "note": null,
+        "options": {
+          "template": "{{name}}"
+        },
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 6,
+        "special": [
+          "m2o"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "integer",
+        "default_value": null,
+        "foreign_key_column": "id",
+        "foreign_key_table": "blog_authors",
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "author",
+        "numeric_precision": 32,
+        "numeric_scale": 0,
+        "table": "blog_posts"
+      },
+      "type": "integer"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "category",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "category",
+        "group": null,
+        "hidden": false,
+        "interface": "select-dropdown",
+        "note": "The website owns the labels and URL segments (apps/website/src/lib/categories.ts).",
+        "options": {
+          "choices": [
+            {
+              "text": "Product features",
+              "value": "product"
+            },
+            {
+              "text": "From practice",
+              "value": "practice"
+            },
+            {
+              "text": "Technology",
+              "value": "technology"
+            }
+          ]
+        },
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 4,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "category",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "cover",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "cover",
+        "group": null,
+        "hidden": false,
+        "interface": "select-dropdown",
+        "note": "A drawing from apps/website/src/assets/covers/. A new cover is drawn by the rules in packages/brand/docs/blog-covers.md and added in a pull request.",
+        "options": {
+          "choices": [
+            {
+              "text": "answer-pipeline",
+              "value": "answer-pipeline"
+            },
+            {
+              "text": "general-models",
+              "value": "general-models"
+            },
+            {
+              "text": "lesson-loop",
+              "value": "lesson-loop"
+            },
+            {
+              "text": "office-archive",
+              "value": "office-archive"
+            },
+            {
+              "text": "review-round",
+              "value": "review-round"
+            },
+            {
+              "text": "six-questions",
+              "value": "six-questions"
+            },
+            {
+              "text": "welcome",
+              "value": "welcome"
+            }
+          ]
+        },
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 5,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "cover",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "date_created",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "date_created",
+        "group": null,
+        "hidden": true,
+        "interface": "datetime",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 8,
+        "special": [
+          "date-created"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "timestamp with time zone",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "date_created",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "timestamp"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "date_updated",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "date_updated",
+        "group": null,
+        "hidden": true,
+        "interface": "datetime",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 10,
+        "special": [
+          "date-updated"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "timestamp with time zone",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "date_updated",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "timestamp"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "id",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "id",
+        "group": null,
+        "hidden": true,
+        "interface": "input",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 1,
+        "special": [
+          "uuid"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "schema": {
+        "data_type": "uuid",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": true,
+        "is_unique": true,
+        "max_length": null,
+        "name": "id",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "uuid"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "publish_date",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "publish_date",
+        "group": null,
+        "hidden": false,
+        "interface": "datetime",
+        "note": "The date the post shows and sorts by. A published post with a future date goes live then.",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 3,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "timestamp with time zone",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "publish_date",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "timestamp"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "social_posts",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "social_posts",
+        "group": null,
+        "hidden": false,
+        "interface": "list-o2m",
+        "note": "Social posts that promote this post.",
+        "options": {
+          "template": "{{account.label}} ({{status}})"
+        },
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 12,
+        "special": [
+          "o2m"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "type": "alias"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "status",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": "labels",
+        "display_options": null,
+        "field": "status",
+        "group": null,
+        "hidden": false,
+        "interface": "select-dropdown",
+        "note": "draft -> in_review -> published. Only a publisher may publish.",
+        "options": {
+          "choices": [
+            {
+              "text": "Draft",
+              "value": "draft"
+            },
+            {
+              "text": "In review",
+              "value": "in_review"
+            },
+            {
+              "text": "Published",
+              "value": "published"
+            },
+            {
+              "text": "Archived",
+              "value": "archived"
+            }
+          ]
+        },
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 2,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": "draft",
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "status",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "translations",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "translations",
+        "group": null,
+        "hidden": false,
+        "interface": "translations",
+        "note": null,
+        "options": {
+          "defaultLanguage": "de",
+          "defaultOpenSplitView": true,
+          "languageField": "name",
+          "userLanguage": false
+        },
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 11,
+        "special": [
+          "translations"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "full"
+      },
+      "type": "alias"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "user_created",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "user_created",
+        "group": null,
+        "hidden": true,
+        "interface": "select-dropdown-m2o",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 7,
+        "special": [
+          "user-created"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "uuid",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "user_created",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "uuid"
+    },
+    {
+      "collection": "blog_posts",
+      "field": "user_updated",
+      "meta": {
+        "collection": "blog_posts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "user_updated",
+        "group": null,
+        "hidden": true,
+        "interface": "select-dropdown-m2o",
+        "note": null,
+        "options": null,
+        "readonly": true,
+        "required": false,
+        "searchable": true,
+        "sort": 9,
+        "special": [
+          "user-updated"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "uuid",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "user_updated",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "blog_posts"
+      },
+      "type": "uuid"
+    }
+  ],
+  "relations": [
+    {
+      "collection": "blog_posts",
+      "field": "author",
+      "meta": {
+        "junction_field": null,
+        "many_collection": "blog_posts",
+        "many_field": "author",
+        "one_allowed_collections": null,
+        "one_collection": "blog_authors",
+        "one_collection_field": null,
+        "one_deselect_action": "nullify",
+        "one_field": null,
+        "sort_field": null
+      },
+      "related_collection": "blog_authors",
+      "schema": {
+        "column": "author",
+        "constraint_name": "blog_posts_author_foreign",
+        "foreign_key_column": "id",
+        "foreign_key_table": "blog_authors",
+        "on_delete": "SET NULL",
+        "on_update": "NO ACTION",
+        "table": "blog_posts"
+      }
+    }
+  ],
+  "systemFields": []
+}

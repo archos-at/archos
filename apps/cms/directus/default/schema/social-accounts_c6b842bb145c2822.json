@@ -1,0 +1,318 @@
+{
+  "collection": "social_accounts",
+  "definition": {
+    "collection": "social_accounts",
+    "meta": {
+      "accountability": "all",
+      "archive_app_filter": true,
+      "archive_field": null,
+      "archive_value": null,
+      "autosave_revision_interval": null,
+      "collapse": "open",
+      "collection": "social_accounts",
+      "color": null,
+      "display_template": "{{label}}",
+      "group": null,
+      "hidden": false,
+      "icon": "share",
+      "item_duplication_fields": null,
+      "note": "Where social posts go: a LinkedIn page or profile, connected in the publishing tool.",
+      "preview_url": null,
+      "singleton": false,
+      "sort": null,
+      "sort_field": null,
+      "status": "active",
+      "translations": null,
+      "unarchive_value": null,
+      "versioning": false
+    },
+    "schema": {
+      "name": "social_accounts"
+    }
+  },
+  "fields": [
+    {
+      "collection": "social_accounts",
+      "field": "active",
+      "meta": {
+        "collection": "social_accounts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "active",
+        "group": null,
+        "hidden": false,
+        "interface": "boolean",
+        "note": null,
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 6,
+        "special": [
+          "cast-boolean"
+        ],
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "boolean",
+        "default_value": true,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "active",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "social_accounts"
+      },
+      "type": "boolean"
+    },
+    {
+      "collection": "social_accounts",
+      "field": "id",
+      "meta": {
+        "collection": "social_accounts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "id",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "Stable key, e.g. linkedin-company",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 1,
+        "special": null,
+        "translations": null,
+        "validation": {
+          "_and": [
+            {
+              "id": {
+                "_regex": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              }
+            }
+          ]
+        },
+        "validation_message": "Lower-case letters and digits, words joined by single hyphens.",
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": true,
+        "is_unique": true,
+        "max_length": 255,
+        "name": "id",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "social_accounts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "social_accounts",
+      "field": "label",
+      "meta": {
+        "collection": "social_accounts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "label",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": null,
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 2,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "label",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "social_accounts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "social_accounts",
+      "field": "max_length",
+      "meta": {
+        "collection": "social_accounts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "max_length",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "The network's character limit for a post. LinkedIn: 3000.",
+        "options": null,
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 4,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "integer",
+        "default_value": 3000,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": null,
+        "name": "max_length",
+        "numeric_precision": 32,
+        "numeric_scale": 0,
+        "table": "social_accounts"
+      },
+      "type": "integer"
+    },
+    {
+      "collection": "social_accounts",
+      "field": "network",
+      "meta": {
+        "collection": "social_accounts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "network",
+        "group": null,
+        "hidden": false,
+        "interface": "select-dropdown",
+        "note": null,
+        "options": {
+          "choices": [
+            {
+              "text": "LinkedIn",
+              "value": "linkedin"
+            }
+          ]
+        },
+        "readonly": false,
+        "required": true,
+        "searchable": true,
+        "sort": 3,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": "linkedin",
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": false,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "network",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "social_accounts"
+      },
+      "type": "string"
+    },
+    {
+      "collection": "social_accounts",
+      "field": "publisher_channel_id",
+      "meta": {
+        "collection": "social_accounts",
+        "conditions": null,
+        "display": null,
+        "display_options": null,
+        "field": "publisher_channel_id",
+        "group": null,
+        "hidden": false,
+        "interface": "input",
+        "note": "The channel id of this account in the publishing tool (Buffer). Empty: posts are published by hand.",
+        "options": null,
+        "readonly": false,
+        "required": false,
+        "searchable": true,
+        "sort": 5,
+        "special": null,
+        "translations": null,
+        "validation": null,
+        "validation_message": null,
+        "width": "half"
+      },
+      "schema": {
+        "data_type": "character varying",
+        "default_value": null,
+        "foreign_key_column": null,
+        "foreign_key_table": null,
+        "generation_expression": null,
+        "has_auto_increment": false,
+        "is_generated": false,
+        "is_indexed": false,
+        "is_nullable": true,
+        "is_primary_key": false,
+        "is_unique": false,
+        "max_length": 255,
+        "name": "publisher_channel_id",
+        "numeric_precision": null,
+        "numeric_scale": null,
+        "table": "social_accounts"
+      },
+      "type": "string"
+    }
+  ],
+  "relations": [],
+  "systemFields": []
+}

@@ -1,0 +1,23 @@
+{
+  "files": [
+    "blog-authors_ea36d28de89329d0.json",
+    "blog-figures_407f792807b479b8.json",
+    "blog-posts-translations_ddb745de0449a7dc.json",
+    "blog-posts_bbaba9e7949f9ce9.json",
+    "directus-activity_063739d0b530e17d.json",
+    "directus-oauth-clients_63efa385b417eab7.json",
+    "directus-oauth-codes_b5c765e4a5d388cd.json",
+    "directus-oauth-consents_c5be86d03d4c8bdf.json",
+    "directus-oauth-tokens_216e2f4a23a69aef.json",
+    "directus-revisions_2a93ea27975f81ab.json",
+    "directus-sessions_9fff20d7606f239c.json",
+    "languages_6cb574fa10b6ee20.json",
+    "social-accounts_c6b842bb145c2822.json",
+    "social-posts_b63fc60ad29317b5.json"
+  ],
+  "snapshot": {
+    "directus": "12.6.1",
+    "vendor": "postgres",
+    "version": 1
+  }
+}
