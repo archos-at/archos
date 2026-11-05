@@ -43,6 +43,7 @@ import type { ShelfFolderTally, ShelfSummary } from '@/lib/documents/shelf-summa
 import { withoutOlderRevisions } from '@/features/documents/lib/revision-chain'
 import type { BulkReingestProgress } from '@/features/documents/hooks/use-bulk-reingest'
 import { FILES, FOLDERS, PROJECT_NAME } from './fixtures'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const SECTIONS = ['a', 'b', 'c', 'd', 'e', 'f', 'g'] as const
 type SectionId = (typeof SECTIONS)[number]
@@ -158,9 +159,9 @@ const MISSING: readonly MissingDocument[] = [
 function Section({ id, title, children }: { id: SectionId; title: string; children: ReactNode }): JSX.Element {
   return (
     <section className="flex flex-col gap-3" data-testid={`section-${id}`} aria-labelledby={`section-${id}-title`}>
-      <h2 id={`section-${id}-title`} className="text-muted-foreground text-xs font-medium uppercase tracking-[0.05em]">
+      <SectionLabel as="h2" id={`section-${id}-title`}>
         {title}
-      </h2>
+      </SectionLabel>
       {children}
     </section>
   )

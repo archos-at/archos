@@ -46,6 +46,7 @@ import { I18nProvider, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const ANNA: DraftMention = { targetId: 'user_anna', display: 'Anna Berger' }
 const TOBIAS: DraftMention = { targetId: 'user_tobias', display: 'Tobias Kern' }
@@ -113,9 +114,9 @@ function MockComposer({
 }
 
 const Eyebrow = ({ children }: { children: React.ReactNode }): JSX.Element => (
-  <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+  <SectionLabel as="h2">
     {children}
-  </h2>
+  </SectionLabel>
 )
 
 /**
