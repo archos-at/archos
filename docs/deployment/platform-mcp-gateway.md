@@ -52,9 +52,10 @@ Nothing here is applied by the deploy.
 
 1. **MCP auth, CIMD and DCR** are on already if the agent doors work
    ([`agent-surface.md`](../architecture/agent-surface.md#workos-dashboard-setup), steps 1–3).
-2. **Register the resource indicator**: `https://platform-mcp.<baseDomain>/*`.
-   A path wildcard covers every route the gateway serves now or later. A
-   wildcard cannot be the default indicator, so leave the default as it is.
+2. **Register each server's URL as its own resource indicator**, for example
+   `https://platform-mcp.<baseDomain>/langfuse/mcp`. WorkOS matches the exact
+   URL, so every route the gateway serves, now or later, gets its own entry.
+   Never make one of them the default indicator.
 3. **Add the `roles` claim to the JWT template** (Authentication → Sessions →
    JWT template), merged into whatever the template already holds:
 
@@ -81,8 +82,9 @@ the stack files' headers. The gateway also needs `workosAuthkitDomain` (set
 wherever the agent doors work) and Langfuse on. A stack missing either fails the
 plan with the key to set.
 
-`mcpGatewayDomain` overrides the host. It must stay under the resource indicator
-from step 2.
+`mcpGatewayDomain` overrides the host. Every resource indicator registered in
+WorkOS must use that host, because each route's audience is its exact URL
+under it.
 
 With `dnsEnabled` the record is written for you. Otherwise point
 `platform-mcp.<baseDomain>` at the Envoy Gateway address by hand, as for the
@@ -135,8 +137,8 @@ file, and two behaviours read from its source at v1.7.0.
    does for Langfuse.
 3. A case in `index-mcp-gateway.spec.ts`.
 4. A row in the table at the top of this page.
-
-The wildcard resource indicator already covers the new route.
+5. Register the new route's URL, `https://platform-mcp.<baseDomain>/<name>/mcp`,
+   as a resource indicator in WorkOS, in every environment.
 
 ## Operating it
 
