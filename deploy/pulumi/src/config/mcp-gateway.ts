@@ -35,6 +35,8 @@ export interface McpGatewayConfig {
 
 const ORG_ID = /^org_[0-9A-Za-z]+$/;
 const SESSION_KEY = /^[0-9a-f]{64}$/;
+/** A bare lowercase DNS name: it becomes a listener hostname, a route hostname and an `https://` origin. */
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?(\.[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)+$/;
 
 /**
  * Off unless asked for, and once asked for, every dependency is required: a
@@ -70,6 +72,9 @@ export function loadMcpGateway(
   // anything but the WorkOS id shape is refused rather than escaped.
   if (!ORG_ID.test(platformOrgId)) {
     throw new Error(`${project}:mcpGatewayPlatformOrgId must be a WorkOS organization id (org_…), got "${platformOrgId}".`);
+  }
+  if (!HOSTNAME.test(domain)) {
+    throw new Error(`${project}:mcpGatewayDomain must be a bare lowercase hostname such as platform-mcp.example.test, got "${domain}".`);
   }
   // Langfuse is the one in-cluster MCP server today. A gateway with nothing
   // behind it is a public host that answers 404 to everyone.

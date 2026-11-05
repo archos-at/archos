@@ -41,7 +41,7 @@ const SESSION_KEY = "a".repeat(64); // pragma: allowlist secret
 type Resource = { type: string; name: string; inputs: Record<string, unknown> };
 type Listener = { name: string; protocol: string; hostname?: string };
 type Route = { spec: { parentRefs: unknown[]; hostnames: string[]; rules: unknown[] } };
-type Policy = { spec: { targetRefs: Array<{ name: string }> } };
+type Policy = { spec: { targetRefs: Array<{ name: string; sectionName?: string }> } };
 type NetworkPolicy = { spec: unknown };
 type ConfigMap = { data: Record<string, string> };
 type Container = {
@@ -162,7 +162,12 @@ describe("the platform MCP gateway, switched on", () => {
     const gates = RESOURCES.filter((r) => r.type === TYPE.policy).flatMap(
       (r) => (r.inputs as unknown as Policy).spec.targetRefs,
     );
+    // Neither on the route itself nor on its listener (a Gateway-wide policy, or
+    // one naming `https-platform-mcp`, would reach the route as well).
     expect(gates.map((t) => t.name)).not.toContain("platform-mcp-gateway");
+    expect(
+      gates.filter((t) => t.name === GATEWAY_NAME && (t.sectionName ?? "https-platform-mcp") === "https-platform-mcp"),
+    ).toEqual([]);
   });
 
   it.skipIf(SCHEMA_PATH === undefined)("writes a config the pinned agentgateway's own schema accepts", () => {
@@ -246,6 +251,24 @@ describe("the platform MCP gateway, switched on", () => {
       { requests: 300, unit: "Minute" },
       { requests: 300, unit: "Minute" },
     ]);
+  });
+
+  it("spreads its two replicas across nodes and lets a drain take only one at a time", () => {
+    const spec = find<{ spec: { template: { spec: { topologySpreadConstraints: Array<{ maxSkew: number; topologyKey: string }> } } } }>(
+      TYPE.deployment,
+      "platform-mcp-gateway",
+    ).spec.template.spec;
+    expect(spec.topologySpreadConstraints[0]).toMatchObject({ maxSkew: 1, topologyKey: "kubernetes.io/hostname" });
+    const pdb = RESOURCES.find((r) => r.type === "kubernetes:policy/v1:PodDisruptionBudget" && r.name.includes("platform-mcp-gateway"));
+    expect(pdb, "PodDisruptionBudget").toBeDefined();
+  });
+
+  it("is withheld from the namespace-wide allow, so only the edge reaches it", () => {
+    const intra = find<{ spec: { podSelector: { matchExpressions: Array<{ values: string[] }> } } }>(
+      TYPE.networkPolicy,
+      "allow-same-namespace",
+    ).spec;
+    expect(intra.podSelector.matchExpressions[0].values).toContain("platform-mcp-gateway");
   });
 
   it("keeps serving for a moment after it is told to stop, while Envoy drops the endpoint", () => {
@@ -352,6 +375,11 @@ describe("loadMcpGateway refuses a gateway it cannot gate", () => {
 
   it("refuses to serve an empty host when Langfuse is off", () => {
     expect(() => load(complete, false)).toThrow(/Langfuse is off/);
+  });
+
+  it("takes a bare hostname only, never a URL", () => {
+    expect(() => load({ ...complete, [key("mcpGatewayDomain")]: "https://platform-mcp.example.test" })).toThrow(/bare lowercase hostname/);
+    expect(() => load({ ...complete, [key("mcpGatewayDomain")]: "" })).toThrow(/bare lowercase hostname/);
   });
 
   it("derives the host and the issuer when complete", () => {

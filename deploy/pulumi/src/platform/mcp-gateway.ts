@@ -9,7 +9,7 @@ import { GATEWAY_NAME } from "./gateway";
 import { LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "./langfuse";
 import { commonLabels } from "./namespaces";
 import { ROLLOUT, gracefulShutdown, secretChecksum, secretChecksumAnnotations, surgeRollout } from "./rollout";
-import { onNodeGroup } from "./scheduling";
+import { installPdb, onNodeGroup, spreadAcrossNodes } from "./scheduling";
 import {
   MCP_GATEWAY,
   MCP_GATEWAY_PORT,
@@ -153,6 +153,8 @@ export function installMcpGateway(
             securityContext: { runAsNonRoot: true, runAsUser: MCP_GATEWAY.uid, runAsGroup: MCP_GATEWAY.uid },
             terminationGracePeriodSeconds: gracefulShutdown(ROLLOUT.observability).terminationGracePeriodSeconds,
             ...onNodeGroup(cfg.nodeGroups.app),
+            // One node lost must not take both replicas with it.
+            topologySpreadConstraints: spreadAcrossNodes(labels),
             containers: [
               {
                 name: "agentgateway",
@@ -211,6 +213,9 @@ export function installMcpGateway(
     },
     { provider, dependsOn: [...dependsOn, configMap, sessionSecret] },
   );
+
+  // A node drain evicts one replica at a time, so the host keeps answering.
+  installPdb(MCP_GATEWAY.name, namespace, provider, labels, [deployment]);
 
   const service = new k8s.core.v1.Service(
     MCP_GATEWAY.name,

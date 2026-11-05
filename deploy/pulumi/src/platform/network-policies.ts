@@ -126,6 +126,8 @@ export function installNetworkPolicies(
             ...langfuseWithheld,
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
             QDRANT.name,
+            // Rule 22 is its one caller; its stats and readiness ports are the kubelet's.
+            ...(cfg.mcpGateway.enabled ? [MCP_GATEWAY.name] : []),
           ],
         },
       ],
