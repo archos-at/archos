@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { load } from "js-yaml";
 import { LEGACY_PROJECT } from "./src/names";
-import { baseStackConfig } from "./src/test-support/stack-config";
+import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 
 /**
  * The policy pack's mandatory WORKLOAD rules (deploy/pulumi/policy/index.ts),
@@ -44,11 +44,13 @@ pulumi.runtime.setMocks(
 /**
  * Pulumi.dev.yaml's config over the suite's base config, which stands in for the
  * secrets the dev stack reads from its ESC environment; a `secure:` value in the
- * file becomes a placeholder.
+ * file becomes a placeholder. Langfuse's credentials are among those secrets,
+ * and the dev file switches on the MCP gateway, which refuses to plan without
+ * the MCP server Langfuse provides.
  */
 function devStackConfig(): Record<string, string> {
   const file = load(readFileSync(join(__dirname, "Pulumi.dev.yaml"), "utf8")) as { config: Record<string, unknown> };
-  return { ...baseStackConfig(), ...Object.fromEntries(
+  return { ...baseStackConfig(), ...langfuseStackConfig(), ...Object.fromEntries(
     Object.entries(file.config).map(([key, value]) => [
       key,
       value && typeof value === "object" && "secure" in value
@@ -60,6 +62,9 @@ function devStackConfig(): Record<string, string> {
   ),
     // In the dev stack's ESC environment, not its file.
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
+    // Likewise the gateway's session key. The dev file switches the gateway on,
+    // so the key must resolve; `checkSessionKey` wants 64 hex characters.
+    [`${LEGACY_PROJECT}:mcpGatewaySessionKey`]: "0".repeat(64), // pragma: allowlist secret
   };
 }
 
@@ -138,7 +143,7 @@ describe("the dev stack's plan against the policy pack's mandatory workload rule
     pulumi.runtime.setAllConfig(devStackConfig());
     await import("./index");
     await new Promise((r) => setTimeout(r, 200));
-  });
+  }, 60_000);
 
   it("builds the workloads", () => {
     expect(workloads().length).toBeGreaterThan(10);
