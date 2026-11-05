@@ -89,7 +89,7 @@ function summaryOf(files: readonly FileItem[]): ShelfSummary {
   }
 }
 const SUMMARY_BRIEF = buildFolderBriefFromSummary(summaryOf(FILES), FOLDERS, null)
-/** Ticket #38's case: every one of 27 documents Piloti reads is read, beside 16 it never reads. */
+/** Ticket #38's case: every one of 27 documents the agent reads is read, beside 16 it never reads. */
 const QUIET_BRIEF = buildFolderBriefFromSummary(
   {
     folders: [{ folderId: null, total: 43, readable: 27, reading: 0, failed: 0, held: 0, unindexed: 16, latest: null }],

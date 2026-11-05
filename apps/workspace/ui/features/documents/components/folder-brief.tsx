@@ -260,7 +260,7 @@ function briefHeadline(tally: KnowledgeTally, t: Translate): string {
   const share = readShare(tally)
   if (share === null) return t('brief.headlineNothingToRead', { count: tally.total })
   const meantToRead = tally.total - tally.unindexed
-  // Beside documents Piloti never reads, „all" says what it counts: the knowledge base's.
+  // Beside documents the agent never reads, „all" says what it counts: the knowledge base's.
   if (tally.readable === meantToRead) return t(tally.unindexed > 0 ? 'brief.headlineAllOfKnowledge' : 'brief.headlineAll', { count: meantToRead })
   if (tally.readable === 0) return t('brief.headlineNone', { count: meantToRead })
   return t('brief.headlineSome', { readable: tally.readable, count: meantToRead })
