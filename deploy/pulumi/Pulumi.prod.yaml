@@ -202,7 +202,7 @@ config:
   #   (Cloudflare → archos.tech → Overview → API → Zone ID); loadConfig refuses the placeholder.
   #   The apex archos.tech keeps Google Workspace's MX: nothing here touches them.
   # grid-oib:inboundMailDomain: inbox.archos.tech
-  # grid-oib:inboundMailZoneId: <the zone id of archos.tech>
+  # grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
   #   (b) only: archos.tech has no _dmarc today, and this block is its one writer until the
   #   domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks it).
   #   sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is the
