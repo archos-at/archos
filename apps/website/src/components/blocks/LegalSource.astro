@@ -15,7 +15,7 @@ interface Props extends LegalSourceBlock {
   class?: string;
 }
 
-const { locale, title, section, version, issuer, excerpt, url, class: className } = Astro.props;
+const { locale, title, section, version, issuer, excerpt, excerptLang, url, class: className } = Astro.props;
 const ui = t(locale);
 const kicker = [ui.sourceKinds.building_law, issuer].filter(Boolean).join(' · ');
 const meta = [section, version].filter(Boolean).join(' · ');
@@ -30,7 +30,7 @@ const host = url ? new URL(url).hostname.replace(/^www\./, '') : undefined;
   </figcaption>
   {
     excerpt && (
-      <blockquote class="ui-legal-excerpt" cite={url}>
+      <blockquote class="ui-legal-excerpt" cite={url} lang={excerptLang !== locale ? excerptLang : undefined}>
         <p>{excerpt}</p>
       </blockquote>
     )

@@ -133,6 +133,8 @@ export interface LegalSourceBlock {
   issuer?: string;
   /** The passage's wording, short and verbatim. */
   excerpt?: string;
+  /** The excerpt's language when it differs from the page's (BCP 47): `de` on an English page. */
+  excerptLang?: 'de' | 'en';
   /** The source itself (RIS, OIB), https only. */
   url?: string;
 }
@@ -413,6 +415,7 @@ export function parseLegalSource(json: unknown): Parsed<LegalSourceBlock> {
       version: r.text(json, 'version', 60),
       issuer: r.text(json, 'issuer', 100),
       excerpt: r.text(json, 'excerpt', 600),
+      excerptLang: json.excerptLang === undefined || json.excerptLang === null ? undefined : r.oneOf(json, 'excerptLang', ['de', 'en'] as const),
       url: r.url(json, 'url'),
     }),
   );

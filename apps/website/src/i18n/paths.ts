@@ -24,6 +24,7 @@ export const ROUTES = {
   privacy: { de: '/datenschutz/', en: '/en/privacy/' },
   demo: { de: '/demo/', en: '/en/demo/' },
   changelog: { de: '/changelog/', en: '/en/changelog/' },
+  blogBlocks: { de: '/blog-bausteine/', en: '/en/blog-blocks/' },
 } as const satisfies Record<string, Record<Locale, string>>
 
 export type RouteKey = keyof typeof ROUTES
@@ -33,10 +34,11 @@ export type RouteKey = keyof typeof ROUTES
  * link in the navigation, the footer, another page or `llms.txt`, no sitemap entry, and
  * `noindex` (BaseLayout reads this list). Old addresses may still redirect to them
  * (redirects.mjs). Owner decision 2026-11-05: the three product sub pages are taken off
- * the site but kept until it is decided what replaces them. Moving a key back out of this
- * list offers the page again everywhere.
+ * the site but kept until it is decided what replaces them. `blogBlocks` shows every post block
+ * with example content, for the editors and for review; it is not a page for visitors. Moving a
+ * key back out of this list offers the page again everywhere.
  */
-export const UNLISTED_ROUTES: readonly RouteKey[] = ['firms', 'buildingLaw', 'revisions']
+export const UNLISTED_ROUTES: readonly RouteKey[] = ['firms', 'buildingLaw', 'revisions', 'blogBlocks']
 
 /** `/blog/` and `/blog` are the same page: the site builds directory URLs. */
 function trimSlash(path: string): string {

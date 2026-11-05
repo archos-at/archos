@@ -18,6 +18,8 @@ const OWN_FILES = new Set([
   'views/FirmsView.astro',
   'views/BuildingLawView.astro',
   'views/RevisionsView.astro',
+  'views/BlogBlocksView.astro',
+  'i18n/pages/blog-blocks.ts',
   'i18n/paths.ts',
 ]);
 

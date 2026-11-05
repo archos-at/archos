@@ -262,6 +262,7 @@ const en: typeof de = {
       version: 'Edition May 2023',
       issuer: 'Austrian Institute of Construction Engineering',
       excerpt: 'Die lichte Raumhöhe von Aufenthaltsräumen muss mindestens 2,50 m betragen.',
+      excerptLang: 'de',
       url: 'https://www.oib.or.at/',
     },
   },
