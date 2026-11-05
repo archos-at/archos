@@ -1022,7 +1022,6 @@ export function FileWorkspace({
               onFileAim={setFileAim}
               onPickFiles={canManage ? () => pickFilesRef.current?.() : undefined}
               onPickFolder={canManage ? () => pickFolderRef.current?.() : undefined}
-              cardExtras={shelf.cardExtras}
               wrapFile={wrapFile}
               wrapFileRow={wrapFileRow}
               renderActions={renderDocumentActions}

@@ -33,7 +33,6 @@
  * from the browser what no server ever recorded.
  */
 
-import { FolderTree } from 'lucide-react'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
@@ -111,7 +110,7 @@ function UnstoredProposalCard({
 
   return (
     <ProposalShell tone="pending">
-      <SectionLabel icon={FolderTree}>{t(`cards.fileOperationProposal.eyebrow.${operation}`)}</SectionLabel>
+      <SectionLabel>{t(`cards.fileOperationProposal.eyebrow.${operation}`)}</SectionLabel>
 
       <p className="text-foreground text-sm font-medium">{title}</p>
 

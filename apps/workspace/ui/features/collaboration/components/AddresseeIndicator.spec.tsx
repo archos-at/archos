@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
-import { render, screen } from '@/test-utils'
+import { render, screen, within } from '@/test-utils'
 
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import type { DraftMention } from '@/lib/mentions/mention-text'
@@ -130,5 +130,33 @@ describe('AddresseeIndicator — teaching that @ exists', () => {
       />,
     )
     expect(screen.queryByTestId('composer-mention-offer')).not.toBeInTheDocument()
+  })
+
+  // Ticket #38, R2: the offer had a line of its own under the actions, so a phone's
+  // composer stacked into rows. Only a statement takes a line; the bare offer
+  // stands in the action row and folds to its `@` in a narrow card.
+  describe('placement in the composer row', () => {
+    test('the bare offer stands in the action row, not on a line of its own', () => {
+      render(<AddresseeIndicator mentions={[]} awaitingHuman={false} onMentionSomeone={vi.fn()} />)
+      expect(line().className).toContain('order-1')
+      expect(line().className).not.toContain('basis-full')
+    })
+
+    test('a statement takes its own line beneath the row', () => {
+      render(<AddresseeIndicator mentions={[ANNA]} awaitingHuman={false} />)
+      expect(line().className).toContain('order-last')
+      expect(line().className).toContain('basis-full')
+    })
+
+    test('the offer folds to its `@` in a card under 28rem, and keeps its name', () => {
+      render(<AddresseeIndicator mentions={[]} awaitingHuman={false} onMentionSomeone={vi.fn()} />)
+      const offer = screen.getByTestId('composer-mention-offer')
+      const label = within(offer).getByText('mention a colleague')
+      // A container query against the composer card's `@container`, not the window.
+      expect(label.className).toContain('sr-only')
+      expect(label.className).toContain('@md:not-sr-only')
+      expect(offer).toHaveAccessibleName('mention a colleague')
+      expect(offer).toHaveAttribute('title', 'mention a colleague')
+    })
   })
 })

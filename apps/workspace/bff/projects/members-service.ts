@@ -1,19 +1,37 @@
 /**
  * Project members service — the WorkOS FGA roster and role assignments for a
- * project. Owns authorization (`project:manage` for every operation) and the
- * audit trail for access-control changes. Route handlers stay thin: they
- * validate input shape and delegate here.
+ * project. Owns authorization (`project:members:manage`, or `project:manage`
+ * for roles provisioned before the split, on every operation), the invariants
+ * of a roster change and the audit trail for access-control changes. Route
+ * handlers stay thin: they validate input shape and delegate here.
+ *
+ * Every change of who holds which role, whichever route made it:
+ *   - runs under the project's roster lock (`withProjectMembersLock`), so the
+ *     last-admin rule cannot be raced past;
+ *   - grants and takes away only roles whose permissions the caller holds
+ *     themselves (the grant ceiling), so `project:members:manage` cannot be
+ *     turned into `project:manage`;
+ *   - forgets the person's cached grants (`forgetResourceGrants`), so a
+ *     removal takes effect on their next request, not after the cache TTL;
+ *   - settles a departure the same way (`settleDeparture`): the collaboration
+ *     that waited on them is voided and the Steckbrief keeps them as a former
+ *     member. Before this, only the DELETE route did that, and the members
+ *     form removes people through the POST.
  */
 
 import 'server-only'
 import { getWorkOS } from '@/lib/workos/client'
 import { requireProjectAccess, type ProjectPermission } from '@/lib/authz/projects'
+import { findRoleSpec, PROJECT_PERMISSION_SPECS } from '@/lib/authz/catalog'
+import { hasPermission, ORG_PERMISSIONS } from '@/lib/authz/permissions'
+import { effectiveResourcePermissions, forgetResourceGrants } from '@/lib/authz/resource-check'
 import { recordAuditEvent } from '@/lib/audit/service'
-import { ConflictError, NotFoundError } from '@/lib/api/errors'
+import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import { pageOfList, type OffsetPage } from '@/lib/api/offset-page'
 import { revokeCollaborationForProjectMember } from '@/lib/collaboration/cleanup'
 import type { AuthorizedSession } from '@/lib/auth/types'
 import { dateToMonth, type Month } from './month'
+import { withProjectMembersLock } from './member-change-lock'
 import { findProjectWorkosResourceId } from './repository'
 import { recordMemberLeft, recordMemberRejoined } from './project-record-service'
 
@@ -75,6 +93,77 @@ function assertNotLastAdmin(
       LAST_ADMIN_DETAILS
     )
   }
+}
+
+/** One project role assignment as WorkOS lists it; `source` absent reads as direct. */
+type ProjectRoleAssignment = {
+  id: string
+  organizationMembershipId: string
+  role: { slug: string }
+  createdAt: Date
+  source?: { type: 'direct' | 'group' }
+}
+
+/**
+ * Whether the assignment was made on this person and can be removed here. A
+ * role a directory group carries is the group's: removing it is a change of the
+ * group, not of this roster.
+ */
+function isDirect(assignment: ProjectRoleAssignment): boolean {
+  return assignment.source?.type !== 'group'
+}
+
+/** Machine-readable marker of a role change beyond the caller's own permissions. */
+const ROLE_EXCEEDS_OWN_DETAILS = { reason: 'role-exceeds-own' } as const
+
+const EVERY_PROJECT_PERMISSION: readonly string[] = PROJECT_PERMISSION_SPECS.map((spec) => spec.slug)
+
+/**
+ * What a project role grants, as the catalog defines it. A role the catalog
+ * does not know (one made in the WorkOS dashboard) is read as granting every
+ * project permission: only someone who holds them all may hand it out or take
+ * it away, which never under-protects it.
+ */
+function permissionsOfRole(roleSlug: string): readonly string[] {
+  const spec = findRoleSpec(roleSlug)
+  return spec?.tier === 'project' ? spec.permissions : EVERY_PROJECT_PERMISSION
+}
+
+/**
+ * The grant ceiling: a change of someone's project roles may only grant or take
+ * away permissions the caller holds on the project themselves. Holding
+ * `project:members:manage` lets you staff a project, not promote yourself or
+ * anyone else past your own rung. The organization-wide bypass holds every
+ * project permission. Built-in roles never meet the ceiling (only Project Admin
+ * holds `project:members:manage`, and it holds everything); a role assembled
+ * in the WorkOS dashboard with `project:members:manage` and less than
+ * everything does.
+ */
+async function assertWithinCeiling(
+  session: AuthorizedSession,
+  projectId: string,
+  roleSlugs: readonly string[]
+): Promise<void> {
+  if (roleSlugs.length === 0 || hasPermission(session, ORG_PERMISSIONS.projectsAdminister)) return
+  const held = await effectiveResourcePermissions({
+    organizationMembershipId: session.organizationMembershipId,
+    organizationId: session.organizationId,
+    resourceExternalId: projectId,
+    resourceTypeSlug: 'project',
+  })
+  const beyond = roleSlugs.filter((roleSlug) => permissionsOfRole(roleSlug).some((permission) => !held.has(permission)))
+  if (beyond.length > 0) {
+    throw new ForbiddenError(
+      'You can only grant or take away a project role whose permissions you hold yourself.',
+      ROLE_EXCEEDS_OWN_DETAILS
+    )
+  }
+}
+
+async function listAssignments(workosResourceId: string): Promise<ProjectRoleAssignment[]> {
+  return getWorkOS()
+    .authorization.listRoleAssignmentsForResource({ resourceId: workosResourceId })
+    .then((page) => page.autoPagination())
 }
 
 /**
@@ -153,11 +242,7 @@ export async function listProjectMembers(
     workos.userManagement
       .listOrganizationMemberships({ organizationId: session.organizationId })
       .then((page) => page.autoPagination()),
-    workosResourceId
-      ? workos.authorization
-          .listRoleAssignmentsForResource({ resourceId: workosResourceId })
-          .then((page) => page.autoPagination())
-      : Promise.resolve([]),
+    workosResourceId ? listAssignments(workosResourceId) : Promise.resolve([]),
     ...PROJECT_ROLE_BY_PERMISSION.map(({ permissionSlug }) =>
       workos.authorization
         .listMembershipsForResourceByExternalId({
@@ -193,13 +278,7 @@ export async function listProjectMembers(
   })
 
   const userById = new Map(users.map((user) => [user.id, user]))
-  // Keyed by membership and role slug: the assignment that grants the role the
-  // row shows is the one to offer for removal, not whichever came first.
-  const assignmentByMembershipAndRole = new Map<string, string>()
-  for (const assignment of assignments) {
-    const key = `${assignment.organizationMembershipId}:${assignment.role.slug}`
-    if (!assignmentByMembershipAndRole.has(key)) assignmentByMembershipAndRole.set(key, assignment.id)
-  }
+  const removalIdOf = removableAssignmentIds(assignments)
 
   const rows = orgMemberships.map((organizationMembership) => {
     const user = userById.get(organizationMembership.userId)
@@ -215,9 +294,7 @@ export async function listProjectMembers(
           ? `${user.firstName} ${user.lastName ?? ''}`.trim()
           : user?.lastName || user?.email || organizationMembership.userId),
       role: projectMembership?.role ?? null,
-      roleAssignmentId: projectMembership
-        ? (assignmentByMembershipAndRole.get(`${organizationMembership.id}:${projectMembership.role}`) ?? null)
-        : null,
+      roleAssignmentId: projectMembership ? removalIdOf(organizationMembership.id, projectMembership.role) : null,
     }
   })
 
@@ -229,9 +306,39 @@ export async function listProjectMembers(
 }
 
 /**
- * Set (or clear, with an empty roleSlug) a member's project role. Existing
- * assignments for the membership are removed first so a member never holds
- * two project roles at once. Access-control change — always audited.
+ * The direct assignment a roster row offers for removal: the one granting the
+ * role the row shows, else any direct one the membership holds. The second
+ * case is a role the catalog does not know (one made in the WorkOS dashboard):
+ * the row shows the rung its permissions reach, a slug no assignment carries,
+ * and matching on that alone left such a member with nothing to remove.
+ */
+function removableAssignmentIds(
+  assignments: readonly ProjectRoleAssignment[]
+): (organizationMembershipId: string, role: ProjectMemberRole) => string | null {
+  const direct = assignments.filter(isDirect)
+  return (organizationMembershipId, role) => {
+    const own = direct.filter((assignment) => assignment.organizationMembershipId === organizationMembershipId)
+    return (own.find((assignment) => assignment.role.slug === role) ?? own[0])?.id ?? null
+  }
+}
+
+/**
+ * The project's WorkOS resource id. Read before the roster lock is taken: it
+ * never changes, and the lock's transaction should hold its connection for the
+ * WorkOS calls alone, not borrow a second one from the pool.
+ */
+async function resourceIdOf(projectId: string, organizationId: string): Promise<string> {
+  const workosResourceId = await findProjectWorkosResourceId(projectId, organizationId)
+  if (!workosResourceId) throw new NotFoundError('Project resource not found.')
+  return workosResourceId
+}
+
+/**
+ * Set (or clear, with an empty roleSlug) a member's project role. A member
+ * holds one direct project role: the new one is assigned FIRST and the others
+ * are removed after it, so a failure part-way leaves the old access or both,
+ * never none. A role a directory group carries is left alone. Access-control
+ * change — always audited.
  */
 export async function setProjectMemberRole(
   session: AuthorizedSession,
@@ -240,46 +347,49 @@ export async function setProjectMemberRole(
   request: Request
 ): Promise<void> {
   await requireProjectAccess(session, projectId, ['project:members:manage', 'project:manage'])
-
-  const workosResourceId = await findProjectWorkosResourceId(projectId, session.organizationId)
-  if (!workosResourceId) throw new NotFoundError('Project resource not found.')
-
   const { organizationMembershipId, roleSlug } = input
-  const workos = getWorkOS()
+  const workosResourceId = await resourceIdOf(projectId, session.organizationId)
 
-  const assignments = await workos.authorization
-    .listRoleAssignmentsForResource({ resourceId: workosResourceId })
-    .then((page) => page.autoPagination())
+  const { held, removed } = await withProjectMembersLock(session.organizationId, projectId, async () => {
+    const assignments = await listAssignments(workosResourceId)
+    // Reject any change that would drop the project's admin count to zero
+    // (ADR-0017: the service owns the invariant). Re-granting admin to the same
+    // target keeps them an admin, so it's always allowed.
+    assertNotLastAdmin(assignments, organizationMembershipId, roleSlug === PROJECT_ADMIN_ROLE_SLUG)
 
-  // Reject any change that would drop the project's admin count to zero
-  // (ADR-0017: the service owns the invariant). Re-granting admin to the same
-  // target keeps them an admin, so it's always allowed.
-  assertNotLastAdmin(assignments, organizationMembershipId, roleSlug === PROJECT_ADMIN_ROLE_SLUG)
+    const held = assignments.filter((assignment) => assignment.organizationMembershipId === organizationMembershipId)
+    const kept = roleSlug ? held.find((assignment) => isDirect(assignment) && assignment.role.slug === roleSlug) : undefined
+    const removed = held.filter((assignment) => isDirect(assignment) && assignment !== kept)
+    await assertWithinCeiling(session, projectId, [
+      ...(roleSlug && !kept ? [roleSlug] : []),
+      ...removed.map((assignment) => assignment.role.slug),
+    ])
 
-  const held = assignments.filter((assignment) => assignment.organizationMembershipId === organizationMembershipId)
-  await Promise.all(
-    held
-      .map((assignment) =>
-        workos.authorization.removeRoleAssignment({
+    const workos = getWorkOS()
+    try {
+      if (roleSlug && !kept) {
+        await workos.authorization.assignRole({
           organizationMembershipId,
-          roleAssignmentId: assignment.id,
+          resourceExternalId: projectId,
+          resourceTypeSlug: 'project',
+          roleSlug,
         })
+      }
+      await Promise.all(
+        removed.map((assignment) =>
+          workos.authorization.removeRoleAssignment({ organizationMembershipId, roleAssignmentId: assignment.id })
+        )
       )
-  )
-
-  if (roleSlug) {
-    await workos.authorization.assignRole({
-      organizationMembershipId,
-      resourceExternalId: projectId,
-      resourceTypeSlug: 'project',
-      roleSlug,
-    })
-  }
+    } finally {
+      await forgetResourceGrants(session.organizationId, organizationMembershipId)
+    }
+    return { held, removed }
+  })
 
   // The Steckbrief keeps who worked on the project (ADR-0091): someone taken
   // off it stays on as a former member, someone put back is current again.
-  if (!roleSlug && held.length > 0) {
-    await keepDepartedMember(session, projectId, organizationMembershipId, earliestMonth(held))
+  if (!roleSlug && removed.length > 0 && removed.length === held.length) {
+    await settleDeparture(session, projectId, organizationMembershipId, held)
   } else if (roleSlug && held.length === 0) {
     const userId = await userOfMembership(organizationMembershipId)
     if (userId) await recordMemberRejoined(session, projectId, userId)
@@ -308,47 +418,32 @@ export async function removeProjectRoleAssignment(
   request: Request
 ): Promise<void> {
   await requireProjectAccess(session, projectId, ['project:members:manage', 'project:manage'])
+  const workosResourceId = await resourceIdOf(projectId, session.organizationId)
 
-  const workosResourceId = await findProjectWorkosResourceId(projectId, session.organizationId)
-  if (!workosResourceId) throw new NotFoundError()
+  const { assignment, sameMember } = await withProjectMembersLock(session.organizationId, projectId, async () => {
+    const assignments = await listAssignments(workosResourceId)
+    const assignment = assignments.find((candidate) => candidate.id === assignmentId)
+    if (!assignment) throw new NotFoundError()
 
-  const workos = getWorkOS()
-  const assignments = await workos.authorization
-    .listRoleAssignmentsForResource({ resourceId: workosResourceId })
-    .then((page) => page.autoPagination())
+    // A bare assignment removal is also a demotion — hold the last-admin line.
+    assertNotLastAdmin(assignments, assignment.organizationMembershipId, false)
+    await assertWithinCeiling(session, projectId, [assignment.role.slug])
 
-  const assignment = assignments.find((a) => a.id === assignmentId)
-  if (!assignment) throw new NotFoundError()
-
-  // A bare assignment removal is also a demotion — hold the last-admin line.
-  assertNotLastAdmin(assignments, assignment.organizationMembershipId, false)
-
-  await workos.authorization.removeRoleAssignment({
-    organizationMembershipId: assignment.organizationMembershipId,
-    roleAssignmentId: assignment.id,
+    try {
+      await getWorkOS().authorization.removeRoleAssignment({
+        organizationMembershipId: assignment.organizationMembershipId,
+        roleAssignmentId: assignment.id,
+      })
+    } finally {
+      await forgetResourceGrants(session.organizationId, assignment.organizationMembershipId)
+    }
+    const sameMember = assignments.filter((other) => other.organizationMembershipId === assignment.organizationMembershipId)
+    return { assignment, sameMember }
   })
 
-  // Losing project access ends effective access to every conversation inside it
-  // (spec SH-4/SH-13), so collaboration state that depends on this person being
-  // able to READ those threads has to be settled now. Otherwise a thread waiting
-  // on them waits forever: they can no longer open it, so they can never answer.
-  // Grants are deliberately kept — they are inert while the container is
-  // unreachable, so re-adding the person restores their previous sharing state.
-  // Best-effort: an access-control change must not fail on notification bookkeeping.
-  const userId = await userOfMembership(assignment.organizationMembershipId)
-  if (userId) {
-    try {
-      await revokeCollaborationForProjectMember(session.organizationId, projectId, userId)
-    } catch (error) {
-      console.warn('[members-service] collaboration cleanup after role removal failed:', error)
-    }
-    // Their last role on the project gone, the Steckbrief keeps them as a former member.
-    const sameMember = assignments.filter(
-      (other) => other.organizationMembershipId === assignment.organizationMembershipId
-    )
-    if (sameMember.every((other) => other.id === assignment.id)) {
-      await recordMemberLeft(session, projectId, { userId, since: earliestMonth(sameMember) })
-    }
+  // Their last role on the project gone, they have left it.
+  if (sameMember.every((other) => other.id === assignment.id)) {
+    await settleDeparture(session, projectId, assignment.organizationMembershipId, sameMember)
   }
 
   await recordAuditEvent({
@@ -360,6 +455,35 @@ export async function removeProjectRoleAssignment(
     metadata: { organizationMembershipId: assignment.organizationMembershipId, roleSlug: 'none' },
     request,
   })
+}
+
+/**
+ * Someone holds no role on the project any more, whichever route took it away.
+ *
+ * Losing project access ends effective access to every conversation inside it
+ * (spec SH-4/SH-13), so collaboration state that depends on this person being
+ * able to READ those threads is settled now; otherwise a thread waiting on them
+ * waits forever. Grants are deliberately kept: they are inert while the
+ * container is unreachable, so re-adding the person restores their sharing.
+ * Then the Steckbrief keeps them as a former member (ADR-0091). Best-effort for
+ * the collaboration: an access-control change must not fail on notification
+ * bookkeeping.
+ */
+async function settleDeparture(
+  session: AuthorizedSession,
+  projectId: string,
+  organizationMembershipId: string,
+  /** The assignments they held, which say since when they were on the project. */
+  held: ReadonlyArray<{ createdAt: Date }>
+): Promise<void> {
+  const userId = await userOfMembership(organizationMembershipId)
+  if (!userId) return
+  try {
+    await revokeCollaborationForProjectMember(session.organizationId, projectId, userId)
+  } catch (error) {
+    console.warn('[members-service] collaboration cleanup after role removal failed:', error)
+  }
+  await recordMemberLeft(session, projectId, { userId, since: earliestMonth(held) })
 }
 
 /** The month the earliest of these assignments was made: when the member joined. */
@@ -377,14 +501,4 @@ async function userOfMembership(organizationMembershipId: string): Promise<strin
     console.warn('[members-service] membership lookup failed:', error)
     return null
   }
-}
-
-async function keepDepartedMember(
-  session: AuthorizedSession,
-  projectId: string,
-  organizationMembershipId: string,
-  since: Month | null
-): Promise<void> {
-  const userId = await userOfMembership(organizationMembershipId)
-  if (userId) await recordMemberLeft(session, projectId, { userId, since })
 }

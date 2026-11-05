@@ -3,6 +3,7 @@ import { FollowUpsRail } from '@/features/chat/components/FollowUpsRail'
 import { offersFileNote } from '@/features/chat/lib/file-note-chip'
 import { previousRunFindings } from '@/features/runs/lib/carry-forward'
 import { cn } from '@/lib/utils'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { AwaitingBanner } from '@/features/collaboration/components/AwaitingBanner'
 import { EngagementNotice } from '@/features/collaboration/components/EngagementNotice'
 import { HandbackOffer } from '@/features/collaboration/components/HandbackOffer'
@@ -93,7 +94,9 @@ export function ChatMessageList({ controller }: { controller: ChatAreaController
               initial={controller.listArrivesFromSkeleton ? { opacity: 0 } : false}
               animate={{ opacity: 1, transition: controller.rowEnter }}
               className={cn(
-                'mx-auto flex w-full max-w-5xl flex-col gap-4 pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))]',
+                THREAD_COLUMN,
+                THREAD_GUTTER,
+                'flex flex-col gap-4',
                 TOOLBAR_CLEAR_PADDING
               )}
               style={{ paddingBottom: 'calc(var(--composer-h, 11rem) + 1.5rem)' }}

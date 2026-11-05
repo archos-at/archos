@@ -35,7 +35,7 @@ import { IfcFileFacts } from './file-preview-pane-lazy'
 import type { FilePreviewController } from './use-file-preview-controller'
 
 export function FilePreviewDetailsPanel({ controller }: { controller: FilePreviewController }) {
-  const { actions, assigneeNames, canCollaborate, canManage, details, detailsFailed, detailsLoading, detailsOpen, discussHint, file, handleReingest, hasOwnershipBlock, hasVisualContent, heldVerdict, inChat, indexedReady, isFailed, isHeld, isModel, onAssigneesChanged, onLifecycleChanged, onOpenDocument, onReingested, onRevisionChanged, onTagsUpdated, openMarks, openReview, pdfInWell, peeking, projectId, reader, responsibleNames, retryDetails, review, reviewEnabled, reviewViewer, revisionsShown, scope, setDetailsOpen, setShownFinding, setShownPage, showIndexedHeading, showInlinePdf, showMetadataPanel, showPage, shownFinding, shownType, t } = controller
+  const { actions, assigneeNames, canCollaborate, canManage, details, detailsFailed, detailsLoading, detailsOpen, discussHint, file, handleReingest, hasOwnershipBlock, hasVisualContent, heldVerdict, inChat, indexedReady, isFailed, isHeld, isModel, onAssigneesChanged, onLifecycleChanged, onOpenDocument, onReingested, onRevisionChanged, onTagsUpdated, openMarks, openReview, pdfInWell, peekView, peeking, projectId, reader, responsibleNames, retryDetails, review, reviewEnabled, reviewViewer, revisionsShown, scope, setDetailsOpen, setShownFinding, setShownPage, showIndexedHeading, showInlinePdf, showMetadataPanel, showPage, shownFinding, shownType, t } = controller
   return (
     <>
           {/* Right: indexed-metadata panel (FB-8; off only in the peek).
@@ -52,7 +52,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               middle of a value reads as broken rather than as "there is more".
               The utility is scroll-driven, so the fade RETRACTS at the bottom of
               travel: its presence is the signal, not decoration. */}
-          <PeekPanel peeking={peeking} value="details">
+          <PeekPanel peeking={peeking} active={peekView === 'details'} view="details">
             <ReaderDetails
               sheet={reader}
               open={detailsOpen}

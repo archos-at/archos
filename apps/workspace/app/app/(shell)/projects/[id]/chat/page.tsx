@@ -41,8 +41,8 @@ const ProjectChatPage = async ({ params }: ProjectChatPageProps): Promise<ReactN
     // Defaults to TRUE, and FAILS CLOSED from there — which is the opposite of
     // what this comment used to claim, so state it plainly:
     // `requireProjectAccess` collapses a transport failure into the same
-    // `NotFoundError` it uses for a denial (`checkResourcePermission` catches
-    // the SDK error and returns false; `projects.spec.ts` pins that as "fails
+    // `NotFoundError` it uses for a denial (`effectiveResourcePermissions` catches
+    // the SDK error and grants nothing; `projects.spec.ts` pins that as "fails
     // CLOSED when the FGA call itself errors"). A `catch` here therefore cannot
     // tell "you may not chat" from "WorkOS is down", so during an outage an
     // Editor sees a locked composer.

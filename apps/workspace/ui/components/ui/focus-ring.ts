@@ -32,27 +32,36 @@ export const FOCUS_RING =
 export const FOCUS_RING_INSET = 'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-inset'
 
 /**
- * **Fields** — `Input`, `Textarea`, `Select` trigger, and anything else that is
- * a typing surface.
+ * **Fields**: `Input`, `Textarea`, `Select` trigger, the chat composer, every
+ * search bar, and anything else that is a typing surface.
  *
  * THE DOCUMENTED EXCEPTION to {@link FOCUS_RING}, and deliberate: a field
- * already carries a visible border at rest, so focus is signalled by promoting
- * that border to `--ring` and backing it with a soft halo — the border moves,
- * rather than a second ring appearing outside it. An offset gap would detach the
- * halo from the border and make a focused field look like a focused *button*,
- * and fields are frequently packed one under another where a 2px outer gap
- * visibly reflows nothing but still crowds the neighbour. Hence `/20` (halo, not
- * outline) and `ring-offset-0`.
+ * already carries a visible border at rest, so focus is that border turning to
+ * `--ring`, and nothing more. No halo, and not the app's global keyboard
+ * outline either (`globals.css`, unlayered, hence the `!`): a text field shows
+ * `:focus-visible` on a mouse click too, so every click into a field drew the
+ * ink border, a 2px halo and a 2px outline 2px outside it, three bands where
+ * the reader wanted a caret (Notion #38, „Texteingabefelder bekommen beim
+ * Anklicken eine zu dicke Markierung"). The ink border alone is above 3:1
+ * against the paper and against the resting border, in both themes (5.8:1 and
+ * 4.5:1 light, 5.5:1 and 3.3:1 on the dark well), so it is the indicator WCAG
+ * 2.4.7 asks for. `outline-hidden` rather than `outline-none`: in forced colours
+ * the transparent outline is drawn, so a Windows high-contrast reader keeps one.
+ *
+ * A focus snaps: no field names `border-color` in its transition list
+ * (design-language.md, "A focus ring snaps").
  */
-export const FIELD_FOCUS_RING =
-  'focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:ring-offset-0'
+export const FIELD_FOCUS_RING = 'focus-visible:border-ring focus-visible:outline-hidden!'
 
 /**
- * **A field made of several parts** — `TagInput`, where the typing surface is a
- * bare `<input>` inside a bordered box that also holds the chips. The box is the
- * field, so the box takes {@link FIELD_FOCUS_RING}'s treatment, keyed on the
- * focus inside it. `:focus-within` and not `:has(:focus-visible)`: a text input
- * shows focus-visible on a click too, so the two agree, and this one is older.
+ * **A field made of several parts**: `TagInput`, `MultiSelect`, the chat
+ * composer, where the typing surface (or the trigger) is a bare control inside
+ * a bordered box. The box is the field, so the box takes
+ * {@link FIELD_FOCUS_RING}'s treatment, keyed on the focus inside it, and the
+ * bare `<input>` / `<textarea>` inside draws no outline of its own (a second
+ * box inside the first). `:focus-within` and not `:has(:focus-visible)`: a text
+ * input shows focus-visible on a click too, so the two agree, and this one is
+ * older.
  */
 export const FIELD_FOCUS_WITHIN_RING =
-  'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20 focus-within:ring-offset-0'
+  'focus-within:border-ring [&_:is(input,textarea):focus-visible]:outline-hidden!'
