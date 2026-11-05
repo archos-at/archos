@@ -82,7 +82,7 @@ describe('acceptedTypesForOrganization', () => {
     vi.stubEnv('FILE_UPLOAD_ACCEPTED_TYPES', '')
     vi.mocked(enabledFlagsForOrganization).mockResolvedValue([])
     vi.mocked(isVlmConfigured).mockResolvedValue(true)
-    expect(await acceptedTypesForOrganization('org_1')).toEqual(['.pdf', '.docx', '.txt', '.md', '.csv', '.xlsx', '.pptx'])
+    expect(await acceptedTypesForOrganization('org_1')).toEqual(['.pdf', '.docx', '.txt', '.md', '.csv', '.xlsx', '.pptx', '.dxf'])
   })
 
   it('adds pictures only with the flag and a vision model, and models with their flag', async () => {
