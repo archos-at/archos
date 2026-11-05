@@ -43,7 +43,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Clock3, FileText, LayoutDashboard, MapPin, MessageSquare } from 'lucide-react'
+import { Clock3, FileText, LayoutDashboard, MessageSquare } from 'lucide-react'
 import { useMemo } from 'react'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
@@ -109,6 +109,9 @@ export function ProjectOpenLink({
  * profile fact the Steckbrief shows, read through `projectSiteAddress`, so the
  * tile and the project's own overview never disagree about where it is.
  *
+ * Plain text, no pin icon: an address reads as a place without one, and a pin
+ * on every tile is decoration repeated down the page.
+ *
  * A project without an address has no second line: a placeholder repeated down
  * a list becomes the loudest line on the rows that carry the least.
  */
@@ -125,10 +128,9 @@ export function ProjectLocationLine({
     <p
       title={address}
       data-testid="project-location"
-      className={cn('flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground', className)}
+      className={cn('truncate text-xs text-muted-foreground', className)}
     >
-      <MapPin className="size-3.5 shrink-0" aria-hidden />
-      <span className="truncate">{address}</span>
+      {address}
     </p>
   )
 }
