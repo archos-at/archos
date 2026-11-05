@@ -177,8 +177,11 @@ export const PROJECT_CLOSED_REASON = 'project-closed'
  * managing who is a member (offboarding someone stays possible). Deep research
  * and tasks (`project:documents:generate`, `project:skills:manage`) are refused:
  * both file into the project or run on a schedule as if it were live.
- * `project:manage` is refused too, because it also changes folder access, the
- * name and the Papierkorb; reopening asks it with `evenWhenClosed`.
+ * `project:manage` is refused as an ordinary request, because it also changes
+ * folder access and the name. The few acts on a closed project as a whole ask
+ * it with `evenWhenClosed` (see that option on `requireProjectAccess`):
+ * reopening, deleting and restoring it, restoring from its Papierkorb and
+ * erasing from its record.
  */
 export const CLOSED_PROJECT_KEEPS: ReadonlySet<ProjectPermission> = new Set<ProjectPermission>([
   'project:view',

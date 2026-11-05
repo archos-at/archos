@@ -37,6 +37,7 @@ import {
 import { currentMonth, dateToMonth, isMonth, monthToDate, type Month } from './month'
 import type { ProjectSetup } from './create-project-schema'
 import { startProjectIntake } from './intake-seed'
+import { undoHalfCreatedProject } from './project-creation-undo'
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import { rearmOneShotsSkippedWhileParked } from '@/lib/scheduling/scheduled-runs'
 import { nextOffsetCursor, type OffsetPage } from '@/lib/api/offset-page'
@@ -60,7 +61,6 @@ import {
   type CreateMemoryOptions,
 } from './memory-service'
 import {
-  deleteProjectRow,
   findProjectCollectionName,
   findProjectInOrg,
   insertProject,
@@ -349,14 +349,8 @@ export async function createProject(
     }
     if (closeNow) project = await closeNewProject(session, inserted.id, closeNow, now)
   } catch (error) {
-    // Best-effort undo. If even this fails the row survives unreachable, which is
-    // the state we are trying to avoid — so say so loudly rather than swallow it.
-    await deleteProjectRow(inserted.id, session.organizationId).catch((cleanupError) => {
-      console.error(
-        `[projects] project ${inserted.id} was created half-way and could not be rolled back:`,
-        cleanupError
-      )
-    })
+    // Best-effort undo, in WorkOS and in Postgres; it never throws.
+    await undoHalfCreatedProject(inserted.id, session.organizationId)
     throw error
   }
 
