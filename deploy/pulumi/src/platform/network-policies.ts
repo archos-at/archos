@@ -4,6 +4,7 @@ import { DeployConfig } from '../config'
 import { backendAutoscaled } from '../config/chat-tier'
 import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
+import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 
 /**
@@ -482,6 +483,31 @@ export function installNetworkPolicies(
         })
       : undefined;
 
+  // 22. Edge → the platform MCP gateway (ADR-0154), only while
+  //     `mcpGatewayEnabled`. Like rule 10 it only makes the route reachable:
+  //     agentgateway validates the WorkOS token and the organization itself.
+  //     Its listener alone; the stats and readiness ports are the kubelet's.
+  const mcpGatewayPod = { podSelector: { matchLabels: { "app.kubernetes.io/name": MCP_GATEWAY.name } } };
+  const edgeMcpGateway = cfg.mcpGateway.enabled
+    ? mk("allow-edge-to-platform-mcp-gateway", {
+        ...mcpGatewayPod,
+        policyTypes: ["Ingress"],
+        ingress: [{ from: [nsLabel("envoy-gateway-system")], ports: [{ protocol: "TCP", port: MCP_GATEWAY_PORT }] }],
+      })
+    : undefined;
+
+  // 23. The platform MCP gateway → Langfuse web, for `/langfuse/mcp`. Rule 2
+  //     withholds Langfuse from the namespace, so the gateway is named here as
+  //     one more caller, to the web port alone.
+  const mcpGatewayToLangfuse =
+    cfg.mcpGateway.enabled && cfg.langfuse.enabled
+      ? mk("allow-platform-mcp-gateway-to-langfuse", {
+          podSelector: { matchLabels: { "app.kubernetes.io/name": LANGFUSE_WEB } },
+          policyTypes: ["Ingress"],
+          ingress: [{ from: [mcpGatewayPod], ports: [{ protocol: "TCP", port: PORT.langfuseWeb }] }],
+        })
+      : undefined;
+
   return [
     deny,
     intra,
@@ -504,5 +530,7 @@ export function installNetworkPolicies(
     ...(collectorToQdrant ? [collectorToQdrant] : []),
     ...(edgeQdrant ? [edgeQdrant] : []),
     ...(agentToClickhouse ? [agentToClickhouse] : []),
+    ...(edgeMcpGateway ? [edgeMcpGateway] : []),
+    ...(mcpGatewayToLangfuse ? [mcpGatewayToLangfuse] : []),
   ];
 }

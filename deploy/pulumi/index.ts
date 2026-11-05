@@ -66,6 +66,7 @@ import { installOtelAgent } from "./src/platform/otel-agent";
 import { installDns, managedRecordNames } from "./src/platform/dns";
 import { installLangfuse } from "./src/platform/langfuse";
 import { installQdrantDashboard } from "./src/platform/qdrant-dashboard";
+import { installMcpGateway } from "./src/platform/mcp-gateway";
 import { LANGFUSE, QDRANT } from "./src/constants";
 
 const cfg = loadConfig();
@@ -501,6 +502,11 @@ if (cfg.observability.enabled) {
         )
       : undefined;
 
+  // The platform MCP gateway (ADR-0154): Langfuse is its one MCP server, so it rides with it.
+  if (cfg.mcpGateway.enabled && langfuse) {
+    installMcpGateway(cfg, provider, namespace, [gatewayResources.gateway, langfuse.webService, langfuse.secret]);
+  }
+
   const collector = installOtelCollector(
     cfg, provider, namespace,
     [
@@ -556,6 +562,9 @@ export const networkPoliciesEnabled = cfg.networkPolicies;
 export const langfuseUrl = cfg.langfuse.enabled
   ? pulumi.interpolate`https://${cfg.langfuse.domain}`
   : pulumi.output("(none: langfuse disabled)");
+export const platformMcpUrl = cfg.mcpGateway.enabled
+  ? pulumi.interpolate`https://${cfg.mcpGateway.domain}/langfuse/mcp`
+  : pulumi.output("(none: mcpGatewayEnabled=false)");
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
