@@ -39,15 +39,16 @@ test('every post of the website converts, and its twins pair', () => {
 
 test("a converted body keeps every word of the source's text and every figure", () => {
   for (const file of readPosts(CONTENT)) {
-    const source = readFileSync(file.file, 'utf8').replace(/\\([^\w\s])/g, '$1').replace(/\s+/g, ' ');
+    const raw = readFileSync(file.file, 'utf8');
+    const source = raw.replace(/\\([^\w\s])/g, '$1').replace(/\s+/g, ' ');
     const texts: string[] = [];
     let figures = 0;
     walk(file.body.root as Node, (n) => {
       if (n.type === 'text') texts.push(n.text ?? '');
       if (n.type === 'block') figures += 1;
     });
-    for (const t of texts) assert.ok(source.includes(t.trim()), `${file.file}: "${t}" is not in the source`);
-    assert.equal(figures, (source.match(/^<[A-Z]\w*Figure\b/gm) ?? []).length, file.file);
+    for (const t of texts) assert.ok(source.includes(t.replace(/\s+/g, ' ').trim()), `${file.file}: "${t}" is not in the source`);
+    assert.equal(figures, (raw.match(/^<[A-Z]\w*Figure\b/gm) ?? []).length, file.file);
   }
 });
 
