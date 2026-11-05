@@ -95,9 +95,10 @@ async function main() {
   console.log(args.apply ? `Applied: ${summary}.` : `Dry run: ${summary}. Pass --apply to write.`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exit(1);
-  });
+// Top-level await: `payload run` ends the process once this module has evaluated.
+try {
+  await main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+}
