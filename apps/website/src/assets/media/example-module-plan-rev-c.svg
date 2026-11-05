@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
-<!-- Demo drawing for the blog blocks page: a residential module in plan, Rev. C. Generated, see apps/website/README.md. -->
+<!-- Demo drawing for the blog blocks page: a residential module in plan, Rev. C. Drawn with the blog covers' pens (packages/brand/docs/blog-covers.md), as example content for /blog-bausteine/. -->
 <defs><style>
 .cut{fill:none;stroke:#0f0e0d;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:miter}
 .view{fill:none;stroke:#0f0e0d;stroke-width:1;vector-effect:non-scaling-stroke}
