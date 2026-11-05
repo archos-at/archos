@@ -1,0 +1,13 @@
+---
+# area: agents
+improvements:
+  - >
+    When the app moves to a new web address, an AI client you connected before
+    the move, such as Claude, Cursor or Claude Code, keeps working at the
+    address you set it up with, without signing in again.
+operators:
+  - >
+    During a domain move (formerBaseDomain) the former app host keeps serving
+    the agent doors and their discovery documents, and the platform MCP gateway
+    keeps its former host; both accept tokens for either domain. Keep the former
+    resource indicators in WorkOS until the move's sunset.

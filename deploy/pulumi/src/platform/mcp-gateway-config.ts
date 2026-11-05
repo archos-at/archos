@@ -36,6 +36,8 @@ export const MCP_GATEWAY = {
   routeName: "platform-mcp-gateway",
   configMap: "platform-mcp-gateway-config",
   sessionSecret: "platform-mcp-gateway-session", // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
+  /** The Secret both the gateway and the frontend read the admission route's token from. */
+  admissionSecret: "platform-mcp-admission", // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
   /**
    * agentgateway v1.7.0, the index digest the registry answered on 2026-11-05.
    * A literal pin, so `ci/pinned_images.py` hands it to trivy.
@@ -87,6 +89,12 @@ export interface McpServer {
 export interface McpGatewaySettings {
   /** `https://<public host>`, no trailing slash. Every resource URL hangs off it. */
   origin: string;
+  /**
+   * The gateway's former origins during a domain move, each served under its
+   * own resource identifiers (RFC 9728 section 3.3) by a route bound to its
+   * host. Empty outside a move.
+   */
+  formerOrigins?: readonly string[];
   /** The WorkOS AuthKit issuer, `https://<slug>.authkit.app`. */
   issuer: string;
   /** WorkOS id of the platform organization. */
@@ -94,7 +102,16 @@ export interface McpGatewaySettings {
   servers: readonly McpServer[];
   /** `host:port` of the OTLP/HTTP collector, or undefined when none is deployed. */
   otlpHttpHost?: string;
+  /**
+   * The app's admission route for a token of another organization: the
+   * frontend's in-cluster `host:port`, and the file holding the route's token.
+   * Unset, such a token is refused by the rule alone, as before.
+   */
+  admission?: { host: string; tokenFile: string };
 }
+
+/** The app's admission route (`apps/workspace/app/api/internal/platform-mcp-admission`). */
+export const ADMISSION_PATH = "/api/internal/platform-mcp-admission";
 
 /** Where a server's credential file is mounted in the container. */
 export function credentialPath(server: McpServer): string {
@@ -106,23 +123,78 @@ export function resourceUrl(origin: string, server: McpServer): string {
   return `${origin}/${server.name}/mcp`;
 }
 
+/** The CEL condition under which the app decides: a token of another organization, outside discovery. */
+function otherOrganization(platformOrgId: string): string {
+  return `!request.path.startsWith("/.well-known/") && jwt.org_id != "${platformOrgId}"`;
+}
+
 /**
  * The gate, as a `require` rule: the platform organization, and an admitted
  * role in it. A missing claim makes the expression error, and agentgateway
  * counts an erroring `require` as unmet, so this fails closed.
  *
+ * With `admission`, a token of another organization passes this rule, because
+ * the external authorization below has already decided it: its condition is
+ * this branch's exactly, it runs first (route policies: JWT, ext authz, then
+ * authorization) and it denies on any failure. A token with no `org_id` makes
+ * both expressions error: the ext authz is skipped and this rule fails closed.
+ *
  * The discovery documents are exempt: a client reads them before it has a
  * token. agentgateway answers them ahead of this rule today; the guard keeps
  * discovery working if that order ever changes.
  */
-export function admissionRule(platformOrgId: string): string {
+export function admissionRule(platformOrgId: string, admission = false): string {
   const roles = ADMITTED_ROLES.map((role) => `"${role}" in jwt.roles`).join(" || ");
-  return `request.path.startsWith("/.well-known/") || (jwt.org_id == "${platformOrgId}" && (${roles}))`;
+  const platform = `(jwt.org_id == "${platformOrgId}" && (${roles}))`;
+  const decidedByApp = admission ? ` || (${otherOrganization(platformOrgId)})` : "";
+  return `request.path.startsWith("/.well-known/") || ${platform}${decidedByApp}`;
 }
 
-function route(settings: McpGatewaySettings, server: McpServer): Record<string, unknown> {
+/**
+ * A person whose token names another organization (they picked an office at
+ * sign-in) is admitted when the app finds them in the platform organization now
+ * with an admitted role (ADR-0154, amendment of 2026-11-05). agentgateway asks
+ * the app over HTTP with the caller's `Authorization`, presenting the route's own
+ * token from a file; only a 2xx admits, and a failure to ask denies. The answer
+ * is kept a minute per person, as long as the app's own membership cache.
+ */
+function otherOrganizationAdmission(settings: McpGatewaySettings): Record<string, unknown> | undefined {
+  if (!settings.admission) return undefined;
+  const roles = ADMITTED_ROLES.map((role) => `role=${encodeURIComponent(role)}`).join("&");
+  return {
+    conditional: [
+      {
+        condition: otherOrganization(settings.platformOrgId),
+        host: settings.admission.host,
+        protocol: { http: { path: `"${ADMISSION_PATH}?${roles}"` } },
+        includeRequestHeaders: ["authorization"],
+        failureMode: "deny",
+        policies: {
+          backendAuth: {
+            key: {
+              value: { file: settings.admission.tokenFile },
+              location: { header: { name: "x-internal-token", prefix: "" } },
+            },
+          },
+        },
+        cache: { key: ["jwt.sub"], ttl: 'duration("60s")' },
+      },
+    ],
+  };
+}
+
+/**
+ * One server's route as seen from `origin`. A route for a former origin is
+ * bound to that host, and agentgateway picks an exact hostname before a route
+ * with none, so the canonical route stays the catch-all it always was.
+ * `audiences` holds every origin's identifier: a token issued for the former
+ * host works on the new one and the reverse, as it does on the app's doors.
+ */
+function route(settings: McpGatewaySettings, server: McpServer, origin: string): Record<string, unknown> {
   const path = `/${server.name}/mcp`;
-  const resource = resourceUrl(settings.origin, server);
+  const resource = resourceUrl(origin, server);
+  const former = origin !== settings.origin;
+  const audiences = [settings.origin, ...(settings.formerOrigins ?? [])].map((o) => resourceUrl(o, server));
   const target: Record<string, unknown> = {
     name: server.name,
     mcp: { host: server.url },
@@ -142,7 +214,8 @@ function route(settings: McpGatewaySettings, server: McpServer): Record<string, 
     },
   };
   return {
-    name: server.name,
+    name: former ? `${server.name}-${new URL(origin).hostname.replace(/\./g, "-")}` : server.name,
+    ...(former ? { hostnames: [new URL(origin).hostname] } : {}),
     matches: [
       { path: { exact: path } },
       // The one discovery document a client fetches from us. It names
@@ -155,7 +228,7 @@ function route(settings: McpGatewaySettings, server: McpServer): Record<string, 
         // client's OAuth flow.
         mode: "strict",
         issuer: settings.issuer,
-        audiences: [resource],
+        audiences,
         jwks: { url: `${settings.issuer}/oauth2/jwks` },
         // Set explicitly: behind Envoy, the request's own scheme is http.
         resourceMetadata: {
@@ -164,7 +237,8 @@ function route(settings: McpGatewaySettings, server: McpServer): Record<string, 
           bearerMethodsSupported: ["header"],
         },
       },
-      authorization: { rules: [{ require: admissionRule(settings.platformOrgId) }] },
+      ...(otherOrganizationAdmission(settings) ? { extAuthz: otherOrganizationAdmission(settings) } : {}),
+      authorization: { rules: [{ require: admissionRule(settings.platformOrgId, settings.admission !== undefined) }] },
       ...(server.authority ? { urlRewrite: { authority: { full: server.authority } } } : {}),
     },
     backends: [{ mcp: { statefulMode: "stateful", targets: [target] } }],
@@ -199,7 +273,10 @@ export function agentgatewayConfig(settings: McpGatewaySettings): Record<string,
         }
       : {}),
     gateways: { default: { port: MCP_GATEWAY_PORT } },
-    routes: settings.servers.map((server) => route(settings, server)),
+    routes: settings.servers.flatMap((server) => [
+      ...(settings.formerOrigins ?? []).map((origin) => route(settings, server, origin)),
+      route(settings, server, settings.origin),
+    ]),
   };
 }
 

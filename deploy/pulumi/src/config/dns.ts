@@ -2,7 +2,7 @@
  * Public DNS (Cloudflare), validated eagerly: every mistake here produces records Cloudflare accepts.
  */
 import * as pulumi from "@pulumi/pulumi";
-import { formerDomainRedirects } from "../app/former-domain";
+import { formerHostnames } from "../app/former-domain";
 import { hostsOutsideZone, managedHosts } from "../platform/dns";
 import { bool, num } from "./readers";
 
@@ -86,11 +86,10 @@ export function loadDns(
   const dnsZoneBaseline = bool(cfg, "dnsZoneBaseline", false);
   const dnsHosts = managedHosts(hosts);
   const { webDomain } = hosts;
-  const formerHosts = formerDomainRedirects({
-    formerBaseDomain: cfg.get("formerBaseDomain"),
-    webDomain,
-    appDomain: hosts.appDomain,
-  }).map((r) => r.from);
+  const formerHosts = formerHostnames(
+    { formerBaseDomain: cfg.get("formerBaseDomain"), webDomain, appDomain: hosts.appDomain },
+    { enabled: hosts.mcpGatewayDomain !== undefined, domain: hosts.mcpGatewayDomain ?? "" },
+  );
   const formerZoneName = (cfg.get("formerDnsZoneName") ?? "").replace(/\.$/, "");
   const formerZoneId = cfg.get("formerDnsZoneId") ?? "";
   if (dnsEnabled) {

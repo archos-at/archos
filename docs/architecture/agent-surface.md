@@ -455,7 +455,7 @@ neither door: platform staff reach them through the platform MCP gateway at
 |---|---|---|
 | Offers | every domain but `platform`, the agent read tools | the `platform` domain only (`platform: true` in the exposure config) |
 | Token audience | either office door's resource | its own resource only; neither side accepts the other's |
-| Organization | any, with `agent-mcp` on | the GRID Platform organization only, with `platform-agent-mcp` on |
+| Organization | any, with `agent-mcp` on | the GRID Platform organization's live membership, whichever organization the sign-in picked, with `platform-agent-mcp` on there |
 | Person | a live member | a live member who is platform staff (`isPlatformStaff`) |
 | Piloti's credential | `/api/mcp` only | refused (403) |
 | Writes | run for the person; Piloti proposes | run for the operator; the route's `platform:*` permission decides |

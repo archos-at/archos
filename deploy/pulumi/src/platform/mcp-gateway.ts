@@ -5,6 +5,8 @@ import type { IBackendTrafficPolicySpec } from "@kubernetes-models/envoy-gateway
 import { edgeRateLimit, edgeRetry, perClientRules } from "../app/httproutes";
 import { DeployConfig } from "../config";
 import { EDGE_TIMEOUT, LANGFUSE, PORT } from "../constants";
+import { CMS_GATEWAY_CREDENTIAL_KEY, CMS_GATEWAY_CREDENTIAL_SECRET, CMS_INTERNAL_URL } from "./cms";
+import { formerMcpGatewayHost } from "../app/former-domain";
 import { GATEWAY_NAME } from "./gateway";
 import { LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "./langfuse";
 import { commonLabels } from "./namespaces";
@@ -61,30 +63,77 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
           },
         ]
       : []),
+    ...(cfg.cms.enabled
+      ? [
+          {
+            name: "cms",
+            url: `${CMS_INTERNAL_URL}/api/mcp`,
+            // The CMS's MCP key of its agent account (apps/cms/src/provision.ts):
+            // every write is a draft that a publisher reviews in the admin panel.
+            credential: { secretName: CMS_GATEWAY_CREDENTIAL_SECRET, secretKey: CMS_GATEWAY_CREDENTIAL_KEY },
+            timeout: "120s",
+          },
+        ]
+      : []),
   ];
 }
 
 /**
  * `PLATFORM_MCP_SERVER_URLS` for the frontend: each server's public URL, so
- * Platform → Agents lists exactly what this stack serves. Absent where the
- * gateway does not run, and the page says so.
+ * Platform → Agents lists exactly what this stack serves; and the admission
+ * route's token. Absent where the gateway does not run, and the page says so.
  */
 export function platformMcpServerEnv(cfg: DeployConfig): k8s.types.input.core.v1.EnvVar[] {
   if (!cfg.mcpGateway.enabled) return [];
   const urls = mcpServers(cfg).map((server) => resourceUrl(`https://${cfg.mcpGateway.domain}`, server));
-  return [{ name: "PLATFORM_MCP_SERVER_URLS", value: urls.join(",") }];
+  return [
+    { name: "PLATFORM_MCP_SERVER_URLS", value: urls.join(",") },
+    // The admission route's own secret (`installMcpAdmissionSecret`).
+    {
+      name: "PLATFORM_MCP_ADMISSION_TOKEN",
+      valueFrom: { secretKeyRef: { name: MCP_GATEWAY.admissionSecret, key: ADMISSION_KEY } },
+    },
+  ];
 }
 
 export function mcpGatewayConfigYaml(cfg: DeployConfig): string {
+  const former = formerMcpGatewayHost(cfg.ingress, cfg.mcpGateway);
   return renderAgentgatewayConfig({
     origin: `https://${cfg.mcpGateway.domain}`,
+    formerOrigins: former ? [`https://${former.from}`] : [],
     issuer: cfg.mcpGateway.issuer,
     platformOrgId: cfg.mcpGateway.platformOrgId,
     servers: mcpServers(cfg),
     // Its spans go where every other surface's go: through the collector to
     // Langfuse, as service `platform-mcp-gateway` (ADR-0089).
     otlpHttpHost: cfg.observability.enabled ? "otel-collector:4318" : undefined,
+    admission: { host: `frontend:${PORT.frontend}`, tokenFile: ADMISSION_TOKEN_FILE },
   });
+}
+
+/** Where the admission route's token is mounted in the gateway. */
+const ADMISSION_TOKEN_FILE = "/var/run/secrets/mcp/admission/token";
+const ADMISSION_KEY = "token"; // pragma: allowlist secret (Secret key name, not a credential)
+
+/**
+ * The admission route's token, one Secret for both its holders: the frontend
+ * reads it as `PLATFORM_MCP_ADMISSION_TOKEN`, the gateway as a file. Created
+ * with the frontend, which must not start without it.
+ */
+export function installMcpAdmissionSecret(
+  cfg: DeployConfig,
+  provider: k8s.Provider,
+  namespace: pulumi.Input<string>,
+): k8s.core.v1.Secret | undefined {
+  if (!cfg.mcpGateway.enabled) return undefined;
+  return new k8s.core.v1.Secret(
+    MCP_GATEWAY.admissionSecret,
+    {
+      metadata: { name: MCP_GATEWAY.admissionSecret, namespace, labels: commonLabels(MCP_GATEWAY.name) },
+      stringData: { [ADMISSION_KEY]: cfg.mcpGateway.admissionToken },
+    },
+    { provider },
+  );
 }
 
 function credentialVolumes(servers: McpServer[]) {
@@ -199,6 +248,7 @@ export function installMcpGateway(
                   { name: "config", mountPath: "/config", readOnly: true },
                   { name: "tmp", mountPath: "/tmp" },
                   ...credentials.mounts,
+                  { name: "admission", mountPath: ADMISSION_TOKEN_FILE.replace(/\/token$/, ""), readOnly: true },
                 ],
               },
             ],
@@ -206,6 +256,7 @@ export function installMcpGateway(
               { name: "config", configMap: { name: configMap.metadata.name } },
               { name: "tmp", emptyDir: { sizeLimit: "64Mi" } },
               ...credentials.volumes,
+              { name: "admission", secret: { secretName: MCP_GATEWAY.admissionSecret, items: [{ key: ADMISSION_KEY, path: "token" }] } },
             ],
           },
         },
@@ -232,9 +283,15 @@ export function installMcpGateway(
     { provider, dependsOn: [deployment] },
   );
 
+  // During a domain move the former host is served by the same route: agents
+  // hold its URL, and agentgateway answers it under its own resource identifiers.
+  const former = formerMcpGatewayHost(cfg.ingress, cfg.mcpGateway);
   const routeSpec: IHTTPRouteSpec = {
-    parentRefs: [{ name: GATEWAY_NAME, sectionName: MCP_GATEWAY.listenerName }],
-    hostnames: [cfg.mcpGateway.domain],
+    parentRefs: [
+      { name: GATEWAY_NAME, sectionName: MCP_GATEWAY.listenerName },
+      ...(former ? [{ name: GATEWAY_NAME, sectionName: former.listener }] : []),
+    ],
+    hostnames: [cfg.mcpGateway.domain, ...(former ? [former.from] : [])],
     rules: [
       {
         backendRefs: [{ name: MCP_GATEWAY.name, port: MCP_GATEWAY_PORT }],
