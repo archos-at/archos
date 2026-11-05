@@ -912,6 +912,10 @@
     "de": "Eine Antwort mit Zeichnung oder Codeblock erscheint nicht mehr als roher Text."
   },
   {
+    "en": "An answer no longer carries \"Input\" and \"Result\" tags, and labels in an answer drop the icons that repeated them. The explanation under a looked-at passage is folded away and opens on click.",
+    "de": "Eine Antwort enthält nicht mehr die Tags „Input“ und „Result“, und Labels in einer Antwort zeigen nicht mehr die Icons, die sie wiederholen. Die Erklärung unter einer angesehenen Textstelle ist eingeklappt und lässt sich per Klick öffnen."
+  },
+  {
     "en": "An answer no longer jumps back and retypes itself when its sources are renumbered at the end. The finished answer now appears as the derivation folds away, and the first words show at once.",
     "de": "Eine Antwort springt nicht mehr zurück und schreibt sich neu, wenn am Ende ihre Quellen neu nummeriert werden. Die fertige Antwort erscheint jetzt, während sich die Herleitung zusammenklappt, und die ersten Wörter erscheinen sofort."
   },
@@ -930,6 +934,10 @@
   {
     "en": "An answer read from your workspace, such as who is on a project or which approvals are open, no longer shows as low confidence. The confidence tooltip now says what the answer rests on, for example „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg\".",
     "de": "Eine Antwort aus Ihrem Workspace, etwa dazu, wer an einem Projekt arbeitet oder welche Freigaben offen sind, wird nicht mehr als wenig zuverlässig angezeigt. Der Tooltip zur Vertrauenswürdigkeit zeigt jetzt, worauf die Antwort basiert, zum Beispiel „3 Aussagen belegt · 1 Rechtsaussage ohne Beleg“."
+  },
+  {
+    "en": "An answer reads at one text size, and the lightest text is a touch heavier, so long answers are easier to read.",
+    "de": "Eine Antwort erscheint in einheitlicher Schriftgröße, und der hellste Text ist etwas kräftiger, damit lange Antworten leichter lesbar sind."
   },
   {
     "en": "An answer that is still being written is kept when the connection drops briefly, for instance when you switch apps or lock your iPhone. When you return, the rest of the answer appears, even after reloading the page.",
@@ -1346,6 +1354,10 @@
   {
     "en": "Clicking a row in the task list now opens the run itself, with the same rounds, sources and references as in the conversation, and a link to that conversation.",
     "de": "Ein Klick auf eine Zeile der Aufträge-Liste öffnet jetzt den Lauf selbst, mit denselben Runden, Quellen und Fundstellen wie im Verlauf, und einem Link in diesen Verlauf."
+  },
+  {
+    "en": "Clicking into a text field marks it with its border alone instead of a thick frame, and the logo is a little larger and no longer jumps when you open a project.",
+    "de": "Ein Klick in ein Textfeld hebt es nur noch durch seinen Rahmen statt durch einen dicken Rahmen hervor; das Logo ist etwas größer und springt beim Öffnen eines Projekts nicht mehr."
   },
   {
     "en": "Closing a document or annotation opened from the search returns to the search as you left it, with its words, filters, view and sort.",
@@ -2014,6 +2026,10 @@
   {
     "en": "In exported PDFs, the signs for less than or equal to and greater than or equal to appeared as stray letters. A limit of at most forty metres came out with an unrelated character in place of its sign, while the number beside it stayed correct.",
     "de": "In exportierten PDFs erschienen die Zeichen für „kleiner oder gleich“ und „größer oder gleich“ als fremde Buchstaben. Eine Grenze von höchstens 40 Metern erschien mit einem fremden Zeichen an der Stelle des Vergleichszeichens, während die Zahl daneben stimmte."
+  },
+  {
+    "en": "In review, the annotation list stays folded while a document has no annotations. Next to the chat, full screen opens the review, and a document's details sit behind an info button instead of a tab row.",
+    "de": "Im Review bleibt die Annotationsliste eingeklappt, solange ein Dokument keine Annotationen enthält. Das Review lässt sich neben dem Chat im Vollbild öffnen, und die Dokumentdetails sind über einen Info-Button statt über eine Tab-Leiste erreichbar."
   },
   {
     "en": "In some projects Piloti treated its saved notes as confirmed project facts. It no longer does, so the facts it works from are the ones confirmed in the project profile.",
@@ -2796,6 +2812,10 @@
     "de": "Wer die Seite neu lädt, während Piloti noch antwortet, sieht die Antwort jetzt nur einmal, statt den unfertigen Anfang über der vollständigen Antwort."
   },
   {
+    "en": "Removing someone from a project or changing their role now takes effect on their very next click, and conversations that were waiting on a removed person no longer wait forever.",
+    "de": "Wenn Sie jemanden aus einem Projekt entfernen oder dessen Rolle ändern, wird die Änderung bereits mit dem nächsten Klick der betreffenden Person wirksam. Unterhaltungen, die auf eine entfernte Person gewartet haben, bleiben nicht mehr endlos hängen."
+  },
+  {
     "en": "Renaming a folder in the Dateiablage grid view works again: clicking into the name field places the cursor there instead of opening the folder.",
     "de": "Das Umbenennen eines Ordners in der Rasteransicht der Dateiablage funktioniert wieder: Wenn Sie in das Namensfeld klicken, wird der Cursor dort platziert, statt den Ordner zu öffnen."
   },
@@ -3224,6 +3244,10 @@
     "de": "Die Adresse im Dialog für ein neues Projekt behält Ihre Eingabe bei. Bisher wurde nach drei Buchstaben eine Liste der Bundesländer angezeigt und der Text gelöscht."
   },
   {
+    "en": "The answer and the input field share one column, the thread header no longer lets the conversation show through or squeezes its title under \"New chat\", and the input field's controls fit in one row on a phone.",
+    "de": "Antwort und Eingabefeld befinden sich in derselben Spalte, der Thread-Header lässt die Unterhaltung nicht mehr durchscheinen und quetscht seinen Titel nicht mehr unter „Neuer Chat“, und die Steuerelemente des Eingabefelds passen auf dem Smartphone in eine Zeile."
+  },
+  {
     "en": "The answer details now open by themselves when an answer carries something that must not be missed: research that was cut short, removed evidence or low confidence.",
     "de": "Die Antwortdetails öffnen sich jetzt von selbst, wenn eine Antwort etwas trägt, das nicht übersehen werden darf: eine abgebrochene Recherche, entfernte Belege oder geringe Sicherheit."
   },
@@ -3630,6 +3654,10 @@
   {
     "en": "The research steps behind an answer now cost less and wait less. The answer itself does not change.",
     "de": "Die Rechercheschritte hinter einer Antwort kosten jetzt weniger und dauern kürzer. Die Antwort selbst ändert sich nicht."
+  },
+  {
+    "en": "The search field in Files is as tall as the buttons beside it, the reading status above the file list stays quiet once everything is read and says each number once, and the office filing looks like a project's files, with its folder row pinned while you scroll.",
+    "de": "Das Suchfeld in Files ist genauso hoch wie die Schaltflächen daneben, der Lesestatus über der Dateiliste bleibt ruhig, sobald alles gelesen ist, und gibt jede Zahl nur einmal aus. Die Büroablage sieht aus wie die Dateien eines Projekts, wobei die Ordnerzeile beim Scrollen fixiert bleibt."
   },
   {
     "en": "The search filters now complete as you type: party names, place, cited norms and drawings, drawing number, revision, scale and stated facts offer the values your documents actually hold, each with how many documents hold it, so you pick the exact spelling instead of guessing it.",
