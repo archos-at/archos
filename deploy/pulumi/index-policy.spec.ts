@@ -60,6 +60,7 @@ function devStackConfig(): Record<string, string> {
   ),
     // In the dev stack's ESC environment, not its file.
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
+    [`${LEGACY_PROJECT}:cloudflareApiToken`]: "placeholder-secret-value",
   };
 }
 
