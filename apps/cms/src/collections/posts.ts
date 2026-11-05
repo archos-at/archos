@@ -148,6 +148,14 @@ export const Posts: CollectionConfig = {
     { name: 'category', type: 'select', required: true, options: options(CATEGORIES), admin: { position: 'sidebar' } },
     { name: 'author', type: 'relationship', relationTo: 'authors', admin: { position: 'sidebar' } },
     {
+      // What scripts/import-blog.ts last wrote, as a hash: a post whose content no longer
+      // matches it was edited here since, and a re-run leaves it alone.
+      name: 'importHash',
+      type: 'text',
+      admin: { hidden: true },
+      access: { create: () => false, update: () => false },
+    },
+    {
       name: 'stage',
       type: 'select',
       defaultValue: 'writing',

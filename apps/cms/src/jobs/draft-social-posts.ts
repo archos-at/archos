@@ -72,8 +72,9 @@ export const draftSocialPostsTask: TaskConfig<{ input: { postId: string }; outpu
 };
 
 /** Queues the drafts when a post is published; a draft save queues nothing. */
-export const queueSocialDrafts: CollectionAfterChangeHook = async ({ doc, previousDoc, req }) => {
-  if (doc._status !== 'published' || previousDoc?._status === 'published') return doc;
+export const queueSocialDrafts: CollectionAfterChangeHook = async ({ context, doc, previousDoc, req }) => {
+  // The import of the git-era posts publishes old news; it asks for no drafts.
+  if (context.skipSocialDrafts || doc._status !== 'published' || previousDoc?._status === 'published') return doc;
   await req.payload.jobs.queue({ task: 'draftSocialPosts', input: { postId: String(doc.id) }, req });
   return doc;
 };
