@@ -14,6 +14,7 @@
  *                     too: for an app with its own token names (the workspace), which
  *                     maps them onto these
  *   components.css    copied from css/components.css (class prefix ui-)
+ *   covers.css        copied from css/covers.css (the blog covers' frame and pens, docs/blog-covers.md)
  *   fonts/            copied from fonts/
  *
  * sync.mjs imports renderDist() and writeDist() from here, so the copies in the apps
@@ -137,6 +138,7 @@ export function renderDist() {
   out.set('tokens.css', renderTokensCss(tokens))
   out.set('tokens.vars.css', renderVarsCss(tokens))
   out.set('components.css', readFileSync(join(BRAND, 'css/components.css')))
+  out.set('covers.css', readFileSync(join(BRAND, 'css/covers.css')))
   for (const file of readdirSync(join(BRAND, 'fonts')).sort()) {
     out.set(`fonts/${file}`, readFileSync(join(BRAND, 'fonts', file)))
   }

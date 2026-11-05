@@ -424,14 +424,15 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
 /* Contact: the details and the form, clearly apart (they sat 32px apart in a
    two-column feature grid). From 1024px twelve columns: details in 1–5, the form
    in 7–12, so a whole column and two gaps lie between them. Below, stacked, the
-   form after a wide gap and no wider than the reading measure. */
+   form after a wide gap, both no wider than the reading measure. */
 .ui-contact { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-16); }
 .ui-contact-details > * { margin: 0; }
 .ui-contact-details > * + * { margin-top: var(--space-8); }
-.ui-contact-form { max-width: var(--measure); }
+.ui-contact-details, .ui-contact-form { max-width: var(--measure); }
 @media (min-width: 1024px) {
   .ui-contact { grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--space-8); }
   .ui-contact-details { grid-column: 1 / span 5; }
-  .ui-contact-form { grid-column: 7 / span 6; max-width: none; }
+  .ui-contact-form { grid-column: 7 / span 6; }
+  .ui-contact-details, .ui-contact-form { max-width: none; }
 }
 @media (max-width: 767px) { .ui-contact { row-gap: var(--space-12); } }

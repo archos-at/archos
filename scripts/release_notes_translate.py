@@ -25,13 +25,13 @@ TRANSLATION_MODEL = os.environ.get("RELEASE_NOTES_TRANSLATION_MODEL", "openai/gp
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 TRANSLATION_SYSTEM_PROMPT = (
-    "You translate product release notes for Piloti, an AI platform for Austrian "
+    f"You translate product release notes for {PRODUCT_NAME}, the workspace for Austrian "
     "architecture and planning offices, from English into German.\n"
     "Rules:\n"
     "- Austrian business German, formal address (Sie), present tense.\n"
     "- Translate meaning, not words. Keep it as short as the English.\n"
-    "- Keep product names (Piloti), standards and legal terms (OIB-Richtlinien, "
-    "Landesbauordnung) exactly as they are.\n"
+    f"- Keep product names ({PRODUCT_NAME}, and any former name a note uses), standards and legal "
+    "terms (OIB-Richtlinien, Landesbauordnung) exactly as they are.\n"
     "- Keep the English loanwords Austrian professionals actually use — Changelog, "
     "Login, Update, Upload, Dashboard — instead of inventing a German equivalent.\n"
     "- Add nothing, explain nothing, drop nothing.\n"
@@ -94,8 +94,8 @@ def translate(text: str, api_key: str, model: str = TRANSLATION_MODEL, attempts:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             # OpenRouter attributes traffic by these; they are not credentials.
-            "HTTP-Referer": "https://piloti.at",
-            "X-Title": "Piloti release notes",
+            "HTTP-Referer": f"https://{SITE_DOMAIN}",
+            "X-Title": f"{PRODUCT_NAME} release notes",
         },
         method="POST",
     )
