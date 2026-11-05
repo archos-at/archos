@@ -6,6 +6,7 @@ import { edgeRateLimit, edgeRetry, perClientRules } from "../app/httproutes";
 import { DeployConfig } from "../config";
 import { EDGE_TIMEOUT, LANGFUSE, PORT } from "../constants";
 import { CMS_GATEWAY_CREDENTIAL_KEY, CMS_GATEWAY_CREDENTIAL_SECRET, CMS_INTERNAL_URL } from "./cms";
+import { formerMcpGatewayHost } from "../app/former-domain";
 import { GATEWAY_NAME } from "./gateway";
 import { LANGFUSE_SECRETS_NAME, LANGFUSE_SECRET_KEYS } from "./langfuse";
 import { commonLabels } from "./namespaces";
@@ -89,8 +90,10 @@ export function platformMcpServerEnv(cfg: DeployConfig): k8s.types.input.core.v1
 }
 
 export function mcpGatewayConfigYaml(cfg: DeployConfig): string {
+  const former = formerMcpGatewayHost(cfg.ingress, cfg.mcpGateway);
   return renderAgentgatewayConfig({
     origin: `https://${cfg.mcpGateway.domain}`,
+    formerOrigins: former ? [`https://${former.from}`] : [],
     issuer: cfg.mcpGateway.issuer,
     platformOrgId: cfg.mcpGateway.platformOrgId,
     servers: mcpServers(cfg),
@@ -245,9 +248,15 @@ export function installMcpGateway(
     { provider, dependsOn: [deployment] },
   );
 
+  // During a domain move the former host is served by the same route: agents
+  // hold its URL, and agentgateway answers it under its own resource identifiers.
+  const former = formerMcpGatewayHost(cfg.ingress, cfg.mcpGateway);
   const routeSpec: IHTTPRouteSpec = {
-    parentRefs: [{ name: GATEWAY_NAME, sectionName: MCP_GATEWAY.listenerName }],
-    hostnames: [cfg.mcpGateway.domain],
+    parentRefs: [
+      { name: GATEWAY_NAME, sectionName: MCP_GATEWAY.listenerName },
+      ...(former ? [{ name: GATEWAY_NAME, sectionName: former.listener }] : []),
+    ],
+    hostnames: [cfg.mcpGateway.domain, ...(former ? [former.from] : [])],
     rules: [
       {
         backendRefs: [{ name: MCP_GATEWAY.name, port: MCP_GATEWAY_PORT }],

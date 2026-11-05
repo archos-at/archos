@@ -87,6 +87,12 @@ export interface McpServer {
 export interface McpGatewaySettings {
   /** `https://<public host>`, no trailing slash. Every resource URL hangs off it. */
   origin: string;
+  /**
+   * The gateway's former origins during a domain move, each served under its
+   * own resource identifiers (RFC 9728 section 3.3) by a route bound to its
+   * host. Empty outside a move.
+   */
+  formerOrigins?: readonly string[];
   /** The WorkOS AuthKit issuer, `https://<slug>.authkit.app`. */
   issuer: string;
   /** WorkOS id of the platform organization. */
@@ -120,9 +126,18 @@ export function admissionRule(platformOrgId: string): string {
   return `request.path.startsWith("/.well-known/") || (jwt.org_id == "${platformOrgId}" && (${roles}))`;
 }
 
-function route(settings: McpGatewaySettings, server: McpServer): Record<string, unknown> {
+/**
+ * One server's route as seen from `origin`. A route for a former origin is
+ * bound to that host, and agentgateway picks an exact hostname before a route
+ * with none, so the canonical route stays the catch-all it always was.
+ * `audiences` holds every origin's identifier: a token issued for the former
+ * host works on the new one and the reverse, as it does on the app's doors.
+ */
+function route(settings: McpGatewaySettings, server: McpServer, origin: string): Record<string, unknown> {
   const path = `/${server.name}/mcp`;
-  const resource = resourceUrl(settings.origin, server);
+  const resource = resourceUrl(origin, server);
+  const former = origin !== settings.origin;
+  const audiences = [settings.origin, ...(settings.formerOrigins ?? [])].map((o) => resourceUrl(o, server));
   const target: Record<string, unknown> = {
     name: server.name,
     mcp: { host: server.url },
@@ -142,7 +157,8 @@ function route(settings: McpGatewaySettings, server: McpServer): Record<string, 
     },
   };
   return {
-    name: server.name,
+    name: former ? `${server.name}-${new URL(origin).hostname.replace(/\./g, "-")}` : server.name,
+    ...(former ? { hostnames: [new URL(origin).hostname] } : {}),
     matches: [
       { path: { exact: path } },
       // The one discovery document a client fetches from us. It names
@@ -155,7 +171,7 @@ function route(settings: McpGatewaySettings, server: McpServer): Record<string, 
         // client's OAuth flow.
         mode: "strict",
         issuer: settings.issuer,
-        audiences: [resource],
+        audiences,
         jwks: { url: `${settings.issuer}/oauth2/jwks` },
         // Set explicitly: behind Envoy, the request's own scheme is http.
         resourceMetadata: {
@@ -199,7 +215,10 @@ export function agentgatewayConfig(settings: McpGatewaySettings): Record<string,
         }
       : {}),
     gateways: { default: { port: MCP_GATEWAY_PORT } },
-    routes: settings.servers.map((server) => route(settings, server)),
+    routes: settings.servers.flatMap((server) => [
+      ...(settings.formerOrigins ?? []).map((origin) => route(settings, server, origin)),
+      route(settings, server, settings.origin),
+    ]),
   };
 }
 
