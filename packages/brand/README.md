@@ -148,7 +148,7 @@ is review.
 | Rule | Held by |
 |---|---|
 | App copies match the package; each app carries only its layer | `node packages/brand/sync.mjs --check` (website `bun run check`, CI) |
-| No colour literal (hex, `rgb()`, `hsl()`) in the website's CSS, its `.astro` styles or `components.css` | `scripts/check_brand_rules.mjs` |
+| No colour literal (hex, `rgb()`, `hsl()`) in the website's CSS, its `.astro` styles or the design system's stylesheets (`css/*.css`) | `scripts/check_brand_rules.mjs` |
 | No shadow on the website except `--focus-ring` | same |
 | No app-only token on the website; every `var(--radius-*)`, `--space-*`, `--shadow-*` … the website reads exists in its token copy | same |
 | German copy: no exclamation mark | same, over every string in `apps/website/src/i18n` |

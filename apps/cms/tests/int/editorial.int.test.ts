@@ -168,6 +168,21 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     expect((await payload.count({ collection: 'social-posts', where: { blogPost: { equals: twins.id } } })).totalDocs).toBe(2);
   });
 
+  test("a scheduled publish runs as the person who scheduled it: a publisher's goes live, an editor's does not", async () => {
+    const schedule = async (who: 'publisher' | 'editor', title: string) => {
+      const draft = await payload.create({ collection: 'posts', data: post(title), ...as('editor') });
+      await payload.jobs.queue({
+        task: 'schedulePublish',
+        input: { type: 'publish', doc: { relationTo: 'posts', value: String(draft.id) }, user: { relationTo: 'users', value: users[who].id } },
+        waitUntil: new Date(Date.now() - 1000),
+      } as never);
+      await payload.jobs.run();
+      return (await payload.findByID({ collection: 'posts', id: draft.id }))._status;
+    };
+    expect(await schedule('publisher', 'Scheduled by a publisher')).toBe('published');
+    expect(await schedule('editor', 'Scheduled by an editor')).toBe('draft');
+  });
+
   test('a social post goes out only once a publisher approved it, and the hand-off records only what it did', async () => {
     const [account] = (await payload.find({ collection: 'social-accounts' })).docs;
     const draft = await payload.create({ collection: 'social-posts', data: { account: account.id, language: 'de', text: 'Neu im Blog.' }, ...as('agent') } as never);
