@@ -3008,6 +3008,16 @@
    },
    "reason": null
   },
+  "release-note-list": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": true,
+   "piloti": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
   "platform-answer-feedback-digest-get": {
    "kind": "catalog",
    "domain": "platform",

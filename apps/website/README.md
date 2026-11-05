@@ -123,7 +123,8 @@ runs it.
 | `src/views/` | Page markup, one view per page, rendered for both locales. |
 | `src/styles/brand/` | Committed copy of the design system (tokens, components, fonts, identity). Generated, never edited. |
 | `src/styles/site.css` | Page glue only: skip link, `[hidden]`, image sizing. Uses tokens. |
-| `public/media/` | Images, video and logos for the pages (table below). |
+| `src/assets/media/` | Photos, product screenshots and the video the pages render, as full-resolution masters (table below); `src/lib/media.ts` exports them. |
+| `public/media/` | Files that keep a fixed address: the pilot office logos, the funding logo, the share card (table below). |
 
 ## Styles and brand
 
@@ -134,33 +135,42 @@ drifted. Change a token or a brand string in `packages/brand`, then sync.
 ## Media
 
 Reference media from the eight-page reference site, renamed in English by what each file shows.
-The table gives the source file and where it appears.
+The tables give the source file and where it appears.
 
-The product screenshots (`product-*.webp`, 2560 px masters) are in `src/assets/media/`, not
-`public/media/`: views take them from `src/lib/media.ts` and render them with Astro's `<Image>`,
-which builds 640 to 2560 px variants with a `srcset` and `sizes`, so a phone loads the variant
-its layout needs (the hero at 390 px: 57 KB instead of 181 KB; a gallery card stays 2560 px,
-because on a phone it shows its image 500 px high and 1250 px wide). The built files have hashed names, so a replaced screenshot reaches every
-visitor at once. Everything else is in `public/media/`.
+**Rendered media** are in `src/assets/media/`, as full-resolution masters: 2560 px on the long
+edge at most, never shrunk by hand, WebP at quality 92 (photos) or 95 (screenshots), in sRGB.
+Views take them from `src/lib/media.ts` and render them with Astro's `<Image>`, which builds
+variants from 320 px (photos) or 640 px (screenshots) up to the master's width, with a `srcset` and
+`sizes`, so a phone loads the variant its layout needs (the hero at 390 px: 57 KB instead of 181 KB;
+a gallery card stays 2560 px, because on a phone it shows its image 500 px high and 1250 px wide).
+The video is imported with `?url`, so it is served from `/_astro/` like the images. The built files
+have hashed names, so a replaced master reaches every visitor at once. Photos show in their own
+colours and brightness: no CSS filter darkens or tints them. Where text sits on a photo, the design
+system's scrim behind the text gives it contrast (`components.css`, "Duo photo scrim"), and
+`scripts/check-accessibility.mjs` measures it. The masters marked "Drive" come from the team's
+Google Drive image folder `Fotos-und-Grafiken` (the video: its video folder), named by the page and
+section order there.
+
+| File in `src/assets/media/` | Source | Where it is used |
+|---|---|---|
+| `product-plan-revision-changes.webp` | `b3c4660c81.webp`, the composer hint retouched to the current name (Inter Regular 15.6 px, the app's face when it was captured); 2560 × 1460 | Home and „Planstände vergleichen“, hero image (plan revision with sources) |
+| `product-search-derivation.webp` | Drive `02_Startseite_Galerie-1_Eine-Frage.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 1, "Suchen" |
+| `product-compare-clearance.webp` | Drive `03_Startseite_Galerie-2_Planstand-und-Anforderungen.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 2, "Vergleichen"; „Planstände vergleichen“, requirements |
+| `product-model-check.webp` | Drive `04_Startseite_Galerie-3_Komplexe-Modelle.png` (4960 × 1984), 2560 × 1024 | Home, gallery slide 3, "Prüfen" (3D model check) |
+| `product-floor-plan-query.webp` | Drive `07_Startseite_Gebaut-fuer-Planungsbueros.png` (4864 × 1620), 2560 × 853 | Home, "Gebaut für Architektur- & Planungsbüros." (floor plan with questions); „Baurecht durchsuchen“ and „KI für Architekturbüros“ (the escape-route question) |
+| `planner-design-photo.webp` | Drive `05_Startseite_Planerinnen-entwerfen.png` (2576 × 1940), 2560 × 1928 | Home, duo card "Planer:innen entwerfen." (photo, white text on the scrim) |
+| `ai-search-compare-photo.webp` | Drive `06_Startseite_KI-sucht-vergleicht-prueft.png`, 1104 × 1424 (the original's size) | Home, duo card "KI sucht, vergleicht und prüft." (dark card, photo) |
+| `knowledge-video.mp4` | Drive `archos_wissen_final_C_2432.mp4` (video folder), unchanged (H.264, 2432 × 1216, 34 s; a provisional cut) | German home only (its frames carry German text; the English home has no visual there until an English cut exists), the video "Das Wissen Ihres Büros wird nutzbar." H.264 MP4 plays in every current browser, so there is no WebM twin |
+| `knowledge-video-poster.webp` | The video's frame at 6 s ("Doch es liegt verstreut."), 2432 × 1216 | Same video, poster |
+| `team-conversation-photo.webp` | Drive `08_Startseite_Zitat-Foto.png` (grayscale), 1080 × 1350 | Home, portrait beside the feld72 quote |
+| `jonathan-uhlemann.webp` | Drive `Founder/Unknown.jpg` (702 × 700), cropped to 4:5, 560 × 700 | Home, founders row "Das Planungsbüro der Zukunft entsteht heute." (portrait, 4:5) |
+| `matthias-bigl.webp` | none, from the retired site's team photo (git history); 208 × 208, too small for a sharp portrait until a new photo exists | Home, founders row (portrait, 4:5 crop) |
+| `ferdinand-rubenbauer.webp` | none, from the retired site's team photo (git history); 208 × 208, too small for a sharp portrait until a new photo exists | Home, founders row (portrait, 4:5 crop) |
+| `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (too large for the Drive connector), as the owner exported it: 2000 × 1140 WebP, sRGB, unchanged | Demo, background of the form panel |
 
 | File in `public/media/` | Reference file | Where it is used |
 |---|---|---|
-| `planner-design-photo.webp` | `870709db80.webp` | Home, duo card "Planer:innen entwerfen." (photo, tinted) |
-| `ai-search-compare-photo.webp` | `1097bac5d4.webp` | Home, duo card "KI sucht, vergleicht und prüft." (dark, photo) |
-| `product-plan-revision-changes.webp` | `b3c4660c81.webp`, the composer hint retouched to the current name (Inter Regular 15.6 px, the app's face when it was captured) | Home and „Planstände vergleichen“, hero image (plan revision with sources) |
-| `product-search-derivation.webp` | `895cf6a19d.webp` | Home, gallery slide 1, "Suchen" |
-| `product-compare-clearance.webp` | `ffa209f24b.webp` | Home, gallery slide 2, "Vergleichen"; „Planstände vergleichen“, requirements |
-| `product-model-check.webp` | `2a7b9ca2d2.webp` | Home, gallery slide 3, "Prüfen" (3D model check) |
-| `product-floor-plan-query.webp` | `58af499fe3.webp` | Home, "Gebaut für Architektur- & Planungsbüros." (floor plan with questions); „Baurecht durchsuchen“ and „KI für Architekturbüros“ (the escape-route question) |
-| `knowledge-video-poster.webp` | `c9e9e60311.webp` | German home only (its frames carry German text; the English home has no visual there until an English cut exists), poster of the video "Das Wissen Ihres Büros wird nutzbar." |
-| `knowledge-video.webm` | `28f2a93346.webm` | Same video, first source (WebM) |
-| `knowledge-video.mp4` | `8cde9d7ebc.mp4` | Same video, second source (MP4) |
 | `share-card.png` | none, drawn by `packages/brand/build-brand-assets.mjs` (the wordmark and tagline from identity, outlined in Switzer Semibold, on the warm white) | Every page, `og:image` and `twitter:card` (1200 × 630, social previews) |
-| `jonathan-uhlemann.webp` | none, from the retired site's team photo `jonathan-uhlemann.webp` (git history) | Home, founders row "Das Planungsbüro der Zukunft entsteht heute." (portrait, 4:5 crop, 208 × 208 source) |
-| `matthias-bigl.webp` | none, from the retired site's team photo `matthias-bigl.webp` (git history) | Home, founders row (portrait, 4:5 crop, 208 × 208 source) |
-| `ferdinand-rubenbauer.webp` | none, from the retired site's team photo `ferdinand-rubenbauer.webp` (git history) | Home, founders row (portrait, 4:5 crop, 208 × 208 source) |
-| `team-conversation-photo.jpg` | `88395fbfb8.jpg` | Home, portrait beside the feld72 quote (grayscale) |
-| `demo-panel-background.webp` | `99653e3df7.webp` | Demo, background of the form panel |
 | `pilot-office-gerner-gerner-plus.svg` | `f3402543bd.svg` | Pilot office logo row (home, demo) |
 | `pilot-office-zz-architecture.svg` | `3a9b73f14d.svg` | Pilot office logo row (home, demo) |
 | `pilot-office-feld72.svg` | `1310a1a557.svg` | Pilot office logo row (home, demo) |
@@ -252,6 +262,18 @@ Posts are MDX in `src/content/blog/<locale>/<slug>.mdx` (schema in
 `src/content.config.ts`), figures in `src/components/figures/`. A post's file name is its
 slug; `translationSlug` names its twin in the other locale for the language switch and
 hreflang. Drafts build only with `PUBLIC_INCLUDE_DRAFTS=1`.
+
+Every post's frontmatter, checked by the schema:
+
+| Field | Required | Holds |
+|---|---|---|
+| `title` | yes | The heading; a soft hyphen (`\u00AD` in a double-quoted string) marks where a long compound may break, and is stripped for `<title>`, JSON-LD and the feed |
+| `description` | yes | The lead under the heading, the card text, the meta and feed description |
+| `pubDate` | yes | `YYYY-MM-DD`; sorts the listing, dates the sitemap and JSON-LD |
+| `draft` | no (`false`) | `true` keeps the post out of every build except `PUBLIC_INCLUDE_DRAFTS=1` |
+| `category` | yes | `product`, `practice` or `technology` (below) |
+| `cover` | yes | The id of the post's cover in `src/assets/covers/` (below), the same in both translations |
+| `translationSlug` | no | The other locale's slug |
 
 **Categories.** Three, defined once in `src/lib/categories.ts`: `product` (Produktfeatures /
 Product features), `practice` (Praxiserfahrungen / From practice) and `technology`

@@ -65,6 +65,8 @@ const { members } = Astro.props;
   .ui-team-member img {
     display: block;
     width: 100%;
+    /* <Image> writes width and height attributes; the crop is the aspect ratio's. */
+    height: auto;
     aspect-ratio: 4 / 5;
     object-fit: cover;
     border-radius: var(--radius-none);

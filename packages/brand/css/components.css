@@ -445,3 +445,6 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
   -webkit-mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
   mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
 }
+/* A portrait rendered by Astro's <Image> carries width and height attributes; the height must not
+   override the 4:5 crop. */
+.ui-quote-portrait > img { height: auto; }

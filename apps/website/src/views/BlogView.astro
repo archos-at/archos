@@ -60,7 +60,7 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
             title={post.data.heading}
             text={post.data.description}
             date={formatDate(post.data.pubDate, locale)}
-            label={CATEGORIES[locale][post.data.category].label}
+            label={category ? undefined : CATEGORIES[locale][post.data.category].label}
             href={postPath(locale, post)}
             cover={post.data.cover}
           />

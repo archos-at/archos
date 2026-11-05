@@ -11,7 +11,7 @@
 
    Two triggers. The hero plays once on load (CSS only, so it needs no script and runs
    before it). Everything marked [data-reveal] plays once as it scrolls into view: the
-   script in BaseLayout.astro marks only blocks below the fold `.is-pending`, so nothing
+   site's script (apps/website/src/scripts/reveal.ts) marks only blocks below the fold `.is-pending`, so nothing
    on screen at load moves and nothing is hidden without the script. A block's index among
    the siblings that arrive with it (`--ui-reveal-index`, set by that script) staggers it in
    reading order, so a row of tiles arrives left to right and a tile arriving alone never waits.
