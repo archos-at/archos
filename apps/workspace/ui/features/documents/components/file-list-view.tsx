@@ -605,7 +605,7 @@ function SortHeader({
           // 44 by padding alone means guessing at the leading and landing near it
           // (`py-3.5` measured 42). The `<th>` above is `h-auto p-0`, so the
           // button owns the whole cell and a min-height is exact.
-          'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-[10.5px] font-medium uppercase tracking-wider transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
+          'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-[10.5px] font-medium transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
           align === 'right' && 'justify-end',
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}

@@ -124,7 +124,7 @@ function Pages({
       {pages.map((page) => (
         <section key={page} aria-label={t('review.page', { page })}>
           {headed && (
-            <h3 className="text-muted-foreground px-2.5 pt-3 pb-1 text-[11px] font-medium tracking-[0.05em] uppercase">
+            <h3 className="text-muted-foreground px-2.5 pt-3 pb-1 text-[11px] font-medium">
               {t('review.page', { page })}
             </h3>
           )}
