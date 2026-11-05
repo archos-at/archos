@@ -180,16 +180,18 @@ const ASKED_OF_THE_WRITER: ReadonlySet<string> = new Set(['signature', 'replay',
  * `replay`, `automatic`) say only whom it waits for and why, because
  * `ClaimedMailBar` right below already says „Sie können sie verwerfen.“ and a
  * second time would only repeat it (`design-language.md`, principle 9).
- * Nothing once nothing of it waits, or under an impersonation's warning,
- * which already says why and what to do.
+ * Nothing once nothing of it waits (every part filed or on its way), or under
+ * an impersonation's warning, which already says why and what to do.
  */
 export function SenderWaitLine({
   view,
 }: {
-  view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender'>>
+  view: Pick<InboundMailView, 'status' | 'waitReason' | 'onlySenderReleases'> & Partial<Pick<InboundMailView, 'riskLevel' | 'sender' | 'parts'>>
 }): JSX.Element | null {
   const t = useTranslations(inboundMailCopy)
   if (view.status !== 'waiting' || !view.waitReason || view.riskLevel === 'impersonation') return null
+  // Every part decided and on its way: the detail says „Wird abgelegt …“, and why it waited is past.
+  if (view.parts && !view.parts.some((part) => part.state === 'waiting')) return null
   const key = ASKED_OF_THE_WRITER.has(view.waitReason) && !view.onlySenderReleases ? `${view.waitReason}Own` : view.waitReason
   const name = view.sender ? senderDisplayName(view.sender) : ''
   return (

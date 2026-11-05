@@ -20,13 +20,13 @@
  */
 
 import { useState, type JSX } from 'react'
-import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, CheckCheck, FileText, RefreshCw } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, CheckCheck, FileText, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadMore } from '@/components/ui/load-more'
-import { PageHeader } from '@/components/ui/page-header'
+import { ProjectSectionActions } from '@/components/shell/project-section-frame'
 import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
@@ -124,26 +124,15 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6" data-testid="open-points">
-        <PageHeader
-          title={t('openPoints.title')}
-          subtitle={t('openPoints.subtitle')}
-          action={
-            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-              <ProjectProtocolMenu
-                projectId={projectId}
-                filters={filters}
-                filing={filing}
-                restricted={list.load === 'ready' ? list.restricted : null}
-              />
-              <Button asChild variant="ghost" size="sm">
-                <Link href={`/app/projects/${projectId}/files`}>
-                  <ArrowLeft className="size-4" aria-hidden />
-                  {t('openPoints.back')}
-                </Link>
-              </Button>
-            </div>
-          }
-        />
+        {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
+        <ProjectSectionActions>
+          <ProjectProtocolMenu
+            projectId={projectId}
+            filters={filters}
+            filing={filing}
+            restricted={list.load === 'ready' ? list.restricted : null}
+          />
+        </ProjectSectionActions>
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="open-points-filters">
           <div className="flex items-center gap-2">

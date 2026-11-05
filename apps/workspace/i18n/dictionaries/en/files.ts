@@ -634,9 +634,6 @@ export const files = {
   /** The Papierkorb of a project (ADR-0088). */
   bin: {
     title: 'Bin',
-    subtitle:
-      'Deleted folders with their subfolders and documents. Until they are permanently deleted they can be restored with their access.',
-    back: 'Back to files',
     empty: 'The bin is empty.',
     emptyHint: 'Deleted folders appear here and can be restored.',
     deletedBy: 'Deleted by {name} on {date}',
@@ -1610,8 +1607,6 @@ export const files = {
   openPoints: {
     open: 'Open points',
     title: 'Open points',
-    subtitle: 'What is open in this project’s documents, across all of them: the list for the site meeting.',
-    back: 'Back to files',
     filters: {
       assignee: 'Assignee',
       due: 'Due',

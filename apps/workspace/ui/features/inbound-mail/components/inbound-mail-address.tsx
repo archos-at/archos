@@ -168,6 +168,7 @@ export function InboundMailAddressBlock({
   projectName,
   surface,
   showUses = true,
+  showValue = true,
   onLeave,
 }: {
   address: InboundMailAddressView
@@ -176,6 +177,8 @@ export function InboundMailAddressBlock({
   surface: AddressSurface
   /** The three lines of what it is for; off where the surrounding copy says it already. */
   showUses?: boolean
+  /** The address itself; off where the page's header shows it already (the E-Mail-Eingang). */
+  showValue?: boolean
   /** Closes what the block sits in when the upload link is followed. */
   onLeave?: () => void
 }): JSX.Element {
@@ -189,8 +192,8 @@ export function InboundMailAddressBlock({
       {showUses && <AddressUses />}
       <QuietPanel>
         {/* The eyebrow names the value; in the dialog its title already does. */}
-        {surface !== 'dialog' && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
-        <AddressValue value={value} surface={surface} className="w-full justify-between" />
+        {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
+        {showValue && <AddressValue value={value} surface={surface} className="w-full justify-between" />}
         <div className="flex flex-wrap gap-2">
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
         </div>

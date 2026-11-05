@@ -396,7 +396,9 @@ describe('InboundMailDetail', () => {
   it('says the project is closed and files nothing there', () => {
     renderDetail('closed')
     expect(screen.getByTestId('detail-closed')).toBeInTheDocument()
-    expect(screen.getByTestId('decision-file')).toHaveTextContent('File nothing')
+    // Nothing can be filed: the one press left is „Verwerfen“, once, as the primary.
+    expect(screen.getByTestId('decision-file')).toHaveTextContent('Dismiss')
+    expect(screen.queryByTestId('decision-dismiss')).not.toBeInTheDocument()
   })
 
   it('offers the restore of an expired mail', async () => {

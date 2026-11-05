@@ -78,6 +78,12 @@ export interface InboundMailListProps {
   everReceived: boolean | null
   /** The address, for the never-used state. */
   addressBlock: ReactNode
+  /**
+   * What the never-used state says about the address: it is below (`address`),
+   * there is none yet and the reader can make one (`create`), or there is none
+   * and someone who manages the project has to (`ask`).
+   */
+  neverCase?: 'address' | 'create' | 'ask'
   /** The selection bar, pinned under the list while something is selected. */
   selectionBar: ReactNode
   /** The closed-project notice, above the rows. */
@@ -139,6 +145,7 @@ function ListBody({
   loadingMore,
   everReceived,
   addressBlock,
+  neverCase = 'address',
   onFilterChange,
 }: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
@@ -175,8 +182,13 @@ function ListBody({
     }
     if (everReceived === false) {
       return (
-        <div className="flex flex-col gap-4 p-4" data-testid="inbound-mail-never">
-          <EmptyState variant="panel" icon={InboxGlyph} title={t('empty.neverTitle')} description={t('empty.neverText')} />
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6" data-testid="inbound-mail-never">
+          <EmptyState
+            variant="panel"
+            icon={InboxGlyph}
+            title={t('empty.neverTitle')}
+            description={t(neverCase === 'create' ? 'empty.neverNoAddress' : neverCase === 'ask' ? 'empty.neverNoAddressMember' : 'empty.neverText')}
+          />
           {addressBlock}
         </div>
       )

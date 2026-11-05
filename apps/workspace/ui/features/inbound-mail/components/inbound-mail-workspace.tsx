@@ -36,7 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, AtSign, FolderOpen, Lock, MailSearch, X } from 'lucide-react'
+import { ArrowLeft, Lock, MailPlus, MailSearch, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -65,7 +65,9 @@ import { listSections, visibleMails } from '../lib/list-sections'
 import { inboundMailPaths, type InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { refusalOf } from '../lib/refusal'
 import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
+import { useInboundMailAddress } from '../hooks/use-inbound-mail-address'
 import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mail-address'
+import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
 import { SelectionBar, type BulkBlock } from './selection-bar'
@@ -139,8 +141,10 @@ export function InboundMailWorkspace({
   const [quietOpen, setQuietOpen] = useState(false)
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   const [addressOpen, setAddressOpen] = useState(false)
-  const [everReceived, setEverReceived] = useState<boolean | null>(null)
-  const [address, setAddress] = useState<Awaited<ReturnType<InboundMailAddressClient['get']>> | null>(null)
+  // The address heads the page (copy it for Cc) and says whether an empty list was ever used.
+  const address = useInboundMailAddress(projectId, true, addressClient)
+  const addressView = address.state.kind === 'ready' ? address.state.address : null
+  const everReceived = addressView ? addressView.lastReceivedAt !== null : address.state.kind === 'error' ? true : null
   const detailActions = useRef<DetailActions | null>(null)
   const waiting = useInboundMailWaiting(projectId, true, client)
 
@@ -187,17 +191,7 @@ export function InboundMailWorkspace({
   const rows = useMemo(() => visibleMails(sections, quietOpen), [sections, quietOpen])
 
   // An empty waiting list is „never used“ or „all done“: the address says which, and is shown in the first.
-  const empty = list.kind === 'ready' && list.items.length === 0 && status === 'waiting'
-  useEffect(() => {
-    if (!empty || everReceived !== null) return
-    addressClient
-      .get(projectId)
-      .then((view) => {
-        setAddress(view)
-        setEverReceived(view.lastReceivedAt !== null)
-      })
-      .catch(() => setEverReceived(true))
-  }, [empty, everReceived, addressClient, projectId])
+  const empty = list.kind === 'ready' && list.items.length === 0
 
   // ------------------------------------------------------------ selection and bulk
 
@@ -450,24 +444,11 @@ export function InboundMailWorkspace({
   return (
     <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href={paths.files} data-testid="inbound-mail-files">
-              <FolderOpen className="size-4" aria-hidden />
-              {t('back')}
-            </Link>
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-address-open">
-            <AtSign className="size-4" aria-hidden />
-            {t('addressButton')}
-          </Button>
-        </div>
+        <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />
       </ProjectSectionActions>
-      <div className="flex min-h-0 flex-1 flex-col @3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className={cn('min-h-0 flex-1 flex-col @3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
-          <div className="flex items-baseline justify-between gap-2 px-3 pt-3 sm:px-4">
-            <h2 className="text-sm font-medium">{t('title')}</h2>
-          </div>
+      {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
+      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]')}>
+        <div className={cn('min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
@@ -512,12 +493,33 @@ export function InboundMailWorkspace({
             }}
             loadingMore={loadingMore}
             everReceived={everReceived}
-            addressBlock={address ? <InboundMailAddressBlock address={address} projectId={projectId} projectName={projectName} surface="never_used" showUses={false} /> : null}
+            addressBlock={
+              addressView?.address ? (
+                <InboundMailAddressBlock
+                  address={addressView}
+                  projectId={projectId}
+                  projectName={projectName}
+                  surface="never_used"
+                  showUses={false}
+                  // The header shows the address and copies it: here only the contact card, the limit and the guide.
+                  showValue={false}
+                />
+              ) : addressView?.canManage ? (
+                <Button type="button" size="sm" className="w-fit" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-never-create">
+                  <MailPlus className="size-4" aria-hidden />
+                  {t('address.create')}
+                </Button>
+              ) : null
+            }
+            neverCase={!addressView || addressView.address ? 'address' : addressView.canManage ? 'create' : 'ask'}
             selectionBar={selectionBar}
             notice={notice}
           />
         </div>
-        <div className={cn('min-h-0 flex-1 @3xl:block', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')} data-testid="inbound-mail-detail-pane">
+        <div
+          className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
+          data-testid="inbound-mail-detail-pane"
+        >
           {mailId ? (
             <InboundMailDetail
               key={mailId}
@@ -541,7 +543,17 @@ export function InboundMailWorkspace({
         </div>
       </div>
 
-      <InboundMailAddressDialog projectId={projectId} projectName={projectName} open={addressOpen} onOpenChange={setAddressOpen} client={addressClient} />
+      <InboundMailAddressDialog
+        projectId={projectId}
+        projectName={projectName}
+        open={addressOpen}
+        onOpenChange={(open) => {
+          setAddressOpen(open)
+          // The dialog may have made the address: the header and the empty list read it again.
+          if (!open) void address.reload()
+        }}
+        client={addressClient}
+      />
       <ConfirmDialog
         open={confirmFile !== null}
         onOpenChange={(open) => !open && setConfirmFile(null)}

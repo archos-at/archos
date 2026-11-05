@@ -24,7 +24,10 @@ export const inboundMail = {
   empty: {
     neverTitle: 'No mail to this project yet',
     neverText:
-      'Put the address below in Cc when you write to the authority, the structural engineer or the client. What you send this way and your domain verifies is filed directly; replies from others land here until someone files them.',
+      'Put the address in Cc when you write to the authority, the structural engineer or the client. What you send this way is filed directly; replies from others wait here until someone files them.',
+    neverNoAddress:
+      'This project has no mail address yet. With one, the correspondence with the authority, the structural engineer and the client lands in the project without anyone saving it by hand.',
+    neverNoAddressMember: 'This project has no mail address yet. Ask someone who manages the project to create it.',
     doneTitle: 'Nothing waits to be filed',
     doneText: 'New mail to the project mail address appears here.',
     showHandled: 'Show handled mail',
@@ -70,12 +73,13 @@ export const inboundMail = {
       sender: 'Check the sender',
       scanning: 'An attachment is still being checked …',
       needs_person: 'Check an attachment',
-      no_thread: 'Choose a mail thread',
+      no_thread: 'No matching mail thread',
       folder_missing: 'Choose a folder',
     },
     textFollowed: 'Text added to the mail thread (following)',
     // A member who may file sent it from a verified domain, and direct filing did not file it all the same (`not_filed`).
     notFiled: 'Not filed directly · {need}',
+    filing: 'Filing …',
     notFiledReady: 'Not filed directly',
   },
 
@@ -84,7 +88,7 @@ export const inboundMail = {
     needs_you: 'Needs you ({count})',
     others: 'Waiting for others ({count})',
     othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
-    readyHint: 'Domain verified, a place for every part, nothing to check.',
+    readyHint: 'Sender verified, a place suggested for every part, nothing to check.',
     fileAll: 'File all {count} as suggested',
     fileFirst: 'File the first {count} as suggested',
   },
@@ -151,6 +155,7 @@ export const inboundMail = {
   },
 
   header: {
+    addressMore: 'About the address',
     fromShort: '{name} ‹{address}›',
     details: 'Details',
     sentLabel: 'Sent',
@@ -208,7 +213,7 @@ export const inboundMail = {
 
   message: {
     label: 'Mail text',
-    file: 'File the mail text',
+    file: 'Include the mail text',
     append: 'File in mail thread “{name}” (becomes revision {version})',
     create: 'File as a new mail thread',
     nameLabel: 'Name of the mail thread',

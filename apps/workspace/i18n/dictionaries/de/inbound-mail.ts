@@ -27,7 +27,11 @@ export const inboundMail: typeof en.inboundMail = {
   empty: {
     neverTitle: 'Noch keine E-Mails an dieses Projekt',
     neverText:
-      'Setzen Sie die Adresse unten in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Was Sie selbst so senden und Ihre Domain bestätigt, wird direkt abgelegt; Antworten von anderen landen hier, bis jemand sie ablegt.',
+      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Was Sie selbst so senden, wird direkt abgelegt; Antworten von anderen warten hier, bis jemand sie ablegt.',
+    neverNoAddress:
+      'Dieses Projekt hat noch keine E-Mail-Adresse. Mit ihr landet die Korrespondenz mit Behörde, Statik und Bauherrschaft im Projekt, ohne dass jemand sie von Hand abspeichert.',
+    neverNoAddressMember:
+      'Dieses Projekt hat noch keine E-Mail-Adresse. Bitten Sie jemanden, der das Projekt verwaltet, sie zu erzeugen.',
     doneTitle: 'Nichts wartet auf Ablage',
     doneText: 'Neue E-Mails an die E-Mail-Adresse des Projekts erscheinen hier.',
     showHandled: 'Bearbeitete anzeigen',
@@ -69,6 +73,7 @@ export const inboundMail: typeof en.inboundMail = {
     textFollowed: 'Text dem E-Mail-Verlauf angefügt (Verlauf folgen)',
     // Die Domain eines Mitglieds, das im Projekt ablegen darf, hat sie bestätigt, die direkte Ablage hat sie trotzdem nicht abgelegt (`not_filed`).
     notFiled: 'Nicht direkt abgelegt · {need}',
+    filing: 'Wird abgelegt …',
     notFiledReady: 'Nicht direkt abgelegt',
     fileAsSuggested: '„{subject}“ wie vorgeschlagen ablegen',
     /** Was eine E-Mail braucht, bevor sie wie vorgeschlagen abgelegt werden kann, in wenigen Worten (`incompleteReason`). */
@@ -78,7 +83,7 @@ export const inboundMail: typeof en.inboundMail = {
       sender: 'Absender prüfen',
       scanning: 'Anhang wird noch geprüft …',
       needs_person: 'Anhang prüfen',
-      no_thread: 'E-Mail-Verlauf wählen',
+      no_thread: 'Kein passender E-Mail-Verlauf',
       folder_missing: 'Ordner wählen',
     },
   },
@@ -89,7 +94,7 @@ export const inboundMail: typeof en.inboundMail = {
     needs_you: 'Braucht Sie ({count})',
     others: 'Wartet auf andere ({count})',
     othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
-    readyHint: 'Domain bestätigt, für jeden Teil ein Ziel, nichts zu prüfen.',
+    readyHint: 'Absender bestätigt, für jeden Teil ein Ziel vorgeschlagen, nichts zu prüfen.',
     fileAll: 'Alle {count} wie vorgeschlagen ablegen',
     fileFirst: 'Die ersten {count} wie vorgeschlagen ablegen',
   },
@@ -157,6 +162,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   header: {
+    addressMore: 'Mehr zur Adresse',
     fromShort: '{name} ‹{address}›',
     details: 'Details',
     sentLabel: 'Gesendet',
@@ -214,7 +220,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   message: {
     label: 'E-Mail-Text',
-    file: 'E-Mail-Text ablegen',
+    file: 'Den E-Mail-Text mit ablegen',
     append: 'In E-Mail-Verlauf „{name}“ ablegen (wird Fassung {version})',
     create: 'Als neuen E-Mail-Verlauf ablegen',
     nameLabel: 'Name des E-Mail-Verlaufs',

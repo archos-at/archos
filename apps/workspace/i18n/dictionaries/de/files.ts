@@ -618,9 +618,6 @@ export const files: typeof en.files = {
   /** The Papierkorb of a project (ADR-0088). */
   bin: {
     title: 'Papierkorb',
-    subtitle:
-      'Gelöschte Ordner mit ihren Unterordnern und Dokumenten. Bis zur endgültigen Löschung lassen sie sich mit ihren Zugriffsrechten wiederherstellen.',
-    back: 'Zurück zu den Dateien',
     empty: 'Der Papierkorb ist leer.',
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
     deletedBy: 'Gelöscht von {name} am {date}',
@@ -1571,8 +1568,6 @@ export const files: typeof en.files = {
   openPoints: {
     open: 'Offene Punkte',
     title: 'Offene Punkte',
-    subtitle: 'Was in den Dokumenten dieses Projekts offen ist, über alle Dokumente: die Liste für den Jour fixe.',
-    back: 'Zurück zu den Dateien',
     filters: {
       assignee: 'Zuständig',
       due: 'Frist',

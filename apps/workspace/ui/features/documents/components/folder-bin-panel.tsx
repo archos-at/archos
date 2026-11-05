@@ -12,8 +12,7 @@
  */
 
 import { useCallback, useState, type JSX } from 'react'
-import Link from 'next/link'
-import { AlertTriangle, ArrowLeft, FileText, Folder, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
+import { AlertTriangle, FileText, Folder, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   FolderBinRequestError,
@@ -28,7 +27,6 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemList, ItemMedia, ItemTitle } from '@/components/ui/item'
-import { PageHeader } from '@/components/ui/page-header'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { formatCalendarDate } from '@/lib/format'
@@ -115,25 +113,10 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
     }
   }
 
-  const header = (
-    <PageHeader
-      title={t('bin.title')}
-      subtitle={t('bin.subtitle')}
-      action={
-        <Button asChild variant="ghost" size="sm">
-          <Link href={`/app/projects/${projectId}/files`}>
-            <ArrowLeft className="size-4" aria-hidden />
-            {t('bin.back')}
-          </Link>
-        </Button>
-      }
-    />
-  )
 
   if (loadFailed || !listing) {
     return (
       <div className="flex flex-col gap-6 p-4 sm:p-6">
-        {header}
         <EmptyState
           icon={AlertTriangle}
           tone="destructive"
@@ -151,7 +134,6 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6" data-testid="folder-bin">
-      {header}
       {listing.entries.length === 0 ? (
         <EmptyState icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (

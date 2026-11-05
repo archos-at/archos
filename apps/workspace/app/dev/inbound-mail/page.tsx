@@ -18,6 +18,7 @@ import type { JSX } from 'react'
 import { use, useMemo } from 'react'
 import { I18nProvider } from '@/i18n'
 import { InboundMailWorkspace } from '@/features/inbound-mail/components/inbound-mail-workspace'
+import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import type { InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { ADDRESS_VARIANTS, DETAIL_BY_ID, FIXTURE_NOW, FOLDERS, LIST_VARIANTS, PROJECT_ID, PROJECT_NAME, fixtureAddressClient, fixtureClient, listPage } from './fixtures'
 import { DevVariantStrip } from './dev-chrome'
@@ -59,6 +60,8 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
   return (
     <I18nProvider initialLocale={locale} fixedLocale>
       <main className="bg-background flex h-dvh min-h-0 flex-col" data-testid="inbound-mail-preview">
+        {/* The real section frame, as the project's Dateien › E-Mail-Eingang heads it. */}
+        <ProjectSectionFrame projectId={PROJECT_ID} projectName={PROJECT_NAME} pathname={`/app/projects/${PROJECT_ID}/files/mail`}>
         <InboundMailWorkspace
           key={`${variant}:${status}:${outcome ?? ''}:${mailId ?? ''}`}
           projectId={PROJECT_ID}
@@ -79,6 +82,7 @@ export default function InboundMailDevPage({ searchParams }: { searchParams: Pro
           now={FIXTURE_NOW}
           initialChecked={fixture.checked}
         />
+        </ProjectSectionFrame>
         {one(params.chrome) !== '0' && <DevVariantStrip base="/dev/inbound-mail" variants={Object.keys(LIST_VARIANTS)} current={variant} locale={locale} />}
       </main>
     </I18nProvider>

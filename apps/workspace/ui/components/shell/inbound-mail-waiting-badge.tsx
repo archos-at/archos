@@ -23,6 +23,8 @@ export function InboundMailWaitingBadge({ count, className }: { count: number | 
       tone="muted"
       role="status"
       aria-label={t('inboundMailWaiting', { count })}
+      // A bare number beside „Dateien“ says nothing about mail to a sighted reader: the pointer's hover says it.
+      title={t('inboundMailWaiting', { count })}
       data-testid="inbound-mail-badge"
       data-waiting={count}
       className={className}

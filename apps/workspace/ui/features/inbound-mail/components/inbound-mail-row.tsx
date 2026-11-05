@@ -29,7 +29,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Bot, CircleDashed, FileInput, Paperclip, Repeat2, ShieldAlert } from 'lucide-react'
+import { Bot, CircleDashed, FileInput, LoaderCircle, Paperclip, Repeat2, ShieldAlert } from 'lucide-react'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -91,12 +91,15 @@ export function InboundMailRow({
   const textFollowed = waiting && mail.followedBy !== null
   // A mail posing as someone is said in words on its row, and never joins a bulk decision.
   const impersonating = mail.riskLevel === 'impersonation'
+  // Every part is decided and on its way (`filing`): the row says so, and offers nothing a second press would repeat.
+  const filingNow = waiting && mail.waitingParts === 0 && !impersonating
   // Why it is not „Bereit“, the server's reason; null when one press files it as suggested.
-  const reason = waiting ? fileableReason(mail) : null
+  const reason = waiting && !filingNow ? fileableReason(mail) : null
   const claim = mailClaimOf(mail)
   // The reason line in the reader's terms: the claimed member's question, whom a colleague waits for, or what it needs.
-  const reasonLine =
-    claim === 'colleague'
+  const reasonLine = filingNow
+    ? { key: 'filing', text: t('row.filing') }
+    : claim === 'colleague'
       ? { key: 'claimed', text: t('row.claim.colleague', { name: who }) }
       : claim === 'own' && reason === 'sender'
         ? { key: 'own', text: t('row.claim.own') }
@@ -105,7 +108,7 @@ export function InboundMailRow({
           : reason !== null
             ? { key: reason, text: t(`row.needs.${reason}`) }
             : null
-  const offerFile = waiting && reason === null && !inGroup && onFileAsSuggested !== undefined
+  const offerFile = waiting && !filingNow && reason === null && !inGroup && onFileAsSuggested !== undefined
 
   return (
     <Item
@@ -176,7 +179,11 @@ export function InboundMailRow({
             )}
             {waiting && reasonLine && !impersonating && (
               <p className="text-muted-foreground flex min-w-0 items-center gap-1 text-xs" data-testid="inbound-mail-row-reason" data-reason={reasonLine.key}>
-                <CircleDashed className="size-3 shrink-0" aria-hidden />
+                {filingNow ? (
+                  <LoaderCircle className="size-3 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
+                ) : (
+                  <CircleDashed className="size-3 shrink-0" aria-hidden />
+                )}
                 <span className="min-w-0 truncate">{reasonLine.text}</span>
               </p>
             )}
