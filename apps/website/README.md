@@ -171,6 +171,7 @@ section order there.
 | `matthias-bigl.webp` | the retired site's original portrait (git history, 1086 × 1448, colour), cropped to 4:5 and set in greyscale like the others, 560 × 700 | Home, founders row (portrait, 4:5) |
 | `ferdinand-rubenbauer.webp` | the retired site's team graphic (git history, `team.png`, right card, duotone), cropped to 4:5 and set in greyscale, 380 × 475; the largest version that exists, a new photo is still welcome | Home, founders row (portrait, 4:5) |
 | `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (too large for the Drive connector), as the owner exported it: 2000 × 1140 WebP, sRGB, unchanged | Demo, background of the form panel |
+| `example-module-plan-rev-c.svg`, `example-module-plan-rev-d.svg` | Drawn for the blocks page with the blog covers' pens (`packages/brand/docs/blog-covers.md`): one residential module in plan, 1600 × 1000, as two plan states. Rev. D adds a desk to the kitchen counter, a built-in cabinet and an installation wall. Vector, so no `<Image>` variants; imported with `?url` | „Bausteine für Blogbeiträge“ (`/blog-bausteine/`, unlisted): the before/after comparison and the annotated image |
 
 | File in `public/media/` | Reference file | Where it is used |
 |---|---|---|
