@@ -350,7 +350,7 @@ describe('Sidebar - the phone drawer', () => {
       <SidebarProvider>
         <OpenOnMount />
         <Sidebar>
-          <nav>Frag Piloti</nav>
+          <nav>Chat</nav>
         </Sidebar>
       </SidebarProvider>
     )

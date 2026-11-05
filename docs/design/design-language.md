@@ -135,7 +135,7 @@ made. **Do not reintroduce a general accent token.** If a future surface needs
 
 ## Type ramp (Tailwind classes — use verbatim)
 
-The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **uppercase ~10.5px eyebrow/label convention** (wide tracking, muted ink).
+The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **~10.5px eyebrow/label convention** (sentence case, medium weight, muted ink). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
 
 | Role | Classes |
 |---|---|
@@ -143,7 +143,7 @@ The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero
 | Page title (≈20px) | `text-xl font-medium tracking-tight` |
 | Section heading | `text-lg font-medium tracking-tight` |
 | Card/subsection title | `text-sm font-medium` |
-| Eyebrow / label (uppercase ≈10.5px) | `text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground`, written once as `.card-eyebrow` (`tracking-wider` is its 0.05em) and reached through `SectionLabel`; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Eyebrow / label (sentence case ≈10.5px) | `text-[10.5px] font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
 | Body | `text-sm` (leading-relaxed for prose) |
 | Body secondary | `text-sm text-muted-foreground` |
 | Caption / meta | `text-xs text-muted-foreground` |
@@ -176,6 +176,11 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 - **Body face** is General Sans (`--font-sans`). **Geist Mono** is the app's
   monospace for code, keycaps, identifiers and the skill editor
   (`--font-mono`); the brand has no mono, and the app keeps one on purpose.
+  Its 0 is plain, never slashed: a slashed 0 in a count read as a crossed-out
+  zero. The face's own stylistic set (`ss09`) does it, switched on once with
+  the family (`--font-mono--font-feature-settings` in `tokens.css`), which is
+  why the font comes from the `geist` package and not Google Fonts, whose copy
+  has no plain 0 ([gotcha](../contributing/gotchas.md)).
 - **The brand has no colour of its own.** It is black and white: warm white `--ds-surface` (#fafaf9), black `--ds-ink` (#0f0e0d) and one light grey `--ds-surface-sunken` (#f2f1f0). The app's hues (provenance signals, status, the data palette, the energy scale) are functional and documented exceptions; add no new one.
 - **No pure white.** Surfaces are `--ds-surface` (paper), `--ds-surface-raised`
   (`--card`, `--popover`, overlays) and `--ds-surface-sunken`. Pure white stays
@@ -542,8 +547,8 @@ shortfall. Measured at 390px, the History subtitle rendered 44px wide across
 eight lines, one word per line. Never reintroduce a bare `shrink-0` here;
 `page-header.spec.ts` fails it.
 
-**Project section chrome** — every project section except **Ask Piloti**
-(chat) opens with the same block: a muted `{project} / {section}` breadcrumb
+**Project section chrome** — every project section except **Chat**
+opens with the same block: a muted `{project} / {section}` breadcrumb
 trail, then the `PageHeader` title + one-line subtitle, then optional actions
 on the right. The two shapes are an action button (Files' view toggle,
 Automation's "New job"/"New skill") and title-only (Settings, Knowledge). The
@@ -556,7 +561,7 @@ its own toolbar, not a content page. Evidence: `/dev/project-chrome`.
 **Section** — eyebrow label + content, no heavy chrome:
 ```tsx
 <section className="space-y-3">
-  <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{label}</h2>
+  <SectionLabel as="h2">{label}</SectionLabel>
   {content}
 </section>
 ```

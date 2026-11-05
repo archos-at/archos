@@ -261,6 +261,35 @@ describe('profile writes invalidate both profile-derived cache keys (Fix 1)', ()
   })
 })
 
+// The legacy fact key is stored data from before migration 0159, not a name of ours.
+const LEGACY_ADDRESS_KEY = 'standort_adresse'
+
+describe('patchProjectProfile reads a legacy row through the new names', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(updateProjectProfileIfVersion).mockResolvedValue(storedState)
+  })
+
+  it('removing site_address also removes the address an older pod stored under the old key', async () => {
+    const address = {
+      value: 'Stiftsplatz 1, 3400 Klosterneuburg',
+      confidence: 'confirmed',
+      source: 'onboarding',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    } as const
+    const legacyRow = { ...storedProfile, facts: { ...storedProfile.facts, [LEGACY_ADDRESS_KEY]: address } }
+    vi.mocked(findProjectProfileInOrg).mockResolvedValue({ ...(storedState as object), profile: legacyRow } as never)
+
+    await patchProjectProfile(session, 'proj-1', [{ op: 'remove', path: '/facts/site_address' }])
+
+    const [, , , values] = vi.mocked(updateProjectProfileIfVersion).mock.calls[0]
+    const facts = (values as { profile: ProjectProfile }).profile.facts
+    expect(Object.keys(facts)).not.toContain(LEGACY_ADDRESS_KEY)
+    expect(Object.keys(facts)).not.toContain('site_address')
+    expect(facts.federal_state?.value).toBe('vienna')
+  })
+})
+
 describe('generateProjectSummary', () => {
   const mockFetch = vi.fn()
 

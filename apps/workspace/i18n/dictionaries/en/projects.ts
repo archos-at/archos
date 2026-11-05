@@ -296,8 +296,6 @@ export const projects = {
     },
   },
   card: {
-    summaryFallback:
-      'Planning-office workspace. Add documents and a brief so {productName} can work from this project.',
     status: {
       active: 'Active',
       paused: 'Paused',

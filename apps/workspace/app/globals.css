@@ -652,10 +652,6 @@ body {
   letter-spacing: -0.04em;
 }
 
-@utility tracking-label {
-  letter-spacing: 0.24em;
-}
-
 @utility scale-press {
   transform: scale(0.98);
 }
@@ -695,12 +691,13 @@ body {
      CalloutCard, whose eyebrow carries the tone's ink instead.
      Deliberately sets NO line-height: `SectionLabel` has ~39 call sites across
      the product that inherit theirs today, and a step here would move all of
-     them. */
+     them.
+     Sentence case, no tracking: the wordmark is the only element in capitals
+     (brand design system), and the wide tracking existed only to make capitals
+     readable — on sentence-case text it reads as a rendering fault. */
   .card-eyebrow {
     font-size: 10.5px;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
   }
 
   /* Meta — ordinals, chips, units, ± bands, counts. */

@@ -264,13 +264,13 @@ export function FileListView({
                 and bulk work happens where the table has room. */}
             <TableHead
               scope="col"
-              className="hidden h-auto w-[120px] px-2 py-1.5 text-[10.5px] font-medium tracking-wider @3xl/filelist:table-cell"
+              className="hidden h-auto w-[120px] px-2 py-1.5 @3xl/filelist:table-cell"
             >
               {t('list.columns.approval')}
             </TableHead>
             <TableHead
               scope="col"
-              className="hidden h-auto w-[76px] px-2 py-1.5 text-right text-[10.5px] font-medium tracking-wider @5xl/filelist:table-cell"
+              className="hidden h-auto w-[76px] px-2 py-1.5 text-right @5xl/filelist:table-cell"
             >
               {t('list.columns.pages')}
             </TableHead>
@@ -605,7 +605,7 @@ function SortHeader({
           // 44 by padding alone means guessing at the leading and landing near it
           // (`py-3.5` measured 42). The `<th>` above is `h-auto p-0`, so the
           // button owns the whole cell and a min-height is exact.
-          'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-[10.5px] font-medium uppercase tracking-wider transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
+          'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-[10.5px] font-medium transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
           align === 'right' && 'justify-end',
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}
@@ -667,7 +667,7 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
 function FileListSkeletonHeader(): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
-    <div className="text-muted-foreground flex items-center gap-2.5 border-b px-2 pb-1.5 text-[10.5px] font-medium tracking-wider">
+    <div className="text-muted-foreground flex items-center gap-2.5 border-b px-2 pb-1.5 card-eyebrow">
       <span className="min-w-0 flex-1">{t('list.columns.name')}</span>
       <span className="w-[104px] shrink-0 @md/filelist:w-[156px]">{t('list.columns.status')}</span>
       <span className="hidden w-[120px] shrink-0 @3xl/filelist:block">{t('list.columns.approval')}</span>

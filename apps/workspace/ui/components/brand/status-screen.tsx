@@ -1,6 +1,7 @@
 import * as React from 'react'
 
 import { Logo } from '@/components/brand/logo'
+import { SectionLabel } from '@/components/ui/section-label'
 import { cn } from '@/lib/utils'
 
 /**
@@ -27,9 +28,7 @@ export function StatusScreen({ code, title, description, actions, art, className
     >
       <Logo size="medium" className="mb-8" />
       {art && <div className="mb-6">{art}</div>}
-      {code && (
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{code}</p>
-      )}
+      {code && <SectionLabel as="p">{code}</SectionLabel>}
       <h1 className="mt-2 text-xl font-medium tracking-tight text-foreground text-balance">{title}</h1>
       <p className="mt-2 max-w-md text-sm text-muted-foreground text-balance">{description}</p>
       {actions && <div className="mt-6 flex items-center gap-3">{actions}</div>}

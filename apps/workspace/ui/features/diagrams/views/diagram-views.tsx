@@ -14,6 +14,7 @@ import dagre from '@dagrejs/dagre'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { SectionLabel } from '@/components/ui/section-label'
 import type {
   DiagramModel,
   FlowModel,
@@ -440,9 +441,9 @@ export function ScheduleDiagram({ model }: { model: ScheduleModel }) {
       {model.sections.map((section) => (
         <div key={section.label} className="flex flex-col gap-1">
           {section.label ? (
-            <p className="text-muted-foreground border-border border-t pt-1.5 text-[11px] font-medium tracking-wide uppercase pointer-coarse:text-xs">
+            <SectionLabel as="p" className="border-border border-t pt-1.5 pointer-coarse:text-xs">
               {section.label}
-            </p>
+            </SectionLabel>
           ) : null}
           {section.tasks.map((task, index) => (
             <div

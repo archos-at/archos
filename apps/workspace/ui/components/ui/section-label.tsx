@@ -5,11 +5,12 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * SectionLabel — the uppercase ~10.5px eyebrow/section-label convention (wide
- * tracking, muted ink) from `design-language.md` §"Type ramp". One
- * primitive so the ~39 hand-rolled eyebrows stop drifting across four tracking
- * values. Renders a `<span>` by default; pass `as` (e.g. `h2`) when the label
- * is the accessible heading for a section.
+ * SectionLabel — the ~10.5px eyebrow/section-label convention (sentence case,
+ * medium weight, muted ink) from `design-language.md` §"Type ramp". It is not
+ * set in capitals and carries no extra tracking: the wordmark is the only
+ * element in capitals. One primitive so the hand-rolled eyebrows stop
+ * drifting. Renders a `<span>` by default; pass `as` (e.g. `h2`, or `dt` in a
+ * description list) when the label is the accessible heading for a section.
  *
  * @example
  * <SectionLabel>{t('project.eyebrow')}</SectionLabel>
@@ -17,7 +18,7 @@ import { cn } from '@/lib/utils'
  */
 export interface SectionLabelProps extends React.HTMLAttributes<HTMLElement> {
   /** Element to render. Defaults to `span`. */
-  as?: 'span' | 'h2' | 'h3' | 'h4' | 'p' | 'div'
+  as?: 'span' | 'h2' | 'h3' | 'h4' | 'p' | 'div' | 'dt'
   /** Optional scan-target icon (preview rails, inspector sections). */
   icon?: LucideIcon
   children: React.ReactNode
