@@ -33,7 +33,12 @@ function posts() {
   return ['de', 'en'].flatMap((locale) =>
     readdirSync(join(CONTENT, locale)).filter((file) => file.endsWith('.mdx')).map((file) => {
       const head = /^---\n([\s\S]*?)\n---/.exec(readFileSync(join(CONTENT, locale, file), 'utf8'))?.[1] ?? '';
-      const field = (name: string) => new RegExp(`^${name}:\\s*'?([^'\\n]+?)'?\\s*$`, 'm').exec(head)?.[1];
+      // A line scan, not a regex built from `name`: the field names are ours, but a
+      // constructed pattern is what the SAST gate rightly flags.
+      const field = (name: string) => {
+        const line = head.split('\n').find((l) => l.startsWith(`${name}:`));
+        return line?.slice(name.length + 1).trim().replace(/^'|'$/g, '') || undefined;
+      };
       return { locale, slug: file.replace(/\.mdx$/, ''), cover: field('cover'), translationSlug: field('translationSlug') };
     }),
   );
