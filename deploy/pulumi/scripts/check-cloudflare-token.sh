@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# Can a stack's Cloudflare token manage these zones? Answers it against the API,
+# per zone: can the token see the zone (and what is its id), read its records,
+# write one, and read the redirect rules the baseline stack owns.
+#
+#   deploy/pulumi/scripts/check-cloudflare-token.sh [--stack dev|prod] [--read-only] [zone ...]
+#
+# The token is CLOUDFLARE_API_TOKEN when set, otherwise the stack's own
+# `cloudflareApiToken`, read with `pulumi config get` (needs `pulumi login` with
+# access to the stack). It is not in the cluster: Pulumi writes the records, not
+# a pod. Zones default to the brand's domain (packages/brand/identity.json) and
+# the domain prod serves today (Pulumi.prod.yaml `dnsZoneName`): the two a domain
+# move needs one token to edit (docs/deployment/domain-cutover.md).
+#
+# The write check adds a TXT record `_token-check-<random>.<zone>` and deletes it
+# again at once; --read-only skips it. Needs curl and jq. Exit 1 when any zone
+# fails a check.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
+API="https://api.cloudflare.com/client/v4"
+STACK="dev"
+READ_ONLY=0
+ZONES=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --stack) STACK="$2"; shift 2 ;;
+    --read-only) READ_ONLY=1; shift ;;
+    -h|--help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) ZONES+=("$1"); shift ;;
+  esac
+done
+
+for tool in curl jq; do
+  command -v "$tool" >/dev/null || { echo "needs $tool on the PATH" >&2; exit 2; }
+done
+
+if [[ ${#ZONES[@]} -eq 0 ]]; then
+  ZONES+=("$(jq -r .domain "$ROOT/packages/brand/identity.json")")
+  ZONES+=("$(sed -n "s/^  $(sed -n 's/^name: *//p' "$HERE/Pulumi.yaml"):dnsZoneName: *//p" "$HERE/Pulumi.prod.yaml" | tr -d "\"'")")
+fi
+
+TOKEN="${CLOUDFLARE_API_TOKEN:-}"
+PROJECT="$(sed -n 's/^name: *//p' "$HERE/Pulumi.yaml")"
+if [[ -z "$TOKEN" ]]; then
+  echo "reading $PROJECT:cloudflareApiToken from stack '$STACK'"
+  TOKEN="$(cd "$HERE" && pulumi config get "$PROJECT:cloudflareApiToken" --stack "$STACK")"
+fi
+
+# GET/POST/DELETE against the API; prints the body, never the token.
+cf() {
+  local method="$1" path="$2" body="${3:-}"
+  curl -sS -X "$method" "$API$path" \
+    -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+    ${body:+--data "$body"}
+}
+errors() { jq -r '[.errors[]? | "\(.code) \(.message)"] | join("; ")'; }
+
+echo
+echo "== token"
+verify="$(cf GET /user/tokens/verify)"
+if [[ "$(jq -r .success <<<"$verify")" == "true" ]]; then
+  jq -r '.result | "status \(.status), expires \(.expires_on // "never")"' <<<"$verify"
+else
+  # An account-owned token cannot call the user endpoint; the zone checks below still decide.
+  echo "not a user token, or not valid: $(errors <<<"$verify")"
+fi
+
+failed=0
+for zone in "${ZONES[@]}"; do
+  echo
+  echo "== $zone"
+  zones="$(cf GET "/zones?name=$zone")"
+  id="$(jq -r '.result[0].id // empty' <<<"$zones")"
+  if [[ -z "$id" ]]; then
+    echo "FAIL  the token cannot see this zone. $(errors <<<"$zones")"
+    echo "      Cloudflare → My Profile (or the account) → API Tokens → this token → Edit →"
+    echo "      Zone Resources: add $zone. The token's value does not change."
+    failed=1
+    continue
+  fi
+  jq -r '.result[0] | "ok    visible: zone id \(.id), status \(.status), account \(.account.name), nameservers \(.name_servers | join(" "))"' <<<"$zones"
+
+  records="$(cf GET "/zones/$id/dns_records?per_page=500")"
+  if [[ "$(jq -r .success <<<"$records")" != "true" ]]; then
+    echo "FAIL  DNS read: $(errors <<<"$records")"
+    failed=1
+    continue
+  fi
+  echo "ok    DNS read: $(jq '.result | length' <<<"$records") records"
+  jq -r '.result | sort_by(.name, .type)[] | "        \(.type)\t\(.name)\t\(.content)\(if .proxied then "  (proxied)" else "" end)"' <<<"$records"
+
+  if [[ "$READ_ONLY" -eq 0 ]]; then
+    probe="_token-check-$RANDOM$RANDOM.$zone"
+    created="$(cf POST "/zones/$id/dns_records" \
+      "$(jq -nc --arg n "$probe" '{type:"TXT", name:$n, content:"\"token check, deleted at once\"", ttl:60}')")"
+    probe_id="$(jq -r '.result.id // empty' <<<"$created")"
+    if [[ -z "$probe_id" ]]; then
+      echo "FAIL  DNS edit: $(errors <<<"$created"). The token needs Zone → DNS → Edit on $zone."
+      failed=1
+    else
+      deleted="$(cf DELETE "/zones/$id/dns_records/$probe_id")"
+      if [[ "$(jq -r .success <<<"$deleted")" == "true" ]]; then
+        echo "ok    DNS edit: created and deleted $probe"
+      else
+        echo "WARN  DNS edit: created $probe but could not delete it: $(errors <<<"$deleted"). Delete it by hand."
+      fi
+    fi
+  fi
+
+  # Only the stack with dnsZoneBaseline writes this ruleset (the www redirect). 404 is
+  # "none yet", which still proves the permission; 403 is the permission missing.
+  code="$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN" \
+    "$API/zones/$id/rulesets/phases/http_request_dynamic_redirect/entrypoint")"
+  case "$code" in
+    200) echo "ok    redirect rules: readable, a ruleset exists" ;;
+    404) echo "ok    redirect rules: readable, none yet" ;;
+    *)   echo "WARN  redirect rules: HTTP $code. Only the zone-baseline stack (prod) needs Zone → Dynamic URL Redirects → Edit." ;;
+  esac
+done
+
+echo
+if [[ "$failed" -eq 0 ]]; then
+  echo "The token can manage every zone above."
+else
+  echo "The token cannot manage every zone above; see FAIL."
+fi
+exit "$failed"

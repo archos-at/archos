@@ -97,7 +97,7 @@ function onStack(): Record<string, string> {
     [key("mcpGatewaySessionKey")]: SESSION_KEY,
     [key("loadBalancerIp")]: "203.0.113.10",
     [key("dnsEnabled")]: "true",
-    [key("dnsZoneId")]: "zone-abc123",
+    [key("dnsZoneId")]: "00000000000000000000000000abc123",
     [key("dnsZoneName")]: "example.test",
     [key("cloudflareApiToken")]: "cf-token", // pragma: allowlist secret
   };

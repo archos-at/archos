@@ -642,7 +642,7 @@
   "deploy/migration/chroma_export.py": 2,
   "deploy/migration/tests/test_chroma_export.py": 7,
   "deploy/posthog/support/reply-poke.hog": 1,
-  "deploy/pulumi/Pulumi.dev.yaml": 131,
+  "deploy/pulumi/Pulumi.dev.yaml": 136,
   "deploy/pulumi/Pulumi.prod.yaml": 146,
   "deploy/pulumi/Pulumi.yaml": 2,
   "deploy/pulumi/index-chroma-migration.spec.ts": 4,
