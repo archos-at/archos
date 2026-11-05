@@ -238,11 +238,13 @@ def reference_values(terms: list[str]) -> list[str]:
     """``terms`` as the ``references`` values a document carries, through the pushdown ``knowledge_search`` uses.
 
     A ``kind:key`` token (``norm:önorm b 1600``, the projection's own spelling)
-    is taken as it stands; anything else is read as a person names a reference
+    is taken in every spelling a document can have stored it under
+    (``references.spellings``); anything else is read as a person names a reference
     (``prefilter.plan``: ``references.reference_keys_for``, then
     ``payload.reference_value``). Any of the terms, so the values are their union.
     """
     from knowledge_layer.references import KINDS
+    from knowledge_layer.references import spellings
     from knowledge_layer.vector_store import prefilter
     from knowledge_layer.vector_store import reference_value
 
@@ -250,7 +252,7 @@ def reference_values(terms: list[str]) -> list[str]:
     for term in terms:
         kind, sep, key = term.partition(":")
         if sep and kind in KINDS and key.strip() == key and key:
-            values.append(reference_value(kind, key))
+            values.extend(reference_value(kind, spelling) for spelling in spellings(kind, key))
             continue
         pushdown = prefilter.plan(doc_class=None, folder=None, file_name=None, refers_to=term)
         values.extend(pushdown.references)

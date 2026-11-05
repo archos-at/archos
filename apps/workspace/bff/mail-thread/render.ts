@@ -74,7 +74,7 @@ const MIN_FOLD_CHARS = 20
 const FOLD_RESIDUE_PER_ENTRY = 200
 
 /**
- * Who wrote a forwarded message, as the forward said (migration 0196): the
+ * Who wrote a forwarded message, as the forward said (migration 0198): the
  * heading names them, and the sender becomes the line „Weitergeleitet von“.
  */
 export interface MailThreadAuthor {

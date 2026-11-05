@@ -328,7 +328,7 @@ export function describeScreenedOut(
 ): string | null {
   if (screenedOut.length === 0) return null
   return t('errors.screenedOut', {
-    count: String(screenedOut.length),
+    count: screenedOut.length,
     files: screenedOut
       .slice(0, 3)
       .map(({ file, matches }) =>

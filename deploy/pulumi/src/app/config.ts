@@ -27,7 +27,7 @@ export interface AppWiring {
   seaweedPublicEndpoint: pulumi.Output<string>;
   /** Office → PDF converter URL (set when cfg.gotenberg.enabled, ADR-0070). */
   gotenbergUrl?: pulumi.Output<string>;
-  /** clamd's `tcp://` URL (set when cfg.malwareScan.enabled, ADR-0152). */
+  /** clamd's `tcp://` URL (set when cfg.malwareScan.enabled, ADR-0157). */
   malwareScanUrl?: pulumi.Output<string>;
   /** The Qdrant cluster's client URL (ADR-0115): the one vector store, so there is no embedded one. */
   qdrantUrl: pulumi.Output<string>;
@@ -44,15 +44,15 @@ export const SECRET_NAME = objectName("appSecret"); // pragma: allowlist secret 
 export const PULL_SECRET_NAME = objectName("registryPullSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
 /**
- * dockerconfigjson pull Secret for the app namespace, created only when
- * registry credentials are configured (private app images). Every app pod
- * spec references it via imagePullSecrets; the data tier pulls public
- * upstream images and needs nothing.
+ * dockerconfigjson pull Secret for a namespace (the app's; the CMS's own copy is
+ * `resourceName` "cms-registry-pull"), created only when registry credentials are
+ * configured (private images); pod specs reference it via imagePullSecrets.
  */
 export function buildRegistryPullSecret(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
+  resourceName = logicalName("grid-registry-pull"), dependsOn: pulumi.Resource[] = [],
 ): k8s.core.v1.Secret | undefined {
   const creds = cfg.images.pullCredentials;
   if (!creds) return undefined;
@@ -71,13 +71,13 @@ export function buildRegistryPullSecret(
     }),
   );
   return new k8s.core.v1.Secret(
-    logicalName("grid-registry-pull"),
+    resourceName,
     {
       metadata: { name: PULL_SECRET_NAME, namespace },
       type: "kubernetes.io/dockerconfigjson",
       stringData: { ".dockerconfigjson": dockerConfigJson },
     },
-    { provider },
+    { provider, dependsOn },
   );
 }
 
@@ -585,7 +585,7 @@ export function frontendEnv(w: AppWiring): EnvVar[] {
     // komoot's public Photon unless the stack names another. Empty ⇒ the route
     // answers `enabled: false` and the address stays a plain text field.
     ...(cfg.geocoderUrl ? [{ name: "GEOCODER_URL", value: cfg.geocoderUrl }] : []),
-    // The malware scanner (ADR-0152): the in-cluster clamd, never anything
+    // The malware scanner (ADR-0157): the in-cluster clamd, never anything
     // else. Inherited by the bff-jobs pool, whose receive jobs scan what
     // arrives; the request path scans an original before serving it. Absent ⇒
     // every scan fails `not-configured`, and nothing waiting on one is filed.

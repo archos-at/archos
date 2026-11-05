@@ -235,7 +235,7 @@ export interface MailOriginRow {
   sentAt: Date
   receivedAt: Date
   senderName: string | null
-  /** A forwarded message's original author (migration 0196); both null when it was not forwarded. */
+  /** A forwarded message's original author (migration 0198); both null when it was not forwarded. */
   authorName: string | null
   authorAddress: string | null
   signerDomain: string | null

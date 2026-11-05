@@ -6,7 +6,7 @@
  * a verified writer's mail is filed as that writer, re-checked as them, and
  * whatever it cannot file waits and is announced. Each case breaks one step of
  * a mail that would otherwise be filed. What the database refuses whatever this
- * job does is `scripts/rls-test-db.sh`'s 0195 section; the whole path against
+ * job does is `scripts/rls-test-db.sh`'s 0197 section; the whole path against
  * Postgres is `review-first.e2e.spec.ts`.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'

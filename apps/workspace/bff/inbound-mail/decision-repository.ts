@@ -53,7 +53,7 @@ export interface MailDecisionWrite {
 /** Who decided and how, the same for every row of one request. */
 export interface DecisionActor {
   decidedBy: string
-  /** `sender`: a verified writer's own mail, filed as them without a click (migration 0195). */
+  /** `sender`: a verified writer's own mail, filed as them without a click (migration 0197). */
   via: 'app' | 'agent' | 'agent_proposal' | 'sender'
   proposalId: string | null
 }
@@ -85,7 +85,7 @@ export interface DecisionsWritten {
  *    has the job that files it and a job never reads a decision that is not there.
  *
  * The database holds the rest: a claim needs a `file` decision about that very
- * part, a clean scan, a person's id (migration 0194).
+ * part, a clean scan, a person's id (migration 0196).
  */
 export async function writeMailDecisions(
   writes: readonly MailDecisionWrite[],
@@ -223,7 +223,7 @@ export async function restoreMailParts(
     const restorable = (await findMailParts([mailId], tx)).filter(
       (part) =>
         (part.state === 'dismissed' || part.state === 'expired') &&
-        // An outsider's mail that ran out is discarded, never restored (migration 0195 refuses it too).
+        // An outsider's mail that ran out is discarded, never restored (migration 0197 refuses it too).
         !(part.state === 'expired' && expiryIsFinal(mail)) &&
         part.endedAt !== null &&
         new Date(part.endedAt) > restorableAfter &&

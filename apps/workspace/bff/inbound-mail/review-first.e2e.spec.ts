@@ -3,7 +3,7 @@
  *
  * The dynamic ratchet of review-first (DECISION §10, ratchet 3, its no-follow
  * half), as ADR-0137's amendment of 2026-11-03 left it, against a REAL
- * Postgres with migrations 0194 and 0195 through the restricted runtime role
+ * Postgres with migrations 0196 and 0197 through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \

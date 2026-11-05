@@ -17,6 +17,7 @@ import { RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { RaisedCard, RaisedCardBody } from '@/components/ui/raised-card'
 import { ProjectReindexCard } from '@/features/projects/components/project-reindex-card'
+import { SectionLabel } from '@/components/ui/section-label'
 
 export default function ProjectReindexDevPage(): JSX.Element {
   return (
@@ -32,7 +33,7 @@ export default function ProjectReindexDevPage(): JSX.Element {
       <ProjectReindexCard projectId="preview-project" />
 
       <div className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">While it runs</p>
+        <SectionLabel as="p">While it runs</SectionLabel>
         <RaisedCard aria-label="Knowledge index, in flight">
           <RaisedCardBody className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">

@@ -180,7 +180,7 @@ export async function queueReceiveJob(
 /**
  * A reception that turned out to be a second delivery, or failed half way:
  * its object was erased (or never written), so the row stops naming it. The
- * row stays `receiving`; DELETE is not the app's (migration 0194), and sweep 1
+ * row stays `receiving`; DELETE is not the app's (migration 0196), and sweep 1
  * deletes it once it is fifteen minutes old.
  */
 export async function forgetReceptionObject(mailId: string): Promise<void> {

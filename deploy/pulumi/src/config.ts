@@ -13,6 +13,7 @@ import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./
 import { type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
 import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
+import { type CmsConfig, loadCms } from "./config/cms";
 import { refuseInClusterAppArchive } from "./config/barman-backups";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
@@ -23,6 +24,7 @@ import {
   loadQdrant,
   refuseRetiredVectorKeys,
 } from "./config/qdrant";
+import { type McpGatewayConfig, loadMcpGateway } from "./config/mcp-gateway";
 import { bool, nodeGroup, num } from "./config/readers";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
@@ -189,7 +191,7 @@ export interface DeployConfig {
   geocoderUrl: string;
 
   /**
-   * The malware scanner (ADR-0152, `app/clamav.ts`): clamd with freshclam,
+   * The malware scanner (ADR-0157, `app/clamav.ts`): clamd with freshclam,
    * scanning what strangers send before anyone may file or download it. The
    * frontend and the bff-jobs pool get `MALWARE_SCAN_URL` exactly when
    * this is on; off, every scan fails closed with `not-configured`, and nothing
@@ -389,6 +391,10 @@ export interface DeployConfig {
    */
   langfuse: LangfuseConfig;
 
+  /** The website's CMS, Payload in namespace `cms` (ADR-0155, `config/cms.ts`). */
+  cms: CmsConfig;
+  /** The platform MCP gateway (ADR-0154, `config/mcp-gateway.ts`). */
+  mcpGateway: McpGatewayConfig;
 }
 
 export function loadConfig(): DeployConfig {
@@ -428,6 +434,7 @@ export function loadConfig(): DeployConfig {
   rejectPlaceholder("letsEncryptEmail", ["example.com"]);
   rejectPlaceholder("langfuseDomain", ["example.com"]);
   rejectPlaceholder("qdrantDashboardDomain", ["example.com"]);
+  rejectPlaceholder("cmsDomain", ["example.com"]);
 
   // The BFF clamps a nonsense threshold back to 80 rather than switching the
   // warning off, which is the right runtime behaviour and a terrible deploy-time
@@ -497,6 +504,8 @@ export function loadConfig(): DeployConfig {
   const langfuse = loadLangfuse(cfg, baseDomain, missingOidcDeps, observabilityFlag);
 
   const qdrantDashboard = loadQdrantDashboard(cfg, baseDomain, missingOidcDeps);
+  const cms = loadCms(cfg, baseDomain);
+  const mcpGateway = loadMcpGateway(cfg, baseDomain, appServices.auth.workosAuthkitDomain, langfuse.enabled);
 
   // ── Public DNS (Cloudflare) ────────────────────────────────────────────────
   //
@@ -511,6 +520,8 @@ export function loadConfig(): DeployConfig {
     s3Domain,
     langfuseDomain: langfuse.enabled ? langfuse.domain : undefined,
     qdrantDashboardDomain: qdrantDashboard.enabled ? qdrantDashboard.domain : undefined,
+    cmsDomain: cms.enabled ? cms.domain : undefined,
+    mcpGatewayDomain: mcpGateway.enabled ? mcpGateway.domain : undefined,
   });
 
   const posthog = loadPosthog(cfg, observabilityFlag);
@@ -606,6 +617,9 @@ export function loadConfig(): DeployConfig {
     observability,
 
     langfuse,
+
+    cms,
+    mcpGateway,
   };
 }
 

@@ -204,6 +204,10 @@ describe('fileFormatMessage', () => {
     expect(label(tDe, { filename: 'Notiz.md' })).toBe('Markdown')
     expect(label(tDe, { filename: 'Haus.ifc' })).toBe('IFC-Modell')
     expect(label(tEn, { filename: 'Haus.ifc' })).toBe('IFC model')
+    expect(label(tDe, { filename: 'Katasterauszug.dxf', contentType: 'application/dxf' })).toBe('CAD-Datei (DXF)')
+    // A DXF a CAD machine typed as an image is still a CAD file, never "Bild (VND.DXF)".
+    expect(label(tDe, { filename: 'Lageplan', contentType: 'image/vnd.dxf' })).toBe('CAD-Datei (DXF)')
+    expect(label(tEn, { filename: 'Katasterauszug.dxf' })).toBe('CAD file (DXF)')
   })
 
   it('labels images by their format, normalising the spellings', () => {

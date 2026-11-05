@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * The E-Mail-Eingang's retention sweeps (`./sweep.ts`, DECISION §5) against a
- * REAL Postgres with migration 0194, through the restricted runtime role
+ * REAL Postgres with migration 0196, through the restricted runtime role
  * (`scripts/rls-test-db.sh`):
  *
  *   TEST_DATABASE_URL=postgres://app_rw@host:port/app \
@@ -170,9 +170,9 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     status?: 'receiving' | 'received' | 'waiting' | 'settled' | 'dropped'
     trust?: 'external_verified' | 'external_unverified' | 'member_verified'
     senderUserId?: string | null
-    /** The class a seed held mail carries (migration 0195); by default what its trust allows short of a writer. */
+    /** The class a seed held mail carries (migration 0197); by default what its trust allows short of a writer. */
     senderClass?: 'office_member' | 'external' | 'unverified_writer'
-    /** The sender flags a seed held mail carries, e.g. `sender_unchecked` (migration 0197). */
+    /** The sender flags a seed held mail carries, e.g. `sender_unchecked` (migration 0199). */
     senderFlags?: readonly string[]
     raw?: boolean
     read?: boolean
@@ -199,7 +199,7 @@ describe.skipIf(!url)('the E-Mail-Eingang’s sweeps against Postgres', () => {
     const trust = shown ? (seed.trust ?? 'external_verified') : null
     const reason = trust === null ? null : trust.endsWith('_verified') ? 'dkim_pass' : 'dkim_none'
     const userId = trust === 'member_verified' ? (seed.senderUserId ?? MANAGER) : null
-    // Inserted held, as only a seed does: a verified writer's class is the hold's alone (migration 0195).
+    // Inserted held, as only a seed does: a verified writer's class is the hold's alone (migration 0197).
     const senderClass = trust === null ? null : (seed.senderClass ?? (trust.startsWith('member_') ? 'office_member' : 'external'))
     const raw = seed.raw ?? status !== 'settled'
     const read = seed.read ?? open

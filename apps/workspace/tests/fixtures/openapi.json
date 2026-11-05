@@ -4444,7 +4444,7 @@
       "get": {
         "operationId": "document-download",
         "summary": "Get a time-limited download link for a document",
-        "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
+        "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), for a person who wants it printed or attached. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
         "tags": [
           "documents"
         ],
@@ -4458,6 +4458,19 @@
               "description": "The document id, from document-list or workspace-search."
             },
             "description": "The document id, from document-list or workspace-search."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file.",
+              "type": "string",
+              "enum": [
+                "pdf"
+              ]
+            },
+            "description": "pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file."
           }
         ],
         "responses": {
@@ -14018,6 +14031,86 @@
         }
       }
     },
+    "/api/quarantine/decisions": {
+      "post": {
+        "operationId": "quarantine-decide",
+        "summary": "Allow, delete or recheck several held documents at once",
+        "description": "A reviewer decides about up to 50 held documents from quarantine-list in one call: `allow` reads each like any other upload, `delete` removes each for good, `recheck` screens each again with the rules in force now (a match holds it again). Every document is checked on its own; the answer is `results`, one `{ id, outcome }` per document, the outcome one of allowed, rechecking, deleted, changed (someone decided first), not_found, forbidden or failed (`changed` when someone decided first). The decision cannot be taken back.",
+        "tags": [
+          "review"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "allow",
+                      "delete",
+                      "recheck"
+                    ],
+                    "description": "allow: read each like any other upload. delete: remove each for good. recheck: screen each again with the rules in force now; a match holds it again."
+                  },
+                  "documentIds": {
+                    "description": "The held documents, at most 50, as quarantine-list names them.",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    }
+                  }
+                },
+                "required": [
+                  "decision",
+                  "documentIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-piloti-sensitivity": "control",
+        "x-mcp-annotations": {
+          "title": "Allow, delete or recheck several held documents at once",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/agent-asks/{id}/cancel": {
       "post": {
         "operationId": "agent-ask-cancel",
@@ -21446,7 +21539,7 @@
       "post": {
         "operationId": "bim-model-query",
         "summary": "Ask a structured question of a BIM model",
-        "description": "Run one deterministic query against one model, as numbers and rows rather than prose: the body is a closed vocabulary selected by `op` (overview, health, schedule, compliance, compliance-diff, profile, takeoff, compare, types, elements, element, properties, aggregate). Use it for every count, sum and filter (\"how many external walls on the ground floor\"); never estimate such answers. Changes nothing. Get the model id from bim-model-list.",
+        "description": "Run one deterministic query against one model, as numbers and rows rather than prose: the body is a closed vocabulary selected by `op` (overview, health, schedule, compliance, compliance-diff, profile, takeoff, compare, types, elements, element, properties, aggregate). Use it for every count, sum and filter (\"how many external walls on the ground floor\"); never estimate such answers. Start with `overview` and copy storey names from it exactly; read `properties` before filtering on a property you have not seen. A missing value is a fact about the export, not the building, and a compliance result reads published values only: it is never a statement that the building complies. For a number the export does not state (a clear height, a sill height, an area without a published quantity) use ifc-measure. Changes nothing. Get the model id from bim-model-list.",
         "tags": [
           "bim"
         ],
@@ -24925,6 +25018,308 @@
           "title": "Turn zero data retention on or off",
           "readOnlyHint": false,
           "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/release-notes": {
+      "get": {
+        "operationId": "release-note-list",
+        "summary": "List what changed in the product, week by week",
+        "description": "The release notes members read under What’s new: every change to the product, newest week first, each with its section (features, improvements, fixes, deprecations, upgrade, other), its product area and its text in English and German, plus the week’s summary once written. Page by weeks with `limit` and `nextCursor`; narrow to one area with `area`, and `areas` in the answer counts the changes per area. The same for every organization. Use it to answer whether the product can do something now, or what changed since a date.",
+        "tags": [
+          "organization"
+        ],
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Only the changes in this product area; omit for every area.",
+              "type": "string",
+              "enum": [
+                "projects",
+                "documents",
+                "answers",
+                "search",
+                "building-law",
+                "bim",
+                "collaboration",
+                "tasks",
+                "office-knowledge",
+                "administration",
+                "agents",
+                "general"
+              ]
+            },
+            "description": "Only the changes in this product area; omit for every area."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 4,
+              "description": "Weeks per page, newest first (default 4, most 26).",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 26
+            },
+            "description": "Weeks per page, newest first (default 4, most 26)."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous `nextCursor`: the page starts with the week after it.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "description": "The previous `nextCursor`: the page starts with the week after it."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List what changed in the product, week by week",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/release-notes/notice-preference": {
+      "get": {
+        "operationId": "release-summary-notice-get",
+        "summary": "Read whether the person wants the weekly summary notice",
+        "description": "Whether the app shows the person the newest weekly summary once, in a notice, as `{ enabled }`.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read whether the person wants the weekly summary notice",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "put": {
+        "operationId": "release-summary-notice-set",
+        "summary": "Turn the weekly summary notice on or off for the person",
+        "description": "Sets `enabled`. Turning it back on records the newest summary as seen, so the notice resumes with the next week published. Returns `{ enabled }`.",
+        "tags": [
+          "organization"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Whether the person is shown the newest weekly summary once, in a notice."
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Turn the weekly summary notice on or off for the person",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/release-notes/seen": {
+      "post": {
+        "operationId": "release-summary-seen-mark",
+        "summary": "Record that the person has seen a weekly summary",
+        "description": "Records `week` (from release-summary-unseen-get) as seen, so the app’s notice does not show it again on any device; `stop: true` also turns the notice off, as release-summary-notice-set does. Never moves back to an older week; a week without a published summary is refused.",
+        "tags": [
+          "organization"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "week": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+                    "description": "The week whose summary the person has seen, `2026-W44`, from release-summary-unseen-get."
+                  },
+                  "stop": {
+                    "description": "Also turn the weekly notice off for good, as the notice’s “Don’t show again” button does.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "week"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Record that the person has seen a weekly summary",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/release-notes/unseen-summary": {
+      "get": {
+        "operationId": "release-summary-unseen-get",
+        "summary": "Read the newest weekly summary the person has not seen",
+        "description": "The newest week’s release-notes summary, in English and German, when the person has not seen it yet; `{ summary: null }` once they have, or when the newest week has no summary. What the app’s notice shows. To read the summaries themselves, use release-note-list.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read the newest weekly summary the person has not seen",
+          "readOnlyHint": true,
+          "destructiveHint": false,
           "idempotentHint": true,
           "openWorldHint": false
         }

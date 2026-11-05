@@ -10,7 +10,7 @@
  *   compare-and-set on the state discovery saw, so a person or a job that
  *   moved the row in between wins and the sweep changes nothing.
  * - **Deletes** (`delete…`) run as the platform role, because DELETE is revoked
- *   from the runtime role on these tables (migration 0194, „Ending is a
+ *   from the runtime role on these tables (migration 0196, „Ending is a
  *   state“). Each repeats its whole condition, the legal hold included.
  *
  * **Legal hold is a filter, the trigger the backstop (RT-S20).** Every set
@@ -356,7 +356,7 @@ export async function recordRawRescan(mailId: string, scan: StoredScan): Promise
 /** How long after the reader last failed a text is read again. */
 export const REREAD_AFTER_MS = 15 * 60 * 1000
 
-/** A waiting mail whose text the Python reader did not answer for (`reader_fault_at`, migration 0197). */
+/** A waiting mail whose text the Python reader did not answer for (`reader_fault_at`, migration 0199). */
 export interface UnreadText {
   id: string
   organizationId: string

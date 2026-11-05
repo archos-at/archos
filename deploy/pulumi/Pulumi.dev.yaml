@@ -164,6 +164,12 @@ config:
   grid-oib:ingestWorkerMaxReplicas: "3"
   grid-oib:ingestWorkerConcurrency: "2"
   grid-oib:ingestWorkerDrainSeconds: "180"
+  # No high-memory pool on staging: its pod requests 12Gi, which the 16 GB app
+  # nodes here (no batch node group) never had free, so from 2026-11-03 every
+  # deploy waited 37 minutes on an unschedulable `ingest-worker-heavy` pod and
+  # failed before anything else rolled out. Off, every file goes to the standard
+  # pool (ingestHeavyFileBytes becomes 0), which is how staging ran before #1465.
+  grid-oib:ingestWorkerHeavyEnabled: "false"
   # Staging is meant to be re-creatable, so the data resources are NOT protected
   # here — `pulumi destroy` must work without a manual unprotect. Prod keeps the
   # default (true).
@@ -265,6 +271,14 @@ config:
   # or duplicate stays closed when its error recurs; completed ones reopen).
   grid-oib:err2issueEnabled: "true"
   grid-oib:err2issueGithubRepo: GRID-check/grid-oib-agent
+  # ── The website's CMS (ADR-0155) ──
+  # Payload at cms.<baseDomain> (cms.dev.piloti.at), its own namespace, the
+  # cms-pg cluster and the cms-files bucket. Its secrets default to one-way
+  # HMACs of pgAppPassword, so nothing new goes into ESC. The first admin is
+  # letsEncryptEmail; its password is CMS_ADMIN_PASSWORD in the `cms-env`
+  # Secret of namespace `cms`. cms-pg's PITR archive (cmsPgBackupsEnabled) is
+  # off until an off-cluster bucket exists: staging's posts are the MDX import.
+  grid-oib:cmsEnabled: "true"
   # ── Feedback → GitHub issues ──
   # Bug reports from the in-app feedback form are filed as issues by the BFF,
   # with the err2issue PAT and repo above (feedbackIssuesEnabled defaults on).

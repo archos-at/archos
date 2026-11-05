@@ -15,7 +15,7 @@ reader cannot disagree:
 * ``mail_origin`` on an attachment: the message it came with. ``sent_at``,
   ``received_at``, the sender's display name and domains, the ``sender_trust``
   the receive step established, the Verlauf's BFF id and the thread's locale.
-  A forwarded message (migration 0196) names its AUTHOR in ``from_*`` and the
+  A forwarded message (migration 0198) names its AUTHOR in ``from_*`` and the
   time they wrote it in ``sent_at``, and its forwarder in ``forwarded_by_name``,
   ``forwarded_by_domain`` and ``forwarded_at``: a citation says who wrote it
   and when, and who brought it into the project.

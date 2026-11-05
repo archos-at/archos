@@ -88,6 +88,7 @@ EXCLUDED = re.compile(
             r"(^|/)migrations/|^apps/workspace/migrations/",  # Alembic and Drizzle history, written once
             r"(^|/)i18n/dictionaries/",  # copy, where the name belongs
             r"^apps/website/src/data/changelog\.json$",  # generated from releasenotes/, excluded above
+            r"^apps/workspace/bff/release-notes/release-notes\.generated\.json$",  # the same, the app's copy
             r"^packages/brand/signatures/",  # email signatures, generated from identity.json
             r"(^|/)public/",  # published assets: their URLs are public
             r"(^|/)(uv\.lock|bun\.lockb?|package-lock\.json|apm\.lock\.yaml)$",  # rendered from manifests

@@ -600,7 +600,7 @@ describe('appending to a thread', () => {
     )
   })
 
-  describe('a forward whose original the project already filed (B2, migration 0196)', () => {
+  describe('a forward whose original the project already filed (B2, migration 0198)', () => {
     const forward = (ownText: string) =>
       request({
         mail: heldMail({

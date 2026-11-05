@@ -159,14 +159,17 @@ describe("the hatchet-ha release", () => {
   });
 
   it("runs two replicas of each backend component, with a PDB, spread across nodes and explicit resources", () => {
-    for (const key of ["api", "grpc", "controllers", "scheduler"]) {
+    const names: Record<string, string> = { api: "hatchet-api", grpc: "hatchet-grpc", controllers: "controllers", scheduler: "scheduler" };
+    for (const key of Object.keys(names)) {
       const c = values()[key];
       expect(c.replicaCount, key).toBe(2);
       expect(c.podDisruptionBudget, key).toEqual({ maxUnavailable: 1 });
-      expect(c.nameOverride, key).toBe(`hatchet-${key}`);
+      expect(c.nameOverride, key).toBe(names[key]);
+      // The chart names the container port after it; Kubernetes refuses a port name over 15 characters.
+      expect(c.nameOverride.length, key).toBeLessThanOrEqual(15);
       expect(c.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm, key).toEqual({
         topologyKey: "kubernetes.io/hostname",
-        labelSelector: { matchLabels: { "app.kubernetes.io/name": `hatchet-${key}` } },
+        labelSelector: { matchLabels: { "app.kubernetes.io/name": names[key] } },
       });
       expect(c.resources.requests.memory, key).toBe(c.resources.limits.memory);
       expect(c.ingress, key).toEqual({ enabled: false });
@@ -246,6 +249,9 @@ describe("RabbitMQ", () => {
     const { metadata, spec } = find("kubernetes:rabbitmq.com/v1beta1:RabbitmqCluster", "hatchet-rabbitmq").inputs;
     expect(metadata).toEqual({ name: "hatchet-rabbitmq", namespace: "background-work" });
     expect(spec.replicas).toBe(3);
+    // Hatchet's tested RabbitMQ, not the operator's default: 4.3 refuses the
+    // x-consumer-timeout Hatchet puts on its classic queues.
+    expect(spec.image).toBe("rabbitmq:4.2.9-management@sha256:d1fb8b38bd0805935907a22b2b7483fba38c9a8dd7e8a74bfba4a6e7a9e91707");
     expect(spec.resources).toEqual({ requests: { cpu: "500m", memory: "512Mi" }, limits: { cpu: "1", memory: "512Mi" } });
     expect(spec.persistence).toEqual({ storageClassName: "premium", storage: "10Gi" });
     const label = { "background-work/component": "rabbitmq" };
@@ -268,8 +274,8 @@ describe("RabbitMQ", () => {
     expect(amqp.from.map((f: any) => f.podSelector.matchLabels["app.kubernetes.io/name"])).toEqual([
       "hatchet-api",
       "hatchet-grpc",
-      "hatchet-controllers",
-      "hatchet-scheduler",
+      "controllers",
+      "scheduler",
     ]);
     expect(policy("allow-rabbitmq-operator").ingress[0]).toEqual({
       from: [{ namespaceSelector: { matchLabels: { "kubernetes.io/metadata.name": "rabbitmq-system" } } }],

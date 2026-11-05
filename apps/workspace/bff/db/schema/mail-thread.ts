@@ -30,7 +30,7 @@ import type {
 import { projects } from './projects'
 
 /**
- * The E-Mail-Verlauf (ADR-0137, migration 0194): one mail conversation filed as
+ * The E-Mail-Verlauf (ADR-0137, migration 0196): one mail conversation filed as
  * one document of the project, the messages filed into it, the Message-IDs it
  * is matched by, and who follows it. The rendition is a pure function of the
  * entries (`lib/mail-thread/render.ts`); each filed message adds a Fassung of
@@ -40,7 +40,7 @@ import { projects } from './projects'
  * that set one column NULL (`document_id`, `continues_thread_id`,
  * `in_reply_to_entry_id`, an attachment's document and Fassung), the message
  * ids' key that moves with its entry (`ON UPDATE CASCADE`) and the trigger
- * that freezes what came with a message live in migration 0194 alone: drizzle
+ * that freezes what came with a message live in migration 0196 alone: drizzle
  * cannot express them.
  */
 
@@ -157,7 +157,7 @@ export const mailThreadEntries = pgTable(
     /**
      * Who wrote a forwarded message (its original's From and Date), as the
      * forward said; the `sender*` columns stay the forwarder's. Attribution,
-     * never verified (migration 0196).
+     * never verified (migration 0198).
      */
     authorAddress: text('author_address'),
     authorName: text('author_name'),

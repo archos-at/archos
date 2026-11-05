@@ -10,7 +10,7 @@
  * - `mail_origin`, on each attachment filed with a message: when and from whom
  *   it came, as the heading says it, so `list_files` and `read_passage` print
  *   „kam mit der E-Mail vom … von …“, with „Domain nicht bestätigt“ unless a
- *   signature confirmed the domain. A forwarded message (migration 0196) is
+ *   signature confirmed the domain. A forwarded message (migration 0198) is
  *   attributed to its author at the time they wrote it, whose domain nothing
  *   confirmed, and names its forwarder in `forwarded_by_*` and `forwarded_at`;
  *   `signer_domain` and `sender_trust` stay the forward's.
@@ -80,7 +80,7 @@ export interface MailIngestMessage {
   senderDomain: string | null
   signerDomain: string | null
   senderTrust: SenderTrust
-  /** Who wrote a forwarded message (migration 0196); the sender is then its forwarder. */
+  /** Who wrote a forwarded message (migration 0198); the sender is then its forwarder. */
   author?: { name: string | null; address: string | null; sentAt: Date | null } | null
 }
 

@@ -5,6 +5,7 @@ import { backendAutoscaled } from '../config/chat-tier'
 import { CLAMAV } from "../clamav-constants";
 import { CHROMA_MIGRATION, EDGE_RATE_LIMIT, GOTENBERG, LANGFUSE, PORT, QDRANT } from "../constants";
 import { KEDA_NAMESPACE, KEDA_OPERATOR_LABEL } from "./keda";
+import { MCP_GATEWAY, MCP_GATEWAY_PORT } from "./mcp-gateway-config";
 import { API_TIERS, CHAT_TIER, CHAT_TIERS } from "../app/tier-names";
 
 /**
@@ -128,6 +129,8 @@ export function installNetworkPolicies(
             ...(cfg.gotenberg.enabled ? [GOTENBERG.name] : []),
             ...(cfg.malwareScan.enabled ? [CLAMAV.name] : []),
             QDRANT.name,
+            // Rule 22 is its one caller; its stats and readiness ports are the kubelet's.
+            ...(cfg.mcpGateway.enabled ? [MCP_GATEWAY.name] : []),
           ],
         },
       ],
@@ -485,13 +488,38 @@ export function installNetworkPolicies(
         })
       : undefined;
 
-  // 22. ClamAV (ADR-0152): the frontend and the bff-jobs pool in. Egress open.
+  // 22. Edge → the platform MCP gateway (ADR-0154), only while
+  //     `mcpGatewayEnabled`. Like rule 10 it only makes the route reachable:
+  //     agentgateway validates the WorkOS token and the organization itself.
+  //     Its listener alone; the stats and readiness ports are the kubelet's.
+  const mcpGatewayPod = { podSelector: { matchLabels: { "app.kubernetes.io/name": MCP_GATEWAY.name } } };
+  const edgeMcpGateway = cfg.mcpGateway.enabled
+    ? mk("allow-edge-to-platform-mcp-gateway", {
+        ...mcpGatewayPod,
+        policyTypes: ["Ingress"],
+        ingress: [{ from: [nsLabel("envoy-gateway-system")], ports: [{ protocol: "TCP", port: MCP_GATEWAY_PORT }] }],
+      })
+    : undefined;
+
+  // 23. The platform MCP gateway → Langfuse web, for `/langfuse/mcp`. Rule 2
+  //     withholds Langfuse from the namespace, so the gateway is named here as
+  //     one more caller, to the web port alone.
+  const mcpGatewayToLangfuse =
+    cfg.mcpGateway.enabled && cfg.langfuse.enabled
+      ? mk("allow-platform-mcp-gateway-to-langfuse", {
+          podSelector: { matchLabels: { "app.kubernetes.io/name": LANGFUSE_WEB } },
+          policyTypes: ["Ingress"],
+          ingress: [{ from: [mcpGatewayPod], ports: [{ protocol: "TCP", port: PORT.langfuseWeb }] }],
+        })
+      : undefined;
+
+  // 23. ClamAV (ADR-0157): the frontend and the bff-jobs pool in. Egress open.
   //
   //     clamd authenticates nobody and its whole job is to open hostile files,
   //     so it is withheld from rule 2: the BFF is its only caller, in the
   //     request path (an original's download is scanned whole) and in the
   //     bff-jobs pool (the receive job scans each attachment and raw message).
-  //     Ingress only, as decided in ADR-0152: freshclam needs DNS and HTTPS to
+  //     Ingress only, as decided in ADR-0157: freshclam needs DNS and HTTPS to
   //     database.clamav.net, a CDN no NetworkPolicy can name, and a port-only
   //     rule would admit the whole internet on 443 anyway.
   //     The kubelet's exec probes are not network traffic.
@@ -535,5 +563,7 @@ export function installNetworkPolicies(
     ...(collectorToQdrant ? [collectorToQdrant] : []),
     ...(edgeQdrant ? [edgeQdrant] : []),
     ...(agentToClickhouse ? [agentToClickhouse] : []),
+    ...(edgeMcpGateway ? [edgeMcpGateway] : []),
+    ...(mcpGatewayToLangfuse ? [mcpGatewayToLangfuse] : []),
   ];
 }

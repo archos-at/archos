@@ -139,6 +139,19 @@ const RENAMED_POSTS = [
 ]
 
 /**
+ * The blog's first two categories, replaced on 2026-11-05 by three (src/lib/categories.ts).
+ * Each listing goes to the category that holds what it held: the journal's posts for
+ * offices to "Praxiserfahrungen", the build log to "Technologie". Post addresses carry no
+ * category, so no post moved.
+ */
+const RETIRED_BLOG_CATEGORIES = [
+  { from: '/blog/journal', to: '/blog/praxiserfahrungen/' },
+  { from: '/blog/bautagebuch', to: '/blog/technologie/' },
+  { from: '/en/blog/journal', to: '/en/blog/from-practice/' },
+  { from: '/en/blog/bautagebuch', to: '/en/blog/technology/' },
+]
+
+/**
  * Old addresses answered 410 for themselves and everything below them: the
  * unlisted press page of the old brand art and its ZIP downloads.
  */
@@ -175,6 +188,7 @@ function primaryRows() {
     }
   }
   for (const post of RENAMED_POSTS) rows.set(post.from, post.to)
+  for (const listing of RETIRED_BLOG_CATEGORIES) rows.set(listing.from, listing.to)
   return rows
 }
 

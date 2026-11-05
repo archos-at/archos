@@ -27,9 +27,9 @@ export const RESTORE_WINDOW_MS = 7 * DAY_MS
  * or at once for a dismissed part of mail from an unconfirmed outside domain
  * (D8: nobody vouched for it, and somebody said no), and at once for an
  * outsider's part that ran out (ADR-0137's amendment: an outsider's mail is
- * discarded after its 14 days, with no restore window; migration 0195 refuses
+ * discarded after its 14 days, with no restore window; migration 0197 refuses
  * the restore too, `inbound_mail_decisions_external_expiry_final`). Not a mail
- * whose sender could not be checked (`sender_unchecked`, migration 0197): it is
+ * whose sender could not be checked (`sender_unchecked`, migration 0199): it is
  * classed `external` for want of a member, may be a member's, and keeps a
  * member's seven days.
  */

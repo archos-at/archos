@@ -18,7 +18,7 @@ from ifc_spatial.cache import hash_bytes
 from ifc_spatial.cache import hash_file
 from ifc_spatial.model import SpatialModel
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SMALL = FIXTURES / "house-with-rooms.ifc"
 OTHER = FIXTURES / "floor-slab-and-window.ifc"
 

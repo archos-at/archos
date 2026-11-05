@@ -45,7 +45,7 @@ export function inboundMailJobId(kind: 'suggest' | 'follow' | 'sender', mailId: 
  * a "no": the job tries again later, and only `degraded` (its budget spent)
  * holds the mail without the answer, flagged `sender_unchecked`, for the
  * project's writers. A `sender_unchecked` mail waits the full 30 days even when
- * no member could be named: it may be a member's (migration 0197 holds it).
+ * no member could be named: it may be a member's (migration 0199 holds it).
  * The flags it returns are the ones to store.
  */
 export async function classified(

@@ -6236,23 +6236,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/features/uploads/components/uploaded-file-row.tsx",
-    "to": "ui/features/documents/components/request-review-button.tsx",
-    "unresolvedTo": "@/features/documents/components/request-review-button",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "feature-deep-import"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/features/uploads/lib/upload-summary.ts",
     "to": "ui/features/documents/lib/document-question.ts",
     "unresolvedTo": "@/features/documents/lib/document-question",

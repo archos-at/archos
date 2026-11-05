@@ -291,7 +291,7 @@ export function ConflictFindings({
               )}
             >
               <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-medium uppercase tracking-wide">
+                <span className="text-xs font-medium">
                   {isHard
                     ? t('intake.consistency.severity.inconsistency')
                     : t('intake.consistency.severity.warning')}

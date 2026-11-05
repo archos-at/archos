@@ -130,7 +130,7 @@ export function deliveryOutcome(status: number, verdict: string | null): Deliver
  * produce: sender trust and its reason, the sender flags, an attachment's risk
  * flags, why a part was not staged, why a mail was dropped. Declared once
  * beside the CHECKs that hold them (`./inbound-mail-vocabulary`, migration
- * 0194) and re-exported here, so the transport modules and the Worker contract
+ * 0196) and re-exported here, so the transport modules and the Worker contract
  * read as one module.
  */
 export {

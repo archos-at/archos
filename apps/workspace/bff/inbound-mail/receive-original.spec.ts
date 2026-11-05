@@ -1,9 +1,9 @@
 // @disk-inputs: bff/inbound-mail/__fixtures__/forwards/15-outlook-forward-as-attachment-rfc822.eml
 /**
- * A forward's original at receive time (migration 0196): what the row records
+ * A forward's original at receive time (migration 0198): what the row records
  * of who wrote it, and that its Message-ID never makes a delivery a duplicate.
  * The parser's own cases are `original-message.spec.ts`; the database's half
- * (the scrub, the plain index) is the 0196 section of `scripts/rls-test-db.sh`.
+ * (the scrub, the plain index) is the 0198 section of `scripts/rls-test-db.sh`.
  */
 
 import { readFileSync } from 'node:fs'

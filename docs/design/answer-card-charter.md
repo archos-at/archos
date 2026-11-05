@@ -154,12 +154,14 @@ Collapse the five chromes to one component with three declared registers. A regi
 
 | Step | Spec | Role |
 |---|---|---|
-| **Eyebrow** | `text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground` — via `SectionLabel`, never hand-rolled | card type, micro-labels, column headers |
+| **Eyebrow** | `text-[10.5px] font-medium text-muted-foreground`, sentence case, no tracking — via `SectionLabel`, never hand-rolled | card type, micro-labels, column headers |
 | **Meta** | 11px / 500 / `tabular-nums` or `font-mono` | ordinals, chips, units, ± bands, counts |
-| **Caption** | 12px / 400 / `leading-relaxed` | details, notes, excerpt attributions |
-| **Body** | 13.5px / 400 / `leading-[1.55]` | every row of every list. The default. |
-| **Title** | 14px / 600 | the card title |
-| **Figure** | 20–30px / 600 / `tabular-nums` | **the one thing the card exists to say** |
+| **Caption** | 12px / 440 / `leading-relaxed` | details, notes, excerpt attributions |
+| **Body** | 16px (`--text-answer`) / 440 / `leading-[1.55]` | every row of every list. The default. |
+| **Title** | 16px (`--text-answer`) / 500 | the card title |
+| **Figure** | 16–30px / 500 / `tabular-nums` | **the one thing the card exists to say** |
+
+*Re-based 2026-11 (Notion #38): Body and Title moved from 13.5 and 14px to the answer's one text size, 16px, and the in-list figure from 15 to 16px (`card-figure-16`); the note closing §C says why. Weights follow the design language (500 content, 440 the light end).*
 
 **The load-bearing rule: each card carries exactly one element above 14px, and it must be the card's answer.** Not its title. Not its icon. Its answer.
 
@@ -639,7 +641,9 @@ There is no visual-regression diffing, no render-time budget and no bundle-size 
 
 The tables were the substance. `comparison_table` rendered **thirteen distinct type treatments, none above 14px**, with its entire content at 12px — the CAPTION step — inside a 16px answer. That is a misreading of this document rather than a limit in it: §A2 defines Body as "every row of every list. The default." and a comparison table's rows are rows of a list. The whole table is now one size, with weight and ink carrying the hierarchy that size had been spending itself on. `typed_table` had the same defect and took the same fix. Only the type scale moved; the transposing mobile layout §C calls the hardest single thing in this charter is untouched and still Pending.
 
-**Note what this sprint did NOT settle.** The ramp tops out at 13.5px Body while the prose it interrupts is 16px (`MarkdownRenderer`, `text-base`), so a migrated card is still systematically smaller than the paragraph above it. Every step is *internally* consistent and *externally* undersized. Whether to re-base the ramp against the prose baseline is a product decision affecting all 35 cards at once, and it is open.
+**Note what this sprint did NOT settle.** The ramp topped out at 13.5px Body while the prose it interrupts is 16px (`MarkdownRenderer`, `text-base`), so a migrated card was still systematically smaller than the paragraph above it. Every step was *internally* consistent and *externally* undersized.
+
+**Settled 2026-11 (Notion #38, „Schriftgrößen im Chat-Output vereinheitlichen“).** The product decision was taken: one size for an answer's text. `--text-answer` (16px, `ui/styles/tokens.css`) is the prose, the lede and standfirst (which lost their 17px step), a block's body (steps, callouts, subsumption parts, which were 15px) and the card ramp's Body and Title. A card's title keeps its rank by weight and ink; a figure inside a list is `card-figure-16`. Kept at their own size, because their size says something: headings, the headline, the 20/24/30 figures, and the Caption, Meta and Eyebrow steps, which are metadata rather than text to read. Tables in the prose stay at 14px for density.
 
 ### Implemented
 *(none)*

@@ -3,7 +3,6 @@
 import type { JSX } from 'react'
 import { Fragment, memo, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import type { FileItem, FolderItem } from '../file-types'
-import type { CardExtras } from '../lib/file-shelf'
 import { CheckSquare, Search, SearchX, FilterX, FolderOpen, Sparkles } from 'lucide-react'
 import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
@@ -170,11 +169,6 @@ interface FileBrowserPaneProps {
    */
   view?: 'cards' | 'list'
   showAssignment?: boolean
-  /**
-   * A shelf's own mark on a card: the Büroablage's gold kind chip and the line
-   * saying where it came from. Cards only — a row has no room for either.
-   */
-  cardExtras?: (file: FileItem) => CardExtras
   /** Per-file rename / delete / download — shown on the card and the list row. */
   renderActions?: (file: FileItem) => ReactNode
   /** Wrap a file card (right-click host). */
@@ -244,7 +238,6 @@ interface FileTileProps {
   locale: string
   match?: FileCardProps['match']
   showAssignment: boolean
-  cardExtras?: (file: FileItem) => CardExtras
   renderActions?: (file: FileItem) => ReactNode
   wrapFile?: (file: FileItem, node: ReactNode) => ReactNode
   draggable: boolean
@@ -269,7 +262,6 @@ const FileTile = memo(function FileTile({
   locale,
   match,
   showAssignment,
-  cardExtras,
   renderActions,
   wrapFile,
   draggable,
@@ -289,7 +281,6 @@ const FileTile = memo(function FileTile({
       locale={locale}
       match={match}
       footerLead={showAssignment ? <AssignmentFaces assignees={file.assignees} /> : undefined}
-      {...cardExtras?.(file)}
       actions={renderActions?.(file)}
       draggable={draggable}
       selection={selecting ? { checked } : undefined}
@@ -317,7 +308,6 @@ export function FileBrowserPane({
   onDropFilesInFolder,
   onFileAim,
   renderActions,
-  cardExtras,
   wrapFile,
   wrapFileRow,
   onViewChange,
@@ -429,7 +419,6 @@ export function FileBrowserPane({
       locale={locale}
       match={extra.match}
       showAssignment={showAssignment}
-      cardExtras={cardExtras}
       renderActions={renderActions}
       wrapFile={wrapFile}
       draggable={liftable}
@@ -669,11 +658,11 @@ export function FileBrowserPane({
   ) : null
 
   return (
-    // `phone:h-auto phone:min-h-full`: the breadcrumb row pins to the top of the
-    // scroll container on a phone, and a sticky box only sticks inside its
-    // parent. At `h-full` the parent is exactly one screen tall and the row
-    // would let go after one screenful.
-    <div className="flex h-full flex-col phone:h-auto phone:min-h-full">
+    // `min-h-full`, not `h-full`: the breadcrumb row pins to the top of the
+    // scroll container, and a sticky box only sticks inside its parent. At
+    // `h-full` the parent is exactly one screen tall and the row would let go
+    // after one screenful.
+    <div className="flex min-h-full flex-col">
       {/* No banner over the results. It restated in a tinted strip what the
           listing below it already shows — how many hits, for which query —
           and it moved the whole listing down a row the moment a search ran.
@@ -1011,7 +1000,7 @@ export function FileBrowserPane({
                   promised recent uploads over a block of folders. A grid child
                   spanning the row, so it falls between the two. */}
               {currentFolderId === null && orderedFiles.length > 0 && (
-                <SectionLabel as="p" className="col-span-full mt-1 font-medium tracking-[0.05em] first:mt-0">
+                <SectionLabel as="p" className="col-span-full mt-1 first:mt-0">
                   {t('browser.recentlyUploaded')}
                 </SectionLabel>
               )}

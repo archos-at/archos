@@ -1,0 +1,21 @@
+---
+features:
+  - >
+    In the quarantine you can now filter held files by what was found, select
+    several or all shown files (up to 50 at a time), and allow, delete or
+    check them again with the current rules in one step.
+improvements:
+  - >
+    When a file is not uploaded because its name contains a sensitive term,
+    the message now offers to upload it anyway; its content is still checked.
+  - >
+    If you may review a held upload, you can view the finding and allow it
+    right in the upload message instead of going to the quarantine first.
+fixes:
+  - >
+    Dates with times in spreadsheets, long order or article numbers and
+    dimension chains in drawings are no longer held as social security or
+    card numbers.
+  - >
+    File names such as Lüftungssteuerung, Personalraum or Feuchtegehalt are
+    no longer stopped as sensitive in offices that use the suggested list.

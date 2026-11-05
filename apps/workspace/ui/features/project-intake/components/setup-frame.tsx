@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { ArrowRight, Check, ChevronDown, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { SectionLabel } from '@/components/ui/section-label'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -145,7 +146,7 @@ export function SetupBar({ projectId, projectName, step, summaries, progress, on
     <header className="bg-background/95 border-border shrink-0 border-b" data-testid="intake-setup-head">
       <div className="hidden h-16 items-center gap-7 px-8 md:flex">
         <div className="w-52 min-w-0 shrink-0">
-          <p className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">{tShell('head.eyebrow')}</p>
+          <SectionLabel as="p">{tShell('head.eyebrow')}</SectionLabel>
           {projectName && <p className="truncate text-[15px] font-medium">{projectName}</p>}
         </div>
         <StepRail step={step} summaries={summaries} onGoTo={onGoTo} />
@@ -176,9 +177,7 @@ export function SetupBar({ projectId, projectName, step, summaries, progress, on
                 step: tShell(`steps.${step}`),
               })}
             >
-              <span className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">
-                {tShell('steps.progress', { current: index + 1, total })}
-              </span>
+              <SectionLabel>{tShell('steps.progress', { current: index + 1, total })}</SectionLabel>
               <span className="flex items-center gap-1 text-[15px] font-medium">
                 {tShell(`steps.${step}`)}
                 <ChevronDown className="text-muted-foreground size-3.5" aria-hidden />

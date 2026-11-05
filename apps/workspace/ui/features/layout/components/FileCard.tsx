@@ -129,7 +129,7 @@ export const FileCard: FC<FileCardProps> = ({ file }) => {
           {/* File Content */}
           {file.content && (
             <div className="mt-2 flex flex-col gap-1">
-              <span className="text-xs font-medium uppercase text-muted-foreground">
+              <span className="text-xs font-medium text-muted-foreground">
                 {t('fileCard.content')}
               </span>
               {shouldRenderMarkdown ? (

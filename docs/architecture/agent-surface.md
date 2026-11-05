@@ -445,6 +445,12 @@ The operator console (`platform` domain, `/api/platform/…`) is GRID's, not an
 office's, and is on no office door, for platform staff neither. It has a second
 MCP server of its own, `POST /api/platform/mcp` (ADR-0126), for platform staff.
 
+The platform door offers the console's own operations. MCP servers that run
+inside the cluster for the team (Langfuse's, and those that follow) are on
+neither door: platform staff reach them through the platform MCP gateway at
+`platform-mcp.<baseDomain>/<server>/mcp`, agentgateway behind Envoy (ADR-0154,
+[`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md)).
+
 | | Office doors (`/api/mcp`, `/api/a2a`) | Platform door (`/api/platform/mcp`) |
 |---|---|---|
 | Offers | every domain but `platform`, the agent read tools | the `platform` domain only (`platform: true` in the exposure config) |
@@ -550,7 +556,8 @@ ceiling.
 | `knowledge_search` | `knowledge-search` |
 | `create_task` | `task-create`, `task-run-commission` |
 | `canvas__mark`, `canvas__update`, `canvas__delete`, `canvas__reply` | `annotation-create`, `annotation-update`, `annotation-delete`, `annotation-reply-create` |
-| `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-query`, `ifc-measure` |
+| `ifc_query`, `ifc_measure` | `bim-model-query`, `ifc-measure` |
+| `dxf_measure` | `dxf-measure` |
 | `read_passage`, `list_files`, `look`, `ris_lookup_tool` | `passage-read`, `files-list`, `document-look`, `law-lookup` |
 
 Both paths stay open for the file operations Piloti also has `propose_file_change`
@@ -599,7 +606,7 @@ own and the page that runs it is the asker's. Regenerate with
 | 3. Workflows and skills | "Brief me on a project"; the office's own skills, found and read by the agent | MCP prompts, `lib/agent-api/door/`; `skill-search` and `skill-get` ([below](#the-offices-skills)) |
 
 The Python-only reads (`knowledge_search`, `read_passage`, `list_files`,
-`look`, `ifc_query`, `ifc_measure`, `ris_lookup`) reach the
+`look`, `ifc_measure`, `dxf_measure`, `ris_lookup`) reach the
 server in phase 2 through an internal backend endpoint, so an external agent
 searches with the retrieval Piloti uses.
 
@@ -1069,13 +1076,13 @@ The catalogued ones, and their class, are the `SENSITIVE` map of
 `agent-reachability.spec.ts`, which fails when an operation carries a sensitivity
 the map does not give it, or none where it does. Since the amendment most of them
 are withheld or on the platform door; the ones still on the office door are the
-`access` class, `document-quarantine-allow` and `hold-release`:
+`access` class, `document-quarantine-allow`, `quarantine-decide` and `hold-release`:
 
 | Class | Operations |
 |---|---|
 | `access` | `project-folder-access-set`, `sharing-visibility-set`, `sharing-grant-add`, `sharing-grant-update`, `sharing-grant-revoke`, `organization-role-create`, `organization-role-update`, `organization-role-delete`, `project-member-add`, `project-member-remove` |
 | `secret` | `organization-llm-credential-list`, `organization-llm-credential-create`, `organization-llm-credential-revoke`, `organization-llm-credential-verify`, `organization-llm-provider-mode-set`, `organization-audit-portal-link-create`, `platform-audit-portal-link` |
-| `control` | `organization-zdr-set`, `organization-upload-screening-set`, `project-upload-screening-set`, `document-quarantine-allow`, `hold-release`, `organization-download-log-retention-set`, `organization-deleted-folder-content-set`, `organization-web-search-set` |
+| `control` | `organization-zdr-set`, `organization-upload-screening-set`, `project-upload-screening-set`, `document-quarantine-allow`, `quarantine-decide`, `hold-release`, `organization-download-log-retention-set`, `organization-deleted-folder-content-set`, `organization-web-search-set` |
 
 A new operation that widens access, touches a credential or turns a control down
 gets its line in `SENSITIVE` in the same change. Its description says that the

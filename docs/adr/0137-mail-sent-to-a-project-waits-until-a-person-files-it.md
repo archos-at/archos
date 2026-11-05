@@ -50,7 +50,7 @@ and its becoming part of the project, what it becomes, and who may decide.
   not a person. A verdict decides what is suggested and pre-selected, never
   whether a mail is held.
 * **Strangers' bytes are checked before anyone acts on them**, in the cluster
-  (ADR-0152).
+  (ADR-0157).
 
 ## Considered Options
 
@@ -101,7 +101,7 @@ part is a card that person accepted, and it carries no override. The database
 refuses a filed part without such a decision and without a clean scan.
 
 What enforces each half is under Confirmation; the CHECKs and triggers are in
-[`schema.md`](../database/schema.md#project-mail-migration-0194-adr-0137).
+[`schema.md`](../database/schema.md#project-mail-migration-0196-adr-0137).
 
 ### The E-Mail-Eingang: a mail waits outside the project
 
@@ -448,7 +448,7 @@ on the project (and, for a mail's bytes, a custodian hold on the member it came
 from) pauses every erasure and deletion; ending still happens. The sweeps:
 [`inbound-mail.md`](../architecture/inbound-mail.md#retention-the-sweeps).
 
-### What the database holds the code to (migration 0194)
+### What the database holds the code to (migration 0196)
 
 Decided in the DDL, each deviating from the design document for a reason:
 
@@ -507,7 +507,7 @@ placement review and no document check.
 
 ### Confirmation
 
-- **Database** (`scripts/rls-test-db.sh`, the 0194 section, run by
+- **Database** (`scripts/rls-test-db.sh`, the 0196 section, run by
   `task db:test:rls`): each refusal is a violating insert or update: a filing or
   filed part without a decision, or with a decision that is not a `file`; a
   system decider; an agent's card with an acknowledgement; a follow decision by
@@ -587,7 +587,7 @@ placement review and no document check.
   basis of this record (the project-mail work, DECISION v2 of 2026-10-22).
   Owner answers: four PRs; keep the original as evidence (B); the archive into
   the same Verläufe (C); ship „Verlauf folgen“ under the hijack conditions (D).
-- Transport: ADR-0138. Scanner: ADR-0152. Amended here: ADR-0085 (archive into
+- Transport: ADR-0138. Scanner: ADR-0157. Amended here: ADR-0085 (archive into
   Verläufe), ADR-0086 (the name flag on mail), ADR-0122 (`evidence`,
   `requiresPersonConfirmation`).
 - Revisit when: an office needs a narrower decider than every
@@ -611,7 +611,7 @@ placement review and no document check.
   ([`inbound-mail.md`](../architecture/inbound-mail.md#retention-the-sweeps),
   sweep 2).
 - The architecture: [`inbound-mail.md`](../architecture/inbound-mail.md). The
-  data: [`schema.md`](../database/schema.md#project-mail-migration-0194-adr-0137).
+  data: [`schema.md`](../database/schema.md#project-mail-migration-0196-adr-0137).
 
 ## Amendment, 2026-11-03: verified project mail is filed directly; only unverified mail waits
 
@@ -624,7 +624,7 @@ document, the original is evidence, a person may follow a conversation.
 
 For each mail that reaches a project address, the receive job classifies the
 sender once, when the mail is held (`inbound_mails.sender_class`, migration
-0195), and the database refuses any filing the class does not allow:
+0197), and the database refuses any filing the class does not allow:
 
 | Class | When | What happens |
 |---|---|---|
@@ -645,7 +645,7 @@ the rendered HTML. Mail enters retrieval as data in the project lane of the
 shelf's thread is `office_mail` in the `office` kind), never as instructions:
 the grounding block fences every passage body as `<document_content>` and
 says once that text inside is not an instruction (`agent/common/passage_fence.py`); attachments go through the
-scanner (ADR-0152) and the upload path like any other file.
+scanner (ADR-0157) and the upload path like any other file.
 
 ### Why
 
@@ -680,7 +680,7 @@ scanner (ADR-0152) and the upload path like any other file.
   or the filing misbehaves. It is never stricter than the rule it switches
   off: the class stays `verified_writer`, so no mail becomes fileable by its
   member alone.
-- **The rule is in the database.** A CHECK and a trigger (migration 0195)
+- **The rule is in the database.** A CHECK and a trigger (migration 0197)
   tie a `via = 'sender'` decision to a `verified_writer` mail, its own
   sender, a clean scan and an unflagged part; the class is written once, in
   the step that holds the mail, and frozen afterwards. No application path
@@ -715,7 +715,7 @@ scanner (ADR-0152) and the upload path like any other file.
 
 ### Confirmation, in addition to the above
 
-- `scripts/rls-test-db.sh`, the 0195 section: one assertion per class,
+- `scripts/rls-test-db.sh`, the 0197 section: one assertion per class,
   including a spoofed From of a real member, a replayed signed mail, a class
   rewritten after hold, a `via = 'sender'` decision by someone else, and the
   cross-tenant and runtime-role refusals.

@@ -71,7 +71,7 @@ export function ViewerSection({
   return (
     <section aria-label={label} className={cn('shrink-0 border-b border-border last:border-b-0', className)} {...rest}>
       <ViewerSectionHeader className="justify-between">
-        <h3 className="text-xs font-medium tracking-wide text-muted-foreground">{label}</h3>
+        <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
         {action}
       </ViewerSectionHeader>
       <ViewerSectionBody className={bodyClassName}>{children}</ViewerSectionBody>
@@ -178,7 +178,7 @@ export function ViewerFieldGroup({ label, children }: { label: string; children:
         QTO_WALLBASEQUANTITIES, which is louder than anything under it and
         shreds the only casing that made the name readable.
       */}
-      <h3 className="text-muted-foreground mb-1 text-xs font-medium tracking-wide">{label}</h3>
+      <h3 className="text-muted-foreground mb-1 text-xs font-medium">{label}</h3>
       <dl>{children}</dl>
     </div>
   )

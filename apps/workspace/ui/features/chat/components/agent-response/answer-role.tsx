@@ -1,43 +1,10 @@
 import type { AgentResponseProps } from './agent-response-props'
 import { type FC } from 'react'
 
-import { motion, useIconSwapTransition } from '@/components/motion'
-import { Check } from 'lucide-react'
-
 import type { AnswerKind } from '@/lib/conversations/message-answer-meta'
 
-/**
- * The mark on the role tab. A check says the answer is complete, so it is
- * held back while the answer arrives (and after Stop, which leaves it
- * incomplete): a quiet dot stands in its place at the same size, and at the
- * settle the check lands on `iconSwapTransition` (scale on `springSnap`,
- * opacity on a tween), the turn's one small moment of arrival, and simply
- * appears under reduced motion. A restored answer shows its check at once.
- */
-export const RoleTabMark: FC<{ complete: boolean; arrived: boolean }> = ({ complete, arrived }) => {
-  const swap = useIconSwapTransition()
-  return (
-    <span className="inline-flex size-2.5 items-center justify-center" aria-hidden="true">
-      {complete ? (
-        <motion.span
-          className="inline-flex"
-          initial={arrived ? { opacity: 0, scale: 0.6 } : false}
-          animate={{ opacity: 1, scale: 1, transition: swap.enter }}
-        >
-          <Check className="size-2.5" strokeWidth={2.6} />
-        </motion.span>
-      ) : (
-        <span
-          className="size-1 rounded-full bg-current opacity-60"
-          data-testid="role-tab-pending"
-        />
-      )}
-    </span>
-  )
-}
-
-/** Role-tab label for the default answer card. Envelope `kind` wins. */
-export function answerRoleTab(
+/** The default answer card's kind, which names it and picks its surface. Envelope `kind` wins. */
+export function answerRole(
   kind: AnswerKind | undefined,
   routingDecision: AgentResponseProps['routingDecision'],
   hasVerdict: boolean

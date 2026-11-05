@@ -11,7 +11,7 @@
  *
  * The third block is the READ-ONLY composer a viewer of a shared thread gets. It
  * belongs in the evidence because "read-only" is not one disabled button: the
- * whole control row goes inert (scope, Datengrundlage, Deep Research, attach,
+ * whole control row goes inert (effort, attach, dictation,
  * send), and the reason is stated under it. That gate was the fix, and until this
  * block existed nothing captured it — the two composers above are private threads
  * with collaboration off, which can never reach it.
@@ -120,23 +120,19 @@ export default function ComposerPreviewPage() {
               <div className="text-muted-foreground mb-2 font-mono text-xs">
                 ↓ photos accepted (image-upload flag + vision model)
               </div>
-              <InputArea
-                isAuthenticated
-                connectionMode="sse"
-                projectName="Wohnhausanlage Seestadt Aspern, Bauteil C"
-              />
+              <InputArea isAuthenticated connectionMode="sse" />
             </div>
           </AppConfigProvider>
 
           <div>
             <div className="mb-2 font-mono text-xs text-muted-foreground">↓ desktop</div>
-            <InputArea isAuthenticated connectionMode="sse" projectName="Stadthaus Wien 1090" />
+            <InputArea isAuthenticated connectionMode="sse" />
           </div>
 
           <div>
             <div className="mb-2 font-mono text-xs text-muted-foreground">↓ mobile width (390px)</div>
             <div className="w-[390px] max-w-full">
-              <InputArea isAuthenticated connectionMode="sse" projectName="Stadthaus Wien 1090" />
+              <InputArea isAuthenticated connectionMode="sse" />
             </div>
           </div>
 
@@ -145,12 +141,7 @@ export default function ComposerPreviewPage() {
               ↓ viewer in a shared thread — read-only
             </div>
             {ready && (
-              <InputArea
-                isAuthenticated
-                connectionMode="sse"
-                projectName="Stadthaus Wien 1090"
-                canCollaborate
-              />
+              <InputArea isAuthenticated connectionMode="sse" canCollaborate />
             )}
           </div>
         </div>

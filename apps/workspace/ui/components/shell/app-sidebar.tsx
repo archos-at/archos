@@ -326,8 +326,9 @@ function AppSidebarFrame({
         <SidebarHeader
           className={cn(
             // On a phone this is the top of a full-height drawer, under the
-            // status bar; the inset is 0 everywhere else, so 18px stands.
-            'shrink-0 gap-0 p-0 pt-[max(18px,env(safe-area-inset-top))]',
+            // status bar; the inset is 0 everywhere else. The brand row below
+            // carries the rest (`brand-slot.ts`): 56px, as the org header's band.
+            'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             // 14px, so a 36px tile centres at x=32 in the 64px rail — the same
             // axis as the brand mark, the presence dot and the avatar. A zero
             // inset left the icon column flush at x=0 (centre 18) while
@@ -341,7 +342,8 @@ function AppSidebarFrame({
             // pinned here so the nav below always starts at the same edge —
             // that 36px is the difference between "the contents changed" and
             // "the page jumped".
-            <div className="mt-[18px] flex h-9 items-center pointer-coarse:h-11">
+            // `mt-2` under the 56px brand row: the switcher's top stays at 64px.
+            <div className="mt-2 flex h-9 items-center pointer-coarse:h-11">
               <ProjectSwitcher
                 projects={projects}
                 activeProjectId={projectId}

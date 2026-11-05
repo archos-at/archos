@@ -1,8 +1,8 @@
 /**
- * The vocabulary of the E-Mail-Eingang (ADR-0137, migration 0194), free of
+ * The vocabulary of the E-Mail-Eingang (ADR-0137, migration 0196), free of
  * drizzle and of zod.
  *
- * Every tuple here is also a CHECK in `migrations/0194_inbound_mail.sql`: the
+ * Every tuple here is also a CHECK in `migrations/0196_inbound_mail.sql`: the
  * database refuses a value this file does not list, so a new value is a change
  * to both, in one migration. The drizzle schema (`db/schema/inbound-mail.ts`),
  * the wire module, the jobs and the browser import the tuples from here, so a
@@ -58,11 +58,11 @@ export type InboundMailCapNotice = (typeof INBOUND_MAIL_CAP_NOTICES)[number]
 export const INBOUND_MAIL_STATUSES = ['receiving', 'received', 'waiting', 'settled', 'dropped'] as const
 export type InboundMailStatus = (typeof INBOUND_MAIL_STATUSES)[number]
 
-/** Why a mail was accepted and then dropped unseen (`./automatic-mail`, `dropped_reason`). A forward is never dropped for its original (migration 0196). */
+/** Why a mail was accepted and then dropped unseen (`./automatic-mail`, `dropped_reason`). A forward is never dropped for its original (migration 0198). */
 export const DROPPED_REASONS = ['auto_reply', 'delivery_report', 'self_loop'] as const
 export type DroppedReason = (typeof DROPPED_REASONS)[number]
 
-/** Where a forward's original was read (migration 0196): an attached message, or the header block of an inline forward. */
+/** Where a forward's original was read (migration 0198): an attached message, or the header block of an inline forward. */
 export const ORIGINAL_MESSAGE_SOURCES = ['attachment', 'inline'] as const
 export type OriginalMessageSource = (typeof ORIGINAL_MESSAGE_SOURCES)[number]
 
@@ -169,7 +169,7 @@ export type SenderReason = (typeof SENDER_REASONS)[number]
  * - `sender_unchecked`: the receive job could not ask WorkOS who the sender
  *   is to the project (the directory or the write check did not answer for
  *   its whole fault budget, `./receive-faults`). Never a verified writer's,
- *   and never an outsider's 14 days: it waits the full 30 (migration 0197
+ *   and never an outsider's 14 days: it waits the full 30 (migration 0199
  *   holds both), and the E-Mail-Eingang says it could not be checked.
  */
 export const SENDER_FLAGS = [
@@ -209,7 +209,7 @@ export const IMPERSONATION_BASES = ['rejected_signature', 'member_name'] as cons
 export type ImpersonationBasis = (typeof IMPERSONATION_BASES)[number]
 
 /**
- * A malware scan's outcome (ADR-0152, `lib/malware-scan`). Only `clean` lets a
+ * A malware scan's outcome (ADR-0157, `lib/malware-scan`). Only `clean` lets a
  * part be filed or a file be served; `failed` is scanned again.
  */
 export const MALWARE_SCAN_STATUSES = ['pending', 'clean', 'infected', 'failed'] as const
@@ -328,7 +328,7 @@ export type InboundMailContentFinding = ScreeningDetector | 'term'
 
 /**
  * Who the sender is to the project, judged once when the mail is held and
- * frozen after (`inbound_mails.sender_class`, migration 0195; ADR-0137's
+ * frozen after (`inbound_mails.sender_class`, migration 0197; ADR-0137's
  * amendment of 2026-11-03):
  *
  * - `verified_writer`: DKIM passed aligned with the From domain, the From is a
@@ -356,7 +356,7 @@ export type InboundMailDecisionAction = (typeof INBOUND_MAIL_DECISION_ACTIONS)[n
  * How the decision reached us: in the app, from an outside agent acting as the
  * person, through an agent's operation card the person confirmed, as the
  * person's standing decision to follow a thread (D31), or as a verified
- * writer's own mail filed directly (`sender`, migration 0195: the decider is
+ * writer's own mail filed directly (`sender`, migration 0197: the decider is
  * the mail's sender, whose signature and write right the hold recorded). The
  * decider is a person in every case.
  */

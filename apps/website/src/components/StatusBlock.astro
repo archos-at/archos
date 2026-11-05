@@ -1,0 +1,37 @@
+---
+/**
+ * The body of a status page (404, 410, 500): the code, a heading, what happened and what to
+ * do on the left; the page's drawing (`StatusDrawing`) on the right, stacked under the
+ * text below 1024px. The heading rises like a hero title (motion.css); the drawing draws
+ * itself (status.css).
+ */
+import '../styles/brand/status.css';
+import MaskedWords from './MaskedWords.astro';
+import StatusDrawing from './StatusDrawing.astro';
+
+interface Props {
+  /** The status in words, small above the heading ("Fehler 404") */
+  code: string;
+  title: string;
+  text: string;
+  drawing: 'missing' | 'gone' | 'fault';
+}
+
+const { code, title, text, drawing } = Astro.props;
+---
+
+<section class="ui-container">
+  <div class="ui-status">
+    <div class="ui-status-copy">
+      <p class="ui-status-code small">{code}</p>
+      <h1 class="ui-status-title ui-hero-title display-xl"><MaskedWords text={title} /></h1>
+      <p class="ui-status-text lead">{text}</p>
+      <div class="ui-row ui-status-actions">
+        <slot />
+      </div>
+    </div>
+    <figure class="ui-status-figure">
+      <StatusDrawing kind={drawing} />
+    </figure>
+  </div>
+</section>

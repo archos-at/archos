@@ -70,6 +70,7 @@ export type ServerEvent =
   | 'annotation_reopened'
   | 'annotation_carried'
   | 'llm_usage_hourly'
+  | 'llm_usage_by_outcome'
   | 'organization_budget_snapshot'
   | 'agent_operation_called'
   | 'agent_operation_missing'

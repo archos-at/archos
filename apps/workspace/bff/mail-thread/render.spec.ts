@@ -330,7 +330,7 @@ describe('headings by source and trust', () => {
   })
 })
 
-describe('a forwarded message (migration 0196)', () => {
+describe('a forwarded message (migration 0198)', () => {
   // A colleague of the office forwards the Behörde's letter of six weeks earlier.
   const FORWARD = entry({
     id: '00000000-0000-4000-8000-000000000195',

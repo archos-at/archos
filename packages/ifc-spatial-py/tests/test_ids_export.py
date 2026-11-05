@@ -51,7 +51,7 @@ from ifc_spatial.ids_export import write_ids
 from ifc_spatial.model import SpatialModel
 from ifctester import ids as ifctester_ids
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 #: No IfcRelSpaceBoundary; FireRating, Combustible, AcousticRating and
 #: SillHeight filled nowhere. Georeferenced (51°30′N), so that spot stays quiet.
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"

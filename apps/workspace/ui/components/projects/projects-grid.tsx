@@ -67,7 +67,7 @@ interface ProjectsViewProps {
  * Section eyebrow with an optional count beside it.
  *
  * Both pieces come from the primitives — `SectionLabel` for the ~10.5px
- * uppercase eyebrow, `CountPill` for the quiet number next to a heading. This
+ * eyebrow, `CountPill` for the quiet number next to a heading. This
  * wrapper is only the arrangement of the two. It briefly hand-rolled both, at
  * nearly double the documented tracking and with the count dimmed to
  * `text-muted-foreground` — about 2.2:1 on paper, which is not a hierarchy
@@ -244,9 +244,9 @@ export function ProjectsGrid({
                 {t('list.results.heading')}
               </SectionHeading>
               {/* One connected list: `ItemList` rounds only the outer corners and
-                  draws the hairlines between rows. `-mx-3` puts the row content on
-                  the heading's left edge. */}
-              <ItemList as="ul" className="-mx-3 bg-card">
+                  draws the hairlines between rows. It spans the page column
+                  exactly, like the rail and the list below it (see there). */}
+              <ItemList as="ul" className="bg-card">
                 {rest.map(renderRow)}
               </ItemList>
             </section>
@@ -301,7 +301,13 @@ export function ProjectsGrid({
                 <SectionHeading id="projects-more" count={rest.length}>
                   {resume.length > 0 ? t('list.more.heading') : t(`list.filter.${activeFilter}`)}
                 </SectionHeading>
-                <ItemList as="ul" className="-mx-3 bg-card">
+                {/* The page column's width, no bleed: the rail above spans it
+                    exactly, and a list pulled out by `-mx-3` (to put the row's
+                    text on the heading's edge) stuck out 12px either side of the
+                    cards, so the two lists' side edges did not line up. The
+                    boxes align now; the row's text sits inside its padding as
+                    the card's text sits inside the card's. */}
+                <ItemList as="ul" className="bg-card">
                   {rest.map(renderRow)}
                 </ItemList>
               </section>

@@ -468,7 +468,7 @@ describe('notifyNewRevision — the people working on its marks', () => {
     expect(emitted()[0].payload).not.toHaveProperty('openMarks')
   })
 
-  // Migration 0193: the next Fassung of an E-Mail-Verlauf is news only to the
+  // Migration 0195: the next Fassung of an E-Mail-Verlauf is news only to the
   // people whose open mark it leaves behind.
   it('reaches only the mark participants for `marks_only`: not the assignees, not the uploaders', async () => {
     assignedTo('anna')
@@ -635,7 +635,7 @@ describe('announceSettledVersions', () => {
     expect(findBatchSettleEffects).not.toHaveBeenCalled()
   })
 
-  // Migration 0193 `runs_document_check`: the next Fassung of an E-Mail-Verlauf
+  // Migration 0195 `runs_document_check`: the next Fassung of an E-Mail-Verlauf
   // is filed by a batch that turns the check off; a mail's attachments keep it.
   it('checks only the documents whose batch keeps the document check', async () => {
     vi.mocked(findDocumentInOrg).mockImplementation(async (id) =>

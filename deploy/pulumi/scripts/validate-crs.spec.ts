@@ -279,6 +279,20 @@ describe("the deploy's CR schema validator", () => {
     expect(offline.stdout).toContain("0 passed, 0 failed, 1 skipped");
   });
 
+  // Staging run 41700375427 failed on the RabbitMQ operator's webhook configurations.
+  it("leaves a native webhook configuration, `webhooks` beside `metadata`, to the SDK's types", () => {
+    const plan: Plan = { steps: [...emittedPlan().steps, { op: "create", newState: {
+      urn: "urn:pulumi:test::program::kubernetes:admissionregistration.k8s.io/v1:ValidatingWebhookConfiguration::hook",
+      inputs: {
+        apiVersion: "admissionregistration.k8s.io/v1", kind: "ValidatingWebhookConfiguration",
+        metadata: { name: "hook" }, webhooks: [{ name: "vrabbitmqcluster.kb.io" }],
+      },
+    } }] };
+    const result = run(plan);
+    expect(result.status, result.stdout).toBe(0);
+    expect(result.stdout).toContain("(of 2 custom resources)");
+  });
+
   it("still fails closed on an unregistered group and ignores resources being deleted", () => {
     const plan: Plan = { steps: [{ op: "create", newState: {
       urn: "urn:pulumi:test::grid-oib::kubernetes:unknown.example/v1:Thing::unknown",

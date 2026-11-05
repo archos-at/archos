@@ -221,6 +221,7 @@ export type FileFormatKey =
   | 'markdown'
   | 'plainText'
   | 'ifc'
+  | 'dxf'
   | 'email'
   | 'image'
   | 'extension'
@@ -269,6 +270,8 @@ const TYPE_FORMAT: Record<string, NamedFormat> = {
   'application/x-step': 'ifc',
   'application/ifc': 'ifc',
   'model/ifc': 'ifc',
+  'application/dxf': 'dxf',
+  'image/vnd.dxf': 'dxf',
   'message/rfc822': 'email',
   'application/vnd.ms-outlook': 'email',
 }
@@ -300,6 +303,8 @@ const EXT_FORMAT: Record<string, NamedFormat> = {
   '.txt': 'plainText',
   '.ifc': 'ifc',
   '.ifczip': 'ifc',
+  // The format, not what is drawn: only its Dokumentart says a file is a plan.
+  '.dxf': 'dxf',
   '.eml': 'email',
   '.msg': 'email',
 }

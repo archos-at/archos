@@ -692,7 +692,7 @@ services:
       - BYOK_ALLOW_PRIVATE_BASE_URLS=${BYOK_ALLOW_PRIVATE_BASE_URLS:-${GRID_BYOK_ALLOW_PRIVATE_BASE_URLS:-false}}
       # Must match the code default in apps/workspace/shared/config/file-upload.ts:
       # an override here that lists fewer types silently narrows what users can upload.
-      - FILE_UPLOAD_ACCEPTED_TYPES=${FILE_UPLOAD_ACCEPTED_TYPES:-.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx}
+      - FILE_UPLOAD_ACCEPTED_TYPES=${FILE_UPLOAD_ACCEPTED_TYPES:-.pdf,.docx,.txt,.md,.csv,.xlsx,.pptx,.dxf}
       - FILE_UPLOAD_MAX_SIZE_MB=${FILE_UPLOAD_MAX_SIZE_MB:-}
       - FILE_UPLOAD_MAX_FILE_COUNT=${FILE_UPLOAD_MAX_FILE_COUNT:-}
       - FILE_EXPIRATION_CHECK_INTERVAL_HOURS=${FILE_EXPIRATION_CHECK_INTERVAL_HOURS:-}
@@ -706,7 +706,7 @@ services:
       # Address search in the project dialog (ADR-0151): komoot's public Photon,
       # no account. Empty switches it off and the address stays a text field.
       - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
-      # The malware scanner (ADR-0152). Unset, every scan fails `not-configured`
+      # The malware scanner (ADR-0157). Unset, every scan fails `not-configured`
       # and nothing that waits on a clean scan is filed. To scan, start clamd
       # with `--profile malware-scan` and set MALWARE_SCAN_URL=tcp://clamav:3310
       # in deploy/.env. `fake://` is accepted only with APP_ENV=development.
@@ -1037,7 +1037,7 @@ services:
     restart: unless-stopped
 
   clamav:
-    # The malware scanner (ADR-0152): clamd, and freshclam updating its
+    # The malware scanner (ADR-0157): clamd, and freshclam updating its
     # signatures. OPT-IN (`--profile malware-scan`): it holds about 1 GiB of
     # signatures in memory, twice that while it loads new ones, and nothing
     # scans until MALWARE_SCAN_URL points here (see the frontend).
@@ -1486,6 +1486,73 @@ services:
       - app
     restart: unless-stopped
 
+  # ===========================================================================
+  # The website's CMS (ADR-0155): Payload, built from apps/cms, and its own Postgres
+  # ===========================================================================
+  #
+  # OPT-IN: both services carry `profiles: [cms]`. Kubernetes runs the same image
+  # on its own CloudNativePG cluster with files in SeaweedFS
+  # (deploy/pulumi/src/platform/cms.ts); here the files stay on a volume.
+  #
+  #   task cms:up                                   # build, migrate on start, provision the admin and the website's key
+  #   DATABASE_URL=postgresql://cms:cms@localhost:5434/cms PAYLOAD_SECRET=local-cms-secret-not-for-production \
+  #     task cms:import -- apply                    # the MDX posts
+  #
+  # Admin panel: http://localhost:3100/admin (admin@example.com / local-admin-password;
+  # local only). The website reads it with CMS_URL=http://localhost:3100 and
+  # CMS_API_KEY=local-website-key (apps/website/README.md, "Blog").
+  cms-postgres:
+    image: postgres:16-alpine
+    profiles: [cms]
+    environment:
+      POSTGRES_USER: cms
+      POSTGRES_PASSWORD: cms
+      POSTGRES_DB: cms
+    ports:
+      # For the import, which runs on the host against the database.
+      - "5434:5432"
+    volumes:
+      - cms-postgres-data:/var/lib/postgresql/data
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d cms -U cms"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  cms:
+    # The image CI builds and Kubernetes runs (ci/image_inputs.py, repository `cms`).
+    build:
+      context: ../../apps/cms
+    profiles: [cms]
+    depends_on:
+      cms-postgres:
+        condition: service_healthy
+    ports:
+      - "3100:3000"
+    environment:
+      CMS_PUBLIC_URL: http://localhost:3100
+      PAYLOAD_SECRET: local-cms-secret-not-for-production
+      DATABASE_URL: postgresql://cms:cms@cms-postgres:5432/cms
+      CMS_ADMIN_EMAIL: admin@example.com
+      CMS_ADMIN_PASSWORD: local-admin-password
+      CMS_WEBSITE_API_KEY: local-website-key
+      # The website's dev server on the host (`bun run dev` in apps/website).
+      WEBSITE_REVALIDATE_URL: http://host.docker.internal:4321/api/cms/revalidate
+      WEBSITE_REVALIDATE_TOKEN: local-revalidate-token
+      WEBSITE_PUBLIC_URL: http://localhost:4321
+      CMS_PREVIEW_SECRET: local-preview-secret
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - cms-media:/app/media
+    networks:
+      - app
+    restart: unless-stopped
+
 volumes:
   # No `chroma_data` any more (ADR-0115). An installation that ran Chroma still
   # has the volume (`compose_chroma_data` with the default project name):
@@ -1508,6 +1575,10 @@ volumes:
   hatchet-postgres-data:
     driver: local
   hatchet-lite-config:
+    driver: local
+  cms-postgres-data:
+    driver: local
+  cms-media:
     driver: local
 
 networks:

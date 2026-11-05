@@ -46,7 +46,7 @@ export default async function ProjectsLoading(): Promise<JSX.Element> {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
               // A `RaisedCard` at rest: tray + laid-in body (`px-4 pb-3 pt-3.5`,
-              // title row with status chip, summary line) + footer tab
+              // title row with status chip, location line) + footer tab
               // (`px-4 py-2.5`, timestamp + gear). `min-h-28` holds the card's
               // ~114px even before the blocks paint.
               <div
@@ -73,7 +73,7 @@ export default async function ProjectsLoading(): Promise<JSX.Element> {
           {/* The connected list the projects rows sit in: an `ItemList` of `Item`s,
               one `ProjectListRow` each (initials tile, name, doc-count column,
               timestamp column, gear), `h-11`, as listed. */}
-          <ItemList as="ul" className="-mx-3 bg-card">
+          <ItemList as="ul" className="bg-card">
             {Array.from({ length: 4 }).map((_, i) => (
               <Item key={i} as="li" className="h-11 gap-3 px-3 py-0">
                 <Skeleton className="hidden size-9 shrink-0 sm:block" />

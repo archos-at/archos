@@ -11,12 +11,16 @@
  */
 
 /* The page: form column left, photo right (SplitPage). AuthKit's TwoColumn
-   layout supplies both columns; the right one is the custom-HTML panel. */
+   layout supplies both columns; the right one is the custom-HTML panel. Only
+   the sign-in and sign-up steps get that layout: every other step
+   (organization selection, MFA, magic code, e-mail verification, reset
+   password, invite) renders .ak-Background alone, without the panel, and is
+   centred on the page below. */
 /* Only where AuthKit shows the panel (its md breakpoint, 1024px). Below it the
    panel is hidden, and a forced second column squeezes the form into a third of
    the screen. */
 @media (min-width: 1024px) {
-  :has(> .ak-Background) {
+  :has(> .ak-Background):has(> [data-hak-custom-html]) {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr) !important;
   }
   .ak-Background { --grid-template-columns: minmax(0, 400px) !important; }
@@ -34,6 +38,12 @@
   padding: 32px 64px !important;
   background: light-dark(#fafaf9, #0f0e0d) !important;
   @media (max-width: 767px) { padding: 32px 16px !important; }
+}
+/* A step without the photo panel has the page to itself: its column sits in the
+   middle, not against the left edge with an empty page beside it. */
+:not(:has(> [data-hak-custom-html])) > .ak-Background {
+  justify-content: center !important;
+  & .ak-Content { margin-inline: auto !important; }
 }
 [data-hak-custom-html] .panel-photo {
   position: absolute;
@@ -65,7 +75,65 @@
   line-height: 1.1 !important;
   letter-spacing: -0.02em !important;
   color: light-dark(#0f0e0d, #f5f4f2) !important;
+  /* AuthKit centres the heading's text; a heading that wraps would then stand
+     centred over a left-aligned page. It follows .ak-Header instead. */
+  text-align: inherit !important;
   @media (max-width: 767px) { font-size: 40px !important; }
+}
+
+/* Organization selection, the step after the e-mail for a person in several
+   offices: centred heading over a centred list. The heading is an instruction,
+   so it sets at heading-2 (32/38) and drops the welcome line. Matches the live
+   step and AuthKit's dashboard preview (ui-previews/organization-selection). */
+[data-hak-page$='organization-selection'] {
+  & .ak-Header {
+    text-align: center !important;
+    align-items: center !important;
+    margin-bottom: 32px !important;
+    &::after { display: none !important; }
+  }
+  & .ak-Heading {
+    font-size: 32px !important;
+    line-height: 38px !important;
+    letter-spacing: 0.005em !important;
+  }
+}
+/* Each office a full-width secondary button, stacked like the provider buttons:
+   name left, chevron right, the name cut with an ellipsis when it is long. */
+.ak-OrgSelection.ak-SelectionCardRoot {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.ak-OrgSelection .ak-SelectionCardButton {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  height: 54px !important;
+  padding: 0 16px 0 20px !important;
+  gap: 12px !important;
+  border: 1px solid light-dark(#0f0e0d, #f5f4f2) !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: light-dark(#0f0e0d, #f5f4f2) !important;
+  font-size: 16px !important;
+  line-height: 24px !important;
+  letter-spacing: 0 !important;
+  text-align: left !important;
+  cursor: pointer;
+  &:hover { background: light-dark(#f2f1f0, #1a1918) !important; }
+  &:disabled {
+    cursor: default;
+    border-color: light-dark(#e7e5e3, #2c2a27) !important;
+    background: transparent !important;
+    color: light-dark(#aba8a4, #5a5754) !important;
+  }
+}
+.ak-OrgSelection .ak-SelectionCardButtonIcon {
+  color: light-dark(#5e5b57, #a6a39e) !important;
 }
 
 /* Flat: no card, no shadow, no rounding. */
@@ -84,8 +152,10 @@
   flex-direction: column !important;
 }
 .ak-AuthMethodsProviders { order: -2; }
+/* Only the separator between providers and e-mail moves. MFA enrollment has its
+   own ("dann", between scanning and entering the code), which stays put. */
+:has(> .ak-AuthMethodsProviders) > .ak-TextSeparator { order: -1; }
 .ak-TextSeparator {
-  order: -1;
   background: transparent !important;
   margin: 24px 0 !important;
   text-transform: none !important;

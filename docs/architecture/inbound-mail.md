@@ -14,9 +14,9 @@ Verlauf, so that later replies' text is appended without a click.
 Why it is built this way: [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md)
 (review, threads, originals, following, and its amendment of 2026-11-03: the sender rule) and
 [ADR-0138](../adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md)
-(transport). The scanner: [ADR-0152](../adr/0152-attachments-from-outside-are-scanned-in-cluster-by-clamav.md).
+(transport). The scanner: [ADR-0157](../adr/0157-attachments-from-outside-are-scanned-in-cluster-by-clamav.md).
 The Outlook archive renders into the same Verläufe: [`mail-import.md`](mail-import.md).
-The tables: [`schema.md`](../database/schema.md#project-mail-migration-0194-adr-0137) (and migration 0195, the sender class).
+The tables: [`schema.md`](../database/schema.md#project-mail-migration-0196-adr-0137) (and migration 0197, the sender class).
 Operating it: [`kubernetes.md` §3c](../deployment/kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138).
 
 ## The flow, from the edge to filing
@@ -64,7 +64,7 @@ kind's name only.
 ## The sender rule
 
 ADR-0137's amendment of 2026-11-03. The receive job classifies the sender once,
-when it holds the mail (`inbound_mails.sender_class`, migration 0195, frozen by
+when it holds the mail (`inbound_mails.sender_class`, migration 0197, frozen by
 `inbound_mails_sender_verdict_guard` after the `received → waiting` write;
 `lib/inbound-mail/sender-class.ts`, `receive-sender.ts`):
 
@@ -113,7 +113,7 @@ in the sender's session. Whatever still waits is announced as any held mail
 (`inbound_mail.waiting`); so is the whole mail on the job's last failed attempt.
 A verified writer's mail queues no follow job: its sender files the text.
 
-**What the database holds** (migration 0195; `scripts/rls-test-db.sh`, the 0195
+**What the database holds** (migration 0197; `scripts/rls-test-db.sh`, the 0197
 section): the class needs its evidence (`inbound_mails_verified_writer_evidence`),
 is written only by the hold and never changes (`…_sender_verdict_frozen`,
 `…_held_once`); a `via = 'sender'` decision only on a verified writer's mail,
@@ -185,7 +185,7 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
    and repeated, or malware);
 3. drop auto-replies, delivery reports and loops (`dropped`, raw erased); mark
    list and bulk mail `automatic`. Then **the original of a forward**
-   (`receive-original.ts`, migration 0196): `original-message.ts` reads an
+   (`receive-original.ts`, migration 0198): `original-message.ts` reads an
    attached original (`message/rfc822`, an `.eml`) or an inline forward's
    header block, and its author, date, subject, Message-ID and source go on
    the row (`original_*`), project mail addresses redacted. **An original's
@@ -255,9 +255,9 @@ One log line per delivery, ids and codes only; a refusal is a PostHog
     unless the sender is unconfirmed, impersonating, or the mail is automatic.
 
 **A dependency that does not answer spends no attempt** (B3 of the 2026-11
-ship review, `receive-faults.ts`, migration 0197). The queue's three attempts
+ship review, `receive-faults.ts`, migration 0199). The queue's three attempts
 are 30 and 60 seconds apart, shorter than a WorkOS blip or a rolling deploy of
-the reader, and 0195 freezes the verdict a hold writes: a member's mail held on
+the reader, and 0197 freezes the verdict a hold writes: a member's mail held on
 an unreadable directory became a stranger's, discarded after 14 days, and a
 writer's mail with an unanswered write check became read-only. Now a directory
 read, a write check (`userHoldsProjectPermissionStrict`), a transient DKIM
@@ -266,7 +266,7 @@ timeout, a 5xx, 408 or 429: `isObjectStoreFault`) or an unreachable database
 gives the claim back (`notBefore`, the attempt not spent) and the job tries again after
 1, 2, 4, 8, 16 and 32 minutes, then hourly: about six hours. Before it gives
 the claim back, a run keeps what it learned on the row (`receive_progress`,
-`receive-progress.ts`, migration 0197): the sender's authentication unless its
+`receive-progress.ts`, migration 0199): the sender's authentication unless its
 reason was transient, and each attachment's scan by SHA-256. The next run reuses
 both and scans again only what `failed`, so a reader outage no longer costs
 eleven scans of every attachment, and a DKIM pass cannot turn into a DNS
@@ -276,12 +276,12 @@ the mail is held with what was not learned, said, never guessed:
 
 - the directory or the write check: flag `sender_unchecked`, held for the
   project's writers for the full 30 days even when no member could be named
-  (the class is then `external`, which 0195 ties to a sender with no member;
-  0197 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
+  (the class is then `external`, which 0197 ties to a sender with no member;
+  0199 refuses the 14 days and a verified writer for it), and the E-Mail-Eingang
   says it could not be checked (`waitReason: 'sender_unchecked'`). Its expiry
   is a member's, not an outsider's: it keeps the seven days to restore, and a
   dismissal is not erased at once either (`expiryIsFinal` in
-  `sender-class.ts`, the sweep's `pastRestore`, and 0195's
+  `sender-class.ts`, the sweep's `pastRestore`, and 0197's
   `inbound_mail_decisions_external_expiry_final`, which exempts the flag);
 - DKIM: DNS has a budget of its own, two waits of 2 and 10 minutes
   (`DKIM_DNS_FAULT_WAITS_MS`, counted as `dkimFaults` in the payload), because
@@ -451,7 +451,7 @@ thread_document_gone`. A thread at 200 entries or 2 MiB refuses an append
 (`thread_full`).
 
 **A forwarded message is cited by its author.** When the mail carried an
-original (0196), the entry keeps its author (`author_*`), its heading names the
+original (0198), the entry keeps its author (`author_*`), its heading names the
 author at the time they wrote it with „Domain nicht bestätigt“ (the forwarder's
 signature covers the forward, not what it quotes, RT-S2), and the line
 „Weitergeleitet von“ names the sender by the usual rule. An attachment's
@@ -553,7 +553,7 @@ In the order they run:
 | 4 | `expiring` | five days left: `inbound_mail.expiring`, once per mail | day 25; an outsider's day 9 | — |
 | 6 | `endedParts` | dismissed and expired parts past 7 days (a dismissed part of `external_unverified` mail, and an expired part of `external` mail, at once): the part's key taken first, under the find's whole condition (still ended, past restoring, no hold), then the bytes erased, so a restore or hold that landed since erases nothing; a failed erasure puts the key back; a mail nothing of which waits is settled and scrubbed | 7 days | project or custodian hold: erasure deferred (`erasure_deferred_at`), the mail still settles |
 | 7 | `rescans` | failed scans of waiting parts and held raw messages, hourly, up to 24 attempts; when one turns `clean` on a `verified_writer` mail, its sender filing is queued again by name (nothing of it could be filed directly while a scan was not clean) | 1 h | — |
-| 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0197), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
+| 15 | `rereads` | texts the reader did not answer for (`reader_fault_at`, migration 0199), the mail waiting and within its window, the text part waiting: leased first (`leaseReread` moves `reader_fault_at` to now, compare-and-set, so a run beside it (a run past its execution timeout runs on, and Hatchet delivers at least once) never reads the same text), five a run and within 45 s, each read given only what is left (R3 of the second review); then read again, redacted and checked, `read.json` and the part written in one compare-and-set on the lease; a verified writer's mail gets its sender filing queued again by name; a reader still down leaves the lease as the time it was last tried | 15 min | — |
 | 10 | `releasedErasures` | erasures a hold deferred, once no hold covers them: the row's keys and deferral taken first, under the find's whole condition (still deferred, the same keys, no hold), then the objects erased, so a hold placed since erases nothing; the keys the store kept, and the deferral, come back for the next tick | — | only rows no hold covers |
 | 8 | `keptMails` | settled mails 30 days after settling with no filed part's document alive, dropped mails 30 days after receipt; nothing left to erase, nothing unaudited: deleted | 30 days | project or custodian hold: skipped; trigger `GLH01` backstop |
 | 12 | `follows` | running follows past `expires_at` end `expired`, those whose document is gone end `document_gone`, those in a closed project end `project_closed`; five days before the end `mail_thread.follow_expiring`, once | 60 days, day 55 | — |
@@ -670,7 +670,7 @@ All operations live in `apps/workspace/bff/agent-api/catalog/mail.ts`, domain
 | Redaction of other projects' addresses | receive job | — | another tenant's token learned (the original stays unredacted and gated) |
 | `project:documents:write`, candidates for the viewer | service | 404 | a non-writer reads held mail, or a writer learns restricted names |
 | Per-target folder write, type, scan, acknowledgements, `ifMatch` | `decision.ts` | 409 / 403 | a filing the decider was not entitled to |
-| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0195's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail filed only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
+| `decision_id` FK to a `file`, person-shaped decider, clean card, follower FK, `filed_is_clean`, `waiting_is_scanned`, and 0197's sender rule (frozen class, `via = 'sender'` only for the verified sender's own clean mail, a claimed mail filed only by its member) | Postgres | statement refused | a part filed without a `file` decision, a decision by a `system:*` actor, a card carrying an acknowledgement, a follow decision without its follower, or a part filed or waiting without a clean scan. The database cannot tell a code path that writes a real person's id from that person: that is the static ratchet's and the filing job's (it runs in the decider's session) |
 | `requiresPersonConfirmation` | door | refused with a link | an injected outside agent cannot file |
 | Filing as the decider (or follower) | job | `last_failure` | nothing past an ordinary upload by that person |
 | Static ratchet | `review-first.spec.ts` | CI | — |

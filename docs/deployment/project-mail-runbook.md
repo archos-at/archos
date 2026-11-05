@@ -7,7 +7,7 @@ and are the owner's to run; everything else is read-only or reversible.
 
 Why it is built this way: [ADR-0138](../adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md)
 (transport), [ADR-0137](../adr/0137-mail-sent-to-a-project-waits-until-a-person-files-it.md)
-(holding and filing), [ADR-0152](../adr/0152-attachments-from-outside-are-scanned-in-cluster-by-clamav.md)
+(holding and filing), [ADR-0157](../adr/0157-attachments-from-outside-are-scanned-in-cluster-by-clamav.md)
 (the scanner). The reference this runbook orders:
 [`kubernetes.md` §3c](kubernetes.md#3c-project-mail-cloudflare-email-routing-adr-0138)
 (owner gates O1–O7, launch gates G0–G9, record of runs), the config keys in
@@ -185,7 +185,7 @@ and its first start needs fresh signatures.
   committed file.
 
 What the deploy runs by itself, on every deploy: the migration Job
-(`grid-app-migrate`, `drizzle-kit migrate`; this image brings 0193–0197:
+(`grid-app-migrate`, `drizzle-kit migrate`; this image brings 0195–0199:
 `upload_batch_effects`, `inbound_mail`, `sender_class`, `original_author`,
 `receive_faults`), the WorkOS audit-schema Job and the authorization-catalog
 Job (`grid-app-authz-catalog`). There is no scheduler container (ADR-0150):
@@ -300,7 +300,7 @@ Only the test office has the entitlement, so unpausing exposes no customer.
 | **G3** | `bun scripts/inbound-mail-smoke.ts signed --run`; and through real SMTP the largest mail your provider sends (Google Workspace: one attachment of about 18 MB) | All PASS: 401s, a small mail and 24 MiB held (202), over 26 MiB a 413 bounce, over the edge ceiling Envoy's own 413, a truncated body never accepted. The real mail arrives | A FAIL names the check and the HTTP answer; `[inbound-mail] delivery outcome=…` in the frontend's log says why the BFF refused |
 | **G3**, the refusal | Optional: a mail over 26 MiB from a provider that sends one (Microsoft 365 with a raised limit) | Refused by Cloudflare at SMTP time ("message too large") | If no provider is at hand, record "not run: Cloudflare's documented 25 MiB cap, and `signed` covered the BFF" |
 | **G5** | Right after G3's large mail: dashboard → Workers & Pages → `inbound-mail-prod` → Metrics, the time of that mail | CPU time for that invocation well under the plan's limit, no `exceededCpu`, no memory error | **Stops the launch**: no fallback drops the digest (ADR-0138) |
-| **G6** | `bun scripts/inbound-mail-smoke.ts malware --run`, then open the test project's E-Mail-Eingang | Both probes held (`[smoke] EICAR`, `[smoke] limit-exceeding archive`); the EICAR part „infected“, the archive's „failed“, never clean; neither can be filed; the EICAR mail's original download refused. On the dev stack: freshclam stopped for 49 h (or an old database) gives `failed` (`stale-signatures`) | A `clean` verdict on either: **stop**; read ADR-0152's known gap (a zip member over `MaxFileSize` scans clean) before judging |
+| **G6** | `bun scripts/inbound-mail-smoke.ts malware --run`, then open the test project's E-Mail-Eingang | Both probes held (`[smoke] EICAR`, `[smoke] limit-exceeding archive`); the EICAR part „infected“, the archive's „failed“, never clean; neither can be filed; the EICAR mail's original download refused. On the dev stack: freshclam stopped for 49 h (or an old database) gives `failed` (`stale-signatures`) | A `clean` verdict on either: **stop**; read ADR-0157's known gap (a zip member over `MaxFileSize` scans clean) before judging |
 | **G9** | Any time, offline: the pilot office (D4) exports a few hundred messages of project mail as `.eml` files or an `.mbox` (Outlook: drag to a folder; or Thunderbird's export), then `bun scripts/inbound-mail-smoke.ts dkim-share <dir-or-mbox>` | A number, not a pass: the aligned DKIM share is the share of their correspondents whose mail will read „Domain bestätigt“ and can be followed | Record it; tell the pilot office what it means before O7 |
 
 Afterwards: dismiss every `[smoke]` mail in the test project, and check that
@@ -377,9 +377,9 @@ Worker is deleted after, the frontend loses `INBOUND_MAIL_DOMAIN` and shows
    subdomain under Email Routing → Settings (its MX and TXT go with it),
    switch Subaddressing off if nothing else uses it.
 4. Remove the token's added scopes; downgrade Workers Paid if nothing else needs it.
-5. Data stays until its retention sweeps erase it. Reversing migration 0194
+5. Data stays until its retention sweeps erase it. Reversing migration 0196
    needs every staged object and kept original erased first
-   ([`schema.md`](../database/schema.md#reversing-0194)).
+   ([`schema.md`](../database/schema.md#reversing-0196)).
 
 The scanner may stay on; it costs a pod and serves nothing else today.
 

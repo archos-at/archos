@@ -1,4 +1,4 @@
-import { INLINE_PREVIEW_CONTENT_TYPES, isOfficeRenditionSource } from '@/lib/documents/preview-types'
+import { INLINE_PREVIEW_CONTENT_TYPES, isRenditionSource } from '@/lib/documents/preview-types'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { isTextPageType } from './file-text-page'
@@ -48,7 +48,7 @@ import { ToolbarTextButton } from '@/components/ui/floating-toolbar'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCurrentProject } from '@/features/projects/lib/current-project'
 
-import { type PeekView } from './file-preview-peek'
+import { usePeekState } from './file-preview-peek-state'
 import { useMailThreadRail } from './mail-thread/use-mail-thread-rail'
 import { type ReaderAnnotate } from './file-preview-reader'
 import { PRODUCT_NAME } from '@/lib/brand'
@@ -167,17 +167,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   useEffect(() => {
     setDetailsOpen(false)
   }, [file.id])
-  /**
-   * Which face of the peek is up: the document, or everything the Files dialog
-   * knows about it. Back to the document whenever a different file arrives —
-   * a citation opening the next file should show that file, not its metadata.
-   */
-  const [peekView, setPeekView] = useState<PeekView>('document')
-  useEffect(() => {
-    setPeekView('document')
-  }, [file.id])
-  /** A thread document's rail: its tabs, and the mail a `?mailEntry=` link opens. */
-  const mailRail = useMailThreadRail({ projectId, file, peeking, reader, setPeekView, setDetailsOpen })
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   /**
    * The same-origin signed path for the same bytes, when the optimizer can
@@ -254,7 +243,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
    * makes from them (ADR-0070). They ask the same preview route, so they are
    * `canPreview` too; what differs is what comes back and what a refusal means.
    */
-  const isOfficeRendition = isOfficeRenditionSource(file)
+  const isOfficeRendition = isRenditionSource(file)
   const canPreview = PREVIEW_TYPES.includes(file.contentType ?? '') || isOfficeRendition
   /**
    * Text, Markdown and CSV are previewable too, by a different route: the pane
@@ -626,6 +615,10 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     },
     [showReview, urlOpen, addressed, searchParams, file.id, replaceParams]
   )
+  /** Which face of the peek is up (the document, or its details: the host's ⓘ), and its full screen: the review. */
+  const { peekView, setPeekView } = usePeekState(peeking, file.id, reviewEnabled ? openReview : null)
+  /** A thread document's rail: its tabs, and the mail a `?mailEntry=` link opens. */
+  const mailRail = useMailThreadRail({ projectId, file, peeking, reader, setPeekView, setDetailsOpen })
   /**
    * What the approve confirm names before the signature: the open marks and
    * Piloti's untaken proposals, told apart, and the review to see them in. Until the review has read them, or when it
@@ -804,7 +797,7 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
       turnFrame.current = null
       setShownPage(page)
     })
-  }, [])
+  }, [setPeekView])
   /**
    * Where Piloti's viewer action asked this document to be (ADR-0144): the
    * page turns the way a reading turns it, and the passage or the boxes are

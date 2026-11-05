@@ -11,9 +11,12 @@
  * which rule caught it on which pages, through the same `QuarantineFindings`
  * the Files preview shows. Detector samples arrive masked from the job.
  *
- * Release sends the file to the models like any other upload, so it asks
- * first. Delete goes through the shelf's own delete route. A row leaves the
- * list only once the server said yes.
+ * Rows can be picked and decided together, filtered by what held them
+ * (`./quarantine-selection`): the server takes the selection as one request and
+ * answers per file. Release sends the file to the models like any other
+ * upload, so it asks first. Delete goes through the same decision route, which
+ * deletes only a file that is still held and answers the uploader's request
+ * for a review. A row leaves the list only once the server said yes.
  *
  * „Ansehen" opens the file where it is filed, in the project's Files view or
  * the Büroablage, on its preview, which opens at the first finding and offers
@@ -22,7 +25,7 @@
  * attachment has no per-file view, so its row offers none.
  */
 
-import { type FC, useCallback, useEffect, useState } from 'react'
+import { type FC, useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Eye, FileWarning, ShieldCheck, ShieldOff, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -30,12 +33,13 @@ import { toast } from 'sonner'
 import { ApiRequestError } from '@/adapters/api/api-error'
 import { listProjects } from '@/adapters/api/projects-client'
 import {
-  deleteQuarantinedDocument,
+  decideQuarantinedDocuments,
   listQuarantineQueue,
   releaseQuarantinedDocument,
   type QuarantineQueueItem,
 } from '@/adapters/api/upload-screening-client'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import {
@@ -54,8 +58,29 @@ import { documentHref } from '@/features/uploads/lib/upload-summary'
 import { useLocale, useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { organizationCopy } from '@/i18n/namespaces/organization'
+import { QUARANTINE_DECISION_LIMIT, type QuarantineDecisionOutcome } from '@/lib/upload-screening/decisions-wire'
+import { findingsOfItem, type FindingFilter, QuarantineSelection } from './quarantine-selection'
 
-type PendingAction = { kind: 'release' | 'delete'; item: QuarantineQueueItem }
+type PendingAction =
+  | { kind: 'release' | 'delete'; item: QuarantineQueueItem }
+  | { kind: 'releaseMany' | 'deleteMany'; ids: string[] }
+
+/** Outcomes that did what was asked, and what the toast then says. */
+const DONE: ReadonlySet<QuarantineDecisionOutcome> = new Set(['allowed', 'deleted', 'rechecking'])
+const DONE_TOAST = {
+  allow: 'quarantine.releasedMany',
+  delete: 'quarantine.deletedMany',
+  recheck: 'quarantine.recheckingMany',
+} as const
+
+/** Outcomes after which a row is no longer in the queue: decided here, or by someone else first. */
+const LEAVES_QUEUE: ReadonlySet<QuarantineDecisionOutcome> = new Set([
+  'allowed',
+  'deleted',
+  'rechecking',
+  'changed',
+  'not_found',
+])
 
 /** Project names for the "where" line. Best-effort: a failed read shows "a project". */
 function useProjectNames(): Map<string, string> {
@@ -83,11 +108,16 @@ export const QuarantineQueue: FC = () => {
     setDialogOpen(true)
   }
   const projectNames = useProjectNames()
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const [filter, setFilter] = useState<FindingFilter>('all')
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setFailed(false)
     try {
-      setItems(await listQuarantineQueue(signal))
+      const next = await listQuarantineQueue(signal)
+      setItems(next)
+      // Picks someone else decided meanwhile no longer count against the cap.
+      setSelected((prev) => new Set(next.filter((item) => prev.has(item.id)).map((item) => item.id)))
     } catch {
       if (!signal?.aborted) setFailed(true)
     }
@@ -99,7 +129,54 @@ export const QuarantineQueue: FC = () => {
     return () => controller.abort()
   }, [load])
 
-  const drop = (id: string): void => setItems((prev) => prev?.filter((item) => item.id !== id) ?? null)
+  const drop = (id: string): void => {
+    setItems((prev) => prev?.filter((item) => item.id !== id) ?? null)
+    setSelected((prev) => new Set([...prev].filter((selectedId) => selectedId !== id)))
+  }
+
+  const counts = useMemo(() => {
+    const byFinding = new Map<FindingFilter, number>()
+    for (const item of items ?? []) {
+      for (const kind of findingsOfItem(item)) byFinding.set(kind, (byFinding.get(kind) ?? 0) + 1)
+    }
+    return byFinding
+  }, [items])
+  // A filter whose rows are all decided falls back to everything.
+  const activeFilter = filter !== 'all' && (counts.get(filter) ?? 0) === 0 ? 'all' : filter
+  const shown = useMemo(
+    () => (items ?? []).filter((item) => activeFilter === 'all' || findingsOfItem(item).has(activeFilter)),
+    [items, activeFilter]
+  )
+  const selectedShown = shown.filter((item) => selected.has(item.id)).map((item) => item.id)
+
+  const toggle = (id: string, on: boolean): void =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (!on) next.delete(id)
+      else if (next.size < QUARANTINE_DECISION_LIMIT) next.add(id)
+      return next
+    })
+  const selectAll = (all: boolean): void =>
+    setSelected(all ? new Set(shown.slice(0, QUARANTINE_DECISION_LIMIT).map((item) => item.id)) : new Set())
+
+  const decideMany = async (decision: 'allow' | 'delete' | 'recheck', ids: string[]): Promise<void> => {
+    let results: Awaited<ReturnType<typeof decideQuarantinedDocuments>>
+    try {
+      results = await decideQuarantinedDocuments(decision, ids)
+    } catch {
+      toast.error(t('quarantine.decideError'))
+      return
+    }
+    const gone = new Set(results.filter((result) => LEAVES_QUEUE.has(result.outcome)).map((result) => result.id))
+    const done = results.filter((result) => DONE.has(result.outcome)).length
+    const stuck = results.length - gone.size
+    setItems((prev) => prev?.filter((item) => !gone.has(item.id)) ?? null)
+    setSelected(new Set(ids.filter((id) => !gone.has(id))))
+    if (done > 0) toast.success(t(DONE_TOAST[decision], { count: done }))
+    if (stuck > 0) toast.error(t('quarantine.someFailed', { count: stuck }))
+    // Someone else decided some of them first: the rest of the list may be stale too.
+    if (done + stuck < results.length) void load()
+  }
 
   const release = async (item: QuarantineQueueItem): Promise<void> => {
     try {
@@ -117,16 +194,21 @@ export const QuarantineQueue: FC = () => {
     }
   }
 
+  // Through the decision route, as a selection's delete: it deletes only what
+  // is still held, and answers the uploader's „Prüfung anfragen".
   const remove = async (item: QuarantineQueueItem): Promise<void> => {
-    try {
-      await deleteQuarantinedDocument(item)
+    const outcome = await decideQuarantinedDocuments('delete', [item.id])
+      .then((results) => results[0]?.outcome ?? 'failed')
+      .catch(() => 'failed' as const)
+    if (outcome === 'deleted') {
       drop(item.id)
       toast.success(t('quarantine.deleted', { name: item.filename }))
-    } catch (error) {
-      const notInChat = item.scope === 'session' && error instanceof ApiRequestError && error.status === 404
-      toast.error(notInChat ? t('quarantine.deleteErrorSession') : t('quarantine.deleteError'))
-      void load()
+      return
     }
+    // A chat attachment is not found for a reviewer who is not in that chat.
+    const notInChat = item.scope === 'session' && outcome === 'not_found'
+    toast.error(notInChat ? t('quarantine.deleteErrorSession') : outcome === 'changed' ? t('quarantine.changed') : t('quarantine.deleteError'))
+    void load()
   }
 
   if (failed) {
@@ -162,12 +244,31 @@ export const QuarantineQueue: FC = () => {
 
   return (
     <>
+      <QuarantineSelection
+        counts={counts}
+        filter={activeFilter}
+        onFilterChange={(next) => {
+          // Picks never hide behind a filter: what is acted on is what is shown.
+          setFilter(next)
+          setSelected(new Set())
+        }}
+        shown={shown.length}
+        selected={selectedShown.length}
+        limit={QUARANTINE_DECISION_LIMIT}
+        onSelectAll={selectAll}
+        onClear={() => setSelected(new Set())}
+        onRelease={() => ask({ kind: 'releaseMany', ids: selectedShown })}
+        onDelete={() => ask({ kind: 'deleteMany', ids: selectedShown })}
+        onRecheck={() => void decideMany('recheck', selectedShown)}
+      />
       <ItemList as="ul" aria-label={t('quarantine.listLabel')} data-testid="quarantine-queue">
-        {items.map((item) => (
+        {shown.map((item) => (
           <QuarantineRow
             key={item.id}
             item={item}
             projectName={item.projectId ? projectNames.get(item.projectId) : undefined}
+            selected={selected.has(item.id)}
+            onSelect={(on) => toggle(item.id, on)}
             onRelease={() => ask({ kind: 'release', item })}
             onDelete={() => ask({ kind: 'delete', item })}
           />
@@ -175,31 +276,49 @@ export const QuarantineQueue: FC = () => {
       </ItemList>
 
       <ConfirmDialog
-        open={dialogOpen && pending?.kind === 'release'}
+        open={dialogOpen && (pending?.kind === 'release' || pending?.kind === 'releaseMany')}
         onOpenChange={setDialogOpen}
-        title={t('quarantine.releaseTitle', { name: pending?.item.filename ?? '' })}
-        description={t('quarantine.releaseDescription')}
+        title={
+          pending?.kind === 'releaseMany'
+            ? t('quarantine.releaseManyTitle', { count: pending.ids.length })
+            : t('quarantine.releaseTitle', { name: pending && 'item' in pending ? pending.item.filename : '' })
+        }
+        description={
+          pending?.kind === 'releaseMany'
+            ? t('quarantine.releaseManyDescription', { count: pending.ids.length })
+            : t('quarantine.releaseDescription')
+        }
         confirmLabel={t('quarantine.release')}
         cancelLabel={tc('actions.cancel')}
         tone="warning"
         icon={ShieldOff}
         confirmTestId="quarantine-release-confirm"
         onConfirm={async () => {
-          if (pending) await release(pending.item)
+          if (pending?.kind === 'releaseMany') await decideMany('allow', pending.ids)
+          else if (pending?.kind === 'release') await release(pending.item)
         }}
       />
       <ConfirmDialog
-        open={dialogOpen && pending?.kind === 'delete'}
+        open={dialogOpen && (pending?.kind === 'delete' || pending?.kind === 'deleteMany')}
         onOpenChange={setDialogOpen}
-        title={t('quarantine.deleteTitle', { name: pending?.item.filename ?? '' })}
-        description={t('quarantine.deleteDescription')}
+        title={
+          pending?.kind === 'deleteMany'
+            ? t('quarantine.deleteManyTitle', { count: pending.ids.length })
+            : t('quarantine.deleteTitle', { name: pending && 'item' in pending ? pending.item.filename : '' })
+        }
+        description={
+          pending?.kind === 'deleteMany'
+            ? t('quarantine.deleteManyDescription', { count: pending.ids.length })
+            : t('quarantine.deleteDescription')
+        }
         confirmLabel={t('quarantine.delete')}
         cancelLabel={tc('actions.cancel')}
         tone="destructive"
         icon={Trash2}
         confirmTestId="quarantine-delete-confirm"
         onConfirm={async () => {
-          if (pending) await remove(pending.item)
+          if (pending?.kind === 'deleteMany') await decideMany('delete', pending.ids)
+          else if (pending?.kind === 'delete') await remove(pending.item)
         }}
       />
     </>
@@ -209,9 +328,11 @@ export const QuarantineQueue: FC = () => {
 const QuarantineRow: FC<{
   item: QuarantineQueueItem
   projectName: string | undefined
+  selected: boolean
+  onSelect: (selected: boolean) => void
   onRelease: () => void
   onDelete: () => void
-}> = ({ item, projectName, onRelease, onDelete }) => {
+}> = ({ item, projectName, selected, onSelect, onRelease, onDelete }) => {
   const t = useTranslations(organizationCopy)
   const { locale } = useLocale()
   const hasReasons = (item.verdict?.reasons.length ?? 0) > 0
@@ -228,6 +349,13 @@ const QuarantineRow: FC<{
 
   return (
     <Item as="li" className="flex-wrap items-start hover:bg-transparent" data-testid={`quarantine-row-${item.id}`}>
+      <Checkbox
+        className="mt-0.5"
+        checked={selected}
+        onCheckedChange={(checked) => onSelect(checked === true)}
+        aria-label={t('quarantine.selectRow', { name: item.filename })}
+        data-testid={`quarantine-select-${item.id}`}
+      />
       <ItemMedia>
         <FileWarning className="size-5 text-warning" aria-hidden />
       </ItemMedia>

@@ -7,7 +7,7 @@
  * comparison already handles, so the name is enough.
  */
 
-import { isOfficeRenditionSource } from '@/lib/documents/preview-types'
+import { isRenditionSource } from '@/lib/documents/preview-types'
 
 export type CompareKind = 'pdf' | 'office' | 'image' | 'unsupported'
 
@@ -23,6 +23,6 @@ export function compareKindOf(filename: string): CompareKind {
   const extension = dot >= 0 ? name.slice(dot) : ''
   if (extension === '.pdf') return 'pdf'
   if (IMAGE_EXTENSIONS.has(extension)) return 'image'
-  if (isOfficeRenditionSource({ filename })) return 'office'
+  if (isRenditionSource({ filename })) return 'office'
   return 'unsupported'
 }

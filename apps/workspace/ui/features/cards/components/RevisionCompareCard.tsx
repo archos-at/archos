@@ -15,7 +15,6 @@
  */
 
 import type { FC } from 'react'
-import { GitCompareArrows } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
 import { MARK_INK, rgbCss } from '@/features/documents/components/revision-compare/lib/tint'
@@ -87,7 +86,7 @@ export const RevisionCompareCard: FC<RevisionCompareCardProps> = ({
   return (
     <Card data-testid="revision-compare-card" className={cn(CARD_SHELL, 'gap-3 p-4 sm:p-5')}>
       <div className="flex flex-col gap-1">
-        <SectionLabel icon={GitCompareArrows}>{t('cards.revisionCompare.eyebrow')}</SectionLabel>
+        <SectionLabel>{t('cards.revisionCompare.eyebrow')}</SectionLabel>
         <p className="card-title text-foreground">{t('cards.revisionCompare.page', { page })}</p>
       </div>
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">

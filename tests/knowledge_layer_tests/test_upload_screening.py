@@ -262,6 +262,10 @@ class TestAustrianSocialSecurityNumber:
             "91237010180",  # inside a longer digit run
             "1237 0101801",  # inside a longer digit run
             "1237 01 0180",  # the date is either joined or separated throughout
+            "2026-09-12 10:17:51",  # a timestamp: serial 2026, date 09-12 10, mixed separators
+            "1237 01.01 80",  # the date's parts split by different separators
+            "1237 01 01 80:15",  # a time follows
+            "Kundennummer 1237010180",  # unbroken, and nothing on the page says SV-Nr.
         ],
     )
     def test_an_invalid_or_embedded_number_does_not(self, text):
@@ -278,7 +282,7 @@ class TestCreditCard:
         [
             "Karte 4111 1111 1111 1111",
             "4111-1111-1111-1111",
-            "5555555555554444",
+            "Kreditkarte 5555555555554444",  # unbroken, with a card's word beside it
             "Amex 3782 822463 10005",
             "4111.1111.1111.1111",
             "4111 1111 1111 1111 123",  # followed by its security code
@@ -295,6 +299,10 @@ class TestCreditCard:
             "94111111111111111",  # inside a longer digit run
             "4111 1111 1111 1111 1111 1111",  # inside a longer separated run
             "411111111111",  # too short
+            "5555555555554444",  # unbroken, and nothing says it is a card
+            "EAN 4006381333931",  # an article code passes Luhn in a Visa range
+            "Ricardo 4111111111111111",  # a card's word inside another word does not count
+            "4111 111111 11114",  # the 4-6-5 layout is Amex's, and Amex starts 34 or 37
         ],
     )
     def test_an_invalid_or_embedded_card_does_not(self, text):

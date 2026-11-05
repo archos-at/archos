@@ -86,6 +86,7 @@ describe('classifyIngestFailure', () => {
   it.each([
     ['INGEST_DISPATCH_FAILED_MESSAGE', 'dispatch_failed'],
     ['RENDITION_REQUIRED_MESSAGE', 'rendition_failed'],
+    ['DRAWING_UNREADABLE_MESSAGE', 'drawing_unreadable'],
   ] as const)('classifies the BFF constant %s', (name, kind) => {
     const message = bffConstant(name)
     expect(BFF_FAILURE_PHRASES).toHaveProperty([message], kind)

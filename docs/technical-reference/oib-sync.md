@@ -130,7 +130,7 @@ What calls it: ingestion, `GET /v1/oib/documents/{file_name}` (the PDF viewer; 4
 | `inconsistent` | The table says ingested, the collection holds no chunks for it |
 | `removed` | The collection holds chunks for it, the table does not list it. Delete the document to clear them |
 
-The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `ingested_sha256`, `current_sha256`, `ingested_at`, `summary`, `doc_class`, `doc_class_suggestion` and `display_title`; the summary carries a count per state (`ingested`, `stale`, `pending`, `failed`, `removed`, `inconsistent`) and `total_chunks`.
+The fields per file are `file_name`, `state`, `size_bytes`, `chunk_count`, `ingested_sha256`, `current_sha256`, `ingested_at`, `summary`, `doc_class`, `doc_class_suggestion` and `display_title`; the summary carries a count per state (`ingested`, `stale`, `pending`, `failed`, `removed`, `inconsistent`) and `total_chunks`. `ingested_at` is the ingest job's completion while its record lasts (24 hours), then when the collection's chunks for the file were last written (`indexed_at`, `ingest/listing.py`), so it never goes blank on an older file.
 
 ---
 

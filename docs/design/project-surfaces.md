@@ -7,7 +7,7 @@ lookalike.**
 The project card is part of the design language, not one page's component. It is
 the click-dummy's Projektübersicht card (spec §1/§3) and it is what "a project,
 listed" looks like everywhere in Piloti: a subtle-surface body carrying a raised
-white plate with the name, the status chip and the brief line, and a quiet meta
+white plate with the name, the status chip and the location line, and a quiet meta
 strip underneath with the timestamp and a shortcut to the project's Übersicht.
 
 Two lookalike cards do not stay lookalikes. They drift on the first token retune
@@ -24,7 +24,7 @@ projects-home rework grew a second, larger `ProjectResumeCard` beside
 |---|---|
 | `components/ui/raised-card.tsx` | The **shape**: the tray, the laid-in white sheet, the footer tab. Shared with the document and job cards |
 | `components/ui/section-label.tsx`, `components/ui/count-pill.tsx` | The eyebrow and the quiet number beside it. The grid's `SectionHeading` is only the arrangement of these two |
-| `components/projects/project-atoms.tsx` | The **project-specific parts**: links, brief, activity, doc count, initials tile |
+| `components/projects/project-atoms.tsx` | The **project-specific parts**: links, location, activity, doc count, initials tile |
 | `components/projects/project-card.tsx` | **The card.** `RaisedCard` + the atoms. Use this by default |
 | `components/projects/project-list-row.tsx` | The dense row — the same atoms in a different arrangement, an `Item` in the connected `ItemList` |
 | `components/projects/project-status.tsx` | The status chip and the (deliberately honest) status derivation |
@@ -47,7 +47,7 @@ for the primitive.** It is usually there.
 | Atom | Owns |
 |---|---|
 | `ProjectOpenLink` | The name as the surface's primary link, **stretched** over the whole surface, with the `Open {name}` label. The name is cut in the **middle** when it does not fit (`MiddleTruncate`, tail from `projectNameTail`): what tells two projects apart is the end of the name |
-| `ProjectSummaryLine` | The brief, falling back to the shared invitation when a project has none |
+| `ProjectLocationLine` | Where the project is: the profile fact `site_address` (`projectSiteAddress`, the rule the Steckbrief reads too), one truncating line. No line at all when a project has no address |
 | `ProjectActivity` | **Whose timestamp this is** — see below. `compact` keeps the icon and moves the words to assistive tech, for a footer that also carries a link |
 | `ProjectDocCount` | Ingested document count, pluralized |
 | `ProjectOverviewLink` | The shortcut to the project's Übersicht (`/settings`, with the navigation's own dashboard icon), layered above the stretched link (`relative z-10`) — never nested inside it. 44px on a touch pointer; it grows rather than overhangs, because a neighbour sits beside it. It replaced a gear that promised a settings form and hid the page that says where the project stands |

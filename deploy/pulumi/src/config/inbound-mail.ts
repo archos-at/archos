@@ -189,7 +189,7 @@ export function inboundMailConfig(cfg: pulumi.Config, zone: InboundMailZoneConte
     // cannot file anything.
     throw new Error(
       "inboundMailDomain needs malwareScanEnabled=true: mail from anyone is scanned by " +
-        "the in-cluster ClamAV before it can be filed or downloaded (ADR-0152), and without the scanner " +
+        "the in-cluster ClamAV before it can be filed or downloaded (ADR-0157), and without the scanner " +
         "nothing that arrives could ever be filed.",
     );
   }

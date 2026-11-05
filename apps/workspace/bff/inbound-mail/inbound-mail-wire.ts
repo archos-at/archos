@@ -180,7 +180,7 @@ export interface InboundMailSenderRiskView {
   /**
    * Who the sender is to the project (`./sender-class.ts`): a verified writer's
    * mail is filed as them; null for a mail held before the rule (none is shown
-   * unclassified since migration 0195).
+   * unclassified since migration 0197).
    */
   senderClass: InboundMailSenderClass | null
   /**
@@ -615,7 +615,7 @@ export interface MailOriginView {
   receivedAt: string
   /** Who the Verlauf's heading names: a forward's author (never confirmed), else the sender. */
   fromName: string | null
-  /** A forward's forwarder, whose the trust fields then are (migration 0196); `forwarded` says it was one. */
+  /** A forward's forwarder, whose the trust fields then are (migration 0198); `forwarded` says it was one. */
   forwardedByName: string | null
   forwarded: boolean
   signerDomain: string | null

@@ -52,7 +52,7 @@ export function livenessScript(): string {
 }
 
 /**
- * ClamAV: the malware scanner (ADR-0152). The BFF streams what strangers send
+ * ClamAV: the malware scanner (ADR-0157). The BFF streams what strangers send
  * (attachments, and each raw message whole) through clamd's INSTREAM, and
  * serves or files nothing it did not answer `OK` for
  * (`apps/workspace/bff/malware-scan/`).

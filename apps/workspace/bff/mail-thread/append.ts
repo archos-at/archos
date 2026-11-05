@@ -40,7 +40,7 @@ import 'server-only'
  *    moving; {@link finishOriginalMove} (`./originals.ts`) moves it to the
  *    entry's own key.
  * 6. **An original is attributed once.** A forward whose attached original
- *    another mail's entry already holds (`author_message_id`, migration 0196)
+ *    another mail's entry already holds (`author_message_id`, migration 0198)
  *    is filed as its forwarder's own message, never as a second section under
  *    the original's author; the forward itself is always filed.
  *
@@ -230,7 +230,7 @@ export function inboundEntryOf(input: {
     signerDomain: mail.signerDomain,
     senderTrust: mail.senderTrust ?? 'external_unverified',
     authenticationResults: mail.authenticationResults,
-    // Who wrote a forwarded message (migration 0196); the sender stays the forwarder.
+    // Who wrote a forwarded message (migration 0198); the sender stays the forwarder.
     ...authorOf(mail),
     participants: mail.participants
       .slice(0, 50)
@@ -259,7 +259,7 @@ function authorOf(mail: InboundMailRow): Pick<NewMailThreadEntryRow, 'authorAddr
 }
 
 /**
- * An attached original another mail's entry already holds (migration 0196):
+ * An attached original another mail's entry already holds (migration 0198):
  * the original is not given a second section under its author's name. Its
  * Message-ID is the forward's sender's word, so this decides attribution only;
  * the forward itself is always filed, its text and what came with it.

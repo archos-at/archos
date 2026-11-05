@@ -15,7 +15,7 @@ import { findOpenJobId } from '@/lib/jobs-queue/repository'
 import { BFF_JOB_PRIORITY, type BffJobPriority } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
 import { isIfcFilename } from '@/lib/bim/types'
-import { extractsFromRendition, isRenditionEnabled } from './rendition'
+import { extractsFromRendition, isRenditionEnabledFor } from './rendition'
 import { servedAsRendition } from './document-delivery'
 import type { DocumentTypeTag } from './tag-vocabulary'
 import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
@@ -265,7 +265,7 @@ export async function dispatchDocument(
   }
   // Decided on the ROW's name and stored type, like the preview route decides
   // what to serve, so a file is indexed from the same PDF a reader is shown.
-  if (isRenditionEnabled() && servedAsRendition(row)) {
+  if (servedAsRendition(row) && isRenditionEnabledFor(row)) {
     return beginRenditionIngest(input, row.filename)
   }
   // Without a converter a Word or presentation file has no source to index

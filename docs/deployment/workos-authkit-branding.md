@@ -14,6 +14,20 @@ repository writes to WorkOS for this (no `--apply`).
 | The photo it inlines | `packages/brand/authkit/login-photo.webp` |
 | Renderer (inlines the photo, strips the header comment) | `packages/brand/authkit/build.mjs` |
 | **The file to paste** | `packages/brand/dist/authkit.css` (written by the renderer, committed) |
+| The photo, served for the hosted page | `apps/website/public/media/login-photo.webp`, at `https://<website>/media/login-photo.webp` |
+
+### Two forms of the stylesheet
+
+- **Hosted photo (preferred).** `LOGIN_PHOTO_URL=https://<website>/media/login-photo.webp node packages/brand/authkit/build.mjs`
+  prints the stylesheet with the photo as a URL: about 8 KB, and the photo at full
+  resolution and quality. AuthKit's page allows images from any origin
+  (`img-src * data:`) and the website sends no `Cross-Origin-Resource-Policy`, so it
+  loads. Use the website of the same environment: `dev.piloti.at` for Staging,
+  `piloti.at` for Production, and only once that website's deploy serves the file.
+  It is small enough to set through the WorkOS connector
+  (`updateAppBranding`, `customCssElements.authkitGlobal`).
+- **Inlined photo.** `dist/authkit.css`, the photo as a data URI (about 85 KB), for
+  an environment whose website does not serve the photo yet.
 
 ## Steps (Production)
 

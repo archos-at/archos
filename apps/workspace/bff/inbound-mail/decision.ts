@@ -90,7 +90,7 @@ export function mailIfMatch(
 export function senderNeedsAcknowledgement(
   mail: Pick<InboundMailRow, 'senderTrust' | 'senderReason' | 'senderFlags' | 'senderClass'>,
 ): boolean {
-  // „Haben Sie diese E-Mail gesendet?“: the claimed writer files it by saying so (`acknowledged_sender`, migration 0195).
+  // „Haben Sie diese E-Mail gesendet?“: the claimed writer files it by saying so (`acknowledged_sender`, migration 0197).
   if (mail.senderClass === 'unverified_writer') return true
   const facts = senderFactsOf(mail)
   return facts === null || needsAcknowledgement(facts)

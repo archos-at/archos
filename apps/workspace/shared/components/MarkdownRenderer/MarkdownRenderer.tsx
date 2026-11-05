@@ -516,7 +516,7 @@ function MarkdownH6({ children, node }: HeadingProps) {
 function MarkdownParagraph({ children }: React.ComponentPropsWithoutRef<'p'>) {
   const { compact } = useMarkdownRenderState()
   return (
-    <p className={`text-foreground mb-4 block max-w-[72ch] leading-relaxed ${compact ? 'text-sm' : 'text-base'}`}>
+    <p className={`text-foreground mb-4 block max-w-[72ch] ${compact ? 'text-sm leading-relaxed' : 'text-answer'}`}>
       {children}
     </p>
   )
@@ -540,7 +540,7 @@ function MarkdownListItem({ children, id, node }: React.ComponentPropsWithoutRef
     )
   }
   return (
-    <li id={id} className={`text-foreground ${compact ? 'text-sm' : 'text-base'}`}>
+    <li id={id} className={`text-foreground ${compact ? 'text-sm' : 'text-answer'}`}>
       {children}
     </li>
   )

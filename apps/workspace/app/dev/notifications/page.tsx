@@ -26,6 +26,7 @@ import { FIXTURE_DEVICES, pushFixture } from '@/features/notifications/component
 import { NotificationSettingsView } from '@/features/notifications/components/notification-settings'
 import { DEFAULT_PUSH_PREFERENCES } from '@/lib/inbox/push-categories'
 import type { InboxItemView } from '@/lib/inbox/types'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const now = Date.parse('2026-10-15T10:00:00Z')
 const ago = (minutes: number): string => new Date(now - minutes * 60_000).toISOString()
@@ -102,7 +103,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 function Section({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{title}</h2>
+      <SectionLabel as="h2">{title}</SectionLabel>
       {children}
     </section>
   )

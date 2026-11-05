@@ -1,0 +1,14 @@
+---
+import ServerErrorView from '../views/ServerErrorView.astro';
+import { localeFromUrl } from '../i18n/paths';
+
+// Astro renders this page when a page rendered on request throws (the 404 page, /sign-in, the
+// analytics script): the Node adapter answers with it instead of an empty 500. Rendered on
+// request like 404.astro, so a failure under /en/ answers in English. `Astro.url` is the address
+// that failed, which "reload" asks for again; the error itself is logged by Astro and never shown.
+export const prerender = false;
+Astro.response.status = 500;
+const retryHref = `${Astro.url.pathname}${Astro.url.search}`;
+---
+
+<ServerErrorView locale={localeFromUrl(Astro.url)} retryHref={retryHref} />

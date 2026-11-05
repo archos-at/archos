@@ -66,7 +66,7 @@ tasks:
       - bun run test
 
   workspace:test:ci:
-    desc: UI tests with the coverage reporters CI's coverage comment consumes
+    desc: UI tests with the json and json-summary coverage reporters
     dir: '{{.UI}}'
     cmds:
       - bun run test:ci -- --coverage.reporter=json-summary --coverage.reporter=json
@@ -113,8 +113,9 @@ tasks:
       # two, so without it a failing test is a log line instead of an
       # annotation on the pull request's diff.
       #
-      # COVERAGE=false leaves the instrumentation out: CI's push runs, whose
-      # blobs nothing merges (the coverage comment is a pull request's).
+      # COVERAGE=false leaves the instrumentation out, as CI always does:
+      # nothing gates on UI coverage. Locally, workspace:test:merge still
+      # stitches instrumented shards into one coverage set.
       - bun run test:shard -- --shard={{.SHARD}} --reporter=default{{if .GITHUB_ACTIONS}} --reporter=github-actions{{end}} --outputFile=.vitest-reports/blob-{{.SHARD | replace "/" "-"}}.json{{if eq .COVERAGE "false"}} --coverage.enabled=false{{end}}
 
   workspace:test:durations:
