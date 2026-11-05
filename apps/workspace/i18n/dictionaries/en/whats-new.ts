@@ -19,6 +19,15 @@ export const whatsNew = {
     title: 'New this week',
     open: 'See everything new',
     close: 'Close',
+    stop: "Don't show again",
+  },
+  /** The switch for the notice, on the profile page (`whats-new-notice-settings.tsx`). */
+  settings: {
+    title: "What's new",
+    description: 'Once a week, a short note on what changed in {productName}.',
+    label: 'Show the weekly summary as a notice',
+    hint: "Shows each new week's summary once. Every change stays in the user menu under What's new.",
+    failed: 'The setting could not be saved. Try again.',
   },
   /** One label per product area, keyed by the area id the release notes carry (`release_notes_areas.py`). */
   areas: {

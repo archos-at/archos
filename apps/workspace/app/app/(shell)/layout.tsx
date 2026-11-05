@@ -37,6 +37,7 @@ import type { JSX } from 'react'
 import { type ReactNode } from 'react'
 import { AppShellChrome } from '@/components/shell/app-shell-chrome'
 import { InboxDock } from '@/features/collaboration/components'
+import { WhatsNewNoticeInShell } from '@/features/whats-new/components'
 import { RouteFocus } from '@/shared/components/route-focus'
 import { MainScrollMemory } from '@/components/shell/main-scroll-memory'
 import { resolveShellChrome } from '@/lib/shell/chrome'
@@ -88,6 +89,8 @@ export default async function AppShellLayout({
         <MainScrollMemory />
         {children}
       </main>
+      {/* The newest weekly summary, once (ADR-0154): inside the chrome, so it can wait out a tour. */}
+      <WhatsNewNoticeInShell state={chrome.whatsNew} />
     </AppShellChrome>
   )
 }

@@ -21,8 +21,9 @@ if (motion.matches && 'IntersectionObserver' in window) {
     requestAnimationFrame(() => requestAnimationFrame(() => block.classList.remove('is-instant')));
   };
   // An image is uncovered only once it can be shown, or the wipe would uncover its grey
-  // placeholder and the picture would pop in after it. Waits at most IMAGE_WAIT_MS, so
-  // a slow image never holds back the text around it.
+  // placeholder and the picture would pop in after it. Its loading starts a screen ahead
+  // (`ahead`, below), so the wait is rare; it lasts at most IMAGE_WAIT_MS, so a slow image
+  // never holds back the text around it.
   const IMAGE_WAIT_MS = 400;
   const ready = (block: HTMLElement) => {
     const images = [...(block instanceof HTMLImageElement ? [block] : block.querySelectorAll('img'))].filter((img) => {
@@ -53,13 +54,27 @@ if (motion.matches && 'IntersectionObserver' in window) {
       const index = counts.get(block.parentNode) ?? 0;
       counts.set(block.parentNode, index + 1);
       block.style.setProperty('--ui-reveal-index', String(index));
-      void ready(block).then(() => block.classList.remove('is-pending'));
+      void ready(block).then(() => {
+        // The reader kept scrolling while an image loaded: it is already in the upper half
+        // of the screen and being looked at, so it is simply there.
+        if (block.getBoundingClientRect().top < innerHeight / 2) showAtOnce(block);
+        else block.classList.remove('is-pending');
+      });
     }
     first = false;
   }, { rootMargin: '0px 0px -8% 0px' });
+  // A lazy image waiting to be unveiled starts loading a screen before it arrives.
+  const ahead = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      ahead.unobserve(entry.target);
+      if (entry.target instanceof HTMLImageElement) entry.target.loading = 'eager';
+    }
+  }, { rootMargin: '0px 0px 100% 0px' });
   for (const block of document.querySelectorAll<HTMLElement>('[data-reveal]')) {
     if (block.getBoundingClientRect().top < innerHeight) continue;
     block.classList.add('is-pending');
     arrive.observe(block);
+    if (block.dataset.reveal === 'unveil') ahead.observe(block);
   }
 }

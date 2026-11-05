@@ -20,6 +20,14 @@ export const whatsNew: typeof en.whatsNew = {
     title: 'Neu diese Woche',
     open: 'Alle Neuerungen ansehen',
     close: 'Schließen',
+    stop: 'Nicht mehr anzeigen',
+  },
+  settings: {
+    title: 'Neuerungen',
+    description: 'Einmal pro Woche ein kurzer Hinweis, was sich in {productName} geändert hat.',
+    label: 'Wöchentliche Neuerungen als Hinweis anzeigen',
+    hint: 'Zeigt die Zusammenfassung jeder neuen Woche einmal. Alle Neuerungen finden Sie jederzeit im Benutzermenü unter Neuerungen.',
+    failed: 'Die Einstellung konnte nicht gespeichert werden. Bitte erneut versuchen.',
   },
   areas: {
     projects: 'Projekte & Einrichtung',

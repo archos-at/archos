@@ -6,7 +6,8 @@
  *
  * The server decides whether there is one to show (`resolveWhatsNewNotice`); this decides when.
  * Closing it with × or Escape, or following its link, records the week as seen for the person on
- * every device, and it does not come back in this tab either. It waits while a product tour runs,
+ * every device, and it does not come back in this tab either. "Nicht mehr anzeigen" also turns it
+ * off for good; the switch on the profile page turns it back on. It waits while a product tour runs,
  * and someone new here (`quietly`) is never shown it: the week is recorded without a word.
  */
 
@@ -84,6 +85,13 @@ export function WhatsNewNotice({
     finish()
   }
 
+  // "Nicht mehr anzeigen": seen, and off for good, until the person turns it back on in the profile.
+  const stop = (): void => {
+    capturePosthog('whats_new_opted_out', { week: state.summary.id, surface: 'notice' })
+    setDone(true)
+    void postReleaseSummarySeen(state.summary.id, true)
+  }
+
   return (
     <NoticeCard
       open={open}
@@ -93,6 +101,9 @@ export function WhatsNewNotice({
       onClose={close}
       actions={
         <>
+          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground mr-auto" onClick={stop}>
+            {t('notice.stop')}
+          </Button>
           <Button type="button" variant="ghost" size="sm" onClick={() => close('close_button')}>
             {t('notice.close')}
           </Button>

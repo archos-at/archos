@@ -36,8 +36,6 @@ interface Props {
 const { locale, items, class: className } = Astro.props;
 ---
 
-<!-- The reveal sits on a wrapper: on the grid itself its transition would replace the widening's. -->
-<div data-reveal="parts">
 <div class:list={['ui-duo', className]}>
   {
     items.slice(0, 2).map((item, i) => {
@@ -76,5 +74,4 @@ const { locale, items, class: className } = Astro.props;
       );
     })
   }
-</div>
 </div>

@@ -1,6 +1,4 @@
 ---
-import MaskedWords from './MaskedWords.astro';
-
 interface Props {
   /** A `\n` is a deliberate line break, kept at every width */
   title: string;
@@ -30,13 +28,15 @@ const {
 } = Astro.props;
 const titleClass = { display: 'display', heading: 'heading-1', subheading: 'heading-2' }[size];
 const hasActions = Astro.slots.has('default');
+const titleLines = title.split('\n');
+// `data-reveal`: the intro arrives on scroll as one unit (motion.css); a section's opening is read whole.
 ---
 
 <div
-  data-reveal="parts"
+  data-reveal
   class:list={['ui-intro', align === 'center' && 'ui-intro-center', layout === 'split' && 'site-intro-split', className]}
 >
-  <Title class:list={['ui-intro-title', titleClass]}><MaskedWords text={title} /></Title>
+  <Title class:list={['ui-intro-title', titleClass]}>{titleLines.map((line, i) => (<>{i > 0 && <br />}{line}</>))}</Title>
   {
     layout === 'split' ? (
       (lead || text || hasActions) && (

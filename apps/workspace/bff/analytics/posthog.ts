@@ -151,6 +151,8 @@ export type PostHogEvent =
   | 'whats_new_shown'
   | 'whats_new_dismissed'
   | 'whats_new_opened'
+  | 'whats_new_opted_out'
+  | 'whats_new_opted_in'
 
 let initialized = false
 
