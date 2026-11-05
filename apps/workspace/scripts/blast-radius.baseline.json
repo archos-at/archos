@@ -30,7 +30,7 @@
   "bff/authz/platform.ts": 387,
   "bff/authz/project-membership.ts": 484,
   "bff/authz/projects.ts": 454,
-  "bff/authz/resource-check.ts": 456,
+  "bff/authz/resource-check.ts": 547,
   "bff/backend-proxy.ts": 279,
   "bff/bim/types.ts": 545,
   "bff/brand.ts": 980,
