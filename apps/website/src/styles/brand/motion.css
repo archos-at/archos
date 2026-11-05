@@ -1,0 +1,134 @@
+/* Motion on arrival. Values come from tokens.css; class prefix ui-.
+
+   The page is drawn as the reader arrives, then holds still. Three verbs, nothing else:
+
+     rise     a heading's words come up out of their own line, as if written in
+     unveil   an image or a panel is uncovered from its top edge, the way a sheet is
+              pulled off a drawing; a photo settles from a touch larger to its own size
+     draw     a line is drawn from its start (the steps of the timeline)
+
+   and paragraphs, tiles and buttons arrive: a short fade up by --travel-sm.
+
+   Two triggers. The hero plays once on load (CSS only, so it needs no script and runs
+   before it). Everything marked [data-reveal] plays once as it scrolls into view: the
+   script in BaseLayout.astro marks only blocks below the fold `.is-pending`, so nothing
+   on screen at load moves and nothing is hidden without the script. A block's index in
+   the batch that arrives together (`--ui-reveal-index`, set by that script) staggers it in
+   reading order.
+
+     data-reveal          the block arrives as one (a tile, a band)
+     data-reveal="parts"  the block holds still and its parts move (an intro, a gallery)
+     data-reveal="unveil" the element is an image and is unveiled
+
+   Only transform, opacity and clip-path move. Print and reduced motion get the still page,
+   which is the finished page. */
+
+/* The rising words' boxes, the same with and without motion so the type never reflows
+   with a preference. max-width keeps a word longer than the column breaking inside it. */
+.ui-rise,
+.ui-rise > span { display: inline-block; max-width: 100%; }
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  [data-reveal] { --ui-reveal-delay: min(calc(var(--ui-reveal-index, 0) * var(--stagger-row)), var(--stagger-max)); }
+
+  /* A word's mask reaches past its line box, so nothing of the glyphs is cut at rest. */
+  .ui-rise { clip-path: inset(calc(-1 * var(--rise-bleed))); }
+
+  /* ---- The hero, on load ---- */
+  .ui-hero-title .ui-rise > span {
+    animation: ui-rise var(--duration-reveal) var(--ease-settle) backwards;
+    animation-delay: min(calc(var(--ui-rise-i, 0) * var(--stagger-word)), var(--stagger-max));
+  }
+  .ui-hero-text { animation: ui-arrive var(--duration-slow) var(--ease-settle) var(--stagger-max) backwards; }
+  .ui-hero-media > * {
+    transform-origin: 50% 0;
+    animation: ui-unveil var(--duration-reveal) var(--ease-settle) calc(2 * var(--stagger-row)) backwards;
+  }
+
+  /* ---- On scroll: where each part waits, after its block's own delay ---- */
+  [data-reveal] .ui-intro-lead { --ui-part: calc(2 * var(--stagger-row)); }
+  [data-reveal] .ui-intro-text { --ui-part: calc(3 * var(--stagger-row)); }
+  [data-reveal] .ui-intro-actions { --ui-part: calc(4 * var(--stagger-row)); }
+  [data-reveal] .ui-quote-portrait,
+  [data-reveal] .ui-gallery-card:nth-child(2),
+  [data-reveal] .ui-duo-card:nth-child(2),
+  [data-reveal] .ui-cta > :nth-child(2) { --ui-part: calc(2 * var(--stagger-row)); }
+  [data-reveal] .ui-cta > :first-child,
+  [data-reveal] .ui-timeline-when { --ui-part: var(--stagger-row); }
+  [data-reveal] .ui-timeline-text { --ui-part: calc(2 * var(--stagger-row)); }
+  [data-reveal] .ui-gallery-ctl { --ui-part: var(--stagger-max); }
+  [data-reveal] .ui-logo { --ui-part: min(calc(var(--ui-reveal-i, 0) * var(--stagger-row)), var(--stagger-max)); }
+  /* The timeline's steps follow each other as one line being drawn, segment by segment. */
+  .ui-timeline-step[data-reveal] { --ui-reveal-delay: calc(var(--ui-reveal-index, 0) * var(--duration-base)); }
+
+  /* Waiting: the state each part starts from. No transition here, so marking a block
+     pending never plays anything. */
+  [data-reveal=""].is-pending,
+  [data-reveal].is-pending :is(.ui-intro-lead, .ui-intro-text, .ui-intro-actions, .ui-quote, .ui-gallery-ctl, .ui-cta > *, .ui-timeline-when, .ui-timeline-text, .ui-logo) {
+    opacity: 0;
+    transform: translateY(var(--travel-sm));
+  }
+  [data-reveal].is-pending .ui-rise > span { transform: translateY(calc(100% + var(--rise-bleed))); }
+  :is(.ui-cta, .ui-video)[data-reveal].is-pending,
+  [data-reveal].is-pending :is(.ui-gallery-card, .ui-duo-card) { clip-path: inset(0 0 100%); }
+  [data-reveal="unveil"].is-pending,
+  [data-reveal].is-pending .ui-quote-portrait > * {
+    clip-path: inset(0 calc((1 - 1 / var(--unveil-scale)) * 50%) 100%);
+    transform: scale(var(--unveil-scale));
+  }
+  [data-reveal].is-pending :is(.ui-video-media, .ui-gallery-media > *) { transform: scale(var(--unveil-scale)); }
+  [data-reveal].is-pending .ui-timeline-bar { transform: scaleX(0); }
+
+  /* Arriving: the transitions live on the settled state, so they run only when the
+     script lets a block go. */
+  [data-reveal=""]:not(.is-pending),
+  [data-reveal]:not(.is-pending) :is(.ui-intro-lead, .ui-intro-text, .ui-intro-actions, .ui-quote, .ui-gallery-ctl, .ui-cta > *, .ui-timeline-when, .ui-timeline-text, .ui-logo) {
+    transition: opacity var(--duration-slow) var(--ease-settle), transform var(--duration-slow) var(--ease-settle);
+    transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
+  }
+  [data-reveal]:not(.is-pending) .ui-rise > span {
+    transition: transform var(--duration-reveal) var(--ease-settle);
+    transition-delay: calc(var(--ui-reveal-delay) + min(calc(var(--ui-rise-i, 0) * var(--stagger-word)), var(--stagger-max)));
+  }
+  :is(.ui-cta, .ui-video)[data-reveal]:not(.is-pending),
+  [data-reveal]:not(.is-pending) :is(.ui-gallery-card, .ui-duo-card) {
+    clip-path: inset(0);
+    transition: clip-path var(--duration-reveal) var(--ease-settle);
+    transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
+  }
+  [data-reveal="unveil"]:not(.is-pending),
+  [data-reveal]:not(.is-pending) .ui-quote-portrait > * {
+    clip-path: inset(0);
+    transform-origin: 50% 0;
+    transition: clip-path var(--duration-reveal) var(--ease-settle), transform var(--duration-reveal) var(--ease-settle);
+    transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
+  }
+  [data-reveal]:not(.is-pending) :is(.ui-video-media, .ui-gallery-media > *) {
+    transform-origin: 50% 0;
+    transition: transform var(--duration-reveal) var(--ease-settle);
+    transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
+  }
+  [data-reveal]:not(.is-pending) .ui-timeline-bar {
+    transform-origin: left center;
+    transition: transform var(--duration-base) var(--ease-draft) var(--ui-reveal-delay);
+  }
+
+  /* A block the reader reaches from above (after a jump) is already passed: it is shown
+     at once, never animated against the scroll. The script removes the class again. */
+  .is-instant,
+  .is-instant * { transition-duration: 0s !important; transition-delay: 0s !important; }
+}
+
+@keyframes ui-rise {
+  from { transform: translateY(calc(100% + var(--rise-bleed))); }
+}
+@keyframes ui-arrive {
+  from { opacity: 0; transform: translateY(var(--travel-sm)); }
+}
+@keyframes ui-unveil {
+  from {
+    clip-path: inset(0 calc((1 - 1 / var(--unveil-scale)) * 50%) 100%);
+    transform: scale(var(--unveil-scale));
+  }
+  to { clip-path: inset(0); transform: none; }
+}

@@ -70,6 +70,11 @@
   --ease-draft: cubic-bezier(0.65, 0, 0.35, 1);
   --stagger-row: 60ms;
   --travel-sm: 8px;
+  --duration-reveal: 800ms;
+  --stagger-word: 30ms;
+  --stagger-max: 240ms;
+  --rise-bleed: 0.16em;
+  --unveil-scale: 1.03;
   --font-sans: "General Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-logo: Switzer, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --text-display-xl: 500 72px/78px var(--font-sans);

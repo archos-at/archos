@@ -438,10 +438,18 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
 @media (max-width: 767px) { .ui-contact { row-gap: var(--space-12); } }
 
 /* Duo photo scrim (added 2026-11-05, media pass). The duo photos show in their own colours and
-   brightness; the text on them gets its contrast from a shade behind the text alone, anchored at
-   the card's top left where the text sits and fading out before the photo's subject. The shade is
-   the colour the text is set against: ink under on-ink text (`ui-duo-on-photo`), the surface under
-   ink text (the dark card). `scripts/check-accessibility.mjs` (PHOTO_TEXT) measures the result. */
+   brightness; the text on them gets its contrast from a shade behind the text block alone. The
+   shade follows the text's box at every width, fades out below it and to its right, and leaves
+   the rest of the photo untouched. Its colour is the one the text is set against: ink under
+   on-ink text (`ui-duo-on-photo`), the surface under ink text (the dark card). The strength is
+   the least that holds 4.5:1 for the body over the brightest part of either photo;
+   `scripts/check-accessibility.mjs` (PHOTO_TEXT) measures it. */
 .ui-duo-card:has(> .ui-duo-photo) { --ui-scrim: var(--surface); }
 .ui-duo-card.ui-duo-on-photo { --ui-scrim: var(--ink); }
-.ui-duo-card:has(> .ui-duo-photo)::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse 120% 80% at 0 0, color-mix(in srgb, var(--ui-scrim) 70%, transparent) 0%, color-mix(in srgb, var(--ui-scrim) 55%, transparent) 50%, transparent 100%); }
+.ui-duo-card:has(> .ui-duo-photo) .ui-duo-text::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: calc(-1 * var(--space-16)) calc(-1 * var(--space-24)) calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-scrim) 62%, transparent) calc(100% - var(--space-16)), transparent);
+  -webkit-mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
+  mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
+}
