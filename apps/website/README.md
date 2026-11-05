@@ -170,8 +170,8 @@ section order there.
 | `knowledge-video-poster.webp` | The video's frame at 6 s ("Doch es liegt verstreut."), 2432 × 1216 | Same video, poster |
 | `team-conversation-photo.webp` | Drive `08_Startseite_Zitat-Foto.png` (grayscale), 1080 × 1350 | Home, portrait beside the feld72 quote |
 | `jonathan-uhlemann.webp` | Drive `Founder/Unknown.jpg` (702 × 700), cropped to 4:5, 560 × 700 | Home, founders row "Das Planungsbüro der Zukunft entsteht heute." (portrait, 4:5) |
-| `matthias-bigl.webp` | the retired site's original portrait (git history, `apps/site/src/assets/team/originals/matthias-bigl.webp`, 1086 × 1448, colour), cropped to 4:5 and set in greyscale like the others, 560 × 700 | Home, founders row (portrait, 4:5) |
-| `ferdinand-rubenbauer.webp` | the retired site's team graphic (git history, `apps/site/src/assets/team.png`, right card, duotone), cropped to 4:5 and set in greyscale, 380 × 475; the largest version that exists, a new photo is still welcome | Home, founders row (portrait, 4:5) |
+| `matthias-bigl.webp` | the retired site's original portrait (git history, 1086 × 1448, colour), cropped to 4:5 and set in greyscale like the others, 560 × 700 | Home, founders row (portrait, 4:5) |
+| `ferdinand-rubenbauer.webp` | the retired site's team graphic (git history, `team.png`, right card, duotone), cropped to 4:5 and set in greyscale, 380 × 475; the largest version that exists, a new photo is still welcome | Home, founders row (portrait, 4:5) |
 | `demo-panel-background.webp` | Drive `11_Demo_Hintergrund.png` (too large for the Drive connector), as the owner exported it: 2000 × 1140 WebP, sRGB, unchanged | Demo, background of the form panel |
 
 | File in `public/media/` | Reference file | Where it is used |
