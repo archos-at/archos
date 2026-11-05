@@ -271,6 +271,14 @@ config:
   # or duplicate stays closed when its error recurs; completed ones reopen).
   grid-oib:err2issueEnabled: "true"
   grid-oib:err2issueGithubRepo: GRID-check/grid-oib-agent
+  # ── The website's CMS (ADR-0155) ──
+  # Payload at cms.<baseDomain> (cms.dev.piloti.at), its own namespace, the
+  # cms-pg cluster and the cms-files bucket. Its secrets default to one-way
+  # HMACs of pgAppPassword, so nothing new goes into ESC. The first admin is
+  # letsEncryptEmail; its password is CMS_ADMIN_PASSWORD in the `cms-env`
+  # Secret of namespace `cms`. cms-pg's PITR archive (cmsPgBackupsEnabled) is
+  # off until an off-cluster bucket exists: staging's posts are the MDX import.
+  grid-oib:cmsEnabled: "true"
   # ── Feedback → GitHub issues ──
   # Bug reports from the in-app feedback form are filed as issues by the BFF,
   # with the err2issue PAT and repo above (feedbackIssuesEnabled defaults on).

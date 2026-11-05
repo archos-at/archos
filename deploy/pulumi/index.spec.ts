@@ -245,6 +245,7 @@ describe("the program constructs in the split topology", () => {
       backend: `ghcr.io/archos-at/grid-oib-backend:${tag}`,
       frontend: `ghcr.io/archos-at/grid-oib-frontend:${tag}`,
       web: `ghcr.io/archos-at/grid-oib-web:${tag}`,
+      cms: `ghcr.io/archos-at/cms:${tag}`,
     });
   });
 

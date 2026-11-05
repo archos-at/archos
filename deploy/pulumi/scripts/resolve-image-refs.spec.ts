@@ -64,10 +64,12 @@ beforeAll(() => {
   C.m4 = git("rev-parse", "HEAD");
   commit("c5");
 
-  // `pulumi stack output --json` prints $STUB_OUTPUTS, or fails on demand.
+  // `pulumi stack output --json` prints $STUB_OUTPUTS, or fails on demand;
+  // `pulumi config get cmsEnabled` prints $STUB_CMS_ENABLED, unset when empty.
   stub(
     "pulumi",
     [
+      'if [ "$1 $2 $3" = "config get cmsEnabled" ]; then [ -n "${STUB_CMS_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CMS_ENABLED"; exit 0; fi',
       '[ "$1 $2" = "stack output" ] || exit 64',
       '[ -z "${STUB_PULUMI_FAIL:-}" ] || exit 1',
       'out="${STUB_OUTPUTS:-}"; [ -n "$out" ] || out="{}"',
@@ -132,13 +134,16 @@ function run(script: string, env: Record<string, string>, args: string[] = [], c
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
+/** The registry repository: the CMS's image is named `cms`, the older three keep their prefixed names. */
+const repository = (service: string) => (service === "cms" ? "cms" : `grid-oib-${service}`);
+
 const ref = (service: string, commitName: string) =>
-  `ghcr.io/archos-at/grid-oib-${service}:sha-${C[commitName]}`;
+  `ghcr.io/archos-at/${repository(service)}:sha-${C[commitName]}`;
 
 /** Every service published at `commitName`, as "service tag" lines. */
 const publishedAt = (...commitNames: string[]) =>
   commitNames
-    .flatMap((n) => ["backend", "frontend", "web"].map((s) => `${s} sha-${C[n]}`))
+    .flatMap((n) => ["backend", "frontend", "web", "cms"].map((s) => `${s} sha-${C[n]}`))
     .join("\n");
 
 const deployed = (refs: Record<string, string>) => JSON.stringify({ deployedImages: refs });
@@ -164,6 +169,7 @@ describe("resolve-image-refs.sh", () => {
       BACKEND_IMAGE_REF: ref("backend", "c5"),
       FRONTEND_IMAGE_REF: ref("frontend", "c5"),
       WEB_IMAGE_REF: ref("web", "c5"),
+      CMS_IMAGE_REF: ref("cms", "c5"),
     });
   });
 
@@ -191,6 +197,7 @@ describe("resolve-image-refs.sh", () => {
       BACKEND_IMAGE_REF: ref("backend", "c5"),
       FRONTEND_IMAGE_REF: ref("frontend", "c5"),
       WEB_IMAGE_REF: ref("web", "c5"),
+      CMS_IMAGE_REF: ref("cms", "c5"),
     });
   });
 
@@ -282,11 +289,63 @@ describe("resolve-image-refs.sh", () => {
     const out = resolve({
       RESOLVE_DEPTH: "2",
       STUB_PUBLISHED: publishedAt("c1"),
-      STUB_OUTPUTS: deployed({ backend: keep, frontend: ref("frontend", "c1"), web: ref("web", "c1") }),
+      STUB_OUTPUTS: deployed({ backend: keep, frontend: ref("frontend", "c1"), web: ref("web", "c1"), cms: ref("cms", "c1") }),
     });
     expect(out.status, out.stderr).toBe(0);
     expect(pinned(out).BACKEND_IMAGE_REF).toBe(keep);
     expect(out.stderr).toContain("::warning::backend: no image in the last 2 develop commits");
+  });
+
+  it("looks the CMS up in its own repository, `cms`, not under the prefixed names", () => {
+    const out = resolve({ STUB_PUBLISHED: publishedAt("c3") });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CMS_IMAGE_REF).toBe("ghcr.io/archos-at/cms:sha-" + C.c3);
+  });
+
+  it("keeps the running CMS when an operator rolls back to a tag from before the CMS had an image", () => {
+    // c2 predates the CMS: the other three have sha-c2, the CMS does not.
+    const tag = `sha-${C.c2}`;
+    const out = resolve({
+      EXPLICIT_TAG: tag,
+      STUB_PUBLISHED: ["backend", "frontend", "web"].map((s) => `${s} ${tag}`).join("\n"),
+      STUB_OUTPUTS: deployed({
+        backend: ref("backend", "c5"),
+        frontend: ref("frontend", "c5"),
+        web: ref("web", "c5"),
+        cms: ref("cms", "c5"),
+      }),
+    });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).BACKEND_IMAGE_REF).toBe(ref("backend", "c2"));
+    expect(pinned(out).CMS_IMAGE_REF).toBe(ref("cms", "c5"));
+    expect(out.stderr).toContain(`::warning::cms: ${tag} has no CMS image`);
+  });
+
+  it("leaves the CMS unpinned, with a warning, on a rollback before any CMS ran while it is off", () => {
+    const tag = `sha-${C.c2}`;
+    const out = resolve({ EXPLICIT_TAG: tag, STUB_OUTPUTS: deployed({ backend: ref("backend", "c5") }) });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CMS_IMAGE_REF).toBe("");
+    expect(out.stderr).toContain("::warning::cms: " + tag + " has no CMS image and none is deployed; the CMS is off");
+  });
+
+  it("fails that rollback when the CMS is on, rather than deploy it with an image GHCR never had", () => {
+    const tag = `sha-${C.c2}`;
+    const out = resolve({ EXPLICIT_TAG: tag, STUB_CMS_ENABLED: "true", STUB_OUTPUTS: deployed({ backend: ref("backend", "c5") }) });
+    expect(out.status).toBe(1);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toContain("::error::cms: " + tag + " has no CMS image and none is deployed. Set cmsImage");
+  });
+
+  it("rolls the CMS back too when the tag has a CMS image", () => {
+    const tag = `sha-${C.c3}`;
+    const out = resolve({
+      EXPLICIT_TAG: tag,
+      STUB_PUBLISHED: publishedAt("c3"),
+      STUB_OUTPUTS: deployed({ backend: ref("backend", "c5"), frontend: ref("frontend", "c5"), web: ref("web", "c5"), cms: ref("cms", "c5") }),
+    });
+    expect(out.status, out.stderr).toBe(0);
+    expect(pinned(out).CMS_IMAGE_REF).toBe(ref("cms", "c3"));
   });
 });
 
@@ -314,6 +373,7 @@ describe("resolve-image-refs.sh, the vector-store floor", () => {
     backend: backend(name),
     frontend: `ghcr.io/archos-at/grid-oib-frontend:sha-${S[name]}`,
     web: `ghcr.io/archos-at/grid-oib-web:sha-${S[name]}`,
+    cms: `ghcr.io/archos-at/cms:sha-${S[name]}`,
   });
   const resolveAt = (deploy: string, env: Record<string, string>) =>
     run("resolve-image-refs.sh", { DEPLOY_SHA: S[deploy], ...env }, [], STORE_REPO);
