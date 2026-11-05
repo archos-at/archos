@@ -1,11 +1,19 @@
 # Release notes
 
 Every change a customer can notice ships with a release note, in the same pull
-request that makes the change. The notes in the public sections are published
-to the changelog on the website, automatically, in German and English.
-Security fixes and severe fixes are written down the same way and kept in the
-repository, but never published: the changelog is product news, not a bug
-register.
+request that makes the change. Three tiers read them
+([ADR-0154](../adr/0154-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md)):
+
+| Tier | Where | What it shows |
+|---|---|---|
+| Customers | the app, `/app/whats-new` (user menu, "Neuerungen"), signed-in members only | every note of the customer sections, in German and English, grouped by week, filterable by product area, fixes folded |
+| Public | the website, `/changelog/` and `/en/changelog/`, plus an RSS feed below each (`rss.xml`) | the weekly summary from `releasenotes/summaries.yaml`, and nothing else. A week without one is not listed |
+| Internal | the repository only | `security`, `incident` and `operators` notes |
+
+No single note is on the public page: a line-by-line public changelog mapped the
+product's internals for anyone reading it closely, and told a visitor nothing
+about what the week meant. Security and severe fixes are written down the same
+way and kept in the repository: the notes are product news, not a bug register.
 
 - **Tool:** [reno](https://docs.openstack.org/reno/latest/), OpenStack's release-note
   manager. One YAML file per change, under `releasenotes/notes/`.
@@ -15,16 +23,19 @@ register.
   the diff does: a PR that touches a product file
   ([`ci/require_release_note.py`](../../ci/require_release_note.py)) and adds
   no note fails. A note in any section counts, an internal one included, so a
-  security or severe fix satisfies the check without reaching the page. A
+  security or severe fix satisfies the check without reaching any reader. A
   change no user can notice, a comment or a refactor, takes the
   `no-release-note` label instead. The job reads the label when it runs, so
   a label added after the push needs only a re-run of the **Repo checks**
   job, not a new commit.
-- **Destination:** the public changelog on the website, `/changelog/` (de) and
-  `/en/changelog/` (en). The pipeline writes `apps/website/src/data/changelog.json`
-  (one file, every note in both languages); `apps/website/src/views/ChangelogView.astro`
-  renders it, and the `web` image builds `apps/website` (`ci/image_inputs.py`).
-- **Reader:** the architect using Piloti. Not the reviewer of your diff, and not
+- **Destinations:** the pipeline writes two artifacts.
+  `apps/workspace/bff/release-notes/release-notes.generated.json` (every customer
+  note with its section and area, both languages) is read by the app's
+  `/app/whats-new` and by `GET /api/release-notes`, which is also the agent door's
+  `release-note-list`. `apps/website/src/data/changelog.json` (the weekly
+  summaries, both languages) is rendered by `apps/website/src/views/ChangelogView.astro`.
+  Both images are built from the repo (`ci/image_inputs.py`).
+- **Reader:** the architect using the product. Not the reviewer of your diff, and not
   the people who run the platform.
 
 ## Writing one
@@ -38,17 +49,19 @@ task release:lint                           # the same check CI runs
 reno picks the filename, a slug plus a random suffix, which is why two
 branches never collide on the same note file even when they both add one.
 
-Keep exactly the sections you need and delete the rest:
+Set the area line the template starts with, then keep exactly the sections you
+need and delete the rest:
 
 ```yaml
 ---
+# area: projects
 features:
   - >
     Projects can now be re-indexed from the settings page, so documents that
     failed the first time are picked up without contacting support.
 ```
 
-| Section | Published | For |
+| Section | In the app | For |
 |---|---|---|
 | `features` | yes | Something the reader could not do before |
 | `improvements` | yes | Something they already had, now better |
@@ -59,23 +72,55 @@ features:
 | `security` | **never** | A vulnerability, a hardening, a dependency bumped for a CVE, a permission that was not enforced |
 | `incident` | **never** | A severe fix, something that should never have happened: data lost, or kept after it was deleted; a legal hold or permission that did not hold; an answer passed as checked when it was not; a false claim on the website |
 | `operators` | **never** | Only the people running the platform can act on it |
-| `prelude` | yes | Rarely: a summary for a tagged release. Weeks use `summaries.yaml` |
+| `prelude` | as the summary | Rarely: a summary for a tagged release. Weeks use `summaries.yaml` |
+
+None of them is on the public page; it shows the week's summary.
 
 A customer who must hear about a security or incident fix is told directly, by
 the people who run the platform; a changelog line only advertises the hole.
 
 The section list lives in [`releasenotes/config.yaml`](../../releasenotes/config.yaml);
-its German headings live in `SECTION_TITLES_DE` in
-[`scripts/release_notes.py`](../../scripts/release_notes.py), and a test fails if
-the two drift apart. `INTERNAL_SECTIONS` in the same script is what keeps
-`security`, `incident` and `operators` off the page.
+the app's labels for the customer sections live in its `whatsNew` dictionaries,
+and `release-notes.spec.ts` fails a section without one. `INTERNAL_SECTIONS` in
+[`scripts/release_notes_rules.py`](../../scripts/release_notes_rules.py) is what
+keeps `security`, `incident` and `operators` out of both artifacts.
+
+### The product area
+
+Every note names the one area of the product where the reader meets the change,
+in a comment line at the top: `# area: documents`. The app's list filters by it.
+A comment and not a key, because reno lints every top-level key as a section.
+
+| Area | Where the reader meets it |
+|---|---|
+| `projects` | Creating and setting up a project, the Steckbrief, closing a project |
+| `documents` | Files, folders, uploads, Fassungen, previews, the Büroablage, the bin and the archive, drafts and Freigabe |
+| `answers` | Asking in the chat: answers, sources, cards, the Herleitung, exports of an answer |
+| `search` | Finding things: the search page, Ctrl+K, word search across documents |
+| `building-law` | OIB-Richtlinien, laws from the RIS, the norm register, site rules |
+| `bim` | IFC models, the Raumbuch, the Prüfbuch, BCF |
+| `collaboration` | Anmerkungen and the review, mentions, the Postfach, notifications, shared chats |
+| `tasks` | Aufgaben, Zeitpläne, runs, deep research and its reports, skills |
+| `office-knowledge` | Memory, standing instructions, similar projects, what the office learned |
+| `administration` | The organization, roles and rights, budgets and usage, sign-in, retention |
+| `agents` | The office's own agents connected to the workspace |
+| `general` | Everything else: navigation, the phone, language, the website |
+
+`AREAS` in [`scripts/release_notes_areas.py`](../../scripts/release_notes_areas.py)
+is the source; the app's `RELEASE_NOTE_AREAS` and its dictionaries are held to it
+by `release-notes.spec.ts`. `task release:lint` fails an unknown area, a second
+area line, or the template's placeholder left in. A note without the line, which
+is every note written before areas existed, gets a guess from its file name and
+text; when the guess is wrong, add the line to that note. Adding an area means
+the vocabulary, the app's wire and both dictionaries in one change.
 
 ## The house rules
 
-A note in a public section is **published verbatim to a public page**, so it is
-marketing copy that happens to live in the repository. The internal sections
+A note in a customer section is **shown verbatim to every member of every office**,
+and the week's public summary is written from it, so it is product copy that
+happens to live in the repository. The internal sections
 follow the same rules, with four sentences instead of two: the next person
-reads them, and an entry can move to a public section. `task release:lint`
+reads them, and an entry can move to a customer section. `task release:lint`
 enforces every rule marked *lint*, and each failure says how to fix it.
 
 1. **English.** *(lint)* The German page is translated from the English. A note
@@ -101,12 +146,12 @@ enforces every rule marked *lint*, and each failure says how to fix it.
    section fails the lint. Office administrators (roles, budgets, the
    organization's instructions) are customers; their notes stay public.
 7. **Security and severe fixes go under `security` or `incident`.** *(lint, in
-   part)* A public entry that names a vulnerability, a remote-code flaw, a CVE,
+   part)* A customer entry that names a vulnerability, a remote-code flaw, a CVE,
    an exploit, a permission bypass or data loss fails the lint
    (`SEVERE_PATTERNS`). The list is short on purpose, so most severe fixes pass
    it: the question to ask is whether a reader would learn that Piloti once
    lost, kept or showed what it should not have. If so, it is an `incident`.
-8. **Plain words.** *(lint)* A public entry does not name the services under
+8. **Plain words.** *(lint)* A customer entry does not name the services under
    Piloti, the formats they speak, or the mechanics of shipping and running
    software. The list is `PUBLIC_JARGON` in
    [`scripts/release_notes.py`](../../scripts/release_notes.py); the failure
@@ -200,7 +245,7 @@ rewritten in September 2026 kept their authors' wording.
 
 ## Weekly groups and summaries
 
-Nothing is tagged yet, so the changelog groups notes by the **ISO week** they
+Nothing is tagged yet, so both artifacts group notes by the **ISO week** they
 shipped in (`2026-W39`, Monday to Sunday). Once `git tag` produces versions,
 notes group under their version instead, with no configuration change.
 
@@ -210,11 +255,24 @@ this, correcting a typo in an August note moved it to the week of the fix. Now
 an old note can be edited freely: reno publishes the new text, and the note
 stays where it shipped.
 
-Each week can carry a short summary above its notes, in
-[`releasenotes/summaries.yaml`](../../releasenotes/summaries.yaml), keyed by the
-week id. It is written by a person after the week: what an architect would tell
-a colleague about it. English, at most three sentences and 500 characters,
-linted and translated like a note. A week without an entry shows its notes only.
+Each week's summary, in
+[`releasenotes/summaries.yaml`](../../releasenotes/summaries.yaml) keyed by the
+week id, is **the whole public changelog** for that week; in the app it stands
+above the week's notes. It is written by a person after the week: what an
+architect would tell a colleague about it, the headline changes in the words of
+the screens. English, at most three sentences and 500 characters, linted and
+translated like a note; a key for a week that has not started fails the lint.
+
+```bash
+task release:week -- 2026-W45    # the week's notes by area, to write the summary from
+```
+
+Leave out what maps the internals: no fix that tells a reader where the product
+was weak, no mechanism, no component. A week without a summary is not on the
+public page, and every publish run after the week is over warns about it (a
+GitHub annotation on the workflow). The lint does not fail on a missing summary,
+on purpose: one person writes them, and failing every pull request until they do
+would make that person everyone's blocker.
 
 ## What happens on merge
 
@@ -223,13 +281,15 @@ linted and translated like a note. A week without an entry shows its notes only.
    `scripts/release_notes.py publish`: reno reads the notes **through git
    history**; each new English sentence is translated into German once and
    cached in `releasenotes/translations/de.json`.
-3. The regenerated `apps/website/src/data/changelog.json` is committed back to
+3. Both regenerated artifacts, `apps/workspace/bff/release-notes/release-notes.generated.json`
+   and `apps/website/src/data/changelog.json`, are committed back to
    `develop`. Publishing runs on pushes to `develop` only, and the push is
    authenticated as the `RELEASE_PAT` owner when that secret is set (falling
    back to `GITHUB_TOKEN`), because the branch ruleset requires changes to
    arrive via pull request.
-4. That commit changes `apps/website`, so CI rebuilds the `web` image, the
-   staging deploy rolls it out, and the note is on the site. (Until 2026-10-29
+4. That commit changes `apps/workspace` and `apps/website`, so CI rebuilds both
+   images, the staging deploy rolls them out, and the note is in the app (and
+   the summary on the site). (Until 2026-10-29
    the file lived in the retired public site, which no image built: the bot's
    commits from before then changed a file nothing served.)
 
@@ -253,17 +313,17 @@ edit the German side of the entry in `de.json` and run `task release:changelog`.
 The cache is the source of truth and the translator never overwrites an entry
 that exists.
 
-### The generated file
+### The generated files
 
-`apps/website/src/data/changelog.json` is generated. Do not edit it; if two
-branches conflict in it, regenerate rather than hand-merge:
+Both artifacts are generated. Do not edit them; if two branches conflict in
+one, regenerate rather than hand-merge:
 
 ```bash
 task release:changelog
 ```
 
-It is committed rather than built on demand because reno needs git history and
-the web image is built from a bare working tree. It needs a full clone: in a
+They are committed rather than built on demand because reno needs git history
+and the images are built from a bare working tree. It needs a full clone: in a
 shallow one reno fails with a `KeyError` on a missing commit
 (`git fetch --unshallow`).
 
@@ -282,6 +342,7 @@ shallow one reno fails with a `KeyError` on a missing commit
 | Command | What it does |
 |---|---|
 | `task release:note -- <slug>` | Start a note |
-| `task release:lint` | House rules + `reno lint` (CI runs both); also checks `summaries.yaml` |
+| `task release:lint` | House rules + `reno lint` (CI runs both); also checks the area line and `summaries.yaml` |
 | `task release:preview` | reno's own report, grouped by release, `operators` included |
-| `task release:changelog` | Regenerate the website artifact |
+| `task release:week -- <week>` | One week's customer notes by area, to write its summary from |
+| `task release:changelog` | Regenerate both artifacts (app and website) |

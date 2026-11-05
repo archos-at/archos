@@ -12,6 +12,8 @@
 @import '../shared/brand/tokens.vars.css';
 @import '../ui/styles/tokens.css';
 @import '../ui/styles/data-palette.css';
+/* The status screens' line drawing (not found, no access, an error): ui/components/brand/status-drawing.tsx. */
+@import '../ui/styles/status-drawing.css' layer(components);
 @import 'tw-animate-css';
 
 /* The wordmark's face (packages/brand: the logo is the one element set in

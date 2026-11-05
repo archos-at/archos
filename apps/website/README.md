@@ -49,12 +49,14 @@ with status 404 and `noindex`. Old public addresses and their fates (301, or 410
 
 ## Changelog
 
-`/changelog/` and `/en/changelog/` render `src/data/changelog.json`, product data written by
-`scripts/release_notes.py publish` from the reno notes and committed by the release-notes workflow on
-every merge to `develop` (`docs/contributing/release-notes.md`). Never edit the JSON; write a note.
-`src/lib/changelog.ts` reads it, `src/views/ChangelogView.astro` lays each week out as a `ui-rows`
-row with its sections folded like the FAQ. Notes from before the rename keep the name they shipped
-under, and the page says so.
+`/changelog/` and `/en/changelog/` render `src/data/changelog.json`: the weekly summaries from
+`releasenotes/summaries.yaml` and nothing else (ADR-0154; every single note is in the app, behind
+sign-in). `scripts/release_notes.py publish` writes it and the release-notes workflow commits it on
+every merge to `develop` (`docs/contributing/release-notes.md`). Never edit the JSON; write a summary.
+`src/lib/changelog.ts` reads it and builds the RSS feeds (`/changelog/rss.xml`, `/en/changelog/rss.xml`),
+`src/views/ChangelogView.astro` lays each week out as a `ui-rows` row, its dates left and its summary
+right, with a stable anchor per week (`#r-2026-W44`). Summaries from before the rename keep the name
+they shipped under, and the page says so.
 
 ## Analytics
 
