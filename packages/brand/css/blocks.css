@@ -57,7 +57,7 @@
 /* Bars: one grid cell per band, so a long label wraps inside its own band. Lines: each label
    at its point, on one line. */
 .ui-chart-xlabels { grid-column: 2; position: relative; margin-top: var(--space-2); color: var(--ink-muted); }
-.ui-chart-xlabels[data-form='bar'] { display: grid; grid-template-columns: repeat(var(--count), minmax(0, 1fr)); text-align: center; overflow-wrap: break-word; }
+.ui-chart-xlabels[data-form='bar'] { display: grid; grid-template-columns: repeat(var(--count), minmax(0, 1fr)); text-align: center; }
 .ui-chart-xlabels[data-form='line'] { height: 20px; }
 .ui-chart-xlabels[data-form='line'] > span { position: absolute; left: var(--left); transform: translateX(-50%); white-space: nowrap; }
 .ui-chart-xlabels[data-form='line'] > span[data-minor] { display: none; }
