@@ -19,6 +19,7 @@ import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 
+import { SectionLabel } from '@/components/ui/section-label'
 import { cn } from '@/lib/utils'
 import type { JSX } from 'react'
 
@@ -95,9 +96,9 @@ export function NoticeCard({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {eyebrow && (
-                <p className="text-muted-foreground text-[10.5px] font-medium tracking-wider uppercase tabular-nums">
+                <SectionLabel as="p" className="tabular-nums">
                   {eyebrow}
-                </p>
+                </SectionLabel>
               )}
               <DialogPrimitive.Title className="mt-1 text-sm font-medium">
                 {title}
