@@ -57,6 +57,7 @@
   --ds-duration-base: 320ms;
   --ds-duration-slow: 480ms;
   --ds-ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-unveil: cubic-bezier(0.25, 1, 0.5, 1);
   --ds-ease-draft: cubic-bezier(0.65, 0, 0.35, 1);
   --ds-stagger-row: 60ms;
   --ds-travel-sm: 8px;

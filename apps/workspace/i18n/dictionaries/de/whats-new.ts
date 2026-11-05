@@ -1,0 +1,41 @@
+import type { en } from '../en'
+
+/** Neuerungen: jede Änderung, für angemeldete Mitglieder (`/app/whats-new`, ADR-0154). */
+export const whatsNew: typeof en.whatsNew = {
+  title: 'Neuerungen',
+  subtitle: 'Jede Änderung an {productName}, Woche für Woche. Die öffentliche Website zeigt nur die Zusammenfassung jeder Woche.',
+  backToApp: 'Zurück',
+  loading: 'Neuerungen werden geladen…',
+  empty: 'In diesem Bereich hat sich in diesen Wochen nichts geändert.',
+  filterLabel: 'Änderungen anzeigen in',
+  allAreas: 'Alle Bereiche',
+  weekOf: 'Woche vom {range}',
+  unreleased: 'In Kürze',
+  noteCount: '{count} Änderungen',
+  fixesSummary: '{count} Fehlerbehebungen',
+  newer: 'Neuere Wochen',
+  older: 'Ältere Wochen',
+  pageLabel: 'Seiten mit Wochen',
+  areas: {
+    projects: 'Projekte & Einrichtung',
+    documents: 'Dateien & Büroablage',
+    answers: 'Fragen & Antworten',
+    search: 'Suche',
+    'building-law': 'Baurecht & Normen',
+    bim: 'Gebäudemodelle',
+    collaboration: 'Zusammenarbeit',
+    tasks: 'Aufgaben & Recherche',
+    'office-knowledge': 'Bürowissen',
+    administration: 'Verwaltung',
+    agents: 'Eigene Agenten',
+    general: 'Allgemein',
+  },
+  sections: {
+    features: 'Neu',
+    improvements: 'Verbessert',
+    fixes: 'Behoben',
+    deprecations: 'Läuft aus',
+    upgrade: 'Für Sie zu tun',
+    other: 'Sonstiges',
+  },
+}

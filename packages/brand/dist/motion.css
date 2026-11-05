@@ -12,9 +12,9 @@
    Two triggers. The hero plays once on load (CSS only, so it needs no script and runs
    before it). Everything marked [data-reveal] plays once as it scrolls into view: the
    script in BaseLayout.astro marks only blocks below the fold `.is-pending`, so nothing
-   on screen at load moves and nothing is hidden without the script. A block's index in
-   the batch that arrives together (`--ui-reveal-index`, set by that script) staggers it in
-   reading order.
+   on screen at load moves and nothing is hidden without the script. A block's index among
+   the siblings that arrive with it (`--ui-reveal-index`, set by that script) staggers it in
+   reading order, so a row of tiles arrives left to right and a tile arriving alone never waits.
 
      data-reveal          the block arrives as one (a tile, a band)
      data-reveal="parts"  the block holds still and its parts move (an intro, a gallery)
@@ -42,7 +42,7 @@
   .ui-hero-text { animation: ui-arrive var(--duration-slow) var(--ease-settle) var(--stagger-max) backwards; }
   .ui-hero-media > * {
     transform-origin: 50% 0;
-    animation: ui-unveil var(--duration-reveal) var(--ease-settle) calc(2 * var(--stagger-row)) backwards;
+    animation: ui-unveil var(--duration-reveal) var(--ease-unveil) calc(2 * var(--stagger-row)) backwards;
   }
 
   /* ---- On scroll: where each part waits, after its block's own delay ---- */
@@ -93,19 +93,19 @@
   :is(.ui-cta, .ui-video)[data-reveal]:not(.is-pending),
   [data-reveal]:not(.is-pending) :is(.ui-gallery-card, .ui-duo-card) {
     clip-path: inset(0);
-    transition: clip-path var(--duration-reveal) var(--ease-settle);
+    transition: clip-path var(--duration-reveal) var(--ease-unveil);
     transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
   }
   [data-reveal="unveil"]:not(.is-pending),
   [data-reveal]:not(.is-pending) .ui-quote-portrait > * {
     clip-path: inset(0);
     transform-origin: 50% 0;
-    transition: clip-path var(--duration-reveal) var(--ease-settle), transform var(--duration-reveal) var(--ease-settle);
+    transition: clip-path var(--duration-reveal) var(--ease-unveil), transform var(--duration-reveal) var(--ease-unveil);
     transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
   }
   [data-reveal]:not(.is-pending) :is(.ui-video-media, .ui-gallery-media > *) {
     transform-origin: 50% 0;
-    transition: transform var(--duration-reveal) var(--ease-settle);
+    transition: transform var(--duration-reveal) var(--ease-unveil);
     transition-delay: calc(var(--ui-reveal-delay) + var(--ui-part, 0ms));
   }
   [data-reveal]:not(.is-pending) .ui-timeline-bar {

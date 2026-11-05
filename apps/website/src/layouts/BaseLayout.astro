@@ -148,6 +148,19 @@ const structuredData = jsonLd(siteGraph(site, locale, nodes));
           // Kept for a frame, so the style change lands without a transition.
           requestAnimationFrame(() => requestAnimationFrame(() => block.classList.remove('is-instant')));
         };
+        // An image is uncovered only once it can be shown, or the wipe would uncover its grey
+        // placeholder and the picture would pop in after it. Waits at most IMAGE_WAIT_MS, so
+        // a slow image never holds back the text around it.
+        const IMAGE_WAIT_MS = 400;
+        const ready = (block: HTMLElement) => {
+          const images = [...(block instanceof HTMLImageElement ? [block] : block.querySelectorAll('img'))].filter((img) => {
+            const box = img.getBoundingClientRect();
+            return !img.complete && box.right > 0 && box.left < innerWidth;
+          });
+          if (images.length === 0) return Promise.resolve();
+          const decoded = Promise.all(images.map((img) => img.decode().catch(() => undefined)));
+          return Promise.race([decoded, new Promise((resolve) => setTimeout(resolve, IMAGE_WAIT_MS))]);
+        };
         let first = true;
         const arrive = new IntersectionObserver((entries) => {
           const arriving = entries.filter((entry) => entry.isIntersecting).sort(inReadingOrder);
@@ -164,7 +177,7 @@ const structuredData = jsonLd(siteGraph(site, locale, nodes));
             const index = counts.get(block.parentNode) ?? 0;
             counts.set(block.parentNode, index + 1);
             block.style.setProperty('--ui-reveal-index', String(index));
-            block.classList.remove('is-pending');
+            void ready(block).then(() => block.classList.remove('is-pending'));
           }
           first = false;
         }, { rootMargin: '0px 0px -8% 0px' });

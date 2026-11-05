@@ -29,7 +29,7 @@ export const SHARE_BAND = { x: 0, y: 85, width: 1200, height: 630 } as const;
 export const MODULE = 40;
 
 /** Horizontal and vertical lines every module, as one path. */
-function gridPath(): string {
+function moduleLines(): string {
   const parts: string[] = [];
   for (let x = MODULE; x < CANVAS.width; x += MODULE) parts.push(`M${x} 0V${CANVAS.height}`);
   for (let y = MODULE; y < CANVAS.height; y += MODULE) parts.push(`M0 ${y}H${CANVAS.width}`);
@@ -54,26 +54,24 @@ interface RenderOptions {
   idPrefix: string;
   /** The part of the canvas to show: the whole canvas (default) or the share band. */
   band?: boolean;
-  /** Extra attributes for the root, already escaped. */
-  attributes?: string;
 }
 
 /**
  * The cover as one `<svg>` element: the frame, then the drawing. Decorative: the post's
  * title says what the post is about, so the drawing is hidden from assistive technology.
  */
-export function renderCover(id: string, { idPrefix, band = false, attributes = '' }: RenderOptions): string {
+export function renderCover(id: string, { idPrefix, band = false }: RenderOptions): string {
   const box = band ? SHARE_BAND : { x: 0, y: 0, ...CANVAS };
   const inner = `<defs>${FRAME_DEFS}</defs>` +
     `<rect class="ground" width="${CANVAS.width}" height="${CANVAS.height}"/>` +
-    `<path class="grid" d="${gridPath()}"/>` +
+    `<path class="grid" d="${moduleLines()}"/>` +
     drawingOf(id);
   const prefixed = inner
     .replace(/\bid="([^"]+)"/g, `id="${idPrefix}-$1"`)
     .replace(/url\(#([^)]+)\)/g, `url(#${idPrefix}-$1)`)
     .replace(/href="#([^"]+)"/g, `href="#${idPrefix}-$1"`);
   return `<svg xmlns="http://www.w3.org/2000/svg" class="ui-cover" viewBox="${box.x} ${box.y} ${box.width} ${box.height}" ` +
-    `preserveAspectRatio="xMidYMid slice" style="--hatch: url(#${idPrefix}-hatch)" aria-hidden="true" focusable="false"${attributes}>` +
+    `preserveAspectRatio="xMidYMid slice" style="--hatch: url(#${idPrefix}-hatch)" aria-hidden="true" focusable="false">` +
     `${prefixed}</svg>`;
 }
 

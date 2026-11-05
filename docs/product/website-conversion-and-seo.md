@@ -70,6 +70,7 @@ Every address of the old site has one fate, in `apps/website/redirects.mjs`:
 | The unlisted press page of the old brand art and its ZIP downloads | **410** |
 | `/llms-full.txt` | 301 to `/llms.txt` |
 | The four blog posts whose slug carried the old name | 301 to their new brand-free slugs |
+| The blog's first two categories, `/blog/journal/` and `/blog/bautagebuch/` (and their `/en/` twins) | 301 to Praxiserfahrungen and Technologie, two of the three categories since 2026-11-05 |
 | The old `/de/<path>` and `/en/<German segment>/<path>` aliases | 301 straight to the final target of `<path>` |
 | Home, legal pages, blog, categories, other posts, `/baurecht/`, `/rss.xml`, `/llms.txt` | served at the same address |
 
@@ -104,7 +105,7 @@ names no competitor).
 - **Feeds and answer engines:** RSS at the old `/rss.xml` and `/en/rss.xml`; a short `/llms.txt`
   generated from identity and the page copy. Answer engines rank from the HTML and the JSON-LD;
   llms.txt only spares them guesswork.
-- **Social previews:** one share card for every page (generated per-page cards are open below).
+- **Social previews:** a blog post shares its cover (`/media/covers/<id>.png`, rendered at build time from the drawing, `packages/brand/docs/blog-covers.md`); every other page shares one share card (generated per-page cards are open below).
 
 ## Rules the copy keeps
 
