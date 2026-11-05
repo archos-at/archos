@@ -1086,6 +1086,9 @@ export interface IsoStackFigureBlock {
      * Where the label sits. Empty: alternating.
      */
     side?: ('left' | 'right') | null;
+    /**
+     * Emphasise this slab: tinted top face.
+     */
     accent?: boolean | null;
     glyph?: ('tiles' | 'funnel' | 'disc' | 'lines' | 'doc' | 'check') | null;
     id?: string | null;

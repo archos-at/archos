@@ -38,7 +38,7 @@ export const IsoStackFigureBlock: Block = {
         { name: 'label', type: 'text', required: true, admin: { description: 'Upper-case label, e.g. SOURCES.' } },
         { name: 'sublabel', type: 'text' },
         { name: 'side', type: 'select', options: SIDES, admin: { description: 'Where the label sits. Empty: alternating.' } },
-        { name: 'accent', type: 'checkbox', defaultValue: false },
+        { name: 'accent', type: 'checkbox', admin: { description: 'Emphasise this slab: tinted top face.' } },
         { name: 'glyph', type: 'select', options: options(['tiles', 'funnel', 'disc', 'lines', 'doc', 'check']) },
       ],
     },
