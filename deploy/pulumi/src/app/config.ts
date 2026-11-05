@@ -40,15 +40,15 @@ export const SECRET_NAME = objectName("appSecret"); // pragma: allowlist secret 
 export const PULL_SECRET_NAME = objectName("registryPullSecret"); // pragma: allowlist secret (Kubernetes Secret resource name, not a credential)
 
 /**
- * dockerconfigjson pull Secret for the app namespace, created only when
- * registry credentials are configured (private app images). Every app pod
- * spec references it via imagePullSecrets; the data tier pulls public
- * upstream images and needs nothing.
+ * dockerconfigjson pull Secret for a namespace (the app's; the CMS's own copy is
+ * `resourceName` "cms-registry-pull"), created only when registry credentials are
+ * configured (private images); pod specs reference it via imagePullSecrets.
  */
 export function buildRegistryPullSecret(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
+  resourceName = logicalName("grid-registry-pull"), dependsOn: pulumi.Resource[] = [],
 ): k8s.core.v1.Secret | undefined {
   const creds = cfg.images.pullCredentials;
   if (!creds) return undefined;
@@ -67,13 +67,13 @@ export function buildRegistryPullSecret(
     }),
   );
   return new k8s.core.v1.Secret(
-    logicalName("grid-registry-pull"),
+    resourceName,
     {
       metadata: { name: PULL_SECRET_NAME, namespace },
       type: "kubernetes.io/dockerconfigjson",
       stringData: { ".dockerconfigjson": dockerConfigJson },
     },
-    { provider },
+    { provider, dependsOn },
   );
 }
 

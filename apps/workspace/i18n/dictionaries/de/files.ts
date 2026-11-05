@@ -329,6 +329,7 @@ export const files: typeof en.files = {
       markdown: 'Markdown',
       plainText: 'Textdatei',
       ifc: 'IFC-Modell',
+      dxf: 'CAD-Datei (DXF)',
       email: 'E-Mail',
       image: 'Bild ({format})',
       extension: '{ext}-Datei',
@@ -348,10 +349,8 @@ export const files: typeof en.files = {
     retryIngestionError:
       'Das erneute Lesen konnte nicht gestartet werden. Bitte versuchen Sie es noch einmal.',
     dialogLabel: 'Dateivorschau: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'Ansicht der Datei',
-      document: 'Dokument',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -371,6 +370,8 @@ export const files: typeof en.files = {
   ingestFailure: {
     rendition_failed:
       'Die PDF-Vorschau dieser Datei ließ sich nicht erzeugen. Erneut lesen oder die Datei als PDF hochladen.',
+    drawing_unreadable:
+      'Diese DXF-Datei ließ sich nicht lesen oder enthält keine Zeichnung. Exportieren Sie sie im CAD-Programm erneut als DXF und laden Sie sie noch einmal hoch.',
     download_failed:
       'Die hochgeladene Datei war im Speicher nicht erreichbar. Erneut lesen oder die Datei noch einmal hochladen.',
     interrupted: 'Das Lesen wurde durch einen Neustart des Dienstes unterbrochen. Erneut lesen, um es abzuschließen.',
@@ -749,6 +750,7 @@ export const files: typeof en.files = {
     label: 'Dateiaktionen für „{name}“',
     menuLabel: 'Dateiaktionen',
     download: 'Herunterladen',
+    downloadPdf: 'Als PDF herunterladen',
     open: 'Öffnen',
     ask: 'Danach fragen',
     select: 'Auswählen',
@@ -1013,7 +1015,14 @@ export const files: typeof en.files = {
     uploadStorageFull: 'Der Speicher Ihres Büros ist voll. Es wurde nichts hochgeladen.',
     // Von der Namensprüfung nicht hochgeladen (ADR-0086): auf einem Weg ohne
     // Upload-Dialog, etwa im Chat, oder als Nachprüfung des Servers.
-    screenedOut: '{count} Datei(en) nicht hochgeladen, weil Ihr Büro sie als sensibel einstuft: {files}',
+    screenedOut:
+      '{count, plural, one {Eine Datei wurde nicht hochgeladen} other {# Dateien wurden nicht hochgeladen}}, weil ihr Name einen Begriff enthält, den Ihr Büro als sensibel eingestuft hat: {files}',
+    // Ein Name allein ist ein schwaches Zeichen („Lüftungssteuerung“ enthält
+    // „Steuer“): wer die Datei abgelegt hat, schickt sie trotzdem; der Inhalt
+    // wird danach geprüft, die Freigabe protokolliert.
+    uploadAnyway: '{count, plural, one {Trotzdem hochladen} other {Alle # trotzdem hochladen}}',
+    uploadAnywayHint:
+      'Der Name allein entscheidet nicht: Den Inhalt prüft {productName} nach dem Hochladen trotzdem. Ihre Freigabe wird protokolliert.',
     screenedOutFile: '„{name}“ ({reason})',
     // Die Liste des Büros ist nicht lesbar: ohne sie wird nichts gesendet,
     // auch nicht mit Pilotis Vorschlag (ADR-0086).
@@ -1065,6 +1074,8 @@ export const files: typeof en.files = {
     scopeProject: 'in diesem Projekt',
     scopeOffice: 'in der Büroablage',
     headlineAll: '{count, plural, one {Das Dokument ist gelesen} other {Alle # Dokumente gelesen}}',
+    /** Alles Lesbare gelesen, daneben Dokumente, die nie in die Wissensbasis kommen: „alle“ sagt, wessen. */
+    headlineAllOfKnowledge: '{count, plural, one {Das eine Dokument der Wissensbasis ist gelesen} other {Alle # Dokumente der Wissensbasis gelesen}}',
     headlineSome: '{readable} von {count, plural, one {# Dokument} other {# Dokumenten}} gelesen',
     headlineNone: '{count, plural, one {Das Dokument ist noch nicht gelesen} other {Noch keines der # Dokumente gelesen}}',
     headlineNothingToRead: '{count, plural, one {# Dokument, nicht in der Wissensbasis} other {# Dokumente, keines in der Wissensbasis}}',
@@ -1078,7 +1089,7 @@ export const files: typeof en.files = {
     allRead: 'Alles gelesen',
     unplacedShort: '{count} ohne Dokumentart',
     /** Neben der Legende: Dokumente, die Piloti nie liest. Nicht in der Summe der Überschrift („von N“). */
-    unindexedAside: 'dazu {count} nicht in der Wissensbasis',
+    unindexedAside: '{count} weitere nicht in der Wissensbasis',
     /** Laufende Beschriftung der beiden Chip-Familien unter „Worum es hier geht“. */
     typesLabel: 'Dokumentart',
     disciplinesLabel: 'Fachbereich',

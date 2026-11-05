@@ -15,7 +15,7 @@ export const nav: typeof en.nav = {
   openNavigation: 'Navigation öffnen',
   closeNavigation: 'Navigation schließen',
   sections: {
-    chat: 'Frag {productName}',
+    chat: 'Chat',
     files: 'Dateien',
     knowledge: 'Wissen',
     research: 'Recherche',
@@ -115,6 +115,7 @@ export const nav: typeof en.nav = {
     switchingOrganization: 'Wechselt…',
     switchOrganizationFailed: 'Wechsel fehlgeschlagen. Bitte erneut versuchen.',
     settings: 'Einstellungen',
+    whatsNew: 'Neuerungen',
     productTour: 'Produkttour',
   },
 }

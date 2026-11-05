@@ -56,6 +56,7 @@ import { shelfOwner, type DocumentShelf } from './shelf'
 import type { IngestPriority } from './ingest-dispatch'
 import { requireShelfWrite } from './shelf-authz'
 import { admitUpload } from './upload-admission'
+import { storedContentType } from './preview-types'
 import { shelfCollectionName } from './shelf-collection'
 import type { DispatchDocumentResult } from './document-dispatch'
 
@@ -283,7 +284,7 @@ function placeUpload(session: AuthorizedSession, input: PlaceUploadInput): Promi
         Bucket: storageBucket,
         Key: storageKey,
         Body: input.bytes,
-        ContentType: file.type || 'application/octet-stream',
+        ContentType: storedContentType(file) ?? 'application/octet-stream',
       }),
     )
 
@@ -317,7 +318,7 @@ async function admitRow(
       storageKey,
       storageBucket,
       fileSize: file.size,
-      contentType: file.type || null,
+      contentType: storedContentType(file),
       contentHash,
       folderId: folderId ?? null,
       createdBy: session.userId,
@@ -343,7 +344,7 @@ async function admitRow(
     storageBucket,
     collectionName: input.collectionName,
     fileSize: file.size,
-    contentType: file.type || null,
+    contentType: storedContentType(file),
     contentHash,
     originPath: input.originPath,
     uploadBatchId: input.uploadBatchId,
@@ -523,7 +524,7 @@ export async function uploadToShelf(
   await recordUploadedVersionOrDiscard(session, documentId, request, {
     storageKey,
     storageBucket,
-    contentType: file.type || null,
+    contentType: storedContentType(file),
     fileSize: file.size,
     contentHash,
   })

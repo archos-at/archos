@@ -19,7 +19,7 @@ export const nav = {
   openNavigation: 'Open navigation',
   closeNavigation: 'Close navigation',
   sections: {
-    chat: 'Ask {productName}',
+    chat: 'Chat',
     files: 'Files',
     knowledge: 'Knowledge',
     research: 'Research',
@@ -133,6 +133,7 @@ export const nav = {
     switchingOrganization: 'Switching…',
     switchOrganizationFailed: 'Could not switch. Please try again.',
     settings: 'Settings',
+    whatsNew: "What's new",
     productTour: 'Product tour',
   },
 }

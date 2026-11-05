@@ -22,13 +22,17 @@ import { startBrowserDownload } from '@/lib/browser-download'
  *
  * `fallbackName` is used only when the route names none; the route's own
  * filename wins, because it is the one that matches the stored object.
+ * `format: 'pdf'` asks for the PDF rendition of an office file or a DXF
+ * drawing instead of the original (ADR-0152).
  */
 export async function startDocumentDownload(
   documentId: string,
-  fallbackName?: string
+  fallbackName?: string,
+  options: { format?: 'pdf' } = {}
 ): Promise<boolean> {
   try {
-    const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/download`)
+    const query = options.format === 'pdf' ? '?format=pdf' : ''
+    const response = await fetch(`/api/documents/${encodeURIComponent(documentId)}/download${query}`)
     const data = response.ok ? await response.json() : null
     const url = typeof data?.downloadUrl === 'string' ? data.downloadUrl : ''
     if (!url) return false

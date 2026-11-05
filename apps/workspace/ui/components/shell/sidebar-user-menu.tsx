@@ -12,6 +12,7 @@ import {
   MessagesSquare,
   Monitor,
   Moon,
+  Sparkles,
   Sun,
   UserRound,
 } from 'lucide-react'
@@ -183,16 +184,14 @@ export function SidebarUserMenu({
                 name acts in — read top-down it says "in Musterarchitektur, you
                 are Anna Berger".
 
-                Deliberately below the design language's 10.5px eyebrow: that
-                convention is for a label sitting OVER a section, and this one
-                sits UNDER a name. An org name is long user data, so at 10.5px
-                with `tracking-wider` it spread the full 236px and truncated
-                immediately, reading as a heading competing with the person.
-                Tiny, tight and quiet is the whole job.
+                The eyebrow's 10.5px, in the org's own spelling and with no
+                tracking: an org name is long user data, and set in spaced
+                capitals it spread the full 236px, truncated at once and read
+                as a heading competing with the person. Quiet is the job.
 
                 `truncate` on both lines: neither may push the other. */}
             {organizationName && (
-              <span className="text-muted-foreground truncate text-[9.5px] font-medium tracking-wide uppercase">
+              <span className="text-muted-foreground truncate text-[10.5px] font-medium">
                 {organizationName}
               </span>
             )}
@@ -282,6 +281,14 @@ export function SidebarUserMenu({
         <DropdownMenuItem onSelect={() => startTour()} className="gap-2">
           <Compass className="size-4 text-muted-foreground" aria-hidden />
           {t('userMenu.productTour')}
+        </DropdownMenuItem>
+        {/* Every change to the product, week by week (ADR-0156): beside the tour,
+            because both are about the product itself, not the office's work. */}
+        <DropdownMenuItem asChild className="gap-2">
+          <Link href="/app/whats-new">
+            <Sparkles className="size-4 text-muted-foreground" aria-hidden />
+            {t('userMenu.whatsNew')}
+          </Link>
         </DropdownMenuItem>
         {/* The one door to the people who build Piloti, next to the tour
             because both are "help with Piloti itself": „Mein Feedback" holds

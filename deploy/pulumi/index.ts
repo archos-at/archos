@@ -66,7 +66,11 @@ import { installOtelAgent } from "./src/platform/otel-agent";
 import { installDns, managedRecordNames } from "./src/platform/dns";
 import { installLangfuse } from "./src/platform/langfuse";
 import { installQdrantDashboard } from "./src/platform/qdrant-dashboard";
+import { installMcpGateway } from "./src/platform/mcp-gateway";
 import { LANGFUSE, QDRANT } from "./src/constants";
+import { CMS, cmsImage } from "./src/config/cms";
+import { installWebCmsSecret } from "./src/platform/cms";
+import { installCmsTier } from "./src/platform/cms-tier";
 
 const cfg = loadConfig();
 const provider = makeProvider(cfg);
@@ -110,6 +114,8 @@ const extraBuckets = [
   ...(cfg.langfuse.enabled ? [LANGFUSE.bucket] : []),
   // Qdrant's shard snapshots (ADR-0115), reached only as `grid-qdrant`.
   QDRANT.snapshotBucket,
+  // The CMS's file library (ADR-0155), reached only as `cms`.
+  ...(cfg.cms.enabled ? [CMS.bucket] : []),
 ];
 const filerNeedsPostgres =
   cfg.seaweedfs.topology === "split" && cfg.seaweedfs.filerStore === "postgres";
@@ -367,9 +373,12 @@ const legacyBackend = installBackend(
 
 // The public website + blog (Astro, apps/website) — static-first, no app secrets,
 // but it pulls from the same registry, so it gets the pull Secret too.
+// With the CMS (ADR-0155) it also reads the posts from it, with the `web-cms` tokens.
+const webCmsSecret = installWebCmsSecret(cfg, provider, cfg.namespace, [ns]);
 const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ns,
   ...(pullSecret ? [pullSecret] : []),
+  ...(webCmsSecret ? [webCmsSecret] : []),
 ]);
 
 // KEDA scales the research and ingest workers and the BFF job pool (Hatchet's
@@ -458,6 +467,10 @@ const routes = installHttpRoutes(cfg, provider, namespace, [
   // while enforcing nothing.
   ...(rateLimitStore ? [rateLimitStore.service] : []),
 ]);
+// The website's CMS (ADR-0155) on `cms.<baseDomain>`: off unless `cmsEnabled`.
+if (cfg.cms.enabled) {
+  installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway });
+}
 // Qdrant's dashboard on its own host, behind the platform-operator gate. Off
 // by default (`qdrantDashboardEnabled`); operators port-forward otherwise.
 if (cfg.qdrant.dashboard.enabled) {
@@ -500,6 +513,13 @@ if (cfg.observability.enabled) {
           ],
         )
       : undefined;
+
+  // The platform MCP gateway (ADR-0154): Langfuse is its one MCP server, so it rides with it.
+  if (cfg.mcpGateway.enabled && langfuse) {
+    installMcpGateway(cfg, provider, namespace, [
+      gatewayResources.gateway, langfuse.webService, langfuse.secret, ...(rateLimitStore ? [rateLimitStore.service] : []),
+    ]);
+  }
 
   const collector = installOtelCollector(
     cfg, provider, namespace,
@@ -553,9 +573,13 @@ export const geocoderUrl = cfg.geocoderUrl || "(none: geocoderUrl is empty)";
 export const pgInstances = cfg.postgres.instances;
 export const pgBackupsEnabled = cfg.postgres.backups.enabled;
 export const networkPoliciesEnabled = cfg.networkPolicies;
+export const cmsUrl = cfg.cms.enabled ? `https://${cfg.cms.domain}` : "(none: cmsEnabled=false)";
 export const langfuseUrl = cfg.langfuse.enabled
   ? pulumi.interpolate`https://${cfg.langfuse.domain}`
   : pulumi.output("(none: langfuse disabled)");
+export const platformMcpUrl = cfg.mcpGateway.enabled
+  ? pulumi.interpolate`https://${cfg.mcpGateway.domain}/langfuse/mcp`
+  : pulumi.output("(none: mcpGatewayEnabled=false)");
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
@@ -568,6 +592,9 @@ export const deployedImages = {
   backend: backendImage(cfg),
   frontend: frontendImage(cfg),
   web: webImage(cfg),
+  // The CMS's image, so the next staging deploy's downgrade guard can read it
+  // (scripts/resolve-image-refs.sh). Recorded even while the CMS is off.
+  cms: cmsImage(cfg.images, cfg.cms.imageOverride),
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
 export const bffJobsDeployment = bffJobs.deployment.metadata.name;

@@ -3,9 +3,11 @@
  * six.
  *
  * `docs/design/answer-card-charter.md` §A2 fixes the scale for
- * `ui/features/cards/**`: Eyebrow 10.5, Meta 11, Caption 12, Body 13.5,
- * Title 14, Figure 15/20/24/30 — expressed as the `card-*` classes in
- * `app/globals.css`. The audit that produced the charter found THIRTEEN
+ * `ui/features/cards/**`: Eyebrow 10.5, Meta 11, Caption 12, Body 16,
+ * Title 16 (weight 500), Figure 16/20/24/30 — expressed as the `card-*`
+ * classes in `app/globals.css`. Body and Title are the answer's one text size
+ * (`--text-answer`, Notion #38): a card row reads at the size of the prose
+ * around it. The audit that produced the charter found THIRTEEN
  * distinct sizes in the folder, ten of them arbitrary values, with
  * `text-[12px]` next to `text-xs` and `text-[14px]` next to `text-sm`: the same
  * size written two ways, twice. Nothing was wrong with any single call site,
@@ -54,10 +56,8 @@ const ARBITRARY_TEXT_SIZE = /^text-\[[\d.]+(?:px|rem|em|pt)\]$/
 const NEAREST_STEP = [
   [10.75, 'card-eyebrow (10.5px) — or `SectionLabel`, which is the eyebrow'],
   [11.5, 'card-meta (11px)'],
-  [12.75, 'card-caption (12px)'],
-  [13.75, 'card-body (13.5px)'],
-  [14.5, 'card-title (14px)'],
-  [16, 'card-figure-15 (15px) — and only if this is the card ANSWER'],
+  [13.25, 'card-caption (12px)'],
+  [16.5, 'card-body (16px) — or `card-title` for the title, `card-figure-16` for a figure in a list'],
   [18.5, "card-headline (17px) — `summary`'s title, the one §A2 exemption"],
   [22, 'card-figure-20 (20px)'],
   [27, 'card-figure-24 (24px)'],

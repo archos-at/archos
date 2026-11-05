@@ -55,8 +55,7 @@ def tracked() -> list[str]:
 
 def harness_tests() -> set[str]:
     """The tests `be:test:harness` runs: CI's Repo checks runs them on every pull request, unfiltered."""
-    task = yaml.safe_load(HARNESS_TASK.read_text(encoding="utf-8"))["tasks"]["be:test:harness"]
-    return {word for command in task["cmds"] for word in str(command).split() if word.endswith(".py")}
+    return set(yaml.safe_load(HARNESS_TASK.read_text(encoding="utf-8"))["vars"]["HARNESS_TESTS"].split())
 
 
 def tier_patterns() -> dict[str, list[str]]:

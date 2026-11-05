@@ -582,6 +582,56 @@ export const platform: typeof en.platform = {
       timing: 'Der Ausführungsverlauf jedes Turns: welcher Schritt wie lange gedauert hat und wo es gescheitert ist.',
     },
   },
+  /** Plattform → Agenten: den eigenen Assistenten an die Konsole und an die MCP-Server im Cluster anschließen. */
+  agents: {
+    urlLabel: 'Adresse des MCP-Servers',
+    urlCode: 'MCP-URL',
+    signIn:
+      'Der Client öffnet die WorkOS-Anmeldung im Browser. Wählen Sie dort die Plattform-Organisation: mit einer Büro-Organisation lehnt der Server ab.',
+    clients: {
+      claudeCode: { name: 'Claude Code', step: 'Fügen Sie den Server mit diesem Befehl hinzu und wählen Sie ihn danach unter /mcp:' },
+      cursor: { name: 'Cursor', step: 'Tragen Sie den Server in ~/.cursor/mcp.json ein:' },
+      other: {
+        name: 'Andere Clients',
+        step: 'Jeder Client, der MCP über HTTP spricht und sich per OAuth anmeldet, kann sich verbinden: Fügen Sie die Adresse als entfernten Server hinzu.',
+      },
+    },
+    console: {
+      title: 'Betriebskonsole',
+      description:
+        'Ihr Assistent arbeitet in dieser Konsole wie Sie selbst, über einen eigenen MCP-Server. Alles, was die Bereiche links können, kann er auch.',
+      notConfiguredTitle: 'In dieser Installation nicht eingerichtet',
+      notConfiguredBody:
+        'Die externe Anmeldung für Agenten (WORKOS_AUTHKIT_DOMAIN) fehlt hier, deshalb kann sich kein Assistent verbinden.',
+      can: {
+        title: 'Was Ihr Agent hier kann',
+        organizations: 'Organisationen ansehen, ihre Budgets, Speicher- und Upload-Grenzen ändern',
+        models: 'Standardmodelle, Denkaufwand, Abruf-Einstellungen und Preise lesen und setzen',
+        quality: 'Antwortqualität, Feedback, Lektionen und Quellen-Gesundheit auswerten',
+        knowledge: 'Basiswissen, Normenkatalog und Skills pflegen',
+        maintenance: 'Wartung: Vektorspeicher bereinigen, festgefahrene Recherchen beenden',
+      },
+      stays: {
+        title: 'Was gleich bleibt',
+        permissions: 'Ihre Rolle entscheidet: Mit Plattform-Support liest Ihr Agent nur.',
+        confirm: 'Eine Änderung, die alle Organisationen trifft, lässt der Client Sie vorher einzeln bestätigen.',
+        organization: 'Der Zugang ist nur für die Plattform-Organisation eingeschaltet und gilt für keine Büro-Organisation.',
+      },
+    },
+    cluster: {
+      title: 'MCP-Server im Cluster',
+      description:
+        'Dienste des Teams, die nur im Cluster laufen, etwa Langfuse, über ein gemeinsames Gateway. Die Dienste selbst bleiben privat: Ihr Assistent meldet sich mit WorkOS an, und das Gateway legt dem Dienst dessen eigenen Schlüssel vor, den Sie nie sehen.',
+      serverLabel: 'Server {name}',
+      access:
+        'Nur mit der Rolle Plattform-Eigentümer in der Plattform-Organisation. Plattform-Support wird abgewiesen, weil die Schlüssel dahinter auch schreiben, etwa Prompts in Langfuse.',
+      notDeployedTitle: 'In dieser Umgebung nicht ausgerollt',
+      notDeployedBody:
+        'Das Gateway läuft hier nicht (mcpGatewayEnabled ist aus). Bis es eingeschaltet ist, erreicht man diese Server nur per Port-Forward.',
+    },
+    runbook: 'Einrichtung und Prüfung',
+    runbookHint: 'Für den Betrieb: WorkOS-Einstellungen, Stack-Schlüssel und die Prüfungen nach dem ersten Deploy.',
+  },
   nav: {
     label: 'Plattform-Bereiche',
     scrollable: 'Plattform-Bereiche, seitlich scrollbar',
@@ -603,6 +653,7 @@ export const platform: typeof en.platform = {
     norms: 'Normenkatalog',
     storage: 'Speicher',
     maintenance: 'Wartung',
+    agents: 'Agenten',
   },
   answerFeedback: {
     title: 'Antwort-Feedback',
@@ -848,6 +899,10 @@ export const platform: typeof en.platform = {
       title: 'Wartung',
       subtitle:
         'Zwei Eingriffe über alle Organisationen: den Vektorspeicher bereinigen und festgefahrene Recherchen beenden. Selten nötig.',
+    },
+    agents: {
+      title: 'Agenten verbinden',
+      subtitle: 'Ihren eigenen KI-Assistenten an die Betriebskonsole und an die MCP-Server im Cluster anschließen.',
     },
   },
   /** Platform → Karten: das Darstellungsvokabular des Agenten, gerendert. */

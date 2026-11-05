@@ -4,7 +4,7 @@
  * Project card, styled after the click-dummy's Projektübersicht (spec §1/§3):
  * an outer subtle-surface card whose upper part is a raised "header card"
  * (rounded bottom, subtle divider shadow) carrying the project name, status
- * chip and summary line; below it a footer strip with the activity timestamp
+ * chip and location line; below it a footer strip with the activity timestamp
  * and a shortcut to the project's Übersicht.
  *
  * THE card for "a project, listed" — the resume rail on projects-home and any
@@ -26,7 +26,7 @@ import {
   ProjectActivity,
   ProjectOpenLink,
   ProjectOverviewLink,
-  ProjectSummaryLine,
+  ProjectLocationLine,
 } from './project-atoms'
 import { ProjectStatusMark } from './project-status'
 
@@ -44,7 +44,7 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, docCount = 0, activityAt }: ProjectCardProps): JSX.Element {
   // docCount is accepted for API stability but the card face mirrors the
-  // click-dummy (name · summary · last activity) and does not surface it. The
+  // click-dummy (name · location · last activity) and does not surface it. The
   // dense list row does, where there is a column for it.
   void docCount
 
@@ -66,7 +66,7 @@ export function ProjectCard({ project, docCount = 0, activityAt }: ProjectCardPr
           <ProjectStatusMark project={project} size="md" />
         </div>
 
-        <ProjectSummaryLine project={project} className="mt-0.5" />
+        <ProjectLocationLine project={project} className="mt-0.5" />
       </RaisedCardBody>
 
       {/* Footer tab on the tray: activity · time · Übersicht. */}

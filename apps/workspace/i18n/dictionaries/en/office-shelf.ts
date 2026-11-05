@@ -5,24 +5,6 @@ export const officeShelf = {
   backToApp: 'Back to projects',
   backToProject: 'Back to project',
   backToNamedProject: 'Back to {name}',
-  // What only the Büroablage card says: the gold kind chip and where it came from.
-  library: {
-    provenance: 'From: {source}',
-    kind: {
-      floorplan: 'Floor plan',
-      section: 'Section / elevation',
-      siteplan: 'Site plan',
-      notice: 'Notice',
-      photo: 'Photo',
-      // `model` was missing while `inferDocumentKind` had been returning it for
-      // every `.ifc` — the card printed the raw key. A building is not a
-      // document, and the label says so.
-      model: 'Building model',
-      sheet: 'Spreadsheet',
-      text: 'Notes',
-      document: 'Document',
-    },
-  },
   toast: {
     // Fired the instant async ingestion finishes and the document becomes
     // citable across every project in the organization.
@@ -53,6 +35,7 @@ export const officeShelf = {
     cancelError: "Reading couldn't be stopped. Please try again.",
     menuLabel: 'File actions',
     download: 'Download',
+    downloadPdf: 'Download as PDF',
     open: 'Open',
     ask: 'Ask about this',
     select: 'Select',

@@ -75,9 +75,11 @@ async function expect(path, fate) {
   const head = await fetch(`${base}${path}`, { method: 'HEAD', redirect: 'manual' })
   if (head.status !== response.status) problems.push(`${path}: HEAD ${head.status}, GET ${response.status}`)
   if (fate === 'gone') {
-    const body = await response.text()
+    // Read the page's text as a crawler does, not its markup: a heading's words may each sit in
+    // their own element (MaskedWords), so a phrase never appears as one run of raw HTML.
+    const text = (await response.text()).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ')
     if (response.status !== 410) problems.push(`${path}: ${response.status}, expected 410`)
-    else if (!/gibt es nicht mehr|no longer exists/.test(body)) problems.push(`${path}: 410 without the gone page`)
+    else if (!/gibt es nicht mehr|no longer exists/.test(text)) problems.push(`${path}: 410 without the gone page`)
     return
   }
   const location = response.headers.get('location')

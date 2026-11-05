@@ -105,7 +105,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                     <DocumentActionsMenu
                       document={file}
                       scope={scope}
-                      actions={['download', 'rename', 'delete']}
+                      actions={['download', 'downloadPdf', 'rename', 'delete']}
                       canManage={canManage}
                       surface="toolbar"
                       moveInSheet={moveInSheet}
@@ -270,7 +270,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             <DocumentActionsMenu
               document={file}
               scope={scope}
-              actions={['rename', 'delete']}
+              actions={['downloadPdf', 'rename', 'delete']}
               canManage={canManage}
               surface="toolbar"
               moveInSheet={moveInSheet}

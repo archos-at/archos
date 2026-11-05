@@ -55,7 +55,7 @@ import { runHeadlessTurn } from '@/lib/turns/headless-turn'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
 import type { DocumentCheckPayload } from '@/lib/jobs-queue/types'
 import { documentCheckConversationId, documentCheckId, documentCheckMessageId } from './check'
-import { runDocumentCheckSlice } from './job'
+import { checkTurnMessage, runDocumentCheckSlice } from './job'
 
 const ORG = 'org-1'
 const DOC_ID = '00000000-0000-4000-8000-0000000000d1'
@@ -113,6 +113,16 @@ beforeEach(() => {
   vi.mocked(ensureDocumentThread).mockResolvedValue('s_thread')
   vi.mocked(emitInboxItems).mockResolvedValue(1)
   vi.mocked(recordDocumentCheckScore).mockResolvedValue(undefined)
+})
+
+describe('checkTurnMessage', () => {
+  it('focuses a renamed document by the filename retrieval matches, and names it by its display name', () => {
+    const renamed = { ...DOCUMENT, displayName: 'Brandschutz Stand 3' }
+    const message = checkTurnMessage({ payload: start, conversationId: CONVERSATION, document: renamed, authorName: null })
+
+    expect(message).toMatchObject({ focus_file_name: 'Brandschutzkonzept.pdf', focus_document_id: DOC_ID })
+    expect(message.text).toContain('Brandschutz Stand 3')
+  })
 })
 
 describe('runDocumentCheckSlice — starting the turn', () => {

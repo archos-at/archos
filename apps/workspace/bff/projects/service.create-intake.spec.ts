@@ -26,8 +26,9 @@ vi.mock('./intake-seed', () => ({ startProjectIntake: (...args: unknown[]) => st
 
 const createResource = vi.fn()
 const assignRole = vi.fn()
+const deleteResourceByExternalId = vi.fn()
 vi.mock('@/lib/workos/client', () => ({
-  getWorkOS: () => ({ authorization: { createResource, assignRole } }),
+  getWorkOS: () => ({ authorization: { createResource, assignRole, deleteResourceByExternalId } }),
 }))
 
 const recordAuditEvent = vi.fn()
@@ -82,6 +83,7 @@ describe('createProject, set up by Piloti', () => {
     createResource.mockResolvedValue({ id: 'res_1' })
     assignRole.mockResolvedValue(undefined)
     deleteProjectRow.mockResolvedValue(undefined)
+    deleteResourceByExternalId.mockResolvedValue(undefined)
     startProjectIntake.mockResolvedValue(undefined)
   })
 

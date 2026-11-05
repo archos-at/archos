@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { SectionLabel } from '@/components/ui/section-label'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -106,9 +107,9 @@ export function PlacementTreeView({
       </ul>
       {!onlyUnsure && tree.stays.length > 0 && (
         <section aria-label={t('rootSort.review.staysLabel')} className="border-border border-t">
-          <h3 className="text-muted-foreground bg-muted/40 px-3 py-2 text-[10.5px] font-medium tracking-wider uppercase">
+          <SectionLabel as="h3" className="bg-muted/40 px-3 py-2">
             {t('rootSort.review.staysLabel')}
-          </h3>
+          </SectionLabel>
           <ul>
             {tree.stays.map((file) => (
               <FileRow

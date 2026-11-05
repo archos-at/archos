@@ -20,6 +20,7 @@ const LABELS: DocumentActionLabels = {
   ask: 'Ask about this',
   select: 'Select',
   download: 'Download',
+  downloadPdf: 'Download as PDF',
   rename: 'Rename…',
   move: 'Move to folder',
   copyOriginPath: 'Copy origin path',
@@ -65,6 +66,33 @@ describe('documentActionEntries', () => {
     const del = entries.find((e) => e.type === 'item' && e.id === 'delete')
     expect(del?.type === 'item' && del.variant).toBe('destructive')
     expect(entries.some((e) => e.type === 'separator')).toBe(true)
+  })
+
+  it('offers the PDF form of a file that is read through one, beside the original (ADR-0152)', () => {
+    const onDownloadPdf = vi.fn()
+    expect(ids({ id: 'd', filename: 'Katasterauszug.dxf', displayName: null }, { onDownloadPdf })).toEqual([
+      'download',
+      'downloadPdf',
+      'rename',
+      'delete',
+    ])
+    expect(ids({ id: 'd', filename: 'Baubeschreibung.docx', displayName: null }, { onDownloadPdf })).toContain('downloadPdf')
+    expect(ids({ id: 'd', filename: 'Lageplan', displayName: null, contentType: 'application/dxf' }, { onDownloadPdf })).toContain(
+      'downloadPdf'
+    )
+    expect(ids({ id: 'd', filename: 'Katasterauszug.dxf', displayName: null }, { onDownloadPdf, canManage: false })).toEqual([
+      'download',
+      'downloadPdf',
+    ])
+  })
+
+  it('offers no PDF form for a PDF, an image or a surface that cannot download one', () => {
+    const onDownloadPdf = vi.fn()
+    expect(ids(DOCUMENT, { onDownloadPdf })).not.toContain('downloadPdf')
+    expect(ids({ id: 'd', filename: 'Foto.jpg', displayName: null, contentType: 'image/jpeg' }, { onDownloadPdf })).not.toContain(
+      'downloadPdf'
+    )
+    expect(ids({ id: 'd', filename: 'Katasterauszug.dxf', displayName: null })).not.toContain('downloadPdf')
   })
 
   it('offers only what the surface asked for', () => {

@@ -11,6 +11,7 @@ import copy from '../i18n/pages/demo';
 import { localePath, type Locale } from '../i18n/paths';
 import { t } from '../i18n/ui';
 import identity, { withName } from '../lib/identity';
+import { photos } from '../lib/media';
 
 // Markup and structure only. Text comes from src/i18n/pages/demo.ts, in both locales.
 // The form hands the answers to the visitor's mail program, addressed to the sales inbox
@@ -29,7 +30,7 @@ const f = c.form;
   <SplitPage
     locale={locale}
     variant="form"
-    image="/media/demo-panel-background.webp"
+    image={photos.demoPanelBackground}
     footer={[
       { label: c.backToWebsite, href: localePath('home', locale) },
       { label: ui.navSecurity, href: localePath('security', locale) },

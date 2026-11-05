@@ -19,7 +19,7 @@ import {
  * puts them under the thumb; the drawer stays, behind "Mehr", for everything
  * else (Automatisierung, the Büroablage, the account).
  *
- * - Inside a project: Frag Piloti, Dateien, Übersicht, Postfach, Mehr. Chat
+ * - Inside a project: Chat, Dateien, Übersicht, Postfach, Mehr. Chat
  *   and Dateien are the two work surfaces. Übersicht is the project's
  *   dashboard, which on a phone is otherwise two taps deep in the drawer and is
  *   the page that says where the project stands. The Postfach is where the

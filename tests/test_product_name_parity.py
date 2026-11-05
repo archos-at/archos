@@ -38,6 +38,8 @@ IDENTITY_COPIES = (
     Path("packages/agent/src/agent/common/identity.json"),
     Path("apps/workspace/shared/brand/identity.json"),
     Path("apps/website/src/styles/brand/identity.json"),
+    # The DXF sheet's „Erstellt mit …“ line (ADR-0152).
+    Path("apps/agent-host/src/agent_host/drawings/brand/identity.json"),
 )
 SERVICE_WORKER = Path("apps/workspace/public/sw.js")
 ICONS = (Path("apps/workspace/app/icon.svg"), Path("apps/website/public/favicon.svg"))

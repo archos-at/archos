@@ -1,0 +1,8 @@
+---
+operators:
+  - >
+    PostHog now receives what each chat answer and each document ingest cost,
+    including how much of an answer's first model call came from the provider
+    cache, and how large each ingested file was. The dashboard Spend - unit
+    economics and its catalog metrics read them; the first export runs send the
+    last 90 days.

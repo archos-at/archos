@@ -23,6 +23,15 @@ const Door = () => (
 
 afterEach(() => act(() => useStartDock.getState().close()))
 
+describe('InboxDock — its header', () => {
+  test('names the dock and carries no count: the queue heading says how many wait, once', () => {
+    render(<InboxDock />)
+    const header = screen.getByRole('heading', { level: 2 })
+    expect(header).toHaveTextContent(/^Inbox$/)
+    expect(header.closest('header')).not.toHaveTextContent(/\d/)
+  })
+})
+
 describe('InboxDock — a disclosure the reader opened', () => {
   test('opened by the reader, it takes the focus so its keys work at once', () => {
     act(() => useStartDock.getState().open('inbox'))

@@ -19,6 +19,10 @@
  * came back: jsdom never delivers a synthetic click to a submenu item, so this
  * fixture is the only place the selection itself can be seen working.
  *
+ * `?variant=drawing` is a DXF Katasterauszug with its menu open: beside the
+ * original's Download it offers „Als PDF herunterladen“, the to-scale PDF the
+ * backend draws from it (ADR-0152). The same entry appears on office files.
+ *
  * Behind both, the resting state of the trigger in a header row like the file
  * preview's — the control has to read as an ordinary, ignorable part of the
  * chrome until it is wanted.
@@ -43,6 +47,16 @@ const DOCUMENT = {
   // Mid-read, so the menu offers the stop beside the other operations: the
   // entry is offered only while a read has not finished (`cancelOffer`).
   status: 'processing',
+}
+
+/** A DXF, stored as `application/dxf` whatever the browser said (`storedContentType`). */
+const DRAWING = {
+  id: 'dev-doc-2',
+  filename: 'Katasterauszug_KG16117_Gst123-4.dxf',
+  displayName: 'Katasterauszug Mödling.dxf',
+  folderId: 'f-arch',
+  contentType: 'application/dxf',
+  status: 'indexed',
 }
 
 /** A nested tree, so the submenu has a path to render and not just a name. */
@@ -77,10 +91,10 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
  * focus on its first item. Guarded by a ref because `reactStrictMode` runs an
  * effect twice and Enter TOGGLES.
  */
-function useOpenMoveMenu(pick: boolean): void {
+function useOpenMoveMenu(pick: boolean, enabled = true): void {
   const driven = useRef(false)
   useEffect(() => {
-    if (driven.current) return
+    if (driven.current || !enabled) return
     driven.current = true
     const press = (node: Element | null) =>
       node?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
@@ -110,34 +124,55 @@ function useOpenMoveMenu(pick: boolean): void {
         structuralFolder?.click()
       })
     })
-  }, [pick])
+  }, [pick, enabled])
+}
+
+/** Open the menu and leave it open: the drawing variant's whole point is what it lists. */
+function useOpenMenu(enabled: boolean): void {
+  const driven = useRef(false)
+  useEffect(() => {
+    if (driven.current || !enabled) return
+    driven.current = true
+    const trigger = document.querySelector<HTMLButtonElement>('[data-testid="document-actions-trigger"]')
+    trigger?.focus()
+    trigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  }, [enabled])
 }
 
 /** The preview pane's header row, close enough to show the trigger in context. */
-function HeaderRow({ onMoved }: { onMoved?: (id: string, folderId: string | null) => void }): JSX.Element {
+function HeaderRow({
+  onMoved,
+  drawing = false,
+}: {
+  onMoved?: (id: string, folderId: string | null) => void
+  drawing?: boolean
+}): JSX.Element {
   const moveInSheet = useMoveInSheet()
+  const document = drawing ? DRAWING : DOCUMENT
   return (
     <div className="mx-auto flex w-full max-w-[720px] items-center gap-3 rounded-2xl border bg-card px-5 py-3.5 shadow-2xs">
       <span
         className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-[10px] font-bold uppercase leading-none text-muted-foreground"
         aria-hidden
       >
-        PDF
+        {drawing ? 'DXF' : 'PDF'}
       </span>
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-[15px] font-semibold leading-tight tracking-[-0.01em] text-foreground">
-          {DOCUMENT.displayName}
+          {document.displayName}
         </h3>
-        <p className="mt-1 truncate text-[11.5px] text-muted-foreground">PDF · Bereit</p>
+        <p className="mt-1 truncate text-[11.5px] text-muted-foreground">
+          {drawing ? 'DXF · Maßstab 1:500 · Bereit' : 'PDF · Bereit'}
+        </p>
       </div>
       <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 px-3">
         <Download className="size-3.5" aria-hidden />
         Herunterladen
       </Button>
       <DocumentActionsMenu
-        document={DOCUMENT}
+        document={document}
         scope="files"
-        actions={['rename', 'move', 'cancel', 'delete']}
+        actions={drawing ? ['downloadPdf', 'rename', 'move', 'delete'] : ['rename', 'move', 'cancel', 'delete']}
         folders={FOLDERS}
         moveInSheet={moveInSheet}
         onMoved={onMoved ?? (() => {})}
@@ -149,12 +184,17 @@ function HeaderRow({ onMoved }: { onMoved?: (id: string, folderId: string | null
 function DocumentActionsPreview(): JSX.Element {
   const variant = useSearchParams()?.get('variant') ?? 'rename'
   const isMove = variant === 'move' || variant === 'moved'
+  const isDrawing = variant === 'drawing'
   const [moved, setMoved] = useState<string | null>(null)
-  useOpenMoveMenu(variant === 'moved')
+  useOpenMoveMenu(variant === 'moved', !isDrawing)
+  useOpenMenu(isDrawing)
 
   return (
     <div className="flex min-h-dvh flex-col justify-center bg-muted/30 p-8" data-testid="document-actions-preview">
-      <HeaderRow onMoved={isMove ? (id, folderId) => setMoved(`${id} → ${folderId ?? 'root'}`) : undefined} />
+      <HeaderRow
+        drawing={isDrawing}
+        onMoved={isMove ? (id, folderId) => setMoved(`${id} → ${folderId ?? 'root'}`) : undefined}
+      />
 
       {moved && (
         // The proof, in text: the selection reached `onMoved` with the folder
@@ -164,7 +204,7 @@ function DocumentActionsPreview(): JSX.Element {
         </p>
       )}
 
-      {isMove ? null : variant === 'delete' ? (
+      {isMove || isDrawing ? null : variant === 'delete' ? (
         <ConfirmDialog
           open
           onOpenChange={() => {}}

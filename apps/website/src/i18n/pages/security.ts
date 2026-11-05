@@ -47,7 +47,7 @@ const de = {
     },
     {
       q: 'Werden Daten außerhalb der EU verarbeitet?',
-      a: 'Workspace und Projektdaten liegen in Wien. Außerhalb der EU verarbeitet werden können die Anmeldung über WorkOS (USA) und die Anfragen an die Sprachmodelle, die über OpenRouter (USA) an die Modellanbieter gehen. Für diese Anfragen gilt Zero Data Retention, und kein Modell wird mit Ihren Daten trainiert.',
+      a: 'Workspace und Projektdaten liegen in Wien. Die Anmeldung und die Anfragen an die Sprachmodelle können auch außerhalb der EU verarbeitet werden. Anfragen an Sprachmodelle laufen mit Zero Data Retention, und kein Modell wird mit Ihren Daten trainiert. Welche Dienstleister beteiligt sind, regelt der Auftragsverarbeitungsvertrag mit Ihrem Büro.',
     },
     {
       q: 'Können andere Büros unsere Unterlagen sehen?',
@@ -117,7 +117,7 @@ const en: typeof de = {
     },
     {
       q: 'Is any data processed outside the EU?',
-      a: 'The workspace and your project data are hosted in Vienna. Sign-in through WorkOS (USA) and the requests to the language models, which reach the model providers through OpenRouter (USA), may be processed outside the EU. Zero Data Retention applies to these requests, and no model is trained on your data.',
+      a: 'The workspace and your project data are hosted in Vienna. Sign-in and the requests to the language models may also be processed outside the EU. Requests to language models run with Zero Data Retention, and no model is trained on your data. The data processing agreement with your office names the service providers involved.',
     },
     {
       q: 'Can other offices see our documents?',

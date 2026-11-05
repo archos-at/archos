@@ -57,9 +57,15 @@
   --ds-duration-base: 320ms;
   --ds-duration-slow: 480ms;
   --ds-ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
+  --ds-ease-unveil: cubic-bezier(0.25, 1, 0.5, 1);
   --ds-ease-draft: cubic-bezier(0.65, 0, 0.35, 1);
   --ds-stagger-row: 60ms;
   --ds-travel-sm: 8px;
+  --ds-duration-reveal: 800ms;
+  --ds-stagger-word: 30ms;
+  --ds-stagger-max: 240ms;
+  --ds-rise-bleed: 0.16em;
+  --ds-unveil-scale: 1.03;
 }
 .dark, [data-theme="dark"] {
   --ds-surface: #0f0e0d;

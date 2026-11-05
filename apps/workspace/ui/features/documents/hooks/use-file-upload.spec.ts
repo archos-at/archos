@@ -24,6 +24,7 @@ const { mockClient, mockDocumentsStoreState, mockOrchestratorFns } = vi.hoisted(
     setUploading: vi.fn(),
     setError: vi.fn(),
     clearError: vi.fn(),
+    setNameStopped: vi.fn(),
   }
 
   // The hook reads useDocumentsStore.getState().trackedFiles after upload to
@@ -676,6 +677,42 @@ describe('useFileUpload — durable document uploads', () => {
     expect(xhr.requests.map((request) => (request.body as FormData).get('file'))).toEqual([plan])
     expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(expect.stringContaining('Schlussrechnung 03.pdf'))
     expect(mockDocumentsStoreState.setError).toHaveBeenCalledWith(expect.stringContaining('Rechnung'))
+  })
+
+  test('offers „Trotzdem hochladen" for the stopped files, which sends them released', async () => {
+    const { result } = renderUpload()
+    const control = new File(['x'], 'Schlussrechnung 04.pdf', { type: 'application/pdf' })
+    const plan = new File(['x'], 'Grundriss EG.pdf', { type: 'application/pdf' })
+
+    let pending!: Promise<unknown>
+    await act(async () => {
+      pending = result.current.uploadFiles([control, plan])
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      xhr.requests.forEach((request, i) => request.respond(200, uploadOk(`doc-${i}`)))
+      await pending
+    })
+    const offer = mockDocumentsStoreState.setNameStopped.mock.calls.at(-1)?.[0] as
+      | { count: number; uploadAnyway: () => void }
+      | null
+    expect(offer?.count).toBe(1)
+    expect(xhr.requests).toHaveLength(1)
+
+    await act(async () => {
+      offer?.uploadAnyway()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      xhr.last().respond(200, uploadOk('doc-anyway'))
+      await Promise.resolve()
+    })
+
+    expect(xhr.requests).toHaveLength(2)
+    expect((xhr.last().body as FormData).get('file')).toBe(control)
+    expect((xhr.last().body as FormData).get('screeningRelease')).toBe('name')
   })
 
   test('sends nothing, not even a clean file, while the office policy cannot be read', async () => {

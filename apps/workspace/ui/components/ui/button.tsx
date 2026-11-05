@@ -5,6 +5,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
+import { CONTROL_HEIGHT } from '@/components/ui/control-height'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -75,8 +76,8 @@ const buttonVariants = cva(
       // viewport width, so a touch tablet past `md` is covered too and a
       // narrow desktop window is left at its intended density.
       size: {
-        default: 'h-9 px-5 py-2 pointer-coarse:h-11',
-        sm: 'h-8 px-3.5 text-xs pointer-coarse:h-11',
+        default: `${CONTROL_HEIGHT.default} px-5 py-2`,
+        sm: `${CONTROL_HEIGHT.sm} px-3.5 text-xs`,
         lg: 'h-11 px-6 text-base',
         icon: 'size-9 pointer-coarse:size-11',
       },

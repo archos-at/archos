@@ -64,7 +64,8 @@ export const isInlinePreviewable = (contentType: string | null | undefined): boo
  * Gotenberg, and the ORIGINAL stays exactly as uploaded — the download route
  * still hands out the Word, Excel or PowerPoint file and nothing else. Keyed by
  * extension as well as by type because the stored type is whatever the browser
- * sent, and an empty one is stored as NULL.
+ * sent (a DXF's excepted, see {@link storedContentType}), and an empty one is
+ * stored as NULL.
  */
 export const OFFICE_RENDITION_CONTENT_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -104,7 +105,7 @@ const officeTypes = new Set<string>(OFFICE_RENDITION_CONTENT_TYPES)
 const officeExtensions = new Set<string>(OFFICE_RENDITION_EXTENSIONS)
 
 /**
- * Whether this file is shown through a PDF rendition rather than its own bytes.
+ * Whether this is an OFFICE file, shown through the PDF rendition Gotenberg makes (ADR-0070).
  *
  * True when EITHER the stored type or the filename's extension names an office
  * format. A filename alone is enough on purpose: a `.docx` stored as NULL or
@@ -115,11 +116,61 @@ export function isOfficeRenditionSource(file: {
   contentType?: string | null
   filename?: string | null
 }): boolean {
+  return matchesTypeOrExtension(file, officeTypes, officeExtensions)
+}
+
+/**
+ * CAD drawings the BACKEND draws to a PDF rendition (ADR-0152): a DXF has no
+ * viewer in a browser either, and ezdxf in the Python tier, not Gotenberg, is
+ * the converter. Shown, thumbnailed, indexed and cited exactly as an office file
+ * is; only who converts differs (`rendition.ts`). DWG is absent until an open
+ * reader for it is in the image.
+ */
+export const DRAWING_RENDITION_CONTENT_TYPES = ['image/vnd.dxf', 'image/x-dxf', 'application/dxf', 'application/x-dxf'] as const
+
+/** The extensions of {@link DRAWING_RENDITION_CONTENT_TYPES}, lower case, with the dot. */
+export const DRAWING_RENDITION_EXTENSIONS = ['.dxf'] as const
+
+const drawingTypes = new Set<string>(DRAWING_RENDITION_CONTENT_TYPES)
+const drawingExtensions = new Set<string>(DRAWING_RENDITION_EXTENSIONS)
+
+function matchesTypeOrExtension(
+  file: { contentType?: string | null; filename?: string | null },
+  types: ReadonlySet<string>,
+  extensions: ReadonlySet<string>
+): boolean {
   const type = file.contentType?.split(';', 1)[0]?.trim().toLowerCase()
-  if (type && officeTypes.has(type)) return true
+  if (type && types.has(type)) return true
   const name = file.filename?.trim().toLowerCase() ?? ''
   const dot = name.lastIndexOf('.')
-  return dot >= 0 && officeExtensions.has(name.slice(dot))
+  return dot >= 0 && extensions.has(name.slice(dot))
+}
+
+/** Whether this file is a DXF drawing, drawn to its rendition by the backend (ADR-0152). */
+export function isDrawingRenditionSource(file: { contentType?: string | null; filename?: string | null }): boolean {
+  return matchesTypeOrExtension(file, drawingTypes, drawingExtensions)
+}
+
+/**
+ * The type an upload is STORED with: the browser's, except for a DXF, which is
+ * always `application/dxf`. The registered type is `image/vnd.dxf`, and a
+ * Windows machine with a CAD program sends exactly that; stored, every check that
+ * reads `image/*` as a photo (the kind sketch, the status icon, the viewer's
+ * image branch) would take a drawing for a picture. One place to decide it, so
+ * no later reader has to know.
+ */
+export function storedContentType(file: { name: string; type: string }): string | null {
+  if (isDrawingRenditionSource({ filename: file.name })) return 'application/dxf'
+  return file.type || null
+}
+
+/**
+ * Whether this file is shown through a PDF rendition at all, office or drawing.
+ * The one predicate the preview, the file route, the dispatch, the thumbnail and
+ * the citation resolver ask; which converter makes it is `rendition.ts`'s concern.
+ */
+export function isRenditionSource(file: { contentType?: string | null; filename?: string | null }): boolean {
+  return isOfficeRenditionSource(file) || isDrawingRenditionSource(file)
 }
 
 /**
@@ -133,9 +184,14 @@ export function isOfficeRenditionSource(file: {
  * absent: openpyxl keeps a sheet's rows and columns, and LibreOffice splits one
  * sheet across as many printed pages as its width needs.
  *
+ * `.dxf` is here because it has nothing else to be read from: its rendition is
+ * a page the backend draws with the drawing's text written in as a text layer
+ * (ADR-0152), so the parcel numbers and labels are what is indexed.
+ *
  * The BFF dispatch decides with this list and the citation resolver trusts a
- * locus page for the same formats, so both import it from here. The backend has
- * no list of its own: it reads the rendition iff the request carries one.
+ * locus page for the same formats, so both import it from here. The backend
+ * mirrors it (`RENDITION_INDEXED_EXTENSIONS` in `knowledge_layer.ingest`, held by
+ * `test_rendition_extensions_parity.py`) to know which files need one.
  */
 export const RENDITION_INDEXED_EXTENSIONS = [
   '.docx',
@@ -149,6 +205,7 @@ export const RENDITION_INDEXED_EXTENSIONS = [
   '.odp',
   '.xls',
   '.ods',
+  '.dxf',
 ] as const
 
 const renditionIndexedExtensions = new Set<string>(RENDITION_INDEXED_EXTENSIONS)

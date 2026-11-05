@@ -1,0 +1,56 @@
+/** whatsNew namespace: the in-app list of every change, for signed-in members (`/app/whats-new`, ADR-0156). */
+export const whatsNew = {
+  title: "What's new",
+  subtitle: 'Every change to {productName}, week by week. The public website shows only the summary of each week.',
+  backToApp: 'Back',
+  loading: "Loading what's new…",
+  empty: 'Nothing has changed in this area in these weeks.',
+  filterLabel: 'Show changes in',
+  allAreas: 'All areas',
+  weekOf: 'Week of {range}',
+  unreleased: 'Coming up',
+  noteCount: '{count} changes',
+  fixesSummary: '{count} fixes',
+  newer: 'Newest weeks',
+  older: 'Older weeks',
+  pageLabel: 'Pages of weeks',
+  /** The one-time notice of the newest weekly summary (`whats-new-notice.tsx`). */
+  notice: {
+    title: 'New this week',
+    open: 'See everything new',
+    close: 'Close',
+    stop: "Don't show again",
+  },
+  /** The switch for the notice, on the profile page (`whats-new-notice-settings.tsx`). */
+  settings: {
+    title: "What's new",
+    description: 'Once a week, a short note on what changed in {productName}.',
+    label: 'Show the weekly summary as a notice',
+    hint: "Shows each new week's summary once. Every change stays in the user menu under What's new.",
+    failed: 'The setting could not be saved. Try again.',
+  },
+  /** One label per product area, keyed by the area id the release notes carry (`release_notes_areas.py`). */
+  areas: {
+    projects: 'Projects and setup',
+    documents: 'Files and office shelf',
+    answers: 'Questions and answers',
+    search: 'Search',
+    'building-law': 'Building law and norms',
+    bim: 'Building models',
+    collaboration: 'Working as a team',
+    tasks: 'Tasks and research',
+    'office-knowledge': 'What the office knows',
+    administration: 'Administration',
+    agents: 'Your own agents',
+    general: 'General',
+  },
+  /** One label per customer section of `releasenotes/config.yaml`. */
+  sections: {
+    features: 'New',
+    improvements: 'Improved',
+    fixes: 'Fixed',
+    deprecations: 'Going away',
+    upgrade: 'For you to do',
+    other: 'Other',
+  },
+}

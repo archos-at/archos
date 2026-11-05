@@ -67,6 +67,15 @@ export const uploadBatches: typeof en.uploadBatches = {
       releaseRequestedToast: 'Die Personen, die „{name}“ prüfen und zulassen dürfen, sind benachrichtigt.',
       releaseRequestNobody: 'Außer Ihnen darf niemand „{name}“ prüfen. Sie finden die Datei unter Organisation → Quarantäne.',
       releaseRequestError: 'Die Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
+      // Wer über eine zurückgehaltene Datei entscheiden darf, lässt sie dort zu,
+      // wo er von ihr erfährt (ADR-0086): eine Prüfung irrt, eine Auftragsnummer
+      // sieht aus wie eine Kartennummer.
+      allowAnyway: 'Trotzdem zulassen',
+      viewFinding: 'Fundstelle ansehen',
+      allowAnywayTitle: '„{name}“ trotzdem zulassen?',
+      allowAnywayDescription:
+        'Sehen Sie sich zuerst die Fundstelle an. Lassen Sie die Datei nur zu, wenn sie nichts enthält, was Ihr Büro schützen will, etwa weil die Zahl keine echte Kartennummer ist oder der Begriff hier etwas anderes meint. {productName} liest sie dann wie jeden anderen Upload, und Sprachmodelle sehen ihren Inhalt. Ihre Entscheidung wird mit Ihrem Namen protokolliert.',
+      allowedAnyway: 'Zugelassen. {productName} liest die Datei jetzt.',
     },
     notFound: {
       title: 'Übersicht nicht gefunden',

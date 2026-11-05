@@ -411,7 +411,7 @@ expanded collection list:
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `focus_file_name` | `string` | Filename of the file this send is about (the composer "Asking about …" subject). Retrieval prefers it, AND it is named in the prompts. |
+| `focus_file_name` | `string` | Stored filename of the file this send is about (the composer "Asking about …" subject), never its display name: retrieval matches it exactly against the filename every chunk carries, and a rename changes only the display name. A turn the BFF starts itself takes it from `documentFocus` (`bff/turns/document-focus.ts`). Retrieval prefers it, AND it is named in the prompts. |
 | `focus_shelf` | `"session"` \| `"project"` \| `"office_shelf"` | Shelf that file sits on. Wins over `source_preset`. |
 | `source_preset` | `"law"` \| `"project"` \| `"office"` | Composer shortcut chip. Used only when no subject shelf is set. |
 

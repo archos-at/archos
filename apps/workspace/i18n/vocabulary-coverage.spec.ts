@@ -136,13 +136,6 @@ const ONE_FACT_ONE_WORD: Record<string, string[]> = {
   ],
 
   /**
-   * The drawing kind that `inferDocumentKind` returns for „Schnitt" AND
-   * „Ansicht". The Archiv said only „Schnitt", so an elevation filed there was
-   * labelled as something it is not, and the two libraries disagreed.
-   */
-  'document kind: section or elevation': ['files.filters.kind.section', 'officeShelf.library.kind.section'],
-
-  /**
    * The approval status of a Fassung (CONTEXT.md, „Freigabe“). The file pane's
    * badge, its milestone row and the chat's draft card name the same state.
    * The card once said „Wartet auf Freigabe“ beside a badge saying „In

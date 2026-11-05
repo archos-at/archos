@@ -21,14 +21,12 @@ export function navigation(locale: Locale) {
     login: { label: ui.login, href: '/sign-in', key: 'login' },
     demo: link('demo', ui.demo),
     footerColumns: [
-      // The header stays Plattform · Datensicherheit · Blog (design system); the product pages are listed here.
+      // The header stays Plattform · Datensicherheit · Blog (design system); the product pages are
+      // listed here. The unlisted pages (UNLISTED_ROUTES in paths.ts) are not.
       {
         title: ui.footerProduct,
         links: [
           link('home', ui.navPlatform),
-          link('firms', ui.navFirms),
-          link('buildingLaw', ui.navBuildingLaw),
-          link('revisions', ui.navRevisions),
           link('security', ui.navSecurity),
           link('changelog', ui.changelog),
         ],

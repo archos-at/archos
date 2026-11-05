@@ -24,6 +24,7 @@ import type { Translator } from '@/i18n/translate'
 
 export type IngestFailureKind =
   | 'rendition_failed'
+  | 'drawing_unreadable'
   | 'download_failed'
   | 'interrupted'
   | 'unreadable_pages'
@@ -63,14 +64,15 @@ export const INGEST_FAILURE_PREFIXES = {
 
 /**
  * Whole sentences the BFF stores, matched by their start so a later
- * `: detail` suffix still classifies. Mirrors `INGEST_DISPATCH_FAILED_MESSAGE`
- * and `RENDITION_REQUIRED_MESSAGE` in `lib/documents/ingest-dispatch.ts`, which is
+ * `: detail` suffix still classifies. Mirrors `INGEST_DISPATCH_FAILED_MESSAGE`,
+ * `RENDITION_REQUIRED_MESSAGE` and `DRAWING_UNREADABLE_MESSAGE` in `lib/documents/ingest-dispatch.ts`, which is
  * `server-only` and cannot be imported here; `ingest-failure.spec.ts` holds
  * the two in step.
  */
 export const BFF_FAILURE_PHRASES = {
   'Ingestion could not be started': 'dispatch_failed',
   'The PDF version of this file could not be created': 'rendition_failed',
+  'This DXF drawing could not be read': 'drawing_unreadable',
 } as const satisfies Record<string, IngestFailureKind>
 
 const UNREADABLE_PAGES = /(\d+)\s+of\s+(\d+)\s+pages?/i

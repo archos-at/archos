@@ -51,6 +51,12 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Where every job runs: the repository variable CI_RUNNER, or GitHub's hosted
+# `ubuntu-latest` when it is unset. Moving to self-hosted runners (Actions
+# Runner Controller) is setting the variable to the scale set's name, not an
+# edit here. The runner image must carry what the hosted image gives these jobs
+# for free: Docker (service containers, buildx, gitleaks), python3, jq, gh,
+# curl and git. docs/contributing/ci.md#runners-and-cost.
 env:
   # Image references must be lowercase, and nothing lowercases this one for us.
   REGISTRY: ghcr.io/archos-at
@@ -58,7 +64,7 @@ env:
 jobs:
   changes:
     name: Plan
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     # Every job has a timeout of a few times its measured run. GitHub's
     # default is 360 minutes, and a hung job holds one of the capped runner
     # slots for all of them while every queued run waits behind it.
@@ -75,11 +81,13 @@ jobs:
       backend: ${{ steps.filter.outputs.backend || 'false' }}
       workspace: ${{ steps.filter.outputs.workspace || 'false' }}
       site: ${{ steps.filter.outputs.site || 'false' }}
+      cms: ${{ steps.filter.outputs.cms || 'false' }}
       infra: ${{ steps.filter.outputs.infra || 'false' }}
       packages: ${{ steps.filter.outputs.packages || 'false' }}
       migrations: ${{ steps.filter.outputs.migrations || 'false' }}
       sast: ${{ steps.filter.outputs.sast || 'false' }}
       hatchet: ${{ steps.filter.outputs.hatchet || 'false' }}
+      skills: ${{ steps.filter.outputs.skills || 'false' }}
       # The images this run builds (a matrix), and all three with their hashes.
       build: ${{ steps.images.outputs.build }}
       images: ${{ steps.images.outputs.images }}
@@ -204,15 +212,21 @@ jobs:
   # invisible until an unrelated PR trips over it. Whoever introduces the drift
   # is the one who sees it. One job, because every step needs the same Python
   # environment and none is slow enough to be worth a runner slot of its own.
+  # Repo checks run as three legs side by side. As one job they ran in series
+  # and were the last check to finish in 21 of 45 pull request runs measured on
+  # 2026-11-03 (median 195 s, p90 331 s, max 444 s): pre-commit, the machinery
+  # tests, reno's history-walking lint and apm's network fetches, one after
+  # another. Runners wait about two seconds for a slot now, so the split costs
+  # setup time on three runners and saves the sum on the critical path. Each
+  # leg is named "Repo checks (...)" so the run page still groups them.
   repo:
-    name: Repo checks (lint, release notes, secrets)
+    name: Repo checks (lint, secrets)
     needs: changes
     if: needs.changes.outputs.reused != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
-      pull-requests: read # the no-release-note label, read when the job runs
     steps:
       # No persisted checkout token: this job runs repository-defined pre-commit
       # hooks, which never need a credential (hook repos clone anonymously).
@@ -255,20 +269,93 @@ jobs:
           . .venv/bin/activate
           pre-commit run --all-files
       - uses: ./.github/actions/setup-task
+      # `github` output makes each finding an annotation on the diff.
+      - name: Backend lint (ruff)
+        run: task be:lint -- --output-format=github
+      # Every commit the change adds, not only its final diff, so a secret is
+      # caught in the commit that added it even when a later one deletes it.
+      # On a pull request that is base..HEAD: the commits under the base were
+      # scanned when they landed, and the weekly Security run reads the whole
+      # history of every branch. A push reads its own full history. Not
+      # `--all`, gitleaks' default: a full-depth checkout fetches every
+      # branch, and an open PR's fixture then failed every other PR's run.
+      # Exceptions: CONTRIBUTING.md "Secret scanning".
+      - name: Secret scan (gitleaks)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          range="--full-history HEAD"
+          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
+          docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
+            zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
+            --log-opts="$range"
+
+
+  # The tests of ci/, the workflows and the release-note pipeline. Here rather
+  # than only in the backend suite, so the backend filter need not fire for a
+  # change that only touches those (.github/filters.yml). A shallow checkout:
+  # they read the tree, not its history.
+  repo-tests:
+    name: Repo checks (CI machinery tests)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-python-env
+      - uses: ./.github/actions/setup-task
+      - name: Repository machinery tests (CI, release notes)
+        run: task be:test:harness
+
+  # The release notes and the agent-skill lockfile. Neither needs the project
+  # venv: reno and the house rules run through `uv run --no-project`, apm
+  # through `uvx`, so this leg sets up uv alone.
+  release-notes:
+    name: Repo checks (release notes, skills, migrations)
+    needs: changes
+    if: needs.changes.outputs.reused != 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read # the no-release-note label, read when the job runs
+    steps:
+      # As in the lint leg: a pull request fetches down to its merge base, which
+      # the release-note rule reads; reno's lint deepens the clone itself when
+      # the notes changed. A push keeps the full clone for reno.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: ${{ github.event_name == 'pull_request' && 1 || 0 }}
+      - name: Fetch down to the merge base
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          . ci/git_auth.sh
+          ci/fetch_merge_base.sh "$BASE_SHA" "$HEAD_SHA"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+      - uses: ./.github/actions/setup-task
       # `skills/` is the source, `.claude/` and `.agents/` are generated and
       # gitignored, and apm.lock.yaml hashes both, so a skill edit that was
       # never re-locked appears in no diff at all. `apm audit` exits 0 on
       # drift; `task agents:audit` is the wrapper that does not.
+      # Only when the skills, the manifest, the lockfile or apm's pin change:
+      # nothing else can make the lockfile stale, and apm fetches every pinned
+      # skill repository over the network, 17 s at the median and over two
+      # minutes in 6 of 45 pull request runs measured on 2026-11-03.
       - name: Agent-skill lockfile (apm)
+        if: needs.changes.outputs.skills == 'true'
         run: task agents:audit
-      # `github` output makes each finding an annotation on the diff.
-      - name: Backend lint (ruff)
-        run: task be:lint -- --output-format=github
-      # The tests of ci/, the workflows and the release-note pipeline. Here
-      # rather than only in the backend suite, so the backend filter need not
-      # fire for a change that only touches those (.github/filters.yml).
-      - name: Repository machinery tests (CI, release notes)
-        run: task be:test:harness
       # The notes are published verbatim to piloti.at, so their prose is linted
       # on every run, a push straight to release/** included. reno's own lint
       # reads the notes through the whole git history, and its verdict changes
@@ -304,23 +391,25 @@ jobs:
             exit 0
           fi
           python3 ci/require_release_note.py "$BASE_SHA" "$HEAD_SHA"
-      # Every commit the change adds, not only its final diff, so a secret is
-      # caught in the commit that added it even when a later one deletes it.
-      # On a pull request that is base..HEAD: the commits under the base were
-      # scanned when they landed, and the weekly Security run reads the whole
-      # history of every branch. A push reads its own full history. Not
-      # `--all`, gitleaks' default: a full-depth checkout fetches every
-      # branch, and an open PR's fixture then failed every other PR's run.
-      # Exceptions: CONTRIBUTING.md "Secret scanning".
-      - name: Secret scan (gitleaks)
+      # A migration this pull request adds may not take away what a running
+      # build reads (a drop, a rename, a narrowed type): the migration Job runs
+      # forward only, so it would break a rollback by image tag and the old
+      # pods mid-rollout. The `migration:contract` label, read live, is the
+      # author's word that production is past every build reading the old
+      # shape. ci/migration_contract.py; docs/deployment/rollback.md.
+      - name: Migrations stay rollback-safe (expand/contract)
+        if: github.event_name == 'pull_request'
         env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          range="--full-history HEAD"
-          if [ -n "$BASE_SHA" ]; then range="$BASE_SHA..HEAD"; fi
-          docker run --rm -v "$GITHUB_WORKSPACE:/repo" \
-            zricethezav/gitleaks:v8.30.1 detect --source /repo --redact -v \
-            --log-opts="$range"
+          if gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.labels[].name' | grep -qx 'migration:contract'; then
+            echo "Labelled migration:contract: a contract migration, on purpose."
+            exit 0
+          fi
+          python3 ci/migration_contract.py "$BASE_SHA" "$HEAD_SHA"
 
   # Diff-aware: `semgrep ci` on a pull request reports only findings the change
   # introduces, so it blocks a new finding without failing on the backlog. A
@@ -330,7 +419,7 @@ jobs:
     name: SAST (Semgrep, new findings)
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.sast == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     container:
       # Pinned: an unpinned scanner image changes the rules under a PR that
@@ -366,7 +455,7 @@ jobs:
     name: Backend core (shard ${{ matrix.shard }}/4)
     needs: changes
     if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       # One shard's failure should not hide the others' results.
@@ -403,25 +492,25 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  # The core suite's coverage gate (65% of packages/agent/src/agent) over all four shards,
-  # and the PR comment. In `CI OK`, unlike the workspace's comment-only merge,
-  # because the gate is a check.
+  # The core suite's coverage gate (65% of packages/agent/src/agent) over all
+  # four shards. The total is in the job log and summary; the sticky PR comment
+  # it used to post listed only changed files, so it read "no changed files" on
+  # most pull requests and re-notified every push.
   backend-coverage:
     name: Backend coverage gate
     needs: [changes, backend]
     if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: write # coverage sticky comment
     steps:
       # The sources the data names, for the report; no environment beyond
       # coverage itself, at the version the shards ran.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: backend-coverage-*
@@ -432,19 +521,8 @@ jobs:
           # The shards' interpreter: coverage re-parses every source file, and
           # the runner's own 3.12 cannot read 3.14 syntax (`except A, B:`).
           uvx --python 3.14 --from "$coverage" coverage combine --keep .coverage.shard*
-          uvx --python 3.14 --from "$coverage" coverage xml -o coverage.xml
-          uvx --python 3.14 --from "$coverage" coverage report --fail-under=65
-      - name: Coverage comment (backend)
-        if: github.event_name == 'pull_request'
-        continue-on-error: true # never fail CI on a comment hiccup
-        uses: MishaKav/pytest-coverage-comment@9ee59af31bd7bcada1cc496f086b407122602dbd # v1.12.3
-        with:
-          pytest-xml-coverage-path: coverage.xml
-          # The whole-tree table passed GitHub's 65,536-character comment
-          # limit, and the action then posted only the badge.
-          report-only-changed-files: true
-          title: Backend coverage (packages/agent/src/agent)
-          unique-id-for-comment: backend-coverage
+          uvx --python 3.14 --from "$coverage" coverage report --skip-covered --fail-under=65
+          echo "Backend coverage (packages/agent/src/agent): $(uvx --python 3.14 --from "$coverage" coverage report --format=total)%" >> "$GITHUB_STEP_SUMMARY"
 
   # Every Python suite but the core one, one job each. Run back to back in one
   # job they took 4:50 (sources 2:32, agent_host 1:00, the rest 0:36), the
@@ -453,7 +531,7 @@ jobs:
     name: Backend suites (${{ matrix.suite }})
     needs: changes
     if: needs.changes.outputs.backend == 'true' && (github.event_name == 'push' || needs.changes.outputs.backend_mode == 'full')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -497,7 +575,7 @@ jobs:
 
   # A pull request whose change testmon can see runs only the tests that
   # change reaches, per suite, from the database the last green develop push
-  # recorded (`backend-testmon`). The full sharded suite and the coverage gate
+  # recorded (`testmon.yml`). The full sharded suite and the coverage gate
   # run on every push to develop, which the deploy waits for, so a test this
   # selection misses still turns develop red before staging. What forces the
   # full suite on a pull request instead: ci/pr_selection.py.
@@ -512,7 +590,7 @@ jobs:
     name: Backend affected tests (${{ matrix.suite }}${{ matrix.shard && format(' {0}/4', matrix.shard) || '' }})
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true' && needs.changes.outputs.backend_mode == 'select'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -555,7 +633,7 @@ jobs:
           key: testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-${{ github.sha }}
           restore-keys: |
             testmon-pr-${{ github.event.pull_request.number }}-${{ matrix.suite }}-
-      # Its own step, with the path `backend-testmon` saves under: a cache is
+      # Its own step, with the path `testmon.yml` saves under: a cache is
       # found only by the paths it was saved with, and when this was one step
       # with the suite's own path, develop's database was never found and a
       # first push ran every test.
@@ -597,40 +675,6 @@ jobs:
         env:
           TEST_POSTGRES_REQUIRED: "1"
 
-  # Records which test runs which code, for `backend-affected`. On every push
-  # to develop, reused or not: a squash merge of a green pull request skips the
-  # checks, and the database would otherwise stop following develop. Saved only
-  # when every test passed, because testmon re-runs a recorded failure forever.
-  # Not a check, so not in `CI OK` or `publish`: it holds nobody up.
-  backend-testmon:
-    name: Backend test database (testmon)
-    needs: changes
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      qdrant:
-        image: qdrant/qdrant:v1.19.2
-        ports:
-          - 6333:6333
-    env:
-      QDRANT_TEST_URL: http://localhost:6333
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup-python-env
-        with:
-          python-version: "3.14"
-      - uses: ./.github/actions/setup-task
-      - run: task be:test:testmon
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .testmondata-*
-          # Its own prefix: `testmon-` alone also matches a pull request's
-          # `testmon-pr-…` entries, another suite's among them.
-          key: testmon-develop-${{ github.sha }}
-
   # Everything on the UI's toolchain except the test shards. The production
   # build is NOT here: the frontend image build (`image`) runs the same
   # `bun run build` inside the Dockerfile whenever the UI's inputs change, so a
@@ -645,7 +689,7 @@ jobs:
     name: Workspace (cards, lint, types, tenant isolation)
     needs: changes
     if: needs.changes.outputs.workspace == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       # These jobs run PR-controlled code (`bun install` runs lifecycle scripts,
@@ -658,7 +702,7 @@ jobs:
       # Bun is the toolchain: install, scripts, `bun check` (ADR-0103).
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
@@ -687,7 +731,7 @@ jobs:
     # last green run or the base, ci/pr_selection.py) runs none ('none'); one that a selection can see runs only the specs
     # its change reaches ('select'); everything else, and every push, all.
     if: needs.changes.outputs.workspace == 'true' && (github.event_name == 'push' || needs.changes.outputs.ui_mode != 'none')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     strategy:
       # One shard's failure should not hide the others' results.
@@ -708,71 +752,29 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
       - name: All specs, shard ${{ matrix.shard }}/8
         if: github.event_name == 'push' || needs.changes.outputs.ui_mode == 'full'
-        # Coverage only where the comment is built from it.
-        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=${{ github.event_name == 'pull_request' }}
+        # No coverage instrumentation: nothing gates on UI coverage, and the
+        # pull request comment it fed was removed (docs/contributing/ci.md).
+        run: task workspace:test:shard SHARD=${{ matrix.shard }}/8 COVERAGE=false
       - name: The specs this change reaches, shard ${{ matrix.shard }}/8
         if: github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'select'
         env:
           SHARD: ${{ matrix.shard }}/8
           FILES_JSON: ${{ needs.changes.outputs.ui_files }}
         run: task workspace:test:related SHARD="$SHARD" FILES="$(jq -r 'join(" ")' <<<"$FILES_JSON")"
-      # Coverage is collected per shard and merged below: a shard only loads
-      # its own slice of the app. Uploaded even when the shard failed, because
-      # the merged report is where a reviewer looks.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always() && github.event_name == 'pull_request' && needs.changes.outputs.ui_mode == 'full'
-        with:
-          name: vitest-blob-${{ matrix.shard }}
-          path: apps/workspace/.vitest-reports
-          include-hidden-files: true
-          retention-days: 1
-
-  # The coverage comment, and nothing else: correctness is gated by the shards.
-  # Not in `CI OK`, so a slow merge never holds the gate open, and pull request
-  # only, because on a push there is nobody to comment to.
-  workspace-coverage:
-    name: Workspace coverage
-    needs: [changes, workspace-test]
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.changes.outputs.workspace == 'true' && needs.changes.outputs.ui_mode == 'full' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: write # coverage sticky comment
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-      - uses: ./.github/actions/setup-bun
-      - uses: ./.github/actions/setup-task
-      - run: task workspace:install
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: vitest-blob-*
-          merge-multiple: true
-          path: apps/workspace/.vitest-reports
-      - run: task workspace:test:merge
-      - name: Coverage comment (workspace)
-        continue-on-error: true
-        uses: davelosert/vitest-coverage-report-action@8f86cfb56ed6d5613ea8cdc5259f207fbfd51ece # v2.13.1
-        with:
-          working-directory: apps/workspace
 
   site:
     name: Website (Astro check, tests, build, a11y)
     # The public website, apps/website, and the riso kit's fast gate (task website:verify).
+    # Its CMS has its own job, `cms`.
     needs: changes
     if: needs.changes.outputs.site == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -780,7 +782,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       # The website's accessibility gate drives Chromium; this installs its system libraries
@@ -788,11 +790,14 @@ jobs:
       - run: npx --yes playwright@1.63.0 install-deps chromium
       - run: task website:verify
 
-  infra:
-    name: Infra (Pulumi typecheck + manifest tests)
+  cms:
+    name: CMS (typecheck, lint, tests, Postgres suite)
+    # The website's CMS, apps/cms (Payload, ADR-0155): task cms:verify. Its own job
+    # and its own tier, because its toolchain is its own lockfile and its suite
+    # needs a Postgres the website's job has no use for.
     needs: changes
-    if: needs.changes.outputs.infra == 'true'
-    runs-on: ubuntu-latest
+    if: needs.changes.outputs.cms == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -800,7 +805,27 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      # ubuntu-latest ships PostgreSQL server binaries but runs no cluster;
+      # scripts/test-db.sh builds a throwaway one, migrates it, checks the config
+      # against the migrations, runs the review rules on it, and tears it down.
+      - run: task cms:verify
+
+  infra:
+    name: Infra (Pulumi typecheck + manifest tests)
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       # The program and the policy pack, each from its own lockfile; a policy
@@ -827,37 +852,45 @@ jobs:
           echo "${OTELCOL_SHA256}  $RUNNER_TEMP/otelcol.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/otelcol.tar.gz" -C "$RUNNER_TEMP" otelcol-contrib
           echo "OTELCOL_BIN=$RUNNER_TEMP/otelcol-contrib" >> "$GITHUB_ENV"
+      # agentgateway's published config schema at the tag its image pins
+      # (`MCP_GATEWAY.image` in deploy/pulumi/src/platform/mcp-gateway-config.ts):
+      # `index-mcp-gateway.spec.ts` holds the file the program renders against it,
+      # which refuses a key agentgateway does not know before a pod would. Bump
+      # the version and checksum together with that digest.
+      - name: Fetch agentgateway's config schema (config validation)
+        env:
+          AGENTGATEWAY_VERSION: "v1.7.0"
+          AGENTGATEWAY_SCHEMA_SHA256: "8d757c092bc30a5ed5fd38a07a47d72602941c8344203c2d1f86e02d6dbb2bd3"
+        run: |
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/agentgateway-config.schema.json" \
+            "https://raw.githubusercontent.com/agentgateway/agentgateway/${AGENTGATEWAY_VERSION}/schema/config.json"
+          echo "${AGENTGATEWAY_SCHEMA_SHA256}  $RUNNER_TEMP/agentgateway-config.schema.json" | sha256sum -c -
+          echo "AGENTGATEWAY_SCHEMA=$RUNNER_TEMP/agentgateway-config.schema.json" >> "$GITHUB_ENV"
+          echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
       - run: task infra:test
 
-  # packages/ sits outside both workspaces (own bun.lock, own uv.lock),
-  # so neither tier's install can run it. ~4 minutes, nearly all of it
-  # ifc-spatial-py, which is why it is filtered at all.
+  # packages/ifc-spatial-py sits outside the uv workspace (own uv.lock),
+  # so the backend tier's install cannot run it. ~4 minutes, which is why it is
+  # filtered at all.
   packages:
     name: Standalone packages (packages/)
     needs: changes
     if: needs.changes.outputs.packages == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-      - uses: ./.github/actions/setup-bun
       # Keyed on the package's OWN uv.lock: the root one would restore an
       # environment this suite never uses (IfcOpenShell + shapely wheels).
-      - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: true
           cache-dependency-glob: packages/ifc-spatial-py/uv.lock
       - uses: ./.github/actions/setup-task
-      - name: Install the packages' own toolchains
+      - name: Install the package's own toolchain
         run: task pkg:install
-      # Two steps, not `task pkg:test`, so the summary names the package.
-      - name: ifc-spatial (tests + typecheck)
-        run: task pkg:test:ts
       - name: ifc-spatial-py (pytest)
         run: task pkg:test:py
 
@@ -871,7 +904,7 @@ jobs:
     name: Hatchet engine tests
     needs: changes
     if: needs.changes.outputs.hatchet == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -882,7 +915,7 @@ jobs:
           python-version: "3.14"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "22"
+          node-version-file: .node-version
       - uses: ./.github/actions/setup-bun
       - uses: ./.github/actions/setup-task
       - run: task workspace:install
@@ -936,7 +969,7 @@ jobs:
     name: Image vulns (trivy, changed pins)
     needs: changes
     if: needs.changes.outputs.pins != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 20
     env:
       TRIVY_VERSION: "0.61.1"
@@ -967,7 +1000,7 @@ jobs:
     name: Image build (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.build != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -998,7 +1031,7 @@ jobs:
     name: Image build + push (${{ matrix.name }})
     needs: changes
     if: github.event_name == 'push' && needs.changes.outputs.build != '[]'
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -1021,13 +1054,10 @@ jobs:
           hash: ${{ matrix.hash }}
           registry: ${{ env.REGISTRY }}
           push: "true"
-          # Source maps for PostHog error tracking. Only here, never in the pull
-          # request `image` job above: a PR build must not write release data
-          # into the PostHog project, and a fork has neither value. Both empty
-          # (the secret/variable is not set up) builds exactly as before.
+          # The PostHog source maps the build kept aside, for the Source maps
+          # workflow to upload after CI; nothing here holds a PostHog key.
           # docs/contributing/ci.md#posthog-releases-and-source-maps
-          posthog-api-key: ${{ secrets.POSTHOG_CLI_API_KEY }}
-          posthog-project-id: ${{ vars.POSTHOG_PROJECT_ID }}
+          export-sourcemaps: ${{ matrix.name == 'frontend' }}
 
   # The commit's tags, `sha-<commit>` for all three images (and `latest` on
   # develop), go on only after every check on this push passed. That is the
@@ -1035,11 +1065,11 @@ jobs:
   # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -1050,7 +1080,7 @@ jobs:
         with:
           cleanup: false # the runner is discarded; see build-image/action.yml
       - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -1076,17 +1106,13 @@ jobs:
   ci-ok:
     name: CI OK
     if: always()
-    # `workspace-coverage` is deliberately NOT here: it produces a comment,
-    # correctness is gated by the shards, and requiring it held the gate open
-    # for a minute after the last shard.
-    #
     # `retrieval-eval` used to be here. It read the real OIB Richtlinien, which
     # are now operator-provided and gitignored (data/oib/README.md), so no CI
     # checkout can hold a corpus to measure, and a job that can only pass
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
-    needs: [changes, repo, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, hatchet, trivy, image, image-push, publish]
-    runs-on: ubuntu-latest
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, hatchet, trivy, image, image-push, publish]
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:
       - name: Require needed jobs to have passed (skipped is fine)

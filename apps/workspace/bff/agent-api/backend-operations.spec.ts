@@ -92,8 +92,8 @@ describe('the operations', () => {
       'passage-read',
       'files-list',
       'document-look',
-      'ifc-query',
       'ifc-measure',
+      'dxf-measure',
       'law-lookup',
     ])
     const catalogNames = new Set(AGENT_OPERATIONS.map((op) => op.name))
@@ -101,7 +101,7 @@ describe('the operations', () => {
       expect(op.name).toMatch(/^[a-z]+(-[a-z]+)+$/)
       expect(op.name.length).toBeLessThanOrEqual(52)
       expect(catalogNames.has(op.name), `${op.name} is also a catalog operation`).toBe(false)
-      expect(['knowledge', 'bim']).toContain(op.domain)
+      expect(['knowledge', 'bim', 'documents']).toContain(op.domain)
     }
   })
 
@@ -254,7 +254,7 @@ describe('callBackendOperation', () => {
   })
 
   it('asks for a project when the tool needs one, and runs the law lookup without', async () => {
-    const missing = await callBackendOperation('ifc-query', {}, session, {})
+    const missing = await callBackendOperation('ifc-measure', {}, session, {})
     expect(missing).toMatchObject({ status: 400, ok: false })
     expect(fetchMock).not.toHaveBeenCalled()
 

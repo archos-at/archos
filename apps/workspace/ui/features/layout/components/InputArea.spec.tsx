@@ -203,6 +203,7 @@ const mockDeleteFile = vi.fn()
 const mockRetryFile = vi.fn()
 
 vi.mock('@/features/documents', () => ({
+  UploadAnywayButton: () => null,
   useFileUpload: vi.fn(() => ({
     uploadFiles: mockUploadFiles,
     sessionFiles: [],
@@ -437,14 +438,12 @@ describe('InputArea', () => {
     await user.tab()
     expect(input).toHaveFocus()
 
-    // Order: scope, the effort dial, attach, dictation beside send, then send (the files
+    // Order: the effort dial, attach, dictation beside send, then send (the files
     // counter appears only once files are attached, so it is absent here). The
     // Datengrundlage trigger is withheld with the picker — see the
     // commented-out block in InputArea. Nothing offers to choose deep research:
     // Piloti decides whether a question needs a run, and says so with the block.
     await user.type(input, 'Hello')
-    await user.tab()
-    expect(screen.getByRole('button', { name: /search scope/i })).toHaveFocus()
 
     // The Aufwand dial: how hard Piloti thinks, for this chat.
     await user.tab()
@@ -1181,7 +1180,7 @@ describe('InputArea', () => {
 
       mockIsStreaming = true
       vi.mocked(useIsCurrentSessionBusy).mockReturnValue(true)
-      rerender(<InputArea isAuthenticated={true} connectionMode="sse" projectName="Wohnbau" />)
+      rerender(<InputArea isAuthenticated={true} connectionMode="sse" canCollaborate={false} />)
 
       const stop = screen.getByRole('button', { name: /stop response/i })
       expect(stop).toBe(send)
@@ -1653,19 +1652,14 @@ describe('InputArea', () => {
       ).not.toBeInTheDocument()
     })
 
-    test('scope chip shows the project name and a disabled "All projects" option', async () => {
-      const user = userEvent.setup()
-      render(
-        <InputArea isAuthenticated={true} connectionMode="sse" projectName="Wohnbau Favoriten" />
-      )
+    test('offers no project scope chip: the project is fixed, so a picker would be a dead control', () => {
+      // It used to name the project behind a chevron, and its popover held the
+      // current project and a disabled "All projects" — a picker with nothing
+      // to pick. Retrieval is scoped to the project by the route, not by this row.
+      render(<InputArea isAuthenticated={true} connectionMode="sse" />)
 
-      const scopeChip = screen.getByRole('button', { name: /search scope/i })
-      expect(scopeChip).toHaveTextContent('Wohnbau Favoriten')
-
-      await user.click(scopeChip)
-
-      const allProjects = screen.getByRole('button', { name: /all projects/i })
-      expect(allProjects).toBeDisabled()
+      expect(screen.queryByRole('button', { name: /search scope/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /all projects/i })).not.toBeInTheDocument()
     })
 
   })
@@ -2379,9 +2373,6 @@ describe('InputArea', () => {
 
       expect(screen.getByRole('textbox')).toBeDisabled()
       expect(screen.getByRole('button', { name: /attach files/i })).toBeDisabled()
-      // The scope chip persists onto the conversation, so it is a write too —
-      // `disabled` used to reach only the textarea and the send button.
-      expect(screen.getByRole('button', { name: /search scope/i })).toBeDisabled()
       // The Datenbasis trigger is withheld from the composer for now — its
       // disabled-for-viewers assertion resumes with the picker.
       expect(screen.queryByRole('button', { name: /data basis/i })).not.toBeInTheDocument()

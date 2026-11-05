@@ -214,6 +214,11 @@ Consequences, where a reader looks for them.
 | [0149](0149-the-product-name-is-copy-and-identifiers-carry-no-brand.md) | The product's name is copy and no identifier carries a brand: the product and its agent are ARCHOS | Accepted |
 | [0150](0150-background-work-runs-on-self-hosted-hatchet.md) | Background work runs on self-hosted Hatchet, with fairness keyed on the organization, in place of our claim queues; supersedes 0076 and 0079 | Accepted |
 | [0151](0151-addresses-are-geocoded-by-komoots-public-photon.md) | Addresses are geocoded by komoot's public Photon instance, with no workload of ours; supersedes 0120 | Accepted |
+| [0152](0152-dxf-drawings-are-viewed-through-a-pdf-the-backend-draws-to-scale.md) | DXF drawings are viewed through a PDF the backend draws to scale with ezdxf, with a text layer and a title block | Accepted |
+| [0153](0153-a-dxf-drawing-is-a-site-the-agent-measures.md) | A DXF drawing is a site the agent measures: `dxf_measure` for parcels, setbacks and what remains buildable, and `dxf-measure` on the agent door | Accepted |
+| [0154](0154-platform-staff-reach-in-cluster-mcp-servers-through-agentgateway.md) | Platform staff reach the cluster's MCP servers through one gateway: agentgateway behind Envoy, signed in with WorkOS | Accepted |
+| [0155](0155-the-website-blog-is-edited-in-a-self-hosted-payload.md) | The website's blog is written in a self-hosted Payload and read on request; social posts are drafted there and published through Buffer | Proposed |
+| [0156](0156-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md) | Release notes have three tiers: the public changelog shows the weekly summaries only, members read every note by week and area in the app, internal notes reach neither | Accepted |
 
 > Note: 0027, 0039, 0044 and 0047 were each independently used twice, every
 > time because two people read the next number off this index instead of off

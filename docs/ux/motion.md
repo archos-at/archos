@@ -1,8 +1,52 @@
 # Motion on the public site
 
-> **Status (2026-10-29):** `apps/site` is retired; the website (`apps/website`) moves only as the
-> design system defines (`packages/brand/css/components.css`, reduced motion included). This page
-> is the record of the old site's motion language and its reasoning, kept for the principles.
+> **Status (2026-11-05):** `apps/site` is retired; the website (`apps/website`) moves only as the
+> design system defines (`packages/brand/css/motion.css` for arrival, `components.css` for hover,
+> the FAQ and the menu; reduced motion included). The section [The website](#the-website) says what
+> it does and why; the rest of this page is the record of the old site's motion language and its
+> reasoning, kept for the principles.
+
+## The website
+
+Few moments, each with a reason, defined in `packages/brand/css/motion.css` and listed in
+`packages/brand/README.md`. The hero plays once on load in CSS; every `data-reveal` block plays once
+on scroll, let go by `apps/website/src/scripts/reveal.ts`.
+
+| Moment | Where | Why it moves |
+|---|---|---|
+| The hero entrance | The headline's words rise out of their line, 30ms apart; the image is uncovered from its top edge while it settles from 3% larger; the lead follows 8px up. 800ms, on load | The page's one deliberate moment, played before the reader has started reading, so it costs no reading time |
+| Unveil | The floor-plan screenshot under "Gebaut für" (`data-reveal="unveil"`), uncovered from its top edge at its own size, once it is decoded | The one image that is a drawing: uncovering it is what a sheet pulled off a plan looks like |
+| Draw | The timeline's line, step after step (320ms each), each step's text with its segment | The steps follow each other, and the line says so |
+| Arrive | A section intro (as one unit), feature tiles, logos, a quote's text, a band's text: 8px up, 480ms, in reading order among the siblings that arrive together | Text below the fold settles as the reader reaches it, so nothing flashes in at the edge, and a row reads left to right |
+
+What does not move, on purpose: photos, videos, the gallery, the duo cards, panels, a band's
+background, the quote's portrait. Scrolling already brings them in.
+
+### Cut on 2026-11-05, and why
+
+A review of the first motion system, frame by frame at a fifth of the speed and as recorded scrolling
+at reading pace (1440 and 390), found it performing rather than drawing. Each cut, and the rule that
+holds now:
+
+| What it did | Why it was cut | Rule |
+|---|---|---|
+| Every section heading's words rose out of a mask, then lead, text and buttons followed 60ms apart | Seven times a page the same trick, played on the words the reader is reading at that moment; on a phone the half-masked words ("Ihres Bü") passed by while the page was still scrolling. Repetition turns a gesture into a template | A heading below the hero is plain text; the intro arrives as one unit. `MaskedWords` is for a hero headline only (`Hero`, `StatusBlock`) |
+| Gallery cards, duo cards, the video and the band were wiped open from the top, the second card 120ms later | A wipe on every panel reads as blinds, not as a drawing; on the duo cards the two cards arrived as a staggered curtain | Panels and media hold still |
+| Photos inside them, the video and the portrait settled from 3% larger | A zoom on every picture is the stock "premium" scroll effect, and it softened the small type in the screenshots while it ran | Only the hero image settles, once, on load |
+| The floor plan could be let go after a 400ms wait for its file, by which time a phone reader had scrolled it to the middle of the screen and watched it wipe open | A wipe in front of the reader's eyes is the thing the "first seen below" rule exists to stop | Its file starts loading a screen ahead; if the wait still lets it pass the middle of the screen it is simply shown |
+
+Kept from the first version's fixes: the stagger counts among the siblings that come into view
+together, in document order; transitions live on the settled state only, so marking a block pending
+plays nothing; only a block first seen in the lower half of the screen animates, anything reached by
+scrolling back up or a jump is shown at once; an image is unveiled only once decoded, at most 400ms;
+every hiding rule sits in `@media screen and (prefers-reduced-motion: no-preference)`, so print,
+reduced motion and a page without script show everything.
+
+A hero headline split into words is one string to a screen reader and to rendered text (`innerText`,
+the accessibility name), but not to a regex over raw HTML: a check that looks for a phrase in a page
+reads its text with the tags removed (`scripts/check-route-fates.mjs`, the gone page's heading).
+
+## The old site
 
 The motion language of `apps/site`: what moves, why, how, and the longer
 list of what does not. Read it before you animate anything on the site, and

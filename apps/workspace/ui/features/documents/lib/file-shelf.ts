@@ -10,7 +10,6 @@
  * not allowed to differ.
  */
 
-import type { ReactNode } from 'react'
 import type { DocumentScope } from '../components/document-actions'
 import type { FileItem } from '../file-types'
 import type { UploadFilesOptions } from '../hooks/use-file-upload'
@@ -125,8 +124,6 @@ export interface FileShelf {
    * for a surface no host is mounted on (the Archiv sheet).
    */
   preview: { kind: 'dialog' } | { kind: 'store'; projectName: string }
-  /** Per-card provenance chip and footer — the Büroablage's gold kind label. */
-  cardExtras?: (file: FileItem) => CardExtras
   messages: {
     dropToUpload: string
     ingestionComplete: (name: string) => string
@@ -134,12 +131,6 @@ export interface FileShelf {
   /** Whether the preview offers the model workspace (`ifc-models`). */
   showModels: boolean
   lifecyclePermissions?: readonly DocumentLifecyclePermission[]
-}
-
-export interface CardExtras {
-  source?: 'project' | 'office' | null
-  sourceLabel?: string
-  footerLead?: ReactNode
 }
 
 /** A shelf's search asks the one search (ADR-0136) for documents only, without the counts it does not show. */

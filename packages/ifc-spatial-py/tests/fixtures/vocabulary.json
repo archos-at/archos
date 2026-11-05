@@ -1,0 +1,92 @@
+{
+  "RELATIONS": [
+    "above",
+    "adjacentSpaces",
+    "below",
+    "bounds",
+    "connects",
+    "containerOf",
+    "contains",
+    "elementsOfStorey",
+    "enclosedBy",
+    "fillerOf",
+    "hostedIn",
+    "hosts",
+    "opensTo"
+  ],
+  "GEOMETRIC_RELATIONS": [
+    "above",
+    "adjacentSpaces",
+    "below",
+    "bounds",
+    "enclosedBy",
+    "opensTo"
+  ],
+  "MEASURES": [
+    "azimuth",
+    "balustrade",
+    "clearApproach",
+    "clearHeight",
+    "clearWidth",
+    "egressPath",
+    "elevation",
+    "extent",
+    "floorArea",
+    "headroom",
+    "lightEntryArea",
+    "orientedExtent",
+    "rampSlope",
+    "reachableFrom",
+    "roomDepth",
+    "sillAndHead",
+    "stairGeometry",
+    "stepsOf",
+    "thresholdHeight",
+    "turningCircle"
+  ],
+  "KINDS": [
+    "building",
+    "element",
+    "group",
+    "opening",
+    "project",
+    "site",
+    "space",
+    "storey"
+  ],
+  "FIRE_ASPECTS": [
+    "compartmentArea",
+    "doorGraph",
+    "escape_level",
+    "separatingElements",
+    "siteBoundary"
+  ],
+  "ENVELOPE_ASPECTS": [
+    "areaByOrientation",
+    "compactness",
+    "thermalEnvelope"
+  ],
+  "MAX_BATCH": 50,
+  "TOOLS": [
+    "briefing",
+    "clearance",
+    "distance",
+    "draw",
+    "element",
+    "element_profile",
+    "envelope",
+    "find_elements",
+    "fire",
+    "light_incidence",
+    "measure",
+    "open_model",
+    "overhang",
+    "relations",
+    "room_inventory",
+    "shopping_list",
+    "storey_heights",
+    "sun_position",
+    "survey",
+    "view"
+  ]
+}

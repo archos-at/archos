@@ -48,6 +48,15 @@
 /* The focus ring belongs to the whole control, not the invisible textarea
    inside it — the textarea has `outline: 0` and paints its text transparently,
    so without this there is no focus affordance at all. */
+/* The library sets the mono family by hand, so the face's plain-zero feature
+   (tokens.css, `--font-mono--font-feature-settings`) is set by hand beside it.
+   The highlighted copy and the textarea under it must draw the same glyphs. */
+.w-md-editor.markdown-editor .w-md-editor-text-pre,
+.w-md-editor.markdown-editor .w-md-editor-text-pre > code,
+.w-md-editor.markdown-editor .w-md-editor-text-input {
+  font-feature-settings: var(--font-mono--font-feature-settings);
+}
+
 .w-md-editor.markdown-editor:focus-within {
   border-color: color-mix(in oklch, var(--ring) 55%, transparent);
   box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 18%, transparent);

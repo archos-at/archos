@@ -5,7 +5,8 @@
  * components and fixture copy, so each can be looked at in light and dark
  * (toggle the theme, or `document.documentElement.classList.toggle('dark')`).
  *
- * `?show=not-found` renders the full-page not-found screen alone.
+ * `?show=not-found` renders the full-page status screen with the print the
+ * not-found page wore until 2026-11-05 (it draws `StatusDrawing` now).
  * The `/dev` layout 404s this outside development.
  */
 

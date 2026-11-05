@@ -49,11 +49,12 @@ describe('Dateien on a phone', () => {
     expect(source('upload-fab.tsx')).toContain("'bottom-4'")
   })
 
-  it('the breadcrumb row pins to the top of the list on a phone instead of scrolling half under the header', () => {
+  it('the breadcrumb row pins to the top of the list at every width, on the base surface', () => {
     const row = source('folder-navigation.tsx')
-    expect(row).toContain('phone:sticky phone:top-0 phone:z-10 phone:bg-background')
+    expect(row).toContain('className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b bg-background')
+    expect(row).not.toContain('phone:sticky')
     // Sticky only sticks inside a parent as tall as the content.
-    expect(source('file-browser-pane.tsx')).toContain('phone:h-auto phone:min-h-full')
+    expect(source('file-browser-pane.tsx')).toContain('<div className="flex min-h-full flex-col">')
   })
 
   it('an unassigned card shows a disc on a phone and keeps the word for the wide card and for screen readers', () => {

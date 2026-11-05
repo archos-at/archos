@@ -107,7 +107,7 @@ describe('search-operations', () => {
 
   it('narrows by domain and lists a whole domain for an empty query', () => {
     const result = searchOperations(ctx(person), { query: '', domain: 'documents' })
-    expect(names(result)).toEqual(['workspace-search'])
+    expect(names(result)).toEqual(['workspace-search', 'dxf-measure'])
   })
 
   it('carries the annotations a client needs to choose', () => {
@@ -531,7 +531,7 @@ describe('the Python agent’s read tools', () => {
       destructive: false,
     })
     expect(structured(searchOperations(ctx(person), { query: '', domain: 'bim' })).operations.map((op) => op.name)).toEqual(
-      expect.arrayContaining(['ifc-query', 'ifc-measure']),
+      expect.arrayContaining(['ifc-measure']),
     )
   })
 

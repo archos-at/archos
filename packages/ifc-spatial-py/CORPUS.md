@@ -41,7 +41,7 @@ its name. `md5` is of the exact bytes measured.
 
 | # | file (as run) | source | bytes | md5 | schema | exporter (own header) |
 |---|---|---|---|---|---|---|
-| 01 | `01-sample-house.ifc` | in-repo fixture `packages/ifc-spatial/test/fixtures/Ifc4_SampleHouse.ifc`; byte-identical to `Ifc4_SampleHouse.ifc` in [youshengCode/IfcSampleFiles](https://github.com/youshengCode/IfcSampleFiles) | 2 273 870 | `372136c4…` | IFC4 | Xbim 4.0.0.0 |
+| 01 | `01-sample-house.ifc` | in-repo fixture `packages/ifc-spatial-py/tests/fixtures/Ifc4_SampleHouse.ifc`; byte-identical to `Ifc4_SampleHouse.ifc` in [youshengCode/IfcSampleFiles](https://github.com/youshengCode/IfcSampleFiles) | 2 273 870 | `372136c4…` | IFC4 | Xbim 4.0.0.0 |
 | 02 | `02-fzk-haus.ifc` | [ibpsa/project1-wp-2-2-bim](https://github.com/ibpsa/project1-wp-2-2-bim) `IFC_Files/MISC/AC20-FZK-Haus.ifc` (KIT/FZK reference house) | 2 526 544 | `f9b15b16…` | IFC4 | GRAPHISOFT ARCHICAD-64 20.0.0 GER |
 | 03 | `03-institute.ifc` | same repo, `Use Cases/KIT institute - Ifc4/AC20-Institute-Var-2.ifczip` | 10 934 237 | `ee5824b0…` | IFC4 | GRAPHISOFT ARCHICAD-64 20.0.0 GER |
 | 04 | `04-duplex.ifc` | [youshengCode/IfcSampleFiles](https://github.com/youshengCode/IfcSampleFiles) `Ifc2x3_Duplex_Architecture.ifc` (the GSA Duplex Apartment) | 2 380 763 | `e9e6df73…` | IFC2X3 | Autodesk Revit Architecture 2011 → Solibri IFC Optimizer |

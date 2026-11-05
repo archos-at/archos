@@ -33,8 +33,8 @@ const privacyHref = localePath('privacy', locale);
 >
   <Hero title={c.hero.title} text={c.hero.text} />
   <section class="ui-container ui-section page-main">
-    <div class="ui-features" style="--ui-cols: 2">
-      <div>
+    <div class="ui-contact">
+      <div class="ui-contact-details">
         <InfoList
           items={[
             { key: c.info.email, value: identity.email, href: mailto },
@@ -49,7 +49,7 @@ const privacyHref = localePath('privacy', locale);
           {c.info.demoLead} <TextLink href={nav.demo.href} cta="contact_info" ctaLabel="demo">{nav.demo.label}</TextLink>
         </p>
       </div>
-      <MailForm id="contact" to={identity.email} subject={c.form.subject} sent={c.form.sent}>
+      <MailForm id="contact" class="ui-contact-form" to={identity.email} subject={c.form.subject} sent={c.form.sent}>
         <Input id="contact-name" name="name" label={c.form.name} autocomplete="name" required class="ui-form-full" />
         <Input
           id="contact-email"

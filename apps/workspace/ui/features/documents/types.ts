@@ -226,6 +226,12 @@ export interface DocumentsState {
   recentlyDeletedIds: Set<string>
   /** Error message */
   error: string | null
+  /**
+   * Files the name screening kept from the last upload (ADR-0086), and how to
+   * send them anyway: the uploader's own per-file override, which the server
+   * audits; their content is still screened. Cleared with the error.
+   */
+  nameStopped: { count: number; uploadAnyway: () => void } | null
   /** Tracks which banners have been shown for each job (NOT persisted) */
   shownBannersForJobs: Record<string, JobBannerState>
 }
@@ -273,6 +279,7 @@ export interface DocumentsActions {
   // Error handling
   setError: (error: string | null) => void
   clearError: () => void
+  setNameStopped: (stopped: DocumentsState['nameStopped']) => void
 
   // Bulk operations
   updateFilesFromJobStatus: (jobStatus: IngestionJobStatus) => void

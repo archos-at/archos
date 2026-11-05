@@ -17,7 +17,8 @@ import { FileExtChip } from './file-ext-chip'
 import { IngestionStatusWord, ingestionMarkOfPhase } from './ingestion-atoms'
 import { IngestFailureNotice } from './ingest-failure-notice'
 import { HeldUploadReason } from './held-upload-reason'
-import { RequestReviewButton } from './request-review-button'
+import { HeldUploadDecision } from './held-upload-decision'
+import { readAllowedRowAgain } from '../lib/read-allowed-row'
 import { quarantineVerdictOf } from '@/lib/upload-screening/quarantine'
 import { failedWhileReading } from '../lib/ingest-failure'
 import { Button } from '@/components/ui/button'
@@ -60,6 +61,8 @@ interface UploadTrayProps {
   onCancelAll?: () => void
   /** Take rows off the tray. Dismissing a NOTICE — never a document delete. */
   onDismiss?: (ids: string[]) => void
+  /** Open one of the shelf's documents in the preview, where the surface has one. */
+  onOpenDocument?: (documentId: string) => void
 }
 
 /** Phases that belong on a live upload surface. */
@@ -111,7 +114,7 @@ function useOnline(): boolean {
   return useSyncExternalStore(subscribeOnline, readOnline, serverOnline)
 }
 
-export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }: UploadTrayProps) {
+export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, onOpenDocument }: UploadTrayProps) {
   // Height and opacity are not covered by MotionConfig's reduced motion.
   const foldTransition = useMotionToken(motionBase)
   const t = useTranslations(filesCopy)
@@ -358,6 +361,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss }:
                   onRetry={onRetry}
                   onCancel={onCancel}
                   onDismiss={onDismiss}
+                  onOpenDocument={onOpenDocument}
                 />
               ))}
             </AnimatePresence>
@@ -514,12 +518,8 @@ function UploadRow({
   onRetry,
   onCancel,
   onDismiss,
-}: {
-  file: TrackedFile
-  onRetry: (id: string) => void
-  onCancel?: (id: string) => void
-  onDismiss?: (ids: string[]) => void
-}) {
+  onOpenDocument,
+}: Pick<UploadTrayProps, 'onRetry' | 'onCancel' | 'onDismiss' | 'onOpenDocument'> & { file: TrackedFile }) {
   const t = useTranslations(filesCopy)
   const tc = useTranslations(commonCopy)
   const { locale } = useLocale()
@@ -731,16 +731,17 @@ function UploadRow({
                   testId="upload-row-held"
                 />
               )}
-              {/* The one thing the uploader can do about a held file, where
-                  they first learn of it: this session's own upload, or the
-                  held file this one would replace when they uploaded it too.
-                  The server accepts the request from the uploader alone. */}
+              {/* Allow it or ask for a review, where they first learn of it:
+                  this upload, or the held file it would replace. */}
               {isHeldBack && reviewableId && (
-                <RequestReviewButton
+                <HeldUploadDecision
                   documentId={reviewableId}
                   name={file.fileName}
+                  onReleased={reviewableId === file.serverFileId ? () => readAllowedRowAgain(file.id) : undefined}
+                  onView={onOpenDocument && (() => onOpenDocument(reviewableId))}
                   className="mt-2 h-7 px-2 text-xs"
-                  testId="upload-row-request-review"
+                  askTestId="upload-row-request-review"
+                  allowTestId="upload-row-allow"
                 />
               )}
             </div>

@@ -4,15 +4,19 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 
 import { Button } from '@/components/ui/button'
+import { StatusDrawing } from '@/components/brand/status-drawing'
 import { StatusScreen } from '@/components/brand/status-screen'
 import { useTranslations } from '@/i18n'
 import { errorsCopy } from '@/i18n/namespaces/errors'
 import { capturePosthogException } from '@/lib/analytics/posthog'
+import { errorReportHref, useCurrentAddress } from './error-report'
 
 /**
  * Route-level error boundary. Catches thrown errors (including the plain
  * Error('Not found') that requireProjectAccess raises on permission denial)
- * and renders GRID's own chrome instead of Next's default crash page.
+ * and renders the product's own chrome instead of Next's default crash page.
+ * The drawing says which: a door swinging shut for a denial, a beam on a
+ * temporary prop for a fault.
  */
 export default function RouteError({
   error,
@@ -32,6 +36,7 @@ export default function RouteError({
   // authz errors carry, so an unknown error falls through to the generic
   // screen (fail-safe).
   const isAccess = isAccessDenial(error)
+  const address = useCurrentAddress()
 
   useEffect(() => {
     console.error('[route error]', error)
@@ -47,6 +52,7 @@ export default function RouteError({
 
   return (
     <StatusScreen
+      art={<StatusDrawing kind={isAccess ? 'closed' : 'fault'} className="w-72 sm:w-96" />}
       code={isAccess ? t('access.code') : t('appError.code')}
       title={isAccess ? t('access.title') : t('appError.title')}
       description={isAccess ? t('access.description') : t('appError.description')}
@@ -69,12 +75,20 @@ export default function RouteError({
               <Link href="/">{t('access.action')}</Link>
             </Button>
           ) : (
-            <Button asChild>
-              <Link href="/app/projects">{t('appError.backAction')}</Link>
-            </Button>
+            <>
+              <Button asChild>
+                <Link href="/app/projects">{t('appError.backAction')}</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <a href={errorReportHref(t, address, error.digest)}>{t('appError.report')}</a>
+              </Button>
+            </>
           )}
         </>
       }
+      // A server error's digest is what `onRequestError` reported it under: the
+      // one thing support can find it by.
+      detail={!isAccess && error.digest ? t('appError.reference', { reference: error.digest }) : undefined}
     />
   )
 }

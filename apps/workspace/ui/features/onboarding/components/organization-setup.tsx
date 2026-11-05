@@ -29,6 +29,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyStateDisc } from '@/components/ui/empty-state'
+import { SectionLabel } from '@/components/ui/section-label'
 import { Spinner } from '@/components/ui/spinner'
 import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
@@ -97,7 +98,7 @@ export function OrganizationSetup({
 function SetupHeading({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }): JSX.Element {
   return (
     <div>
-      <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">{eyebrow}</p>
+      <SectionLabel as="p">{eyebrow}</SectionLabel>
       <h1 className="mt-2 text-xl font-medium tracking-tight">{title}</h1>
       <p className="text-muted-foreground mt-1.5 text-sm leading-relaxed">{children}</p>
     </div>
@@ -170,9 +171,9 @@ function SetupForm({
       </Card>
 
       <section className="mt-8" aria-labelledby="setup-next">
-        <h2 id="setup-next" className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+        <SectionLabel as="h2" id="setup-next">
           {t('next.heading')}
-        </h2>
+        </SectionLabel>
         <ul className="mt-3 space-y-2.5">
           {next.map(({ icon: Icon, label }) => (
             <li key={label} className="text-muted-foreground flex items-start gap-2.5 text-sm">

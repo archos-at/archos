@@ -36,7 +36,7 @@ from ifc_spatial import envelope_geometry as eg
 from ifc_spatial.envelope import Answer
 from ifc_spatial.model import SpatialModel
 
-FIXTURES = Path(__file__).resolve().parents[2] / "ifc-spatial" / "test" / "fixtures"
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 SAMPLE_HOUSE = FIXTURES / "Ifc4_SampleHouse.ifc"
 #: Declares IsExternal and ThermalTransmittance and has NO body on any element,
 #: and no TrueNorth.
