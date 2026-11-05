@@ -14,7 +14,7 @@
         "@payloadcms/ui": "3.93.0",
         "cross-env": "10.1.0",
         "github-slugger": "2.0.0",
-        "graphql": "16.15.0",
+        "graphql": "17.0.2",
         "jose": "5.10.0",
         "next": "16.4.5",
         "payload": "3.93.0",
@@ -779,7 +779,7 @@
 
     "gopd": ["gopd@1.2.0", "", {}, "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="],
 
-    "graphql": ["graphql@16.15.0", "", {}, "sha512-32kz9FecohDiC/tgcViwnRXM7HFBVTPiW7pHO+DikKOI5KjhU/jNULOReXsrFqt2WAYbE9xFXsTffJw6iTO8qw=="],
+    "graphql": ["graphql@17.0.2", "", {}, "sha512-FRWbddMxfkjiB7z+aQDWIR+E34xo9I8c9mtK2RPv8PmMzKRvrdsreHL/Ui/TmwHJfhHChEtsFPyMHKI+xuarQQ=="],
 
     "graphql-http": ["graphql-http@1.23.1", "", { "peerDependencies": { "graphql": ">=0.11 <=17" } }, "sha512-h6AcykL7+xp22QvOnK0fu1eHk9AZG1ngF71rk0ZGuGupnjm1yqXRFrZ/eMv4Q1FTCWILJ5o6hVAxzt3S8/wPHQ=="],
 
