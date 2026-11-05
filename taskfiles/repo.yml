@@ -105,11 +105,12 @@ tasks:
 
   # ── repo-wide ───────────────────────────────────────────────────────────────
 
-  # ── release notes (releasenotes/ -> the website's /changelog/) ──────────────
+  # ── release notes (releasenotes/ -> the app's What's new, the website's /changelog/)
   #
-  # Every user-visible change ships a note; the notes are published to the
-  # website automatically on merge. The full rules are in
-  # docs/contributing/release-notes.md, the mandate is in AGENTS.md.
+  # Every user-visible change ships a note; on merge the notes are published to
+  # the app (every note, for signed-in members) and the website (the weekly
+  # summaries only). The full rules are in docs/contributing/release-notes.md,
+  # the tiers in ADR-0154, the mandate in AGENTS.md.
 
   release:note:
     desc: 'Start a release note for the change you are making: task release:note -- <slug>'
@@ -142,10 +143,15 @@ tasks:
     cmds:
       - '{{.RENO}} report .'
 
+  release:week:
+    desc: 'One week''s customer notes by area, to write its public summary from: task release:week -- 2026-W44'
+    cmds:
+      - '{{.RELNOTES}} week {{.CLI_ARGS}}'
+
   release:changelog:
-    desc: Regenerate apps/website/src/data/changelog.json from the notes
+    desc: Regenerate the public changelog (website) and the customer list (app) from the notes
     # Normally you never run this: the release-notes workflow does it on merge to
-    # develop and commits the result. Run it locally to preview the page, or to
+    # develop and commits both artifacts. Run it locally to preview the page, or to
     # resolve a conflict in the generated file (regenerate, do not hand-merge).
     # Without OPENROUTER_API_KEY the German side falls back to English.
     cmds:

@@ -2,17 +2,18 @@
 """Fail a PR that touches a product file but adds no release note.
 
 The rule (AGENTS.md, "Release notes are mandatory"): a change a customer can
-notice carries its note in the same pull request. A note in a public section
+notice carries its note in the same pull request. A note in a customer section
 (features, improvements, fixes, deprecations, upgrade, other) is published to
-https://piloti.at/changelog on merge; one in `security`, `incident` or
-`operators` is kept in the repository and never published. Either way the PR
+the app's "What's new" on merge, and the week's public summary is written from
+it (ADR-0154); one in `security`, `incident` or `operators` is kept in the
+repository and never published. Either way the PR
 is the last moment at which the person who knows what changed is still the one
 writing it down.
 
 Any section satisfies this check, an internal one included: a security or
 severe fix needs its note as much as a feature does, it just does not reach the
-page. Which sections are internal is `INTERNAL_SECTIONS` in
-scripts/release_notes.py.
+app. Which sections are internal is `INTERNAL_SECTIONS` in
+scripts/release_notes_rules.py.
 
 The check goes by file, not by reading the diff. A product file is one under the
 agent backend, the API, the app UI or the CLI, minus tests, specs, fixtures,

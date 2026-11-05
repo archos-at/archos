@@ -20,7 +20,6 @@
     "apps/workspace/bff/agent-api/catalog/folders.ts": 644,
     "apps/workspace/bff/agent-api/catalog/platform.ts": 785,
     "apps/workspace/bff/agent-api/discovery.ts": 856,
-    "apps/workspace/bff/agent-api/exposure.config.ts": 718,
     "apps/workspace/bff/annotations/attention.ts": 686,
     "apps/workspace/bff/annotations/repository.ts": 631,
     "apps/workspace/bff/annotations/service.ts": 1567,
@@ -202,7 +201,6 @@
     "packages/ris-adapter/src/client.py": 649,
     "packages/ris-adapter/src/register.py": 986,
     "scripts/loop_eval.py": 969,
-    "scripts/release_notes.py": 1042,
     "scripts/turn_census/fixture_bff.py": 657,
     "scripts/turn_census/suite.py": 1555
   },

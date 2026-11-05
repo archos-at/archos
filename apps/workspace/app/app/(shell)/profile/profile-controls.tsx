@@ -29,6 +29,7 @@ import { useTranslations, useLocale, locales, type Locale } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { profileCopy } from '@/i18n/namespaces/profile'
 import { NotificationSettings } from '@/features/notifications/components/notification-settings'
+import { WhatsNewNoticeSettings } from '@/features/whats-new/components'
 import { AccountWidgets } from './account-widgets'
 import { ShortcutSettings } from './shortcut-settings'
 import { UsageAnalyticsSettings } from './usage-analytics-settings'
@@ -55,6 +56,11 @@ interface ProfileControlsProps {
    * resolved server-side). Without it the opt-out card is not shown.
    */
   analyticsAvailable?: boolean
+  /**
+   * Whether the person is shown the weekly "Neu diese Woche" notice (read server-side); the
+   * switch is not shown without an organization, where nothing is stored.
+   */
+  releaseNoticeEnabled?: boolean
 }
 
 export const ProfileControls: FC<ProfileControlsProps> = ({
@@ -62,6 +68,7 @@ export const ProfileControls: FC<ProfileControlsProps> = ({
   email,
   shortcutsAvailable = false,
   analyticsAvailable = false,
+  releaseNoticeEnabled,
 }) => {
   const t = useTranslations(profileCopy)
   const tc = useTranslations(commonCopy)
@@ -142,6 +149,7 @@ export const ProfileControls: FC<ProfileControlsProps> = ({
       {/* System notifications for the inbox (ADR-0112); draws nothing where the
           deployment has no keys. */}
       <NotificationSettings />
+      {releaseNoticeEnabled !== undefined && <WhatsNewNoticeSettings initialEnabled={releaseNoticeEnabled} />}
 
       {/* Reasoning trace (Herleitung) — technical steps are a per-user opt-in */}
       <Card>

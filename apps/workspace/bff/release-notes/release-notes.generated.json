@@ -1,0 +1,261 @@
+{
+  "$comment": "GENERATED FILE, do not edit. Written by scripts/release_notes.py from releasenotes/ and committed by .github/workflows/release-notes.yml on merge to develop. Regenerate with `task release:changelog`. The customer tier: shown to signed-in members only.",
+  "sections": [
+    "features",
+    "improvements",
+    "fixes",
+    "deprecations",
+    "upgrade",
+    "other"
+  ],
+  "areas": [
+    "projects",
+    "documents",
+    "answers",
+    "search",
+    "building-law",
+    "bim",
+    "collaboration",
+    "tasks",
+    "office-knowledge",
+    "administration",
+    "agents",
+    "general"
+  ],
+  "releases": [
+    {
+      "id": "2026-W45",
+      "kind": "week",
+      "version": null,
+      "date": "2026-11-02",
+      "dateEnd": "2026-11-08",
+      "summary": null,
+      "notes": [
+        {
+          "section": "features",
+          "area": "search",
+          "text": {
+            "en": "When you set up a new project, the address field now suggests matching Austrian addresses as you type, and choosing one fills in the municipality and federal state for you.",
+            "de": "Wenn Sie ein neues Projekt anlegen, schlägt das Adressfeld während der Eingabe passende österreichische Adressen vor. Wenn Sie eine auswählen, werden Gemeinde und Bundesland automatisch ergänzt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "You can now upload DXF files such as a Katasterauszug, and they open as a PDF drawn to a standard scale, for example 1:500 on A3, with a scale bar and a title block. „Als PDF herunterladen“ in the file's menu gives you that PDF to print or attach, while Download still gives the original.",
+            "de": "Sie können jetzt DXF-Dateien wie einen Katasterauszug hochladen. Diese werden als PDF in einem Standardmaßstab, etwa 1:500 auf A3, mit Maßstabsleiste und Schriftfeld dargestellt. Über „Als PDF herunterladen“ im Dateimenü erhalten Sie das PDF zum Drucken oder Anhängen; Download liefert weiterhin die Originaldatei."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A Katasterauszug is now read, not only shown: a page after the drawing lists every parcel with its area as drawn and its neighbours, so you can ask about your site in the chat and get a cited answer.",
+            "de": "Ein Katasterauszug wird jetzt nicht nur angezeigt, sondern auch ausgelesen: Eine Seite nach der Zeichnung sind alle Grundstücke mit ihrer Fläche laut Zeichnung und ihren Nachbargrundstücken aufgelistet. So können Sie im Chat Fragen zu Ihrem Grundstück stellen und erhalten eine Antwort mit Quellenangabe."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In the chat you can now measure a DXF drawing: how far a house stands from each boundary, how long the boundary to a neighbour is, and what remains buildable after the setbacks and the coverage you name.",
+            "de": "Im Chat können Sie jetzt eine DXF-Zeichnung vermessen: wie weit ein Haus von jeder Grundstücksgrenze entfernt ist, wie lang die Grenze zum Nachbarn ist und welche Fläche nach den von Ihnen angegebenen Abständen und der Bebauungsdichte noch bebaubar ist."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A Katastralmappe from BEV is drawn in BEV's plot colours with its Katastralgemeinde and coordinate system on the sheet. Where parcels are in the Grundsteuerkataster, the sheet says their boundaries are not legally binding.",
+            "de": "Eine Katastralmappe des BEV wird in den Grundstücksfarben des BEV dargestellt; Katastralgemeinde und Koordinatensystem sind auf dem Blatt angegeben. Bei Grundstücken im Grundsteuerkataster weist das Blatt darauf hin, dass ihre Grenzen rechtlich nicht verbindlich sind."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "„Als PDF herunterladen“ also gives the PDF of a Word, Excel or PowerPoint file.",
+            "de": "„Als PDF herunterladen“ lädt jetzt auch Word-, Excel- und PowerPoint-Dateien als PDF herunter."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "A large file (40 MB or more) is now read with more memory and on its own, so it no longer fails part way while other uploads are read beside it.",
+            "de": "Eine große Datei (ab 40 MB) wird jetzt mit mehr Speicher und einzeln eingelesen, sodass der Vorgang nicht mehr abbricht, wenn parallel andere Uploads eingelesen werden."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "Uploading a new version of a document while the old one is still being read now stops the old reading and reads only the new file. The old one is not shown as failed or as stopped by you.",
+            "de": "Wenn Sie eine neue Version eines Dokuments hochladen, während die alte noch gelesen wird, wird das Lesen der alten Datei jetzt beendet und nur die neue Datei gelesen. Die alte Version wird weder als fehlgeschlagen noch als von Ihnen gestoppt angezeigt."
+          }
+        },
+        {
+          "section": "features",
+          "area": "documents",
+          "text": {
+            "en": "In the quarantine you can now filter held files by what was found, select several or all shown files (up to 50 at a time), and allow, delete or check them again with the current rules in one step.",
+            "de": "In der Quarantäne können Sie zurückgehaltene Dateien jetzt nach den gefundenen Inhalten filtern, mehrere oder alle angezeigten Dateien (bis zu 50 auf einmal) auswählen und sie mit einem Schritt freigeben, löschen oder mit den aktuellen Regeln erneut prüfen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When many offices upload at once, each office's documents take turns, so a single file is never stuck behind another office's large folder.",
+            "de": "Wenn viele Büros gleichzeitig Uploads durchführen, werden die Dokumente der einzelnen Büros der Reihe nach verarbeitet, sodass eine einzelne Datei nie hinter einem großen Ordner eines anderen Büros warten muss."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "search",
+          "text": {
+            "en": "A newly uploaded document can be found in search sooner: its content is searchable as soon as it is read, while its summary, tags and topics are still being written. It shows as finished once those are done too.",
+            "de": "Ein neu hochgeladenes Dokument ist schneller über die Suche auffindbar: Sein Inhalt ist durchsuchbar, sobald er eingelesen wurde, während Zusammenfassung, Tags und Themen noch erstellt werden. Das Dokument wird als abgeschlossen angezeigt, sobald auch diese fertig sind."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Photos and other images are now checked against your office's upload screening by what was read off them, like scanned documents. An image that matches is held for review instead of being added, and its preview appears only once it has passed.",
+            "de": "Fotos und andere Bilder werden jetzt wie gescannte Dokumente anhand der ausgelesenen Inhalte mit der Upload-Prüfung Ihres Büros abgeglichen. Ein passendes Bild wird zur Überprüfung zurückgehalten, statt hinzugefügt zu werden. Die Vorschau erscheint erst, wenn es die Prüfung bestanden hat."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "Large files with drawings and scanned pages are read faster: their scanned pages and their drawings are now read at the same time, and many more of them at once, instead of a few at a time one kind after the other.",
+            "de": "Große Dateien mit Plänen und gescannten Seiten werden schneller ausgelesen: Gescannte Seiten und Zeichnungen werden jetzt gleichzeitig und in deutlich größerer Anzahl ausgelesen, statt jeweils nur wenige eines Typs nach dem anderen."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When a file is not uploaded because its name contains a sensitive term, the message now offers to upload it anyway; its content is still checked.",
+            "de": "Wenn eine Datei nicht hochgeladen wird, weil ihr Name einen sensiblen Begriff enthält, bietet die Meldung nun an, sie trotzdem hochzuladen; der Inhalt wird weiterhin geprüft."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "If you may review a held upload, you can view the finding and allow it right in the upload message instead of going to the quarantine first.",
+            "de": "Wenn Sie einen zurückgehaltenen Upload prüfen dürfen, können Sie den Befund direkt in der Upload-Nachricht ansehen und den Upload freigeben, ohne zuerst zur Quarantäne zu wechseln."
+          }
+        },
+        {
+          "section": "improvements",
+          "area": "documents",
+          "text": {
+            "en": "When reading a large PDF has to be tried again, for example after an interruption, it finishes sooner: the text and tables already taken from that same file are reused instead of being read out of the PDF a second time.",
+            "de": "Wenn ein großes PDF erneut eingelesen werden muss, etwa nach einer Unterbrechung, ist der Vorgang schneller abgeschlossen: Der bereits aus derselben Datei extrahierte Text sowie die Tabellen werden wiederverwendet, statt das PDF ein zweites Mal auszulesen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A document now shows as ready as soon as it has been read, instead of only after someone next opened the file list, and a file whose upload hit a passing storage hiccup is read again within seconds instead of failing.",
+            "de": "Ein Dokument wird jetzt als bereit angezeigt, sobald es gelesen wurde, statt erst, wenn jemand die Dateiliste erneut öffnet, und eine Datei, deren Upload durch eine vorübergehende Speicherstörung unterbrochen wurde, wird innerhalb von Sekunden erneut gelesen, statt fehlzuschlagen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "administration",
+          "text": {
+            "en": "The budget warning in the chat now tells members who cannot change the limit that an admin can raise it, not only once the budget is spent.",
+            "de": "Die Budgetwarnung im Chat informiert Mitglieder, die das Limit nicht ändern können, jetzt darüber, dass ein Admin es erhöhen kann – auch bevor das Budget aufgebraucht ist."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Uploading hundreds of files at once no longer makes a share of them fail to be read and wait several minutes for a second try.",
+            "de": "Der gleichzeitige Upload von Hunderten Dateien führt nicht mehr dazu, dass einige davon nicht eingelesen werden und Sie mehrere Minuten auf einen zweiten Versuch warten müssen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Heights and other values printed on a drawing, such as a room height in a section, now reach the document's facts after upload. Before, a drawing's printed values were read but never kept, so only what the text pages said showed up there.",
+            "de": "Höhen und andere Werte, die auf einer Zeichnung eingetragen sind, etwa eine Raumhöhe in einem Schnitt, werden nach dem Upload nun auch in den Dokument-Fakten berücksichtigt. Bisher wurden diese Werte zwar ausgelesen, aber nicht gespeichert, sodass dort nur Angaben aus den Textseiten aufschienen."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "The knowledge base and the platform's document list now show when a file was read in, and what kind of file it is, for older files too. Before, both went blank a day after the upload.",
+            "de": "Die Wissensdatenbank und die Dokumentenliste der Plattform zeigen jetzt auch bei älteren Dateien an, wann sie eingelesen wurden und um welchen Dateityp es sich handelt. Bisher wurden beide Angaben einen Tag nach dem Upload nicht mehr angezeigt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A brief connection hiccup while a file was being read no longer leaves it without its page previews, images or thumbnail. Large drawings and long documents no longer lose the document type and key facts {productName} reads from them.",
+            "de": "Eine kurze Verbindungsunterbrechung beim Einlesen einer Datei führt nicht mehr dazu, dass Seitenvorschauen, Bilder oder Thumbnails fehlen. Bei großen Plänen und langen Dokumenten bleiben Dokumenttyp und wichtige Fakten erhalten, die {productName} daraus ausliest."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "A file whose pictures are read while many other files are being read no longer fails for that: its reading waits a minute and carries on.",
+            "de": "Eine Datei, deren Bilder gelesen werden, während viele andere Dateien eingelesen werden, schlägt deshalb nicht mehr fehl: Das Einlesen wartet eine Minute und wird dann fortgesetzt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Drawings, photos and scanned pages are read even when many uploads arrive at once: a page that could not be read at first is tried again a moment later instead of being left out, and a photo no longer fails for that reason. A page that still cannot be read is counted as not fully read.",
+            "de": "Pläne, Fotos und eingescannte Seiten werden auch dann ausgelesen, wenn viele Uploads gleichzeitig eingehen: Eine Seite, die zunächst nicht gelesen werden kann, wird kurz darauf erneut ausgelesen, statt ausgelassen zu werden, und Fotos scheitern aus diesem Grund nicht mehr. Eine Seite, die weiterhin nicht gelesen werden kann, wird als nicht vollständig gelesen gewertet."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "Dates with times in spreadsheets, long order or article numbers and dimension chains in drawings are no longer held as social security or card numbers.",
+            "de": "Datumsangaben mit Uhrzeiten in Tabellen, lange Bestell- oder Artikelnummern und Maßketten in Plänen werden nicht mehr als Sozialversicherungs- oder Kartennummern erkannt."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "File names such as Lüftungssteuerung, Personalraum or Feuchtegehalt are no longer stopped as sensitive in offices that use the suggested list.",
+            "de": "Dateinamen wie Lüftungssteuerung, Personalraum oder Feuchtegehalt werden in Büros, die die vorgeschlagene Liste verwenden, nicht mehr als sensibel blockiert."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "search",
+          "text": {
+            "en": "A search for documents that refer to a standard or a plan now finds them however they wrote it: ÖNORM B 1600 also finds documents that wrote B1600, and EP-05 also finds EP05 and EP.05. Before, a different spelling left those documents out without saying so.",
+            "de": "Eine Suche nach Dokumenten, die auf eine Norm oder einen Plan verweisen, findet diese jetzt unabhängig von der Schreibweise: ÖNORM B 1600 findet auch Dokumente mit B1600, und EP-05 auch Dokumente mit EP05 und EP.05. Bisher wurden Dokumente mit abweichender Schreibweise nicht gefunden, ohne dass darauf hingewiesen wurde."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "When you mention {productName} on a mark, reply in its thread, or hand it a mark, and when it checks a new document, it now reads the document you are working in even after the document was renamed. Before, a renamed document lost the focus, and the answer drew on the whole project instead.",
+            "de": "Wenn Sie {productName} in einer Markierung erwähnen, im zugehörigen Thread antworten oder {productName} eine Markierung zuweisen, liest {productName} beim Prüfen eines neuen Dokuments jetzt das Dokument, an dem Sie gerade arbeiten – auch wenn es umbenannt wurde. Bisher verlor ein umbenanntes Dokument den Fokus, und die Antwort stützte sich stattdessen auf das gesamte Projekt."
+          }
+        }
+      ]
+    }
+  ]
+}

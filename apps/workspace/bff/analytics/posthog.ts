@@ -109,6 +109,10 @@ type PostHogProperties = Record<string, string | number | boolean | null | undef
  * `document_opened` and `ifc_model_opened` are the three ways a reader goes from
  * an answer to its evidence.
  *
+ * `whats_new_shown`, `whats_new_dismissed`, `whats_new_opened`, `whats_new_opted_out` and
+ * `whats_new_opted_in` are the weekly "Neu diese Woche" notice's (`features/whats-new`,
+ * ADR-0154): the week it showed, how it was closed, and the person's switch for it.
+ *
  * Properties are non-identifying by rule: enums, counts, booleans, ids of our
  * own rows. Never free text, never file names, never an address.
  */
@@ -148,6 +152,11 @@ export type PostHogEvent =
   | 'usage_notice_dismissed'
   | 'viewer_action_outcome'
   | 'viewer_actions_auto_changed'
+  | 'whats_new_shown'
+  | 'whats_new_dismissed'
+  | 'whats_new_opened'
+  | 'whats_new_opted_out'
+  | 'whats_new_opted_in'
 
 let initialized = false
 
