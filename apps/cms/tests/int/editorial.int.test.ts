@@ -9,6 +9,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { getPayload, type Payload } from 'payload';
+import type { Post } from '../../src/payload-types';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { paragraph, root } from '../../scripts/lib/lexical.mjs';
 
@@ -30,7 +31,7 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     coverType: 'drawing' as const,
     cover: 'welcome' as const,
     publishedAt: '2026-01-02T00:00:00.000Z',
-    body: root([paragraph([{ type: 'text', version: 1, detail: 0, format: 0, mode: 'normal', style: '', text: 'Hello.' }])]),
+    body: root([paragraph([{ type: 'text', version: 1, detail: 0, format: 0, mode: 'normal', style: '', text: 'Hello.' }])]) as unknown as Post['body'],
     ...extra,
   });
 

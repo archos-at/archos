@@ -55,7 +55,7 @@ test("a converted body keeps every word of the source's text and every figure", 
 test("Markdown becomes the editor's own nodes, formats and nesting kept", () => {
   const source = ['---', 'title: T', '---', '', '## Head *it*', '', 'A **b** `c` [d](https://e.example/) ~~f~~', '', '- one', '  - nested', '', '> q', '', '| x |', '|---|', '| y |', ''].join('\n');
   const { body } = parseMdxPost(source, 'p.mdx');
-  const [heading, para, list, quote, table] = body.root.children as Node[];
+  const [heading, para, list, quote, table] = (body.root as Node).children!;
   assert.equal(heading.tag, 'h2');
   assert.deepEqual(para.children!.map((n) => [n.type, n.format ?? null]), [
     ['text', 0], ['text', FORMAT.bold], ['text', 0], ['text', FORMAT.code], ['text', 0], ['link', ''], ['text', 0], ['text', FORMAT.strikethrough],
@@ -75,7 +75,7 @@ test('a figure becomes the typed block of its component, with its props as field
     'After.', '',
   ].join('\n');
   const { body } = parseMdxPost(source, 'post.mdx');
-  const [, figure] = body.root.children as Node[];
+  const [, figure] = (body.root as Node).children!;
   assert.equal(figure.type, 'block');
   const { id, ...fields } = figure.fields!;
   assert.match(String(id), /^[0-9a-f]{24}$/);
