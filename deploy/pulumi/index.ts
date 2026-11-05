@@ -68,7 +68,7 @@ import { installLangfuse } from "./src/platform/langfuse";
 import { installQdrantDashboard } from "./src/platform/qdrant-dashboard";
 import { installMcpGateway } from "./src/platform/mcp-gateway";
 import { LANGFUSE, QDRANT } from "./src/constants";
-import { CMS } from "./src/config/cms";
+import { CMS, cmsImage } from "./src/config/cms";
 import { installWebCmsSecret } from "./src/platform/cms";
 import { installCmsTier } from "./src/platform/cms-tier";
 
@@ -592,6 +592,9 @@ export const deployedImages = {
   backend: backendImage(cfg),
   frontend: frontendImage(cfg),
   web: webImage(cfg),
+  // The CMS's image, so the next staging deploy's downgrade guard can read it
+  // (scripts/resolve-image-refs.sh). Recorded even while the CMS is off.
+  cms: cmsImage(cfg.images, cfg.cms.imageOverride),
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
 export const bffJobsDeployment = bffJobs.deployment.metadata.name;

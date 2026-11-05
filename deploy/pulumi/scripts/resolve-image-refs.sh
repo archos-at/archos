@@ -2,8 +2,8 @@
 # Resolve the image each service deploys to staging, and refuse a downgrade.
 #
 # Usage: resolve-image-refs.sh   (run inside the checkout, stack selected)
-# Prints BACKEND_IMAGE_REF=, FRONTEND_IMAGE_REF= and WEB_IMAGE_REF= lines on
-# stdout, for $GITHUB_ENV. Everything else, including one
+# Prints BACKEND_IMAGE_REF=, FRONTEND_IMAGE_REF=, WEB_IMAGE_REF= and CMS_IMAGE_REF=
+# lines on stdout, for $GITHUB_ENV. Everything else, including one
 # `<service>: <deployed ref> -> <resolved ref>` line per service, goes to stderr.
 #
 # Environment:
@@ -17,10 +17,11 @@
 # `fetch-depth: 0`), `pulumi` with the stack selected, and `jq`.
 #
 # Where each service's tag comes from:
-#   1. a green CI run triggered the deploy: sha-<DEPLOY_SHA>, for all three.
+#   1. a green CI run triggered the deploy: sha-<DEPLOY_SHA>, for every service.
 #      CI tags every image for a commit only once all its checks passed
-#      (ci.yml, `publish`), so a green run means all three tags exist;
-#   2. operator rollback (dispatch with EXPLICIT_TAG): that tag, for all three;
+#      (ci.yml, `publish`), so a green run means all four tags exist;
+#   2. operator rollback (dispatch with EXPLICIT_TAG): that tag, for every service,
+#      except a CMS that tag has no image for, which keeps what it runs;
 #   3. otherwise the newest commit on develop's first-parent history, at or
 #      before DEPLOY_SHA, whose sha-<commit> tag GHCR actually has.
 #
@@ -56,6 +57,15 @@ rollback=""
 
 log() { printf '%s\n' "$*" >&2; }
 
+# The registry repository of a service. The CMS's image is named for its job
+# alone (`cms`, ci/image_inputs.py); the older three keep their prefixed names.
+repository_of() {
+  case "$1" in
+    cms) printf 'cms' ;;
+    *) printf 'grid-oib-%s' "$1" ;;
+  esac
+}
+
 # The commit a ref was built at, when its tag is sha-<40 hex>; empty otherwise.
 commit_of() {
   local tag="${1##*:}"
@@ -83,7 +93,7 @@ newest_published_tag() {
   local -a candidates
   mapfile -t candidates < <(git rev-list --first-parent --max-count="$depth" "$DEPLOY_SHA" | sed 's/^/sha-/')
   [ "${#candidates[@]}" -gt 0 ] || { log "::error::git knows no history for $DEPLOY_SHA."; return 2; }
-  tag="$("$find_published_tag" "$owner" "$service" "${candidates[@]}")" || rc=$?
+  tag="$(REPOSITORY="$(repository_of "$service")" "$find_published_tag" "$owner" "$service" "${candidates[@]}")" || rc=$?
   case "$rc" in
     0) printf '%s' "$tag" ;;
     1) return 1 ;;
@@ -97,6 +107,22 @@ resolve_ref() {
     tag="sha-${DEPLOY_SHA}"
   elif [ -n "$rollback" ]; then
     tag="$EXPLICIT_TAG"
+    # The CMS image exists only from the commit that added it, so a rollback to
+    # an older tag keeps the CMS it runs rather than pull a tag GHCR never had.
+    # verify-image-tag.sh checks the other three before this runs.
+    if [ "$service" = cms ]; then
+      REPOSITORY=cms "$find_published_tag" "$owner" cms "$tag" >/dev/null || rc=$?
+      if [ "$rc" -eq 1 ] && [ -n "$deployed" ]; then
+        log "::warning::cms: ${tag} has no CMS image; keeping the deployed ${deployed}"
+        printf '%s' "$deployed"
+        return 0
+      fi
+      if [ "$rc" -eq 1 ]; then
+        log "::warning::cms: ${tag} has no CMS image and none is deployed; CMS_IMAGE_REF stays empty and the CMS is not pinned"
+        return 0
+      fi
+      [ "$rc" -eq 0 ] || { log "::error::cms: the registry lookup failed; refusing to guess."; return 1; }
+    fi
   else
     tag="$(newest_published_tag "$service")" || rc=$?
     if [ "$rc" -eq 1 ]; then
@@ -110,7 +136,7 @@ resolve_ref() {
     fi
     [ "$rc" -eq 0 ] || return 1
   fi
-  printf '%s' "${registry}/grid-oib-${service}:${tag}"
+  printf '%s' "${registry}/$(repository_of "$service"):${tag}"
 }
 
 # Fail when `new` would move the service back past what is deployed, unless
@@ -138,11 +164,11 @@ guard() {
 
 failed=0
 out=""
-for service in backend frontend web; do
+for service in backend frontend web cms; do
   deployed="$(deployed_ref "$service")"
   new="$(resolve_ref "$service" "$deployed")" || { failed=1; continue; }
-  log "${service}: ${deployed:-unknown} -> ${new}"
-  guard "$service" "$deployed" "$new" || failed=1
+  log "${service}: ${deployed:-unknown} -> ${new:-none}"
+  [ -z "$new" ] || guard "$service" "$deployed" "$new" || failed=1
   # The floor below the guard, which a rollback does not pass either.
   if [ "$service" = backend ]; then "$here/vector-store-floor.sh" "$new" || failed=1; fi
   out+="$(printf '%s' "$service" | tr '[:lower:]' '[:upper:]')_IMAGE_REF=${new}"$'\n'
