@@ -170,9 +170,23 @@ export interface Post {
    */
   description: string;
   /**
-   * The body, block by block. Every block is a component of the design system.
+   * Text with headings, lists, links, tables and quotes; figures, images, a gallery, callouts and calls to action are blocks (+ or /).
    */
-  body?: (TextBlock | FigureBlock | ImageBlock | QuoteBlock | CtaBlock)[] | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   coverType: 'drawing' | 'image';
   /**
    * A line drawing from apps/website/src/assets/covers. A new drawing is a pull request (packages/brand/docs/blog-covers.md).
@@ -231,59 +245,6 @@ export interface Post {
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TextBlock".
- */
-export interface TextBlock {
-  /**
-   * Markdown: headings (##), lists, links, tables, emphasis. Raw HTML is shown as text, never run.
-   */
-  markdown: string;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'text';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FigureBlock".
- */
-export interface FigureBlock {
-  /**
-   * A drawing of the design system (apps/website/src/components/figures).
-   */
-  component: 'iso_stack' | 'scope' | 'hybrid' | 'lesson_loop';
-  /**
-   * The drawing's props, as JSON. Every figure takes an `alt`.
-   */
-  props:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'figure';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ImageBlock".
- */
-export interface ImageBlock {
-  image: number | Media;
-  /**
-   * What the image shows, for screen readers, in the language of this body.
-   */
-  alt: string;
-  caption?: string | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'image';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -354,35 +315,6 @@ export interface Media {
       filename?: string | null;
     };
   };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "QuoteBlock".
- */
-export interface QuoteBlock {
-  quote: string;
-  name: string;
-  role?: string | null;
-  office?: string | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'quote';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CtaBlock".
- */
-export interface CtaBlock {
-  title: string;
-  text?: string | null;
-  /**
-   * A page of the site, by its route key.
-   */
-  primary?: ('demo' | 'contact' | 'security') | null;
-  secondary?: ('demo' | 'contact' | 'security') | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'cta';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -798,15 +730,7 @@ export interface PayloadMigration {
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
   description?: T;
-  body?:
-    | T
-    | {
-        text?: T | TextBlockSelect<T>;
-        figure?: T | FigureBlockSelect<T>;
-        image?: T | ImageBlockSelect<T>;
-        quote?: T | QuoteBlockSelect<T>;
-        cta?: T | CtaBlockSelect<T>;
-      };
+  body?: T;
   coverType?: T;
   cover?: T;
   coverImage?: T;
@@ -827,60 +751,6 @@ export interface PostsSelect<T extends boolean = true> {
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TextBlock_select".
- */
-export interface TextBlockSelect<T extends boolean = true> {
-  markdown?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "FigureBlock_select".
- */
-export interface FigureBlockSelect<T extends boolean = true> {
-  component?: T;
-  props?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "ImageBlock_select".
- */
-export interface ImageBlockSelect<T extends boolean = true> {
-  image?: T;
-  alt?: T;
-  caption?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "QuoteBlock_select".
- */
-export interface QuoteBlockSelect<T extends boolean = true> {
-  quote?: T;
-  name?: T;
-  role?: T;
-  office?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "CtaBlock_select".
- */
-export interface CtaBlockSelect<T extends boolean = true> {
-  title?: T;
-  text?: T;
-  primary?: T;
-  secondary?: T;
-  id?: T;
-  blockName?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1195,6 +1065,309 @@ export interface TaskSchedulePublish {
         } | null);
   };
   output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "IsoStackFigureBlock".
+ */
+export interface IsoStackFigureBlock {
+  /**
+   * Top layer first.
+   */
+  layers: {
+    /**
+     * Upper-case label, e.g. SOURCES.
+     */
+    label: string;
+    sublabel?: string | null;
+    /**
+     * Where the label sits. Empty: alternating.
+     */
+    side?: ('left' | 'right') | null;
+    accent?: boolean | null;
+    glyph?: ('tiles' | 'funnel' | 'disc' | 'lines' | 'doc' | 'check') | null;
+    id?: string | null;
+  }[];
+  /**
+   * Side systems that feed a layer: dashed boxes below the stack.
+   */
+  satellites?:
+    | {
+        label: string;
+        sub?: string | null;
+        /**
+         * The layer it feeds, 0 = top.
+         */
+        layer: number;
+        side: 'left' | 'right';
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * What the drawing shows, for screen readers. Required: the text in a drawing is not enough.
+   */
+  alt: string;
+  /**
+   * Short tag above the figure, e.g. ABB. 01.
+   */
+  kicker?: string | null;
+  title?: string | null;
+  /**
+   * The sentence under the figure.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'isoStackFigure';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScopeFigureBlock".
+ */
+export interface ScopeFigureBlock {
+  /**
+   * Outermost first; four fit.
+   */
+  levels: {
+    label: string;
+    /**
+     * What lives at this level.
+     */
+    holds: string;
+    /**
+     * Who can see it.
+     */
+    visible: string;
+    id?: string | null;
+  }[];
+  /**
+   * The label on the outward search arrow.
+   */
+  search: string;
+  /**
+   * What the drawing shows, for screen readers. Required: the text in a drawing is not enough.
+   */
+  alt: string;
+  /**
+   * Short tag above the figure, e.g. ABB. 01.
+   */
+  kicker?: string | null;
+  title?: string | null;
+  /**
+   * The sentence under the figure.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'scopeFigure';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "HybridFigureBlock".
+ */
+export interface HybridFigureBlock {
+  labels: {
+    query: string;
+    querySub: string;
+    semantic: string;
+    semanticSub: string;
+    lexical: string;
+    lexicalSub: string;
+    merge: string;
+    mergeSub: string;
+    cap: string;
+    capSub: string;
+  };
+  /**
+   * What the drawing shows, for screen readers. Required: the text in a drawing is not enough.
+   */
+  alt: string;
+  /**
+   * Short tag above the figure, e.g. ABB. 01.
+   */
+  kicker?: string | null;
+  title?: string | null;
+  /**
+   * The sentence under the figure.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'hybridFigure';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "LessonLoopFigureBlock".
+ */
+export interface LessonLoopFigureBlock {
+  labels: {
+    /**
+     * Exactly six, clockwise from top left.
+     */
+    steps: {
+      label: string;
+      sub: string;
+      id?: string | null;
+    }[];
+    /**
+     * The label on the closing edge.
+     */
+    loop: string;
+    holdout: string;
+    holdoutSub: string;
+  };
+  /**
+   * What the drawing shows, for screen readers. Required: the text in a drawing is not enough.
+   */
+  alt: string;
+  /**
+   * Short tag above the figure, e.g. ABB. 01.
+   */
+  kicker?: string | null;
+  title?: string | null;
+  /**
+   * The sentence under the figure.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'lessonLoopFigure';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ImageBlock".
+ */
+export interface ImageBlock {
+  /**
+   * Set its focal point in the media library.
+   */
+  image: number | Media;
+  /**
+   * What the image shows, for screen readers, in the language of this body.
+   */
+  alt: string;
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'image';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ScreenshotBlock".
+ */
+export interface ScreenshotBlock {
+  image: number | Media;
+  /**
+   * What the screenshot shows.
+   */
+  alt: string;
+  /**
+   * Short tag above the figure, e.g. ABB. 01.
+   */
+  kicker?: string | null;
+  title?: string | null;
+  /**
+   * The sentence under the figure.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'screenshot';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GalleryBlock".
+ */
+export interface GalleryBlock {
+  /**
+   * The carousel's accessible name.
+   */
+  label: string;
+  items: {
+    /**
+     * The topic, e.g. "Suchen."
+     */
+    title: string;
+    /**
+     * The rest of the sentence.
+     */
+    text?: string | null;
+    image?: (number | null) | Media;
+    alt?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'gallery';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CalloutBlock".
+ */
+export interface CalloutBlock {
+  tone: 'note' | 'important';
+  title?: string | null;
+  text: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'callout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "QuoteBlock".
+ */
+export interface QuoteBlock {
+  quote: string;
+  name: string;
+  role?: string | null;
+  office?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'quote';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CtaBlock".
+ */
+export interface CtaBlock {
+  title: string;
+  text?: string | null;
+  /**
+   * A page of the site, by its route key.
+   */
+  primary?: ('demo' | 'contact' | 'security') | null;
+  secondary?: ('demo' | 'contact' | 'security') | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'cta';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "CodeBlock".
+ */
+export interface CodeBlock {
+  language: 'text' | 'bash' | 'json' | 'yaml' | 'typescript' | 'python' | 'sql';
+  code: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'code';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "AbbreviationInlineBlock".
+ */
+export interface AbbreviationInlineBlock {
+  /**
+   * As it stands in the sentence, e.g. OIB.
+   */
+  text: string;
+  /**
+   * Written out, e.g. Österreichisches Institut für Bautechnik.
+   */
+  expansion: string;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'abbreviation';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

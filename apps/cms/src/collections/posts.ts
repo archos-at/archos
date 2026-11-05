@@ -8,8 +8,8 @@
  */
 import type { CollectionConfig } from 'payload';
 import { deletePosts, draftsUnlessPublisher, readPosts, readPostVersions, writePosts } from '../access/editorial';
-import { POST_BLOCKS } from '../blocks/post-blocks';
 import { CATEGORIES, COVER_DRAWINGS, options } from '../fields/choices';
+import { postBodyEditor } from '../fields/post-body';
 import { revalidateAfterChange, revalidateAfterDelete } from '../hooks/revalidate-website';
 import { queueSocialDrafts } from '../jobs/draft-social-posts';
 import { livePreviewUrl, previewEndpoint } from '../preview';
@@ -67,10 +67,10 @@ export const Posts: CollectionConfig = {
             },
             {
               name: 'body',
-              type: 'blocks',
+              type: 'richText',
               localized: true,
-              blocks: POST_BLOCKS,
-              admin: { description: 'The body, block by block. Every block is a component of the design system.' },
+              editor: postBodyEditor,
+              admin: { description: 'Text with headings, lists, links, tables and quotes; figures, images, a gallery, callouts and calls to action are blocks (+ or /).' },
             },
           ],
         },
