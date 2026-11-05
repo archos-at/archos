@@ -1,4 +1,4 @@
-"""Tests for the release-note pipeline (`scripts/release_notes.py`).
+"""Tests for the release-note pipeline (`scripts/release_notes.py` and its `release_notes_*` modules).
 
 The pipeline publishes text straight to a public marketing page, so the parts
 worth pinning are the ones whose failure a reviewer cannot see in a diff: the
@@ -19,6 +19,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -39,17 +40,23 @@ def _load(name: str, relative: str):
 
 
 rn = _load("scripts.release_notes", "scripts/release_notes.py")
+# Loading the command line put scripts/ on sys.path; its parts are modules of their own.
+import release_notes_areas as areas  # noqa: E402
+import release_notes_build as build  # noqa: E402
+import release_notes_rules as rules  # noqa: E402
+import release_notes_translate as tr  # noqa: E402
+
 require_note = _load("ci.require_release_note", "ci/require_release_note.py")
 
 CONFIG_PATH = REPO_ROOT / "releasenotes" / "config.yaml"
-SECTIONS = rn.read_config_sections(CONFIG_PATH)
+SECTIONS = build.read_config_sections(CONFIG_PATH)
 SECTION_KEYS = {key for key, _ in SECTIONS}
 
 GOOD = "Projects can now be renamed from the settings page, without contacting support."
 
 
 def lint_entry(text: str) -> list[str]:
-    return rn.lint_note("note.yaml", yaml.safe_dump({"features": [text]}), SECTION_KEYS)
+    return rules.lint_note("note.yaml", yaml.safe_dump({"features": [text]}), SECTION_KEYS)
 
 
 # ── the published-prose rules ───────────────────────────────────────────────
@@ -79,7 +86,7 @@ def test_internal_and_markup_references_are_rejected(text, expected):
 
 def test_a_product_link_is_allowed():
     assert lint_entry("The full changelog now lives at https://piloti.at/changelog for everyone.") == []
-    assert lint_entry(f"The full changelog now lives at https://{rn.SITE_DOMAIN}/changelog for everyone.") == []
+    assert lint_entry(f"The full changelog now lives at https://{rules.SITE_DOMAIN}/changelog for everyone.") == []
 
 
 def test_a_stub_is_rejected():
@@ -102,33 +109,33 @@ def test_untouched_template_text_is_rejected():
 def test_the_shipped_template_fails_its_own_lint():
     """`reno new` output is a stub, and a stub must never reach the website."""
     config = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
-    assert rn.lint_note("new.yaml", config["template"], SECTION_KEYS)
+    assert rules.lint_note("new.yaml", config["template"], SECTION_KEYS)
 
 
 # ── the structural rules ────────────────────────────────────────────────────
 
 
 def test_an_unknown_section_is_rejected():
-    problems = rn.lint_note("note.yaml", yaml.safe_dump({"awesome": [GOOD]}), SECTION_KEYS)
+    problems = rules.lint_note("note.yaml", yaml.safe_dump({"awesome": [GOOD]}), SECTION_KEYS)
     assert any("unknown section" in problem for problem in problems)
 
 
 def test_an_empty_section_is_rejected():
-    problems = rn.lint_note("note.yaml", yaml.safe_dump({"features": []}), SECTION_KEYS)
+    problems = rules.lint_note("note.yaml", yaml.safe_dump({"features": []}), SECTION_KEYS)
     assert any("empty" in problem for problem in problems)
 
 
 def test_a_section_that_is_not_a_list_is_rejected():
-    problems = rn.lint_note("note.yaml", yaml.safe_dump({"features": GOOD}), SECTION_KEYS)
+    problems = rules.lint_note("note.yaml", yaml.safe_dump({"features": GOOD}), SECTION_KEYS)
     assert any("must be a list" in problem for problem in problems)
 
 
 def test_a_prelude_is_allowed_as_prose():
-    assert rn.lint_note("note.yaml", yaml.safe_dump({"prelude": GOOD}), SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", yaml.safe_dump({"prelude": GOOD}), SECTION_KEYS) == []
 
 
 def test_an_empty_file_is_rejected():
-    assert rn.lint_note("note.yaml", "", SECTION_KEYS)
+    assert rules.lint_note("note.yaml", "", SECTION_KEYS)
 
 
 def test_german_prose_is_rejected():
@@ -146,7 +153,7 @@ def test_more_than_two_sentences_are_rejected():
 
 
 def test_a_reference_with_a_point_number_is_one_sentence():
-    assert rn.sentence_count("Citations name the point, as in Pkt. 3.5.2 on S. 7, not only the page.") == 1
+    assert rules.sentence_count("Citations name the point, as in Pkt. 3.5.2 on S. 7, not only the page.") == 1
 
 
 @pytest.mark.parametrize(
@@ -160,7 +167,7 @@ def test_a_reference_with_a_point_number_is_one_sentence():
 def test_operator_notes_are_sent_to_the_operators_section(text):
     assert any("operators" in problem for problem in lint_entry(text))
     note_yaml = yaml.safe_dump({"operators": [text]})
-    assert rn.lint_note("note.yaml", note_yaml, SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", note_yaml, SECTION_KEYS) == []
 
 
 @pytest.mark.parametrize(
@@ -176,7 +183,7 @@ def test_operator_notes_are_sent_to_the_operators_section(text):
 def test_security_and_severe_fixes_are_sent_to_an_internal_section(section, text):
     problems = lint_entry(text)
     assert any("security or severe fix" in problem for problem in problems), problems
-    assert rn.lint_note("note.yaml", yaml.safe_dump({section: [text]}), SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", yaml.safe_dump({section: [text]}), SECTION_KEYS) == []
 
 
 @pytest.mark.parametrize(
@@ -243,12 +250,12 @@ def test_ui_product_terms_pass(text):
 @pytest.mark.parametrize("section", ["security", "operators", "incident"])
 def test_internal_sections_may_keep_the_technical_word(section):
     text = "The API key check now runs on every endpoint of the deployment pipeline."
-    assert rn.lint_note("note.yaml", yaml.safe_dump({section: [text]}), SECTION_KEYS) == []
+    assert rules.lint_note("note.yaml", yaml.safe_dump({section: [text]}), SECTION_KEYS) == []
 
 
-@pytest.mark.parametrize("term", rn.PUBLIC_JARGON)
+@pytest.mark.parametrize("term", rules.PUBLIC_JARGON)
 def test_every_listed_term_matches_itself(term):
-    assert rn.jargon_hits(term) == [term]
+    assert rules.jargon_hits(term) == [term]
 
 
 def test_the_ui_product_terms_are_not_on_the_list():
@@ -271,7 +278,7 @@ def test_the_ui_product_terms_are_not_on_the_list():
         "Tiefenrecherche",
         "Aufgabe",
     }
-    listed = {term.lower() for term in rn.PUBLIC_JARGON}
+    listed = {term.lower() for term in rules.PUBLIC_JARGON}
     assert not {term.lower() for term in ui_terms} & listed
 
 
@@ -290,101 +297,90 @@ def test_the_ui_product_terms_are_not_on_the_list():
     ],
 )
 def test_short_terms_match_whole_words_only(text, expected):
-    assert rn.jargon_hits(text) == expected
+    assert rules.jargon_hits(text) == expected
 
 
 def test_the_repos_own_summaries_pass():
     path = REPO_ROOT / "releasenotes" / "summaries.yaml"
-    assert rn.lint_summaries(path.read_text(encoding="utf-8")) == []
+    assert rules.lint_summaries(path.read_text(encoding="utf-8")) == []
 
 
 def test_a_summary_key_must_be_a_week_or_a_version():
-    assert rn.lint_summaries(yaml.safe_dump({"last week": GOOD}))
+    assert rules.lint_summaries(yaml.safe_dump({"last week": GOOD}))
+    assert rules.lint_summaries(yaml.safe_dump({"2026-W60": GOOD}))
+
+
+def test_a_summary_cannot_be_written_for_a_week_that_has_not_started():
+    raw = yaml.safe_dump({"2026-W45": GOOD})
+    assert rules.lint_summaries(raw, today=date(2026, 11, 2)) == []  # its Monday
+    assert any("not started" in problem for problem in rules.lint_summaries(raw, today=date(2026, 11, 1)))
 
 
 def test_the_repos_own_notes_pass():
     """The notes actually committed here are publishable, not just lintable in theory."""
     problems: list[str] = []
     for path in sorted((REPO_ROOT / "releasenotes" / "notes").glob("*.yaml")):
-        problems.extend(rn.lint_note(path.name, path.read_text(encoding="utf-8"), SECTION_KEYS))
+        problems.extend(rules.lint_note(path.name, path.read_text(encoding="utf-8"), SECTION_KEYS))
     assert not problems, f"{len(problems)} problem(s) in the committed notes:\n" + "\n".join(problems)
-
-
-# ── config drift ────────────────────────────────────────────────────────────
-
-
-def test_every_configured_section_has_a_german_title():
-    """A section added to reno's config without a German title would ship an English heading."""
-    missing = SECTION_KEYS - set(rn.SECTION_TITLES_DE)
-    assert not missing, f"add German titles for: {sorted(missing)}"
-
-
-def test_no_stale_german_titles():
-    stale = set(rn.SECTION_TITLES_DE) - SECTION_KEYS
-    assert not stale, f"sections no longer in releasenotes/config.yaml: {sorted(stale)}"
 
 
 # ── grouping ────────────────────────────────────────────────────────────────
 
 
-def note(version: str, date: str | None, **sections) -> object:
-    return rn.Note(filename=f"{version}-{date}.yaml", version=version, date=date, sections=dict(sections))
+def note(version: str, date: str | None, area: str = "documents", **sections) -> object:
+    return build.Note(filename=f"{version}-{date}.yaml", version=version, date=date, sections=dict(sections), area=area)
+
+
+CUSTOMER = [key for key, _ in build.customer_sections(SECTIONS)]
 
 
 def test_untagged_notes_group_by_the_week_they_shipped():
-    groups = rn.group_notes(
+    groups = build.group_notes(
         [
             note("0.0.0", "2026-08-19", features=["A."]),
             note("0.0.0", "2026-09-21", fixes=["B."]),
-            note("0.0.0", "2026-09-26", features=["C."]),
+            note("0.0.0", "2026-09-26", area="search", features=["C."]),
         ],
         [key for key, _ in SECTIONS],
     )
     assert [g["id"] for g in groups] == ["2026-W39", "2026-W34"]
     assert groups[0]["kind"] == "week"
     assert (groups[0]["date"], groups[0]["dateEnd"]) == ("2026-09-21", "2026-09-27")
-    # Within a week, the configured section order wins over the note order.
-    assert [s["key"] for s in groups[0]["sections"]] == ["features", "fixes"]
-    assert groups[0]["sections"][0]["notes"] == ["C."]
+    # Within a week, the configured section order wins over the note order; each note keeps its area.
+    assert groups[0]["notes"] == [
+        {"section": "features", "area": "search", "text": "C."},
+        {"section": "fixes", "area": "documents", "text": "B."},
+    ]
 
 
 def test_a_week_spanning_two_months_is_one_group():
-    assert rn.week_of("2026-09-01") == ("2026-W36", "2026-08-31", "2026-09-06")
-    assert rn.week_of("2027-01-01") == ("2026-W53", "2026-12-28", "2027-01-03")
+    assert build.week_of("2026-09-01") == ("2026-W36", "2026-08-31", "2026-09-06")
+    assert build.week_of("2027-01-01") == ("2026-W53", "2026-12-28", "2027-01-03")
 
 
-def test_operator_notes_never_reach_the_public_changelog():
-    public = [key for key, _ in rn.public_sections(SECTIONS)]
-    assert "operators" not in public
-    groups = rn.group_notes(
+@pytest.mark.parametrize("section", ["operators", "security", "incident"])
+def test_internal_notes_reach_neither_artifact(section):
+    """Product news, not a bug register: these are kept in the repository and shown to nobody."""
+    assert section in SECTION_KEYS
+    assert section not in CUSTOMER
+    groups = build.group_notes(
         [
-            note("0.0.0", "2026-09-26", operators=["Only for the people running the platform."]),
-            note("0.0.0", "2026-08-19", operators=["Also internal."], fixes=["Public."]),
+            note("0.0.0", "2026-09-26", **{section: ["Kept in the repository only."]}),
+            note("0.0.0", "2026-08-19", **{section: ["Also internal."], "fixes": ["For customers."]}),
         ],
-        public,
+        CUSTOMER,
+        {"2026-W34": "The week."},
     )
     assert [g["id"] for g in groups] == ["2026-W34"]
-    assert rn.collect_strings(groups) == ["Public."]
-    data = rn.build_changelog(groups, rn.public_sections(SECTIONS), {})
-    assert "operators" not in data["sectionTitles"]
+    assert build.collect_strings(groups) == ["The week.", "For customers."]
+    customer = rn.dump_json(build.build_customer_changelog(groups, build.customer_sections(SECTIONS), {}))
+    public = rn.dump_json(build.build_public_changelog(groups, {}))
+    assert "repository only" not in customer and "Also internal" not in customer
+    assert "For customers" not in public  # the public page carries the summary alone
 
 
-@pytest.mark.parametrize("section", ["security", "incident"])
-def test_security_and_incident_notes_are_kept_but_never_published(section):
-    """The changelog is product news; a vulnerability or a severe fix is not shown there."""
-    assert section in SECTION_KEYS
-    public = [key for key, _ in rn.public_sections(SECTIONS)]
-    assert section not in public
-    groups = rn.group_notes(
-        [note("0.0.0", "2026-09-26", **{section: ["Kept in the repository only."], "features": ["Public."]})],
-        public,
-    )
-    assert rn.collect_strings(groups) == ["Public."]
-    assert section not in rn.build_changelog(groups, rn.public_sections(SECTIONS), {})["sectionTitles"]
-
-
-def test_ordinary_fixes_stay_public():
-    assert {"features", "improvements", "fixes"} <= {key for key, _ in rn.public_sections(SECTIONS)}
+def test_ordinary_fixes_reach_customers():
+    assert {"features", "improvements", "fixes"} <= set(CUSTOMER)
 
 
 def test_an_edited_note_keeps_the_day_it_first_shipped():
@@ -400,36 +396,86 @@ def test_an_edited_note_keeps_the_day_it_first_shipped():
             "A\treleasenotes/notes/fresh-fedcba0987654321.yaml",
         ]
     )
-    added = rn.parse_added_dates(log)
+    added = build.parse_added_dates(log)
     assert added["new-1234567890abcdef.yaml"] == "2026-08-19"
     assert added["fresh-fedcba0987654321.yaml"] == "2026-09-26"
 
 
 def test_a_summary_file_entry_becomes_the_week_summary():
-    groups = rn.group_notes([note("0.0.0", "2026-09-26", features=["A."])], ["features"], {"2026-W39": "The week."})
+    groups = build.group_notes([note("0.0.0", "2026-09-26", features=["A."])], ["features"], {"2026-W39": "The week."})
     assert groups[0]["summary"] == "The week."
 
 
 def test_a_tagged_release_groups_under_its_version():
-    groups = rn.group_notes([note("2.1.0", "2026-08-19", features=["A."])], ["features"])
+    groups = build.group_notes([note("2.1.0", "2026-08-19", features=["A."])], ["features"])
     assert groups[0]["kind"] == "version"
     assert groups[0]["version"] == "2.1.0"
 
 
 def test_reno_placeholders_are_not_treated_as_releases():
     for placeholder in ("*working-copy*", "0.0.0", "2.1.0-3"):
-        assert not rn._is_release_version(placeholder)
-    assert rn._is_release_version("2.1.0")
+        assert not build._is_release_version(placeholder)
+    assert build._is_release_version("2.1.0")
 
 
 def test_folded_yaml_becomes_one_clean_sentence():
-    groups = rn.group_notes([note("0.0.0", "2026-08-19", features=["A\n  sentence\n  over lines.\n"])], ["features"])
-    assert groups[0]["sections"][0]["notes"] == ["A sentence over lines."]
+    groups = build.group_notes([note("0.0.0", "2026-08-19", features=["A\n  sentence\n  over lines.\n"])], ["features"])
+    assert groups[0]["notes"][0]["text"] == "A sentence over lines."
 
 
 def test_a_prelude_becomes_the_release_summary():
-    notes = [rn.Note(filename="n.yaml", version="0.0.0", date="2026-08-19", prelude="A summary of it all.")]
-    assert rn.group_notes(notes, ["features"])[0]["summary"] == "A summary of it all."
+    notes = [build.Note(filename="n.yaml", version="0.0.0", date="2026-08-19", prelude="A summary of it all.")]
+    assert build.group_notes(notes, ["features"])[0]["summary"] == "A summary of it all."
+
+
+def test_a_finished_week_without_a_summary_is_reported_due():
+    groups = build.group_notes(
+        [note("0.0.0", "2026-09-26", features=["A."]), note("0.0.0", "2026-10-01", features=["B."])],
+        ["features"],
+        {"2026-W39": "The week."},
+    )
+    assert build.summaries_due(groups, date(2026, 10, 2)) == []  # W40 is not over yet
+    assert build.summaries_due(groups, date(2026, 10, 5)) == ["2026-W40"]
+
+
+# ── product areas ───────────────────────────────────────────────────────────
+
+
+def test_a_notes_own_area_line_wins_over_the_guess():
+    raw = "---\n# area: bim\nfeatures:\n  - >\n    Uploads of whole folders now keep their structure.\n"
+    assert areas.note_area("folder-upload-1234567890abcdef.yaml", raw, "Uploads of whole folders.") == "bim"
+
+
+def test_without_a_line_the_area_is_guessed_from_name_and_text():
+    assert areas.note_area("ifc-viewer-sections-1234567890abcdef.yaml", None, "Cut the model.") == "bim"
+    assert areas.derive_area("x-1234567890abcdef.yaml", "Answers now cite the passage they rest on.") == "answers"
+    assert areas.derive_area("x-1234567890abcdef.yaml", "Something nobody can place.") == areas.FALLBACK_AREA
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("# area: documents\nfeatures: []\n", None),
+        ("features: []\n", None),
+        ("# area: choose one of projects, documents\n", "template"),
+        ("# area: dokumente\n", "unknown area"),
+        ("# area: documents\n# area: search\n", "one area"),
+    ],
+)
+def test_the_area_line_is_linted(raw, expected):
+    problems = areas.lint_area("note.yaml", raw)
+    assert (expected is None and problems == []) or any(expected in problem for problem in problems)
+
+
+def test_every_committed_note_gets_a_known_area():
+    for path in sorted((REPO_ROOT / "releasenotes" / "notes").glob("*.yaml")):
+        assert areas.note_area(path.name, path.read_text(encoding="utf-8"), "") in areas.AREAS
+
+
+def test_the_template_offers_every_area():
+    template = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))["template"]
+    offered = areas.area_line(template)
+    assert offered and all(area in offered for area in areas.AREAS)
 
 
 # ── translation ─────────────────────────────────────────────────────────────
@@ -437,9 +483,9 @@ def test_a_prelude_becomes_the_release_summary():
 
 def test_a_cached_translation_is_reused_without_calling_the_api(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-test")
-    monkeypatch.setattr(rn, "translate", lambda *a, **k: pytest.fail("should not call the API"))
-    cache = {rn.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}}
-    mapping, untranslated = rn.resolve_translations([GOOD], cache, enabled=True, require=True)
+    monkeypatch.setattr(tr, "translate", lambda *a, **k: pytest.fail("should not call the API"))
+    cache = {tr.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}}
+    mapping, untranslated = tr.resolve_translations([GOOD], cache, enabled=True, require=True)
     assert mapping[GOOD] == "Deutsch."
     assert untranslated == []
 
@@ -452,17 +498,17 @@ def test_a_new_string_is_translated_once_and_cached(monkeypatch):
         calls.append(text)
         return "Deutsch."
 
-    monkeypatch.setattr(rn, "translate", fake_translate)
+    monkeypatch.setattr(tr, "translate", fake_translate)
     cache: dict = {}
-    mapping, untranslated = rn.resolve_translations([GOOD, GOOD], cache, enabled=True, require=True)
+    mapping, untranslated = tr.resolve_translations([GOOD, GOOD], cache, enabled=True, require=True)
     assert calls == [GOOD]  # de-duplicated by collect_strings' caller and by the cache
-    assert cache[rn.text_key(GOOD)] == {"en": GOOD, "de": "Deutsch."}
+    assert cache[tr.text_key(GOOD)] == {"en": GOOD, "de": "Deutsch."}
     assert mapping[GOOD] == "Deutsch." and untranslated == []
 
 
 def test_without_a_key_the_english_is_published_and_reported(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    mapping, untranslated = rn.resolve_translations([GOOD], {}, enabled=True, require=False)
+    mapping, untranslated = tr.resolve_translations([GOOD], {}, enabled=True, require=False)
     assert mapping[GOOD] == GOOD
     assert untranslated == [GOOD]
 
@@ -470,7 +516,7 @@ def test_without_a_key_the_english_is_published_and_reported(monkeypatch):
 def test_require_translations_fails_rather_than_shipping_english(monkeypatch):
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     with pytest.raises(SystemExit):
-        rn.resolve_translations([GOOD], {}, enabled=True, require=True)
+        tr.resolve_translations([GOOD], {}, enabled=True, require=True)
 
 
 class FakeResponse:
@@ -498,9 +544,9 @@ def test_translate_posts_to_openrouter_and_returns_the_sentence(monkeypatch):
         captured["body"] = json.loads(request.data.decode())
         return FakeResponse()
 
-    monkeypatch.setattr(rn.urllib.request, "urlopen", fake_urlopen)
-    assert rn.translate(GOOD, "sk-test", model="test/model") == "Deutscher Satz."
-    assert captured["url"] == rn.OPENROUTER_URL
+    monkeypatch.setattr(tr.urllib.request, "urlopen", fake_urlopen)
+    assert tr.translate(GOOD, "sk-test", model="test/model") == "Deutscher Satz."
+    assert captured["url"] == tr.OPENROUTER_URL
     assert captured["url"].startswith("https://")
     assert captured["auth"] == "Bearer sk-test"
     assert captured["body"]["model"] == "test/model"
@@ -508,10 +554,10 @@ def test_translate_posts_to_openrouter_and_returns_the_sentence(monkeypatch):
 
 
 def test_an_empty_translation_is_not_published(monkeypatch):
-    monkeypatch.setattr(rn.urllib.request, "urlopen", lambda request, timeout=None: FakeResponse("   "))
-    monkeypatch.setattr(rn.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(tr.urllib.request, "urlopen", lambda request, timeout=None: FakeResponse("   "))
+    monkeypatch.setattr(tr.time, "sleep", lambda _s: None)
     with pytest.raises(RuntimeError):
-        rn.translate(GOOD, "sk-test", attempts=2)
+        tr.translate(GOOD, "sk-test", attempts=2)
 
 
 def test_translate_retries_then_gives_up(monkeypatch):
@@ -521,17 +567,17 @@ def test_translate_retries_then_gives_up(monkeypatch):
         attempts.append(1)
         raise TimeoutError("nope")
 
-    monkeypatch.setattr(rn.urllib.request, "urlopen", always_fails)
-    monkeypatch.setattr(rn.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(tr.urllib.request, "urlopen", always_fails)
+    monkeypatch.setattr(tr.time, "sleep", lambda _s: None)
     with pytest.raises(RuntimeError):
-        rn.translate(GOOD, "sk-test", attempts=3)
+        tr.translate(GOOD, "sk-test", attempts=3)
     assert len(attempts) == 3
 
 
 def test_the_translation_file_round_trips(tmp_path):
     path = tmp_path / "de.json"
-    rn.save_translations(path, {rn.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}})
-    assert rn.load_translations(path) == {rn.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}}
+    tr.save_translations(path, {tr.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}})
+    assert tr.load_translations(path) == {tr.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}}
 
 
 def test_the_translation_file_stores_no_digests(tmp_path):
@@ -543,7 +589,7 @@ def test_the_translation_file_stores_no_digests(tmp_path):
     instead, so there is nothing to allowlist.
     """
     path = tmp_path / "de.json"
-    rn.save_translations(path, {rn.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}})
+    tr.save_translations(path, {tr.text_key(GOOD): {"en": GOOD, "de": "Deutsch."}})
     assert not re.search(r"\b[0-9a-f]{12,}\b", path.read_text(encoding="utf-8"))
     assert json.loads(path.read_text(encoding="utf-8")) == [{"en": GOOD, "de": "Deutsch."}]
 
@@ -555,73 +601,93 @@ def test_the_committed_translation_file_has_the_same_shape():
 
 
 def test_pruning_drops_translations_no_note_uses_any_more():
-    cache = {rn.text_key(GOOD): {"en": GOOD, "de": "x"}, "deadbeef": {"en": "gone", "de": "weg"}}
-    assert rn.prune_translations(cache, [GOOD]) == {rn.text_key(GOOD): {"en": GOOD, "de": "x"}}
+    cache = {tr.text_key(GOOD): {"en": GOOD, "de": "x"}, "deadbeef": {"en": "gone", "de": "weg"}}
+    assert tr.prune_translations(cache, [GOOD]) == {tr.text_key(GOOD): {"en": GOOD, "de": "x"}}
 
 
-# ── the artifact ────────────────────────────────────────────────────────────
+# ── the two artifacts ───────────────────────────────────────────────────────
 
 
-def test_the_artifact_carries_both_languages_for_every_string():
-    groups = rn.group_notes([note("0.0.0", "2026-08-19", features=[GOOD])], ["features"])
-    data = rn.build_changelog(groups, SECTIONS, {GOOD: "Deutsch."})
-    entry = data["releases"][0]["sections"][0]["notes"][0]
-    assert entry == {"en": GOOD, "de": "Deutsch."}
-    assert data["sectionTitles"]["features"]["de"] == rn.SECTION_TITLES_DE["features"]
+def week_groups():
+    return build.group_notes(
+        [note("0.0.0", "2026-08-19", features=[GOOD]), note("0.0.0", "2026-09-26", area="search", fixes=["B."])],
+        CUSTOMER,
+        {"2026-W34": "The week in short."},
+    )
 
 
-def test_the_artifact_is_serialised_deterministically():
-    groups = rn.group_notes([note("0.0.0", "2026-08-19", features=[GOOD])], ["features"])
-    data = rn.build_changelog(groups, SECTIONS, {})
-    assert rn.dump_json(data) == rn.dump_json(rn.build_changelog(groups, SECTIONS, {}))
+def test_the_public_artifact_holds_the_summaries_and_never_a_note():
+    data = build.build_public_changelog(week_groups(), {"The week in short.": "Die Woche kurz."})
+    assert [release["id"] for release in data["releases"]] == ["2026-W34"]  # W39 has no summary
+    assert data["releases"][0]["summary"] == {"en": "The week in short.", "de": "Die Woche kurz."}
+    assert GOOD not in rn.dump_json(data)
+    assert set(data["releases"][0]) == {"id", "kind", "version", "date", "dateEnd", "summary"}
+
+
+def test_the_customer_artifact_holds_every_note_with_section_and_area():
+    data = build.build_customer_changelog(week_groups(), build.customer_sections(SECTIONS), {GOOD: "Deutsch."})
+    assert data["sections"] == CUSTOMER
+    assert data["areas"] == list(areas.AREAS)
+    assert [release["id"] for release in data["releases"]] == ["2026-W39", "2026-W34"]
+    assert data["releases"][1]["notes"] == [
+        {"section": "features", "area": "documents", "text": {"en": GOOD, "de": "Deutsch."}}
+    ]
+    assert data["releases"][0]["summary"] is None
+
+
+def test_the_artifacts_are_serialised_deterministically():
+    data = build.build_customer_changelog(week_groups(), build.customer_sections(SECTIONS), {})
+    assert rn.dump_json(data) == rn.dump_json(
+        build.build_customer_changelog(week_groups(), build.customer_sections(SECTIONS), {})
+    )
     assert rn.dump_json(data).endswith("\n")
 
 
-def test_the_committed_artifact_is_well_formed():
-    """The file the website imports — every note bilingual, every section known."""
-    data = json.loads((rn.CHANGELOG_FILE).read_text("utf-8"))
-    public = {key for key, _ in rn.public_sections(SECTIONS)}
-    assert set(data["sectionTitles"]) == public
+def test_the_committed_public_artifact_is_summaries_only():
+    """The file the website imports: a summary per listed week, in both languages, and nothing else."""
+    data = json.loads(rn.CHANGELOG_FILE.read_text("utf-8"))
+    assert data["releases"], "the public changelog lists no week"
+    for release in data["releases"]:
+        assert set(release) == {"id", "kind", "version", "date", "dateEnd", "summary"}
+        assert release["summary"]["en"] and release["summary"]["de"]
+
+
+def test_the_committed_customer_artifact_is_well_formed():
+    """The file the app imports: every note bilingual, in a customer section and a known area."""
+    data = json.loads(rn.CUSTOMER_FILE.read_text("utf-8"))
+    assert data["sections"] == CUSTOMER
+    assert data["areas"] == list(areas.AREAS)
     for release in data["releases"]:
         assert release["kind"] in ("version", "week")
-        for section in release["sections"]:
-            assert section["key"] in public
-            for entry in section["notes"]:
-                assert entry["en"] and entry["de"]
-                assert not rn.looks_german(entry["en"]), entry["en"]
+        for item in release["notes"]:
+            assert item["section"] in CUSTOMER and item["area"] in areas.AREAS
+            assert item["text"]["en"] and item["text"]["de"]
+            assert not rules.looks_german(item["text"]["en"]), item["text"]["en"]
 
 
-CHANGELOG_JSON = rn.CHANGELOG_FILE
 TRANSLATIONS_JSON = REPO_ROOT / "releasenotes" / "translations" / "de.json"
 
 
 def public_changelog_strings() -> list[str]:
-    """Every English string the page shows: summaries and notes. Section titles are translated
-    from SECTION_TITLES_DE, which the config-drift tests above cover, so they are not here."""
-    data = json.loads(CHANGELOG_JSON.read_text(encoding="utf-8"))
-    english: list[str] = []
-    for release in data["releases"]:
-        if release["summary"]:
-            english.append(release["summary"]["en"])
-        for section in release["sections"]:
-            english.extend(note["en"] for note in section["notes"])
-    return list(dict.fromkeys(english))
+    """Every English string the public page shows: the summaries."""
+    data = json.loads(rn.CHANGELOG_FILE.read_text(encoding="utf-8"))
+    return list(dict.fromkeys(release["summary"]["en"] for release in data["releases"]))
 
 
 def test_every_public_changelog_string_has_a_german_entry():
-    translations = rn.load_translations(TRANSLATIONS_JSON)
-    missing = [text for text in public_changelog_strings() if not translations.get(rn.text_key(text), {}).get("de")]
+    translations = tr.load_translations(TRANSLATIONS_JSON)
+    missing = [text for text in public_changelog_strings() if not translations.get(tr.text_key(text), {}).get("de")]
     assert not missing, f"{len(missing)} public string(s) have no German entry in de.json, e.g. {missing[:3]}"
 
 
 def test_the_german_of_a_public_changelog_string_is_not_its_english():
-    translations = rn.load_translations(TRANSLATIONS_JSON)
-    same = [text for text in public_changelog_strings() if translations.get(rn.text_key(text), {}).get("de") == text]
+    translations = tr.load_translations(TRANSLATIONS_JSON)
+    same = [text for text in public_changelog_strings() if translations.get(tr.text_key(text), {}).get("de") == text]
     assert not same, f"{len(same)} public string(s) are untranslated in de.json, e.g. {same[:3]}"
 
 
 def test_no_public_changelog_string_reads_as_german():
-    german = [text for text in public_changelog_strings() if rn.looks_german(text)]
+    german = [text for text in public_changelog_strings() if rules.looks_german(text)]
     assert not german, f"{len(german)} public English string(s) read as German, e.g. {german[:3]}"
 
 
