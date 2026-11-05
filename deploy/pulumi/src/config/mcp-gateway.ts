@@ -2,6 +2,7 @@
  * The platform MCP gateway (ADR-0154): one public host where platform staff's
  * agents reach the MCP servers that run inside the cluster, behind WorkOS.
  */
+import { createHmac } from "node:crypto";
 import * as pulumi from "@pulumi/pulumi";
 import { bool } from "./readers";
 
@@ -26,11 +27,21 @@ export interface McpGatewayConfig {
    */
   platformOrgId: string;
   /**
-   * 32 random bytes as 64 hex characters. agentgateway encrypts its MCP session
-   * ids with it, and every replica needs the same key to serve every session.
-   * Rotating it ends the sessions in flight (clients reconnect).
+   * 32 bytes as 64 hex characters. agentgateway encrypts its MCP session ids
+   * with it, and every replica needs the same key to serve every session.
+   * `mcpGatewaySessionKey`, or a one-way HMAC of `pgAppPassword` under its own
+   * label (like the CMS's credentials), so turning the gateway on needs no new
+   * secret. Rotating it ends the sessions in flight (clients reconnect).
    */
   sessionKey: pulumi.Output<string>;
+  /**
+   * The secret the gateway presents to the app's admission route
+   * (`/api/internal/platform-mcp-admission`), which admits a person whose token
+   * names another organization from their live platform membership (ADR-0154,
+   * amendment of 2026-11-05). A one-way HMAC of `pgAppPassword` under its own
+   * label, so it needs no new secret and opens that one route alone.
+   */
+  admissionToken: pulumi.Output<string>;
 }
 
 const ORG_ID = /^org_[0-9A-Za-z]+$/;
@@ -47,14 +58,22 @@ export function loadMcpGateway(
   cfg: pulumi.Config,
   baseDomain: string,
   authkitDomain: string,
-  langfuseEnabled: boolean,
+  /** Whether any in-cluster MCP server runs on this stack: Langfuse or the CMS. */
+  hasServer: boolean,
+  /** `pgAppPassword`, the root the session key is derived from when `mcpGatewaySessionKey` is unset. */
+  appPassword?: pulumi.Output<string>,
 ): McpGatewayConfig {
   const project = pulumi.getProject();
   const enabled = bool(cfg, "mcpGatewayEnabled", false);
   const domain = cfg.get("mcpGatewayDomain") ?? `platform-mcp.${baseDomain}`;
   const platformOrgId = (cfg.get("mcpGatewayPlatformOrgId") ?? "").trim();
-  const sessionKey = cfg.getSecret("mcpGatewaySessionKey");
-  const off = { enabled: false, domain, issuer: "", platformOrgId, sessionKey: pulumi.output("") };
+  const sessionKey =
+    cfg.getSecret("mcpGatewaySessionKey") ??
+    appPassword?.apply((password) => createHmac("sha256", password).update("platform-mcp-gateway-session").digest("hex"));
+  const admissionToken =
+    appPassword?.apply((password) => createHmac("sha256", password).update("platform-mcp-admission").digest("hex")) ??
+    pulumi.output("");
+  const off = { enabled: false, domain, issuer: "", platformOrgId, sessionKey: pulumi.output(""), admissionToken };
   if (!enabled) return off;
 
   const missing = [
@@ -76,10 +95,10 @@ export function loadMcpGateway(
   if (!HOSTNAME.test(domain)) {
     throw new Error(`${project}:mcpGatewayDomain must be a bare lowercase hostname such as platform-mcp.example.test, got "${domain}".`);
   }
-  // Langfuse is the one in-cluster MCP server today. A gateway with nothing
+  // Langfuse and the CMS are the in-cluster MCP servers. A gateway with nothing
   // behind it is a public host that answers 404 to everyone.
-  if (!langfuseEnabled) {
-    throw new Error(`${project}:mcpGatewayEnabled has no MCP server to serve: Langfuse is off on this stack.`);
+  if (!hasServer) {
+    throw new Error(`${project}:mcpGatewayEnabled has no MCP server to serve: Langfuse is off on this stack, and so is the CMS.`);
   }
   return {
     enabled: true,
@@ -89,6 +108,7 @@ export function loadMcpGateway(
     // Checked where the value resolves, so the plan never reads the secret
     // in the clear; a malformed key fails the preview all the same.
     sessionKey: sessionKey!.apply(checkSessionKey),
+    admissionToken,
   };
 }
 

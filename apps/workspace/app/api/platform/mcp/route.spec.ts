@@ -169,11 +169,21 @@ describe('who may knock', () => {
     expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
   })
 
-  it('refuses an office organization’s token with 403, whatever its audience', async () => {
+  it('admits platform staff who picked an office at sign-in, as their platform membership, not the office’s', async () => {
+    const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
+    expect(response.status).toBe(200)
+    // The session is resolved in the platform organization, live: the office's
+    // membership and its rights are never read.
+    expect(resolvePinnedRequesterSession).toHaveBeenCalledWith({ userId: 'user_ops', email: null, organizationId: PLATFORM_ORG })
+    expect(resolvePinnedRequesterSession).not.toHaveBeenCalledWith(expect.objectContaining({ organizationId: 'org_office' }))
+    expect(isOrgFeatureEnabled).toHaveBeenCalledWith('platform-agent-mcp', PLATFORM_ORG)
+    expect(isPlatformStaff).toHaveBeenCalledWith(operator)
+  })
+
+  it('still refuses an office token whose person is not in the platform organization', async () => {
+    vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
     const response = await POST(rpc(PLATFORM, 'tools/list', {}, await bearer({ org: 'org_office' })))
     expect(response.status).toBe(403)
-    expect(await response.json()).toMatchObject({ code: 'FORBIDDEN', error: expect.stringMatching(/GRID Platform organization/) })
-    expect(resolvePinnedRequesterSession).not.toHaveBeenCalled()
     expect(enforceLimit).not.toHaveBeenCalled()
   })
 

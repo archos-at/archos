@@ -15,7 +15,7 @@ import { EDGE_SHUTDOWN, SURGE_ONLY_STRATEGY } from "./rollout";
 import { EDGE_RATE_LIMIT, EDGE_TIMEOUT, LANGFUSE, PLATFORM_RESOURCES, QDRANT } from "../constants";
 import { MCP_GATEWAY } from "./mcp-gateway-config";
 import { logicalName, objectName } from "../names";
-import { formerDomainListener, formerDomainRedirects } from "../app/former-domain";
+import { formerDomainListener, formerDomainRedirects, formerMcpGatewayHost } from "../app/former-domain";
 import { CMS } from "../config/cms";
 
 /** Stable names referenced by the cert-manager solver and the HTTPRoutes. */
@@ -377,6 +377,8 @@ export function installGatewayResources(
       ...mcpGatewayListeners,
       // The former domain's hosts during a domain move — only when `formerBaseDomain` is set.
       ...formerDomainRedirects(cfg.ingress).map(formerDomainListener),
+      // The platform MCP gateway's former host, served rather than redirected (agents hold its URL).
+      ...[formerMcpGatewayHost(cfg.ingress, cfg.mcpGateway)].filter((h) => h !== undefined).map(formerDomainListener),
     ],
   };
   const gateway = new k8s.apiextensions.CustomResource(

@@ -725,7 +725,9 @@ jobs:
             [[ "$ROLLBACK_TAG" =~ ^sha-[0-9a-f]{40}$ ]] || { echo "::error::a prod rollback takes sha-<40-hex>, not '$ROLLBACK_TAG'"; exit 1; }
             echo "::notice::rolling production back to $ROLLBACK_TAG (Pulumi.prod.yaml pins $pinned)"
           fi
-          ./scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "$tag"
+          # The CMS pulls the same tag when the stack runs it.
+          cms_enabled="$(sed -n 's/^  grid-oib:cmsEnabled: *//p' Pulumi.prod.yaml | tr -d '"' | tr -d "'")"
+          CMS_ENABLED="$cms_enabled" ./scripts/verify-image-tag.sh "$GITHUB_REPOSITORY_OWNER" "$tag"
           # The backend must be built for the vector store this program runs:
           # an older pin across the Chroma removal answers from an empty store.
           owner="$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"

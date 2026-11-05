@@ -71,6 +71,8 @@ const TABLE = {
   formerAppTls: ["grid-former-app-tls", "former-app-tls"],
   formerWebRedirectRoute: ["grid-former-web-redirect", "former-web-redirect"],
   formerAppRedirectRoute: ["grid-former-app-redirect", "former-app-redirect"],
+  formerAppTimeouts: ["grid-former-app-timeouts", "former-app-timeouts"],
+  formerPlatformMcpTls: ["grid-former-platform-mcp-tls", "former-platform-mcp-tls"],
 
   migrateJob: ["grid-app-migrate", "app-migrate"],
   auditSchemasJob: ["grid-app-audit-schemas", "app-audit-schemas"],

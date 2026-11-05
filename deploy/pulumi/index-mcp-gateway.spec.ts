@@ -7,7 +7,7 @@ import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-c
 import { checkSessionKey, loadMcpGateway } from "./src/config/mcp-gateway";
 import { GATEWAY_NAME } from "./src/platform/gateway";
 import { MCP_GATEWAY } from "./src/platform/mcp-gateway-config";
-import { LEGACY_PROJECT } from "./src/names";
+import { LEGACY_PROJECT, objectName } from "./src/names";
 
 /** A stack config key of the project these specs run as. */
 const key = (name: string): string => `${LEGACY_PROJECT}:${name}`;
@@ -206,14 +206,60 @@ describe("the platform MCP gateway, switched on", () => {
     ]);
   });
 
-  it("admits the platform organization's owner role, and nothing else", () => {
+  it("admits the platform organization's owner role by its claims, and leaves any other organization to the app", () => {
+    const other = `!request.path.startsWith("/.well-known/") && jwt.org_id != "${ORG}"`;
     expect(langfuseRoute().policies.authorization).toEqual({
       rules: [
         {
-          require: `request.path.startsWith("/.well-known/") || (jwt.org_id == "${ORG}" && ("org-platform-owner" in jwt.roles))`,
+          require: `request.path.startsWith("/.well-known/") || (jwt.org_id == "${ORG}" && ("org-platform-owner" in jwt.roles)) || (${other})`,
         },
       ],
     });
+    // The rule's third branch is exactly the condition under which the app is
+    // asked, and the asking denies on failure: no token of another organization
+    // reaches a server without the app's yes.
+    expect(langfuseRoute().policies.extAuthz).toEqual({
+      conditional: [
+        {
+          condition: other,
+          host: "frontend:3000",
+          protocol: { http: { path: '"/api/internal/platform-mcp-admission?role=org-platform-owner"' } },
+          includeRequestHeaders: ["authorization"],
+          failureMode: "deny",
+          policies: {
+            backendAuth: {
+              key: {
+                value: { file: "/var/run/secrets/mcp/admission/token" },
+                location: { header: { name: "x-internal-token", prefix: "" } },
+              },
+            },
+          },
+          cache: { key: ["jwt.sub"], ttl: 'duration("60s")' },
+        },
+      ],
+    });
+  });
+
+  it("shares the admission route's own token with the frontend, never the service token", () => {
+    // A secret Output reaches the mock wrapped, under `value`.
+    const { stringData } = find<{ stringData: { value?: Record<string, string> } }>("kubernetes:core/v1:Secret", "platform-mcp-admission");
+    expect(Object.keys(stringData.value ?? {})).toEqual(["token"]);
+    expect(stringData.value?.token).toMatch(/^[0-9a-f]{64}$/);
+    expect(pod().volumes).toContainEqual({
+      name: "admission",
+      secret: { secretName: "platform-mcp-admission", items: [{ key: "token", path: "token" }] },
+    });
+    expect(pod().containers[0].volumeMounts).toContainEqual({ name: "admission", mountPath: "/var/run/secrets/mcp/admission", readOnly: true });
+    const frontend = find<Deployment & { spec: { template: { spec: { containers: Array<{ env: Array<{ name: string; valueFrom?: unknown }> }> } } } }>(
+      TYPE.deployment,
+      "frontend",
+    );
+    expect(frontend.spec.template.spec.containers[0].env.find((e) => e.name === "PLATFORM_MCP_ADMISSION_TOKEN")).toEqual({
+      name: "PLATFORM_MCP_ADMISSION_TOKEN",
+      valueFrom: { secretKeyRef: { name: "platform-mcp-admission", key: "token" } },
+    });
+    // The gateway holds no other secret of the app's.
+    expect(JSON.stringify(pod())).not.toContain("INTERNAL_API_TOKEN");
   });
 
   it("calls Langfuse in-cluster under its public Host, with the project key from a file", () => {
@@ -302,6 +348,14 @@ describe("the platform MCP gateway, switched on", () => {
     });
   });
 
+  it("sets no former origin outside a domain move", () => {
+    const frontend = find<Deployment & { spec: { template: { spec: { containers: Array<{ env: Array<{ name: string }> }> } } } }>(
+      TYPE.deployment,
+      "frontend",
+    );
+    expect(frontend.spec.template.spec.containers[0].env.map((e) => e.name)).not.toContain("MCP_FORMER_ORIGINS");
+  });
+
   it("tells the frontend which servers this stack serves, for Platform → Agents", () => {
     const frontend = find<Deployment & { spec: { template: { spec: { containers: Array<{ env: Array<{ name: string; value?: string }> }> } } } }>(
       TYPE.deployment,
@@ -335,6 +389,73 @@ describe("the platform MCP gateway, switched on", () => {
         },
       ],
     });
+  });
+});
+
+describe("the platform MCP gateway during a domain move", () => {
+  const FORMER = "old.example.test";
+  const FORMER_HOST = `platform-mcp.${FORMER}`;
+  beforeAll(() => build({ ...onStack(), [key("formerBaseDomain")]: FORMER }), 120_000);
+
+  const formerRoute = (): AgRoute & { hostnames?: string[] } =>
+    config().routes.find((r) => r.name === "langfuse-platform-mcp-old-example-test")!;
+
+  it("keeps the former host: a listener, its certificate and a record, served rather than redirected", () => {
+    expect(listeners().find((l) => l.name === "https-former-platform-mcp")).toMatchObject({
+      hostname: FORMER_HOST,
+      tls: { mode: "Terminate", certificateRefs: [{ name: objectName("formerPlatformMcpTls") }] },
+    });
+    const records = RESOURCES.filter((r) => r.type === TYPE.dns).map((r) => r.inputs.name as string);
+    const hosts = listeners()
+      .filter((l) => l.protocol === "HTTPS" && l.hostname !== undefined)
+      .map((l) => l.hostname as string);
+    expect(records).toContain(FORMER_HOST);
+    expect([...records].sort()).toEqual([...hosts].sort());
+  });
+
+  it("routes both hosts to the gateway through the one route, so its edge budget covers both", () => {
+    const spec = find<Route>(TYPE.route, "platform-mcp-gateway-route").spec;
+    expect(spec.parentRefs).toEqual([
+      { name: GATEWAY_NAME, sectionName: "https-platform-mcp" },
+      { name: GATEWAY_NAME, sectionName: "https-former-platform-mcp" },
+    ]);
+    expect(spec.hostnames).toEqual([HOST, FORMER_HOST]);
+  });
+
+  it("answers the former host under its own resource, and takes either host's token on both", () => {
+    const current = `https://${HOST}/langfuse/mcp`;
+    const former = `https://${FORMER_HOST}/langfuse/mcp`;
+    expect(formerRoute().hostnames).toEqual([FORMER_HOST]);
+    expect(formerRoute().policies.mcpAuthentication).toMatchObject({
+      audiences: [current, former],
+      resourceMetadata: { resource: former },
+    });
+    expect(langfuseRoute()).not.toHaveProperty("hostnames");
+    expect(langfuseRoute().policies.mcpAuthentication).toMatchObject({
+      audiences: [current, former],
+      resourceMetadata: { resource: current },
+    });
+    // The same gate and the same server: only the host's identity differs.
+    expect(formerRoute().policies.authorization).toEqual(langfuseRoute().policies.authorization);
+    expect(formerRoute().backends).toEqual(langfuseRoute().backends);
+    expect(formerRoute().matches).toEqual(langfuseRoute().matches);
+  });
+
+  it("tells the frontend the app's former origin, so its doors take and name that host too, and only the current host on Platform → Agents", () => {
+    const frontend = find<Deployment & { spec: { template: { spec: { containers: Array<{ env: Array<{ name: string; value?: string }> }> } } } }>(
+      TYPE.deployment,
+      "frontend",
+    );
+    const env = frontend.spec.template.spec.containers[0].env;
+    expect(env.filter((e) => e.name === "MCP_FORMER_ORIGINS")).toEqual([{ name: "MCP_FORMER_ORIGINS", value: `https://app.${FORMER}` }]);
+    expect(env.find((e) => e.name === "PLATFORM_MCP_SERVER_URLS")?.value).toBe(`https://${HOST}/langfuse/mcp`);
+  });
+
+  it.skipIf(SCHEMA_PATH === undefined)("still writes a config the pinned agentgateway's own schema accepts", () => {
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH!, "utf8")) as Record<string, unknown>;
+    const ajv = new Ajv2020({ strict: false, allErrors: true });
+    ajv.validate(schema, config());
+    expect(ajv.errors ?? []).toEqual([]);
   });
 });
 

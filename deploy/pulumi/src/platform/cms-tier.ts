@@ -23,7 +23,7 @@ export function installCmsTier(
 ): CmsTier {
   const appNamespace = cfg.namespace;
   const ns = installCmsNamespace(provider);
-  installCmsNetworkPolicies(provider, appNamespace, [ns, deps.appNamespace]);
+  installCmsNetworkPolicies(cfg, provider, appNamespace, [ns, deps.appNamespace]);
   const pg = installCmsPostgres(cfg, provider, [ns, deps.postgresOperator]);
   // The CMS image is as private as the app's, and a pull Secret is namespaced: the
   // CMS's namespace gets its own copy, or the pod meets GHCR's 401 and never starts.

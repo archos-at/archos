@@ -31,6 +31,8 @@ export const CMS = {
   /** Gateway listener and HTTPRoute for the admin panel, the REST API and `/api/mcp`. */
   listenerName: "https-cms",
   routeName: "cms",
+  /** The images' route, open to everyone (`CMS_PUBLIC_MEDIA_PATH`). */
+  mediaRouteName: "cms-media",
   tlsSecret: "cms-tls",
   /** `max_connections` of `cms-pg`; Payload pools at `DATABASE_POOL_MAX` per pod. */
   maxConnections: 50,
@@ -58,6 +60,8 @@ export interface CmsConfig {
   /** The API keys of the two robots `apps/cms/src/provision.ts` keeps. */
   websiteApiKey: pulumi.Output<string>;
   socialHandoffApiKey: pulumi.Output<string>;
+  /** The MCP key the platform MCP gateway presents at `/cms/mcp`, bound to an agent account (provision.ts). */
+  platformMcpApiKey: pulumi.Output<string>;
   /** The bearer the website's revalidate endpoint accepts from the CMS. */
   revalidateToken: pulumi.Output<string>;
   /** Signs the live-preview links the admin panel frames (`apps/cms/src/preview.ts`). */
@@ -72,8 +76,20 @@ export interface CmsConfig {
   };
 }
 
-export function loadCms(cfg: pulumi.Config, baseDomain: string): CmsConfig {
+/**
+ * `missingOidcDeps`: the keys of the platform Connect application that are
+ * unset. The CMS host sits behind that application's gate (ADR-0155, slice 11)
+ * like Langfuse's, so a stack without it gets no CMS rather than an open admin
+ * panel.
+ */
+export function loadCms(cfg: pulumi.Config, baseDomain: string, missingOidcDeps: string[] = []): CmsConfig {
   const flag = bool(cfg, "cmsEnabled", false);
+  if (flag && missingOidcDeps.length > 0) {
+    throw new Error(
+      `${pulumi.getProject()}:cmsEnabled needs the platform WorkOS Connect application its host is gated by: missing ` +
+        `${missingOidcDeps.map((k) => `${pulumi.getProject()}:${k}`).join(", ")} (docs/deployment/kubernetes.md §9).`,
+    );
+  }
   const policies = bool(cfg, "networkPolicies", true);
   if (flag && !policies) {
     pulumi.log.warn(
@@ -94,6 +110,7 @@ export function loadCms(cfg: pulumi.Config, baseDomain: string): CmsConfig {
     adminPassword: derived("admin-password", "cmsAdminPassword"),
     websiteApiKey: derived("website-api-key", "cmsWebsiteApiKey"),
     socialHandoffApiKey: derived("social-handoff-api-key", "cmsSocialHandoffApiKey"),
+    platformMcpApiKey: derived("platform-mcp-api-key", "cmsPlatformMcpApiKey"),
     revalidateToken: derived("revalidate-token", "cmsRevalidateToken"),
     previewSecret: derived("preview-secret", "cmsPreviewSecret"),
     s3AccessKey: CMS.s3Identity,
