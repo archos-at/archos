@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    When you mention {productName} on a mark, reply in its thread, or hand it a
+    mark, and when it checks a new document, it now reads the document you are
+    working in even after the document was renamed. Before, a renamed document
+    lost the focus, and the answer drew on the whole project instead.

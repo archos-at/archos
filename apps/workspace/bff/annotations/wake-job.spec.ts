@@ -160,7 +160,8 @@ describe('a wake that runs', () => {
       message_id: WAKE_ID,
       text: 'Stimmt die Breite?',
       author_name: 'Anna Berger',
-      focus_file_name: 'Grundriss EG',
+      // The stored filename retrieval matches, not the display name a rename changed.
+      focus_file_name: 'grundriss.pdf',
       focus_shelf: 'project',
       focus_document_id: DOC_ID,
       focus_region: { page: 2, x: 0.1, y: 0.2, w: 0.3, h: 0.25, annotation_id: MARK_ID },
