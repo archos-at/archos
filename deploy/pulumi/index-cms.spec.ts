@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
-import { cmsConfigFiles, cmsConfigScript } from "./src/platform/cms-config-job";
 import { readFileSync } from "node:fs";
 import { objectName } from "./src/names";
 
@@ -13,12 +12,12 @@ const appNs = () => objectName("namespace", PROJECT);
 const gatewayName = () => objectName("gateway", PROJECT);
 
 /**
- * The website's CMS (ADR-0155), the whole program built once with it on and
- * licensed. Each assertion is a string that plans clean and is wrong only on a
- * cluster: a listener whose routes the Gateway refuses from another namespace,
- * a Directus that cannot verify its database's certificate, a bucket outside
- * its S3 identity, a NetworkPolicy that times the website out, a config Job
- * that pushes nothing. The off side is the last block.
+ * The website's CMS (ADR-0155), the whole program built once with it on. Each
+ * assertion is a string that plans clean and is wrong only on a cluster: a
+ * listener whose routes the Gateway refuses from another namespace, a CMS that
+ * cannot verify its database's certificate, a bucket outside its S3 identity, a
+ * NetworkPolicy that times the website out, a read-only root the server cannot
+ * start on. The off side is the last block.
  */
 
 const HOST = "cms.dev.example.test";
@@ -37,7 +36,16 @@ pulumi.runtime.setMocks(
   false,
 );
 
-type Container = { image: string; resources?: unknown; env?: Array<{ name: string; value?: string; valueFrom?: unknown }>; args?: string[] };
+type Container = {
+  image: string;
+  imagePullPolicy?: string;
+  resources?: unknown;
+  env?: Array<{ name: string; value?: string; valueFrom?: unknown }>;
+  args?: string[];
+  securityContext?: Record<string, unknown>;
+  volumeMounts?: Array<{ name: string; mountPath: string }>;
+  startupProbe?: { httpGet?: { path: string; port: number } };
+};
 type PodSpec = { containers: Container[]; securityContext?: Record<string, unknown>; volumes?: unknown[]; terminationGracePeriodSeconds?: number };
 const find = (type: string, name: string) => {
   const hit = RESOURCES.find((r) => r.type === type && r.name === name);
@@ -60,9 +68,9 @@ async function build(extra: Record<string, string>) {
   );
 }
 
-describe("the CMS, switched on and licensed", () => {
+describe("the CMS, switched on", () => {
   beforeAll(async () => {
-    await build({ [key("cmsEnabled")]: "true", [key("cmsLicenseKey")]: "oig-key" }); // pragma: allowlist secret
+    await build({ [key("cmsEnabled")]: "true", [key("imageTag")]: "sha-0123456789abcdef0123456789abcdef01234567" });
   }, 120_000);
 
   it("adds an https-cms listener that admits routes from the cms namespace only", () => {
@@ -77,30 +85,35 @@ describe("the CMS, switched on and licensed", () => {
     });
   });
 
-  it("routes the host to Directus from the cms namespace, naming the Gateway's namespace", () => {
+  it("routes the host to the CMS from the cms namespace, naming the Gateway's namespace", () => {
     const route = find("kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "cms-route");
     expect(route.metadata.namespace).toBe("cms");
     expect(route.spec.parentRefs).toEqual([{ name: gatewayName(), namespace: appNs(), sectionName: "https-cms" }]);
     expect(route.spec.hostnames).toEqual([HOST]);
-    expect(route.spec.rules[0].backendRefs).toEqual([{ name: "directus", port: 8055 }]);
+    expect(route.spec.rules[0].backendRefs).toEqual([{ name: "cms", port: 3000 }]);
   });
 
-  it("runs the pinned Directus as node, verifying cms-pg's certificate, with files in its own bucket", () => {
-    const pod = podOf("kubernetes:apps/v1:Deployment", "directus");
+  it("runs the commit's own CMS image as nextjs, read-only, verifying cms-pg's certificate, with files in its own bucket", () => {
+    const pod = podOf("kubernetes:apps/v1:Deployment", "cms");
     const [container] = pod.containers;
-    expect(container.image).toMatch(/^directus\/directus:12\.6\.1@sha256:[0-9a-f]{64}$/);
-    expect(pod.securityContext).toMatchObject({ runAsNonRoot: true, runAsUser: 1000 });
+    expect(container.image).toBe("ghcr.io/archos-at/grid-oib-cms:sha-0123456789abcdef0123456789abcdef01234567");
+    expect(container.imagePullPolicy).toBe("IfNotPresent");
+    expect(pod.securityContext).toMatchObject({ runAsNonRoot: true, runAsUser: 1001 });
+    expect(container.securityContext).toMatchObject({ readOnlyRootFilesystem: true, allowPrivilegeEscalation: false });
+    // Next's cache and /tmp are the only writable paths, and the server's probe touches no database.
+    expect(container.volumeMounts?.map((m) => m.mountPath).sort()).toEqual(["/app/.next/cache", "/etc/cms-pg-ca", "/tmp"]);
+    expect(container.startupProbe?.httpGet).toEqual({ path: "/healthz", port: 3000 });
     const env = envOf(container);
     expect(env).toMatchObject({
-      PUBLIC_URL: `https://${HOST}`,
-      DB_HOST: "cms-pg-rw.cms.svc",
-      DB_SSL__CA_FILE: "/etc/cms-pg-ca/ca.crt",
-      STORAGE_S3_BUCKET: "cms-files",
-      STORAGE_S3_KEY: "cms",
-      STORAGE_S3_ENDPOINT: `http://seaweedfs.${appNs()}.svc.cluster.local:8333`,
+      NODE_ENV: "production",
+      CMS_PUBLIC_URL: `https://${HOST}`,
+      CMS_S3_BUCKET: "cms-files",
+      CMS_S3_ACCESS_KEY_ID: "cms",
+      CMS_S3_ENDPOINT: `http://seaweedfs.${appNs()}.svc.cluster.local:8333`,
       WEBSITE_REVALIDATE_URL: `http://web.${appNs()}.svc.cluster.local:4321/api/cms/revalidate`,
+      WEBSITE_PUBLIC_URL: "https://dev.example.test",
     });
-    const deployment = find("kubernetes:apps/v1:Deployment", "directus").spec;
+    const deployment = find("kubernetes:apps/v1:Deployment", "cms").spec;
     // The policy pack: a declared singleton may Recreate, but still soaks and states its grace period.
     expect(deployment.strategy).toEqual({ type: "Recreate" });
     expect(deployment.replicas).toBe(1);
@@ -109,38 +122,43 @@ describe("the CMS, switched on and licensed", () => {
     expect(container.resources).toMatchObject({ requests: { cpu: expect.any(String), memory: expect.any(String) }, limits: { cpu: expect.any(String), memory: expect.any(String) } });
   });
 
-  it("keeps every credential out of the pod spec, in cms-env", () => {
-    const env = envOf(podOf("kubernetes:apps/v1:Deployment", "directus").containers[0]);
-    for (const key of ["SECRET", "LICENSE_KEY", "ADMIN_PASSWORD", "ADMIN_TOKEN", "DB_PASSWORD", "STORAGE_S3_SECRET"]) {
-      expect(env[key], key).toBeUndefined();
-    }
+  it("keeps every credential out of the pod spec, in cms-env, and verifies the database's certificate", async () => {
+    const env = envOf(podOf("kubernetes:apps/v1:Deployment", "cms").containers[0]);
+    const secrets = ["PAYLOAD_SECRET", "DATABASE_URL", "CMS_S3_SECRET_ACCESS_KEY", "CMS_ADMIN_PASSWORD", "CMS_WEBSITE_API_KEY", "CMS_SOCIAL_HANDOFF_API_KEY", "WEBSITE_REVALIDATE_TOKEN", "CMS_PREVIEW_SECRET"];
+    for (const key of secrets) expect(env[key], key).toBeUndefined();
     const secret = unwrap(find("kubernetes:core/v1:Secret", "cms-env").stringData);
-    expect(Object.keys(secret).sort()).toEqual(
-      ["ADMIN_PASSWORD", "ADMIN_TOKEN", "DB_PASSWORD", "LICENSE_KEY", "SECRET", "STORAGE_S3_SECRET", "WEBSITE_REVALIDATE_TOKEN"].sort(),
-    );
+    expect(Object.keys(secret).sort()).toEqual([...secrets].sort());
+    const url = await new Promise<string>((resolve) => pulumi.output(secret.DATABASE_URL).apply(resolve));
+    expect(url).toMatch(/^postgresql:\/\/cms:[^@]+@cms-pg-rw\.cms\.svc:5432\/cms\?sslmode=verify-full&sslrootcert=\/etc\/cms-pg-ca\/ca\.crt$/);
   });
 
   it("gives the CMS its own Postgres cluster in its namespace", () => {
     const cluster = find("kubernetes:postgresql.cnpg.io/v1:Cluster", "cms-pg");
     expect(cluster.metadata.namespace).toBe("cms");
-    expect(cluster.spec.bootstrap.initdb).toMatchObject({ database: "directus", owner: "directus" });
+    expect(cluster.spec.bootstrap.initdb).toMatchObject({ database: "cms", owner: "cms" });
   });
 
-  it("lets the website, the edge and Directus reach exactly what each needs", () => {
+  it("lets the website, the edge and the CMS reach exactly what each needs", () => {
     const policy = (name: string) => find("kubernetes:networking.k8s.io/v1:NetworkPolicy", name).spec;
-    expect(policy("cms-allow-website-to-directus").ingress[0].from[0].podSelector.matchLabels).toEqual({ "app.kubernetes.io/name": "web" });
+    expect(policy("cms-allow-website-to-cms").ingress[0].from[0].podSelector.matchLabels).toEqual({ "app.kubernetes.io/name": "web" });
+    expect(policy("cms-allow-website-to-cms").ingress[0].ports).toEqual([{ protocol: "TCP", port: 3000 }]);
     expect(policy("cms-app-allow-cms-to-seaweedfs").ingress[0].ports).toEqual([{ protocol: "TCP", port: 8333 }]);
     expect(policy("cms-app-allow-cms-to-website").ingress[0].ports).toEqual([{ protocol: "TCP", port: 4321 }]);
-    expect(policy("cms-allow-edge-to-directus").ingress[0].from[0].namespaceSelector.matchLabels).toEqual({
+    expect(policy("cms-allow-edge-to-cms").ingress[0].from[0].namespaceSelector.matchLabels).toEqual({
       "kubernetes.io/metadata.name": "envoy-gateway-system",
     });
   });
 
-  it("hands the website the internal URL, the public one, and its tokens by reference", () => {
+  it("hands the website the internal URL, the public one, and its credentials by reference", () => {
     const env = envOf(podOf("kubernetes:apps/v1:Deployment", "web").containers[0]);
-    expect(env.CMS_URL).toBe("http://directus.cms.svc.cluster.local:8055");
+    expect(env.CMS_URL).toBe("http://cms.cms.svc.cluster.local:3000");
     expect(env.CMS_PUBLIC_URL).toBe(`https://${HOST}`);
-    expect(env.CMS_TOKEN).toEqual({ secretKeyRef: { name: "web-cms", key: "CMS_TOKEN" } });
+    expect(env.CMS_API_KEY).toEqual({ secretKeyRef: { name: "web-cms", key: "CMS_API_KEY" } });
+    expect(env.CMS_REVALIDATE_TOKEN).toEqual({ secretKeyRef: { name: "web-cms", key: "CMS_REVALIDATE_TOKEN" } });
+  });
+
+  it("runs no config Job: the CMS migrates and provisions itself on start", () => {
+    expect(RESOURCES.some((r) => r.type === "kubernetes:batch/v1:Job" && r.name.startsWith("cms-"))).toBe(false);
   });
 
   it("scopes the cms S3 identity to its bucket and keeps the bucket from the app's identity", () => {
@@ -151,33 +169,25 @@ describe("the CMS, switched on and licensed", () => {
     expect(app.actions.some((a: string) => a.includes("cms-files"))).toBe(false);
   });
 
-  it("pushes the sync files with the pinned CLI, then provisions, in a Job named by their hash", () => {
-    const job = RESOURCES.find((r) => r.type === "kubernetes:batch/v1:Job" && r.name.startsWith("cms-config-"));
-    expect(job?.name).toMatch(/^cms-config-[0-9a-f]{10}$/);
-    const script = (job!.inputs as any).spec.template.spec.containers[0].args[0] as string;
-    expect(script).toContain("npx --yes @directus/cli@12.5.0 sync push --to cluster --yes --no-interactive");
-    expect(script).toContain("node scripts/provision.mjs");
-  });
 });
 
-describe("the CMS's config files", () => {
-  it("carry every sync file and the profile the Job pushes to, and never an id map", () => {
-    const files = cmsConfigFiles();
-    expect(Object.keys(files)).toContain("directus/default/schema/metadata.json");
-    expect(Object.keys(files)).toContain("directus/default/data/directus-permissions_0b260eeb2c129ffe.json");
-    expect(Object.keys(files).some((f) => f.endsWith("id_map.json"))).toBe(false);
-    expect(JSON.parse(files["directus.config.json"]).profiles.cluster.url).toBe("http://directus.cms.svc.cluster.local:8055");
-    expect(cmsConfigScript("12.5.0")).toMatch(/^set -eu/);
-  });
-});
-
-describe("the CMS, switched on without a license", () => {
+describe("the CMS, with its image set by hand", () => {
   beforeAll(async () => {
-    await build({ [key("cmsEnabled")]: "true" });
+    await build({ [key("cmsEnabled")]: "true", [key("cmsImage")]: "ghcr.io/archos-at/grid-oib-cms:sha-feedfeedfeedfeedfeedfeedfeedfeedfeedfeed" });
+  }, 120_000);
+
+  it("runs that image", () => {
+    expect(podOf("kubernetes:apps/v1:Deployment", "cms").containers[0].image).toBe("ghcr.io/archos-at/grid-oib-cms:sha-feedfeedfeedfeedfeedfeedfeedfeedfeedfeed");
+  });
+});
+
+describe("the CMS, switched on without network policies", () => {
+  beforeAll(async () => {
+    await build({ [key("cmsEnabled")]: "true", [key("networkPolicies")]: "false" });
   }, 120_000);
 
   it("deploys nothing of it, and the website reads no CMS", () => {
-    expect(RESOURCES.some((r) => r.name === "directus" || r.name === "cms-pg" || r.name === "cms-ns")).toBe(false);
+    expect(RESOURCES.some((r) => r.name === "cms" || r.name === "cms-pg" || r.name === "cms-ns")).toBe(false);
     const env = envOf(podOf("kubernetes:apps/v1:Deployment", "web").containers[0]);
     expect(env.CMS_URL).toBeUndefined();
   });

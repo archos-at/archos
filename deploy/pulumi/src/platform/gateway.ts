@@ -355,7 +355,7 @@ export function installGatewayResources(
       ...langfuseListeners,
       // Qdrant's dashboard — only when `qdrantDashboardEnabled`.
       ...qdrantListeners,
-      // The CMS — only when `cmsEnabled` and licensed.
+      // The CMS — only when `cmsEnabled`.
       ...cmsListeners,
       // The former domain's hosts during a domain move — only when `formerBaseDomain` is set.
       ...formerDomainRedirects(cfg.ingress).map(formerDomainListener),
