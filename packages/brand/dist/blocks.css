@@ -164,8 +164,7 @@
 .ui-qa .ui-qa-answer-text > :first-child { margin-top: 0; }
 .ui-qa .ui-qa-sources { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-4) 0 0; padding: 0; list-style: none; }
 .ui-qa .ui-qa-source { margin: 0; padding: 2px var(--space-2); background: var(--surface-sunken); font: var(--text-small); color: var(--ink); }
-.ui-qa-kind { color: var(--ink-muted); }
-.ui-qa-kind::after { content: ' · '; }
+.ui-qa-kind { color: var(--ink-muted); white-space: pre; }
 .ui-qa .ui-qa-derived { margin: var(--space-3) 0 0; font: var(--text-small); color: var(--ink-muted); }
 @media (max-width: 767px) {
   .ui-qa .ui-qa-question { max-width: 92%; }

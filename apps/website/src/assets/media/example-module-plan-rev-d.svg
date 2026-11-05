@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+<!-- Demo drawing for the blog blocks page: a residential module in plan, Rev. D. Kitchen counter across the module with a desk, built-in cabinet at the entrance, installation wall in front of the bathroom wall. Generated, see apps/website/README.md. -->
+<defs><style>
+.cut{fill:none;stroke:#0f0e0d;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:miter}
+.view{fill:none;stroke:#0f0e0d;stroke-width:1;vector-effect:non-scaling-stroke}
+.hidden{fill:none;stroke:#0f0e0d;stroke-width:1;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.axis{fill:none;stroke:#8a8784;stroke-width:1;stroke-dasharray:18 4 2 4;vector-effect:non-scaling-stroke}
+.dim{fill:none;stroke:#8a8784;stroke-width:1;vector-effect:non-scaling-stroke}
+.hatch{fill:url(#hatch)}
+.paper{fill:#fafaf9}
+.solid{fill:#0f0e0d}
+</style><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#aba8a4" stroke-width="1"/></pattern></defs>
+<rect x="0" y="0" width="1600" height="1000" fill="#f2f1f0"/>
+<rect class="paper" x="220" y="230" width="1160" height="540"/>
+<line class="axis" x1="205" y1="120" x2="205" y2="880"/>
+<circle class="dim" cx="205" cy="96" r="22"/>
+<line class="axis" x1="1395" y1="120" x2="1395" y2="880"/>
+<circle class="dim" cx="1395" cy="96" r="22"/>
+<line class="axis" x1="110" y1="215" x2="1490" y2="215"/>
+<circle class="dim" cx="86" cy="215" r="22"/>
+<line class="axis" x1="110" y1="785" x2="1490" y2="785"/>
+<circle class="dim" cx="86" cy="785" r="22"/>
+<rect class="hatch" x="190" y="200" width="1220" height="30"/><rect class="cut" x="190" y="200" width="1220" height="30"/>
+<rect class="hatch" x="190" y="770" width="1220" height="30"/><rect class="cut" x="190" y="770" width="1220" height="30"/>
+<rect class="hatch" x="190" y="230" width="30" height="70"/><rect class="cut" x="190" y="230" width="30" height="70"/>
+<rect class="hatch" x="190" y="700" width="30" height="70"/><rect class="cut" x="190" y="700" width="30" height="70"/>
+<rect class="hatch" x="1380" y="230" width="30" height="50"/><rect class="cut" x="1380" y="230" width="30" height="50"/>
+<rect class="hatch" x="1380" y="470" width="30" height="90"/><rect class="cut" x="1380" y="470" width="30" height="90"/>
+<rect class="hatch" x="1380" y="650" width="30" height="120"/><rect class="cut" x="1380" y="650" width="30" height="120"/>
+<rect class="view" x="190" y="300" width="30" height="400"/>
+<line class="view" x1="205" y1="300" x2="205" y2="700"/>
+<rect class="view" x="1380" y="280" width="30" height="190"/>
+<line class="view" x1="1395" y1="280" x2="1395" y2="470"/>
+<line class="view" x1="1380" y1="650" x2="1290" y2="650"/>
+<path class="view" d="M1290 650A90 90 0 0 1 1380 560"/>
+<rect class="hatch" x="1050" y="230" width="10" height="240"/><rect class="cut" x="1050" y="230" width="10" height="240"/>
+<rect class="hatch" x="1050" y="470" width="50" height="10"/><rect class="cut" x="1050" y="470" width="50" height="10"/>
+<rect class="hatch" x="1180" y="470" width="200" height="10"/><rect class="cut" x="1180" y="470" width="200" height="10"/>
+<line class="view" x1="1180" y1="480" x2="1180" y2="560"/>
+<path class="view" d="M1100 480A80 80 0 0 0 1180 560"/>
+<rect class="hatch" x="1030" y="230" width="20" height="240"/><rect class="cut" x="1030" y="230" width="20" height="240"/>
+<rect class="view" x="1070" y="240" width="100" height="100"/>
+<line class="view" x1="1070" y1="240" x2="1170" y2="340"/>
+<line class="view" x1="1170" y1="240" x2="1070" y2="340"/>
+<rect class="view" x="1200" y="236" width="80" height="44"/>
+<ellipse class="view" cx="1240" cy="258" rx="28" ry="15"/>
+<rect class="view" x="1340" y="330" width="34" height="60"/>
+<ellipse class="view" cx="1312" cy="360" rx="28" ry="20"/>
+<rect class="view" x="230" y="230" width="790" height="60"/>
+<line class="hidden" x1="230" y1="278" x2="1020" y2="278"/>
+<rect class="view" x="840" y="238" width="80" height="44"/>
+<circle class="view" cx="880" cy="260" r="8"/>
+<circle class="view" cx="620" cy="248" r="11"/>
+<circle class="view" cx="660" cy="248" r="11"/>
+<circle class="view" cx="620" cy="272" r="11"/>
+<circle class="view" cx="660" cy="272" r="11"/>
+<line class="view" x1="440" y1="230" x2="440" y2="290"/>
+<rect class="view" x="300" y="310" width="60" height="50"/>
+<line class="view" x1="296" y1="366" x2="364" y2="366"/>
+<rect class="view" x="600" y="420" width="180" height="100"/>
+<rect class="view" x="625" y="386" width="40" height="26"/>
+<rect class="view" x="715" y="386" width="40" height="26"/>
+<rect class="view" x="625" y="528" width="40" height="26"/>
+<rect class="view" x="715" y="528" width="40" height="26"/>
+<rect class="view" x="500" y="680" width="260" height="90"/>
+<line class="view" x1="500" y1="750" x2="760" y2="750"/>
+<line class="view" x1="530" y1="680" x2="530" y2="750"/>
+<line class="view" x1="730" y1="680" x2="730" y2="750"/>
+<rect class="view" x="230" y="560" width="190" height="210"/>
+<rect class="view" x="250" y="730" width="66" height="30"/>
+<rect class="view" x="334" y="730" width="66" height="30"/>
+<line class="view" x1="230" y1="640" x2="420" y2="640"/>
+<rect class="view" x="1190" y="712" width="190" height="58"/>
+<line class="hidden" x1="1190" y1="712" x2="1285" y2="770"/>
+<line class="hidden" x1="1285" y1="712" x2="1380" y2="770"/>
+<line class="view" x1="1285" y1="712" x2="1285" y2="770"/>
+<line class="dim" x1="190" y1="900" x2="1410" y2="900"/>
+<line class="dim" x1="190" y1="810" x2="190" y2="912"/>
+<line class="dim" x1="182" y1="908" x2="198" y2="892"/>
+<line class="dim" x1="1050" y1="810" x2="1050" y2="912"/>
+<line class="dim" x1="1042" y1="908" x2="1058" y2="892"/>
+<line class="dim" x1="1410" y1="810" x2="1410" y2="912"/>
+<line class="dim" x1="1402" y1="908" x2="1418" y2="892"/>
+</svg>

@@ -1,6 +1,7 @@
 ---
 import { render } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import LivePreview from '../components/LivePreview.astro';
 import RichText from '../components/RichText.astro';
 import PostCover from '../components/PostCover.astro';
 import TextLink from '../components/TextLink.astro';
@@ -19,9 +20,11 @@ import { headingIds } from '../lib/rich-text';
 interface Props {
   locale: Locale;
   post: Post;
+  /** The CMS's live preview of a draft (src/pages/blog/preview.astro): never indexed, marked, reloaded on save. */
+  preview?: { cmsOrigin: string };
 }
 
-const { locale, post } = Astro.props;
+const { locale, post, preview } = Astro.props;
 const Content = post.body.kind === 'mdx' ? (await render(post.body.entry)).Content : undefined;
 const { title, heading, description, pubDate, category, cover, translationSlug } = post;
 const settings = cmsSettings();
@@ -58,13 +61,14 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
   locale={locale}
   title={post.seoTitle ?? title}
   description={post.seoDescription ?? description}
-  noindex={post.noindex}
+  noindex={post.noindex || preview !== undefined}
   alternatePath={alternatePath}
   crumbs={crumbs}
   graph={[posting]}
   feed={feed}
   image={shareImage ? { path: shareImage, alt: cover.kind === 'image' ? cover.alt : title } : undefined}
 >
+  {preview && <LivePreview cmsOrigin={preview.cmsOrigin} label={c.preview} />}
   <article class="ui-container post">
     <header class="post-head">
       <p class="post-meta small">
