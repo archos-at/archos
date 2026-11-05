@@ -15,6 +15,7 @@ import {
 import { withLangfuseKeysChecksum } from "../platform/langfuse";
 import { AppSecrets, AppWiring, frontendEnv } from "./config";
 import { platformMcpServerEnv } from "../platform/mcp-gateway";
+import { formerAgentOriginsEnv } from "./former-domain";
 import { PORT, UID } from "../constants";
 
 export interface Frontend {
@@ -99,7 +100,7 @@ export function installFrontend(
                 // Skip the image's built-in migrate; the Job owns migrations.
                 command: ["node", "server.js"],
                 ports: [{ containerPort: PORT.frontend, name: "http" }],
-                env: [...frontendEnv(w), ...platformMcpServerEnv(cfg)],
+                env: [...frontendEnv(w), ...platformMcpServerEnv(cfg), ...formerAgentOriginsEnv(cfg.ingress)],
                 resources: toResourceRequirements(cfg.frontend.resources),
                 lifecycle: shutdown.lifecycle,
                 readinessProbe: {

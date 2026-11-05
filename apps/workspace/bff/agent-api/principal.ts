@@ -49,7 +49,15 @@ import { getPlatformOrganizationId, isPlatformStaff } from '@/lib/authz/platform
 import { isUuid } from '@/lib/ids'
 import { INTERNAL_TOKEN_HEADER, requireInternalToken } from '@/lib/internal-auth'
 import { isOrgFeatureEnabled } from '@/lib/workos/feature-flags'
-import { type DoorResource, acceptedAudiences, authkitDomain, authkitIssuer, doorOf, doorResourceUrl } from './mcp-config'
+import {
+  type DoorResource,
+  acceptedAudiences,
+  authkitDomain,
+  authkitIssuer,
+  doorOf,
+  doorResourceUrl,
+  requestHost,
+} from './mcp-config'
 import { SENSITIVITIES, type Sensitivity } from './operation'
 import type { AgentDoor } from './exposure'
 import { hasHeader, readHeader } from '@/lib/http/legacy-header-names'
@@ -207,7 +215,9 @@ async function externalPrincipal(request: Request, deps: PrincipalDeps): Promise
   const door = doorOf(request)
   const domain = authkitDomain()
   const issuer = authkitIssuer()
-  const resource = doorResourceUrl(door)
+  // The 401 points at the metadata under the host the client used: on a former
+  // host after a domain move, that host's (mcp-config.ts).
+  const resource = doorResourceUrl(door, process.env, requestHost(request))
   if (!domain || !issuer || !resource) {
     return refuse(
       503,

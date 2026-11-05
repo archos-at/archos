@@ -326,8 +326,28 @@ export function installHttpRoutes(
     { provider, dependsOn },
   );
 
-  // A domain move: the former apex and app host redirect to the new ones (off by default).
+  // A domain move: the former apex and app host redirect to the new ones (off by default),
+  // except the agent doors, which the former app host keeps serving.
   for (const redirect of formerDomainRedirects(cfg.ingress)) {
+    if (redirect.serves.length > 0) {
+      // The served paths reach the frontend through this route, so they get the
+      // app route's budget: its timeout, its retry and its per-client limit.
+      new k8s.apiextensions.CustomResource(
+        logicalName(`${redirect.route}-traffic-policy`),
+        {
+          apiVersion: "gateway.envoyproxy.io/v1alpha1",
+          kind: "BackendTrafficPolicy",
+          metadata: { name: objectName("formerAppTimeouts"), namespace, labels: commonLabels("frontend") },
+          spec: {
+            targetRefs: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: redirect.route }],
+            timeout: { http: { requestTimeout: EDGE_TIMEOUT } },
+            retry: edgeRetry,
+            ...edgeRateLimit(cfg, perClientRules(cfg, cfg.rateLimit.limits.app)),
+          } satisfies IBackendTrafficPolicySpec,
+        },
+        { provider, dependsOn },
+      );
+    }
     new k8s.apiextensions.CustomResource(
       logicalName(`grid-${redirect.route.replace(/^grid-/, "")}-route`),
       {
