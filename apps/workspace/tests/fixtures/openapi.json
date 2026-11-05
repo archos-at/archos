@@ -14101,7 +14101,7 @@
             "$ref": "#/components/responses/Error429"
           }
         },
-        "x-piloti-sensitivity": "control",
+        "x-sensitivity": "control",
         "x-mcp-annotations": {
           "title": "Allow, delete or recheck several held documents at once",
           "readOnlyHint": false,

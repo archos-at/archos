@@ -502,7 +502,7 @@
   "apps/workspace/tests/fixtures/document-annotations.schema.json": 3,
   "apps/workspace/tests/fixtures/exposure.json": 2,
   "apps/workspace/tests/fixtures/job_fire_headers.json": 1,
-  "apps/workspace/tests/fixtures/openapi.json": 14,
+  "apps/workspace/tests/fixtures/openapi.json": 13,
   "apps/workspace/tests/fixtures/proposals.schema.json": 8,
   "apps/workspace/tests/fixtures/request_context.json": 6,
   "apps/workspace/tests/fixtures/workspace/catalog.json": 10,
