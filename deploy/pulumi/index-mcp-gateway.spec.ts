@@ -206,14 +206,60 @@ describe("the platform MCP gateway, switched on", () => {
     ]);
   });
 
-  it("admits the platform organization's owner role, and nothing else", () => {
+  it("admits the platform organization's owner role by its claims, and leaves any other organization to the app", () => {
+    const other = `!request.path.startsWith("/.well-known/") && jwt.org_id != "${ORG}"`;
     expect(langfuseRoute().policies.authorization).toEqual({
       rules: [
         {
-          require: `request.path.startsWith("/.well-known/") || (jwt.org_id == "${ORG}" && ("org-platform-owner" in jwt.roles))`,
+          require: `request.path.startsWith("/.well-known/") || (jwt.org_id == "${ORG}" && ("org-platform-owner" in jwt.roles)) || (${other})`,
         },
       ],
     });
+    // The rule's third branch is exactly the condition under which the app is
+    // asked, and the asking denies on failure: no token of another organization
+    // reaches a server without the app's yes.
+    expect(langfuseRoute().policies.extAuthz).toEqual({
+      conditional: [
+        {
+          condition: other,
+          host: "frontend:3000",
+          protocol: { http: { path: '"/api/internal/platform-mcp-admission?role=org-platform-owner"' } },
+          includeRequestHeaders: ["authorization"],
+          failureMode: "deny",
+          policies: {
+            backendAuth: {
+              key: {
+                value: { file: "/var/run/secrets/mcp/admission/token" },
+                location: { header: { name: "x-internal-token", prefix: "" } },
+              },
+            },
+          },
+          cache: { key: ["jwt.sub"], ttl: 'duration("60s")' },
+        },
+      ],
+    });
+  });
+
+  it("shares the admission route's own token with the frontend, never the service token", () => {
+    // A secret Output reaches the mock wrapped, under `value`.
+    const { stringData } = find<{ stringData: { value?: Record<string, string> } }>("kubernetes:core/v1:Secret", "platform-mcp-admission");
+    expect(Object.keys(stringData.value ?? {})).toEqual(["token"]);
+    expect(stringData.value?.token).toMatch(/^[0-9a-f]{64}$/);
+    expect(pod().volumes).toContainEqual({
+      name: "admission",
+      secret: { secretName: "platform-mcp-admission", items: [{ key: "token", path: "token" }] },
+    });
+    expect(pod().containers[0].volumeMounts).toContainEqual({ name: "admission", mountPath: "/var/run/secrets/mcp/admission", readOnly: true });
+    const frontend = find<Deployment & { spec: { template: { spec: { containers: Array<{ env: Array<{ name: string; valueFrom?: unknown }> }> } } } }>(
+      TYPE.deployment,
+      "frontend",
+    );
+    expect(frontend.spec.template.spec.containers[0].env.find((e) => e.name === "PLATFORM_MCP_ADMISSION_TOKEN")).toEqual({
+      name: "PLATFORM_MCP_ADMISSION_TOKEN",
+      valueFrom: { secretKeyRef: { name: "platform-mcp-admission", key: "token" } },
+    });
+    // The gateway holds no other secret of the app's.
+    expect(JSON.stringify(pod())).not.toContain("INTERNAL_API_TOKEN");
   });
 
   it("calls Langfuse in-cluster under its public Host, with the project key from a file", () => {

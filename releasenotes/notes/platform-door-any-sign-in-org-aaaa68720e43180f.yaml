@@ -1,0 +1,9 @@
+---
+# area: administration
+operators:
+  - >
+    Platform staff no longer have to pick the platform organization when they
+    connect an agent to the platform console or the platform MCP gateway: a
+    sign-in through an office is admitted from their live platform membership,
+    with exactly their platform rights. Before setting SSO or MFA as required on
+    the platform organization, switch this off (platform MCP gateway runbook).

@@ -80,13 +80,20 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
 
 /**
  * `PLATFORM_MCP_SERVER_URLS` for the frontend: each server's public URL, so
- * Platform → Agents lists exactly what this stack serves. Absent where the
- * gateway does not run, and the page says so.
+ * Platform → Agents lists exactly what this stack serves; and the admission
+ * route's token. Absent where the gateway does not run, and the page says so.
  */
 export function platformMcpServerEnv(cfg: DeployConfig): k8s.types.input.core.v1.EnvVar[] {
   if (!cfg.mcpGateway.enabled) return [];
   const urls = mcpServers(cfg).map((server) => resourceUrl(`https://${cfg.mcpGateway.domain}`, server));
-  return [{ name: "PLATFORM_MCP_SERVER_URLS", value: urls.join(",") }];
+  return [
+    { name: "PLATFORM_MCP_SERVER_URLS", value: urls.join(",") },
+    // The admission route's own secret (`installMcpAdmissionSecret`).
+    {
+      name: "PLATFORM_MCP_ADMISSION_TOKEN",
+      valueFrom: { secretKeyRef: { name: MCP_GATEWAY.admissionSecret, key: ADMISSION_KEY } },
+    },
+  ];
 }
 
 export function mcpGatewayConfigYaml(cfg: DeployConfig): string {
@@ -100,7 +107,33 @@ export function mcpGatewayConfigYaml(cfg: DeployConfig): string {
     // Its spans go where every other surface's go: through the collector to
     // Langfuse, as service `platform-mcp-gateway` (ADR-0089).
     otlpHttpHost: cfg.observability.enabled ? "otel-collector:4318" : undefined,
+    admission: { host: `frontend:${PORT.frontend}`, tokenFile: ADMISSION_TOKEN_FILE },
   });
+}
+
+/** Where the admission route's token is mounted in the gateway. */
+const ADMISSION_TOKEN_FILE = "/var/run/secrets/mcp/admission/token";
+const ADMISSION_KEY = "token"; // pragma: allowlist secret (Secret key name, not a credential)
+
+/**
+ * The admission route's token, one Secret for both its holders: the frontend
+ * reads it as `PLATFORM_MCP_ADMISSION_TOKEN`, the gateway as a file. Created
+ * with the frontend, which must not start without it.
+ */
+export function installMcpAdmissionSecret(
+  cfg: DeployConfig,
+  provider: k8s.Provider,
+  namespace: pulumi.Input<string>,
+): k8s.core.v1.Secret | undefined {
+  if (!cfg.mcpGateway.enabled) return undefined;
+  return new k8s.core.v1.Secret(
+    MCP_GATEWAY.admissionSecret,
+    {
+      metadata: { name: MCP_GATEWAY.admissionSecret, namespace, labels: commonLabels(MCP_GATEWAY.name) },
+      stringData: { [ADMISSION_KEY]: cfg.mcpGateway.admissionToken },
+    },
+    { provider },
+  );
 }
 
 function credentialVolumes(servers: McpServer[]) {
@@ -215,6 +248,7 @@ export function installMcpGateway(
                   { name: "config", mountPath: "/config", readOnly: true },
                   { name: "tmp", mountPath: "/tmp" },
                   ...credentials.mounts,
+                  { name: "admission", mountPath: ADMISSION_TOKEN_FILE.replace(/\/token$/, ""), readOnly: true },
                 ],
               },
             ],
@@ -222,6 +256,7 @@ export function installMcpGateway(
               { name: "config", configMap: { name: configMap.metadata.name } },
               { name: "tmp", emptyDir: { sizeLimit: "64Mi" } },
               ...credentials.volumes,
+              { name: "admission", secret: { secretName: MCP_GATEWAY.admissionSecret, items: [{ key: ADMISSION_KEY, path: "token" }] } },
             ],
           },
         },

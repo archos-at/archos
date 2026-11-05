@@ -22,6 +22,8 @@ MCP client ──OAuth 2.1 (WorkOS AuthKit)──▶ platform-mcp.<baseDomain>  
                                   platform-mcp-gateway:8080   agentgateway
                                    • 401 + RFC 9728 metadata, per route
                                    • iss, aud = this route's URL, org_id, roles
+                                   • another org_id: asks frontend:3000
+                                     /api/internal/platform-mcp-admission
                                    • strips the caller's token, adds the server's
                                              │
                                              ▼
@@ -36,14 +38,42 @@ valid token from the wrong organization or role.
 - WorkOS AuthKit issued it (`iss` is `https://<workosAuthkitDomain>`).
 - Its `aud` is the route's own URL, e.g. `https://platform-mcp.<baseDomain>/langfuse/mcp`.
   A token for an office door, the platform door or another route is refused.
-- Its `org_id` is the platform organization (`mcpGatewayPlatformOrgId`).
-- Its `roles` claim holds `org-platform-owner`. Platform Support is not
-  admitted: the Langfuse project key behind `/langfuse/mcp` writes prompts
-  (`ADMITTED_ROLES` in `mcp-gateway-config.ts`).
+- The person holds `org-platform-owner` in the platform organization
+  (`mcpGatewayPlatformOrgId`). Platform Support is not admitted: the Langfuse
+  project key behind `/langfuse/mcp` writes prompts (`ADMITTED_ROLES` in
+  `mcp-gateway-config.ts`). How the gateway knows depends on the organization
+  the person picked at sign-in, which the token names:
+  - **The platform organization:** from the token's own `org_id` and `roles`
+    claims, with no live lookup. A person removed from the platform organization
+    keeps working until their access token expires, which is five minutes on
+    AuthKit's default.
+  - **Any other organization** (they picked an office): agentgateway asks the
+    app (external authorization, `GET|POST|DELETE
+    /api/internal/platform-mcp-admission?role=org-platform-owner`, the caller's
+    `Authorization` passed through). The app verifies the token's signature and
+    issuer and looks up the person's live membership of the platform
+    organization (`bff/agent-api/platform-admission.ts`). Only a 2xx admits; a
+    failure to ask denies. The answer is kept a minute per person.
 
-The check reads the token's claims, with no live lookup. A person removed from
-the platform organization keeps working until their access token expires, which
-is five minutes on AuthKit's default.
+### What admitting any organization gives up
+
+A person who is platform staff and also works in an office no longer has to pick
+the platform organization at sign-in. Their rights are unchanged: they come from
+the live platform membership, never from the office's. What it gives up is a
+sign-in policy the platform organization sets for itself (SSO or MFA required
+for its members), which a sign-in through an office never met. As read on
+2026-11-05, neither environment's platform organization sets one
+(`domainMfaRequired`, `nonDomainMfaRequired`, `domainSsoRequired`,
+`nonDomainSsoRequired` all false, no SSO connection). **Before you turn one on,
+switch this path off**: drop `admission` from `mcpGatewayConfigYaml` (the rule
+then refuses any other organization again) and restore the `organizationId`
+check in `platformPrincipal` (`principal.ts`), which the app's platform door
+shares.
+
+The route takes its own secret, `PLATFORM_MCP_ADMISSION_TOKEN` (Secret
+`platform-mcp-admission`, an HMAC of `pgAppPassword`), which only the gateway
+and the frontend hold. A leak opens that one yes-or-no about the caller's own
+membership.
 
 ## Turning it on
 
