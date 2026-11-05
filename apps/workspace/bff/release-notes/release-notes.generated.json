@@ -347,6 +347,22 @@
           "section": "fixes",
           "area": "documents",
           "text": {
+            "en": "In an Outlook archive import, a line of a mail that looks like a heading, a list or a code block now stays plain text in the mail's note, so a mail can no longer pose as a section of its own when ARCHOS cites it.",
+            "de": "Beim Import eines Outlook-Archivs bleibt eine Zeile einer E-Mail, die wie eine Überschrift, Liste oder ein Codeblock aussieht, in der E-Mail-Notiz nun reiner Text, sodass eine E-Mail beim Zitieren durch ARCHOS nicht mehr als eigener Abschnitt erscheinen kann."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
+            "en": "The list of a project's Outlook imports now pages instead of stopping at the twenty newest, so an older import that is still running can always be found and cancelled.",
+            "de": "Die Liste der Outlook-Importe eines Projekts wird jetzt seitenweise angezeigt, statt nach den 20 neuesten Einträgen zu enden, sodass Sie auch ältere, noch laufende Importe jederzeit finden und abbrechen können."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "documents",
+          "text": {
             "en": "Drawings, photos and scanned pages are read even when many uploads arrive at once: a page that could not be read at first is tried again a moment later instead of being left out, and a photo no longer fails for that reason. A page that still cannot be read is counted as not fully read.",
             "de": "Pläne, Fotos und eingescannte Seiten werden auch dann ausgelesen, wenn viele Uploads gleichzeitig eingehen: Eine Seite, die zunächst nicht gelesen werden kann, wird kurz darauf erneut ausgelesen, statt ausgelassen zu werden, und Fotos scheitern aus diesem Grund nicht mehr. Eine Seite, die weiterhin nicht gelesen werden kann, wird als nicht vollständig gelesen gewertet."
           }
@@ -381,6 +397,14 @@
           "text": {
             "en": "A search for documents that refer to a standard or a plan now finds them however they wrote it: ÖNORM B 1600 also finds documents that wrote B1600, and EP-05 also finds EP05 and EP.05. Before, a different spelling left those documents out without saying so.",
             "de": "Eine Suche nach Dokumenten, die auf eine Norm oder einen Plan verweisen, findet diese jetzt unabhängig von der Schreibweise: ÖNORM B 1600 findet auch Dokumente mit B1600, und EP-05 auch Dokumente mit EP05 und EP.05. Bisher wurden Dokumente mit abweichender Schreibweise nicht gefunden, ohne dass darauf hingewiesen wurde."
+          }
+        },
+        {
+          "section": "fixes",
+          "area": "tasks",
+          "text": {
+            "en": "The Subprocessors page now names Cloudflare, which answers for the ARCHOS web addresses, and the search software ARCHOS really runs on its own servers.",
+            "de": "Auf der Seite „Subprocessors“ werden jetzt Cloudflare, das Anfragen zu den ARCHOS-Webadressen beantwortet, und die Suchsoftware genannt, die ARCHOS tatsächlich auf eigenen Servern betreibt."
           }
         },
         {
