@@ -36,7 +36,8 @@ test('an approved post becomes a queued Buffer post with its tracked link and sh
 });
 
 test('a scheduled post goes at its time, and its own image wins over the share image', () => {
-  const image = { url: '/api/media/file/f1.png', sizes: { share: { url: '/api/media/file/f1-1200x630.jpg' } } };
+  // Payload answers with its own server URL; the post carries the public host's.
+  const image = { url: 'http://cms.cms.svc:3000/api/media/file/f1.png', sizes: { share: { url: 'http://cms.cms.svc:3000/api/media/file/f1-1200x630.jpg' } } };
   const { input } = build(approved({ scheduledAt: '2026-11-06T08:00:00Z', image }), { siteUrl: SITE, cmsPublicUrl: CMS, now: NOW });
   assert.equal(input.mode, 'customScheduled');
   assert.equal(input.dueAt, '2026-11-06T08:00:00.000Z');

@@ -37,6 +37,13 @@ export const MCP_OPTIONS: MCPPluginConfig = {
     },
     'social-accounts': { enabled: { find: true, create: false, update: false, delete: false }, description: 'The accounts social posts go out on.' },
   },
+  mcp: {
+    serverOptions: {
+      serverInfo: { name: 'cms', version: '1.0.0' },
+      instructions:
+        "The website's CMS. Blog posts hold German (locale de, the default) and English (locale en) in one document; read and write one locale at a time. Every write you make is a draft that a publisher reviews and publishes in the admin panel; you cannot publish, unpublish or delete. A post's body is Lexical rich text whose blocks are the website's components.",
+    },
+  },
   // Anyone with the admin panel makes keys for themselves (an editor using Claude Code). An agent's
   // account has no admin panel, so an administrator makes its key and binds it to that account: the
   // plugin refuses binding a key to another user unless allowed here, and only administrators are.

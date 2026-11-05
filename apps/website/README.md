@@ -265,19 +265,28 @@ privacy policy (`src/i18n/pages/privacy.ts`, "Anmeldestatus").
 
 ## Blog
 
-**Where posts come from** ([ADR-0155](../../docs/adr/0155-the-website-blog-is-edited-in-a-self-hosted-directus.md)).
+**Where posts come from** ([ADR-0155](../../docs/adr/0155-the-website-blog-is-edited-in-a-self-hosted-payload.md)).
 The blog's pages (`/blog/`, its category pages, every post, the feeds, `/sitemap-blog.xml`,
-`/llms.txt`) are rendered on request. With `CMS_URL` and `CMS_TOKEN` set, they read the posts
-from the CMS, Directus (`apps/cms`), so a post a publisher publishes there is on the site
+`/llms.txt`) are rendered on request. With `CMS_URL` and `CMS_API_KEY` set, they read the posts
+from the CMS, Payload (`apps/cms`), so a post a publisher publishes there is on the site
 within a minute, without a build: `src/lib/cms.ts` keeps the live posts in memory for 60 s,
 serves the last good copy while it refreshes or when the CMS is down, and drops them when the
-CMS's `Refresh the website` flow calls `POST /api/cms/revalidate` (bearer
-`CMS_REVALIDATE_TOKEN`). A post in the CMS has both languages as translations of one item, so
-its twin is never a slug typed by hand, and its body is a list of blocks, each drawn by a
-component of the design system (`src/components/PostBlocks.astro`): Markdown (no raw HTML), a
-figure from `src/components/figures/`, an image, a quote, a call to action. A former slug in
-`previous_slugs` answers with a 301. `CMS_PUBLIC_URL` is where browsers load its images, through
-its transform presets, and the only origin the CSP adds (`img-src`).
+CMS calls `POST /api/cms/revalidate` (bearer `CMS_REVALIDATE_TOKEN`) because what is live
+changed. A post in the CMS holds both languages in one document, so its twin is never a slug
+typed by hand. Its body is Lexical rich text, drawn node by node by `src/components/RichText.astro`
+(texts escaped, links through a scheme allow-list, no raw HTML) with the same markup the MDX
+pipeline gives the same content, and its blocks by `src/components/PostBlock.astro`, each one a
+component of the design system: the figures in `src/components/figures/`, an image, a product
+screenshot, a gallery, a callout, a quote, a call to action, code, and the contracted blocks in
+`src/components/blocks/`. A block's props come from `src/lib/post-blocks.ts`; adding a block is
+`apps/cms/README.md`, "Adding a block". A former slug answers with a 301. `CMS_PUBLIC_URL` is
+where browsers load its images, in the CMS's sizes, and the only origin the CSP adds (`img-src`).
+
+**Live preview.** `/blog/preview/` and `/en/blog/preview/` show a draft inside the CMS's admin
+panel: the panel frames a link the CMS signed for one post and one hour, the page asks the CMS
+for exactly that draft (`src/lib/cms-preview.ts`; the website holds no credential that reads
+drafts), and reloads when the panel saves. It is never indexed or cached, and only the CMS's
+origin may frame it (`runtime/security-headers.mjs`).
 
 **Without a CMS** (`CMS_URL` unset: a local build, CI, every check) the same routes serve the
 fixtures, the MDX posts in `src/content/blog/<locale>/<slug>.mdx` (schema in
@@ -308,8 +317,8 @@ Journal and Bautagebuch, redirect to Praxiserfahrungen and Technologie
 
 **Covers.** Every post names its `cover`, a line drawing in `src/assets/covers/<id>.svg`
 shared only with its translation; the schema fails a post without one. In the CMS a post may
-instead take an uploaded image (`cover_type: image`), cropped at its focal point by the CMS's
-`cover` and `share` presets, with its alt text and the AI mark when a model made it; the
+instead take an uploaded image (`coverType: image`), cropped at its focal point by the CMS's
+`cover` and `share` sizes, with its alt text and the AI mark when a model made it; the
 CMS's list of drawings is held to this folder by `apps/cms`'s tests. `src/lib/covers.ts`
 puts the drawing in the shared frame (ground, module grid, hatch), `PostCover.astro`
 inlines it on the card (the whole 3:2 canvas) and under the post's lead (the 1200 × 630

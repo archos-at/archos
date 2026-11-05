@@ -60,12 +60,18 @@ export function linkFor(post, siteUrl) {
   });
 }
 
+/** A file's URL on the CMS's public host, whether Payload answered with a path or with its own server URL. */
+function onPublicHost(url, cmsPublicUrl) {
+  const { pathname, search } = new URL(url, 'http://cms');
+  return new URL(`${pathname}${search}`, cmsPublicUrl).href;
+}
+
 /** The image the post shows: its own upload, else the blog post's share image, else none. */
 export function imageFor(post, { siteUrl, cmsPublicUrl }) {
   const own = post.image?.sizes?.share?.url ?? post.image?.url;
-  if (own) return new URL(own, cmsPublicUrl).href;
+  if (own) return onPublicHost(own, cmsPublicUrl);
   const blog = post.blogPost;
-  if (blog?.coverType === 'image' && blog.coverImage?.sizes?.share?.url) return new URL(blog.coverImage.sizes.share.url, cmsPublicUrl).href;
+  if (blog?.coverType === 'image' && blog.coverImage?.sizes?.share?.url) return onPublicHost(blog.coverImage.sizes.share.url, cmsPublicUrl);
   if (blog?.cover) return shareImageUrl(siteUrl, blog.cover);
   return undefined;
 }

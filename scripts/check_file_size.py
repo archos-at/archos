@@ -72,8 +72,9 @@ EXCLUDED = re.compile(
         (
             r"^apps/workspace/shared/cards/generated\.ts$",  # card schemas, rendered from cards/models.py
             r"\.generated\.",  # wire-v2.generated.ts and its kind
-            r"^apps/cms/src/payload-types\.ts$",  # Payload's types, written by `payload generate:types`
-            r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",  # Payload's import map, written by `payload generate:importmap`
+            # Payload's types and the admin panel's import map, written by `bun run generate` in apps/cms
+            r"^apps/cms/src/payload-types\.ts$",
+            r"^apps/cms/src/app/\(payload\)/admin/importMap\.js$",
             r"\.d\.ts$",  # type declarations
             r"(^|/)(tests?|testing|__tests__|e2e|_?fixtures|__fixtures__|test-utils)/",  # suites, their support, data
             r"(^|/)i18n/dictionaries/",  # copy: its length is the copy's

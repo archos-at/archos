@@ -12,6 +12,7 @@
  * Files are public: the website's visitors load them from the CMS's host. A
  * file uploaded for a draft is reachable by whoever knows its name.
  */
+import path from 'node:path';
 import type { CollectionConfig } from 'payload';
 import { canDraft, canPublish } from '../access/roles';
 
@@ -27,6 +28,8 @@ export const Media: CollectionConfig = {
     delete: ({ req }) => canPublish(req.user),
   },
   upload: {
+    // Without S3 (local runs, Compose): `media/` beside the server; the image creates it for its user.
+    staticDir: path.resolve(process.cwd(), 'media'),
     mimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
     focalPoint: true,
     crop: true,

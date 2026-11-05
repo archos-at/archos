@@ -704,8 +704,8 @@ Tune the per-project FGA authorization path (`lib/authz/projects.ts`), the WorkO
 
 ## Landing Site (web tier, Kubernetes/Pulumi-injected)
 
-The public website (`apps/website`, Astro) carries one secret, the CMS's read
-token when the stack has the CMS (ADR-0155); its other deployment knobs are where
+The public website (`apps/website`, Astro) carries two secrets when the stack has
+the CMS (ADR-0155), its API key and the bearer it accepts from the CMS; its other deployment knobs are where
 sign-in hands off and whether PostHog web analytics loads (ADR-0100). One image serves every stack —
 the app host is resolved at request time, never baked into the prerendered
 HTML (a baked host is how prod once linked at the dev app).
@@ -716,33 +716,33 @@ HTML (a baked host is how prod once linked at the dev app).
 | `PUBLIC_SITE_URL` | No | `https://<prod baseDomain>` | The address the website is served from, for canonical URLs, sitemap, hreflang and Open Graph, baked at build time (`src/lib/site-url.mjs`). CI passes the prod stack's `baseDomain` (`ci/image_inputs.py build-args web`, part of the image hash); a local build reads the same key; only with neither does it fall back to `identity.json`'s domain. Prod on purpose: dev canonicalizing to prod is harmless — dev should not be indexed anyway. |
 | `PUBLIC_POSTHOG_HOST` | No | _(unset)_ | PostHog ingestion host (e.g. `https://eu.i.posthog.com`) for the landing site's web analytics. Read at request time by `/web-analytics.js`, never baked into the prerendered pages. Unset (or unset token): the script is empty and the browser contacts nobody. On Kubernetes, `grid-oib:posthogHost`. Web service. |
 | `PUBLIC_POSTHOG_PROJECT_TOKEN` | No | _(unset)_ | Public project token (`phc_…`), plain config. Same runtime read and fail-open behaviour as `PUBLIC_POSTHOG_HOST`. On Kubernetes, `grid-oib:posthogProjectToken`. Web service. |
-| `CMS_URL` | No | _(unset)_ | Where the website's server reads the blog from: the CMS, Directus (ADR-0155), inside the cluster `http://directus.cms.svc.cluster.local:8055`. Read at request time (`src/lib/cms.ts`). Unset, or without `CMS_TOKEN`: the blog serves the MDX fixtures in `src/content/blog`, which is how a local build, CI and every check run. Injected by the Kubernetes deployment when `cmsEnabled` (and the license key) are set. Web service. |
-| `CMS_TOKEN` | With `CMS_URL` | _(unset)_ | **Secret.** Static token of the CMS's `website@robots.example.com` user (role Website: reads what is published, nothing else). From the `web-cms` Secret; its value is the stack key `cmsWebsiteToken`, by default an HMAC of `pgAppPassword`, and `apps/cms/scripts/provision.mjs` sets it on the user. Web service. |
-| `CMS_PUBLIC_URL` | No | `CMS_URL` | Where visitors' browsers load the CMS's images (covers, images in a post, through its transform presets): `https://cms.<baseDomain>`. Its origin is added to the CSP's `img-src`, and nothing else. Web service. |
-| `CMS_REVALIDATE_TOKEN` | No | _(unset)_ | **Secret.** The bearer `POST /api/cms/revalidate` accepts from the CMS's `Refresh the website` flow; unset, that address answers 404. From the `web-cms` Secret (the stack key `cmsRevalidateToken`, by default an HMAC of `pgAppPassword`); the CMS holds the same value as `WEBSITE_REVALIDATE_TOKEN`. Web service. |
+| `CMS_URL` | No | _(unset)_ | Where the website's server reads the blog from: the CMS, Payload (ADR-0155), inside the cluster `http://cms.cms.svc.cluster.local:3000`. Read at request time (`src/lib/cms.ts`, and the live preview's `src/lib/cms-preview.ts`). Unset, or without `CMS_API_KEY`: the blog serves the MDX fixtures in `src/content/blog`, which is how a local build, CI and every check run. Injected by the Kubernetes deployment when `cmsEnabled`. Web service. |
+| `CMS_API_KEY` | With `CMS_URL` | _(unset)_ | **Secret.** The API key of the CMS's `website@robots.cms.invalid` user (role `website`: reads what is live, nothing else), sent as `Authorization: users API-Key <key>`. From the `web-cms` Secret; its value is the stack key `cmsWebsiteApiKey`, by default an HMAC of `pgAppPassword`, which the CMS sets on that user on start (`CMS_WEBSITE_API_KEY`). Web service. |
+| `CMS_PUBLIC_URL` | No | `CMS_URL` | Where visitors' browsers load the CMS's images (covers, images in a post, in its sizes): `https://cms.<baseDomain>`. Its origin is added to the CSP's `img-src`, and is the only origin that may frame the blog's preview page (`frame-ancestors` on `/blog/preview/`). Web service. |
+| `CMS_REVALIDATE_TOKEN` | No | _(unset)_ | **Secret.** The bearer `POST /api/cms/revalidate` accepts from the CMS when what is live changed; unset, that address answers 404. From the `web-cms` Secret (the stack key `cmsRevalidateToken`, by default an HMAC of `pgAppPassword`); the CMS holds the same value as `WEBSITE_REVALIDATE_TOKEN`. Web service. |
 
-## The website's CMS (Directus, ADR-0155, Kubernetes/Pulumi-injected)
+## The website's CMS (Payload, ADR-0155, Kubernetes/Pulumi-injected)
 
-Directus reads its configuration from environment variables
-([reference](https://directus.com/docs/configuration/general)). The deployment
-(`deploy/pulumi/src/platform/cms.ts`) sets these; the secrets come from the
-`cms-env` Secret in namespace `cms`. Compose's `cms` profile sets local values.
+The CMS (`apps/cms`) reads these in `src/payload.config.ts` and the modules it
+names. The deployment (`deploy/pulumi/src/platform/cms.ts`) sets them; the
+secrets come from the `cms-env` Secret in namespace `cms`. Compose's `cms`
+profile and `task cms:dev` set local values.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `PUBLIC_URL` | Yes | — | `https://cms.<baseDomain>` (the stack key `cmsDomain` overrides). The Studio, the API, the MCP server (`/mcp`) and its OAuth redirects are built on it, and the license activation is bound to it. |
-| `SECRET` | Yes | — | **Secret.** Signs Directus' sessions and access tokens. the stack key `cmsSecret`, by default an HMAC of `pgAppPassword`. |
-| `LICENSE_KEY` | Yes on Kubernetes | — | **Secret.** The Directus license (Open Innovation Grant or paid). the stack key `cmsLicenseKey`; without it the plan deploys no CMS, because the core tier refuses the permissions the review step is made of. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_TOKEN` | First boot | — | The first administrator, created once when the database is empty; `ADMIN_TOKEN` is its static token, which the config Job pushes the sync files with. the stack key `cmsAdminEmail` (default `letsEncryptEmail`), `cmsAdminPassword`, `cmsAdminToken` (HMACs of `pgAppPassword` by default). |
-| `DB_CLIENT`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USER`, `DB_PASSWORD`, `DB_SSL__CA_FILE`, `DB_POOL__MAX` | Yes | — | Its own CloudNativePG cluster `cms-pg` (database and owner `directus`), verified against the cluster's CA. `DB_PASSWORD` is the stack key `cmsPgPassword` (HMAC default). |
-| `STORAGE_LOCATIONS`, `STORAGE_S3_DRIVER`, `STORAGE_S3_KEY`, `STORAGE_S3_SECRET`, `STORAGE_S3_BUCKET`, `STORAGE_S3_ENDPOINT`, `STORAGE_S3_REGION`, `STORAGE_S3_FORCE_PATH_STYLE` | Yes | — | The file library: bucket `cms-files` on the in-cluster SeaweedFS, as the S3 identity `cms`, scoped to that bucket alone. `STORAGE_S3_SECRET` is the stack key `cmsS3SecretKey` (HMAC default). |
-| `FLOWS_ENV_ALLOW_LIST` | Yes | — | `WEBSITE_REVALIDATE_URL,WEBSITE_REVALIDATE_TOKEN`: the only variables a Flow may read. |
-| `WEBSITE_REVALIDATE_URL` / `WEBSITE_REVALIDATE_TOKEN` | Yes | — | Where the `Refresh the website` flow posts (`http://web.<namespace>.svc.cluster.local:4321/api/cms/revalidate`) and its bearer (**secret**, the website's `CMS_REVALIDATE_TOKEN`). |
-| `TELEMETRY`, `LOG_STYLE`, `RATE_LIMITER_ENABLED`, `RATE_LIMITER_STORE`, `CORS_ENABLED`, `HOST`, `PORT` | No | — | `false`, `raw` (JSON lines for the collector), `true`, `memory`, `false`, `0.0.0.0`, `8055`. |
-| `IMPORT_IP_DENY_LIST` | Compose only | Directus' default | Compose sets `169.254.169.254` so the flow may reach the website's dev server on the host, a private address Directus refuses by default. |
-| `CMS_LICENSE_KEY` | No | _(unset)_ | Compose only: passed to the `cms` service as `LICENSE_KEY`, from `deploy/.env`. |
+| `CMS_PUBLIC_URL` | Yes | `http://localhost:3100` | `https://cms.<baseDomain>` (the stack key `cmsDomain` overrides): Payload's `serverURL`, the only origin its cookies are accepted from (`csrf`), and the host of the admin panel, the REST API and the MCP server (`/api/mcp`). Over https the session cookie is `Secure`. |
+| `PAYLOAD_SECRET` | Yes | — | **Secret.** Signs sessions and encrypts API keys at rest; changing it invalidates every session and every API key's index. The stack key `cmsSecret`, by default an HMAC of `pgAppPassword`. |
+| `DATABASE_URL` | Yes | — | **Secret.** Its own CloudNativePG cluster `cms-pg` (database and owner `cms`), `sslmode=verify-full` against the cluster's CA mounted at `/etc/cms-pg-ca/ca.crt`. The password is the stack key `cmsPgPassword` (HMAC default). Migrations are applied when the server starts. |
+| `DATABASE_POOL_MAX` | No | `10` | Connections per pod; `cms-pg` allows 50. |
+| `CMS_S3_BUCKET`, `CMS_S3_ENDPOINT`, `CMS_S3_REGION`, `CMS_S3_ACCESS_KEY_ID`, `CMS_S3_SECRET_ACCESS_KEY` | On Kubernetes | unset: files on local disk (`media/`) | The media library: bucket `cms-files` on the in-cluster SeaweedFS, as the S3 identity `cms`, scoped to that bucket alone, path-style. The secret key (**secret**) is the stack key `cmsS3SecretKey` (HMAC default). |
+| `CMS_ADMIN_EMAIL` / `CMS_ADMIN_PASSWORD` | First start | — | The first administrator, created only while the CMS has none (`src/provision.ts`). The stack keys `cmsAdminEmail` (default `letsEncryptEmail`) and `cmsAdminPassword` (**secret**, HMAC default). |
+| `CMS_WEBSITE_API_KEY` / `CMS_SOCIAL_HANDOFF_API_KEY` | No | _(unset)_ | **Secrets.** The API keys of the two robots, set on their users on every start (`src/provision.ts`); unset leaves the robot as it is. The stack keys `cmsWebsiteApiKey` (the website's `CMS_API_KEY`) and `cmsSocialHandoffApiKey`, HMAC defaults. |
+| `WEBSITE_REVALIDATE_URL` / `WEBSITE_REVALIDATE_TOKEN` | No | _(unset)_ | Where the CMS posts when what is live changes (`http://web.<namespace>.svc.cluster.local:4321/api/cms/revalidate`) and its bearer (**secret**, the website's `CMS_REVALIDATE_TOKEN`). Unset: nothing is called, and the website's copy expires within 60 s. |
+| `WEBSITE_PUBLIC_URL` / `CMS_PREVIEW_SECRET` | No | _(unset)_ | Where an editor's browser reaches the website (`https://<webDomain>`) and the key that signs live-preview links (**secret**, the stack key `cmsPreviewSecret`, HMAC default). Unset: no preview. |
+| `CMS_JOBS_AUTORUN` | No | on | `false` stops the server from running the jobs queue (scheduled publishing, LinkedIn drafts) once a minute; the integration suite runs it by hand. |
+| `NODE_ENV`, `PORT`, `HOSTNAME` | No | `production`, `3000`, `0.0.0.0` | Set by the image. |
 
-The config Job and the CMS scripts (`apps/cms`) read `DIRECTUS_URL`, `DIRECTUS_ADMIN_TOKEN`, `DIRECTUS_CLUSTER_TOKEN` (the `d6s` profile `cluster`), `DIRECTUS_IMPORT_TOKEN`, `CMS_WEBSITE_TOKEN`, `CMS_SOCIAL_HANDOFF_TOKEN`, `CMS_DRAFTING_TOKEN`, `SITE_URL`, `CMS_PUBLIC_URL` and `BUFFER_API_KEY` (**secret**, the social hand-off's Buffer API key; not deployed yet). Each script's header says which it needs.
+The CMS's scripts read `DATABASE_URL` and `PAYLOAD_SECRET` (the import, through Payload's Local API), and `CMS_URL`, `CMS_SOCIAL_HANDOFF_API_KEY`, `CMS_DRAFTING_API_KEY`, `SITE_URL`, `CMS_PUBLIC_URL` and `BUFFER_API_KEY` (**secret**, the social hand-off's Buffer API key; not deployed yet). Each script's header says which it needs. `CMS_TEST_DATABASE_URL` and `CMS_TEST_PORT` are the integration suite's, set by `scripts/test-db.sh`.
 
 ## Renamed variables
 

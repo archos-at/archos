@@ -6,7 +6,7 @@
  * Payload's own sign-in, hardened until editors sign in through WorkOS (the
  * ADR's next slice; Payload's custom auth strategies take it without a plugin):
  * a long password, five attempts then a 15-minute lock, eight-hour sessions
- * that end on sign-out, and `SameSite=Strict` cookies, secure in production.
+ * that end on sign-out, and `SameSite=Strict` cookies, `Secure` over https.
  * Nobody registers: an administrator creates every account.
  */
 import { ValidationError, type CollectionBeforeValidateHook, type CollectionConfig, type FieldAccess } from 'payload';
@@ -51,7 +51,8 @@ export const Users: CollectionConfig = {
     lockTime: 15 * 60 * 1000,
     tokenExpiration: 8 * 60 * 60,
     useSessions: true,
-    cookies: { sameSite: 'Strict', secure: process.env.NODE_ENV === 'production' },
+    // Secure whenever the CMS is served over https, which every deployment is.
+    cookies: { sameSite: 'Strict', secure: (process.env.CMS_PUBLIC_URL ?? '').startsWith('https://') },
   },
   access: {
     admin: ({ req }) => canUseAdminPanel(req.user),
