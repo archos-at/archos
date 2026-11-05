@@ -56,7 +56,7 @@ type WithStatus = { id?: number | string; _status?: string | null } | null | und
 export async function changedLive(req: PayloadRequest, doc: WithStatus, previousDoc: WithStatus): Promise<boolean> {
   if (doc?._status === 'published') return true;
   if (previousDoc?._status !== 'published' || doc?.id === undefined) return false;
-  const live = await req.payload.db.findOne<{ _status?: string }>({ collection: 'posts', req, where: { id: { equals: doc.id } } });
+  const live = await req.payload.db.findOne<{ id: number; _status?: string }>({ collection: 'posts', req, where: { id: { equals: doc.id } } });
   return live?._status !== 'published';
 }
 

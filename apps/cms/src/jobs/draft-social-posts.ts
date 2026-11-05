@@ -16,13 +16,13 @@ export const DEFAULT_ACCOUNT_KEY = 'linkedin-company';
 
 type Localized<T> = Partial<Record<Locale, T>> | null | undefined;
 export interface PublishedPost {
-  id: number | string;
+  id: number;
   title?: Localized<string>;
   description?: Localized<string>;
 }
 
 /** The drafts a published post asks for, one per language it is written in. Pure. */
-export function socialDrafts(post: PublishedPost, accountId: number | string) {
+export function socialDrafts(post: PublishedPost, accountId: number) {
   return LOCALES.flatMap((locale) => {
     const title = post.title?.[locale]?.replace(/­/g, '').trim();
     if (!title) return [];
@@ -40,7 +40,7 @@ export function socialDrafts(post: PublishedPost, accountId: number | string) {
   });
 }
 
-export async function draftSocialPostsFor(payload: Payload, postId: number | string, req?: PayloadRequest) {
+export async function draftSocialPostsFor(payload: Payload, postId: number, req?: PayloadRequest) {
   const accounts = await payload.find({
     collection: 'social-accounts',
     where: { and: [{ key: { equals: DEFAULT_ACCOUNT_KEY } }, { active: { equals: true } }] },
@@ -66,7 +66,7 @@ export const draftSocialPostsTask: TaskConfig<{ input: { postId: string }; outpu
   inputSchema: [{ name: 'postId', type: 'text', required: true }],
   outputSchema: [{ name: 'created', type: 'number', required: true }],
   handler: async ({ input, req }) => {
-    const { created } = await draftSocialPostsFor(req.payload, input.postId, req);
+    const { created } = await draftSocialPostsFor(req.payload, Number(input.postId), req);
     return { output: { created } };
   },
 };
