@@ -125,5 +125,5 @@ export function serializeSitemapItem(item) {
 /** @astrojs/sitemap `filter`: no error page, nothing that only redirects, and no unlisted page (paths.ts). */
 export function sitemapFilter(page) {
   const { pathname } = new URL(page)
-  return !/\/(404|sign-in)(\/|$)/.test(pathname) && !isUnlisted(pathname)
+  return !/\/(404|500|sign-in)(\/|$)/.test(pathname) && !isUnlisted(pathname)
 }

@@ -29,6 +29,8 @@ export const CMS = {
   bucket: "cms-files",
   s3Identity: "cms",
   port: 8055,
+  /** `node`, the user both images run as (Directus' and `node:26-alpine`). */
+  uid: 1000,
   /** Gateway listener and HTTPRoute for the Studio, the API and `/mcp`. */
   listenerName: "https-cms",
   routeName: "cms",

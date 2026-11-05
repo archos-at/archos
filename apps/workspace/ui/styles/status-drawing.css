@@ -38,6 +38,8 @@
 }
 .status-drawing .sheet-ground { fill: var(--ds-surface-sunken); }
 .status-drawing .sheet-grid { stroke: var(--ds-line); stroke-width: var(--ds-stroke-hairline); }
+/* On the dark ground the module grid recedes further, so the drawing leads. */
+.dark .status-drawing .sheet-grid { stroke: color-mix(in oklch, var(--ds-line) 55%, transparent); }
 .status-drawing .pen-cut { stroke: var(--foreground); stroke-width: var(--ds-stroke-strong); }
 .status-drawing .pen-view { stroke: var(--foreground); stroke-width: var(--ds-stroke-hairline); }
 .status-drawing .pen-hidden { stroke: var(--foreground); stroke-width: var(--ds-stroke-hairline); stroke-dasharray: 6 4; }

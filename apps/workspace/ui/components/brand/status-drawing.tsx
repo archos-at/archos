@@ -95,7 +95,7 @@ function PlanDrawing({ kind, id }: { kind: 'missing' | 'closed'; id: string }): 
   const open = kind === 'missing'
   const walk = open ? 'M280 680V400H640' : 'M280 680V400H364'
   const arrow = open ? 'M624 392L640 400L624 408' : 'M348 392L364 400L348 408'
-  const mark = open ? cloud(520, 260, 220, 280) : cloud(340, 304, 176, 192, 34)
+  const mark = open ? cloud(520, 260, 220, 280) : cloud(424, 328, 72, 144, 28)
   return (
     <>
       <defs>

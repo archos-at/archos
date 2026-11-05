@@ -2,7 +2,7 @@
 /**
  * Accessibility gate for the built site: axe-core's WCAG 2.0, 2.1 and 2.2 A/AA
  * rules (contrast, names, labels, landmarks, target size, ...) on every page in
- * the sitemap plus the unlisted pages (paths.ts) and the 404 page, German and English, at a desktop and a phone
+ * the sitemap plus the unlisted pages (paths.ts), the 404 page (German and English) and the 500 page, at a desktop and a phone
  * width, and with the open states a visitor can reach (the mobile menu, a sent
  * form, the consent note). Exits 1 on any violation.
  *
@@ -136,7 +136,8 @@ try {
   const routes = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname)
   // Unlisted pages are off the sitemap but still answer at their address.
   for (const key of UNLISTED_ROUTES) routes.push(ROUTES[key].de, ROUTES[key].en)
-  routes.push('/does-not-exist/', '/en/does-not-exist/')
+  // The error pages: an unknown address in both languages, and the server-error page (src/pages/500.astro).
+  routes.push('/does-not-exist/', '/en/does-not-exist/', '/500/')
 
   const browser = await chromium.launch()
   for (const width of WIDTHS) {
