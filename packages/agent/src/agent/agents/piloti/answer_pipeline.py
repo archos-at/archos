@@ -1026,27 +1026,27 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
     a warning or Frist the reader must see whatever the prose length — and to
     nothing when there is no callout either.
 
-    One veto, read off the registry snapshot before anything is cleared.
-    System cards are the product, not the trailer: ``document_draft``
-    (and every other ``SYSTEM_CARD_TYPES`` member) is pushed by the tool that
-    did the work, and a short drafting answer (kind=direct, <400 chars, no
-    verdict) matches the suppression floor exactly. Clearing the registry
-    there would eat the announcement of the work just done, so any system
-    card in the registry vetoes the whole suppression — cards, markers and
-    meta all stay. The answer's proof needs no veto: the Fundstelle the verdict
-    rests on is a cited blockquote in the prose (the retired ``legal_basis``
-    card's content), and suppression never touches the prose.
+    One veto, read off the registry snapshot before anything is cleared: any
+    ``FLOOR_EXEMPT_CARD_TYPES`` card keeps the cards, the markers and the meta,
+    and a ``surface`` counts by the leaves it holds (``is_floor_exempt``).
+    A tool's card is the product, not the trailer: a short drafting answer
+    (kind=direct, <400 chars, no verdict) matches the floor exactly, and
+    clearing it would eat the announcement of the work just done. A card that
+    shows the model is the answer to "zeig mir": clearing it left "im Modell
+    markiert" with nothing on screen, or "Wählen Sie das Modell aus" with no
+    tiles. The answer's proof needs no veto: the Fundstelle the verdict rests
+    on is a cited blockquote in the prose (the retired ``legal_basis`` card's
+    content), and suppression never touches the
+    prose.
     """
     if not _should_suppress_meta_cards(content, gated_meta):
         return content, gated_meta, False
     try:
-        from agent.cards.catalog import SYSTEM_CARD_TYPES
+        from agent.cards.envelope import is_floor_exempt
         from agent.cards.registry import get_card_registry as _get_registry_for_guard
 
         _guard_registry = _get_registry_for_guard()
-        if _guard_registry is not None and any(
-            card.get("type") in SYSTEM_CARD_TYPES for card in _guard_registry.snapshot()
-        ):
+        if _guard_registry is not None and any(is_floor_exempt(card) for card in _guard_registry.snapshot()):
             logger.info("Piloti: answer cards suppressed: veto card present, keeping cards and meta")
             return content, gated_meta, False
     except Exception:

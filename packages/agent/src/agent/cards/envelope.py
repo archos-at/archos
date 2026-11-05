@@ -38,6 +38,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from agent.cards.catalog import MODEL_BACKED_CARD_TYPES
 from agent.cards.catalog import RETIRED_CARD_TYPES
 from agent.cards.catalog import SYSTEM_CARD_TYPES
 from agent.cards.catalog import render_card_details
@@ -69,6 +70,19 @@ logger = logging.getLogger(__name__)
 #: keeps its index line, and a miss on one of those is repaired by the small
 #: model rather than by a round.
 ENVELOPE_SHAPE_TYPES: tuple[str, ...] = ("calculation", "formula")
+
+#: What the short-answer floor may not clear (``answer_pipeline._suppress_cards``). A tool's card is
+#: the product, and a card that shows the model is the answer to "zeig mir", whose prose is short by
+#: nature. The picker names no ids, so it joins here and not ``MODEL_BACKED_CARD_TYPES``.
+FLOOR_EXEMPT_CARD_TYPES = SYSTEM_CARD_TYPES | MODEL_BACKED_CARD_TYPES | {"ifc_model_picker"}
+
+
+def is_floor_exempt(card: dict[str, Any]) -> bool:
+    """Whether the short-answer floor must keep ``card``; a ``surface`` counts by the leaves it holds."""
+    if card.get("type") != "surface":
+        return card.get("type") in FLOOR_EXEMPT_CARD_TYPES
+    return any(leaf.get("component") in FLOOR_EXEMPT_CARD_TYPES for leaf in card.get("components", []))
+
 
 #: Composition (ADR-0065). Taught as prose plus one worked shape rather than
 #: through `render_card_details`: the model's `components` field is an A2UI
