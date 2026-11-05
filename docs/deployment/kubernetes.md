@@ -630,8 +630,10 @@ scheduler container.
 - **The scanner first.** `loadConfig` refuses an inbound domain while
   `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
   pod to be ready (signatures under 48 h old) before the mail promote.
-- The WorkOS entitlement `inbound-mail` exists, OFF for all organizations
-  (gate O1, created 2026-10-27, [`workos-provisioning.md`](workos-provisioning.md)).
+- The WorkOS entitlement `inbound-mail` exists (gate O1, created 2026-10-27,
+  [`workos-provisioning.md`](workos-provisioning.md)). Staging: ON for all
+  organizations since 2026-11-05 (the owner's decision: every office is a pilot,
+  and dev is where mail is tested first). Production: OFF until prod's gates pass.
 - Nothing manual for the audit trail: the deploy Job `audit-schemas-job.ts`
   runs `provision-workos-audit-schemas.mjs --apply` on every deploy and creates
   the `inbound_mail.*`, `inbound_mail_address.*` and `mail_thread.*` schemas;
@@ -704,7 +706,7 @@ below.
 
 | # | Gate | When |
 |---|---|---|
-| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments. `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
+| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments; staging switched ON for all organizations on 2026-11-05 (owner). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
 | O2 | Cloudflare Workers Paid | before O4 |
 | O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
 | O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |

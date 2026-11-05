@@ -45,7 +45,10 @@ re-reads the live values.
 
 In the product today: no stack sets `inboundMailDomain`; prod has
 `malwareScanEnabled` unset (off); the WorkOS entitlement `inbound-mail` exists
-OFF for every organization in both environments (owner gate O1, 2026-10-27).
+in both environments (owner gate O1, 2026-10-27): staging ON for all
+organizations since 2026-11-05, production OFF until §8's gates pass on prod.
+Every office is a pilot (owner, 2026-11-05), so §9 is one switch: production,
+all organizations.
 
 ## 2. Decisions to make first
 
