@@ -108,6 +108,10 @@
               "de": "Wenn ein großes PDF erneut eingelesen werden muss, etwa nach einer Unterbrechung, ist der Vorgang schneller abgeschlossen: Der bereits aus derselben Datei extrahierte Text sowie die Tabellen werden wiederverwendet, statt das PDF ein zweites Mal auszulesen."
             },
             {
+              "en": "When a page cannot be found, you lack access to it, or something goes wrong on our side, the screen now says so with a small drawing and offers a way on. An error screen also shows a reference you can quote, and \"Report the error\" opens an email to us with the address and that reference filled in.",
+              "de": "Wenn eine Seite nicht gefunden werden kann, Ihnen der Zugriff darauf fehlt oder bei uns etwas schiefgeht, zeigt der Bildschirm das jetzt mit einer kleinen Illustration an und bietet Ihnen eine Möglichkeit, fortzufahren. Auf einem Fehlerbildschirm wird außerdem eine Referenz angezeigt, die Sie angeben können. Über „Fehler melden“ öffnen Sie eine E-Mail an uns, in der die Adresse und die Referenz bereits eingetragen sind."
+            },
+            {
               "en": "The sidebar entry that opens a conversation is now simply called \"Chat\", on the desktop and on the phone.",
               "de": "Der Sidebar-Eintrag zum Öffnen einer Unterhaltung heißt jetzt am Desktop und am Smartphone einfach „Chat“."
             },
@@ -154,6 +158,10 @@
             {
               "en": "In review, the annotation list stays folded while a document has no annotations. Next to the chat, full screen opens the review, and a document's details sit behind an info button instead of a tab row.",
               "de": "Im Review bleibt die Annotationsliste eingeklappt, solange ein Dokument keine Annotationen enthält. Das Review lässt sich neben dem Chat im Vollbild öffnen, und die Dokumentdetails sind über einen Info-Button statt über eine Tab-Leiste erreichbar."
+            },
+            {
+              "en": "The website shows sharp photos and screenshots in their true colours, a new film about how the workspace finds your office's knowledge, and calmer motion as you scroll. The blog is sorted into product features, practice and technology, and every article has its own cover drawing.",
+              "de": "Die Website zeigt scharfe Fotos und Screenshots in ihren Originalfarben, einen neuen Film darüber, wie der Workspace das Wissen Ihres Büros findet, und ruhigere Animationen beim Scrollen. Der Blog ist in Produktfunktionen, Praxis und Technologie gegliedert, und jeder Artikel hat eine eigene Titelillustration."
             }
           ]
         },

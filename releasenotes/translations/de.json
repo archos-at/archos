@@ -3772,6 +3772,10 @@
     "de": "Die Website zeigt jetzt, welchen Wert Piloti für ein Büro hat, bevor jemand etwas unterschreibt. Geben Sie ein, wie viele Planer:innen Piloti nutzen würden und wie viel sie verdienen. Die Berechnung zeigt den Wert pro Jahr, die zurückgewonnenen Stunden und wie schnell sich ein Seat amortisiert."
   },
   {
+    "en": "The website shows sharp photos and screenshots in their true colours, a new film about how the workspace finds your office's knowledge, and calmer motion as you scroll. The blog is sorted into product features, practice and technology, and every article has its own cover drawing.",
+    "de": "Die Website zeigt scharfe Fotos und Screenshots in ihren Originalfarben, einen neuen Film darüber, wie der Workspace das Wissen Ihres Büros findet, und ruhigere Animationen beim Scrollen. Der Blog ist in Produktfunktionen, Praxis und Technologie gegliedert, und jeder Artikel hat eine eigene Titelillustration."
+  },
+  {
     "en": "The website's home page follows the new design more closely: two-column introductions, headlines that break evenly, a calmer header without the scroll line, and call-to-action buttons that sit side by side on most phones.",
     "de": "Die Startseite der Website orientiert sich stärker am neuen Design: zweispaltige Einführungen, gleichmäßig umbrechende Überschriften, ein ruhigerer Header ohne Scroll-Linie und Call-to-Action-Buttons, die auf den meisten Smartphones nebeneinander stehen."
   },
@@ -4118,6 +4122,10 @@
   {
     "en": "When a newer revision of a drawing is filed, Piloti can now compare it with the previous one on its own and mark what changed as suggestions on the new revision, which you take over or dismiss in the review. You get one inbox message, and nothing when nothing visible changed.",
     "de": "Wenn eine neuere Revision einer Zeichnung abgelegt wird, kann Piloti sie jetzt automatisch mit der vorherigen vergleichen und Änderungen als Vorschläge in der neuen Revision markieren, die Sie im Review übernehmen oder verwerfen. Sie erhalten eine Nachricht in Ihrer Inbox – und keine, wenn keine sichtbaren Änderungen vorliegen."
+  },
+  {
+    "en": "When a page cannot be found, you lack access to it, or something goes wrong on our side, the screen now says so with a small drawing and offers a way on. An error screen also shows a reference you can quote, and \"Report the error\" opens an email to us with the address and that reference filled in.",
+    "de": "Wenn eine Seite nicht gefunden werden kann, Ihnen der Zugriff darauf fehlt oder bei uns etwas schiefgeht, zeigt der Bildschirm das jetzt mit einer kleinen Illustration an und bietet Ihnen eine Möglichkeit, fortzufahren. Auf einem Fehlerbildschirm wird außerdem eine Referenz angezeigt, die Sie angeben können. Über „Fehler melden“ öffnen Sie eine E-Mail an uns, in der die Adresse und die Referenz bereits eingetragen sind."
   },
   {
     "en": "When a project has more notes than fit in one answer, Piloti now says so instead of silently showing a partial list, and pinned notes can no longer push everything else out of view.",
