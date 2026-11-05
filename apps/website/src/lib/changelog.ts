@@ -82,7 +82,7 @@ export function changelogFeed(locale: Locale, site: URL | undefined, source: Cha
   const c = withName(copy[locale]);
   const page = localePath('changelog', locale);
   return rss({
-    title: c.feed.title,
+    title: c.feed.rssTitle,
     description: c.meta.description,
     site: new URL(page, site ?? `https://${identity.domain}`).href,
     // false: a slash after an item's anchor (`#r-2026-W44/`) would name no anchor.

@@ -18,7 +18,7 @@ const de = {
   unreleased: 'In Kürze',
   empty: 'Noch keine Einträge. Die erste Zusammenfassung erscheint hier, sobald die Woche vorbei ist.',
   feed: {
-    title: '{name} Neuerungen',
+    rssTitle: '{name} Neuerungen',
     link: 'Neuerungen als RSS-Feed abonnieren',
   },
 };
@@ -37,7 +37,7 @@ const en: typeof de = {
   unreleased: 'Coming up',
   empty: 'No entries yet. The first summary appears here once its week is over.',
   feed: {
-    title: '{name} What’s new',
+    rssTitle: '{name} What’s new',
     link: 'Subscribe to what’s new as an RSS feed',
   },
 };

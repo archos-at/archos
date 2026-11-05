@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils'
  * The website's 404 and 500 pages draw the same scenes with the same pens
  * (`apps/website/src/components/StatusDrawing.astro`). Decorative: the heading
  * beside it says what happened, so it is hidden from assistive technology and
- * has no words. Canvas 960 × 800 on a 40-unit grid.
+ * has no words. Canvas 960 × 800 on a 40-unit module.
  */
 export type StatusDrawingKind = 'missing' | 'closed' | 'fault'
 
@@ -26,7 +26,7 @@ const W = 960
 const H = 800
 const MODULE = 40
 
-const GRID = [
+const MODULE_LINES = [
   ...Array.from({ length: W / MODULE - 1 }, (_, i) => `M${(i + 1) * MODULE} 0V${H}`),
   ...Array.from({ length: H / MODULE - 1 }, (_, i) => `M0 ${(i + 1) * MODULE}H${W}`),
 ].join('')
@@ -196,7 +196,7 @@ export function StatusDrawing({ kind, className }: { kind: StatusDrawingKind; cl
         </pattern>
       </defs>
       <rect className="sheet-ground" width={W} height={H} />
-      <path className="sheet-grid" d={GRID} />
+      <path className="sheet-module" d={MODULE_LINES} />
       {kind === 'fault' ? <FaultDrawing id={id} /> : <PlanDrawing kind={kind} id={id} />}
     </svg>
   )

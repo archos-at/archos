@@ -30,4 +30,3 @@ export function blogEntries(posts: Record<Locale, Post[]>): SitemapEntry[] {
   }
   return entries;
 }
-
