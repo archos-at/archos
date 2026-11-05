@@ -42,15 +42,17 @@ async function ensureAdmin(payload: Payload, env: Env, log: (line: string) => vo
 async function ensureRobot(payload: Payload, robot: (typeof ROBOTS)[number], env: Env, log: (line: string) => void) {
   const apiKey = env[robot.keyVariable]?.trim();
   if (!apiKey) return;
-  const found = await payload.find({ collection: 'users', where: { email: { equals: robot.email } }, limit: 1, showHiddenFields: true });
+  const found = await payload.find({ collection: 'users', where: { email: { equals: robot.email } }, limit: 1 });
   const desired = { name: robot.name, role: robot.role, enableAPIKey: true, apiKey };
-  const existing = found.docs[0] as { id: number | string; role?: string; apiKeyIndex?: string | null; enableAPIKey?: boolean | null } | undefined;
+  const existing = found.docs[0];
   // Payload keeps the key encrypted and finds it by this index (payload/dist/auth/strategies/apiKey.js).
   const index = createHmac('sha256', payload.secret).update(apiKey).digest('hex');
+  const holdsKey = async (id: number) =>
+    (await payload.count({ collection: 'users', where: { and: [{ id: { equals: id } }, { apiKeyIndex: { equals: index } }] } })).totalDocs === 1;
   if (!existing) {
     await payload.create({ collection: 'users', data: { email: robot.email, password: randomPassword(), ...desired } });
     log(`created ${robot.email}`);
-  } else if (existing.role !== robot.role || existing.apiKeyIndex !== index || !existing.enableAPIKey) {
+  } else if (existing.role !== robot.role || !existing.enableAPIKey || !(await holdsKey(existing.id))) {
     await payload.update({ collection: 'users', id: existing.id, data: desired });
     log(`updated ${robot.email}`);
   }

@@ -49,7 +49,9 @@ export async function draftSocialPostsFor(payload: Payload, postId: number, req?
   });
   const account = accounts.docs[0];
   if (!account) return { created: 0, reason: `no active ${DEFAULT_ACCOUNT_KEY} account` };
-  const post = (await payload.findByID({ collection: 'posts', id: postId, locale: 'all', depth: 0, req })) as unknown as PublishedPost;
+  const post = (await payload.findByID({ collection: 'posts', id: postId, locale: 'all', depth: 0, disableErrors: true, req })) as unknown as PublishedPost | null;
+  // Deleted or unpublished before the job ran: nothing to promote.
+  if (!post) return { created: 0, reason: `post ${postId} is gone` };
   let created = 0;
   for (const draft of socialDrafts(post, account.id)) {
     const existing = await payload.count({ collection: 'social-posts', where: { sourceRef: { equals: draft.sourceRef } }, req });
