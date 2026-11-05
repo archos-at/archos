@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-10-27
-amended: 2026-11-03 (the address moves to a subdomain, one literal rule and subaddressing; the default local part becomes `project`)
+amended: 2026-11-03 (the address moves to a subdomain, one literal rule and subaddressing; the default local part becomes `project`); 2026-11-05 (the RFC 2142 forwards and the DMARC record move into Pulumi; subaddressing is an API call)
 decision-makers: product owner, Grid engineering
 consulted: the security and shippability red teams of the project-mail design
 informed: whoever operates the stack, Cloudflare or the edge
@@ -156,14 +156,26 @@ zone's catch-all, which cannot ship):
 
 **Subaddressing is not in Pulumi.** `@pulumi/cloudflare` 6.23.1 exposes
 `supportSubaddress` only on `EmailRoutingSettings`, whose create calls the
-zone's Email Routing *enable* endpoint (which onboards the APEX, and fails
-beside Google Workspace's MX) without sending the field, whose update is a
-no-op, and whose delete disables Email Routing for the whole zone
-(terraform-provider-cloudflare `internal/services/email_routing_settings`,
-read 2026-11-03). `EmailRoutingDns` reports it but cannot set it. So it is a
-manual step, once per zone: dashboard → Email Routing → Settings →
-Subaddressing. The smoke tool's `cloudflare` command reads `support_subaddress`
-(gate G0).
+zone's Email Routing *enable* endpoint (`POST …/email/routing/enable`, no body:
+it onboards the APEX, and fails beside Google Workspace's MX) without sending
+the field, whose update is a no-op, and whose delete disables Email Routing for
+the whole zone (terraform-provider-cloudflare `internal/services/email_routing_settings`,
+read 2026-11-03, and again 2026-11-05 at the commit 6.23.1 bridges, `9b51a582`,
+with cloudflare-go v7.13.1). `EmailRoutingDns` reports it but cannot set it.
+The API that does set it is the zone's settings endpoint, `PATCH
+…/email/routing` with `{"support_subaddress": true}`, whose `enabled` field is a
+no-op; nothing in the provider calls it. So it is one call by a person, once
+per zone (the runbook's §7), not a dashboard visit, and `scripts/inbound-mail-smoke.ts
+g0` reads `support_subaddress` (gate G0). A Pulumi dynamic resource around that
+PATCH would make it code; it is not built, because the provider's own resource
+is the place for it and the call is made once.
+
+**Everything else is in Pulumi** (amended 2026-11-05): the RFC 2142 forwards
+`postmaster@` and `abuse@` to `inboundMailOperatorAddress` (an account-level
+destination address, kept on delete, live after Cloudflare's verification
+click), and the zone apex's DMARC record `inboundMailDmarc`, guarded so that a
+zone never holds two (`loadConfig`, `stack-files.spec.ts`, and the preview's
+read of the existing `_dmarc` records).
 
 **The one thing to verify before go-live** is that subaddressing applies to a
 subdomain's literal rule: Cloudflare documents subaddressing and subdomain
@@ -345,7 +357,8 @@ runbook, with the owner gates and the launch gates G0–G9:
 * Bad, because Cloudflare becomes a transit processor of project mail (a
   sub-processor row and a customer notice, gate O7).
 * Bad, because the address depends on subaddressing, a zone setting outside
-  Pulumi, whose effect on a subdomain's rule is proved only by gate G0.
+  Pulumi (one API call by a person), whose effect on a subdomain's rule is
+  proved only by gate G0.
 * Bad, because Workers Paid is a running cost, needed for the CPU time (Free
   allows 10 ms per invocation, which a large mail's copy and SHA-256 exceed;
   Workers limits, read 2026-10-27), and the CPU of buffering 25 MiB in a
@@ -370,9 +383,11 @@ runbook, with the owner gates and the launch gates G0–G9:
 - `deploy/pulumi/src/app/httproutes.spec.ts`: the signed route's header match,
   no rate limit, validated against the upstream CRD models.
 - `deploy/pulumi/src/config.spec.ts`: the domain refused without the scanner,
-  the zone rule, the local part's shape, the key map's shape.
+  the zone rule and the zone id's shape, the local part's shape, the key map's
+  shape, the operator mailbox, the DMARC record and its one writer per zone.
 - `deploy/pulumi/src/platform/inbound-mail.spec.ts`: routing on the subdomain,
-  the one literal rule `project@<domain>` → the Worker, no catch-all and no
+  the one literal rule `project@<domain>` → the Worker, the two RFC 2142
+  forwards, the DMARC record at the zone apex, no catch-all and no
   `EmailRoutingSettings`, the address bindings.
 - `contracts/inbound-address.json`, run by `address.spec.ts` and
   `inbound-mail-worker.spec.ts`: the grammar above, case by case.
