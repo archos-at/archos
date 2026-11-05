@@ -147,11 +147,11 @@ export function FolderBreadcrumbRow({
 
   return (
     <div
-      // On a phone the row PINS to the top of the list. It is the list's first
-      // child, so it used to scroll with the cards, and the moment the list
-      // overflowed the short screen under the fixed header a swipe left it
-      // half-hidden under the controls. Pinned, it is whole or gone, never cut.
-      className="flex shrink-0 items-center justify-between gap-2 border-b bg-card px-4 py-2.5 phone:sticky phone:top-0 phone:z-10 phone:bg-background phone:py-1.5"
+      // The row PINS to the top of the list, on the page's base surface so no
+      // card shows through. It is the list's first child and scrolled away with
+      // the cards, taking „Neuer Ordner" and the way up with it; on a phone it
+      // was left half-hidden under the controls. Pinned, it is whole, never cut.
+      className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b bg-background px-4 py-2.5 phone:py-1.5"
       data-testid="folder-breadcrumb-row"
     >
       <div className="flex min-w-0 items-center gap-2">

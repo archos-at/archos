@@ -108,7 +108,7 @@ const RowBody: FC<{ index: number; text: string }> = ({ index, text }) => {
           'min-w-0 text-pretty text-foreground',
           // NEVER truncated — a takeaway is the payload, and a German compound
           // that wraps to two lines is still the answer.
-          isFigure ? 'card-figure-15' : 'card-body',
+          isFigure ? 'card-figure-16' : 'card-body',
         )}
       >
         {text}

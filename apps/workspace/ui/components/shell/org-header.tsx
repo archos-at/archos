@@ -19,6 +19,7 @@ import { navCopy } from '@/i18n/namespaces/nav'
 import { TOUR_ANCHORS, type TourAnchor } from '@/lib/onboarding/product-tour'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { cn } from '@/lib/utils'
+import { BRAND_INSET_ORG, BRAND_ROW } from './brand-slot'
 import { ConnectionBand } from './connection-band'
 import { ShellSearchButton } from './shell-search-button'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
@@ -88,7 +89,7 @@ export function OrgHeader({
       data-scope="org"
       className="border-border bg-background flex w-full shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]"
     >
-      <div className="flex min-h-14 items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:pl-6 md:pr-6">
+      <div className={cn(BRAND_ROW, BRAND_INSET_ORG, 'justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:pr-6')}>
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href="/app/projects"

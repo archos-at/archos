@@ -18,8 +18,8 @@ export function ComposerField({ controller }: { controller: InputAreaController 
         // 16px on a coarse pointer keeps iOS Safari from zooming the page
         // when the composer gains focus; a mouse gets the body ramp step. The
         // pointer axis, not `md:` — see the note in `ui/input.tsx`.
-        // The composer CARD signals focus with its focus-within ring (see the
-        // card class above), so the textarea shows no ring/border/outline of
+        // The composer CARD signals focus with its border turning ink
+        // (`FIELD_FOCUS_WITHIN_RING` in InputArea), so the textarea shows no ring/border/outline of
         // its own. `outline-hidden!` beats the app's global :focus-visible
         // outline (globals.css, unlayered) with an important utility — otherwise
         // focus is drawn twice: a nested box inside the card's ring.

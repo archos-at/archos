@@ -67,12 +67,25 @@ Line 3`
 
   // ── Solo threads must not change at all (spec CC-4, NF-8) ────────────────────
   describe('without an author (solo thread)', () => {
-    test('renders the unattributed "Eingabe" bubble, with no authorship anywhere', () => {
+    test('renders the unattributed bubble, with no authorship anywhere', () => {
       render(<UserMessage content="Hello" timestamp={new Date('2026-07-29T09:05:00Z')} />)
 
-      expect(screen.getByText(/input/i)).toBeInTheDocument()
       expect(screen.queryByTestId('message-author')).not.toBeInTheDocument()
       expect(screen.queryByTestId('message-author-initials')).not.toBeInTheDocument()
+    })
+  })
+
+  // Notion #38, topic 9: the bubble's side and notch say whose turn it is, so
+  // no "Eingabe" tab repeats it on screen; a screen reader, which has neither,
+  // still hears it.
+  describe('the role mark', () => {
+    test('is not drawn over the bubble, only named for a screen reader', () => {
+      render(<UserMessage content="Hello" />)
+
+      const name = screen.getByText('Input')
+      expect(name).toHaveClass('sr-only')
+      expect(name.closest('.rounded-bubble')).not.toBeNull()
+      expect(document.querySelector('.card-eyebrow')).toBeNull()
     })
   })
 

@@ -197,6 +197,17 @@ interface FilePreviewState {
   handoff: boolean
   peekWidth: number
   context: FilePreviewContext
+  /** The peek shows the document's details (the ⓘ in its toolbar) where the document was; off for every file opened. */
+  peekDetails: boolean
+  setPeekDetails: (open: boolean) => void
+  /**
+   * What full screen does from the peek, when the pane has something better than
+   * enlarging itself: the Prüfansicht of a PDF that carries Anmerkungen, which is
+   * the full-screen state of a document. The pane sets it while it is the peek and
+   * the review is possible; null leaves the enlarged pane (`expand`).
+   */
+  peekFullScreen: (() => void) | null
+  setPeekFullScreen: (fullScreen: (() => void) | null) => void
   open: (file: FileItem, mode: FilePreviewMode, context?: FilePreviewContext) => void
   peek: () => void
   expand: () => void
@@ -224,6 +235,10 @@ export const useFilePreviewStore = create<FilePreviewState>((set, get) => ({
   handoff: false,
   peekWidth: FILE_PEEK_WIDTH_DEFAULT,
   context: {},
+  peekDetails: false,
+  setPeekDetails: (peekDetails) => set({ peekDetails }),
+  peekFullScreen: null,
+  setPeekFullScreen: (peekFullScreen) => set({ peekFullScreen }),
 
   open: (file, mode, context) =>
     set({
@@ -232,6 +247,7 @@ export const useFilePreviewStore = create<FilePreviewState>((set, get) => ({
       hidden: false,
       // A place asked of another document, or of an earlier opening, is not this one's.
       viewerTarget: null,
+      peekDetails: false,
       context: { ...get().context, ...context },
     }),
 

@@ -139,16 +139,14 @@ export function AddresseeIndicator({
         // make (ADR-0036 decision 6) and it is not the part that may be abbreviated.
         // Wrapping puts the offer on its own line instead, where it costs nothing.
         'inline-flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground',
-        // Placement belongs HERE, not at each call site. In the composer's
-        // wrapping chip row this element sat inline when its label was short
-        // ("Geht an Piloti") and wrapped when it was long ("Geht an Anna Berger,
-        // Tobias Kern"), so it moved between states, the row height jumped, and on
-        // a narrow viewport the send button was orphaned on a line of its own. A
-        // statement about who receives the message must not change position with
-        // the length of a recipient's name. `order-last basis-full` pins it to its
-        // own line beneath the row — and owning it here means the dev preview,
-        // which builds its own composer facsimile, cannot drift from the real one.
-        'order-last basis-full pt-0.5',
+        // Placement belongs HERE, not at each call site, so the dev preview's
+        // composer facsimile cannot drift from the real one. A STATEMENT takes
+        // its own line beneath the row (`order-last basis-full`): inline, it moved
+        // with the length of a recipient's name and orphaned Send on a narrow
+        // composer. The bare OFFER is no statement, so it stands at the START of
+        // the action row (`order-1`) instead of costing the composer a line of
+        // its own (ticket #38, R2).
+        label ? 'order-last basis-full pt-0.5' : 'order-1',
         className,
       )}
     >
@@ -178,6 +176,7 @@ export function AddresseeIndicator({
           // with somebody tagged) a shared id made "no hint is showing" quietly
           // unassertable — a query for one matched the other.
           data-testid="composer-mention-offer"
+          title={t('mentions.addressee.mentionSomeone')}
           onClick={onMentionSomeone}
           className={cn(
             'inline-flex shrink-0 items-center gap-1 rounded px-1 text-xs touch-target',
@@ -193,7 +192,10 @@ export function AddresseeIndicator({
               underline and the `@` glyph already mark this as a separate control,
               so the dot was carrying no meaning the reader was missing. */}
           <AtSign className="size-3.5 shrink-0" aria-hidden />
-          {t('mentions.addressee.mentionSomeone')}
+          {/* Folds to the `@` where the composer card is under 28rem (a phone), so
+              the offer shares the row with the actions; the name stays for the
+              screen reader, and the title for a pointer. */}
+          <span className="sr-only @md:not-sr-only">{t('mentions.addressee.mentionSomeone')}</span>
         </button>
       )}
     </p>
