@@ -646,6 +646,9 @@ export const EXPOSURE = {
     piloti: false,
     withheld: { category: 'product-config', reason: 'whether model providers may keep data; a product privacy setting a person decides' },
   },
+  // What changed in the product (ADR-0154): read-only product news, the same for every office. Offered: an
+  // outside agent asked "can it do X now?" and the in-product agent asked "what's new?" both answer from it.
+  'release-note-list': OFFERED,
 
   // platform
   'platform-answer-feedback-digest-get': PLATFORM,

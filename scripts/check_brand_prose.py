@@ -140,6 +140,7 @@ HISTORY_PATHS = re.compile(
             r"^tests/\.test_durations$|^\.github/filters\.yml$",  # test timings and CI filters: paths, not prose
             r"^apps/website/redirects\.mjs$",  # old public addresses, kept in the spelling they were published under
             r"^apps/website/src/data/changelog\.json$",  # generated from releasenotes/, linted there
+            r"^apps/workspace/bff/release-notes/release-notes\.generated\.json$",  # the same, the app's copy
         )
     )
 )
