@@ -5,6 +5,7 @@ import { PencilLine, Plus, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { SectionLabel } from '@/components/ui/section-label'
 
 import { answerKeyFor, buildingNumber, buildingTag } from '@/lib/project-profile/intake-building-keys'
 import { evaluateIntakeCondition } from '@/lib/project-profile/intake-conditions'
@@ -154,9 +155,9 @@ export function BuildingStage({
                 return (
                   <div key={answerKey} className={heading ? 'space-y-6 pt-2' : undefined}>
                     {heading && (
-                      <h3 className="text-muted-foreground border-b pb-2 text-xs font-medium uppercase tracking-wide">
+                      <SectionLabel as="h3" className="border-b pb-2">
                         {heading}
-                      </h3>
+                      </SectionLabel>
                     )}
                     <QuestionField
                       question={q}
@@ -242,7 +243,7 @@ export function ZoneBlocks({
           // hairline closes it; the „Zone" eyebrow names it. No left accent:
           // side stripes are discouraged (the design-language doc).
           <div key={use} className="bg-muted rounded-surface border px-4 py-4">
-            <p className="text-primary mb-3 font-mono text-[11px] uppercase tracking-wider">
+            <p className="card-eyebrow text-primary mb-3 font-mono">
               Zone · {label}
             </p>
             <div className="space-y-5">

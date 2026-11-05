@@ -33,6 +33,7 @@ import type { JSX } from 'react'
 import { KeyRound } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { SectionLabel } from '@/components/ui/section-label'
 import {
   Table,
   TableBody,
@@ -100,9 +101,7 @@ export function PermissionReference({
             className="flex flex-col gap-2"
             data-testid={`permission-tier-${tier}`}
           >
-            <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
-              {t(`access.tiers.${tier}`)}
-            </h3>
+            <SectionLabel as="h3">{t(`access.tiers.${tier}`)}</SectionLabel>
 
             {/* From `sm` a two-column table. On a phone each row stacks (the
                 permission, then who grants it) and the header row steps out of

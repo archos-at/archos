@@ -1,6 +1,6 @@
 /**
  * What changed in the product: the customer tier of the release notes, a page of weeks at a time,
- * optionally narrowed to one product area (ADR-0154). The same for every office.
+ * optionally narrowed to one product area (ADR-0156). The same for every office.
  *
  * GET — any signed-in member. The notes are product news, the same for every organization, and
  *       carry no tenant data; they are behind sign-in only because the public tier is the weekly

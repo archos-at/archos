@@ -58,7 +58,8 @@ export interface ManagedDns {
  *
  * `langfuseDomain` appears only when its tier is actually deployed, mirroring
  * the conditional `https-langfuse` listener, and `qdrantDashboardDomain` only
- * when `qdrantDashboardEnabled` adds `https-qdrant`: a record for a host with no listener resolves, answers with the
+ * when `qdrantDashboardEnabled` adds `https-qdrant` (`mcpGatewayDomain` likewise
+ * with `https-platform-mcp`): a record for a host with no listener resolves, answers with the
  * wrong certificate, and reads as a broken deployment rather than a disabled
  * feature.
  *
@@ -74,6 +75,7 @@ export function managedHosts(args: {
   qdrantDashboardDomain?: string;
   /** The CMS (ADR-0155), when `cmsEnabled` adds `https-cms`. */
   cmsDomain?: string;
+  mcpGatewayDomain?: string;
 }): string[] {
   return [
     args.webDomain,
@@ -82,6 +84,7 @@ export function managedHosts(args: {
     ...(args.langfuseDomain !== undefined ? [args.langfuseDomain] : []),
     ...(args.qdrantDashboardDomain !== undefined ? [args.qdrantDashboardDomain] : []),
     ...(args.cmsDomain !== undefined ? [args.cmsDomain] : []),
+    ...(args.mcpGatewayDomain !== undefined ? [args.mcpGatewayDomain] : []),
   ];
 }
 

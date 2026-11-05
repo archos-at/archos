@@ -460,8 +460,9 @@ export function DocumentKindThumbnail({
           <ImageIcon className="size-[26px] opacity-45" aria-hidden />
           {formatLabel && (
             <span
-              // The eyebrow ramp step (10.5px / uppercase / tracking-wider),
-              // rendered as a tinted chip rather than a bare label.
+              // The eyebrow ramp step's 10.5px, rendered as a tinted chip.
+              // Capitals and tracking because the label is a file-format code
+              // (PDF, DWG), not because the eyebrow is set in capitals.
               className="inline-flex items-center rounded-control px-2 py-[3px] text-[10.5px] font-medium uppercase leading-none tracking-wider"
               style={OFFICE_TINT}
             >

@@ -1,6 +1,6 @@
 name: Release notes
 
-# Publishes the reno notes to their two readers (ADR-0154):
+# Publishes the reno notes to their two readers (ADR-0156):
 #
 #   * the app's "What's new" (apps/workspace), every customer note, for
 #     signed-in members: apps/workspace/bff/release-notes/release-notes.generated.json;

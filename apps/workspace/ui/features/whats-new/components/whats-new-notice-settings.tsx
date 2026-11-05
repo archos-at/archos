@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * The person's switch for the weekly "Neu diese Woche" notice, on the profile page (ADR-0154,
+ * The person's switch for the weekly "Neu diese Woche" notice, on the profile page (ADR-0156,
  * amendment). "Nicht mehr anzeigen" on the notice turns it off; this turns it back on, and the
  * notice resumes with the next week published. The "Neuerungen" page stays in the user menu
  * either way. Stored per person on the server (`release_summary_notice`), so it holds on every

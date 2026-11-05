@@ -364,6 +364,11 @@ All keys live under the `grid-oib:` namespace. **Bold** = required (no default).
 | `cmsPgInstances` / `cmsPgStorageSize` | `1` / `5Gi` | `cms-pg`'s instances and volume |
 | 🔒 `cmsSecret` / `cmsAdminPassword` / `cmsPgPassword` / `cmsS3SecretKey` / `cmsWebsiteApiKey` / `cmsSocialHandoffApiKey` / `cmsRevalidateToken` / `cmsPreviewSecret` | HMACs of `pgAppPassword` | Each defaults to its own one-way HMAC, so the CMS needs no new secret; set one to rotate it alone. `cmsAdminEmail` defaults to `letsEncryptEmail` |
 | `cmsPgBackupsEnabled` / `cmsPgBackupEndpoint` / `cmsPgBackupAccessKey` / 🔒 `cmsPgBackupSecretKey` / `cmsPgBackupBucket` / `cmsPgBackupRetention` / `cmsPgBackupSchedule` / `cmsPgBackupEncryption` | `false` / — / — / — / `cms-pg-backups` / `30d` / `0 15 2 * * *` / unset | `cms-pg`'s PITR archive, to object storage outside the cluster, as the `backgroundWorkPg*` keys. Turn it on before the first post is written there |
+| **Platform MCP gateway** (ADR-0154): agentgateway behind Envoy, where platform staff's agents reach in-cluster MCP servers signed in with WorkOS. Runbook: [`docs/deployment/platform-mcp-gateway.md`](../../docs/deployment/platform-mcp-gateway.md) | | |
+| `mcpGatewayEnabled` | `false` | The `https-platform-mcp` listener (certificate `platform-mcp-tls`), its DNS record under `dnsEnabled`, the `platform-mcp-gateway` HTTPRoute, Deployment (2 replicas), Service, ConfigMap and session Secret, and the `allow-edge-to-platform-mcp-gateway` and `allow-platform-mcp-gateway-to-langfuse` NetworkPolicies. Off, none of these exist. On, it needs `workosAuthkitDomain`, Langfuse, and the two keys below, or the plan fails naming the missing one |
+| `mcpGatewayDomain` | `platform-mcp.<baseDomain>` | Its public host. Must stay under the WorkOS resource indicator `https://<host>/*` |
+| `mcpGatewayPlatformOrgId` | — | WorkOS id (`org_…`) of the platform organization: a token with any other `org_id` gets 403. Not `platformOrgExternalId` |
+| 🔒 `mcpGatewaySessionKey` | — | 64 hex characters (`openssl rand -hex 32`). agentgateway encrypts MCP session ids with it, and both replicas share it. Rotating it ends open sessions; clients reconnect |
 
 ## Validation (no target cluster required)
 

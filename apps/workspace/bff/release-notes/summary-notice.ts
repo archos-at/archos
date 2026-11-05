@@ -1,5 +1,5 @@
 /**
- * The "Neu diese Woche" notice (ADR-0154, amendment): the newest weekly summary, shown to a
+ * The "Neu diese Woche" notice (ADR-0156, amendment): the newest weekly summary, shown to a
  * signed-in person once, until a newer week's summary is published.
  *
  * Only a week with a summary counts, and only the newest one: a person back from three weeks

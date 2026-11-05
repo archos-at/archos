@@ -51,7 +51,7 @@ const SOURCE: ReleaseNoteArtifact = {
 
 const ON = { lastSeenWeek: null, enabled: true }
 
-describe('the weekly summary notice (ADR-0154, amendment)', () => {
+describe('the weekly summary notice (ADR-0156, amendment)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(releaseNoteArtifact).mockReturnValue(SOURCE)

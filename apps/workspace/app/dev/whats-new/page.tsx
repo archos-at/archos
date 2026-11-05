@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Dev preview for What's new (`/app/whats-new`, ADR-0154). Not linked anywhere and 404s outside
+ * Dev preview for What's new (`/app/whats-new`, ADR-0156). Not linked anywhere and 404s outside
  * development. Shows two weeks from the fixture: the area filter with its counts, a week without a
  * summary (the current one), a summarised week, the sections, and the fixes folded. `?area=documents`
  * shows the filtered form, with the area chips dropped from the rows. `?notice=1` adds the

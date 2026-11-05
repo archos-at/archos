@@ -2926,6 +2926,14 @@ There is no ingestion path locally: no collector runs, and the backend's OTLP
 exporter is gated off in compose by design (§9, ADR-0029). The profile is for
 developing against the Langfuse UI and API, not for reproducing ingestion.
 
+## 9c. The platform MCP gateway (ADR-0154)
+
+`mcpGatewayEnabled`, off by default: agentgateway on `platform-mcp.<baseDomain>`,
+where platform staff's agents reach Langfuse's MCP server (and the in-cluster
+servers that follow) signed in with WorkOS, without any of them getting a public
+host. WorkOS setup, the stack keys, connecting a client and the first-deploy
+checks: [`platform-mcp-gateway.md`](platform-mcp-gateway.md).
+
 ## 10. Out of scope (deliberate follow-ups)
 
 - **Capping the job SSE streams.** Each open stream holds one direct `LISTEN`

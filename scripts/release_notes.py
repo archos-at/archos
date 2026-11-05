@@ -12,7 +12,7 @@ The pipeline this file implements
    note is attributed to the release it actually shipped in, from git history
    rather than from whatever the file claims; translates the new English
    strings into German once; and writes two artifacts, one per reader
-   (ADR-0154):
+   (ADR-0156):
 
    * ``apps/website/src/data/changelog.json``, the **public** tier: the weekly
      summaries from ``releasenotes/summaries.yaml``, and nothing else;

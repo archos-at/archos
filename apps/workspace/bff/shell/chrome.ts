@@ -43,7 +43,7 @@ export interface ShellChrome {
   authRequired: boolean
   /** Which product tours start by themselves for this reader (a joiner's first visit). */
   tours: TourEligibility
-  /** The newest weekly summary the reader has not seen, for the "Neu diese Woche" notice (ADR-0154). */
+  /** The newest weekly summary the reader has not seen, for the "Neu diese Woche" notice (ADR-0156). */
   whatsNew: WhatsNewNoticeState | null
 }
 
@@ -136,7 +136,7 @@ export async function resolveShellChrome(): Promise<ShellChrome> {
   // No organization, no tour and no notice: the break-glass platform owner (ADR-0016) reaches
   // this frame with zero memberships and has nothing to be shown.
   const tours = session.organizationId ? await resolveTourEligibility(session as AuthorizedSession) : NO_TOURS
-  // The notice reads the tours: someone a tour is about to greet is not shown it (ADR-0154).
+  // The notice reads the tours: someone a tour is about to greet is not shown it (ADR-0156).
   const whatsNew = session.organizationId ? await resolveWhatsNewNotice(session as AuthorizedSession, tours) : null
 
   return {

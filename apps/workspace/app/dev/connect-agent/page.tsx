@@ -13,11 +13,12 @@ import { I18nProvider } from '@/i18n'
 import { ConnectAgentCard } from '@/features/agent-connect/components'
 import { CONNECT_AGENT_FIXTURES } from '@/features/agent-connect/components/fixtures'
 import { CONNECT_AGENT_GUIDE_URL } from '@/features/agent-connect/lib/guide'
+import { SectionLabel } from '@/components/ui/section-label'
 
 function Section({ title, children }: { title: string; children: ReactNode }): JSX.Element {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{title}</h2>
+      <SectionLabel as="h2">{title}</SectionLabel>
       {children}
     </section>
   )

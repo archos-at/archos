@@ -1,6 +1,6 @@
 """Release notes: from the notes reno reads to the two artifacts the readers get.
 
-Three tiers, one source (ADR-0154, docs/contributing/release-notes.md):
+Three tiers, one source (ADR-0156, docs/contributing/release-notes.md):
 
 * **public**, the website's /changelog/: one editorial summary per week
   (releasenotes/summaries.yaml) and nothing else. No per-note line reaches the

@@ -111,7 +111,7 @@ type PostHogProperties = Record<string, string | number | boolean | null | undef
  *
  * `whats_new_shown`, `whats_new_dismissed`, `whats_new_opened`, `whats_new_opted_out` and
  * `whats_new_opted_in` are the weekly "Neu diese Woche" notice's (`features/whats-new`,
- * ADR-0154): the week it showed, how it was closed, and the person's switch for it.
+ * ADR-0156): the week it showed, how it was closed, and the person's switch for it.
  *
  * Properties are non-identifying by rule: enums, counts, booleans, ids of our
  * own rows. Never free text, never file names, never an address.

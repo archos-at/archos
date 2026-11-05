@@ -14,6 +14,7 @@ import { BackLink, ShellContent } from '@/components/shell'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { PageHeader } from '@/components/ui/page-header'
+import { SectionLabel } from '@/components/ui/section-label'
 import { getTranslations } from '@/i18n/server'
 import type { Translator } from '@/i18n'
 import { profileCopy } from '@/i18n/namespaces/profile'
@@ -75,7 +76,7 @@ export default async function ProfilePage(): Promise<JSX.Element> {
     const displayName = session.name || session.email || t('account.noName')
     const initial = String(displayName).charAt(0).toUpperCase()
 
-    // The weekly notice's switch (ADR-0154, amendment). A failed read shows it on, the default.
+    // The weekly notice's switch (ADR-0156, amendment). A failed read shows it on, the default.
     const releaseNoticeEnabled = session.organizationId
       ? await getReleaseNoticePreference(session).then(
           (preference) => preference.enabled,
@@ -125,21 +126,21 @@ export default async function ProfilePage(): Promise<JSX.Element> {
 
               <dl className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+                  <SectionLabel as="dt">
                     {t('account.name')}
-                  </dt>
+                  </SectionLabel>
                   <dd className="mt-1 text-sm">{session.name || t('account.noName')}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+                  <SectionLabel as="dt">
                     {t('account.email')}
-                  </dt>
+                  </SectionLabel>
                   <dd className="mt-1 truncate text-sm">{session.email || t('account.noName')}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+                  <SectionLabel as="dt">
                     {t('account.organization')}
-                  </dt>
+                  </SectionLabel>
                   <dd className="mt-1 flex items-center gap-1.5 text-sm">
                     <Building2 className="text-muted-foreground size-3.5" aria-hidden />
                     <span className="truncate" title={session.organizationId ?? undefined}>
@@ -149,9 +150,9 @@ export default async function ProfilePage(): Promise<JSX.Element> {
                 </div>
                 {session.role && (
                   <div>
-                    <dt className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+                    <SectionLabel as="dt">
                       {t('account.role')}
-                    </dt>
+                    </SectionLabel>
                     <dd className="mt-1 text-sm" title={session.role}>
                       {roleLabel(session.role, t)}
                     </dd>

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Shared chrome for every project section except Ask Piloti.
+ * Shared chrome for every project section except Chat.
  *
  * Chat owns its own header. Every other project page used to invent one
  * (PageHeader vs a hand-rolled h1 vs a compact bar). The title, subtitle,

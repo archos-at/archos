@@ -31,7 +31,7 @@ const SOURCE: ReleaseNoteArtifact = {
   ],
 }
 
-describe('release notes for members (ADR-0154)', () => {
+describe('release notes for members (ADR-0156)', () => {
   it('pages the weeks by cursor, newest first, and counts every area across all of them', () => {
     const first = listReleaseNotes({}, SOURCE)
     expect(first.weeks.map((w) => w.id)).toEqual(['2026-W45', '2026-W40', '2026-W39', '2026-W38'])

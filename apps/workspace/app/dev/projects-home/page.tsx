@@ -12,6 +12,9 @@
  * lifecycle in (ADR-0098): the hotel paused, the Turnsaal not realized, two
  * more closed; the list opens on „Aktiv" and offers Ruhend and Abgeschlossen.
  *
+ * Each project's second line is its Standort (`site_address`); the
+ * Kindergarten and the Turnsaal have none, so their tiles show no second line.
+ *
  * Fixture data only, no backend. The `/dev` layout 404s this outside development.
  */
 
@@ -27,7 +30,21 @@ import type { Project } from '@/lib/db/schema/projects'
 // into "2 years ago" a year from now.
 const minutesAgo = (minutes: number): Date => new Date(Date.now() - minutes * 60_000)
 
-function makeProject(id: string, name: string, summary: string | null, createdMinutesAgo: number): Project {
+/** The Standort as the intake writes it: the profile fact `site_address`, confirmed. */
+function siteAddressProfile(address: string | null, at: Date): Project['profile'] {
+  const facts: Project['profile']['facts'] = address
+    ? { site_address: { value: address, confidence: 'confirmed', source: 'onboarding', updatedAt: at.toISOString() } }
+    : {}
+  return { facts, goals: {}, unknowns: [], assumptions: {} }
+}
+
+function makeProject(
+  id: string,
+  name: string,
+  summary: string | null,
+  createdMinutesAgo: number,
+  address: string | null = null,
+): Project {
   return {
     id,
     organizationId: 'org_1',
@@ -35,7 +52,7 @@ function makeProject(id: string, name: string, summary: string | null, createdMi
     createdBy: 'user_me',
     collectionName: `proj_${id}`,
     workosResourceId: null,
-    profile: { facts: {}, goals: {}, unknowns: [], assumptions: {} },
+    profile: siteAddressProfile(address, minutesAgo(createdMinutesAgo)),
     profileVersion: 1,
     profilePromptView: null,
     profileDisplay: summary ? { title: name, summary, keyFacts: [], missingInfo: [] } : null,
@@ -53,15 +70,15 @@ function makeProject(id: string, name: string, summary: string | null, createdMi
 }
 
 const PROJECTS: Project[] = [
-  makeProject('p1', 'Wohnbau Seestadt Baufeld D12', 'Wohnbau · 214 Wohneinheiten · GK 5 · Wien', 40),
-  makeProject('p2', 'Sanierung Volksschule Grinzing', 'Bildungsbau · Bestandssanierung · Wien', 60 * 26),
-  makeProject('p3', 'Bürohaus Lände 3', 'Büro- und Geschäftsgebäude · GK 5 · Wien', 60 * 50),
-  makeProject('p4', 'Hotel Semmering — Neubau Gästetrakt', 'Beherbergung · GK 4 · Niederösterreich', 60 * 72),
+  makeProject('p1', 'Wohnbau Seestadt Baufeld D12', 'Wohnbau · 214 Wohneinheiten · GK 5 · Wien', 40, 'Janis-Joplin-Promenade 12, 1220 Wien'),
+  makeProject('p2', 'Sanierung Volksschule Grinzing', 'Bildungsbau · Bestandssanierung · Wien', 60 * 26, 'Managettagasse 1, 1190 Wien'),
+  makeProject('p3', 'Bürohaus Lände 3', 'Büro- und Geschäftsgebäude · GK 5 · Wien', 60 * 50, 'Erdberger Lände 3, 1030 Wien'),
+  makeProject('p4', 'Hotel Semmering — Neubau Gästetrakt', 'Beherbergung · GK 4 · Niederösterreich', 60 * 72, 'Hochstraße 267, 2680 Semmering'),
   makeProject('p5', 'Kindergarten Floridsdorf', 'Bildungsbau · GK 2 · Wien', 60 * 96),
   makeProject('p6', 'Turnsaal-Zubau BG Wien 19', null, 60 * 24 * 7),
-  makeProject('p7', 'Wohnhausanlage Linz-Urfahr', 'Wohnbau · 96 Wohneinheiten · GK 5 · Oberösterreich', 60 * 24 * 14),
-  makeProject('p8', 'Betriebsgebäude Graz-Süd', 'Gewerbe- und Lagergebäude · GK 4 · Steiermark', 60 * 24 * 21),
-  makeProject('p9', 'Pfarrzentrum Klosterneuburg', 'Versammlungsstätte · GK 3 · Niederösterreich', 60 * 24 * 40),
+  makeProject('p7', 'Wohnhausanlage Linz-Urfahr', 'Wohnbau · 96 Wohneinheiten · GK 5 · Oberösterreich', 60 * 24 * 14, 'Hauptstraße 40, 4040 Linz'),
+  makeProject('p8', 'Betriebsgebäude Graz-Süd', 'Gewerbe- und Lagergebäude · GK 4 · Steiermark', 60 * 24 * 21, 'Puchstraße 85, 8020 Graz'),
+  makeProject('p9', 'Pfarrzentrum Klosterneuburg', 'Versammlungsstätte · GK 3 · Niederösterreich', 60 * 24 * 40, 'Stiftsplatz 1, 3400 Klosterneuburg'),
 ]
 
 const DOC_COUNTS: Record<string, number> = {

@@ -1,5 +1,5 @@
 /**
- * The newest weekly release-notes summary this person has not seen yet (ADR-0154, amendment):
+ * The newest weekly release-notes summary this person has not seen yet (ADR-0156, amendment):
  * what the "Neu diese Woche" notice shows. `{ summary: null }` once they have seen it, or when the
  * newest week has no summary.
  *

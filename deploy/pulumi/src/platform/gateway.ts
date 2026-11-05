@@ -13,6 +13,7 @@ import { DeployConfig } from '../config'
 import { commonLabels } from "./namespaces";
 import { EDGE_SHUTDOWN, SURGE_ONLY_STRATEGY } from "./rollout";
 import { EDGE_RATE_LIMIT, EDGE_TIMEOUT, LANGFUSE, PLATFORM_RESOURCES, QDRANT } from "../constants";
+import { MCP_GATEWAY } from "./mcp-gateway-config";
 import { logicalName, objectName } from "../names";
 import { formerDomainListener, formerDomainRedirects } from "../app/former-domain";
 import { CMS } from "../config/cms";
@@ -311,6 +312,21 @@ export function installGatewayResources(
       ]
     : [];
 
+  // The platform MCP gateway (`mcpGatewayEnabled`, off by default, ADR-0154),
+  // absent when off for the same reason.
+  const mcpGatewayListeners: IGatewaySpec["listeners"] = cfg.mcpGateway.enabled
+    ? [
+        {
+          name: MCP_GATEWAY.listenerName,
+          port: 443,
+          protocol: "HTTPS",
+          hostname: cfg.mcpGateway.domain,
+          tls: { mode: "Terminate", certificateRefs: [{ name: MCP_GATEWAY.tlsSecret }] },
+          allowedRoutes: { namespaces: { from: "Same" } },
+        },
+      ]
+    : [];
+
   const gatewaySpec: IGatewaySpec = {
     gatewayClassName: GATEWAY_CLASS,
     // Attach the HA proxy-infrastructure config above.
@@ -357,6 +373,8 @@ export function installGatewayResources(
       ...qdrantListeners,
       // The CMS — only when `cmsEnabled`.
       ...cmsListeners,
+      // The platform MCP gateway — only when `mcpGatewayEnabled`.
+      ...mcpGatewayListeners,
       // The former domain's hosts during a domain move — only when `formerBaseDomain` is set.
       ...formerDomainRedirects(cfg.ingress).map(formerDomainListener),
     ],

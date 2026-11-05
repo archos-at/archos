@@ -2,7 +2,7 @@
 
 Every change a customer can notice ships with a release note, in the same pull
 request that makes the change. Three tiers read them
-([ADR-0154](../adr/0154-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md)):
+([ADR-0156](../adr/0156-release-notes-have-three-tiers-and-the-public-page-shows-the-weekly-summary.md)):
 
 | Tier | Where | What it shows |
 |---|---|---|
@@ -282,7 +282,7 @@ its link or choose „Nicht mehr anzeigen“; then never again for that week, on
 any device (`user_preferences.last_seen_release_week`). A week without a summary
 shows nothing, which is one more reason to write it. Someone new to the product,
 whom a tour is about to greet, is not shown it. The person turns it back on
-under Profil. The rules: ADR-0154, "Amendment".
+under Profil. The rules: ADR-0156, "Amendment".
 
 ## What happens on merge
 
