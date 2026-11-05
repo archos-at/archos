@@ -51,6 +51,24 @@ export function safeHref(url: unknown): string | undefined {
   }
 }
 
+/**
+ * A link's marks that every text inside it carries, taken outside it, as Markdown
+ * nests them: `**[Produkt](/p/)**` is `<strong><a>`, while Lexical keeps the bold
+ * on the text inside the link. Returns the marks for outside and the children
+ * without them.
+ */
+export function hoistLinkMarks(link: LexicalNode): { outer: ReturnType<typeof textMarks>; children: LexicalNode[] } {
+  const children = link.children ?? [];
+  const texts = children.filter((c) => c.type === 'text');
+  if (texts.length === 0 || texts.length !== children.length) return { outer: [], children };
+  const shared = texts.reduce((bits, t) => bits & (typeof t.format === 'number' ? t.format : 0), ~0) & ~FORMAT.code;
+  if (shared === 0) return { outer: [], children };
+  return {
+    outer: textMarks(shared),
+    children: texts.map((t) => ({ ...t, format: (t.format as number) & ~shared })),
+  };
+}
+
 /** The plain text of a node and everything below it. */
 export function plainText(node: LexicalNode): string {
   if (node.type === 'text') return typeof node.text === 'string' ? node.text : '';

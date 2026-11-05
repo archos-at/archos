@@ -72,7 +72,7 @@ export interface AxisLabel {
 export interface ChartModel {
   form: ChartBlock['form'];
   stacked: boolean;
-  grid: Tick[];
+  ticks: Tick[];
   bars: Bar[];
   lines: { slot: number; path: string }[];
   dots: (Placed & { slot: number })[];
@@ -173,8 +173,8 @@ export function chartModel(chart: ChartBlock, locale: ChartLocale): ChartModel {
     // The unit rides on the top tick only, as a reader reads the axis from there.
     return i === scale.values.length - 1 && unit && !chart.axisLabel ? formatValue(v, scale.decimals, unit, locale) : text;
   });
-  const grid: Tick[] = scale.values.map((value, i) => ({ value, top: round(scale.toTop(value)), label: tickLabels[i], zero: value === 0 }));
-  const base = { form: chart.form, stacked, grid, tickChars: Math.max(...tickLabels.map((t) => t.length)), endChars: 0 };
+  const ticks: Tick[] = scale.values.map((value, i) => ({ value, top: round(scale.toTop(value)), label: tickLabels[i], zero: value === 0 }));
+  const base = { form: chart.form, stacked, ticks, tickChars: Math.max(...tickLabels.map((t) => t.length)), endChars: 0 };
   const legend = series.length > 1 ? series.map((s, i) => ({ name: s.name, slot: i + 1 })) : [];
   const table = {
     head: series.map((s) => s.name),

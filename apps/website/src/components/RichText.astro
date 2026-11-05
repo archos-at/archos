@@ -15,7 +15,7 @@ import MarkedText from './MarkedText.astro';
 import PostBlock from './PostBlock.astro';
 import type { Locale } from '../i18n/paths';
 import { INLINE_BLOCK_PROPS } from '../lib/post-blocks';
-import { headingTag, safeHref, textMarks, type LexicalNode } from '../lib/rich-text';
+import { headingTag, hoistLinkMarks, safeHref, textMarks, type LexicalNode } from '../lib/rich-text';
 
 interface Props {
   locale: Locale;
@@ -64,11 +64,16 @@ const abbreviation = (node: LexicalNode) =>
         const fields = fieldsOf(node);
         const href = safeHref(fields.url);
         if (!href) return <Astro.self locale={locale} nodes={children} ids={ids} />;
-        return fields.newTab === true ? (
-          <a href={href} target="_blank" rel="noopener noreferrer"><Astro.self locale={locale} nodes={children} ids={ids} /></a>
-        ) : (
-          <a href={href}><Astro.self locale={locale} nodes={children} ids={ids} /></a>
-        );
+        const { outer, children: inner } = hoistLinkMarks(node);
+        const [Outer, ...rest] = outer;
+        const link =
+          fields.newTab === true ? (
+            <a href={href} target="_blank" rel="noopener noreferrer"><Astro.self locale={locale} nodes={inner} ids={ids} /></a>
+          ) : (
+            <a href={href}><Astro.self locale={locale} nodes={inner} ids={ids} /></a>
+          );
+        // Marks shared by the whole link wrap it, as Markdown nests them (`**[a](b)**`).
+        return Outer ? <Outer>{rest.reduceRight((acc, Mark) => <Mark>{acc}</Mark>, link)}</Outer> : link;
       }
       case 'list': {
         const Tag = node.listType === 'number' ? 'ol' : 'ul';

@@ -89,7 +89,7 @@ describe('chartModel', () => {
     expect(model.bars[0].y + model.bars[0].h).toBe(PLOT_HEIGHT);
     expect(model.values.map((v) => v.text)).toEqual(['14', '9', '6']);
     expect(model.legend).toEqual([]);
-    expect(model.grid.at(-1)?.label).toBe('15');
+    expect(model.ticks.at(-1)?.label).toBe('15');
   });
 
   test('the unit rides on the top tick unless the axis has a label', () => {
@@ -121,7 +121,7 @@ describe('chartModel', () => {
 
   test('a negative bar hangs from zero and its value sits below it', () => {
     const model = chartModel(bar({ series: [{ name: 'Δ', values: [3, -2, 1] }] }), 'de');
-    const zero = model.grid.find((t) => t.zero)!;
+    const zero = model.ticks.find((t) => t.zero)!;
     expect(model.bars[1].y).toBeCloseTo(zero.top, 5);
     expect(model.values[1].below).toBe(true);
     expect(model.values[1].text).toBe('−2');

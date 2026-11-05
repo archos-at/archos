@@ -49,11 +49,11 @@ const model = chartModel(chart, locale);
 
   <div class="ui-chart-body" data-form={chart.form} style={`--tick-chars: ${model.tickChars}; --end-chars: ${model.endChars}`} aria-hidden="true">
     <div class="ui-chart-ticks">
-      {model.grid.map((tick) => <span class="ui-chart-tick" style={`--top: ${(tick.top / PLOT_HEIGHT) * 100}%`}>{tick.label}</span>)}
+      {model.ticks.map((tick) => <span class="ui-chart-tick" style={`--top: ${(tick.top / PLOT_HEIGHT) * 100}%`}>{tick.label}</span>)}
     </div>
     <div class="ui-chart-plot">
       <svg class="ui-chart-svg" viewBox={`0 0 ${PLOT_WIDTH} ${PLOT_HEIGHT}`} preserveAspectRatio="none" focusable="false">
-        {model.grid.filter((tick) => !tick.zero).map((tick) => <line class="ui-chart-grid" x1="0" x2={PLOT_WIDTH} y1={tick.top} y2={tick.top} />)}
+        {model.ticks.filter((tick) => !tick.zero).map((tick) => <line class="ui-chart-grid" x1="0" x2={PLOT_WIDTH} y1={tick.top} y2={tick.top} />)}
         {
           model.bars.map((bar) => (
             <rect class="ui-chart-bar" data-slot={bar.slot} x={bar.x} y={bar.y} width={bar.w} height={bar.h}>
@@ -62,7 +62,7 @@ const model = chartModel(chart, locale);
           ))
         }
         {model.lines.map((line) => <path class="ui-chart-line" data-slot={line.slot} d={line.path} />)}
-        {model.grid.filter((tick) => tick.zero).map((tick) => <line class="ui-chart-grid" data-zero x1="0" x2={PLOT_WIDTH} y1={tick.top} y2={tick.top} />)}
+        {model.ticks.filter((tick) => tick.zero).map((tick) => <line class="ui-chart-grid" data-zero x1="0" x2={PLOT_WIDTH} y1={tick.top} y2={tick.top} />)}
       </svg>
       {model.dots.map((dot) => <span class="ui-chart-dot" data-slot={dot.slot} style={`--left: ${dot.left}%; --top: ${(dot.top / PLOT_HEIGHT) * 100}%`} />)}
       {

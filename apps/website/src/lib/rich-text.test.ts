@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BLOCK_PROPS, INLINE_BLOCK_PROPS, blockOf, plainProps } from './post-blocks';
-import { headingIds, isLexicalRoot, safeHref, textMarks, type LexicalNode } from './rich-text';
+import { headingIds, hoistLinkMarks, isLexicalRoot, safeHref, textMarks, type LexicalNode } from './rich-text';
 
 const read = (path: string) => readFileSync(join(import.meta.dir, path), 'utf8');
 
@@ -29,6 +29,12 @@ describe('the rich text a post body holds', () => {
     const h = (t: string): LexicalNode => ({ type: 'heading', tag: 'h2', children: [{ type: 'text', text: t }] });
     const root: LexicalNode = { type: 'root', children: [h('Was es kann'), h('Was es kann'), h('Büro & Projekt')] };
     expect([...headingIds(root).values()]).toEqual(['was-es-kann', 'was-es-kann-1', 'büro--projekt']);
+  });
+
+  test("a link's shared marks go outside it, as Markdown nests them", () => {
+    const link: LexicalNode = { type: 'link', children: [{ type: 'text', text: 'a', format: 1 | 2 }, { type: 'text', text: 'b', format: 1 }] };
+    expect(hoistLinkMarks(link)).toEqual({ outer: ['strong'], children: [{ type: 'text', text: 'a', format: 2 }, { type: 'text', text: 'b', format: 0 }] });
+    expect(hoistLinkMarks({ type: 'link', children: [{ type: 'text', text: 'a', format: 0 }] }).outer).toEqual([]);
   });
 
   test('only Lexical JSON is a body', () => {
