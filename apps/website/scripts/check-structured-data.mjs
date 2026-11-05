@@ -14,6 +14,20 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const CLIENT = fileURLToPath(new URL('../dist/client/', import.meta.url))
+const BLOG = fileURLToPath(new URL('../src/content/blog/', import.meta.url))
+
+/** Every published post's address, read from the content: each must carry a BlogPosting. */
+function postPaths() {
+  const paths = new Set()
+  for (const [locale, base] of [['de', '/blog/'], ['en', '/en/blog/']]) {
+    for (const file of readdirSync(join(BLOG, locale)).filter((f) => f.endsWith('.mdx'))) {
+      if (/^draft:\s*true$/m.test(readFileSync(join(BLOG, locale, file), 'utf8'))) continue
+      paths.add(`${base}${file.replace(/\.mdx$/, '')}/`)
+    }
+  }
+  return paths
+}
+const POSTS = postPaths()
 
 /** Required fields per type. A value that is an empty string or array counts as missing. */
 const REQUIRED = {
@@ -103,10 +117,10 @@ for (const file of htmlFiles(CLIENT)) {
     if (!faq) problems.push(`${page}: renders an FAQ without FAQPage`)
     else if (faq.mainEntity.length !== questions) problems.push(`${page}: FAQPage has ${faq.mainEntity.length} questions, the page ${questions}`)
   }
-  if (/^\/(en\/)?blog\/(?!journal\/|bautagebuch\/)[^/]+\/$/.test(page) && !types.includes('BlogPosting')) {
-    problems.push(`${page}: blog post without BlogPosting`)
-  }
+  // A post, ticked off the content's list; anything left on it was never built.
+  if (POSTS.delete(page) && !types.includes('BlogPosting')) problems.push(`${page}: blog post without BlogPosting`)
 }
+for (const page of POSTS) problems.push(`${page}: a published post with no built page`)
 
 if (problems.length > 0) {
   console.error(`structured data: ${problems.length} problem(s)`)
