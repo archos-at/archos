@@ -118,7 +118,13 @@ resolve_ref() {
         return 0
       fi
       if [ "$rc" -eq 1 ]; then
-        log "::warning::cms: ${tag} has no CMS image and none is deployed; CMS_IMAGE_REF stays empty and the CMS is not pinned"
+        # Nothing to keep. With the CMS on, its Deployment would pull a tag GHCR
+        # never had and `pulumi up` would wait out its timeout on it: fail now.
+        if [ "$(pulumi config get cmsEnabled 2>/dev/null || true)" = "true" ]; then
+          log "::error::cms: ${tag} has no CMS image and none is deployed. Set cmsImage to a published CMS image (ghcr.io/${owner}/cms:sha-<commit>), or cmsEnabled=false, and dispatch again."
+          return 1
+        fi
+        log "::warning::cms: ${tag} has no CMS image and none is deployed; the CMS is off, so CMS_IMAGE_REF stays empty"
         return 0
       fi
       [ "$rc" -eq 0 ] || { log "::error::cms: the registry lookup failed; refusing to guess."; return 1; }

@@ -64,10 +64,12 @@ beforeAll(() => {
   C.m4 = git("rev-parse", "HEAD");
   commit("c5");
 
-  // `pulumi stack output --json` prints $STUB_OUTPUTS, or fails on demand.
+  // `pulumi stack output --json` prints $STUB_OUTPUTS, or fails on demand;
+  // `pulumi config get cmsEnabled` prints $STUB_CMS_ENABLED, unset when empty.
   stub(
     "pulumi",
     [
+      'if [ "$1 $2 $3" = "config get cmsEnabled" ]; then [ -n "${STUB_CMS_ENABLED:-}" ] || exit 1; printf \'%s\' "$STUB_CMS_ENABLED"; exit 0; fi',
       '[ "$1 $2" = "stack output" ] || exit 64',
       '[ -z "${STUB_PULUMI_FAIL:-}" ] || exit 1',
       'out="${STUB_OUTPUTS:-}"; [ -n "$out" ] || out="{}"',
@@ -319,12 +321,20 @@ describe("resolve-image-refs.sh", () => {
     expect(out.stderr).toContain(`::warning::cms: ${tag} has no CMS image`);
   });
 
-  it("leaves the CMS unpinned, with a warning, on a rollback before any CMS ran", () => {
+  it("leaves the CMS unpinned, with a warning, on a rollback before any CMS ran while it is off", () => {
     const tag = `sha-${C.c2}`;
     const out = resolve({ EXPLICIT_TAG: tag, STUB_OUTPUTS: deployed({ backend: ref("backend", "c5") }) });
     expect(out.status, out.stderr).toBe(0);
     expect(pinned(out).CMS_IMAGE_REF).toBe("");
-    expect(out.stderr).toContain("::warning::cms: " + tag + " has no CMS image and none is deployed");
+    expect(out.stderr).toContain("::warning::cms: " + tag + " has no CMS image and none is deployed; the CMS is off");
+  });
+
+  it("fails that rollback when the CMS is on, rather than deploy it with an image GHCR never had", () => {
+    const tag = `sha-${C.c2}`;
+    const out = resolve({ EXPLICIT_TAG: tag, STUB_CMS_ENABLED: "true", STUB_OUTPUTS: deployed({ backend: ref("backend", "c5") }) });
+    expect(out.status).toBe(1);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toContain("::error::cms: " + tag + " has no CMS image and none is deployed. Set cmsImage");
   });
 
   it("rolls the CMS back too when the tag has a CMS image", () => {
