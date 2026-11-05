@@ -719,51 +719,68 @@ describe('AgentResponse', () => {
     })
   })
 
-  // The routingDecision-driven visual distinction: a substantive Baurecht
-  // answer (shallow/deep) wears the ink "Result" role tab; a conversational /
-  // clarifying meta reply wears the quiet neutral "Note" tab. Fallback (no
+  // The routingDecision-driven distinction: a substantive Baurecht answer
+  // (shallow/deep) is named "Result"; a conversational / clarifying meta reply
+  // is a quiet "Note" on a muted surface. The name is the article's, for a
+  // screen reader: no role tab draws it (Notion #38, topic 9). Fallback (no
   // signal) must stay identical to a substantive answer.
   describe('response-kind distinction (routingDecision)', () => {
-    test('a shallow Baurecht answer wears the "Result" role tab', () => {
+    test('draws no role mark over the answer: the kind is the article name alone', () => {
+      const { container } = render(<AgentResponse content="Baurecht answer" routingDecision="shallow" />)
+
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByText('Result')).toBeNull()
+      expect(container.querySelector('article > .card-eyebrow')).toBeNull()
+      expect(container.querySelector('article > .bg-primary')).toBeNull()
+    })
+
+    test('a meta reply is distinguished by its surface, not by a tab', () => {
+      const { container } = render(<AgentResponse content="Hello there" routingDecision="meta" />)
+
+      expect(screen.queryByText('Note')).toBeNull()
+      expect(container.querySelector('article > .bg-muted')).not.toBeNull()
+    })
+
+    test('a shallow Baurecht answer is named "Result"', () => {
       render(<AgentResponse content="Baurecht answer" routingDecision="shallow" />)
 
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
-    test('a meta reply wears the distinct "Note" role tab instead of "Result"', () => {
+    test('a meta reply is named "Note" instead of "Result"', () => {
       render(<AgentResponse content="Hello there" routingDecision="meta" />)
 
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
 
-    test('the two kinds render visibly different role tabs for the same content', () => {
+    test('the two kinds are named differently for the same content', () => {
       const { unmount } = render(<AgentResponse content="Same text" routingDecision="deep" />)
-      expect(screen.getByText('Result')).toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
       unmount()
 
       render(<AgentResponse content="Same text" routingDecision="meta" />)
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
 
     test('fallback: absent routingDecision renders exactly as a substantive answer', () => {
       render(<AgentResponse content="Legacy answer" />)
 
-      // No discriminator → the "Result" treatment, never the meta "Note" tab.
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      // No discriminator → the "Result" treatment, never the meta "Note".
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
     test('fallback: an \'error\' routing keeps the default "Result" treatment', () => {
       render(<AgentResponse content="Something went wrong" routingDecision="error" />)
 
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
-    test('kind=direct wears the "Note" tab even on a shallow route', () => {
+    test('kind=direct is named "Note" even on a shallow route', () => {
       render(
         <AgentResponse
           content="Hello there"
@@ -772,11 +789,11 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
 
-    test('kind=walkthrough wears the "Answer" tab, not "Result"', () => {
+    test('kind=walkthrough is named "Answer", not "Result"', () => {
       render(
         <AgentResponse
           content="So legen Sie den Ordner an."
@@ -785,12 +802,12 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Answer')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
-      expect(screen.queryByText('Note')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Answer' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Note' })).not.toBeInTheDocument()
     })
 
-    test('kind=ruling keeps the "Result" tab', () => {
+    test('kind=ruling stays "Result"', () => {
       render(
         <AgentResponse
           content="REI 60 gilt."
@@ -803,11 +820,11 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Result')).toBeInTheDocument()
-      expect(screen.queryByText('Answer')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Result' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Answer' })).not.toBeInTheDocument()
     })
 
-    test('kind=handoff wears the "Note" tab, not "Result"', () => {
+    test('kind=handoff is named "Note", not "Result"', () => {
       render(
         <AgentResponse
           content="Dafür starte ich eine Tiefenrecherche."
@@ -816,13 +833,13 @@ describe('AgentResponse', () => {
         />
       )
 
-      expect(screen.getByText('Note')).toBeInTheDocument()
-      expect(screen.queryByText('Result')).not.toBeInTheDocument()
+      expect(screen.getByRole('article', { name: 'Note' })).toBeInTheDocument()
+      expect(screen.queryByRole('article', { name: 'Result' })).not.toBeInTheDocument()
     })
   })
 
   describe('lede typesetting', () => {
-    const LEDE = '[&>.markdown-content>p:first-child]:text-[1.0625rem]'
+    const LEDE = '[&>.markdown-content>p:first-child]:leading-[1.65]'
     const longAnswer = [
       'Für GK 4 gilt REI 90 für tragende Bauteile.',
       'A'.repeat(320),
@@ -1238,7 +1255,7 @@ describe('a stopped answer', () => {
 // L19: a turn that failed under its answer keeps the words, dimmed, and
 // offers nothing a finished answer would.
 describe('a failed answer', () => {
-  test('keeps the words, dimmed, without the check, the copy action or feedback', () => {
+  test('keeps the words, dimmed, without the copy action or feedback', () => {
     const { rerender } = render(
       <AgentResponse content="Fluchtwege müssen nach OIB-Richtlinie 2" isStreaming messageId="m-1" />
     )
@@ -1246,7 +1263,6 @@ describe('a failed answer', () => {
     const article = screen.getByTestId('answer-failed')
     expect(article).toHaveTextContent('Fluchtwege müssen nach OIB-Richtlinie 2')
     expect(article.querySelector('.bg-card')).toHaveClass('opacity-60')
-    expect(screen.getByTestId('role-tab-pending')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Copy answer' })).toBeNull()
     expect(screen.queryByText('Without source citation')).toBeNull()
   })

@@ -40,7 +40,6 @@
  */
 
 import type { FC } from 'react'
-import { ClipboardCheck } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
 import { useLocale, useTranslations } from '@/i18n'
@@ -89,7 +88,7 @@ export const TaskCreatedCard: FC<TaskCreatedCardProps> = ({
 
   return (
     <Card data-testid="task-created-card" data-task-id={taskId} className={cn(CARD_SHELL, 'gap-2 p-5')}>
-      <SectionLabel icon={ClipboardCheck}>{t('cards.taskCreated.eyebrow')}</SectionLabel>
+      <SectionLabel>{t('cards.taskCreated.eyebrow')}</SectionLabel>
 
       <div className="flex min-w-0 flex-col">
         <ClampedText className="card-title text-foreground">{title}</ClampedText>
