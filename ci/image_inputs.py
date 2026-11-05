@@ -257,9 +257,12 @@ def plan_push(published: Published, *, week: str) -> tuple[list[dict], list[dict
 def registry_lookup(owner: str) -> Published:
     """Ask GHCR through the same script the deploy uses for its own lookups."""
 
+    repositories = {image.name: image.repository for image in IMAGES}
+
     def published(name: str, tag: str) -> bool | None:
+        env = {**os.environ, "REPOSITORY": repositories[name]}
         result = subprocess.run(
-            ["bash", str(FIND_PUBLISHED_TAG), owner, name, tag], capture_output=True, text=True, check=False
+            ["bash", str(FIND_PUBLISHED_TAG), owner, name, tag], capture_output=True, text=True, check=False, env=env
         )
         sys.stderr.write(result.stderr)
         return {0: True, 1: False}.get(result.returncode)
