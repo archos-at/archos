@@ -56,7 +56,7 @@ const de = {
   difference: {
     title: 'Mehr als ein Chat.',
     text: 'Allgemeine Chat-Assistenten helfen beim Formulieren. Für die Arbeit an einem Projekt braucht ein Büro mehr.',
-    postLink: 'Im Journal: Sechs Fragen an jedes Werkzeug',
+    postLink: 'Im Blog: Sechs Fragen an jedes Werkzeug',
     items: [
       {
         title: 'Für das ganze Team',
@@ -150,7 +150,7 @@ const en: typeof de = {
   difference: {
     title: 'More than a chat.',
     text: 'General chat assistants help with wording. Working on a project takes more.',
-    postLink: 'In the journal: six questions for any tool',
+    postLink: 'On the blog: six questions for any tool',
     items: [
       {
         title: 'For the whole team',
