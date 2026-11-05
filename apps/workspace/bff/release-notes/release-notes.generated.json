@@ -113,6 +113,14 @@
         },
         {
           "section": "improvements",
+          "area": "agents",
+          "text": {
+            "en": "When the app moves to a new web address, an AI client you connected before the move, such as Claude, Cursor or Claude Code, keeps working at the address you set it up with, without signing in again.",
+            "de": "Wenn die App auf eine neue Webadresse umzieht, funktioniert ein KI-Client, den Sie zuvor verbunden haben, etwa Claude, Cursor oder Claude Code, weiterhin unter der Adresse, mit der Sie ihn eingerichtet haben – ohne dass Sie sich erneut anmelden müssen."
+          }
+        },
+        {
+          "section": "improvements",
           "area": "documents",
           "text": {
             "en": "When many offices upload at once, each office's documents take turns, so a single file is never stuck behind another office's large folder.",

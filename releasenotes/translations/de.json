@@ -4240,6 +4240,10 @@
     "de": "Wenn die Aufgabenliste aktualisiert wird, während Sie sie lesen, gleitet eine Karte, die ihre Position ändert, nun an ihre neue Stelle, während die umliegenden Karten Platz machen, statt zu springen. Beim Wechsel des Filters wird die neue Liste weiterhin einfach eingeblendet."
   },
   {
+    "en": "When the app moves to a new web address, an AI client you connected before the move, such as Claude, Cursor or Claude Code, keeps working at the address you set it up with, without signing in again.",
+    "de": "Wenn die App auf eine neue Webadresse umzieht, funktioniert ein KI-Client, den Sie zuvor verbunden haben, etwa Claude, Cursor oder Claude Code, weiterhin unter der Adresse, mit der Sie ihn eingerichtet haben – ohne dass Sie sich erneut anmelden müssen."
+  },
+  {
     "en": "When the building-regulation search finds nothing that answers your question, Piloti now tells you it found no supporting passage, instead of answering from loosely related text.",
     "de": "Wenn die Suche in den Bauvorschriften keine Antwort auf Ihre Frage findet, teilt Piloti Ihnen jetzt mit, dass keine passende Textstelle gefunden wurde, statt anhand lose verwandter Texte zu antworten."
   },
