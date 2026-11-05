@@ -4,12 +4,11 @@
  * blog covers' frame and pens (covers.css), drawn as the page loads (status.css).
  *
  *   missing  a floor plan: a door opens onto a room that was never built. The walk line
- *            from the entrance runs through the door into the empty outline, and a revision
- *            cloud marks the room that is not there (404).
- *   gone     the same plan with the opening walled up, the cloud round the new wall (410).
- *   fault    a beam has lost the column at its end and sags onto a temporary prop; a level
- *            line and a dimension show how far, the cloud marks the column that is not
- *            there (500).
+ *            from the entrance runs through the door and ends in the empty outline (404).
+ *   gone     the same plan with the opening walled up: the new wall is the solid element,
+ *            and the walk line ends in front of it (410).
+ *   fault    a beam has lost the column at its end (hidden lines) and sags onto a
+ *            temporary prop; a level line and a dimension show how far (500).
  *
  * Decorative: the heading beside it says what happened, so the drawing is hidden from
  * assistive technology and has no words. Canvas 960 × 800 on the covers' 40-unit grid.
@@ -30,27 +29,6 @@ const grid = [
   ...Array.from({ length: W / MODULE - 1 }, (_, i) => `M${(i + 1) * MODULE} 0V${H}`),
   ...Array.from({ length: H / MODULE - 1 }, (_, i) => `M0 ${(i + 1) * MODULE}H${W}`),
 ].join('');
-
-/**
- * A revision cloud round a rectangle: arcs bulging outwards, about `size` long, drawn
- * clockwise from the top left corner.
- */
-function cloud(x: number, y: number, w: number, h: number, size = 34): string {
-  const corners = [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
-  let d = `M${x} ${y}`;
-  for (let c = 0; c < 4; c += 1) {
-    const [x0, y0] = corners[c];
-    const [x1, y1] = corners[c + 1];
-    const n = Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / size));
-    for (let i = 1; i <= n; i += 1) {
-      const px = x0 + ((x1 - x0) * i) / n;
-      const py = y0 + ((y1 - y0) * i) / n;
-      const r = (Math.hypot(x1 - x0, y1 - y0) / n) * 0.62;
-      d += `A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${px.toFixed(1)} ${py.toFixed(1)}`;
-    }
-  }
-  return `${d}Z`;
-}
 
 /** A dimension tick: a short stroke at 45° through a point. */
 const tick = (x: number, y: number) => `M${x - 8} ${y + 8}L${x + 8} ${y - 8}`;
@@ -94,15 +72,6 @@ const mask = (name: string) => `url(#${id}-${name})`;
           <mask id={`${id}-walk`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
             <path class="ui-status-mask" pathLength="1" stroke-width="28" d={kind === 'missing' ? 'M280 680V400H640' : 'M280 680V400H444'} style="--ui-step: 5" />
           </mask>
-          <mask id={`${id}-cloud`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
-            <path
-              class="ui-status-mask"
-              pathLength="1"
-              stroke-width="36"
-              d={kind === 'missing' ? cloud(520, 260, 220, 280) : cloud(420, 320, 100, 160, 30)}
-              style="--ui-step: 8"
-            />
-          </mask>
           {kind === 'missing' && (
             <mask id={`${id}-swing`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
               <path class="ui-status-mask" pathLength="1" stroke-width="14" d="M460 440A80 80 0 0 1 380 360" style="--ui-step: 2" />
@@ -127,8 +96,14 @@ const mask = (name: string) => `url(#${id}-${name})`;
           <path class="cut hatch" d="M480 440V600H320V580H460V440Z" />
           <rect class="view" x="240" y="200" width="160" height="20" />
           <line class="view" x1="240" y1="210" x2="400" y2="210" />
-          {kind === 'gone' && <rect class="cut hatch" x="460" y="360" width="20" height="80" />}
         </g>
+
+        {/* The opening, walled up: the new wall is what changed, so it is the solid element. */}
+        {kind === 'gone' && (
+          <g class="ui-status-fade" style="--ui-step: 3">
+            <rect class="solid" x="460" y="360" width="20" height="80" />
+          </g>
+        )}
 
         {
           kind === 'missing' && (
@@ -154,12 +129,6 @@ const mask = (name: string) => `url(#${id}-${name})`;
             <path class="view" d="M280 680V400H444M428 392L444 400L428 408" />
           )}
         </g>
-
-        <g class="ui-status-pulse" style="--ui-step: 12">
-          <g mask={mask('cloud')}>
-            <path class="view" d={kind === 'missing' ? cloud(520, 260, 220, 280) : cloud(420, 320, 100, 160, 30)} />
-          </g>
-        </g>
       </>
     )
   }
@@ -177,9 +146,6 @@ const mask = (name: string) => `url(#${id}-${name})`;
           </mask>
           <mask id={`${id}-prop`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
             <path class="ui-status-mask is-quick" pathLength="1" stroke-width="56" d={`M600 600V${(propTop - 4).toFixed(1)}`} style="--ui-step: 7" />
-          </mask>
-          <mask id={`${id}-cloud`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
-            <path class="ui-status-mask" pathLength="1" stroke-width="36" d={cloud(656, 244, 128, 324, 40)} style="--ui-step: 10" />
           </mask>
         </defs>
 
@@ -216,14 +182,8 @@ const mask = (name: string) => `url(#${id}-${name})`;
         </g>
 
         {/* How far it sagged: a dimension at the free end. */}
-        <g class="ui-status-fade" style="--ui-step: 10">
+        <g class="ui-status-fade" style="--ui-step: 9">
           <path class="dim" d={`M848 180V220M772 220H860${tick(848, 180)}${tick(848, 220)}`} />
-        </g>
-
-        <g class="ui-status-pulse" style="--ui-step: 14">
-          <g mask={mask('cloud')}>
-            <path class="view" d={cloud(656, 244, 128, 324, 40)} />
-          </g>
         </g>
       </>
     )

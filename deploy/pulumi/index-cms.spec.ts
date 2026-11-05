@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "./src/test-support/stack-config";
 import { cmsConfigFiles, cmsConfigScript } from "./src/platform/cms-config-job";
@@ -42,7 +42,8 @@ const unwrap = (data: any) => (data && typeof data.value === "object" ? data.val
 async function build(extra: Record<string, string>) {
   RESOURCES.length = 0;
   pulumi.runtime.setAllConfig({ ...baseStackConfig(), "grid-oib:baseDomain": "dev.example.test", ...extra });
-  const stack = (await import(`./index?cms=${Object.keys(extra).join(",")}`)) as Record<string, unknown>;
+  vi.resetModules();
+  const stack = (await import("./index")) as Record<string, unknown>;
   await Promise.all(
     Object.values(stack)
       .filter((v): v is pulumi.Output<unknown> => pulumi.Output.isInstance(v))

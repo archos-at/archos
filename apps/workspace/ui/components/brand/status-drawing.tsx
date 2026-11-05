@@ -7,14 +7,13 @@ import { cn } from '@/lib/utils'
  * drawing, drawn once as the screen opens (`ui/styles/status-drawing.css`).
  *
  *   missing  a floor plan: a door opens onto a room that was never built. The
- *            walk line runs through it into the empty outline, and a revision
- *            cloud marks the room that is not there (not found).
+ *            walk line runs through it and ends in the empty outline (not found).
  *   closed   the same plan with the door swinging shut in front of the walk
  *            line; the room behind is there, but seen only as hidden lines
  *            (no access).
- *   fault    a beam has lost the column at its end and sags onto a temporary
- *            prop; a level line and a dimension show how far, and the cloud
- *            marks the missing column (an error).
+ *   fault    a beam has lost the column at its end (hidden lines) and sags onto
+ *            a temporary prop; a level line and a dimension show how far (an
+ *            error).
  *
  * The website's 404 and 500 pages draw the same scenes with the same pens
  * (`apps/website/src/components/StatusDrawing.astro`). Decorative: the heading
@@ -31,31 +30,6 @@ const GRID = [
   ...Array.from({ length: W / MODULE - 1 }, (_, i) => `M${(i + 1) * MODULE} 0V${H}`),
   ...Array.from({ length: H / MODULE - 1 }, (_, i) => `M0 ${(i + 1) * MODULE}H${W}`),
 ].join('')
-
-/** A revision cloud round a rectangle: arcs about `size` long, bulging outwards. */
-function cloud(x: number, y: number, w: number, h: number, size = 34): string {
-  const corners = [
-    [x, y],
-    [x + w, y],
-    [x + w, y + h],
-    [x, y + h],
-    [x, y],
-  ]
-  let d = `M${x} ${y}`
-  for (let c = 0; c < 4; c += 1) {
-    const [x0, y0] = corners[c]
-    const [x1, y1] = corners[c + 1]
-    const side = Math.hypot(x1 - x0, y1 - y0)
-    const n = Math.max(2, Math.round(side / size))
-    const r = ((side / n) * 0.62).toFixed(1)
-    for (let i = 1; i <= n; i += 1) {
-      const px = (x0 + ((x1 - x0) * i) / n).toFixed(1)
-      const py = (y0 + ((y1 - y0) * i) / n).toFixed(1)
-      d += `A${r} ${r} 0 0 1 ${px} ${py}`
-    }
-  }
-  return `${d}Z`
-}
 
 /** A dimension tick: a short stroke at 45° through a point. */
 const tick = (x: number, y: number): string => `M${x - 8} ${y + 8}L${x + 8} ${y - 8}`
@@ -95,7 +69,6 @@ function PlanDrawing({ kind, id }: { kind: 'missing' | 'closed'; id: string }): 
   const open = kind === 'missing'
   const walk = open ? 'M280 680V400H640' : 'M280 680V400H364'
   const arrow = open ? 'M624 392L640 400L624 408' : 'M348 392L364 400L348 408'
-  const mark = open ? cloud(520, 260, 220, 280) : cloud(424, 328, 72, 144, 28)
   return (
     <>
       <defs>
@@ -109,9 +82,6 @@ function PlanDrawing({ kind, id }: { kind: 'missing' | 'closed'; id: string }): 
         </Mask>
         <Mask id={`${id}-walk`}>
           <Stroke d={walk} width={28} step={5} />
-        </Mask>
-        <Mask id={`${id}-cloud`}>
-          <Stroke d={mark} width={36} step={8} />
         </Mask>
       </defs>
 
@@ -152,17 +122,11 @@ function PlanDrawing({ kind, id }: { kind: 'missing' | 'closed'; id: string }): 
         <circle className="body-solid" cx="280" cy="680" r="7" />
         <path className="pen-view" d={`${walk}${arrow}`} />
       </g>
-      <g className="pulse" style={part({ '--step': 12 })}>
-        <g mask={`url(#${id}-cloud)`}>
-          <path className="pen-view" d={mark} />
-        </g>
-      </g>
     </>
   )
 }
 
 function FaultDrawing({ id }: { id: string }): JSX.Element {
-  const mark = cloud(656, 244, 128, 324, 40)
   return (
     <>
       <defs>
@@ -175,9 +139,6 @@ function FaultDrawing({ id }: { id: string }): JSX.Element {
         </Mask>
         <Mask id={`${id}-prop`}>
           <Stroke d={`M600 600V${(PROP_TOP - 4).toFixed(1)}`} width={56} step={7} quick />
-        </Mask>
-        <Mask id={`${id}-cloud`}>
-          <Stroke d={mark} width={36} step={10} />
         </Mask>
       </defs>
 
@@ -209,13 +170,8 @@ function FaultDrawing({ id }: { id: string }): JSX.Element {
         <rect className="body-solid" x="580" y={PROP_TOP.toFixed(1)} width="40" height="6" />
       </g>
       {/* How far it sagged: a dimension at the free end. */}
-      <g className="fade" style={part({ '--step': 10 })}>
+      <g className="fade" style={part({ '--step': 9 })}>
         <path className="pen-dim" d={`M848 180V220M772 220H860${tick(848, 180)}${tick(848, 220)}`} />
-      </g>
-      <g className="pulse" style={part({ '--step': 14 })}>
-        <g mask={`url(#${id}-cloud)`}>
-          <path className="pen-view" d={mark} />
-        </g>
       </g>
     </>
   )

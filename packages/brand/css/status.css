@@ -4,8 +4,7 @@
    The text says what happened and what to do, in the plain house voice. The drawing next to
    it says the same in the language of a construction drawing, with the blog covers' pens
    (covers.css): a door that opens onto a room that was never built (404), the same opening
-   walled up (410), a beam that lost its column and stands on a temporary prop (500). A
-   revision cloud marks what is wrong, as it marks a change on a sheet.
+   walled up (410), a beam that lost its column and stands on a temporary prop (500).
 
    The drawing is drawn once as the page loads, then holds still. A wall or a line is drawn
    along its own path: the pen keeps its width, and a mask of the same path, set wider and in
@@ -51,7 +50,6 @@
    drawing units). The beam rests where it sagged to (`--ui-sag`). */
 .ui-status-drawing :is(.ui-status-leaf, .ui-status-leaf > *, .ui-status-sag) { transform-box: view-box; transform-origin: var(--ui-hinge); }
 .ui-status-drawing .ui-status-sag { transform: rotate(var(--ui-sag)); }
-.ui-status-drawing .ui-status-pulse { transform-box: fill-box; transform-origin: center; }
 
 @media screen and (prefers-reduced-motion: no-preference) {
   /* A line or a wall is drawn from its start. */
@@ -63,8 +61,6 @@
   .ui-status-drawing .ui-status-leaf { animation: ui-status-swing var(--duration-reveal) var(--ease-settle) backwards; }
   /* The beam is drawn level and sags onto the prop. */
   .ui-status-drawing .ui-status-sag { animation: ui-status-level var(--duration-reveal) var(--ease-settle) backwards; }
-  /* The revision cloud tightens once around what it marks, after it is drawn. */
-  .ui-status-drawing .ui-status-pulse { animation: ui-status-pulse var(--duration-slow) var(--ease-draft) backwards; }
   /* Each part waits its step. Last, so no shorthand above resets it. */
   .ui-status-drawing [style*="--ui-step"] { animation-delay: calc(var(--ui-step) * var(--duration-quick)); }
 }
@@ -87,7 +83,4 @@
 }
 @keyframes ui-status-level {
   from { transform: none; }
-}
-@keyframes ui-status-pulse {
-  50% { transform: scale(1.04); }
 }
