@@ -40,6 +40,7 @@ import type {
   ResourceRole,
   ResourceSharingState,
 } from '@/lib/sharing/types'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const ME = 'u-matthias'
 
@@ -91,9 +92,9 @@ const state = (
 
 function Eyebrow({ children }: { children: string }): JSX.Element {
   return (
-    <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <SectionLabel as="h2">
       {children}
-    </h2>
+    </SectionLabel>
   )
 }
 

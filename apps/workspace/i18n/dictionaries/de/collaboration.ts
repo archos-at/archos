@@ -284,7 +284,8 @@ export const collaboration: typeof en.collaboration = {
       waiting: 'Wartet auf Sie',
       news: 'Neuigkeiten',
       late: '{count} überfällig',
-      nothingWaiting: 'Nichts wartet auf Sie.',
+      // Unter der Überschrift „Wartet auf Sie“, wenn nichts wartet: sagt nicht noch einmal „wartet auf Sie“.
+      nothingWaiting: 'Keine offenen Anfragen.',
       newsRead: 'Als gelesen markieren',
       chat: 'Chat',
     },

@@ -7,7 +7,7 @@
  * **Read this before adding another project surface.** The project card
  * (`ProjectCard`) is a staple of the design language, not one page's component:
  * the raised white plate on a subtle surface, the truncating name that opens
- * Chat through a stretched link, the status chip, the brief line, the meta strip
+ * Chat through a stretched link, the status chip, the location line, the meta strip
  * with a settings gear. A new surface that needs "a project, listed" COMPOSES
  * these atoms — or, better, uses `ProjectCard` itself. It does not hand-roll a
  * second card that happens to look similar; two lookalikes drift on the first
@@ -50,6 +50,7 @@ import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { projectInitials } from '@/features/projects/lib/project-initials'
 import { projectNameTail } from '@/features/projects/lib/project-name'
 import type { Project } from '@/lib/db/schema/projects'
+import { projectSiteAddress } from '@/lib/projects/site-address'
 import { formatAbsoluteTime, formatRelativeTime } from '@/lib/format'
 import { useLocale, useTranslations } from '@/i18n'
 import { projectsCopy } from '@/i18n/namespaces/projects'
@@ -100,28 +101,38 @@ export function ProjectOpenLink({
 }
 
 /**
- * The brief line.
+ * Where the project is: the second line under the name, on the card and the row.
  *
- * `fallback` is on for a card, where the shared invitation ("add documents and a
- * brief") is a crafted empty state and there is room for it. It is off for a
- * dense list, where an invitation stops being one: repeated verbatim down
- * fifteen rows it becomes the longest line on the page, and the rows carrying
- * the LEAST information end up shouting the loudest. With it off, a project
- * without a brief simply has no second line, which is the truth, quietly.
+ * It used to be the brief's summary cut to one line, which broke mid-sentence
+ * and told nobody which project this was. The site address is what an architect
+ * tells two projects of one office apart by, and it fits a line. It is the
+ * profile fact the Steckbrief shows, read through `projectSiteAddress`, so the
+ * tile and the project's own overview never disagree about where it is.
+ *
+ * Plain text, no pin icon: an address reads as a place without one, and a pin
+ * on every tile is decoration repeated down the page.
+ *
+ * A project without an address has no second line: a placeholder repeated down
+ * a list becomes the loudest line on the rows that carry the least.
  */
-export function ProjectSummaryLine({
+export function ProjectLocationLine({
   project,
-  fallback = true,
   className,
 }: {
-  project: Pick<Project, 'profileDisplay'>
-  fallback?: boolean
+  project: Pick<Project, 'profile'>
   className?: string
 }): JSX.Element | null {
-  const t = useTranslations(projectsCopy)
-  const summary = project.profileDisplay?.summary?.trim() || (fallback ? t('card.summaryFallback') : '')
-  if (!summary) return null
-  return <p className={cn('truncate text-xs text-muted-foreground', className)}>{summary}</p>
+  const address = projectSiteAddress(project)
+  if (!address) return null
+  return (
+    <p
+      title={address}
+      data-testid="project-location"
+      className={cn('truncate text-xs text-muted-foreground', className)}
+    >
+      {address}
+    </p>
+  )
 }
 
 /**

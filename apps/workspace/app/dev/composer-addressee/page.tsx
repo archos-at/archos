@@ -38,7 +38,7 @@
 
 import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
-import { ArrowUp, AtSign, ChevronDown, Mic, Paperclip } from 'lucide-react'
+import { ArrowUp, AtSign, Mic, Paperclip } from 'lucide-react'
 
 import { AddresseeIndicator } from '@/features/collaboration/components/AddresseeIndicator'
 import type { DraftMention } from '@/lib/mentions/mention-text'
@@ -46,6 +46,7 @@ import { I18nProvider, useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { AGENT_MENTION_ID } from '@/lib/mentions/types'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const ANNA: DraftMention = { targetId: 'user_anna', display: 'Anna Berger' }
 const TOBIAS: DraftMention = { targetId: 'user_tobias', display: 'Tobias Kern' }
@@ -73,19 +74,12 @@ function MockComposer({
       <p className="min-h-[40px] px-1.5 py-1 text-[14.5px] leading-[1.5] text-foreground">{text}</p>
 
       {/* The real row's shape (InputArea): ONE line of controls that never
-          wraps, the scope chip giving way first, and the addressee statement
+          wraps, and the addressee statement
           (`order-last basis-full` inside the indicator) on its own line below.
           The Datengrundlage chip and the Deep Research pill left the real
           composer, so they left this copy too. */}
       <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex min-w-0 items-center gap-1.5 sm:contents">
-          <span className="bg-card shadow-xs inline-flex h-8 min-w-0 shrink items-center gap-[7px] rounded-lg border px-[11px] pointer-coarse:h-11">
-            <span className="border-status-active flex size-[14px] shrink-0 items-center justify-center rounded-full border border-dashed max-sm:hidden">
-              <span className="bg-status-active size-[5px] rounded-full" />
-            </span>
-            <span className="text-foreground/85 min-w-0 truncate text-[12.5px] font-medium">Wohnbau Nord</span>
-            <ChevronDown className="text-muted-foreground size-3 shrink-0 max-sm:hidden" aria-hidden />
-          </span>
           <span className="ml-auto flex shrink-0 items-center gap-1">
             <span className="text-muted-foreground inline-flex h-8 items-center px-1.5 text-xs font-semibold pointer-coarse:h-11">
               Mittel
@@ -120,9 +114,9 @@ function MockComposer({
 }
 
 const Eyebrow = ({ children }: { children: React.ReactNode }): JSX.Element => (
-  <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+  <SectionLabel as="h2">
     {children}
-  </h2>
+  </SectionLabel>
 )
 
 /**

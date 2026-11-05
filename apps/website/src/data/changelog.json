@@ -106,6 +106,30 @@
             {
               "en": "When reading a large PDF has to be tried again, for example after an interruption, it finishes sooner: the text and tables already taken from that same file are reused instead of being read out of the PDF a second time.",
               "de": "Wenn ein großes PDF erneut eingelesen werden muss, etwa nach einer Unterbrechung, ist der Vorgang schneller abgeschlossen: Der bereits aus derselben Datei extrahierte Text sowie die Tabellen werden wiederverwendet, statt das PDF ein zweites Mal auszulesen."
+            },
+            {
+              "en": "The sidebar entry that opens a conversation is now simply called \"Chat\", on the desktop and on the phone.",
+              "de": "Der Sidebar-Eintrag zum Öffnen einer Unterhaltung heißt jetzt am Desktop und am Smartphone einfach „Chat“."
+            },
+            {
+              "en": "Section headings, table headers and other labels are no longer set in capitals, and numbers no longer show a zero with a slash through it.",
+              "de": "Abschnittsüberschriften, Tabellenüberschriften und andere Bezeichnungen werden nicht mehr in Versalien gesetzt, und Zahlen zeigen keine Null mit Schrägstrich mehr."
+            },
+            {
+              "en": "Each project in your project list shows its address under its name, so you can tell projects apart at a glance. The two project lists on the overview now line up.",
+              "de": "In Ihrer Projektliste wird bei jedem Projekt die Adresse unter dem Namen angezeigt, sodass Sie Projekte auf einen Blick unterscheiden können. Die beiden Projektlisten in der Übersicht sind jetzt aufeinander ausgerichtet."
+            },
+            {
+              "en": "In a chat, the thread title is the same size as the \"New chat\" button beside it, and the project chip under the input field, which did nothing, is gone.",
+              "de": "In einem Chat ist der Thread-Titel gleich groß wie der Button „Neuer Chat“ daneben, und der funktionslose Projekt-Chip unter dem Eingabefeld ist entfernt."
+            },
+            {
+              "en": "When you review a document, clicking the active markup tool again puts it down. The Open and Done filters show a count only when there is something to count.",
+              "de": "Wenn Sie ein Dokument prüfen, deaktivieren Sie das aktive Markup-Tool durch erneutes Anklicken. Die Filter „Open“ und „Done“ zeigen nur dann eine Anzahl an, wenn es etwas zu zählen gibt."
+            },
+            {
+              "en": "The inbox no longer repeats its heading when nothing is waiting for you; it says there are no open requests.",
+              "de": "Der Posteingang zeigt seine Überschrift nicht mehr erneut an, wenn nichts auf Sie wartet, sondern meldet, dass keine offenen Anfragen vorliegen."
             }
           ]
         },

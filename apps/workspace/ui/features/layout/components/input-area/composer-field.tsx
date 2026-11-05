@@ -220,14 +220,12 @@ export function ComposerField({ controller }: { controller: InputAreaController 
         )}
       </AnimatePresence>
 
-      {/* Bottom control row, spaced from the textarea, no rule between.
-                Order per the click dummy: scope · Datengrundlage · Deep-Research,
-                then attach + send pushed right. */}
+      {/* Bottom control row, spaced from the textarea, no rule between:
+                the controls pushed right. */}
       {/* On a phone: the hold (when there is one), then ONE row of controls
-                that never wraps (the scope chip gives way, truncating the project
-                name, so Send cannot be orphaned on a line of its own), then the
-                addressee line. From `sm` the two wrappers dissolve (`contents`) and
-                the pieces sit in one wrapping row as they always have: scope, the
+                that never wraps, so Send cannot be orphaned on a line of its own,
+                then the addressee line. From `sm` the two wrappers dissolve
+                (`contents`) and the pieces sit in one wrapping row: the
                 statements, the buttons pushed right. */}
     </>
   )

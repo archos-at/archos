@@ -183,16 +183,14 @@ export function SidebarUserMenu({
                 name acts in — read top-down it says "in Musterarchitektur, you
                 are Anna Berger".
 
-                Deliberately below the design language's 10.5px eyebrow: that
-                convention is for a label sitting OVER a section, and this one
-                sits UNDER a name. An org name is long user data, so at 10.5px
-                with `tracking-wider` it spread the full 236px and truncated
-                immediately, reading as a heading competing with the person.
-                Tiny, tight and quiet is the whole job.
+                The eyebrow's 10.5px, in the org's own spelling and with no
+                tracking: an org name is long user data, and set in spaced
+                capitals it spread the full 236px, truncated at once and read
+                as a heading competing with the person. Quiet is the job.
 
                 `truncate` on both lines: neither may push the other. */}
             {organizationName && (
-              <span className="text-muted-foreground truncate text-[9.5px] font-medium tracking-wide uppercase">
+              <span className="text-muted-foreground truncate text-[10.5px] font-medium">
                 {organizationName}
               </span>
             )}
