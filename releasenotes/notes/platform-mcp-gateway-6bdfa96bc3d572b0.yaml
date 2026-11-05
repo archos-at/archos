@@ -1,0 +1,6 @@
+---
+operators:
+  - >
+    Platform staff can now connect their own AI assistant to the operator
+    console and to the cluster's own MCP servers, such as Langfuse, from the
+    new Agents section of the Platform area, signed in with WorkOS.
