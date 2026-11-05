@@ -781,11 +781,11 @@ and one figure. They exist as classes in `src/app/globals.css`, declared in
 |---|---|---|
 | Eyebrow | `card-eyebrow` (via `SectionLabel`) | 10.5 / 500 / sentence case, no tracking |
 | Meta | `card-meta` | 11 / 500 / tabular-nums |
-| Caption | `card-caption` | 12 / 400 |
-| Body | `card-body` | 13.5 / 400 / 1.55 |
-| Title | `card-title` | 14 / 600 |
-| Headline | `card-headline` | 17 / 600 — `summary`'s title only, the one §A2 exemption |
-| Figure | `card-figure-15/20/24/30` | 600 / tabular-nums — **one per card, and it must be the card's answer** |
+| Caption | `card-caption` | 12 / 440 |
+| Body | `card-body` | 16 (`--text-answer`, the answer's one text size) / 440 / 1.55 |
+| Title | `card-title` | 16 (`--text-answer`) / 500 |
+| Headline | `card-headline` | 17 / 500 — `summary`'s title only, the one §A2 exemption |
+| Figure | `card-figure-16/20/24/30` | 500 / tabular-nums — **one per card, and it must be the card's answer** |
 
 Reach for a step; never write a `text-*` size in a card. The audit behind the
 charter counted thirteen distinct sizes in `features/cards/`, ten of them

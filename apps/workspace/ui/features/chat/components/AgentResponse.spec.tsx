@@ -1006,19 +1006,19 @@ describe('AgentResponse', () => {
       )
     })
 
-    test('a summary holds the lede emphasis alone — the first paragraph stays body-sized', () => {
+    test('a summary holds the lede alone — the first paragraph takes no lede', () => {
       // Long enough to clear the lede threshold on its own; with a summary in
-      // the masthead the first paragraph must NOT also be enlarged.
+      // the masthead the first paragraph must NOT also be set as a lede.
       const longBody = `${'Ein ausreichend langer erster Absatz. '.repeat(20)}\n\nZweiter Absatz.`
       const { container } = render(<AgentResponse content={longBody} answerMeta={answerMeta} />)
-      expect(container.querySelector('[class*="first-child\\]:text-"]')).toBeNull()
+      expect(container.querySelector('[class*="first-child\\]:leading-"]')).toBeNull()
 
       // Without a summary the lede styling still fires as before.
       const { verdict, callout, takeaways } = answerMeta
       const { container: plain } = render(
         <AgentResponse content={longBody} answerMeta={{ v: 1, verdict, callout, takeaways }} />
       )
-      expect(plain.querySelector('[class*="first-child\\]:text-"]')).not.toBeNull()
+      expect(plain.querySelector('[class*="first-child\\]:leading-"]')).not.toBeNull()
     })
 
     test('an answer without anatomy renders exactly as before', () => {
