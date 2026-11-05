@@ -42,6 +42,7 @@ import { SimilarPassagesError } from '@/lib/similar-passages/client'
 import type { SimilarPassagesRequest, SimilarPassagesResponse } from '@/lib/similar-passages/types'
 import { I18nProvider } from '@/i18n'
 import { buildPdf, type PdfLine } from '../_fixtures/sample-pdf'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const FILE_NAME = 'oib-richtlinie-4_2023.pdf'
 const TITLE = 'OIB-Richtlinie 4'
@@ -335,7 +336,7 @@ const StatesPreview: FC = () => {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
       {panes.map(([label, load]) => (
         <div key={label} className="flex h-[32rem] flex-col rounded-lg border border-border bg-background p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">{label}</p>
+          <SectionLabel as="p" className="mb-2">{label}</SectionLabel>
           <SimilarPassagesPanel
             request={SELECTION}
             opened={null}

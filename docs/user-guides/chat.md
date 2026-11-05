@@ -2,19 +2,19 @@
 
 The chat talks to the agent over a WebSocket, for real-time interaction with full HITL (human-in-the-loop) support.
 
-On small screens (below the `md` breakpoint) the chat is mobile-first: the sessions and data-sources panels open as full-width overlays capped at their desktop width, and the project sidebar is replaced by a top bar with a navigation drawer.
+On small screens (below the `md` breakpoint) the chat is mobile-first: the navigation rail is replaced by a tab bar at the bottom of the screen, and a project pill with search sits above the thread header.
 
 ## Starting a conversation
 
-Click **New chat** in the chat-history panel (left) or the quiet **New chat** button in the thread header to start a fresh conversation. On an empty thread the chat shows a time-of-day greeting (with your first name when available). Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
+Click **New chat** in the chat-history panel or the quiet **New chat** button in the thread header (on a phone it is the first entry of the **…** menu) to start a fresh conversation. The sidebar's **Chat** entry also always opens an empty draft, never the last thread you left. On an empty thread the chat shows a time-of-day greeting (with your first name when available). Type your message in the composer at the bottom of the screen and press Enter. The first user message sets the conversation title (truncated to 50 characters).
 
-While ARCHOS answers, the composer stays open, so you can write the next question as you read (the placeholder says *Type your next question …*). Enter does nothing until the answer has settled: the button is **Stop** until then and turns back into **Send** when it is done. Esc stops the answer and keeps whatever you have typed. While a colleague's question is being answered in a shared chat, the composer stays locked.
+While ARCHOS answers, the composer stays open, so you can write the next question as you read (the placeholder says „Nächste Frage schon eingeben …“). Enter does nothing until the answer has settled: the button is **Stop** until then and turns back into **Send** when it is done. Where the server can take a note into a running answer, the placeholder says „ARCHOS lenken …“ instead and a small „lenkt“ chip sits above the field: Enter then adds what you typed to the answer that is running, and ARCHOS reads it before its next step. Esc stops the answer and keeps whatever you have typed. While a colleague's question is being answered in a shared chat, the composer stays locked.
 
 ## Thread header
 
 The header is two floating pills, split by what they are for.
 
-**Left — where you are.** The chat-history toggle (the door to past chats) and a breadcrumb **{project} / {session title}**. Click the session title to rename it inline — Enter or clicking away commits, Escape cancels; this uses the same rename action as the chat-history panel. The project name truncates before the session title does, because the project is already named by the composer's scope chip and the navigation rail, while the session title is the only place this thread is named at all. On a phone the project segment is dropped entirely.
+**Left — where you are.** The chat-history toggle (the door to past chats) and the session title. Click the session title to rename it inline — Enter or clicking away commits, Escape cancels; this uses the same rename action as the chat-history panel. The project is not repeated here, because the navigation rail already names it; on a phone, where there is no rail, the project pill above the header names it, and the title may take two lines.
 
 **Right — what is true about this chat, then what you can do to it,** separated by a hairline.
 
@@ -26,32 +26,35 @@ Before the line is *status*, and none of it is clickable. Who can read the chat 
 
 Alongside it, while deep research is running, a spinner — so the "still working" signal survives scrolling past the run block in the thread.
 
-Either way the full picture (the rule *and* anyone individually invited) is in the sharing surface, one click away in the menu. On small screens the faces and the access chip are hidden below the `sm` breakpoint, so the same picture also lives at the top of the **…** menu, where it is never further than one tap away.
+Either way the full picture (the rule *and* anyone individually invited) is in the sharing surface, one click away in the menu. Below the `sm` breakpoint there is no room for the status beside the actions, so the faces or the access chip, and the research spinner, move to the end of the title's row in the left pill.
 
-After the line is *action*. **New chat** is the only one kept in the open. The rest live in the **…** menu, and each appears only when it is real:
+After the line is *action*. **New chat** is the only one kept in the open (on a phone it moves into the **…** menu, so the right pill is a single button). The rest live in the **…** menu, and each appears only when it is real:
 
 | Menu entry | Appears when |
 |---|---|
+| **New chat** | on a phone only; a desktop keeps it in the open |
 | **Rename chat** | there is a chat to rename — it opens the same in-place editor a click on the title opens (the menu entry is how you find it; the click is the shortcut). Enter or clicking away commits, Escape cancels — the same rename action as the chat-history panel |
 | **Share** | collaboration is enabled and this thread is reachable — the one door to the sharing surface, for every participant, not only owners. On a brand-new chat the thread only reaches the server with its first message, so this entry arrives a moment after you send it rather than being there from the first keystroke |
 
-Everything in this pill comes and goes during a conversation — the participants resolve a moment after the chat opens, research starts and finishes, the menu appears with the first thing worth listing — so arrivals animate: the pill grows into its new width and the buttons slide rather than jumping. If your system is set to reduce motion, they simply appear.
+Everything in this pill comes and goes during a conversation — the participants resolve a moment after the chat opens, research starts and finishes, the menu appears with the first thing worth listing — so arrivals fade in rather than blinking into place, and the controls already there keep their position instead of sliding sideways.
 
-If none of them applies, there is no menu button either. There is no report entry here: a research report is read in the run block of the thread that commissioned it (see [Deep research vs simple chat](#deep-research-vs-simple-chat) below).
+If neither **Rename chat** nor **Share** applies, a desktop shows no menu button either. There is no report entry here: a research report is read in the run block of the thread that commissioned it (see [Deep research vs simple chat](#deep-research-vs-simple-chat) below).
 
 The whole header is hidden on an empty chat that has not started yet, apart from the sessions and navigation doors.
 
 ## The composer
 
-The composer is a white card with the message field on top and a control row below, separated by a hairline:
+The composer is a translucent card floating over the thread, with the message field on top and a control row below:
 
-- **Asking about … bar**: when this turn is about a project file (**Besprechen**, a surfaced card, or a cited drawing), a bar at the top of the composer names that file and the file stays open as a peek. Sidebar **Frag ARCHOS** (`?new=1` alone) is an empty draft and closes the previous peek. **Besprechen** lands on `?new=1&doc=` — a new chat *about that file* — and must keep the peek. The **×** on the bar stops asking about the file. The next send searches that document, not the Büroablage.
-- **Datengrundlage chip**: shows how many data sources are currently enabled and opens the existing Data Sources panel.
-- **Scope chip**: shows the current project's name, on a phone too, where it truncates before anything else in the row gives way. Retrieval is always scoped to this project; the popover lists a disabled "All projects" option — cross-project search is not available yet.
-- **Deep Research pill**: an on/off *preference*. ARCHOS escalates to deep research automatically when a question calls for it; the pill records your intent and shows an honest hint — it does not force a deep-research run.
+- **„Frage zu …“ bar**: when this turn is about a project file (**Mit ARCHOS besprechen**, a surfaced card, a cited drawing, or a document picked with `#`), a bar at the top of the composer names that file and the file stays open as a peek. The sidebar's **Chat** entry (`?new=1` alone) is an empty draft and closes the previous peek. **Mit ARCHOS besprechen** lands on `?new=1&doc=` — a new chat *about that file* — and must keep the peek. The **×** on the bar stops asking about the file, with **Rückgängig** to take that back. The next send searches that document, not the Büroablage.
+- **`#` for a document**: typing `#` opens a search over this project's documents (the office's, in a chat outside a project); ↑↓ choose, Enter inserts, Esc closes. Picking one writes its name into the message and makes it the subject of the turn, the same as **Mit ARCHOS besprechen** on that file.
+- **Attached files**: each file added to this chat shows as a chip above the field, with its reading status, a retry when the upload failed and **×** to remove it; a click opens it read-only and makes it the subject of the turn. The file count at the start of the control row (on a phone the „… Dateien verwalten“ link under the chips) opens **Dateien verwalten**, the full list. A message sent while a file is still being read waits for it — „Wird gesendet, sobald die Datei gelesen ist.“ — and „Jetzt ohne die Datei fragen“ sends it at once.
+- **„Aufwand“**: a chip beside the paperclip names how long ARCHOS thinks before it answers, for this chat (it starts at the organization's default). It opens a slider from „Schneller“ to „Intelligenter“ over five levels (Minimal, Niedrig, Mittel, Hoch, Maximal); at „Maximal“ it warns that ARCHOS rarely answers better and costs far more tokens. While ARCHOS is waiting for your reply to its own question the chip is hidden.
 - **Attach / dictation / send**: with a mouse the paperclip opens the file picker. On a touch screen it opens a menu: **Foto aufnehmen** (the camera, directly), **Aus Mediathek** and **Datei auswählen**, and it says that what you add stays in this chat; for the project's files, upload under **Dateien**, whose upload menu offers the same two photo entries. Photos are accepted where the office has image upload switched on and a vision model is configured; otherwise the two entries stay visible, disabled, with the reason. A photo is named after the moment it was taken (`Foto 2026-10-15 14-32-05.jpg`), because a file uploaded under a name the chat or folder already holds replaces that file. The microphone sits beside Send; on a touch screen a recording shows a full-width bar with the time against the 45-second limit, and a tap anywhere on it inserts the text. A microphone this browser cannot use says why when you press it.
 
 On a phone the control row stays one line. The `@` list keeps the keyboard open when you pick a name.
+
+Under the composer one line always reads „ARCHOS ist ein KI-System — Antworten können falsch sein; prüfen Sie sie anhand der zitierten Unterlagen.“ (see [AI Act](ai-act.md)).
 
 **Above the composer, a usage notice** appears when a budget that applies to you is close to stopping chat: the office's, your own limit, or the project's, daily or monthly. It shows one budget, the one that matters most:
 
@@ -61,7 +64,7 @@ On a phone the control row stays one line. The `@` list keeps the keyboard open 
 
 Whoever can raise the limit (an organization budget admin, or for a project budget a project admin) gets **Limit erhöhen**, straight to where it is set; everyone else is told an admin can, and gets a link to their usage. Amounts appear only to people who may already read them: whoever can change the limit, and you for your own limit. Everyone else sees the percentage. Each level can be closed with **×** and stays closed for that budget window; the next level, or the next window, shows again. **Used up** cannot be closed.
 
-Under the composer a **Shortcuts** row offers three source presets — *Baurecht & Richtlinien* (base corpus + RIS), *Projektunterlagen* (this project's files, not the Büroablage), and *Büroablage* (the office's own files, not project files). They stay available after the first message. A pressed preset also tells retrieval which knowledge shelves to keep; it is not only an external-source toggle. Any manual change in the Data Sources panel takes you off the preset again. Uploading a file into the chat binds the next send to that file — "Fass den Inhalt zusammen" does not walk the rest of the project or the Büroablage.
+There is no control in the composer for which sources a question may use (see [Data sources](#data-sources)). Uploading a file into the chat binds the next send to that file — "Fass den Inhalt zusammen" does not walk the rest of the project or the Büroablage.
 
 Documents sit on four nested shelves. Asking **which files** sit where is answered from that shelf only:
 
@@ -111,7 +114,7 @@ When collaboration is enabled (ADR-0032…0036), a chat can have a named audienc
 
 **Sharing.** The **Share** entry in the **…** menu opens the sharing dialog for every participant, not only owners. It shows the audience as a rule or a list: a visibility choice (*Only me / Everyone in this project / Everyone in this organization*), then the people with access grouped by role (*Owners / Can contribute / Can view*), each row stating why they are there (for example "invited by {name}"). Owners can change roles, remove people, or take ownership — with a confirmation step, because ownership changes are audited. Invite search covers the whole organization; a colleague who is not in the project yet is listed as blocked with the reason, because sharing a chat never grants access to the project itself. Anyone can **Leave** the conversation — owners too, as long as another owner remains; the last owner is protected server-side. If the sharing settings fail to load, the dialog opens with a retry rather than the Share entry silently disappearing.
 
-**Mentions.** Typing `@` in the composer opens the person picker: ARCHOS (the agent) pinned first, then the people in this conversation, then colleagues elsewhere in the project who would need an invitation. Within each group, a name that starts with what you typed (any part of it: `@Le` finds Lena Fuchs and Anna Lehner) comes before a name that merely contains it, and someone found only by their e-mail address comes last; Enter takes the best match. ↑↓ choose, Enter inserts, Esc closes — and the picker works from the very first message of a chat. Below the composer an addressee line states truthfully who the next message goes to — *Goes to ARCHOS*, *Goes to {name}*, or *Goes to everyone in the chat* — and doubles as the discoverable way to mention someone.
+**Mentions.** Typing `@` in the composer opens the person picker: ARCHOS (the agent) pinned first, then the people in this conversation, then colleagues elsewhere in the project who would need an invitation. Within each group, a name that starts with what you typed (any part of it: `@Le` finds Lena Fuchs and Anna Lehner) comes before a name that merely contains it, and someone found only by their e-mail address comes last; Enter takes the best match. ↑↓ choose, Enter inserts, Esc closes — and the picker works from the very first message of a chat. On its own line under the composer's controls, an addressee line states who the next message goes to whenever that is not simply ARCHOS — „Geht an {name}“ or „Geht an alle im Chat“ — and carries „Kollegin oder Kollegen erwähnen“, the discoverable way to mention someone (it types the `@` for you). When the message goes to ARCHOS, as it does by default, the line says nothing and only that offer stands.
 
 **Waiting for a person.** A message that addresses a person by name hands the thread over to them: the agent deliberately stays silent until they answer, and a banner says who is being waited for — with, per person, the question they were asked and who asked it, so a thread waiting on two colleagues still shows both. The banner always offers an escape — **Continue without waiting**, **Ask ARCHOS instead** (pre-fills an agent mention), or **Ask {name} back** (re-mentions the asker) — and those offers really route as mentions, so the agent is asked rather than the text sitting in the chat. When the awaited person answers, a transient offer appears — "{name} replied — let ARCHOS carry on?" — which pre-fills the composer with an agent mention so ARCHOS actually picks the thread back up. In a thread with several people talking, a plain message is a remark for everyone, and the addressee line says so; an offer can switch the thread to *answer only when mentioned* mode.
 
@@ -119,7 +122,7 @@ When collaboration is enabled (ADR-0032…0036), a chat can have a named audienc
 
 **Who is writing.** While one or more colleagues are composing, their names and three dots appear at the foot of the chat — deliberately a different shape from ARCHOS's own status, so a pause is legible at a glance as a person thinking rather than the assistant working. It survives a pause mid-sentence on purpose, rather than blinking off the moment someone stops to think or to check a document; it disappears when they send, clear the box or switch chats, and otherwise after about 45 seconds without a keystroke. A closed tab or a dropped connection takes a few seconds longer, because nothing can announce that on the way out — the claim simply expires. Nothing about it is stored.
 
-**Read-only and revoked access.** Someone with view-only access reads along but cannot send; the composer says so instead of silently rejecting, and everything on the composer that would write to the shared chat goes with it — attachments, drag-and-drop, the shortcut chips and every route to the *Datengrundlage*. Opening a file that is already attached still works: reading along is the point. If access to a shared chat is revoked while it is open, a notice explains that what remains is a local copy that no longer updates. While a colleague's turn is running, the composer is locked with a hint rather than letting two people write into one thread at once.
+**Read-only and revoked access.** Someone with view-only access reads along but cannot send; the composer says so instead of silently rejecting, and everything on the composer that would write to the shared chat goes with it — attachments, drag-and-drop, managing the attached files, the `/` and `#` pickers, the mention offer, the „Aufwand“ dial and dictation. Opening a file that is already attached still works: reading along is the point. If access to a shared chat is revoked while it is open, a notice explains that what remains is a local copy that no longer updates. While a colleague's turn is running, the composer is locked with a hint rather than letting two people write into one thread at once.
 
 **The inbox.** The inbox (nav entry with a live count badge, and an "Inbox" pill on org-level pages) lists everything that needs a person: mention requests, answers, and shares. It also tells you when a document you follow has a newer Fassung (see below). Items deep-link into the right chat, highlight the message, and are marked read as you open them, whether from the row, from a notification on your device, or by opening the annotation they are about in the review; resolved items carry an *Answered* chip. Four filters answer four questions: *Needs me* (a request still waiting on you), *Unread*, *All*, and *Archived*, where an archived item can be restored. Each row's menu marks it read or unread again and archives it; older items load at the end of the list, and the list can be worked from the keyboard (J/K, Enter, E, U). A row about an annotation opens it with *Go to annotation*, and an annotation assigned to you, or ARCHOS's question, can be answered (and an assigned one resolved) right in the row. The badge count also rides on the chat's own navigation on phones. Someone who never opens the inbox is offered device notifications once, the first time something waits on them. The page lives above projects, so it has the same back control Organisation and Platform do: it returns you to the project you came from, not to a settings tab you clicked through on the way.
 
@@ -127,23 +130,23 @@ When collaboration is enabled (ADR-0032…0036), a chat can have a named audienc
 
 ## Chat history panel
 
-The history panel slides in from the left edge and covers the navigation rail for as long as it is open — it spans the full height of the window, because the chat route has no top bar for it to dock beneath. Close it with its **✕** or Escape; focus returns to the control that opened it.
+The history panel opens from the chat-history toggle as a sheet that rises over the chat (the same sheet as the inbox, with a sliver of the chat left visible above it), and is this project's whole record of past chats and research runs. Close it with its **✕** or Escape; focus returns to the control that opened it.
 
-Its heading names the panel and its size (**Chat history · 12 chats**). Below that, two controls stay pinned while the list scrolls:
+Its heading names the panel and its size (**Chat history · 12 chats**). Below that, the controls stay pinned while the list scrolls:
 
 - **New chat** — starts a fresh conversation. Disabled while ARCHOS is still answering, and the panel then says so rather than leaving you to discover it.
-- **Search chats** — filters by title, and by the "Untitled chat" placeholder for chats that never got one, so what you see is what you can search. A live **n of N chats** count sits under the field and a **✕** inside it restores the full list; a query that matches nothing gets an empty state that quotes the query and offers the way back. On desktop the field takes focus when the panel opens, so you can open the panel and type. The field is hidden entirely in a project with no chats.
+- **Search chats** — filters by title, and by the "Untitled chat" placeholder for chats that never got one, so what you see is what you can search. A live **n of N chats** count sits under the field and a **✕** inside it restores the full list; a query that matches nothing gets an empty state that quotes the query and offers the way back. On desktop the field takes focus when the panel opens, so you can open the panel and type. The field is hidden entirely in a project with no chats. The search covers research runs as well as chats.
+- **All / Chats / Deep Research** — in a project with deep research, a filter for which of the two lists to show; it works together with the search.
 
 The list groups chats by day (Today, Yesterday, then the date) with sticky day headings. A row in **Today** carries a relative time ("4 minutes ago"); every other row carries the time of day ("14:32"), because its day is already on the heading above it. Each row shows a status icon, and the row's accessible name says the same thing in words:
 
 - **Spinner**: a deep research job is running for this chat
 - **Document checkmark**: the chat has a finished research report
-- **Ellipse**: the chat's research report has expired
-- **Chat bubble**: a plain chat with no deep research
+- **Chat bubble**: any other chat
 
-Rename and delete appear on the row on hover or keyboard focus. A **Deep Research** section above the day groups lists this project's research runs — including headless/CLI ones that never touched this browser — each stating its status in words (*Running*, *Report ready*, *Failed*, *Cancelled*).
+Rename and delete appear on the row on hover or keyboard focus; on a touch screen each row has a visible menu at its end instead. A **Deep Research** section above the day groups lists this project's research runs — including headless/CLI ones that never touched this browser — each stating its status in words (*Running*, *Report ready*, *Failed*, *Cancelled*).
 
-The footer explains that chats live in this browser and that research reports may expire on the server, warns when browser storage is nearly full (and says what to do about it), and holds **Delete all chats** — the destructive bulk action, kept at the far end of the panel rather than above the list it deletes. It is scoped to the current project.
+The footer explains that chats are saved in your workspace and available on every device, and that research reports may expire on the server, and holds **Delete all chats** — the destructive bulk action, kept at the far end of the panel rather than above the list it deletes. It is scoped to the current project.
 
 Switching chats is blocked during shallow thinking (WebSocket stream) or a HITL prompt; deep research runs server-side and does not block navigation.
 
@@ -167,6 +170,8 @@ be reloaded.
 ## Deep research vs simple chat
 
 Simple chat sends a single message over the WebSocket and streams the assistant response back.
+
+There is no switch for deep research in the composer. ARCHOS escalates to it when a question calls for it; when it asks first, the Rechercheplan card described below is where you decide (**Recherche starten**, **Kurz beantworten** or **Abbrechen**).
 
 Deep research commissions a run, and the run is one block in the thread that
 asked for it: a stand naming where the run is (Planen · Recherchieren · Prüfen
@@ -537,12 +542,9 @@ The user responds through the chat UI; the response is sent back via the WebSock
 
 The answered prompt flips to "received" immediately (optimistic, before any server round-trip), and once the reply is on the wire a "ARCHOS antwortet …" cue appears at the bottom of the thread until the next thing streams in — a clarifying follow-up, the plan's answer, or the final response — so an answered prompt never sits there looking finished while the agent is still working on it.
 
-## Data source toggles
+## Data sources
 
-Open the **Data Sources** panel (right sidebar) to enable or disable knowledge connections. The panel has two tabs:
-
-- **Connections**: Toggle individual data sources (web search, knowledge base, etc.) on/off. A master "Disable / Enable All" switch controls all available sources. Some sources require authentication.
-- **Files**: Uploaded files attached to the current session.
+The chat has no control for its data sources at the moment: the picker is withheld, and every question goes out with every available source enabled. A conversation that saved a narrower selection while the picker existed still restores it. When no source and no file is available at all, a warning above the composer says so.
 
 Enabled data source IDs are tracked per conversation in `enabledDataSourceIds` and sent with every chat message as `enabledDataSources` metadata.
 
@@ -614,17 +616,17 @@ Set a `projectId` on the store to scope the conversation context to a specific p
 
 ## File upload
 
-Drag and drop or select files to attach them to the current session. Uploaded files are ingested into a session-scoped Milvus collection (`s_<sessionId>`) and become part of the conversation context. File upload status is shown via `file_upload_status` system messages. File uploads trigger a `maybeDiscardAbandonedUploadOnlySession` check: sessions with only uploaded files and no user chat messages are cleaned up on navigation.
+Drop files anywhere over the chat, paste them, or pick them with the paperclip to attach them to the current session (see [The composer](#the-composer) for the chips and **Dateien verwalten**). Uploaded files are ingested into a session-scoped Milvus collection (`s_<sessionId>`) and become part of the conversation context. File upload status is shown via `file_upload_status` system messages. File uploads trigger a `maybeDiscardAbandonedUploadOnlySession` check: sessions with only uploaded files and no user chat messages are cleaned up on navigation.
 
 ## Session persistence
 
-Conversations persist to `localStorage` via the Zustand `persist` middleware (`features/chat/stores/chat-storage.ts`), one key per conversation's messages (`aiq-chat-store:messages:<id>`) and a small index (`aiq-chat-store:index`) for the conversation list, the open conversation's id, the composer drafts and the open question. The storage layer:
+Conversations are saved on the server; the browser keeps a cache of them in `localStorage` via the Zustand `persist` middleware (`features/chat/stores/chat-storage.ts`), one key per conversation's messages (`chat-store:messages:<id>`) and a small index (`chat-store:index`) for the conversation list, the open conversation's id, the composer drafts and the open question. The storage layer:
 
 - Writes only what changed: a send or a settled answer writes that conversation and the index, a switch or a draft the index alone
 - Prunes message content (thinking-step payloads, long citation text) before writing
 - Strips interrupted streaming answers and connection error messages on hydration (transient state should not survive reloads)
 - Reconstructs the current conversation from its ID
 - Past its budget or on a `QuotaExceededError`, evicts the messages of the least recently updated conversations (the server holds them, and opening the conversation fetches them); the index, and with it the list, the titles and the drafts, is never evicted
-- Moves the old single key `aiq-chat-store` into this shape on the first load after the change
+- Moves the old single key into this shape on the first load after the change, and the keys of the store's former name, `aiq-chat-store`, to `chat-store`
 
 On page load, `loadServerConversations()` fetches conversations from the BFF and merges server metadata (title, dates) with local messages. Deep research job statuses are refreshed via `refreshDeepResearchSessionStatuses()` after rehydration.

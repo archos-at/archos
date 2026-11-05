@@ -402,6 +402,12 @@ The operator console (`platform` domain, `/api/platform/…`) is GRID's, not an
 office's, and is on no office door, for platform staff neither. It has a second
 MCP server of its own, `POST /api/platform/mcp` (ADR-0126), for platform staff.
 
+The platform door offers the console's own operations. MCP servers that run
+inside the cluster for the team (Langfuse's, and those that follow) are on
+neither door: platform staff reach them through the platform MCP gateway at
+`platform-mcp.<baseDomain>/<server>/mcp`, agentgateway behind Envoy (ADR-0154,
+[`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md)).
+
 | | Office doors (`/api/mcp`, `/api/a2a`) | Platform door (`/api/platform/mcp`) |
 |---|---|---|
 | Offers | every domain but `platform`, the agent read tools | the `platform` domain only (`platform: true` in the exposure config) |

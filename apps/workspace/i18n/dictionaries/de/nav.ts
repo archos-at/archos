@@ -15,7 +15,7 @@ export const nav: typeof en.nav = {
   openNavigation: 'Navigation öffnen',
   closeNavigation: 'Navigation schließen',
   sections: {
-    chat: 'Frag {productName}',
+    chat: 'Chat',
     files: 'Dateien',
     knowledge: 'Wissen',
     research: 'Recherche',

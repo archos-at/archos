@@ -23,6 +23,7 @@ import {
   loadQdrant,
   refuseRetiredVectorKeys,
 } from "./config/qdrant";
+import { type McpGatewayConfig, loadMcpGateway } from "./config/mcp-gateway";
 import { bool, nodeGroup, num } from "./config/readers";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
@@ -367,6 +368,8 @@ export interface DeployConfig {
    */
   langfuse: LangfuseConfig;
 
+  /** The platform MCP gateway (ADR-0154, `config/mcp-gateway.ts`). */
+  mcpGateway: McpGatewayConfig;
 }
 
 export function loadConfig(): DeployConfig {
@@ -475,6 +478,7 @@ export function loadConfig(): DeployConfig {
   const langfuse = loadLangfuse(cfg, baseDomain, missingOidcDeps, observabilityFlag);
 
   const qdrantDashboard = loadQdrantDashboard(cfg, baseDomain, missingOidcDeps);
+  const mcpGateway = loadMcpGateway(cfg, baseDomain, appServices.auth.workosAuthkitDomain, langfuse.enabled);
 
   // ── Public DNS (Cloudflare) ────────────────────────────────────────────────
   //
@@ -489,6 +493,7 @@ export function loadConfig(): DeployConfig {
     s3Domain,
     langfuseDomain: langfuse.enabled ? langfuse.domain : undefined,
     qdrantDashboardDomain: qdrantDashboard.enabled ? qdrantDashboard.domain : undefined,
+    mcpGatewayDomain: mcpGateway.enabled ? mcpGateway.domain : undefined,
   });
 
   const posthog = loadPosthog(cfg, observabilityFlag);
@@ -568,6 +573,8 @@ export function loadConfig(): DeployConfig {
     observability,
 
     langfuse,
+
+    mcpGateway,
   };
 }
 

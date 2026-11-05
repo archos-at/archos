@@ -6,7 +6,6 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { useLayoutStore } from '@/features/layout/store'
 import { PhoneTabBar } from './phone-tab-bar'
 import { useShellOverlays } from './shell-overlays'
-import { PRODUCT_NAME } from '@/lib/brand'
 
 let pathname = '/app/projects/p1/files'
 vi.mock('next/navigation', () => ({
@@ -55,7 +54,7 @@ describe('PhoneTabBar — inside a project', () => {
     render(<PhoneTabBar projectId="p1" canAccessOfficeShelf canAccessInbox />)
     const links = within(bar()).getAllByRole('link')
     expect(links.map((link) => link.textContent)).toEqual([
-      `Ask ${PRODUCT_NAME}`,
+      'Chat',
       'Files',
       'Overview',
       expect.stringContaining('Inbox'),
@@ -113,7 +112,7 @@ describe('PhoneTabBar — inside a project', () => {
     render(
       <PhoneTabBar projectId="p1" canAccessOfficeShelf canAccessInbox pathname="/app/projects/p1/chat" />
     )
-    expect(within(bar()).getByRole('link', { name: `Ask ${PRODUCT_NAME}` })).toHaveAttribute(
+    expect(within(bar()).getByRole('link', { name: 'Chat' })).toHaveAttribute(
       'aria-current',
       'page'
     )

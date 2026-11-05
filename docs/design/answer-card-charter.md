@@ -154,7 +154,7 @@ Collapse the five chromes to one component with three declared registers. A regi
 
 | Step | Spec | Role |
 |---|---|---|
-| **Eyebrow** | `text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground` — via `SectionLabel`, never hand-rolled | card type, micro-labels, column headers |
+| **Eyebrow** | `text-[10.5px] font-medium text-muted-foreground`, sentence case, no tracking — via `SectionLabel`, never hand-rolled | card type, micro-labels, column headers |
 | **Meta** | 11px / 500 / `tabular-nums` or `font-mono` | ordinals, chips, units, ± bands, counts |
 | **Caption** | 12px / 400 / `leading-relaxed` | details, notes, excerpt attributions |
 | **Body** | 13.5px / 400 / `leading-[1.55]` | every row of every list. The default. |

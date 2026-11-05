@@ -20,6 +20,7 @@
  */
 
 import type { FC } from 'react'
+import { SectionLabel } from '@/components/ui/section-label'
 import type { Translator } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { fmtTolerance, missingLabel, statusColor } from '../schematics/kit'
@@ -132,9 +133,7 @@ const StepRow: FC<{
 
   return (
     <li className="flex flex-col gap-1">
-      <span className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-        {step.label}
-      </span>
+      <SectionLabel>{step.label}</SectionLabel>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
         {step.operands.map((operand, position) => (
           <span key={`${operand.label}-${position}`} className="flex items-start gap-2">

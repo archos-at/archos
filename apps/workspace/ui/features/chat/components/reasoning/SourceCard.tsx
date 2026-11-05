@@ -15,7 +15,7 @@
  *    did not use it — a real research outcome that was previously not
  *    expressible at all.
  *
- * Shape: a tinted uppercase folder tab (icon + provenance label) seated on the
+ * Shape: a tinted folder tab (icon + provenance label) seated on the
  * top-left of a card holding the name, its edition when the title states one,
  * and a place chip („Pkt. 3.1.1“, „S. 7“) with the `[N]` beside it. No hit
  * count: the place proves, the number does not (the 2026-10 value test).
@@ -195,7 +195,7 @@ export const SourceCard: FC<{
         link === 'receded' && RECEDED
       )}
     >
-      {/* Folder tab — tinted, uppercase, seated on the card's top-left. */}
+      {/* Folder tab — tinted, seated on the card's top-left. */}
       <SectionLabel
         className={cn(FOLDER_TAB, 'max-w-[calc(100%-0.625rem)]')}
         style={{ backgroundColor: tint.backgroundColor, color: tint.color }}

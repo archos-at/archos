@@ -34,6 +34,7 @@ import { useEffect, useRef } from 'react'
 
 import { I18nProvider } from '@/i18n'
 import { SkillsUsedDisclosure } from '@/features/skills/components/SkillsUsedDisclosure'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const INVOCABLE = [
   {
@@ -75,16 +76,16 @@ export default function SkillActivationPreviewPage(): JSX.Element {
         className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6"
       >
         <section className="flex flex-col gap-3">
-          <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+          <SectionLabel as="h2">
             Geschlossen — ein Skill, unter der Antwort
-          </h2>
+          </SectionLabel>
           <SkillsUsedDisclosure skillsActivated={['oib-brandschutznachweis']} />
         </section>
 
         <section className="flex flex-col gap-3">
-          <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+          <SectionLabel as="h2">
             Geöffnet — drei Skills, einer davon zwischenzeitlich umbenannt
-          </h2>
+          </SectionLabel>
           <ExpandedDisclosure />
         </section>
       </main>

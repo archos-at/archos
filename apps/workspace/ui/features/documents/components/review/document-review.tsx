@@ -151,9 +151,9 @@ function ReviewTools({
             aria-label={name}
             onClick={(event) => {
               if (tool === 'chat') return onChat()
-              review.setTool(tool)
-              // `detail` is 0 for a click the keyboard made (Enter, Space).
-              if (tool !== 'select' && event.detail === 0) onAim?.()
+              // Picked again, the tool in hand is put down. `detail` is 0 for a click the keyboard made (Enter, Space).
+              review.setTool(pressed ? 'select' : tool)
+              if (!pressed && tool !== 'select' && event.detail === 0) onAim?.()
             }}
             className={cn(
               // The tool in hand is filled in ink: what the pointer will do is never a guess.

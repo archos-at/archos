@@ -562,6 +562,15 @@
 
   --font-sans: var(--font-body), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+  /* Geist Mono draws its default 0 with a slash, which reads as a struck-through
+     zero in a count (Notion #38). Its stylistic set 09 swaps in the plain 0 and
+     touches no other glyph. Tailwind puts this on every `font-mono` and, through
+     `--default-mono-font-feature-settings`, on `code`, `kbd`, `pre` and `samp`.
+     Anything that sets the mono face by hand reads it too
+     (`var(--font-mono--font-feature-settings)`). The set exists only in the full
+     font that `app/layout.tsx` loads from the `geist` package; the Google Fonts
+     copy has no plain 0 at all. `tests/mono-plain-zero.spec.ts` holds both ends. */
+  --font-mono--font-feature-settings: 'ss09';
   /* The wordmark only (brand: Switzer Semibold, loaded by the @font-face in globals.css). */
   --font-logo: 'Switzer', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }

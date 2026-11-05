@@ -1,8 +1,9 @@
 // @disk-inputs: app/**, ui/**, shared/**
 /**
  * The brand rules the workspace keeps at its own level (docs/design/design-language.md,
- * "Weight and white"): content is weight 500, a surface is never pure white, and the
- * chart palette is typed in one file. Each rule is a ratchet: the allowlists below name
+ * "Type ramp" and "Weight and white"): nothing but the wordmark is set in capitals,
+ * content is weight 500, a surface is never pure white, and the chart palette is typed
+ * in one file. Each rule is a ratchet: the allowlists below name
  * the few places that are exceptions on purpose, with the reason, and a new occurrence
  * anywhere else fails here instead of waiting for a reviewer's eye.
  */
@@ -116,5 +117,40 @@ describe('data palette', () => {
       .filter((f) => series.some((hex) => f.text.includes(hex)))
       .map((f) => f.name)
     expect(offenders).toEqual([])
+  })
+})
+
+/**
+ * Capitals set by CSS: the wordmark, and labels whose text IS a code — a file format
+ * (PDF, DWG), an authority (OIB, RIS, ÖNORM), a person's initials. A label in sentence
+ * case never gets `uppercase` back; its text is written the way it should read.
+ */
+const CAPITALS_ALLOWED = new Set([
+  'ui/components/brand/logo.tsx', // the wordmark
+  'ui/features/documents/components/file-ext-chip.tsx', // file-format code
+  'ui/features/documents/components/file-card.tsx', // file-format code chip
+  'ui/features/documents/components/document-kind-thumbnail.tsx', // file-format code chip
+  'ui/features/chat/components/MessageAuthor.tsx', // initials in the avatar disc
+  'ui/features/chat/components/AuthorityTag.tsx', // OIB / RIS / ÖNORM
+])
+
+/** Code without its comments, so prose that says "uppercase" is not a class. */
+const withoutComments = (text: string): string =>
+  text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1')
+
+const setsCapitals = (f: { name: string; text: string }): boolean =>
+  f.name.endsWith('.css')
+    ? /text-transform:\s*uppercase/.test(withoutComments(f.text))
+    : /(?<![\w:-])uppercase(?![\w-])/.test(withoutComments(f.text))
+
+describe('capitals', () => {
+  it('only the wordmark and codes are set in capitals', () => {
+    const offenders = files.filter((f) => setsCapitals(f) && !CAPITALS_ALLOWED.has(f.name)).map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+
+  it('the allowlist has no stale entry', () => {
+    const stale = [...CAPITALS_ALLOWED].filter((name) => !files.some((f) => f.name === name && setsCapitals(f)))
+    expect(stale).toEqual([])
   })
 })
