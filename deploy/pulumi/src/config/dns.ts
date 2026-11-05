@@ -2,6 +2,7 @@
  * Public DNS (Cloudflare), validated eagerly: every mistake here produces records Cloudflare accepts.
  */
 import * as pulumi from "@pulumi/pulumi";
+import { formerDomainRedirects } from "../app/former-domain";
 import { hostsOutsideZone, managedHosts } from "../platform/dns";
 import { bool, num } from "./readers";
 
@@ -53,7 +54,24 @@ export interface DnsConfig {
    * `loadConfig` refuses to have both at once.
    */
   apexRedirectTo?: string;
+  /**
+   * The former domain's hosts during a domain move (`formerBaseDomain`,
+   * app/former-domain.ts), or empty. Each keeps its A record at the Gateway,
+   * because its 301 is served there: without the record the redirect has
+   * nothing to answer and cert-manager cannot renew its certificate.
+   * Kept under the same resource names they had as this stack's own hosts, so
+   * the move does not delete and re-create them.
+   */
+  formerHosts: string[];
+  /**
+   * Zone of `formerHosts`: `formerDnsZoneId`, or this stack's own zone when
+   * the move stays inside it. The one API token must be able to edit both.
+   */
+  formerZoneId: string;
 }
+
+/** A Cloudflare zone id is 32 hex digits; anything else is a placeholder or a pasted name. */
+const ZONE_ID = /^[0-9a-f]{32}$/;
 
 export function loadDns(
   cfg: pulumi.Config,
@@ -68,6 +86,13 @@ export function loadDns(
   const dnsZoneBaseline = bool(cfg, "dnsZoneBaseline", false);
   const dnsHosts = managedHosts(hosts);
   const { webDomain } = hosts;
+  const formerHosts = formerDomainRedirects({
+    formerBaseDomain: cfg.get("formerBaseDomain"),
+    webDomain,
+    appDomain: hosts.appDomain,
+  }).map((r) => r.from);
+  const formerZoneName = (cfg.get("formerDnsZoneName") ?? "").replace(/\.$/, "");
+  const formerZoneId = cfg.get("formerDnsZoneId") ?? "";
   if (dnsEnabled) {
     const missingDnsDeps = [
       dnsZoneId === "" ? "dnsZoneId" : undefined,
@@ -94,6 +119,24 @@ export function loadDns(
           "which would leave the records pointing at an address the provider has since reassigned. " +
           "Deploy once without DNS, read the IP (`kubectl -n envoy-gateway-system get svc`), pin " +
           "it, then enable this.",
+      );
+    }
+    for (const [key, id] of [["dnsZoneId", dnsZoneId], ["formerDnsZoneId", formerZoneId]] as const) {
+      if (id !== "" && !ZONE_ID.test(id)) {
+        throw new Error(
+          `${pulumi.getProject()}:${key} is "${id}", which is not a Cloudflare zone id (32 hex digits, on the ` +
+            "zone's Overview page, or printed by deploy/pulumi/scripts/check-cloudflare-token.sh).",
+        );
+      }
+    }
+    refuseStrayFormerHosts(formerHosts, { dnsZoneName, formerZoneName, formerZoneId });
+    // Each host's record is named after the host, so a former host this stack still serves
+    // would register the same resource twice: refuse it here, by name, not as a duplicate URN.
+    const shared = formerHosts.filter((host) => dnsHosts.includes(host));
+    if (shared.length > 0) {
+      throw new Error(
+        `${pulumi.getProject()}:formerBaseDomain puts ${shared.join(", ")} on a host this stack still ` +
+          "serves. Set it to the domain being left.",
       );
     }
     const strays = hostsOutsideZone(dnsHosts, dnsZoneName);
@@ -143,7 +186,7 @@ export function loadDns(
       );
     }
   }
-      return {
+  return {
     enabled: dnsEnabled,
     zoneId: dnsZoneId,
     zoneName: dnsZoneName,
@@ -159,5 +202,35 @@ export function loadDns(
     zoneBaseline: dnsZoneBaseline,
     dmarc: cfg.get("dnsDmarc"),
     apexRedirectTo: dnsApexRedirectTo,
+    formerHosts,
+    formerZoneId: formerZoneId !== "" ? formerZoneId : dnsZoneId,
   };
+}
+
+/**
+ * The former hosts must land in a zone this stack names: its own, or the one
+ * `formerDnsZoneName`/`formerDnsZoneId` give. Outside it, Cloudflare would file
+ * `app.old.example` as `app.old.example.<zone>` and report success, and the
+ * 301s would answer nobody.
+ */
+function refuseStrayFormerHosts(
+  formerHosts: string[],
+  zones: { dnsZoneName: string; formerZoneName: string; formerZoneId: string },
+): void {
+  const project = pulumi.getProject();
+  if ((zones.formerZoneName === "") !== (zones.formerZoneId === "")) {
+    throw new Error(
+      `${project}:formerDnsZoneName and ${project}:formerDnsZoneId go together: the name checks the ` +
+        "former hosts fall inside the zone the id writes them to.",
+    );
+  }
+  const zone = zones.formerZoneName !== "" ? zones.formerZoneName : zones.dnsZoneName;
+  const strays = hostsOutsideZone(formerHosts, zone);
+  if (strays.length > 0) {
+    throw new Error(
+      `${project}:formerBaseDomain puts ${strays.join(", ")} outside the zone "${zone}". Set ` +
+        `${project}:formerDnsZoneName and ${project}:formerDnsZoneId to the zone that holds the ` +
+        "former domain, so its records keep pointing at the Gateway that serves the 301s.",
+    );
+  }
 }

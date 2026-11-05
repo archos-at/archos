@@ -31,6 +31,9 @@ pulumi.runtime.setMocks(
 
 const ZONE = "example.test";
 
+/** A stack config key, in the project's namespace. */
+const KEY = (name: string) => `${pulumi.getProject()}:${name}`;
+
 /** The slice of a dynamic-redirect rule these tests read back off the mock. */
 type RedirectRule = {
   expression: string;
@@ -51,7 +54,7 @@ function dnsConfig(overrides: Record<string, string> = {}): Record<string, strin
     "grid-oib:baseDomain": `dev.${ZONE}`,
     "grid-oib:loadBalancerIp": "203.0.113.10",
     "grid-oib:dnsEnabled": "true",
-    "grid-oib:dnsZoneId": "zone-abc123",
+    "grid-oib:dnsZoneId": "00000000000000000000000000abc123",
     "grid-oib:dnsZoneName": ZONE,
     "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
     ...overrides,
@@ -73,7 +76,7 @@ async function install(values: Record<string, string>) {
   // resource drains the queue so `RESOURCES` is complete when we assert.
   if (result) {
     await Promise.all(
-      [...result.hostRecords, ...result.baselineRecords].map(
+      [...result.hostRecords, ...result.formerHostRecords, ...result.baselineRecords].map(
         (r) => new Promise((resolve) => r.name.apply(resolve)),
       ),
     );
@@ -296,7 +299,89 @@ describe("installDns", () => {
   });
 });
 
+describe("installDns during a domain move (formerBaseDomain)", () => {
+  /** The former zone's id, as `formerDnsZoneId` carries it. */
+  const FORMER_ZONE_ID = "00000000000000000000000000f0f0f0";
+
+  it("keeps the former apex and app host at the Gateway, in this zone when the move stays in it", async () => {
+    const { result, records } = await install(dnsConfig({ [KEY("formerBaseDomain")]: `old.${ZONE}` }));
+    const former = records.filter((r) => (r.inputs.name as string).endsWith(`old.${ZONE}`));
+    expect(former.map((r) => r.inputs.name)).toEqual([`old.${ZONE}`, `app.old.${ZONE}`]);
+    for (const record of former) {
+      expect(record.inputs.zoneId).toBe("00000000000000000000000000abc123");
+      expect(record.inputs.content).toBe("203.0.113.10");
+      expect(record.inputs.proxied).toBe(false);
+    }
+    expect(result?.formerHostRecords).toHaveLength(2);
+  });
+
+  it("writes them to the former zone, under the names they had as this stack's own hosts", async () => {
+    // The same logical name is what makes the move a no-op for these records:
+    // a new name would delete the live record and re-create it.
+    const { records } = await install(
+      dnsConfig({
+        [KEY("baseDomain")]: `dev.${ZONE}`,
+        [KEY("formerBaseDomain")]: "dev.former.test",
+        [KEY("formerDnsZoneName")]: "former.test",
+        [KEY("formerDnsZoneId")]: FORMER_ZONE_ID,
+      }),
+    );
+    const former = records.filter((r) => (r.inputs.name as string).endsWith("former.test"));
+    expect(former.map((r) => r.name)).toEqual(["dns-dev.former.test", "dns-app.dev.former.test"]);
+    for (const record of former) expect(record.inputs.zoneId).toBe(FORMER_ZONE_ID);
+    // This stack's own hosts stay in its own zone.
+    const own = records.find((r) => r.inputs.name === `app.dev.${ZONE}`);
+    expect(own?.inputs.zoneId).toBe("00000000000000000000000000abc123");
+  });
+
+  it("refuses former hosts outside every zone it names", async () => {
+    const error = await loadWith(dnsConfig({ [KEY("formerBaseDomain")]: "dev.former.test" }));
+    expect(error?.message).toContain("dev.former.test");
+    expect(error?.message).toContain(KEY("formerDnsZoneId"));
+  });
+
+  it("refuses a former host this stack still serves", async () => {
+    // s3.<base> as the former domain: its apex would be this stack's own S3 host.
+    const error = await loadWith(dnsConfig({ [KEY("formerBaseDomain")]: `s3.dev.${ZONE}` }));
+    expect(error?.message).toContain(`s3.dev.${ZONE}`);
+    expect(error?.message).toContain("still serves");
+  });
+
+  it("refuses former hosts outside a complete former zone", async () => {
+    const error = await loadWith(
+      dnsConfig({
+        [KEY("formerBaseDomain")]: "dev.other.test",
+        [KEY("formerDnsZoneName")]: "former.test",
+        [KEY("formerDnsZoneId")]: FORMER_ZONE_ID,
+      }),
+    );
+    expect(error?.message).toContain("dev.other.test");
+    expect(error?.message).toContain('outside the zone "former.test"');
+  });
+
+  it("refuses half of the former zone", async () => {
+    const error = await loadWith(
+      dnsConfig({
+        [KEY("formerBaseDomain")]: "dev.former.test",
+        [KEY("formerDnsZoneName")]: "former.test",
+      }),
+    );
+    expect(error?.message).toContain("go together");
+  });
+
+  it("publishes nothing extra when no move is in progress", async () => {
+    const { result } = await install(dnsConfig());
+    expect(result?.formerHostRecords).toEqual([]);
+  });
+});
+
 describe("loadConfig refuses DNS configurations that would deploy cleanly and be wrong", () => {
+  it("refuses a zone id that is not one", async () => {
+    // The placeholder a stack file carries until the zone's id is known.
+    const error = await loadWith(dnsConfig({ [KEY("dnsZoneId")]: "REPLACE_ME" }));
+    expect(error?.message).toContain("not a Cloudflare zone id");
+  });
+
   it("requires the whole Cloudflare triple, naming what is missing", async () => {
     const config = dnsConfig();
     delete config["grid-oib:dnsZoneId"];
