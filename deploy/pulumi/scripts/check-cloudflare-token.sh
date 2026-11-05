@@ -74,11 +74,14 @@ errors() { jq -r '[.errors[]? | "\(.code) \(.message)"] | join("; ")'; }
 echo
 echo "== token"
 verify="$(cf GET /user/tokens/verify)"
+ACCOUNT_VERIFIED=0
 if [[ "$(jq -r .success <<<"$verify")" == "true" ]]; then
-  jq -r '.result | "status \(.status), expires \(.expires_on // "never")"' <<<"$verify"
+  jq -r '.result | "user token: status \(.status), expires \(.expires_on // "never")"' <<<"$verify"
+  ACCOUNT_VERIFIED=1
 else
-  # An account-owned token cannot call the user endpoint; the zone checks below still decide.
-  echo "not a user token, or not valid: $(errors <<<"$verify")"
+  # An account-owned token answers only on its account's endpoint, which needs the account
+  # id: the first zone the token can see names it (below).
+  echo "not a user token; checking it as an account token on the first visible zone's account"
 fi
 
 failed=0
@@ -105,6 +108,16 @@ for zone in "${ZONES[@]}"; do
     echo "      Zone Resources: add $zone. The token's value does not change."
     failed=1
     continue
+  fi
+  if [[ "$ACCOUNT_VERIFIED" -eq 0 ]]; then
+    account="$(jq -r '.result[0].account.id // empty' <<<"$zones")"
+    averify="$(cf GET "/accounts/$account/tokens/verify")"
+    if [[ "$(jq -r .success <<<"$averify")" == "true" ]]; then
+      jq -r '.result | "ok    account token: status \(.status), expires \(.expires_on // "never")"' <<<"$averify"
+    else
+      echo "WARN  token verify on account $account: $(errors <<<"$averify")"
+    fi
+    ACCOUNT_VERIFIED=1
   fi
   jq -r '.result[0] | "ok    visible: zone id \(.id), status \(.status), account \(.account.name), nameservers \(.name_servers | join(" "))"' <<<"$zones"
 

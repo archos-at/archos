@@ -30,8 +30,9 @@ beforeAll(() => {
       'while [ $# -gt 0 ]; do case "$1" in -X) method="$2"; shift 2;; -o) out="$2"; shift 2;; -w|-H|--data) shift 2;; -*) shift;; *) url="$1"; shift;; esac; done',
       `printf '%s %s\\n' "$method" "$url" >> "${CALLS}"`,
       'case "$method $url" in',
-      '  *"/user/tokens/verify") echo \'{"success":true,"result":{"status":"active"}}\' ;;',
-      `  *"/zones?name=$STUB_VISIBLE") echo '{"success":true,"result":[{"id":"${ZONE_ID}","status":"active","account":{"name":"acme"},"name_servers":["a.ns","b.ns"]}]}' ;;`,
+      '  *"/user/tokens/verify") [ -n "${STUB_ACCOUNT_TOKEN:-}" ] && echo \'{"success":false,"errors":[{"code":1000,"message":"Invalid API Token"}]}\' || echo \'{"success":true,"result":{"status":"active"}}\' ;;',
+      '  *"/accounts/acc1/tokens/verify") echo \'{"success":true,"result":{"status":"active"}}\' ;;',
+      `  *"/zones?name=$STUB_VISIBLE") echo '{"success":true,"result":[{"id":"${ZONE_ID}","status":"active","account":{"id":"acc1","name":"acme"},"name_servers":["a.ns","b.ns"]}]}' ;;`,
       '  *"/zones?name="*) echo \'{"success":true,"result":[]}\' ;;',
       '  "GET "*"/dns_records"*) echo \'{"success":true,"result":[{"type":"MX","name":"x","content":"mail","proxied":false}]}\' ;;',
       '  "POST "*"/dns_records") echo \'{"success":true,"result":{"id":"probe1"}}\' ;;',
@@ -71,6 +72,13 @@ describe("check-cloudflare-token.sh", () => {
       `POST https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records`,
       `DELETE https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/probe1`,
     ]);
+  });
+
+  it("verifies an account-owned token on the account of the first zone it sees", () => {
+    const r = run(["--read-only", "new.test"], "new.test", { STUB_ACCOUNT_TOKEN: "1" });
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("ok    account token: status active");
+    expect(r.calls).toContain("GET https://api.cloudflare.com/client/v4/accounts/acc1/tokens/verify");
   });
 
   it("fails a zone the token cannot see, and says how to add it", () => {
