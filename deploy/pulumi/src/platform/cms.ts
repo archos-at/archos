@@ -111,8 +111,10 @@ export function installCms(
   cfg: DeployConfig,
   provider: k8s.Provider,
   appNamespace: string,
-  /** The namespace, the cluster, and the bucket-init Job. */
+  /** The namespace, the cluster, the bucket-init Job, and the pull Secret when there is one. */
   dependsOn: pulumi.Resource[],
+  /** The registry pull Secret in the CMS's namespace, when the images are private. */
+  imagePullSecrets: { name: string }[] = [],
 ): Cms {
   const namespace = CMS.namespace;
   const labels = commonLabels(CMS.app);
@@ -133,6 +135,7 @@ export function installCms(
           metadata: { labels },
           spec: {
             enableServiceLinks: false,
+            imagePullSecrets,
             automountServiceAccountToken: false,
             // Requests are short; an MCP call or an upload in flight gets 30 s to finish.
             terminationGracePeriodSeconds: 30,

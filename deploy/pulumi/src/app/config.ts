@@ -49,6 +49,9 @@ export function buildRegistryPullSecret(
   cfg: DeployConfig,
   provider: k8s.Provider,
   namespace: pulumi.Input<string>,
+  /** The Pulumi name, for a second namespace that needs its own copy (the CMS's). */
+  resourceName: string = logicalName("grid-registry-pull"),
+  dependsOn: pulumi.Resource[] = [],
 ): k8s.core.v1.Secret | undefined {
   const creds = cfg.images.pullCredentials;
   if (!creds) return undefined;
@@ -67,13 +70,13 @@ export function buildRegistryPullSecret(
     }),
   );
   return new k8s.core.v1.Secret(
-    logicalName("grid-registry-pull"),
+    resourceName,
     {
       metadata: { name: PULL_SECRET_NAME, namespace },
       type: "kubernetes.io/dockerconfigjson",
       stringData: { ".dockerconfigjson": dockerConfigJson },
     },
-    { provider },
+    { provider, dependsOn },
   );
 }
 
