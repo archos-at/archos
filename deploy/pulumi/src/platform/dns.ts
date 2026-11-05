@@ -45,6 +45,8 @@ export interface ManagedDns {
   provider: cloudflare.Provider;
   /** One A record per Gateway listener host. */
   hostRecords: cloudflare.DnsRecord[];
+  /** One A record per former host during a domain move, in the former zone (`app/former-domain.ts`). */
+  formerHostRecords: cloudflare.DnsRecord[];
   /** `www` CNAME and (when configured) the `_dmarc` TXT — zone-level, not stack-level. */
   baselineRecords: cloudflare.DnsRecord[];
   /** Apex placeholder + dynamic-redirect ruleset, when `apexRedirectTo` is set. */
@@ -126,22 +128,27 @@ export function installDns(cfg: DeployConfig): ManagedDns | undefined {
   //
   // Turning this on is a real option — it just has to be a deliberate one, made
   // together with a DNS-01 issuer and a paid upload limit, not a default.
-  const hostRecords = dns.hosts.map(
-    (host) =>
-      new cloudflare.DnsRecord(
-        `dns-${host}`,
-        {
-          zoneId: dns.zoneId,
-          name: host,
-          type: "A",
-          content: dns.targetIp,
-          ttl: dns.ttl,
-          proxied: false,
-          comment: "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)",
-        },
-        opts,
-      ),
-  );
+  //
+  // The former hosts of a domain move are the same kind of record in their own
+  // zone, and keep the logical name they had as this stack's hosts: the move
+  // then changes nothing about them, rather than deleting a live record and
+  // re-creating it with the redirect's certificate still unissued.
+  const aRecord = (host: string, zoneId: string) =>
+    new cloudflare.DnsRecord(
+      `dns-${host}`,
+      {
+        zoneId,
+        name: host,
+        type: "A",
+        content: dns.targetIp,
+        ttl: dns.ttl,
+        proxied: false,
+        comment: "Managed by Pulumi (deploy/pulumi/src/platform/dns.ts)",
+      },
+      opts,
+    );
+  const hostRecords = dns.hosts.map((host) => aRecord(host, dns.zoneId));
+  const formerHostRecords = dns.formerHosts.map((host) => aRecord(host, dns.formerZoneId));
 
   // Zone-level records, owned by AT MOST ONE stack. `loadConfig` refuses the
   // combination that would have two stacks fighting over the apex, because
@@ -284,10 +291,10 @@ export function installDns(cfg: DeployConfig): ManagedDns | undefined {
     }
   }
 
-  return { provider, hostRecords, baselineRecords, apexRedirect, wwwRedirect };
+  return { provider, hostRecords, formerHostRecords, baselineRecords, apexRedirect, wwwRedirect };
 }
 
 /** Convenience for stack outputs: the FQDNs this stack put in DNS. */
 export function managedRecordNames(dns: ManagedDns): pulumi.Output<string>[] {
-  return [...dns.hostRecords, ...dns.baselineRecords].map((r) => r.name);
+  return [...dns.hostRecords, ...dns.formerHostRecords, ...dns.baselineRecords].map((r) => r.name);
 }

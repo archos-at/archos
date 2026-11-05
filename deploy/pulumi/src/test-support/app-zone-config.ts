@@ -6,7 +6,7 @@ import { LEGACY_PROJECT } from "../names";
  */
 
 /** A stack that manages the app zone and owns it (`dnsEnabled` + `dnsZoneBaseline`). */
-export const APP_ZONE_ID = "zone-app-1";
+export const APP_ZONE_ID = "000000000000000000000000000a0001";
 export const APP_ZONE = "example.test";
 
 export function appZoneStackConfig(): Record<string, string> {

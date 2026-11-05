@@ -107,6 +107,21 @@ describe("committed stack files", () => {
     }
   });
 
+  // A domain move keeps the former apex's records under the moving stack
+  // (`formerBaseDomain`, platform/dns.ts). Another stack that still serves that
+  // domain writes the same records, and Cloudflare lets the later `pulumi up`
+  // overwrite the earlier one without a word.
+  it("never let two stacks own the same domain, served or former", () => {
+    const owners = new Map<string, string[]>();
+    for (const stack of stacks()) {
+      for (const key of ["baseDomain", "formerBaseDomain"]) {
+        const domain = str(stack.config, key);
+        if (domain !== undefined) owners.set(domain, [...(owners.get(domain) ?? []), `${stack.file} ${key}`]);
+      }
+    }
+    for (const [domain, claims] of owners) expect(claims, domain).toHaveLength(1);
+  });
+
   // `loadConfig` refuses them at plan time, which is the deploy failing; this
   // says so on the pull request instead (ADR-0115).
   it("set none of the retired Chroma and vector-switch keys", () => {
