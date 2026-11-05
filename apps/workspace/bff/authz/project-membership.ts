@@ -26,6 +26,7 @@ import { ORG_PERMISSIONS, type ProjectPermission } from './permissions'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import { CLOSED_PROJECT_KEEPS, CLOSED_PROJECT_OPEN_TO_ORGANIZATION, isProjectClosed } from '@/lib/projects/project-status'
 import { inPool } from '@/lib/utils/in-pool'
+import { effectiveResourcePermissions } from './resource-check'
 
 /**
  * How stale a membership and its roles may be behind an access decision. One
@@ -176,21 +177,15 @@ export async function userHoldsProjectPermission(
     return true
   }
 
-  try {
-    const result = await getWorkOS().authorization.check({
-      organizationMembershipId: membership.organizationMembershipId,
-      permissionSlug: permission,
-      resourceExternalId: projectId,
-      resourceTypeSlug: 'project',
-    })
-    return result.authorized
-  } catch (error) {
-    console.warn(
-      `[project-membership] FGA check failed for ${targetUserId} on ${projectId}:`,
-      error
-    )
-    return false
-  }
+  // The same cached answer `requireProjectAccess` reads for that person, so
+  // the picker and the gate cannot disagree; a failed lookup holds nothing.
+  const held = await effectiveResourcePermissions({
+    organizationMembershipId: membership.organizationMembershipId,
+    organizationId: session.organizationId,
+    resourceExternalId: projectId,
+    resourceTypeSlug: 'project',
+  })
+  return held.has(permission)
 }
 
 /**

@@ -1,9 +1,10 @@
 /**
  * UserMessage Component
  *
- * User message bubble displayed in the chat area — the click-dummy "Eingabe"
- * turn: a right-aligned role tab over a bubble with the dummy's asymmetric
- * corner radius, hairline border and trace shadow.
+ * User message bubble displayed in the chat area: a right-aligned bubble with
+ * the dummy's asymmetric corner radius, hairline border and trace shadow. No
+ * role tab over it; its side and notch say it is the person's turn, and a
+ * screen reader hears "Eingabe" from a visually hidden label.
  *
  * ## Two renderings, one component
  *
@@ -54,10 +55,9 @@
 'use client'
 
 import { type FC, useState } from 'react'
-import { User, Copy, Check } from 'lucide-react'
+import { Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { AnimatePresence, motion, useIconSwapTransition } from '@/components/motion'
-import { SectionLabel } from '@/components/ui/section-label'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'
 import { formatTime } from '@/shared/utils/format-time'
 import { useLocale, useTranslations } from '@/i18n'
@@ -192,17 +192,15 @@ export const UserMessage: FC<UserMessageProps> = ({
     // every mount, reloads and thread switches included.
     return (
       <div className="flex w-full flex-col items-end">
-        {/* "Eingabe" role tab — the eyebrow, 10.5/500, inset from the bubble edge */}
-        <SectionLabel as="div" className="mr-[14px] inline-flex items-center gap-1.5 rounded-t-md bg-accent px-2.5 py-1">
-          <User className="size-2.5" aria-hidden="true" />
-          {t('roles.input')}
-        </SectionLabel>
-
         {/* Bubble — width 400, asymmetric corners, hairline border, trace shadow */}
         {/* Three corners are the token radius; the 4px top-right is the
             bubble's tail-side notch — the one deliberate value, and what makes
             an input bubble identifiable at a glance. */}
         <div className="group relative w-[400px] max-w-full rounded-bubble rounded-tr-[4px] border border-input bg-card px-[14px] py-[11px] text-sm leading-[1.55] text-default shadow-xs pointer-coarse:pr-14">
+          {/* No visible "Eingabe" tab: the bubble's side and notch already say
+              it on screen (Notion #38, topic 9). A screen reader has neither,
+              so it still hears whose turn this is. */}
+          <span className="sr-only">{t('roles.input')}</span>
           {body}
           <button data-attr="chat-copy-message"
             type="button"

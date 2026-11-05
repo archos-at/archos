@@ -215,7 +215,8 @@ export const chat = {
     projectWrites:
       '{productName} does more than answer — ask, and it writes file notes, memos and drafts straight into the project files.',
   },
-  // Thread role tabs (click-dummy overhaul, WS-3).
+  // Whose turn a message is, for a screen reader only: on screen the bubble
+  // and the answer card say it, so no role tab draws it (Notion #38, topic 9).
   roles: {
     input: 'Input',
     result: 'Result',
@@ -715,6 +716,8 @@ export const chat = {
       // A reading is what Piloti read off the page, never a measurement (ADR-0125).
       reading: 'Read: {reading}',
       readingNote: 'Read off the page by {productName}, not measured.',
+      // Opens what {productName} looked for and what it read there.
+      explanation: 'Explanation',
       embeddedImage: 'image {index}',
       open: 'Open {document} at p. {page}',
     },

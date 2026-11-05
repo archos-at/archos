@@ -15,13 +15,14 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ComponentProps } from 'react'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 import { FAKE_FRAME_WIDTH, fakePdfjsRuntime, type FakePdfState } from '@/test-utils/pdfjs-fake'
 import type { AnnotationView } from '@/lib/annotations/types'
 import type * as ReviewModule from './review/document-review'
 import { FilePreviewPane } from './file-preview-pane'
 import { HOVER_QUERY } from './inline-mark-peek'
+import { useFilePreviewStore } from '../stores/file-preview-store'
 
 const pdf = vi.hoisted((): FakePdfState => ({ fail: false, pages: [], destroyed: 0 }))
 vi.mock('@/features/knowledge/lib/pdfjs-runtime', () => fakePdfjsRuntime(pdf))
@@ -226,6 +227,31 @@ describe('into the review from the header', () => {
     fireEvent.click(await screen.findByRole('button', { name: /open large preview/i }))
     expect(await screen.findByRole('link', { name: /open in new tab/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Open review' })).toBeNull()
+  })
+})
+
+describe('into the review from the peek’s full screen', () => {
+  it('hands the host the review as what full screen does, for a PDF that carries marks', async () => {
+    serve([])
+    render(pane({ presentation: 'peek' }))
+    await waitFor(() => expect(useFilePreviewStore.getState().peekFullScreen).not.toBeNull())
+
+    act(() => useFilePreviewStore.getState().peekFullScreen?.())
+
+    expect(await screen.findByTestId('review-mode')).toBeInTheDocument()
+    expect(nav.push).toHaveBeenCalledWith('/app/projects/proj-1/files?doc=doc-1&review=1', { scroll: false })
+  })
+
+  it('leaves full screen to the enlarged pane for an image, and takes its offer back on leaving the peek', async () => {
+    serve([])
+    const { rerender } = render(pane({ presentation: 'peek', file: { ...FILE, id: 'img-1', filename: 'diagram.png', contentType: 'image/png' } }))
+    await screen.findByTestId('file-preview-well')
+    expect(useFilePreviewStore.getState().peekFullScreen).toBeNull()
+
+    rerender(pane({ presentation: 'peek' }))
+    await waitFor(() => expect(useFilePreviewStore.getState().peekFullScreen).not.toBeNull())
+    rerender(pane({ presentation: 'modal' }))
+    await waitFor(() => expect(useFilePreviewStore.getState().peekFullScreen).toBeNull())
   })
 })
 

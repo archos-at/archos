@@ -15,7 +15,7 @@ In a project chat that already has a file attached, **Dateien verwalten** also o
 
 Every way of uploading takes several files at once.
 
-In Dateien, folders are the drill-down inside the listing: each level shows its folders as tiles (or rows, in the list view) beside its files, and the breadcrumb above names the path and walks back out. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
+In Dateien, folders are the drill-down inside the listing: each level shows its folders as tiles (or rows, in the list view) beside its files, and the breadcrumb above names the path and walks back out. That row, with „Neuer Ordner“, stays pinned at the top while the listing scrolls. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
@@ -733,19 +733,17 @@ component, two shelves** (`FileWorkspace`; see
 Everything described for a project's Dateien above — folders, moving files by
 menu or drag, uploading a whole folder, the cards/list toggle, filters and sort,
 search, the preview and its `?doc=` link — works the same here, with the same
-words. It keeps the gold office mark (the Büroablage provenance signal used
-across the app) and what is specific to the office:
+words, and it looks the same: the header of a project section, the same cards and
+rows. What is specific to the office:
 
 - **Folders** — the office's own tree, separate from every project's. Members
   with `org:office_shelf:manage` create, rename, move and delete folders and re-file
   documents; deleting a folder never deletes documents, it re-files them into the
   parent. Everyone else can open folders, search, filter, preview and download
   but sees no upload, drag, create, rename, move or delete.
-- **Gold kind chip and provenance footer** — a card shows the document's kind
-  (floor plan, notice, …) on a gold chip, and cards whose documents carry
-  ingestion tags show them as an "Aus: …"/"From: …" line. Documents without
-  tags show none, and there is no "verified" marker — the Büroablage has no review
-  workflow.
+- **Cards as in a project** — a Büroablage card is a project's card: no kind
+  chip and no provenance line of its own. There is no "verified" marker — the
+  Büroablage has no review workflow.
 - **Category filter** — the filter menu offers „Kategorie“, derived from the
   controlled ingestion tags actually present on the loaded documents (document
   type + OIB discipline). Categories come from the documents themselves;

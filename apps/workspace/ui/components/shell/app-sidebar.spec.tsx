@@ -7,6 +7,8 @@ import { useLayoutStore } from '@/features/layout/store'
 import { useShellOverlays } from './shell-overlays'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
+import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
+import { PRODUCT_NAME } from '@/lib/brand'
 
 // Isolate the nav-filtering logic from routing and the shell's sibling widgets.
 // The pathname is mutable because the rail now reads its own scope from it —
@@ -81,6 +83,23 @@ describe('the Inbox entry follows canAccessInbox, in both directions', () => {
   test('hides it when they may not', () => {
     render(<AppSidebar {...baseProps} canAccessInbox={false} />)
     expect(screen.queryByText('Inbox')).not.toBeInTheDocument()
+  })
+})
+
+// Ticket #38, topic 7: the wordmark jumped 6px left and 5px down going from the
+// overview into a project. The rail's head uses the org header's row and inset.
+describe('AppSidebar - the wordmark stands where the org header puts it', () => {
+  test('in the shared 56px brand row, 12px inside the head\'s own 12px', () => {
+    render(<AppSidebar {...baseProps} />)
+    const row = screen.getByRole('link', { name: `${PRODUCT_NAME} — all projects` }).parentElement
+    for (const token of [...BRAND_ROW.split(' '), ...BRAND_INSET_RAIL.split(' ')]) {
+      expect(row?.className.split(' ')).toContain(token)
+    }
+    // The head adds no top padding of its own beyond the device inset, so the
+    // row's centre is 28px down, as in the org header's band.
+    const head = row?.closest('[data-sidebar="header"]')
+    expect(head?.className).toContain('px-3')
+    expect(head?.className).toContain('pt-[env(safe-area-inset-top)]')
   })
 })
 

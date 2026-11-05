@@ -13,7 +13,13 @@ import type { InputAreaController } from './use-input-area-controller'
 export function ComposerControls({ controller }: { controller: InputAreaController }) {
   return (
     <>
-      <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+      {/* ONE row at every width: the mention offer at its start, the actions at its
+          end (ticket #38, R2). It was a column below `sm`, so a phone stacked the
+          actions and the offer on lines of their own and the composer grew by a
+          row for a hint. The offer folds to its `@` where the card is narrow
+          (`AddresseeIndicator`, against the card's `@container`); only a
+          statement about who receives the message takes a line of its own. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {/* The hold, said out loud. Without it the message simply
                       vanishes from the composer and nothing arrives — which reads
                       as a dropped send, the one impression a held message must not
@@ -27,7 +33,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, transition: controller.holdEnter }}
               exit={{ opacity: 0, transition: controller.holdExit }}
-              className="text-muted-foreground flex items-center gap-1.5 text-xs sm:order-2"
+              className="text-muted-foreground flex basis-full items-center gap-1.5 text-xs @lg:order-2 @lg:basis-auto"
               data-testid="composer-held-for-upload"
               role="status"
             >
@@ -44,7 +50,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
           )}
         </AnimatePresence>
 
-        <div className="flex min-w-0 items-center gap-1.5 sm:contents">
+        <div className="contents">
           {/* Datenbasis — the one control for WHERE Piloti may look.
                   WITHHELD for now (product decision, 2026-08): the picker is
                   commented out rather than deleted so it can return. While it is
@@ -78,7 +84,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
 
           {/* Right Actions: manage-files, effort, attach, dictation, send —
                   pushed right. Dictation sits beside Send, where the thumb ends up. */}
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:order-3">
+          <div className="order-3 ml-auto flex shrink-0 items-center gap-1">
             {/* Manage files — opens a Dialog hosting the full FileSourcesTab
                     (browse, upload zone, per-file delete). Replaces the old
                     right-panel toggle. Shown only when files exist. */}

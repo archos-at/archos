@@ -42,9 +42,6 @@ vi.mock('@/lib/authz/org-role-permissions', () => ({ rolesHoldPermission: vi.fn(
 vi.mock('@/lib/workos/client', () => ({
   getWorkOS: () => ({
     authorization: {
-      check: vi.fn(async ({ resourceExternalId }: { resourceExternalId?: string }) => ({
-        authorized: resourceExternalId !== undefined && GRANTED.has(resourceExternalId),
-      })),
       // A granted project holds every project permission.
       listEffectivePermissionsByExternalId: vi.fn(async ({ externalId }: { externalId: string }) => ({
         autoPagination: async () => (GRANTED.has(externalId) ? PROJECT_PERMISSION_SPECS.map(({ slug }) => ({ slug })) : []),

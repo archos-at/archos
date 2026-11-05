@@ -20,7 +20,9 @@ vi.mock('./org-role-permissions', () => ({
 vi.mock('@/lib/projects/repository', () => ({
   findProjectTenancy: vi.fn(async () => ({ organizationId: 'org-1', deletedAt: null, status: 'active' })),
 }))
-vi.mock('./resource-check', () => ({ checkResourcePermission: vi.fn(async () => true) }))
+vi.mock('./resource-check', () => ({
+  effectiveResourcePermissions: vi.fn(async (): Promise<ReadonlySet<string>> => new Set(['project:view'])),
+}))
 vi.mock('./project-membership', () => ({
   resolveSubjectMembership: vi.fn(async (_org: string, userId: string) => ({
     organizationMembershipId: `om-${userId}`,
@@ -74,7 +76,7 @@ import {
 } from './folder-access-repository'
 import { heldFolderLevels } from './folder-roles'
 import { requireProjectAccess } from './projects'
-import { checkResourcePermission } from './resource-check'
+import { effectiveResourcePermissions } from './resource-check'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import { projectClosedError } from '@/lib/projects/project-status'
 
@@ -603,7 +605,7 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
     vi.mocked(projectHasCustomFolders).mockResolvedValue(true)
     vi.mocked(listProjectFolderTree).mockResolvedValue(TREE)
     vi.mocked(findProjectTenancy).mockResolvedValue(closed)
-    vi.mocked(checkResourcePermission).mockReset()
+    vi.mocked(effectiveResourcePermissions).mockReset()
     vi.mocked(heldFolderLevels).mockReset()
     workosReportsTheLists()
     vi.mocked(resolveMembershipRoles).mockImplementation(async (_org, userId) => (userId === 'admin' ? ['admin'] : ['member']))
@@ -611,11 +613,11 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
 
   afterEach(() => {
     vi.mocked(findProjectTenancy).mockResolvedValue({ organizationId: 'org-1', deletedAt: null, status: 'active' })
-    vi.mocked(checkResourcePermission).mockResolvedValue(true)
+    vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set(['project:view']))
   })
 
   it('someone who reads it only because it is closed clears what someone on no list clears, whatever WorkOS reports', async () => {
-    vi.mocked(checkResourcePermission).mockResolvedValue(false)
+    vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set())
     // gf holds folder-editor on Verträge and Honorare, but was never a member of the project.
     expect(await heldFolderLevels('org-1', 'om-gf', 'proj-1')).toEqual(levelsOf('gf'))
     expect(await clearanceOf(session('gf'), 'proj-1')).toEqual(ANY_MEMBER)
@@ -628,7 +630,7 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
   })
 
   it('a member of the project keeps exactly the folders their folder roles gave them', async () => {
-    vi.mocked(checkResourcePermission).mockResolvedValue(true)
+    vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set(['project:view']))
     expect((await clearanceOf(session('gf'), 'proj-1')).levels).toEqual(levelsOf('gf'))
     expect((await getProjectFolderAccess(session('gf'), 'proj-1', COLLECTION)).isVisible(F.fees)).toBe(true)
     expect((await clearanceOfMember('org-1', 'gf', 'proj-1')).levels).toEqual(levelsOf('gf'))
@@ -638,7 +640,7 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
     vi.mocked(resolveMembershipRoles).mockResolvedValue(['admin'])
     expect((await clearanceOf(session('admin'), 'proj-1')).seesEverything).toBe(true)
     expect((await clearanceOfMember('org-1', 'admin', 'proj-1')).seesEverything).toBe(true)
-    expect(checkResourcePermission).not.toHaveBeenCalled()
+    expect(effectiveResourcePermissions).not.toHaveBeenCalled()
   })
 
   it('the folders a name filter may match are decided per project: a closed one clears an outsider by no list', async () => {
@@ -651,7 +653,7 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
     )
     // WorkOS reports gf on the closed project's Verträge as well.
     workosReportsTheLists({ ...LISTS, [shut.contracts]: { gf: 'write' } })
-    vi.mocked(checkResourcePermission).mockResolvedValue(false)
+    vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set())
 
     const readable = await readableFoldersOfRestrictedProjects(session('gf'))
 
@@ -683,9 +685,9 @@ describe('a closed project (ADR-0090): closing opens no restricted folder', () =
 
   it('an active project never asks whether someone is a member: the folder roles decide as before', async () => {
     vi.mocked(findProjectTenancy).mockResolvedValue({ organizationId: 'org-1', deletedAt: null, status: 'active' })
-    vi.mocked(checkResourcePermission).mockResolvedValue(false)
+    vi.mocked(effectiveResourcePermissions).mockResolvedValue(new Set())
     expect((await clearanceOf(session('gf'), 'proj-1')).levels).toEqual(levelsOf('gf'))
-    expect(checkResourcePermission).not.toHaveBeenCalled()
+    expect(effectiveResourcePermissions).not.toHaveBeenCalled()
   })
 })
 
