@@ -49,6 +49,7 @@ UNFILTERED = {
     "docs/**": "documentation",
     "*.md": "root documentation (README, AGENTS, VISION, CONTEXT, CONTRIBUTING, CLAUDE)",
     "NOTICE": "licence notice",
+    ".gitattributes": "marks generated files (Payload's types, migration snapshots) for GitHub's diff view; nothing runs it",
     "data/oib/README.md": "says the corpus is operator-provided; nothing reads it",
     "skills/**": "agent skills; `task agents:audit` in Repo checks holds the lockfile to them",
     "apm.yml": "agent-skill manifest, audited by `task agents:audit`",
