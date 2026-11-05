@@ -6,6 +6,8 @@
  * own. So each item gets its `xhtml:link` pair from the route table (src/i18n/paths.ts)
  * or from the post's `translationSlug`, and a `lastmod`:
  *   - a post: its `pubDate`;
+ *   - a blog category page: its twin from src/lib/categories.ts (the segment is translated)
+ *     and the blog's date;
  *   - a page in the route table: the last commit that touched its view or its copy, when
  *     git is there (a local or CI build); the image build has no git, and then the page
  *     carries no date rather than a wrong one.
