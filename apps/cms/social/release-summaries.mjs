@@ -3,7 +3,7 @@
  * Drafts a LinkedIn post per language from a week's summary in
  * releasenotes/summaries.yaml (the public changelog's source, ADR-0154), linking
  * the changelog. Drafts only: a person edits and approves them in the CMS.
- * Keyed by `source_ref`, so a re-run creates what is missing and never
+ * Keyed by `sourceRef`, so a re-run creates what is missing and never
  * overwrites a draft someone has worked on.
  *
  *   node social/release-summaries.mjs --week 2026-W44                 # dry run, offline
