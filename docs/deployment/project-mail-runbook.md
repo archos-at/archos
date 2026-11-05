@@ -66,6 +66,14 @@ the apex. If it cannot, decide between (a) with a planned address change at the
 cutover and the fallback's code change. Write the choice into the record of runs
 in `kubernetes.md` §3c.
 
+**Decided 2026-11-05 (owner):** prod takes (b), `inbox.archos.tech`. Dev gets
+mail too and goes first (§8a), on `inbox.dev.piloti.at` in the piloti.at zone:
+Email Routing's state is one object per zone (the provider imports
+`EmailRoutingDns` by zone id), so two stacks may not share one, and
+`stack-files.spec.ts` refuses it. The cost of that choice: dev's G0 does not
+prove what prod's must, that archos.tech's zone takes subaddressing without its
+Google apex being onboarded. Prod's G0 answers that while prod is still paused.
+
 **D2, the test office.** One WorkOS organization in production that is yours
 (the company's own office), with one project, to receive every probe. Its
 manager creates the address; nobody outside the company may hold it.
@@ -316,6 +324,26 @@ its events (`kubectl -n grid describe pod -l app.kubernetes.io/name=clamav`). Pr
   `inbound-mail` → target the test organization only. Its sessions see it at
   their next token refresh, the webhook within 30 s. A manager of the test
   project: Einstellungen › Dokumente → „Adresse erzeugen“, then copy the address.
+
+## 8a. Dev first
+
+Dev runs §5 to §8 before prod, with these values in place of prod's. Its mail
+block is at the end of `Pulumi.dev.yaml`, commented, in the same three promotions.
+
+| | dev | prod |
+|---|---|---|
+| Stack, ESC environment | `STACK=matthiasbigl/$P/dev`; `ENV` read from `Pulumi.dev.yaml` | as §3 |
+| Receiving domain | `inbox.dev.piloti.at` | `inbox.archos.tech` |
+| `inboundMailZoneId` | `66de14f8d07a729634f5d230418bb907` (piloti.at) | `31df51fbdd7ea2d7ef63bcaab9a09559` (archos.tech) |
+| Worker | `inbound-mail-dev` | `inbound-mail-prod` |
+| Operator mailbox | `mail-ops+dev@archos.tech` (its own destination address) | `mail-ops@archos.tech` |
+| `_dmarc` | piloti.at's, written by prod's `dnsDmarc`; no `inboundMailDmarc` on dev | `inboundMailDmarc` on archos.tech |
+| `INBOUND_MAIL_APEX_MX` for G0 | `none` | `smtp.google.com` |
+| WorkOS | Staging: `inbound-mail` for your own organization | Production: your own organization first, every office after §8 |
+| Subaddressing call (§7) | on the piloti.at zone | on the archos.tech zone |
+
+Dev's signing key is its own (§5 with dev's `ENV`), never prod's. Dev passes
+G0 to G7 before prod's promotion 2.
 
 ## 8. The launch gates, as a test protocol
 
