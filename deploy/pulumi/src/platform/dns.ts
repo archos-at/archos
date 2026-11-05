@@ -73,6 +73,8 @@ export function managedHosts(args: {
   s3Domain: string;
   langfuseDomain?: string;
   qdrantDashboardDomain?: string;
+  /** The CMS (ADR-0155), when `cmsEnabled` adds `https-cms`. */
+  cmsDomain?: string;
   mcpGatewayDomain?: string;
 }): string[] {
   return [
@@ -81,6 +83,7 @@ export function managedHosts(args: {
     args.s3Domain,
     ...(args.langfuseDomain !== undefined ? [args.langfuseDomain] : []),
     ...(args.qdrantDashboardDomain !== undefined ? [args.qdrantDashboardDomain] : []),
+    ...(args.cmsDomain !== undefined ? [args.cmsDomain] : []),
     ...(args.mcpGatewayDomain !== undefined ? [args.mcpGatewayDomain] : []),
   ];
 }
