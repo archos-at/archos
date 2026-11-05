@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { ROUTES, isUnlisted } from './src/i18n/paths.ts'
+import { CATEGORY_IDS, blogPath } from './src/lib/categories.ts'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
 
@@ -82,6 +83,12 @@ function pageTable() {
   for (const [key, route] of Object.entries(ROUTES)) {
     const lastmod = key === 'blog' ? newestPost && new Date(newestPost).toISOString() : PAGE_SOURCES[key] && lastCommitDate(PAGE_SOURCES[key])
     for (const locale of ['de', 'en']) table.set(route[locale], { pair: route, lastmod })
+  }
+  // A category page's segment is translated, so the plugin's /en prefix rule would pair it wrongly.
+  const blogDate = table.get(ROUTES.blog.de)?.lastmod
+  for (const category of CATEGORY_IDS) {
+    const pair = { de: blogPath('de', category), en: blogPath('en', category) }
+    for (const locale of ['de', 'en']) table.set(pair[locale], { pair, lastmod: blogDate })
   }
   for (const post of all) {
     const other = post.locale === 'de' ? 'en' : 'de'

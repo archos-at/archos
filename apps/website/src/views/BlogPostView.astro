@@ -26,7 +26,7 @@ const cat = CATEGORIES[locale][category];
 // none falls back to the other locale's blog index, so the switch never 404s.
 const other: Locale = locale === 'de' ? 'en' : 'de';
 const alternatePath = translationSlug ? `${blogPath(other)}${translationSlug}/` : blogPath(other);
-// Structured data from the frontmatter as it is (owner decision D13: no schema change).
+// Structured data from the frontmatter; the image is the cover's share image (src/pages/media/covers).
 const site = Astro.site ?? new URL(`https://${identity.domain}`);
 const posting = blogPosting(site, {
   headline: title,

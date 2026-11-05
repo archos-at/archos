@@ -38,6 +38,8 @@ interface Props {
   graph?: GraphNode[];
   /** The page links its blog feed (`<link rel="alternate" type="application/rss+xml">`) */
   feed?: string;
+  /** The page's own share image (1200 × 630) and its alt text; every other page shares the share card */
+  image?: { path: string; alt: string };
 }
 
 const {
@@ -52,6 +54,7 @@ const {
   faq,
   graph = [],
   feed,
+  image,
 } = Astro.props;
 const ui = t(locale);
 const noindex = noindexProp || isUnlisted(Astro.url.pathname);
@@ -63,7 +66,7 @@ const there = alternatePath ?? alternateOf(here);
 const hrefFor = (target: Locale) => new URL(target === locale ? here : there, Astro.site);
 // Social previews: the share card is the one image every page shares; og:locale names the region.
 const ogLocale: Record<Locale, string> = { de: 'de_AT', en: 'en_GB' };
-const shareImage = new URL('/media/share-card.png', Astro.site);
+const shareImage = new URL(image?.path ?? '/media/share-card.png', Astro.site);
 const site = Astro.site ?? new URL(`https://${identity.domain}`);
 const isHome = here === '/' || here === '/en/' || here === '/en';
 const nodes: GraphNode[] = [...graph];
@@ -91,7 +94,7 @@ const structuredData = jsonLd(siteGraph(site, locale, nodes));
     <meta property="og:image" content={shareImage} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content={identity.claim} />
+    <meta property="og:image:alt" content={image?.alt ?? identity.claim} />
     <meta property="og:locale" content={ogLocale[locale]} />
     <meta property="og:locale:alternate" content={ogLocale[locale === 'de' ? 'en' : 'de']} />
     <meta property="og:site_name" content={identity.name} />
