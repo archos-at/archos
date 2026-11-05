@@ -844,7 +844,6 @@
   "apps/workspace/ui/features/documents/components/file-preview-host.tsx": 3,
   "apps/workspace/ui/features/documents/components/file-preview-pane-chrome.tsx": 4,
   "apps/workspace/ui/features/documents/components/file-preview-pane-details.tsx": 10,
-  "apps/workspace/ui/features/documents/components/file-preview-pane-document.tsx": 1,
   "apps/workspace/ui/features/documents/components/file-preview-pane.spec.tsx": 18,
   "apps/workspace/ui/features/documents/components/file-preview-reader.tsx": 1,
   "apps/workspace/ui/features/documents/components/file-preview-review-entry.spec.tsx": 1,

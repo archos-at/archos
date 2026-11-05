@@ -206,20 +206,20 @@ export const MainLayout: FC<MainLayoutProps> = ({
             ...toolbarVars,
           }}
         >
-          {/* Top fade scrim — a full-width gradient behind the floating pills
-              (below them, above the messages). It dissolves message content as
-              it scrolls up under the pills instead of letting it collide as
-              sharp, readable text — critical on mobile where the message column
-              is full-width and runs right under the pills. Keeps the pills
-              "floating" (no solid band). pointer-events-none so scroll/taps
-              still reach the messages beneath. */}
+          {/* Top fade scrim: the soft lower edge of the thread header. The header
+              is opaque now (ticket #38, R1), so this is solid to the header's
+              bottom (`--chat-toolbar-clear` is its height plus an 8px breath) and
+              fades over the next 1rem, so text scrolling up dissolves into the
+              band instead of meeting a hard line. Its solid stop used to be the
+              clearance less 4rem, which on a phone's two-row header left the
+              whole pill row over the fade, with the thread readable behind it. */}
           <div
             aria-hidden="true"
-            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[max(6rem,calc(var(--chat-toolbar-clear,0px)+0.5rem))] bg-gradient-to-b from-[length:max(3.25rem,calc(var(--chat-toolbar-clear,0px)-4rem))] to-transparent"
+            className="from-background pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(var(--chat-toolbar-clear,3.5rem)+0.5rem)] bg-gradient-to-b from-[length:calc(var(--chat-toolbar-clear,3.5rem)-0.5rem)] to-transparent"
           />
 
-          {/* Floating toolbar — overlays the top of the chat plane as pills
-              (no band). Sits inside the center column so it spans only the
+          {/* The thread header: an opaque band in the page's tone over the top of
+              the chat plane. Sits inside the center column so it spans only the
               chat, not the research panel (which has its own header). */}
           <ChatToolbar
             sessionTitle={currentConversationTitle}
@@ -278,10 +278,10 @@ export const MainLayout: FC<MainLayoutProps> = ({
               {/* Floating composer stack: overlays the bottom of the chat scroll
               area instead of docking below it, so messages scroll behind the
               translucent input. ChatArea pads its bottom to keep the last
-              message readable above it. Narrower than the message column
-              (max-w-4xl inside — see InputArea) and given its own glass
-              surface, so it reads as a distinct floating object rather than
-              a same-width continuation of the transcript above it. */}
+              message readable above it. The SAME column as the answer above it
+              (`thread-column.ts`): it used to be narrower, to read as a separate
+              object, and its edges then stood inside the answer's (ticket #38);
+              its glass surface is what sets it apart. */}
               <motion.div
                 ref={composerRef}
                 className="absolute inset-x-0 z-10 flex flex-col"
