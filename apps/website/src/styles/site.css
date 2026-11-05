@@ -148,6 +148,66 @@ button.ui-nav-link {
   background: var(--surface-sunken);
 }
 
+/* What a CMS post's body can hold beyond the fixtures' Markdown (src/components/RichText.astro). */
+.post-body h4 {
+  font: var(--text-body);
+  font-weight: 600;
+  margin: var(--space-8) 0 0;
+}
+
+.post-body hr {
+  margin: var(--space-12) 0 0;
+  border: 0;
+  border-top: var(--stroke-hairline) solid var(--line-strong);
+}
+
+.post-body abbr[title] {
+  text-decoration: underline dotted;
+  text-underline-offset: 0.25em;
+}
+
+/* A table scrolls inside its own box on a phone rather than widening the page. */
+.post-table {
+  margin: var(--space-6) 0 0;
+  overflow-x: auto;
+}
+
+.post-body table {
+  border-collapse: collapse;
+  font: var(--text-small);
+}
+
+.post-body th,
+.post-body td {
+  padding: var(--space-2) var(--space-4) var(--space-2) 0;
+  border-bottom: var(--stroke-hairline) solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.post-body th {
+  border-bottom-color: var(--line-strong);
+}
+
+.post-body pre.post-code {
+  margin: var(--space-6) 0 0;
+  padding: var(--space-4);
+  overflow-x: auto;
+  background: var(--surface-sunken);
+  font: var(--text-small);
+}
+
+.post-body pre.post-code code {
+  padding: 0;
+  background: none;
+}
+
+.post-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .post-back {
   margin: var(--space-16) 0 0;
 }

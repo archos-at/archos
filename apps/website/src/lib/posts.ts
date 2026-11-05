@@ -1,6 +1,6 @@
 /**
  * The blog's posts, from the CMS when the server has one (`CMS_URL` and
- * `CMS_TOKEN`, ADR-0155) and from the MDX fixtures in src/content/blog when it
+ * `CMS_API_KEY`, ADR-0155) and from the MDX fixtures in src/content/blog when it
  * has none: a local build, CI, and every check run without a CMS. The routes are
  * rendered on request, so a post published in the CMS is on the site without a
  * build (src/lib/cms.ts keeps it fresh).
