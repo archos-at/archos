@@ -103,8 +103,16 @@ describe("check-cloudflare-token.sh", () => {
     expect(other.out).toContain("WARN  redirect rules");
   });
 
-  it("defaults to the brand's domain and the zone prod serves today", () => {
-    const r = run(["--read-only"], "none");
-    expect(r.calls.filter((c) => c.includes("/zones?name=")).length).toBe(2);
+  it("defaults to the brand's domain, prod's zone, and the stack's own and former zones, each once", () => {
+    const read = (file: string) => readFileSync(join(__dirname, "..", file), "utf8");
+    const key = (file: string, name: string) => new RegExp(`:${name}: *(\\S+)`).exec(read(file))?.[1];
+    const brand = (JSON.parse(read("../../packages/brand/identity.json")) as { domain: string }).domain;
+    const expected = [
+      ...new Set([brand, key("Pulumi.prod.yaml", "dnsZoneName"), key("Pulumi.dev.yaml", "dnsZoneName"), key("Pulumi.dev.yaml", "formerDnsZoneName")]),
+    ].filter((z): z is string => z !== undefined);
+    const r = run(["--stack", "dev", "--read-only"], "none");
+    expect(r.calls.filter((c) => c.includes("/zones?name="))).toEqual(
+      expected.map((z) => `GET https://api.cloudflare.com/client/v4/zones?name=${z}`),
+    );
   });
 });

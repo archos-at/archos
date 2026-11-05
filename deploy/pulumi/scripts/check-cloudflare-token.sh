@@ -8,9 +8,10 @@
 # The token is CLOUDFLARE_API_TOKEN when set, otherwise the stack's own
 # `cloudflareApiToken`, read with `pulumi config get` (needs `pulumi login` with
 # access to the stack). It is not in the cluster: Pulumi writes the records, not
-# a pod. Zones default to the brand's domain (packages/brand/identity.json) and
-# the domain prod serves today (Pulumi.prod.yaml `dnsZoneName`): the two a domain
-# move needs one token to edit (docs/deployment/domain-cutover.md).
+# a pod. Zones default to the brand's domain (packages/brand/identity.json), the
+# zone prod serves (Pulumi.prod.yaml `dnsZoneName`), and the checked stack's own
+# `dnsZoneName` and `formerDnsZoneName`, each once: the zones a domain move needs
+# one token to edit (docs/deployment/domain-cutover.md).
 #
 # The write check adds a TXT record `_token-check-<random>.<zone>` and deletes it
 # again at once; --read-only skips it. Needs curl and jq. Exit 1 when any zone
@@ -42,8 +43,12 @@ PROJECT="$(sed -n 's/^name: *//p' "$HERE/Pulumi.yaml")"
 stack_key() { [[ -f "$HERE/Pulumi.$1.yaml" ]] && sed -n "s/^  $PROJECT:$2: *//p" "$HERE/Pulumi.$1.yaml" | tr -d "\"'" | head -n1 || true; }
 
 if [[ ${#ZONES[@]} -eq 0 ]]; then
-  ZONES+=("$(jq -r .domain "$ROOT/packages/brand/identity.json")")
-  ZONES+=("$(stack_key prod dnsZoneName)")
+  # The brand's domain, the zone prod serves, and the checked stack's own zone and former
+  # zone: once prod has moved, the first two coincide and the former zone still needs edits.
+  for zone in "$(jq -r .domain "$ROOT/packages/brand/identity.json")" "$(stack_key prod dnsZoneName)" \
+    "$(stack_key "$STACK" dnsZoneName)" "$(stack_key "$STACK" formerDnsZoneName)"; do
+    [[ -n "$zone" && " ${ZONES[*]-} " != *" $zone "* ]] && ZONES+=("$zone")
+  done
 fi
 # The stack writes the redirect ruleset only into its own zone, and only with the baseline.
 BASELINE_ZONE=""

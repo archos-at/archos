@@ -347,6 +347,18 @@ describe("installDns during a domain move (formerBaseDomain)", () => {
     expect(error?.message).toContain("still serves");
   });
 
+  it("refuses former hosts outside a complete former zone", async () => {
+    const error = await loadWith(
+      dnsConfig({
+        [KEY("formerBaseDomain")]: "dev.other.test",
+        [KEY("formerDnsZoneName")]: "former.test",
+        [KEY("formerDnsZoneId")]: FORMER_ZONE_ID,
+      }),
+    );
+    expect(error?.message).toContain("dev.other.test");
+    expect(error?.message).toContain('outside the zone "former.test"');
+  });
+
   it("refuses half of the former zone", async () => {
     const error = await loadWith(
       dnsConfig({

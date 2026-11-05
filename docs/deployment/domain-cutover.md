@@ -50,8 +50,9 @@ NEW_DEV="dev.$NEW"
   name it, and the one `cloudflareApiToken` must edit both zones. The former `s3.`, `otel.`,
   `langfuse.`, `qdrant.` and `cms.` records are deleted by the move, as the table above says.
 - **The token check.** `deploy/pulumi/scripts/check-cloudflare-token.sh --stack <stack>` asks the
-  Cloudflare API whether the stack's token can see, read and write each zone (the new one and the
-  one prod serves, by default), and prints each zone's id. It needs `pulumi login`, or the token in
+  Cloudflare API whether the stack's token can see, read and write each zone (by default the
+  brand's domain, the zone prod serves, and the stack's own and former zones), and prints each
+  zone's id. It needs `pulumi login`, or the token in
   `CLOUDFLARE_API_TOKEN`; the token is Pulumi config, not a cluster Secret.
 - **Every derived host.** `app.`, `s3.`, `otel.`, `langfuse.` and `qdrant.` derive from
   `baseDomain`; so do the app's `WORKOS_REDIRECT_URI`, the MCP and A2A resource URLs
