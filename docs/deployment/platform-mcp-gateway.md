@@ -83,9 +83,11 @@ needs `workosAuthkitDomain` (set wherever the agent doors work) and an MCP serve
 to serve: Langfuse or the CMS. A stack missing either fails the plan with the key
 to set.
 
-Staging runs it since 2026-11-05: the resource indicators for `/langfuse/mcp`
-and `/cms/mcp` are registered one by one rather than as a wildcard, so a new
-route needs its own.
+Staging runs it since 2026-11-05, and production has it switched on in
+`Pulumi.prod.yaml` from the same day, live with the next promotion. In both
+WorkOS environments the resource indicators for `/langfuse/mcp` and `/cms/mcp`
+are registered one by one, for the `piloti.at` and the `archos.tech` hosts,
+rather than as a wildcard, so a new route needs its own.
 
 `mcpGatewayDomain` overrides the host. It must stay under the resource indicator
 from step 2.

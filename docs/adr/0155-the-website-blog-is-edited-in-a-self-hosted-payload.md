@@ -389,8 +389,11 @@ access. Round trip not done (no account).
    page admin, its channel id on the account in the CMS, an API key as a secret,
    and where the hand-off runs (a CronJob beside the CMS, or a job in it).
 4. The WorkOS sign-in slice (11): `https://cms.<baseDomain>/oauth2/callback` on
-   the platform Connect application (done on staging, 2026-11-05). Who may edit
-   is the gate's permission; a narrower website-editor permission is open.
+   the platform Connect application (done on staging and production, for both
+   domains, 2026-11-05). Who may edit is the gate's permission; a narrower
+   website-editor permission is open.
+6. Production: everything is in `Pulumi.prod.yaml` but `cmsEnabled`, which waits
+   on item 2. The prod deploy verifies the `cms` image of its pinned tag.
 5. Turning it on: `cmsEnabled` on staging, after slice 12.
 
 ### Revisit when
