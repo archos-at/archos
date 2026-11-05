@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import * as pulumi from "@pulumi/pulumi";
 import { baseStackConfig } from "../test-support/stack-config";
-import { mailStackConfig, SIGNING_KEY_ID, SIGNING_SECRET } from "../test-support/app-zone-config";
+import { MAIL_ZONE_ID, mailStackConfig, OPERATOR_ADDRESS, SIGNING_KEY_ID, SIGNING_SECRET } from "../test-support/app-zone-config";
 import { LEGACY_PROJECT } from "../names";
 
 /**
@@ -20,7 +20,7 @@ type Recorded = { type: string; name: string; inputs: Record<string, unknown> };
 const RESOURCES: Recorded[] = [];
 const CALLS: Array<{ token: string; inputs: Record<string, unknown> }> = [];
 
-const ZONE_ID = "zone-mail-1";
+const ZONE_ID = MAIL_ZONE_ID;
 const DOMAIN = "inbox.example.test";
 const ZONE_NAME = "example.test";
 const CONTRACT = JSON.parse(
@@ -81,7 +81,14 @@ async function install(values: Record<string, string>, mx: typeof MX_RECORDS = [
   const cfg = loadConfig();
   const result = installInboundMail(cfg, installInboundMailZone(cfg));
   if (result) {
-    const ids = [result.zone.routing.id, result.rule.id, ...(result.script ? [result.script.id] : [])];
+    const ids = [
+      result.zone.routing.id,
+      result.rule.id,
+      result.operator.address.id,
+      ...result.operator.rules.map((r) => r.id),
+      ...(result.script ? [result.script.id] : []),
+      ...(result.dmarc ? [result.dmarc.id] : []),
+    ];
     await Promise.all(ids.map((id) => new Promise((resolve) => id.apply(resolve))));
   }
   return result;
@@ -99,6 +106,19 @@ const RULE = "cloudflare:index/emailRoutingRule:EmailRoutingRule";
 const CATCH_ALL = "cloudflare:index/emailRoutingCatchAll:EmailRoutingCatchAll";
 const SETTINGS = "cloudflare:index/emailRoutingSettings:EmailRoutingSettings";
 const LITERAL = [{ type: "literal", field: "to", value: `project@${DOMAIN}` }];
+const ADDRESS = "cloudflare:index/emailRoutingAddress:EmailRoutingAddress";
+const DNS_RECORD = "cloudflare:index/dnsRecord:DnsRecord";
+
+/** The literal address a rule matches. */
+const literalOf = (rule: Recorded) => (rule.inputs.matchers as Array<{ value: string }>)[0]?.value ?? "";
+const isForward = (rule: Recorded) => /^(postmaster|abuse)@/.test(literalOf(rule));
+
+/** The project rule: the one rule that is not an RFC 2142 forward. */
+function projectRule(): Recorded {
+  const found = byType(RULE).filter((r) => !isForward(r));
+  expect(found, "the project rule").toHaveLength(1);
+  return found[0];
+}
 const ROUTING = "cloudflare:index/emailRoutingDns:EmailRoutingDns";
 
 type Binding = { name: string; type: string; text: string };
@@ -182,7 +202,7 @@ describe("project mail on Cloudflare", () => {
     await install(mailConfig({ [`${LEGACY_PROJECT}:inboundMailLocalPart`]: "Projekt" }));
     const bindings = reveal(one(SCRIPT).inputs.bindings).value as Binding[];
     expect(bindings.find((b) => b.name === "ADDRESS_LOCAL_PART")?.text).toBe("projekt");
-    expect(one(RULE).inputs.matchers).toEqual([{ type: "literal", field: "to", value: `projekt@${DOMAIN}` }]);
+    expect(projectRule().inputs.matchers).toEqual([{ type: "literal", field: "to", value: `projekt@${DOMAIN}` }]);
   });
 
   it("signs with the key the stack names during a rotation", async () => {
@@ -211,7 +231,7 @@ describe("project mail on Cloudflare", () => {
 
   it("sends project@ and, through subaddressing, every project+<detail>@ to the Worker with ONE literal rule", async () => {
     await install(mailConfig());
-    expect(one(RULE).inputs).toMatchObject({
+    expect(projectRule().inputs).toMatchObject({
       zoneId: ZONE_ID,
       enabled: true,
       matchers: LITERAL,
@@ -241,7 +261,7 @@ describe("project mail on Cloudflare", () => {
   ])("creates the routing on %s", async (_label, mx) => {
     await install(mailConfig(), mx);
     one(ROUTING);
-    one(RULE);
+    projectRule();
   });
 
   it("uses a provider of its own, holding the configured token", async () => {
@@ -250,6 +270,81 @@ describe("project mail on Cloudflare", () => {
       (r) => r.type === "pulumi:providers:cloudflare" && r.name === "cloudflare-inbound-mail",
     );
     expect(reveal(provider?.inputs.apiToken)).toEqual({ secret: true, value: "cf-token" }); // pragma: allowlist secret
+  });
+});
+
+describe("the RFC 2142 forwards and the zone's DMARC record", () => {
+  it("forwards postmaster@ and abuse@ of the receiving domain to the operator's address, in the zone's account", async () => {
+    await install(mailConfig());
+    expect(one(ADDRESS).inputs).toMatchObject({ accountId: "account-1", email: OPERATOR_ADDRESS });
+    const forwards = byType(RULE).filter(isForward);
+    expect(forwards.map((r) => r.inputs).sort((a, b) => String(a.name).localeCompare(String(b.name)))).toEqual([
+      expect.objectContaining({
+        zoneId: ZONE_ID,
+        enabled: true,
+        matchers: [{ type: "literal", field: "to", value: `abuse@${DOMAIN}` }],
+        actions: [{ type: "forward", values: [OPERATOR_ADDRESS] }],
+      }),
+      expect.objectContaining({
+        zoneId: ZONE_ID,
+        enabled: true,
+        matchers: [{ type: "literal", field: "to", value: `postmaster@${DOMAIN}` }],
+        actions: [{ type: "forward", values: [OPERATOR_ADDRESS] }],
+      }),
+    ]);
+  });
+
+  it("keeps the destination address when the domain is unset or the stack destroyed", async () => {
+    // Account-level: deleting it disables every rule in the account that forwards to it.
+    const { OPERATOR_ADDRESS_OPTIONS } = await import("./inbound-mail-operator");
+    expect(OPERATOR_ADDRESS_OPTIONS.retainOnDelete).toBe(true);
+    expect(readFileSync(join(__dirname, "inbound-mail-operator.ts"), "utf8")).toMatch(
+      /new cloudflare\.EmailRoutingAddress\([^;]*\{ provider: zone\.provider, \.\.\.OPERATOR_ADDRESS_OPTIONS \}/,
+    );
+  });
+
+  it("orders each forward after the routing and the address, through the source", () => {
+    // Mocks do not carry dependsOn; a rule created before routing has no MX to receive on.
+    expect(readFileSync(join(__dirname, "inbound-mail-operator.ts"), "utf8")).toContain(
+      "dependsOn: [zone.routing, address]",
+    );
+  });
+
+  it("publishes no DMARC record while inboundMailDmarc is unset", async () => {
+    await install(mailConfig());
+    expect(byType(DNS_RECORD)).toEqual([]);
+  });
+
+  it("publishes inboundMailDmarc at the zone APEX's _dmarc, marked as this stack's", async () => {
+    const dmarc = `v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:${OPERATOR_ADDRESS}`;
+    await install(mailConfig({ [`${LEGACY_PROJECT}:inboundMailDmarc`]: dmarc }));
+    const { dmarcRecordComment } = await import("./email-routing");
+    expect(one(DNS_RECORD).inputs).toMatchObject({
+      zoneId: ZONE_ID,
+      // The apex, not the receiving subdomain: `sp=` covers `inbox.`, and the
+      // apex is where receivers look for a subdomain without a record.
+      name: `_dmarc.${ZONE_NAME}`,
+      type: "TXT",
+      content: dmarc,
+      proxied: false,
+      comment: dmarcRecordComment("test"),
+    });
+    // The guard read the name's TXT records first.
+    const lookup = CALLS.find((c) => c.token === "cloudflare:index/getDnsRecords:getDnsRecords" && c.inputs.type === "TXT");
+    expect(lookup?.inputs).toMatchObject({ zoneId: ZONE_ID, name: { exact: `_dmarc.${ZONE_NAME}` } });
+  });
+
+  it("keeps the forwards and the DMARC record while switched off", async () => {
+    await install(
+      mailConfig({
+        [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false",
+        [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: "",
+        [`${LEGACY_PROJECT}:inboundMailDmarc`]: "v=DMARC1; p=none",
+      }),
+    );
+    expect(byType(RULE).filter(isForward)).toHaveLength(2);
+    one(ADDRESS);
+    one(DNS_RECORD);
   });
 });
 
@@ -263,7 +358,7 @@ describe("project mail, switched off (inboundMailEnabled: false)", () => {
     const result = await install(off());
     expect(result?.script).toBeUndefined();
     expect(byType(SCRIPT)).toEqual([]);
-    const rule = one(RULE);
+    const rule = projectRule();
     expect(rule.inputs).toMatchObject({ zoneId: ZONE_ID, enabled: false, matchers: LITERAL });
     expect(rule.inputs.actions).toEqual([{ type: "drop" }]);
     expect(JSON.stringify(rule.inputs)).not.toContain("inbound-mail-test");
@@ -273,9 +368,9 @@ describe("project mail, switched off (inboundMailEnabled: false)", () => {
     // Deleting the rule first would leave a window in which nothing names the
     // Worker's replacement; an in-place update never does.
     await install(mailConfig());
-    const onName = one(RULE).name;
+    const onName = projectRule().name;
     await install(off());
-    expect(one(RULE).name).toBe(onName);
+    expect(projectRule().name).toBe(onName);
   });
 
   it("keeps Email Routing on the domain", async () => {

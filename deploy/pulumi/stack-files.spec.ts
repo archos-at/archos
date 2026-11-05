@@ -3,6 +3,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { load } from "js-yaml";
 import { RETIRED_VECTOR_KEYS } from './src/config/qdrant'
+import { dmarcRecordProblem } from "./src/config/dmarc";
+import { LEGACY_PROJECT } from "./src/names";
 
 /**
  * The committed stack files, checked against EACH OTHER.
@@ -106,6 +108,56 @@ describe("committed stack files", () => {
       if (str(stack.config, "inboundMailDomain") === undefined) continue;
       expect(str(stack.config, "malwareScanEnabled"), stack.file).toBe("true");
     }
+  });
+
+  it("name the RFC 2142 forwards' mailbox wherever project mail is configured", () => {
+    // `loadConfig` refuses the domain without it; this says so on the pull request.
+    for (const stack of stacks()) {
+      if (str(stack.config, "inboundMailDomain") === undefined) continue;
+      expect(str(stack.config, "inboundMailOperatorAddress"), stack.file).toMatch(/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i);
+    }
+  });
+
+  it("publish only DMARC records that parse", () => {
+    for (const stack of stacks()) {
+      const record = str(stack.config, "inboundMailDmarc");
+      if (record === undefined) continue;
+      expect(dmarcRecordProblem(record), stack.file).toBeUndefined();
+    }
+  });
+
+  it("give each zone's _dmarc one writer: the mail block or the DNS block, never both", () => {
+    // `loadConfig` sees one stack. Across two, the DNS block of the stack that
+    // owns a zone (`dnsZoneBaseline` with `dnsDmarc`) and another stack's mail
+    // block on the same zone (`inboundMailDmarc`) would each write a TXT record
+    // at `_dmarc`, Cloudflare would keep both, and receivers apply neither
+    // (RFC 7489 §6.6.3). Compared by zone id: a mail zone of its own may be a
+    // delegated child of the app zone's name. The preview's DMARC guard
+    // (`email-routing.ts`) catches a record that no stack file shows.
+    const dnsWriters = stacks().filter(
+      (s) =>
+        str(s.config, "dnsEnabled") === "true" &&
+        str(s.config, "dnsZoneBaseline") === "true" &&
+        str(s.config, "dnsDmarc") !== undefined,
+    );
+    for (const mail of stacks()) {
+      const zoneId = inboundZone(mail.config);
+      if (zoneId === undefined || str(mail.config, "inboundMailDmarc") === undefined) continue;
+      const clash = dnsWriters.filter((s) => str(s.config, "dnsZoneId") === zoneId).map((s) => s.file);
+      expect(clash, `${mail.file} publishes _dmarc on zone ${zoneId} with inboundMailDmarc`).toEqual([]);
+    }
+  });
+
+  it("recommend, in prod's commented project-mail block, a DMARC record that parses", () => {
+    // The owner uncomments the line at promotion 2; a typo found then is a
+    // failed deploy. The placeholder stands for inboundMailOperatorAddress.
+    const text = readFileSync(join(DIR, "Pulumi.prod.yaml"), "utf8");
+    const line = new RegExp(`^ *# ${LEGACY_PROJECT}:inboundMailDmarc: *"(.*)"$`, "m").exec(text)?.[1];
+    expect(line, "the commented inboundMailDmarc line").toBeDefined();
+    const record = String(line).replace("<inboundMailOperatorAddress>", "mail-ops@company.example");
+    expect(dmarcRecordProblem(record)).toBeUndefined();
+    // `sp=` explicit: the receiving subdomain has no record of its own.
+    expect(record).toMatch(/;\s*sp=/);
   });
 
   // `loadConfig` refuses them at plan time, which is the deploy failing; this

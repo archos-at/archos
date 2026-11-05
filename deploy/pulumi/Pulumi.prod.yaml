@@ -191,14 +191,26 @@ config:
   # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
   # grid-oib:malwareScanEnabled: "true"
   #
-  # Promotion 2, paused. Before it: subaddressing on in the dashboard if it lets you (§7),
-  # the token's scopes (runbook §4), and the signing key in ESC, never in this file (§5).
-  # Decision D1 picks ONE of (a) and (b); uncomment its lines and the pause.
-  #   (a) the subdomain of this stack's own zone:
+  # Promotion 2, paused. Before it: the token's scopes (runbook §4) and the signing key
+  # in ESC, never in this file (§5). Pulumi then creates the routing on the subdomain,
+  # the project rule, the Worker, the postmaster@/abuse@ forwards (RFC 2142) and the
+  # DMARC record; subaddressing is one API call after it (§7).
+  # Decision D1 picks ONE of (a) and (b); uncomment its lines, the operator, and the pause.
+  #   (a) the subdomain of this stack's own zone (its _dmarc is dnsDmarc above: no inboundMailDmarc):
   # grid-oib:inboundMailDomain: inbox.piloti.at
-  #   (b) the subdomain of the brand domain, a zone of its own (zone id: Cloudflare → the zone → Overview):
+  #   (b) the subdomain of the brand domain, a zone of its own. The zone id is 32 hex digits
+  #   (Cloudflare → archos.tech → Overview → API → Zone ID); loadConfig refuses the placeholder.
+  #   The apex archos.tech keeps Google Workspace's MX: nothing here touches them.
   # grid-oib:inboundMailDomain: inbox.archos.tech
   # grid-oib:inboundMailZoneId: <the zone id of archos.tech>
+  #   (b) only: archos.tech has no _dmarc today, and this block is its one writer until the
+  #   domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks it).
+  #   sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is the
+  #   operator's mailbox: on archos.tech itself, or that domain must authorize the reports.
+  # grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:<inboundMailOperatorAddress>"
+  #   Both: where postmaster@ and abuse@ forward; Cloudflare mails it a verification link on
+  #   the first up, and the forwards work after the click (stack output inboundMailOperator).
+  # grid-oib:inboundMailOperatorAddress: <the operator mailbox, e.g. a Google group on archos.tech>
   # grid-oib:inboundMailPaused: "true"
   #
   # Promotion 3, after G0, G4 (paused) and G7 pass, only the test office entitled: the pause "false".

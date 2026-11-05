@@ -66,7 +66,7 @@ import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
 import { installOtelAgent } from "./src/platform/otel-agent";
 import { installDns, managedRecordNames } from "./src/platform/dns";
-import { installInboundMail } from "./src/platform/inbound-mail";
+import { inboundMailOutputs, installInboundMail } from "./src/platform/inbound-mail";
 import { installInboundMailZone } from "./src/platform/email-routing";
 import { installLangfuse } from "./src/platform/langfuse";
 import { installQdrantDashboard } from "./src/platform/qdrant-dashboard";
@@ -579,11 +579,8 @@ export const langfuseUrl = cfg.langfuse.enabled
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
-export const inboundMailWorker = inboundMail?.script
-  ? pulumi.interpolate`${inboundMail.script.scriptName}${cfg.inboundMail.paused ? " (paused)" : ""}`
-  : pulumi.output(
-      inboundMail ? "(none: inboundMailEnabled=false, the routing rule is disabled)" : "(none: inboundMailDomain unset)",
-    );
+// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet.
+export const { inboundMailWorker, inboundMailOperator } = inboundMailOutputs(cfg, inboundMail);
 // The image refs this update deployed. `deploy.yml` reads them back before the
 // next staging deploy and refuses one that would move a service to an older
 // commit (`scripts/resolve-image-refs.sh`). The stack file cannot answer that:

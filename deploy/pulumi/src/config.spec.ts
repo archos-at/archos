@@ -8,6 +8,8 @@ import {
   APP_ZONE,
   APP_ZONE_ID,
   appZoneStackConfig,
+  MAIL_ZONE_ID,
+  OPERATOR_ADDRESS,
   mailStackConfig,
   SIGNING_KEY_ID,
   SIGNING_SECRET,
@@ -554,7 +556,7 @@ describe("project mail (ADR-0138)", () => {
   const mail = {
     ...mailStackConfig(),
     [`${LEGACY_PROJECT}:inboundMailDomain`]: "inbox.post.example.test",
-    [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-mail-1",
+    [`${LEGACY_PROJECT}:inboundMailZoneId`]: MAIL_ZONE_ID,
   };
   const keys = (map: Record<string, unknown>) => ({ ...mail, [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: JSON.stringify(map) });
 
@@ -663,8 +665,8 @@ describe("project mail (ADR-0138)", () => {
     const error = loadWith({
       ...mail,
       [`${LEGACY_PROJECT}:inboundMailDomain`]: "inbox.example.org",
-      [`${LEGACY_PROJECT}:inboundMailZoneId`]: "zone-dns-1",
-      [`${LEGACY_PROJECT}:dnsZoneId`]: "zone-dns-1",
+      [`${LEGACY_PROJECT}:inboundMailZoneId`]: "d".repeat(32),
+      [`${LEGACY_PROJECT}:dnsZoneId`]: "d".repeat(32),
       [`${LEGACY_PROJECT}:dnsZoneName`]: "example.test",
     });
     expect(error?.message).toMatch(/is not in its zone \("example\.test"\)/);
@@ -696,5 +698,88 @@ describe("project mail (ADR-0138)", () => {
       [key]: value,
     });
     expect(error?.message).toMatch(/inboundMailDomain on the app zone needs dnsEnabled/);
+  });
+
+  it.each(["<the zone id of archos.tech>", "zone-mail-1", "0123456789ABCDEF0123456789ABCDEF", "a".repeat(31)])(
+    "refuses %s as inboundMailZoneId, so the stack file's placeholder cannot deploy",
+    (zoneId) => {
+      expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailZoneId`]: zoneId })?.message).toMatch(
+        /inboundMailZoneId must be a Cloudflare zone id, 32 hex digits/,
+      );
+    },
+  );
+
+  it("requires the operator's mailbox for the RFC 2142 forwards, switched off too", () => {
+    expect(loadWith(mail, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`])?.message).toMatch(
+      /inboundMailOperatorAddress is required when inboundMailDomain is set.*postmaster@inbox\.post\.example\.test/,
+    );
+    const off = { ...mail, [`${LEGACY_PROJECT}:inboundMailEnabled`]: "false" };
+    expect(loadWith(off, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`])?.message).toMatch(/is required/);
+    expect(loadValues(mail).inboundMail.operatorAddress).toBe(OPERATOR_ADDRESS);
+  });
+
+  it.each(["mail-ops", "Ops <ops@company.example>", "a@b@company.example", "ops@company.example, abuse@company.example"])(
+    "refuses %s as the operator's mailbox",
+    (address) => {
+      expect(loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`]: address })?.message).toMatch(
+        /inboundMailOperatorAddress must be one mailbox address/,
+      );
+    },
+  );
+
+  it("refuses an operator mailbox on the receiving domain, where its forwards would bounce", () => {
+    const error = loadWith({ ...mail, [`${LEGACY_PROJECT}:inboundMailOperatorAddress`]: "ops@inbox.post.example.test" });
+    expect(error?.message).toMatch(/is on the receiving domain/);
+  });
+
+  const dmarc = (value: string) => ({ ...mail, [`${LEGACY_PROJECT}:inboundMailDmarc`]: value });
+  const RECOMMENDED = `v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:${OPERATOR_ADDRESS}`;
+
+  it("reads inboundMailDmarc, unset by default", () => {
+    expect(loadValues(mail).inboundMail.dmarc).toBeUndefined();
+    expect(loadWith(dmarc(RECOMMENDED))).toBeNull();
+    expect(loadValues(dmarc(` ${RECOMMENDED} `)).inboundMail.dmarc).toBe(RECOMMENDED);
+  });
+
+  it.each([
+    ["no version tag", "p=none; sp=none", /must start with "v=DMARC1;"/],
+    ["an SPF record", "v=spf1 include:_spf.google.com ~all", /must start with "v=DMARC1;"/],
+    ["no policy", "v=DMARC1; rua=mailto:ops@company.example", /no "p=" policy/],
+    ["a typo in a tag", "v=DMARC1; p=none; sp-none", /"sp-none" is not a DMARC tag/],
+    ["a policy that does not exist", "v=DMARC1; p=monitor", /"p=monitor" is not a valid value/],
+  ])("refuses an inboundMailDmarc with %s", (_label, value, message) => {
+    const error = loadWith(dmarc(value));
+    expect(error?.message).toMatch(/inboundMailDmarc is not a DMARC record/);
+    expect(error?.message).toMatch(message);
+  });
+
+  it("refuses inboundMailDmarc without the domain, whose zone it is published on", () => {
+    expect(loadWith({ [`${LEGACY_PROJECT}:inboundMailDmarc`]: RECOMMENDED })?.message).toMatch(
+      /inboundMailDmarc is set without inboundMailDomain/,
+    );
+  });
+
+  it("refuses inboundMailDmarc beside dnsDmarc on the app zone, which would be two DMARC records", () => {
+    const both = {
+      ...appZoneStackConfig(),
+      ...mailStackConfig(),
+      [`${LEGACY_PROJECT}:inboundMailDomain`]: `inbox.${APP_ZONE}`,
+      [`${LEGACY_PROJECT}:inboundMailDmarc`]: RECOMMENDED,
+      [`${LEGACY_PROJECT}:dnsDmarc`]: "v=DMARC1; p=quarantine",
+    };
+    expect(loadWith(both)?.message).toMatch(new RegExp(`inboundMailDmarc and dnsDmarc both publish _dmarc\\.${APP_ZONE}`));
+    // Either one alone is the zone's one record.
+    expect(loadWith(both, [`${LEGACY_PROJECT}:dnsDmarc`])).toBeNull();
+    expect(loadWith(both, [`${LEGACY_PROJECT}:inboundMailDmarc`])).toBeNull();
+  });
+
+  it("allows inboundMailDmarc on a mail zone of its own beside a dnsDmarc on the app zone", () => {
+    const values = {
+      ...appZoneStackConfig(),
+      ...mail,
+      [`${LEGACY_PROJECT}:dnsDmarc`]: "v=DMARC1; p=quarantine",
+      [`${LEGACY_PROJECT}:inboundMailDmarc`]: RECOMMENDED,
+    };
+    expect(loadWith(values)).toBeNull();
   });
 });
