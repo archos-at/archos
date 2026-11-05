@@ -115,6 +115,7 @@ export const nav: typeof en.nav = {
     switchingOrganization: 'Wechselt…',
     switchOrganizationFailed: 'Wechsel fehlgeschlagen. Bitte erneut versuchen.',
     settings: 'Einstellungen',
+    whatsNew: 'Neuerungen',
     productTour: 'Produkttour',
   },
 }

@@ -1,11 +1,41 @@
-# The short summary above each week (or, once releases are tagged, each version)
-# on https://piloti.at/changelog. Keyed by the group id the changelog uses:
-# an ISO week like 2026-W39, or a version like 1.2.0.
+# The weekly summaries: the whole of the public changelog on the website
+# (/changelog/). Keyed by the group id the changelog uses: an ISO week like
+# 2026-W39, or a version like 1.2.0 once releases are tagged.
 #
-# Written by a person, after the week, from that week's notes: what an architect
-# would tell a colleague about it. English, at most three sentences and 500
-# characters; the German is translated like any note. `task release:lint`
-# checks this file too. A week without an entry shows its notes only.
+# The public page shows these and nothing else (ADR-0156). Every note of the
+# week is in the app's "What's new" for signed-in members; the summary is what
+# anyone may read: what an architect would tell a colleague about the week, the
+# headline changes in the words of the screens, never the mechanism, never a
+# fix that tells a reader where the product was weak. A week without an entry
+# is not listed on the public page, and `publish` warns once it is over.
+#
+# Written by a person, after the week, from that week's notes (`task
+# release:week -- 2026-W44` lists them). English, at most three sentences and
+# 500 characters; the German is translated like any note. `task release:lint`
+# checks this file too.
+
+2026-W44: >
+  Ctrl+K now searches everything your office holds, by name, by kind and by
+  what a document says, and documents can be filtered by drawing number,
+  revision, scale or the facts they state. Each document is read whole, and a
+  project lists where its documents contradict each other or refer to one it
+  does not hold. Sketches can be drawn in the chat and reworked by hand.
+
+2026-W43: >
+  Your own AI assistant, such as Claude or Cursor, can now work in your
+  workspace in your name and with your rights, and it asks before it changes
+  anything. Setting up a project takes five short steps, and the Steckbrief
+  shows how the Gebäudeklasse was worked out and which OIB-Richtlinien apply.
+  Loose files can be sorted into folders in one go, and a document in the bin
+  or the archive can be brought back.
+
+2026-W42: >
+  Documents can now be reviewed together: set an Anmerkung on a page, give it a
+  person and a date, discuss it in its thread, carry it over to the next
+  revision, or export all of them as minutes. The Postfach shows who wrote,
+  filters what waits on you and can notify your phone or computer. On a phone, a
+  bar at the bottom reaches the main areas, and photos and dictation go straight
+  into the chat.
 
 2026-W41: >
   You can now close a finished project, which keeps it searchable and read-only,

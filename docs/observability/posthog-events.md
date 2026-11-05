@@ -147,6 +147,11 @@ No-op until `initPosthogClient` ran, which needs the host and project token in
 | `usage_notice_dismissed` | `level`, `scope`, `window` | `features/chat/components/ChatUsageNotice.tsx`, the notice's × |
 | `viewer_action_outcome` | `action` (the allow-list name), `outcome` (`shown`, `offered`, `refused`, `failed`, `undone`, `kept`), `reason` (why it was offered or refused, else null) | `features/chat/lib/viewer-actions.ts`, each change of a viewer action's status on the asker's page (ADR-0144). Never the document or the passage |
 | `viewer_actions_auto_changed` | `on` | `features/chat/lib/viewer-actions.ts`, the „Automatisch öffnen“ switch under an answer or on the profile page |
+| `whats_new_shown` | `week` (the ISO week of the summary, `2026-W44`) | `features/whats-new/components/whats-new-notice.tsx`, once when the „Neu diese Woche“ notice opens (ADR-0156). Not for someone new here, whose week is recorded without a notice |
+| `whats_new_dismissed` | `week`, `via` (`close_button`: „Schließen“, `escape`) | the same notice, closed without following its link; the week counts as seen |
+| `whats_new_opened` | `week` | the same notice, „Alle Neuerungen ansehen“ followed to `/app/whats-new`; the week counts as seen |
+| `whats_new_opted_out` | `week` (only from the notice), `surface` (`notice`: „Nicht mehr anzeigen“, `profile`: the switch on the profile page) | `whats-new-notice.tsx`, `whats-new-notice-settings.tsx`, once the server kept it (the profile's) or as the notice closes |
+| `whats_new_opted_in` | `surface` (`profile`) | `whats-new-notice-settings.tsx`, the switch turned back on and kept by the server |
 
 `organization_created` is still a member of the `PostHogEvent` union, but nothing
 in the browser sends it any more: the route does. Drop it from the union when the

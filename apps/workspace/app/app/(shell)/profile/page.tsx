@@ -25,6 +25,7 @@ import { postHogConfigFromEnv } from '@/lib/analytics/posthog-config'
 import { ConnectAgentCard } from '@/features/agent-connect/components'
 import { loadAgentConnectState } from '@/features/agent-connect/lib/connect-state'
 import { CONNECT_AGENT_GUIDE_URL } from '@/features/agent-connect/lib/guide'
+import { getReleaseNoticePreference } from '@/lib/release-notes/summary-notice'
 
 const KNOWN_ROLE_SLUGS = new Set(['org-platform-owner', 'admin', 'member'])
 
@@ -74,6 +75,14 @@ export default async function ProfilePage(): Promise<JSX.Element> {
 
     const displayName = session.name || session.email || t('account.noName')
     const initial = String(displayName).charAt(0).toUpperCase()
+
+    // The weekly notice's switch (ADR-0156, amendment). A failed read shows it on, the default.
+    const releaseNoticeEnabled = session.organizationId
+      ? await getReleaseNoticePreference(session).then(
+          (preference) => preference.enabled,
+          () => true,
+        )
+      : undefined
 
     const organizationName = session.organizationId
       ? await resolveOrganizationName(session.organizationId)
@@ -168,6 +177,7 @@ export default async function ProfilePage(): Promise<JSX.Element> {
             // organization, so the toggle shows exactly where they exist.
             shortcutsAvailable={Boolean(session.organizationId)}
             analyticsAvailable={analyticsAvailable}
+            releaseNoticeEnabled={releaseNoticeEnabled}
           />
         </div>
       </ShellContent>

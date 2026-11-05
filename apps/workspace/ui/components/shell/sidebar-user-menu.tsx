@@ -12,6 +12,7 @@ import {
   MessagesSquare,
   Monitor,
   Moon,
+  Sparkles,
   Sun,
   UserRound,
 } from 'lucide-react'
@@ -280,6 +281,14 @@ export function SidebarUserMenu({
         <DropdownMenuItem onSelect={() => startTour()} className="gap-2">
           <Compass className="size-4 text-muted-foreground" aria-hidden />
           {t('userMenu.productTour')}
+        </DropdownMenuItem>
+        {/* Every change to the product, week by week (ADR-0156): beside the tour,
+            because both are about the product itself, not the office's work. */}
+        <DropdownMenuItem asChild className="gap-2">
+          <Link href="/app/whats-new">
+            <Sparkles className="size-4 text-muted-foreground" aria-hidden />
+            {t('userMenu.whatsNew')}
+          </Link>
         </DropdownMenuItem>
         {/* The one door to the people who build Piloti, next to the tour
             because both are "help with Piloti itself": „Mein Feedback" holds

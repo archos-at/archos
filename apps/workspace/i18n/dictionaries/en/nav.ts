@@ -133,6 +133,7 @@ export const nav = {
     switchingOrganization: 'Switching…',
     switchOrganizationFailed: 'Could not switch. Please try again.',
     settings: 'Settings',
+    whatsNew: "What's new",
     productTour: 'Product tour',
   },
 }

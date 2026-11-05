@@ -1436,6 +1436,10 @@
     "de": "Ctrl+F (Cmd+F am Mac) durchsucht ein PDF. Die Suche zählt die Treffer und springt zwischen ihnen."
   },
   {
+    "en": "Ctrl+K now searches everything your office holds, by name, by kind and by what a document says, and documents can be filtered by drawing number, revision, scale or the facts they state. Each document is read whole, and a project lists where its documents contradict each other or refer to one it does not hold. Sketches can be drawn in the chat and reworked by hand.",
+    "de": "Mit Strg+K durchsuchen Sie jetzt alles, was Ihr Büro hat: nach Name, nach Art und nach dem Inhalt eines Dokuments, und Dokumente lassen sich nach Plannummer, Planstand, Maßstab oder den darin genannten Angaben filtern. Jedes Dokument wird vollständig gelesen, und ein Projekt zeigt, wo sich seine Dokumente widersprechen oder auf eines verweisen, das ihm fehlt. Skizzen entstehen direkt im Chat und lassen sich von Hand überarbeiten."
+  },
+  {
     "en": "Custom roles grant the Büroablage under a new permission name. Roles that hold the old one keep their access; the role editor offers only the new one.",
     "de": "Benutzerdefinierte Rollen gewähren unter einem neuen Berechtigungsnamen Zugriff auf die Büroablage. Rollen mit der alten Berechtigung behalten ihren Zugriff; der Rollen-Editor bietet nur die neue Berechtigung an."
   },
@@ -1570,6 +1574,10 @@
   {
     "en": "Documents can now also be dragged into a folder in the list view, not only in the card view.",
     "de": "Dokumente lassen sich jetzt auch in der Listenansicht per Drag & Drop in einen Ordner ziehen, nicht nur in der Kachelansicht."
+  },
+  {
+    "en": "Documents can now be reviewed together: set an Anmerkung on a page, give it a person and a date, discuss it in its thread, carry it over to the next revision, or export all of them as minutes. The Postfach shows who wrote, filters what waits on you and can notify your phone or computer. On a phone, a bar at the bottom reaches the main areas, and photos and dictation go straight into the chat.",
+    "de": "Dokumente lassen sich jetzt gemeinsam prüfen: Setzen Sie eine Anmerkung auf eine Seite, geben Sie ihr eine zuständige Person und ein Datum, besprechen Sie sie im Verlauf, übernehmen Sie sie in die nächste Fassung oder exportieren Sie alle als Protokoll. Das Postfach zeigt, wer geschrieben hat, filtert, was auf Sie wartet, und kann Ihr Telefon oder Ihren Computer benachrichtigen. Am Telefon erreichen Sie die wichtigsten Bereiche über eine Leiste am unteren Rand, und Fotos und Diktate gelangen direkt in den Chat."
   },
   {
     "en": "Documents from a large upload (more than 200 files at once) no longer stay on \"pending\" after Piloti has finished reading them. They now show their real state, ready or failed, like those of a smaller upload.",
@@ -4574,6 +4582,10 @@
   {
     "en": "Your own AI assistant, such as Claude or Cursor, can now work in Piloti: it does anything you can do in the workspace, in your name and with your rights, once your office switches the connection on. Changes still wait for your yes.",
     "de": "Ihr eigener KI-Assistent, etwa Claude oder Cursor, kann jetzt in Piloti arbeiten: Er erledigt im Arbeitsbereich alles, was Sie selbst tun können – in Ihrem Namen und mit Ihren Berechtigungen, sobald Ihr Büro die Verbindung aktiviert. Änderungen werden weiterhin erst nach Ihrer Zustimmung umgesetzt."
+  },
+  {
+    "en": "Your own AI assistant, such as Claude or Cursor, can now work in your workspace in your name and with your rights, and it asks before it changes anything. Setting up a project takes five short steps, and the Steckbrief shows how the Gebäudeklasse was worked out and which OIB-Richtlinien apply. Loose files can be sorted into folders in one go, and a document in the bin or the archive can be brought back.",
+    "de": "Ihr eigener KI-Assistent, etwa Claude oder Cursor, kann jetzt in Ihrem Namen und mit Ihren Rechten in Ihrem Arbeitsbereich arbeiten und fragt nach, bevor er etwas ändert. Ein Projekt richten Sie in fünf kurzen Schritten ein, und der Steckbrief zeigt, wie die Gebäudeklasse ermittelt wurde und welche OIB-Richtlinien gelten. Lose Dateien lassen sich in einem Schritt in Ordner sortieren, und ein Dokument im Papierkorb oder im Archiv lässt sich zurückholen."
   },
   {
     "en": "Your own AI assistant, such as Claude, ChatGPT or Cursor, can now work in Piloti for you with your rights, set up from Connect your agent on your profile once your organization switches it on. It asks you before it changes or deletes anything, so you stay in charge.",
