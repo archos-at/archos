@@ -176,6 +176,11 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 - **Body face** is General Sans (`--font-sans`). **Geist Mono** is the app's
   monospace for code, keycaps, identifiers and the skill editor
   (`--font-mono`); the brand has no mono, and the app keeps one on purpose.
+  Its 0 is plain, never slashed: a slashed 0 in a count read as a crossed-out
+  zero. The face's own stylistic set (`ss09`) does it, switched on once with
+  the family (`--font-mono--font-feature-settings` in `tokens.css`), which is
+  why the font comes from the `geist` package and not Google Fonts, whose copy
+  has no plain 0 ([gotcha](../contributing/gotchas.md)).
 - **The brand has no colour of its own.** It is black and white: warm white `--ds-surface` (#fafaf9), black `--ds-ink` (#0f0e0d) and one light grey `--ds-surface-sunken` (#f2f1f0). The app's hues (provenance signals, status, the data palette, the energy scale) are functional and documented exceptions; add no new one.
 - **No pure white.** Surfaces are `--ds-surface` (paper), `--ds-surface-raised`
   (`--card`, `--popover`, overlays) and `--ds-surface-sunken`. Pure white stays
