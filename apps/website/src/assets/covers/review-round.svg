@@ -35,8 +35,12 @@
   <line class="view" x1="464" y1="380" x2="572" y2="380"/>
   <line class="view" x1="588" y1="380" x2="696" y2="380"/>
   <rect class="view" x="572" y="236" width="16" height="144"/>
-  <path class="view" d="M518 388V252H642V388"/>
-  <circle class="paper view" cx="518" cy="388" r="4"/>
+  <line class="cut" x1="456" y1="216" x2="456" y2="392"/>
+  <line class="cut" x1="704" y1="216" x2="704" y2="392"/>
+  <path class="view" d="M518 380V252H642V372"/>
+  <circle class="paper view" cx="518" cy="380" r="5"/>
+  <line class="view" x1="642" y1="384" x2="634" y2="366"/>
+  <line class="view" x1="642" y1="384" x2="650" y2="366"/>
   <rect class="view" x="752" y="240" width="64" height="64"/>
   <path class="view" d="M752 240L816 304M816 240L752 304"/>
   <rect class="hidden" x="740" y="228" width="88" height="88"/>
