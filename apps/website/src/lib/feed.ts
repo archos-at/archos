@@ -4,7 +4,7 @@ import type { Locale } from '../i18n/paths';
 import { t } from '../i18n/ui';
 import { CATEGORIES, blogPath } from './categories';
 import identity from './identity';
-import { getBlogPosts, postPath } from './posts';
+import { BLOG_CACHE_CONTROL, getBlogPosts, postPath } from './posts';
 
 /** The channel's <language> element per locale: German as written in Austria. */
 const LANGUAGE: Record<Locale, string> = { de: '<language>de-at</language>', en: '<language>en</language>' };
@@ -16,7 +16,7 @@ const LANGUAGE: Record<Locale, string> = { de: '<language>de-at</language>', en:
  */
 export async function blogFeed(locale: Locale, site: URL | undefined) {
   const posts = await getBlogPosts(locale);
-  return rss({
+  const feed = await rss({
     title: t(locale).rssTitle,
     description: copy[locale].hero.text,
     // The channel's <link> is the listing; item links are absolute paths.
@@ -24,11 +24,13 @@ export async function blogFeed(locale: Locale, site: URL | undefined) {
     trailingSlash: true,
     customData: LANGUAGE[locale],
     items: posts.map((post) => ({
-      title: post.data.title,
-      description: post.data.description,
-      pubDate: post.data.pubDate,
+      title: post.title,
+      description: post.description,
+      pubDate: post.pubDate,
       link: postPath(locale, post),
-      categories: [CATEGORIES[locale][post.data.category].label],
+      categories: [CATEGORIES[locale][post.category].label],
     })),
   });
+  feed.headers.set('Cache-Control', BLOG_CACHE_CONTROL);
+  return feed;
 }

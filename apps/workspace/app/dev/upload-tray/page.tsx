@@ -25,6 +25,24 @@ import { FileListView } from '@/features/documents/components/file-list-view'
 import type { TrackedFile } from '@/features/documents/types'
 import type { FileItem } from '@/features/documents/components/project-file-workspace'
 
+// The held row asks what this reader may do about it: answer „decide", so the
+// preview shows „Trotzdem zulassen", and allow it when asked (ADR-0086).
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  const w = window as unknown as { __heldShim?: boolean }
+  if (!w.__heldShim) {
+    w.__heldShim = true
+    const real = window.fetch.bind(window)
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+      // The fixture's held document only: a real held file in this tab is asked for real.
+      if (url === '/api/documents/doc-h2/quarantine') return Response.json({ canReview: true, canAskForReview: false })
+      if (url === '/api/documents/doc-h2/quarantine/release')
+        return Response.json({ id: 'doc-h2', status: 'processing', jobId: null })
+      return real(input, init)
+    }
+  }
+}
+
 const MB = 1_000_000
 
 const file = (overrides: Partial<TrackedFile> & Pick<TrackedFile, 'id' | 'fileName' | 'fileSize'>): TrackedFile => ({

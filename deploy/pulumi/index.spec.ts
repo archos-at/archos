@@ -245,6 +245,7 @@ describe("the program constructs in the split topology", () => {
       backend: `ghcr.io/archos-at/grid-oib-backend:${tag}`,
       frontend: `ghcr.io/archos-at/grid-oib-frontend:${tag}`,
       web: `ghcr.io/archos-at/grid-oib-web:${tag}`,
+      cms: `ghcr.io/archos-at/cms:${tag}`,
     });
   });
 
@@ -273,7 +274,7 @@ describe("the program constructs in the split topology", () => {
     expect(STACK.geocoderUrl).toBe("https://photon.komoot.io");
   });
 
-  it("leaves the malware scanner off by default, and the frontend without its URL (ADR-0152)", () => {
+  it("leaves the malware scanner off by default, and the frontend without its URL (ADR-0157)", () => {
     // Prepared, not switched on: a stack opts in with `malwareScanEnabled`.
     // Off, `npm run preview` shows no change, and the BFF fails every scan
     // closed (`not-configured`).

@@ -2511,44 +2511,44 @@ restore_rls_role_names
 echo "==> 0191 policy names, the role rename and down migration verified"
 
 # ---------------------------------------------------------------------------
-# Migration 0193: what settling an upload batch sets off, per batch, and the
+# Migration 0195: what settling an upload batch sets off, per batch, and the
 # DOWN.
 #
-# On a database of its own, migrated to whatever precedes 0193, with one batch
-# opened before it. 0193 gives that batch, and any batch opened without naming
+# On a database of its own, migrated to whatever precedes 0195, with one batch
+# opened before it. 0195 gives that batch, and any batch opened without naming
 # them, every effect of a person's upload; it refuses an unknown revision
 # notice; it re-applies. The down drops the five columns and the CHECK; the up
 # re-applies after it. What the columns do is upload-batches.integration.spec.ts's
 # and the unit specs'.
 # ---------------------------------------------------------------------------
-echo "==> verifying the 0193 upload batch effects and its down migration on batch_effects_0193"
-migrate_before batch_effects_0193 0193_upload_batch_effects
-sql_in batch_effects_0193 <<'SQL'
+echo "==> verifying the 0195 upload batch effects and its down migration on batch_effects_0195"
+migrate_before batch_effects_0195 0195_upload_batch_effects
+sql_in batch_effects_0195 <<'SQL'
 INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count) VALUES
   ('b1b1b1b1-0000-4000-8000-000000000185', 'org_0185', 'user_1', 'office_shelf', 1);
 SQL
-EFFECTS_0193="SELECT string_agg(announces_completion::text || ',' || reviews_filing::text || ',' || starts_intake::text || ',' || revision_notice || ',' || runs_document_check::text, '|' ORDER BY id) FROM upload_batches"
+EFFECTS_0195="SELECT string_agg(announces_completion::text || ',' || reviews_filing::text || ',' || starts_intake::text || ',' || revision_notice || ',' || runs_document_check::text, '|' ORDER BY id) FROM upload_batches"
 COLUMNS_0185="SELECT count(*) FROM information_schema.columns WHERE table_name = 'upload_batches' AND column_name IN ('announces_completion', 'reviews_filing', 'starts_intake', 'revision_notice', 'runs_document_check')"
-apply_in batch_effects_0193 0193_upload_batch_effects.sql
-check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true" "0193 gives a batch opened before it every effect of a person's upload"
-sql_in batch_effects_0193 <<'SQL'
+apply_in batch_effects_0195 0195_upload_batch_effects.sql
+check_in batch_effects_0195 "$EFFECTS_0195" "true,true,true,all,true" "0195 gives a batch opened before it every effect of a person's upload"
+sql_in batch_effects_0195 <<'SQL'
 INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count) VALUES
   ('b2b2b2b2-0000-4000-8000-000000000185', 'org_0185', 'user_1', 'office_shelf', 1);
 INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, announces_completion, reviews_filing, starts_intake, revision_notice, runs_document_check) VALUES
   ('b3b3b3b3-0000-4000-8000-000000000185', 'org_0185', 'user_1', 'office_shelf', 1, false, false, false, 'marks_only', false);
 SQL
-check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0193: a batch that names no effect has all of them, a quiet one keeps what it set"
-refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "an unknown revision notice"
-refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, starts_intake) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "starts_intake" "a batch with no answer to whether it starts an intake reading"
-refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, runs_document_check) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "runs_document_check" "a batch with no answer to whether its documents are checked"
-apply_in batch_effects_0193 0193_upload_batch_effects.sql
-check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0193 re-applies and keeps what the batches hold"
-apply_in batch_effects_0193 0193_upload_batch_effects.down.sql
-check_in batch_effects_0193 "$COLUMNS_0185" "0" "0193 down drops the five columns"
-check_in batch_effects_0193 "SELECT count(*) FROM pg_constraint WHERE conname = 'upload_batches_revision_notice_known'" "0" "0193 down drops the CHECK"
-check_in batch_effects_0193 "SELECT count(*) FROM upload_batches" "3" "0193 down keeps every batch"
-apply_in batch_effects_0193 0193_upload_batch_effects.down.sql
-apply_in batch_effects_0193 0193_upload_batch_effects.sql
-check_in batch_effects_0193 "$EFFECTS_0193" "true,true,true,all,true|true,true,true,all,true|true,true,true,all,true" "0193 re-applies after its down, every batch back to a person's upload"
-refused_in batch_effects_0193 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "after the re-apply: an unknown revision notice"
-echo "==> 0193 upload batch effects and its down migration verified"
+check_in batch_effects_0195 "$EFFECTS_0195" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0195: a batch that names no effect has all of them, a quiet one keeps what it set"
+refused_in batch_effects_0195 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "an unknown revision notice"
+refused_in batch_effects_0195 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, starts_intake) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "starts_intake" "a batch with no answer to whether it starts an intake reading"
+refused_in batch_effects_0195 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, runs_document_check) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, NULL);" "runs_document_check" "a batch with no answer to whether its documents are checked"
+apply_in batch_effects_0195 0195_upload_batch_effects.sql
+check_in batch_effects_0195 "$EFFECTS_0195" "true,true,true,all,true|true,true,true,all,true|false,false,false,marks_only,false" "0195 re-applies and keeps what the batches hold"
+apply_in batch_effects_0195 0195_upload_batch_effects.down.sql
+check_in batch_effects_0195 "$COLUMNS_0185" "0" "0195 down drops the five columns"
+check_in batch_effects_0195 "SELECT count(*) FROM pg_constraint WHERE conname = 'upload_batches_revision_notice_known'" "0" "0195 down drops the CHECK"
+check_in batch_effects_0195 "SELECT count(*) FROM upload_batches" "3" "0195 down keeps every batch"
+apply_in batch_effects_0195 0195_upload_batch_effects.down.sql
+apply_in batch_effects_0195 0195_upload_batch_effects.sql
+check_in batch_effects_0195 "$EFFECTS_0195" "true,true,true,all,true|true,true,true,all,true|true,true,true,all,true" "0195 re-applies after its down, every batch back to a person's upload"
+refused_in batch_effects_0195 "INSERT INTO upload_batches (id, organization_id, created_by, scope, expected_count, revision_notice) VALUES (gen_random_uuid(), 'org_0185', 'u', 'office_shelf', 1, 'nobody');" "upload_batches_revision_notice_known" "after the re-apply: an unknown revision notice"
+echo "==> 0195 upload batch effects and its down migration verified"

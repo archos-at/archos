@@ -52,6 +52,12 @@ TOOLS: dict[str, tuple[str, str]] = {
         "reports",
         "packages/agent/tests/tools/cross_project/test_project_lookup.py::test_project_lookup_admits_what_the_bff_handed_out_and_shuts_the_turns_doors",
     ),
+    # A DXF measured as a site (ADR-0153): the BFF's scoped lookup answers for a
+    # restricted folder only when the whole audience may read it, and the read is reported.
+    "dxf_measure": (
+        "reports",
+        "packages/agent/tests/tools/drawings/test_dxf_measure.py::test_a_read_reports_its_collection_so_a_restricted_folder_is_admitted",
+    ),
     # Listings: never a restricted folder's file.
     "list_files": (
         "lists_nothing_restricted",

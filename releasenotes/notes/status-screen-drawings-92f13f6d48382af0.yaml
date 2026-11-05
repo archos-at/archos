@@ -1,0 +1,8 @@
+---
+# area: general
+improvements:
+  - >
+    When a page cannot be found, you lack access to it, or something goes wrong
+    on our side, the screen now says so with a small drawing and offers a way
+    on. An error screen also shows a reference you can quote, and "Report the
+    error" opens an email to us with the address and that reference filled in.

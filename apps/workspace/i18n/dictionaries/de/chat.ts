@@ -125,11 +125,6 @@ export const chat: typeof en.chat = {
     placeholder: 'Fragen Sie {productName} zu diesem Projekt …',
     sources: 'Datengrundlage',
     sourcesAria: 'Datengrundlage – {enabled} von {total} Quellen aktiv. Öffnet die Datenquellen.',
-    scopeAria: 'Suchbereich: {project}',
-    scopeFallback: 'Dieses Projekt',
-    scopeCurrent: 'Aktuelles Projekt',
-    scopeAll: 'Alle Projekte',
-    scopeAllSoon: 'Bald verfügbar – projektübergreifende Suche ist noch nicht möglich.',
     // Mobile-only cue: the source/scope labels collapse to icons on phones, so a
     // tiny one-line hint under the composer keeps the active source count legible.
     sourcesActiveMobile: '{count, plural, one {# Quelle} other {# Quellen}} aktiv',
@@ -215,7 +210,8 @@ export const chat: typeof en.chat = {
     projectWrites:
       '{productName} beantwortet nicht nur Fragen – auf Zuruf schreibt {productName} Aktenvermerke, Notizen und Entwürfe direkt in die Projektdateien.',
   },
-  // Thread role tabs (click-dummy overhaul, WS-3).
+  // Wessen Zug eine Nachricht ist, nur für den Screenreader: am Bildschirm
+  // sagen es Blase und Antwortkarte, kein Rollen-Tab (Notion #38, Thema 9).
   roles: {
     input: 'Eingabe',
     result: 'Ergebnis',
@@ -719,6 +715,8 @@ export const chat: typeof en.chat = {
       // Was Piloti von der Seite abgelesen hat, nie eine Messung (ADR-0125).
       reading: 'Gelesen: {reading}',
       readingNote: 'Von {productName} abgelesen, nicht gemessen.',
+      // Klappt auf, wonach {productName} gesucht und was es abgelesen hat.
+      explanation: 'Erläuterung',
       embeddedImage: 'Bild {index}',
       open: '{document}, S. {page} öffnen',
     },

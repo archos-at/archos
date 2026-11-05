@@ -33,6 +33,7 @@ vars:
   # this one-line `NAME: value` shape.
   AGENT_BROWSER_VERSION: 0.27.0
   WEBSITE: apps/website
+  CMS: apps/cms
   # go-task ships its own POSIX shell, so command SYNTAX is already portable and
   # nothing below needs an OS branch. These two are the exception, because they
   # are Python packaging facts rather than shell facts: a virtualenv puts its
@@ -85,6 +86,10 @@ includes:
     taskfile: taskfiles/website.yml
     flatten: true
     dir: .
+  cms:
+    taskfile: taskfiles/cms.yml
+    flatten: true
+    dir: .
   infra:
     taskfile: taskfiles/infra.yml
     flatten: true
@@ -114,7 +119,7 @@ tasks:
       # packages/ifc-spatial-py is 636 tests in 1m40s on four workers (measured 2026-10-22)
       # against its own uv.lock and its own IfcOpenShell/shapely toolchain, on a
       # directory most changes never touch. CI runs it behind the `packages`
-      # paths filter (`packages/ifc-spatial*/**`, ci.yml's `packages` job; a new
+      # paths filter (`packages/ifc-spatial-py/**`, ci.yml's `packages` job; a new
       # package with a suite adds its own line there), which pays that cost only on the
       # commits that earn it; making every local `task verify` pay it would be
       # the fastest way to get people to stop running `task verify`. Run
@@ -127,13 +132,13 @@ tasks:
       # whole when it finishes. Ruff and the English-names test are skipped in
       # the hooks because be:verify runs both (be:lint, the core suite).
       - 'SKIP={{.VERIFY_SKIP}} {{.TASK_EXE}} lint:repo'
-      - '{{.TASK_EXE}} --parallel --output=group be:verify verify:workspace verify:website infra:types infra:test'
+      - '{{.TASK_EXE}} --parallel --output=group be:verify verify:workspace verify:website verify:cms infra:types infra:test'
 
   verify:fast:
     desc: Everything CI runs except the production builds (the slow step)
     cmds:
       - 'SKIP={{.VERIFY_SKIP}} {{.TASK_EXE}} lint:repo'
-      - '{{.TASK_EXE}} --parallel --output=group be:verify verify:workspace:fast verify:website:fast infra:types infra:test'
+      - '{{.TASK_EXE}} --parallel --output=group be:verify verify:workspace:fast verify:website:fast verify:cms infra:types infra:test'
 
   # The tiers as `verify` runs them, once lint:repo has checked the generated
   # card schemas (its card-schemas hook), so that check does not run twice.
@@ -163,6 +168,14 @@ tasks:
       # The riso kit's fast gate: the app's vignettes against their source.
       - task: art:check
 
+  # The CMS (ADR-0155) without its Postgres suite, which needs PostgreSQL server
+  # binaries like db:test:rls; CI's CMS job runs it (`cms:verify`).
+  verify:cms:
+    cmds:
+      - task: cms:install
+      - task: cms:check
+      - task: cms:test
+
   setup:
     desc: Install every toolchain this repo needs (backend venv + UI + website + infra)
     env:
@@ -175,6 +188,7 @@ tasks:
       - uv sync --group dev
       - task: workspace:install
       - task: website:install
+      - task: cms:install
       - task: infra:install
       # packages/ used to be skipped here too, so `task pkg:test` on a fresh
       # clone failed at "vitest: not found" rather than at an assertion.

@@ -132,6 +132,7 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Docker Compose](deployment/docker-compose.md) | Service reference: images, ports, volumes, healthchecks, networks |
 | [Kubernetes](deployment/kubernetes.md) | The Pulumi stack |
 | [Hatchet runbook](deployment/hatchet.md) | Where background work runs (ADR-0150): the `background-work` namespace and its cluster, enabling a stack, upgrades, the dashboard, what to watch, and the cutover from the claim queues |
+| [Platform MCP gateway](deployment/platform-mcp-gateway.md) | How platform staff's agents reach the cluster's own MCP servers (Langfuse's) through agentgateway, signed in with WorkOS (ADR-0154): WorkOS setup, stack keys, connecting a client, first-deploy checks, adding a server |
 | [Domain cutover](deployment/domain-cutover.md) | Moving every public host to the domain in `identity.json`: config values, 301s from the former domain, WorkOS/PostHog/Search Console, order and rollback (prepared, not done) |
 | [Platform agent door runbook](deployment/platform-agent-door-runbook.md) | Switching on the operator console's MCP server for platform staff (ADR-0126), connecting a client in the GRID Platform organization, and what each refusal means |
 | [Ingest memory runbook](deployment/ingest-memory-runbook.md) | Verifying the bounded raster decode in production: which build is running, the OOM signature, the `[ingest-mem]` lines, queue depth. Read-only throughout |
@@ -139,6 +140,7 @@ Index: [`contributing/README.md`](contributing/README.md).
 | [Qdrant payload rename runbook](deployment/qdrant-payload-rename-runbook.md) | The English payload keys (`federal_state`, `clause_id`, `guideline`, `chunking: "clause"`), what still reads the German ones, and the rewrite that lets the fallback go |
 | [Coolify](deployment/coolify.md) | The Coolify deployment path |
 | [CD](deployment/cd.md) | Continuous delivery |
+| [Rollback runbook](deployment/rollback.md) | Putting staging or production back on the build it ran before: when, the one command, what it cannot undo (the program, migrations, the data tier), and the follow-up |
 | [Startup Flow](deployment/startup-flow.md) | Boot sequence: PostgreSQL init, SeaweedFS, uvicorn, gateway |
 | [Security Config](deployment/security-config.md) | Auth configuration, storage credentials, key management |
 | [WorkOS Provisioning](deployment/workos-provisioning.md) | Applying the authorization catalog |

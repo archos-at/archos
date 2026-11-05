@@ -25,6 +25,7 @@ import * as React from 'react'
 import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { SectionLabel } from '@/components/ui/section-label'
 import { cn } from '@/lib/utils'
 import type { JSX } from 'react'
 
@@ -85,9 +86,9 @@ export function TourCard({
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider tabular-nums">
+        <SectionLabel as="p" className="tabular-nums">
           {labels.progress}
-        </p>
+        </SectionLabel>
         <button
           type="button"
           onClick={onClose}

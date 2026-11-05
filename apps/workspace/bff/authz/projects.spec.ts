@@ -195,8 +195,10 @@ describe('requireProjectAccess', () => {
       await requireProjectAccess(session(), PROJECT_ID, 'project:edit')
       expect(effective).toHaveBeenCalledTimes(1)
       // The key carries the ORG, the membership and the resource TYPE as well as
-      // the id, so two tenants asking about the same project id cannot collide.
-      expect([...store.map.keys()]).toEqual(['authz:effective:org_1:om_1:project:proj_1'])
+      // the id, so two tenants asking about the same project id cannot collide;
+      // the segment between is the membership's grants generation.
+      expect(authzKeys()).toHaveLength(1)
+      expect(authzKeys()[0]).toMatch(/^authz:effective:org_1:om_1:[^:]+:project:proj_1$/)
     })
 
     it('hit: an identical second request is served from cache', async () => {
@@ -235,7 +237,7 @@ describe('requireProjectAccess', () => {
     await expect(requireProjectAccess(session(), PROJECT_ID, 'project:view')).rejects.toThrow(
       'Not found'
     )
-    expect(store.map.size).toBe(0)
+    expect([...store.map.keys()].filter((key) => key.startsWith('authz:effective:'))).toEqual([])
   })
 
   it('reads a project WorkOS has never registered as holding nothing', async () => {
@@ -363,6 +365,22 @@ describe('requireProjectAccess', () => {
       // Managing members stays a grant someone must hold.
       await expect(requireProjectAccess(session(), PROJECT_ID, 'project:members:manage')).rejects.toMatchObject({
         status: 404,
+      })
+    })
+
+    it('answers readsBecauseClosed for the permission asked: a Project Viewer chats by the closure, and views as a member', async () => {
+      // `project-viewer` holds `project:view` only: no chat while the project ran.
+      holds('project:view')
+      await expect(requireProjectAccess(session(), PROJECT_ID, 'project:view')).resolves.toEqual({
+        role: 'project-viewer',
+        closed: true,
+        readsBecauseClosed: false,
+      })
+      // The chat comes from the closure, so they steer no run but their own.
+      await expect(requireProjectAccess(session(), PROJECT_ID, ['project:chat', 'project:edit'])).resolves.toEqual({
+        role: 'project-viewer',
+        closed: true,
+        readsBecauseClosed: true,
       })
     })
 

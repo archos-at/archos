@@ -43,6 +43,7 @@ const NO_ENTRIES: readonly ActionMenuEntry[] = []
 /** Overflow-only default: Open / Ask / Copy path belong on the tile, not here. */
 const DEFAULT_ACTIONS: readonly DocumentActionKind[] = [
   'download',
+  'downloadPdf',
   'rename',
   'move',
   'delete',
@@ -163,6 +164,7 @@ export function useDocumentActionMenu({
       ask: t('actions.ask'),
       select: t('actions.select'),
       download: t('actions.download'),
+      downloadPdf: t('actions.downloadPdf'),
       rename: t('actions.rename'),
       move: t('actions.move'),
       copyOriginPath: t('actions.copyOriginPath'),
@@ -186,6 +188,7 @@ export function useDocumentActionMenu({
     onSelect: onSelectMode,
     onPickMoveTarget: moveInSheet ? () => setMoveOpen(true) : undefined,
     onDownload: () => void documentActions.download(),
+    onDownloadPdf: () => void documentActions.downloadPdf(),
     onRename: () => setRenameOpen(true),
     onDelete: () => setDeleteOpen(true),
     // A retry just runs; re-reading an indexed file asks first, because it is

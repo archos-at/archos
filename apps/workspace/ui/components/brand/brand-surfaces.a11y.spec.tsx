@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Button } from '@/components/ui/button'
 import { Logo } from './logo'
+import { StatusDrawing } from './status-drawing'
 import { StatusScreen } from './status-screen'
 
 async function violations(container: HTMLElement): Promise<string[]> {
@@ -41,5 +42,24 @@ describe('brand surfaces, accessibility', () => {
       />,
     )
     expect(await violations(container)).toEqual([])
+  })
+
+  it('a status screen with its drawing keeps one heading; the drawing is decoration', async () => {
+    for (const kind of ['missing', 'closed', 'fault'] as const) {
+      const { container, unmount } = render(
+        <StatusScreen
+          art={<StatusDrawing kind={kind} />}
+          code="404"
+          title="Not found"
+          description="The page does not exist."
+          actions={<Button>Back</Button>}
+          detail="Reference: 1234"
+        />,
+      )
+      expect(await violations(container)).toEqual([])
+      expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+      expect(container.querySelectorAll('h1, h2, h3')).toHaveLength(1)
+      unmount()
+    }
   })
 })

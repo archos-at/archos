@@ -277,159 +277,24 @@ def sun_position(resolve: Callable[[Any], SpatialModel], args: dict[str, Any]) -
 
 
 def _fire_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="fire",
-        title="Brandschutz-Geometrie (OIB 2)",
-        description=(
-            "Die geometrischen Größen, auf die OIB 2 hinausläuft:\n"
-            + "\n".join(f"  {k} — {v}" for k, v in FIRE_ASPECTS.items())
-            + "\n\nKEINE Gebäudeklasse. escape_level liefert eine HÖHE; welche Klasse daraus folgt, "
-            "ist eine rechtliche Einstufung nach OIB 2 samt Landesrecht. Ein Werkzeug, das GK5 "
-            "zurückgibt, hat eine Regel angewandt, die es nie gelesen hat."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "what": {"type": "string", "enum": list(FIRE_ASPECTS)},
-                "globalId": {
-                    "type": "string",
-                    "description": "Je nach what: Geschoß/Räume (Komma-getrennt), zwei Räume, oder leer",
-                },
-            },
-            "required": ["model", "what"],
-        },
-        handler=partial(fire_op, resolve),
-    )
+    return ToolDef(name="fire", handler=partial(fire_op, resolve))
 
 
 def _envelope_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="envelope",
-        title="Thermische Gebäudehülle (OIB 6)",
-        description=(
-            "Die geometrischen Größen, die eine OIB-6-Rechnung als Eingang braucht:\n"
-            + "\n".join(f"  {k} — {v}" for k, v in ENVELOPE_ASPECTS.items())
-            + "\n\nKEIN U-Wert wird gerechnet. Ein deklarierter U-Wert wird wiedergegeben; ein "
-            "nicht deklarierter FEHLT und wird NICHT aus den Schichten hergeleitet — ein aus einer "
-            "Materialliste gerechneter U-Wert ist eine andere Zahl als die, die die Architektin "
-            "unterschrieben hat, und sieht genauso aus.\n\n"
-            "KEIN Grenzwert und kein „erfüllt“: welcher U-Wert oder welches A/V zulässig ist, steht "
-            "in OIB 6 und im Energieausweis-Verfahren, nicht in der Geometrie.\n\n"
-            "Kostet Geometrie (Sekunden, nicht Millisekunden): alle drei bauen die Körper der "
-            "Hüllbauteile auf."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "what": {"type": "string", "enum": list(ENVELOPE_ASPECTS)},
-            },
-            "required": ["model", "what"],
-        },
-        handler=partial(envelope_op, resolve),
-    )
+    return ToolDef(name="envelope", handler=partial(envelope_op, resolve))
 
 
 def _view_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="view",
-        title="Den Grundriss ansehen",
-        description=(
-            "Rendert ein Geschoß als PNG und gibt es so zurück, dass das Modell es TATSÄCHLICH SEHEN "
-            "kann — im Unterschied zu draw, das eine SVG-Datei schreibt und nur den Pfad nennt.\n\n"
-            "Dafür gedacht, sich zu orientieren, bevor gemessen wird: welches Bauteil ist gemeint, "
-            "wie sind die Räume angeordnet, liegt das Fenster wirklich in der Wand, die hostedIn "
-            "nennt. `highlight` markiert einzelne Bauteile rot im gesamten Grundriss (wo ist das?), "
-            "`only` blendet alles andere aus (wie sieht das aus?). GlobalIds kommen aus "
-            "find_elements oder relations.\n\n"
-            "EINE Regel: Zahlen kommen nie aus dem Bild. Ein abgelesenes Maß ist geraten, auch wenn "
-            "es zufällig stimmt — dafür measure und distance."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "storey": {
-                    "type": "string",
-                    "description": "Geschoßname, wörtlich aus dem Briefing; ohne Angabe das unterste",
-                },
-                "highlight": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "GlobalIds, die rot markiert werden — der Rest bleibt sichtbar",
-                },
-                "only": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "GlobalIds, auf die die Zeichnung eingeschränkt wird",
-                },
-            },
-            "required": ["model"],
-        },
-        handler=partial(view, resolve),
-    )
+    return ToolDef(name="view", handler=partial(view, resolve))
 
 
 def _draw_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="draw",
-        title="Das Gebäude zeichnen",
-        description=(
-            "Zeichnet einen Grundriss als SVG — Wandschnitt-Poché, Raumzellen mit Namen, Öffnungen als "
-            "Lücken, aus demselben Modell, aus dem auch gemessen wird. Frei einsetzbar, wann immer "
-            "Hinsehen hilft: um zu verstehen, wie etwas angeordnet ist, um zu klären, welches Bauteil "
-            "gemeint ist, oder um zu prüfen, ob eine Zahl überhaupt plausibel sein kann.\n\n"
-            "EINE Regel: Zahlen kommen nie aus dem Bild. Maße liefern measure/distance; das Bild zeigt "
-            "die Anordnung. Ein aus einer Zeichnung abgelesener Wert ist geraten, auch wenn er stimmt.\n\n"
-            "DAUER: rund 5 Sekunden für ein Einfamilienhaus, mehr für ein großes Modell — vor dem Aufruf "
-            "einplanen. Das SVG wird als Datei geschrieben und der Pfad zurückgegeben, nicht der Inhalt: "
-            "ein Grundriss sind hunderte Kilobyte Pfaddaten, die im Kontext nichts nützen."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "storey": {
-                    "type": "string",
-                    "description": "Geschoßname, wörtlich aus dem Briefing; ohne Angabe alle Geschoße",
-                },
-                "include": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "IFC-Typen, auf die eingeschränkt wird (z. B. IfcWall)",
-                },
-                "widthMm": {"type": "number", "default": 420},
-                "heightMm": {"type": "number", "default": 297},
-            },
-            "required": ["model"],
-        },
-        handler=partial(draw, resolve),
-    )
+    return ToolDef(name="draw", handler=partial(draw, resolve))
 
 
 def _overhang_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
     return ToolDef(
         name="overhang",
-        title="Auskragung über eine Fassadenebene",
-        description=(
-            "Wie weit ein Bauteil über die Fassadenebene eines anderen hinausragt, senkrecht zu "
-            "dieser Ebene, in Metern. Das ist die Zahl für einen Dachüberstand, einen Balkon oder ein "
-            "Vordach.\n\n"
-            "projecting: das auskragende Bauteil (Dach, Balkon). facade: das Bauteil, dessen "
-            "Außenfläche die Bezugsebene ist — meist die Wand darunter, die relations hostedIn zu "
-            "einem Fenster liefert.\n\n"
-            "Gemessen (`computed`) mit Toleranz. Nie als Modellangabe berichten."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "projecting": {"type": "string", "description": "GlobalId des auskragenden Bauteils"},
-                "facade": {"type": "string", "description": "GlobalId des Bauteils, dessen Fassadenebene gilt"},
-            },
-            "required": ["model", "projecting", "facade"],
-        },
         handler=lambda args: _jsonable(
             op.overhang(resolve(args.get("model")), _require(args, "projecting"), _require(args, "facade"))
         ),
@@ -437,81 +302,11 @@ def _overhang_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
 
 
 def _light_incidence_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="light_incidence",
-        title="Freier Lichteinfall auf eine Öffnung",
-        description=(
-            "Baut das Lichtprisma über der Unterkante einer Öffnung und meldet, welche Bauteile "
-            'hineinragen und wie tief. Beantwortet „ist der Lichteinfall frei" GEOMETRISCH.\n\n'
-            "angle und swivel sind PARAMETER AUS DER BESTIMMUNG, nicht aus dem Modell. Für OIB 3 "
-            "sind das 45 und 30 Grad — sie sind trotzdem zu übergeben, weil dieses Werkzeug kein "
-            "Regelwerk kennt und keines kennen soll.\n\n"
-            "WICHTIG: Das Ergebnis ist keine Beurteilung. Ein geschnittenes Prisma VERGRÖSSERT nach "
-            "OIB 3 die erforderliche Lichteintrittsfläche — es verbietet das Fenster nicht. Aus "
-            '„blockiert" ein „nicht erfüllt" zu machen überspringt die Bestimmung, statt sie '
-            "anzuwenden. Berichte, was hineinragt und wie tief, und wende dann die Klausel an.\n\n"
-            "exclude: GlobalIds, die nicht als Hindernis zählen — die eigene Wand gehört meist dazu.\n"
-            "Braucht Geometrie: einige Sekunden beim ersten Aufruf auf ein Modell."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "globalId": {"type": "string", "description": "GlobalId der Öffnung oder ihrer Füllung"},
-                "angle": {"type": "number", "description": "Lichteinfallswinkel in Grad, aus der Bestimmung"},
-                "swivel": {"type": "number", "default": 0, "description": "seitliche Verschwenkung in Grad"},
-                "exclude": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "GlobalIds, die nicht als Hindernis zählen",
-                },
-            },
-            "required": ["model", "globalId", "angle"],
-        },
-        handler=lambda args: _light_incidence(resolve(args.get("model")), args),
-    )
+    return ToolDef(name="light_incidence", handler=lambda args: _light_incidence(resolve(args.get("model")), args))
 
 
 def _sun_position_tool(resolve: Callable[[Any], SpatialModel]) -> ToolDef:
-    return ToolDef(
-        name="sun_position",
-        title="Sonnenstand über diesem Gebäude",
-        description=(
-            "Azimut (Grad im Uhrzeigersinn ab Nord) und Höhenwinkel der Sonne zu einem Zeitpunkt, "
-            "dazu die Richtung ZUR Sonne in den Koordinaten DIESES Modells — die Eingangsgröße "
-            "jeder Verschattungsbetrachtung, und die Zahl, an der eine Besonnungsfrage anfängt.\n\n"
-            "KEINE Besonnungsstudie. Ein Sonnenstand sagt, dass die Sonne 61,9° hoch und 178,9° "
-            "herum stand; er sagt NICHT, ob der Giebel des Nachbarn davorstand, ob der Balkon "
-            "darüber den Strahl schnitt oder wie viele Stunden Sonne das Fenster über den Tag "
-            "bekam. Das sind Verschattungsfragen, und sie brauchen zusätzlich alles außerhalb der "
-            "Grundgrenze — was in dieser Datei nicht steht. Der Caveat sagt das in jeder Antwort.\n\n"
-            "Ohne IfcSite.RefLatitude/RefLongitude nicht entscheidbar, und es wird KEINE Breite "
-            "angenommen: ein unterstelltes Wien auf einem Vorarlberger Projekt liegt 1,4° im "
-            "Höhenwinkel daneben, ein unterstelltes Nord auf einem um 40° gedrehten Gebäude 40° — "
-            "beides käme als gemessene Zahl mit Toleranz zurück. Aus demselben Grund nimmt dieses "
-            "Werkzeug auch keine Koordinaten entgegen.\n\n"
-            "when MUSS eine Zeitzone tragen. 2026-06-21T12:00:00 ohne Zone als UTC zu lesen "
-            "verschiebt die Sonne in Österreich um 30° — zwei Stunden Schatten, bei einer Eingabe, "
-            "die vollständig aussah.\n\n"
-            "Genauigkeit 0,01° (Michalsky 1988) für 1950–2050, außerhalb 0,1°; die Toleranz steht "
-            "in der Antwort. Keine Geometrie, Millisekunden."
-        ),
-        input_schema={
-            "type": "object",
-            "properties": {
-                "model": {"type": "string"},
-                "when": {
-                    "type": "string",
-                    "description": (
-                        "Zeitpunkt nach ISO 8601 MIT Zeitzone, z. B. 2026-06-21T12:00:00+02:00 "
-                        "oder 2026-06-21T10:00:00Z"
-                    ),
-                },
-            },
-            "required": ["model", "when"],
-        },
-        handler=partial(sun_position, resolve),
-    )
+    return ToolDef(name="sun_position", handler=partial(sun_position, resolve))
 
 
 def _light_incidence(model: SpatialModel, args: dict[str, Any]) -> Any:

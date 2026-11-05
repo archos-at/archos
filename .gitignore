@@ -31,6 +31,7 @@ lib64/
 !apps/workspace/**/lib/
 !apps/workspace/tests/lib/
 !packages/brand/art/riso/lib/
+!apps/cms/scripts/lib/
 # The riso exporter's non-committed files (decks, social, postcards, separations).
 packages/brand/art/riso/out/
 parts/

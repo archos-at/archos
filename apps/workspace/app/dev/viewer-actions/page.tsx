@@ -37,6 +37,7 @@ import {
 import { createViewerActionRunner } from '@/features/documents/lib/viewer-action-runner'
 import { useFilePreviewStore } from '@/features/documents/stores/file-preview-store'
 import { I18nProvider } from '@/i18n'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const at = new Date('2026-10-27T09:15:00')
 
@@ -167,7 +168,7 @@ const ViewerProbe: FC = () => {
       data-testid="viewer-probe"
       className="sticky top-8 flex h-fit flex-col gap-2 rounded-lg border bg-card p-4 text-xs shadow-xs"
     >
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Viewer neben dem Chat</p>
+      <SectionLabel as="p">Viewer neben dem Chat</SectionLabel>
       {file ? (
         <>
           <p className="text-sm font-medium text-foreground">{file.filename}</p>

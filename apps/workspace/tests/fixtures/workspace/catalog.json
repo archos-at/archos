@@ -348,10 +348,10 @@
    "name": "document-download",
    "domain": "documents",
    "summary": "Get a time-limited download link for a document",
-   "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
+   "description": "Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), for a person who wants it printed or attached. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.",
    "readOnly": true,
    "destructive": false,
-   "describe": "{\"name\":\"document-download\",\"domain\":\"documents\",\"summary\":\"Get a time-limited download link for a document\",\"description\":\"Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.\",\"annotations\":{\"title\":\"Get a time-limited download link for a document\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]}},\"additionalProperties\":false,\"required\":[\"params\"]}}"
+   "describe": "{\"name\":\"document-download\",\"domain\":\"documents\",\"summary\":\"Get a time-limited download link for a document\",\"description\":\"Mints a presigned URL for the document’s current file and answers `{ downloadUrl, filename, contentType, fileSize }`. With `format=pdf`, the link is to the PDF rendered from an office document or a DXF drawing (at a standard scale), for a person who wants it printed or attached. The link expires after a few minutes and was minted for this person: hand it on at once, and call this again for a fresh one. The bytes are not sent here; for a PDF use document-file-get. Records the access.\",\"annotations\":{\"title\":\"Get a time-limited download link for a document\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"params\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\",\"description\":\"The document id, from document-list or workspace-search.\"}},\"required\":[\"id\"]},\"query\":{\"type\":\"object\",\"properties\":{\"format\":{\"description\":\"pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), instead of the original file. A stored PDF is itself. 415 for any other file.\",\"type\":\"string\",\"enum\":[\"pdf\"]}}}},\"additionalProperties\":false,\"required\":[\"params\",\"query\"]}}"
   },
   {
    "name": "document-file-get",
@@ -1837,6 +1837,15 @@
    "readOnly": true,
    "destructive": false,
    "describe": "{\"name\":\"organization-storage-get\",\"domain\":\"organization\",\"summary\":\"Read storage usage and quota\",\"description\":\"How much storage the organization uses against its quota. Any member may read; the quota itself is set by the platform operator and cannot be changed here. Read this when an upload is refused.\",\"annotations\":{\"title\":\"Read storage usage and quota\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}}"
+  },
+  {
+   "name": "release-note-list",
+   "domain": "organization",
+   "summary": "List what changed in the product, week by week",
+   "description": "The release notes members read under What’s new: every change to the product, newest week first, each with its section (features, improvements, fixes, deprecations, upgrade, other), its product area and its text in English and German, plus the week’s summary once written. Page by weeks with `limit` and `nextCursor`; narrow to one area with `area`, and `areas` in the answer counts the changes per area. The same for every organization. Use it to answer whether the product can do something now, or what changed since a date.",
+   "readOnly": true,
+   "destructive": false,
+   "describe": "{\"name\":\"release-note-list\",\"domain\":\"organization\",\"summary\":\"List what changed in the product, week by week\",\"description\":\"The release notes members read under What’s new: every change to the product, newest week first, each with its section (features, improvements, fixes, deprecations, upgrade, other), its product area and its text in English and German, plus the week’s summary once written. Page by weeks with `limit` and `nextCursor`; narrow to one area with `area`, and `areas` in the answer counts the changes per area. The same for every organization. Use it to answer whether the product can do something now, or what changed since a date.\",\"annotations\":{\"title\":\"List what changed in the product, week by week\",\"readOnlyHint\":true,\"destructiveHint\":false,\"idempotentHint\":true,\"openWorldHint\":false},\"sensitivity\":null,\"inputSchema\":{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"object\",\"properties\":{\"area\":{\"description\":\"Only the changes in this product area; omit for every area.\",\"type\":\"string\",\"enum\":[\"projects\",\"documents\",\"answers\",\"search\",\"building-law\",\"bim\",\"collaboration\",\"tasks\",\"office-knowledge\",\"administration\",\"agents\",\"general\"]},\"limit\":{\"default\":4,\"description\":\"Weeks per page, newest first (default 4, most 26).\",\"type\":\"integer\",\"minimum\":1,\"maximum\":26},\"cursor\":{\"description\":\"The previous `nextCursor`: the page starts with the week after it.\",\"type\":\"string\",\"minLength\":1,\"maxLength\":32}}}},\"additionalProperties\":false,\"required\":[\"query\"]}}"
   }
  ],
  "search": {
@@ -2060,10 +2069,10 @@
    "document-version-submit",
    "document-review-list",
    "document-version-reviewer-list",
+   "release-note-list",
    "conversation-awaiting-get",
-   "assignment-remove",
    "document-quarantine-get",
-   "project-intake-complete"
+   "assignment-remove"
   ],
   "Freigabe anfordern": [
    "document-version-approve",

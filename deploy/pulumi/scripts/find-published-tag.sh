@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Print the first of the given tags that GHCR has for grid-oib-<service>.
+# Print the first of the given tags that GHCR has for grid-oib-<service>, or for the
+# repository REPOSITORY names when it is set (an image named for its job alone, such
+# as the CMS's `cms`; ci/image_inputs.py sets it from the image's own name).
 #
 # Usage: find-published-tag.sh <owner> <service> <tag> [<tag>...]
 # Needs GITHUB_ACTOR and GH_TOKEN (a token with `packages: read`).
@@ -26,7 +28,7 @@ service="${2:?service}"
 shift 2
 [ "$#" -gt 0 ] || { echo "usage: find-published-tag.sh <owner> <service> <tag>..." >&2; exit 2; }
 
-image_path="${owner}/grid-oib-${service}"
+image_path="${owner}/${REPOSITORY:-grid-oib-${service}}"
 pull_token="$(curl -sSL -u "${GITHUB_ACTOR}:${GH_TOKEN}" \
   "https://ghcr.io/token?service=ghcr.io&scope=repository:${image_path}:pull" \
   | jq -r '.token // empty' || true)"

@@ -4,6 +4,7 @@ import { DeployConfig } from '../config'
 import { appPullPolicy, webImage } from '../config/images'
 import { assertHpaTargetIsProportional, assertMemoryFitsLimit, toResourceRequirements } from '../config/resources'
 import { webPosthogEnv } from "./posthog-env";
+import { webCmsEnv } from "../platform/cms";
 import { commonLabels } from "../platform/namespaces";
 import { installPdb, onNodeGroup, spreadAcrossNodes } from "../platform/scheduling";
 import { hardenedContainerSecurityContext } from "../platform/security";
@@ -24,9 +25,10 @@ export interface Web {
  * Public website (apps/website): Astro on the Node standalone adapter. The
  * pages are prerendered at build time (static HTML + assets served by the
  * adapter), with SSR routes for the sign-in hand-off and the analytics script, which read their settings from the env below per request.
- * No database, no app secrets, no
- * cross-service calls — so unlike the frontend tier this workload has no
- * dependency on `grid-secrets`. It DOES carry the registry imagePullSecrets:
+ * No database, no app secrets — so unlike the frontend tier this workload has
+ * no dependency on `grid-secrets`. Its one cross-service call is the CMS
+ * (ADR-0155), when deployed: blog pages read from it, with the read-only token
+ * in its own `web-cms` Secret. It DOES carry the registry imagePullSecrets:
  * the web image is pulled from the same registry as the other app images, so
  * a private registry without the pull Secret is an instant ImagePullBackOff.
  * Runs HORIZONTALLY: stateless, HPA on CPU.
@@ -90,6 +92,8 @@ export function installWeb(
                   // prerendered pages: the same pair the app tier reads as
                   // NEXT_PUBLIC_POSTHOG_* (grid-oib:posthogHost, posthogProjectToken).
                   ...webPosthogEnv(cfg),
+                  // The CMS (ADR-0155): where it is and the read token, from `web-cms`. Empty without it.
+                  ...webCmsEnv(cfg),
                 ],
                 resources: toResourceRequirements(cfg.web.resources),
                 lifecycle: shutdown.lifecycle,

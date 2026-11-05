@@ -105,8 +105,22 @@ if (!planPath) {
 const plan = JSON.parse(readFileSync(planPath, "utf8"));
 const steps = plan.steps ?? [];
 
-/** Native API groups typed by the Pulumi SDK itself — no CR validation needed. */
+/**
+ * Native API groups typed by the Pulumi SDK itself — no CR validation needed.
+ * Every built-in group with a dot in its name must be here: a vendor manifest
+ * (the RabbitMQ operator's) carries webhook configurations, whose `webhooks`
+ * sits beside `metadata` with no `spec`, and the top-level check refused them.
+ * A suffix rule would not do: `gateway.networking.k8s.io` is a CRD group.
+ */
 const NATIVE_GROUPS = new Set([
+  "admissionregistration.k8s.io",
+  "certificates.k8s.io",
+  "coordination.k8s.io",
+  "discovery.k8s.io",
+  "events.k8s.io",
+  "flowcontrol.apiserver.k8s.io",
+  "node.k8s.io",
+  "scheduling.k8s.io",
   "networking.k8s.io",
   "apiextensions.k8s.io",
   "rbac.authorization.k8s.io",

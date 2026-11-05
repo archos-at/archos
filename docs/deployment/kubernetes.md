@@ -29,7 +29,7 @@ their own namespaces.
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
-| `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0152; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
+| `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
 | `chroma-migration` (one-shot copy of the retired Chroma store into Qdrant; `chromaMigration`, default off) | Job | 1 pod | exports from the still-running `chroma` Service over HTTP, awaited before the backend tiers roll; scratch is a generic ephemeral claim | n/a ([runbook](qdrant-runbook.md#migrating-from-chroma-on-kubernetes)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
@@ -1780,7 +1780,7 @@ emitted somewhere it can read; see §10.
   intra-namespace allow too: clamd authenticates nobody and opens hostile files
   for a living, so it admits the frontend and the `bff-jobs` pool alone. Its
   egress stays open, because freshclam fetches signatures from
-  `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0152).
+  `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0157).
 - **Dragonfly authentication** (`grid-oib:dragonflyPassword` and
   `grid-oib:rateLimitStorePassword`, both **required**): `requirepass` on both
   instances, delivered as `DFLY_requirepass` from a Kubernetes Secret rather
@@ -1994,8 +1994,8 @@ incident.
 
 | Policy | Level | Blocks |
 |---|---|---|
-| `deployment-rollout-gated` | mandatory | a Deployment with no `minReadySeconds` / `progressDeadlineSeconds` |
-| `deployment-no-capacity-dip` | mandatory | `maxUnavailable != 0`, or `Recreate` on a multi-replica tier |
+| `deployment-rollout-gated` | mandatory | a Deployment with no `minReadySeconds`. `progressDeadlineSeconds` is not required: apps/v1 defaults it to 600, and our tiers set their own (`rollout.ts`). A vendor manifest's controller that serves nothing is exempt by name (`UPSTREAM_SOAK_EXEMPT`) |
+| `deployment-no-capacity-dip` | mandatory | `maxUnavailable != 0`, or `Recreate` on a multi-replica tier. An unset `maxUnavailable` at one replica passes: the 25% default rounds down to 0 |
 | `statefulset-rollout-gated` | mandatory | `updateStrategy: OnDelete` (updates the template and rolls nothing), or no soak |
 | `statefulset-no-immutable-field-writes` | mandatory | writing `podManagementPolicy` — immutable, so on a live StatefulSet it plans a **replace**, not an update |
 | `workload-graceful-termination` | mandatory | an unstated (or <5s) `terminationGracePeriodSeconds` |
@@ -2093,7 +2093,7 @@ Three things are true of this whole table and are easy to miss:
 | Frontend → backend (WebSocket chat) | **No** | `ws://` to the `chat` role (`BACKEND_CHAT_URL`), per-replica via the headless service (ADR-0028 conversation affinity). This is the full chat transport, including prompts and answers. |
 | Producers → OTel Collector, Collector → Langfuse | **No** | Plain OTLP on `http://otel-collector:4318`, and the collector's export to `http://langfuse-web:3000`. This traffic carries **prompts, retrieved snippets, LLM output and live presigned S3 URLs**, so it is the most sensitive plaintext channel in the namespace; Langfuse's store is likewise kept off-limits only by NetworkPolicy, which is why `langfuseEnabled` refuses to deploy with `networkPolicies=false`. |
 | Frontend and `bff-jobs` → Gotenberg | **No, and unauthenticated** | `http://gotenberg:3000`. It carries the bytes of every office file converted, and anyone who can reach it can have LibreOffice parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only. |
-| Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0152). |
+| Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0157). |
 | App → Qdrant | **No, but authenticated** | `http://qdrant.grid.svc.cluster.local:6333` (and gRPC 6334) with the read-write API key, which an observer of the pod network could read off the wire. NetworkPolicy admits the named callers only (`allow-app-to-qdrant`); the peers' p2p traffic (6335) is plaintext too, between the peers alone (`qdrant-peers`). The keyless metrics port (6336) admits the collector alone. |
 | Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, from the frontend komoot's public Photon at `photon.komoot.io`, ADR-0151, and with the malware scanner `database.clamav.net`) | **Yes** | All HTTPS. The geocoder call carries every address typed into the project dialog. |
 
@@ -2933,6 +2933,14 @@ docker compose --env-file ../.env -f docker-compose.yaml --profile langfuse up -
 There is no ingestion path locally: no collector runs, and the backend's OTLP
 exporter is gated off in compose by design (§9, ADR-0029). The profile is for
 developing against the Langfuse UI and API, not for reproducing ingestion.
+
+## 9c. The platform MCP gateway (ADR-0154)
+
+`mcpGatewayEnabled`, off by default: agentgateway on `platform-mcp.<baseDomain>`,
+where platform staff's agents reach Langfuse's MCP server (and the in-cluster
+servers that follow) signed in with WorkOS, without any of them getting a public
+host. WorkOS setup, the stack keys, connecting a client and the first-deploy
+checks: [`platform-mcp-gateway.md`](platform-mcp-gateway.md).
 
 ## 10. Out of scope (deliberate follow-ups)
 

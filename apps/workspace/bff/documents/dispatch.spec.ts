@@ -59,11 +59,10 @@ vi.mock('@/lib/organizations/service', () => ({ getOrgSettings: vi.fn() }))
 
 // The converter is `rendition.spec.ts`'s subject; here it is a switch and an
 // outcome, so what is under test is what dispatch does with each.
-vi.mock('./rendition', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./rendition')>()),
-  isRenditionEnabled: vi.fn().mockReturnValue(false),
-  ensureRendition: vi.fn(),
-}))
+vi.mock('./rendition', async (importOriginal) => {
+  const { renditionModuleMock } = await import('@/test-utils/rendition-module')
+  return renditionModuleMock(await importOriginal(), false)
+})
 
 import { runBimExtraction } from '@/lib/bim/service'
 import { invalidateCached } from '@/lib/cache'
@@ -90,7 +89,7 @@ import { internalRead } from '@/lib/documents/document-reader'
 import { DOCUMENT_TYPE_TAGS } from './tag-vocabulary'
 import { dispatchDocument, type DispatchDocumentInput } from './document-dispatch'
 import { runBimExtractJob, runOfficeRenditionJob } from './extraction-jobs'
-import { INGEST_DISPATCH_FAILED_MESSAGE, RENDITION_REQUIRED_MESSAGE } from './ingest-dispatch'
+import { DRAWING_UNREADABLE_MESSAGE, INGEST_DISPATCH_FAILED_MESSAGE, RENDITION_REQUIRED_MESSAGE } from './ingest-dispatch'
 import { redispatchStuckDocument } from './ingest-recovery'
 
 const input = (filename: string): DispatchDocumentInput => ({
@@ -692,6 +691,25 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     expect(renditionRead?.[2]).toEqual({ expiresIn: 86_400 })
   })
 
+  it('indexes a DXF from the page the backend draws, with no Gotenberg at all (ADR-0152)', async () => {
+    vi.mocked(isRenditionEnabled).mockReturnValue(false)
+    vi.mocked(findDocumentInOrg).mockResolvedValue(officeRow('Katasterauszug.dxf', 'application/dxf'))
+    await dispatchDocument(input('Katasterauszug.dxf'))
+    await runQueuedJob()
+    await ingested()
+
+    expect(ensureRendition).toHaveBeenCalledWith({
+      bucket: 'test-bucket',
+      storageKey: 'org/org-1/project/proj-1/doc/doc-1/Katasterauszug.dxf',
+      filename: 'Katasterauszug.dxf',
+    })
+    expect(bodyOf(0)).toMatchObject({
+      preview_ref: RENDITION_URL,
+      extraction_ref: RENDITION_URL,
+      file_name: 'Katasterauszug.dxf',
+    })
+  })
+
   it('carries the Fassung a person chose through the conversion to the ingest (ADR-0099)', async () => {
     await dispatchDocument({ ...input('Baubeschreibung.docx'), revisionOf: 'Baubeschreibung_Index_A.docx' })
 
@@ -755,6 +773,20 @@ describe('an office file is converted, by a job, before it is ingested', () => {
     await expect(runQueuedJob()).resolves.toBeUndefined()
 
     expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', RENDITION_REQUIRED_MESSAGE)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('tells the reader to export a DXF again when the converter refused its bytes (ADR-0152)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.mocked(findDocumentInOrg).mockResolvedValue(officeRow('Katasterauszug.dxf', 'application/dxf'))
+    vi.mocked(ensureRendition).mockRejectedValue(
+      new RenditionFailedError('Drawing conversion answered 422', { refusedFile: true })
+    )
+
+    await dispatchDocument(input('Katasterauszug.dxf'))
+    await expect(runQueuedJob()).resolves.toBeUndefined()
+
+    expect(markDocumentIngestFailed).toHaveBeenCalledWith('doc-1', 'org-1', DRAWING_UNREADABLE_MESSAGE)
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 

@@ -1,6 +1,5 @@
 /**
- * Who sees each capability (ADR-0122, amendment of 2026-10-21): the one file
- * that decides it.
+ * Who sees each capability (ADR-0122, amendment of 2026-10-21): the one file that decides it.
  *
  * One entry per operation, the catalog's (`catalog/`) and the agent's read
  * tools (`backend-operations.ts`). Three audiences, one column each:
@@ -37,8 +36,7 @@
  * operations say the ceiling: never Piloti (`exposure.config.spec.ts` holds
  * that), an external agent only behind those guards.
  *
- * Changing an entry changes `tests/fixtures/exposure.json` (the docs' and
- * Python's copy): `UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts`.
+ * Changing an entry changes `tests/fixtures/exposure.json`, the docs' and Python's copy (command in its spec).
  */
 
 import type { BackendOperationName } from './backend-operations'
@@ -94,6 +92,10 @@ export interface Exposure {
   readonly reason?: string
 }
 
+/** On no door at all, for the amendment's `category` and a `reason` a reviewer can disagree with. */
+const withheld = (category: WithheldCategory, reason: string) =>
+  ({ external: false, piloti: false, withheld: { category, reason } }) as const satisfies Exposure
+
 /**
  * Every operation, in catalog order (domain, then name), then the read tools,
  * then the app-only tools.
@@ -137,16 +139,8 @@ export const EXPOSURE = {
   'project-standards-get': OFFERED,
   'project-status-set': OFFERED,
   'project-summary-generate': OFFERED,
-  'project-upload-screening-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'a project’s upload screening override; how the agent treats uploads, set by a person' },
-  },
-  'project-upload-screening-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'a project’s upload screening override; how the agent treats uploads, set by a person' },
-  },
+  'project-upload-screening-get': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),
+  'project-upload-screening-set': withheld('product-config', 'a project’s upload screening override; how the agent treats uploads, set by a person'),
 
   // documents
   'deletion-list': OFFERED,
@@ -249,6 +243,7 @@ export const EXPOSURE = {
   'document-quarantine-allow': SENSITIVE,
   'document-quarantine-allow-request': OFFERED,
   'document-quarantine-get': OFFERED,
+  'quarantine-decide': SENSITIVE,
   'document-revision-candidates': OFFERED,
   'document-review-list': OFFERED,
   'document-revision-compare': OFFERED,
@@ -273,11 +268,7 @@ export const EXPOSURE = {
   'answer-feedback-list': OFFERED,
   'answer-feedback-retract': OFFERED,
   'answer-feedback-submit': OFFERED,
-  'citation-format': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'model-compute', reason: 'formats the sources it is sent as APA, BibTeX or RIS; any agent can do that itself' },
-  },
+  'citation-format': withheld('model-compute', 'formats the sources it is sent as APA, BibTeX or RIS; any agent can do that itself'),
   'conversation-create': OFFERED,
   'conversation-delete': OFFERED,
   'conversation-draft-file': OFFERED,
@@ -289,21 +280,9 @@ export const EXPOSURE = {
   'conversation-message-export': OFFERED,
   'conversation-message-list': OFFERED,
   'conversation-message-update': OFFERED,
-  'conversation-message-usage': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'what one of the agent’s answers cost; billing, not office work' },
-  },
-  'conversation-read-mark': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'what the person has seen; an agent marking it read hides news from them' },
-  },
-  'conversation-title-generate': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'model-compute', reason: 'a model names the conversation; the caller can name it and save it with conversation-update' },
-  },
+  'conversation-message-usage': withheld('product-config', 'what one of the agent’s answers cost; billing, not office work'),
+  'conversation-read-mark': withheld('ui-state', 'what the person has seen; an agent marking it read hides news from them'),
+  'conversation-title-generate': withheld('model-compute', 'a model names the conversation; the caller can name it and save it with conversation-update'),
   'conversation-update': OFFERED,
   'feedback-office-report-list': OFFERED,
   'feedback-report-list': OFFERED,
@@ -322,59 +301,23 @@ export const EXPOSURE = {
   'assignment-remove': OFFERED,
   'conversation-awaiting-get': OFFERED,
   'conversation-mention-candidate-list': OFFERED,
-  'inbox-item-archive': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'puts a request away from the person, who has not seen it; the same reason mark-read is withheld' },
-  },
-  'inbox-item-mark-read': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'what the person has seen; an agent marking it read hides news from them' },
-  },
-  'inbox-item-mark-unread': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'what the person has seen; theirs to mark' },
-  },
-  'inbox-item-restore': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'the reverse of archive, which an agent cannot do; what the person put away is theirs to bring back' },
-  },
+  'inbox-item-archive': withheld('ui-state', 'puts a request away from the person, who has not seen it; the same reason mark-read is withheld'),
+  'inbox-item-mark-read': withheld('ui-state', 'what the person has seen; an agent marking it read hides news from them'),
+  'inbox-item-mark-unread': withheld('ui-state', 'what the person has seen; theirs to mark'),
+  'inbox-item-restore': withheld('ui-state', 'the reverse of archive, which an agent cannot do; what the person put away is theirs to bring back'),
   'inbox-list': OFFERED,
   'inbox-summary-get': OFFERED,
-  'inbox-unread-anchor-list': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'the unread markers the document viewer draws; screen state' },
-  },
+  'inbox-unread-anchor-list': withheld('ui-state', 'the unread markers the document viewer draws; screen state'),
   'mention-request-release': OFFERED,
   'agent-change-undo': DECISION,
   'proposal-apply': DECISION,
   'proposal-dismiss': DECISION,
   'proposal-get': OFFERED,
   'proposal-list': OFFERED,
-  'push-device-list': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'the person’s own browsers registered for push; device state' },
-  },
-  'push-device-remove': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'the person’s own browsers registered for push; device state' },
-  },
-  'push-preference-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'which notifications reach the person’s devices; theirs to set' },
-  },
-  'push-preference-update': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'which notifications reach the person’s devices; theirs to set' },
-  },
+  'push-device-list': withheld('ui-state', 'the person’s own browsers registered for push; device state'),
+  'push-device-remove': withheld('ui-state', 'the person’s own browsers registered for push; device state'),
+  'push-preference-get': withheld('ui-state', 'which notifications reach the person’s devices; theirs to set'),
+  'push-preference-update': withheld('ui-state', 'which notifications reach the person’s devices; theirs to set'),
   'session-document-delete': OFFERED,
   'session-document-list': OFFERED,
   'sharing-candidate-list': OFFERED,
@@ -383,16 +326,8 @@ export const EXPOSURE = {
   'sharing-grant-revoke': SENSITIVE,
   'sharing-grant-update': SENSITIVE,
   'sharing-visibility-set': SENSITIVE,
-  'user-preference-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'the person’s interface preferences (language, active project); screen state' },
-  },
-  'user-preference-update': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'ui-state', reason: 'the person’s interface preferences (language, active project); screen state' },
-  },
+  'user-preference-get': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
+  'user-preference-update': withheld('ui-state', 'the person’s interface preferences (language, active project); screen state'),
 
   // tasks
   'project-task-run-list': OFFERED,
@@ -415,37 +350,21 @@ export const EXPOSURE = {
   'skill-category-list': OFFERED,
   'skill-category-update': OFFERED,
   'skill-create': OFFERED,
-  'skill-curated-set-enabled': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'switches one of the agent’s platform-curated skills on or off; product configuration' },
-  },
+  'skill-curated-set-enabled': withheld('product-config', 'switches one of the agent’s platform-curated skills on or off; product configuration'),
   'skill-delete': OFFERED,
   'skill-get': { external: true, piloti: false, reason: SKILL_READ },
   'skill-invocable-list': OFFERED,
   'skill-list': OFFERED,
   'skill-search': { external: true, piloti: false, reason: SKILL_READ },
-  'skill-review': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'model-compute', reason: 'a model critiques a skill draft and stores nothing; the calling agent can review its own draft' },
-  },
+  'skill-review': withheld('model-compute', 'a model critiques a skill draft and stores nothing; the calling agent can review its own draft'),
   'skill-update': OFFERED,
 
   // knowledge
-  'address-search': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'external-service', reason: 'proxies a public geocoder; a calling agent has its own map and web tools' },
-  },
+  'address-search': withheld('external-service', 'proxies a public geocoder; a calling agent has its own map and web tools'),
   'knowledge-base-get': OFFERED,
   'norm-list': OFFERED,
   'knowledge-document-get': OFFERED,
-  'widget-token-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'external-service', reason: 'mints a token for the WorkOS widgets the browser renders; the identity provider’s UI, not office work' },
-  },
+  'widget-token-get': withheld('external-service', 'mints a token for the WorkOS widgets the browser renders; the identity provider’s UI, not office work'),
 
   // bim
   'bim-check-confirm': OFFERED,
@@ -463,155 +382,54 @@ export const EXPOSURE = {
   'diagram-file': OFFERED,
 
   // organization
-  'organization-audit-portal-link-create': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'external-service', reason: 'a link into the identity provider’s audit-log portal, not the office’s workspace' },
-  },
-  'organization-budget-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'spend limits on the agent itself; a refused call says when one stops work' },
-  },
-  'organization-budget-remove': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'spend limits on the agent itself; product configuration' },
-  },
-  'organization-budget-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'spend limits on the agent itself; product configuration' },
-  },
-  'organization-deleted-folder-content-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'what the agent keeps of a purged folder; a retention policy a person sets' },
-  },
-  'organization-deleted-folder-content-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'what the agent keeps of a purged folder; a retention policy a person sets' },
-  },
+  'organization-audit-portal-link-create': withheld('external-service', 'a link into the identity provider’s audit-log portal, not the office’s workspace'),
+  'organization-budget-get': withheld('product-config', 'spend limits on the agent itself; a refused call says when one stops work'),
+  'organization-budget-remove': withheld('product-config', 'spend limits on the agent itself; product configuration'),
+  'organization-budget-set': withheld('product-config', 'spend limits on the agent itself; product configuration'),
+  'organization-deleted-folder-content-get': withheld('product-config', 'what the agent keeps of a purged folder; a retention policy a person sets'),
+  'organization-deleted-folder-content-set': withheld('product-config', 'what the agent keeps of a purged folder; a retention policy a person sets'),
   'organization-download-log-list': OFFERED,
-  'organization-download-log-retention-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'how long the agent keeps the download log; a retention policy a person sets' },
-  },
+  'organization-download-log-retention-set': withheld('product-config', 'how long the agent keeps the download log; a retention policy a person sets'),
   'office-conventions-decide': OFFERED,
   'office-conventions-list': OFFERED,
   'organization-failed-document-reingest': OFFERED,
-  'organization-instructions-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the standing instructions shape every answer of the agent; they configure the product, and the agent already reads them' },
-  },
-  'organization-instructions-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the standing instructions shape every answer of the agent; configuring the product is a person’s act' },
-  },
-  'organization-llm-credential-create': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the LLM provider keys the agent runs on; product configuration and a credential' },
-  },
-  'organization-llm-credential-list': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the LLM provider keys the agent runs on; product configuration and a credential' },
-  },
-  'organization-llm-credential-revoke': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the LLM provider keys the agent runs on; product configuration and a credential' },
-  },
-  'organization-llm-credential-verify': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the LLM provider keys the agent runs on; product configuration and a credential' },
-  },
-  'organization-llm-provider-mode-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'whether the agent runs on the platform’s or the office’s provider key; product configuration' },
-  },
+  'organization-instructions-get': withheld('product-config', 'the standing instructions shape every answer of the agent; they configure the product, and the agent already reads them'),
+  'organization-instructions-set': withheld('product-config', 'the standing instructions shape every answer of the agent; configuring the product is a person’s act'),
+  'organization-llm-credential-create': withheld('product-config', 'the LLM provider keys the agent runs on; product configuration and a credential'),
+  'organization-llm-credential-list': withheld('product-config', 'the LLM provider keys the agent runs on; product configuration and a credential'),
+  'organization-llm-credential-revoke': withheld('product-config', 'the LLM provider keys the agent runs on; product configuration and a credential'),
+  'organization-llm-credential-verify': withheld('product-config', 'the LLM provider keys the agent runs on; product configuration and a credential'),
+  'organization-llm-provider-mode-set': withheld('product-config', 'whether the agent runs on the platform’s or the office’s provider key; product configuration'),
   'organization-member-list': OFFERED,
   'organization-memory-create': { external: true, piloti: 'native:remember', reason: MEMORY },
   'organization-memory-delete': OFFERED,
   'organization-memory-list': OFFERED,
   'organization-memory-update': OFFERED,
-  'organization-model-config-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'which models the agent runs on; product configuration' },
-  },
-  'organization-model-config-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'which models the agent runs on; product configuration' },
-  },
-  'organization-model-config-version-activate': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'which models the agent runs on; product configuration' },
-  },
-  'organization-model-config-version-list': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the history of which models the agent ran on; product configuration' },
-  },
-  'organization-model-search': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the model catalog the model configuration picks from; product configuration' },
-  },
+  'organization-model-config-get': withheld('product-config', 'which models the agent runs on; product configuration'),
+  'organization-model-config-set': withheld('product-config', 'which models the agent runs on; product configuration'),
+  'organization-model-config-version-activate': withheld('product-config', 'which models the agent runs on; product configuration'),
+  'organization-model-config-version-list': withheld('product-config', 'the history of which models the agent ran on; product configuration'),
+  'organization-model-search': withheld('product-config', 'the model catalog the model configuration picks from; product configuration'),
   'organization-role-create': SENSITIVE,
   'organization-role-delete': SENSITIVE,
   'organization-role-list': OFFERED,
   'organization-role-update': SENSITIVE,
-  'organization-settings-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'how the agent works for the office (language, effort and other defaults); a person sets it in Settings' },
-  },
-  'organization-settings-update': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'how the agent works for the office (language, effort and other defaults); a person sets it in Settings' },
-  },
+  'organization-settings-get': withheld('product-config', 'how the agent works for the office (language, effort and other defaults); a person sets it in Settings'),
+  'organization-settings-update': withheld('product-config', 'how the agent works for the office (language, effort and other defaults); a person sets it in Settings'),
   'organization-storage-get': OFFERED,
-  'organization-upload-screening-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the office’s upload screening policy; how the agent treats uploads, set by a person' },
-  },
-  'organization-upload-screening-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the office’s upload screening policy; how the agent treats uploads, set by a person' },
-  },
-  'organization-usage-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'what the office spent on the agent itself, by model and day; billing, not office work' },
-  },
-  'organization-usage-notice-get': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'the budget window close to stopping the person; a refused call says so itself' },
-  },
-  'organization-web-search-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'external-service', reason: 'switches the web search provider the agent answers with; a calling agent has its own web search' },
-  },
-  'organization-zdr-set': {
-    external: false,
-    piloti: false,
-    withheld: { category: 'product-config', reason: 'whether model providers may keep data; a product privacy setting a person decides' },
-  },
+  'organization-upload-screening-get': withheld('product-config', 'the office’s upload screening policy; how the agent treats uploads, set by a person'),
+  'organization-upload-screening-set': withheld('product-config', 'the office’s upload screening policy; how the agent treats uploads, set by a person'),
+  'organization-usage-get': withheld('product-config', 'what the office spent on the agent itself, by model and day; billing, not office work'),
+  'organization-usage-notice-get': withheld('product-config', 'the budget window close to stopping the person; a refused call says so itself'),
+  'organization-web-search-set': withheld('external-service', 'switches the web search provider the agent answers with; a calling agent has its own web search'),
+  'organization-zdr-set': withheld('product-config', 'whether model providers may keep data; a product privacy setting a person decides'),
+  // What changed in the product (ADR-0156): read-only product news, the same for every office. Offered: an
+  // outside agent asked "can it do X now?" and the in-product agent asked "what's new?" both answer from it.
+  'release-note-list': OFFERED,
+  'release-summary-notice-get': withheld('ui-state', 'whether the person wants the weekly summary notice; their own setting'),
+  'release-summary-notice-set': withheld('ui-state', 'whether the person wants the weekly summary notice; theirs to set'),
+  'release-summary-seen-mark': withheld('ui-state', 'whether this person has closed the weekly summary notice; their own screen'),
+  'release-summary-unseen-get': withheld('ui-state', 'which summary the notice still owes this person; release-note-list reads them'),
 
   // platform
   'platform-answer-feedback-digest-get': PLATFORM,
@@ -675,8 +493,8 @@ export const EXPOSURE = {
   'passage-read': { external: true, piloti: 'native:read_file', reason: NATIVE_READ },
   'files-list': { external: true, piloti: 'native:list_files', reason: NATIVE_READ },
   'document-look': { external: true, piloti: 'native:look', reason: NATIVE_READ },
-  'ifc-query': { external: true, piloti: 'native:ifc_query', reason: NATIVE_READ },
   'ifc-measure': { external: true, piloti: 'native:ifc_measure', reason: NATIVE_READ },
+  'dxf-measure': { external: true, piloti: 'native:dxf_measure', reason: NATIVE_READ },
   'law-lookup': { external: true, piloti: 'native:ris_lookup_tool', reason: NATIVE_READ },
 
   // the app-only tools of the door's MCP Apps views (`catalog/app-views.ts`)

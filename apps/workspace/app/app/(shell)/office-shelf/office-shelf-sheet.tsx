@@ -10,9 +10,9 @@
  * Reachable by any org member, with uploads and deletes gated on
  * `org:office_shelf:manage`.
  *
- * Headerless on purpose: {@link OfficeShelfWorkspace} already opens with the gold
- * Büroablage identity row (mark, name, count, upload). A sheet header above it
- * would say "Archiv" twice, so the sheet's close control slots into that row
+ * Headerless on purpose: {@link OfficeShelfWorkspace} already opens with the
+ * project section's header (name, count, controls). A sheet header above it
+ * would say "Archiv" twice, so the sheet's close control slots in beside it
  * instead and the workspace's header is the sheet's one header.
  */
 

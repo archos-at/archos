@@ -50,5 +50,16 @@ export const documentFileQuerySchema = z.object({
   download: z.string().max(8).optional(),
 })
 
+/** `GET /api/documents/[id]/download` */
+export const documentDownloadQuerySchema = z.object({
+  format: z
+    .enum(['pdf'])
+    .optional()
+    .describe(
+      'pdf: the PDF the product renders from an office document or a DXF drawing (a DXF at a standard scale), ' +
+        'instead of the original file. A stored PDF is itself. 415 for any other file.'
+    ),
+})
+
 /** `GET /api/documents/summary` */
 export const documentSummaryQuerySchema = documentSummaryFilterSchema.extend(shelfSelectorFields)

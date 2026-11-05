@@ -8,7 +8,9 @@
  * Flat on purpose. The groups were cards in a panel, boxes in a box, and the
  * borders said more than the entries; a group is its name over its entries
  * now, set apart by space alone. What a section holds is said once, in its
- * heading: how many wait, and how many of them are late.
+ * heading: how many wait, and how many of them are late. The dock's own header
+ * carries no count, and an empty section does not say „wartet auf Sie“ a second
+ * time under the heading that already does.
  *
  * Every entry is a link to its real place (the chat at the message, the
  * review at the mark), so a phone, a new tab and a screen reader all get a
@@ -86,7 +88,11 @@ export function InboxQueueList({
           )}
         </div>
         {groups.length === 0 ? (
-          <p className="px-2 text-sm text-muted-foreground">{t('inbox.queue.nothingWaiting')}</p>
+          // The heading already says „Wartet auf Sie“; under it, what is absent,
+          // by its kind. Not „Alles erledigt“: the news below may still be unread.
+          <p className="px-2 text-sm text-muted-foreground" data-testid="inbox-queue-nothing-waiting">
+            {t('inbox.queue.nothingWaiting')}
+          </p>
         ) : (
           <ul className="divide-y divide-border/60">
             <AnimatePresence initial={false}>

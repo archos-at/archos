@@ -33,6 +33,7 @@ import { FileBrowserPane, type FolderNavigation } from '@/features/documents/com
 import { FolderAccessDialog } from '@/features/documents/components/folder-access-dialog'
 import type { FileItem, FolderItem } from '@/features/documents/components/project-file-workspace'
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
+import { SectionLabel } from '@/components/ui/section-label'
 
 /** `GET /api/projects/[id]/members`: the organization, each with their project role (null = none). */
 const MEMBERS = [
@@ -240,9 +241,9 @@ function PersonaSection({
   }
   return (
     <section className="flex flex-col gap-2" data-testid={`folder-access-${persona}`}>
-      <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">
+      <SectionLabel as="h2">
         {PERSONAS[persona].title}
-      </h2>
+      </SectionLabel>
       <div className="flex flex-col overflow-hidden rounded-xl border">
         <FileBrowserPane
           files={corpus.filter((item) => (item.folderId ?? null) === currentFolderId)}

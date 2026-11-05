@@ -33,7 +33,7 @@ FLAGS = glob.GLOBSTAR | glob.DOTGLOB
 #: The families that decide whether a test tier runs. `sast` is left out: it
 #: decides whether Semgrep has code to scan, and its `apps/**` would hide a
 #: UI directory that lost its `workspace:` line.
-TEST_TIERS = ("backend", "workspace", "site", "infra", "packages", "migrations")
+TEST_TIERS = ("backend", "workspace", "site", "cms", "infra", "packages", "migrations")
 
 #: Paths that belong to no tier on purpose, each with why no tier needs them.
 #: A file a tier's tests read is named in that tier even when a pattern here
@@ -49,6 +49,7 @@ UNFILTERED = {
     "docs/**": "documentation",
     "*.md": "root documentation (README, AGENTS, VISION, CONTEXT, CONTRIBUTING, CLAUDE)",
     "NOTICE": "licence notice",
+    ".gitattributes": "marks generated files for GitHub's diff view; nothing runs it",
     "data/oib/README.md": "says the corpus is operator-provided; nothing reads it",
     "skills/**": "agent skills; `task agents:audit` in Repo checks holds the lockfile to them",
     "apm.yml": "agent-skill manifest, audited by `task agents:audit`",

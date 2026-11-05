@@ -1,0 +1,85 @@
+name: Source maps
+
+# Uploads the frontend's PostHog source maps after CI, off every critical path.
+#
+# The frontend image build emits its maps, injects PostHog chunk ids into the
+# shipped JavaScript offline, and keeps maps and chunks in a `sourcemaps` stage
+# that never reaches the runtime image (apps/workspace/deploy/Dockerfile); the
+# push run's image job exports that stage as the artifact `sourcemaps-frontend`.
+# This workflow uploads it and links it to release `workspace-ui` at the commit the
+# image was built from. It used to run inside `next build`, ~232 s of every
+# frontend build that the deploy waited for (run 41688820888).
+#
+# A separate workflow, not a job in ci.yml, because Deploy (staging) follows
+# the CI run as a whole: a job there would hold the deploy again. It starts
+# when CI completes, beside the deploy, and is done before the new pods are
+# ready. A run that built no frontend image has no artifact and does nothing:
+# the chunks it re-tagged kept their ids, and PostHog already has their maps.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [develop, "release/**"]
+
+permissions:
+  contents: read
+  actions: read # the triggering run's artifact
+
+concurrency:
+  group: sourcemaps-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    name: Upload frontend source maps
+    # A green push run of this repository, as for the staging deploy, and only
+    # where the PostHog key exists (not a fork).
+    if: >-
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      # Only a run that built the frontend image exported its maps. Ask the run
+      # first, so a run without them is skipped and a failed download of maps
+      # that do exist fails this job instead of passing it silently.
+      - name: Did the run export source maps
+        id: maps
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?name=sourcemaps-frontend" --jq '.total_count')"
+          echo "exported=$([ "${count:-0}" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          [ "${count:-0}" -gt 0 ] || echo "::notice::run $RUN_ID built no frontend image; its chunks kept their ids and PostHog has their maps"
+
+      - name: Fetch the run's source maps
+        if: steps.maps.outputs.exported == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sourcemaps-frontend
+          path: sourcemaps
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      # The CLI the frontend build injected with: the same exact version as
+      # apps/workspace/package.json pins (tests/test_ci_workflows.py holds the
+      # two together), installed without running its scripts; the npm package
+      # fetches its binary on first use.
+      - name: Upload to PostHog
+        if: steps.maps.outputs.exported == 'true'
+        env:
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+          POSTHOG_CLI_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_CLI_HOST: ${{ vars.POSTHOG_CLI_HOST || 'https://eu.posthog.com' }}
+          RELEASE_VERSION: ${{ github.event.workflow_run.head_sha }}
+          POSTHOG_CLI_VERSION: "0.18.11"
+        run: |
+          if [ -z "$POSTHOG_CLI_API_KEY" ] || [ -z "$POSTHOG_CLI_PROJECT_ID" ]; then
+            echo "::notice::no PostHog key or project here; source maps not uploaded"
+            exit 0
+          fi
+          npm install --prefix "$RUNNER_TEMP/posthog" --no-save --ignore-scripts "@posthog/cli@$POSTHOG_CLI_VERSION"
+          "$RUNNER_TEMP/posthog/node_modules/.bin/posthog-cli" sourcemap upload \
+            --directory sourcemaps --release-name workspace-ui --release-version "$RELEASE_VERSION"

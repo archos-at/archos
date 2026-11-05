@@ -23,15 +23,20 @@ interface LogoProps {
   className?: string
 }
 
-/** Icon heights (the letter's cap height; it is as wide as it is tall). */
+/**
+ * Icon heights (the letter's cap height; it is as wide as it is tall). `small`
+ * is the shell's (the sidebar, the org header, the rail): one pixel up from
+ * 14/15px in both kinds (Notion #38, „Logo minimal größer"), which still sits
+ * inside the 28px row it shares with the sidebar toggle.
+ */
 const iconSize: Record<NonNullable<LogoProps['size']>, string> = {
-  small: 'h-3.5',
+  small: 'h-[15px]',
   medium: 'h-5',
   large: 'h-7',
 }
 
 const wordmarkSize: Record<NonNullable<LogoProps['size']>, string> = {
-  small: 'text-[15px]',
+  small: 'text-base',
   medium: 'text-xl',
   large: 'text-[32px]',
 }

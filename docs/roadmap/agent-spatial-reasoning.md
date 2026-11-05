@@ -701,10 +701,11 @@ them wrong:
 - **Caching is three layers and none of them is a worker.** Source identity in
   the agent, content hash in the engine, and per-artefact memoisation inside a
   resident model. §11b has the measured effect of each.
-- **The MCP surface is defined without a transport on both sides.** `tools.py`
-  and `mcp/tools.ts` import no protocol; `mcp_server.py` and `mcp/server.ts` are
-  the only files that know what MCP is. The agent does not use either server —
-  it calls `call(tools, …)` in-process (`ifc_spatial_client.py:491-493`).
+- **The engine knows no transport.** The agent calls `call(tools, …)`
+  in-process (`ifc_spatial_client.py`). Both stdio MCP servers and the
+  TypeScript engine were deleted on 2026-11-04: no one ran them, and each
+  carried its own definition of the tools. Other agents reach the engine
+  through `/api/mcp` (`ifc-measure`).
 
 ### 6.1 Nodes
 

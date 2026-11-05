@@ -1,0 +1,49 @@
+---
+/**
+ * A question from an office and the answer as the product gives it: the question set apart,
+ * the answer in the text column, the sources it used named by their kind (building law,
+ * office, project …: the agent's `SOURCE_KINDS`), and how many sources it was derived from.
+ * Plain: no window, no avatar, no buttons the reader cannot press.
+ * Contract: contracts.ts (`QaExcerptBlock`). Rules: packages/brand/docs/components/QaExcerpt.md.
+ */
+import '../../styles/brand/blocks.css';
+import type { Locale } from '../../i18n/paths';
+import { format, t } from '../../i18n/ui';
+import { markdownToHtml } from '../../lib/markdown';
+import type { QaExcerptBlock } from './contracts';
+
+interface Props extends QaExcerptBlock {
+  locale: Locale;
+  class?: string;
+}
+
+const { locale, question, answer, sources, sourceCount, asker, caption, class: className } = Astro.props;
+const ui = t(locale);
+const derived = sourceCount === undefined ? undefined : sourceCount === 1 ? ui.blockDerivedOne : format(ui.blockDerived, { count: sourceCount });
+---
+
+<figure class:list={['ui-block ui-qa', className]}>
+  <div class="ui-qa-question">
+    <p class="ui-qa-role">{[ui.blockQuestion, asker].filter(Boolean).join(' · ')}</p>
+    <p class="ui-qa-question-text">{question}</p>
+  </div>
+  <div class="ui-qa-answer">
+    <p class="ui-qa-role">{ui.blockAnswer}</p>
+    <div class="ui-qa-answer-text" set:html={markdownToHtml(answer)} />
+    {
+      sources.length > 0 && (
+        <ul class="ui-qa-sources" role="list">
+          {sources.map((source) => (
+            <li class="ui-qa-source">
+              <span class="ui-qa-kind">{ui.sourceKinds[source.kind]} · </span>
+              {source.title}
+              {source.detail && `, ${source.detail}`}
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    {derived && <p class="ui-qa-derived">{derived}</p>}
+  </div>
+  {caption && <figcaption class="ui-block-caption">{caption}</figcaption>}
+</figure>

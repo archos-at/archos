@@ -11,6 +11,8 @@ import { type FC, useEffect, useRef, useState } from 'react'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { AnimatePresence } from '@/components/motion'
 import { HeightArrival } from '@/components/motion/height-arrival'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
+import { cn } from '@/lib/utils'
 import { useChatStore } from '../store'
 import { readDismissedNotices, rememberDismissedNotice, useUsageNotice } from '../hooks/use-usage-notice'
 import { UsageNotice } from './UsageNotice'
@@ -54,7 +56,7 @@ export const ChatUsageNotice: FC<{ isAuthenticated?: boolean }> = ({ isAuthentic
   return (
     <AnimatePresence initial={false} key={projectId ?? 'organization'}>
       {visible && (
-        <HeightArrival key="usage-notice" className="not-first:pt-2 mx-auto w-full max-w-5xl px-4 sm:px-6">
+        <HeightArrival key="usage-notice" className={cn(THREAD_COLUMN, THREAD_GUTTER, 'not-first:pt-2')}>
           <UsageNotice notice={visible} onDismiss={visible.level === 'exhausted' ? undefined : dismiss} />
         </HeightArrival>
       )}

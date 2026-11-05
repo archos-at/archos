@@ -46,17 +46,17 @@ describe('moreDestinations: what "Mehr" lists', () => {
 
   test('in a project it lists the rail sections without a tab, gated as the rail gates them', () => {
     const keys = (flags: MoreFlags) => moreDestinations('p1', '/app/projects/p1/chat', flags).map((d) => d.key)
-    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'organization', 'platform'])
-    expect(keys(NONE)).toEqual(['search', 'profile'])
+    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'whats-new', 'organization', 'platform'])
+    expect(keys(NONE)).toEqual(['search', 'profile', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
   })
 
   test('the account links are gated as the avatar menu gates them', () => {
     const keys = (flags: Partial<MoreFlags>) => moreDestinations(null, '/app/projects', { ...NONE, ...flags }).map((d) => d.key)
-    expect(keys({})).toEqual(['profile'])
-    expect(keys({ canViewOrganization: true })).toEqual(['profile', 'organization'])
-    expect(keys({ canManageOrganization: true })).toEqual(['profile', 'organization'])
-    expect(keys({ canManagePlatform: true })).toEqual(['profile', 'platform'])
+    expect(keys({})).toEqual(['profile', 'whats-new'])
+    expect(keys({ canViewOrganization: true })).toEqual(['profile', 'whats-new', 'organization'])
+    expect(keys({ canManageOrganization: true })).toEqual(['profile', 'whats-new', 'organization'])
+    expect(keys({ canManagePlatform: true })).toEqual(['profile', 'whats-new', 'platform'])
   })
 })

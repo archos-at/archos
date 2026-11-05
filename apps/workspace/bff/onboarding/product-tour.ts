@@ -6,7 +6,7 @@
  * steps and each step has its own screen to explain:
  *
  * - `welcome` runs on the projects home.
- * - `project` runs inside a project — the moment Files, Ask Piloti and the
+ * - `project` runs inside a project — the moment Files, Chat and the
  *   Archiv stop being names and start being places with something to do in them.
  *
  * Two kinds of new person reach them, by different roads:

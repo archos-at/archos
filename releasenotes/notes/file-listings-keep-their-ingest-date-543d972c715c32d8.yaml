@@ -1,0 +1,6 @@
+---
+fixes:
+  - >
+    The knowledge base and the platform's document list now show when a file
+    was read in, and what kind of file it is, for older files too. Before, both
+    went blank a day after the upload.

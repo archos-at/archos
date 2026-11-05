@@ -19,22 +19,23 @@ from . import stairs as st
 from .envelope import Answer
 from .model import SpatialModel
 
-#: The relation names ``relations`` accepts, and what each one answers.
-RELATIONS: dict[str, str] = {
-    "hostedIn": "Welche Wand trägt dieses Fenster / diese Tür? (aus voids+fills abgeleitet)",
-    "hosts": "Welche Öffnungen sind aus diesem Bauteil ausgeschnitten?",
-    "fillerOf": "Was füllt diese Öffnung?",
-    "bounds": "Welche Bauteile begrenzen diesen Raum?",
-    "enclosedBy": "Welche Räume begrenzt dieses Bauteil?",
-    "opensTo": "In welche Räume öffnet dieses Fenster / diese Tür?",
-    "connects": "Welche Bauteile schließen an dieses an?",
-    "contains": "Welche Bauteile liegen in diesem Geschoß oder Raum?",
-    "containerOf": "In welchem Geschoß oder Raum liegt dieses Bauteil?",
-    "adjacentSpaces": "Welche Räume grenzen an diesen Raum?",
-    "elementsOfStorey": "Alle Bauteile dieses Geschoßes (auch die in Räumen).",
-    "above": "Was liegt direkt über diesem Bauteil oder Raum? (Strahlen nach oben, Möblierung ausgenommen)",
-    "below": "Was liegt direkt darunter?",
-}
+#: The relation names ``relations`` accepts. What each one answers is written once, in the agent's
+#: ``measure_vocab.py`` (the tool the model reads), and pinned against these names.
+RELATIONS: tuple[str, ...] = (
+    "hostedIn",
+    "hosts",
+    "fillerOf",
+    "bounds",
+    "enclosedBy",
+    "opensTo",
+    "connects",
+    "contains",
+    "containerOf",
+    "adjacentSpaces",
+    "elementsOfStorey",
+    "above",
+    "below",
+)
 
 RELATION_FN: dict[str, Callable[[SpatialModel, str], Answer[Any]]] = {
     "hostedIn": op.hosted_in,
@@ -74,100 +75,29 @@ GEOMETRIC_RELATIONS = frozenset(
     }
 )
 
-#: The measurements ``measure`` exposes, and what each one answers.
-MEASURES: dict[str, str] = {
-    "extent": "Abmessungen und Schwerpunkt: Breite, Tiefe, Höhe, Mittelpunkt.",
-    "floorArea": (
-        "Bodenfläche aus der Geometrie — auch wenn das Modell keine Raumfläche deklariert. Deklariert das "
-        "Modell eine, werden beide Wege gegeneinander geprüft und ein Widerspruch gemeldet."
-    ),
-    "sillAndHead": "Brüstungs- und Sturzhöhe eines Fensters oder einer Tür über SEINEM Geschoß.",
-    "elevation": "Unter- und Oberkante, absolut und über dem eigenen Geschoß.",
-    # NOT the TS wording. The TS operator returns the height of the space solid
-    # and its own caveat says the real clear height needs an intersection test
-    # it does not have; this engine has that test and measures the lichte Höhe
-    # under the lowest obstruction. On the sample house the two differ by 30 cm
-    # — under a suspended ceiling — and the TS number is the unsafe side of an
-    # OIB minimum room height. Keeping the old sentence would describe an
-    # operator that no longer exists.
-    "clearHeight": (
-        "Lichte Raumhöhe: vom Boden senkrecht nach oben bis zum untersten hineinragenden Bauteil "
-        "(abgehängte Decke, Unterzug, Leitung). NICHT die Höhe des Raumkörpers — die liefert extent(). "
-        "Möblierung ist ausgenommen. Rasterabtastung, ~0,5 s."
-    ),
-    "azimuth": "Himmelsrichtung der Fassadenebene. Ohne TrueNorth in der Datei nicht entscheidbar.",
-    "lightEntryArea": (
-        "Lichteintrittsfläche eines RAUMS und ihr Anteil an der Bodenfläche — die Zahl, auf die ein "
-        "Tageslichtnachweis nach OIB 3 hinausläuft. Summiert nur die AUSSENLIEGENDEN Öffnungen "
-        "(Innentüren belichten nicht) und misst die Rohbaulichte, nicht die Glasfläche. Kein Grenzwert "
-        "angewandt — der Prozentsatz steht im Regelwerk, nicht im Modell."
-    ),
-    "egressPath": (
-        "Kürzester begehbarer Weg eines RAUMS ins Freie, über Türen — Räume, Türen und eine Länge. "
-        "Nachbarschaft ist keine Begehbarkeit: zwei Räume an derselben Wand ohne Tür dazwischen "
-        "grenzen aneinander und sind unerreichbar. Die Länge ist ein Streckenzug über Raum- und "
-        "Türmittelpunkte und damit eine UNTERGRENZE, keine Fluchtweglänge im Sinne der OIB 2."
-    ),
-    "reachableFrom": (
-        "Alle über Türen erreichbaren Räume mit Anzahl der Türen dazwischen. Beantwortet „welche "
-        "Räume liegen hinter dieser Tür, und findet Räume ganz ohne Ausgang — was selbst ein Befund ist."
-    ),
-    "clearWidth": (
-        "LICHTE Breite und Höhe einer Öffnung, an der Öffnung selbst gemessen (Rohbaulichte) — die "
-        "Zahl, die eine Durchgangs- oder Fluchtwegbreite verlangt. NICHT distance: dessen Modi messen "
-        "Schwerpunkte und Hüllboxen und liefern einen Achsabstand."
-    ),
-    "orientedExtent": (
-        "Länge, Breite und Höhe entlang der EIGENEN Achsen des Bauteils, plus seine Verdrehung gegen "
-        "Norden. Für alles, was schräg im Modell steht: extent() ist achsparallel und meldet dort "
-        "systematisch zu große Werte, die weder Länge noch Dicke sind."
-    ),
-    "roomDepth": (
-        "Raumtiefe senkrecht zur belichtenden Fassade, dazu die Breite entlang dieser Fassade und das "
-        "Verhältnis zur lichten Raumhöhe — für Tageslichtfragen, bei denen die Tiefe zählt. Die "
-        "gewählte Fassade wird genannt; bei einem Eckraum steht die zweitbeste dabei."
-    ),
-    "stairGeometry": (
-        "Steigungshöhe, Auftrittsbreite, Anzahl der Steigungen und die NUTZBREITE eines Treppenlaufs "
-        "— und die STREUUNG der Steigungen über den Lauf. Ungleiche Steigungen sind selbst der Befund: "
-        "eine Treppe kann im Mittel stimmen und trotzdem unbegehbar sein. Deklarierte Werte werden "
-        "gegen die Geometrie geprüft und ein Widerspruch gemeldet."
-    ),
-    "rampSlope": (
-        "Neigung einer Rampe als Prozent UND als Verhältnis, dazu Lauflänge, Höhenunterschied und "
-        "lichte Breite. Beide Formen, weil eine Bestimmung mal die eine und mal die andere nennt."
-    ),
-    "headroom": (
-        "Durchgangshöhe über einem Treppenlauf oder einer Rampe, SENKRECHT ZUR LAUFEBENE gemessen — "
-        "nicht lotrecht. Die Engstelle liegt dort, wo der Lauf unter die Decke darüber läuft, und ein "
-        "lotrechter Strahl vom Auftritt geht daran vorbei (1,35 m gegen 1,65 m im Testfall)."
-    ),
-    "stepsOf": (
-        "Die Läufe und Podeste, aus denen eine Treppe zusammengesetzt ist — um einen einzelnen Lauf zu "
-        "befragen statt der Baugruppe. Podeste zählen, weil Bestimmungen die Zahl der Steigungen je "
-        "Lauf ohne Podest begrenzen."
-    ),
-    "turningCircle": (
-        "Der größte Kreis, der auf der freien Bodenfläche eines RAUMS Platz hat — die Zahl, auf die ein "
-        "Wendekreis hinausläuft. Gezählt werden nur feste Einbauten; die Möblierung steht separat unter "
-        "mitMoeblierung, weil eine Baubewilligung für das Gebäude gilt und nicht für die Stühle. Kein "
-        "Grenzwert angewandt."
-    ),
-    "thresholdHeight": (
-        "Die Stufe an einer Tür: der Höhenunterschied der Böden beiderseits. Enthält der Export keinen "
-        "Fußbodenaufbau, ist es ein ROHBAUMASS — dann sagt die Antwort das, denn Estrich, Belag und "
-        "Dichtung machen die Stufe erst aus, und 0 mm am Rohbau heißt nichts über die fertige Schwelle."
-    ),
-    "balustrade": (
-        "Wo es an einer Öffnung hinuntergeht: die Absturzhöhe und was dort steht, samt seiner Höhe. "
-        "Fehlen IfcRailing im Export ganz, ist die Antwort nicht entscheidbar — kein Geländer im Modell "
-        "heißt nicht kein Geländer am Bau."
-    ),
-    "clearApproach": (
-        "Die freie Bodenfläche vor einer Tür, beidseitig, und was sie begrenzt — was jemand braucht, um "
-        "die Tür überhaupt öffnen zu können."
-    ),
-}
+#: The measurements ``measure`` exposes (their meaning: the agent's ``measure_vocab.py``).
+MEASURES: tuple[str, ...] = (
+    "extent",
+    "floorArea",
+    "sillAndHead",
+    "elevation",
+    "clearHeight",
+    "azimuth",
+    "lightEntryArea",
+    "egressPath",
+    "reachableFrom",
+    "clearWidth",
+    "orientedExtent",
+    "roomDepth",
+    "stairGeometry",
+    "rampSlope",
+    "headroom",
+    "stepsOf",
+    "turningCircle",
+    "thresholdHeight",
+    "balustrade",
+    "clearApproach",
+)
 
 MEASURE_FN: dict[str, Callable[[SpatialModel, str], Answer[Any]]] = {
     "extent": op.extent,
@@ -284,29 +214,13 @@ _PROFILE_LIST_CAP = 3
 
 
 #: The `what` values `fire` accepts.
-FIRE_ASPECTS: dict[str, str] = {
-    "escape_level": (
-        "Höhe des obersten Aufenthaltsgeschoßes über dem tiefsten anschließenden Gelände — die Zahl, "
-        "an der die Gebäudeklasse hängt. Welche Geschoße gezählt wurden, steht in der Antwort"
-    ),
-    "compartmentArea": "Bodenfläche eines Brandabschnitts über mehrere Räume, mit jedem Raum einzeln",
-    "separatingElements": (
-        "Was zwischen zwei Räumen liegt — Wand, Decke, und die Türen darin — je mit seinem "
-        "DEKLARIERTEN FireRating, und ausdrücklich mit dessen Fehlen"
-    ),
-    "siteBoundary": (
-        "Abstand zur Grundgrenze (Brandübertragung). Auf den meisten Exporten nicht entscheidbar: "
-        "eine Grundgrenze wird selten mitexportiert, und geraten wird sie hier nicht"
-    ),
-    "doorGraph": (
-        "Der begehbare Graph des GANZEN Gebäudes: Räume als Knoten, DRAUSSEN als eigener Knoten, "
-        "Türen als Kanten — und ausdrücklich die Türen, die zu keiner Kante wurden (unbestimmt, "
-        "excluded). Ein Raum ohne Kante hat keinen Ausgang, und eine unbestimmte Tür ist ein "
-        "Loch in JEDEM Weg dieses Gebäudes. measure/egressPath nennt EINE Route; das hier sagt, wie "
-        "vollständig die Grundlage aller Routen ist. Teilt sich den Aufbau mit egressPath und "
-        "reachableFrom, kostet also nur beim ersten der drei Aufrufe Sekunden"
-    ),
-}
+FIRE_ASPECTS: tuple[str, ...] = (
+    "escape_level",
+    "compartmentArea",
+    "separatingElements",
+    "siteBoundary",
+    "doorGraph",
+)
 
 #: The `what` values `envelope` accepts.
 #:
@@ -316,25 +230,11 @@ FIRE_ASPECTS: dict[str, str] = {
 #: property of an element, it is the set of elements that happens to bound the
 #: heated volume, and asking about it one wall at a time is how the wall that
 #: was left out stays invisible.
-ENVELOPE_ASPECTS: dict[str, str] = {
-    "thermalEnvelope": (
-        "Welche Bauteile die Grenze zwischen beheiztem Innen und Außen bilden, nach Art gruppiert, "
-        "je mit Fläche und DEKLARIERTEM U-Wert. Jeder Eintrag nennt, WORAUS die Zuordnung folgt — "
-        "IsExternal deklariert oder aus den Raumberührungen abgeleitet ist nicht dieselbe Aussage. "
-        "Dazu die zwei Listen, die die Summe überprüfbar machen: interior (entschieden und "
-        "weggelassen) und undetermined (nicht entschieden, also weder gezählt noch verworfen)"
-    ),
-    "areaByOrientation": (
-        "Hüllfläche je Himmelsrichtung, opak und transparent getrennt, mit dem Fensterflächenanteil "
-        "(WWR) je Fassade. Braucht einen deklarierten TrueNorth — ohne den wird die Richtung nicht "
-        "geraten, sondern verweigert"
-    ),
-    "compactness": (
-        "A/V in 1/m, mit der charakteristischen Länge l_c = V/A daneben. A und V kommen einzeln "
-        "zurück, weil ein Verhältnis, dessen Eingangsgrößen unsichtbar sind, von der Person, die es "
-        "unterschreibt, nicht geprüft werden kann. V ist das NETTO-Volumen (Summe der IfcSpace-Körper)"
-    ),
-}
+ENVELOPE_ASPECTS: tuple[str, ...] = (
+    "thermalEnvelope",
+    "areaByOrientation",
+    "compactness",
+)
 
 #: How many elements one `measure` call may take.
 #:
@@ -346,29 +246,3 @@ ENVELOPE_ASPECTS: dict[str, str] = {
 MAX_BATCH = 50
 
 KINDS = ["project", "site", "building", "storey", "space", "element", "opening", "group"]
-
-#: Downloads are capped. A tool that will read whatever a URL hands it is a way
-#: to fill a disk from a chat message.
-MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024
-
-#: Set to ``1`` when the host KNOWS its own network and wants ``open_model(url=…)``
-#: to reach it anyway — a presigned URL served by a MinIO on the same compose
-#: network is the case this exists for.
-#:
-#: It is opt-in and not opt-out because the two failure modes are not
-#: symmetric. A deployment that needed it and did not set it gets a refusal it
-#: can read and fix in one environment variable; a deployment that did not need
-#: it and was never asked gets an agent-controlled URL fetched from inside its
-#: own perimeter, and nobody finds out.
-ALLOW_PRIVATE_URLS_ENV = "IFC_SPATIAL_ALLOW_PRIVATE_URLS"
-
-#: Every network failure that is not an HTTP status answers with THIS sentence
-#: and no detail.
-#:
-#: „Connection refused" and „timed out" are different words for two ports on the
-#: same host, which is a port scanner: the agent picks the URL, so the difference
-#: between the two is a readout on a network the agent cannot otherwise see.
-_UNREACHABLE_TEXT = (
-    "Modell konnte nicht geladen werden: die URL war nicht abrufbar. "
-    "Datei lokal ablegen und path verwenden, oder base64 übergeben."
-)

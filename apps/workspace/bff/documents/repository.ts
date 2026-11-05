@@ -29,5 +29,5 @@ export type { IngestAnnouncementFacts, StuckProcessingDocument } from './reposit
 export { findFolderPathsInProject, findFolderPathInProject, findFolderPathInOfficeShelf, countDocumentsByProject } from './repository/folders'
 export { setDocumentReconciledStatus, markScreeningReleased } from './repository/reconcile'
 export type { ReconciledFrom } from './repository/reconcile'
-export { QUARANTINE_LIST_LIMIT, listQuarantinedDocuments, FAILED_INGEST_RESCAN_STATUSES, retryAllowedSql, FAILED_INGEST_PAGE_LIMIT, listFailedDocumentPageInOrg } from './repository/quarantine-and-retry'
+export { QUARANTINE_LIST_LIMIT, listQuarantinedDocuments, markForRescreening, FAILED_INGEST_RESCAN_STATUSES, retryAllowedSql, FAILED_INGEST_PAGE_LIMIT, listFailedDocumentPageInOrg } from './repository/quarantine-and-retry'
 export type { QuarantineCursor, FailedDocumentPage } from './repository/quarantine-and-retry'

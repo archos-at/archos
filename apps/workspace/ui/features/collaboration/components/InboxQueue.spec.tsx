@@ -121,6 +121,25 @@ describe('InboxQueue — what waits on the reader, and the news', () => {
     expect(screen.getByTestId('inbox-queue-summary')).toHaveTextContent('Waiting on you21 overdue')
   })
 
+  test('says how many wait once: in the heading, not again in a line under it', () => {
+    render(<InboxQueue />)
+    const section = screen.getByTestId('inbox-queue-waiting')
+    // The heading „Waiting on you“ with its count, and no sentence repeating either.
+    expect(within(section).getAllByText(/waiting on you/i)).toHaveLength(1)
+    expect(within(section).getAllByText('2')).toHaveLength(1)
+  })
+
+  test('with nothing waiting but news, says so under the heading without repeating it', () => {
+    serve([], [news])
+    render(<InboxQueue />)
+    const section = screen.getByTestId('inbox-queue-waiting')
+    expect(within(section).getAllByText(/waiting on you/i)).toHaveLength(1)
+    expect(within(section).getByTestId('inbox-queue-nothing-waiting')).toHaveTextContent('No open requests.')
+    expect(screen.getByTestId('inbox-queue-summary')).toHaveTextContent(/^Waiting on you$/)
+    // Not „All caught up“: the news is still unread.
+    expect(screen.queryByText('All caught up')).not.toBeInTheDocument()
+  })
+
   test('says it is done when nothing waits and nothing is new', () => {
     serve([], [])
     render(<InboxQueue />)

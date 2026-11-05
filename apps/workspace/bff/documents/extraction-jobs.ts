@@ -12,9 +12,15 @@ import { runBimExtraction } from '@/lib/bim/service'
 import type { BimExtractPayload, JobAttempt, OfficeRenditionPayload } from '@/lib/jobs-queue/types'
 import { internalRead } from './document-reader'
 import { documentTypeOf } from './tag-vocabulary'
-import { ensureRendition, extractsFromRendition } from './rendition'
+import { RenditionFailedError, ensureRendition, extractsFromRendition } from './rendition'
 import { type DispatchDocumentInput, mayBeIndexed } from './document-dispatch'
-import { INGEST_DISPATCH_FAILED_MESSAGE, INGEST_JOB_REF_TTL_SECONDS, RENDITION_REQUIRED_MESSAGE, dispatchIngest } from './ingest-dispatch'
+import {
+  DRAWING_UNREADABLE_MESSAGE,
+  INGEST_DISPATCH_FAILED_MESSAGE,
+  INGEST_JOB_REF_TTL_SECONDS,
+  RENDITION_REQUIRED_MESSAGE,
+  dispatchIngest,
+} from './ingest-dispatch'
 
 /**
  * The job half of {@link beginModelExtraction}: parse the model, store its
@@ -160,10 +166,11 @@ export async function runOfficeRenditionJob(
  * thumbnail and is ingested from the original as before.
  */
 async function ingestThroughRendition(input: DispatchDocumentInput, fileName: string): Promise<void> {
-  const renditionRef = await signedRenditionRef(input, fileName)
+  const { ref: renditionRef, refusedFile } = await signedRenditionRef(input, fileName)
   const indexesRendition = extractsFromRendition(fileName)
   if (indexesRendition && !renditionRef) {
-    await markDocumentIngestFailed(input.documentId, input.organizationId, RENDITION_REQUIRED_MESSAGE)
+    const message = refusedFile ? DRAWING_UNREADABLE_MESSAGE : RENDITION_REQUIRED_MESSAGE
+    await markDocumentIngestFailed(input.documentId, input.organizationId, message)
     return
   }
   await dispatchIngest(
@@ -201,16 +208,17 @@ async function ingestThroughRendition(input: DispatchDocumentInput, fileName: st
  * An expired link fails the document as `office_rendition_required`, which
  * would read as a converter fault.
  */
-async function signedRenditionRef(input: DispatchDocumentInput, fileName: string): Promise<string | null> {
+async function signedRenditionRef(
+  input: DispatchDocumentInput,
+  fileName: string
+): Promise<{ ref: string | null; refusedFile: boolean }> {
   const bucket = resolveDocumentBucket(input.storageBucket)
   try {
     const renditionKey = await ensureRendition({ bucket, storageKey: input.storageKey, filename: fileName })
-    return await presignForBackend(new GetObjectCommand({ Bucket: bucket, Key: renditionKey }), INGEST_JOB_REF_TTL_SECONDS)
+    const ref = await presignForBackend(new GetObjectCommand({ Bucket: bucket, Key: renditionKey }), INGEST_JOB_REF_TTL_SECONDS)
+    return { ref, refusedFile: false }
   } catch (error) {
-    console.warn(
-      '[documents] office rendition at ingest failed:',
-      error instanceof Error ? error.message : String(error)
-    )
-    return null
+    console.warn('[documents] rendition at ingest failed:', error instanceof Error ? error.message : String(error))
+    return { ref: null, refusedFile: error instanceof RenditionFailedError && error.refusedFile }
   }
 }

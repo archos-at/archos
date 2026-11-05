@@ -541,7 +541,15 @@ async def test_grouped_search_narrows_to_documents_reading_types_and_references_
             {"document_type": {"$in": ["site_plan", "fire_safety_concept"]}},
             {
                 "references": {
-                    "$in": ["norm:önorm b 1600", "plan:ep-05", "document:fire_safety_concept", "law:§ 33 baybo"]
+                    "$in": [
+                        "norm:önorm b 1600",
+                        "norm:önorm b1600",
+                        "plan:ep-05",
+                        "plan:ep05",
+                        "plan:ep.05",
+                        "document:fire_safety_concept",
+                        "law:§ 33 baybo",
+                    ]
                 }
             },
             {"superseded": {"$ne": True}},

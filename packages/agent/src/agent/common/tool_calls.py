@@ -76,6 +76,9 @@ _SEARCH_CORPORA: tuple[tuple[str, str], ...] = (
     # Unterlagen“, not the knowledge corpus.
     ("list_files", "documents"),
     ("ifc_", "ifc"),
+    # A DXF drawing of the project measured as a site (ADR-0153): a read of the
+    # reader's own file, so the line says „in Ihren Unterlagen“ like the browser.
+    ("dxf_measure", "documents"),
     # The office's OTHER projects (ADR-0094): the line
     # says „in anderen Projekten“, so the reader sees the chat leave its project.
     ("project_lookup", "otherProjects"),

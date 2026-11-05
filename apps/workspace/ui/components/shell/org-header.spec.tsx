@@ -3,6 +3,7 @@ import { render, screen } from '@/test-utils'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { PRODUCT_NAME } from '@/lib/brand'
 import { OrgHeader } from './org-header'
+import { BRAND_INSET_ORG, BRAND_ROW } from './brand-slot'
 import { useShellOverlays } from './shell-overlays'
 
 let pathname = '/app/projects'
@@ -94,6 +95,18 @@ describe('OrgHeader — the org scope in one slim band', () => {
     render(<OrgHeader {...baseProps} />)
     const inbox = screen.getByLabelText('Inbox')
     expect(inbox.textContent).toContain('3')
+  })
+})
+
+// Ticket #38, topic 7: the wordmark jumped going from here into a project. It
+// stands in the row `brand-slot.ts` defines, the one the rail's head uses too.
+describe('OrgHeader — the wordmark stands where the rail puts it', () => {
+  test('centred in the shared 56px brand row, 24px in from `md`', () => {
+    render(<OrgHeader {...baseProps} />)
+    const row = screen.getByRole('img', { name: PRODUCT_NAME }).closest('a')?.parentElement?.parentElement
+    for (const token of [...BRAND_ROW.split(' '), BRAND_INSET_ORG]) {
+      expect(row?.className.split(' ')).toContain(token)
+    }
   })
 })
 

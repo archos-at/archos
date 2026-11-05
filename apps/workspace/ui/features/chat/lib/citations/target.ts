@@ -20,7 +20,7 @@ import { parseKbLocator, type KbCitationLocator } from './locator'
 import {
   isIndexedFromRendition,
   isInlinePreviewable,
-  isOfficeRenditionSource,
+  isRenditionSource,
 } from '@/lib/documents/preview-types'
 
 /**
@@ -346,7 +346,7 @@ export const resolveCitationTarget = (
           : []
     const storedDoc = candidates[0]
 
-    const isOffice = storedDoc != null && isOfficeRenditionSource(storedDoc)
+    const isOffice = storedDoc != null && isRenditionSource(storedDoc)
     if (storedDoc && (isPreviewableContentType(storedDoc.contentType) || isOffice)) {
       return {
         kind: 'document',

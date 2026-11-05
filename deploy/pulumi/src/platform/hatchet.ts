@@ -65,12 +65,18 @@ export const HATCHET = {
 /** Where the worker tiers read the token: the app namespace's copy. */
 export const HATCHET_TOKEN_SECRET = "hatchet-client-token"; // pragma: allowlist secret (a Secret's name)
 
-/** The backend components and the replica count each runs (`BACKGROUND_WORK.replicas`). */
+/**
+ * The backend components and the replica count each runs (`BACKGROUND_WORK.replicas`).
+ * Each name is also the chart's container port name (`hatchet.name` in the
+ * `hatchet-api` subchart's deployment template), which Kubernetes caps at 15
+ * characters (IANA_SVC_NAME); `controllers` and `scheduler` are the chart's own
+ * defaults. `hatchet-controllers` was refused on the first staging `up`.
+ */
 export const HATCHET_COMPONENTS = {
   api: "hatchet-api",
   grpc: "hatchet-grpc",
-  controllers: "hatchet-controllers",
-  scheduler: "hatchet-scheduler",
+  controllers: "controllers",
+  scheduler: "scheduler",
 } as const;
 
 /** The in-cluster gRPC address workers dial: `HATCHET_CLIENT_HOST_PORT`. */

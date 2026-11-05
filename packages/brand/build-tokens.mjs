@@ -14,6 +14,10 @@
  *                     too: for an app with its own token names (the workspace), which
  *                     maps them onto these
  *   components.css    copied from css/components.css (class prefix ui-)
+ *   motion.css        copied from css/motion.css (arrival on load and on scroll)
+ *   covers.css        copied from css/covers.css (the blog covers' frame and pens, docs/blog-covers.md)
+ *   status.css        copied from css/status.css (the 404 and 500 pages and their drawings)
+ *   blocks.css        copied from css/blocks.css (the content blocks of a blog post)
  *   fonts/            copied from fonts/
  *
  * sync.mjs imports renderDist() and writeDist() from here, so the copies in the apps
@@ -83,17 +87,33 @@ function textClasses(tokens) {
 }
 
 function fontFaces(tokens) {
-  return tokens.type.fonts.map((f) => {
+  return tokens.type.fonts.flatMap((f) => {
     const file = f.file.replace(/^\.\//, '')
     const format = FORMATS[extname(file)]
-    return `@font-face {
+    const face = `@font-face {
   font-family: "${f.family}";
   src: url("./${file}") format("${format}");
   font-weight: ${f.weight};
   font-style: ${f.style};
   font-display: swap;
 }`
+    return f.fallback ? [face, fallbackFace(f.fallback)] : [face]
   })
+}
+
+/**
+ * A local system font scaled to the web font's metrics. It sits next in the stack, so the
+ * text wraps the same before the web font arrives and the swap moves nothing (no layout shift).
+ */
+function fallbackFace(fb) {
+  return `@font-face {
+  font-family: "${fb.family}";
+  src: ${fb.local.map((name) => `local("${name}")`).join(', ')};
+  size-adjust: ${fb.sizeAdjust};
+  ascent-override: ${fb.ascentOverride};
+  descent-override: ${fb.descentOverride};
+  line-gap-override: ${fb.lineGapOverride};
+}`
 }
 
 /**
@@ -137,6 +157,10 @@ export function renderDist() {
   out.set('tokens.css', renderTokensCss(tokens))
   out.set('tokens.vars.css', renderVarsCss(tokens))
   out.set('components.css', readFileSync(join(BRAND, 'css/components.css')))
+  out.set('motion.css', readFileSync(join(BRAND, 'css/motion.css')))
+  out.set('covers.css', readFileSync(join(BRAND, 'css/covers.css')))
+  out.set('status.css', readFileSync(join(BRAND, 'css/status.css')))
+  out.set('blocks.css', readFileSync(join(BRAND, 'css/blocks.css')))
   for (const file of readdirSync(join(BRAND, 'fonts')).sort()) {
     out.set(`fonts/${file}`, readFileSync(join(BRAND, 'fonts', file)))
   }

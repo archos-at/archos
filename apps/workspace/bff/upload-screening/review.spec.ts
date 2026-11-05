@@ -21,7 +21,10 @@ vi.mock('@/lib/documents/folder-path', () => ({
   resolveDocumentFolderPath: vi.fn().mockResolvedValue('Verwaltung'),
 }))
 vi.mock('@/lib/upload-batches/settle', () => ({ quarantineReviewersOf: vi.fn() }))
-vi.mock('@/lib/inbox/service', () => ({ emitInboxItems: vi.fn().mockResolvedValue(0) }))
+vi.mock('@/lib/inbox/service', () => ({
+  emitInboxItems: vi.fn().mockResolvedValue(0),
+  resolveInboxItemsAnchoredOn: vi.fn().mockResolvedValue(0),
+}))
 
 import { recordAuditEvent } from '@/lib/audit/service'
 import { DOCUMENT_NAME_KEYS } from '@/lib/audit/document-names'
@@ -31,7 +34,7 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { findDocumentInOrg, listQuarantinedDocuments, markScreeningReleased } from '@/lib/documents/repository'
 import { mayReadDocument } from '@/lib/documents/document-reader'
 import { dispatchDocument } from '@/lib/documents/document-dispatch'
-import { emitInboxItems } from '@/lib/inbox/service'
+import { emitInboxItems, resolveInboxItemsAnchoredOn } from '@/lib/inbox/service'
 import { quarantineReviewersOf } from '@/lib/upload-batches/settle'
 import { ConflictError, ForbiddenError, NotFoundError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
@@ -202,6 +205,12 @@ describe('releaseQuarantinedDocument', () => {
       metadata: { reasons: 'term,iban', terms: 'Lohnzettel' },
     })
     expect(JSON.stringify(audit)).not.toContain('AT61')
+    // The uploader's „Prüfung anfragen" is answered: it leaves every reviewer's inbox.
+    expect(resolveInboxItemsAnchoredOn).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      types: ['document.release_requested'],
+      anchorId: 'doc-q',
+    })
   })
 
   it('keeps the words found in the text under a key withheld with the name (ADR-0087)', async () => {

@@ -39,7 +39,7 @@ export function FilePreviewFooter({ controller }: { controller: FilePreviewContr
               <DocumentActionsMenu
                 document={file}
                 scope={scope}
-                actions={['download', 'rename', 'delete']}
+                actions={['download', 'downloadPdf', 'rename', 'delete']}
                 canManage={canManage}
                 surface="toolbar"
                 moveInSheet={moveInSheet}

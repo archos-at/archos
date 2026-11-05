@@ -202,6 +202,13 @@ a.ui-wordmark:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .ui-quote-portrait > * { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: var(--surface-sunken); }
 @media (max-width: 1023px) { .ui-quote-wrap { grid-template-columns: 1fr; } .ui-quote-portrait { max-width: var(--portrait-width); } }
 
+/* Callout: a note set off from running text (a remark, a caveat), on the sunken surface; important adds the strong rule */
+.ui-callout { margin: var(--space-6) 0 0; padding: var(--space-4) var(--space-6); background: var(--surface-sunken); color: var(--ink); }
+.ui-callout--important { border-left: var(--stroke-strong) solid var(--line-strong); }
+.ui-callout-title { margin: 0; font: var(--text-body); font-weight: 600; }
+.ui-callout-text { margin: 0; font: var(--text-body); }
+.ui-callout-title + .ui-callout-text { margin-top: var(--space-2); }
+
 /* Footer: dark; brand, columns, funding note, legal */
 .ui-footer { background: var(--surface); color: var(--ink); padding: var(--space-24) 0 var(--space-8); }
 .ui-footer-top { display: grid; grid-template-columns: 2fr repeat(var(--ui-cols, 3), 1fr); gap: var(--space-8); }
@@ -378,17 +385,9 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
 @media (max-width: 767px) { .ui-gallery-card { min-height: 480px; } .ui-gallery-card .ui-gallery-media img { height: 440px; } }
 
 /* Motion. Each movement tells the reader something; at rest nothing moves, and
-   with reduced motion none of it runs: the still page is the finished page. */
+   with reduced motion none of it runs: the still page is the finished page.
+   Arrival on load and on scroll ([data-reveal]) lives in motion.css. */
 @media (prefers-reduced-motion: no-preference) {
-  /* A block arrives as it scrolls into view, once. The script marks only blocks
-     below the fold as pending, so nothing on screen at load ever moves, and
-     without the script nothing is hidden. */
-  [data-reveal] {
-    transition: opacity var(--duration-slow) var(--ease-settle), transform var(--duration-slow) var(--ease-settle);
-    transition-delay: calc(var(--ui-reveal-step, 0) * var(--stagger-row));
-  }
-  [data-reveal].is-pending { opacity: 0; transform: translateY(var(--travel-sm)); }
-
   /* An FAQ answer opens by its height instead of appearing at once. */
   .ui-faq { interpolate-size: allow-keywords; }
   .ui-faq details::details-content {
@@ -405,3 +404,54 @@ textarea.ui-input { resize: vertical; min-height: 144px; }
     @starting-style { opacity: 0; transform: translateY(calc(-1 * var(--travel-sm))); }
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Added 2026-11-05 (owner feedback on the reference site), on purpose beyond the
+   handover. Kept together at the end of the file.
+   --------------------------------------------------------------------------- */
+
+/* Feature cells: FeatureTiles (variant="cells") on a .ui-band, each point a square
+   cell on the page surface. The handover's tiles are whitespace only; the data
+   security page's points have to stand apart from the rest of the page. No line,
+   no shadow: the band's grey between the cells is the only division. */
+.ui-features-cells { gap: var(--space-2); }
+.ui-features-cells > .ui-feature { box-sizing: border-box; padding: var(--space-8); background: var(--surface); }
+.ui-features-cells .ui-feature-text { max-width: 380px; }
+@media (min-width: 768px) and (max-width: 1023px) { .ui-features-cells { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .ui-features-cells { gap: var(--space-2); } .ui-features-cells > .ui-feature { padding: var(--space-6); } }
+
+/* Contact: the details and the form, clearly apart (they sat 32px apart in a
+   two-column feature grid). From 1024px twelve columns: details in 1–5, the form
+   in 7–12, so a whole column and two gaps lie between them. Below, stacked, the
+   form after a wide gap, both no wider than the reading measure. */
+.ui-contact { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--space-16); }
+.ui-contact-details > * { margin: 0; }
+.ui-contact-details > * + * { margin-top: var(--space-8); }
+.ui-contact-details, .ui-contact-form { max-width: var(--measure); }
+@media (min-width: 1024px) {
+  .ui-contact { grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--space-8); }
+  .ui-contact-details { grid-column: 1 / span 5; }
+  .ui-contact-form { grid-column: 7 / span 6; }
+  .ui-contact-details, .ui-contact-form { max-width: none; }
+}
+@media (max-width: 767px) { .ui-contact { row-gap: var(--space-12); } }
+
+/* Duo photo scrim (added 2026-11-05, media pass). The duo photos show in their own colours and
+   brightness; the text on them gets its contrast from a shade behind the text block alone. The
+   shade follows the text's box at every width, fades out below it and to its right, and leaves
+   the rest of the photo untouched. Its colour is the one the text is set against: ink under
+   on-ink text (`ui-duo-on-photo`), the surface under ink text (the dark card). The strength is
+   the least that holds 4.5:1 for the body over the brightest part of either photo;
+   `scripts/check-accessibility.mjs` (PHOTO_TEXT) measures it. */
+.ui-duo-card:has(> .ui-duo-photo) { --ui-scrim: var(--surface); }
+.ui-duo-card.ui-duo-on-photo { --ui-scrim: var(--ink); }
+.ui-duo-card:has(> .ui-duo-photo) .ui-duo-text::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: calc(-1 * var(--space-16)) calc(-1 * var(--space-24)) calc(-1 * var(--space-16)) calc(-1 * var(--space-16));
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--ui-scrim) 40%, transparent) calc(100% - var(--space-16)), transparent);
+  -webkit-mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
+  mask-image: linear-gradient(to right, var(--ink) calc(100% - var(--space-24)), transparent);
+}
+/* A portrait rendered by Astro's <Image> carries width and height attributes; the height must not
+   override the 4:5 crop. */
+.ui-quote-portrait > img { height: auto; }

@@ -1440,6 +1440,16 @@
    "withheld": null,
    "reason": null
   },
+  "quarantine-decide": {
+   "kind": "catalog",
+   "domain": "review",
+   "sensitivity": "control",
+   "external": true,
+   "piloti": false,
+   "platform": false,
+   "withheld": null,
+   "reason": "its `sensitivity` widens access, touches a secret or turns a control down: an outside agent sees it only under the organization’s opt-in and the step-up scope, and accepting a card the agent worded is not the confirmation it needs"
+  },
   "agent-ask-cancel": {
    "kind": "catalog",
    "domain": "conversations",
@@ -2998,6 +3008,68 @@
    },
    "reason": null
   },
+  "release-note-list": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": true,
+   "piloti": true,
+   "platform": false,
+   "withheld": null,
+   "reason": null
+  },
+  "release-summary-notice-get": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": false,
+   "piloti": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "whether the person wants the weekly summary notice; their own setting"
+   },
+   "reason": null
+  },
+  "release-summary-notice-set": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": false,
+   "piloti": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "whether the person wants the weekly summary notice; theirs to set"
+   },
+   "reason": null
+  },
+  "release-summary-seen-mark": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": false,
+   "piloti": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "whether this person has closed the weekly summary notice; their own screen"
+   },
+   "reason": null
+  },
+  "release-summary-unseen-get": {
+   "kind": "catalog",
+   "domain": "organization",
+   "sensitivity": null,
+   "external": false,
+   "piloti": false,
+   "platform": false,
+   "withheld": {
+    "category": "ui-state",
+    "reason": "which summary the notice still owes this person; release-note-list reads them"
+   },
+   "reason": null
+  },
   "platform-answer-feedback-digest-get": {
    "kind": "catalog",
    "domain": "platform",
@@ -3588,22 +3660,22 @@
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
   },
-  "ifc-query": {
-   "kind": "backend",
-   "domain": "bim",
-   "sensitivity": null,
-   "external": true,
-   "piloti": "native:ifc_query",
-   "platform": false,
-   "withheld": null,
-   "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
-  },
   "ifc-measure": {
    "kind": "backend",
    "domain": "bim",
    "sensitivity": null,
    "external": true,
    "piloti": "native:ifc_measure",
+   "platform": false,
+   "withheld": null,
+   "reason": "The agent reads with this native tool itself; the door offers it to outside agents"
+  },
+  "dxf-measure": {
+   "kind": "backend",
+   "domain": "documents",
+   "sensitivity": null,
+   "external": true,
+   "piloti": "native:dxf_measure",
    "platform": false,
    "withheld": null,
    "reason": "The agent reads with this native tool itself; the door offers it to outside agents"

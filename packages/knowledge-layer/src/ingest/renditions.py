@@ -32,15 +32,18 @@ logger = logging.getLogger(__name__)
 #: still works (a rendition present is always read), while one added here and
 #: not there fails every upload of it. Spreadsheets with a structure of their
 #: own (.xlsx/.xlsm) are absent on purpose: their sheets are read by openpyxl.
+#: A ``.dxf`` is here because it has no reader of its own at all: its rendition
+#: is a page the backend draws itself (ADR-0152), with the drawing's text written
+#: into it as a text layer, so its parcel numbers and labels are what is indexed.
 RENDITION_INDEXED_EXTENSIONS = frozenset(
-    {".docx", ".docm", ".doc", ".odt", ".rtf", ".pptx", ".pptm", ".ppt", ".odp", ".xls", ".ods"}
+    {".docx", ".docm", ".doc", ".odt", ".rtf", ".pptx", ".pptm", ".ppt", ".odp", ".xls", ".ods", ".dxf"}
 )
 
 #: The file error for such a format with no rendition to read. A stable,
 #: machine-readable prefix, like ``vlm_not_configured``: the failed-document UX
 #: and anyone grepping logs key on it.
 OFFICE_RENDITION_REQUIRED = (
-    "office_rendition_required: Word and presentation files are indexed from their PDF "
+    "office_rendition_required: Word, presentation and DXF files are indexed from their PDF "
     "rendition, and none could be read (conversion disabled or failed, or the download failed)"
 )
 

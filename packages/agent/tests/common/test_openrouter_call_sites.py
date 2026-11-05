@@ -55,7 +55,7 @@ ADAPTERS = re.compile(
 NO_TENANT_CONTENT = {
     "apps/agent-host/src/agent_host/context_envelope.py": "our own route path, in a docstring",
     "scripts/turn_census/census.py": "parses recorded request paths",
-    "scripts/release_notes.py": "sends the changelog, which is public",
+    "scripts/release_notes_translate.py": "sends the release notes, which are product news, not tenant content",
     "scripts/smoke_card_generation.py": "a dev smoke test on fixed sample text",
 }
 

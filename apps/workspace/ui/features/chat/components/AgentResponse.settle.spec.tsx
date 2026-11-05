@@ -253,13 +253,11 @@ describe('the end of a streamed answer', () => {
     }
   })
 
-  it('claims completeness only once settled: a dot on the role tab while live, the check after', () => {
+  it('claims completeness only once settled: busy while live, named and idle after', () => {
     const { rerender } = render(answer(STREAMED, true))
-    expect(screen.getByTestId('role-tab-pending')).toBeInTheDocument()
     expect(screen.getByRole('article')).toHaveAttribute('aria-busy', 'true')
     rerender(answer(FINAL, false))
     act(() => vi.advanceTimersByTime(1500))
-    expect(screen.queryByTestId('role-tab-pending')).toBeNull()
     expect(screen.getByRole('article')).not.toHaveAttribute('aria-busy')
     expect(screen.getByRole('article')).toHaveAccessibleName('Result')
   })
@@ -280,7 +278,6 @@ describe('the end of a streamed answer', () => {
     act(() => vi.advanceTimersByTime(1500))
     expect(screen.getByTestId('prose').textContent).toBe(atStop)
     expect(screen.getByTestId('answer-stopped')).toHaveTextContent('Stopped')
-    expect(screen.getByTestId('role-tab-pending')).toBeInTheDocument()
     expect(useAnswerRevealStore.getState().revealingId).toBeNull()
   })
 

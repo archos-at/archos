@@ -19,7 +19,7 @@ switch: Hatchet is required.
 
 | Piece | What it is | Source |
 |---|---|---|
-| `hatchet-api`, `hatchet-grpc`, `hatchet-controllers`, `hatchet-scheduler` | The `hatchet-ha` chart's backend, two replicas each, a PDB (`maxUnavailable: 1`) and preferred anti-affinity per component | `platform/hatchet.ts`, `hatchetValues` |
+| `hatchet-api`, `hatchet-grpc`, `controllers`, `scheduler` | The `hatchet-ha` chart's backend (each name is also its container port name, at most 15 characters), two replicas each, a PDB (`maxUnavailable: 1`) and preferred anti-affinity per component | `platform/hatchet.ts`, `hatchetValues` |
 | `hatchet-frontend`, `caddy` | The dashboard and the chart's Caddy in front of it (`/api/*` to the API). ClusterIP, no route | same |
 | `background-work-pg` | CloudNativePG cluster, two instances, database and role `hatchet` | `data/background-work-pg.ts` |
 | `hatchet-rabbitmq` | `RabbitmqCluster`, three nodes, a PDB, a volume each; Hatchet's message queue | `platform/rabbitmq.ts` |
@@ -191,9 +191,18 @@ The operator is pinned by `RABBITMQ_OPERATOR_VERSION` (`platform/rabbitmq.ts`,
 CRD of that same release. To upgrade it, read the operator's release notes,
 raise the constant, preview on dev. An operator upgrade can roll every
 RabbitmqCluster it manages (a new default RabbitMQ image); the PDB keeps that to
-one node at a time, and two of three keep the quorum. The RabbitMQ version
-itself is the operator's default image for that release; pin `spec.image` in
-`rabbitmqClusterSpec` if a stack must hold one.
+one node at a time, and two of three keep the quorum.
+
+The RabbitMQ version is pinned by `RABBITMQ_IMAGE` (`rabbitmq:4.2.9-management`,
+by digest): the minor Hatchet's own `docker-compose.yml` names at
+`HATCHET_IMAGE_TAG` (4.2.8 at v0.114.2), at its latest patch, never the
+operator's default. Hatchet declares classic queues with a hardcoded
+`x-consumer-timeout`, which RabbitMQ 4.3 accepts only on quorum queues, so on
+4.3 every Hatchet component exits at boot with `406 PRECONDITION_FAILED -
+invalid arg 'x-consumer-timeout'`. When you raise `HATCHET_IMAGE_TAG`, read that
+tag's `docker-compose.yml` and move `RABBITMQ_IMAGE` to its RabbitMQ minor. RabbitMQ
+does not downgrade: a node refuses data written by a newer minor, so lowering the
+image on a running cluster means new volumes.
 
 Before any RabbitMQ change, check the cluster is whole:
 

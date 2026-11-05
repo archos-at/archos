@@ -13,7 +13,6 @@
  */
 
 import { useMemo, useState, type ReactNode } from 'react'
-import { FolderTree, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -73,7 +72,7 @@ export function FileOperationReceipt({
   return (
     <ProposalReceipt
       server={server}
-      eyebrow={<SectionLabel icon={FolderTree}>{t(`cards.fileOperationProposal.eyebrow.${verb}`)}</SectionLabel>}
+      eyebrow={<SectionLabel>{t(`cards.fileOperationProposal.eyebrow.${verb}`)}</SectionLabel>}
       title={title}
       open={
         <>
@@ -229,7 +228,7 @@ export function OperationReceipt({
   return (
     <ProposalReceipt
       server={server}
-      eyebrow={<SectionLabel icon={Zap}>{t('cards.operationProposal.eyebrow')}</SectionLabel>}
+      eyebrow={<SectionLabel>{t('cards.operationProposal.eyebrow')}</SectionLabel>}
       title={proposal?.payload.summary ?? title}
       open={
         <>
