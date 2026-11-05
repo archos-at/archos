@@ -14,6 +14,7 @@ or a brand string changes here and reaches every surface on the next sync.
 | `css/motion.css` | Arrival on load and on scroll: the hero's entrance, the one unveiled drawing, the timeline's line, and text arriving (`data-reveal`). Values come from the tokens; the website's `src/scripts/reveal.ts` decides when a block goes. |
 | `css/covers.css` | The blog covers' pens and fills (`ui-cover`), from the tokens: [docs/blog-covers.md](docs/blog-covers.md). |
 | `css/status.css` | The website's 404, 410 and 500 pages (`ui-status`): the layout, and the motion of their drawings, which use the covers' pens. The workspace draws the same scenes on its own tokens (`apps/workspace/ui/styles/status-drawing.css`). |
+| `css/blocks.css` | The content blocks of a blog post (`ui-chart`, `ui-figures`, `ui-compare`, `ui-annotated`, `ui-legal`, `ui-qa`, `ui-takeaways`): the website's `src/components/blocks/`, one sheet each in `docs/components/`. Chart series are steps of the one ink, validated as an ordinal ramp ([Chart.md](docs/components/Chart.md#farbe)). |
 | `fonts/` | The two WOFF2 files (General Sans variable, Switzer Semibold). |
 | `assets/logos/` | Client logos in grey (Pilotbüros, funding logo). The brand video is not here; it lives with the website. |
 | `docs/components/` | One Markdown rules sheet per component, plus `ColorUsage.md`. |
@@ -31,7 +32,7 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 | Copy | Receives |
 |---|---|
-| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `motion.css`, `covers.css`, `status.css`, `fonts/`, `identity.json` |
+| `apps/website/src/styles/brand/` | `tokens.css`, `components.css`, `motion.css`, `covers.css`, `status.css`, `blocks.css`, `fonts/`, `identity.json` |
 | `apps/workspace/shared/brand/` | `tokens.vars.css`, `fonts/`, `identity.json` |
 | `packages/agent/src/agent/common/` | `identity.json` only: `agent.common.brand` reads the name from it |
 | `apps/agent-host/src/agent_host/drawings/brand/` | `fonts/`, `identity.json`: the title block of the sheet a DXF is drawn on, and its „Erstellt mit …“ line (ADR-0152) |
