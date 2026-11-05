@@ -441,6 +441,33 @@ class TestSegmentPayloads:
         assert data["segment"]["domain"] == "general"
         assert data["document"]["title"] == "Wohnbau Nord"
 
+    def test_a_chunks_drawing_data_is_what_the_dossier_lifts_facts_from(self, registry):
+        # The contract between the two halves: the chunk payload the ingest stores and
+        # the dossier lift that reads it back (``adapter._reading_of``).
+        from agent.knowledge.dossier import lifted_drawing_facts
+
+        reply = _reply(
+            [
+                {
+                    "domain": "architecture",
+                    "segment_type": "section",
+                    "summary": "Schnitt A-A.",
+                    "quantities": [
+                        {
+                            "object": "Wohnen",
+                            "property": "lichte Raumhöhe",
+                            "value": "2,60",
+                            "unit": "m",
+                            "source": "text",
+                        }
+                    ],
+                }
+            ]
+        )
+        payloads = va.segment_payloads(va.parse_visual_analysis(reply, registry), registry)
+        facts = lifted_drawing_facts([(1, json.loads(payload["drawing_data"])) for payload in payloads])
+        assert [(fact["key"], fact["value"]) for fact in facts] == [("room_height", "2,60")]
+
 
 def _two_floor_plans_reply() -> str:
     """One sheet, two floor plans side by side plus a section — issue #440."""
