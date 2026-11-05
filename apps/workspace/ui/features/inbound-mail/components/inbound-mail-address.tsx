@@ -138,7 +138,7 @@ export function InboundMailAddressBlock({
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
       <div className="bg-muted/40 flex flex-col gap-2 rounded-lg border p-3">
-        <p className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">{t('address.label')}</p>
+        <p className="text-muted-foreground text-xs font-medium">{t('address.label')}</p>
         <AddressValue value={value} surface={surface} className="w-full justify-between" />
         <div className="flex flex-wrap gap-2">
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
