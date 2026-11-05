@@ -44,10 +44,17 @@ export const CLAMAV = {
     requests: { cpu: "250m", memory: "2Gi" },
     limits: { cpu: "2", memory: "4Gi" },
   },
-  /** freshclam: a download and a signature check every two hours. */
+  /**
+   * freshclam: a download and a signature check every two hours. The check
+   * (`TestDatabases`, on by default) loads the whole database the way clamd
+   * does, so its peak is clamd's, not a downloader's: at 512Mi the first start
+   * on dev was OOMKilled 22 s in, every restart, on ClamAV 1.5.4 (2026-11-05).
+   * The request stays small, since it idles between checks; the limit leaves
+   * the load room.
+   */
   freshclamResources: {
-    requests: { cpu: "10m", memory: "64Mi" },
-    limits: { cpu: "500m", memory: "512Mi" },
+    requests: { cpu: "10m", memory: "128Mi" },
+    limits: { cpu: "500m", memory: "2Gi" },
   },
   /** The init container that seeds the database from the image: one `cp`. */
   seedResources: {
