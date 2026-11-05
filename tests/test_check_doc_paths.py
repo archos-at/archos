@@ -16,7 +16,7 @@ def checker(tmp_path, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
-    monkeypatch.setattr(module, "tracked_paths", lambda: {"apps/cms/social/links.mjs", "apps/cms/social", "apps/cms"})
+    monkeypatch.setattr(module, "tracked_paths", lambda: {"lib/sample/one.txt", "lib/sample", "lib"})
     monkeypatch.chdir(tmp_path)
     return module
 
@@ -31,14 +31,14 @@ def _index(checker, tmp_path: Path, monkeypatch, row: str) -> list[str]:
 
 
 def test_a_tracked_directory_written_with_its_trailing_slash_passes(checker, tmp_path, monkeypatch):
-    assert _index(checker, tmp_path, monkeypatch, "`apps/cms/social/`") == []
+    assert _index(checker, tmp_path, monkeypatch, "`lib/sample/`") == []
 
 
 def test_a_tracked_directory_written_without_the_slash_passes(checker, tmp_path, monkeypatch):
-    assert _index(checker, tmp_path, monkeypatch, "`apps/cms/social`") == []
+    assert _index(checker, tmp_path, monkeypatch, "`lib/sample`") == []
 
 
 def test_a_directory_git_does_not_know_still_fails(checker, tmp_path, monkeypatch):
-    errors = _index(checker, tmp_path, monkeypatch, "`apps/cms/missing/`")
+    errors = _index(checker, tmp_path, monkeypatch, "`lib/missing/`")
     assert len(errors) == 1
     assert "does not exist" in errors[0]

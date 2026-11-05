@@ -124,7 +124,7 @@ function WeekCard({
     <Card aria-labelledby={headingId} role="region">
       <CardHeader>
         <CardTitle>
-          <h2 id={headingId} className="text-base font-semibold">
+          <h2 id={headingId} className="text-base font-medium">
             {week.date ? (
               <time dateTime={week.date}>{weekTitle(week, locale, t('unreleased'))}</time>
             ) : (
