@@ -1,9 +1,8 @@
-import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 
 // The integration suite against a real Postgres (scripts/test-db.sh sets CMS_TEST_DATABASE_URL).
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: { tsconfigPaths: true },
   test: {
     environment: 'node',
     include: ['tests/int/**/*.int.test.ts'],
