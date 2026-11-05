@@ -263,7 +263,10 @@
       "version": null,
       "date": "2026-10-26",
       "dateEnd": "2026-11-01",
-      "summary": null,
+      "summary": {
+        "en": "Ctrl+K now searches everything your office holds, by name, by kind and by what a document says, and documents can be filtered by drawing number, revision, scale or the facts they state. Each document is read whole, and a project lists where its documents contradict each other or refer to one it does not hold. Sketches can be drawn in the chat and reworked by hand.",
+        "de": "Mit Strg+K durchsuchen Sie jetzt alles, was Ihr Büro hat: nach Name, nach Art und nach dem Inhalt eines Dokuments, und Dokumente lassen sich nach Plannummer, Planstand, Maßstab oder den darin genannten Angaben filtern. Jedes Dokument wird vollständig gelesen, und ein Projekt zeigt, wo sich seine Dokumente widersprechen oder auf eines verweisen, das ihm fehlt. Skizzen entstehen direkt im Chat und lassen sich von Hand überarbeiten."
+      },
       "notes": [
         {
           "section": "features",
@@ -1049,7 +1052,10 @@
       "version": null,
       "date": "2026-10-19",
       "dateEnd": "2026-10-25",
-      "summary": null,
+      "summary": {
+        "en": "Your own AI assistant, such as Claude or Cursor, can now work in your workspace in your name and with your rights, and it asks before it changes anything. Setting up a project takes five short steps, and the Steckbrief shows how the Gebäudeklasse was worked out and which OIB-Richtlinien apply. Loose files can be sorted into folders in one go, and a document in the bin or the archive can be brought back.",
+        "de": "Ihr eigener KI-Assistent, etwa Claude oder Cursor, kann jetzt in Ihrem Namen und mit Ihren Rechten in Ihrem Arbeitsbereich arbeiten und fragt nach, bevor er etwas ändert. Ein Projekt richten Sie in fünf kurzen Schritten ein, und der Steckbrief zeigt, wie die Gebäudeklasse ermittelt wurde und welche OIB-Richtlinien gelten. Lose Dateien lassen sich in einem Schritt in Ordner sortieren, und ein Dokument im Papierkorb oder im Archiv lässt sich zurückholen."
+      },
       "notes": [
         {
           "section": "features",
@@ -1867,7 +1873,10 @@
       "version": null,
       "date": "2026-10-12",
       "dateEnd": "2026-10-18",
-      "summary": null,
+      "summary": {
+        "en": "Documents can now be reviewed together: set an Anmerkung on a page, give it a person and a date, discuss it in its thread, carry it over to the next revision, or export all of them as minutes. The Postfach shows who wrote, filters what waits on you and can notify your phone or computer. On a phone, a bar at the bottom reaches the main areas, and photos and dictation go straight into the chat.",
+        "de": "Dokumente lassen sich jetzt gemeinsam prüfen: Setzen Sie eine Anmerkung auf eine Seite, geben Sie ihr eine zuständige Person und ein Datum, besprechen Sie sie im Verlauf, übernehmen Sie sie in die nächste Fassung oder exportieren Sie alle als Protokoll. Das Postfach zeigt, wer geschrieben hat, filtert, was auf Sie wartet, und kann Ihr Telefon oder Ihren Computer benachrichtigen. Am Telefon erreichen Sie die wichtigsten Bereiche über eine Leiste am unteren Rand, und Fotos und Diktate gelangen direkt in den Chat."
+      },
       "notes": [
         {
           "section": "features",
