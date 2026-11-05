@@ -70,7 +70,7 @@ async function build(extra: Record<string, string>) {
 
 describe("the CMS, switched on", () => {
   beforeAll(async () => {
-    await build({ [key("cmsEnabled")]: "true", [key("imageTag")]: "sha-0123456789abcdef0123456789abcdef01234567" });
+    await build({ [key("cmsEnabled")]: "true", [key("imageRegistry")]: "registry.example.test/owner", [key("imageTag")]: "sha-0123456789abcdef0123456789abcdef01234567" });
   }, 120_000);
 
   it("adds an https-cms listener that admits routes from the cms namespace only", () => {
@@ -96,7 +96,7 @@ describe("the CMS, switched on", () => {
   it("runs the commit's own CMS image as nextjs, read-only, verifying cms-pg's certificate, with files in its own bucket", () => {
     const pod = podOf("kubernetes:apps/v1:Deployment", "cms");
     const [container] = pod.containers;
-    expect(container.image).toBe("ghcr.io/archos-at/grid-oib-cms:sha-0123456789abcdef0123456789abcdef01234567");
+    expect(container.image).toBe("registry.example.test/owner/cms:sha-0123456789abcdef0123456789abcdef01234567");
     expect(container.imagePullPolicy).toBe("IfNotPresent");
     expect(pod.securityContext).toMatchObject({ runAsNonRoot: true, runAsUser: 1001 });
     expect(container.securityContext).toMatchObject({ readOnlyRootFilesystem: true, allowPrivilegeEscalation: false });
@@ -173,11 +173,11 @@ describe("the CMS, switched on", () => {
 
 describe("the CMS, with its image set by hand", () => {
   beforeAll(async () => {
-    await build({ [key("cmsEnabled")]: "true", [key("cmsImage")]: "ghcr.io/archos-at/grid-oib-cms:sha-feedfeedfeedfeedfeedfeedfeedfeedfeedfeed" });
+    await build({ [key("cmsEnabled")]: "true", [key("cmsImage")]: "registry.example.test/owner/cms:sha-feedfeedfeedfeedfeedfeedfeedfeedfeedfeed" });
   }, 120_000);
 
   it("runs that image", () => {
-    expect(podOf("kubernetes:apps/v1:Deployment", "cms").containers[0].image).toBe("ghcr.io/archos-at/grid-oib-cms:sha-feedfeedfeedfeedfeedfeedfeedfeedfeedfeed");
+    expect(podOf("kubernetes:apps/v1:Deployment", "cms").containers[0].image).toBe("registry.example.test/owner/cms:sha-feedfeedfeedfeedfeedfeedfeedfeedfeedfeed");
   });
 });
 

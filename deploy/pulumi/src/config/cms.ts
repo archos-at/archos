@@ -1,5 +1,5 @@
 /**
- * The website's CMS (ADR-0155): Payload, our own image `grid-oib-cms` built from
+ * The website's CMS (ADR-0155): Payload, our own image `cms` built from
  * apps/cms like the other apps, in its own namespace, on its own CloudNativePG
  * cluster, with its files in a SeaweedFS bucket of its own.
  *
@@ -39,7 +39,7 @@ export const CMS = {
 
 /** The CMS image: `cmsImage` when set, else the commit's own build, like the other app images. */
 export function cmsImage(images: ImagesConfig, override: string | undefined): string {
-  return override ?? `${images.registry}/grid-oib-cms:${images.tag}`;
+  return override ?? `${images.registry}/cms:${images.tag}`;
 }
 
 export interface CmsConfig {
@@ -47,7 +47,7 @@ export interface CmsConfig {
   enabled: boolean;
   /** `cms.<baseDomain>` unless `cmsDomain`. */
   domain: string;
-  /** A full image reference that replaces the commit's `grid-oib-cms` (a rollback, a hotfix). */
+  /** A full image reference that replaces the commit's `cms` image (a rollback, a hotfix). */
   imageOverride?: string;
   resources: { requests: Record<string, string>; limits: Record<string, string> };
   /** `PAYLOAD_SECRET`: signs sessions and encrypts API keys at rest. */

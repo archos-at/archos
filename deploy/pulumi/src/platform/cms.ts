@@ -3,7 +3,7 @@
  * `cms.<baseDomain>` (the admin panel, the REST API, and the MCP server at
  * `/api/mcp`), on `cms-pg` (`data/cms-pg.ts`), its files in the SeaweedFS bucket
  * `cms-files` through the `cms` identity. Its collections, rules and hooks are
- * code in apps/cms, built into the image `grid-oib-cms` by CI like the other apps.
+ * code in apps/cms, built into the image `cms` by CI like the other apps.
  *
  * One replica, replaced with `Recreate`: Payload applies its migrations when a
  * production server starts (`prodMigrations`), and two versions must not do that

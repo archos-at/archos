@@ -31,7 +31,7 @@ Usage:
   image_inputs.py plan --registry OWNER         push: build what GHCR does not have yet
 
 `plan` writes `build=<json list>` and `images=<json list>` to $GITHUB_OUTPUT.
-`build` is the matrix of images this run must build; `images` is all three,
+`build` is the matrix of images this run must build; `images` is all of them,
 with their hashes, for the job that tags them.
 """
 
@@ -65,16 +65,21 @@ class Image:
     context: str
     dockerfile: str
     target: str = ""
+    #: The registry repository, when it is not the old prefixed one. A new image is
+    #: named for its job alone (ADR-0145: the registry path already names the owner).
+    repo: str = ""
 
     @property
     def repository(self) -> str:
-        return f"grid-oib-{self.name}"
+        return self.repo or f"grid-oib-{self.name}"
 
 
 IMAGES = (
     Image("backend", context=".", dockerfile="apps/agent-host/Dockerfile", target="release"),
     Image("frontend", context="apps/workspace", dockerfile="apps/workspace/deploy/Dockerfile"),
     Image("web", context="apps/website", dockerfile="apps/website/Dockerfile"),
+    # The website's CMS (ADR-0155).
+    Image("cms", context="apps/cms", dockerfile="apps/cms/Dockerfile", repo="cms"),
 )
 
 _INSTRUCTION = re.compile(r"^\s*(COPY|ADD)\s+(.*)$", re.IGNORECASE)

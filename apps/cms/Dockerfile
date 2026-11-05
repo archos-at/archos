@@ -2,7 +2,7 @@
 # The website's CMS (Payload on Next.js, ADR-0155): production image
 # =============================================================================
 #
-# Built by CI like the other apps (ci/image_inputs.py, `grid-oib-cms`) and run by
+# Built by CI like the other apps (ci/image_inputs.py, repository `cms`) and run by
 # deploy/pulumi/src/platform/cms.ts: `node server.js` from Next's standalone
 # output, port 3000, UID 1001, a read-only root with Next's cache and /tmp
 # mounted writable. Payload applies its migrations when the server starts
