@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- Wie ARCHOS funktioniert: a section through six storeys; the question travels down the shaft, the answer (solid) arrives at the bottom. -->
+  <line class="cut" x1="160" y1="620" x2="1040" y2="620"/>
+  <line class="view" x1="184" y1="620" x2="172" y2="632"/>
+  <line class="view" x1="208" y1="620" x2="196" y2="632"/>
+  <line class="view" x1="232" y1="620" x2="220" y2="632"/>
+  <line class="view" x1="256" y1="620" x2="244" y2="632"/>
+  <line class="view" x1="280" y1="620" x2="268" y2="632"/>
+  <line class="view" x1="304" y1="620" x2="292" y2="632"/>
+  <line class="view" x1="328" y1="620" x2="316" y2="632"/>
+  <line class="view" x1="352" y1="620" x2="340" y2="632"/>
+  <line class="view" x1="376" y1="620" x2="364" y2="632"/>
+  <line class="view" x1="400" y1="620" x2="388" y2="632"/>
+  <line class="view" x1="424" y1="620" x2="412" y2="632"/>
+  <line class="view" x1="448" y1="620" x2="436" y2="632"/>
+  <line class="view" x1="472" y1="620" x2="460" y2="632"/>
+  <line class="view" x1="496" y1="620" x2="484" y2="632"/>
+  <line class="view" x1="520" y1="620" x2="508" y2="632"/>
+  <line class="view" x1="544" y1="620" x2="532" y2="632"/>
+  <line class="view" x1="568" y1="620" x2="556" y2="632"/>
+  <line class="view" x1="592" y1="620" x2="580" y2="632"/>
+  <line class="view" x1="616" y1="620" x2="604" y2="632"/>
+  <line class="view" x1="640" y1="620" x2="628" y2="632"/>
+  <line class="view" x1="664" y1="620" x2="652" y2="632"/>
+  <line class="view" x1="688" y1="620" x2="676" y2="632"/>
+  <line class="view" x1="712" y1="620" x2="700" y2="632"/>
+  <line class="view" x1="736" y1="620" x2="724" y2="632"/>
+  <line class="view" x1="760" y1="620" x2="748" y2="632"/>
+  <line class="view" x1="784" y1="620" x2="772" y2="632"/>
+  <line class="view" x1="808" y1="620" x2="796" y2="632"/>
+  <line class="view" x1="832" y1="620" x2="820" y2="632"/>
+  <line class="view" x1="856" y1="620" x2="844" y2="632"/>
+  <line class="view" x1="880" y1="620" x2="868" y2="632"/>
+  <line class="view" x1="904" y1="620" x2="892" y2="632"/>
+  <line class="view" x1="928" y1="620" x2="916" y2="632"/>
+  <line class="view" x1="952" y1="620" x2="940" y2="632"/>
+  <line class="view" x1="976" y1="620" x2="964" y2="632"/>
+  <line class="view" x1="1000" y1="620" x2="988" y2="632"/>
+  <line class="view" x1="1024" y1="620" x2="1012" y2="632"/>
+  <line class="view" x1="404" y1="188" x2="404" y2="248"/>
+  <line class="view" x1="404" y1="260" x2="404" y2="320"/>
+  <line class="view" x1="404" y1="332" x2="404" y2="392"/>
+  <line class="view" x1="404" y1="404" x2="404" y2="464"/>
+  <line class="view" x1="404" y1="476" x2="404" y2="536"/>
+  <line class="view" x1="404" y1="548" x2="404" y2="608"/>
+  <line class="view" x1="410" y1="188" x2="410" y2="248"/>
+  <line class="view" x1="410" y1="260" x2="410" y2="320"/>
+  <line class="view" x1="410" y1="332" x2="410" y2="392"/>
+  <line class="view" x1="410" y1="404" x2="410" y2="464"/>
+  <line class="view" x1="410" y1="476" x2="410" y2="536"/>
+  <line class="view" x1="410" y1="548" x2="410" y2="608"/>
+  <line class="view" x1="790" y1="188" x2="790" y2="248"/>
+  <line class="view" x1="790" y1="260" x2="790" y2="320"/>
+  <line class="view" x1="790" y1="332" x2="790" y2="392"/>
+  <line class="view" x1="790" y1="404" x2="790" y2="464"/>
+  <line class="view" x1="790" y1="476" x2="790" y2="536"/>
+  <line class="view" x1="790" y1="548" x2="790" y2="608"/>
+  <line class="view" x1="796" y1="188" x2="796" y2="248"/>
+  <line class="view" x1="796" y1="260" x2="796" y2="320"/>
+  <line class="view" x1="796" y1="332" x2="796" y2="392"/>
+  <line class="view" x1="796" y1="404" x2="796" y2="464"/>
+  <line class="view" x1="796" y1="476" x2="796" y2="536"/>
+  <line class="view" x1="796" y1="548" x2="796" y2="608"/>
+  <rect class="cut" x="392" y="160" width="12" height="16" fill="url(#hatch)"/>
+  <rect class="cut" x="796" y="160" width="12" height="16" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="176" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="176" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="248" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="248" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="320" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="320" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="392" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="392" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="464" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="464" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="536" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="536" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="392" y="608" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="640" y="608" width="168" height="12" fill="url(#hatch)"/>
+  <rect class="cut" x="560" y="160" width="12" height="460" fill="url(#hatch)"/>
+  <rect class="cut" x="628" y="160" width="12" height="460" fill="url(#hatch)"/>
+  <line class="view" x1="600" y1="188" x2="600" y2="552"/>
+  <rect class="solid" x="580" y="552" width="40" height="48"/>
+  <rect class="hidden" x="584" y="196" width="32" height="44"/>
+  <rect class="hidden" x="584" y="268" width="32" height="44"/>
+  <rect class="hidden" x="584" y="340" width="32" height="44"/>
+  <rect class="hidden" x="584" y="412" width="32" height="44"/>
+  <rect class="hidden" x="584" y="484" width="32" height="44"/>
+  <line class="axis" x1="600" y1="140" x2="600" y2="660"/>
+  <circle class="paper view" cx="600" cy="676" r="16"/>
+  <line class="dim" x1="320" y1="160" x2="320" y2="624"/>
+  <line class="dim" x1="312" y1="176" x2="380" y2="176"/>
+  <line class="view" x1="313" y1="183" x2="327" y2="169"/>
+  <line class="dim" x1="312" y1="248" x2="380" y2="248"/>
+  <line class="view" x1="313" y1="255" x2="327" y2="241"/>
+  <line class="dim" x1="312" y1="320" x2="380" y2="320"/>
+  <line class="view" x1="313" y1="327" x2="327" y2="313"/>
+  <line class="dim" x1="312" y1="392" x2="380" y2="392"/>
+  <line class="view" x1="313" y1="399" x2="327" y2="385"/>
+  <line class="dim" x1="312" y1="464" x2="380" y2="464"/>
+  <line class="view" x1="313" y1="471" x2="327" y2="457"/>
+  <line class="dim" x1="312" y1="536" x2="380" y2="536"/>
+  <line class="view" x1="313" y1="543" x2="327" y2="529"/>
+  <line class="dim" x1="312" y1="608" x2="380" y2="608"/>
+  <line class="view" x1="313" y1="615" x2="327" y2="601"/>
+  <polygon class="paper view" points="848,162 864,162 856,176"/><line class="view" x1="832" y1="176" x2="896" y2="176"/>
+  <polygon class="paper view" points="848,234 864,234 856,248"/><line class="view" x1="832" y1="248" x2="896" y2="248"/>
+  <polygon class="paper view" points="848,306 864,306 856,320"/><line class="view" x1="832" y1="320" x2="896" y2="320"/>
+  <polygon class="paper view" points="848,378 864,378 856,392"/><line class="view" x1="832" y1="392" x2="896" y2="392"/>
+  <polygon class="paper view" points="848,450 864,450 856,464"/><line class="view" x1="832" y1="464" x2="896" y2="464"/>
+  <polygon class="paper view" points="848,522 864,522 856,536"/><line class="view" x1="832" y1="536" x2="896" y2="536"/>
+  <polygon class="paper view" points="848,594 864,594 856,608"/><line class="view" x1="832" y1="608" x2="896" y2="608"/>
+</svg>

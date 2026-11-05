@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- Ein System, das aus Ihrem Frust lernt: a spiral stair in plan, a loop that comes round one level higher; six cut treads for the six steps, the post (solid) at its centre. -->
+  <line class="axis" x1="256" y1="400" x2="944" y2="400"/>
+  <line class="axis" x1="600" y1="140" x2="600" y2="660"/>
+  <circle class="paper view" cx="240" cy="400" r="16"/>
+  <circle class="paper view" cx="600" cy="676" r="16"/>
+  <path class="cut" d="M360 400a240 240 0 1 0 480 0a240 240 0 1 0 -480 0Z M376 400a224 224 0 1 1 448 0a224 224 0 1 1 -448 0Z" fill="url(#hatch)" fill-rule="evenodd"/>
+  <circle class="paper cut" cx="600" cy="400" r="224"/>
+  <line class="cut" x1="600" y1="376" x2="600" y2="176"/>
+  <line class="view" x1="608.21" y1="377.45" x2="676.61" y2="189.51"/>
+  <line class="view" x1="615.43" y1="381.61" x2="743.98" y2="228.41"/>
+  <line class="cut" x1="620.78" y1="388" x2="793.99" y2="288"/>
+  <line class="view" x1="623.64" y1="395.83" x2="820.6" y2="361.1"/>
+  <line class="view" x1="623.64" y1="404.17" x2="820.6" y2="438.9"/>
+  <line class="cut" x1="620.78" y1="412" x2="793.99" y2="512"/>
+  <line class="view" x1="615.43" y1="418.39" x2="743.98" y2="571.59"/>
+  <line class="view" x1="608.21" y1="422.55" x2="676.61" y2="610.49"/>
+  <line class="cut" x1="600" y1="424" x2="600" y2="624"/>
+  <line class="view" x1="591.79" y1="422.55" x2="523.39" y2="610.49"/>
+  <line class="view" x1="584.57" y1="418.39" x2="456.02" y2="571.59"/>
+  <line class="cut" x1="579.22" y1="412" x2="406.01" y2="512"/>
+  <line class="view" x1="576.36" y1="404.17" x2="379.4" y2="438.9"/>
+  <line class="view" x1="576.36" y1="395.83" x2="379.4" y2="361.1"/>
+  <line class="hidden" x1="579.22" y1="388" x2="406.01" y2="288"/>
+  <line class="hidden" x1="584.57" y1="381.61" x2="456.02" y2="228.41"/>
+  <line class="hidden" x1="591.79" y1="377.45" x2="523.39" y2="189.51"/>
+  <polyline class="view" points="572.81,387.32 500.31,353.51 493.66,339.38 474.33,352.43 467.68,338.3 400.61,307.02"/>
+  <path class="view" d="M626.05 252.28A150 150 0 1 1 455.11 361.18"/>
+  <circle class="paper view" cx="626.05" cy="252.28" r="6"/>
+  <line class="view" x1="455.11" y1="361.18" x2="442.72" y2="376.49"/>
+  <line class="view" x1="455.11" y1="361.18" x2="458.18" y2="380.63"/>
+  <circle class="solid" cx="600" cy="400" r="24"/>
+  <line class="dim" x1="928" y1="160" x2="928" y2="640"/>
+  <line class="dim" x1="608" y1="160" x2="936" y2="160"/>
+  <line class="view" x1="921" y1="167" x2="935" y2="153"/>
+  <line class="dim" x1="608" y1="640" x2="936" y2="640"/>
+  <line class="view" x1="921" y1="647" x2="935" y2="633"/>
+</svg>

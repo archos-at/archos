@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- ChatGPT fuer Baurecht: a detail callout on a drawing, in front of older editions, refers to a sheet that does not exist (hidden). -->
+  <rect class="paper view" x="232" y="168" width="360" height="400"/>
+  <rect class="paper view" x="216" y="184" width="360" height="400"/>
+  <rect class="paper cut" x="200" y="200" width="360" height="400"/>
+  <path class="cut" d="M240 240H520V560H240Z M256 256V544H504V256Z" fill="url(#hatch)" fill-rule="evenodd"/>
+  <line class="view" x1="256" y1="400" x2="352" y2="400"/>
+  <line class="view" x1="400" y1="400" x2="504" y2="400"/>
+  <line class="view" x1="392" y1="256" x2="392" y2="400"/>
+  <line class="view" x1="392" y1="448" x2="392" y2="544"/>
+  <path class="view" d="M352 400A48 48 0 0 1 400 448"/>
+  <line class="view" x1="400" y1="400" x2="400" y2="448"/>
+  <circle class="view" cx="456" cy="328" r="40"/>
+  <circle class="solid" cx="456" cy="328" r="10"/>
+  <line class="view" x1="494" y1="314" x2="760" y2="300"/>
+  <rect class="hidden" x="680" y="200" width="320" height="400"/>
+  <circle class="hidden" cx="800" cy="300" r="40"/>
+  <line class="hidden" x1="720" y1="400" x2="960" y2="400"/>
+  <line class="hidden" x1="720" y1="432" x2="920" y2="432"/>
+  <line class="hidden" x1="720" y1="464" x2="944" y2="464"/>
+  <line class="hidden" x1="720" y1="496" x2="880" y2="496"/>
+  <line class="hidden" x1="720" y1="528" x2="936" y2="528"/>
+  <rect class="hidden" x="880" y="552" width="120" height="48"/>
+</svg>
