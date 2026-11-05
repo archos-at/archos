@@ -474,8 +474,9 @@ def test_every_committed_note_gets_a_known_area():
 
 def test_the_template_offers_every_area():
     template = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))["template"]
-    offered = areas.area_line(template)
-    assert offered and all(area in offered for area in areas.AREAS)
+    assert areas.TEMPLATE_AREA in (areas.area_line(template) or "")
+    offered = template.split("# Keep the line above")[0]
+    assert all(re.search(rf"\b{re.escape(area)}\b", offered) for area in areas.AREAS)
 
 
 # ── translation ─────────────────────────────────────────────────────────────
