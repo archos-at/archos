@@ -31,7 +31,7 @@ describe('changelog', () => {
     const dates = releases.map((r) => r.date ?? '9999');
     expect([...dates].sort().reverse()).toEqual(dates);
     for (const release of releases) {
-      // The public tier carries no single note (ADR-0154): the summary is the entry.
+      // The public tier carries no single note (ADR-0156): the summary is the entry.
       expect(Object.keys(release).sort()).toEqual(['date', 'dateEnd', 'id', 'kind', 'summary', 'version']);
       expect(release.summary.de.length).toBeGreaterThan(0);
       expect(release.summary.en.length).toBeGreaterThan(0);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Drafts a LinkedIn post per language from a week's summary in
- * releasenotes/summaries.yaml (the public changelog's source, ADR-0154), linking
+ * releasenotes/summaries.yaml (the public changelog's source, ADR-0156), linking
  * the changelog. Drafts only: a person edits and approves them in the CMS.
  * Keyed by `sourceRef`, so a re-run creates what is missing and never
  * overwrites a draft someone has worked on.

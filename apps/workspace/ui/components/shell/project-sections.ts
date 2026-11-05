@@ -24,9 +24,9 @@ import {
  * ONE place, so the rail and the palette can never disagree again.
  *
  * One icon per destination. Rail order (top → bottom, Settings pinned
- * separately): Ask Piloti · Files · Automation* · Archiv* · Suche · Inbox*.
+ * separately): Chat · Files · Automation* · Archiv* · Suche · Inbox*.
  *
- * Ask Piloti is the primary job-to-be-done and leads; Files is the other work
+ * Chat is the primary job-to-be-done and leads; Files is the other work
  * surface. History has no rail entry any more — the chat toolbar's history
  * sheet is the record of the project's past. Automation is the THIRD work
  * surface and sits in the same group as the other two: Tasks (what Piloti did
@@ -172,7 +172,7 @@ const PROJECT_SECTIONS: readonly ProjectSection[] = [
   },
   {
     // Automation: Tasks, Zeitplan and Skills as tabs inside one section, in
-    // the `work` group beside Ask Piloti and Dateien because that is what it
+    // the `work` group beside Chat and Dateien because that is what it
     // is — the surface where a project's delegated work is read and where the
     // next week of it is set. Same `showSkills` gate as before: the three
     // surfaces ship together, and a schedule wizard whose skill picker
@@ -278,7 +278,7 @@ export function sectionHref(section: ProjectSection, base: string): string {
 
 /**
  * Where a link TO a section goes. The same as {@link sectionHref} except for
- * "Frag Piloti", which always opens a fresh chat (an empty draft), never the
+ * "Chat", which always opens a fresh chat (an empty draft), never the
  * last thread the reader left open; `?new=1` is consumed once by the chat
  * client. Shared by the rail and the phone tab bar, so the two doors to the
  * same place cannot disagree about where it is.

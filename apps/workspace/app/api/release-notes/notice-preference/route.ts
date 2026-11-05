@@ -1,5 +1,5 @@
 /**
- * Whether this person is shown the newest weekly release-notes summary in a notice (ADR-0154,
+ * Whether this person is shown the newest weekly release-notes summary in a notice (ADR-0156,
  * amendment): the switch on the profile page, and what "Nicht mehr anzeigen" turns off.
  *
  * GET — any signed-in member, about themselves.

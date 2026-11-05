@@ -19,7 +19,7 @@ export const nav = {
   openNavigation: 'Open navigation',
   closeNavigation: 'Close navigation',
   sections: {
-    chat: 'Ask {productName}',
+    chat: 'Chat',
     files: 'Files',
     knowledge: 'Knowledge',
     research: 'Research',

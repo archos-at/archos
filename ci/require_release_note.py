@@ -5,7 +5,7 @@ The rule (AGENTS.md, "Release notes are mandatory"): a change a customer can
 notice carries its note in the same pull request. A note in a customer section
 (features, improvements, fixes, deprecations, upgrade, other) is published to
 the app's "What's new" on merge, and the week's public summary is written from
-it (ADR-0154); one in `security`, `incident` or `operators` is kept in the
+it (ADR-0156); one in `security`, `incident` or `operators` is kept in the
 repository and never published. Either way the PR
 is the last moment at which the person who knows what changed is still the one
 writing it down.

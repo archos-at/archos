@@ -437,6 +437,18 @@ describe('ChatToolbar', () => {
       expect(screen.getByText('My Session')).toBeInTheDocument()
     })
 
+    test('the title is the size of the New chat label beside it, from `sm` on', () => {
+      // The title read as a heading next to a button, one step larger than the
+      // only other words in the row. Beside each other they are one row.
+      render(<ChatToolbar sessionTitle="My Session" />)
+
+      const newChatLabel = screen.getByText('New chat')
+      const title = screen.getByRole('button', { name: /rename session/i })
+      expect(newChatLabel.className).toContain('text-xs')
+      expect(title.className).toContain('sm:text-xs')
+      expect(title.className).toContain('sm:leading-4')
+    })
+
     test('does not repeat the project name in the breadcrumb — the context row above it carries it', () => {
       render(<ChatToolbar sessionTitle="My Session" projectName="Wohnbau Favoriten" />)
 

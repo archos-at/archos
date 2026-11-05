@@ -360,7 +360,7 @@ function Fact({
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-muted-foreground text-xs uppercase tracking-wide">{label}</span>
+      <span className="text-muted-foreground text-xs">{label}</span>
       {href ? (
         <a
           href={href}

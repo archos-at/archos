@@ -31,7 +31,7 @@ const NAME_FIRST_REM = 18
 
 /** Average advance per character, in rem, by how a cell sets its text. */
 const ADVANCE = {
-  /** The header: small caps-height uppercase, tracked. */
+  /** The header: the 10.5px eyebrow. Measured when it was set in tracked capitals, so it errs wide. */
   header: 0.47,
   /** Running text at text-sm. */
   text: 0.45,

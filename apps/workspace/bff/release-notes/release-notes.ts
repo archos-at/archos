@@ -1,6 +1,6 @@
 /**
  * What changed in the product, for signed-in members: the customer tier of the release notes
- * (ADR-0154).
+ * (ADR-0156).
  *
  * The data is `release-notes.generated.json`, written by `scripts/release_notes.py publish` from the
  * reno notes and committed by the release-notes workflow on every merge to `develop`, like the

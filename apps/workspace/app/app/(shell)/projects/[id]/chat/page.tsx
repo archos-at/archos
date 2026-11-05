@@ -72,10 +72,9 @@ const ProjectChatPage = async ({ params }: ProjectChatPageProps): Promise<ReactN
     }
 
     // Project lookup for the chat surface: the project name in the
-    // thread-header breadcrumb and the composer scope chip (WS-3). The Deep
-    // Research section needs only the project id, which the job proxy checks
-    // and signs (ADR-0084). Fail-soft: a missing row just degrades to a
-    // nameless scope chip, never a broken chat.
+    // thread header (WS-3). The Deep Research section needs only the project
+    // id, which the job proxy checks and signs (ADR-0084). Fail-soft: a missing
+    // row just degrades to a nameless header, never a broken chat.
     let projectName: string | null = null
     try {
       // Scoped to the session's organization: the previous lookup matched on id

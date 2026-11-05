@@ -348,7 +348,7 @@ export function IfcScheduleCard({
         <div className="space-y-3">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs uppercase text-muted-foreground">
+              <thead className="text-left text-xs text-muted-foreground">
                 <tr>
                   <th scope="col" className="py-1 pr-2 font-medium">
                     {t('schedule.room')}
@@ -527,7 +527,7 @@ export function IfcElementCard({
             // between them: "Feuerwiderstand" and "REI 90" were read out as an
             // unlabelled pair, which is the whole content of the card.
             <div key={setName} className="space-y-0.5">
-              <p className="text-xs font-medium uppercase text-muted-foreground">{setName}</p>
+              <p className="text-xs font-medium text-muted-foreground">{setName}</p>
               <dl className="space-y-0.5">
                 {Object.entries(properties).map(([name, value]) => (
                   <div key={name} className="flex justify-between gap-3">

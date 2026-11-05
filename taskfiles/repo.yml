@@ -110,7 +110,7 @@ tasks:
   # Every user-visible change ships a note; on merge the notes are published to
   # the app (every note, for signed-in members) and the website (the weekly
   # summaries only). The full rules are in docs/contributing/release-notes.md,
-  # the tiers in ADR-0154, the mandate in AGENTS.md.
+  # the tiers in ADR-0156, the mandate in AGENTS.md.
 
   release:note:
     desc: 'Start a release note for the change you are making: task release:note -- <slug>'

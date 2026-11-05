@@ -1,6 +1,6 @@
 /**
  * Record that this person has seen a week's release-notes summary, so the "Neu diese Woche"
- * notice does not show it again on any device (ADR-0154, amendment). Never moves backwards.
+ * notice does not show it again on any device (ADR-0156, amendment). Never moves backwards.
  * With `stop`, also turns the notice off for good ("Nicht mehr anzeigen").
  *
  * POST — any signed-in member, about themselves: the record is keyed to session.userId.

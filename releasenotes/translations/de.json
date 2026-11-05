@@ -1656,6 +1656,10 @@
     "de": "Jedes Foto wird nach dem Zeitpunkt der Aufnahme benannt, sodass ein weiteres Foto das erste nicht mehr ersetzt. Wenn Fotos nicht aktiviert sind, zeigt das Menü den Grund an."
   },
   {
+    "en": "Each project in your project list shows its address under its name, so you can tell projects apart at a glance. The two project lists on the overview now line up.",
+    "de": "In Ihrer Projektliste wird bei jedem Projekt die Adresse unter dem Namen angezeigt, sodass Sie Projekte auf einen Blick unterscheiden können. Die beiden Projektlisten in der Übersicht sind jetzt aufeinander ausgerichtet."
+  },
+  {
     "en": "Each project now has a Steckbrief in its settings: the address, the period from start to completion, and everyone who worked on it, including former staff and external planners without a Piloti account.",
     "de": "Jedes Projekt hat jetzt in seinen Einstellungen einen Steckbrief: die Adresse, den Zeitraum vom Beginn bis zur Fertigstellung und alle, die daran mitgearbeitet haben, auch ehemalige Mitarbeitende und externe Planerinnen und Planer ohne Piloti-Konto."
   },
@@ -1990,6 +1994,10 @@
   {
     "en": "In Safari, opening a citation now marks the quoted passage in the document, as it does in Chrome and Firefox.",
     "de": "Beim Öffnen eines Zitats in Safari wird die zitierte Passage jetzt im Dokument markiert – wie in Chrome und Firefox."
+  },
+  {
+    "en": "In a chat, the thread title is the same size as the \"New chat\" button beside it, and the project chip under the input field, which did nothing, is gone.",
+    "de": "In einem Chat ist der Thread-Titel gleich groß wie der Button „Neuer Chat“ daneben, und der funktionslose Projekt-Chip unter dem Eingabefeld ist entfernt."
   },
   {
     "en": "In a file's detail view you can expand what was recognised: rooms, circulation, structure, building technology, build-ups and key figures, each marked as labelled on the drawing or derived from it.",
@@ -2904,6 +2912,10 @@
     "de": "Sekundärtexte und Status-Chips sind im hellen und dunklen Theme dunkler, wenn sie zuvor zu blass waren, und die Dateivorschau lässt sich mit der Tastatur scrollen."
   },
   {
+    "en": "Section headings, table headers and other labels are no longer set in capitals, and numbers no longer show a zero with a slash through it.",
+    "de": "Abschnittsüberschriften, Tabellenüberschriften und andere Bezeichnungen werden nicht mehr in Versalien gesetzt, und Zahlen zeigen keine Null mit Schrägstrich mehr."
+  },
+  {
     "en": "See what a new version of a document changed: filter for documents whose stated facts differ from the version they replaced, such as a new building class or one more storey, and each result names the change, before and after. The filter panel also says how many documents Piloti has not read yet, so a count never suggests they lack a value.",
     "de": "Sehen Sie, was eine neue Fassung geändert hat: Filtern Sie nach Dokumenten, deren Angaben von der ersetzten Fassung abweichen, etwa eine neue Gebäudeklasse oder ein Geschoss mehr, und jeder Treffer nennt die Änderung mit altem und neuem Wert. Die Filterleiste sagt außerdem, wie viele Dokumente Piloti noch nicht gelesen hat, damit eine Zahl nie den Eindruck erweckt, ihnen fehle ein Wert."
   },
@@ -3468,6 +3480,10 @@
     "de": "Der Posteingang bewegt sich: Wenn Sie ihn öffnen, gleitet er herein, archivierte Einträge klappen weg, statt zu verschwinden, und die Zahl an der Glocke wird eingeblendet, sobald etwas Neues eintrifft."
   },
   {
+    "en": "The inbox no longer repeats its heading when nothing is waiting for you; it says there are no open requests.",
+    "de": "Der Posteingang zeigt seine Überschrift nicht mehr erneut an, wenn nichts auf Sie wartet, sondern meldet, dass keine offenen Anfragen vorliegen."
+  },
+  {
     "en": "The inbox no longer says \"All caught up\" under a bell that still counts something. A request a colleague answered before you opened it now shows as new until you read it, and when part of the inbox cannot be loaded you see the error and a way to retry.",
     "de": "Im Posteingang wird „Alles erledigt“ nicht mehr angezeigt, solange die Glocke noch eine Anzahl ausweist. Eine Anfrage, die ein Kollege beantwortet hat, bevor Sie sie geöffnet haben, wird als neu angezeigt, bis Sie sie gelesen haben. Wenn sich ein Teil des Posteingangs nicht laden lässt, sehen Sie die Fehlermeldung und können es erneut versuchen."
   },
@@ -3638,6 +3654,10 @@
   {
     "en": "The settings overview of a project whose intake was never completed no longer shows an error. Its similar closed projects load again.",
     "de": "Die Einstellungsübersicht eines Projekts, dessen Erfassung nie abgeschlossen wurde, zeigt keinen Fehler mehr. Ähnliche abgeschlossene Projekte werden wieder geladen."
+  },
+  {
+    "en": "The sidebar entry that opens a conversation is now simply called \"Chat\", on the desktop and on the phone.",
+    "de": "Der Sidebar-Eintrag zum Öffnen einer Unterhaltung heißt jetzt am Desktop und am Smartphone einfach „Chat“."
   },
   {
     "en": "The skill editor no longer has the switch that let Piloti pick skills on its own. Piloti decides which skills to consider, and saved skills are unchanged and available again.",
@@ -4270,6 +4290,10 @@
   {
     "en": "When you move through the file list with the keyboard, your place is kept instead of jumping back to the first row. Home and End jump to the start and end of the list.",
     "de": "Wenn Sie die Dateiliste mit der Tastatur durchgehen, bleibt Ihre Position erhalten, statt zur ersten Zeile zurückzuspringen. Pos1 und Ende springen an den Anfang bzw. das Ende der Liste."
+  },
+  {
+    "en": "When you review a document, clicking the active markup tool again puts it down. The Open and Done filters show a count only when there is something to count.",
+    "de": "Wenn Sie ein Dokument prüfen, deaktivieren Sie das aktive Markup-Tool durch erneutes Anklicken. Die Filter „Open“ und „Done“ zeigen nur dann eine Anzahl an, wenn es etwas zu zählen gibt."
   },
   {
     "en": "When you send a new question while Piloti is still answering the previous one, the earlier answer is now stopped completely before the new one starts, so the two can no longer mix in one conversation. In the rare case that the earlier answer does not stop within a few seconds, Piloti says it is still finishing and asks you to send the question again.",

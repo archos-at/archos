@@ -13,7 +13,7 @@ import identity, { withName } from './identity';
  * `develop`. Nothing here reads git or calls a translator at build time, which keeps the web image
  * build hermetic. Never edit the JSON by hand.
  *
- * The public tier holds the summaries and nothing else (ADR-0154): every single note is for signed-in
+ * The public tier holds the summaries and nothing else (ADR-0156): every single note is for signed-in
  * customers, in the app's "What's new". A week without a summary is not in the file. See
  * docs/contributing/release-notes.md.
  */

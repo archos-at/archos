@@ -1,6 +1,6 @@
 import type { en } from '../en'
 
-/** Neuerungen: jede Änderung, für angemeldete Mitglieder (`/app/whats-new`, ADR-0154). */
+/** Neuerungen: jede Änderung, für angemeldete Mitglieder (`/app/whats-new`, ADR-0156). */
 export const whatsNew: typeof en.whatsNew = {
   title: 'Neuerungen',
   subtitle: 'Jede Änderung an {productName}, Woche für Woche. Die öffentliche Website zeigt nur die Zusammenfassung jeder Woche.',

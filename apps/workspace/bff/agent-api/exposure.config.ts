@@ -458,7 +458,7 @@ export const EXPOSURE = {
   'organization-usage-notice-get': withheld('product-config', 'the budget window close to stopping the person; a refused call says so itself'),
   'organization-web-search-set': withheld('external-service', 'switches the web search provider the agent answers with; a calling agent has its own web search'),
   'organization-zdr-set': withheld('product-config', 'whether model providers may keep data; a product privacy setting a person decides'),
-  // What changed in the product (ADR-0154): read-only product news, the same for every office. Offered: an
+  // What changed in the product (ADR-0156): read-only product news, the same for every office. Offered: an
   // outside agent asked "can it do X now?" and the in-product agent asked "what's new?" both answer from it.
   'release-note-list': OFFERED,
   'release-summary-notice-get': withheld('ui-state', 'whether the person wants the weekly summary notice; their own setting'),

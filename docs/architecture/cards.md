@@ -779,7 +779,7 @@ and one figure. They exist as classes in `src/app/globals.css`, declared in
 
 | Step | Class | Spec |
 |---|---|---|
-| Eyebrow | `card-eyebrow` (via `SectionLabel`) | 10.5 / 500 / uppercase / +0.05em |
+| Eyebrow | `card-eyebrow` (via `SectionLabel`) | 10.5 / 500 / sentence case, no tracking |
 | Meta | `card-meta` | 11 / 500 / tabular-nums |
 | Caption | `card-caption` | 12 / 400 |
 | Body | `card-body` | 13.5 / 400 / 1.55 |

@@ -1,4 +1,4 @@
-/** whatsNew namespace: the in-app list of every change, for signed-in members (`/app/whats-new`, ADR-0154). */
+/** whatsNew namespace: the in-app list of every change, for signed-in members (`/app/whats-new`, ADR-0156). */
 export const whatsNew = {
   title: "What's new",
   subtitle: 'Every change to {productName}, week by week. The public website shows only the summary of each week.',

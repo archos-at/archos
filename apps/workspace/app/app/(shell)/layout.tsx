@@ -89,7 +89,7 @@ export default async function AppShellLayout({
         <MainScrollMemory />
         {children}
       </main>
-      {/* The newest weekly summary, once (ADR-0154): inside the chrome, so it can wait out a tour. */}
+      {/* The newest weekly summary, once (ADR-0156): inside the chrome, so it can wait out a tour. */}
       <WhatsNewNoticeInShell state={chrome.whatsNew} />
     </AppShellChrome>
   )

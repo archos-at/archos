@@ -1,7 +1,7 @@
 # reno configuration — https://docs.openstack.org/reno/latest/
 #
 # Release notes in this repo are written for CUSTOMERS, not for the commit log.
-# Three tiers read them (ADR-0154):
+# Three tiers read them (ADR-0156):
 #
 #   customers  every note in a customer section, verbatim (translated into
 #              German), in the app's "What's new" for signed-in members,

@@ -222,13 +222,13 @@ export default function ComposerFilesPreviewPage() {
 
           <div>
             <div className="mb-2 font-mono text-xs text-muted-foreground">↓ desktop</div>
-            <InputArea isAuthenticated connectionMode="sse" projectName="Stadthaus Wien 1090" />
+            <InputArea isAuthenticated connectionMode="sse" />
           </div>
 
           <div>
             <div className="mb-2 font-mono text-xs text-muted-foreground">↓ mobile width (390px)</div>
             <div className="w-[390px] max-w-full">
-              <InputArea isAuthenticated connectionMode="sse" projectName="Stadthaus Wien 1090" />
+              <InputArea isAuthenticated connectionMode="sse" />
             </div>
           </div>
         </div>

@@ -134,7 +134,7 @@ identity and its second factor.
 | 10 | Social: model, UTM convention, Buffer hand-off with a dry run, LinkedIn drafts on publish (a job), drafts from the weekly release summaries | LinkedIn | built and tested offline; not running: no Buffer account yet |
 | 11 | Editors sign in through WorkOS (a Payload custom auth strategy: AuthKit's session cookie to a CMS user by e-mail, roles from the CMS), and AuthKit's MFA is the second factor | sign-in | next; until then local sign-in with lockout, 12-character passwords, eight-hour sessions, `SameSite=Strict` `Secure` cookies, no self-registration |
 | 12 | The deploy pipeline resolves the `cms` image per service like the other three (`deploy/pulumi/scripts/resolve-image-refs.sh`, `deploy.yml`); today it follows `imageTag`, which a CI-triggered deploy sets to a commit CI tagged for all images | operations | next, before `cmsEnabled` on staging |
-| 13 | Site pages beyond the blog in the CMS by the same blocks: home sections, FAQ, team, pilot offices (globals and collections). Not the legal pages (their review is a pull request, on purpose) and not the changelog (ADR-0154) | team edits the site | later |
+| 13 | Site pages beyond the blog in the CMS by the same blocks: home sections, FAQ, team, pilot offices (globals and collections). Not the legal pages (their review is a pull request, on purpose) and not the changelog (ADR-0156) | team edits the site | later |
 | 14 | A translation drafted by an agent when a post is created (a job, our agent through MCP) | translation | later |
 
 ### How the review step is enforced

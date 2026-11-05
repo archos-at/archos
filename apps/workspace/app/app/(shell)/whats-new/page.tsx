@@ -1,5 +1,5 @@
 /**
- * What's new: every change to the product, for signed-in members (ADR-0154).
+ * What's new: every change to the product, for signed-in members (ADR-0156).
  *
  * The customer tier of the release notes. The public website shows one summary per week; here a
  * member reads every change, grouped by week and narrowed by product area. The data is bundled with

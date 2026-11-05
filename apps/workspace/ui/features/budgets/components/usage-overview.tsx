@@ -212,7 +212,7 @@ const SpendTable: FC<{
     <table className="mt-1.5 w-full border-collapse text-sm" data-testid="spend-table">
       <caption className="sr-only">{captionLabel}</caption>
       <thead>
-        <tr className="text-muted-foreground border-b text-[11px] font-medium uppercase leading-4">
+        <tr className="card-eyebrow text-muted-foreground border-b leading-4">
           <th scope="col" className="py-1 text-left font-medium">
             <span className="sr-only">{captionLabel}</span>
           </th>

@@ -34,11 +34,11 @@ Source: `apps/workspace/ui/components/projects/create-project-dialog.tsx`
 
 ## Project page layout
 
-Opening a project (`/app/projects/{id}`) lands you in **Ask ARCHOS** — the project root redirects there. The left sidebar navigates the project's sections:
+Opening a project (`/app/projects/{id}`) lands you in **Chat** — the project root redirects there. The left sidebar navigates the project's sections:
 
 | Section | Route | Purpose |
 |-----|-------|---------|
-| **Ask ARCHOS** | `/app/projects/{id}/chat` | Project-scoped conversations (the landing surface) |
+| **Chat** | `/app/projects/{id}/chat` | Project-scoped conversations (the landing surface) |
 | **Files** | `/app/projects/{id}/files` | List, upload, and manage files |
 | **History** | `/app/projects/{id}/history` | All conversations and deep-research runs; rows reopen in chat |
 | **Jobs** | `/app/projects/{id}/jobs` | This project's scheduled prompts, and their run history (feature-flagged) |
@@ -47,9 +47,9 @@ Opening a project (`/app/projects/{id}`) lands you in **Ask ARCHOS** — the pro
 | **Inbox** | `/app/inbox` | Mentions, shares, and operational notices (feature-flagged) |
 | **Overview** | `/app/projects/{id}/settings` | The project hub, pinned at the bottom of the sidebar: a dashboard of tiles, among them [Similar projects](#similar-projects), with members, memory, usage, documents and similar projects as sections behind it |
 
-Every section except **Ask ARCHOS** shares one page header: a `{project} / {section}` breadcrumb, the section title, a one-line subtitle, and optional actions on the right. Ask ARCHOS is the exception — it is a full-bleed conversation surface with its own toolbar.
+Every section except **Chat** shares one page header: a `{project} / {section}` breadcrumb, the section title, a one-line subtitle, and optional actions on the right. Chat is the exception — it is a full-bleed conversation surface with its own toolbar.
 
-The former **Overview** and **Members** pages were consolidated into **Settings**; their old routes redirect there (the root redirects to Ask ARCHOS). The legacy **Research** page redirects to **History**. The wordmark at the top of the sidebar links back to **All projects** (`/app/projects`).
+The former **Overview** and **Members** pages were consolidated into **Settings**; their old routes redirect there (the root redirects to Chat). The legacy **Research** page redirects to **History**. The wordmark at the top of the sidebar links back to **All projects** (`/app/projects`).
 
 Source: `apps/workspace/ui/components/shell/app-sidebar.tsx`, `apps/workspace/app/app/projects/[id]/layout.tsx`
 
@@ -65,7 +65,7 @@ Source: `apps/workspace/ui/features/projects/components/project-intake-wizard.ts
 
 ## Project-scoped chat
 
-When you start a chat from a project's "Ask ARCHOS" (chat) tab, the conversation is tagged with the project's ID. The `buildCollectionScopeFromRequest()` function includes the project's collection (`proj_{uuid}`) in the `X-Grid-Collection-Scope` header. This limits knowledge retrieval to documents uploaded to that project.
+When you start a chat from a project's **Chat** section, the conversation is tagged with the project's ID. The `buildCollectionScopeFromRequest()` function includes the project's collection (`proj_{uuid}`) in the `X-Grid-Collection-Scope` header. This limits knowledge retrieval to documents uploaded to that project.
 
 Source: `docs/technical-reference/chat-flow.md`, `apps/workspace/bff/retrieval-scope/collection-scope-request.ts`
 
