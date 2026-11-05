@@ -195,7 +195,7 @@ The plan, its search clusters and what is still open: [`docs/product/website-con
 **Route fates.** Every address of the old site has one fate in `redirects.mjs` (owner decision D7):
 a 301 to the page that answers the same question today, in one hop to its final target, or 410
 when nothing here does. The table is written as data: `PAGES` (old top-level pages), `SECTIONS`
-(old sections and the fate of each detail slug), `RENAMED_POSTS` and `GONE_PREFIXES`; the `/de/*`
+(old sections and the fate of each detail slug), `RENAMED_POSTS`, `RETIRED_BLOG_CATEGORIES` and `GONE_PREFIXES`; the `/de/*`
 and `/en/<German segment>/*` aliases of the old site are derived from them. Astro answers the 301s
 (`redirects` in `astro.config.mjs`). `src/pages/404.astro` asks `fateOf()` for anything no page
 claimed: an alias the table does not spell out still gets its 301, and a gone address gets the
@@ -226,11 +226,13 @@ old feed addresses; blog pages link them in `<head>`. `/llms.txt` is generated f
 listed product pages' own titles and descriptions and the newest posts (`src/pages/llms.txt.ts`, copy in
 `src/i18n/pages/llms.ts`).
 
-**Social previews.** Every page shares `share-card.png` (the wordmark and the tagline, drawn by
-`packages/brand/build-brand-assets.mjs`), with its own title and description. Generated per-page cards (`astro-og-canvas`, or satori) were not adopted: each card needs a design
-pass (the plan asks for a motif per page) and the brand fonts in a format the renderer reads (the
-design system ships WOFF2 only), which no integration does simply. The plan's card spec stays in
-the SEO doc as an open item.
+**Social previews.** A blog post shares its cover (`/media/covers/<id>.png`, see [Blog](#blog)):
+a cover is that page's motif and has no text, so it needs no font. Every other page shares
+`share-card.png` (the wordmark and the tagline, drawn by `packages/brand/build-brand-assets.mjs`),
+with its own title and description. Generated cards for the other pages (`astro-og-canvas`, or
+satori) were not adopted: each card needs a design pass (the plan asks for a motif per page) and
+the brand fonts in a format the renderer reads (the design system ships WOFF2 only), which no
+integration does simply. The plan's card spec stays in the SEO doc as an open item.
 
 ## Signed in
 
@@ -247,9 +249,25 @@ privacy policy (`src/i18n/pages/privacy.ts`, "Anmeldestatus").
 ## Blog
 
 Posts are MDX in `src/content/blog/<locale>/<slug>.mdx` (schema in
-`src/content.config.ts`, categories in `src/lib/categories.ts`), figures in
-`src/components/figures/`. A post's file name is its slug; `translationSlug`
-names its twin in the other locale for the language switch and hreflang. Drafts
-build only with `PUBLIC_INCLUDE_DRAFTS=1`.
+`src/content.config.ts`), figures in `src/components/figures/`. A post's file name is its
+slug; `translationSlug` names its twin in the other locale for the language switch and
+hreflang. Drafts build only with `PUBLIC_INCLUDE_DRAFTS=1`.
+
+**Categories.** Three, defined once in `src/lib/categories.ts`: `product` (Produktfeatures /
+Product features), `practice` (Praxiserfahrungen / From practice) and `technology`
+(Technologie / Technology). The id is English and stored in the post's `category`; the URL
+segment is the label in each language (`/blog/praxiserfahrungen/`, `/en/blog/from-practice/`),
+so a category page names its twin for the language switch, hreflang and the sitemap. A post
+slug may not equal a segment, because both live at `/blog/<x>/`. The first two categories,
+Journal and Bautagebuch, redirect to Praxiserfahrungen and Technologie
+(`RETIRED_BLOG_CATEGORIES` in `redirects.mjs`).
+
+**Covers.** Every post names its `cover`, a line drawing in `src/assets/covers/<id>.svg`
+shared only with its translation; the schema fails a post without one. `src/lib/covers.ts`
+puts the drawing in the shared frame (ground, module grid, hatch), `PostCover.astro`
+inlines it on the card (the whole 3:2 canvas) and under the post's lead (the 1200 × 630
+band), styled by the brand's `covers.css`, and `src/pages/media/covers/[id].png.ts` renders
+the band to `/media/covers/<id>.png` at build time with sharp, the post's `og:image` and
+JSON-LD `image`. How to draw one: [`packages/brand/docs/blog-covers.md`](../../packages/brand/docs/blog-covers.md).
 
 Screenshots of every route for a PR: `bun run capture` (see [visual screenshots](../../docs/ux/visual-screenshots.md#website-targets)).

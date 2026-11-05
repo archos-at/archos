@@ -151,7 +151,9 @@ const structuredData = jsonLd(siteGraph(site, locale, nodes));
         let first = true;
         const arrive = new IntersectionObserver((entries) => {
           const arriving = entries.filter((entry) => entry.isIntersecting).sort(inReadingOrder);
-          let index = 0;
+          // The stagger counts among siblings (the tiles of one grid, the steps of one
+          // timeline); unrelated blocks arriving together start together.
+          const counts = new Map<Node | null, number>();
           for (const entry of arriving) {
             const block = entry.target as HTMLElement;
             arrive.unobserve(block);
@@ -159,7 +161,9 @@ const structuredData = jsonLd(siteGraph(site, locale, nodes));
               showAtOnce(block);
               continue;
             }
-            block.style.setProperty('--ui-reveal-index', String(index++));
+            const index = counts.get(block.parentNode) ?? 0;
+            counts.set(block.parentNode, index + 1);
+            block.style.setProperty('--ui-reveal-index', String(index));
             block.classList.remove('is-pending');
           }
           first = false;
