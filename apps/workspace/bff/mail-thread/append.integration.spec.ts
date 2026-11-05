@@ -321,6 +321,25 @@ describe.skipIf(!url)('writing an E-Mail-Verlauf against Postgres', () => {
       })
     })
 
+    it('files a text the agent placed: its suggestion goes with it (inbound_mail_parts_suggestion_with_bytes)', async () => {
+      const mail = await heldMail()
+      // The suggest job's place for the text, as it stores it on a waiting message part.
+      await rows(sql`
+        UPDATE inbound_mail_parts SET suggestion = ${JSON.stringify({ folderId: null, folderPath: 'Korrespondenz', newFolder: true, documentType: null, reason: 'Korrespondenz' })}::jsonb
+         WHERE id = ${mail.textPart}::uuid`)
+      const thread = await document('Vorbemessung.md')
+      const commit = newThreadCommit(
+        mail,
+        { id: crypto.randomUUID(), documentId: thread.id, versionId: thread.versionId },
+        { documentId: null, versionId: null }
+      )
+
+      expect(await inTenant(() => write.commitAppend(commit))).toBe('committed')
+      expect(
+        await one(sql`SELECT state, suggestion, mail_thread_entry_id FROM inbound_mail_parts WHERE id = ${mail.textPart}::uuid`)
+      ).toEqual({ state: 'filed', suggestion: null, mail_thread_entry_id: commit.entry.id })
+    })
+
     it('links what came with it, freezes what the section prints, and links a waiting attachment filed later once (D36)', async () => {
       const mail = await heldMail()
       const thread = await document('Pending.md')
