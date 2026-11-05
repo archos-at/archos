@@ -190,7 +190,7 @@
     "packages/ifc-spatial-py/src/ifc_spatial/envelope_geometry.py": 1003,
     "packages/ifc-spatial-py/src/ifc_spatial/ids_export.py": 1047,
     "packages/ifc-spatial-py/src/ifc_spatial/model.py": 966,
-    "packages/knowledge-layer/src/ingest/adapter.py": 4976,
+    "packages/knowledge-layer/src/ingest/adapter.py": 4923,
     "packages/knowledge-layer/src/ingest/clause_chunking.py": 723,
     "packages/knowledge-layer/src/ingest/section_chunking.py": 768,
     "packages/knowledge-layer/src/ingest/visual_analysis.py": 996,
