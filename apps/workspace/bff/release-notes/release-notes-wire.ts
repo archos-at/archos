@@ -44,3 +44,30 @@ export const releaseNoteListQuerySchema = z.object({
     .describe(`Which page of weeks, newest first, ${WEEKS_PER_PAGE} weeks a page; 1 when omitted.`),
 })
 export type ReleaseNoteListQuery = z.infer<typeof releaseNoteListQuerySchema>
+
+/** One note as a reader of one language sees it. */
+export interface LocalizedReleaseNote {
+  readonly section: ReleaseNoteSection
+  readonly area: ReleaseNoteArea
+  readonly text: string
+}
+
+/** One week as a reader of one language sees it: what the page renders. */
+export interface LocalizedReleaseNoteWeek {
+  readonly id: string
+  readonly kind: 'week' | 'version'
+  readonly version: string | null
+  readonly date: string | null
+  readonly dateEnd: string | null
+  readonly summary: string | null
+  readonly notes: readonly LocalizedReleaseNote[]
+}
+
+/** One page of the list, in one language. */
+export interface LocalizedReleaseNoteList {
+  readonly area: ReleaseNoteArea | null
+  readonly page: number
+  readonly pageCount: number
+  readonly areas: readonly { readonly id: ReleaseNoteArea; readonly count: number }[]
+  readonly weeks: readonly LocalizedReleaseNoteWeek[]
+}

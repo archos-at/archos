@@ -12,9 +12,11 @@
 import 'server-only'
 
 import artifact from './release-notes.generated.json'
+import type { Locale } from '@/i18n/config'
 import {
   RELEASE_NOTE_AREAS,
   WEEKS_PER_PAGE,
+  type LocalizedReleaseNoteList,
   type ReleaseNoteArea,
   type ReleaseNoteListQuery,
   type ReleaseNoteSection,
@@ -87,6 +89,18 @@ export function listReleaseNotes(query: ReleaseNoteListQuery = {}, source: Relea
       count: source.releases.reduce((sum, week) => sum + week.notes.filter((note) => note.area === id).length, 0),
     })),
     weeks: weeks.slice((page - 1) * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE),
+  }
+}
+
+/** A page of the list in the reader's language: the page sends only the text it shows. */
+export function localizeReleaseNotes(list: ReleaseNoteList, locale: Locale): LocalizedReleaseNoteList {
+  return {
+    ...list,
+    weeks: list.weeks.map((week) => ({
+      ...week,
+      summary: week.summary ? week.summary[locale] : null,
+      notes: week.notes.map((note) => ({ ...note, text: note.text[locale] })),
+    })),
   }
 }
 
