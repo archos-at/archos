@@ -45,8 +45,6 @@ export const deletePosts: Access = ({ req }) => canPublish(req.user);
 
 export const readPostVersions: Access = ({ req }) => canDraft(req.user);
 
-// restoreVersion reads its `draft` flag before this hook runs, so there the update access
-// (`writePosts`) is what refuses an editor's restore of a published version; "restore as draft" works.
 const WRITES = new Set(['create', 'update', 'restoreVersion']);
 
 /**
@@ -59,6 +57,9 @@ export const draftsUnlessPublisher: CollectionBeforeOperationHook = ({ args, ope
   if (!canDraft(req.user)) throw new Forbidden(req.t);
   const data = (args as { data?: StatusData }).data;
   if (data?._status === 'published') throw new Forbidden(req.t);
+  // A restore reads its own `draft` flag before this hook, so it cannot be turned into a draft
+  // here: one that would write the live document (and could unpublish it) is refused instead.
+  if (operation === 'restoreVersion' && !(args as { draft?: boolean }).draft) throw new Forbidden(req.t);
   return {
     ...args,
     draft: true,

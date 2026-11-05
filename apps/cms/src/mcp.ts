@@ -2,10 +2,12 @@
  * The MCP server (`POST /api/mcp`, @payloadcms/plugin-mcp): how Claude, Cursor
  * and our own agent work in the CMS (ADR-0155).
  *
- * An MCP client authenticates with an API key a person creates in the admin
- * panel (MCP > API Keys); the key acts as that person, so every rule in
- * `access/` applies to it unchanged, and for an editor or an agent every write
- * is a draft. Each key also switches each operation below on or off for itself.
+ * An MCP client authenticates with an API key made in the admin panel
+ * (Settings > API Keys): a person makes their own, an administrator makes one
+ * for an agent's account. The key acts as the user it is bound to, so every rule
+ * in `access/` applies to it unchanged, and for an editor or an agent every
+ * write is a draft. Each key also switches each operation below on or off for
+ * itself.
  *
  * Offered here: find, create and update, never delete. Users, keys and jobs are
  * not offered at all, and the plugin's experimental tools (which edit the
@@ -31,13 +33,20 @@ export const MCP_OPTIONS: MCPPluginConfig = {
     },
     'social-accounts': { enabled: { find: true, create: false, update: false, delete: false }, description: 'The accounts social posts go out on.' },
   },
-  // Only an administrator sees and manages every key; anyone else manages their own (the plugin's default).
+  // Anyone with the admin panel makes keys for themselves (an editor using Claude Code). An agent's
+  // account has no admin panel, so an administrator makes its key and binds it to that account: the
+  // plugin refuses binding a key to another user unless allowed here, and only administrators are.
   overrideApiKeyCollection: (collection) => ({
     ...collection,
     admin: { ...collection.admin, group: 'Settings' },
     access: {
       ...collection.access,
       read: ({ req }) => (isAdmin(req.user) ? true : req.user ? { user: { equals: req.user.id } } : false),
+      update: ({ req }) => (isAdmin(req.user) ? true : req.user ? { user: { equals: req.user.id } } : false),
+      delete: ({ req }) => (isAdmin(req.user) ? true : req.user ? { user: { equals: req.user.id } } : false),
     },
+    fields: collection.fields.map((field) =>
+      'name' in field && field.name === 'user' ? { ...field, access: { create: ({ req }) => isAdmin(req.user), update: () => false } } : field,
+    ),
   }),
 };
