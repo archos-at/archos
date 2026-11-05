@@ -71,9 +71,6 @@ export function loadMcpGateway(
   if (!ORG_ID.test(platformOrgId)) {
     throw new Error(`${project}:mcpGatewayPlatformOrgId must be a WorkOS organization id (org_…), got "${platformOrgId}".`);
   }
-  if (!SESSION_KEY.test((cfg.get("mcpGatewaySessionKey") ?? "").trim())) {
-    throw new Error(`${project}:mcpGatewaySessionKey must be 64 lowercase hex characters: openssl rand -hex 32`);
-  }
   // Langfuse is the one in-cluster MCP server today. A gateway with nothing
   // behind it is a public host that answers 404 to everyone.
   if (!langfuseEnabled) {
@@ -84,6 +81,17 @@ export function loadMcpGateway(
     domain,
     issuer: `https://${authkitDomain.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`,
     platformOrgId,
-    sessionKey: sessionKey!.apply((key) => key.trim()),
+    // Checked where the value resolves, so the plan never reads the secret
+    // in the clear; a malformed key fails the preview all the same.
+    sessionKey: sessionKey!.apply(checkSessionKey),
   };
+}
+
+/** The session key as agentgateway takes it: 64 lowercase hex characters, or the plan fails. */
+export function checkSessionKey(raw: string): string {
+  const key = raw.trim();
+  if (!SESSION_KEY.test(key)) {
+    throw new Error(`${pulumi.getProject()}:mcpGatewaySessionKey must be 64 lowercase hex characters: openssl rand -hex 32`);
+  }
+  return key;
 }

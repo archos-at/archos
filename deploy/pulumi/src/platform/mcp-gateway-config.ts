@@ -145,9 +145,9 @@ function route(settings: McpGatewaySettings, server: McpServer): Record<string, 
     name: server.name,
     matches: [
       { path: { exact: path } },
+      // The one discovery document a client fetches from us. It names
+      // AuthKit, and the client reads AuthKit's own metadata from there.
       { path: { exact: `/.well-known/oauth-protected-resource${path}` } },
-      // Older clients look for the authorization server's metadata here.
-      { path: { exact: `/.well-known/oauth-authorization-server${path}` } },
     ],
     policies: {
       mcpAuthentication: {
@@ -187,6 +187,11 @@ export function agentgatewayConfig(settings: McpGatewaySettings): Record<string,
               host: settings.otlpHttpHost,
               protocol: "http",
               randomSampling: "true",
+              // Sampling runs as a request arrives, before any token is read,
+              // so on a public host it would trace every scanner and every
+              // 401. Kept only for a request that passed validation: an
+              // unset `jwt.sub` errors, and an erroring filter drops the span.
+              filter: 'jwt.sub != ""',
               // CEL: a string literal is quoted.
               resources: { "service.name": '"platform-mcp-gateway"' },
             },

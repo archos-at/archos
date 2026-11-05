@@ -4,7 +4,7 @@ import Ajv2020 from "ajv/dist/2020";
 import * as yaml from "js-yaml";
 import schema from "./src/test-support/agentgateway-config.v1.7.0.schema.json";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
-import { loadMcpGateway } from "./src/config/mcp-gateway";
+import { checkSessionKey, loadMcpGateway } from "./src/config/mcp-gateway";
 import { GATEWAY_NAME } from "./src/platform/gateway";
 import { LEGACY_PROJECT } from "./src/names";
 
@@ -39,6 +39,7 @@ type Container = {
   env: unknown[];
   securityContext: Record<string, unknown>;
   readinessProbe: { httpGet: unknown };
+  lifecycle: unknown;
   volumeMounts: unknown[];
 };
 type Deployment = { spec: { replicas: number; template: { spec: { containers: Container[]; volumes: unknown[] } } } };
@@ -71,6 +72,7 @@ const TYPE = {
   networkPolicy: "kubernetes:networking.k8s.io/v1:NetworkPolicy",
   deployment: "kubernetes:apps/v1:Deployment",
   configMap: "kubernetes:core/v1:ConfigMap",
+  trafficPolicy: "kubernetes:gateway.envoyproxy.io/v1alpha1:BackendTrafficPolicy",
   dns: "cloudflare:index/dnsRecord:DnsRecord",
 } as const;
 
@@ -183,7 +185,6 @@ describe("the platform MCP gateway, switched on", () => {
     expect(langfuseRoute().matches).toEqual([
       { path: { exact: "/langfuse/mcp" } },
       { path: { exact: "/.well-known/oauth-protected-resource/langfuse/mcp" } },
-      { path: { exact: "/.well-known/oauth-authorization-server/langfuse/mcp" } },
     ]);
   });
 
@@ -211,12 +212,31 @@ describe("the platform MCP gateway, switched on", () => {
     });
   });
 
-  it("traces to the collector as its own service", () => {
+  it("traces signed-in requests to the collector as its own service, never an anonymous one", () => {
     expect(config().frontendPolicies.tracing).toMatchObject({
       host: "otel-collector:4318",
       protocol: "http",
+      // Sampling runs before the token is read; the filter runs at export.
+      filter: 'jwt.sub != ""',
       resources: { "service.name": '"platform-mcp-gateway"' },
     });
+  });
+
+  it("budgets each client address at the edge and retries only requests no pod received", () => {
+    const spec = find<{ spec: Record<string, unknown> }>(TYPE.trafficPolicy, "platform-mcp-gateway-traffic-policy").spec;
+    expect(spec.targetRefs).toEqual([
+      { group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: "platform-mcp-gateway" },
+    ]);
+    expect(spec.retry).toMatchObject({ retryOn: { triggers: ["connect-failure", "refused-stream", "reset-before-request"] } });
+    const rules = (spec.rateLimit as { global: { rules: Array<{ limit: unknown }> } }).global.rules;
+    expect(rules.map((r) => r.limit)).toEqual([
+      { requests: 300, unit: "Minute" },
+      { requests: 300, unit: "Minute" },
+    ]);
+  });
+
+  it("keeps serving for a moment after it is told to stop, while Envoy drops the endpoint", () => {
+    expect(pod().containers[0].lifecycle).toEqual({ preStop: { sleep: { seconds: 5 } } });
   });
 
   it("runs the pinned image, two replicas, with the shared session key from its Secret", () => {
@@ -299,8 +319,10 @@ describe("loadMcpGateway refuses a gateway it cannot gate", () => {
     expect(() => load({ ...complete, [key("mcpGatewayPlatformOrgId")]: "platform-external-id" })).toThrow(/org_/);
   });
 
-  it("takes a 64-hex session key only", () => {
-    expect(() => load({ ...complete, [key("mcpGatewaySessionKey")]: "short" })).toThrow(/openssl rand -hex 32/);
+  it("takes a 64-hex session key only, checked where the secret resolves", () => {
+    expect(() => checkSessionKey("short")).toThrow(/openssl rand -hex 32/);
+    expect(() => checkSessionKey("A".repeat(64))).toThrow(/lowercase hex/);
+    expect(checkSessionKey(` ${SESSION_KEY}\n`)).toBe(SESSION_KEY);
   });
 
   it("refuses to serve an empty host when Langfuse is off", () => {

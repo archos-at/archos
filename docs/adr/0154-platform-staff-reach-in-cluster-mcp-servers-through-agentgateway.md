@@ -88,9 +88,15 @@ own endpoints; agentgateway proxies neither). The route requires two things.
 The token's `org_id` must be the platform organization's WorkOS id
 (`mcpGatewayPlatformOrgId`). Its `roles` claim must hold `org-platform-owner`
 (`ADMITTED_ROLES`). WorkOS tokens carry no permissions claim, so the gate cannot
-be the console's `platform:*` permission. The role comes from the environment's
-JWT template (`docs/deployment/platform-mcp-gateway.md`). A missing claim makes
-the rule error, and agentgateway counts that as unmet, so the gate fails closed.
+be the console's `platform:*` permission. The role is meant to come from the
+environment's JWT template (`docs/deployment/platform-mcp-gateway.md`). That
+AuthKit applies the template to the OAuth tokens MCP clients get, and renders
+the roles as a list of slugs, is unverified: the office door reads no role from
+these tokens and looks the membership up live instead (`principal.ts`). A
+missing claim makes the rule error, and agentgateway counts that as unmet, so
+if the premise fails the gate refuses everyone, and admits no one by mistake.
+The way out then is agentgateway's external authorization, calling a BFF route
+that makes the platform door's live check.
 `org-platform-support` is not admitted. It is read-only in the console, but the
 credential behind a route need not be: Langfuse's project key writes prompts.
 
@@ -122,7 +128,13 @@ Langfuse's docs, ahead of `LANGFUSE_MCP_ALLOWED_HOSTS`.
   is five minutes on AuthKit's default.
 * Bad, because the `roles` claim exists only once someone edits the
   environment's JWT template, a dashboard step nothing in this program applies
-  or checks. Until then every request gets 403, and nothing more.
+  or checks, and whether the template reaches MCP tokens at all is the first
+  thing the first deploy must show. Until then every request gets 403, and
+  nothing more.
+* Neutral: the host is public, so the edge gives it a per-address budget like
+  every other route, and agentgateway traces only requests that passed token
+  validation. Sampling there runs before the token is read, so without that
+  filter every scanner and every 401 would be a Langfuse trace.
 * Bad, because a second proxy runs in the request path, and its CVEs are ours.
   The pin is a literal digest, so `ci/pinned_images.py` hands it to trivy.
 * Bad, because two things rest on reading agentgateway's source at v1.7.0, not

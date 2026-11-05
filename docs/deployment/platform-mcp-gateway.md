@@ -142,7 +142,10 @@ The wildcard resource indicator already covers the new route.
 
 - **Rotate the session key**: set a new `mcpGatewaySessionKey` and deploy. The
   pods roll, and open MCP sessions end: clients reconnect on their own.
-- **Logs**: JSON on stdout. **Traces**: Langfuse, service `platform-mcp-gateway`.
+- **Logs**: JSON on stdout. **Traces**: Langfuse, service `platform-mcp-gateway`,
+  for signed-in requests only (anonymous 401s and scanners are not traced).
+- **Edge budget**: 300 requests a minute per client address
+  (`RATE_PER_MINUTE`, in shadow mode while `rateLimitShadowMode` is on).
   **Metrics**: `:15020/stats/prometheus` on each pod (not scraped yet).
 - **Upgrade**: move the digest in `MCP_GATEWAY.image`, vendor that version's
   `schema/config.json` over `src/test-support/agentgateway-config.v<version>.schema.json`,

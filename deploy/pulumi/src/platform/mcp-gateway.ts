@@ -1,6 +1,8 @@
 import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import type { IHTTPRouteSpec } from "@kubernetes-models/gateway-api/gateway.networking.k8s.io/v1/HTTPRouteSpec";
+import type { IBackendTrafficPolicySpec } from "@kubernetes-models/envoy-gateway/gateway.envoyproxy.io/v1alpha1/BackendTrafficPolicySpec";
+import { edgeRateLimit, edgeRetry, perClientRules } from "../app/httproutes";
 import { DeployConfig } from "../config";
 import { EDGE_TIMEOUT, LANGFUSE, PORT } from "../constants";
 import { GATEWAY_NAME } from "./gateway";
@@ -17,6 +19,19 @@ import {
   credentialPath,
   renderAgentgatewayConfig,
 } from "./mcp-gateway-config";
+
+/**
+ * Requests per minute per client address at the edge. A signed-in client
+ * lists tools and calls them a few times a minute; the budget is for what an
+ * anonymous loop costs, since every 401 and metadata request is answered here.
+ */
+const RATE_PER_MINUTE = 300;
+/**
+ * Seconds a terminating pod keeps serving while Envoy drops it as an endpoint.
+ * The image has no shell, so the hook is the kubelet's own sleep (Kubernetes
+ * 1.30 and later; the provider runs 1.33).
+ */
+const DRAIN_SECONDS = 5;
 
 /** The key the session Secret holds; agentgateway reads it as `SESSION_KEY`. */
 const SESSION_KEY = "session-key"; // pragma: allowlist secret (Secret key name, not a credential)
@@ -143,6 +158,7 @@ export function installMcpGateway(
                   { name: "metrics", containerPort: MCP_GATEWAY_STATS_PORT },
                   { name: "readiness", containerPort: MCP_GATEWAY_READINESS_PORT },
                 ],
+                lifecycle: { preStop: { sleep: { seconds: DRAIN_SECONDS } } },
                 securityContext: {
                   allowPrivilegeEscalation: false,
                   readOnlyRootFilesystem: true,
@@ -211,6 +227,24 @@ export function installMcpGateway(
       },
     ],
   };
+  // Retries only where the request never reached a pod (a draining one
+  // included), and a per-address budget, like every other public route.
+  const trafficSpec: IBackendTrafficPolicySpec = {
+    targetRefs: [{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: MCP_GATEWAY.routeName }],
+    retry: edgeRetry,
+    ...edgeRateLimit(cfg, perClientRules(cfg, RATE_PER_MINUTE)),
+  };
+  new k8s.apiextensions.CustomResource(
+    "platform-mcp-gateway-traffic-policy",
+    {
+      apiVersion: "gateway.envoyproxy.io/v1alpha1",
+      kind: "BackendTrafficPolicy",
+      metadata: { name: MCP_GATEWAY.routeName, namespace, labels },
+      spec: trafficSpec,
+    },
+    { provider, dependsOn },
+  );
+
   new k8s.apiextensions.CustomResource(
     "platform-mcp-gateway-route",
     {

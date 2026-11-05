@@ -504,7 +504,9 @@ if (cfg.observability.enabled) {
 
   // The platform MCP gateway (ADR-0154): Langfuse is its one MCP server, so it rides with it.
   if (cfg.mcpGateway.enabled && langfuse) {
-    installMcpGateway(cfg, provider, namespace, [gatewayResources.gateway, langfuse.webService, langfuse.secret]);
+    installMcpGateway(cfg, provider, namespace, [
+      gatewayResources.gateway, langfuse.webService, langfuse.secret, ...(rateLimitStore ? [rateLimitStore.service] : []),
+    ]);
   }
 
   const collector = installOtelCollector(
