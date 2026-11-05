@@ -23493,6 +23493,215 @@
         }
       }
     },
+    "/api/release-notes/notice-preference": {
+      "get": {
+        "operationId": "release-summary-notice-get",
+        "summary": "Read whether the person wants the weekly summary notice",
+        "description": "Whether the app shows the person the newest weekly summary once, in a notice, as `{ enabled }`.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read whether the person wants the weekly summary notice",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "put": {
+        "operationId": "release-summary-notice-set",
+        "summary": "Turn the weekly summary notice on or off for the person",
+        "description": "Sets `enabled`. Turning it back on records the newest summary as seen, so the notice resumes with the next week published. Returns `{ enabled }`.",
+        "tags": [
+          "organization"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Whether the person is shown the newest weekly summary once, in a notice."
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Turn the weekly summary notice on or off for the person",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/release-notes/seen": {
+      "post": {
+        "operationId": "release-summary-seen-mark",
+        "summary": "Record that the person has seen a weekly summary",
+        "description": "Records `week` (from release-summary-unseen-get) as seen, so the app’s notice does not show it again on any device; `stop: true` also turns the notice off, as release-summary-notice-set does. Never moves back to an older week; a week without a published summary is refused.",
+        "tags": [
+          "organization"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "week": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])$",
+                    "description": "The week whose summary the person has seen, `2026-W44`, from release-summary-unseen-get."
+                  },
+                  "stop": {
+                    "description": "Also turn the weekly notice off for good, as the notice’s “Don’t show again” button does.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "week"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Record that the person has seen a weekly summary",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/release-notes/unseen-summary": {
+      "get": {
+        "operationId": "release-summary-unseen-get",
+        "summary": "Read the newest weekly summary the person has not seen",
+        "description": "The newest week’s release-notes summary, in English and German, when the person has not seen it yet; `{ summary: null }` once they have, or when the newest week has no summary. What the app’s notice shows. To read the summaries themselves, use release-note-list.",
+        "tags": [
+          "organization"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read the newest weekly summary the person has not seen",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/platform/answer-feedback/digest": {
       "get": {
         "operationId": "platform-answer-feedback-digest-get",

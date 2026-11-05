@@ -1,23 +1,48 @@
 ---
 /**
- * A post's cover: its line drawing in the brand frame (src/lib/covers.ts), inlined so the
- * pens take the design tokens. `card` shows the whole 3:2 canvas (the listing's PostCard);
- * `banner` the 1200 × 630 share band, under the post's lead. Decorative: hidden from
- * assistive technology, because the title beside it says what the post is about.
- * The rules for drawing one: packages/brand/docs/blog-covers.md.
+ * A post's cover. A line drawing (the default) is drawn in the brand frame (src/lib/covers.ts),
+ * inlined so the pens take the design tokens, and is decorative: hidden from assistive
+ * technology, because the title beside it says what the post is about. An image (a cover
+ * uploaded in the CMS, ADR-0155) comes cropped at its focal point by the CMS's presets, to
+ * the same 3:2 card and 40:21 banner, carries its alt text, and the AI mark when a model made it.
+ * `card` shows the whole 3:2 canvas (the listing's PostCard); `banner` the 1200 × 630 share
+ * band, under the post's lead. The rules for drawing one: packages/brand/docs/blog-covers.md.
  */
 import '../styles/brand/covers.css';
+import AITag from './AITag.astro';
+import type { Locale } from '../i18n/paths';
+import { assetUrl, cmsSettings } from '../lib/cms';
 import { renderCover } from '../lib/covers';
+import type { Cover } from '../lib/post-model';
 
 interface Props {
-  /** The cover's id: its file name in src/assets/covers/, as the post's frontmatter names it. */
-  id: string;
+  cover: Cover;
   variant: 'card' | 'banner';
+  /** For the AI mark on an image cover. */
+  locale: Locale;
 }
 
-const { id, variant } = Astro.props;
+const { cover, variant, locale } = Astro.props;
+const banner = variant === 'banner';
 // Ids in inline SVG are document-wide: each instance gets its own prefix.
-const svg = renderCover(id, { idPrefix: `cover-${id}-${variant}`, band: variant === 'banner' });
+const svg = cover.kind === 'drawing' ? renderCover(cover.id, { idPrefix: `cover-${cover.id}-${variant}`, band: banner }) : '';
+const settings = cmsSettings();
+const src = (preset: string) => (cover.kind === 'image' && settings ? assetUrl(settings, cover.file, preset) : '');
+const img =
+  cover.kind === 'image'
+    ? banner
+      ? { src: src('share'), srcset: undefined, width: 1200, height: 630 }
+      : { src: src('cover'), srcset: `${src('cover-small')} 800w, ${src('cover')} 1600w`, width: 1600, height: 1067 }
+    : undefined;
 ---
 
-{variant === 'banner' ? <div class="ui-cover-banner" set:html={svg} /> : <Fragment set:html={svg} />}
+{
+  cover.kind === 'drawing' ? (
+    banner ? <div class="ui-cover-banner" set:html={svg} /> : <Fragment set:html={svg} />
+  ) : (
+    <div class:list={[banner && 'ui-cover-banner']}>
+      <img class="ui-cover" src={img!.src} srcset={img!.srcset} sizes="(min-width: 1024px) 1040px, 100vw" width={img!.width} height={img!.height} alt={cover.alt} loading={banner ? 'eager' : 'lazy'} decoding="async" />
+      {cover.aiGenerated && <AITag locale={locale} />}
+    </div>
+  )
+}

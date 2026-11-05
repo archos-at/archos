@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { contentSecurityPolicy, securityHeaders } from './security-headers.mjs'
+import { cmsImageOrigins, contentSecurityPolicy, securityHeaders } from './security-headers.mjs'
 import { analyticsOrigins } from './web-analytics.mjs'
 
 const OFF = analyticsOrigins(null)
@@ -53,4 +53,14 @@ test('the full header set is present', () => {
   ]) {
     assert.ok(names.includes(name), name)
   }
+})
+
+test('the CMS origin is allowed for images only, and only with a CMS (ADR-0155)', () => {
+  const env = { CMS_URL: 'http://directus.cms.svc.cluster.local:8055', CMS_TOKEN: 't', CMS_PUBLIC_URL: 'https://cms.example.com/' }
+  assert.deepEqual(cmsImageOrigins(env), ['https://cms.example.com'])
+  assert.deepEqual(cmsImageOrigins({ ...env, CMS_TOKEN: '' }), [])
+  assert.deepEqual(cmsImageOrigins({}), [])
+  const csp = contentSecurityPolicy(OFF, cmsImageOrigins(env))
+  assert.match(csp, /img-src 'self' data: https:\/\/cms\.example\.com;/)
+  assert.doesNotMatch(csp.replace(/img-src[^;]*;/, ''), /cms\.example\.com/)
 })

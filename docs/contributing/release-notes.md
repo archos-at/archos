@@ -274,6 +274,16 @@ GitHub annotation on the workflow). The lint does not fail on a missing summary,
 on purpose: one person writes them, and failing every pull request until they do
 would make that person everyone's blocker.
 
+### The weekly notice in the app
+
+The newest summary is also shown once to every signed-in member, in a small
+„Neu diese Woche“ notice in the app, until they close it, press Escape, follow
+its link or choose „Nicht mehr anzeigen“; then never again for that week, on
+any device (`user_preferences.last_seen_release_week`). A week without a summary
+shows nothing, which is one more reason to write it. Someone new to the product,
+whom a tour is about to greet, is not shown it. The person turns it back on
+under Profil. The rules: ADR-0154, "Amendment".
+
 ## What happens on merge
 
 1. The PR merges to `develop`.

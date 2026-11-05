@@ -22,7 +22,7 @@ import http from 'node:http'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { cacheControlFor } from './cache-control.mjs'
-import { HEALTH_PATH, securityHeaders } from './security-headers.mjs'
+import { HEALTH_PATH, cmsImageOrigins, securityHeaders } from './security-headers.mjs'
 import { analyticsOrigins, webAnalyticsConfig } from './web-analytics.mjs'
 import { goneStatus } from './gone.mjs'
 
@@ -60,7 +60,7 @@ function setCacheControl(req, res) {
 }
 
 // The policy names the PostHog origins only when this container has analytics on.
-const SECURITY_HEADERS = securityHeaders(analyticsOrigins(webAnalyticsConfig(process.env)))
+const SECURITY_HEADERS = securityHeaders(analyticsOrigins(webAnalyticsConfig(process.env)), cmsImageOrigins(process.env))
 
 const server = http.createServer((req, res) => {
   for (const [name, value] of SECURITY_HEADERS) res.setHeader(name, value)

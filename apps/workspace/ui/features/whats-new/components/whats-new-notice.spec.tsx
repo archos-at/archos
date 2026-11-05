@@ -35,7 +35,7 @@ describe('WhatsNewNotice', () => {
 
   it('once closed, records the week and never shows again', async () => {
     const { rerender } = render(<WhatsNewNotice state={STATE} settleMs={0} />)
-    await userEvent.click(await screen.findByRole('button', { name: 'Close', exact: true }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }))
     expect(postReleaseSummarySeen).toHaveBeenCalledWith('2026-W44')
     expect(capturePosthog).toHaveBeenCalledWith('whats_new_dismissed', { week: '2026-W44', via: 'close_button' })
     rerender(<WhatsNewNotice state={STATE} settleMs={0} />)

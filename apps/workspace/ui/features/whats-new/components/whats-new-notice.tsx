@@ -5,7 +5,7 @@
  * amendment). Only the summary, never the single notes; its link leads to the full "Neuerungen".
  *
  * The server decides whether there is one to show (`resolveWhatsNewNotice`); this decides when.
- * Closing it with × or Escape, or following its link, records the week as seen for the person on
+ * Closing it („Schließen“ or Escape), or following its link, records the week as seen for the person on
  * every device, and it does not come back in this tab either. "Nicht mehr anzeigen" also turns it
  * off for good; the switch on the profile page turns it back on. It waits while a product tour runs,
  * and someone new here (`quietly`) is never shown it: the week is recorded without a word.
@@ -98,6 +98,8 @@ export function WhatsNewNotice({
       title={t('notice.title')}
       eyebrow={weekTitle({ ...state.summary, kind: 'week', version: null, summary: null, notes: [] }, locale, '')}
       closeLabel={t('notice.close')}
+      // „Schließen“ is a button of its own among the actions, so no × beside it.
+      closeButton={false}
       onClose={close}
       actions={
         <>

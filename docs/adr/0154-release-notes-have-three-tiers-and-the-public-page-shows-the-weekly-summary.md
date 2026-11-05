@@ -114,6 +114,55 @@ over the size limit.
 * Nothing enforces that a summary gets written; the publish warning is the only signal, on purpose
   (see Consequences).
 
+## Amendment (2026-11-05): the newest summary, once, in the app
+
+The owner asked for one more reach of the public tier into the app: a signed-in person who has
+not seen the newest weekly summary is shown it once, in a small notice ("Neu diese Woche": the
+summary, „Alle Neuerungen ansehen“, „Schließen“, „Nicht mehr anzeigen“), and never again for
+that week.
+
+* **Only the summary, only the newest.** The notice carries the week's summary and nothing of the
+  single notes; the link leads to `/app/whats-new`. Only a week with a summary counts, so while
+  the newest week has none, nothing shows. A person back after three weeks gets the newest
+  summary, not three notices.
+* **Seen is per person, on the server, on every device.** Two columns on `user_preferences`
+  (migration 0194): `last_seen_release_week`, an ISO week id held to its shape by a CHECK
+  (it sorts as text, so the write is `GREATEST` and never moves back), and
+  `release_summary_notice`, the person's switch, on by default. Columns rather than keys in the
+  `prefs` bag the product tours use: the bag is opaque JSON any client may merge into, and these
+  two have a shape the database can hold. The row is already behind the per-user RLS policy
+  (0031); no new table, no new predicate.
+* **Closing, Escape and following the link all count as seen.** The card is non-modal (Radix
+  Dialog, `modal={false}`, a new `NoticeCard` atom in the tour card's material): the page stays
+  usable, a click elsewhere does not close it, Escape does. Focus moves to its first action and
+  back when it closes. It waits ~1 s for the page to settle. Not PostHog's product tours, which
+  carry the existing announcements: they remember "seen" in the browser, and the owner asked for
+  a record that holds on every device.
+* **Not on top of onboarding.** There is no account creation date in the session, so "brand-new
+  account" is the product tours' own test (`tourEligibility`: nothing written in this
+  organization, the tour not seen). For such a person the week is recorded quietly and nothing is
+  shown, so their first notice is the next week's. A tour that is running (a replay from the menu)
+  holds the notice back until it ends. On `/app/whats-new` itself the week is recorded quietly.
+* **„Nicht mehr anzeigen“ is reversible.** It records the week and turns the notice off. The
+  profile page's switch („Wöchentliche Neuerungen als Hinweis anzeigen“) turns it back on; doing
+  so records the newest summary as seen, so the notice resumes with the next week published, not
+  with a backlog or the week it was turned off in. „Neuerungen“ stays in the user menu either way.
+* **Headless first.** `GET /api/release-notes/unseen-summary`, `POST /api/release-notes/seen`
+  and `GET|PUT /api/release-notes/notice-preference` are catalogued
+  (`release-summary-unseen-get`, `release-summary-seen-mark`, `release-summary-notice-get`,
+  `release-summary-notice-set`) and withheld as `ui-state`: they are the person's own screen and
+  setting. An agent reads the summaries through `release-note-list`.
+* **Observable.** PostHog events `whats_new_shown`, `whats_new_dismissed` (`via`),
+  `whats_new_opened`, `whats_new_opted_out` and `whats_new_opted_in`
+  (`docs/observability/posthog-events.md`). No model call, so nothing for Langfuse.
+
+Confirmation: `bff/release-notes/summary-notice.spec.ts` (latest only; seen never shows again;
+opted out never shows; re-enabling resumes with the next week, no backlog; new here is recorded
+quietly), the route specs under `app/api/release-notes/`, `whats-new-notice.spec.tsx` (shows
+once, closing, Escape and the link count as seen, „Nicht mehr anzeigen“ turns it off, waits out
+a tour, nothing for someone new here) and `whats-new-notice-settings.spec.tsx`; the 0194 CHECK;
+`agent-reachability.spec.ts` and `exposure.config.spec.ts` for the four operations.
+
 ## More Information
 
 * The rules for authors: [`docs/contributing/release-notes.md`](../contributing/release-notes.md).

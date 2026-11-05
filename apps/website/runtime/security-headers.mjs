@@ -12,6 +12,10 @@
  * views set `style` attributes, which only a hash-free policy allows. Styles
  * cannot run code, so this is the accepted trade-off.
  *
+ * `img-src` adds the CMS's public origin when the stack has one (ADR-0155): image covers
+ * and images in a post are served by its asset presets. Only images: the site never runs
+ * or fetches anything from the CMS in the browser.
+ *
  * `form-action` allows `mailto:` because the contact and demo forms hand off
  * to the visitor's mail program when JavaScript is off (README, "Forms").
  *
@@ -24,15 +28,32 @@
 export const HSTS = 'max-age=63072000'
 
 /**
+ * The CMS's public origin, from `CMS_PUBLIC_URL`, for `img-src`; none without a CMS.
+ *
+ * @param {Record<string, string | undefined>} env
+ * @returns {string[]}
+ */
+export function cmsImageOrigins(env) {
+  const url = env.CMS_URL && env.CMS_TOKEN ? env.CMS_PUBLIC_URL?.trim() : undefined
+  if (!url) return []
+  try {
+    return [new URL(url).origin]
+  } catch {
+    return []
+  }
+}
+
+/**
  * @param {{ connect: string[], script: string[] }} analytics origins from `analyticsOrigins`
+ * @param {string[]} [images] more image origins (`cmsImageOrigins`)
  * @returns {string}
  */
-export function contentSecurityPolicy(analytics) {
+export function contentSecurityPolicy(analytics, images = []) {
   const directives = {
     'default-src': ["'self'"],
     'script-src': ["'self'", ...analytics.script],
     'style-src': ["'self'", "'unsafe-inline'"],
-    'img-src': ["'self'", 'data:'],
+    'img-src': ["'self'", 'data:', ...images],
     'font-src': ["'self'"],
     'media-src': ["'self'"],
     'connect-src': ["'self'", ...analytics.connect],
@@ -53,11 +74,12 @@ export function contentSecurityPolicy(analytics) {
  * Every security header, as `[name, value]` pairs.
  *
  * @param {{ connect: string[], script: string[] }} analytics
+ * @param {string[]} [images] more image origins (`cmsImageOrigins`)
  * @returns {[string, string][]}
  */
-export function securityHeaders(analytics) {
+export function securityHeaders(analytics, images = []) {
   return [
-    ['Content-Security-Policy', contentSecurityPolicy(analytics)],
+    ['Content-Security-Policy', contentSecurityPolicy(analytics, images)],
     ['Strict-Transport-Security', HSTS],
     ['X-Content-Type-Options', 'nosniff'],
     ['X-Frame-Options', 'DENY'],
