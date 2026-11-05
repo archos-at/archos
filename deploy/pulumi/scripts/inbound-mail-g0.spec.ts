@@ -178,7 +178,9 @@ describe("g0Findings", () => {
   });
 });
 
-describe("the command line", () => {
+// It starts the script in its own `bun` process: seconds on a busy machine,
+// past vitest's 5 s default (see inbound-mail-smoke.spec.ts).
+describe("the command line", { timeout: 30_000 }, () => {
   it("stops on a missing input rather than guessing one", () => {
     const result = spawnSync("bun", [join(__dirname, "inbound-mail-smoke.ts"), "g0"], {
       encoding: "utf8",
