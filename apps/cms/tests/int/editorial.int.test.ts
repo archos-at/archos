@@ -111,9 +111,12 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
       expect(newest.title).toBe(`Changed by ${who}`);
     }
     expect(revalidations).toEqual([]);
-    // Restoring an old version and duplicating are drafts too.
+    // Restoring a published version is a publisher's; an editor restores it as a draft.
+    // (restoreVersion reads its `draft` flag before the beforeOperation hook, so the hook
+    // cannot turn it into a draft: the update access refuses the publication instead.)
     const versions = await payload.findVersions({ collection: 'posts', where: { parent: { equals: live.id } }, sort: 'createdAt' });
-    await payload.restoreVersion({ collection: 'posts', id: versions.docs[0].id, ...as('editor') });
+    await expect(payload.restoreVersion({ collection: 'posts', id: versions.docs[0].id, ...as('editor') })).rejects.toThrow(/not allowed/i);
+    await payload.restoreVersion({ collection: 'posts', id: versions.docs[0].id, draft: true, ...as('editor') });
     expect((await payload.findByID({ collection: 'posts', id: live.id }))._status).toBe('published');
     const copy = await payload.duplicate({ collection: 'posts', id: live.id, data: { slug: 'live-post-copy' }, ...as('agent') });
     expect(copy._status).toBe('draft');

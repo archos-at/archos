@@ -45,6 +45,8 @@ export const deletePosts: Access = ({ req }) => canPublish(req.user);
 
 export const readPostVersions: Access = ({ req }) => canDraft(req.user);
 
+// restoreVersion reads its `draft` flag before this hook runs, so there the update access
+// (`writePosts`) is what refuses an editor's restore of a published version; "restore as draft" works.
 const WRITES = new Set(['create', 'update', 'restoreVersion']);
 
 /**

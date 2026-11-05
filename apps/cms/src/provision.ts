@@ -11,7 +11,7 @@
  *
  * A variable that is unset leaves its account as it is.
  */
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import type { Payload } from 'payload';
 import type { Role } from './access/roles';
 import { DEFAULT_ACCOUNT_KEY } from './jobs/draft-social-posts';
@@ -44,11 +44,13 @@ async function ensureRobot(payload: Payload, robot: (typeof ROBOTS)[number], env
   if (!apiKey) return;
   const found = await payload.find({ collection: 'users', where: { email: { equals: robot.email } }, limit: 1, showHiddenFields: true });
   const desired = { name: robot.name, role: robot.role, enableAPIKey: true, apiKey };
-  const existing = found.docs[0] as { id: number | string; role?: string; apiKey?: string | null; enableAPIKey?: boolean | null } | undefined;
+  const existing = found.docs[0] as { id: number | string; role?: string; apiKeyIndex?: string | null; enableAPIKey?: boolean | null } | undefined;
+  // Payload keeps the key encrypted and finds it by this index (payload/dist/auth/strategies/apiKey.js).
+  const index = createHmac('sha256', payload.secret).update(apiKey).digest('hex');
   if (!existing) {
     await payload.create({ collection: 'users', data: { email: robot.email, password: randomPassword(), ...desired } });
     log(`created ${robot.email}`);
-  } else if (existing.role !== robot.role || existing.apiKey !== apiKey || !existing.enableAPIKey) {
+  } else if (existing.role !== robot.role || existing.apiKeyIndex !== index || !existing.enableAPIKey) {
     await payload.update({ collection: 'users', id: existing.id, data: desired });
     log(`updated ${robot.email}`);
   }
