@@ -70,7 +70,6 @@ def save_translations(path: Path, translations: dict[str, dict[str, str]]) -> No
     path.write_text(json.dumps(entries, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-
 def translate(text: str, api_key: str, model: str = TRANSLATION_MODEL, attempts: int = 3) -> str:
     """One English string to German via OpenRouter, or raise after `attempts`.
 
@@ -167,4 +166,3 @@ def prune_translations(translations: dict[str, dict[str, str]], strings: list[st
     """Drop cache entries no note refers to any more, so the file stays readable."""
     live = {text_key(text) for text in strings}
     return {key: value for key, value in translations.items() if key in live}
-

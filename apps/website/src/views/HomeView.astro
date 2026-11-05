@@ -19,7 +19,7 @@ import identity from '../lib/identity';
 import { softwareApplication } from '../lib/structured-data';
 import { withName } from '../lib/identity';
 import { PILOT_OFFICES } from '../lib/pilot-offices';
-import { productImages, SCREENSHOT_QUALITY, SCREENSHOT_WIDTHS, SIZES } from '../lib/media';
+import { founderPortraits, knowledgeVideo, photos, productImages, SCREENSHOT_QUALITY, SCREENSHOT_WIDTHS, SIZES } from '../lib/media';
 
 // Markup and structure only. Text comes from src/i18n/pages/home.ts, in both locales.
 interface Props {
@@ -37,33 +37,25 @@ const galleryImages = [productImages.searchDerivation, productImages.compareClea
 // so only the German page plays it. Every product screenshot already appears on this page, and a
 // repeat reads as a fault, so the English section goes on to its next block without a visual.
 const showKnowledgeVideo = locale === 'de';
-const knowledgeVideo = {
-  poster: '/media/knowledge-video-poster.webp',
-  sources: [
-    { src: '/media/knowledge-video.mp4', type: 'video/mp4' },
-    { src: '/media/knowledge-video.webm', type: 'video/webm' },
-  ],
-};
+// The photos show in their own colours and brightness: no filter. The text on them reaches its
+// contrast through the scrim behind the text (components.css, "Duo photo scrim").
 const duo: [DuoItem, DuoItem] = [
   {
     ...c.statement.duo[0],
-    photo: '/media/planner-design-photo.webp',
-    photoStyle:
-      'object-position: 60% 100%; transform: translateX(-50%); filter: sepia(0.16) saturate(1.05) contrast(0.92) brightness(0.5);',
-    photoMaskStyle:
-      'object-position: 60% 100%; transform: translateX(-50%); filter: sepia(0.16) hue-rotate(10deg) saturate(1) contrast(0.92) brightness(0.5); -webkit-mask-image: linear-gradient(to left, transparent 38%, #000 62%); mask-image: linear-gradient(to left, transparent 38%, #000 62%);',
+    photo: photos.plannerDesign,
+    photoStyle: 'object-position: 60% 100%;',
     onPhoto: true,
     ai: true,
   },
   {
     ...c.statement.duo[1],
-    photo: '/media/ai-search-compare-photo.webp',
-    photoStyle:
-      'object-position: 50% 70%; filter: grayscale(1) sepia(0.15) hue-rotate(175deg) saturate(0.9) brightness(0.42) contrast(1.1);',
+    photo: photos.aiSearchCompare,
+    photoStyle: 'object-position: 50% 70%;',
     ai: true,
   },
 ];
 const galleryItems = c.gallery.items.map((item, i) => ({ ...item, image: galleryImages[i] }));
+const founders = c.founders.people.map((person, i) => ({ ...person, portrait: founderPortraits[i] }));
 ---
 
 <BaseLayout locale={locale} title={c.meta.title} brandFirst description={c.meta.description} graph={[product]}>
@@ -91,7 +83,7 @@ const galleryItems = c.gallery.items.map((item, i) => ({ ...item, image: gallery
     {
       showKnowledgeVideo && (
         <div style="margin-top: var(--space-16);">
-          <Video locale={locale} name="knowledge" sources={knowledgeVideo.sources} poster={knowledgeVideo.poster} label={c.knowledge.videoLabel} />
+          <Video locale={locale} name="knowledge" sources={knowledgeVideo.sources} poster={knowledgeVideo.poster.src} label={c.knowledge.videoLabel} />
         </div>
       )
     }
@@ -145,7 +137,7 @@ const galleryItems = c.gallery.items.map((item, i) => ({ ...item, image: gallery
       name={c.quote.name}
       role={c.quote.role}
       office="feld72"
-      portrait="/media/team-conversation-photo.jpg"
+      portrait={photos.teamConversation}
       portraitAlt={c.quote.portraitAlt}
     />
     <div style="margin-top: calc(var(--space-24) + var(--space-4));">
@@ -158,7 +150,7 @@ const galleryItems = c.gallery.items.map((item, i) => ({ ...item, image: gallery
       <div>
         <SectionIntro size="heading" title={c.founders.title} />
         <div style="margin-top: var(--space-8);">
-          <TeamRow members={c.founders.people} />
+          <TeamRow members={founders} />
         </div>
         <p class="small" style="margin: var(--space-4) 0 0; color: var(--ink-muted);">{c.founders.caption}</p>
       </div>

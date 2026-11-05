@@ -241,7 +241,10 @@ INTERNAL_PATTERNS = [
     (re.compile(r"\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b"), "commit sha"),
     (re.compile(r"\b\w+\.(py|ts|tsx|astro|yml|yaml|json|mjs)\b"), "file name"),
     (re.compile(r"\b(src|frontends|sources|configs|deploy)/"), "repository path"),
-    (re.compile(rf"https?://(?!(www\.)?({re.escape(SITE_DOMAIN)}|{re.escape(FORMER_DOMAIN)}))"), "link off the website"),
+    (
+        re.compile(rf"https?://(?!(www\.)?({re.escape(SITE_DOMAIN)}|{re.escape(FORMER_DOMAIN)}))"),
+        "link off the website",
+    ),
 ]
 
 # Sentences shipped by the `reno new` template. A note still carrying one was

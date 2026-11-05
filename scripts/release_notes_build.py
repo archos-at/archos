@@ -31,6 +31,7 @@ from release_notes_rules import INTERNAL_SECTIONS
 from release_notes_rules import PRELUDE_SECTION
 from release_notes_rules import clean
 
+
 @dataclass
 class Note:
     """One note file, as published: its sections and where it landed."""
@@ -85,9 +86,7 @@ def note_from_body(filename: str, version: str, day: str | None, body: dict[str,
     sections = {
         key: [value] if isinstance(value, str) else list(value) for key, value in body.items() if key != PRELUDE_SECTION
     }
-    customer_text = " ".join(
-        " ".join(entries) for key, entries in sections.items() if key not in INTERNAL_SECTIONS
-    )
+    customer_text = " ".join(" ".join(entries) for key, entries in sections.items() if key not in INTERNAL_SECTIONS)
     return Note(
         filename=filename,
         version=version,
@@ -172,9 +171,6 @@ def _note_date(repo_root: Path, sha: bytes | str | None) -> str | None:
         return None
     stamp = out.stdout.strip()
     return stamp[:10] if stamp else None
-
-
-
 
 
 # ── Grouping ────────────────────────────────────────────────────────────────
@@ -341,9 +337,7 @@ def build_public_changelog(groups: list[dict[str, Any]], german: dict[str, str])
     return {
         "$comment": GENERATED + " The public tier: one summary per week, never a single note.",
         "releases": [
-            {**_heading(group), "summary": _bilingual(group["summary"], german)}
-            for group in groups
-            if group["summary"]
+            {**_heading(group), "summary": _bilingual(group["summary"], german)} for group in groups if group["summary"]
         ],
     }
 
