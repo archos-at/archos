@@ -132,7 +132,8 @@ const findings = []
 let pages = 0
 try {
   await waitFor(`${base}/healthz`)
-  const sitemap = await (await fetch(`${base}/sitemap-0.xml`)).text()
+  // The prerendered pages' sitemap, and the blog's, which the server renders on request (ADR-0155).
+  const sitemap = (await Promise.all(['sitemap-0.xml', 'sitemap-blog.xml'].map(async (f) => (await fetch(`${base}/${f}`)).text()))).join('')
   const routes = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => new URL(m[1]).pathname)
   // Unlisted pages are off the sitemap but still answer at their address.
   for (const key of UNLISTED_ROUTES) routes.push(ROUTES[key].de, ROUTES[key].en)

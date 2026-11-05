@@ -5,13 +5,13 @@ import PostCard from '../components/PostCard.astro';
 import copy from '../i18n/pages/blog';
 import type { Locale } from '../i18n/paths';
 import { CATEGORIES, CATEGORY_IDS, blogPath, type Category } from '../lib/categories';
-import { formatDate, postPath, type BlogPost } from '../lib/posts';
+import { formatDate, postPath, type Post } from '../lib/posts';
 
 // Markup only. Text comes from src/i18n/pages/blog.ts and src/lib/categories.ts.
 interface Props {
   locale: Locale;
   /** The listing's posts, newest first, already filtered by the route. */
-  posts: BlogPost[];
+  posts: Post[];
   /** Set on a category page; the index leaves it out. */
   category?: Category;
 }
@@ -57,12 +57,13 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
       {
         posts.map((post) => (
           <PostCard
-            title={post.data.heading}
-            text={post.data.description}
-            date={formatDate(post.data.pubDate, locale)}
-            label={category ? undefined : CATEGORIES[locale][post.data.category].label}
+            title={post.heading}
+            text={post.description}
+            date={formatDate(post.pubDate, locale)}
+            label={category ? undefined : CATEGORIES[locale][post.category].label}
             href={postPath(locale, post)}
-            cover={post.data.cover}
+            cover={post.cover}
+            locale={locale}
           />
         ))
       }

@@ -249,6 +249,10 @@ site:
   - '.node-version'
   # The public website (built from packages/brand).
   - 'apps/website/**'
+  # The CMS's blocks and its revalidate call: src/lib/rich-text.test.ts and
+  # cms.test.ts hold the website's renderer and route to them (ADR-0155).
+  - 'apps/cms/src/blocks/**'
+  - 'apps/cms/src/hooks/revalidate-website.ts'
   # The brand package: the website's `bun run check` holds the token and name copies
   # (sync.mjs --check), the icon copies (build-brand-assets.mjs --check) and the
   # email signatures to it, and art:check holds the app's riso art to its source.
@@ -265,6 +269,25 @@ site:
   - 'apps/workspace/bff/art/**'
   - 'Taskfile.yml'
   - 'taskfiles/website.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'
+cms:
+  # The website's CMS (apps/cms, Payload, ADR-0155): its own job runs `task cms:verify`
+  # (typecheck, lint, unit tests, and the Postgres suite with the migration drift gate).
+  - '.node-version'
+  - 'apps/cms/**'
+  - 'taskfiles/cms.yml'
+  # Its tests hold its choices and its import to the website's code and posts:
+  # the cover drawings, the categories, the routes a call to action names, the
+  # MDX fixtures the import converts, and the block contracts it registers.
+  - 'apps/website/src/assets/covers/**'
+  - 'apps/website/src/lib/categories.ts'
+  - 'apps/website/src/i18n/paths.ts'
+  - 'apps/website/src/content/blog/**'
+  - 'apps/website/src/components/blocks/contracts.ts'
+  - 'Taskfile.yml'
   - '.github/workflows/ci.yml'
   - '.github/filters.yml'
   - '.github/actions/setup-bun/**'

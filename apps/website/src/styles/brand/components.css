@@ -202,6 +202,13 @@ a.ui-wordmark:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .ui-quote-portrait > * { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: var(--surface-sunken); }
 @media (max-width: 1023px) { .ui-quote-wrap { grid-template-columns: 1fr; } .ui-quote-portrait { max-width: var(--portrait-width); } }
 
+/* Callout: a note set off from running text (a remark, a caveat), on the sunken surface; important adds the strong rule */
+.ui-callout { margin: var(--space-6) 0 0; padding: var(--space-4) var(--space-6); background: var(--surface-sunken); color: var(--ink); }
+.ui-callout--important { border-left: var(--stroke-strong) solid var(--line-strong); }
+.ui-callout-title { margin: 0; font: var(--text-body); font-weight: 600; }
+.ui-callout-text { margin: 0; font: var(--text-body); }
+.ui-callout-title + .ui-callout-text { margin-top: var(--space-2); }
+
 /* Footer: dark; brand, columns, funding note, legal */
 .ui-footer { background: var(--surface); color: var(--ink); padding: var(--space-24) 0 var(--space-8); }
 .ui-footer-top { display: grid; grid-template-columns: 2fr repeat(var(--ui-cols, 3), 1fr); gap: var(--space-8); }

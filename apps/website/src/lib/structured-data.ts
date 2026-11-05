@@ -105,7 +105,20 @@ export function faqPage(site: URL, path: string, items: { q: string; a: string }
 /** A blog post, from its frontmatter (no schema change: `dateModified` is `pubDate` until a post has an update date). */
 export function blogPosting(
   site: URL,
-  post: { headline: string; description: string; path: string; published: Date; locale: Locale; section: string; image: string },
+  post: {
+    headline: string;
+    description: string;
+    path: string;
+    published: Date;
+    /** The last change, when the source knows it (the CMS does); else the publication date. */
+    modified?: Date;
+    locale: Locale;
+    section: string;
+    /** A path on the site, or an absolute URL (a CMS image cover's share preset). */
+    image: string;
+    /** A named author (CMS); without one the organization is the author. */
+    author?: { name: string; jobTitle?: string; url?: string };
+  },
 ): GraphNode {
   const url = new URL(post.path, site).href;
   return {
@@ -115,11 +128,18 @@ export function blogPosting(
     url,
     mainEntityOfPage: url,
     datePublished: post.published.toISOString(),
-    dateModified: post.published.toISOString(),
+    dateModified: (post.modified ?? post.published).toISOString(),
     inLanguage: post.locale,
     articleSection: post.section,
     image: new URL(post.image, site).href,
-    author: { '@id': organizationId(site) },
+    author: post.author
+      ? {
+          '@type': 'Person',
+          name: post.author.name,
+          ...(post.author.jobTitle ? { jobTitle: post.author.jobTitle } : {}),
+          ...(post.author.url ? { sameAs: [post.author.url] } : {}),
+        }
+      : { '@id': organizationId(site) },
     publisher: { '@id': organizationId(site) },
   };
 }
