@@ -70,17 +70,18 @@ function MockComposer({
   hint?: { icon: 'at' | 'agent'; body: string }
 }): JSX.Element {
   return (
-    <div className="bg-card relative flex flex-col rounded-xl px-4 py-2.5 shadow-sm">
+    <div className="@container bg-card relative flex flex-col rounded-xl px-4 py-2.5 shadow-sm">
       <p className="min-h-[40px] px-1.5 py-1 text-[14.5px] leading-[1.5] text-foreground">{text}</p>
 
-      {/* The real row's shape (InputArea): ONE line of controls that never
-          wraps, and the addressee statement
-          (`order-last basis-full` inside the indicator) on its own line below.
+      {/* The real row's shape (ComposerControls): ONE line of controls, the
+          mention offer at its start (folded to `@` in a card under 28rem), and
+          the addressee statement (`order-last basis-full` inside the indicator)
+          on its own line below.
           The Datengrundlage chip and the Deep Research pill left the real
           composer, so they left this copy too. */}
-      <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex min-w-0 items-center gap-1.5 sm:contents">
-          <span className="ml-auto flex shrink-0 items-center gap-1">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <div className="contents">
+          <span className="order-3 ml-auto flex shrink-0 items-center gap-1">
             <span className="text-muted-foreground inline-flex h-8 items-center px-1.5 text-xs font-semibold pointer-coarse:h-11">
               Mittel
             </span>

@@ -58,6 +58,13 @@ const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
 
 const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['members', 'model'])
 
+/**
+ * The band a section's {@link PageHeader} sits in. Exported because the
+ * Büroablage is a project's Dateien with the project taken out, and its header
+ * is this one: one class, so the two stores cannot drift apart.
+ */
+export const SECTION_HEADER_CLASS = 'shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8'
+
 const ActionsContext = createContext<(node: ReactNode) => void>(() => {})
 
 function isProjectChromeSection(segment: string): segment is ProjectChromeSection {
@@ -128,7 +135,7 @@ export function ProjectSectionFrame({
   return (
     <ActionsContext.Provider value={setActions}>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8">
+        <div className={SECTION_HEADER_CLASS}>
           <PageHeader title={sectionLabel} subtitle={sectionSubtitle} action={actions} />
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>

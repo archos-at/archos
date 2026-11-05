@@ -77,7 +77,7 @@ because `:root` and `.dark` have equal specificity there. Decorative overlays
 that paint the card's colour over content (the streaming caret's veil) are
 hidden under `contrast-more:` and `forced-colors:`.
 
-**Ink ramp (light):** #1f2023 (foreground/action) → #55565a secondary → #6f706c muted → #8a8a86 placeholder → #b3b3af ghost. Borders are **alpha ink hairlines** (`rgba(28,30,33,…)` equivalents at .08 base / .12 input / .16 strong / .22–.32 selected), so they composite on any surface. Focus ring is ink-based (`--ring`), never blue, and it is for the keyboard: the global `:focus-visible` outline is unlayered on purpose, so it survives every control's `outline-none` and gives the keyboard its 3:1 indicator on top of the softer `FOCUS_RING` halo (in a cascade layer, `outline-none` once dropped it app-wide); an overlay's panel never draws one when it takes the focus itself on open. **A focus ring snaps.** No transition list in a control names `box-shadow` (a Tailwind ring is a box-shadow) or, on a field, `border-color` (a field's focus is its border turning to `--ring`): a ring that fades in is a ring that is not there yet when the reader looks for it.
+**Ink ramp (light):** #1f2023 (foreground/action) → #55565a secondary → #6f706c muted → #8a8a86 placeholder → #b3b3af ghost. Borders are **alpha ink hairlines** (`rgba(28,30,33,…)` equivalents at .08 base / .12 input / .16 strong / .22–.32 selected), so they composite on any surface. Focus ring is ink-based (`--ring`), never blue, and it is for the keyboard: the global `:focus-visible` outline is unlayered on purpose, so it survives every control's `outline-none` and gives the keyboard its 3:1 indicator on top of the softer `FOCUS_RING` halo (in a cascade layer, `outline-none` once dropped it app-wide); an overlay's panel never draws one when it takes the focus itself on open. **A field's focus is its border, nothing more.** A text field (`Input`, `Textarea`, `Select`, every search bar, the chat composer) shows `:focus-visible` on a mouse click, so a halo or the global outline on it is drawn on every click: three bands where the reader wanted a caret (Notion #38). `FIELD_FOCUS_RING` / `FIELD_FOCUS_WITHIN_RING` (`components/ui/focus-ring.ts`) turn the 1px border to `--ring` and switch the global outline off (`outline-hidden!`, which forced colours still draw); that border is above 3:1 against paper and against the resting border in both themes. Buttons keep `FOCUS_RING`. **A focus ring snaps.** No transition list in a control names `box-shadow` (a Tailwind ring is a box-shadow) or, on a field, `border-color` (a field's focus is its border turning to `--ring`): a ring that fades in is a ring that is not there yet when the reader looks for it.
 
 **Provenance signal system** — each signal has a base color, a `-tint` surface (for chips/rows on cards), and a `-text` variant (AA-readable on the tint), both modes:
 
@@ -144,6 +144,7 @@ The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero
 | Section heading | `text-lg font-medium tracking-tight` |
 | Card/subsection title | `text-sm font-medium` |
 | Eyebrow / label (sentence case ≈10.5px) | `text-[10.5px] font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Answer text (16px) | `text-answer` (`--text-answer`, `ui/styles/tokens.css`): the ONE size of an answer's text: prose, lede, standfirst, a block's body, a card's body and title (`.card-body` and `.card-title` read the token). Headings, figures and the caption/meta/eyebrow steps keep their own; a size step inside an answer that expresses no rank is the defect it removed (Notion #38) |
 | Body | `text-sm` (leading-relaxed for prose) |
 | Body secondary | `text-sm text-muted-foreground` |
 | Caption / meta | `text-xs text-muted-foreground` |
@@ -158,9 +159,13 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 
 - **Content weight is 500.** Emphasis is size and ink, never 600 or 700: a
   title is `font-medium` at a larger size or in `text-foreground`, its
-  context in `text-muted-foreground`. Secondary running text is 400
-  (`font-normal`). The card scale in `globals.css` (`.card-title`,
-  `.card-headline`, `.card-figure-*`) is 500 as well.
+  context in `text-muted-foreground`. Secondary running text is the
+  light end, `font-normal`, which is **440, not 400**: General Sans is
+  variable and its 400 read thin on paper and charcoal alike (Notion #38).
+  `--font-weight-normal` in `tokens.css` sets it once, `body` reads it, and
+  nothing is set lighter (`tests/brand-literals.spec.ts`). The card scale in `globals.css` (`.card-title`,
+  `.card-headline`, `.card-figure-*`) is 500 as well; its caption and body
+  steps read `--font-weight-normal`.
 - **One documented exception to 600:** numerals and initials set at 12px or
   smaller inside a badge, marker, count or avatar (a citation marker, a count
   pill, a stepper numeral, a collaborator's initials), where 500 loses against

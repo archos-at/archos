@@ -66,7 +66,6 @@
  */
 
 import { useEffect, useState, type FC } from 'react'
-import { FileText } from 'lucide-react'
 import { AnimatePresence, motion, motionInstant, motionQuick, motionQuickExit } from '@/components/motion'
 import { Card } from '@/components/ui/card'
 import { SectionLabel } from '@/components/ui/section-label'
@@ -369,7 +368,7 @@ export const DocumentDraftCard: FC<DocumentDraftCardProps> = ({
 
   return (
     <Card data-testid="document-draft-card" className={cn(CARD_SHELL, 'gap-2 p-5')}>
-      <SectionLabel icon={FileText}>{t('cards.documentDraft.eyebrow')}</SectionLabel>
+      <SectionLabel>{t('cards.documentDraft.eyebrow')}</SectionLabel>
 
       <div className="flex min-w-0 flex-col">
         {/* Both lines wrap to two and open on a tap: the working directory's

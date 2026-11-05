@@ -1,0 +1,12 @@
+---
+fixes:
+  - >
+    Removing someone from a project or changing their role now takes effect on
+    their very next click, and conversations that were waiting on a removed
+    person no longer wait forever.
+security:
+  - >
+    A project role can now only be granted or taken away by someone who holds
+    every permission of that role on the project, two roster changes can no
+    longer race past the rule that a project keeps one admin, and a project
+    whose creation failed no longer leaves its access entry behind in WorkOS.

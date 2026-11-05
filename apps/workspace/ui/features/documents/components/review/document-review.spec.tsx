@@ -688,6 +688,60 @@ describe('the tools spelled out, on a narrow stage', () => {
   })
 })
 
+describe('the list beside the sheet', () => {
+  /** The review as Host mounts it, with a hand on its list read: a mark arriving is the list read again. */
+  const reread: { current: (() => void) | null } = { current: null }
+  function ListHost() {
+    const [transport] = useState(room)
+    const review = useDocumentReview('doc_1', { enabled: true, transport })
+    reread.current = review.retry
+    return <DocumentReviewMode open onOpenChange={() => {}} review={review} documentName="Grundriss.pdf" canPickAssignee={false} />
+  }
+  const column = () => screen.getByTestId('review-list-column')
+  const toggle = () => screen.getByTestId('review-list-open')
+
+  it('stays folded while the document has no marks, and stands up when the first one arrives', async () => {
+    serve([])
+    render(<ListHost />)
+    await screen.findByTestId('review-empty')
+    expect(column()).not.toBeVisible()
+    expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle()).not.toHaveAttribute('aria-haspopup')
+
+    serve([view({ id: 'a1' })])
+    act(() => reread.current?.())
+
+    await waitFor(() => expect(column()).toBeVisible())
+    expect(within(column()).getByTestId('review-row')).toBeInTheDocument()
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('stands beside the sheet at once on a document that has marks, done ones too', async () => {
+    serve([view({ id: 'a1', status: 'resolved' })])
+    render(<ListHost />)
+    await waitFor(() => expect(column()).toBeVisible())
+  })
+
+  it('opens and folds on the reader’s word, and keeps to it when marks come and go', async () => {
+    serve([])
+    render(<ListHost />)
+    await screen.findByTestId('review-empty')
+
+    await userEvent.click(toggle())
+    expect(column()).toBeVisible()
+    expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+
+    await userEvent.click(toggle())
+    expect(column()).not.toBeVisible()
+
+    // Folded by the reader: a mark arriving does not unfold it over their head.
+    serve([view({ id: 'a1' })])
+    act(() => reread.current?.())
+    await waitFor(() => expect(toggle()).toHaveTextContent(/^1$/))
+    expect(column()).not.toBeVisible()
+  })
+})
+
 describe('the list on a phone', () => {
   // Under `lg` the list is not beside the sheet: a button in the header opens it.
   const realMatchMedia = window.matchMedia
