@@ -1,35 +1,45 @@
 /**
- * Copy of the changelog page, both locales. The notes themselves are product data from
+ * Copy of the changelog page, both locales. The weekly summaries themselves are product data from
  * src/data/changelog.json (generated, see src/lib/changelog.ts); this is the frame around them.
- * `{name}` is the brand name, filled by `withName`;
+ * `{name}` is the brand name, filled by `withName`.
  */
 const de = {
   meta: {
     title: 'Neuerungen',
-    description:
-      'Was sich in {name} geändert hat: neue Funktionen, Verbesserungen und behobene Fehler, Woche für Woche.',
+    description: 'Was sich in {name} geändert hat, Woche für Woche zusammengefasst.',
   },
   hero: {
     title: 'Neuerungen.',
-    text: 'Was sich in {name} geändert hat, Woche für Woche.',
+    text: 'Was sich in {name} geändert hat, Woche für Woche zusammengefasst.',
   },
+  // Every single change is in the app, behind sign-in (ADR-0154); this page carries the week's summary.
+  inApp: 'Jede einzelne Änderung, nach Bereich sortiert, finden Sie nach der Anmeldung in {name} unter Neuerungen.',
   formerName: 'Einträge aus der Zeit vor der Umbenennung nennen {name} bei seinem früheren Namen.',
   unreleased: 'In Kürze',
-  empty: 'Noch keine Einträge. Die erste Änderung erscheint hier, sobald sie ausgeliefert ist.',
+  empty: 'Noch keine Einträge. Die erste Zusammenfassung erscheint hier, sobald die Woche vorbei ist.',
+  feed: {
+    title: '{name} Neuerungen',
+    link: 'Neuerungen als RSS-Feed abonnieren',
+  },
 };
 
 const en: typeof de = {
   meta: {
     title: 'What’s new',
-    description: 'What changed in {name}: new features, improvements and fixes, week by week.',
+    description: 'What changed in {name}, summarised week by week.',
   },
   hero: {
     title: 'What’s new.',
-    text: 'What changed in {name}, week by week.',
+    text: 'What changed in {name}, summarised week by week.',
   },
+  inApp: 'Every single change, sorted by area, is in {name} under What’s new once you sign in.',
   formerName: 'Entries from before the rename call {name} by its former name.',
   unreleased: 'Coming up',
-  empty: 'No entries yet. The first change appears here as soon as it ships.',
+  empty: 'No entries yet. The first summary appears here once its week is over.',
+  feed: {
+    title: '{name} What’s new',
+    link: 'Subscribe to what’s new as an RSS feed',
+  },
 };
 
 export default { de, en };
