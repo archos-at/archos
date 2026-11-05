@@ -21,6 +21,12 @@ const gatewayName = () => objectName("gateway", PROJECT);
  */
 
 const HOST = "cms.dev.example.test";
+/** The platform Connect application the CMS host is gated by, as on every stack that runs it. */
+const GATE = {
+  [key("otelOidcIssuer")]: "https://grid.authkit.app",
+  [key("otelOidcClientId")]: "client_otel",
+  [key("otelOidcClientSecret")]: "otel-client-secret", // pragma: allowlist secret
+};
 const RESOURCES: Array<{ type: string; name: string; inputs: Record<string, unknown> }> = [];
 
 pulumi.runtime.setMocks(
@@ -58,7 +64,7 @@ const unwrap = (data: any) => (data && typeof data.value === "object" ? data.val
 
 async function build(extra: Record<string, string>) {
   RESOURCES.length = 0;
-  pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key("baseDomain")]: "dev.example.test", ...extra });
+  pulumi.runtime.setAllConfig({ ...baseStackConfig(), [key("baseDomain")]: "dev.example.test", ...GATE, ...extra });
   vi.resetModules();
   const stack = (await import("./index")) as Record<string, unknown>;
   await Promise.all(
@@ -97,6 +103,26 @@ describe("the CMS, switched on", () => {
     expect(route.spec.parentRefs).toEqual([{ name: gatewayName(), namespace: appNs(), sectionName: "https-cms" }]);
     expect(route.spec.hostnames).toEqual([HOST]);
     expect(route.spec.rules[0].backendRefs).toEqual([{ name: "cms", port: 3000 }]);
+  });
+
+  it("gates the host as Langfuse's is, and leaves only the images open, on a route the gate does not name", () => {
+    const policy = find("kubernetes:gateway.envoyproxy.io/v1alpha1:SecurityPolicy", "cms-security-policy");
+    expect(policy.metadata.namespace).toBe("cms");
+    expect(policy.spec.targetRefs).toEqual([{ group: "gateway.networking.k8s.io", kind: "HTTPRoute", name: "cms" }]);
+    expect(policy.spec.oidc.redirectURL).toBe(`https://${HOST}/oauth2/callback`);
+    expect(policy.spec.oidc.clientSecret).toEqual({ name: "cms-oidc" });
+    expect(policy.spec.oidc.forwardAccessToken).toBe(true);
+    expect(policy.spec.authorization.defaultAction).toBe("Deny");
+    expect(policy.spec.authorization.rules.map((r: { principal: { jwt: { scopes: string[] } } }) => r.principal.jwt.scopes)).toEqual([["platform:organizations:view"]]);
+    // The Secret sits beside the policy: a SecurityPolicy reads Secrets of its own namespace only.
+    expect(find("kubernetes:core/v1:Secret", "cms-oidc").metadata.namespace).toBe("cms");
+
+    const media = find("kubernetes:gateway.networking.k8s.io/v1:HTTPRoute", "cms-media-route");
+    expect(media.metadata).toMatchObject({ name: "cms-media", namespace: "cms" });
+    expect(media.spec.hostnames).toEqual([HOST]);
+    expect(media.spec.rules).toEqual([{ matches: [{ path: { type: "PathPrefix", value: "/api/media/file/" } }], backendRefs: [{ name: "cms", port: 3000 }] }]);
+    // The CMS signs a person in from the gate's token, against the gate's issuer.
+    expect(envOf(podOf("kubernetes:apps/v1:Deployment", "cms").containers[0]).CMS_EDGE_OIDC_ISSUER).toBe("https://grid.authkit.app");
   });
 
   it("runs the commit's own CMS image as nextjs, read-only, verifying cms-pg's certificate, with files in its own bucket", () => {
@@ -207,4 +233,55 @@ describe("the CMS, switched on without network policies", () => {
     const env = envOf(podOf("kubernetes:apps/v1:Deployment", "web").containers[0]);
     expect(env.CMS_URL).toBeUndefined();
   });
+});
+
+describe("the CMS behind the platform MCP gateway", () => {
+  beforeAll(async () => {
+    await build({
+      [key("cmsEnabled")]: "true",
+      [key("langfuseEnabled")]: "false",
+      [key("mcpGatewayEnabled")]: "true",
+      [key("mcpGatewayPlatformOrgId")]: "org_01PLATFORM",
+      [key("workosAuthkitDomain")]: "tenant.authkit.app",
+    });
+  }, 120_000);
+
+  it("serves /cms/mcp with the CMS's agent key, which the gateway alone may present", async () => {
+    const config = find("kubernetes:core/v1:ConfigMap", "platform-mcp-gateway-config").data["config.yaml"] as string;
+    expect(config).toContain("http://cms.cms.svc.cluster.local:3000/api/mcp");
+    expect(config).toContain("/var/run/secrets/mcp/cms/authorization");
+    const credential = find("kubernetes:core/v1:Secret", "cms-platform-mcp");
+    expect(credential.metadata.namespace).toBe(appNs());
+    const header = await new Promise<string>((resolve) => pulumi.output(unwrap(credential.stringData).authorization).apply(resolve));
+    expect(header).toMatch(/^Bearer [A-Za-z0-9_-]{20,}$/);
+    const cmsEnv = unwrap(find("kubernetes:core/v1:Secret", "cms-env").stringData);
+    const mcpKey = await new Promise<string>((resolve) => pulumi.output(cmsEnv.CMS_PLATFORM_MCP_API_KEY).apply(resolve));
+    expect(header).toBe(`Bearer ${mcpKey}`);
+    const allow = find("kubernetes:networking.k8s.io/v1:NetworkPolicy", "cms-allow-platform-mcp-gateway-to-cms").spec;
+    expect(allow.ingress[0].from[0].podSelector.matchLabels).toEqual({ "app.kubernetes.io/name": "platform-mcp-gateway" });
+    expect(allow.ingress[0].ports).toEqual([{ protocol: "TCP", port: 3000 }]);
+  });
+
+  it("runs without Langfuse and needs no session key in the stack: it is derived like the CMS's credentials", async () => {
+    const session = find("kubernetes:core/v1:Secret", "platform-mcp-gateway-session");
+    const value = await new Promise<string>((resolve) => pulumi.output(unwrap(session.stringData)["session-key"]).apply(resolve));
+    expect(value).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("the CMS, switched on while the gateway is off", () => {
+  beforeAll(async () => {
+    await build({ [key("cmsEnabled")]: "true" });
+  }, 120_000);
+
+  it("offers no gateway route and hands the CMS no gateway key", () => {
+    expect(RESOURCES.some((r) => r.name === "cms-platform-mcp" || r.name === "cms-allow-platform-mcp-gateway-to-cms")).toBe(false);
+    expect(Object.keys(unwrap(find("kubernetes:core/v1:Secret", "cms-env").stringData))).not.toContain("CMS_PLATFORM_MCP_API_KEY");
+  });
+});
+
+describe("the CMS without the platform gate's application", () => {
+  it("is refused rather than deployed with an open admin panel", async () => {
+    await expect(build({ [key("cmsEnabled")]: "true", [key("otelOidcClientId")]: "" })).rejects.toThrow(/cmsEnabled needs the platform WorkOS Connect application/);
+  }, 120_000);
 });

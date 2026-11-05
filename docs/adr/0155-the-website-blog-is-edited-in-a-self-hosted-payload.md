@@ -132,7 +132,7 @@ identity and its second factor.
 | 8 | Live preview: the admin panel frames `/blog/preview/` with a link the CMS signs (HMAC, one hour); the page asks the CMS for exactly that draft, holds no credential that reads drafts, may be framed by the CMS's origin only, and reloads on every save | review | built |
 | 9 | Deployment as code (`deploy/pulumi/src/platform/cms*.ts`, `data/cms-pg.ts`, `config/cms.ts`): image `cms` built by CI, namespace `cms`, `cms-pg`, read-only root, NetworkPolicies; Compose profile `cms` | the whole star | built; manifest spec; **off** until `cmsEnabled` |
 | 10 | Social: model, UTM convention, Buffer hand-off with a dry run, LinkedIn drafts on publish (a job), drafts from the weekly release summaries | LinkedIn | built and tested offline; not running: no Buffer account yet |
-| 11 | Editors sign in through WorkOS (a Payload custom auth strategy: AuthKit's session cookie to a CMS user by e-mail, roles from the CMS), and AuthKit's MFA is the second factor | sign-in | next; until then local sign-in with lockout, 12-character passwords, eight-hour sessions, `SameSite=Strict` `Secure` cookies, no self-registration |
+| 11 | Editors sign in through WorkOS: the CMS host sits behind the platform gate Langfuse's sits behind (Envoy's OIDC SecurityPolicy, the `platform:organizations:view` permission), and a Payload custom auth strategy turns the token the gate forwards into the CMS user with that e-mail, created as an editor on a first visit, roles from the CMS. The images stay open on a route of their own. AuthKit's MFA is the second factor | sign-in | built; local sign-in with lockout stays where there is no gate |
 | 12 | The deploy pipeline resolves the `cms` image per service like the other three (`deploy/pulumi/scripts/resolve-image-refs.sh`, `deploy.yml`); today it follows `imageTag`, which a CI-triggered deploy sets to a commit CI tagged for all images | operations | next, before `cmsEnabled` on staging |
 | 13 | Site pages beyond the blog in the CMS by the same blocks: home sections, FAQ, team, pilot offices (globals and collections). Not the legal pages (their review is a pull request, on purpose) and not the changelog (ADR-0156) | team edits the site | later |
 | 14 | A translation drafted by an agent when a post is created (a job, our agent through MCP) | translation | later |
@@ -242,8 +242,10 @@ cover's `share` size.
   backups (off until `cmsPgBackupsEnabled`).
 * Bad, because the blog's pages are rendered on request: a CMS outage on a cold
   pod is a 500 on the blog until it answers.
-* Bad, because Payload's sign-in has no second factor of its own; until the
-  WorkOS slice, the admin panel rests on passwords, lockout and short sessions.
+* Bad, because only platform staff pass the gate today: an editor outside the
+  platform organisation needs a narrower permission of their own (a website
+  editor role) before they can be let in. Payload's own sign-in has no second
+  factor; behind the gate nobody uses it.
 * Bad, because uploaded files are public by URL, including one uploaded for a
   draft that is not live yet.
 * Neutral: MCP keys are static bearer keys a person creates, not OAuth; the
@@ -386,8 +388,9 @@ access. Round trip not done (no account).
 3. Buffer: an account (Free has 3 channels), the LinkedIn page connected by a
    page admin, its channel id on the account in the CMS, an API key as a secret,
    and where the hand-off runs (a CronJob beside the CMS, or a job in it).
-4. The WorkOS sign-in slice (11): a redirect URI on the CMS host in WorkOS, and
-   which organisation's members may edit.
+4. The WorkOS sign-in slice (11): `https://cms.<baseDomain>/oauth2/callback` on
+   the platform Connect application (done on staging, 2026-11-05). Who may edit
+   is the gate's permission; a narrower website-editor permission is open.
 5. Turning it on: `cmsEnabled` on staging, after slice 12.
 
 ### Revisit when

@@ -47,6 +47,7 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     process.env.CMS_JOBS_AUTORUN = 'false';
     process.env.CMS_WEBSITE_API_KEY = 'website-key-0123456789'; // pragma: allowlist secret
     process.env.CMS_SOCIAL_HANDOFF_API_KEY = 'handoff-key-0123456789'; // pragma: allowlist secret
+    process.env.CMS_PLATFORM_MCP_API_KEY = 'gateway-key-0123456789'; // pragma: allowlist secret
     process.env.CMS_ADMIN_EMAIL = 'admin@example.com';
     process.env.CMS_ADMIN_PASSWORD = 'an-admin-password'; // pragma: allowlist secret
     const { default: config } = await import('@payload-config');
@@ -78,6 +79,17 @@ describe.skipIf(!DATABASE)('blog posts on Postgres', () => {
     const lines: string[] = [];
     await provision(payload, process.env, (line) => lines.push(line));
     expect(lines).toEqual([]);
+  });
+
+  test("the platform MCP gateway's key is found as the MCP plugin finds it, and acts as an agent", async () => {
+    const { createHmac } = await import('node:crypto');
+    const index = createHmac('sha256', payload.secret).update('gateway-key-0123456789').digest('hex');
+    // resolveAccessSettings in @payloadcms/plugin-mcp: the key's index, then its user and switches.
+    const { docs } = await payload.find({ collection: 'payload-mcp-api-keys', where: { apiKeyIndex: { equals: index } }, depth: 1, limit: 1 });
+    const key = docs[0] as unknown as { user: { email: string; role: string }; posts: Record<string, boolean>; socialPosts: Record<string, boolean> };
+    expect(key.user).toMatchObject({ email: 'platform-mcp@robots.cms.invalid', role: 'agent' });
+    expect(key.posts).toMatchObject({ find: true, create: true, update: true });
+    expect(key.socialPosts).toMatchObject({ find: true, create: true, update: true });
   });
 
   test('an editor and an agent write drafts and cannot publish', async () => {

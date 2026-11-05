@@ -274,11 +274,20 @@ config:
   # ── The website's CMS (ADR-0155) ──
   # Payload at cms.<baseDomain> (cms.dev.piloti.at), its own namespace, the
   # cms-pg cluster and the cms-files bucket. Its secrets default to one-way
-  # HMACs of pgAppPassword, so nothing new goes into ESC. The first admin is
-  # letsEncryptEmail; its password is CMS_ADMIN_PASSWORD in the `cms-env`
-  # Secret of namespace `cms`. cms-pg's PITR archive (cmsPgBackupsEnabled) is
+  # HMACs of pgAppPassword, so nothing new goes into ESC. The host is behind the
+  # platform gate (otelOidc*, like Langfuse's): platform staff are signed in
+  # from it, as editors on a first visit, and cmsAdminEmail as administrator.
+  # The images alone are open. cms-pg's PITR archive (cmsPgBackupsEnabled) is
   # off until an off-cluster bucket exists: staging's posts are the MDX import.
   grid-oib:cmsEnabled: "true"
+  grid-oib:cmsAdminEmail: biglmatthias@gmail.com
+  # ── Platform MCP gateway (ADR-0154) ──
+  # platform-mcp.<baseDomain>: /langfuse/mcp and /cms/mcp for platform owners'
+  # agents, signed in with WorkOS. Its session key is derived from
+  # pgAppPassword unless mcpGatewaySessionKey is set. The resource indicators
+  # and the JWT template's roles claim are set in WorkOS staging.
+  grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:mcpGatewayPlatformOrgId: org_01KX06QQJN3KA25R9G2PNFBGXV
   # ── Feedback → GitHub issues ──
   # Bug reports from the in-app feedback form are filed as issues by the BFF,
   # with the err2issue PAT and repo above (feedbackIssuesEnabled defaults on).

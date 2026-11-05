@@ -60,6 +60,8 @@ function devStackConfig(): Record<string, string> {
   ),
     // In the dev stack's ESC environment, not its file.
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
+    // The platform Connect application's secret: the gate in front of Langfuse and the CMS.
+    [`${LEGACY_PROJECT}:otelOidcClientSecret`]: "placeholder-secret-value",
   };
 }
 

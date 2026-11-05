@@ -69,7 +69,7 @@ import { installQdrantDashboard } from "./src/platform/qdrant-dashboard";
 import { installMcpGateway } from "./src/platform/mcp-gateway";
 import { LANGFUSE, QDRANT } from "./src/constants";
 import { CMS, cmsImage } from "./src/config/cms";
-import { installWebCmsSecret } from "./src/platform/cms";
+import { installCmsGatewayCredential, installWebCmsSecret } from "./src/platform/cms";
 import { installCmsTier } from "./src/platform/cms-tier";
 
 const cfg = loadConfig();
@@ -514,10 +514,14 @@ if (cfg.observability.enabled) {
         )
       : undefined;
 
-  // The platform MCP gateway (ADR-0154): Langfuse is its one MCP server, so it rides with it.
-  if (cfg.mcpGateway.enabled && langfuse) {
+  // The platform MCP gateway (ADR-0154), in front of Langfuse's and the CMS's MCP servers.
+  if (cfg.mcpGateway.enabled && (langfuse || cfg.cms.enabled)) {
+    const cmsCredential = installCmsGatewayCredential(cfg, provider, namespace, [ns]);
     installMcpGateway(cfg, provider, namespace, [
-      gatewayResources.gateway, langfuse.webService, langfuse.secret, ...(rateLimitStore ? [rateLimitStore.service] : []),
+      gatewayResources.gateway,
+      ...(langfuse ? [langfuse.webService, langfuse.secret] : []),
+      ...(cmsCredential ? [cmsCredential] : []),
+      ...(rateLimitStore ? [rateLimitStore.service] : []),
     ]);
   }
 

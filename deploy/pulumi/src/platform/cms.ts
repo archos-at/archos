@@ -1,7 +1,9 @@
 /**
  * The website's CMS (ADR-0155): Payload in namespace `cms`, behind its own host
- * `cms.<baseDomain>` (the admin panel, the REST API, and the MCP server at
- * `/api/mcp`), on `cms-pg` (`data/cms-pg.ts`), its files in the SeaweedFS bucket
+ * `cms.<baseDomain>`, which is gated like Langfuse's: platform staff only, and
+ * the CMS signs them in from the gate's token (slice 11). Its images are the one
+ * path open to everyone, because the website's visitors load them. Agents reach
+ * its MCP server through the platform MCP gateway at `/cms/mcp`. It runs on `cms-pg` (`data/cms-pg.ts`), its files in the SeaweedFS bucket
  * `cms-files` through the `cms` identity. Its collections, rules and hooks are
  * code in apps/cms, built into the image `cms` by CI like the other apps.
  *
@@ -20,6 +22,8 @@ import { appPullPolicy } from "../config/images";
 import { CMS_PG_CA_SECRET, CMS_PG_HOST } from "../data/cms-pg";
 import { EDGE_TIMEOUT, PORT } from "../constants";
 import { GATEWAY_NAME } from "./gateway";
+import { MCP_GATEWAY } from "./mcp-gateway-config";
+import { OIDC_CLIENT_SECRET_KEY, platformOidcSecurityPolicySpec } from "./platform-oidc";
 import { commonLabels } from "./namespaces";
 import { onNodeGroup } from "./scheduling";
 import { hardenedContainerSecurityContext } from "./security";
@@ -30,6 +34,16 @@ export const CMS_INTERNAL_URL = `http://${CMS.app}.${CMS.namespace}.svc.cluster.
 export const WEBSITE_REVALIDATE_PATH = "/api/cms/revalidate";
 /** The probe path (apps/cms/src/app/healthz/route.ts): answers once the server listens, touches no database. */
 export const CMS_HEALTH_PATH = "/healthz";
+/**
+ * The CMS's images (Payload's `/api/media/file/<name>`): the one path of the
+ * CMS host the website's anonymous visitors load, so its route is not gated.
+ */
+export const CMS_PUBLIC_MEDIA_PATH = "/api/media/file/";
+/** The Connect application's client secret, beside the CMS's SecurityPolicy (a Secret reference cannot cross namespaces). */
+export const CMS_OIDC_SECRET = "cms-oidc"; // pragma: allowlist secret (a Secret's name)
+/** In the app namespace: the `Authorization` header the platform MCP gateway presents at `/cms/mcp`. */
+export const CMS_GATEWAY_CREDENTIAL_SECRET = "cms-platform-mcp"; // pragma: allowlist secret (a Secret's name)
+export const CMS_GATEWAY_CREDENTIAL_KEY = "authorization"; // pragma: allowlist secret (a Secret key's name)
 /** Where the pod reads `cms-pg`'s CA; DATABASE_URL names it (`sslrootcert`). */
 const PG_CA_PATH = "/etc/cms-pg-ca/ca.crt";
 
@@ -70,6 +84,8 @@ export function cmsEnv(cfg: DeployConfig, appNamespace: string): Record<string, 
     CMS_S3_REGION: "us-east-1",
     CMS_S3_ENDPOINT: `http://seaweedfs.${appNamespace}.svc.cluster.local:${PORT.seaweedS3}`,
     CMS_ADMIN_EMAIL: cfg.cms.adminEmail,
+    // The issuer of the token the edge gate forwards; the CMS signs the person in from it (apps/cms/src/auth/edge.ts).
+    CMS_EDGE_OIDC_ISSUER: cfg.observability.oidcIssuer,
     WEBSITE_REVALIDATE_URL: `http://web.${appNamespace}.svc.cluster.local:${PORT.web}${WEBSITE_REVALIDATE_PATH}`,
     // Where an editor's browser reaches the website: the live preview frames it.
     WEBSITE_PUBLIC_URL: `https://${cfg.ingress.webDomain}`,
@@ -96,6 +112,7 @@ function cmsSecret(cfg: DeployConfig, provider: k8s.Provider, dependsOn: pulumi.
         CMS_SOCIAL_HANDOFF_API_KEY: cfg.cms.socialHandoffApiKey,
         WEBSITE_REVALIDATE_TOKEN: cfg.cms.revalidateToken,
         CMS_PREVIEW_SECRET: cfg.cms.previewSecret,
+        ...(cfg.mcpGateway.enabled ? { CMS_PLATFORM_MCP_API_KEY: cfg.cms.platformMcpApiKey } : {}),
       },
     },
     { provider, dependsOn },
@@ -185,38 +202,79 @@ export function installCms(
   return { deployment, service };
 }
 
-/** `cms.<baseDomain>` to the CMS's Service: the admin panel, the API and `/api/mcp`. The CMS signs people in itself. */
+const cmsBackend = { backendRefs: [{ name: CMS.app, port: CMS.port }] };
+
+/**
+ * `cms.<baseDomain>` to the CMS's Service, in two routes. Everything is behind
+ * the platform gate (`platformOidcSecurityPolicySpec`, the one in front of
+ * Langfuse): only WorkOS identities holding the platform permission reach the
+ * admin panel or the API, and the CMS signs them in from the token the gate
+ * forwards. The images alone are open, on a route of their own, because the
+ * website's visitors load them from this host; the longer path prefix wins.
+ */
 export function installCmsRoute(cfg: DeployConfig, provider: k8s.Provider, appNamespace: string, dependsOn: pulumi.Resource[]) {
-  const spec: IHTTPRouteSpec = {
-    parentRefs: [{ name: GATEWAY_NAME, namespace: appNamespace, sectionName: CMS.listenerName }],
+  const parentRefs = [{ name: GATEWAY_NAME, namespace: appNamespace, sectionName: CMS.listenerName }];
+  const labels = commonLabels(CMS.app);
+  const route = (name: string, spec: IHTTPRouteSpec) =>
+    new k8s.apiextensions.CustomResource(
+      `${name}-route`,
+      { apiVersion: "gateway.networking.k8s.io/v1", kind: "HTTPRoute", metadata: { name, namespace: CMS.namespace, labels }, spec },
+      { provider, dependsOn },
+    );
+  const gated = route(CMS.routeName, {
+    parentRefs,
     hostnames: [cfg.cms.domain],
-    rules: [
-      {
-        backendRefs: [{ name: CMS.app, port: CMS.port }],
-        // An MCP call and a large upload outlast Envoy's 15 s default.
-        timeouts: { request: EDGE_TIMEOUT, backendRequest: EDGE_TIMEOUT },
-      },
-    ],
-  };
-  return new k8s.apiextensions.CustomResource(
-    "cms-route",
+    // An upload outlasts Envoy's 15 s default.
+    rules: [{ ...cmsBackend, timeouts: { request: EDGE_TIMEOUT, backendRequest: EDGE_TIMEOUT } }],
+  });
+  const media = route(CMS.mediaRouteName, {
+    parentRefs,
+    hostnames: [cfg.cms.domain],
+    rules: [{ matches: [{ path: { type: "PathPrefix", value: CMS_PUBLIC_MEDIA_PATH } }], ...cmsBackend }],
+  });
+  const secret = new k8s.core.v1.Secret(
+    CMS_OIDC_SECRET,
+    { metadata: { name: CMS_OIDC_SECRET, namespace: CMS.namespace, labels }, stringData: { [OIDC_CLIENT_SECRET_KEY]: cfg.observability.oidcClientSecret } },
+    { provider, dependsOn },
+  );
+  const policy = new k8s.apiextensions.CustomResource(
+    "cms-security-policy",
     {
-      apiVersion: "gateway.networking.k8s.io/v1",
-      kind: "HTTPRoute",
-      metadata: { name: CMS.routeName, namespace: CMS.namespace, labels: commonLabels(CMS.app) },
-      spec,
+      apiVersion: "gateway.envoyproxy.io/v1alpha1",
+      kind: "SecurityPolicy",
+      metadata: { name: "cms-auth", namespace: CMS.namespace, labels },
+      spec: platformOidcSecurityPolicySpec(cfg, { routeName: CMS.routeName, domain: cfg.cms.domain, secretName: CMS_OIDC_SECRET }),
+    },
+    { provider, dependsOn: [gated, secret] },
+  );
+  return { gated, media, policy };
+}
+
+/**
+ * The header the platform MCP gateway presents at `/cms/mcp`: the CMS's MCP key
+ * of its agent account, in the gateway's namespace (it mounts the one key).
+ * Only while the gateway runs.
+ */
+export function installCmsGatewayCredential(cfg: DeployConfig, provider: k8s.Provider, appNamespace: pulumi.Input<string>, dependsOn: pulumi.Resource[]) {
+  if (!cfg.cms.enabled || !cfg.mcpGateway.enabled) return undefined;
+  return new k8s.core.v1.Secret(
+    CMS_GATEWAY_CREDENTIAL_SECRET,
+    {
+      metadata: { name: CMS_GATEWAY_CREDENTIAL_SECRET, namespace: appNamespace, labels: commonLabels(MCP_GATEWAY.name) },
+      stringData: { [CMS_GATEWAY_CREDENTIAL_KEY]: pulumi.interpolate`Bearer ${cfg.cms.platformMcpApiKey}` },
     },
     { provider, dependsOn },
   );
 }
 
 /**
- * Default-deny ingress in `cms`, and the four ways in: the edge to the CMS, the
- * website to the CMS, the CloudNativePG operator to the cluster, and the
- * namespace's own pods (the CMS to `cms-pg`). In the app namespace, the CMS may
+ * Default-deny ingress in `cms`, and the ways in: the edge to the CMS, the
+ * website to the CMS, the platform MCP gateway to the CMS while it runs, the
+ * CloudNativePG operator to the cluster, and the namespace's own pods (the CMS
+ * to `cms-pg`). In the app namespace, the CMS may
  * reach the SeaweedFS S3 port and the website.
  */
-export function installCmsNetworkPolicies(provider: k8s.Provider, appNamespace: string, dependsOn: pulumi.Resource[]) {
+export function installCmsNetworkPolicies(cfg: DeployConfig, provider: k8s.Provider, appNamespace: string, dependsOn: pulumi.Resource[]) {
   const mk = (name: string, namespace: string, spec: k8s.types.input.networking.v1.NetworkPolicySpec) =>
     new k8s.networking.v1.NetworkPolicy(`cms-${namespace === CMS.namespace ? "" : "app-"}${name}`, { metadata: { name, namespace }, spec }, { provider, dependsOn });
   const cms = byName(CMS.app);
@@ -235,6 +293,16 @@ export function installCmsNetworkPolicies(provider: k8s.Provider, appNamespace: 
       policyTypes: ["Ingress"],
       ingress: [{ from: [{ ...inNamespace(appNamespace), ...byName("web") }], ports: http }],
     }),
+    // The platform MCP gateway to the CMS's MCP server (`/cms/mcp`), while it runs.
+    ...(cfg.mcpGateway.enabled
+      ? [
+          mk("allow-platform-mcp-gateway-to-cms", CMS.namespace, {
+            ...cms,
+            policyTypes: ["Ingress"],
+            ingress: [{ from: [{ ...inNamespace(appNamespace), ...byName(MCP_GATEWAY.name) }], ports: http }],
+          }),
+        ]
+      : []),
     mk("allow-cms-to-seaweedfs", appNamespace, {
       ...byName("seaweedfs"),
       policyTypes: ["Ingress"],

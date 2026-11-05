@@ -8,6 +8,7 @@ gateway presents each server's own credential, which never leaves the cluster.
 | Path | Server | Credential the gateway presents |
 |---|---|---|
 | `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) |
+| `/cms/mcp` | The website's CMS (`cms.cms.svc:3000/api/mcp`), where `cmsEnabled` | the MCP key of the CMS's agent account, `Bearer …` (`authorization` in `cms-platform-mcp`); every write is a draft |
 
 The gateway is [agentgateway](https://github.com/agentgateway/agentgateway)
 v1.7.0, standalone, behind Envoy Gateway. Code:
@@ -73,13 +74,18 @@ Nothing here is applied by the deploy.
 ```bash
 pulumi config set          mcpGatewayEnabled       true
 pulumi config set          mcpGatewayPlatformOrgId org_...
-pulumi config set --secret mcpGatewaySessionKey    "$(openssl rand -hex 32)"
 ```
 
-On staging and prod the secret goes into ESC with `esc env set` instead, as in
-the stack files' headers. The gateway also needs `workosAuthkitDomain` (set
-wherever the agent doors work) and Langfuse on. A stack missing either fails the
-plan with the key to set.
+The session key needs nothing: it defaults to a one-way HMAC of `pgAppPassword`,
+like the CMS's credentials. `mcpGatewaySessionKey` (64 hex characters,
+`openssl rand -hex 32`, in ESC on staging and prod) replaces it. The gateway also
+needs `workosAuthkitDomain` (set wherever the agent doors work) and an MCP server
+to serve: Langfuse or the CMS. A stack missing either fails the plan with the key
+to set.
+
+Staging runs it since 2026-11-05: the resource indicators for `/langfuse/mcp`
+and `/cms/mcp` are registered one by one rather than as a wildcard, so a new
+route needs its own.
 
 `mcpGatewayDomain` overrides the host. It must stay under the resource indicator
 from step 2.
@@ -136,7 +142,8 @@ file, and two behaviours read from its source at v1.7.0.
 3. A case in `index-mcp-gateway.spec.ts`.
 4. A row in the table at the top of this page.
 
-The wildcard resource indicator already covers the new route.
+On a stack whose resource indicator is a wildcard it already covers the new
+route; staging lists each route, so register the new one there.
 
 ## Operating it
 
