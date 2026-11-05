@@ -77,7 +77,7 @@ value by hand (`deploy/AGENTS.md`); set secrets with `pulumi config set --secret
 | `dnsZoneId` | the former zone's id | the new zone's id, as dev has it |
 | `formerDnsZoneName` | (unset) | `$OLD` |
 | `formerDnsZoneId` | (unset) | the former zone's id (today's `dnsZoneId`) |
-| `cloudflareApiToken` (ESC) | prod's token | unchanged, once `check-cloudflare-token.sh --stack prod` passes for both zones; otherwise add the new zone to the token in Cloudflare (its value stays) |
+| `cloudflareApiToken` (ESC) | prod's user token, `piloti.at` only | a new **account-owned** token (Manage Account → API Tokens). Zone Resources `$NEW` and `$OLD`: Zone → DNS → Edit, Zone → Single Redirect → Edit (the `www` rule), Zone → Zone → Read, and for project mail on `$NEW` Zone → Zone Settings → Edit and Zone → Email Routing Rules → Edit; Account Resources the account: Workers Scripts → Edit, Email Routing Addresses → Edit (the mail block's list, `src/platform/inbound-mail.ts`). Prove it with `CLOUDFLARE_API_TOKEN=<token> check-cloudflare-token.sh --stack prod` before setting it |
 | `dnsDmarc` | the former domain's policy | **unset.** `_dmarc.$NEW` has one owner, the project-mail block of `Pulumi.prod.yaml` (agreed 2026-11-05 with the mail work, archos-at/archos#1464 and its follow-up), because mail needs it before prod's switch. Two TXT records at `_dmarc` make DMARC fail, and Cloudflare accepts the second without a word. The former value also does not fit: it reports to the former registrar and was written for a domain with no mail, while `$NEW` carries Google Workspace mail. The policy itself (start at `p=none` with `sp=` set) is the owner's mail decision |
 | comment on the Qdrant dashboard | `https://qdrant.$OLD/oauth2/callback` | `https://qdrant.$NEW/oauth2/callback` |
 
@@ -96,7 +96,7 @@ Committed on 2026-11-05, except the one value marked TODO(owner) in the file:
 | `dnsZoneName` | `$OLD` | `$NEW` (the same zone as prod) |
 | `dnsZoneId` | the former zone's id | `REPLACE_ME` until the id from `check-cloudflare-token.sh --stack dev` replaces it |
 | `formerDnsZoneName` / `formerDnsZoneId` | (unset) | `$OLD` and the former zone's id |
-| `cloudflareApiToken` | (secure) | unchanged: the same token, once it edits both zones |
+| `cloudflareApiToken` | (secure, a user token on `$OLD` only) | removed from the stack file; a new **account-owned**, DNS-only token on `$NEW` and `$OLD` (Zone → DNS → Edit, Zone → Zone → Read) in ESC, `esc env set …/dev pulumiConfig.<project>:cloudflareApiToken` |
 
 ## Third-party allowlists (additive, before the switch)
 

@@ -249,11 +249,15 @@ config:
   # DEV STACK IS LIVE: the delegation already moved to Cloudflare before this
   # feature merged, so dnsEnabled is "true" here with the real zone id and token.
   #
-  # Since the domain move this stack writes to TWO zones with the one token
-  # below: its hosts into the new zone, the former apex and app. host into the
-  # former one. Prove the token reaches both before a deploy needs it:
-  #   deploy/pulumi/scripts/check-cloudflare-token.sh --stack dev
-  # (it also prints the zone id dnsZoneId needs).
+  # Since the domain move this stack writes to TWO zones with one token: its
+  # hosts into the new zone, the former apex and app. host into the former one.
+  # The token is an ACCOUNT-owned API token (Manage Account → API Tokens), DNS
+  # only, on both zones: Zone → DNS → Edit and Zone → Zone → Read. It lives in
+  # ESC like every other secret of this stack, not here (a stack-file value
+  # would win over ESC): the `esc env set` line in step 3 above.
+  # Prove it reaches both zones before a deploy needs it (it also prints the
+  # zone id dnsZoneId needs):
+  #   CLOUDFLARE_API_TOKEN=<token> deploy/pulumi/scripts/check-cloudflare-token.sh --stack dev
   grid-oib:dnsEnabled: "true"
   grid-oib:dnsZoneName: archos.tech
   # TODO(owner): the id from check-cloudflare-token.sh. `loadConfig` refuses
@@ -261,8 +265,6 @@ config:
   grid-oib:dnsZoneId: REPLACE_ME
   grid-oib:formerDnsZoneName: piloti.at
   grid-oib:formerDnsZoneId: 66de14f8d07a729634f5d230418bb907 # pragma: allowlist secret (public zone id, Cloudflare zone Overview page)
-  grid-oib:cloudflareApiToken:
-    secure: AAABAD5L+SCK2AhyqX/QqKlpHgDWIgYWvBO8TlwzYzUsaLb8//GZe0dAcvp348Xg0Ikbje8EUWvTiouh2jp4H/sI2l4d3XueTw8WlLm+qV2dPbPDhA==
   # ── err2issue: ERROR telemetry -> GitHub issues (ADR-0031) ──
   # A second consumer on the collector's logs signal. Requires the
   # observability tier above (it has no receiver of its own).
