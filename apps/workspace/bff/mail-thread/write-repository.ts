@@ -327,6 +327,10 @@ export async function commitAppend(commit: AppendCommit): Promise<'committed' | 
         documentVersionId: commit.part.versionId,
         mailThreadEntryId: commit.entry.id,
         lastFailure: null,
+        // A suggestion names the text's bytes until it is filed
+        // (`inbound_mail_parts_suggestion_with_bytes`). Left set, the CHECK
+        // rolls back the whole commit and the text never files.
+        suggestion: null,
         updatedAt: new Date(),
       })
       .where(and(eq(inboundMailParts.id, commit.part.id), eq(inboundMailParts.state, 'filing')))
