@@ -90,9 +90,9 @@ export const inboundMail: typeof en.inboundMail = {
 
   /** Die zwei Hälften der wartenden E-Mails: was ein Klick ablegt, und was eine Entscheidung braucht. */
   readiness: {
-    ready: 'Bereit ({count})',
-    needs_you: 'Braucht Sie ({count})',
-    others: 'Wartet auf andere ({count})',
+    ready: 'Bereit',
+    needs_you: 'Braucht Sie',
+    others: 'Wartet auf andere',
     othersHint: 'Nur das Mitglied, dessen Adresse die E-Mail trägt, kann sie ablegen. Sie können sie verwerfen.',
     readyHint: 'Absender bestätigt, für jeden Teil ein Ziel vorgeschlagen, nichts zu prüfen.',
     fileAll: 'Alle {count} wie vorgeschlagen ablegen',

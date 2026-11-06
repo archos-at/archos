@@ -22,6 +22,7 @@ import { FileFilterMenu } from '@/features/documents/components/file-filter-menu
 import { FilesHeaderControls } from '@/features/documents/components/files-header-controls'
 import { FolderBrief } from '@/features/documents/components/folder-brief'
 import { ProjectUppyUpload } from '@/features/documents/components/project-uppy-upload'
+import { UploadFab } from '@/features/documents/components/upload-fab'
 import { useFileSearch } from '@/features/documents/hooks/use-file-search'
 import { usePhoneLayout } from '@/features/documents/hooks/use-phone-layout'
 import type { FileView } from '@/features/documents/hooks/use-view-preference'
@@ -48,7 +49,7 @@ function FilesPage(): JSX.Element {
   // The waiting count the rail would have read, for the E-Mail-Eingang tab.
   primeInboundMailWaiting('dev', { count: 3, more: false })
   return (
-    <div className="h-dvh">
+    <div className="relative h-dvh">
       <ProjectSectionFrame projectId="dev" projectName="Wohnhaus Lindengasse" pathname="/app/projects/dev/files" inboundMail>
         <ProjectSectionActions>
           <FilesHeaderControls
@@ -103,6 +104,12 @@ function FilesPage(): JSX.Element {
           renderActions={() => <DocumentActionsTrigger />}
         />
       </ProjectSectionFrame>
+      {/* The phone's Hochladen, floating at the foot as the workspace draws it (`uploadFab`). */}
+      {phone && (
+        <UploadFab inSheet={false}>
+          <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />
+        </UploadFab>
+      )}
     </div>
   )
 }

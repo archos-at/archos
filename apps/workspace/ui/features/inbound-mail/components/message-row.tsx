@@ -110,9 +110,10 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {/* What the checkbox does, not a second „E-Mail-Text“ under the text's own label. */}
         <p className="flex items-center gap-1.5 text-sm font-medium">
           <MailCheck className="text-muted-foreground size-4" aria-hidden />
-          {t('message.label')}
+          {t('message.file')}
         </p>
         {part?.riskFlags.includes('unreadable') && (
           <FactLine icon={AlertTriangle} tone="warning">

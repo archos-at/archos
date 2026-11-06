@@ -56,7 +56,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
     >
       {/* Two rows on purpose: the list is 22rem, and the count, the reason and both actions in one row wrapped one button alone. */}
       <div className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="icon" className="size-8" aria-label={t('bulk.clear')} onClick={onClear} data-testid="selection-clear">
+        <Button type="button" variant="ghost" size="icon" className="-ml-2 size-8" aria-label={t('bulk.clear')} onClick={onClear} data-testid="selection-clear">
           <X className="size-4" aria-hidden />
         </Button>
         <span className="text-sm font-medium tabular-nums">{t('bulk.selected', { count })}</span>
@@ -77,6 +77,19 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
         )}
       </div>
       <div className="flex items-center gap-1.5">
+        {/* The secondary, then the primary at the end, as in Dateien's selection bar and the decision bar. */}
+        <BusyButton
+          type="button"
+          size="sm"
+          variant="secondary"
+          busy={dismissing}
+          busyLabel={t('bar.dismissBusy')}
+          blocked={filing}
+          onClick={onDismiss}
+          data-testid="selection-dismiss"
+        >
+          {t('bulk.dismiss')}
+        </BusyButton>
         <BusyButton
           type="button"
           size="sm"
@@ -89,18 +102,6 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           data-testid="selection-file"
         >
           {t('bulk.fileSuggested')}
-        </BusyButton>
-        <BusyButton
-          type="button"
-          size="sm"
-          variant="secondary"
-          busy={dismissing}
-          busyLabel={t('bar.dismissBusy')}
-          blocked={filing}
-          onClick={onDismiss}
-          data-testid="selection-dismiss"
-        >
-          {t('bulk.dismiss')}
         </BusyButton>
       </div>
     </div>

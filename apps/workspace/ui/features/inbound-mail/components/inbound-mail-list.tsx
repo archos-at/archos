@@ -125,9 +125,9 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ListBody {...props} />
       </div>
-      {/* Pinned over the list's foot like the decision bar over the mail's: a faint shadow upward, no line, no card. */}
+      {/* A band of the one grey under the list while mails are picked, as Dateien's: a mode, set apart by its tone. */}
       {props.selectionBar && (
-        <div className="bg-background shadow-pinned-foot px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">{props.selectionBar}</div>
+        <div data-surface="sunken" className="bg-muted px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 md:-mx-4 md:px-8" /* the column's full width, its content on the list's edge */>{props.selectionBar}</div>
       )}
     </div>
   )
@@ -259,11 +259,13 @@ function ListBody({
             >
               <div className="flex min-h-7 items-center justify-between gap-2">
                 {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
-                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined}>
-                  {t(`readiness.${section.readiness}`, { count: section.mails.length })}
+                {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
+                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="flex items-center gap-1.5">
+                  {t(`readiness.${section.readiness}`)}
+                  <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
                 {ready && batch.length > 1 && (
-                  <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 text-xs" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                  <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 h-7 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
                     <FileInput className="size-3.5" aria-hidden />
                     {/* One request decides at most twenty mails: past that, the press says it files the first ones. */}
                     {t(batch.length < section.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}
@@ -282,10 +284,10 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              <div className="flex items-start justify-between gap-2 px-4 pt-3">
+              <div className="flex items-center justify-between gap-2 px-4 pt-3" /* centred: under touch the press is 44px tall */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
-                <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 py-1 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
-                  <Repeat2 className="mt-px size-3.5 shrink-0" aria-hidden />
+                <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
+                  <Repeat2 className="size-3.5 shrink-0" aria-hidden />
                   <span className="min-w-0 truncate">{t('group.threadLine', { name: section.name })}</span>
                 </p>
                 {section.mails.every(isReady) ? (

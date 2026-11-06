@@ -124,12 +124,13 @@ export function DecisionBar({
       )}
       {/* DOM order is the phone's stacking order: „Verwerfen“ first, the primary last, nearest the thumb.
           For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
-      {/* Paired at the end of the bar, „Verwerfen“ as a quiet press beside the primary: one place to look. */}
+      {/* Paired at the end of the bar, „Verwerfen“ the tonal secondary beside the primary (D4), as in the selection bar:
+          a bare word beside the primary floated on the phone's full-width stack. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
         {!onlyDismiss && (
           <BusyButton
             type="button"
-            variant={impersonation ? 'default' : 'ghost'}
+            variant={impersonation ? 'default' : 'secondary'}
             busy={dismissing}
             busyLabel={t('bar.dismissBusy')}
             onClick={onDismiss}

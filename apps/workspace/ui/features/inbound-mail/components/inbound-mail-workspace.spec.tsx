@@ -115,8 +115,8 @@ describe('InboundMailWorkspace', () => {
 
   it('heads the list with „Bereit“ and „Braucht Sie“, and says on each waiting row what it needs', () => {
     renderWorkspace('many')
-    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready (3)')
-    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you (4)')
+    expect(screen.getByTestId('readiness-ready')).toHaveTextContent('Ready3')
+    expect(screen.getByTestId('readiness-needs_you')).toHaveTextContent('Needs you4')
     const nameStop = screen.getByTestId(`inbound-mail-row-${DETAIL_VARIANTS['name-stop'].view.id}`)
     expect(within(nameStop).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Check an attachment')
     // The server's first reason: the Statik the sender cannot vouch for as the next Fassung comes before the thread.
@@ -135,7 +135,7 @@ describe('InboundMailWorkspace', () => {
     const claimed = within(row('claimed-by-colleague')).getByTestId('inbound-mail-row-reason')
     expect(claimed).toHaveAttribute('data-reason', 'claimed')
     expect(claimed).toHaveTextContent('Waiting for Miriam Huber')
-    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others (1)')).toBeInTheDocument()
+    expect(within(screen.getByTestId('readiness-others')).getByText('Waiting for others')).toBeInTheDocument()
     // The forgery stays where the reader acts on it: dismissing it is theirs to do.
     expect(screen.getByTestId('readiness-needs_you')).toBeInTheDocument()
     expect(within(row('not-filed')).getByTestId('inbound-mail-row-reason')).toHaveTextContent('Not filed directly · Choose a folder')

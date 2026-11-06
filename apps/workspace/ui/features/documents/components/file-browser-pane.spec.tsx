@@ -588,7 +588,7 @@ describe('FileBrowserPane — loading', () => {
     onDeleteFolder: vi.fn(),
   }
 
-  it('draws the breadcrumb row, the folder tiles and the upload cell it is about to be replaced by', () => {
+  it('draws the folder tiles and the upload cell it is about to be replaced by, and no path row the root no longer has', () => {
     renderPane({
       isLoading: true,
       folderNav,
@@ -596,17 +596,16 @@ describe('FileBrowserPane — loading', () => {
     })
 
     const skeleton = screen.getByTestId('file-browser-skeleton')
-    expect(within(skeleton).getByTestId('folder-breadcrumb-skeleton')).toBeInTheDocument()
+    expect(within(skeleton).queryByTestId('folder-breadcrumb-skeleton')).not.toBeInTheDocument()
     expect(within(skeleton).getAllByTestId('folder-card-skeleton').length).toBeGreaterThan(0)
     // The dashed cell is the last tile of a project's grid; a skeleton without
     // it is one tile shorter than the answer.
     expect(within(skeleton).getByText('Drop files')).toBeInTheDocument()
   })
 
-  it('leaves the breadcrumb out on a surface that has no folders', () => {
+  it('leaves the folder tiles out on a surface that has no folders', () => {
     renderPane({ isLoading: true })
     const skeleton = screen.getByTestId('file-browser-skeleton')
-    expect(within(skeleton).queryByTestId('folder-breadcrumb-skeleton')).not.toBeInTheDocument()
     expect(within(skeleton).queryByTestId('folder-card-skeleton')).not.toBeInTheDocument()
   })
 
@@ -679,12 +678,11 @@ describe('FileBrowserPane — folder aggregates', () => {
     unmount()
 
     // The replaced Fassung failed to read, and nobody is told about it on the
-    // list view's row, the one place a folder's read state is drawn.
+    // list view's row: the row says only what departs from all read, and this is not that.
     const list = renderPane({ files: [], searchFiles: [...corpus, older], folderNav: nav, view: 'list' })
-    expect(within(screen.getByTestId('folder-row-root-a')).getByTestId('folder-read-state')).not.toHaveAttribute(
-      'data-state',
-      'failed'
-    )
+    expect(
+      within(screen.getByTestId('folder-row-root-a')).queryByTestId('folder-read-state')?.getAttribute('data-state')
+    ).not.toBe('failed')
     list.unmount()
 
     renderPane({ files: [], searchFiles: [...corpus, older], folderNav: nav, showOlderRevisions: true })

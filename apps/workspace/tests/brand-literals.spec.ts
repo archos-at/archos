@@ -247,3 +247,63 @@ describe('the secondary press', () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe('no section lines', () => {
+  // The design system draws lines only where they carry a function (a field's border, an info list), never
+  // between sections, under a header or around a group (packages/brand/README.md, „Layout and shape“). Dateien's
+  // listing and the E-Mail-Eingang separate by white space and the one grey alone since 2026-11: no rule above
+  // or below a block, no hairlines between rows, no dashed box. A pinned bar over scrolling content takes the
+  // faint `shadow-pinned-foot` instead; a split view's pane divider (`border-r`) is a function and not matched.
+  const SURFACE = [
+    'ui/features/inbound-mail/',
+    'ui/components/shell/project-section-frame.tsx',
+    'ui/components/shell/section-nav.tsx',
+    ...[
+      'file-browser-pane', 'file-workspace', 'folder-navigation', 'file-card', 'file-tile', 'file-grid', 'file-list-view',
+      'folder-brief', 'files-header-controls', 'selection-bar', 'open-marks-chip', 'phone-root-tools',
+      'file-preview-pane-details', 'page-readings', 'folder-read-state', 'file-name', 'file-preview-reader',
+      'file-preview-pane-chrome', 'file-search-bar',
+    ].map((name) => `ui/features/documents/components/${name}.tsx`),
+  ]
+  it('Dateien and the E-Mail-Eingang draw no line between sections or rows', () => {
+    const offenders = files
+      .filter((f) => SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('one left edge', () => {
+  // A tile's and a list row's inset holds only its hover fill, so the grid and the list bleed by exactly that
+  // inset and the thumbnails and names stand on the column's edge, the title's (2026-11: they stood 6px and
+  // 24px inside it). Change an inset and its bleed together, or the page has two left edges again.
+  const read = (component: string): string => files.find((f) => f.name === `ui/features/documents/components/${component}.tsx`)?.text ?? ''
+  it('the file grid bleeds by the tile shell’s inset', () => {
+    const shell = read('file-tile').match(/rounded-surface p-(\d(?:\.\d)?)/)?.[1]
+    const listingBleed = read('file-grid').match(/items-stretch gap-3 -mx-(\d(?:\.\d)?)/)?.[1]
+    expect(shell).toBeDefined()
+    expect(listingBleed).toBe(shell)
+  })
+  it('the file list bleeds by its cells’ inset on a desk', () => {
+    const list = read('file-list-view')
+    const cell = list.match(/const CELL = 'px-(\d(?:\.\d)?) /)?.[1]
+    const bleed = list.match(/@container\/filelist px-\d pb-4 pt-1 md:-mx-(\d(?:\.\d)?) md:px-0/)?.[1]
+    expect(cell).toBeDefined()
+    expect(bleed).toBe(cell)
+  })
+})
+
+describe('one look for one of these', () => {
+  // Dateien's places are tabs: no track, the chosen one the one grey. A segmented control beside them (the view
+  // toggle, the E-Mail-Eingang's filter) wore a grey track with a white thumb, a second grey shape for the same
+  // idea; it is `bare`, the tabs' look (`ToggleGroup`'s `bare`).
+  const SURFACE = ['ui/features/inbound-mail/', 'ui/features/documents/components/files-header-controls.tsx']
+  it('every segmented group in Dateien’s header and the E-Mail-Eingang is bare', () => {
+    const offenders = files
+      .filter((f) => SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) => [...withoutComments(f.text).matchAll(/<ToggleGroup\b[^>]*>/g)].some(([tag]) => /\bsegmented\b/.test(tag) && !/\bbare\b/.test(tag)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})

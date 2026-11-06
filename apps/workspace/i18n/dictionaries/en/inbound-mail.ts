@@ -84,9 +84,9 @@ export const inboundMail = {
   },
 
   readiness: {
-    ready: 'Ready ({count})',
-    needs_you: 'Needs you ({count})',
-    others: 'Waiting for others ({count})',
+    ready: 'Ready',
+    needs_you: 'Needs you',
+    others: 'Waiting for others',
     othersHint: 'Only the member whose address the mail carries can file it. You can dismiss it.',
     readyHint: 'Sender verified, a place suggested for every part, nothing to check.',
     fileAll: 'File all {count} as suggested',

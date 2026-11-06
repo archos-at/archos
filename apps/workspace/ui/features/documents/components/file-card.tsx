@@ -274,7 +274,7 @@ function SelectionMark({ checked }: { checked: boolean }) {
       aria-hidden
       className={cn(
         'pointer-events-none absolute right-2 top-2 z-[1] flex size-6 items-center justify-center rounded-full border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
-        checked ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background/90'
+        checked ? 'border-primary bg-primary text-primary-foreground' : 'border-(--ds-line-strong) bg-background'
       )}
       data-testid="file-card-check"
       data-checked={checked ? '' : undefined}
@@ -454,12 +454,13 @@ export const FileCard = memo(function FileCard({
                 On a 220px card the count beside the name cut the name in half,
                 so here it rides on this line; the list puts it by the name. */}
             {isOlderRevisionEntry(file) ? (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <div className="mt-1 flex min-h-5 flex-wrap items-center gap-1.5">
                 <OlderRevisionBadge file={file} />
               </div>
             ) : (
               ((file.versionCount ?? 0) > 1 || revisionCount(file) > 1) && (
-                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                // One height with a badge or without (a 20px chip beside plain text jumped the line by 3px).
+                <div className="mt-1 flex min-h-5 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   {(file.versionCount ?? 0) > 1 && (
                     <DocumentVersionStateBadge
                       versionState={file.versionState}

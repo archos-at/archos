@@ -21,6 +21,10 @@ features:
     Folders in Files sit on the page as a glyph and a name, and "Select" and
     "New folder" moved up beside the tabs, so the overview and the files start
     a row higher. On a phone both are the first entries of the "..." menu.
+  - >
+    While files or mails are picked, the bar at the foot is a grey band with
+    the main action last, the same in Files and in the inbox. Checkboxes and
+    option buttons have a clearer edge.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

@@ -18,8 +18,9 @@ export function FileGrid({ children, className }: { children: ReactNode; classNa
         // `items-stretch` keeps every cell as tall as the row so footers sit on
         // one line; hover must not scale a card (that would shove its neighbours).
         // `-mx-1.5`: a tile's 6px inset holds only its hover fill, so the grid bleeds by it and the
-        // thumbnails stand on the column's edge, the title's and the brief's.
-        'grid items-stretch gap-3 -mx-1.5 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] sm:gap-3.5 md:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]',
+        // thumbnails stand on the column's edge, the title's and the brief's. 12px of gap and the two insets are the
+        // 24px the eye reads between two thumbnails, on the 4px scale.
+        'grid items-stretch gap-3 -mx-1.5 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]',
         className
       )}
     >

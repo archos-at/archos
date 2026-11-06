@@ -846,7 +846,8 @@ export function FolderRow({
           </>
         )}
         <span className="flex-1" />
-        <FolderReadState tally={knowledge} />
+        {/* Only what departs from „all read“, as on the tile: the normal case is quiet. */}
+        <FolderReadState tally={knowledge} exceptionsOnly />
       </button>
       {actions ?? (
         <FolderActionsMenu
@@ -864,7 +865,7 @@ export function FolderRow({
 }
 
 /**
- * The three folder placeholders, kept in this file on purpose.
+ * The folder placeholders, kept in this file on purpose.
  *
  * A skeleton is a promise about the layout that is one frame away, and the only
  * way it keeps that promise is by being edited in the same breath as the thing
@@ -905,28 +906,5 @@ export function FolderRowSkeleton(): JSX.Element {
       <Skeleton className="h-3.5 w-40" />
       <Skeleton className="h-3.5 w-8 rounded-full" />
     </Item>
-  )
-}
-
-/**
- * The path row before the tree is known.
- *
- * The same chrome as {@link FolderBreadcrumbRow} — border, tint, height — so
- * the listing below it does not shift down by a row when the real one replaces
- * it. „Alle Dateien" is drawn rather than greyed out: it is the one segment
- * that is true before anything has loaded, at every level, and a reader who
- * lands mid-load should see where they are rather than a grey pill where the
- * word will be.
- */
-export function FolderBreadcrumbRowSkeleton(): JSX.Element {
-  const t = useTranslations(filesCopy)
-  return (
-    <div
-      className="flex shrink-0 items-center justify-between gap-2 border-b bg-card px-4 py-2.5"
-      data-testid="folder-breadcrumb-skeleton"
-    >
-      <span className="text-sm font-medium text-muted-foreground">{t('folders.allFiles')}</span>
-      <Skeleton className="h-8 w-28 rounded-surface" />
-    </div>
   )
 }

@@ -35,7 +35,6 @@ import { LoadMore } from '@/components/ui/load-more'
 import { withoutOlderRevisions } from '../lib/revision-chain'
 import {
   FolderBreadcrumbRow,
-  FolderBreadcrumbRowSkeleton,
   FolderCard,
   FolderCardSkeleton,
   FolderRow,
@@ -762,13 +761,8 @@ export function FileBrowserPane({
             </div>
           )
         ) : semantic.error ? (
-          // A SEARCH THAT NEVER RAN IS NOT A SEARCH THAT FOUND NOTHING.
-          // The hook fails open to an empty result set so this pane cannot
-          // crash, and it reports which of the two happened — but nothing read
-          // that flag, so a backend timeout rendered as "Keine semantischen
-          // Treffer für 'Brandschutz'". The surface told the reader their own
-          // corpus does not contain what they were looking for, and offered
-          // them a reset for it.
+          // A SEARCH THAT NEVER RAN IS NOT A SEARCH THAT FOUND NOTHING: the hook fails open to no hits and says so;
+          // read as „keine Treffer“, a backend timeout told the reader their corpus lacks what they searched for.
           <div className="p-8">
             <EmptyState
               variant="bare"
@@ -988,7 +982,9 @@ export function FileBrowserPane({
                   promised recent uploads over a block of folders. A grid child
                   spanning the row, so it falls between the two. */}
               {currentFolderId === null && orderedFiles.length > 0 && (
-                <SectionLabel as="p" className="col-span-full px-1.5" /* on the column's edge: the grid bleeds by the tile's inset */>
+                // On the column's edge (the grid bleeds by the tile's inset), and 8px nearer the tiles it heads than
+                // the grid's gap: a label belongs to what follows it.
+                <SectionLabel as="p" className="col-span-full -mb-2 px-1.5">
                   {t('browser.recentlyUploaded')}
                 </SectionLabel>
               )}
@@ -1091,7 +1087,8 @@ export function FileBrowserSkeleton({
   const folderCount = withFolders ? folders : 0
   return (
     <div className="flex h-full flex-col" data-testid="file-browser-skeleton">
-      {withFolders && <FolderBreadcrumbRowSkeleton />}
+      {/* No path row: at the root its tools stand beside the tabs (or in a phone's ⋯), so a placeholder row was a promise
+          of a row that never arrives. */}
       {view === 'list' ? (
         <div className={CONTENT_MAX}>
           {folderCount > 0 && (
@@ -1104,7 +1101,7 @@ export function FileBrowserSkeleton({
           <FileListSkeleton rows={files} />
         </div>
       ) : (
-        <div className={`${CONTENT_MAX} p-4`}>
+        <div className={`${CONTENT_MAX} px-4 pb-4 pt-1`} /* the grid's own start, as the level draws it */>
           <FileGrid className={FOLDER_ROWS_ON_PHONE}>
             {Array.from({ length: folderCount }).map((_, index) => (
               <FolderCardSkeleton key={`folder-${index}`} />

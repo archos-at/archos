@@ -42,7 +42,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
 
             It used to be the surface's noticeboard: the name, the byline, the
             type · status line, the assignment faces with their popover, "Piloti
-            dazu fragen", "Kollegin fragen", Herunterladen, the actions menu,
+            dazu fragen", "Kolleg:in fragen", Herunterladen, the actions menu,
             expand and close. Ten things, five of them conditional, in a row that
             had to WRAP on anything narrower than a laptop — so the chrome
             reflowed into two or three lines as you moved between files, and the
@@ -336,7 +336,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
         {actions.downloadFailed && (
           <div
             role="alert"
-            className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-2"
+            className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2"
           >
             {/* THE SAME DEAD END, ONE LEVEL DOWN. A download of a document that
                 is not there any more fails for the reason the preview already

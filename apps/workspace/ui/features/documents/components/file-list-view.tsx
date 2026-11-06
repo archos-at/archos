@@ -623,7 +623,7 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
 function FileListSkeletonHeader(): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
-    <div className="text-muted-foreground flex items-center gap-2.5 border-b px-2 pb-1.5 card-eyebrow">
+    <div className="text-muted-foreground flex items-center gap-2.5 px-2 pb-1.5 card-eyebrow" /* no line: the real header has none */>
       <span className="min-w-0 flex-1">{t('list.columns.name')}</span>
       <span className="w-[104px] shrink-0 @md/filelist:w-[156px]">{t('list.columns.status')}</span>
       <span className="hidden w-[120px] shrink-0 @3xl/filelist:block">{t('list.columns.approval')}</span>

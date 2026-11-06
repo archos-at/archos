@@ -151,22 +151,16 @@ export function FolderBrief({
   const headline = briefHeadline(tally, t)
   const meterLabel = `${headline} ${scope}. ${legendSentence(tally, t)}`
 
-  // ONE ELEMENT THAT OPENS IN PLACE.
-  //
-  // Folded, the brief is one quiet line above the listing: what Piloti has read
-  // is worth a glance, not the top third of every folder. It used to open by
-  // swapping that line for a different element, a card with its own header, so
-  // the thing just clicked vanished and the words reappeared elsewhere in
-  // another size. Now the line IS the card's header in both states: it never
-  // moves, the card's border fades in around it, and the details open below.
-  // The `-mx-3` holds in both states, so the line's text stays on the
-  // listing's edge whether or not a border is drawn around it.
+  // ONE ELEMENT THAT OPENS IN PLACE: folded, one quiet line above the listing; the line IS the card's header in
+  // both states, so it never moves, the fill fades in around it and the details open below. The `-mx-3` holds in
+  // both states, so the text stays on the listing's edge. On a phone the open card is a band across the screen
+  // (`-mx-4`, square, 16px inside): 12px of bleed into a 16px gutter left it 4px from the glass.
   const open = !collapsed
   const allRead = everythingRead(tally)
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 border-0 bg-muted py-0 shadow-none transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        '-mx-3 gap-0 border-0 bg-muted py-0 shadow-none phone:-mx-4 phone:rounded-none transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
         collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"
@@ -182,7 +176,7 @@ export function FolderBrief({
               id="folder-brief-title"
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
-                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control px-3 py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
+                'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control px-3 py-2 text-left text-xs phone:px-4 transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
                 open ? 'text-foreground' : 'text-muted-foreground hover:bg-accent'
               )}
               data-testid="folder-brief-toggle"
@@ -206,7 +200,7 @@ export function FolderBrief({
         <CollapsibleContent id="folder-brief-body">
           {/* All read is the quiet case: no bar. While something is open, a hairline, never a band. */}
           {(!allRead || hasUnindexedAside(tally) || tally.pages > 0) && (
-            <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5" data-testid="folder-brief-meter">
+            <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5 phone:px-4" data-testid="folder-brief-meter">
               {!allRead && <SegmentMeter className="h-1" label={meterLabel} segments={meterSegments(tally)} />}
               <ReadStateLegend tally={tally} onSelect={onSelect} />
             </div>
@@ -457,10 +451,11 @@ function BriefDisclosure({
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
+              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left phone:px-4 transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
-              <span className="text-muted-foreground shrink-0 text-xs font-medium">{title}</span>
+              {/* One column for the titles (the longest, „Worum es hier geht“, is 108px), so the summaries start on one edge. */}
+              <span className="text-muted-foreground min-w-28 shrink-0 text-xs font-medium">{title}</span>
               {/* What the section holds, while it is shut; open, the section says it itself. */}
               <span className="text-muted-foreground min-w-0 truncate text-xs font-normal" aria-hidden={open} /* the chevron follows, as on the brief's own line */>
                 {open ? '' : summary}
@@ -475,7 +470,7 @@ function BriefDisclosure({
             </button>
           </CollapsibleTrigger>
         </h3>
-        <CollapsibleContent className="flex flex-col gap-2.5 px-3 pb-3">{children}</CollapsibleContent>
+        <CollapsibleContent className="flex flex-col gap-2.5 px-3 pb-3 phone:px-4">{children}</CollapsibleContent>
       </section>
     </Collapsible>
   )
@@ -530,7 +525,7 @@ function NeedsYouSection({
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-2.5 px-3 py-3" aria-labelledby="folder-brief-needs">
+    <section className="flex flex-col gap-2.5 px-3 py-3 phone:px-4" aria-labelledby="folder-brief-needs">
       <h3 id="folder-brief-needs" className="text-muted-foreground text-xs font-medium">
         {t('brief.needsTitle')}
       </h3>
@@ -605,27 +600,28 @@ function AttentionRow({
   return (
     <div className="flex items-start gap-2" data-testid={testId}>
       <ToneSwatch tone={tone} className="mt-[7px]" />
-      {/* The sentence and its own action (re-read) share a column, so on a
-          phone the action wraps under the sentence. „Anzeigen" stays at the
-          end of the first line rather than orphaned on a line of its own. */}
+      {/* The sentence, then its actions as one group (re-read, „Anzeigen“): at the line's end where it fits, and
+          together under the sentence on a phone, never split one right and one below. */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-foreground min-w-0 flex-1 basis-48 py-[3px] text-[13px] leading-snug">{text}</p>
-          {children && <div className="flex shrink-0 items-center gap-1.5">{children}</div>}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {children}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="-mr-2 h-7 shrink-0"
+              onClick={onShow}
+              aria-label={showLabel}
+              title={showLabel}
+            >
+              {t('brief.show')}
+            </Button>
+          </div>
         </div>
         {hint && <p className="text-muted-foreground mt-0.5 text-xs leading-relaxed">{hint}</p>}
       </div>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="-mr-2 h-7 shrink-0"
-        onClick={onShow}
-        aria-label={showLabel}
-        title={showLabel}
-      >
-        {t('brief.show')}
-      </Button>
     </div>
   )
 }

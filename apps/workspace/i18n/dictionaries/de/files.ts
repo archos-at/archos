@@ -1492,10 +1492,10 @@ export const files: typeof en.files = {
     // und Posteingang. Vorher hieß derselbe Knopf „Piloti dazu fragen“ und war
     // ausgerechnet bei Entwürfen ausgegraut — genau den Dokumenten, über die man
     // sprechen will. Piloti kann jetzt auch eine unveröffentlichte Fassung lesen.
-    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kollegin fragen“ las es
+    // „Besprechen“ allein sagte nicht, MIT WEM: neben „Kolleg:in fragen“ las es
     // sich wie eine Besprechung im Team. Der Name steht deshalb im Knopf.
     discuss: 'Mit {productName} besprechen',
-    askColleague: 'Kollegin fragen',
+    askColleague: 'Kolleg:in fragen',
     copyLink: 'Link kopieren',
     linkCopied: 'Link kopiert',
     alsoAssign: 'Auch zuweisen',

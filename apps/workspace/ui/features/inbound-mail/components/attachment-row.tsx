@@ -282,8 +282,10 @@ export function AttachmentRow({
                     newLabel={folderTarget.kind === 'new' ? t('suggestion.newFolder') : undefined}
                     title={folderLabel(folderTarget, t('suggestion.root'))}
                     onClick={() => setPickerOpen(true)}
-                    // „Vorschlag von …“ above says whose it is: the chip is the target, white on the panel's grey.
+                    // „Vorschlag von …“ above says whose it is: the chip is the target, white on the panel's grey, the same
+                    // white chip as the Dokumentart beside it (two facts, one shape; „Ändern“ the one text press).
                     mark={false}
+                    className="bg-background hover:bg-accent"
                     data-testid="attachment-folder"
                   />
                 ) : (

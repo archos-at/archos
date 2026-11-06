@@ -268,7 +268,8 @@ export function ProjectSectionFrame({
                 <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
               </div>
               {/* The tabs' own `pb-2` under the pills, so the tools stand on the pills' line. */}
-              {tabActions && <div className="flex shrink-0 items-center gap-2 pb-2">{tabActions}</div>}
+              {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
+              {tabActions && <div className="flex shrink-0 items-center gap-2 pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
             </div>
           )}
           {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}

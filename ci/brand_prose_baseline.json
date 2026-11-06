@@ -849,7 +849,7 @@
   "apps/workspace/ui/features/documents/components/filing-suggestion.spec.tsx": 1,
   "apps/workspace/ui/features/documents/components/filing-suggestion.tsx": 1,
   "apps/workspace/ui/features/documents/components/folder-brief.spec.tsx": 3,
-  "apps/workspace/ui/features/documents/components/folder-brief.tsx": 21,
+  "apps/workspace/ui/features/documents/components/folder-brief.tsx": 20,
   "apps/workspace/ui/features/documents/components/folder-description-dialog.tsx": 1,
   "apps/workspace/ui/features/documents/components/folder-navigation.tsx": 1,
   "apps/workspace/ui/features/documents/components/folder-read-state.tsx": 1,

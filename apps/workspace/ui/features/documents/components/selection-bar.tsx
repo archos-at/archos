@@ -38,14 +38,19 @@ export function SelectionBar({
 }: SelectionBarProps): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
+    // A band of the one grey at the foot while picking: a mode, set apart by its tone, no line and no shadow. Its
+    // content keeps the listing's container and edges; the ✕ gives back its inset so its glyph stands on the edge.
     <div
-      className="bg-background shadow-pinned-foot animate-in fade-in-0 slide-in-from-bottom-2 duration-base flex shrink-0 items-center gap-2 px-3 pb-[max(0.5rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pt-2 ease-out motion-reduce:animate-none sm:px-4"
+      data-surface="sunken"
+      className="bg-muted animate-in fade-in-0 slide-in-from-bottom-2 duration-base shrink-0 pb-[max(0.5rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pt-2 ease-out motion-reduce:animate-none"
       data-testid="selection-bar"
     >
+      <div className="flex w-full max-w-[1280px] items-center gap-2 px-4 md:px-8">
       <Button
         type="button"
         variant="ghost"
         size="icon"
+        className="-ml-2.5"
         onClick={onDone}
         aria-label={t('selection.done')}
         data-testid="selection-done"
@@ -61,7 +66,7 @@ export function SelectionBar({
       </p>
       <Button
         type="button"
-        variant="ghost"
+        variant="secondary"
         size="sm"
         onClick={onSelectAll}
         disabled={count >= total}
@@ -82,6 +87,7 @@ export function SelectionBar({
           {t('selection.move')}
         </Button>
       )}
+      </div>
     </div>
   )
 }
