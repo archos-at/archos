@@ -145,11 +145,14 @@ under „Wartet auf andere“. A verified writer's mail direct filing left
 (`waitReason: 'not_filed'`) reads „Nicht direkt abgelegt · {what it needs}“.
 
 Thread groups are split by readiness: a conversation's ready replies are one
-group under „Bereit“ with „Alle {n} ablegen (wird Fassung {a}–{b})“ (or „Die
-ersten 20 ablegen …“); its replies that need a look are a group under „Braucht
-Sie“ with „Der Reihe nach ansehen“ (opens the first, with no Fassung range,
-which would depend on what is filed first). The group line names the thread;
-its rows do not repeat it. A row whose text a follow already appended shows no
+group under „Bereit“ with „Als Fassung {a}–{b} ablegen“ (or „Die ersten 20 als
+Fassung … ablegen“); its replies that need a look are a group under „Braucht
+Sie“ with „Ansehen“ (opens the first, with no Fassung range, which would depend
+on what is filed first). The group line („E-Mail-Verlauf „{name}““, the count
+in its title and the section's label) and its press share one row. The rows do
+not repeat the thread: each subject drops the thread's name in front
+(`subjectWithinThread`), so three replies read „Nachreichung Statik“, „Index C“
+rather than three cut-off „Stellplatznachweis – …“. A row whose text a follow already appended shows no
 thread line; its attachments still wait.
 
 **Impersonation is a stop** (`riskLevel === 'impersonation'`). In the list the
@@ -185,9 +188,10 @@ it (the server refuses a colleague's filing and restore alike, `sender_only`).
 The dismissed toast carries no „Rückgängig“ for them. ⌫ opens the confirmation.
 
 **The detail** opens on the mail (`mail-header.tsx`), top to bottom:
-1. The header: the subject, then ONE line „{Name} ‹{Adresse}›“ (name and
-   address always together), the trust („Domain bestätigt: {domain}“ with its
-   ⓘ toggletip; trust is never folded), the received time and „Details ▾“. The
+1. The header: the subject, then „{Name} ‹{Adresse}›“ (name and address
+   always together) with the received time at the line's end, then the trust
+   („Domain bestätigt: {domain}“ with its ⓘ toggletip; trust is never folded)
+   beside „Details ▾“. One line of all six was the densest on the page. The
    sender's flags („An andere Empfänger adressiert“, …), why it waits
    (`SenderWaitLine`, one sentence ending on the reader's next step; for a
    colleague of a claimed mail, `waitReason.signature`, `replay` and
