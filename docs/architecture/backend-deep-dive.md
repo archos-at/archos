@@ -1560,7 +1560,7 @@ question about a small part of it.
 | Path | Was | Is | How |
 |---|---|---|---|
 | `compliance` (first request) | ~1.5 s, ~60 MB of JSON parsed on the event loop | ~0.3 s | `bim_models.rule_inputs` — the thirteen keys the catalogue reads, pruned at extraction time (`lib/bim/rule-inputs.ts`). 1 409 → 219 bytes per element. |
-| `compliance` (repeat) | ~1.5 s again | ~0 | A 64-entry, 1 h memo keyed by model id + Gebäudeklasse + Hauptnutzung (`lib/bim/compliance-cache.ts`). A `ready` model is immutable, so the key is the whole input. |
+| `compliance` (repeat) | ~1.5 s again | ~0 | A 64-entry, 1 h memo keyed by model id + `updated_at` + Gebäudeklasse + Hauptnutzung (`lib/bim/compliance-cache.ts`). A re-upload keeps the model id and moves `updated_at` with the elements, so the key is the whole input. |
 | a filtered element page, 1 match | 6 474 ms | **9 ms** | `bim_elements.search_keys` + its GIN index, AND-ed in as a pre-filter (0038). |
 | a filtered element page, 50 000 matches | 1 277 ms | **315 ms** | The pre-filter DROPPED, and `(model_id, ifc_type, express_id)` walked in order until the page is full (0039). |
 | `properties` | past the 30 s timeout → **HTTP 500** | ~0.6 s | A scan bounded at ~5 000 elements, stratified by IFC type, reported as a sample. |

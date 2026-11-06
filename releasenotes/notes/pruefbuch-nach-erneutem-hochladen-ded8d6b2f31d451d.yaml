@@ -1,0 +1,7 @@
+---
+# area: bim
+fixes:
+  - >
+    After you upload a corrected IFC file under the same name, the Prüfbuch now
+    judges the new file as soon as it has been read. It could keep showing the
+    previous file's results for up to an hour longer.
