@@ -68,8 +68,6 @@ env:
   NAT_JOB_STORE_DB_URL: the jobs database in the cluster
   LISTEN_DB_URL: direct Postgres DSN for LISTEN, in the cluster
   LOCK_DB_URL: direct Postgres DSN for advisory locks, in the cluster
-  AIQ_LISTEN_DB_URL: retired name of LISTEN_DB_URL
-  AIQ_LOCK_DB_URL: retired name of LOCK_DB_URL
   BACKGROUND_WORK_PG_HOST: Hatchet's Postgres in the cluster
   KEDA_BACKGROUND_WORK_DB_URL: KEDA's read-only login to Hatchet's Postgres
   CLICKHOUSE_URL: Langfuse's ClickHouse in the cluster
@@ -77,9 +75,10 @@ env:
   CMS_PG_HOST: the website CMS's Postgres in the cluster
   QDRANT_URL: Qdrant in the cluster
   QDRANT_API_KEY: Qdrant's key
-  AIQ_QDRANT_URL: retired name of QDRANT_URL
-  AIQ_QDRANT_API_KEY: retired name of QDRANT_API_KEY
-  AIQ_QDRANT_READ_ONLY_API_KEY: retired name of Qdrant's read-only key
+  CHROMA_URL: retired vector store, in the cluster until deleted
+  QDRANT_TEST_URL: test-only Qdrant
+  TEST_POSTGRES_URL: test-only Postgres
+  QDRANT_READ_ONLY_API_KEY: Qdrant's read-only key
   QDRANT__SERVICE__API_KEY: Qdrant's own server setting
   QDRANT__SERVICE__ALT_API_KEY: Qdrant's own server setting, the rotation key
   QDRANT__SERVICE__READ_ONLY_API_KEY: Qdrant's own server setting, the read-only key
@@ -122,6 +121,3 @@ env:
   CMS_API_KEY: a key for our own website CMS
   CMS_WEBSITE_API_KEY: a key for our own website CMS
   CMS_PLATFORM_MCP_API_KEY: a key for our own website CMS
-  AIQ_CHROMA_URL: retired vector store, in the cluster until deleted
-  AIQ_QDRANT_TEST_URL: test-only Qdrant
-  AIQ_TEST_POSTGRES_URL: test-only Postgres

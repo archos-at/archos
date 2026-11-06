@@ -26,6 +26,7 @@ Usage: python scripts/check_data_flow_register.py. Exit code 0 when clean.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import sys
 from dataclasses import dataclass
@@ -286,6 +287,23 @@ def scan_env(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
     return found
 
 
+def _legacy_reader():
+    """``current_name`` of ``apps/agent-host/entrypoint.py``: the one map of retired variable names."""
+    spec = importlib.util.spec_from_file_location("agent_host_entrypoint", REPO_ROOT / "apps/agent-host/entrypoint.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.current_name
+
+
+def canonical_env(found: dict[str, set[str]]) -> dict[str, set[str]]:
+    """Each retired name folded into the name it is read as now: both images copy the old onto the new."""
+    current_name = _legacy_reader()
+    merged: dict[str, set[str]] = {}
+    for name, files in found.items():
+        merged.setdefault(current_name(name) or name, set()).update(files)
+    return merged
+
+
 def scan_hosts(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
     """Each literal host in runtime code, with the files that name it."""
     found: dict[str, set[str]] = {}
@@ -331,7 +349,7 @@ def _covered(host: str, known: set[str]) -> bool:
 
 def flow_errors(register: Register, repo_root: Path = REPO_ROOT) -> list[str]:
     """Outbound flows the code opens that the register does not name, and stale exemptions."""
-    env, hosts = scan_env(repo_root), scan_hosts(repo_root)
+    env, hosts = canonical_env(scan_env(repo_root)), scan_hosts(repo_root)
     known_env, known_hosts = registered_env(register), registered_hosts(register)
     errors = [
         f"env {name} ({', '.join(sorted(files)[:2])}) has no row"

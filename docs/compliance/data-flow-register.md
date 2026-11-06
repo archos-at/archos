@@ -30,6 +30,8 @@ code, Pulumi, Compose, `deploy/.env.example`, the env reference and
 | A `.hog` file under `deploy/posthog/` | a row's `hog_files` |
 | A destination id in a table of `deploy/posthog/README.md` | a row's `posthog_destinations` |
 
+A retired variable name counts as the name it is read as now (`current_name` in
+`apps/agent-host/entrypoint.py`), so the register lists only current names.
 Not scanned: specs, fixtures and `/app/dev/` preview pages; reserved names
 (`example.com`, `.invalid`, `.test`, `.internal`, `.svc`). An entry in
 `not-flows.yaml` that no longer occurs fails too, so an exemption cannot outlive

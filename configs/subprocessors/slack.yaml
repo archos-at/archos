@@ -21,7 +21,7 @@ deletion:
 hosts: [slack.com]
 env: []
 posthog_destinations:
-  # „Piloti feedback → Slack (per deployment)“, „mark Slack alert claimed“, and the
+  # „feedback → Slack (per deployment)“, „mark Slack alert claimed“, and the
   # thumbs-down-with-a-reason template, which posts the reason, the office and ids.
   - 01a16483-aaa2-0000-9400-98b42243aa65
   - 01a16445-c91c-0000-5f64-2f70e9c0e3b3

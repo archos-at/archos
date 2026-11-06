@@ -27,7 +27,7 @@ env:
   - PUBLIC_POSTHOG_HOST
   - POSTHOG_PERSONAL_API_KEY
 posthog_destinations:
-  # „tell Piloti about a team reply“ (POSTs a ticket id to our own BFF) and the
+  # „tell the app about a team reply“ (POSTs a ticket id to our own BFF) and the
   # chat-message counter (writes a person property inside PostHog).
   - 01a16498-573f-0000-1b68-8fb6438e0cc0
   - 01a17ea6-7a0c-0000-b8fe-252e2147be8c
