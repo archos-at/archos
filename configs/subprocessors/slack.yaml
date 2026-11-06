@@ -1,0 +1,49 @@
+id: slack
+kind: processor
+status: active
+order: 55
+name: Slack Technologies, LLC
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+data_classes: [ids_only]
+purposes: [customer_support, operations]
+holds_tenant_text: false
+deletion:
+  status: no_tenant_text
+  de: >-
+    Hinweise an das Team tragen Ticketnummer, Art der Rückmeldung, Deployment, Name der Organisation und Links, aber
+    keinen Text einer Rückmeldung oder eines Chats. Sie bleiben nach der Aufbewahrung des Slack-Workspace.
+  en: >-
+    Notices to the team carry the ticket number, the kind of report, the deployment, the organization's name and
+    links, but no text of a report or a chat. They are kept by the Slack workspace's retention.
+hosts: [slack.com]
+env: []
+posthog_destinations:
+  # „Piloti feedback → Slack (per deployment)“, „mark Slack alert claimed“, and the
+  # thumbs-down-with-a-reason template, which posts the reason, the office and ids.
+  - 01a16483-aaa2-0000-9400-98b42243aa65
+  - 01a16445-c91c-0000-5f64-2f70e9c0e3b3
+  - 01a17e99-0271-0000-4f5a-8c22030a5fd0
+hog_files:
+  - deploy/posthog/support/slack-alert.hog
+  - deploy/posthog/support/claim-update.hog
+evidence:
+  - deploy/posthog/README.md
+copy:
+  name:
+    de: Slack Technologies, LLC
+    en: Slack Technologies, LLC
+  purpose:
+    de: Interne Benachrichtigung unseres Teams über neue Rückmeldungen und Antwort-Bewertungen
+    en: Notifying our team internally about new reports and answer ratings
+  data:
+    de: Ticketnummer, Art der Rückmeldung, Grund einer negativen Bewertung, Name der Organisation, Links; kein Text Ihrer Rückmeldungen oder Chats
+    en: Ticket number, kind of report, reason of a negative rating, organization name, links; no text of your reports or chats
+  location:
+    de: USA
+    en: USA
+  required:
+    de: Ja
+    en: 'Yes'

@@ -1,0 +1,13 @@
+---
+# area: administration
+improvements:
+  - >
+    The subprocessor page in the legal section now names everyone who receives
+    your data, including address search, voice dictation and our team's Slack
+    notices, with the legal basis for each transfer.
+operators:
+  - >
+    A deployment with sign-in now refuses to start while a vendor that is not
+    on the processor list (Modal, Serper, Jina, Weights & Biases, LangSmith,
+    Anthropic or Gemini direct) is configured, and the two Slack destinations
+    in PostHog no longer quote a member's feedback; paste both again.

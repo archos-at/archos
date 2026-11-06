@@ -1,0 +1,37 @@
+id: model-providers
+kind: processor
+status: active
+order: 30
+name: Upstream AI model providers (via OpenRouter)
+entity_country: various
+processing_countries: [various]
+transfer: third_country
+contract: unknown
+via: openrouter
+data_classes: [model_io, tenant_content]
+purposes: [service_provision]
+holds_tenant_text: true
+deletion:
+  status: partial
+  de: Wie bei OpenRouter; der Anbieter wird nur über OpenRouter erreicht.
+  en: As for OpenRouter; the provider is reached only through OpenRouter.
+hosts: []
+env: []
+evidence:
+  - packages/agent/src/agent/common/model_overrides.py
+copy:
+  name:
+    de: Vorgelagerte KI-Modellanbieter (via OpenRouter, z. B. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral)
+    en: Upstream AI model providers (via OpenRouter, e.g. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral)
+  purpose:
+    de: Betrieb des von Ihrer Organisation gewählten KI-Modells
+    en: Operating the AI model selected by your organization
+  data:
+    de: Gleiche Inhalte wie OpenRouter
+    en: Same content as OpenRouter receives
+  location:
+    de: Abhängig vom gewählten Modell (auch außerhalb EU/EWR möglich)
+    en: Depends on selected model (may be outside EU/EEA)
+  required:
+    de: Jeweils eines, je Organisation gewählt
+    en: One at a time, selected per organization

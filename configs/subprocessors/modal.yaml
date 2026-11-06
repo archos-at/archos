@@ -1,0 +1,34 @@
+# Latent: configurable, not used. A deployment people sign in to refuses to
+# start while one of `activation_env` is set (agent.common.data_flow_register).
+# The Modal SDK and langchain-modal ship in the image; MODAL_TOKEN_ID/SECRET would switch the deep-research sandbox on.
+id: modal
+kind: processor
+status: latent
+order: 110
+name: Modal Labs, Inc.
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: none
+data_classes: [model_io]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: not_used
+  de: Nicht in Gebrauch; ein Deployment, in dem sich Personen anmelden, startet nicht, solange der Dienst konfiguriert ist.
+  en: Not in use; a deployment people sign in to does not start while the service is configured.
+hosts: [modal.com, api.modal.com]
+env: [MODAL_TOKEN_ID]
+activation_env: [MODAL_TOKEN_ID, MODAL_TOKEN_SECRET]
+evidence:
+  - packages/agent/src/agent/agents/deep_researcher/deepagents_runtime.py
+copy:
+  name:
+    de: Modal Labs
+    en: Modal Labs
+  data:
+    de: Isolierte Code-Ausführung bei Tiefenrecherchen; Code und Daten, die der Recherche-Agent ausführt
+    en: sandboxed code execution during deep research; code and data the research agent chooses to execute
+  location:
+    de: USA
+    en: USA

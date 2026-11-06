@@ -1,0 +1,12 @@
+# Public authorities and publishers we fetch from. Not processors: they receive a
+# query for a law or a page, never an office's documents. The query text can be
+# derived from a person's question, so the page lists them.
+sources:
+  - id: ris
+    name: Bundeskanzleramt (RIS, Rechtsinformationssystem des Bundes)
+    country: AT
+    hosts: [ris.bka.gv.at, www.ris.bka.gv.at, ogd.ris.bka.gv.at, data.bka.gv.at]
+    env: []
+    copy:
+      de: 'Rechtsinformationssystem des Bundes (Bundeskanzleramt, Österreich): Suchbegriffe und Kennungen von Rechtsvorschriften, die aus Ihren Fragen abgeleitet sind'
+      en: 'Federal Legal Information System (Federal Chancellery, Austria): search terms and identifiers of legal provisions derived from your questions'

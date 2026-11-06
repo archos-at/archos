@@ -1,0 +1,40 @@
+id: web-push
+kind: processor
+status: active
+order: 90
+name: Browser push services (Google FCM, Mozilla, Apple)
+entity_country: US
+processing_countries: [global]
+transfer: third_country
+contract: none
+data_classes: [notification]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: not_retained
+  de: >-
+    Die Benachrichtigung ist Ende-zu-Ende verschlüsselt (RFC 8291); der Push-Dienst kann sie nicht lesen und hält sie
+    nur bis zur Zustellung.
+  en: >-
+    The notification is end-to-end encrypted (RFC 8291); the push service cannot read it and holds it only until
+    delivery.
+hosts: [fcm.googleapis.com, updates.push.services.mozilla.com, web.push.apple.com]
+env: []
+evidence:
+  - apps/workspace/bff/push/endpoint.ts
+copy:
+  name:
+    de: Push-Dienst Ihres Browsers (Google, Mozilla oder Apple)
+    en: Your browser's push service (Google, Mozilla or Apple)
+  purpose:
+    de: Zustellung von Benachrichtigungen, die Sie in Ihrem Browser erlaubt haben
+    en: Delivering notifications you allowed in your browser
+  data:
+    de: Eine verschlüsselte Benachrichtigung, die der Dienst nicht lesen kann, und die Adresse Ihres Browsers beim Dienst
+    en: An encrypted notification the service cannot read, and your browser's address at the service
+  location:
+    de: Abhängig von Ihrem Browser (meist USA)
+    en: Depends on your browser (usually USA)
+  required:
+    de: Nur wenn Sie Benachrichtigungen erlauben
+    en: Only if you allow notifications

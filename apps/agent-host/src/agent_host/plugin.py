@@ -42,6 +42,7 @@ from fastapi import FastAPI
 from pydantic import Field
 from pydantic import model_validator
 
+from agent.common.data_flow_register import assert_no_latent_vendor
 from agent.common.log_redaction import install_presigned_url_scrubbing
 from agent.knowledge.leader_lock import require_direct_dsns
 from agent.observability import posthog_exceptions
@@ -468,6 +469,8 @@ class AgentHostWorker(FastApiFrontEndPluginWorker):
         # the job SSE streams. The chat role serves none: its stream is the
         # socket, over Dragonfly. Fail the boot, not every request (ADR-0083).
         require_direct_dsns(listen=self._role is WebRole.API)
+        # No data to a processor the legal page does not name (configs/subprocessors).
+        assert_no_latent_vendor()
 
         app = super().build_app()
 

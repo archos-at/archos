@@ -1,0 +1,42 @@
+id: cloudflare
+kind: processor
+status: active
+order: 70
+name: Cloudflare, Inc.
+entity_country: US
+processing_countries: [global]
+transfer: third_country
+contract: unknown
+data_classes: [mail_transit]
+purposes: [service_provision]
+holds_tenant_text: false
+deletion:
+  status: vendor_retention
+  de: >-
+    Eine E-Mail an eine Projektadresse durchläuft Cloudflare und wird dort nicht gespeichert; das Aktivitätsprotokoll
+    von Email Routing hält Absender, Empfänger, Zeit und Ergebnis nach Cloudflares eigener Aufbewahrung.
+  en: >-
+    Mail to a project address passes through Cloudflare and is not stored there; Email Routing's activity log keeps
+    sender, recipient, time and outcome under Cloudflare's own retention.
+hosts: [api.cloudflare.com]
+env: [CLOUDFLARE_API_TOKEN]
+evidence:
+  - docs/adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md
+  - deploy/pulumi/src/platform/inbound-mail-worker.js
+  - docs/compliance/inbound-mail-review-2026-10.md
+copy:
+  name:
+    de: Cloudflare, Inc.
+    en: Cloudflare, Inc.
+  purpose:
+    de: DNS für die Domains von {productName}; Weiterleitung der www-Adresse auf die Hauptdomain; Empfang und Weiterleitung von E-Mails an Projektadressen (Email Routing), falls Ihre Organisation die Funktion freigeschaltet hat
+    en: DNS for the {productName} domains; redirects the www address to the main domain; receiving and forwarding mail to project addresses (Email Routing), where your organization has switched the feature on
+  data:
+    de: 'DNS-Abfragen der Domainnamen; nur bei Aufrufen der www-Adresse die IP-Adresse der Besucherin bzw. des Besuchers und die aufgerufene Adresse. E-Mails an Projektadressen: Absender, Empfänger und die ganze Nachricht auf dem Weg zu {productName}. Die Anwendung selbst wird direkt erreicht, nicht über Cloudflare'
+    en: 'DNS lookups of the domain names; for requests to the www address only, the visitor’s IP address and the requested address. Mail to project addresses: sender, recipients and the whole message on its way to {productName}. The application itself is reached directly, not through Cloudflare'
+  location:
+    de: USA (weltweites Netzwerk)
+    en: USA (global network)
+  required:
+    de: Ja
+    en: 'Yes'

@@ -15,7 +15,8 @@
  */
 
 import type { LegalContent } from '../types'
-import { PRODUCT_NAME } from '@/lib/brand'
+import { PRODUCT_NAME, withProductName } from '@/lib/brand'
+import { SUBPROCESSOR_PAGE } from './subprocessors.generated'
 import identity from '@/shared/brand/identity.json'
 
 // Operator, address and contact from the brand's one source (packages/brand/identity.json),
@@ -23,6 +24,9 @@ import identity from '@/shared/brand/identity.json'
 const OPERATOR = identity.legalEntity
 const ADDRESS = `${identity.street}, ${identity.postalCode} ${identity.city}, Austria`
 const EMAIL = identity.email
+
+// The processor page's tables and lists, generated from configs/subprocessors/ (scripts/generate_subprocessor_pages.py).
+const PAGE = withProductName(SUBPROCESSOR_PAGE.en)
 
 export const en: LegalContent = {
   imprint: {
@@ -66,7 +70,7 @@ export const en: LegalContent = {
 
   privacy: {
     title: 'Privacy Policy',
-    updated: '2026-10-27',
+    updated: '2026-11-06',
     intro:
       'This policy explains how personal data is processed when you use ' + PRODUCT_NAME + ' (formerly Piloti), pursuant to Regulation (EU) 2016/679 (GDPR / DSGVO).',
     sections: [
@@ -83,7 +87,7 @@ export const en: LegalContent = {
           'Account and organization data: name, email address, organization membership, roles and permissions. Identity is managed by our identity provider WorkOS (AuthKit); we deliberately keep no separate local copy of your identity profile.',
           'Content data: your chat questions and the answers generated for you, research reports, project documents you upload (plans, permits, specifications — which may themselves contain personal data), and project/organization memory entries derived from your interactions.',
           'Usage and billing data: a usage ledger recording, per AI request, the requested and actually serving AI model, token counts and cost, attributed to your organization, project and user.',
-          'Audit data: privileged administrative actions (e.g. model configuration changes, budget changes, deletions, legal holds) are recorded with actor, timestamp, IP address and user agent.',
+          'Audit data: privileged administrative actions (e.g. model configuration changes, budget changes, deletions, legal holds) are recorded with actor, timestamp, IP address and user agent. The audit trail is stored at WorkOS; events about projects and documents carry their names, where the folder is visible to every project member.',
           'Technical data: server logs, session cookie (authentication), locale preference cookie.',
           'Mail to project addresses (only where your organization has switched the feature on): mail anyone sends to a project’s e-mail address, with its sender, recipients, subject, text, attachments and the result of the sender check (DKIM/DMARC). It waits in the project’s Project mail until an authorized person files or dismisses it; filed mail becomes part of the project’s documents, and its original (.eml) is kept as evidence beside the mail thread. The organization that provides the address is the controller of this mail.',
           'Usage and device data (product analytics): your user ID (the pseudonymous WorkOS identifier), your organization’s ID and name, and your role; pages viewed, clicks (without the labels of the clicked elements) and interaction events (e.g. question sent, document uploaded, export); browser, device and language settings; error reports with technical context; for recorded sessions a replay of your screen in which text and inputs are masked and in which images, the PDF view and the IFC model view are not recorded; survey answers and messages to support, where you submit them. Your email address and name are not sent to product analytics. Passwords, API keys and credentials are never captured.',
@@ -102,9 +106,9 @@ export const en: LegalContent = {
       {
         heading: '4. AI processing and recipients of your content',
         paragraphs: [
-          'To generate answers, your chat messages, relevant excerpts of your uploaded documents and retrieved regulation passages are transmitted to external AI model providers via the API gateway OpenRouter, Inc. (USA). Web-research queries derived from your questions are sent to the search provider Tavily. Identity and sign-in are handled by WorkOS, Inc. (USA).',
+          'To generate answers, your chat messages, relevant excerpts of your uploaded documents and retrieved regulation passages are transmitted to external AI model providers via the API gateway OpenRouter, Inc. (USA). Web-research queries derived from your questions are sent to the search provider Tavily. Identity and sign-in are handled by WorkOS, Inc. (USA). When you dictate in the chat, the audio recording goes through OpenRouter to a transcription model (ElevenLabs, USA). In address search, the address you type goes to the public Photon service of komoot GmbH (Germany).',
           'For product analytics, session replay, error tracking, surveys and support we use PostHog (PostHog, Inc.; data stored in the EU Cloud, Frankfurt). PostHog processes this data on our behalf under a data processing agreement (Art. 28 GDPR). PostHog also receives AI-request metadata (time, model, duration, token counts, cost, names of the processing steps) and the ratings you give to answers, including your comment, from our tracing system Langfuse. Chat messages, answers and document contents are not part of it.',
-          'Mail to project addresses: while a mail waits to be filed, no AI model reads its text or its attachments. For a filing suggestion the AI model receives only the attachments’ file names that passed the name check, the subject (masked by your organization’s content check) and the sender’s domain, together with the folders every project member can see and your organization’s filing conventions; mail from unconfirmed domains and automatic mail get no suggestion. Only filed mail is processed like other project documents. No AI model receives a mail’s original (.eml). Mail reaches the agent through Cloudflare, Inc. (USA, transit); attachments and originals are scanned for malware in our own infrastructure (ClamAV).',
+          'Mail to project addresses: while a mail waits to be filed, no AI model reads its text or its attachments. For a filing suggestion the AI model receives only the attachments’ file names that passed the name check, the subject (masked by your organization’s content check) and the sender’s domain, together with the folders every project member can see and your organization’s filing conventions; mail from unconfirmed domains and automatic mail get no suggestion. Only filed mail is processed like other project documents. No AI model receives a mail’s original (.eml). Mail reaches ' + PRODUCT_NAME + ' through Cloudflare, Inc. (USA, transit); attachments and originals are scanned for malware in our own infrastructure (ClamAV).',
         ],
         notice:
           'Important: which AI model — and therefore which upstream model provider (e.g. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral and others listed in the OpenRouter catalog) — processes your requests is configurable at runtime by your organization’s administrators. All AI traffic always flows through OpenRouter and never through any other gateway, but the effective downstream provider, and thus the location of that processing (which may be outside the EU/EEA), depends on the model your organization selects. Every model change is validated, versioned, attributable to the administrator who made it, and auditable; the model that actually served each request is recorded. The current list of external services is available on the Subprocessors page.',
@@ -276,141 +280,41 @@ export const en: LegalContent = {
 
   subprocessors: {
     title: 'External Services & Subprocessors',
-    updated: '2026-11-03',
+    updated: '2026-11-06',
     intro:
       'All external services that can process data when you use ' + PRODUCT_NAME + ' (formerly Piloti), and the infrastructure the operator runs itself. This page implements the transparency commitment referenced in the Privacy Policy.',
     sections: [
       {
         heading: 'External processors',
-        table: {
-          headers: ['Service', 'Purpose', 'Data processed', 'Location', 'Required?'],
-          rows: [
-            [
-              'WorkOS, Inc.',
-              'Identity & sign-in (SSO, MFA), authorization, audit-log storage',
-              'Name, email, organization membership, roles, sign-in events, audit events (incl. IP address)',
-              'USA',
-              'Yes',
-            ],
-            [
-              'PostHog, Inc.',
-              'Product analytics, session replay, error tracking, surveys, support',
-              'User ID (WorkOS), organization ID and name, role, language, page views, interaction events, device and browser details, error reports, masked session recordings, survey answers and support messages; AI metadata and answer ratings from Langfuse. No email address, no name',
-              'EU (Frankfurt); group headquartered in the USA',
-              'Yes (product analytics, error tracking); session replay sampled and only if enabled; can be switched off in profile settings',
-            ],
-            [
-              'OpenRouter, Inc.',
-              'AI gateway for all language-model, embedding and vision-model requests',
-              'Chat messages, document excerpts, retrieved regulation passages, generated answers',
-              'USA (gateway); upstream model provider varies — see notice below',
-              'Yes',
-            ],
-            [
-              'Upstream AI model providers (via OpenRouter, e.g. DeepSeek, OpenAI, Anthropic, Google, Meta, Mistral)',
-              'Operating the AI model selected by your organization',
-              'Same content as OpenRouter receives',
-              'Depends on selected model (may be outside EU/EEA)',
-              'One at a time, selected per organization',
-            ],
-            [
-              'Tavily',
-              'Web search for research questions',
-              'Search queries derived from your questions (AI-generated from your prompts)',
-              'USA',
-              'Yes (for web research)',
-            ],
-            [
-              'Additional search providers (Exa, Serper/Google Scholar, DuckDuckGo, Polymarket)',
-              'Alternative/optional search tools',
-              'Search queries derived from your questions',
-              'USA / various',
-              'Optional (only if configured)',
-            ],
-            [
-              'Modal Labs',
-              'Sandboxed code execution during deep research',
-              'Code and data the research agent chooses to execute',
-              'USA',
-              'Optional (only if configured)',
-            ],
-            [
-              'NVIDIA (integrate.api.nvidia.com)',
-              'Embeddings and vision/table extraction from documents (default configuration; the production reference setup routes these through OpenRouter instead)',
-              'Document text chunks and page images',
-              'USA',
-              'Depends on deployment configuration',
-            ],
-            [
-              'Moonshot AI (Kimi)',
-              'Alternative AI model configuration',
-              'Chat messages and document excerpts',
-              'China',
-              'Optional (non-default configuration)',
-            ],
-            [
-              'OpenAI, Inc. (direct)',
-              'Alternative model configuration; fallback for project-summary generation',
-              'Chat messages, document excerpts, project profile text',
-              'USA',
-              'Optional (only if configured)',
-            ],
-            [
-              'Cloudflare, Inc.',
-              'DNS for the ' + PRODUCT_NAME + ' domains; redirects the www address to the main domain; receiving and forwarding mail to project addresses (Email Routing), where your organization has switched the feature on',
-              'DNS lookups of the domain names; for requests to the www address only, the visitor’s IP address and the requested address. Mail to project addresses: sender, recipients and the whole message on its way to ' + PRODUCT_NAME + '. The application itself is reached directly, not through Cloudflare',
-              'USA (global network)',
-              'Yes',
-            ],
-            [
-              // Provider and place as on the website (apps/website/src/i18n/pages/security.ts) and in docs/deployment/kubernetes.md.
-              'IPAX (hosting provider)',
-              'Runs the application, databases and object storage',
-              'All application data',
-              'Austria (Vienna)',
-              'Yes',
-            ],
-          ],
-        },
+        // Rows from the data-flow register (configs/subprocessors/*.yaml); do not edit them here.
+        table: PAGE.processors,
         notice:
           'Dynamic model providers: because organization administrators can switch the AI model at runtime (see the AI Transparency notice), the effective upstream model provider is not fixed. All AI traffic always passes through OpenRouter; the set of possible upstream providers is limited to the OpenRouter catalog; the selection active for your organization is visible to your administrators, every change is audited, and the serving model is recorded per request.',
       },
       {
         heading: 'Self-hosted infrastructure (no third-party processing)',
-        table: {
-          headers: ['Component', 'Purpose', 'Data held'],
-          rows: [
-            ['PostgreSQL', 'Application database', 'Projects, conversations, memory, usage ledger, configuration'],
-            ['SeaweedFS (S3-compatible)', 'Object storage', 'Uploaded documents'],
-            ['Qdrant', 'Vector index', 'Document and regulation embeddings'],
-            ['Dragonfly (Redis-compatible)', 'Cache, rate limiting', 'Short-lived operational data'],
-            ['ClamAV', 'Malware scanning of attachments sent from outside', 'None: scanned files are not stored'],
-          ],
-        },
+        table: PAGE.selfHosted,
       },
       {
-        heading: 'Optional telemetry (disabled by default)',
+        heading: 'Public legal sources (not processors)',
         paragraphs: [
-          'The codebase supports optional tracing/monitoring integrations which are inactive unless explicitly configured by the operator. If any of them is enabled for a deployment, this page will be updated accordingly, because they would receive the data listed below:',
+          'To answer building-law questions, ' + PRODUCT_NAME + ' queries public legal sources. They receive search terms and identifiers of provisions, never your organization’s documents:',
         ],
-        list: [
-          'LangSmith (LangChain, USA) — full AI prompts and responses, if tracing is enabled.',
-          'OpenTelemetry/Phoenix trace export — AI request traces, only to an endpoint the operator configures.',
-          'Datadog RUM (USA) — browser performance/usage telemetry, if injected by the deployment.',
-          'Weights & Biases (USA) — evaluation runs; currently not wired to any code path.',
+        list: PAGE.publicSources,
+      },
+      {
+        heading: 'Supported but not in use',
+        paragraphs: [
+          'The codebase can reach the following services; none of them is in use. A deployment people sign in to does not start while one of them is configured without first being listed above as a processor. They would receive the data listed:',
         ],
+        list: PAGE.latent,
       },
       {
         heading: 'Development and build-time services (no user content)',
         paragraphs: [
-          'The following services are used to build and maintain ' + PRODUCT_NAME + '. They process source code and build artifacts, never your prompts, documents, or account data:',
+          'The following services are used to build, deploy and run ' + PRODUCT_NAME + '. They process source code, build artifacts and domain names, never your prompts, documents, or account data:',
         ],
-        list: [
-          'GitHub (USA) — source-code hosting, CI pipelines, security scanning.',
-          'SonarSource / SonarQube Cloud (EU/CH) — static analysis of source code.',
-          'Package registries and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build time.',
-          'Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using ' + PRODUCT_NAME + '.',
-        ],
+        list: PAGE.build,
       },
       {
         heading: 'Changes to this list',

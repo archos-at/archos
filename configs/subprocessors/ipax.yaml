@@ -1,0 +1,47 @@
+# The data-flow register: one file per recipient. Schema and how to add a row:
+# docs/compliance/data-flow-register.md. Generated from these files: the public
+# processor page (apps/workspace/bff/legal/content/subprocessors.generated.ts)
+# and the DPA annex (docs/compliance/dpa-subprocessor-annex.md).
+id: ipax
+kind: processor
+status: active
+order: 10
+name: IPAX OG
+entity_country: AT
+processing_countries: [AT]
+transfer: eea
+contract: unknown
+data_classes: [tenant_content, model_io, account_identity, telemetry, backups]
+purposes: [service_provision]
+holds_tenant_text: true
+deletion:
+  status: gap
+  de: >-
+    Die Server und die nächtlichen Velero-Kopien jedes Volumes liegen bei IPAX. Eine Projektlöschung erreicht die
+    Datenbank, den Objektspeicher und den Vektorindex; die Kopien altern nach 30 Tagen aus. Einen Löschlauf für eine
+    ganze Organisation bei Vertragsende gibt es noch nicht.
+  en: >-
+    The servers and the nightly Velero copy of every volume are at IPAX. A project deletion reaches the database, the
+    object store and the vector index; the copies age out after 30 days. No deletion run for a whole organization at
+    contract end exists yet.
+hosts: []
+env: []
+evidence:
+  - docs/deployment/kubernetes.md
+  - apps/website/src/i18n/pages/security.ts
+copy:
+  name:
+    de: IPAX (Hosting-Anbieter)
+    en: IPAX (hosting provider)
+  purpose:
+    de: Betrieb der Anwendung, Datenbanken und des Objektspeichers; nächtliche Sicherungskopien (Velero)
+    en: Runs the application, databases and object storage; nightly backup copies (Velero)
+  data:
+    de: Alle Anwendungsdaten
+    en: All application data
+  location:
+    de: Österreich (Wien)
+    en: Austria (Vienna)
+  required:
+    de: Ja
+    en: 'Yes'

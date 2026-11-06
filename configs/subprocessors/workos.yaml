@@ -1,0 +1,51 @@
+id: workos
+kind: processor
+status: active
+order: 40
+name: WorkOS, Inc.
+entity_country: US
+processing_countries: [US]
+transfer: third_country
+contract: unknown
+data_classes: [account_identity, audit_metadata]
+purposes: [service_provision, security]
+holds_tenant_text: true
+deletion:
+  status: gap
+  de: >-
+    WorkOS hält Konten, Mitgliedschaften und den Audit-Trail. Audit-Ereignisse tragen Projekt-, Organisations- und
+    Dokumentnamen. Bei Vertragsende werden weder die Organisation noch ihre Nutzer noch ihr Audit-Trail automatisch
+    gelöscht.
+  en: >-
+    WorkOS holds accounts, memberships and the audit trail. Audit events carry project, organization and document
+    names. At contract end neither the organization, its users nor its audit trail are deleted automatically.
+hosts: [api.workos.com, workos.com, authkit.app]
+env:
+  - WORKOS_API_KEY
+  - WORKOS_CLIENT_ID
+  - WORKOS_AUTHKIT_DOMAIN
+evidence:
+  - docs/adr/0002-outsource-identity-to-workos.md
+  - apps/workspace/bff/audit/document-names.ts
+  - apps/workspace/bff/audit/schemas.mjs
+copy:
+  name:
+    de: WorkOS, Inc.
+    en: WorkOS, Inc.
+  purpose:
+    de: Identität & Anmeldung (SSO, MFA), Autorisierung, Audit-Log-Speicherung
+    en: Identity & sign-in (SSO, MFA), authorization, audit-log storage
+  data:
+    de: >-
+      Name, E-Mail, Organisationszugehörigkeit, Rollen, Anmeldeereignisse, Audit-Ereignisse (inkl. IP-Adresse sowie
+      Namen von Organisationen, Projekten und Dokumenten, soweit die betroffene Ablage für alle Projektmitglieder
+      sichtbar ist)
+    en: >-
+      Name, email, organization membership, roles, sign-in events, audit events (incl. IP address and the names of
+      organizations, projects and documents, where the folder concerned is visible to every project member)
+  location:
+    de: USA
+    en: USA
+  required:
+    de: Ja
+    en: 'Yes'

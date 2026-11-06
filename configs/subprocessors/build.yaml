@@ -1,0 +1,33 @@
+# Services the deployment and the build reach. None receives a prompt, a
+# document or account data.
+services:
+  - id: github
+    hosts: [github.com]
+    copy:
+      de: GitHub (USA) — Quellcode-Hosting, CI-Pipelines, Sicherheits-Scans.
+      en: GitHub (USA) — source-code hosting, CI pipelines, security scanning.
+  - id: sonarsource
+    hosts: []
+    copy:
+      de: SonarSource / SonarQube Cloud (EU/CH) — statische Analyse des Quellcodes.
+      en: SonarSource / SonarQube Cloud (EU/CH) — static analysis of source code.
+  - id: registries
+    hosts: [charts.jetstack.io, cloudnative-pg.github.io, hatchet-dev.github.io, kedacore.github.io, kubernetes-sigs.github.io]
+    copy:
+      de: Paket-Registries, Helm-Charts und Basis-Images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian-/Node-Mirrors) — Software-Abhängigkeiten, die zur Build- und Deploy-Zeit geladen werden.
+      en: Package registries, Helm charts and base images (PyPI, npm, Docker Hub, NVIDIA NGC, Debian/Node mirrors) — software dependencies fetched at build and deploy time.
+  - id: letsencrypt
+    hosts: [acme-v02.api.letsencrypt.org, acme-staging-v02.api.letsencrypt.org]
+    copy:
+      de: Let’s Encrypt (USA) — TLS-Zertifikate für die Domains von {productName}; erhält nur die Domainnamen.
+      en: Let’s Encrypt (USA) — TLS certificates for the {productName} domains; receives only the domain names.
+  - id: clamav-mirror
+    hosts: [database.clamav.net]
+    copy:
+      de: ClamAV-Signaturen (Cisco Talos) — Signaturen für die Virenprüfung werden heruntergeladen; nichts wird hochgeladen.
+      en: ClamAV signatures (Cisco Talos) — malware signatures are downloaded; nothing is uploaded.
+  - id: google-fonts
+    hosts: []
+    copy:
+      de: Google Fonts — Schriften werden einmalig zur Build-Zeit geladen und selbst gehostet; Ihr Browser kontaktiert bei der Nutzung von {productName} niemals Google.
+      en: Google Fonts — fonts are downloaded once at build time and self-hosted; your browser never contacts Google when using {productName}.

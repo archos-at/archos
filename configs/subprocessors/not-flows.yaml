@@ -1,0 +1,23 @@
+# Hosts and variables the scan finds that carry no data out of the cluster,
+# each with the reason. An entry that no longer occurs fails the check.
+hosts:
+  accounts.google.com: an example issuer in a docstring
+  agentskills.io: a link to the Agent Skills format, shown to people
+  app.example.at: an example address in a comment
+  app.piloti.at: our own app's domain
+  piloti.at: our own domain
+  arxiv.org: an example in a docstring
+  weathercams.faa.gov: an example in a comment
+  cdn.plot.ly: the tokenomics report (a developer tool) loads plotly when a developer opens it
+  ec.europa.eu: a link on the legal page (the EU complaint platform)
+  errors.pydantic.dev: a link inside pydantic error text
+  json-schema.org: a JSON Schema dialect identifier, never fetched
+  www.w3.org: an XML namespace, never fetched
+  schemas.openxmlformats.org: an Office XML namespace, never fetched
+  langfuse.com: links to Langfuse documentation in comments
+  oib.at: an example in a comment
+  www.oib.or.at: a link to the OIB guidelines, shown to people
+  www.openstreetmap.org: a link a person may click to see a photo's location; the app loads nothing from it
+  www.wien.gv.at: a source link in the norm registry, shown to people
+env:
+  NVIDIA_API_KEY: credential_resolution maps the removed NIM host to it; config_validation refuses an llm entry on NIM at boot
