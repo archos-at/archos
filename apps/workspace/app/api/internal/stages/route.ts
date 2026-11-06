@@ -46,6 +46,10 @@ import { isProjectClosed } from '@/lib/projects/project-status'
  * build or show cards, so it needs no WorkOS client of its own. It is not
  * withdrawn by a closed project.
  *
+ * `sourceRouting` (ADR-0158) tells the RIS adapter whether this organization's
+ * public-source requests go through the sandboxed fetcher; read per turn, not
+ * withdrawn by a closed project.
+ *
  * Token-guarded like every other internal route.
  */
 
@@ -61,15 +65,25 @@ export const GET = internalApiRoute(
   'post-answer-stages',
   async ({ request }) => {
     const { organizationId, projectId } = parseQuery(request, querySchema)
-    const [enabled, deepResearch, tasks, folderCards, project] = await Promise.all([
+    const [enabled, deepResearch, tasks, folderCards, sourceRouting, project] = await Promise.all([
       enabledPostAnswerStages(organizationId),
       isDeepResearchEnabledForOrg(organizationId),
       isTaskAutomationEnabledForOrg(organizationId),
       isOrgFeatureEnabled(FEATURE_FLAGS.folderCards, organizationId),
+      isOrgFeatureEnabled(FEATURE_FLAGS.sourceRouting, organizationId),
       projectId ? findProjectTenancy(projectId) : Promise.resolve(null),
     ])
-    const closed = project !== null && project.organizationId === organizationId && isProjectClosed(project)
-    return { enabled, features: { deepResearch: deepResearch && !closed, tasks: tasks && !closed, folderCards } }
+    const closed =
+      project !== null && project.organizationId === organizationId && isProjectClosed(project)
+    return {
+      enabled,
+      features: {
+        deepResearch: deepResearch && !closed,
+        tasks: tasks && !closed,
+        folderCards,
+        sourceRouting,
+      },
+    }
   },
   // `?organizationId` names the tenant the flags are evaluated for. The one
   // query, the project's tenancy probe, states its own platform scope and is

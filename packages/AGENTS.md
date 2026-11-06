@@ -1,7 +1,7 @@
 # Libraries: `packages/`
 
 Two families live here: the standalone IFC engine, outside every workspace,
-and the Python packages of the root uv workspace ([below](#the-python-packages-agent-knowledge-layer-ris-adapter-tavily-web-search)).
+and the Python packages of the root uv workspace ([below](#the-python-packages-agent-knowledge-layer-public-sources-ris-adapter-tavily-web-search)).
 `brand/` is neither: the shared corporate design. `tokens.json` is the source;
 `build-tokens.mjs` renders `dist/`, and `sync.mjs` writes committed copies into
 `apps/website` and `apps/workspace`, each only its layer: a token with `"scope": "app"`
@@ -61,7 +61,7 @@ extra. Plain `uv run pytest` installs neither.
 - `ifc-spatial-py/COVERAGE.md` and `CORPUS.md` record what the spike actually
   covers, which is less than the operator list suggests.
 
-## The Python packages: `agent`, `knowledge-layer`, `ris-adapter`, `tavily-web-search`
+## The Python packages: `agent`, `knowledge-layer`, `public-sources`, `ris-adapter`, `tavily-web-search`
 
 `agent` (the agent itself, `packages/agent/src/agent`, distribution `agent`) moved
 here from `src/` in ADR-0145 row 8. Its suite is `packages/agent/tests`, and it runs in the
@@ -71,9 +71,13 @@ core suite (`be:test`, with the coverage gate) beside `tests/`, not in `be:test:
 
 `knowledge-layer` (ingestion and retrieval, the library the agent is built on),
 `ris-adapter` (the RIS legal adapter) and `tavily-web-search` (web search), all
-agent-runtime plugins. Each is its own uv workspace member with its own `pyproject.toml`
+agent-runtime plugins, and `public-sources` (legal and geodata sources as
+configured records over protocol access types and format engines, ADR-0158;
+a library and the sandboxed fetcher, no plugin). A new country's source is a
+record under `configs/sources/`, not a package: see its
+[`README.md`](public-sources/README.md). Each is its own uv workspace member with its own `pyproject.toml`
 and tests, installed into the shared venv. They moved here from `sources/` in
-ADR-0145 row 6.
+ADR-0145 row 6 (`public-sources` was born here).
 
 ### Running these tests
 

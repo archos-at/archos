@@ -1,0 +1,96 @@
+# Fedlex, the Swiss Confederation's publication platform for federal law.
+#
+# One configured `http_eli` + `akn` source (ADR-0158). Proves the types with a
+# second country and no code: a federal act's consolidation in force on a
+# date is found through the Fedlex SPARQL endpoint (JOLux), and its Akoma
+# Ntoso file is read into passages anchored by eId (`art_16_b/para_1`).
+#
+# Federal acts in German, French and Italian are equally binding (PublG Art. 14);
+# `language` picks the expression. Cantonal law is not on Fedlex.
+#
+# Not yet entitled to any office: no country pack uses it. It exists to prove
+# the access type and the engine against a real publisher.
+#
+# Check a change with: .venv/bin/python -m public_sources test ch-fedlex
+id: ch-fedlex
+title: Fedlex – Bundesrecht der Schweizerischen Eidgenossenschaft
+territory: CH
+protocol: http_eli
+format: akn
+hosts:
+  - fedlex.data.admin.ch
+data_flow: public_only
+terms:
+  # Enactments are not protected by copyright (URG Art. 5 Abs. 1 lit. a).
+  url: https://www.fedlex.admin.ch/de/broadcasters/legal-notice
+  licence: public_open
+  attribution: "Quelle: Fedlex, www.fedlex.admin.ch"
+  checked: 2026-11-06
+monitor:
+  # A new consolidation is a new expression date; the query states it.
+  kind: version
+  interval_hours: 24
+
+access:
+  # The work's ELI. `work` is the path after /eli/cc/, e.g. 1979/1573_1573_1573 (RPG, SR 700).
+  eli: "https://fedlex.data.admin.ch/eli/cc/{work}"
+  resolve: sparql
+  args:
+    work: eli_path
+    as_of: date
+    language: language
+  defaults:
+    language: de
+  tables:
+    language_uri:
+      values:
+        de: http://publications.europa.eu/resource/authority/language/DEU
+        fr: http://publications.europa.eu/resource/authority/language/FRA
+        it: http://publications.europa.eu/resource/authority/language/ITA
+        rm: http://publications.europa.eu/resource/authority/language/ROH
+        en: http://publications.europa.eu/resource/authority/language/ENG
+  sparql:
+    endpoint: https://fedlex.data.admin.ch/sparqlendpoint
+    binding: file
+    version_binding: date
+    # The consolidation applicable on `as_of`, in `language`, as Akoma Ntoso XML.
+    query: |
+      PREFIX jolux: <http://data.legilux.public.lu/resource/ontology/jolux#>
+      PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+      SELECT ?file ?date WHERE {
+        ?cons jolux:isMemberOf <https://fedlex.data.admin.ch/eli/cc/{work}> ;
+              jolux:dateApplicability ?date ;
+              jolux:isRealizedBy ?expr .
+        FILTER (?date <= "{as_of}"^^xsd:date)
+        ?expr jolux:language <{language_uri[language]}> ;
+              jolux:isEmbodiedBy ?manif .
+        ?manif jolux:userFormat <https://fedlex.data.admin.ch/vocabulary/user-format/xml> ;
+               jolux:isExemplifiedBy ?file .
+      } ORDER BY DESC(?date) LIMIT 1
+
+engine:
+  unit: article
+  drop: [authorialNote]
+  language: de
+  version_date_name: jolux:dateApplicability
+
+fixtures:
+  - name: Raumplanungsgesetz (SR 700) in force on 2026-11-06, German (recorded 2026-11-06)
+    operation: expression
+    args:
+      work: 1979/1573_1573_1573
+      as_of: "2026-11-06"
+    responses:
+      "https://fedlex.data.admin.ch/sparqlendpoint": sparql_rpg_20260701.json
+      "https://fedlex.data.admin.ch/filestore/fedlex.data.admin.ch/eli/cc/1979/1573_1573_1573/20260701/de/xml/fedlex-data-admin-ch-eli-cc-1979-1573_1573_1573-20260701-de-xml-6.xml": rpg_20260701_de.xml
+    expect:
+      kind: document
+      title: Bundesgesetz vom 22. Juni 1979 über die Raumplanung (Raumplanungsgesetz, RPG)
+      version: "2026-07-01"
+      min_passages: 40
+      anchors: [art_1, art_2, art_16_b]
+      contains:
+        - "Bund, Kantone und Gemeinden sorgen dafür, dass der Boden haushälterisch genutzt"
+        - "Benutzungsverbot und Beseitigung"
+      excludes:
+        - "Fassung gemäss Ziff. I des BG vom 15. Juni 2012"

@@ -21,7 +21,7 @@ vars:
   # members there, in the order of pyproject.toml's testpaths. ifc-spatial-py is
   # not one; it keeps its own lock and its own task (pkg:test).
   # tests/test_python_packages.py holds the three lists to one another.
-  PY_PACKAGES: packages/knowledge-layer packages/ris-adapter packages/tavily-web-search
+  PY_PACKAGES: packages/knowledge-layer packages/public-sources packages/ris-adapter packages/tavily-web-search
   # The pull request selection (be:test:testmon, be:test:affected): one testmon
   # database per suite, and the arguments each suite runs with.
   TESTMON_ENV: TESTMON_DATAFILE=.testmondata-

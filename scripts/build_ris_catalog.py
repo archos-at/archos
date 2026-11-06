@@ -42,6 +42,7 @@ import importlib.util  # noqa: E402
 
 import yaml  # noqa: E402
 from ris_adapter.client import RisClient  # noqa: E402
+from ris_adapter.client import federal_state_param  # noqa: E402
 
 
 def _standalone_module(module_name: str, module_path: Path):
@@ -81,19 +82,6 @@ def _load_norm_registry_module():
 _nr = _load_norm_registry_module()
 
 NORMS_ROOT = REPO_ROOT / "configs" / "norms"
-
-# Canonical Bundesland name -> OGD-RIS Landesrecht search parameter.
-_FEDERAL_STATE_PARAMS: dict[str, str] = {
-    "Wien": "SucheInWien",
-    "Niederösterreich": "SucheInNiederoesterreich",
-    "Oberösterreich": "SucheInOberoesterreich",
-    "Steiermark": "SucheInSteiermark",
-    "Kärnten": "SucheInKaernten",
-    "Salzburg": "SucheInSalzburg",
-    "Tirol": "SucheInTirol",
-    "Vorarlberg": "SucheInVorarlberg",
-    "Burgenland": "SucheInBurgenland",
-}
 
 
 def _pick_hit(entry_id: str, verify, hits):
@@ -138,7 +126,11 @@ async def verify_entry(client: RisClient, entry) -> dict:
         raise ValueError(f"entry '{entry.id}' has no verify seed")
     params: dict[str, str] = {"Titel": verify.title_query}
     if entry.federal_state:
-        params[f"Bundesland.{_FEDERAL_STATE_PARAMS[entry.federal_state]}"] = "true"
+        # The table lives in the RIS source record (configs/sources/at/ris/source.yml).
+        flag = federal_state_param(entry.federal_state)
+        if not flag:
+            raise ValueError(f"entry '{entry.id}' names an unknown Bundesland {entry.federal_state!r}")
+        params[flag] = "true"
     hits = []
     page = 1
     while True:
