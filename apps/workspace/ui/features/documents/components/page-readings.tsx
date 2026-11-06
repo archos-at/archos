@@ -105,7 +105,8 @@ export function PageReadings({
             </Button>
           </div>
         ) : (
-          <ol className="divide-border/60 divide-y">
+          // Rows apart by space, no hairlines: the design system's lines are for fields and info lists, and this panel is one.
+          <ol className="flex flex-col">
             {shown.map((detail, index) => (
               <PageReading
                 key={`${detail.page}-${detail.contentType}-${detail.segment ?? 0}-${index}`}
@@ -119,7 +120,7 @@ export function PageReadings({
           <button data-attr="files-expanded"
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="text-muted-foreground hover:text-foreground hover:bg-accent duration-snap border-border/60 touch-target focus-visible:bg-accent w-full border-t px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent duration-snap touch-target focus-visible:bg-accent w-full px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
           >
             {expanded
               ? t('preview.visualDetails.showFewer')
@@ -160,7 +161,8 @@ function PageReading({
   const heading = (
     <>
       <span
-        className="bg-muted text-muted-foreground inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums"
+        // White on the group's grey: nothing grey on grey.
+        className="bg-background text-muted-foreground inline-flex h-5 shrink-0 items-center rounded-full px-1.5 text-[11px] font-medium tabular-nums"
         aria-label={t('preview.visualDetails.page', { page: detail.page })}
       >
         {t('preview.visualDetails.pageShort', { page: detail.page })}

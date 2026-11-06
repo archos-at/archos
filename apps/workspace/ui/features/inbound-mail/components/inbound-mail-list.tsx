@@ -102,10 +102,11 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
-      <div className={cn('flex flex-col gap-2 px-3 py-3 sm:px-4', !showFilter && 'hidden')}>
+      <div className={cn('flex flex-col gap-2 px-4 py-3', !showFilter && 'hidden')}>
         <ToggleGroup
           type="single"
           segmented
+          bare
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -113,7 +114,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         >
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
-            {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" />}
+            {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" className="in-data-[state=on]:bg-background" />}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
             {t('filters.handled')}
@@ -124,7 +125,10 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <ListBody {...props} />
       </div>
-      {props.selectionBar && <div className="border-t p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">{props.selectionBar}</div>}
+      {/* Pinned over the list's foot like the decision bar over the mail's: a faint shadow upward, no line, no card. */}
+      {props.selectionBar && (
+        <div className="bg-background shadow-pinned-foot px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">{props.selectionBar}</div>
+      )}
     </div>
   )
 }
@@ -157,10 +161,12 @@ function ListBody({
   const t = useTranslations(inboundMailCopy)
   if (state.kind === 'loading') {
     return (
-      <ul className="divide-y" aria-busy="true" data-testid="inbound-mail-list-loading">
+      // The rows' own geometry (the list's 6px, the row's inset, the checkbox's column), no hairlines: the rows have none.
+      <ul className="flex flex-col gap-0.5 px-1.5 pt-4" aria-busy="true" data-testid="inbound-mail-list-loading">
         {[0, 1, 2, 3, 4].map((row) => (
-          <li key={row} className="flex items-start gap-3 px-4 py-3">
-            <Skeleton className="size-7 rounded-full" />
+          <li key={row} className="flex items-start gap-3 px-2.5 py-3">
+            <span className="w-4 shrink-0" aria-hidden />
+            <Skeleton className="size-7 shrink-0 rounded-full" />
             <div className="flex flex-1 flex-col gap-1.5">
               <Skeleton className="h-3.5 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
@@ -248,7 +254,7 @@ function ListBody({
               key={`readiness-${section.readiness}`}
               // The Postfach's „E-Mails warten“ row links here (`lib/inbox/targets.ts`).
               id={ready ? INBOUND_MAIL_READY_ANCHOR : undefined}
-              className="flex scroll-mt-2 flex-col gap-1 px-3 pt-4 pb-1 sm:px-4"
+              className="flex scroll-mt-2 flex-col gap-1 px-4 pt-4 pb-1"
               data-testid={`readiness-${section.readiness}`}
             >
               <div className="flex min-h-7 items-center justify-between gap-2">
@@ -276,7 +282,7 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              <div className="flex items-start justify-between gap-2 px-3 pt-3 sm:px-4">
+              <div className="flex items-start justify-between gap-2 px-4 pt-3">
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 py-1 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   <Repeat2 className="mt-px size-3.5 shrink-0" aria-hidden />
@@ -320,14 +326,14 @@ function ListBody({
           <Collapsible key="quiet" open={quietOpen} onOpenChange={onQuietOpenChange} asChild>
             <section data-testid="quiet-group">
               <CollapsibleTrigger
-                className="text-muted-foreground hover:bg-accent flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none sm:px-4 pointer-coarse:min-h-11"
+                className="text-muted-foreground hover:bg-accent flex w-full items-center gap-2 px-4 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none pointer-coarse:min-h-11"
                 data-testid="quiet-group-toggle"
               >
                 <ChevronDown className={cn('size-3.5 transition-transform duration-quick ease-out motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />
                 {t('group.quiet', { count: section.mails.length })}
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <p className="text-muted-foreground px-3 pb-2 text-xs sm:px-4">{t('group.quietHint')}</p>
+                <p className="text-muted-foreground px-4 pb-2 text-xs">{t('group.quietHint')}</p>
                 <ul className="flex flex-col gap-0.5 px-1.5 py-0.5">{section.mails.map((mail) => row(mail))}</ul>
               </CollapsibleContent>
             </section>

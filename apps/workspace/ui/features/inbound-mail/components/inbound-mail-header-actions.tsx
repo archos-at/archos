@@ -34,14 +34,16 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
       <div className="flex min-w-0 items-center gap-1" data-testid="inbound-mail-header-address">
         <CopyableValue
           value={value}
-          className="text-foreground bg-muted hover:bg-accent rounded-control mx-0 h-8 min-w-0 cursor-pointer items-center px-2.5 text-[13px] transition-colors duration-quick [&>span]:truncate"
+          className="text-foreground bg-muted hover:bg-accent rounded-control mx-0 h-8 min-w-0 cursor-pointer items-center px-2.5 text-[13px] transition-colors duration-quick phone:flex-1 phone:h-11 [&>span]:truncate"
           onCopied={() => capturePosthog('inbound_mail_address_copied', { surface: 'header' })}
         >
           {value}
         </CopyableValue>
-        <Button type="button" variant="ghost" size="sm" className="-mr-3" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
+        {/* `-mr-3.5`, its padding: the words end on the right edge. On a phone the address takes the row and this is
+            its glyph, the words its name: both side by side ran 30px past a 390px screen. */}
+        <Button type="button" variant="ghost" size="sm" className="-mr-3.5 shrink-0 phone:mr-0 phone:size-11 phone:px-0" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
           <Info className="size-4" aria-hidden />
-          {t('header.addressMore')}
+          <span className="phone:sr-only">{t('header.addressMore')}</span>
         </Button>
       </div>
     )

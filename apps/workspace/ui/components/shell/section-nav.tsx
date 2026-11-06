@@ -222,7 +222,8 @@ function SectionNavLink({
       <Icon className="size-4 shrink-0" aria-hidden />
       {item.label}
       {item.count != null && item.count > 0 && (
-        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} />
+        // White on the active tab's grey, as everything on a grey surface is: grey on grey hid the pill.
+        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active && 'bg-background')} />
       )}
     </Link>
   )

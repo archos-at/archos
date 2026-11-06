@@ -334,7 +334,7 @@ export function InboundMailDetail({
   if (state.kind === 'loading') return <DetailSkeleton back={back} />
   if (state.kind === 'error' || !view) {
     return (
-      <div className="flex flex-col gap-4 p-4 sm:p-6">
+      <div className="flex flex-col gap-4 p-4 pt-1 sm:px-8 sm:py-6">
         {back}
         <LoadError title={t('detailLoadError')} onRetry={() => load()} />
       </div>
@@ -359,7 +359,8 @@ export function InboundMailDetail({
 
   return (
     <article className="flex min-h-full flex-col" data-testid="inbound-mail-detail" data-mail-id={view.id}>
-      <div className="flex flex-1 flex-col gap-6 p-4 sm:px-8 sm:py-6" /* the section head's 32px, one right edge with it and the bar */>
+      {/* The section head's 32px, one right edge with it and the bar; on a phone the way back sits 4px under the title. */}
+      <div className="flex flex-1 flex-col gap-6 p-4 pt-1 sm:px-8 sm:py-6">
         {back}
         {view.projectClosed && !closedNoticeHidden && (
           <Alert data-testid="detail-closed">
@@ -601,7 +602,7 @@ function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
 /** The detail's shape while it loads: the header, the text and three attachment rows. */
 export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6" aria-busy="true" data-testid="inbound-mail-detail-loading">
+    <div className="flex flex-col gap-6 p-4 pt-1 sm:px-8 sm:py-6" aria-busy="true" data-testid="inbound-mail-detail-loading">
       {back}
       <div className="flex flex-col gap-2">
         <Skeleton className="h-6 w-2/3" />

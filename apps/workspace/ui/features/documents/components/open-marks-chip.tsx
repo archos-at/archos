@@ -44,8 +44,8 @@ export function openMarksLabel(t: Translator, locale: string, marks: MarkCounts)
   return new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(parts)
 }
 
-/** What the chip says in its own words, short enough for a card: „2 offen · 1 für Sie · 12 Vorschläge". */
-export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
+/** The chip's clauses, the office's open marks first: „2 offen · 1 für Sie“, „12 Vorschläge“. */
+function openMarksShortParts(t: Translator, marks: MarkCounts): string[] {
   const forYou = marks.forYou ?? 0
   return [
     marks.open > 0
@@ -54,9 +54,12 @@ export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
         : t('annotations.listedOpenShort', { count: marks.open })
       : null,
     marks.proposed > 0 ? t('annotations.listedProposedShort', { count: marks.proposed }) : null,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(' · ')
+  ].filter((part): part is string => part !== null)
+}
+
+/** What the chip says in its own words, short enough for a card: „2 offen · 1 für Sie · 12 Vorschläge". */
+export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
+  return openMarksShortParts(t, marks).join(' · ')
 }
 
 /** A click or a key on the chip is the chip's: the row or card around it opens the file, not the review. */
@@ -125,8 +128,16 @@ function OpenMarksButton({
             }}
           >
             <MessageSquareText aria-hidden />
-            {/* On a 156px phone tile the words give way, the glyph never does; the tooltip says them in full. */}
-            <span className="min-w-0 truncate">{openMarksShortLabel(t, marks)}</span>
+            {/* Below 640px a clause after the first is dropped whole, never cut mid-word („3 …“ on a 156px tile);
+                the name says the whole sentence, the tooltip too. */}
+            <span className="min-w-0 truncate">
+              {openMarksShortParts(t, marks).map((part, index) => (
+                <span key={part} className={cn(index > 0 && 'max-sm:hidden')}>
+                  {index > 0 && ' · '}
+                  {part}
+                </span>
+              ))}
+            </span>
           </button>
         </Chip>
       </TooltipTrigger>

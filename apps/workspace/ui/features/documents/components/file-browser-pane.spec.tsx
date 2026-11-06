@@ -231,15 +231,15 @@ describe('FileBrowserPane — folder drill-down', () => {
   })
 
   /**
-   * In the list view the folders are one connected run with the file table
-   * under it. A row that carries its own radius, border or shadow is a pill, and
-   * the run stops reading as one list.
+   * In the list view the folders head the file table as rows like its rows: on
+   * the page, no box, no hairlines, no pill. A row with its own radius, border
+   * or shadow is a pill; a grey box with lines around them was a second list.
    */
-  it('lists the level’s folders as one connected run in the list view', () => {
+  it('lists the level’s folders as rows on the page above the table, with no box around them', () => {
     renderPane({ folderNav: folderNav(null), view: 'list' })
     const row = screen.getByTestId('folder-row-root-1')
-    // Not the direct parent: the row's context menu wraps it in a block div.
-    expect(row.closest('[data-slot="item-list"]')).not.toBeNull()
+    expect(row.closest('[data-slot="item-list"]')).toBeNull()
+    expect(row.closest('[role="group"]')?.className ?? '').not.toMatch(/\bbg-|\bborder\b|\bdivide-y\b/)
     expect(row.className).not.toMatch(/\brounded|\bborder\b|\bshadow/)
   })
 

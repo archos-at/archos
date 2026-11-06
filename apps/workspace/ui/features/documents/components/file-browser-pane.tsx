@@ -8,8 +8,8 @@ import { CheckSquare, Search, SearchX, FilterX, FolderOpen, Sparkles } from 'luc
 import { RisoPrint } from '@/components/brand/riso-print'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
-import { ItemList } from '@/components/ui/item'
 import { SectionLabel } from '@/components/ui/section-label'
+import { useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -222,6 +222,8 @@ interface FileBrowserPaneProps {
    * stay as they are: a result set is read, not filed.
    */
   selection?: FileBrowserSelection
+  /** A phone: the root's „Auswählen“ and „Ordner anlegen“ are in the header's ⋯, so the root has no path row. */
+  rootToolsInMenu?: boolean
 }
 
 export interface FileBrowserSelection {
@@ -323,10 +325,14 @@ export function FileBrowserPane({
   shelfEmpty,
   searchMatchesNamesOnly = false,
   selection,
+  rootToolsInMenu = false,
 }: FileBrowserPaneProps) {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
   const { semantic } = search
+  // Whether the root's path row went elsewhere (the tabs row, a phone's ⋯): the brief then rises to the tabs.
+  const tabSlot = useSectionTabActionsSlot()
+  const rootRowGone = (folderNav?.currentFolderId ?? null) === null && (tabSlot || rootToolsInMenu)
   // The field answers every keystroke; the filter over the whole corpus, and
   // everything drawn from it, follows a beat behind and is dropped for a newer
   // keystroke. Typing stays immediate at five thousand documents.
@@ -689,6 +695,7 @@ export function FileBrowserPane({
           onFileAim={onFileAim}
           mayWriteAt={(folderId) => mayWriteAt(folderNav, folderId)}
           readOnly={!writableHere}
+          rootToolsElsewhere={rootToolsInMenu}
         >
           {selection?.onStart && !picking && orderedFiles.length > 0 && writableHere && (
             <Button
@@ -718,7 +725,10 @@ export function FileBrowserPane({
           />
         </div>
       )}
-      {brief && !semantic.active && !searching && <div className={`${CONTENT_MAX} px-4 pt-4 phone:pt-2`}>{brief}</div>}
+      {/* Right under the tabs where the root's path row went to them (or to a phone's ⋯): 24px from the pills. */}
+      {brief && !semantic.active && !searching && (
+        <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone ? 'pt-0' : 'pt-4')}>{brief}</div>
+      )}
       {/* Piloti's filing suggestions for the documents of this level, one line
           per target folder, when one folder would collect two or more: the
           decision that moves several files, made where they are all in view. */}
@@ -933,14 +943,11 @@ export function FileBrowserPane({
           className={CONTENT_MAX}
         >
             {folderNav && childFolders.length > 0 && (
-              // The folders are one connected run, not a stack of pills: the
-              // `ItemList` rounds the outer corners and draws the hairlines.
-              <div className="px-2 py-2" role="group" aria-label={t('folders.heading')}>
-                <ItemList className="bg-muted">
-                  {childFolders.map((folder) => (
-                    <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
-                  ))}
-                </ItemList>
+              // The folders head the table as rows of their own, on the page like its rows: no box, no hairlines.
+              <div className="flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0" role="group" aria-label={t('folders.heading')}>
+                {childFolders.map((folder) => (
+                  <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
+                ))}
               </div>
             )}
             {orderedFiles.length > 0 && (
@@ -962,36 +969,16 @@ export function FileBrowserPane({
         <motion.div
           key={`grid-${currentFolderId ?? 'root'}`}
           {...levelTransition(navDirection, 20)}
-          className={`${CONTENT_MAX} p-4`}
+          // 4px on top: a folder tile's own 10px inset and a tile's 6px already part it from the brief.
+          className={`${CONTENT_MAX} px-4 pb-4 pt-1`}
         >
             {/* Section label — "Recently uploaded" at the corpus root, matching
                 the click-dummy. Hidden inside a folder (the breadcrumb already
                 names it) and while searching (the query is the context). */}
 
-            {/*
-              ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE.
-
-              Every cell used to be wrapped in its own `motion.div` rising 10px
-              on a per-index delay. Two things were wrong with that, and the
-              second is the serious one.
-
-              It compounded: the level was already sliding in sideways, so a
-              navigation played N+1 animations at once, each tile drifting up
-              through a container drifting across. And the delay was unbounded
-              until it was capped, which put the last tile of a full Einreichung
-              ten seconds out.
-
-              The serious one is that motion writes `initial` into the SERVER's
-              HTML. The listing is rendered on the server now, so every card
-              shipped with `opacity: 0` and stayed invisible until the bundle
-              booted and hydration released it — the exact wait the server
-              render exists to remove, reintroduced as a blank grid over data
-              that was already in the document.
-
-              The level's own transition carries the whole grid, which is one
-              animation, is what a Finder-style drill actually looks like, and
-              renders at full opacity when nothing has navigated.
-            */}
+            {/* ONE ENTRANCE FOR THE LEVEL, NOT ONE PER TILE. A `motion.div` per cell compounded with the level's own
+                slide, and motion writes `initial` into the server's HTML, so every card shipped at `opacity: 0`
+                until hydration. The level's transition carries the grid: one animation, a Finder-style drill. */}
             <FileGrid className={FOLDER_ROWS_ON_PHONE}>
               {folderNav &&
                 childFolders.map((folder) => (
@@ -1001,7 +988,7 @@ export function FileBrowserPane({
                   promised recent uploads over a block of folders. A grid child
                   spanning the row, so it falls between the two. */}
               {currentFolderId === null && orderedFiles.length > 0 && (
-                <SectionLabel as="p" className="col-span-full mt-1 first:mt-0">
+                <SectionLabel as="p" className="col-span-full px-1.5" /* on the column's edge: the grid bleeds by the tile's inset */>
                   {t('browser.recentlyUploaded')}
                 </SectionLabel>
               )}
@@ -1108,23 +1095,22 @@ export function FileBrowserSkeleton({
       {view === 'list' ? (
         <div className={CONTENT_MAX}>
           {folderCount > 0 && (
-            <div className="px-2 py-2">
-              <ItemList className="bg-muted">
-                {Array.from({ length: folderCount }).map((_, index) => (
-                  <FolderRowSkeleton key={index} />
-                ))}
-              </ItemList>
+            <div className="flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0">
+              {Array.from({ length: folderCount }).map((_, index) => (
+                <FolderRowSkeleton key={index} />
+              ))}
             </div>
           )}
           <FileListSkeleton rows={files} />
         </div>
       ) : (
         <div className={`${CONTENT_MAX} p-4`}>
-          <Skeleton className="mb-3 h-3 w-36" />
           <FileGrid className={FOLDER_ROWS_ON_PHONE}>
             {Array.from({ length: folderCount }).map((_, index) => (
               <FolderCardSkeleton key={`folder-${index}`} />
             ))}
+            {/* Where the real label falls: after the folders, heading the files. */}
+            <Skeleton className="col-span-full mx-1.5 mt-1 h-3 w-36" />
             {Array.from({ length: files }).map((_, index) => (
               <FileCardSkeleton key={`file-${index}`} />
             ))}

@@ -42,6 +42,8 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
+import { PHONE_QUERY } from '@/hooks/use-is-mobile'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTranslations } from '@/i18n'
 import {
   INBOUND_MAIL_DECISION_MAX_MAILS,
@@ -129,6 +131,7 @@ export function InboundMailWorkspace({
   initialChecked,
 }: InboundMailWorkspaceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
+  const phone = useMediaQuery(PHONE_QUERY)
   const router = useRouter()
   const paths = useMemo(() => pathsProp ?? inboundMailPaths(projectId), [pathsProp, projectId])
   const filter = useMemo(() => ({ status, outcome }), [status, outcome])
@@ -446,16 +449,16 @@ export function InboundMailWorkspace({
   return (
     <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
-        {!never && (
-          // An opened mail on a phone shows the mail: the address is a press away, back in the list.
-          <div className={cn(mailId && 'phone:hidden')}>
-            <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />
-          </div>
-        )}
+        {/* An opened mail on a phone shows the mail: the address is a press away, back in the list. Nothing is
+            portalled then, or the header kept an empty row's margin above the mail. */}
+        {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
-      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[24rem_minmax(0,1fr)]')}>
-        <div className={cn('min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
+      {/* The list's content stands on the title's edge (32px from a desk's side, 16px on a phone): `md:px-4` over its
+          own 16px, the right one given back at the split, where the pane's divider is its edge. 25rem keeps the
+          rows the 24rem they had. */}
+      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[25rem_minmax(0,1fr)]')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:border-r @3xl:pr-0', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
@@ -542,8 +545,9 @@ export function InboundMailWorkspace({
               decidedByOther={decidedByOther}
             />
           ) : (
-            <div className="p-6">
-              <EmptyState icon={MailSearch} title={t('noSelection')} />
+            // Bare and in the pane's middle: a dashed grey panel was a box and a line around one sentence.
+            <div className="flex h-full items-center justify-center p-8">
+              <EmptyState variant="bare" icon={MailSearch} title={t('noSelection')} />
             </div>
           )}
         </div>

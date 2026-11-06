@@ -91,6 +91,13 @@ export const SECTION_HEADER_CLASS = 'shrink-0 bg-background px-4 py-4 phone:py-2
 
 const ActionsContext = createContext<(node: ReactNode) => void>(() => {})
 
+/**
+ * The end of the tabs row, for the tools of the level a tab shows (Dateien's
+ * „Auswählen“ and „Ordner anlegen“ at the root): null where there is no such
+ * row (a phone, a page outside the frame), and the caller keeps them inline.
+ */
+const TabActionsContext = createContext<((node: ReactNode) => void) | null>(null)
+
 function isProjectChromeSection(segment: string): segment is ProjectChromeSection {
   return PROJECT_SECTION_KEY_SET.has(segment)
 }
@@ -122,6 +129,27 @@ export function ProjectSectionActions({ children }: { children: ReactNode }): nu
     setActions(children)
     return () => setActions(null)
   }, [children, setActions])
+  return null
+}
+
+/** Whether {@link ProjectSectionTabActions} has a row to go to; where not, the caller renders its tools itself. */
+export function useSectionTabActionsSlot(): boolean {
+  return useContext(TabActionsContext) !== null
+}
+
+/**
+ * Portal a tab's level tools to the end of its tabs row. At the root of
+ * Dateien the path row held only these two presses, a row of its own above
+ * the brief; beside the tab that names the level they cost no row. Renders
+ * nothing at the call site.
+ */
+export function ProjectSectionTabActions({ children }: { children: ReactNode }): null {
+  const setTabActions = useContext(TabActionsContext)
+  useLayoutEffect(() => {
+    if (!setTabActions) return
+    setTabActions(children)
+    return () => setTabActions(null)
+  }, [children, setTabActions])
   return null
 }
 
@@ -195,6 +223,7 @@ export function ProjectSectionFrame({
   const pathname = pathnameOverride ?? currentPathname ?? ''
   const t = useTranslations(navCopy)
   const [actions, setActions] = useState<ReactNode>(null)
+  const [tabActions, setTabActions] = useState<ReactNode>(null)
   const phone = useMediaQuery(PHONE_QUERY)
 
   if (isProjectChatPath(pathname, projectId)) {
@@ -218,6 +247,7 @@ export function ProjectSectionFrame({
 
   return (
     <ActionsContext.Provider value={setActions}>
+    <TabActionsContext.Provider value={segment === 'files' && !phone ? setTabActions : null}>
       <div className="flex h-full min-h-0 flex-col">
         {/* The head keeps its tab's container: a listing's 1280px with the 32px margins; the E-Mail-Eingang's
             split view is full width, and so is its head, or the page had two right edges. */}
@@ -233,14 +263,19 @@ export function ProjectSectionFrame({
           {segment === 'files' && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
             // places would only push its subject below the fold.
-            <div className={cn('-mb-2 mt-3 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
-              <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
+            <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
+              <div className="min-w-0">
+                <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
+              </div>
+              {/* The tabs' own `pb-2` under the pills, so the tools stand on the pills' line. */}
+              {tabActions && <div className="flex shrink-0 items-center gap-2 pb-2">{tabActions}</div>}
             </div>
           )}
           {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>
       </div>
+    </TabActionsContext.Provider>
     </ActionsContext.Provider>
   )
 }

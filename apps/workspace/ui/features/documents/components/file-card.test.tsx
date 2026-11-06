@@ -266,13 +266,13 @@ describe('FileCard while the document is still being read', () => {
     render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
 
     // The body keeps its own height; the footer, the button's sibling since it holds the filing chip,
-    // grows below it and starts at its top, so „4 offen“ hangs under the meta line instead of lifting it.
+    // grows below it and sets its lines at its foot, so the meta line is the last line of every tile in a row.
     const card = screen.getByTestId('file-card')
     expect(card.className).not.toContain('flex-1')
     const footer = screen.getByTestId('file-card-footer')
     expect(card.nextElementSibling).toBe(footer)
     expect(footer.className).toContain('flex-1')
-    expect(footer.className).toContain('content-start')
+    expect(footer.className).toContain('content-end')
   })
 
   it('holds the description slot with skeleton lines instead of leaving it blank', () => {

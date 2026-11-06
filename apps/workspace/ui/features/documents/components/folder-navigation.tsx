@@ -29,13 +29,14 @@ import { FileName } from './file-name'
 import { Spinner } from '@/components/ui/spinner'
 import { AnimatePresence, motion, motionQuick } from '@/components/motion'
 import { BackControl } from '@/components/shell/back-link'
+import { ProjectSectionTabActions, useSectionTabActionsSlot } from '@/components/shell/project-section-frame'
 import { useTranslations } from '@/i18n'
 import { useLocale } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { folderDragProps, useFolderDropTarget, type FileDropAim } from '../hooks/use-document-drag'
 import { cn } from '@/lib/utils'
 import { TimeAgo } from '@/components/ui/time-ago'
-import { FileTileBody, GridTileShell } from './file-tile'
+import { FileTileBody, TileShell } from './file-tile'
 import { FolderAccessMark, FolderReadOnlyBadge, useFolderOwnAccessLabel } from './folder-access-mark'
 import { FolderReadState } from './folder-read-state'
 import type { KnowledgeTally } from '../lib/folder-knowledge'
@@ -91,10 +92,13 @@ export function FolderBreadcrumbRow({
   onDropFiles,
   onFileAim,
   mayWriteAt,
+  rootToolsElsewhere = false,
 }: Pick<FolderNavProps, 'folders' | 'currentFolderId' | 'onNavigate'> & {
   /** Absent for a read-only viewer: the path is still walkable, nothing can be created. */
   onCreateFolder?: FolderNavProps['onCreateFolder']
   children?: ReactNode
+  /** At the root the caller offers the tools itself (a phone's ⋯), so the row has nothing to hold. */
+  rootToolsElsewhere?: boolean
   /**
    * The reader may only read the level they stand in (ADR-0088): „Nur lesen"
    * takes the place of „Neuer Ordner".
@@ -117,7 +121,7 @@ export function FolderBreadcrumbRow({
   onFileAim?: (aim: FileDropAim | null) => void
   /** Whether the reader may write at a level (ADR-0088); a level they may not is no target. Defaults to yes. */
   mayWriteAt?: (folderId: string | null) => boolean
-}): JSX.Element {
+}): JSX.Element | null {
   const t = useTranslations(filesCopy)
   const path = useMemo(() => folderPath(folders, currentFolderId), [folders, currentFolderId])
   /** Every way up is a drop target, offered while there is somewhere to come back FROM. */
@@ -144,6 +148,22 @@ export function FolderBreadcrumbRow({
    */
   const parent = currentFolderId === null ? undefined : path[path.length - 2]
   const parentLabel = parent ? parent.name : t('folders.allFiles')
+  const tabSlot = useSectionTabActionsSlot()
+  const tools = (
+    <>
+      {children}
+      {readOnly ? (
+        <FolderReadOnlyBadge testId="folder-level-read-only" />
+      ) : (
+        onCreateFolder && <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} />
+      )}
+    </>
+  )
+
+  // At the root the crumb is the tab above, so the row held only its tools: they go to the end of the tabs row
+  // on a desk, and to the ⋯ on a phone, and the brief rises by the row.
+  if (currentFolderId === null && tabSlot) return <ProjectSectionTabActions>{tools}</ProjectSectionTabActions>
+  if (currentFolderId === null && rootToolsElsewhere) return null
 
   return (
     <div
@@ -246,16 +266,7 @@ export function FolderBreadcrumbRow({
         </BreadcrumbList>
       </Breadcrumb>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {children}
-        {readOnly ? (
-          <FolderReadOnlyBadge testId="folder-level-read-only" />
-        ) : (
-          onCreateFolder && (
-            <NewFolderControl currentFolderId={currentFolderId} onCreateFolder={onCreateFolder} />
-          )
-        )}
-      </div>
+      <div className="flex shrink-0 items-center gap-2">{tools}</div>
     </div>
   )
 }
@@ -289,7 +300,8 @@ function NewFolderControl({
   return (
     <Popover open={open} onOpenChange={(next) => (isCreating ? undefined : setOpen(next))}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="-mr-2 gap-1.5 phone:mr-0">
+        {/* `-mr-3.5`, its padding: the label ends on the column's edge, under Hochladen's. */}
+        <Button type="button" variant="ghost" size="sm" className="-mr-3.5 gap-1.5 phone:mr-0">
           <FolderPlus className="size-4" aria-hidden />
           {/* A glyph on a phone inside a folder, where the path needs the width; at the root, its words. */}
           <span className={cn(currentFolderId !== null && 'phone:sr-only')}>{t('folders.newFolder')}</span>
@@ -563,11 +575,8 @@ function FolderActionsMenu({
  */
 export const FOLDER_ROWS_ON_PHONE = 'phone:[&>*:has([data-folder-tile])]:col-span-full'
 
-/**
- * The folder glyph's well: 124px of media on a card, a 44px square beside the
- * name on a phone, where the tile is a row (see {@link FolderCard}).
- */
-const FOLDER_WELL = 'flex size-9 shrink-0 items-center justify-center rounded-control'
+/** The folder glyph's slot: as tall as the name and its count, as wide as the glyph, so the glyph stands on the column's edge. */
+const FOLDER_WELL = 'flex h-9 shrink-0 items-center'
 
 /**
  * A folder as a grid tile — visually DISTINCT from {@link FileCard}.
@@ -581,9 +590,9 @@ const FOLDER_WELL = 'flex size-9 shrink-0 items-center justify-center rounded-co
  * (see `file-tile.tsx` for the argument). What is left is the thing that was
  * doing the work.
  *
- * Hover lifts the tile — the shell's own `whileHover`, and the one motion this
- * gesture gets. The glyph used to open on hover as well; see the comment on the
- * well below for why a mouse-only flourish is not one this product keeps.
+ * Hover fills the tile (the shell's state fill), as a file tile and a list row
+ * do; the press is the one motion. The glyph used to open on hover as well; a
+ * mouse-only flourish is not one this product keeps.
  */
 export function FolderCard({
   folder,
@@ -621,15 +630,17 @@ export function FolderCard({
   })
 
   return (
-    <GridTileShell
+    <TileShell
       interactive
-      // A folder is a compact tile at every width, one tone darker than the page,
-      // not a 230px card with an empty well: the first screen shows the files,
-      // and the folders read as a group (the fill) before they are read one by
-      // one. On a phone the grid spans it into a row (`FOLDER_ROWS_ON_PHONE`).
+      // A folder is a compact tile at every width, its glyph and name on the page,
+      // not a 230px card with an empty well: the first screen shows the files, and
+      // a folder reads apart from them by its shape (a line, not a sheet). It wore
+      // the one grey until 2026-11, three grey blocks above a grid of grey sheets;
+      // the hover's fill is its only surface. On a phone the grid spans it into a
+      // row (`FOLDER_ROWS_ON_PHONE`).
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group bg-muted p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
+      className={cn('group p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -660,7 +671,7 @@ export function FolderCard({
         onOpen={() => onOpen(folder.id)}
         openLabel={openLabel}
       >
-        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-2.5 pr-10">
+        <FileTileBody className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-1.5 pr-10">
           {/* One glyph, still: what says „this opens“ is the fill under the pointer and the cursor (#1055's tile notes). */}
           <span className={FOLDER_WELL}>
             <Folder className="size-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden />
@@ -697,7 +708,7 @@ export function FolderCard({
           </div>
         </FileTileBody>
       </FolderCardFrame>
-    </GridTileShell>
+    </TileShell>
   )
 }
 
@@ -784,37 +795,16 @@ export function FolderRow({
     )
   }
 
-  /*
-   * THE ROW THAT WAS YELLOW.
-   *
-   * It was `bg-amber-50/40` with an amber icon well, an amber count pill and an
-   * amber chevron — three tinted bands across the full width of a listing,
-   * stacked above a neutral table. Two things were wrong with it, and the
-   * second is the one that made it read as a warning:
-   *
-   *   1. Chroma in this product is the source-signal system and nothing else
-   *      (`design-language.md`). A folder is not a provenance.
-   *   2. That gold IS a signal, and it is in the same table: `--source-office`
-   *      is the tint on the `JPG` and `PNG` extension chips two rows below. One
-   *      hue, two unrelated meanings, one screen.
-   *
-   * So the row is built out of the neutral ramp, like every other list
-   * affordance, and what says "folder" is the glyph and the chevron — shape and
-   * contrast, which is what the design language reaches for instead of colour.
-   *
-   * It also no longer animates itself in. It is rendered inside the level's own
-   * keyed transition, so the row slid −6px while its container slid +16px: two
-   * motions for one navigation, compounding into a wobble. The level owns the
-   * entrance; a row inside it is just content.
-   */
-  // One row of the folder run, which `file-browser-pane` draws as an `ItemList`.
-  // The list clips the outer corners and draws the hairlines, so the row carries
-  // no radius, border or shadow of its own. A drop target is marked inside its
-  // box (`ring-inset`): an outer ring on the first or last row would be clipped.
+  // THE ROW THAT WAS YELLOW: amber wells, pills and chevrons read as a warning, and that gold is a signal
+  // (`--source-office`) in the same table. A folder is built from the neutral ramp; the glyph and the chevron say
+  // „folder“. It does not animate itself in: the level's keyed transition owns the entrance.
+  // A row of the table below it in all but its columns: on the page, the cells' 8px inset, a 24px round glyph
+  // where a file has its format, the name at 13px, the hover the one grey. It sat in a grey box with hairlines
+  // until 2026-11, a second list above the first. A drop target is marked inside its box (`ring-inset`).
   return (
     <Item
       className={cn(
-        'group w-full gap-2 px-3 py-2 text-sm',
+        'group w-full gap-2 px-2 py-1.5 text-[13px] hover:bg-muted pointer-coarse:py-3',
         dropRing(drop, true),
       )}
       data-testid={`folder-row-${folder.id}`}
@@ -830,7 +820,7 @@ export function FolderRow({
       >
         {/* One glyph, for the reason the card's comment gives. The row's own
             background change is the hover feedback, and a finger gets it too. */}
-        <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
+        <span className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
           <Folder className="text-muted-foreground size-3.5" aria-hidden />
         </span>
         <FileName text={folder.name} className="text-foreground shrink font-medium" />
@@ -891,8 +881,8 @@ export function FolderRow({
 /** A {@link FolderCard} before its name arrives. */
 export function FolderCardSkeleton(): JSX.Element {
   return (
-    <GridTileShell interactive={false} data-folder-tile="" className="bg-muted p-0" data-testid="folder-card-skeleton">
-      <FileTileBody className="flex flex-1 items-center gap-3 p-2.5">
+    <TileShell interactive={false} data-folder-tile="" className="p-0" data-testid="folder-card-skeleton">
+      <FileTileBody className="flex flex-1 items-center gap-3 py-2.5 pl-1.5 pr-2.5">
         <span className={FOLDER_WELL}>
           <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />
         </span>
@@ -901,15 +891,15 @@ export function FolderCardSkeleton(): JSX.Element {
           <Skeleton className="h-3 w-12" />
         </div>
       </FileTileBody>
-    </GridTileShell>
+    </TileShell>
   )
 }
 
 /** A {@link FolderRow} before its name arrives. */
 export function FolderRowSkeleton(): JSX.Element {
   return (
-    <Item className="w-full gap-2 px-3 py-2" data-testid="folder-row-skeleton">
-      <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-full">
+    <Item className="w-full gap-2 px-2 py-1.5" data-testid="folder-row-skeleton">
+      <span className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
         <Folder className="text-muted-foreground/40 size-3.5" aria-hidden />
       </span>
       <Skeleton className="h-3.5 w-40" />

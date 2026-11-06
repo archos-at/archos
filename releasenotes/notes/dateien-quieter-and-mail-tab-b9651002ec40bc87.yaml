@@ -17,6 +17,17 @@ features:
     In the e-mail inbox, mails from one thread stand under a single line with
     the press that files them all, and each mail's subject shows only what
     sets it apart from the others.
+  - >
+    Folders in Files sit on the page as a glyph and a name, and "Select" and
+    "New folder" moved up beside the tabs, so the overview and the files start
+    a row higher. On a phone both are the first entries of the "..." menu.
 fixes:
+  - >
+    A project's Files no longer repeats the number of waiting mails in a line
+    above the files; the inbox tab carries it.
+  - >
+    On a phone the open-comments chip on a tile shows its first part whole
+    instead of cutting the last one, and the inbox address and its info button
+    fit the screen.
   - >
     A file found by search no longer shows a size of "0 B".

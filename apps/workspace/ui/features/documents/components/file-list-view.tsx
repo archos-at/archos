@@ -27,19 +27,10 @@ import { OpenMarksChip } from './open-marks-chip'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 /**
- * The explorer's detail view — the one a person reaches for when the corpus has
- * grown past what a card grid can hold.
- *
- * Cards are a browsing surface: they answer "what is in here" for twelve
- * documents and stop scaling somewhere around forty, because each one costs a
- * thumbnail's worth of vertical space and the only orderable property is
- * whatever the API returned. A set of Einreichunterlagen is a hundred files
- * whose names are their index, and the questions asked of it are ordering
- * questions — which failed, what is the newest, which is the 200 MB one. This
- * view answers those: a dense sortable list, numeric-aware name ordering so
- * `Plan_2` precedes `Plan_10`, and full keyboard navigation.
- *
- * It is a THIRD view, not a replacement. The card grid stays the default.
+ * The explorer's detail view, for a corpus past what a card grid holds: a set of Einreichunterlagen is a
+ * hundred files whose names are their index, asked ordering questions (which failed, the newest, the
+ * 200 MB one). A dense sortable list, numeric-aware names (`Plan_2` before `Plan_10`), full keyboard
+ * navigation. The card grid stays the default.
  */
 
 /** A listing row, optionally carrying the evidence for a semantic match. */
@@ -189,7 +180,9 @@ export function FileListView({
     // `@container/filelist`: the columns step out by the LIST's width, not the
     // screen's. Beside the chat a desktop screen holds a half-width list, and
     // viewport breakpoints kept every column there and left the name a sliver.
-    <div className="@container/filelist px-4 pb-4 pt-1">
+    // The cells' 8px inset is the rows' hover fill, so on a desk the list bleeds by it and the text stands on the
+    // column's edge (the title's); on a phone, where the column has no margin, the list keeps it.
+    <div className="@container/filelist px-2 pb-4 pt-1 md:-mx-2 md:px-0">
       {/* `table-fixed` IS THE TRUNCATION. Every filename cell below already
           carries `truncate`, and under the browser's default `table-layout: auto`
           that class did nothing at all: auto layout sizes a column to its
@@ -397,7 +390,8 @@ const FileListRowItem = memo(function FileListRowItem({
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"
                 column, and here it never makes a row taller. */}
-            <span className="flex min-w-0 items-baseline gap-1.5 text-xs font-medium leading-[1.4] text-foreground">
+            {/* 13px, the tile's and the folder row's: a name is one size wherever it stands. */}
+            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-[1.4] text-foreground">
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
               {/* What is still open on its pages; a press opens the review, not the row. */}
@@ -597,7 +591,7 @@ function SortHeader({
  */
 export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="@container/filelist space-y-1 px-4 pb-4 pt-6" data-testid="file-list-skeleton">
+    <div className="@container/filelist space-y-1 px-2 pb-4 pt-6 md:-mx-2 md:px-0" data-testid="file-list-skeleton">
       {/*
         THE COLUMN HEADINGS ARE PART OF THE SHAPE.
         This drew rows and no header, so the detail view's first frame was six
@@ -610,7 +604,7 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
       <FileListSkeletonHeader />
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="flex items-center gap-2.5 px-2 py-1.5">
-          <Skeleton className="size-6 shrink-0 rounded-surface" />
+          <Skeleton className="size-6 shrink-0 rounded-full" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="h-3.5 w-1/3" />
             <Skeleton className="h-3 w-2/3" />

@@ -69,7 +69,7 @@ export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement
   return (
     <div
       className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 px-3 pt-3 shadow-[0_-8px_16px_-12px_color-mix(in_oklch,var(--foreground)_18%,transparent)] backdrop-blur sm:px-8',
+        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 px-3 pt-3 shadow-pinned-foot backdrop-blur sm:px-8',
         'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
         className
       )}

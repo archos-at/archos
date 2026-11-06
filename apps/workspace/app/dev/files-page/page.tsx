@@ -13,6 +13,7 @@
 
 import type { JSX } from 'react'
 import { useState } from 'react'
+import { CheckSquare, FolderPlus } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import { ProjectSectionActions, ProjectSectionFrame } from '@/components/shell/project-section-frame'
 import { DocumentActionsTrigger, DocumentObjectMenu } from '@/features/documents/components/document-actions'
@@ -59,6 +60,15 @@ function FilesPage(): JSX.Element {
             )}
             search={{ value: search.query, onChange: search.setQuery, onSubmit: search.run, onClear: search.clear }}
             upload={phone ? undefined : <ProjectUppyUpload onUpload={() => {}} isUploading={false} allowFolders onSendByMail={() => {}} />}
+            // A phone's root, as the workspace builds it: the level's tools first in the ⋯.
+            levelEntries={
+              phone && folderNav.currentFolderId === null
+                ? [
+                    { type: 'item', id: 'select', label: 'Auswählen', icon: CheckSquare, onSelect: () => {} },
+                    { type: 'item', id: 'new-folder', label: 'Ordner anlegen', icon: FolderPlus, onSelect: () => {} },
+                  ]
+                : undefined
+            }
           />
         </ProjectSectionActions>
         <FileBrowserPane
@@ -73,6 +83,7 @@ function FilesPage(): JSX.Element {
           folderNav={folderNav}
           // „Auswählen“ in the path row, as a project with files offers it.
           selection={{ active: false, selectedIds: new Set(), onToggle: () => {}, onStart: () => {} }}
+          rootToolsInMenu={phone && folderNav.currentFolderId === null}
           brief={
             <FolderBrief
               brief={buildFolderBrief(FILES, FOLDERS, folderNav.currentFolderId)}

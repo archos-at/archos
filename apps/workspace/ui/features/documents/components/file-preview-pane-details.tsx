@@ -217,7 +217,8 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                         {/* What Piloti took the document to be, and the way to
                             correct it — see `agent-reading.tsx` for why this is
                             no longer an always-open tag form. */}
-                        <div className={cn('p-3', file.summary && 'border-border/60 border-t')}>
+                        {/* Under the summary by space alone: a hairline across the panel split one answer in two. */}
+                        <div className={cn('p-3', file.summary && 'pt-1')}>
                           <AgentReading file={file} canManage={canManage} onTagsUpdated={onTagsUpdated} projectId={projectId} />
                         </div>
                       </>
@@ -343,7 +344,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               {/* Failure reason + re-ingestion affordance (re-ingest is a mutation,
                 so the button is hidden for read-only viewers). */}
               {isFailed && (
-                <div className="mt-4 space-y-2.5 border-t pt-4">
+                <div className="mt-6 space-y-2.5">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="text-destructive mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="min-w-0 space-y-1">
@@ -394,7 +395,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               )}
 
               {isHeld && (
-                <div className="mt-4 space-y-2.5 border-t pt-4" data-testid="preview-held">
+                <div className="mt-6 space-y-2.5" data-testid="preview-held">
                   <div className="flex items-start gap-2">
                     <ShieldAlert className="text-warning mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="min-w-0 space-y-2">

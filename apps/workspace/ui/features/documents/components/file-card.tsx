@@ -24,7 +24,7 @@ import { revisionCount } from '../lib/revision-chain'
 import { DocumentStatusBadge, isCitableStatus, isSettlingStatus } from './document-status'
 import { SemanticMatch } from './semantic-match'
 import { useIngestFailureText } from './ingest-failure-notice'
-import { FileTileBody, FileTileFooter, FileTileMedia, GridTileShell } from './file-tile'
+import { FileTileBody, FileTileFooter, FileTileMedia, TileShell } from './file-tile'
 import { FilingSuggestionSlot, useFilingHighlighted } from './filing-suggestion'
 import { HIGHLIGHT_OUTLINE } from '@/components/ui/highlight'
 import { Check } from 'lucide-react'
@@ -338,7 +338,7 @@ export const FileCard = memo(function FileCard({
   const lit = useFilingHighlighted(file.id)
 
   return (
-    <GridTileShell
+    <TileShell
       interactive
       className={cn(
         'group/card',
@@ -384,8 +384,14 @@ export const FileCard = memo(function FileCard({
             shares one baseline whatever each card carries above it. Without a
             footer the body takes it. */}
         <FileTileBody className={cn('p-0', hideFooter && 'flex-1 rounded-none')}>
-          {/* Selected, the sheet takes the tile's fill: a white sheet inside the grey was a card in a card. */}
-          <FileTileMedia ref={mediaRef} className="h-[124px] transition-colors duration-quick group-aria-[current=true]:bg-transparent">
+          {/* Under the hover, the open and the picked tile's fill the sheet takes that fill: the one grey on the state grey was grey on grey. */}
+          <FileTileMedia
+            ref={mediaRef}
+            className={cn(
+              'h-[124px] transition-colors duration-quick ease-out group-hover/card:bg-transparent group-aria-[current=true]:bg-transparent motion-reduce:transition-none',
+              selection?.checked && 'bg-transparent'
+            )}
+          >
             <ThumbnailWithFallback file={file} visible={seen} />
             {showStatus && (
               <DocumentStatusBadge
@@ -407,8 +413,9 @@ export const FileCard = memo(function FileCard({
             )}
           </FileTileMedia>
 
-          {/* At least the name and two summary lines tall (10 + 17.6 + 4 + 34.8px), and the footer follows it rather
-              than sinking to the cell's foot: the meta lines of a row share one baseline, and „4 offen“ hangs below its own. */}
+          {/* At least the name and two summary lines tall (10 + 17.6 + 4 + 34.8px): a row of one-line names needs no
+              slack. Where one tile runs longer (a name on two lines, „4 offen“) the footer's content sits at the cell's
+              foot, so the meta lines of a row still share one baseline. */}
           <div className="min-h-[66px] px-1 pt-2.5">
             {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
             {source && sourceLabel && (
@@ -500,16 +507,16 @@ export const FileCard = memo(function FileCard({
           box is a line of text), so a row of tiles stays even when a
           suggestion arrives or goes. On a narrow tile the chip's folder name
           ellipsizes first, then the relative time drops; it never wraps.
-          What is still open on the pages is the one thing that takes a second
-          line, under the size and the age and never in their place: „4 offen ·
-          2 für Sie" and „vor 4 Monaten" do not share a 220px tile, and a
-          count without its words had to be learnt. It is a property of the
-          document rather than a suggestion that comes and goes, so it hangs
-          below the shared meta line, never lifting it. */}
+          What is still open on the pages takes a line of its own, above the
+          size and the age and never in their place: „4 offen · 2 für Sie" and
+          „vor 4 Monaten" do not share a 220px tile, and a count without its
+          words had to be learnt. The footer fills the cell and sets its lines at
+          its foot (`content-end`), so the meta line is the tile's last line in
+          every tile of a row, whichever of them carries the extra line. */}
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot mt-0 flex-1 cursor-pointer flex-wrap content-start items-start justify-start gap-1.5 text-xs text-muted-foreground"
+          className="@container/foot group/foot mt-0 flex-1 cursor-pointer flex-wrap content-end items-start justify-start gap-1.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}
@@ -534,14 +541,14 @@ export const FileCard = memo(function FileCard({
               <TimeAgo date={file.createdAt} locale={locale} className="tabular-nums" />
             </span>
           </span>
-          {/* Its own line (`basis-full`), and none at all when nothing is open:
+          {/* Its own line (`basis-full`) above the meta line, and none at all when nothing is open:
               the review opens from here without opening the card first. */}
-          <span className="flex min-w-0 basis-full empty:hidden">
+          <span className="order-first flex min-w-0 basis-full empty:hidden">
             <OpenMarksChip file={file} name={name} />
           </span>
         </FileTileFooter>
       )}
-    </GridTileShell>
+    </TileShell>
   )
 })
 

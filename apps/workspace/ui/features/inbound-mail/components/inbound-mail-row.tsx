@@ -117,7 +117,7 @@ export function InboundMailRow({
     <Item
       as="li"
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
-      className="group/row relative items-start rounded-control px-1.5 sm:px-2.5 pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
+      className="group/row relative items-start rounded-control px-2.5 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}
@@ -149,11 +149,12 @@ export function InboundMailRow({
           data-testid="inbound-mail-row-link"
           className="flex min-w-0 flex-1 items-start gap-3 rounded-sm outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"
         >
-          {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). */}
+          {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). The one
+              grey on the page; white on the row's hover and open fill, as anything on a grey surface is. */}
           <PersonAvatar
             person={{ userId: mail.senderDomain ?? who, name: who }}
             size="sm"
-            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-muted [&_[data-slot=avatar-fallback]]:!text-muted-foreground"
+            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-muted [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex min-w-0 items-baseline gap-2">

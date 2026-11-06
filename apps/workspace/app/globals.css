@@ -325,6 +325,13 @@ body {
   }
 }
 
+/* A bar pinned over the foot of a scrolling list or page (the decision bar, a selection bar): a faint shadow
+   upward instead of a line, as the design system draws no line between sections. One definition, so the
+   E-Mail-Eingang's bars and Dateien's selection bar cannot drift apart. */
+@utility shadow-pinned-foot {
+  box-shadow: 0 -8px 16px -12px color-mix(in oklch, var(--foreground) 18%, transparent);
+}
+
 @utility scroll-edge-top {
   @supports (animation-timeline: scroll(nearest block)) {
     animation: scroll-edge-reveal-top linear both;

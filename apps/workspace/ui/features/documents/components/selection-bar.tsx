@@ -39,7 +39,7 @@ export function SelectionBar({
   const t = useTranslations(filesCopy)
   return (
     <div
-      className="bg-background animate-in fade-in-0 slide-in-from-bottom-2 duration-base flex shrink-0 items-center gap-2 border-t px-3 pb-[max(0.5rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pt-2 ease-out motion-reduce:animate-none sm:px-4"
+      className="bg-background shadow-pinned-foot animate-in fade-in-0 slide-in-from-bottom-2 duration-base flex shrink-0 items-center gap-2 px-3 pb-[max(0.5rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pt-2 ease-out motion-reduce:animate-none sm:px-4"
       data-testid="selection-bar"
     >
       <Button

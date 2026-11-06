@@ -46,14 +46,15 @@ const OFF_SCREEN_SKIP = '[content-visibility:auto] [contain-intrinsic-block-size
  * product belongs to the source-signal system, so no tile has a colour of its
  * own.
  */
-export function GridTileShell({ interactive = true, className, children, ...rest }: FileTileShellProps): JSX.Element {
+export function TileShell({ interactive = true, className, children, ...rest }: FileTileShellProps): JSX.Element {
   const shell = (
     <div
       className={cn(
         'relative flex h-full min-w-0 flex-col rounded-surface p-1.5',
         OFF_SCREEN_SKIP,
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
-        interactive && 'hover:bg-accent',
+        // The hover is the one grey, as a list row's; the open or picked tile holds the state grey (`bg-accent`).
+        interactive && 'hover:bg-muted',
         className,
       )}
       {...rest}

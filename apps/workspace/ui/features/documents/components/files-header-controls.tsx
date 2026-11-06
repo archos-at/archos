@@ -60,6 +60,8 @@ export interface FilesHeaderControlsProps {
   upload?: ReactNode
   /** More for the phone's ⋯, after the view choice and the Papierkorb. */
   moreEntries?: readonly ActionMenuEntry[]
+  /** The level's own tools for the phone's ⋯, first (iOS Files' order): „Auswählen“, „Ordner anlegen“. */
+  levelEntries?: readonly ActionMenuEntry[]
   /**
    * The shelf's advanced actions (sort the root into folders). On a phone they
    * follow `moreEntries` in the ⋯; on a wide screen they get a ⋯ of their own.
@@ -78,6 +80,7 @@ export function FilesHeaderControls({
   search,
   upload,
   moreEntries,
+  levelEntries,
   advancedEntries,
 }: FilesHeaderControlsProps): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -101,6 +104,7 @@ export function FilesHeaderControls({
 
   if (phone) {
     const entries: ActionMenuEntry[] = [
+      ...(levelEntries && levelEntries.length > 0 ? [...levelEntries, { type: 'separator' as const }] : []),
       {
         type: 'radio-group',
         value: view,
@@ -177,6 +181,7 @@ export function FilesHeaderControls({
         value={view}
         onValueChange={choose}
         segmented
+        bare
         size="icon-sm"
         aria-label={t('workspace.view.label')}
       >
