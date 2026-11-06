@@ -6,6 +6,8 @@ The single reference every page redesign builds against. Goal: an **understated,
 
 The visual language is **warm paper monochrome + provenance signal colors** (adopted from the click-dummy overhaul, see `docs/design/click-dummy-overhaul-spec.md` §1/§4): warm paper surfaces, a near-black ink ramp, hairline alpha-ink borders, layered soft shadows, **near-black action buttons** — and the *only* chroma in the app is the source/provenance signal system.
 
+**Where it is headed.** The corporate design system 3.0 (`packages/brand/`, its README's „Design rules“) is the source this document follows, at the app's lighter level (§„Weight, face and white“). Where the two disagree, the design system wins and this document is changed in the same change: so far tracking (never tighter than 0) and the one grey (no alpha steps, nothing grey on grey). Hairlines, soft shadows and boxes are the previous language's habits; a reworked surface separates by white space and the one grey first, as Dateien and the E-Mail-Eingang now do.
+
 ## Principles
 
 1. **Restraint is the aesthetic.** Warm paper surfaces (`#f6f6f4`-family, warm charcoal in dark mode), a near-black ink ramp, and **no brand accent color on actions**: the primary action is ink (`#1f2023`, white text; paper-white on ink in dark mode). If everything is highlighted, nothing is. Blue is *not* the action color — it belongs to the Baurecht provenance signal.
@@ -135,13 +137,13 @@ made. **Do not reintroduce a general accent token.** If a future surface needs
 
 ## Type ramp (Tailwind classes — use verbatim)
 
-The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **12px eyebrow/label convention** (sentence case, medium weight, muted ink; it was 10.5px until 2026-11, when the Dateien review found every section label reading as fine print beside 13px names, below the 11–12pt floor Apple's HIG sets for a label). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
+The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **12px eyebrow/label convention** (sentence case, medium weight, muted ink; it was 10.5px until 2026-11, when the Dateien review found every section label reading as fine print beside 13px names, below the 11–12pt floor Apple's HIG sets for a label). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. **Tracking is never tighter than 0** (the design system 3.0, `packages/brand/README.md`, „Typography“): only the wordmark sets tighter. The ramp's `tracking-tight` on every title was the previous design language's and went app-wide on 2026-11-06; `tests/brand-literals.spec.ts` („tracking“) fails a new one. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
 
 | Role | Classes |
 |---|---|
-| Hero greeting (chat empty state only, ≈23px) | `text-[23px] font-medium tracking-tight` |
-| Page title (≈20px) | `text-xl font-medium tracking-tight` |
-| Section heading | `text-lg font-medium tracking-tight` |
+| Hero greeting (chat empty state only, ≈23px) | `text-[23px] font-medium` |
+| Page title (≈20px) | `text-xl font-medium` |
+| Section heading | `text-lg font-medium` |
 | Card/subsection title | `text-sm font-medium` |
 | Eyebrow / label (sentence case, 12px) | `text-xs font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
 | Answer text (16px) | `text-answer` (`--text-answer`, `ui/styles/tokens.css`): the ONE size of an answer's text: prose, lede, standfirst, a block's body, a card's body and title (`.card-body` and `.card-title` read the token). Headings, figures and the caption/meta/eyebrow steps keep their own; a size step inside an answer that expresses no rank is the defect it removed (Notion #38) |
@@ -149,7 +151,7 @@ The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero
 | Body secondary | `text-sm text-muted-foreground` |
 | Caption / meta | `text-xs text-muted-foreground` |
 | Identifiers (job id, § refs, collection names) | `font-mono text-xs` |
-| Numeric stat | `text-2xl font-medium tracking-tight tabular-nums` |
+| Numeric stat | `text-2xl font-medium tabular-nums` |
 
 ### Weight, face and white (the app's brand level)
 
@@ -187,6 +189,7 @@ app's own choices, not defects). Inside that level the rules are the brand's:
   why the font comes from the `geist` package and not Google Fonts, whose copy
   has no plain 0 ([gotcha](../contributing/gotchas.md)).
 - **The brand has no colour of its own.** It is black and white: warm white `--ds-surface` (#fafaf9), black `--ds-ink` (#0f0e0d) and one light grey `--ds-surface-sunken` (#f2f1f0). The app's hues (provenance signals, status, the data palette, the energy scale) are functional and documented exceptions; add no new one.
+- **One grey, and nothing grey on grey.** A fill is the one grey (`bg-muted`, `--ds-surface-sunken`) or, for a state (hover, the open row, the selected tile), `bg-accent`; never a step of either (`bg-muted/60`). Inside a grey panel what sits on it is white (`bg-background`): a chip, a thumbnail, a secondary press, as the design system keeps a band's content white. Dateien and the E-Mail-Eingang are held to it by `tests/brand-literals.spec.ts` („one grey“); the rest of the app is not yet.
 - **No pure white.** Surfaces are `--ds-surface` (paper), `--ds-surface-raised`
   (`--card`, `--popover`, overlays) and `--ds-surface-sunken`. Pure white stays
   only where something is a document's own paper (the PDF viewer page, a
@@ -538,7 +541,7 @@ in the review.
 ```tsx
 <header className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
   <div className="min-w-0">
-    <h1 className="text-xl font-medium tracking-tight">{title}</h1>
+    <h1 className="text-xl font-medium">{title}</h1>
     <p className="mt-1 text-sm text-muted-foreground">{oneLineContext}</p>
   </div>
   <div className="sm:shrink-0">{primaryAction}</div>
@@ -605,7 +608,7 @@ surface that already has a border.
                   border bg-card text-muted-foreground/70 shadow-sm">
     <Icon className="size-5" aria-hidden />
   </div>
-  <p className="text-balance text-sm font-medium tracking-tight text-foreground">{title}</p>
+  <p className="text-balance text-sm font-medium text-foreground">{title}</p>
   <p className="mt-1.5 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">{whyAndWhatToDo}</p>
   <div className="mt-5">{primaryAction}</div>
 </div>
@@ -627,7 +630,7 @@ surface that already has a border.
 
 **The agent's mark claims the agent.** `FilingChip` draws `AgentGlyph` only when its target IS a stored the agent suggestion (`suggested`, default true for the suggestion surfaces); a folder a rule picked (the E-Mail-Eingang's correspondence default, `defaultThreadFolder`) or the person chose wears a plain folder glyph. A mark on a rule's guess is a false claim, and on an unconfirmed or forged mail it puts the agent's weight behind a stranger (`lib/inbound-mail/suggest.ts`).
 
-**Status badges** — Badge variants: `success` (ready/completed — project green family), `info` (in-progress/running — law blue family), `warning` (needs attention — office gold family), `danger` (failed — the signal-red tint, the same pair as Chip and Alert), `secondary` (neutral/cancelled). `destructive` is the solid red plate, action weight: a status that says something failed is a fact in a row and takes `danger`, or a four-day-old failure is the loudest thing in the list. A document's status (`DocumentStatusBadge`, the upload tray's row) carries a glyph per state from one table (`features/documents/components/ingestion-atoms.tsx`), because several states share a colour: „Wartet" and „Wird gelesen" are both blue, „Abgelegt", „Abgebrochen" and „Unbekannt" all grey, and the glyph is what tells them apart. Project status chips: "Aktiv" = `--status-active(-tint)` (green), "Abgeschlossen" = `--status-done(-tint)` (warm gray) — always dot/icon + label, never a bare color dot.
+**Status badges** — Badge variants: `success` (ready/completed — project green family), `info` (in-progress/running — law blue family), `warning` (needs attention — office gold family), `danger` (failed — the signal-red tint, the same pair as Chip and Alert), `secondary` (neutral/cancelled). `destructive` is the solid red plate, action weight: a status that says something failed is a fact in a row and takes `danger`, or a four-day-old failure is the loudest thing in the list. A document's status (`DocumentStatusBadge`, the upload tray's row) carries a glyph per state from one table (`features/documents/components/ingestion-atoms.tsx`), because several states share a colour: „Wartet" and „Wird gelesen" are drawn in ink (the status family stays `info` in `data-variant`; reading is the normal course, and colour is red and ochre), „Abgelegt", „Abgebrochen" and „Unbekannt" all grey, and the glyph is what tells them apart. Project status chips: "Aktiv" = `--status-active(-tint)` (green), "Abgeschlossen" = `--status-done(-tint)` (warm gray) — always dot/icon + label, never a bare color dot.
 
 ## Motion vocabulary
 

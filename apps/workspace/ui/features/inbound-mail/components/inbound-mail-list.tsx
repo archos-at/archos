@@ -102,7 +102,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
-      <div className={cn('flex flex-col gap-2 border-b px-3 py-3 sm:px-4', !showFilter && 'hidden')}>
+      <div className={cn('flex flex-col gap-2 px-3 py-3 sm:px-4', !showFilter && 'hidden')}>
         <ToggleGroup
           type="single"
           segmented
@@ -287,8 +287,8 @@ function ListBody({
                     type="button"
                     size="sm"
                     variant="ghost"
+                    // No glyph: the file glyph is the „Bereit“ heading's press for all of them; this one files the thread.
                     className={GROUP_ACTION}
-                    icon={<FileInput aria-hidden />}
                     busy={fileGroupBusy === groupKey}
                     busyLabel={t('bulk.fileSuggestedBusy')}
                     onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
@@ -310,7 +310,8 @@ function ListBody({
                   </Button>
                 )}
               </div>
-              <ul className="flex flex-col gap-0.5 px-1.5 py-0.5">{section.mails.map((mail) => row(mail, true))}</ul>
+              {/* Room after its last member, so a row below that names the same thread visibly stands outside it. */}
+              <ul className="flex flex-col gap-0.5 px-1.5 pt-0.5 pb-3">{section.mails.map((mail) => row(mail, true))}</ul>
             </section>
           )
         }
@@ -319,7 +320,7 @@ function ListBody({
           <Collapsible key="quiet" open={quietOpen} onOpenChange={onQuietOpenChange} asChild>
             <section data-testid="quiet-group">
               <CollapsibleTrigger
-                className="text-muted-foreground hover:bg-accent/40 flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none sm:px-4 pointer-coarse:min-h-11"
+                className="text-muted-foreground hover:bg-accent flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none sm:px-4 pointer-coarse:min-h-11"
                 data-testid="quiet-group-toggle"
               >
                 <ChevronDown className={cn('size-3.5 transition-transform duration-quick ease-out motion-reduce:transition-none', !quietOpen && '-rotate-90')} aria-hidden />

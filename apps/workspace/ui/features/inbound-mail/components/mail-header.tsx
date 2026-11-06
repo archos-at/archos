@@ -78,7 +78,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
       asChild
     >
       <header className="flex flex-col gap-2" data-testid="mail-header">
-        <h2 className="text-lg font-medium tracking-tight [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
+        <h2 className="text-lg font-medium [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
           {subject}
         </h2>
         {/* Who on the first line; how far the domain is confirmed, when it arrived and the way to the rest on the second,
@@ -93,16 +93,19 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             {/* Trust is never folded away. */}
             {view.sender && <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />}
-            <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
-              {formatAbsoluteTime(view.receivedAt, locale)}
-            </time>
-            <CollapsibleTrigger
-              className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-              data-testid="mail-details-toggle"
-            >
-              {t('header.details')}
-              <ChevronDown className="size-3.5 transition-transform duration-quick group-data-[state=open]/details:rotate-180 motion-reduce:transition-none" aria-hidden />
-            </CollapsibleTrigger>
+            {/* The time and „Details“ keep together, so on a phone „Details“ never stands on a line of its own. */}
+            <span className="inline-flex items-center gap-x-3 whitespace-nowrap">
+              <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
+                {formatAbsoluteTime(view.receivedAt, locale)}
+              </time>
+              <CollapsibleTrigger
+                className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                data-testid="mail-details-toggle"
+              >
+                {t('header.details')}
+                <ChevronDown className="size-3.5 transition-transform duration-quick group-data-[state=open]/details:rotate-180 motion-reduce:transition-none" aria-hidden />
+              </CollapsibleTrigger>
+            </span>
           </div>
         </div>
         {view.sender && <SenderFlagLines sender={view.sender} />}

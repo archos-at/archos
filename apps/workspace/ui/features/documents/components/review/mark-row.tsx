@@ -20,7 +20,7 @@ import { markInk, pinLabel } from './review-page-layer'
 export const markRowClassName = (selected = false): string =>
   cn(
     'flex w-full gap-3 rounded-control px-2.5 py-2 text-left transition-colors duration-quick ease-out outline-none',
-    'hover:bg-accent/60 focus-visible:ring-ring/60 focus-visible:ring-2',
+    'hover:bg-accent focus-visible:ring-ring/60 focus-visible:ring-2',
     selected && 'bg-accent'
   )
 

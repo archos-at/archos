@@ -53,7 +53,7 @@ export function GridTileShell({ interactive = true, className, children, ...rest
         'relative flex h-full min-w-0 flex-col rounded-surface p-1.5',
         OFF_SCREEN_SKIP,
         'transition-colors duration-quick ease-out motion-reduce:transition-none',
-        interactive && 'hover:bg-accent/70',
+        interactive && 'hover:bg-accent',
         className,
       )}
       {...rest}
@@ -71,10 +71,10 @@ export function GridTileShell({ interactive = true, className, children, ...rest
   )
 }
 
-/** The thumbnail: a sheet one tone above the page, rounded, no border and no shadow. */
+/** The thumbnail: on the one grey, as the design system lays product cut-outs on `surface-sunken`, so every tile reads the same size; rounded, no border, no shadow. */
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-card relative w-full overflow-hidden rounded-lg', className)} {...rest}>
+    <div className={cn('bg-muted relative w-full overflow-hidden rounded-lg', className)} {...rest}>
       {children}
     </div>
   )

@@ -114,17 +114,16 @@ describe('the review rail is a column on a wide container and a stacked block on
       ?.parentElement as HTMLElement
     expect(rail).toBeTruthy()
     const cls = rail.className
-    // Stacked (the default, which is what a phone gets): full width, its own
-    // top edge, and part of the body's single scroll.
+    // Stacked (the default, which is what a phone gets): full width, and part
+    // of the body's single scroll.
     expect(cls).toContain('w-full')
-    expect(cls).toContain('border-t')
-    // Split (@2xl and up only): a fixed column with its own scroll and a LEFT
-    // edge instead of a top one.
+    // Split (@2xl and up only): a fixed column with its own scroll. White beside
+    // the stage's grey, so no line draws its edge at either width.
     expect(cls).toContain('@2xl:w-[280px]')
     expect(cls).toContain('@2xl:shrink-0')
     expect(cls).toContain('@2xl:overflow-y-auto')
-    expect(cls).toContain('@2xl:border-l')
-    expect(cls).toContain('@2xl:border-t-0')
+    expect(cls).toContain('bg-background')
+    expect(cls).not.toMatch(/\bborder-[tl]\b/)
     // The stacking is a container query, so the flip follows the PANE's width
     // rather than the viewport's — the pane is also 320px wide as a chat peek.
     expect(container.querySelector('.\\@container')).toBeTruthy()

@@ -94,7 +94,7 @@ export function AttachmentThumbnail({
       data-testid="attachment-thumbnail"
       data-drawn={source ? 'true' : undefined}
       className={cn(
-        'bg-card relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border pointer-coarse:size-12',
+        'bg-background relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md pointer-coarse:size-12',
         className
       )}
     >

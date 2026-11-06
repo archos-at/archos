@@ -119,7 +119,7 @@ export function PageReadings({
           <button data-attr="files-expanded"
             type="button"
             onClick={() => setExpanded((value) => !value)}
-            className="text-muted-foreground hover:text-foreground hover:bg-accent/40 duration-snap border-border/60 touch-target focus-visible:bg-accent/40 w-full border-t px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent duration-snap border-border/60 touch-target focus-visible:bg-accent w-full border-t px-3 py-2 text-left text-xs/5 font-medium outline-none transition-colors ease-out motion-reduce:transition-none"
           >
             {expanded
               ? t('preview.visualDetails.showFewer')
@@ -186,7 +186,7 @@ function PageReading({
           type="button"
           onClick={() => onShowPage(detail.page)}
           title={t('preview.visualDetails.showPage', { page: detail.page })}
-          className="hover:bg-accent/40 duration-snap group/page focus-visible:bg-accent/40 -my-1 flex w-full items-center gap-2 px-3 py-1 text-left outline-none transition-colors ease-out motion-reduce:transition-none"
+          className="hover:bg-accent duration-snap group/page focus-visible:bg-accent -my-1 flex w-full items-center gap-2 px-3 py-1 text-left outline-none transition-colors ease-out motion-reduce:transition-none"
         >
           {heading}
           <ArrowUpRight

@@ -166,7 +166,7 @@ export function FolderBrief({
   return (
     <Card
       className={cn(
-        '-mx-3 gap-0 border-0 bg-muted/60 py-0 shadow-none transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
+        '-mx-3 gap-0 border-0 bg-muted py-0 shadow-none transition-[background-color,border-color,box-shadow] duration-quick ease-out motion-reduce:transition-none',
         collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"
@@ -183,7 +183,7 @@ export function FolderBrief({
               title={t(open ? 'brief.collapse' : 'brief.expand')}
               className={cn(
                 'hover:text-foreground focus-visible:ring-ring flex w-full min-w-0 items-center gap-2 rounded-control px-3 py-2 text-left text-xs transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11',
-                open ? 'text-foreground' : 'text-muted-foreground hover:bg-accent/60'
+                open ? 'text-foreground' : 'text-muted-foreground hover:bg-accent'
               )}
               data-testid="folder-brief-toggle"
             >
@@ -457,7 +457,7 @@ function BriefDisclosure({
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="hover:bg-accent/60 focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
+              className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
               <span className="text-muted-foreground shrink-0 text-xs font-medium">{title}</span>

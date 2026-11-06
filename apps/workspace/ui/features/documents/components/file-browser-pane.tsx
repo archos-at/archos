@@ -935,7 +935,7 @@ export function FileBrowserPane({
               // The folders are one connected run, not a stack of pills: the
               // `ItemList` rounds the outer corners and draws the hairlines.
               <div className="px-2 py-2" role="group" aria-label={t('folders.heading')}>
-                <ItemList className="bg-muted/40">
+                <ItemList className="bg-muted">
                   {childFolders.map((folder) => (
                     <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
                   ))}
@@ -1108,7 +1108,7 @@ export function FileBrowserSkeleton({
         <div className={CONTENT_MAX}>
           {folderCount > 0 && (
             <div className="px-2 py-2">
-              <ItemList className="bg-muted/40">
+              <ItemList className="bg-muted">
                 {Array.from({ length: folderCount }).map((_, index) => (
                   <FolderRowSkeleton key={index} />
                 ))}
@@ -1137,10 +1137,10 @@ export function FileBrowserSkeleton({
 
 
 /**
- * The listing's width cap. With the tree band gone the browser owns the whole
- * column, and a 4K monitor would otherwise stretch cards into a wall — the
- * content centres inside the toolbars, which keep spanning the full width.
+ * The listing's width cap (a 4K monitor would stretch cards into a wall), on
+ * the section header's edges: left at its 32px from `md`, and wide enough to end
+ * where it ends on a desk. Centred at 1200px, the page had three left edges.
  */
-const CONTENT_MAX = 'mx-auto w-full max-w-[1200px]'
+const CONTENT_MAX = 'w-full max-w-[1600px] md:px-8'
 
 const noToggle = (): void => undefined

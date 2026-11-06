@@ -15,7 +15,7 @@
     "apps/workspace/app/dev/annotations/page.tsx": 1400,
     "apps/workspace/app/dev/cards/page.tsx": 637,
     "apps/workspace/app/dev/chat-turn/page.tsx": 1160,
-    "apps/workspace/app/dev/file-browser/page.tsx": 867,
+    "apps/workspace/app/dev/file-browser/page.tsx": 674,
     "apps/workspace/app/dev/file-preview/page.tsx": 874,
     "apps/workspace/bff/agent-api/catalog/platform.ts": 785,
     "apps/workspace/bff/agent-api/discovery.ts": 856,

@@ -10,6 +10,10 @@ features:
     around them, every file type reads in the same ink, and in the list a
     column appears only when one of its rows has something to show.
   - >
+    Titles and headings across the workspace are set with the open letter
+    spacing of the ARCHOS design, and Files lines everything up on one left
+    edge, from the title down to the last tile.
+  - >
     In the e-mail inbox, mails from one thread stand under a single line with
     the press that files them all, and each mail's subject shows only what
     sets it apart from the others.

@@ -42,7 +42,7 @@ export function AttachmentPreviewDialog({
           <DialogTitle className="[overflow-wrap:anywhere]">{name}</DialogTitle>
           <DialogDescription className="sr-only">{t('attachments.preview', { name })}</DialogDescription>
         </DialogHeader>
-        <div className="bg-muted/40 flex min-h-64 items-center justify-center overflow-hidden rounded-lg border">
+        <div className="bg-muted flex min-h-64 items-center justify-center overflow-hidden rounded-lg border">
           {source ? (
             // oxlint-disable-next-line nextjs/no-img-element -- a data: or blob: URL drawn from bytes this tab fetched; the optimizer cannot fetch it
             <img src={source} alt="" className="max-h-[70dvh] w-auto max-w-full object-contain" />

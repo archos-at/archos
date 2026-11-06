@@ -107,7 +107,7 @@ export function PlacementTreeView({
       </ul>
       {!onlyUnsure && tree.stays.length > 0 && (
         <section aria-label={t('rootSort.review.staysLabel')} className="border-border border-t">
-          <SectionLabel as="h3" className="bg-muted/40 px-3 py-2">
+          <SectionLabel as="h3" className="bg-muted px-3 py-2">
             {t('rootSort.review.staysLabel')}
           </SectionLabel>
           <ul>

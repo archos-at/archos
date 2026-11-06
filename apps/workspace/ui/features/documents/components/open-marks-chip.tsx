@@ -111,7 +111,7 @@ function OpenMarksButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Chip asChild interactive size="sm" variant="muted" className={cn('tabular-nums', className)}>
+        <Chip asChild interactive size="sm" variant="muted" className={cn('max-w-full min-w-0 tabular-nums', className)}>
           <button data-attr="open-marks"
             type="button"
             data-slot="open-marks"
@@ -125,7 +125,8 @@ function OpenMarksButton({
             }}
           >
             <MessageSquareText aria-hidden />
-            <span>{openMarksShortLabel(t, marks)}</span>
+            {/* On a 156px phone tile the words give way, the glyph never does; the tooltip says them in full. */}
+            <span className="min-w-0 truncate">{openMarksShortLabel(t, marks)}</span>
           </button>
         </Chip>
       </TooltipTrigger>

@@ -149,10 +149,10 @@ export function FolderBreadcrumbRow({
     <div
       // The row PINS to the top of the list, on the page's base surface so no
       // card shows through. It is the list's first child and scrolled away with
-      // the cards, taking „Neuer Ordner" and the way up with it; on a phone it
+      // the cards, taking „Ordner anlegen" and the way up with it; on a phone it
       // was left half-hidden under the controls. Pinned, it is whole, never cut.
-      // No hairline under it: whitespace and the title's weight end the row, as the UI revision asks.
-      className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 bg-background px-4 pb-2 pt-4 phone:pt-2"
+      // No hairline under it; at the root it holds only its controls (the crumb is the tab above), so it sits tighter.
+      className={cn('sticky top-0 z-10 flex w-full max-w-[1600px] shrink-0 items-center justify-between gap-2 bg-background px-4 pb-2 pt-4 phone:pt-2 md:px-8', currentFolderId === null && 'pb-0 pt-2')}
       data-testid="folder-breadcrumb-row"
     >
       <div className="flex min-w-0 items-center gap-2">
@@ -184,7 +184,7 @@ export function FolderBreadcrumbRow({
         <BreadcrumbList className="flex-nowrap overflow-x-auto">
           <BreadcrumbItem>
             {currentFolderId === null ? (
-              <BreadcrumbPage className="whitespace-nowrap text-[15px] font-medium">{t('folders.allFiles')}</BreadcrumbPage>
+              <BreadcrumbPage className="sr-only" /* the tab above says it */>{t('folders.allFiles')}</BreadcrumbPage>
             ) : (
               crumb(
                 null,
@@ -629,7 +629,7 @@ export function FolderCard({
       // one. On a phone the grid spans it into a row (`FOLDER_ROWS_ON_PHONE`).
       data-folder-tile=""
       // A drag has to say where it will land, or it is a guess with a cursor.
-      className={cn('group bg-muted/70 p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
+      className={cn('group bg-muted p-0 [contain-intrinsic-block-size:auto_56px]', dropRing(drop))}
       data-testid={`folder-card-${folder.id}`}
       data-drop-over={drop.isOver ? '' : undefined}
       // Source as well as target: a folder is moved by dragging it onto
@@ -891,7 +891,7 @@ export function FolderRow({
 /** A {@link FolderCard} before its name arrives. */
 export function FolderCardSkeleton(): JSX.Element {
   return (
-    <GridTileShell interactive={false} data-folder-tile="" className="bg-muted/70 p-0" data-testid="folder-card-skeleton">
+    <GridTileShell interactive={false} data-folder-tile="" className="bg-muted p-0" data-testid="folder-card-skeleton">
       <FileTileBody className="flex flex-1 items-center gap-3 p-2.5">
         <span className={FOLDER_WELL}>
           <Folder className="size-[18px] text-muted-foreground/30" strokeWidth={1.6} aria-hidden />

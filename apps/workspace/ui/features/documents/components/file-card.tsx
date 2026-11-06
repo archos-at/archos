@@ -535,7 +535,7 @@ export const FileCard = memo(function FileCard({
           </span>
           {/* Its own line (`basis-full`), and none at all when nothing is open:
               the review opens from here without opening the card first. */}
-          <span className="flex basis-full empty:hidden">
+          <span className="flex min-w-0 basis-full empty:hidden">
             <OpenMarksChip file={file} name={name} />
           </span>
         </FileTileFooter>

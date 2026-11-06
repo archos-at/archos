@@ -225,7 +225,7 @@ function FolderBriefPreview(): JSX.Element {
         {only === null && (
           <header className="flex flex-col gap-1">
             <p className="text-muted-foreground text-xs">Dev-Vorschau · {PROJECT_NAME}</p>
-            <h1 className="text-foreground text-xl font-semibold tracking-[-0.01em]">Ordner-Überblick</h1>
+            <h1 className="text-foreground text-xl font-semibold">Ordner-Überblick</h1>
           </header>
         )}
 

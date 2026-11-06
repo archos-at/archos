@@ -87,7 +87,7 @@ export function FileSearchField({
         size={size}
         // A filled field, not a drawn box: one tone below the page until it has the focus, when the
         // field's own focus (its border turning to ink) takes over. The header holds no outlines.
-        inputClassName="pr-10 md:pr-9 border-transparent bg-muted/80 shadow-none hover:bg-muted focus-visible:bg-card"
+        inputClassName="pr-10 md:pr-9 border-transparent bg-muted shadow-none hover:bg-accent focus-visible:bg-background"
         clearClassName={cn(
           'right-1 pointer-coarse:size-11 md:right-1.5 md:size-6',
           size === 'sm' ? 'size-7' : 'size-9'

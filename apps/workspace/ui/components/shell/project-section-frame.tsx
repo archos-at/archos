@@ -25,6 +25,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
+import { PHONE_QUERY } from '@/hooks/use-is-mobile'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { SectionNav, type SectionNavItem } from './section-nav'
 import { cn } from '@/lib/utils'
 
@@ -84,7 +86,8 @@ function subpageOf(pathname: string): Subpage | null {
  * Büroablage is a project's Dateien with the project taken out, and its header
  * is this one: one class, so the two stores cannot drift apart.
  */
-export const SECTION_HEADER_CLASS = 'shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8'
+// No line under it (the design system: none under the header): white space and the content's own start separate it.
+export const SECTION_HEADER_CLASS = 'shrink-0 bg-background px-4 py-4 phone:py-2 md:px-8'
 
 const ActionsContext = createContext<(node: ReactNode) => void>(() => {})
 
@@ -192,6 +195,7 @@ export function ProjectSectionFrame({
   const pathname = pathnameOverride ?? currentPathname ?? ''
   const t = useTranslations(navCopy)
   const [actions, setActions] = useState<ReactNode>(null)
+  const phone = useMediaQuery(PHONE_QUERY)
 
   if (isProjectChatPath(pathname, projectId)) {
     return <>{children}</>
@@ -216,7 +220,14 @@ export function ProjectSectionFrame({
     <ActionsContext.Provider value={setActions}>
       <div className="flex h-full min-h-0 flex-col">
         <div className={SECTION_HEADER_CLASS}>
-          <PageHeader title={sectionLabel} subtitle={subpage ? t(`subpages.${subpage}.subtitle`) : sectionSubtitle} action={actions} />
+          {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
+              search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
+              the E-Mail-Eingang, which has none. */}
+          <PageHeader
+            title={sectionLabel}
+            subtitle={subpage ? t(`subpages.${subpage}.subtitle`) : sectionSubtitle}
+            action={segment === 'files' && phone ? undefined : actions}
+          />
           {segment === 'files' && (
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
             // places would only push its subject below the fold.
@@ -224,6 +235,7 @@ export function ProjectSectionFrame({
               <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
             </div>
           )}
+          {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>
       </div>

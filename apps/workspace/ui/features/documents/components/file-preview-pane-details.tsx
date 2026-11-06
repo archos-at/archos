@@ -71,9 +71,11 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     'flex flex-col px-4 pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]'
                   : peeking
                   ? // The details view of the peek: the whole column, scrolling
-                    // on its own, on the same sunken ground the stage uses.
-                    'scroll-fade-bottom bg-surface-sunken border-base mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-surface border p-4'
-                  : 'scroll-fade-bottom bg-surface-sunken @2xl:w-[280px] @2xl:shrink-0 @2xl:min-h-0 @2xl:overflow-y-auto @2xl:overscroll-contain @2xl:border-l @2xl:border-t-0 @2xl:pb-4 flex w-full flex-col border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
+                    // on its own, a white sheet on the stage's grey.
+                    'scroll-fade-bottom bg-background mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-surface p-4'
+                  : // White beside the stage's grey, no line between: two grey bands side by side were one ground
+                    // split by a hairline (the design system: never two bands next to each other).
+                    'scroll-fade-bottom bg-background @2xl:w-[280px] @2xl:shrink-0 @2xl:min-h-0 @2xl:overflow-y-auto @2xl:overscroll-contain @2xl:pb-4 flex w-full flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
               }
             >
               <ThreadRailViews

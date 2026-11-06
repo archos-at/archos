@@ -51,7 +51,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                 // A PDF brings its own stage (the viewer's), so the well under it
                 // is no ground of its own: the document looks the same here as in
                 // every other place a PDF opens.
-                !peeking && !pdfInWell && 'bg-muted/40',
+                !peeking && !pdfInWell && 'bg-muted',
                 wellHostsViewer || (reader && (isModel || pdfInWell))
                   ? cn(
                       'h-full min-h-0 flex-1 overflow-hidden',

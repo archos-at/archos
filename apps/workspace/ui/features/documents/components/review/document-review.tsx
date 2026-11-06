@@ -535,7 +535,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     <div
       role="status"
       data-testid="review-agent-status"
-      className="border-border/70 bg-muted/40 flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
+      className="border-border/70 bg-muted flex h-8 max-w-[30rem] items-center gap-2 rounded-full border pr-1 pl-1"
     >
       <AgentGlyph working={working} />
       {working ? (

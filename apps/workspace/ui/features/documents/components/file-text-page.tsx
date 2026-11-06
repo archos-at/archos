@@ -67,7 +67,7 @@ export function FileTextPage({
         )}
       </div>
       {truncated && (
-        <p className="text-muted-foreground border-t bg-muted/30 px-6 py-2.5 text-xs leading-relaxed">
+        <p className="text-muted-foreground border-t bg-muted px-6 py-2.5 text-xs leading-relaxed">
           {truncatedLabel}
         </p>
       )}

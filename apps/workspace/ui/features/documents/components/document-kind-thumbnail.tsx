@@ -453,7 +453,7 @@ export function DocumentKindThumbnail({
           data-testid="document-kind-thumbnail"
           data-state="placeholder"
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-muted/50 text-muted-foreground',
+            'absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-muted text-muted-foreground',
             className
           )}
         >

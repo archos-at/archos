@@ -526,8 +526,8 @@ export const files = {
     // The way up, named. The breadcrumb says where you ARE, which is a map,
     // and three levels deep the parent is a truncated word mid-row.
     backTo: 'Back to {name}',
-    newFolder: 'New folder',
-    newInside: 'New folder inside',
+    newFolder: 'Create folder',
+    newInside: 'Create folder inside',
     open: 'Open',
     move: 'Move to folder',
     items: '{count, plural, one {# item} other {# items}}',

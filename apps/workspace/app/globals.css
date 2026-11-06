@@ -664,9 +664,6 @@ body {
   --tw-inset-ring-color: var(--border-color-brand);
 }
 
-@utility tracking-display {
-  letter-spacing: -0.04em;
-}
 
 @utility scale-press {
   transform: scale(0.98);
@@ -758,7 +755,6 @@ body {
     font-size: 17px;
     line-height: 1.3;
     font-weight: 500;
-    letter-spacing: -0.04em;
   }
 
   /* Figure — the one thing the card exists to say, and with the headline the
@@ -784,19 +780,16 @@ body {
   .card-figure-20 {
     font-size: 20px;
     line-height: 1.25;
-    letter-spacing: -0.01em;
   }
 
   .card-figure-24 {
     font-size: 24px;
     line-height: 1.2;
-    letter-spacing: -0.02em;
   }
 
   .card-figure-30 {
     font-size: 30px;
     line-height: 1.15;
-    letter-spacing: -0.02em;
   }
 }
 

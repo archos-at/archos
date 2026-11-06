@@ -60,9 +60,9 @@ export function InspectorGroup({
     <div
       data-slot="inspector-group"
       className={cn(
-        // A sheet on the rail, as an iOS inset group: the tone step and the faintest shadow say where it
-        // ends, no border. The first row's hairline would draw an edge at its top, so it is never drawn.
-        'bg-card shadow-xs overflow-hidden rounded-surface',
+        // The one grey on the rail's white, as an iOS inset group: the tone says where it ends, no border
+        // and no shadow. The first row's hairline would draw an edge at its top, so it is never drawn.
+        'bg-muted overflow-hidden rounded-surface',
         '[&>:first-child>[data-slot=inspector-row-body]]:border-t-0',
         className
       )}

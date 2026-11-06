@@ -175,7 +175,7 @@ function EarlierBar({ review, onCheckFixed }: { review: DocumentReview; onCheckF
   const marks = review.annotations.filter((annotation) => !annotation.onCurrentRevision && annotation.carryTarget)
   if (marks.length === 0) return null
   return (
-    <div className="bg-muted/40 mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
+    <div className="bg-muted mx-0.5 mb-2 space-y-1 rounded-surface px-2.5 py-2" data-testid="review-earlier-bar">
       <div className="flex items-center gap-2">
         <History className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
         <span className="text-foreground min-w-0 flex-1 text-xs font-medium">{t('review.earlierOpen', { count: marks.length })}</span>

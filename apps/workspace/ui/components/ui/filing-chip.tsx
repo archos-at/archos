@@ -40,6 +40,13 @@ export interface FilingChipProps extends ButtonHTMLAttributes<HTMLButtonElement>
    * an unconfirmed or forged mail, and a regex default must not look like one).
    */
   suggested?: boolean
+  /**
+   * The glyph before the target (default). False where a line above already
+   * says whose suggestion it is („Vorschlag von {productName}“ over a mail's
+   * attachment): the chip is then the target alone, white on the grey it sits
+   * on (`design-language.md`, one grey), so the row says it once.
+   */
+  mark?: boolean
 }
 
 /**
@@ -63,7 +70,7 @@ export interface FilingChipProps extends ButtonHTMLAttributes<HTMLButtonElement>
  * (`PopoverTrigger asChild`), so it forwards its ref and every prop.
  */
 export const FilingChip = forwardRef<HTMLButtonElement, FilingChipProps>(function FilingChip(
-  { target, newLabel, suggested = true, className, type = 'button', ...props },
+  { target, newLabel, suggested = true, mark = true, className, type = 'button', ...props },
   ref
 ) {
   return (
@@ -76,6 +83,7 @@ export const FilingChip = forwardRef<HTMLButtonElement, FilingChipProps>(functio
       className={cn(
         'border-strong bg-card text-foreground -my-1 inline-flex h-6 min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-control border border-dashed pl-[3px] pr-2 text-[11px] font-medium leading-none',
         'hover:bg-accent aria-expanded:bg-accent hover:border-solid aria-expanded:border-solid',
+        !mark && 'bg-background border-transparent pl-2 hover:border-transparent aria-expanded:border-transparent',
         PRESSABLE,
         'animate-in fade-in-0 motion-reduce:animate-none',
         'touch-target outline-none',
@@ -84,7 +92,7 @@ export const FilingChip = forwardRef<HTMLButtonElement, FilingChipProps>(functio
       )}
       {...props}
     >
-      {suggested ? (
+      {!mark ? null : suggested ? (
         <AgentGlyph size="xs" className="size-4" />
       ) : (
         <Folder className="text-muted-foreground ml-[3px] size-3.5 shrink-0" aria-hidden data-testid="filing-chip-folder" />

@@ -230,7 +230,7 @@ export function AttachmentRow({
   return (
     <Item
       as="li"
-      className={cn('items-start px-3 sm:px-4', !draft.checked && status === 'waiting' && !readOnly && 'bg-muted/20')}
+      className="items-start px-3 sm:px-4"
       data-cursor={focused || undefined}
       data-testid={`attachment-${part.id}`}
       data-status={status}
@@ -282,7 +282,8 @@ export function AttachmentRow({
                     newLabel={folderTarget.kind === 'new' ? t('suggestion.newFolder') : undefined}
                     title={folderLabel(folderTarget, t('suggestion.root'))}
                     onClick={() => setPickerOpen(true)}
-                    className={cn(!draft.suggested.folder && 'border-solid')}
+                    // „Vorschlag von …“ above says whose it is: the chip is the target, white on the panel's grey.
+                    mark={false}
                     data-testid="attachment-folder"
                   />
                 ) : (
@@ -292,7 +293,7 @@ export function AttachmentRow({
                   </Button>
                 ))}
               {draft.documentType && (
-                <Badge variant="secondary" data-testid="attachment-type">
+                <Badge variant="secondary" className="bg-background" data-testid="attachment-type">
                   {tagLabel(draft.documentType, tFiles)}
                 </Badge>
               )}

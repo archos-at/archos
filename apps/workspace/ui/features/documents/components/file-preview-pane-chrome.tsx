@@ -121,7 +121,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
           />
         )}
         {!peeking && !reader && (
-          <div className="@md:gap-x-3 @md:px-5 flex shrink-0 items-start gap-x-2 border-b px-3.5 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
+          <div className="@md:gap-x-3 @md:px-5 flex shrink-0 items-start gap-x-2 px-3.5 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
             <FileExtChip filename={file.filename} fallback={<Icon className="size-4" />} />
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
@@ -129,7 +129,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
               for anyone who renamed it. */}
             <div className="min-w-0 flex-1">
               <h3
-                className="text-foreground truncate text-sm font-medium leading-tight tracking-[-0.01em]"
+                className="text-foreground truncate text-sm font-medium leading-tight"
                 title={actions.isRenamed ? `${actions.name}\n${file.filename}` : actions.name}
               >
                 {actions.name}

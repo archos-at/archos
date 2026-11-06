@@ -204,3 +204,32 @@ describe('answer text size', () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe('tracking', () => {
+  // The design system's rule (packages/brand/README.md, "Typography"): tracking is never tighter
+  // than 0; only the wordmark sets tighter. The old app ramp's `tracking-tight` on every title
+  // was the previous design language's, and it went app-wide on 2026-11-06.
+  it('nothing but the wordmark sets a negative letter-spacing', () => {
+    const offenders = files
+      .filter((f) => f.name !== 'ui/components/brand/logo.tsx')
+      .filter((f) => /\btracking-tight(er)?\b|tracking-\[-|letter-spacing:\s*-/.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('one grey', () => {
+  // The design system's one light grey (`--ds-surface-sunken`, the app's `bg-muted`) and the
+  // state fill (`bg-accent`, hover and the open row), never a step between them: Dateien and the
+  // E-Mail-Eingang wore six alpha greys (/20 to /80) until 2026-11-06. The drawn page sketches of
+  // the preview peek are an illustration's shades, not surfaces.
+  const GREY_STEPS_ALLOWED = new Set(['ui/features/documents/components/file-preview-peek.tsx'])
+  it('Dateien and the E-Mail-Eingang fill with the one grey or the state fill, never a step of either', () => {
+    const offenders = files
+      .filter((f) => f.name.startsWith('ui/features/documents/') || f.name.startsWith('ui/features/inbound-mail/'))
+      .filter((f) => !GREY_STEPS_ALLOWED.has(f.name))
+      .filter((f) => /\bbg-(muted|accent|secondary)\/\d+/.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})

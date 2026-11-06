@@ -691,7 +691,7 @@ function RevisionLines({
   }
   if (lines.length === 0) return null
   return (
-    <div className="text-muted-foreground bg-muted/40 space-y-1 border-b px-3 py-1.5 text-[11px] leading-4">{lines}</div>
+    <div className="text-muted-foreground bg-muted space-y-1 border-b px-3 py-1.5 text-[11px] leading-4">{lines}</div>
   )
 }
 
@@ -1058,7 +1058,7 @@ export function ThreadCard({
     <ReviewCard placement={placement} testId="review-thread" labelledBy={headerId}>
       <RevisionLines review={review} annotation={annotation} busy={busy} onCarry={() => void act(() => review.carry(annotation))} />
       {walk && proposed && (
-        <div className="bg-muted/40 flex items-center gap-2 border-b py-1 pr-1.5 pl-3" data-testid="thread-walk">
+        <div className="bg-muted flex items-center gap-2 border-b py-1 pr-1.5 pl-3" data-testid="thread-walk">
           <span className="text-muted-foreground text-[11px] font-medium tabular-nums">
             {t('review.walkPosition', { index: walk.index, total: walk.total })}
           </span>
@@ -1218,7 +1218,7 @@ export function ThreadCard({
       </div>
 
       {proposed && annotation.canEdit && (
-        <div className="bg-muted/40 space-y-2 border-t px-3 py-2.5">
+        <div className="bg-muted space-y-2 border-t px-3 py-2.5">
           <p className="text-muted-foreground text-[11px] leading-4">{t('review.proposalHint')}</p>
           <div className="grid grid-cols-2 gap-2">
             <Button

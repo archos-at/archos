@@ -510,8 +510,8 @@ export const files: typeof en.files = {
     // das ist eine Karte. Drei Ebenen tief ist der übergeordnete Ordner ein
     // abgeschnittenes Wort mitten in einer scrollenden Zeile.
     backTo: 'Zurück zu {name}',
-    newFolder: 'Neuer Ordner',
-    newInside: 'Neuer Ordner darin',
+    newFolder: 'Ordner anlegen',
+    newInside: 'Ordner darin anlegen',
     open: 'Öffnen',
     move: 'In Ordner verschieben',
     items: '{count, plural, one {# Element} other {# Elemente}}',
