@@ -318,7 +318,7 @@ function ListBody({
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
               {/* A 24px line whose press overhangs it by 4px each way (44px under touch): the label stands 16px over its first
                   row's words and 24px under the section's heading, nearer what it heads than what heads it. */}
-              <div className="flex min-h-6 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-2 [&_[data-slot=button]]:-my-1" /* one height with its press or without */>
+              <div className="box-content flex h-6 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-2 [&_[data-slot=button]]:-my-1" /* 24px, fixed: one height with its press or without, so ticking a box moves nothing */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   {/* A stack of mails: the circling arrows read as „sync“. */}
