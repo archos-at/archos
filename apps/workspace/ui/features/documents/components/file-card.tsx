@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { memo, useEffect, useState, type CSSProperties, type JSX, type ReactNode } from 'react'
 import Image from 'next/image'
 import { useSeenOnce } from '@/hooks/use-seen-once'
 import { isOptimizerEligible } from '@/lib/images/optimizable'
@@ -316,6 +316,8 @@ export const FileCard = memo(function FileCard({
   const t = useTranslations(filesCopy)
   const name = documentDisplayName(file)
   const ext = fileExtensionLabel(file.filename)
+  // A search hit carries no size; „0 B“ would be a wrong fact.
+  const hasSize = typeof file.fileSize === 'number'
   const isFailed = file.status === 'failed'
   const failureText = useIngestFailureText(isFailed ? file.errorMessage : null)
   // The card is one click target, so it carries no disclosure: the sentence
@@ -375,18 +377,15 @@ export const FileCard = memo(function FileCard({
         aria-label={ariaLabel}
         aria-busy={isBusy}
         data-testid={testId}
-        className="group relative flex w-full min-w-0 flex-1 flex-col overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+        className={cn("group relative flex w-full min-w-0 flex-col overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50", hideFooter && "flex-1")}
       >
-        {/* Raised inner block — white surface, rounded bottom, soft divider shadow.
-            `flex-1` because a grid row is only as tall as its tallest card and
-            every cell stretches to match: a document that is still being read has
-            no summary yet, so without it the short tile kept its natural height,
-            its size · time footer floated in the middle of the cell, and the
-            leftover height showed as a band of dead surface underneath. Growing
-            the white block instead puts every footer on the bottom edge, so the
-            row reads as one strip whatever each card carries above it. */}
-        <FileTileBody className={cn('flex-1 p-0', hideFooter && 'rounded-none')}>
-          <FileTileMedia ref={mediaRef} className="h-[124px]">
+        {/* The tile is on the page, no white block: a row's leftover height goes
+            BELOW the meta line (the footer grows), so every meta line of a row
+            shares one baseline whatever each card carries above it. Without a
+            footer the body takes it. */}
+        <FileTileBody className={cn('p-0', hideFooter && 'flex-1 rounded-none')}>
+          {/* Selected, the sheet takes the tile's fill: a white sheet inside the grey was a card in a card. */}
+          <FileTileMedia ref={mediaRef} className="h-[124px] transition-colors duration-quick group-aria-[current=true]:bg-transparent">
             <ThumbnailWithFallback file={file} visible={seen} />
             {showStatus && (
               <DocumentStatusBadge
@@ -408,7 +407,9 @@ export const FileCard = memo(function FileCard({
             )}
           </FileTileMedia>
 
-          <div className="px-1 pt-2.5">
+          {/* At least the name and two summary lines tall (10 + 17.6 + 4 + 34.8px), and the footer follows it rather
+              than sinking to the cell's foot: the meta lines of a row share one baseline, and „4 offen“ hangs below its own. */}
+          <div className="min-h-[66px] px-1 pt-2.5">
             {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
             {source && sourceLabel && (
               <span
@@ -502,12 +503,12 @@ export const FileCard = memo(function FileCard({
           line, under the size and the age and never in their place: „4 offen ·
           2 für Sie" and „vor 4 Monaten" do not share a 220px tile, and a
           count without its words had to be learnt. It is a property of the
-          document rather than a suggestion that comes and goes, so a row of
-          tiles is uneven only where a document has open work. */}
+          document rather than a suggestion that comes and goes, so it hangs
+          below the shared meta line, never lifting it. */}
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
-          className="@container/foot group/foot cursor-pointer flex-wrap justify-start gap-1.5 text-xs text-muted-foreground"
+          className="@container/foot group/foot mt-0 flex-1 cursor-pointer flex-wrap content-start items-start justify-start gap-1.5 text-xs text-muted-foreground"
           data-testid="file-card-footer"
         >
           {/* Left, under the name: one edge for everything on the tile. */}
@@ -520,19 +521,15 @@ export const FileCard = memo(function FileCard({
               gap: the age used to run into the edge the title keeps clear. */}
           <span className="flex shrink-0 items-center gap-1.5 phone:gap-1">
             {/* The format in words, with the facts: a type is not a signal, so it is ink like them, never a tinted chip. */}
-            {ext !== '' && (
+            {ext !== '' && <span className="font-medium uppercase tracking-wide">{ext}</span>}
+            {hasSize && (
               <>
-                <span className="font-medium uppercase tracking-wide">{ext}</span>
-                <span aria-hidden className="text-muted-foreground/40">
-                  ·
-                </span>
+                {ext !== '' && <FactDot />}
+                <span className="tabular-nums">{formatBytes(file.fileSize, locale)}</span>
               </>
             )}
-            <span className="tabular-nums">{formatBytes(file.fileSize, locale)}</span>
             <span className="flex items-center gap-1.5 phone:gap-1 group-has-[[data-slot=filing-chip]]/foot:@max-[14rem]/foot:hidden">
-              <span aria-hidden className="text-muted-foreground/40">
-                ·
-              </span>
+              {(ext !== '' || hasSize) && <FactDot />}
               <TimeAgo date={file.createdAt} locale={locale} className="tabular-nums" />
             </span>
           </span>
@@ -546,3 +543,11 @@ export const FileCard = memo(function FileCard({
     </GridTileShell>
   )
 })
+
+function FactDot(): JSX.Element {
+  return (
+    <span aria-hidden className="text-muted-foreground/40">
+      ·
+    </span>
+  )
+}

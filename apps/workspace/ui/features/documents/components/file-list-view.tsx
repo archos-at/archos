@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
+import { approvalSubjectOf, listColumns, type FileListColumns } from './file-list-columns'
 import { FileExtChip } from './file-ext-chip'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
 import { useLocale, useTranslations } from '@/i18n'
@@ -118,6 +119,7 @@ export function FileListView({
   const bodyRef = useRef<HTMLTableSectionElement>(null)
 
   const rows = useMemo(() => sortFiles(files, sort, locale), [files, sort, locale])
+  const columns = useMemo(() => listColumns(files), [files])
 
   // A press means „open it" in the ordinary list and „pick it" in a selection.
   // One function per mode, so the memoised rows are not re-rendered by a
@@ -235,53 +237,39 @@ export function FileListView({
                 className="hidden w-[92px] @3xl/filelist:table-cell"
               />
             )}
-            <SortHeader
-              label={t('list.columns.status')}
-              column="status"
-              sort={sort}
-              onSort={setSort}
-              // 104px at every width, and NOT the 84px this briefly narrowed to.
-              // The badge is `whitespace-nowrap w-fit`, so a cell too small for
-              // it does not clip — the badge simply renders over its neighbour.
-              // Sized in English that looked fine; German is where it showed:
-              // "Wird hochgeladen" and "Wird verarbeitet" are ~122px at
-              // `text-xs` + `px-2.5`, against the 68px an 84px cell leaves after
-              // its own padding. The cell is the containing box, so the width has
-              // to be one the badge can be made to fit inside — see the `truncate`
-              // on the badge below, which is the other half of this.
-              // 156px once the LIST is 28rem wide: the badge carries its
-              // state's glyph, and „Wird hochgeladen" or „Zurückgehalten"
-              // beside it needs ~98px of word. Narrower (a phone) it stays
-              // 104px: the word ellipsizes and the glyph still says which
-              // state it is. The other columns step in only where the name
-              // keeps ~220px beside them: Freigabe and Größe at 48rem,
-              // Hinzugefügt at 56rem, Seiten at 64rem.
-              className="w-[104px] @md/filelist:w-[156px]"
-            />
-            {/* Below `sm` the row keeps only what identifies and what acts:
-                name and status. Pages, size and date are reference columns.
-                The Freigabe column steps out with them: triage is bulk work,
-                and bulk work happens where the table has room. */}
-            <TableHead
-              scope="col"
-              className="hidden h-auto w-[120px] px-2 py-1.5 @3xl/filelist:table-cell"
-            >
-              {t('list.columns.approval')}
-            </TableHead>
-            <TableHead
-              scope="col"
-              className="hidden h-auto w-[76px] px-2 py-1.5 text-right @5xl/filelist:table-cell"
-            >
-              {t('list.columns.pages')}
-            </TableHead>
-            <SortHeader
-              label={t('list.columns.size')}
-              column="size"
-              sort={sort}
-              onSort={setSort}
-              align="right"
-              className="hidden w-[104px] @3xl/filelist:table-cell"
-            />
+            {/* Status, Freigabe and Seiten step in only when a row has something to say (`listColumns`).
+                Status is 104px, 156px from 28rem: a badge wider than its cell renders over its neighbour,
+                so the word ellipsizes and the glyph stays. The reference columns step in where the name
+                keeps ~220px: Freigabe and Größe at 48rem, Hinzugefügt at 56rem, Seiten at 64rem. */}
+            {columns.status && (
+              <SortHeader
+                label={t('list.columns.status')}
+                column="status"
+                sort={sort}
+                onSort={setSort}
+                className="w-[104px] @md/filelist:w-[156px]"
+              />
+            )}
+            {columns.approval && (
+              <TableHead scope="col" className="hidden h-auto w-[120px] px-2 py-1.5 @3xl/filelist:table-cell">
+                {t('list.columns.approval')}
+              </TableHead>
+            )}
+            {columns.pages && (
+              <TableHead scope="col" className="hidden h-auto w-[76px] px-2 py-1.5 text-right @5xl/filelist:table-cell">
+                {t('list.columns.pages')}
+              </TableHead>
+            )}
+            {columns.size && (
+              <SortHeader
+                label={t('list.columns.size')}
+                column="size"
+                sort={sort}
+                onSort={setSort}
+                align="right"
+                className="hidden w-[104px] @3xl/filelist:table-cell"
+              />
+            )}
             <SortHeader
               label={t('list.columns.added')}
               column="added"
@@ -302,6 +290,7 @@ export function FileListView({
               isSelected={selectedFileId === file.id}
               isTabStop={index === tabStop}
               semantic={semantic}
+              columns={columns}
               draggable={draggable && !picking}
               picking={picking}
               checked={picking && selection?.selectedIds.has(file.id) === true}
@@ -326,6 +315,8 @@ interface FileListRowItemProps {
   /** Whether this row holds the list's one tab stop (roving tabindex). */
   isTabStop: boolean
   semantic: boolean
+  /** The optional columns any row fills (`listColumns`). */
+  columns: FileListColumns
   draggable: boolean
   /** Selection mode: the leading checkbox, and no ⋯. */
   picking: boolean
@@ -350,6 +341,7 @@ const FileListRowItem = memo(function FileListRowItem({
   isSelected,
   isTabStop,
   semantic,
+  columns,
   draggable,
   picking,
   checked,
@@ -362,15 +354,7 @@ const FileListRowItem = memo(function FileListRowItem({
 }: FileListRowItemProps): ReactNode {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
-  // The badge rule's subject, with the listing's nulls narrowed to
-  // what the rule reads: `null` lifecycle is "the working set", i.e.
-  // absent, and an unknown state is no badge.
-  const approvalSubject = {
-    versionState: file.versionState ?? null,
-    versionCount: file.versionCount ?? null,
-    lifecycle: file.lifecycle ?? undefined,
-    authoredBy: file.authoredBy ?? null,
-  }
+  const approvalSubject = approvalSubjectOf(file)
   const approvalState = documentBadgeState(approvalSubject)
   // A filing decision in view would move this file: outlined inside the row, which the table's scroll box would clip outside it.
   const lit = useFilingHighlighted(file.id)
@@ -474,66 +458,46 @@ const FileListRowItem = memo(function FileListRowItem({
           )}
         </TableCell>
       )}
-      <TableCell className={CELL}>
-        {/* `max-w-full` is what keeps a long localized status inside its
-            column. The badge is `w-fit whitespace-nowrap`, so without a
-            ceiling it renders at whatever width its label needs and simply
-            overlaps the cell beside it — invisible in English ("Citable"),
-            plainly wrong in German ("Wird hochgeladen"). Under the ceiling
-            the badge's word ellipsizes and its glyph stays whole; `title`
-            carries the full label for the states that do get cut, which
-            are the transient ones. */}
-        {file.status && !isCitableStatus(file.status) && (
-          <DocumentStatusBadge
-            status={file.status}
-            queueAhead={file.queueAhead}
-            className="max-w-full px-2"
-          />
-        )}
-      </TableCell>
-      <TableCell className={cn('hidden @3xl/filelist:table-cell', CELL)}>
-        {/* The editorial state, in the same words the card badge uses:
-            the column that makes bulk approval state visible where
-            bulk work happens. Silent by the same rule as the card — a
-            plain upload has one published version and shows nothing —
-            so the triage signal is exactly the rows that need work.
-            `documentBadgeState` is the rule read directly, so an empty
-            slot renders the same `—` a missing page count does. */}
-        {/* An older Fassung shows one badge, „Ältere Fassung", with
-            what replaced it on hover: the lifecycle's „Ersetzt" said
-            the same thing again. One badge, so the cell never wraps. */}
-        {isOlderRevisionEntry(file) ? (
-          <OlderRevisionBadge file={file} className="max-w-full truncate" />
-        ) : approvalState ? (
-          <DocumentVersionStateBadge
-            versionState={approvalSubject.versionState}
-            versionCount={approvalSubject.versionCount}
-            lifecycle={approvalSubject.lifecycle}
-            authoredBy={approvalSubject.authoredBy}
-            className="max-w-full truncate"
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground" data-testid="file-list-approval-empty">
-            —
-          </span>
-        )}
-      </TableCell>
-      <TableCell
-        className={cn(
-          'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @5xl/filelist:table-cell',
-          CELL
-        )}
-      >
-        {file.pageCount ?? '—'}
-      </TableCell>
-      <TableCell
-        className={cn(
-          'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @3xl/filelist:table-cell',
-          CELL
-        )}
-      >
-        {formatBytes(file.fileSize, locale)}
-      </TableCell>
+      {columns.status && (
+        <TableCell className={CELL}>
+          {/* `max-w-full`: the badge is `w-fit whitespace-nowrap`, so without a ceiling a German word overlaps the next cell. */}
+          {file.status && !isCitableStatus(file.status) && (
+            <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="max-w-full px-2" />
+          )}
+        </TableCell>
+      )}
+      {columns.approval && (
+        <TableCell className={cn('hidden @3xl/filelist:table-cell', CELL)}>
+          {/* The editorial state in the card badge's words, silent by the same rule; an older Fassung is one badge. */}
+          {isOlderRevisionEntry(file) ? (
+            <OlderRevisionBadge file={file} className="max-w-full truncate" />
+          ) : approvalState ? (
+            <DocumentVersionStateBadge
+              versionState={approvalSubject.versionState}
+              versionCount={approvalSubject.versionCount}
+              lifecycle={approvalSubject.lifecycle}
+              authoredBy={approvalSubject.authoredBy}
+              className="max-w-full truncate"
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground" data-testid="file-list-approval-empty">
+              —
+            </span>
+          )}
+        </TableCell>
+      )}
+      {columns.pages && (
+        <TableCell
+          className={cn('hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @5xl/filelist:table-cell', CELL)}
+        >
+          {file.pageCount ?? '—'}
+        </TableCell>
+      )}
+      {columns.size && (
+        <TableCell className={cn('hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @3xl/filelist:table-cell', CELL)}>
+          {typeof file.fileSize === 'number' ? formatBytes(file.fileSize, locale) : '—'}
+        </TableCell>
+      )}
       <TableCell
         className={cn(
           'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @4xl/filelist:table-cell',

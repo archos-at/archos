@@ -113,33 +113,26 @@ export function AgentReading({
             {types.length + disciplines.length + topics.length > 0 ? t('preview.reading.classifiedAs') : t('preview.reading.noType')}
           </p>
           {/* Three weights for three kinds of reading, so the eye ranks them
-              before it reads them. The type is the ink tint: it is the one
-              classification that decides what the document is. A discipline
-              is an outline in ink, a topic the same outline in muted ink, a
-              free-form note. The type used to be `secondary`, the quiet fill
-              (#f2f2f0), which on the rail's sunken ground (#f1f1ef) drew it as
-              a bare word beside bordered disciplines. */}
-          <div className="flex flex-wrap items-center gap-1.5">
+              before it reads them. The type is the one chip: it decides what
+              the document is. The disciplines follow as words in ink and the
+              topics in muted ink, the gap between them (a middot began the
+              wrapped lines): seven outlined pills
+              in a 220px rail were a wall of boxes that all looked equal. */}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
             {types.map((tag) => (
               <Chip key={tag} variant="default" size="sm" data-testid="agent-reading-type">
                 {tagLabel(tag, t)}
               </Chip>
             ))}
             {disciplines.map((tag) => (
-              <Chip key={tag} variant="outline" size="sm">
+              <span key={tag} className="text-foreground">
                 {tagLabel(tag, t)}
-              </Chip>
+              </span>
             ))}
             {topics.map((topic) => (
-              <Chip
-                key={topic}
-                variant="outline"
-                size="sm"
-                className="text-muted-foreground font-normal"
-                data-testid="agent-reading-topic"
-              >
+              <span key={topic} className="text-muted-foreground" data-testid="agent-reading-topic">
                 {topic}
-              </Chip>
+              </span>
             ))}
             {canManage && (
               <Button

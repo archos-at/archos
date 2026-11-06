@@ -4,7 +4,8 @@
  * The E-Mail-Eingang's header action: the project's address itself.
  *
  * The first thing a person comes here for, after the mail, is the address to
- * put in Cc. So the header shows it, and a press copies it; „Mehr“ beside it
+ * put in Cc. So the header shows it, filled like the search field on Alle
+ * Dateien so it reads as a control in that same place, and a press copies it; „Mehr“ beside it
  * opens the dialog with what it is for, the contact card and the size limit.
  * Without an address, a manager reads „Adresse erzeugen“ (the dialog, which
  * says what it is for before anything is made); a member reads nothing here,
@@ -33,7 +34,7 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
       <div className="flex min-w-0 items-center gap-1" data-testid="inbound-mail-header-address">
         <CopyableValue
           value={value}
-          className="text-foreground h-8 min-w-0 items-center px-2 font-mono text-xs [&>span]:truncate"
+          className="text-foreground bg-muted/80 hover:bg-muted rounded-control h-8 min-w-0 items-center px-2.5 font-mono text-xs transition-colors duration-quick [&>span]:truncate"
           onCopied={() => capturePosthog('inbound_mail_address_copied', { surface: 'header' })}
         >
           {value}

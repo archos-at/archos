@@ -43,7 +43,7 @@ function renderDetail(name: string) {
 beforeEach(() => vi.clearAllMocks())
 
 describe('MailHeader', () => {
-  it('says who, how far confirmed and when in one line, and folds the evidence behind „Details“', async () => {
+  it('says who and when, then how far confirmed, and folds the evidence behind „Details“', async () => {
     renderDetail('member-verified')
     const line = screen.getByTestId('mail-header-line')
     expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber ‹m.huber@huber-architektur.at›')

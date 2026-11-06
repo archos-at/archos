@@ -8,7 +8,8 @@
  * (`data-cursor`) take the kit's marks rather than a bar down the edge. A
  * leading checkbox for bulk work, visible on hover and focus and always under
  * a finger; then the sender's disc, the subject with its „AW:“/„WG:“ chain
- * stripped (the full subject is in the title), the time, and one muted line:
+ * stripped (and, under a thread group, the thread's name; the full subject is
+ * in the title), the time, and one muted line:
  * who, from which domain, how many attachments. While a mail waits, a third
  * line names the E-Mail-Verlauf it would continue (only one the reader may
  * read; not under a thread group's header, which says it already, nor once a
@@ -40,7 +41,7 @@ import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
 import { formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { displaySubject } from '@/lib/inbound-mail/subject'
+import { displaySubject, subjectWithinThread } from '@/lib/inbound-mail/subject'
 import { fileableReason } from '../lib/completeness'
 import { bulkSelectable } from '../lib/impersonation'
 import { mailClaimOf } from '../lib/sender'
@@ -83,7 +84,9 @@ export function InboundMailRow({
 }: InboundMailRowProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { locale } = useLocale()
-  const subject = displaySubject(mail.subject) ?? t('row.noSubject')
+  // Under its thread's heading, the part of the subject that tells the thread's mails apart.
+  const shown = displaySubject(mail.subject)
+  const subject = (inGroup && mail.thread ? subjectWithinThread(shown, mail.thread.name) : shown) ?? t('row.noSubject')
   const who = mail.senderName?.trim() || mail.senderDomain || '—'
   const waiting = mail.status === 'waiting'
   const outcomes = (['filed', 'dismissed', 'expired'] as const).filter((outcome) => mail.outcomes[outcome] > 0)

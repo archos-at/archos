@@ -73,7 +73,7 @@ describe('InboundMailWorkspace', () => {
   it('groups a conversation with one button that files it as suggested', async () => {
     renderWorkspace('selected')
     const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis” · 4 new mails/ })
-    expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File all 4 (becomes revisions 4–7)')
+    expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–7')
     await userEvent.click(within(group).getByTestId('thread-group-file'))
     const destinations = await screen.findByTestId('bulk-destinations')
     expect(destinations).toHaveTextContent('In mail thread “Stellplatznachweis”: 4')
@@ -83,7 +83,7 @@ describe('InboundMailWorkspace', () => {
   it('splits a conversation: its ready replies go in one press, the ones that need a look are gone through in order', () => {
     renderWorkspace('thread-group')
     const ready = screen.getByRole('region', { name: /3 new mails/ })
-    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File all 3 (becomes revisions 4–6)')
+    expect(within(ready).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–6')
     const waiting = screen.getByRole('region', { name: /2 new mails/ })
     expect(within(waiting).queryByTestId('thread-group-file')).toBeNull()
     expect(within(waiting).getByTestId('thread-group-open')).toHaveAttribute('href', expect.stringContaining('/files/mail/'))
@@ -105,7 +105,7 @@ describe('InboundMailWorkspace', () => {
     const { client } = renderWorkspace('worst-case')
     const file = vi.spyOn(client, 'file')
     const press = screen.getByTestId('thread-group-file')
-    expect(press).toHaveTextContent('File the first 20 (becomes revisions 4–23)')
+    expect(press).toHaveTextContent('File the first 20 as revisions 4–23')
     expect(screen.getByTestId('readiness-file-all')).toHaveTextContent('File the first 20 as suggested')
     await userEvent.click(press)
     await userEvent.click(await screen.findByTestId('bulk-file-confirm'))

@@ -92,6 +92,10 @@ export interface InboundMailListProps {
   notice: ReactNode
 }
 
+/** A thread group's press: quiet text at the line's end, a finger's 44px under touch. */
+const GROUP_ACTION =
+  'text-muted-foreground hover:text-foreground -mr-2 h-7 shrink-0 gap-1.5 px-2 text-xs pointer-coarse:min-h-11'
+
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   const { status, onFilterChange, waitingCount, showFilter = true } = props
@@ -271,25 +275,25 @@ function ListBody({
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
-              <div className="flex flex-col gap-2 px-3 pt-3 sm:px-4">
-                <p className="text-muted-foreground flex items-start gap-1.5 text-xs font-medium">
+              {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
+              <div className="flex items-start justify-between gap-2 px-3 pt-3 sm:px-4">
+                {/* The rows below show how many; the section's label says it in full. */}
+                <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 py-1 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   <Repeat2 className="mt-px size-3.5 shrink-0" aria-hidden />
-                  <span className="min-w-0 [overflow-wrap:anywhere]">{t('group.thread', { name: section.name, count: section.mails.length })}</span>
+                  <span className="min-w-0 [overflow-wrap:anywhere]">{t('group.threadLine', { name: section.name })}</span>
                 </p>
                 {section.mails.every(isReady) ? (
                   <BusyButton
                     type="button"
                     size="sm"
-                    // A quiet action under the thread's line, as the „Bereit“ heading's: the detail's bar is the one primary.
                     variant="ghost"
-                    className="text-muted-foreground hover:text-foreground gap-1.5 -ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11"
+                    className={GROUP_ACTION}
                     icon={<FileInput aria-hidden />}
                     busy={fileGroupBusy === groupKey}
                     busyLabel={t('bulk.fileSuggestedBusy')}
                     onClick={() => onFileGroup(groupKey, batch.map((mail) => mail.id))}
                     data-testid="thread-group-file"
                   >
-                    {/* The line above names the thread; the button says only what the press does. */}
                     {t(batch.length < section.mails.length ? 'group.threadActionFirst' : 'group.threadAction', {
                       count: batch.length,
                       first: section.firstVersion,
@@ -297,9 +301,8 @@ function ListBody({
                     })}
                   </BusyButton>
                 ) : (
-                  // Every mail of this half needs the person, so no press files it: the way in is its first mail. No
-                  // Fassung range either, which would depend on what is filed before it.
-                  <Button asChild size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground gap-1.5 -ml-2 h-auto min-h-7 w-fit justify-start whitespace-normal px-2 py-1 text-left text-xs pointer-coarse:h-auto pointer-coarse:min-h-11">
+                  // Every mail of this half needs the person: the way in is its first mail, and no Fassung range is promised.
+                  <Button asChild size="sm" variant="ghost" className={GROUP_ACTION}>
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
                       <ArrowRight className="size-3.5" aria-hidden />
                       {t('group.reviewInOrder')}

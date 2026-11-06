@@ -321,10 +321,10 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
   const { locale } = useLocale()
   if (tally.readable === 0) return null
   const contentNames = contents.map(({ label }) => t(`preview.contentTypeNames.${label}`))
-  const summary =
-    documentTypes.length + disciplines.length > 0
-      ? [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t)).join(' · ')
-      : t('brief.noTypes')
+  // The closed line names the first four kinds and counts the rest; the disclosure holds them all.
+  const kinds = [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t))
+  const more = kinds.length - 4
+  const summary = kinds.length === 0 ? t('brief.noTypes') : [...kinds.slice(0, 4), ...(more > 0 ? [t('brief.aboutMore', { count: more })] : [])].join(' · ')
   return (
     <BriefDisclosure id="folder-brief-about" title={t('brief.aboutTitle')} summary={summary}>
       {documentTypes.length === 0 && disciplines.length === 0 ? (

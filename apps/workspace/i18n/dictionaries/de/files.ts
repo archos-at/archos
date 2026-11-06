@@ -1117,6 +1117,7 @@ export const files: typeof en.files = {
     showTag: 'Alle Dokumente „{tag}“ in diesem Ordner und seinen Unterordnern zeigen',
     pages: '{count, plural, one {{formatted} Seite gelesen} other {{formatted} Seiten gelesen}}',
     aboutTitle: 'Worum es hier geht',
+    aboutMore: '+{count}',
     noTypes: '{productName} hat hier noch keine Dokumentart erkannt.',
     /** „Worum es hier geht“, solange nur die Zahlen des Ordners geladen sind (ADR-0102). */
     aboutDeferred: 'Dokumentarten, Fachbereiche und Themen',

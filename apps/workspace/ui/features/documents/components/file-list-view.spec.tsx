@@ -205,12 +205,12 @@ describe('FileListView', () => {
       expect(screen.getByTestId('document-version-badge')).toHaveTextContent('In review')
     })
 
-    it('stays quiet on a plain upload, like the card', () => {
-      renderList([doc('Plan.pdf', { versionState: 'published', versionCount: 1 })])
+    it('drops the column when no row has a state, like the card stays quiet on a plain upload', () => {
+      renderList([doc('Plan.pdf', { versionState: 'published', versionCount: 1 }), doc('Lageplan.pdf')])
 
-      const row = screen.getByTestId('file-list-row')
-      expect(within(row).queryByTestId('document-version-badge')).not.toBeInTheDocument()
-      expect(within(row).getByTestId('file-list-approval-empty')).toBeInTheDocument()
+      expect(screen.queryByText('Approval')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('document-version-badge')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('file-list-approval-empty')).not.toBeInTheDocument()
     })
 
     it('shows a Piloti draft’s state — triage must see what waits', () => {
@@ -226,12 +226,17 @@ describe('FileListView', () => {
       expect(screen.getByTestId('document-version-badge')).toHaveTextContent('Draft')
     })
 
-    it('marks rows the listing never read the state for, as it does for pages', () => {
-      renderList([doc('Plan.pdf')])
+    it('marks the rows without a state once one row has one', () => {
+      renderList([doc('Bericht.pdf', { authoredBy: 'agent', versionState: 'draft', versionCount: 1 }), doc('Plan.pdf')])
 
-      const row = screen.getByTestId('file-list-row')
-      expect(within(row).queryByTestId('document-version-badge')).not.toBeInTheDocument()
-      expect(within(row).getByTestId('file-list-approval-empty')).toHaveTextContent('—')
+      const plain = screen.getAllByTestId('file-list-row').find((row) => within(row).queryByText('Plan.pdf'))!
+      expect(within(plain).getByTestId('file-list-approval-empty')).toHaveTextContent('—')
+    })
+
+    it('has no Status column while every document is readable', () => {
+      renderList([doc('Plan.pdf', { status: 'success' })])
+
+      expect(screen.queryByRole('columnheader', { name: /status/i })).not.toBeInTheDocument()
     })
   })
 })
@@ -258,7 +263,7 @@ describe('FileListView — Fassungen', () => {
     const count = within(withHistory).getByTestId('revision-count')
     expect(count).toHaveTextContent('2 revisions')
     expect(count.parentElement).toHaveTextContent('Gutachten_v3.pdf')
-    expect(within(withHistory).getByTestId('file-list-approval-empty')).toBeInTheDocument()
+    expect(within(withHistory).queryByTestId('file-list-approval-empty')).not.toBeInTheDocument()
     expect(within(plain).queryByTestId('revision-count')).not.toBeInTheDocument()
   })
 

@@ -2,11 +2,11 @@
 
 /**
  * The head of one held mail, built so the detail opens on the mail itself
- * (the owner's review, 2026-10-27): the subject, then ONE line that says who
- * it is from (name and address, never one without the other), how far the
- * sender's domain is confirmed and when it arrived, then the flags that change
- * what filing needs. Everything else is evidence a person needs now and then,
- * and sits behind „Details“ at the end of that line: when it was sent, every
+ * (the owner's review, 2026-10-27): the subject, then who it is from (name
+ * and address, never one without the other) with when it arrived at the line's
+ * end, then how far the sender's domain is confirmed, then the flags that
+ * change what filing needs. Everything else is evidence a person needs now and
+ * then, and sits behind „Details“ beside the confirmation: when it was sent, every
  * recipient, the original `.eml` with its warning, and the date it stops
  * waiting. Trust is never folded away, and the expiry comes forward into the
  * header in its last week (`expiryShownInline`).
@@ -81,26 +81,30 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
         <h2 className="text-lg font-medium tracking-tight [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
           {subject}
         </h2>
-        {/* The one line: who, how far confirmed, when, and the way to the rest. It wraps on a phone, never truncates. */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" data-testid="mail-header-line">
-          {view.sender && (
-            <>
+        {/* Who and when on the first line, the date at its end; how far the domain is confirmed and the way to the rest
+            on the second. One line of six facts was the densest line on the page. Both wrap on a phone, never truncate. */}
+        <div className="flex flex-col gap-1" data-testid="mail-header-line">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+            {view.sender && (
               <span className="text-foreground min-w-0 text-sm [overflow-wrap:anywhere]" data-testid="mail-header-from">
                 {t('header.fromShort', { name: senderDisplayName(view.sender), address: view.sender.address })}
               </span>
-              <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />
-            </>
-          )}
-          <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
-            {formatAbsoluteTime(view.receivedAt, locale)}
-          </time>
-          <CollapsibleTrigger
-            className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            data-testid="mail-details-toggle"
-          >
-            {t('header.details')}
-            <ChevronDown className="size-3.5 transition-transform duration-quick group-data-[state=open]/details:rotate-180 motion-reduce:transition-none" aria-hidden />
-          </CollapsibleTrigger>
+            )}
+            <time className="text-muted-foreground shrink-0 text-xs tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
+              {formatAbsoluteTime(view.receivedAt, locale)}
+            </time>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {/* Trust is never folded away. */}
+            {view.sender && <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />}
+            <CollapsibleTrigger
+              className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              data-testid="mail-details-toggle"
+            >
+              {t('header.details')}
+              <ChevronDown className="size-3.5 transition-transform duration-quick group-data-[state=open]/details:rotate-180 motion-reduce:transition-none" aria-hidden />
+            </CollapsibleTrigger>
+          </div>
         </div>
         {view.sender && <SenderFlagLines sender={view.sender} />}
         <SenderWaitLine view={view} />

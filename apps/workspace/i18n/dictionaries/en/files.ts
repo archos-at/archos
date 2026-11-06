@@ -1146,6 +1146,7 @@ export const files = {
     showTag: 'Show every “{tag}” document in this folder and its subfolders',
     pages: '{count, plural, one {{formatted} page read} other {{formatted} pages read}}',
     aboutTitle: 'What this is about',
+    aboutMore: '+{count}',
     noTypes: '{productName} has not recognized a document type here yet.',
     /** "What this is about" while only the folder's counts are loaded (ADR-0102). */
     aboutDeferred: 'Document types, disciplines and topics',

@@ -107,7 +107,7 @@
     "apps/workspace/ui/features/documents/components/document-review-controls.tsx": 621,
     "apps/workspace/ui/features/documents/components/document-revisions.tsx": 798,
     "apps/workspace/ui/features/documents/components/file-browser-pane.tsx": 1102,
-    "apps/workspace/ui/features/documents/components/file-list-view.tsx": 655,
+    "apps/workspace/ui/features/documents/components/file-list-view.tsx": 618,
     "apps/workspace/ui/features/documents/components/file-preview-host.tsx": 652,
     "apps/workspace/ui/features/documents/components/file-workspace.tsx": 1305,
     "apps/workspace/ui/features/documents/components/folder-brief.tsx": 690,

@@ -95,9 +95,10 @@ export const inboundMail = {
 
   group: {
     thread: 'Mail thread “{name}” · {count, plural, one {# new mail} other {# new mails}}',
-    threadAction: 'File all {count} (becomes revisions {first}–{last})',
-    threadActionFirst: 'File the first {count} (becomes revisions {first}–{last})',
-    reviewInOrder: 'Go through them in order',
+    threadLine: 'Mail thread “{name}”',
+    threadAction: '{count, plural, one {File as revision {first}} other {File as revisions {first}–{last}}}',
+    threadActionFirst: 'File the first {count} as revisions {first}–{last}',
+    reviewInOrder: 'Review',
     quiet: 'Domain not verified or automatic ({count})',
     quietHint: 'These are listed in full. {productName} makes no suggestions for them, and none of them is filed directly.',
   },

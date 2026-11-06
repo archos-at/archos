@@ -1,0 +1,18 @@
+---
+features:
+  - >
+    Files has places of its own along the top: All files, the e-mail inbox
+    with the number of mails waiting, Open points and the Bin. The inbox shows
+    the project's address at the top for copying, and a new project's empty
+    inbox leads with it.
+  - >
+    Files is calmer to read. Tiles and folders sit on the page without boxes
+    around them, every file type reads in the same ink, and in the list a
+    column appears only when one of its rows has something to show.
+  - >
+    In the e-mail inbox, mails from one thread stand under a single line with
+    the press that files them all, and each mail's subject shows only what
+    sets it apart from the others.
+fixes:
+  - >
+    A file found by search no longer shows a size of "0 B".
