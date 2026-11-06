@@ -140,12 +140,12 @@ export function FollowControl({ projectId, view, viewerUserId, client, onChanged
         canFollow || own.kind === 'following' ? (
           <>
           {canFollow && (
-            <BusyButton type="button" size="sm" variant="outline" busy={pending === 'follow'} busyLabel={t('follow.start')} onClick={() => void follow()} data-testid="mail-thread-follow-start">
+            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'follow'} busyLabel={t('follow.start')} onClick={() => void follow()} data-testid="mail-thread-follow-start">
               {t('follow.start')}
             </BusyButton>
           )}
           {own.kind === 'following' && own.renewable && (
-            <BusyButton type="button" size="sm" variant="outline" busy={pending === 'renew'} busyLabel={t('follow.renew')} onClick={() => void renew()} data-testid="mail-thread-follow-renew">
+            <BusyButton type="button" size="sm" variant="secondary" busy={pending === 'renew'} busyLabel={t('follow.renew')} onClick={() => void renew()} data-testid="mail-thread-follow-renew">
               {t('follow.renew')}
             </BusyButton>
           )}

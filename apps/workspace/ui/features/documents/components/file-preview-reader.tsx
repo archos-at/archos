@@ -99,7 +99,7 @@ export function HeldReview({
       <div className="flex flex-wrap items-center gap-2" data-testid="preview-held-review">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={() => setReleaseOpen(true)}
           data-testid="preview-held-release"
@@ -162,11 +162,10 @@ export function AskColleagueButton({
         })
       }}
       onChanged={() => undefined}
-      // Full width in the rail, beside „Piloti dazu fragen", rather than the
-      // ghost pill the popover draws for the Files list. The two Ask affordances
-      // are one pair and have to read as one.
+      // Full width in the rail, under the primary: the tonal secondary (D4), so the two Ask affordances read as one
+      // pair of presses. A bare centred word beside left-aligned content had no affordance.
       trigger={
-        <Button type="button" variant="outline" size="sm" className="h-8 w-full">
+        <Button type="button" variant="secondary" size="sm" className="h-8 w-full">
           {t('assignment.askColleague')}
         </Button>
       }
@@ -203,10 +202,10 @@ export function ReaderHeader({
   return (
     <div
       data-testid="file-reader-header"
-      className="bg-card flex shrink-0 items-center gap-2 border-b pt-[max(0.375rem,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pb-1.5 pl-[max(1rem,env(safe-area-inset-left))]"
+      className="bg-card flex shrink-0 items-center gap-2 pt-[max(0.375rem,env(safe-area-inset-top))] pr-[max(0.25rem,env(safe-area-inset-right))] pb-1.5 pl-[max(1rem,env(safe-area-inset-left))]"
     >
       <div className="min-w-0 flex-1 py-1">
-        <h3 className="text-foreground flex text-[15px] font-medium leading-tight tracking-[-0.01em]" title={title}>
+        <h3 className="text-foreground flex text-sm font-medium leading-tight" title={title}>
           <MiddleTruncate text={name} />
         </h3>
         <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden">
@@ -280,13 +279,13 @@ export function ReaderActions({
       className={cn(
         'flex items-center',
         bar
-          ? 'bg-card shrink-0 gap-2 border-t pt-2 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))]'
+          ? 'bg-card shrink-0 gap-3 pt-2 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))]'
           : 'shrink-0 gap-1',
       )}
     >
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size={bar ? 'default' : 'sm'}
         className={cn(
           'gap-1.5',
@@ -300,15 +299,14 @@ export function ReaderActions({
         data-testid="file-reader-details"
       >
         <ListTree className="size-4" aria-hidden />
-        {/* Three actions and the menu do not fit a 393px bar in words: the two
-            beside „Besprechen" keep their glyphs and give their names to a
-            screen reader. */}
-        <span className={cn(bar && annotate && 'max-[27.5rem]:sr-only')}>{detailsLabel}</span>
+        {/* „Besprechen“ and the menu with a word beside them do not fit a 393px bar: the presses beside it keep
+            their glyphs and give their names to a screen reader, so the primary keeps its padding. */}
+        <span className={cn(bar && 'max-[27.5rem]:sr-only')}>{detailsLabel}</span>
       </Button>
       {annotate && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size={bar ? 'default' : 'sm'}
           className={cn('gap-1.5', bar ? 'h-11 min-w-11 shrink-0 px-3' : 'h-9 pointer-coarse:h-11')}
           // On a narrow bar the words give way to the glyph and the count, so

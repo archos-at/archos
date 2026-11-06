@@ -5,7 +5,7 @@ import { Clock, MessageCircle, UserRound } from 'lucide-react'
 import { CommentPin } from '@/components/ui/comment-pin'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatDayRange, localCalendarDay } from '@/lib/format'
+import { formatCalendarDay, localCalendarDay } from '@/lib/format'
 import { isLive, isOverdue, type AnnotationView } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import { MarkBody } from './mark-body'
@@ -20,7 +20,7 @@ import { markInk, pinLabel } from './review-page-layer'
 export const markRowClassName = (selected = false): string =>
   cn(
     'flex w-full gap-3 rounded-control px-2.5 py-2 text-left transition-colors duration-quick ease-out outline-none',
-    'hover:bg-accent/60 focus-visible:ring-ring/60 focus-visible:ring-2',
+    'hover:bg-accent focus-visible:ring-ring/60 focus-visible:ring-2',
     selected && 'bg-accent'
   )
 
@@ -72,9 +72,10 @@ export function MarkRowContent({
         <span className={cn('text-foreground line-clamp-2 text-sm leading-5', !isLive(annotation) && 'text-muted-foreground')}>
           <MarkBody text={annotation.body} mentions={annotation.mentions} viewerId={viewerId} clamped />
         </span>
-        {/* Items separated by space and their own icons, never a leading „·"
-            when a line wraps; each item keeps to one line. */}
-        <span className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs" data-testid="review-row-meta">
+        {/* Items apart by „·“ as every meta line of the surface (the tile's, the mail row's), the dot after an item
+            so a wrapped line never starts with one; each item keeps to one line. 4px each side: a glyph clause's own
+            2px gap counts toward its dot's margin. */}
+        <span className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs [&>*:not(:last-child)]:after:ml-1 [&>.inline-flex:not(:last-child)]:after:ml-0.5 [&>*:not(:last-child)]:after:text-muted-foreground/40 [&>*:not(:last-child)]:after:content-['·']" data-testid="review-row-meta">
           <span className="whitespace-nowrap">{t(`annotations.kinds.${annotation.kind}`)}</span>
           {showPage && <span className="whitespace-nowrap">{t('review.page', { page: annotation.page })}</span>}
           <span className="min-w-0 truncate">{author}</span>
@@ -91,14 +92,14 @@ export function MarkRowContent({
             </span>
           )}
           {annotation.dueOn && (
-            <span className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', overdue && 'text-foreground font-medium')}>
+            <span className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', overdue && 'text-warning font-medium' /* ochre with its clock and word: this one waits on a person */)}>
               <Clock className="size-3" aria-hidden />
-              {overdue ? t('review.overdue') : formatDayRange(annotation.dueOn, annotation.dueOn, locale)}
+              {overdue ? t('review.overdue') : formatCalendarDay(annotation.dueOn, locale)}
             </span>
           )}
         </span>
         {!annotation.onCurrentRevision && (
-          <span className="text-muted-foreground mt-0.5 block text-xs italic" title={t('annotations.earlierRevisionHint')}>
+          <span className="text-muted-foreground mt-0.5 block text-xs" title={t('annotations.earlierRevisionHint')}>
             {annotation.revisionNumber
               ? t('annotations.earlierRevision', { number: annotation.revisionNumber })
               : t('annotations.earlierRevisionUnnumbered')}

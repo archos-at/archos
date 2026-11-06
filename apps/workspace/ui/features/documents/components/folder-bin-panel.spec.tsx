@@ -43,7 +43,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     expect(screen.getByText('Verträge')).toBeDefined()
     expect(screen.getByText(/Deleted by Gerda Fischer on/)).toBeDefined()
     expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
-    expect(screen.getByText(/Permanently deleted on/)).toBeDefined()
+    expect(screen.getByText(/kept until/)).toBeDefined()
   })
 
   test('says the bin is empty', () => {
@@ -53,10 +53,12 @@ describe('FolderBinPanel (the Papierkorb)', () => {
 
   test('offers restore only where the reader may restore, and purge only to a project admin', () => {
     render(
-      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false })])} />
+      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])} />
     )
     expect(screen.getByTestId('bin-restore-f-vertraege')).toBeDefined()
     expect(screen.queryByTestId('bin-restore-f-ro')).toBeNull()
+    // Where the press is missing, the row says why.
+    expect(screen.getByTestId('bin-blocked-f-ro')).toHaveTextContent('you may only read this folder')
     expect(screen.queryByTestId('bin-purge-f-vertraege')).toBeNull()
   })
 
@@ -88,7 +90,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     const binned = entry({ folderId: 'f-holder', name: 'Plan.pdf', document: { id: 'd1', name: 'Plan.pdf' } })
     render(<FolderBinPanel projectId="p1" initial={listing([binned])} />)
 
-    expect(screen.getByText('Document · goes back to its folder when restored')).toBeDefined()
+    expect(screen.getByText('Plan.pdf')).toBeDefined()
     await userEvent.click(screen.getByTestId('bin-restore-f-holder'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())

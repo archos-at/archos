@@ -5,12 +5,14 @@ import type { JSX } from 'react'
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { FileItem } from './project-file-workspace'
-import { DocumentStatusBadge } from './document-status'
+import { DocumentStatusBadge, isCitableStatus } from './document-status'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
-import { FileExtChip } from './file-ext-chip'
+import { approvalSubjectOf, listColumns, type FileListColumns } from './file-list-columns'
+import { fileExtensionLabel } from '../document-kind'
+import { MarkedSnippet } from './semantic-match'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -26,19 +28,10 @@ import { OpenMarksChip } from './open-marks-chip'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 /**
- * The explorer's detail view — the one a person reaches for when the corpus has
- * grown past what a card grid can hold.
- *
- * Cards are a browsing surface: they answer "what is in here" for twelve
- * documents and stop scaling somewhere around forty, because each one costs a
- * thumbnail's worth of vertical space and the only orderable property is
- * whatever the API returned. A set of Einreichunterlagen is a hundred files
- * whose names are their index, and the questions asked of it are ordering
- * questions — which failed, what is the newest, which is the 200 MB one. This
- * view answers those: a dense sortable list, numeric-aware name ordering so
- * `Plan_2` precedes `Plan_10`, and full keyboard navigation.
- *
- * It is a THIRD view, not a replacement. The card grid stays the default.
+ * The explorer's detail view, for a corpus past what a card grid holds: a set of Einreichunterlagen is a
+ * hundred files whose names are their index, asked ordering questions (which failed, the newest, the
+ * 200 MB one). A dense sortable list, numeric-aware names (`Plan_2` before `Plan_10`), full keyboard
+ * navigation. The card grid stays the default.
  */
 
 /** A listing row, optionally carrying the evidence for a semantic match. */
@@ -61,6 +54,8 @@ interface FileListViewProps {
    * away without saying so.
    */
   semantic?: boolean
+  /** The query the ranked rows answer: its words are marked in each row's passage. */
+  query?: string | null
   /**
    * The listing's order, when somebody outside owns it.
    *
@@ -100,6 +95,7 @@ export function FileListView({
   renderActions,
   wrapRow,
   semantic = false,
+  query = null,
   sort: controlledSort,
   onSortChange,
   draggable = false,
@@ -114,10 +110,12 @@ export function FileListView({
   // holds — the same rule as the menu, which hides the sort section while a
   // semantic search is active.
   const sort = semantic || !controlledSort ? uncontrolledSort : controlledSort
+  const showRank = semantic && sort.key !== 'relevance'
   const setSort = semantic || !onSortChange ? setUncontrolledSort : onSortChange
   const bodyRef = useRef<HTMLTableSectionElement>(null)
 
   const rows = useMemo(() => sortFiles(files, sort, locale), [files, sort, locale])
+  const columns = useMemo(() => listColumns(files), [files])
 
   // A press means „open it" in the ordinary list and „pick it" in a selection.
   // One function per mode, so the memoised rows are not re-rendered by a
@@ -187,7 +185,9 @@ export function FileListView({
     // `@container/filelist`: the columns step out by the LIST's width, not the
     // screen's. Beside the chat a desktop screen holds a half-width list, and
     // viewport breakpoints kept every column there and left the name a sliver.
-    <div className="@container/filelist px-4 pb-4 pt-1">
+    // The cells' 8px inset is the rows' hover fill, so on a desk the list bleeds by it and the text stands on the
+    // column's edge (the title's); on a phone, where the column has no margin, the list keeps it.
+    <div className="@container/filelist px-2 pb-4 pt-1 md:-mx-2 md:px-0">
       {/* `table-fixed` IS THE TRUNCATION. Every filename cell below already
           carries `truncate`, and under the browser's default `table-layout: auto`
           that class did nothing at all: auto layout sizes a column to its
@@ -216,9 +216,11 @@ export function FileListView({
               column="name"
               sort={sort}
               onSort={setSort}
-              className="w-auto"
+              className="w-auto [&>button]:pl-[50px]" /* over the names, past the 32px format column */
             />
-            {semantic && (
+            {/* Only while another column orders the rows: sorted by relevance the order IS the rank, and a column of
+                „1, 2, 3“, or an empty one under its header, only repeated it. Its header is the way back. */}
+            {showRank && (
               <SortHeader
                 label={t('list.columns.relevance')}
                 column="relevance"
@@ -235,53 +237,31 @@ export function FileListView({
                 className="hidden w-[92px] @3xl/filelist:table-cell"
               />
             )}
-            <SortHeader
-              label={t('list.columns.status')}
-              column="status"
-              sort={sort}
-              onSort={setSort}
-              // 104px at every width, and NOT the 84px this briefly narrowed to.
-              // The badge is `whitespace-nowrap w-fit`, so a cell too small for
-              // it does not clip — the badge simply renders over its neighbour.
-              // Sized in English that looked fine; German is where it showed:
-              // "Wird hochgeladen" and "Wird verarbeitet" are ~122px at
-              // `text-xs` + `px-2.5`, against the 68px an 84px cell leaves after
-              // its own padding. The cell is the containing box, so the width has
-              // to be one the badge can be made to fit inside — see the `truncate`
-              // on the badge below, which is the other half of this.
-              // 156px once the LIST is 28rem wide: the badge carries its
-              // state's glyph, and „Wird hochgeladen" or „Zurückgehalten"
-              // beside it needs ~98px of word. Narrower (a phone) it stays
-              // 104px: the word ellipsizes and the glyph still says which
-              // state it is. The other columns step in only where the name
-              // keeps ~220px beside them: Freigabe and Größe at 48rem,
-              // Hinzugefügt at 56rem, Seiten at 64rem.
-              className="w-[104px] @md/filelist:w-[156px]"
-            />
-            {/* Below `sm` the row keeps only what identifies and what acts:
-                name and status. Pages, size and date are reference columns.
-                The Freigabe column steps out with them: triage is bulk work,
-                and bulk work happens where the table has room. */}
-            <TableHead
-              scope="col"
-              className="hidden h-auto w-[120px] px-2 py-1.5 @3xl/filelist:table-cell"
-            >
-              {t('list.columns.approval')}
-            </TableHead>
-            <TableHead
-              scope="col"
-              className="hidden h-auto w-[76px] px-2 py-1.5 text-right @5xl/filelist:table-cell"
-            >
-              {t('list.columns.pages')}
-            </TableHead>
-            <SortHeader
-              label={t('list.columns.size')}
-              column="size"
-              sort={sort}
-              onSort={setSort}
-              align="right"
-              className="hidden w-[104px] @3xl/filelist:table-cell"
-            />
+            {/* Freigabe and Seiten step in only when a row has something to say (`listColumns`). The reference columns
+                step in where the name keeps ~220px: Freigabe and Größe at 48rem, Hinzugefügt at 56rem, Seiten at 64rem.
+                What is in progress or open on a document („Wird gelesen“, „4 offen“) stands after its name, in one
+                place, as the tile carries both on itself: a Status column held one and not the other. Sorting by
+                status stays in the filter menu. */}
+            {columns.approval && (
+              <TableHead scope="col" className="hidden h-auto w-[120px] px-2 py-1.5 @3xl/filelist:table-cell">
+                {t('list.columns.approval')}
+              </TableHead>
+            )}
+            {columns.pages && (
+              <TableHead scope="col" className="hidden h-auto w-[76px] px-2 py-1.5 text-right @5xl/filelist:table-cell">
+                {t('list.columns.pages')}
+              </TableHead>
+            )}
+            {columns.size && (
+              <SortHeader
+                label={t('list.columns.size')}
+                column="size"
+                sort={sort}
+                onSort={setSort}
+                align="right"
+                className="hidden w-[104px] @3xl/filelist:table-cell"
+              />
+            )}
             <SortHeader
               label={t('list.columns.added')}
               column="added"
@@ -302,6 +282,9 @@ export function FileListView({
               isSelected={selectedFileId === file.id}
               isTabStop={index === tabStop}
               semantic={semantic}
+              query={query}
+              showRank={showRank}
+              columns={columns}
               draggable={draggable && !picking}
               picking={picking}
               checked={picking && selection?.selectedIds.has(file.id) === true}
@@ -326,6 +309,11 @@ interface FileListRowItemProps {
   /** Whether this row holds the list's one tab stop (roving tabindex). */
   isTabStop: boolean
   semantic: boolean
+  query: string | null
+  /** The relevance column is drawn (another column orders the rows). */
+  showRank: boolean
+  /** The optional columns any row fills (`listColumns`). */
+  columns: FileListColumns
   draggable: boolean
   /** Selection mode: the leading checkbox, and no ⋯. */
   picking: boolean
@@ -350,6 +338,9 @@ const FileListRowItem = memo(function FileListRowItem({
   isSelected,
   isTabStop,
   semantic,
+  query,
+  showRank,
+  columns,
   draggable,
   picking,
   checked,
@@ -362,15 +353,7 @@ const FileListRowItem = memo(function FileListRowItem({
 }: FileListRowItemProps): ReactNode {
   const t = useTranslations(filesCopy)
   const { locale } = useLocale()
-  // The badge rule's subject, with the listing's nulls narrowed to
-  // what the rule reads: `null` lifecycle is "the working set", i.e.
-  // absent, and an unknown state is no badge.
-  const approvalSubject = {
-    versionState: file.versionState ?? null,
-    versionCount: file.versionCount ?? null,
-    lifecycle: file.lifecycle ?? undefined,
-    authoredBy: file.authoredBy ?? null,
-  }
+  const approvalSubject = approvalSubjectOf(file)
   const approvalState = documentBadgeState(approvalSubject)
   // A filing decision in view would move this file: outlined inside the row, which the table's scroll box would clip outside it.
   const lit = useFilingHighlighted(file.id)
@@ -406,16 +389,20 @@ const FileListRowItem = memo(function FileListRowItem({
       )}
       <TableCell className={CELL}>
         <div className="flex min-h-8 min-w-0 items-center gap-2.5">
-          {/* The same tile the upload tray's row draws, so a document looks
-              like itself from the second it is dropped. */}
-          <FileExtChip filename={file.filename} size="xs" fallback="—" />
+          {/* The format in words, as the tile's meta writes it (8.5px in a disc was illegible); 32px, a folder's glyph column. */}
+          <span className="text-muted-foreground w-8 shrink-0 text-[11px] font-medium uppercase" aria-hidden>
+            {fileExtensionLabel(file.filename) || '—'}
+          </span>
           <span className="min-w-0 flex-1">
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"
                 column, and here it never makes a row taller. */}
-            <span className="flex min-w-0 items-baseline gap-1.5 text-xs font-medium leading-[1.4] text-foreground">
+            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
+              {file.status && !isCitableStatus(file.status) && (
+                <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="shrink-0 self-center px-2" />
+              )}
               {/* What is still open on its pages; a press opens the review, not the row. */}
               <OpenMarksChip file={file} name={documentDisplayName(file)} className="self-center" />
               {/* Where Piloti would file it: the same chip as on the card,
@@ -439,11 +426,9 @@ const FileListRowItem = memo(function FileListRowItem({
                   data-testid="file-list-snippet"
                 >
                   {file.page !== null && file.page !== undefined && (
-                    <span className="mr-1 font-medium tabular-nums text-primary/80">
-                      {t('browser.semantic.page', { page: String(file.page) })}
-                    </span>
+                    <span className="mr-1 font-medium tabular-nums">{t('browser.semantic.page', { page: String(file.page) })}</span>
                   )}
-                  {file.snippet}
+                  <MarkedSnippet text={file.snippet ?? ''} query={query} />
                 </span>
               )
             ) : (
@@ -456,7 +441,7 @@ const FileListRowItem = memo(function FileListRowItem({
           </span>
         </div>
       </TableCell>
-      {semantic && (
+      {showRank && (
         <TableCell
           className={cn(
             'hidden whitespace-nowrap text-right text-xs tabular-nums @3xl/filelist:table-cell',
@@ -474,66 +459,38 @@ const FileListRowItem = memo(function FileListRowItem({
           )}
         </TableCell>
       )}
-      <TableCell className={CELL}>
-        {/* `max-w-full` is what keeps a long localized status inside its
-            column. The badge is `w-fit whitespace-nowrap`, so without a
-            ceiling it renders at whatever width its label needs and simply
-            overlaps the cell beside it — invisible in English ("Citable"),
-            plainly wrong in German ("Wird hochgeladen"). Under the ceiling
-            the badge's word ellipsizes and its glyph stays whole; `title`
-            carries the full label for the states that do get cut, which
-            are the transient ones. */}
-        {file.status && (
-          <DocumentStatusBadge
-            status={file.status}
-            queueAhead={file.queueAhead}
-            className="max-w-full px-2"
-          />
-        )}
-      </TableCell>
-      <TableCell className={cn('hidden @3xl/filelist:table-cell', CELL)}>
-        {/* The editorial state, in the same words the card badge uses:
-            the column that makes bulk approval state visible where
-            bulk work happens. Silent by the same rule as the card — a
-            plain upload has one published version and shows nothing —
-            so the triage signal is exactly the rows that need work.
-            `documentBadgeState` is the rule read directly, so an empty
-            slot renders the same `—` a missing page count does. */}
-        {/* An older Fassung shows one badge, „Ältere Fassung", with
-            what replaced it on hover: the lifecycle's „Ersetzt" said
-            the same thing again. One badge, so the cell never wraps. */}
-        {isOlderRevisionEntry(file) ? (
-          <OlderRevisionBadge file={file} className="max-w-full truncate" />
-        ) : approvalState ? (
-          <DocumentVersionStateBadge
-            versionState={approvalSubject.versionState}
-            versionCount={approvalSubject.versionCount}
-            lifecycle={approvalSubject.lifecycle}
-            authoredBy={approvalSubject.authoredBy}
-            className="max-w-full truncate"
-          />
-        ) : (
-          <span className="text-xs text-muted-foreground" data-testid="file-list-approval-empty">
-            —
-          </span>
-        )}
-      </TableCell>
-      <TableCell
-        className={cn(
-          'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @5xl/filelist:table-cell',
-          CELL
-        )}
-      >
-        {file.pageCount ?? '—'}
-      </TableCell>
-      <TableCell
-        className={cn(
-          'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @3xl/filelist:table-cell',
-          CELL
-        )}
-      >
-        {formatBytes(file.fileSize, locale)}
-      </TableCell>
+      {columns.approval && (
+        <TableCell className={cn('hidden @3xl/filelist:table-cell', CELL)}>
+          {/* The editorial state in the card badge's words, silent by the same rule; an older Fassung is one badge. */}
+          {isOlderRevisionEntry(file) ? (
+            <OlderRevisionBadge file={file} className="max-w-full truncate" />
+          ) : approvalState ? (
+            <DocumentVersionStateBadge
+              versionState={approvalSubject.versionState}
+              versionCount={approvalSubject.versionCount}
+              lifecycle={approvalSubject.lifecycle}
+              authoredBy={approvalSubject.authoredBy}
+              className="max-w-full truncate"
+            />
+          ) : (
+            <span className="text-xs text-muted-foreground" data-testid="file-list-approval-empty">
+              —
+            </span>
+          )}
+        </TableCell>
+      )}
+      {columns.pages && (
+        <TableCell
+          className={cn('hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @5xl/filelist:table-cell', CELL)}
+        >
+          {file.pageCount ?? '—'}
+        </TableCell>
+      )}
+      {columns.size && (
+        <TableCell className={cn('hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @3xl/filelist:table-cell', CELL)}>
+          {typeof file.fileSize === 'number' ? formatBytes(file.fileSize, locale) : '—'}
+        </TableCell>
+      )}
       <TableCell
         className={cn(
           'hidden whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums @4xl/filelist:table-cell',
@@ -601,12 +558,10 @@ function SortHeader({
           // 26px. Padding rather than a catchment: these are adjacent cells in one
           // row, so an overhang would put each header's target on top of its
           // neighbour's.
-          // `min-h-11` rather than more padding: the label is 10.5px, so reaching
-          // 44 by padding alone means guessing at the leading and landing near it
-          // (`py-3.5` measured 42). The `<th>` above is `h-auto p-0`, so the
-          // button owns the whole cell and a min-height is exact.
-          'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-[10.5px] font-medium transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
-          align === 'right' && 'justify-end',
+          // `min-h-11`, not padding (`py-3.5` measured 42): the `<th>` is `h-auto p-0`, so a min-height is exact.
+          'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-xs font-medium transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
+          // A right-aligned head puts its reserved arrow before the word, so the word ends where the values do.
+          align === 'right' && 'flex-row-reverse',
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}
       >
@@ -635,7 +590,7 @@ function SortHeader({
  */
 export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="@container/filelist space-y-1 px-4 pb-4 pt-6" data-testid="file-list-skeleton">
+    <div className="@container/filelist space-y-1 px-2 pb-4 pt-6 md:-mx-2 md:px-0" data-testid="file-list-skeleton">
       {/*
         THE COLUMN HEADINGS ARE PART OF THE SHAPE.
         This drew rows and no header, so the detail view's first frame was six
@@ -648,7 +603,7 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
       <FileListSkeletonHeader />
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="flex items-center gap-2.5 px-2 py-1.5">
-          <Skeleton className="size-6 shrink-0 rounded-surface" />
+          <Skeleton className="h-3 w-8 shrink-0" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="h-3.5 w-1/3" />
             <Skeleton className="h-3 w-2/3" />
@@ -667,9 +622,8 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
 function FileListSkeletonHeader(): JSX.Element {
   const t = useTranslations(filesCopy)
   return (
-    <div className="text-muted-foreground flex items-center gap-2.5 border-b px-2 pb-1.5 card-eyebrow">
+    <div className="text-muted-foreground flex items-center gap-2.5 px-2 pb-1.5 card-eyebrow" /* no line: the real header has none */>
       <span className="min-w-0 flex-1">{t('list.columns.name')}</span>
-      <span className="w-[104px] shrink-0 @md/filelist:w-[156px]">{t('list.columns.status')}</span>
       <span className="hidden w-[120px] shrink-0 @3xl/filelist:block">{t('list.columns.approval')}</span>
       <span className="hidden w-[76px] shrink-0 text-right @5xl/filelist:block">{t('list.columns.pages')}</span>
       <span className="hidden w-[104px] shrink-0 text-right @3xl/filelist:block">{t('list.columns.size')}</span>

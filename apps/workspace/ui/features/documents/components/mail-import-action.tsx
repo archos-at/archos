@@ -24,7 +24,7 @@ export function MailImportAction({ projectId }: { projectId: string }): JSX.Elem
       <Button
         type="button"
         size="sm"
-        variant="outline"
+        variant="secondary"
         className="gap-2"
         onClick={() => setOpen(true)}
         data-testid="mail-import-trigger"

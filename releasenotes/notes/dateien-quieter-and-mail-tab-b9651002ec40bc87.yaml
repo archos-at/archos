@@ -1,0 +1,67 @@
+---
+features:
+  - >
+    Files has places of its own along the top: All files, the e-mail inbox
+    with the number of mails waiting, Open points and the Bin. The inbox shows
+    the project's address at the top for copying, and a new project's empty
+    inbox leads with it.
+  - >
+    Files is calmer to read. Tiles and folders sit on the page without boxes
+    around them, every file type reads in the same ink, and in the list a
+    column appears only when one of its rows has something to show.
+  - >
+    Titles and headings across the workspace are set with the open letter
+    spacing of the ARCHOS design, and Files lines everything up on one left
+    edge, from the title down to the last tile.
+  - >
+    In the e-mail inbox, mails from one thread stand under a single line with
+    the press that files them all, and each mail's subject shows only what
+    sets it apart from the others.
+  - >
+    Folders in Files sit on the page as a glyph and a name, and "Select" and
+    "New folder" moved up beside the tabs, so the overview and the files start
+    a row higher. On a phone both are the first entries of the "..." menu.
+  - >
+    While files or mails are picked, the bar at the foot is a grey band with
+    the main action last, the same in Files and in the inbox. Checkboxes and
+    option buttons have a clearer edge.
+  - >
+    Open points and the Bin keep the same page edges as All files, without
+    boxes or lines, and in the inbox a picked set of mails is filed from the
+    bar alone while the group buttons step back.
+  - >
+    The list view writes each file's format as a word, and the inbox states
+    one size limit for attachments. In an opened mail on a wide screen, the
+    buttons follow the mail instead of waiting at the foot of the screen.
+  - >
+    The inbox header offers "Copy address" instead of showing the whole
+    address, and Files centres its content on a wide screen without a side
+    rail. Search results mark the words they matched.
+  - >
+    The Bin says why a folder cannot be restored, and the list view shows
+    reading and open comments right after each file's name.
+  - >
+    On a tile, open comments now sit on the preview image beside the reading
+    state, and the files at the top level are headed "Files".
+  - >
+    The title and tabs of Files stay in place on every tab, the inbox
+    included, and on a phone the open tab is shown whole.
+  - >
+    In the list view a folder's size and date stand in the same columns as a
+    file's, and search marks only the part of a word that matched.
+  - >
+    A mail held because its sender may not file in the project now says so in
+    one sentence, and the Bin's dates no longer list a folder count of zero.
+  - >
+    An opened mail shows its sender as a name and an address without brackets,
+    and the file preview's header shows the name without a format box.
+fixes:
+  - >
+    A project's Files no longer repeats the number of waiting mails in a line
+    above the files; the inbox tab carries it.
+  - >
+    On a phone the open-comments chip on a tile shows its first part whole
+    instead of cutting the last one, and the inbox address and its info button
+    fit the screen.
+  - >
+    A file found by search no longer shows a size of "0 B".

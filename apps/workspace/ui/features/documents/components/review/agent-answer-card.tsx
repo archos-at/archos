@@ -147,7 +147,7 @@ export function AgentAnswerCard({
           />
           <div className="flex flex-wrap gap-1.5" role="group" aria-label={t('review.piloti.quickLabel')}>
             {CANVAS_ASK_INTENTS.map((intent) => (
-              <Chip key={intent} asChild interactive variant="outline" size="md">
+              <Chip key={intent} asChild interactive variant="secondary" size="md">
                 <button data-attr="files-send"
                   type="button"
                   data-testid={`agent-quick-${intent}`}
@@ -176,7 +176,7 @@ export function AgentAnswerCard({
               <ul className="space-y-1" aria-label={t('review.piloti.steerNotes')} data-testid="agent-card-notes">
                 {notes.map(([steerId, note]) => (
                   <li key={steerId} className="text-muted-foreground text-xs leading-5 break-words">
-                    <Chip size="sm" variant="outline" className="mr-1.5 align-middle">
+                    <Chip size="sm" variant="secondary" className="mr-1.5 align-middle">
                       {note.round === undefined
                         ? t('review.piloti.steerWaiting')
                         : t('review.piloti.steerApplied', { round: note.round })}

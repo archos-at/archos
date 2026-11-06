@@ -574,7 +574,7 @@ function PeekToolbar({
       <FileExtChip filename={file.filename} size="sm" fallback={<FileText className="size-3.5" />} />
       <div className="min-w-0 flex-1">
         <p
-          className="text-foreground truncate text-sm font-medium leading-tight tracking-[-0.01em]"
+          className="text-foreground truncate text-sm font-medium leading-tight"
           // The pane is 280px at its narrowest and a plan's filename is not.
           title={name}
         >

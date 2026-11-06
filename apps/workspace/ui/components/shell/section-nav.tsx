@@ -24,12 +24,16 @@ import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { motion, springGlide } from '@/components/motion'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
+import { CountPill } from '@/components/ui/count-pill'
 
 export interface SectionNavItem {
   key: string
   href: string
   icon: LucideIcon
   label: string
+  /** A quiet count after the label (mail waiting); none at zero. `countLabel` is what a screen reader hears. */
+  count?: number | null
+  countLabel?: string
 }
 
 export interface SectionNavProps {
@@ -56,6 +60,8 @@ export interface SectionNavProps {
    * nothing.
    */
   railTopClassName?: string
+  /** The path to mark the current section by, for a `/dev` preview that renders a page at its own URL. */
+  pathname?: string
   'data-testid'?: string
 }
 
@@ -77,9 +83,11 @@ export function SectionNav({
   pillId,
   orientation = 'rail',
   railTopClassName = 'lg:top-24',
+  pathname: pathnameOverride,
   'data-testid': testId,
 }: SectionNavProps): JSX.Element {
-  const pathname = usePathname()
+  const currentPathname = usePathname()
+  const pathname = pathnameOverride ?? currentPathname
 
   return (
     <nav aria-label={label} data-testid={testId}>
@@ -144,13 +152,17 @@ export function SectionStrip({
     const scroller = strip?.firstElementChild
     const current = strip?.querySelector<HTMLElement>('[aria-current="page"]')
     if (!(scroller instanceof HTMLElement) || !current) return
-    const target = current.offsetLeft - (scroller.clientWidth - current.offsetWidth) / 2
-    scroller.scrollLeft = Math.max(0, target)
+    // The nearest scroll that shows the open tab whole, not the centre: centred, both ends showed fragments of
+    // their tabs („ı Dateien“); this way the row starts on its first tab unless the open one lies past the edge.
+    const right = current.offsetLeft + current.offsetWidth
+    if (right > scroller.scrollLeft + scroller.clientWidth) scroller.scrollLeft = right - scroller.clientWidth
+    else if (current.offsetLeft < scroller.scrollLeft) scroller.scrollLeft = current.offsetLeft
   }, [pathname])
 
   return (
     <div ref={stripRef} className={className}>
-      <HorizontalScroll aria-label={label} cue className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* A fade, no chevron: on a phone the chevron sat on the third tab's glyph; the cut tab says the row scrolls (iOS). */}
+      <HorizontalScroll aria-label={label} className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <ul className="flex gap-1 pb-2">
           {items.map((item) => (
             <li key={item.key} className="shrink-0">
@@ -213,6 +225,18 @@ function SectionNavLink({
       )}
       <Icon className="size-4 shrink-0" aria-hidden />
       {item.label}
+      {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
+          when it lands. `undefined` is a tab without a count. */}
+      {item.count === null && (
+        // A pill of one digit's width and no text to read: white, as a count on the open tab's grey is.
+        <CountPill tone="muted" aria-hidden className="bg-background">
+          <span className="invisible before:content-['8']" />
+        </CountPill>
+      )}
+      {item.count != null && item.count > 0 && (
+        // White on the active tab's grey, as everything on a grey surface is: grey on grey hid the pill.
+        <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active && 'bg-background')} />
+      )}
     </Link>
   )
 }

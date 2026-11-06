@@ -331,7 +331,7 @@ export function SkillToolbox({
 
       {skills !== null && !error && curated.length > 0 && (!searching || orgGroups.length > 0) && (
         <div className="mt-8 flex items-center gap-2">
-          <h2 className="text-foreground text-sm font-medium tracking-[-0.01em]">
+          <h2 className="text-foreground text-sm font-medium">
             {t('toolbox.ownHeading')}
           </h2>
           {canManage && (
@@ -461,7 +461,7 @@ function CategorySection({
   return (
     <section aria-label={group.category?.name ?? t('toolbox.category.unsortedHeading')}>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="text-foreground text-sm font-medium tracking-[-0.01em]">
+        <h3 className="text-foreground text-sm font-medium">
           {group.category?.name ?? t('toolbox.category.unsortedHeading')}
         </h3>
         <span className="text-muted-foreground text-xs tabular-nums">

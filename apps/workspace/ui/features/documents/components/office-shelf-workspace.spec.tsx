@@ -871,7 +871,7 @@ describe('OfficeShelfWorkspace — folders', () => {
     render(<OfficeShelfWorkspace canManage />)
     await screen.findByTestId('folder-card-f-1')
 
-    await user.click(screen.getByRole('button', { name: /new folder/i }))
+    await user.click(screen.getByRole('button', { name: /create folder/i }))
     await user.type(await screen.findByPlaceholderText(/folder name/i), 'Recht{Enter}')
 
     await waitFor(() => expect(posted).toEqual([{ name: 'Recht' }]))

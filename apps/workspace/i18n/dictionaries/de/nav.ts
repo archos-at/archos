@@ -48,6 +48,25 @@ export const nav: typeof en.nav = {
     intake: 'Geführtes Briefing für dieses Projekt.',
     setup: 'Projekt, Ablage, Erfassung, Rückfragen, Steckbrief: {productName} liest, Sie prüfen und bestätigen.',
   },
+  /** A page inside a section (Dateien › E-Mail-Eingang): its title and subtitle; the section is the breadcrumb above. */
+  subpages: {
+    'files/all': {
+      title: 'Alle Dateien',
+    },
+    'files/mail': {
+      title: 'E-Mail-Eingang',
+      subtitle: 'E-Mails an die E-Mail-Adresse des Projekts warten hier, bis jemand sie ablegt.',
+    },
+    'files/bin': {
+      title: 'Papierkorb',
+      subtitle: 'Gelöschte Dokumente und Ordner. Bis zur endgültigen Löschung lassen sie sich wiederherstellen.',
+    },
+    'files/open-points': {
+      title: 'Offene Punkte',
+      subtitle: 'Was in den Dokumenten dieses Projekts offen ist: die Liste für den Jour fixe.',
+    },
+  },
+  filesPlaces: 'Orte der Dateien',
   backTo: 'Zurück zu {label}',
   returnTargets: {
     project: 'zum Projekt',

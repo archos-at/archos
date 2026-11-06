@@ -6,6 +6,8 @@ The single reference every page redesign builds against. Goal: an **understated,
 
 The visual language is **warm paper monochrome + provenance signal colors** (adopted from the click-dummy overhaul, see `docs/design/click-dummy-overhaul-spec.md` §1/§4): warm paper surfaces, a near-black ink ramp, hairline alpha-ink borders, layered soft shadows, **near-black action buttons** — and the *only* chroma in the app is the source/provenance signal system.
 
+**Where it is headed.** The corporate design system 3.0 (`packages/brand/`, its README's „Design rules“) is the source this document follows, at the app's lighter level (§„Weight, face and white“). Where the two disagree, the design system wins and this document is changed in the same change: so far tracking (never tighter than 0) and the one grey (no alpha steps, nothing grey on grey). Hairlines, soft shadows and boxes are the previous language's habits; a reworked surface separates by white space and the one grey first, as Dateien and the E-Mail-Eingang now do.
+
 ## Principles
 
 1. **Restraint is the aesthetic.** Warm paper surfaces (`#f6f6f4`-family, warm charcoal in dark mode), a near-black ink ramp, and **no brand accent color on actions**: the primary action is ink (`#1f2023`, white text; paper-white on ink in dark mode). If everything is highlighted, nothing is. Blue is *not* the action color — it belongs to the Baurecht provenance signal.
@@ -135,21 +137,21 @@ made. **Do not reintroduce a general accent token.** If a future surface needs
 
 ## Type ramp (Tailwind classes — use verbatim)
 
-The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **~10.5px eyebrow/label convention** (sentence case, medium weight, muted ink). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
+The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **12px eyebrow/label convention** (sentence case, medium weight, muted ink; it was 10.5px until 2026-11, when the Dateien review found every section label reading as fine print beside 13px names, below the 11–12pt floor Apple's HIG sets for a label). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. **Tracking is never tighter than 0** (the design system 3.0, `packages/brand/README.md`, „Typography“): only the wordmark sets tighter. The ramp's `tracking-tight` on every title was the previous design language's and went app-wide on 2026-11-06; `tests/brand-literals.spec.ts` („tracking“) fails a new one. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
 
 | Role | Classes |
 |---|---|
-| Hero greeting (chat empty state only, ≈23px) | `text-[23px] font-medium tracking-tight` |
-| Page title (≈20px) | `text-xl font-medium tracking-tight` |
-| Section heading | `text-lg font-medium tracking-tight` |
+| Hero greeting (chat empty state only, ≈23px) | `text-[23px] font-medium` |
+| Page title (≈20px) | `text-xl font-medium` |
+| Section heading | `text-lg font-medium` |
 | Card/subsection title | `text-sm font-medium` |
-| Eyebrow / label (sentence case ≈10.5px) | `text-[10.5px] font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Eyebrow / label (sentence case, 12px) | `text-xs font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
 | Answer text (16px) | `text-answer` (`--text-answer`, `ui/styles/tokens.css`): the ONE size of an answer's text: prose, lede, standfirst, a block's body, a card's body and title (`.card-body` and `.card-title` read the token). Headings, figures and the caption/meta/eyebrow steps keep their own; a size step inside an answer that expresses no rank is the defect it removed (Notion #38) |
 | Body | `text-sm` (leading-relaxed for prose) |
 | Body secondary | `text-sm text-muted-foreground` |
 | Caption / meta | `text-xs text-muted-foreground` |
 | Identifiers (job id, § refs, collection names) | `font-mono text-xs` |
-| Numeric stat | `text-2xl font-medium tracking-tight tabular-nums` |
+| Numeric stat | `text-2xl font-medium tabular-nums` |
 
 ### Weight, face and white (the app's brand level)
 
@@ -187,6 +189,8 @@ app's own choices, not defects). Inside that level the rules are the brand's:
   why the font comes from the `geist` package and not Google Fonts, whose copy
   has no plain 0 ([gotcha](../contributing/gotchas.md)).
 - **The brand has no colour of its own.** It is black and white: warm white `--ds-surface` (#fafaf9), black `--ds-ink` (#0f0e0d) and one light grey `--ds-surface-sunken` (#f2f1f0). The app's hues (provenance signals, status, the data palette, the energy scale) are functional and documented exceptions; add no new one.
+- **The secondary press is tonal (owner decision D4, 2026-11-06).** The design system makes it an outline; the owner asked for fewer outlines, so the app's `secondary` button is the one grey on white and white on a grey panel (`data-surface="sunken"` on the panel; the variant reads it). One primary per area stays. Dateien and the E-Mail-Eingang set no `outline` button, held by `tests/brand-literals.spec.ts` („the secondary press“); the rest of the app moves when it is reworked.
+- **One grey, and nothing grey on grey.** A fill is the one grey (`bg-muted`, `--ds-surface-sunken`) or, for a state (hover, the open row, the selected tile), `bg-accent`; never a step of either (`bg-muted/60`). Inside a grey panel what sits on it is white (`bg-background`): a chip, a thumbnail, a secondary press, as the design system keeps a band's content white. Dateien and the E-Mail-Eingang are held to it by `tests/brand-literals.spec.ts` („one grey“); the rest of the app is not yet.
 - **No pure white.** Surfaces are `--ds-surface` (paper), `--ds-surface-raised`
   (`--card`, `--popover`, overlays) and `--ds-surface-sunken`. Pure white stays
   only where something is a document's own paper (the PDF viewer page, a
@@ -236,7 +240,80 @@ only if it arrives whole.
 - **Card padding:** `p-6` for feature cards, `p-5` for stat cards, `px-4 py-3` for list rows.
 - **Radius ladder:** the app's own ladder from the brand package (`tokens.json` radius tokens with `"scope": "app"`, as `--ds-radius-*` in `apps/workspace/shared/brand/tokens.vars.css`; the website never receives them). Small inline things take `rounded-inline` (4px — kbd, checkbox, a tag inside a field); controls `rounded-control` (6px — buttons, fields, selects, tabs, menu and list items); surfaces `rounded-surface` (10px — cards, panels, list containers, toasts, tables, code blocks); floating layers `rounded-overlay` (14px — dialogs, popovers, menus, sheets, the command palette); chat messages and the composer `rounded-bubble` (18px); `rounded-full` only for what is round (chips, badges, counts, avatars, dots, switches). Tailwind's `rounded-sm/md/lg/xl` are mapped onto the same four steps for code not yet on a semantic name. The names differ from the website's `radius-md` (4px, controls) on purpose, so no name means two sizes. Radius is paint: a radius-only change moves no layout box.
 - **Glyph sizes:** the glyph sits two steps below its well — `size-3.5` in badges/chips, `size-4` free-floating UI glyphs (pagination chevrons, dialog close, `size-9` wells), `size-3.5` in `size-7` wells, `size-5` in the empty-state/confirm discs. A new well picks the glyph its size already owns; it does not invent one.
-- **Borders:** hairline `border` (border-border — alpha ink, composites on any surface). Prefer a single border + `bg-card` over nested boxes. Use `divide-y` for list groups inside one bordered container. Depth = surface step + layered soft shadow (`shadow-xs/sm/md/lg` are bound to `--elevation-*`, and a bare `shadow` is the `sm` step rather than Tailwind's cold black default), never a heavy border.
+- **Borders:** hairline `border` (border-border — alpha ink, composites on any surface). Prefer a single border + `bg-card` over nested boxes. Use `divide-y` for list groups inside one bordered container (the previous language's habit: a reworked surface draws neither, see [Surface rules](#surface-rules-dateien-and-the-e-mail-eingang-2026-11)). Depth = surface step + layered soft shadow (`shadow-xs/sm/md/lg` are bound to `--elevation-*`, and a bare `shadow` is the `sm` step rather than Tailwind's cold black default), never a heavy border.
+
+## Surface rules (Dateien and the E-Mail-Eingang, 2026-11)
+
+What took Dateien and the E-Mail-Eingang from a 5 to a 10 over the 2026-11 review rounds. Apply them to the next surface you rework; each names its reason, and what a machine holds says so (`tests/brand-literals.spec.ts` unless named).
+
+**Surface and colour**
+
+- **One grey, nothing grey on grey.** A fill is `bg-muted` or, for a state, `bg-accent`; never a step (`/60`). What lies on a grey surface is white: a chip, a count, a secondary press, an avatar disc (held: „one grey“).
+- **Hover is the one grey, the open or picked item the state grey.** A tile, a list row, a folder row and a mail row hover `bg-muted` and hold `bg-accent` when open or picked; a thumbnail sheet on that fill takes the fill (`bg-transparent`), or it is grey on grey.
+- **A box earns its grey.** Folders are a glyph and a name on the page, not grey tiles: they read apart from files by shape (a line, not a sheet), and three grey blocks over a grid of grey sheets was the page's loudest thing. Thumbnails keep the grey: the design system lays cut-outs on `surface-sunken`.
+- **The secondary press is tonal** (D4): grey on white, white on a grey panel (`data-surface="sunken"`), never an outline (held: „the secondary press“).
+- **No section lines.** No rule above or below a block, no hairlines between rows, no dashed box, no bordered card around a bar: white space and the one grey separate. A bar pinned over the content it sits in takes `shadow-pinned-foot` (`globals.css`), drawn only while content lies beneath it; a split view's pane divider is a function and stays (held: „no section lines“).
+- **A mode is a band.** A selection bar under a list is a band of the one grey across its column, its content on the listing's edges, the secondary (white on it) before the primary at the end, in Dateien and the E-Mail-Eingang alike: one row where the column has the room (Dateien), the count above the presses in the E-Mail-Eingang's 26rem list.
+- **A bar follows what it decides on.** On a desk the decision bar sits under the mail's content and pins only once the content overflows; on a phone it stays at the foot, under the thumb.
+- **An unchecked control draws the field border** (`--ds-line-strong`, 3.4:1): the alpha `--input` measured under WCAG 1.4.11's 3:1 (`checkbox.tsx`, `radio-group.tsx`).
+- **The header copies, the dialog shows.** The E-Mail-Eingang's header has „Adresse kopieren“ (the tonal secondary) and „Mehr zur Adresse“; the 45-character address is read in that dialog and in the never-used empty state. Whole in monospace it was the loudest thing in the header, cut in the middle it lost whose it was.
+- **The agent's disc claims a suggestion.** The filled `AgentGlyph` stands only where the agent proposes something (a filing target); what the agent read is the brief's and the preview's one glyph, sparkles (held: „the agent's disc“).
+- **A member wears their identity colour, a stranger the neutral disc.** The preview's assignee avatar takes the member's fixed hue (`avatar-identity.ts`, the same as their cursor); a mail sender, who is no member, is the one grey, white on a grey row.
+- **Quiet is the normal case.** All read, nothing open, nothing waiting says nothing or one muted line; ochre is for what needs a person (an overdue point, a mail to check), red for a failure, each with its glyph and word. A destructive press is ink like its neighbours; its confirm says what cannot be undone (five red „Endgültig löschen“ led the Papierkorb).
+
+**Edges and rhythm**
+
+- **One left and one right edge per tab container.** A listing is the design system's 1280px container with 32px margins (16px on a phone), its header included (`SECTION_HEADER_CLASS`), and so is every Dateien tab (Offene Punkte, Papierkorb, and the E-Mail-Eingang's split view: never a column or a width of its own), so the title and the tabs stand still when the tab changes; a full-width split moved them 80px. Every element's content stands on those edges. The container is `listing-container` (`globals.css`, held: „one ramp, one scale“).
+- **Centre the container only where nothing stands beside it.** It keeps the section's left edge (beside the app rail, the rail's edge) and centres once the section is 1440px wide or more, by a container query on the section frame (`@container/section`): the page cannot ask whether a rail is shown, and a 1440px section has none beside it on a laptop and is a wide screen otherwise, where 192px of paper on one side read as a page that had slid.
+- **On a phone a grey panel spans the screen** rather than bleed into the 16px gutter (the open brief, the mail's groups, the address panel: `-mx-4`, square, 16px inside); 12px of bleed left it 4px from the glass. A pill does not bleed on a phone (the tabs, the segmented filter start on the 16px gutter): 4px from the glass is cramped, and a band is not a pill.
+- **Content on the edge, state fills bleed.** An inset that only holds a hover fill is given back as a negative margin: the file grid by the tile's 6px (`-mx-1.5`), the list by its cells' 8px (`md:-mx-2`), the brief by 12px, the tabs and a bare segmented control by their 12px on a desk (`md:-ml-3`), so the first glyph stands on the title's edge; a ghost press at a row's end by its padding (`-mr-3.5`), so its words end under the filled press above. Inside a tile the name sits on the thumbnail's edge, no inset of its own (held: „one left edge“).
+- **Equal gaps between like sections, 24px or so on the 4px scale:** tabs → brief → folders → label each about 24px of visible white; a label sits 12px over what it heads, nearer to it than to what precedes it. Tiles are 24px apart (a 12px gap and their two 6px insets).
+- **A level's tools end the row that names the level.** At Dateien's root the tab names it, so „Auswählen“ and „Ordner anlegen“ stand at the end of the tabs row (`ProjectSectionTabActions`); inside a folder they end the path row; on a phone they are the ⋯'s first entries (iOS Files' order). A row that holds only two presses is a row too many.
+- **A phone's tools sit under the tabs**, never above them: the tabs stay put from tab to tab (`project-section-frame.tsx`). A tab with many tools folds them into the ⋯ of that row (Alle Dateien); a tab with one or two keeps them visible there, in the desk's look (the E-Mail-Eingang's tonal „Adresse kopieren“, Offene Punkte's „Protokoll exportieren“): a press that turns ghost on a phone is a second look for one press.
+
+**Type and words**
+
+- **A name is one size wherever it stands:** 13px medium in a tile, a file row and a folder row. **One size per band:** the tabs row's tools take the tabs' 14px.
+- **A count is the muted pill** (`CountPill`), never brackets: „Bereit 3“, as the tabs write it; on a grey surface the pill is white.
+- **A level outranks what it holds:** a section heading of a list is 13px in ink, a group inside it (a mail thread) 12px muted, and a group ends 24px before the next row.
+- **A card has three styles at most.** The preview's reading card: the summary at 14px, the type at 14px medium, everything else the 12px muted meta (facts, label, disciplines, topics); seven styles in one card read as unranked.
+- **A sender is a name and an address, told apart by tone:** the name in ink, the address muted beside it, no ‹ › around it; the line under it (trust, arrival, „Details“) is joined by the one separator, not by 12px gaps.
+- **A label is muted, its value ink.** The brief's „Worum es hier geht“ and „Wo es hakt“ are 12px muted; what they hold is ink, since that is what is read.
+- **One separator.** A line's clauses are joined by `CLAUSE_JOIN` (`bff/format.ts`): a middot bound to the clause before it by a no-break space, so a wrap never starts a line with „·“; a middot set as a flex item stands 4px from each neighbour (`gap-1`), the bound join's width. On a phone a clause that would wrap („bleibt bis …“) takes its own line with no dot. A clause that says zero is dropped („6 Dokumente“, not „6 Dokumente · 0 Ordner“) (held: „one separator“).
+- **Controls in a bar are 12px apart, words included:** a ghost press at the head gives back its padding (`-mx-3.5`), so „Filter“ stands 12px from the toggle and the search field as the filled presses do; a pair of presses (Kopieren and Als Kontakt sichern, Besprechen and Kolleg:in fragen) is 12px apart. Two word presses side by side keep 6px of padding each in the tabs row (`[&_[data-slot=button]]:px-1.5`), and a ghost press after a tonal one keeps only its 12px left padding (`pl-3`, no gap), so the visible gap is 12px, not their two 14px insets. A back press gives back its padding (`-ml-3.5`): the arrow stands on the gutter. A segmented control's squares are 32px (`size="icon"`), the search field's height. A row's text line is 20px (`leading-5`), so a chip adds no height.
+- **One type ramp, one scale.** Text is 11px (codes, counts), 12px (meta, labels), 13px (names), 14px (body, headings in a list), 16px (fields on a phone) and 18px (a mail's subject); line heights are the named steps (`leading-snug` for names, `-normal` for meta); radii by their ladder names; a press is the kit's `size="sm"` (32px, 44px under touch), never a 28px override; presses in a bar are 12px apart (held: „one ramp, one scale“).
+- **One absolute date form.** A date that matters reads in the locale's medium form („06.11.2026“, with the time where it matters: a mail's arrival); recency in a list reads relative, written out („vor 3 Stunden“, „vor 1 Monat“: months and years in numbers, never „letzten Monat“ beside „vor 4 Monaten“). A due date is the same form (`formatCalendarDay`), not „8. Nov. 2026“ beside „06.10.2026“.
+- **A missing press says why.** Where a row's action is not offered (a folder the reader may only read in the Papierkorb), a muted line in its place says so (`restoreBlocked`); a hole where the press was is a question nobody answers.
+- **A count on its way holds its width** as a skeleton pill, so the tabs after it do not jump when it lands.
+- **One press per act.** Where a section is one thread and nothing else, only the thread's press files it; two presses 40px apart for the same mails was a choice with no difference.
+- **Rows touch.** Rows of a list sit without a gap, so two picked rows read as one region, not two boxes with a sliver; where two picked rows meet their corners are square, so the seam shows no notch.
+- **An empty state is one column**: its words and its panel share one width (512px) and one left edge, the words 24px above the panel, not a centred paragraph over a left-aligned card. An empty state without a panel stays centred. An empty detail pane is one muted 14px line under a muted glyph; while mails are picked it says what the bar does, not the count the bar already shows.
+- **A label names what it heads:** the root's files are „Dateien“; „Zuletzt hochgeladen“ promised a subset.
+- **What is in progress or open stands in one place.** In the list „Wird gelesen“ and „4 offen“ follow the file's name; on a tile both sit on the sheet's foot, „4 offen“ above „Wird gelesen“. A Status column held one and not the other, and a chip line under the summary left the row's other tiles a 50px hole. Sorting by status stays in the filter menu. Chips on a sheet or in a row are one size: 20px, 11px.
+- **A search hit marks why.** The query's words stand in ink at 500 inside the muted passage, and for a long compound its stem too („Fluchtweg“ answers „Fluchtwegbreite“); the rank is shown only while another column orders the rows, since sorted by relevance the order is the rank.
+- **A code is a word, not a disc:** the list writes a file's format as the tile's meta does (11px, muted, its own 32px column, where a folder row has its bare glyph); 8.5px in a 24px disc was below any legible size.
+- **Names keep their end.** A file name wraps (`FileName wrap`) or is cut in the middle, never at its end: the revision and the drawing number are the end.
+- **A clause drops whole, never cut.** Below 640px the comment chip shows „4 offen · 2 für Sie“ and drops „3 Vorschläge“; the accessible name says the whole sentence. A line that may wrap wraps whole (`text-pretty`), and a phrase that must stay together is bound in the copy with no-break spaces („wiederherstellbar bis 13.11.2026“).
+- **A chevron follows its words**, not the far edge of its row: the brief's line ends in its chevron.
+
+**Structure**
+
+- **A tile row shares one meta baseline.** The footer fills the cell and sets its lines at its foot (`content-end`), so the size and age line is every tile's last line, whichever tile carries a second name line or „4 offen“ (`file-card.test.tsx`).
+- **Columns appear only when a row fills them** (`listColumns` in `file-list-columns.ts`): an empty Status column is a promise of nothing.
+- **One look for one of these.** Where a page shows tabs, a segmented control beside them is `bare`: no track, the chosen one the one grey, and a worded one is set at the tabs' 14px (`[&>button]:text-sm`) (held: „one look for one of these“, „one size for a segmented control“).
+- **A label stands 12px from what it labels.** A filter's label (Offene Punkte's „Zuständig“, „Frist“) sits 12px before its choices and the groups 32px apart; a fixed label column only on a phone, where the groups stack. A heading over rows (a document in Offene Punkte, a thread in the E-Mail-Eingang) is a 24px line whose press overhangs it by 4px each way, so it stands nearer its first row than the rows stand to each other.
+- **A folder row in the table's columns.** In the list view what a folder holds stands under Größe and when it changed (or was made) under Hinzugefügt, at the columns' widths (`@container/filelist` on the folder group), and the row has no chevron, as a file row has none (held: „a folder row in the table's columns“).
+- **One primary per surface:** Hochladen in Dateien, the decision bar's filing press in an opened mail. **While items are picked the bar owns the action:** the section's and the thread's own presses step back.
+- **One shape for one pick:** a square checkbox in the list, the E-Mail-Eingang and on a tile (`rounded-inline`), never a circle on one of them. Where rows can be picked the boxes are drawn on every row, not on hover: a hidden box left a column that read as an indent. A picked row or tile holds the state grey, as the open one does.
+- **A column only where something can be in it:** the E-Mail-Eingang's handled list has no checkbox column, as an empty 28px gutter read as an indent.
+- **Like things, like words:** a folder's count reads „2 Elemente“ in a tile and in a row; a chip beside a near-namesake wears its own glyph (the folder's folder, the Dokumentart's tag).
+- **A placeholder is the thing's own shell.** A skeleton uses the real tile, row or pane geometry and draws no row the loaded page does not have; every empty state is `variant="bare"`, never the kit's dashed grey panel (held: „one ramp, one scale“).
+- **A section opens 48px under what precedes it, a group ends 24px before the next row;** a section after a group takes the group's 24px into its 48, so the two never add up. Heading rows keep one height with their press or without: a section heading 32px, a thread's line a fixed 24px (`h-6`, its press overhanging), so ticking a box, which steps the press back, moves no row.
+- **The open tab shows whole.** On a phone the tabs row scrolls the nearest way that shows the open tab, not to its centre (both ends then showed fragments); the row starts on its first tab otherwise.
+- **A missing press says why, in its place.** The reason stands where the press would (right-aligned in the press column on a desk, left on a phone with the delete on the same row), not in the meta.
+- **Say a thing once per view.** The preview's header carries no type chip and no format box: the rail's reading says what the document is, the facts line under the name says „PDF“, and the name stands on the rail's 16px edge (held: „said once per view“). The never-used empty state does not repeat the subtitle's „warten hier“. A thumbnail that cannot be drawn is its 16px glyph alone; the tile's name says what the file is.
+- **Copy names one cause.** „Wartet auf Ihre Ablage, weil der Absender in diesem Projekt nicht ablegen darf“, not „nicht freigegeben“ (Freigabe's word, CONTEXT.md) under „Domain bestätigt“; an expired part is „ohne Entscheidung abgelaufen“, so that it can still be restored reads as no contradiction.
+- **Every hover reveal has a finger path** (`pointer-coarse:opacity-100`, `mobile-files.spec.ts`): the tile's ⋯ stays visible under touch.
 
 ## Touch
 
@@ -538,7 +615,7 @@ in the review.
 ```tsx
 <header className="flex min-w-0 flex-col items-stretch gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
   <div className="min-w-0">
-    <h1 className="text-xl font-medium tracking-tight">{title}</h1>
+    <h1 className="text-xl font-medium">{title}</h1>
     <p className="mt-1 text-sm text-muted-foreground">{oneLineContext}</p>
   </div>
   <div className="sm:shrink-0">{primaryAction}</div>
@@ -605,7 +682,7 @@ surface that already has a border.
                   border bg-card text-muted-foreground/70 shadow-sm">
     <Icon className="size-5" aria-hidden />
   </div>
-  <p className="text-balance text-sm font-medium tracking-tight text-foreground">{title}</p>
+  <p className="text-balance text-sm font-medium text-foreground">{title}</p>
   <p className="mt-1.5 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">{whyAndWhatToDo}</p>
   <div className="mt-5">{primaryAction}</div>
 </div>
@@ -627,7 +704,7 @@ surface that already has a border.
 
 **The agent's mark claims the agent.** `FilingChip` draws `AgentGlyph` only when its target IS a stored the agent suggestion (`suggested`, default true for the suggestion surfaces); a folder a rule picked (the E-Mail-Eingang's correspondence default, `defaultThreadFolder`) or the person chose wears a plain folder glyph. A mark on a rule's guess is a false claim, and on an unconfirmed or forged mail it puts the agent's weight behind a stranger (`lib/inbound-mail/suggest.ts`).
 
-**Status badges** — Badge variants: `success` (ready/completed — project green family), `info` (in-progress/running — law blue family), `warning` (needs attention — office gold family), `danger` (failed — the signal-red tint, the same pair as Chip and Alert), `secondary` (neutral/cancelled). `destructive` is the solid red plate, action weight: a status that says something failed is a fact in a row and takes `danger`, or a four-day-old failure is the loudest thing in the list. A document's status (`DocumentStatusBadge`, the upload tray's row) carries a glyph per state from one table (`features/documents/components/ingestion-atoms.tsx`), because several states share a colour: „Wartet" and „Wird gelesen" are both blue, „Abgelegt", „Abgebrochen" and „Unbekannt" all grey, and the glyph is what tells them apart. Project status chips: "Aktiv" = `--status-active(-tint)` (green), "Abgeschlossen" = `--status-done(-tint)` (warm gray) — always dot/icon + label, never a bare color dot.
+**Status badges** — Badge variants: `success` (ready/completed — project green family), `info` (in-progress/running — law blue family), `warning` (needs attention — office gold family), `danger` (failed — the signal-red tint, the same pair as Chip and Alert), `secondary` (neutral/cancelled). `destructive` is the solid red plate, action weight: a status that says something failed is a fact in a row and takes `danger`, or a four-day-old failure is the loudest thing in the list. A document's status (`DocumentStatusBadge`, the upload tray's row) carries a glyph per state from one table (`features/documents/components/ingestion-atoms.tsx`), because several states share a colour: „Wartet" and „Wird gelesen" are drawn in ink (the status family stays `info` in `data-variant`; reading is the normal course, and colour is red and ochre), „Abgelegt", „Abgebrochen" and „Unbekannt" all grey, and the glyph is what tells them apart. Project status chips: "Aktiv" = `--status-active(-tint)` (green), "Abgeschlossen" = `--status-done(-tint)` (warm gray) — always dot/icon + label, never a bare color dot.
 
 ## Motion vocabulary
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX, SyntheticEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageSquareText } from 'lucide-react'
@@ -44,8 +45,8 @@ export function openMarksLabel(t: Translator, locale: string, marks: MarkCounts)
   return new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(parts)
 }
 
-/** What the chip says in its own words, short enough for a card: „2 offen · 1 für Sie · 12 Vorschläge". */
-export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
+/** The chip's clauses, the office's open marks first: „2 offen · 1 für Sie“, „12 Vorschläge“. */
+function openMarksShortParts(t: Translator, marks: MarkCounts): string[] {
   const forYou = marks.forYou ?? 0
   return [
     marks.open > 0
@@ -54,9 +55,12 @@ export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
         : t('annotations.listedOpenShort', { count: marks.open })
       : null,
     marks.proposed > 0 ? t('annotations.listedProposedShort', { count: marks.proposed }) : null,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(' · ')
+  ].filter((part): part is string => part !== null)
+}
+
+/** What the chip says in its own words, short enough for a card: „2 offen · 1 für Sie · 12 Vorschläge". */
+export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
+  return openMarksShortParts(t, marks).join(CLAUSE_JOIN)
 }
 
 /** A click or a key on the chip is the chip's: the row or card around it opens the file, not the review. */
@@ -111,7 +115,7 @@ function OpenMarksButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Chip asChild interactive size="sm" variant="muted" className={cn('tabular-nums', className)}>
+        <Chip asChild interactive size="sm" variant="muted" className={cn('max-w-full min-w-0 tabular-nums', className)}>
           <button data-attr="open-marks"
             type="button"
             data-slot="open-marks"
@@ -125,7 +129,16 @@ function OpenMarksButton({
             }}
           >
             <MessageSquareText aria-hidden />
-            <span>{openMarksShortLabel(t, marks)}</span>
+            {/* Below 640px a clause after the first is dropped whole, never cut mid-word („3 …“ on a 156px tile);
+                the name says the whole sentence, the tooltip too. */}
+            <span className="min-w-0 truncate">
+              {openMarksShortParts(t, marks).map((part, index) => (
+                <span key={part} className={cn(index > 0 && 'max-sm:hidden')}>
+                  {index > 0 && CLAUSE_JOIN}
+                  {part}
+                </span>
+              ))}
+            </span>
           </button>
         </Chip>
       </TooltipTrigger>

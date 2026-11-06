@@ -225,7 +225,7 @@ function FolderBriefPreview(): JSX.Element {
         {only === null && (
           <header className="flex flex-col gap-1">
             <p className="text-muted-foreground text-xs">Dev-Vorschau · {PROJECT_NAME}</p>
-            <h1 className="text-foreground text-xl font-semibold tracking-[-0.01em]">Ordner-Überblick</h1>
+            <h1 className="text-foreground text-xl font-semibold">Ordner-Überblick</h1>
           </header>
         )}
 
@@ -266,7 +266,7 @@ function FolderBriefPreview(): JSX.Element {
         )}
 
         {shows('d') && (
-          <Section id="d" title="Everything read">
+          <Section id="d" title="Everything read (a desk only: on a phone a brief with nothing to act on is not drawn)">
             <FolderBrief
               brief={BASIS_BRIEF}
               folderName="01_Grundlagen"
@@ -280,7 +280,7 @@ function FolderBriefPreview(): JSX.Element {
         )}
 
         {shows('h') && (
-          <Section id="h" title="Everything read, beside documents never read (the quiet case)">
+          <Section id="h" title="Everything read, beside documents never read (the quiet case; a desk only, as above)">
             <FolderBrief
               brief={QUIET_BRIEF}
               folderName={null}

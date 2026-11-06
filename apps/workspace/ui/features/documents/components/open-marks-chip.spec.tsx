@@ -82,7 +82,7 @@ describe('the open Anmerkungen on a file card', () => {
     expect(screen.getByRole('tooltip')).toHaveTextContent('4 open annotations, 2 for you')
   })
 
-  it('keeps the size and the date in the footer, the chip beside them rather than in their place', () => {
+  it('keeps the size and the date in the footer, and the chip on the sheet beside what is in progress', () => {
     render(
       <FileCard
         file={doc({ fileSize: 1_900_000, marks: { open: 4, proposed: 0, forYou: 2 } })}
@@ -92,7 +92,8 @@ describe('the open Anmerkungen on a file card', () => {
       />,
     )
     const footer = screen.getByTestId('file-card-footer')
-    expect(within(footer).getByTestId('open-marks')).toBeInTheDocument()
+    expect(within(footer).queryByTestId('open-marks')).toBeNull()
+    expect(screen.getByTestId('open-marks')).toBeInTheDocument()
     expect(footer).toHaveTextContent('1.9 MB')
     expect(footer.querySelector('time')).not.toBeNull()
   })

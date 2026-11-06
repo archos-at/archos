@@ -59,10 +59,11 @@ export function InspectorGroup({
   return (
     <div
       data-slot="inspector-group"
+      data-surface="sunken"
       className={cn(
-        'bg-card border-border/70 shadow-2xs overflow-hidden rounded-surface border',
-        // The first row's hairline would draw a second edge under the group's
-        // own border, so it is the one separator that is never drawn.
+        // The one grey on the rail's white, as an iOS inset group: the tone says where it ends, no border
+        // and no shadow. The first row's hairline would draw an edge at its top, so it is never drawn.
+        'bg-muted overflow-hidden rounded-surface',
         '[&>:first-child>[data-slot=inspector-row-body]]:border-t-0',
         className
       )}

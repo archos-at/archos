@@ -120,7 +120,7 @@ function FilingBarLine({
               {t('filing.keep')}
             </SuggestionButton>
             <SuggestionButton
-              variant="outline"
+              variant="secondary"
               loading={decision.busy?.action === 'apply'}
               aria-disabled={decision.busy !== null}
               onClick={decision.apply}

@@ -2,8 +2,8 @@
 
 import { type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { RaisedCard, RaisedCardBody, RaisedCardFooter, RaisedCardMedia } from '@/components/ui/raised-card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { FileTileFooter, FileTileMedia, TileShell } from './file-tile'
 
 /**
  * The one responsive grid every file surface uses — the Files browser, the
@@ -17,7 +17,11 @@ export function FileGrid({ children, className }: { children: ReactNode; classNa
       className={cn(
         // `items-stretch` keeps every cell as tall as the row so footers sit on
         // one line; hover must not scale a card (that would shove its neighbours).
-        'grid items-stretch gap-3 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] sm:gap-3.5 md:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]',
+        // `-mx-1.5`: a tile's 6px inset holds only its hover fill, so the grid bleeds by it and the
+        // thumbnails stand on the column's edge, the title's and the brief's. 12px of gap and the two insets are the
+        // 24px the eye reads between two thumbnails, on the 4px scale.
+        // Rows too: a 10px row gap, the insets and the meta line's foot read as the columns' 24px.
+        'grid items-stretch gap-3 gap-y-2.5 -mx-1.5 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]',
         className
       )}
     >
@@ -27,27 +31,24 @@ export function FileGrid({ children, className }: { children: ReactNode; classNa
 }
 
 /**
- * One loading cell shaped like the raised {@link FileCard} (proud block +
- * thumbnail + two text lines + footer). Render several inside a {@link FileGrid}
- * for a skeleton grid that matches the real layout on every surface.
+ * One loading cell in the tile's own shell ({@link TileShell}): the thumbnail's height, the
+ * name, two summary lines and the meta line, on the page. It was a raised card with a border and a
+ * shadow, the tray the tiles left, so the first paint promised a shape that never arrived.
  */
 export function FileCardSkeleton() {
   return (
-    <RaisedCard>
-      <RaisedCardBody className="flex-1 p-0">
-        {/* Same reserved well as FileCard — a collapsing thumbnail is a row jump. */}
-        <RaisedCardMedia className="h-[124px] min-h-[124px]">
-          <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
-        </RaisedCardMedia>
-        <div className="min-h-[4.5rem] space-y-2 px-3.5 pb-3 pt-[11px]">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-3.5 w-2/3" />
-          <Skeleton className="h-3 w-full" />
-        </div>
-      </RaisedCardBody>
-      <RaisedCardFooter className="min-h-[30px] gap-1.5 px-3.5 pb-2.5 pt-[9px]">
-        <Skeleton className="ml-auto h-3 w-24" />
-      </RaisedCardFooter>
-    </RaisedCard>
+    <TileShell interactive={false} data-testid="file-card-skeleton">
+      <FileTileMedia className="h-[124px]">
+        <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+      </FileTileMedia>
+      <div className="min-h-[68px] space-y-2 pt-3">
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+      <FileTileFooter>
+        <Skeleton className="h-3 w-24" />
+      </FileTileFooter>
+    </TileShell>
   )
 }

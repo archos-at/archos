@@ -14,6 +14,7 @@
  * where things went.
  */
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -48,10 +49,10 @@ export function FiledTo({
   return (
     <FactLine icon={followed ? Repeat2 : CheckCircle2} tone="default" testId={part.kind === 'message' ? 'message-filed' : 'status-filed'}>
       {words}
-      {place?.version != null && ` · ${t('attachments.status.version', { version: place.version })}`}
+      {place?.version != null && `${CLAUSE_JOIN}${t('attachments.status.version', { version: place.version })}`}
       {part.documentId && (
         <>
-          {' · '}
+          {CLAUSE_JOIN}
           <Button asChild variant="inline">
             <Link
               href={documentFilesHref(projectId, part.documentId)}

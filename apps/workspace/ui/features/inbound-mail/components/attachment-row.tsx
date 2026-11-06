@@ -30,6 +30,7 @@ import {
   Lock,
   ShieldAlert,
   ShieldQuestion,
+  Tag,
   Timer,
   Undo2,
 } from 'lucide-react'
@@ -45,7 +46,7 @@ import { documentFilesHref, FolderPickerSheet } from '@/features/documents'
 import { fileExtensionLabel } from '@/features/documents/document-kind'
 import { useLocale, useTranslations } from '@/i18n'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
-import { formatBytes, formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
 import { targetForPath, type AttachmentDraft, type FolderOption, type FolderTarget } from '../lib/draft'
@@ -116,7 +117,7 @@ export function AttachmentRow({
         return (
           <FactLine key="duplicate" icon={Copy} testId="note-duplicate">
             {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
-            {' · '}
+            {CLAUSE_JOIN}
             <Button asChild variant="inline">
               <Link href={documentFilesHref(projectId, note.documentId)}>{t('attachments.open')}</Link>
             </Button>
@@ -216,7 +217,7 @@ export function AttachmentRow({
         return (
           <FactLine icon={Undo2} testId={`status-${status}`}>
             {t(`attachments.status.${status}`)}
-            {part.restorableUntil && ` · ${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
+            {part.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
           </FactLine>
         )
       case 'waiting':
@@ -230,7 +231,7 @@ export function AttachmentRow({
   return (
     <Item
       as="li"
-      className={cn('items-start px-3 sm:px-4', !draft.checked && status === 'waiting' && !readOnly && 'bg-muted/20')}
+      className="items-start px-4"
       data-cursor={focused || undefined}
       data-testid={`attachment-${part.id}`}
       data-status={status}
@@ -252,7 +253,7 @@ export function AttachmentRow({
         onClick={onPreview}
         disabled={!contentUrl || !onPreview}
         aria-label={t('attachments.preview', { name })}
-        className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
+        className="shrink-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
       >
         <AttachmentThumbnail filename={name} contentType={part.contentType} url={contentUrl} />
       </button>
@@ -282,17 +283,23 @@ export function AttachmentRow({
                     newLabel={folderTarget.kind === 'new' ? t('suggestion.newFolder') : undefined}
                     title={folderLabel(folderTarget, t('suggestion.root'))}
                     onClick={() => setPickerOpen(true)}
-                    className={cn(!draft.suggested.folder && 'border-solid')}
+                    // „Vorschlag von …“ above says whose it is: the chip is the target, white on the panel's grey, the same
+                    // white chip as the Dokumentart beside it (two facts, one shape; „Ändern“ the one text press).
+                    mark={false}
+                    className="bg-background hover:bg-accent"
                     data-testid="attachment-folder"
                   />
                 ) : (
-                  <Button type="button" size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
+                  <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
                     <FolderInput className="size-3.5" aria-hidden />
                     {t('target.chooseFolder')}
                   </Button>
                 ))}
               {draft.documentType && (
-                <Badge variant="secondary" data-testid="attachment-type">
+                // Its own glyph, as the folder chip has its folder: „Bescheide“ and „Bescheid“ side by side were two words
+                // one letter apart.
+                <Badge variant="secondary" className="bg-background gap-1" data-testid="attachment-type">
+                  <Tag className="text-muted-foreground size-3" aria-hidden />
                   {tagLabel(draft.documentType, tFiles)}
                 </Badge>
               )}
@@ -301,7 +308,7 @@ export function AttachmentRow({
                   → {draft.name}
                 </span>
               )}
-              <Button type="button" size="sm" variant="ghost" className="text-muted-foreground h-7 px-2 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+              <Button type="button" size="sm" variant="ghost" className="text-muted-foreground px-2 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
                 {t('attachments.change')}
               </Button>
             </div>

@@ -77,7 +77,7 @@ const FIXTURE: FileItem = {
   chunkCount: 58,
   contentTypes: ['text', 'table', 'drawing', 'image', 'chart'],
   tags: [
-    'Grundriss',
+    'Gutachten', // a Brandschutzkonzept is a report, not a drawing: „Grundriss“ read wrong to an architect
     'Brandschutz',
     'Standsicherheit',
     'Nutzungssicherheit/Barrierefreiheit',

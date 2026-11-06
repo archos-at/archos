@@ -28,7 +28,7 @@ import type { JSX } from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { AtSign, BookOpen, CircleSlash, ContactRound, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
+import { AtSign, BookOpen, Check, CircleSlash, ContactRound, Copy, ExternalLink, Forward, MailPlus, RefreshCw, UserCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -41,6 +41,7 @@ import { CopyableValue } from '@/components/ui/copyable-value'
 import { EmailAddress } from '@/components/ui/email-address'
 import { SettingsPanel } from '@/components/settings/settings-panel'
 import { useLocale, useTranslations } from '@/i18n'
+import { useTransientFlag } from '@/hooks/use-transient-flag'
 import { capturePosthog } from '@/lib/analytics/posthog'
 import { startBrowserDownload } from '@/lib/browser-download'
 import type { InboundMailAddressView } from '@/lib/inbound-mail/inbound-mail-wire'
@@ -50,7 +51,7 @@ import {
   INBOUND_MAIL_MAX_ATTACHMENT_BYTES,
   INBOUND_MAIL_MAX_MESSAGE_BYTES,
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import { formatRelativeTime } from '@/lib/format'
+import { CLAUSE_JOIN, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { usePublicSiteUrl } from '@/shared/context'
 import { publicSiteLink } from '@/shared/public-site'
@@ -117,14 +118,38 @@ function AddressValue({ value, surface, className }: { value: string; surface: A
   )
 }
 
+/** The one thing an unused address asks for: copy it into a Cc line. The press says it landed. */
+function CopyAddressButton({ value, surface }: { value: string; surface: AddressSurface }): JSX.Element {
+  const t = useTranslations(inboundMailCopy)
+  const [copied, raise] = useTransientFlag()
+  return (
+    <Button
+      type="button"
+      size="sm"
+      onClick={() =>
+        void navigator.clipboard?.writeText(value).then(() => {
+          raise()
+          capturePosthog('inbound_mail_address_copied', { surface })
+        }, () => {})
+      }
+      data-testid="address-copy"
+    >
+      {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+      {t('address.copy')}
+    </Button>
+  )
+}
+
 /** „Als Kontakt sichern“: a vCard, which makes forwarding from a phone one tap. */
 function SaveContactButton({ value, projectName, surface }: { value: string; projectName: string; surface: AddressSurface }): JSX.Element {
   const t = useTranslations(inboundMailCopy)
   return (
     <Button
       type="button"
-      variant="outline"
+      variant="secondary"
       size="sm"
+      // A sheet on the quiet panel it sits in (the panel is the secondary tone itself).
+      className="bg-background hover:bg-accent"
       onClick={() => {
         saveContact(value, projectName, t('address.contactName', { project: projectName }), t('address.contactNote'))
         capturePosthog('inbound_mail_address_contact_saved', { surface })
@@ -168,6 +193,7 @@ export function InboundMailAddressBlock({
   projectName,
   surface,
   showUses = true,
+  showValue = true,
   onLeave,
 }: {
   address: InboundMailAddressView
@@ -176,6 +202,8 @@ export function InboundMailAddressBlock({
   surface: AddressSurface
   /** The three lines of what it is for; off where the surrounding copy says it already. */
   showUses?: boolean
+  /** The address itself; off where the page's header shows it already (the E-Mail-Eingang). */
+  showValue?: boolean
   /** Closes what the block sits in when the upload link is followed. */
   onLeave?: () => void
 }): JSX.Element {
@@ -187,23 +215,36 @@ export function InboundMailAddressBlock({
   return (
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
-      <QuietPanel>
+      {/* In a dialog's sheet the panel keeps its card: the sheet's own inset is its edge. */}
+      <QuietPanel className={cn(surface === 'dialog' && 'phone:mx-0 phone:rounded-surface')}>
         {/* The eyebrow names the value; in the dialog its title already does. */}
-        {surface !== 'dialog' && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
-        <AddressValue value={value} surface={surface} className="w-full justify-between" />
-        <div className="flex flex-wrap gap-2">
+        {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
+        {showValue &&
+          (surface === 'never_used' ? (
+            // Never used, the address is the page's focal point, read here and copied by the button below; 14px mono, under its heading's rank.
+            <p className="text-foreground font-mono text-sm [overflow-wrap:anywhere]" data-testid="address-value">
+              <EmailAddress address={value} />
+            </p>
+          ) : (
+            <AddressValue value={value} surface={surface} className="w-full justify-between" />
+          ))}
+        <div className="flex flex-wrap gap-3">
+          {surface === 'never_used' && <CopyAddressButton value={value} surface={surface} />}
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
         </div>
-        <p className="text-muted-foreground text-xs">
+        {/* Inside the panel under a centred empty state: outside it, a left-aligned line hung under centred words. */}
+        {surface === 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
+        {/* Under the never-used list's own „Noch keine E-Mails“ the line would say it twice. */}
+        <p className={cn('text-muted-foreground text-xs', surface === 'never_used' && !address.lastReceivedAt && address.droppedLast30Days === 0 && 'hidden')}>
           {address.lastReceivedAt
             ? t('address.lastReceived', { time: formatRelativeTime(address.lastReceivedAt, locale) })
             : t('address.nothingReceived')}
           {address.droppedLast30Days > 0 && (
-            <> · {t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
+            <>{CLAUSE_JOIN}{t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
           )}
         </p>
       </QuietPanel>
-      <AddressSizeLimit projectId={projectId} onLeave={onLeave} />
+      {surface !== 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
       {guideUrl && (
         <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">
           <a href={guideUrl} target="_blank" rel="noopener noreferrer">
@@ -399,8 +440,8 @@ export function InboundMailAddressCard({ projectId, projectName, client }: Inbou
           <AddressStatus state={address.state} onRetry={() => void address.reload()} onCreate={actions.create} />
         )}
         {manage && (
-          <div className="flex flex-wrap gap-2 border-t pt-4">
-            <Button type="button" variant="outline" size="sm" onClick={() => setConfirm('rotate')} data-testid="address-rotate">
+          <div className="flex flex-wrap gap-2 pt-2" /* apart by space, no line */>
+            <Button type="button" variant="secondary" size="sm" onClick={() => setConfirm('rotate')} data-testid="address-rotate">
               <RefreshCw className="size-4" aria-hidden />
               {t('address.rotate')}
             </Button>

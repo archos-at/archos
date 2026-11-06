@@ -291,7 +291,7 @@ export function UploadTray({ files, onRetry, onCancel, onCancelAll, onDismiss, o
           {summary.isSettled && retryAll && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-7 shrink-0 gap-1.5 px-2 text-xs"
               onClick={retryAll}
@@ -706,7 +706,7 @@ function UploadRow({
               {canRetry && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   className="mt-2 hidden gap-1.5 pointer-coarse:inline-flex"
                   onClick={() => onRetry(file.id)}

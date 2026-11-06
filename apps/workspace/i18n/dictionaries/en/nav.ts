@@ -57,6 +57,25 @@ export const nav = {
    * is the name of the location the reader actually came from, resolved from the
    * tab's return trail.
    */
+  /** A page inside a section (Files › Project mail): its title and subtitle; the section is the breadcrumb above. */
+  subpages: {
+    'files/all': {
+      title: 'All files',
+    },
+    'files/mail': {
+      title: 'Project mail',
+      subtitle: 'Mail sent to the project mail address waits here until someone files it.',
+    },
+    'files/bin': {
+      title: 'Bin',
+      subtitle: 'Deleted documents and folders. Until they are permanently deleted they can be restored.',
+    },
+    'files/open-points': {
+      title: 'Open points',
+      subtitle: 'What is open in this project’s documents: the list for the site meeting.',
+    },
+  },
+  filesPlaces: 'File places',
   backTo: 'Back to {label}',
   /**
    * Names for return destinations that have no nav entry of their own to borrow

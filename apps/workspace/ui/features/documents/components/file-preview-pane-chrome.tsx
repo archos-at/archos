@@ -9,7 +9,6 @@ import { documentFileUrl } from '@/lib/documents/urls'
 
 import { isOptimizerEligible } from '@/lib/images/optimizable'
 
-import { FileExtChip } from './file-ext-chip'
 
 import { PdfViewerDialog } from '@/features/knowledge/components/pdf-viewer-dialog'
 
@@ -31,10 +30,9 @@ import { ReaderActions, ReaderHeader } from './file-preview-reader'
 
 import type { FilePreviewController } from './use-file-preview-controller'
 import { MailProvenanceRow } from './mail-thread'
-import { tagLabel } from '@/lib/documents/tag-vocabulary'
 
 export function FilePreviewChrome({ controller }: { controller: FilePreviewController }) {
-  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, detectedType, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, showMetadataPanel, sideways, t } = controller
+  const { actions, canExpandPreview, canManage, closedProjectName, detailsOpen, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, sideways, t } = controller
   return (
     <>
         {/* Peek chrome lives on the host — this header is the modal/expanded one,
@@ -42,7 +40,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
 
             It used to be the surface's noticeboard: the name, the byline, the
             type · status line, the assignment faces with their popover, "Piloti
-            dazu fragen", "Kollegin fragen", Herunterladen, the actions menu,
+            dazu fragen", "Kolleg:in fragen", Herunterladen, the actions menu,
             expand and close. Ten things, five of them conditional, in a row that
             had to WRAP on anything narrower than a laptop — so the chrome
             reflowed into two or three lines as you moved between files, and the
@@ -121,15 +119,15 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
           />
         )}
         {!peeking && !reader && (
-          <div className="@md:gap-x-3 @md:px-5 flex shrink-0 items-start gap-x-2 border-b px-3.5 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
-            <FileExtChip filename={file.filename} fallback={<Icon className="size-4" />} />
+          // The name on the rail's 16px edge, with no format box before it: the facts line under the name says „PDF“.
+          <div className="flex shrink-0 items-start gap-x-2 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
               underneath it, which is the answer to "which file is this actually"
               for anyone who renamed it. */}
             <div className="min-w-0 flex-1">
               <h3
-                className="text-foreground truncate text-sm font-medium leading-tight tracking-[-0.01em]"
+                className="text-foreground truncate text-sm font-medium leading-tight"
                 title={actions.isRenamed ? `${actions.name}\n${file.filename}` : actions.name}
               >
                 {actions.name}
@@ -219,7 +217,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                   hands out the original. */}
                 {isOfficeRendition && previewUrl && (
                   <Badge
-                    variant="outline"
+                    variant="secondary"
                     className="min-w-0 max-w-full shrink font-normal"
                     data-testid="file-preview-rendition-note"
                     title={t('preview.renditionNote', { name: file.filename })}
@@ -229,11 +227,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                     </span>
                   </Badge>
                 )}
-                {showMetadataPanel && detectedType && (
-                  <Badge variant="secondary" className="min-w-0 max-w-full shrink font-normal">
-                    <span className="truncate">{tagLabel(detectedType, t)}</span>
-                  </Badge>
-                )}
+                {/* No type chip: the rail's reading says what the file is („… hält es für Grundriss“), and a header chip
+                    said it a second time beside it (and not at all on a phone). */}
               </div>
             </div>
             {/* Who is in the document right now. Following someone is the
@@ -256,7 +251,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
               className="pointer-coarse:min-w-11 @md:px-3 h-8 shrink-0 gap-1.5 px-2"
               onClick={() => void actions.download()}
@@ -336,7 +331,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
         {actions.downloadFailed && (
           <div
             role="alert"
-            className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-2"
+            className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2"
           >
             {/* THE SAME DEAD END, ONE LEVEL DOWN. A download of a document that
                 is not there any more fails for the reason the preview already
@@ -350,9 +345,9 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             {previewGone ? (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="h-7 gap-1.5"
+                className="gap-1.5"
                 onClick={() =>
                   dropFileSubject({
                     cleared: t('preview.goneCleared'),
@@ -366,9 +361,9 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             ) : (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="h-7 gap-1.5"
+                className="gap-1.5"
                 onClick={() => void actions.download()}
                 disabled={actions.isDownloading}
               >

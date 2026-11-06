@@ -20,7 +20,8 @@ export type EmptyStateDiscTone = 'muted' | 'destructive' | 'warning'
 export type EmptyStateDiscSize = 'md' | 'sm'
 
 const EMPTY_STATE_DISC_TONES: Record<EmptyStateDiscTone, string> = {
-  muted: 'border bg-card text-muted-foreground',
+  // A tile of the page's quiet tone, no ring: the glyph names the state, the tile only seats it.
+  muted: 'bg-muted text-muted-foreground',
   destructive: 'border-transparent bg-danger-subtle text-error',
   warning: 'border-transparent bg-warning-subtle text-warning',
 }
@@ -92,7 +93,7 @@ export function EmptyState({
     <div
       className={cn(
         'flex w-full min-w-0 flex-col items-center justify-center text-center',
-        variant === 'panel' ? 'rounded-surface border border-dashed bg-muted/25 px-6 py-12' : 'py-10',
+        variant === 'panel' ? 'rounded-surface border border-dashed bg-muted px-6 py-12' : 'py-10',
         // Staged entrance, CSS-only (this stays server-safe): the panel fades
         // in, the disc lands a beat later. Transform/opacity only, and the
         // parent already reserves the space, so no layout shift. `fade-in-0`
@@ -114,7 +115,7 @@ export function EmptyState({
           className="mb-4 animate-in zoom-in-95 duration-base ease-entrance motion-reduce:animate-none"
         />
       )}
-      <p className="text-balance text-sm font-medium tracking-tight text-foreground">{title}</p>
+      <p className="text-balance text-sm font-medium text-foreground">{title}</p>
       {description && (
         <p className="mt-1.5 max-w-sm text-pretty text-sm leading-relaxed text-muted-foreground">{description}</p>
       )}

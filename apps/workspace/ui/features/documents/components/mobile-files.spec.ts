@@ -87,6 +87,7 @@ describe('the Papierkorb', () => {
 
   it('puts the permanent action at the far end of the row, away from restore', () => {
     expect(bin).toMatch(/justify-between/)
-    expect(bin).toMatch(/text-destructive ml-auto|ml-auto text-destructive/)
+    // In ink since 2026-11 (red is for a failure; the confirm says what cannot be undone), still at the far end.
+    expect(bin).toMatch(/className="ml-auto/)
   })
 })

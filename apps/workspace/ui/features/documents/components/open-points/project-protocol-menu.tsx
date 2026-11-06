@@ -103,7 +103,7 @@ export function ProjectProtocolMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={busy}
+        <Button type="button" variant="secondary" size="sm" className="gap-1.5" disabled={busy}
           title={t('openPoints.export.hint')}
           data-testid="open-points-export"
         >

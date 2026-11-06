@@ -1,0 +1,73 @@
+'use client'
+
+/**
+ * The E-Mail-Eingang's header actions: „Adresse kopieren“ and „Mehr zur Adresse“.
+ *
+ * The first thing a person comes here for, after the mail, is the address to
+ * put in Cc, and what they need of it here is the copy, not the 45 characters:
+ * shown whole in monospace it was the loudest thing in the header, cut in the
+ * middle it lost the part that says whose it is. So the header copies it with a
+ * press that says so; the address itself is read in „Mehr zur Adresse“ (the
+ * dialog: what it is for, the contact card, the size limit) and in the
+ * never-used empty state. Without an address, a manager reads „Adresse
+ * erzeugen“; a member reads nothing here, the empty list says whom to ask.
+ */
+
+import type { JSX } from 'react'
+import { Check, Copy, Info, MailPlus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useTransientFlag } from '@/hooks/use-transient-flag'
+import { useTranslations } from '@/i18n'
+import { capturePosthog } from '@/lib/analytics/posthog'
+import type { AddressState } from '../hooks/use-inbound-mail-address'
+import { inboundMailCopy } from '@/i18n/namespaces/inbound-mail'
+
+export function InboundMailHeaderActions({ state, onOpenAddress }: { state: AddressState; onOpenAddress: () => void }): JSX.Element | null {
+  const t = useTranslations(inboundMailCopy)
+  const [copied, raise] = useTransientFlag()
+  if (state.kind === 'loading') return <Skeleton className="h-8 w-56" aria-hidden />
+  if (state.kind === 'error') return null
+  const { address } = state
+  if (address.state === 'active' && address.address) {
+    const value = address.address
+    return (
+      // No gap: the ghost press's own 12px of padding is the 12px between the tonal fill and its glyph.
+      <div className="flex min-w-0 items-center" data-testid="inbound-mail-header-address">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          // Tonal at every width: the one press of this tab's tools looks the same on a desk and a phone.
+          onClick={() =>
+            void navigator.clipboard?.writeText(value).then(() => {
+              raise()
+              capturePosthog('inbound_mail_address_copied', { surface: 'header' })
+            }, () => {})
+          }
+          data-testid="inbound-mail-address-copy"
+        >
+          {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
+          {t(copied ? 'header.addressCopied' : 'header.addressCopy')}
+        </Button>
+        {/* `-mr-3.5`, its padding: the words end on the right edge. */}
+        <Button type="button" variant="ghost" size="sm" className="-mr-3.5 shrink-0 pl-3" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
+          <Info className="size-4" aria-hidden />
+          {t('header.addressMore')}
+        </Button>
+        <span className="sr-only" role="status" aria-live="polite">
+          {copied ? t('header.addressCopied') : ''}
+        </span>
+      </div>
+    )
+  }
+  if (address.state === 'none' && address.canManage) {
+    return (
+      <Button type="button" variant="secondary" size="sm" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
+        <MailPlus className="size-4" aria-hidden />
+        {t('address.create')}
+      </Button>
+    )
+  }
+  return null
+}

@@ -71,9 +71,11 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     'flex flex-col px-4 pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]'
                   : peeking
                   ? // The details view of the peek: the whole column, scrolling
-                    // on its own, on the same sunken ground the stage uses.
-                    'scroll-fade-bottom bg-surface-sunken border-base mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-surface border p-4'
-                  : 'scroll-fade-bottom bg-surface-sunken @2xl:w-[280px] @2xl:shrink-0 @2xl:min-h-0 @2xl:overflow-y-auto @2xl:overscroll-contain @2xl:border-l @2xl:border-t-0 @2xl:pb-4 flex w-full flex-col border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
+                    // on its own, a white sheet on the stage's grey.
+                    'scroll-fade-bottom bg-background mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-surface p-4'
+                  : // White beside the stage's grey, no line between: two grey bands side by side were one ground
+                    // split by a hairline (the design system: never two bands next to each other).
+                    'scroll-fade-bottom bg-background @2xl:w-[280px] @2xl:shrink-0 @2xl:min-h-0 @2xl:overflow-y-auto @2xl:overscroll-contain @2xl:pb-4 flex w-full flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
               }
             >
               <ThreadRailViews
@@ -110,7 +112,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 (@2xl+) it is level with the top of the document; stacked, it is
                 the first thing under the preview. */}
               {hasOwnershipBlock && (
-              <div className="mb-5 space-y-2.5">
+              <div className="mb-5 flex flex-col gap-3" /* 12px between the presses, as every pair */>
                 {/* Provenance, not status: the badge is up in the header with
                   the name. „Von Piloti erstellt" leads the rail instead, because
                   for the one document where it appears it is the reason the Ask
@@ -126,7 +128,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     and initials are a thing to recall, not to recognise; with
                     the label, the name and the control on one 248px line the
                     name was the part that could not fit. */
-                  <InspectorGroup className="mb-3.5" data-testid="file-preview-responsible">
+                  <InspectorGroup className="mb-2" data-testid="file-preview-responsible">
                     <Item className="gap-2.5 px-3 py-2 hover:bg-transparent">
                       <AssignmentFaces assignees={file.assignees} faceOnly />
                       <ItemContent>
@@ -135,7 +137,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                         </ItemTitle>
                         <ItemDescription className="text-[11px]/4">{t('assignment.responsible')}</ItemDescription>
                       </ItemContent>
-                      <ItemActions>
+                      <ItemActions className="-mr-2" /* the press's 8px given back: „Ändern“ ends 12px from the card's edge, as the facts do */>
                         <AssignPopover
                           documentId={file.id}
                           assignees={file.assignees ?? []}
@@ -215,7 +217,8 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                         {/* What Piloti took the document to be, and the way to
                             correct it — see `agent-reading.tsx` for why this is
                             no longer an always-open tag form. */}
-                        <div className={cn('p-3', file.summary && 'border-border/60 border-t')}>
+                        {/* Under the summary by space alone: a hairline across the panel split one answer in two. */}
+                        <div className={cn('p-3', file.summary && 'pt-1')}>
                           <AgentReading file={file} canManage={canManage} onTagsUpdated={onTagsUpdated} projectId={projectId} />
                         </div>
                       </>
@@ -341,7 +344,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               {/* Failure reason + re-ingestion affordance (re-ingest is a mutation,
                 so the button is hidden for read-only viewers). */}
               {isFailed && (
-                <div className="mt-4 space-y-2.5 border-t pt-4">
+                <div className="mt-6 space-y-2.5">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="text-destructive mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="min-w-0 space-y-1">
@@ -376,7 +379,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     canManage && (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         className="w-full gap-2"
                         onClick={handleReingest}
                         disabled={actions.isReingesting}
@@ -392,7 +395,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               )}
 
               {isHeld && (
-                <div className="mt-4 space-y-2.5 border-t pt-4" data-testid="preview-held">
+                <div className="mt-6 space-y-2.5" data-testid="preview-held">
                   <div className="flex items-start gap-2">
                     <ShieldAlert className="text-warning mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="min-w-0 space-y-2">

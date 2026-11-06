@@ -20,13 +20,14 @@
  */
 
 import { useState, type JSX } from 'react'
-import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { AlertTriangle, ArrowLeft, CheckCheck, FileText, RefreshCw } from 'lucide-react'
+import Link from 'next/link'
+import { cn } from '@/lib/utils'
+import { AlertTriangle, CheckCheck, FileText, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LoadMore } from '@/components/ui/load-more'
-import { PageHeader } from '@/components/ui/page-header'
+import { ProjectSectionActions } from '@/components/shell/project-section-frame'
 import { Spinner } from '@/components/ui/spinner'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
@@ -123,31 +124,26 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6" data-testid="open-points">
-        <PageHeader
-          title={t('openPoints.title')}
-          subtitle={t('openPoints.subtitle')}
-          action={
-            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-              <ProjectProtocolMenu
-                projectId={projectId}
-                filters={filters}
-                filing={filing}
-                restricted={list.load === 'ready' ? list.restricted : null}
-              />
-              <Button asChild variant="ghost" size="sm">
-                <Link href={`/app/projects/${projectId}/files`}>
-                  <ArrowLeft className="size-4" aria-hidden />
-                  {t('openPoints.back')}
-                </Link>
-              </Button>
-            </div>
-          }
-        />
+      {/* The listing's container and edges (1280px, 32px; 16px on a phone), as „Alle Dateien“: centred at 896px the
+          tab had a left edge of its own. */}
+      <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:px-8" data-testid="open-points">
+        {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
+        <ProjectSectionActions>
+          <ProjectProtocolMenu
+            projectId={projectId}
+            filters={filters}
+            filing={filing}
+            restricted={list.load === 'ready' ? list.restricted : null}
+          />
+        </ProjectSectionActions>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="open-points-filters">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-medium">{t('openPoints.filters.assignee')}</span>
+        {/* 32px between the two groups and 12px from a label to its first choice: „Frist“ read as a third choice of
+            „Zuständig“ when both gaps were the same. */}
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2" data-testid="open-points-filters">
+          <div className="flex items-center gap-3">
+            {/* One column for both labels on a phone, where the groups stack and their choices start on one edge; on a
+                desk each label stands 12px from its own choices (a fixed column floated „Frist“ 47px from them). */}
+            <span className="text-muted-foreground text-xs font-medium max-sm:min-w-16">{t('openPoints.filters.assignee')}</span>
             <ToggleGroup
               type="single"
               value={assignee}
@@ -155,7 +151,10 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 if (value === 'all' || value === 'me') choose({ assignee: value, due })
               }}
               segmented
+              bare
               size="sm"
+              // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
+              className="[&>button]:text-sm"
               aria-label={t('openPoints.filters.assignee')}
             >
               <ToggleGroupItem value="all" data-testid="open-points-assignee-all">
@@ -166,8 +165,8 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-medium">{t('openPoints.filters.due')}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground text-xs font-medium max-sm:min-w-16">{t('openPoints.filters.due')}</span>
             <ToggleGroup
               type="single"
               value={due}
@@ -177,7 +176,10 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 }
               }}
               segmented
+              bare
               size="sm"
+              // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
+              className="[&>button]:text-sm"
               aria-label={t('openPoints.filters.due')}
             >
               <ToggleGroupItem value="all" data-testid="open-points-due-all">
@@ -199,18 +201,19 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           </div>
         ) : list.load === 'error' ? (
           <EmptyState
+            variant="bare"
             icon={AlertTriangle}
             tone="destructive"
             title={t('openPoints.loadError')}
             action={
-              <Button variant="outline" size="sm" onClick={list.retry} data-testid="open-points-retry">
+              <Button variant="secondary" size="sm" onClick={list.retry} data-testid="open-points-retry">
                 <RefreshCw className="size-3.5" aria-hidden />
                 {t('openPoints.retry')}
               </Button>
             }
           />
         ) : list.marks.length === 0 ? (
-          <EmptyState
+          <EmptyState variant="bare"
             icon={CheckCheck}
             title={t(filtered ? 'openPoints.empty.filteredTitle' : 'openPoints.empty.noneTitle')}
             description={t(filtered ? 'openPoints.empty.filteredBody' : 'openPoints.empty.noneBody')}
@@ -219,16 +222,18 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
         ) : (
           <>
             {byDocument(list.marks).map((group) => (
-              <section
-                key={group.documentId}
-                aria-label={group.documentName}
-                className="rounded-surface border"
-                data-testid="open-points-document"
-              >
-                <div className="flex items-center gap-2 border-b px-3 py-2">
-                  <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              // A document's points under its name, on the page: no box and no line under the heading. The rows bleed by
+              // their inset, so the numbers stand on the edge under the document's glyph.
+              <section key={group.documentId} aria-label={group.documentName} className="flex flex-col" data-testid="open-points-document">
+                {/* The glyph on the column's edge in the points' 24px marker column, so the name stands on their text's
+                    edge. A 24px line whose press overhangs it: the heading stands 10px over its first point, nearer it
+                    than the points stand to each other (18px). */}
+                <div className="flex min-h-6 items-center gap-3 [&_[data-slot=button]]:-my-1">
+                  <span className="flex w-6 shrink-0 justify-start">
+                    <FileText className="text-muted-foreground size-4" aria-hidden />
+                  </span>
                   <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>
-                  <Button asChild variant="ghost" size="sm" className="shrink-0">
+                  <Button asChild variant="ghost" size="sm" className="-mr-3.5 shrink-0">
                     <Link
                       href={reviewFilesHref(projectId, { documentId: group.documentId }, { back: here })}
                       aria-label={t('openPoints.openReviewOf', { name: group.documentName })}
@@ -237,7 +242,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                     </Link>
                   </Button>
                 </div>
-                <ul className="space-y-0.5 p-1">
+                <ul className="-mx-2.5 flex flex-col gap-0.5">
                   {group.marks.map((mark) => (
                     <li key={mark.id}>
                       <Link
@@ -246,7 +251,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                           { documentId: mark.documentId, annotationId: mark.id },
                           { back: here }
                         )}
-                        className={markRowClassName()}
+                        className={cn(markRowClassName(), 'hover:bg-muted')}
                         data-testid="open-point-row"
                       >
                         <MarkRowContent annotation={mark} viewerId={currentUserId} showPage />

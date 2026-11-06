@@ -98,7 +98,7 @@ export const DocumentAnswerCard: FC<DocumentAnswerCardProps> = ({ title, query: 
       ) : (
         <>
           {!single && cells.length > 1 && (
-            <p className="text-muted-foreground mb-2 px-0.5 text-[11px] font-medium tracking-[-0.01em]">
+            <p className="text-muted-foreground mb-2 px-0.5 text-[11px] font-medium">
               {title || t('documentAnswer.choose')}
             </p>
           )}

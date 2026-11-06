@@ -160,7 +160,15 @@ describe('FileListView', () => {
       renderList(HITS, { semantic: true })
       // Newest-first would put Statik on top; the ranking puts Flucht there.
       expect(rowNames()).toEqual(['Flucht.pdf', 'Statik.pdf'])
-      expect(screen.getAllByTestId('file-list-relevance')[0]).toHaveTextContent('1')
+      // Ranked by relevance, the order is the rank: no „1, 2“ beside it.
+      expect(screen.queryByTestId('file-list-relevance')).toBeNull()
+    })
+
+    it('shows the rank once another column orders the rows', async () => {
+      const user = userEvent.setup()
+      renderList(HITS, { semantic: true })
+      await user.click(screen.getByRole('button', { name: /^name/i }))
+      expect(screen.getAllByTestId('file-list-relevance').length).toBeGreaterThan(0)
     })
 
     it('shows the passage that matched, with its page', () => {
@@ -170,12 +178,14 @@ describe('FileListView', () => {
       expect(first).toHaveTextContent('2')
     })
 
-    it('offers relevance as a column that can be sorted the other way', async () => {
+    it('brings the ranking back from its column once another column orders the rows', async () => {
       const user = userEvent.setup()
       renderList(HITS, { semantic: true })
-
+      // Ranked, there is no Relevance column: the order is the rank.
+      expect(screen.queryByRole('button', { name: /relevance/i })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /^name/i }))
       await user.click(screen.getByRole('button', { name: /relevance/i }))
-      expect(rowNames()).toEqual(['Statik.pdf', 'Flucht.pdf'])
+      expect(rowNames()).toEqual(['Flucht.pdf', 'Statik.pdf'])
     })
 
     it('has no relevance column in a plain listing', () => {
@@ -205,12 +215,12 @@ describe('FileListView', () => {
       expect(screen.getByTestId('document-version-badge')).toHaveTextContent('In review')
     })
 
-    it('stays quiet on a plain upload, like the card', () => {
-      renderList([doc('Plan.pdf', { versionState: 'published', versionCount: 1 })])
+    it('drops the column when no row has a state, like the card stays quiet on a plain upload', () => {
+      renderList([doc('Plan.pdf', { versionState: 'published', versionCount: 1 }), doc('Lageplan.pdf')])
 
-      const row = screen.getByTestId('file-list-row')
-      expect(within(row).queryByTestId('document-version-badge')).not.toBeInTheDocument()
-      expect(within(row).getByTestId('file-list-approval-empty')).toBeInTheDocument()
+      expect(screen.queryByText('Approval')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('document-version-badge')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('file-list-approval-empty')).not.toBeInTheDocument()
     })
 
     it('shows a Piloti draft’s state — triage must see what waits', () => {
@@ -226,12 +236,19 @@ describe('FileListView', () => {
       expect(screen.getByTestId('document-version-badge')).toHaveTextContent('Draft')
     })
 
-    it('marks rows the listing never read the state for, as it does for pages', () => {
-      renderList([doc('Plan.pdf')])
+    it('marks the rows without a state once one row has one', () => {
+      renderList([doc('Bericht.pdf', { authoredBy: 'agent', versionState: 'draft', versionCount: 1 }), doc('Plan.pdf')])
 
-      const row = screen.getByTestId('file-list-row')
-      expect(within(row).queryByTestId('document-version-badge')).not.toBeInTheDocument()
-      expect(within(row).getByTestId('file-list-approval-empty')).toHaveTextContent('—')
+      const plain = screen.getAllByTestId('file-list-row').find((row) => within(row).queryByText('Plan.pdf'))!
+      expect(within(plain).getByTestId('file-list-approval-empty')).toHaveTextContent('—')
+    })
+
+    it('has no Status column: what is in progress stands after the name, where „4 offen“ stands too', () => {
+      renderList([doc('Plan.pdf', { status: 'success' }), doc('Energieausweis.pdf', { status: 'processing' })])
+
+      expect(screen.queryByRole('columnheader', { name: /status/i })).not.toBeInTheDocument()
+      const row = screen.getAllByTestId('file-list-row').find((candidate) => within(candidate).queryByText('Energieausweis.pdf'))!
+      expect(within(row).getByText('Reading')).toBeInTheDocument()
     })
   })
 })
@@ -258,7 +275,7 @@ describe('FileListView — Fassungen', () => {
     const count = within(withHistory).getByTestId('revision-count')
     expect(count).toHaveTextContent('2 revisions')
     expect(count.parentElement).toHaveTextContent('Gutachten_v3.pdf')
-    expect(within(withHistory).getByTestId('file-list-approval-empty')).toBeInTheDocument()
+    expect(within(withHistory).queryByTestId('file-list-approval-empty')).not.toBeInTheDocument()
     expect(within(plain).queryByTestId('revision-count')).not.toBeInTheDocument()
   })
 

@@ -41,7 +41,8 @@ Apps receive copies, not imports: neither Docker build sees `packages/`.
 
 The design system 3.0 is a website system: square shapes, 4px controls, no shadows. The
 workspace is rebranded with a lighter hand on purpose and keeps a softer shape language of
-its own. Both come from `tokens.json`, kept apart by scope:
+its own; where its rules differ from the website's on purpose (the tonal secondary press, D4),
+`docs/design/design-language.md` says so and why. Both come from `tokens.json`, kept apart by scope:
 
 | Layer | Tokens | Reaches |
 |---|---|---|

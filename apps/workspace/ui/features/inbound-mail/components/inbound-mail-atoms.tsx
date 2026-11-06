@@ -60,13 +60,18 @@ export function CheckLine({
   )
 }
 
-/** The bottom edge of the detail: pinned, on the page's paper, the home indicator's inset below it. */
+/**
+ * The bottom edge of the detail: pinned, a frosted strip of the page's paper with the home indicator's inset
+ * below it. No rule on top: the material (blur, and a soft shadow cast upward over what scrolls under it) ends
+ * the text, as a floating toolbar does.
+ */
 export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
   return (
     <div
       className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 border-t px-3 pt-3 backdrop-blur sm:px-4',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 px-4 pt-3 shadow-pinned-foot backdrop-blur sm:px-8',
+        // The page's 16px gutter on a phone; 24px under the presses on a desk, not 12 against 32 at the sides.
+        'pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6',
         className
       )}
       {...props}
@@ -76,5 +81,7 @@ export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement
 
 /** A block of the detail that belongs together: a quiet tint, one hairline, the surface radius. */
 export function QuietPanel({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
-  return <div className={cn('bg-muted/40 rounded-surface flex flex-col gap-2 border p-3', className)} {...props} />
+  // A quiet tone, no border: the mail feature's panels group by fill, like the rest of Dateien.
+  // 16px inside, the detail's panels' inset; on a phone a band across the screen rather than a card in the gutter.
+  return <div data-surface="sunken" className={cn('bg-muted rounded-surface flex flex-col gap-2 p-4 phone:-mx-4 phone:rounded-none', className)} {...props} />
 }

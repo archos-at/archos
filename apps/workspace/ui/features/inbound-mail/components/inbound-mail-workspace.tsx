@@ -31,17 +31,19 @@
  * several-mail sizes confirm first, listing where everything goes.
  */
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, AtSign, FolderOpen, Lock, MailSearch, X } from 'lucide-react'
+import { ArrowLeft, Lock, MailPlus, MailSearch, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { EmptyState } from '@/components/ui/empty-state'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
+import { PHONE_QUERY } from '@/hooks/use-is-mobile'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { useTranslations } from '@/i18n'
 import {
   INBOUND_MAIL_DECISION_MAX_MAILS,
@@ -65,7 +67,9 @@ import { listSections, visibleMails } from '../lib/list-sections'
 import { inboundMailPaths, type InboundMailPaths } from '@/lib/inbound-mail/paths'
 import { refusalOf } from '../lib/refusal'
 import { primeInboundMailWaiting, refreshInboundMailWaiting, useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
+import { useInboundMailAddress } from '../hooks/use-inbound-mail-address'
 import { InboundMailAddressBlock, InboundMailAddressDialog } from './inbound-mail-address'
+import { InboundMailHeaderActions } from './inbound-mail-header-actions'
 import { InboundMailDetail, type DetailActions } from './inbound-mail-detail'
 import { InboundMailList, type ListState } from './inbound-mail-list'
 import { SelectionBar, type BulkBlock } from './selection-bar'
@@ -127,6 +131,7 @@ export function InboundMailWorkspace({
   initialChecked,
 }: InboundMailWorkspaceProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
+  const phone = useMediaQuery(PHONE_QUERY)
   const router = useRouter()
   const paths = useMemo(() => pathsProp ?? inboundMailPaths(projectId), [pathsProp, projectId])
   const filter = useMemo(() => ({ status, outcome }), [status, outcome])
@@ -139,8 +144,10 @@ export function InboundMailWorkspace({
   const [quietOpen, setQuietOpen] = useState(false)
   const [closedNoticeHidden, setClosedNoticeHidden] = useState(false)
   const [addressOpen, setAddressOpen] = useState(false)
-  const [everReceived, setEverReceived] = useState<boolean | null>(null)
-  const [address, setAddress] = useState<Awaited<ReturnType<InboundMailAddressClient['get']>> | null>(null)
+  // The address heads the page (copy it for Cc) and says whether an empty list was ever used.
+  const address = useInboundMailAddress(projectId, true, addressClient)
+  const addressView = address.state.kind === 'ready' ? address.state.address : null
+  const everReceived = addressView ? addressView.lastReceivedAt !== null : address.state.kind === 'error' ? true : null
   const detailActions = useRef<DetailActions | null>(null)
   const waiting = useInboundMailWaiting(projectId, true, client)
 
@@ -187,17 +194,9 @@ export function InboundMailWorkspace({
   const rows = useMemo(() => visibleMails(sections, quietOpen), [sections, quietOpen])
 
   // An empty waiting list is „never used“ or „all done“: the address says which, and is shown in the first.
-  const empty = list.kind === 'ready' && list.items.length === 0 && status === 'waiting'
-  useEffect(() => {
-    if (!empty || everReceived !== null) return
-    addressClient
-      .get(projectId)
-      .then((view) => {
-        setAddress(view)
-        setEverReceived(view.lastReceivedAt !== null)
-      })
-      .catch(() => setEverReceived(true))
-  }, [empty, everReceived, addressClient, projectId])
+  const empty = list.kind === 'ready' && list.items.length === 0
+  // Never used: the page is about one thing, the address, so the empty list holds it and the header does not.
+  const never = empty && status === 'waiting' && everReceived === false
 
   // ------------------------------------------------------------ selection and bulk
 
@@ -292,7 +291,7 @@ export function InboundMailWorkspace({
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
     await client.file(projectId, { mails: decisions })
     toast.success(t('toast.filedAsSuggested', { count: decisions.length }), {
-      description: plan.destinations.map(destinationLine).join(' · '),
+      description: plan.destinations.map(destinationLine).join(CLAUSE_JOIN),
     })
     // Whether „Bereit“ is the way people file: by surface, how many mails per press.
     capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
@@ -439,7 +438,7 @@ export function InboundMailWorkspace({
     ) : null
 
   const back = (
-    <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit @3xl:hidden">
+    <Button asChild variant="ghost" size="sm" className="-ml-3.5 w-fit @3xl:hidden" /* its 14px padding given back: the arrow on the gutter */>
       <Link href={paths.list(filter)} data-testid="inbound-mail-back">
         <ArrowLeft className="size-4" aria-hidden />
         {t('title')}
@@ -448,26 +447,20 @@ export function InboundMailWorkspace({
   )
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
+    // Dateien's container, as every tab of the section: centred with the others from a 1440px section, so the title
+    // and the tabs stand still when the tab changes (a full-width split moved them 80px).
+    <div className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href={paths.files} data-testid="inbound-mail-files">
-              <FolderOpen className="size-4" aria-hidden />
-              {t('back')}
-            </Link>
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-address-open">
-            <AtSign className="size-4" aria-hidden />
-            {t('addressButton')}
-          </Button>
-        </div>
+        {/* An opened mail on a phone shows the mail: the address is a press away, back in the list. Nothing is
+            portalled then, or the header kept an empty row's margin above the mail. */}
+        {!never && !(mailId && phone) && <InboundMailHeaderActions state={address.state} onOpenAddress={() => setAddressOpen(true)} />}
       </ProjectSectionActions>
-      <div className="flex min-h-0 flex-1 flex-col @3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]">
-        <div className={cn('min-h-0 flex-1 flex-col @3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
-          <div className="flex items-baseline justify-between gap-2 px-3 pt-3 sm:px-4">
-            <h2 className="text-sm font-medium">{t('title')}</h2>
-          </div>
+      {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
+      {/* The list's content stands on the title's edge (32px from a desk's side, 16px on a phone): `md:px-4` over its
+          own 16px, the right one given back at the split, where the pane's divider is its edge. 25rem keeps the
+          rows 22rem and the open row's fill as far from the divider as from the screen's side. */}
+      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[26rem_minmax(0,1fr)]')}>
+        <div className={cn('min-h-0 flex-1 flex-col md:px-4', !(empty && !mailId) && '@3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}
             sections={sections}
@@ -512,12 +505,32 @@ export function InboundMailWorkspace({
             }}
             loadingMore={loadingMore}
             everReceived={everReceived}
-            addressBlock={address ? <InboundMailAddressBlock address={address} projectId={projectId} projectName={projectName} surface="never_used" showUses={false} /> : null}
+            addressBlock={
+              addressView?.address ? (
+                <InboundMailAddressBlock
+                  address={addressView}
+                  projectId={projectId}
+                  projectName={projectName}
+                  surface="never_used"
+                  showUses={false}
+                />
+              ) : addressView?.canManage ? (
+                <Button type="button" size="sm" className="w-fit" onClick={() => setAddressOpen(true)} data-testid="inbound-mail-never-create">
+                  <MailPlus className="size-4" aria-hidden />
+                  {t('address.create')}
+                </Button>
+              ) : null
+            }
+            showFilter={!never}
+            neverCase={!addressView || addressView.address ? 'address' : addressView.canManage ? 'create' : 'ask'}
             selectionBar={selectionBar}
             notice={notice}
           />
         </div>
-        <div className={cn('min-h-0 flex-1 @3xl:block', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')} data-testid="inbound-mail-detail-pane">
+        <div
+          className={cn('min-h-0 flex-1', !(empty && !mailId) && '@3xl:block', mailId ? 'block overflow-y-auto overscroll-contain' : 'hidden')}
+          data-testid="inbound-mail-detail-pane"
+        >
           {mailId ? (
             <InboundMailDetail
               key={mailId}
@@ -533,15 +546,29 @@ export function InboundMailWorkspace({
               now={now}
               decidedByOther={decidedByOther}
             />
-          ) : (
-            <div className="p-6">
-              <EmptyState icon={MailSearch} title={t('noSelection')} />
+          ) : list.kind === 'loading' ? null /* nothing to pick yet: „Wählen Sie …“ only once there is a list */ : (
+            // Bare and in the pane's middle: a dashed grey panel was a box and a line around one sentence.
+            // Quiet is the normal case: one muted 14px line under a muted glyph, not a heading in ink. While mails are
+            // picked it says what the bar does, not „2 ausgewählt“ a second time beside the bar's own count.
+            <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
+              <MailSearch className="size-5" aria-hidden />
+              <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
             </div>
           )}
         </div>
       </div>
 
-      <InboundMailAddressDialog projectId={projectId} projectName={projectName} open={addressOpen} onOpenChange={setAddressOpen} client={addressClient} />
+      <InboundMailAddressDialog
+        projectId={projectId}
+        projectName={projectName}
+        open={addressOpen}
+        onOpenChange={(open) => {
+          setAddressOpen(open)
+          // The dialog may have made the address: the header and the empty list read it again.
+          if (!open) void address.reload()
+        }}
+        client={addressClient}
+      />
       <ConfirmDialog
         open={confirmFile !== null}
         onOpenChange={(open) => !open && setConfirmFile(null)}

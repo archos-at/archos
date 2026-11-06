@@ -81,7 +81,8 @@ export function DocumentObjectMenu({
     type: 'button' as const,
     variant: 'ghost' as const,
     size: 'icon' as const,
-    className: 'size-8 shrink-0 border border-border bg-background shadow-2xs',
+    // A frosted disc, as the floating trigger is: legible over a thumbnail without a ring around it.
+    className: 'size-8 shrink-0 rounded-full bg-background/85 backdrop-blur-sm',
     'aria-label': t('actions.label', { name }),
     'aria-haspopup': 'menu' as const,
     title: t('actions.menuLabel'),

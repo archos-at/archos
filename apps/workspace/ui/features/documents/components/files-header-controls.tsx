@@ -60,6 +60,8 @@ export interface FilesHeaderControlsProps {
   upload?: ReactNode
   /** More for the phone's ⋯, after the view choice and the Papierkorb. */
   moreEntries?: readonly ActionMenuEntry[]
+  /** The level's own tools for the phone's ⋯, first (iOS Files' order): „Auswählen“, „Ordner anlegen“. */
+  levelEntries?: readonly ActionMenuEntry[]
   /**
    * The shelf's advanced actions (sort the root into folders). On a phone they
    * follow `moreEntries` in the ⋯; on a wide screen they get a ⋯ of their own.
@@ -78,6 +80,7 @@ export function FilesHeaderControls({
   search,
   upload,
   moreEntries,
+  levelEntries,
   advancedEntries,
 }: FilesHeaderControlsProps): JSX.Element {
   const t = useTranslations(filesCopy)
@@ -101,6 +104,7 @@ export function FilesHeaderControls({
 
   if (phone) {
     const entries: ActionMenuEntry[] = [
+      ...(levelEntries && levelEntries.length > 0 ? [...levelEntries, { type: 'separator' as const }] : []),
       {
         type: 'radio-group',
         value: view,
@@ -161,7 +165,7 @@ export function FilesHeaderControls({
           mode="dropdown"
           entries={entries}
           trigger={
-            <Button type="button" variant="outline" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
+            <Button type="button" variant="ghost" size="icon" aria-label={t('workspace.more')} data-testid="files-more">
               <MoreHorizontal aria-hidden />
             </Button>
           }
@@ -171,13 +175,15 @@ export function FilesHeaderControls({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2" data-testid="files-controls">
+    // At the tabs' 14px, as the tabs row's tools below: one press size for the head of the page.
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
       <ToggleGroup
         type="single"
         value={view}
         onValueChange={choose}
         segmented
-        size="icon-sm"
+        bare
+        size="icon" /* 32px, the search field's and Hochladen's height */
         aria-label={t('workspace.view.label')}
       >
         <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>
@@ -224,7 +230,8 @@ export function FilesHeaderControls({
           </Link>
         </Button>
       )}
-      {renderFilter(false)}
+      {/* A ghost press gives back its padding, so its word stands 12px from its neighbours, as the filled ones do. */}
+      <div className="-mx-3.5 flex">{renderFilter(false)}</div>
       {searchField('w-full sm:w-64 lg:w-72')}
       {upload}
       {advancedEntries && advancedEntries.length > 0 && (

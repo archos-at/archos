@@ -47,7 +47,8 @@ describe('SectionLabel', () => {
 
   it('takes its size from `.card-eyebrow`, which sets no case and no tracking', () => {
     const rule = eyebrowRule()
-    expect(rule).toMatch(/font-size:\s*10\.5px/)
+    // 12px since the Dateien review (design-language.md, „Type ramp“).
+    expect(rule).toMatch(/font-size:\s*12px/)
     expect(rule).not.toMatch(/text-transform/)
     expect(rule).not.toMatch(/letter-spacing/)
   })

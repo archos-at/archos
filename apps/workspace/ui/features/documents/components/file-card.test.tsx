@@ -262,19 +262,17 @@ describe('ThumbnailWithFallback', () => {
 describe('FileCard while the document is still being read', () => {
   const unsettled: FileItem = { ...file('c1', 'Schnitt.pdf', 'application/pdf'), status: 'processing' }
 
-  it('grows the raised content block so the footer sits on the bottom edge', () => {
+  it('lets the footer take the leftover height of a row, so its meta lines share one baseline', () => {
     render(<FileCard file={unsettled} isSelected={false} onSelect={() => {}} locale="de" />)
 
-    // The card's button fills the tile above the footer, and inside it the
-    // raised white block is the growing child, so the footer (the button's
-    // sibling, since it holds the filing chip) sits on the bottom edge.
+    // The body keeps its own height; the footer, the button's sibling since it holds the filing chip,
+    // grows below it and sets its lines at its foot, so the meta line is the last line of every tile in a row.
     const card = screen.getByTestId('file-card')
-    expect(card.className).toContain('flex-1')
-    expect(card.className).toContain('flex-col')
-
-    const [contentBlock] = Array.from(card.children)
-    expect(contentBlock.className).toContain('flex-1')
-    expect(card.nextElementSibling).toBe(screen.getByTestId('file-card-footer'))
+    expect(card.className).not.toContain('flex-1')
+    const footer = screen.getByTestId('file-card-footer')
+    expect(card.nextElementSibling).toBe(footer)
+    expect(footer.className).toContain('flex-1')
+    expect(footer.className).toContain('content-end')
   })
 
   it('holds the description slot with skeleton lines instead of leaving it blank', () => {

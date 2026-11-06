@@ -19,10 +19,15 @@ import {
   type ReactNode,
 } from 'react'
 import { usePathname } from 'next/navigation'
+import { FolderOpen, ListTodo, Mail, Trash2 } from 'lucide-react'
 
 import { PageHeader } from '@/components/ui/page-header'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
+import { PHONE_QUERY } from '@/hooks/use-is-mobile'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { SectionNav, type SectionNavItem } from './section-nav'
 import { cn } from '@/lib/utils'
 
 const PROJECT_SECTION_KEYS = [
@@ -59,13 +64,39 @@ const BARE_SECTIONS: ReadonlySet<string> = new Set(['setup'])
 const RETURN_TARGET_SECTIONS: ReadonlySet<ProjectChromeSection> = new Set(['members', 'model'])
 
 /**
+ * Pages inside a section: Dateien's places. The section header stays the
+ * section's („Dateien“), says what the open place is for (its subtitle), and
+ * carries the places as tabs (Alle Dateien, E-Mail-Eingang, Offene Punkte,
+ * Papierkorb), so a sub-page never draws a second title or its own way back,
+ * and the E-Mail-Eingang is a place beside the files rather than a link in a
+ * toolbar. The key is `<section>/<page>`, as in `nav.subpages`.
+ */
+const SUBPAGES = ['files/mail', 'files/bin', 'files/open-points'] as const
+type Subpage = (typeof SUBPAGES)[number]
+const SUBPAGE_SET: ReadonlySet<string> = new Set(SUBPAGES)
+
+function subpageOf(pathname: string): Subpage | null {
+  const parts = pathname.split('/').filter(Boolean)
+  const key = `${parts[3] ?? ''}/${parts[4] ?? ''}`
+  return SUBPAGE_SET.has(key) ? (key as Subpage) : null
+}
+
+/**
  * The band a section's {@link PageHeader} sits in. Exported because the
  * Büroablage is a project's Dateien with the project taken out, and its header
  * is this one: one class, so the two stores cannot drift apart.
  */
-export const SECTION_HEADER_CLASS = 'shrink-0 border-b border-border bg-background px-4 py-4 phone:py-2 md:px-8'
+// No line under it (the design system: none under the header): white space and the content's own start separate it.
+export const SECTION_HEADER_CLASS = 'shrink-0 bg-background px-4 py-4 phone:py-2 md:px-8'
 
 const ActionsContext = createContext<(node: ReactNode) => void>(() => {})
+
+/**
+ * The end of the tabs row, for the tools of the level a tab shows (Dateien's
+ * „Auswählen“ and „Ordner anlegen“ at the root): null where there is no such
+ * row (a phone, a page outside the frame), and the caller keeps them inline.
+ */
+const TabActionsContext = createContext<((node: ReactNode) => void) | null>(null)
 
 function isProjectChromeSection(segment: string): segment is ProjectChromeSection {
   return PROJECT_SECTION_KEY_SET.has(segment)
@@ -101,18 +132,99 @@ export function ProjectSectionActions({ children }: { children: ReactNode }): nu
   return null
 }
 
+/** Whether {@link ProjectSectionTabActions} has a row to go to; where not, the caller renders its tools itself. */
+export function useSectionTabActionsSlot(): boolean {
+  return useContext(TabActionsContext) !== null
+}
+
+/**
+ * Portal a tab's level tools to the end of its tabs row. At the root of
+ * Dateien the path row held only these two presses, a row of its own above
+ * the brief; beside the tab that names the level they cost no row. Renders
+ * nothing at the call site.
+ */
+export function ProjectSectionTabActions({ children }: { children: ReactNode }): null {
+  const setTabActions = useContext(TabActionsContext)
+  useLayoutEffect(() => {
+    if (!setTabActions) return
+    setTabActions(children)
+    return () => setTabActions(null)
+  }, [children, setTabActions])
+  return null
+}
+
+/**
+ * Shows what a page portals into the section header right above the page,
+ * for a page rendered outside {@link ProjectSectionFrame}: a spec or a
+ * `/dev` preview, which would otherwise lose the page's header actions.
+ */
+export function SectionActionsInline({ children }: { children: ReactNode }): JSX.Element {
+  const [actions, setActions] = useState<ReactNode>(null)
+  return (
+    <ActionsContext.Provider value={setActions}>
+      {actions && <div data-testid="section-actions-inline">{actions}</div>}
+      {children}
+    </ActionsContext.Provider>
+  )
+}
+
+/** Dateien's places as tabs, the E-Mail-Eingang only for whoever may decide the project's mail. */
+function FilesTabs({ projectId, inboundMail, pathname }: { projectId: string; inboundMail: boolean; pathname: string }): JSX.Element {
+  const t = useTranslations(navCopy)
+  const waiting = useInboundMailWaitingShown(inboundMail ? projectId : null)
+  const base = `/app/projects/${projectId}/files`
+  const items: SectionNavItem[] = [
+    { key: 'files', href: base, icon: FolderOpen, label: t('subpages.files/all.title') },
+    ...(inboundMail
+      ? [
+          {
+            key: 'mail',
+            href: `${base}/mail`,
+            icon: Mail,
+            label: t('subpages.files/mail.title'),
+            count: waiting.count,
+            countLabel: waiting.count ? t('inboundMailWaiting', { count: waiting.count }) : undefined,
+          },
+        ]
+      : []),
+    { key: 'open-points', href: `${base}/open-points`, icon: ListTodo, label: t('subpages.files/open-points.title') },
+    { key: 'bin', href: `${base}/bin`, icon: Trash2, label: t('subpages.files/bin.title') },
+  ]
+  // `pathname`: a preview renders a project page at its own URL, and the tabs read the path it heads.
+  return (
+    <SectionNav
+      label={t('filesPlaces')}
+      items={items}
+      rootHref={base}
+      pillId="files-places-pill"
+      orientation="tabs"
+      pathname={pathname}
+      data-testid="files-tabs"
+    />
+  )
+}
+
 export function ProjectSectionFrame({
   projectId,
   projectName,
   children,
+  pathname: pathnameOverride,
+  inboundMail = false,
 }: {
   projectId: string
   projectName: string
   children: ReactNode
+  /** The path to head, for a `/dev` preview that renders a project page at its own URL. */
+  pathname?: string
+  /** The reader may decide the project's held mail (ADR-0137): Dateien shows the E-Mail-Eingang as a tab. */
+  inboundMail?: boolean
 }): JSX.Element {
-  const pathname = usePathname() ?? ''
+  const currentPathname = usePathname()
+  const pathname = pathnameOverride ?? currentPathname ?? ''
   const t = useTranslations(navCopy)
   const [actions, setActions] = useState<ReactNode>(null)
+  const [tabActions, setTabActions] = useState<ReactNode>(null)
+  const phone = useMediaQuery(PHONE_QUERY)
 
   if (isProjectChatPath(pathname, projectId)) {
     return <>{children}</>
@@ -131,15 +243,43 @@ export function ProjectSectionFrame({
       : t(`sections.${segment}`)
   const sectionSubtitle = known && SUBTITLE_SECTIONS.has(segment) ? t(`sectionSubtitles.${segment}`) : undefined
   const fill = known && FILL_SECTIONS.has(segment)
+  const subpage = subpageOf(pathname)
 
   return (
     <ActionsContext.Provider value={setActions}>
-      <div className="flex h-full min-h-0 flex-col">
-        <div className={SECTION_HEADER_CLASS}>
-          <PageHeader title={sectionLabel} subtitle={sectionSubtitle} action={actions} />
+    <TabActionsContext.Provider value={segment === 'files' && !phone ? setTabActions : null}>
+      <div className="@container/section flex h-full min-h-0 flex-col">
+        {/* Every Dateien tab's head is the listing's container (1280px, 32px margins), centred with it from a 1440px
+            section: the E-Mail-Eingang's split view sits in the same container, so no tab moves the title. */}
+        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
+          {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
+              search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
+              the E-Mail-Eingang, which has none. */}
+          <PageHeader
+            title={sectionLabel}
+            subtitle={subpage ? t(`subpages.${subpage}.subtitle`) : sectionSubtitle}
+            action={segment === 'files' && phone ? undefined : actions}
+          />
+          {segment === 'files' && (
+            // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
+            // places would only push its subject below the fold.
+            <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
+              {/* On a desk the first tab's glyph stands on the title's edge: the pill bleeds by its 12px inset. */}
+              <div className="min-w-0 md:-ml-3">
+                <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
+              </div>
+              {/* The tabs' own `pb-2` under the pills, so the tools stand on the pills' line. */}
+              {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
+              {/* Word presses 12px apart, glyph to word, as every bar's: each keeps 6px of padding and the last gives its
+                  back, so the tools end on the content edge (they stood 29px apart on two 14px insets). */}
+              {tabActions && <div className="-mr-1.5 flex shrink-0 items-center pb-2 [&_[data-slot=button]]:mr-0 [&_[data-slot=button]]:px-1.5 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
+            </div>
+          )}
+          {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}
         </div>
         <div className={cn('min-h-0 flex-1', fill ? 'overflow-hidden' : 'overflow-y-auto')}>{children}</div>
       </div>
+    </TabActionsContext.Provider>
     </ActionsContext.Provider>
   )
 }

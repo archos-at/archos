@@ -3,7 +3,7 @@
 /**
  * „Mit Piloti besprechen" — the ONE control that opens a conversation with
  * Piloti about a document. It was „Besprechen" for a while, which named the
- * gesture and not the colleague it is with; beside „Kollegin fragen" a reader
+ * gesture and not the colleague it is with; beside „Kolleg:in fragen" a reader
  * could not tell which of the two buttons talks to Piloti.
  *
  * ## Why it is one component and one label

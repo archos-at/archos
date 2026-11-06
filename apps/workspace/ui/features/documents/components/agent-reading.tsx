@@ -1,9 +1,10 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Chip } from '@/components/ui/chip'
+import { cn } from '@/lib/utils'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { DISCIPLINE_TAGS, DOCUMENT_TYPE_TAGS, tagLabel } from '@/lib/documents/tag-vocabulary'
@@ -11,7 +12,7 @@ import type { FileItem } from '../file-types'
 import { DocumentTagsEditor } from './document-tags-editor'
 import { DocumentTopicsEditor } from './document-topics-editor'
 import type { PhotoCapture } from '@/lib/documents/photo-capture'
-import { MapPin } from 'lucide-react'
+import { MapPin, Pencil } from 'lucide-react'
 import type { DocumentLinks } from '@/lib/documents/findings-wire'
 import { DocumentDossier } from './document-dossier'
 
@@ -84,7 +85,8 @@ export function AgentReading({
       {file.capture && <CaptureLine capture={file.capture} />}
 
       {correcting ? (
-        <div className="flex flex-col gap-2 rounded-control border border-dashed p-2.5" data-testid="agent-reading-editor">
+        // White on the card's grey, as anything on a grey surface is: a dashed box was a line around a form.
+        <div className="flex flex-col gap-2 rounded-control bg-background p-2.5" data-testid="agent-reading-editor">
           <DocumentTagsEditor
             fileId={file.id}
             initialTags={tags}
@@ -103,7 +105,7 @@ export function AgentReading({
             }}
           />
           <p className="text-muted-foreground text-xs leading-relaxed">{t('preview.reading.correctionKept')}</p>
-          <Button type="button" size="sm" variant="outline" className="h-7 self-start" onClick={() => setCorrecting(false)}>
+          <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => setCorrecting(false)}>
             {t('preview.reading.done')}
           </Button>
         </div>
@@ -112,48 +114,35 @@ export function AgentReading({
           <p className="text-muted-foreground text-xs">
             {types.length + disciplines.length + topics.length > 0 ? t('preview.reading.classifiedAs') : t('preview.reading.noType')}
           </p>
-          {/* Three weights for three kinds of reading, so the eye ranks them
-              before it reads them. The type is the ink tint: it is the one
-              classification that decides what the document is. A discipline
-              is an outline in ink, a topic the same outline in muted ink, a
-              free-form note. The type used to be `secondary`, the quiet fill
-              (#f2f2f0), which on the rail's sunken ground (#f1f1ef) drew it as
-              a bare word beside bordered disciplines. */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            {types.map((tag) => (
-              <Chip key={tag} variant="default" size="sm" data-testid="agent-reading-type">
-                {tagLabel(tag, t)}
-              </Chip>
-            ))}
-            {disciplines.map((tag) => (
-              <Chip key={tag} variant="outline" size="sm">
-                {tagLabel(tag, t)}
-              </Chip>
-            ))}
-            {topics.map((topic) => (
-              <Chip
-                key={topic}
-                variant="outline"
-                size="sm"
-                className="text-muted-foreground font-normal"
-                data-testid="agent-reading-topic"
-              >
-                {topic}
-              </Chip>
-            ))}
-            {canManage && (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="text-muted-foreground hover:text-foreground h-auto px-1 py-0 text-xs"
-                onClick={() => setCorrecting(true)}
-                data-testid="agent-reading-correct"
-              >
-                {types.length + disciplines.length + topics.length > 0 ? t('preview.reading.correct') : t('preview.reading.assign')}
-              </Button>
-            )}
-          </div>
+          {/* Two steps of the ramp, so the card has three styles in all (the summary's 14px, this 14px medium, the
+              12px muted meta): the type in ink and weight (it decides what the document is), the disciplines and the
+              topics in the muted meta. Seven styles in one card (ink 12px, ink 80 %, 15px …) read as unranked. The
+              middot is bound to the word before it, so a wrapped line never starts with one. */}
+          {types.length > 0 && (
+            <p className="text-foreground text-sm font-medium" data-testid="agent-reading-type">
+              {types.map((tag) => tagLabel(tag, t)).join(CLAUSE_JOIN)}
+            </p>
+          )}
+          {disciplines.length > 0 && <WordRun words={disciplines.map((tag) => tagLabel(tag, t))} className="text-muted-foreground" />}
+          {topics.length > 0 && (
+            <p className="text-muted-foreground text-xs leading-relaxed" data-testid="agent-reading-topics">
+              {t('preview.reading.topics')}:{' '}
+              <WordRun words={topics} inline />
+            </p>
+          )}
+          {canManage && (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground h-auto gap-1 self-start p-0 text-xs"
+              onClick={() => setCorrecting(true)}
+              data-testid="agent-reading-correct"
+            >
+              <Pencil className="size-3" aria-hidden />
+              {types.length + disciplines.length + topics.length > 0 ? t('preview.reading.correct') : t('preview.reading.assign')}
+            </Button>
+          )}
         </div>
       )}
       <DocumentDossier file={file} projectId={projectId} links={dossierLinks} />
@@ -175,7 +164,7 @@ function readingFacts(file: FileItem, locale: string, t: ReturnType<typeof useTr
   if (kinds.some((content) => content !== 'text')) {
     parts.push(kinds.map((content) => t(`preview.contentTypeNames.${content}`)).join(', '))
   }
-  return parts.length > 0 ? parts.join(' · ') : null
+  return parts.length > 0 ? parts.join(CLAUSE_JOIN) : null
 }
 
 /**
@@ -190,7 +179,7 @@ function CaptureLine({ capture }: { capture: PhotoCapture }) {
   const located = capture.latitude !== undefined && capture.longitude !== undefined
   if (!when && !capture.camera && !located) return null
   return (
-    <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs" data-testid="agent-reading-capture">
+    <p className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-xs" data-testid="agent-reading-capture">
       {when && <span>{t('preview.reading.capturedAt', { when })}</span>}
       {capture.camera && (
         <>
@@ -228,4 +217,15 @@ function formatCapturedAt(iso: string, locale: string): string {
   const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
   const dayLabel = date.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
   return `${dayLabel}, ${hour}:${minute}`
+}
+
+/** Words joined by a middot that stays with the word before it, so a wrapped line never begins with one. */
+function WordRun({ words, className, inline = false }: { words: string[]; className?: string; inline?: boolean }): JSX.Element {
+  const run = words.map((word, index) => (
+    <span key={word}>
+      <span>{word}</span>
+      {index < words.length - 1 && <span aria-hidden>{'\u00A0· '}</span>}
+    </span>
+  ))
+  return inline ? <>{run}</> : <p className={cn('text-xs leading-relaxed', className)}>{run}</p>
 }
