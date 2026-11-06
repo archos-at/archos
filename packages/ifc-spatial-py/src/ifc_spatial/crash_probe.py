@@ -25,10 +25,13 @@ PARSER_CRASH_REASON = (
 
 _CRASH_SIGNALS = frozenset({signal.SIGSEGV, signal.SIGBUS, signal.SIGABRT, signal.SIGILL, signal.SIGFPE})
 
-# On a thread because the host opens on one, and a thread's stack is the smaller:
-# nesting that a main thread survives overflows it.
-_OPEN_ON_A_THREAD = """
+# The thread is for its stack size. The host opens on a thread too, 16 MiB on macOS and
+# usually 8 on Linux, with frames of its own above the parser, so on an equal stack a
+# file can fit here and overflow there: nesting of 55184 to 55205 levels passed a probe
+# on a default thread and killed the host with exit -10.
+_OPEN_ON_A_SMALLER_STACK = """
 import sys, threading, ifcopenshell
+threading.stack_size(4 * 1024 * 1024)
 opener = threading.Thread(target=ifcopenshell.open, args=(sys.argv[1],))
 opener.start()
 opener.join()
@@ -38,7 +41,7 @@ opener.join()
 def crashes_the_parser(path: str) -> bool:
     try:
         child = subprocess.run(
-            [sys.executable, "-I", "-c", _OPEN_ON_A_THREAD, path],
+            [sys.executable, "-I", "-c", _OPEN_ON_A_SMALLER_STACK, path],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

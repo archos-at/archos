@@ -415,8 +415,10 @@ in ways only the parser discovers, so `crash_probe` then parses it in a child, a
 a child the parser killed is a refusal. That costs one more parse on a first open
 (0.2 to 0.6 s on the public models up to 11 MB); the real answer remains the design
 doc's worker process. Measured on macOS: the footer does not prove the rest is whole,
-a mid-entity cut with the original end put back segfaults too, and deep nesting only
-overflows on a thread (exit -10), which is why the child parses on one.
+some mid-entity cuts with the original end put back segfault too (16 of 72 tried), and
+deep nesting overflows a thread's stack (exit -10). The child parses on a smaller stack
+than the host's, so a file that fits there also fits in the host; nesting past about
+13 800 levels is refused, and the public models nest three levels at most.
 
 *Regression:* `test_a_truncated_file_is_refused_before_the_parser_crashes` and
 five siblings, plus
@@ -662,6 +664,6 @@ Stated so the next person does not read this document as broader than it is.
   operators survive real files and whether their numbers match the files' own
   declarations. It does not measure whether an agent asks the right one.
 - **The segfault guard is a guard.** The byte check catches truncation, which is the
-  realistic corruption, and the trial parse in a child catches what kills the parser
-  while it opens a file. A crash later, in the geometry pass, still takes the process.
-  The worker process remains the answer.
+  realistic corruption, and the trial parse in a child caught every crash we could
+  provoke while a file opens; that is a test run, not a proof. A crash later, in the
+  geometry pass, still takes the process. The worker process remains the answer.

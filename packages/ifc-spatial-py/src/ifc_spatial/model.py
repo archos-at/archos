@@ -158,7 +158,7 @@ class ModelTooLargeError(ModelUnreadableError):
 
 
 def _preflight(path: str, max_bytes: int) -> None:
-    """Everything about the bytes that can be checked before the parser sees them.
+    """Everything about the bytes that can be checked before this process parses them.
 
     The truncation check is the one that matters. ``ifcopenshell.open`` **crashes
     the process** on a file cut mid-entity — measured on this corpus: a Duplex

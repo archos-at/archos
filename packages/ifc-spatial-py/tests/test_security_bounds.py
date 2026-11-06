@@ -349,6 +349,33 @@ def test_a_string_left_open_does_not_take_the_process(tmp_path: Path, header: st
     assert child.returncode == 0, child.stderr[-500:]
 
 
+def test_nesting_the_hosts_stack_cannot_hold_does_not_fit_the_probe_either(tmp_path: Path) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    path = tmp_path / "nested.ifc"
+    path.write_text(
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\n"
+        f"{_NAME}{_SCHEMA}ENDSEC;\nDATA;\n"
+        f"#1=IFCPROJECT({'(' * 40_000}{')' * 40_000});\n"
+        "ENDSEC;\nEND-ISO-10303-21;\n"
+    )
+    assert crashes_the_parser(str(path)) is True
+
+
+def test_the_child_that_reads_the_upload_gets_no_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ifc_spatial import crash_probe
+
+    seen: dict[str, Any] = {}
+
+    def run(*_args: Any, **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(args=[], returncode=0)
+
+    monkeypatch.setattr(crash_probe.subprocess, "run", run)
+    crash_probe.crashes_the_parser(str(HOUSE))
+    assert seen["env"] == {}
+
+
 @pytest.mark.parametrize(
     ("fixture", "schema"),
     [("Ifc4_SampleHouse.ifc", "IFC4"), ("units-feet.ifc", "IFC2X3")],
