@@ -124,7 +124,8 @@ export function DecisionBar({
       )}
       {/* DOM order is the phone's stacking order: „Verwerfen“ first, the primary last, nearest the thumb.
           For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
-      <div className={cn('flex flex-col gap-2 sm:flex-row sm:items-center', offersFiling ? 'sm:justify-between' : 'sm:justify-end')}>
+      {/* Paired at the end of the bar, „Verwerfen“ as a quiet press beside the primary: one place to look. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
         {!onlyDismiss && (
           <BusyButton
             type="button"

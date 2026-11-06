@@ -289,7 +289,7 @@ export function DocumentActionsMenu({
               className={cn(
                 'size-8 shrink-0',
                 // A frosted disc over the thumbnail: legible on any page without drawing a ring around it.
-                surface === 'floating' && 'bg-background/85 shadow-xs backdrop-blur-sm',
+                surface === 'floating' && 'bg-background/85 rounded-full backdrop-blur-sm',
               )}
               aria-label={t('actions.label', { name })}
               title={t('actions.menuLabel')}

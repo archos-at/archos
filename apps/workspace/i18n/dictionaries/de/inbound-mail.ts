@@ -27,7 +27,7 @@ export const inboundMail: typeof en.inboundMail = {
   empty: {
     neverTitle: 'Noch keine E-Mails an dieses Projekt',
     neverText:
-      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Was Sie selbst so senden, wird direkt abgelegt; Antworten von anderen warten hier, bis jemand sie ablegt.',
+      'Setzen Sie die Adresse in Cc, wenn Sie an Behörde, Statik oder Bauherrschaft schreiben. Die Antworten warten hier auf Ablage.',
     neverNoAddress:
       'Dieses Projekt hat noch keine E-Mail-Adresse. Mit ihr landet die Korrespondenz mit Behörde, Statik und Bauherrschaft im Projekt, ohne dass jemand sie von Hand abspeichert.',
     neverNoAddressMember:

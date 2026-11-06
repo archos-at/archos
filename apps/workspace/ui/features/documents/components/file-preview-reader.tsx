@@ -166,7 +166,7 @@ export function AskColleagueButton({
       // ghost pill the popover draws for the Files list. The two Ask affordances
       // are one pair and have to read as one.
       trigger={
-        <Button type="button" variant="secondary" size="sm" className="bg-card hover:bg-accent h-8 w-full shadow-xs">
+        <Button type="button" variant="ghost" size="sm" className="h-8 w-full">
           {t('assignment.askColleague')}
         </Button>
       }

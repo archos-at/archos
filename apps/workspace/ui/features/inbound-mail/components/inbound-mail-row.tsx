@@ -114,7 +114,7 @@ export function InboundMailRow({
     <Item
       as="li"
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
-      className="group/row relative items-start px-3 sm:px-4 pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
+      className="group/row relative items-start rounded-lg px-1.5 sm:px-2.5 pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}

@@ -454,7 +454,7 @@ export function InboundMailWorkspace({
         )}
       </ProjectSectionActions>
       {/* Nothing to pick, nothing to show beside it: an empty list takes the whole width, without the „Wählen Sie …“ pane. */}
-      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[22rem_minmax(0,1fr)]')}>
+      <div className={cn('flex min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:grid @3xl:grid-cols-[24rem_minmax(0,1fr)]')}>
         <div className={cn('min-h-0 flex-1 flex-col', !(empty && !mailId) && '@3xl:flex @3xl:border-r', mailId ? 'hidden' : 'flex')}>
           <InboundMailList
             state={list}

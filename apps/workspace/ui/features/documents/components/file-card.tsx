@@ -403,7 +403,7 @@ export const FileCard = memo(function FileCard({
                 // Capped at the well's width less its insets: on a phone's
                 // two-column grid „Wartet · 3 Dateien davor" ran into the
                 // card's edge; now its word ends in an ellipsis instead.
-                className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-xs font-medium leading-4 shadow-2xs"
+                className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-xs font-medium leading-4"
               />
             )}
           </FileTileMedia>

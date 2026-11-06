@@ -234,7 +234,8 @@ function ListBody({
   return (
     <div className="flex flex-col">
       {sections.map((section) => {
-        if (section.kind === 'mail') return <ul key={section.mail.id} className="border-b">{row(section.mail)}</ul>
+        // Rows sit apart by a gap and answer with a fill, not a rule under each.
+        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col gap-0.5 px-1.5 py-0.5">{row(section.mail)}</ul>
         if (section.kind === 'readiness') {
           const ready = section.readiness === 'ready'
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
@@ -243,11 +244,14 @@ function ListBody({
               key={`readiness-${section.readiness}`}
               // The Postfach's „E-Mails warten“ row links here (`lib/inbox/targets.ts`).
               id={ready ? INBOUND_MAIL_READY_ANCHOR : undefined}
-              className="flex scroll-mt-2 flex-col gap-1 border-b px-3 pt-3 pb-2 sm:px-4"
+              className="flex scroll-mt-2 flex-col gap-1 px-3 pt-4 pb-1 sm:px-4"
               data-testid={`readiness-${section.readiness}`}
             >
               <div className="flex min-h-7 items-center justify-between gap-2">
-                <SectionLabel as="h3">{t(`readiness.${section.readiness}`, { count: section.mails.length })}</SectionLabel>
+                {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
+                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined}>
+                  {t(`readiness.${section.readiness}`, { count: section.mails.length })}
+                </SectionLabel>
                 {ready && batch.length > 1 && (
                   <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground gap-1.5 h-7 px-2 text-xs" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
                     <FileInput className="size-3.5" aria-hidden />
@@ -256,7 +260,6 @@ function ListBody({
                   </Button>
                 )}
               </div>
-              {ready && <p className="text-muted-foreground text-xs">{t('readiness.readyHint')}</p>}
               {section.readiness === 'others' && <p className="text-muted-foreground text-xs">{t('readiness.othersHint')}</p>}
             </div>
           )
@@ -267,7 +270,7 @@ function ListBody({
           // One request decides at most twenty mails; in filing order, the first twenty keep their Fassungen.
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
           return (
-            <section key={groupKey} className="bg-muted/20 border-b" aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
+            <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               <div className="flex flex-col gap-2 px-3 pt-3 sm:px-4">
                 <p className="text-muted-foreground flex items-start gap-1.5 text-xs font-medium">
                   <Repeat2 className="mt-px size-3.5 shrink-0" aria-hidden />
@@ -304,14 +307,14 @@ function ListBody({
                   </Button>
                 )}
               </div>
-              <ul className="divide-y">{section.mails.map((mail) => row(mail, true))}</ul>
+              <ul className="flex flex-col gap-0.5 px-1.5 py-0.5">{section.mails.map((mail) => row(mail, true))}</ul>
             </section>
           )
         }
         return (
           // More of this list, in place: the design language's `Collapsible`.
           <Collapsible key="quiet" open={quietOpen} onOpenChange={onQuietOpenChange} asChild>
-            <section className="border-b" data-testid="quiet-group">
+            <section data-testid="quiet-group">
               <CollapsibleTrigger
                 className="text-muted-foreground hover:bg-accent/40 flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-medium outline-none transition-colors duration-snap ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60 motion-reduce:transition-none sm:px-4 pointer-coarse:min-h-11"
                 data-testid="quiet-group-toggle"
@@ -321,7 +324,7 @@ function ListBody({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <p className="text-muted-foreground px-3 pb-2 text-xs sm:px-4">{t('group.quietHint')}</p>
-                <ul className="divide-y border-t">{section.mails.map((mail) => row(mail))}</ul>
+                <ul className="flex flex-col gap-0.5 px-1.5 py-0.5">{section.mails.map((mail) => row(mail))}</ul>
               </CollapsibleContent>
             </section>
           </Collapsible>

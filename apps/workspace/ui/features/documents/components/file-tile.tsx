@@ -71,10 +71,10 @@ export function GridTileShell({ interactive = true, className, children, ...rest
   )
 }
 
-/** The thumbnail: a sheet on the page, rounded, with the faintest shadow and no border. */
+/** The thumbnail: a sheet one tone above the page, rounded, no border and no shadow. */
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-card relative w-full overflow-hidden rounded-lg shadow-xs', className)} {...rest}>
+    <div className={cn('bg-card relative w-full overflow-hidden rounded-lg', className)} {...rest}>
       {children}
     </div>
   )
