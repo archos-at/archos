@@ -41,7 +41,14 @@
  * Pure: a function of element records plus the project facts.
  */
 
-import { dimensionProperty, numericProperty, property, quantity } from './rule-values'
+import {
+  dimensionProperty,
+  externalFlag,
+  numericProperty,
+  property,
+  quantity,
+  undecidableWithoutExternalFlag,
+} from './rule-values'
 import type { BimElement } from './types'
 
 export type BimCheckStatus = 'pass' | 'fail' | 'undecidable'
@@ -393,8 +400,6 @@ interface RuleDefinition {
  */
 const mayBeLoadBearing = (element: BimElement): boolean =>
   property(element, ['LoadBearing']) !== false
-
-const isExternal = (element: BimElement): boolean => property(element, ['IsExternal']) === true
 
 /**
  * Room names that mark circulation or service space rather than an
@@ -862,12 +867,13 @@ export const BIM_RULES: RuleDefinition[] = [
     titleDe: 'Außenwände — Wärmedurchgangskoeffizient',
     thresholdDe: 'U ≤ 0,35 W/m²K',
     ifcTypes: ['IfcWall', 'IfcWallStandardCase'],
-    scope: isExternal,
+    scope: (element) => externalFlag(element) !== false,
     notApplicable: (facts) =>
       facts.mainUse === 'storage' || facts.mainUse === 'agriculture'
         ? 'OIB 6 gilt für unkonditionierte Lager-/landwirtschaftliche Gebäude nicht ohne Weiteres'
         : null,
     judge: (element) => {
+      if (externalFlag(element) === null) return undecidableWithoutExternalFlag('Pset_WallCommon.IsExternal')
       const uValue = numericProperty(element, ['ThermalTransmittance'])
       if (uValue === null) {
         return {
@@ -934,12 +940,13 @@ export const BIM_RULES: RuleDefinition[] = [
     ifcTypes: ['IfcWall', 'IfcWallStandardCase', 'IfcSlab'],
     // Only the separating components, which in a property-only model means the
     // internal ones — an external wall's Schallschutz is a different clause.
-    scope: (element) => !isExternal(element),
+    scope: (element) => externalFlag(element) !== true,
     notApplicable: (facts) =>
       facts.mainUse && !['residential', 'lodging', 'healthcare', 'office', 'assembly'].includes(facts.mainUse)
         ? 'OIB 5 ist für diese Nutzung nicht lärmempfindlich einschlägig'
         : null,
     judge: (element) => {
+      if (externalFlag(element) === null) return undecidableWithoutExternalFlag('Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)')
       const rating = property(element, ['AcousticRating'])
       if (rating === null || String(rating).trim() === '') {
         return {

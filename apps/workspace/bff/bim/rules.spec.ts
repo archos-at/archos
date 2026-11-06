@@ -402,7 +402,7 @@ describe('false verdicts a reviewer found by running the catalogue', () => {
         element({
           ifcType: 'IfcWall',
           name: 'Wohnungstrennwand',
-          properties: { Pset_WallCommon: { AcousticRating: 0 } },
+          properties: { Pset_WallCommon: { IsExternal: false, AcousticRating: 0 } },
         }),
       ],
       { mainUse: 'residential' }
@@ -418,7 +418,7 @@ describe('false verdicts a reviewer found by running the catalogue', () => {
         element({
           ifcType: 'IfcWall',
           name: 'Wohnungstrennwand',
-          properties: { Pset_WallCommon: { AcousticRating: 55 } },
+          properties: { Pset_WallCommon: { IsExternal: false, AcousticRating: 55 } },
         }),
       ],
       { mainUse: 'residential' }
@@ -1133,7 +1133,10 @@ describe('oib5-sound-insulation-declared', () => {
     // A missing AcousticRating is a gap in the model, not proof that the wall
     // fails the Richtlinie.
     const rule = ruleOf(
-      runBimRules([element({ ifcType: 'IfcWall', name: 'IW1' })], { mainUse: 'residential' }),
+      runBimRules(
+        [element({ ifcType: 'IfcWall', name: 'IW1', properties: { Pset_WallCommon: { IsExternal: false } } })],
+        { mainUse: 'residential' }
+      ),
       'oib5-sound-insulation-declared'
     )
     expect(rule.undecidable).toBe(1)
@@ -1144,7 +1147,7 @@ describe('oib5-sound-insulation-declared', () => {
     element({
       ifcType: 'IfcWall',
       name: 'IW1',
-      properties: { Pset_WallCommon: { AcousticRating: rating } },
+      properties: { Pset_WallCommon: { IsExternal: false, AcousticRating: rating } },
     })
   const verdict = (rating: string | number) =>
     ruleOf(runBimRules([wall(rating)], { mainUse: 'residential' }), 'oib5-sound-insulation-declared')
@@ -1217,6 +1220,78 @@ describe('oib5-sound-insulation-declared', () => {
       expect(rule.undecidable, String(zero)).toBe(1)
       expect(rule.unknowns[0]?.reading, String(zero)).toContain('vermutlich nicht gesetzt')
     }
+  })
+})
+
+describe('the IsExternal flag', () => {
+  const U_VALUE_RULE = 'oib6-u-value-external-wall'
+  const SOUND_RULE = 'oib5-sound-insulation-declared'
+  const wall = (flag?: string | boolean) =>
+    element({
+      ifcType: 'IfcWall',
+      name: 'W1',
+      properties: {
+        Pset_WallCommon: {
+          ThermalTransmittance: 0.5,
+          AcousticRating: 'Rw 55 dB',
+          ...(flag === undefined ? {} : { IsExternal: flag }),
+        },
+      },
+    })
+  const verdicts = (flag?: string | boolean) => {
+    const results = runBimRules([wall(flag)], { mainUse: 'residential' })
+    return { envelope: ruleOf(results, U_VALUE_RULE), separating: ruleOf(results, SOUND_RULE) }
+  }
+
+  it('leaves a wall without the flag undecidable in both rules, whatever else it publishes', () => {
+    const { envelope, separating } = verdicts()
+
+    expect([envelope.failed, envelope.undecidable]).toEqual([0, 1])
+    expect([separating.passed, separating.undecidable]).toEqual([0, 1])
+    expect(envelope.unknowns[0]?.reading).toContain('außen liegt')
+    expect(envelope.missing.map((entry) => entry.path)).toEqual(['Pset_WallCommon.IsExternal'])
+    expect(separating.missing.map((entry) => entry.path)).toEqual([
+      'Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)',
+    ])
+  })
+
+  it.each([true, 'TRUE'])('reads %s as an external wall: judged on U, out of the sound rule', (flag) => {
+    const { envelope, separating } = verdicts(flag)
+
+    expect(envelope.failed).toBe(1)
+    expect(separating.passed + separating.failed + separating.undecidable).toBe(0)
+  })
+
+  it.each([false, 'FALSE'])('reads %s as an internal wall: out of the U rule, judged on sound', (flag) => {
+    const { envelope, separating } = verdicts(flag)
+
+    expect(envelope.passed + envelope.failed + envelope.undecidable).toBe(0)
+    expect(separating.passed).toBe(1)
+  })
+
+  it('does not guess at a flag it cannot read', () => {
+    const { envelope, separating } = verdicts('Wahr')
+
+    expect(envelope.undecidable).toBe(1)
+    expect(separating.undecidable).toBe(1)
+  })
+
+  it('keeps one shopping row per rule, so a wall in both is not added up across them', () => {
+    const results = runBimRules(
+      [wall(), element({ ifcType: 'IfcSlab', name: 'D1' })],
+      { mainUse: 'residential' }
+    )
+
+    expect(
+      missingPropertyShoppingList(results).filter((row) => row.path.includes('IsExternal'))
+    ).toEqual([
+      {
+        path: 'Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)',
+        elements: 2,
+        rules: [SOUND_RULE],
+      },
+      { path: 'Pset_WallCommon.IsExternal', elements: 1, rules: [U_VALUE_RULE] },
+    ])
   })
 })
 

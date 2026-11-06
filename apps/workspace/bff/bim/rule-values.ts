@@ -79,3 +79,35 @@ export function dimensionProperty(element: BimElement, keys: readonly string[]):
   const value = numericProperty(element, keys)
   return value !== null && value > 0 ? value : null
 }
+
+/**
+ * Whether the element says it lies on the outside, or `null` when it does not
+ * say in a form we can read.
+ *
+ * `null` is not "internal". Both rules that split on this flag used to read a
+ * missing one that way, so a wall without it dropped out of the OIB 6 envelope
+ * check and could pass the OIB 5 check for separating components. See
+ * {@link undecidableWithoutExternalFlag} for what the rules do with it.
+ */
+export function externalFlag(element: BimElement): boolean | null {
+  const raw = property(element, ['IsExternal'])
+  if (typeof raw === 'boolean') return raw
+  if (typeof raw !== 'string') return null
+  const normalized = raw.trim().toLowerCase()
+  if (normalized === 'true') return true
+  if (normalized === 'false') return false
+  return null
+}
+
+/**
+ * The verdict for an element whose {@link externalFlag} is `null`. Each rule
+ * names its own path: the shopping list adds up by path, so a shared one would
+ * count a wall twice in one row.
+ */
+export function undecidableWithoutExternalFlag(missing: string) {
+  return {
+    status: 'undecidable' as const,
+    reading: 'Keine auswertbare Angabe, ob das Bauteil außen liegt — Anforderung nicht bestimmbar',
+    missing,
+  }
+}
