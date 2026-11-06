@@ -228,7 +228,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 {/* The glyph on the column's edge in the points' 24px marker column, so the name stands on their text's
                     edge. A 24px line whose press overhangs it: the heading stands 10px over its first point, nearer it
                     than the points stand to each other (18px). */}
-                <div className="flex min-h-6 items-center gap-3 [&>[data-slot=button]]:-my-1">
+                <div className="flex min-h-6 items-center gap-3 [&_[data-slot=button]]:-my-1">
                   <span className="flex w-6 shrink-0 justify-start">
                     <FileText className="text-muted-foreground size-4" aria-hidden />
                   </span>

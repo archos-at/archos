@@ -140,7 +140,7 @@ const MARKS: ProjectMarkView[] = [
   mark(section, {
     number: 1,
     kind: 'defect',
-    body: 'Geländerhöhe im Stiegenhaus unter 1,00 m (OIB-RL 4, 2.3.2).',
+    body: 'Geländerhöhe im Stiegenhaus unter 1,00 m (OIB\u2011RL 4, 2.3.2).',
     basis: 'OIB-RL 4, Pkt. 2.3.2',
     authorKind: 'piloti',
     acceptedBy: ME,

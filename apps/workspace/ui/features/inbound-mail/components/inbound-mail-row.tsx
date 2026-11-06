@@ -117,7 +117,8 @@ export function InboundMailRow({
       as="li"
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
       // Picked holds the state grey as the open row does, as a picked tile does; what sits on it turns white.
-      className={cn('group/row relative items-start rounded-control px-3 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0', checked && 'bg-accent hover:bg-accent')}
+      // A run of picked rows is one region: where two meet, their corners are square (no notch at the seam).
+      className={cn('group/row relative items-start rounded-control px-3 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0', checked && 'bg-accent hover:bg-accent [&:has(+[data-checked])]:rounded-b-none [[data-checked]+&]:rounded-t-none')}
       data-checked={checked || undefined}
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}

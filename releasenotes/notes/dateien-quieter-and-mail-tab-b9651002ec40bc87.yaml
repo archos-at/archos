@@ -52,6 +52,9 @@ features:
   - >
     A mail held because its sender may not file in the project now says so in
     one sentence, and the Bin's dates no longer list a folder count of zero.
+  - >
+    An opened mail shows its sender as a name and an address without brackets,
+    and the file preview's header shows the name without a format box.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

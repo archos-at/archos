@@ -72,7 +72,7 @@ export const nav = {
     },
     'files/open-points': {
       title: 'Open points',
-      subtitle: 'What is open in this project’s documents, across all of them: the list for the site meeting.',
+      subtitle: 'What is open in this project’s documents: the list for the site meeting.',
     },
   },
   filesPlaces: 'File places',

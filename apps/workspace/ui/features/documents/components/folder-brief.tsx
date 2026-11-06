@@ -455,9 +455,9 @@ function BriefDisclosure({
               className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left phone:px-4 transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
-              <span className="text-muted-foreground min-w-28 shrink-0 text-xs font-medium" /* one column: summaries on one edge */>{title}</span>
+              <span className="text-muted-foreground min-w-28 shrink-0 text-xs" /* one column: summaries on one edge; muted, its value ink */>{title}</span>
               {/* What the section holds, while it is shut; open, the section says it itself. */}
-              <span className="text-muted-foreground min-w-0 truncate text-xs font-normal phone:line-clamp-2 phone:whitespace-normal" aria-hidden={open} /* as the brief's line: a phone wraps, never cuts */>
+              <span className="text-foreground min-w-0 truncate text-xs font-normal phone:line-clamp-2 phone:whitespace-normal" aria-hidden={open} /* as the brief's line: a phone wraps, never cuts */>
                 {open ? '' : summary}
                 <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
               </span>
@@ -601,13 +601,13 @@ function AttentionRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-foreground min-w-0 flex-1 basis-48 py-[3px] text-[13px] leading-snug">{text}</p>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center">
             {children}
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="-mr-3.5 shrink-0" /* its padding: the word ends on the brief's edge */
+              className="-mr-3.5 shrink-0 pl-3" /* its padding: the word ends on the brief's edge, 12px after the tonal press */
               onClick={onShow}
               aria-label={showLabel}
               title={showLabel}

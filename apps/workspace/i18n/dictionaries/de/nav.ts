@@ -63,7 +63,7 @@ export const nav: typeof en.nav = {
     },
     'files/open-points': {
       title: 'Offene Punkte',
-      subtitle: 'Was in den Dokumenten dieses Projekts offen ist, über alle Dokumente: die Liste für den Jour fixe.',
+      subtitle: 'Was in den Dokumenten dieses Projekts offen ist: die Liste für den Jour fixe.',
     },
   },
   filesPlaces: 'Orte der Dateien',

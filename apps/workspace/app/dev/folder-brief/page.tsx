@@ -266,7 +266,7 @@ function FolderBriefPreview(): JSX.Element {
         )}
 
         {shows('d') && (
-          <Section id="d" title="Everything read">
+          <Section id="d" title="Everything read (a desk only: on a phone a brief with nothing to act on is not drawn)">
             <FolderBrief
               brief={BASIS_BRIEF}
               folderName="01_Grundlagen"
@@ -280,7 +280,7 @@ function FolderBriefPreview(): JSX.Element {
         )}
 
         {shows('h') && (
-          <Section id="h" title="Everything read, beside documents never read (the quiet case)">
+          <Section id="h" title="Everything read, beside documents never read (the quiet case; a desk only, as above)">
             <FolderBrief
               brief={QUIET_BRIEF}
               folderName={null}

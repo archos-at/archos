@@ -118,7 +118,7 @@
     "apps/workspace/ui/features/documents/components/review/review-panel.tsx": 601,
     "apps/workspace/ui/features/documents/components/review/thread-card.tsx": 1227,
     "apps/workspace/ui/features/documents/components/upload-tray.tsx": 850,
-    "apps/workspace/ui/features/documents/components/use-file-preview-controller.tsx": 951,
+    "apps/workspace/ui/features/documents/components/use-file-preview-controller.tsx": 949,
     "apps/workspace/ui/features/documents/hooks/use-document-review.ts": 953,
     "apps/workspace/ui/features/documents/hooks/use-file-upload.ts": 916,
     "apps/workspace/ui/features/documents/lib/folder-knowledge.ts": 603,

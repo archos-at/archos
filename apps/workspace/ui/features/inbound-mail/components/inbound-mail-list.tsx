@@ -214,7 +214,7 @@ function ListBody({
     }
     if (everReceived === false) {
       return (
-        <div className="mx-auto flex w-full max-w-lg flex-col gap-6 p-4 sm:p-6" data-testid="inbound-mail-never" /* one width for its words and its panel */>
+        <div className="mx-auto box-content flex max-w-lg flex-col gap-6 p-4 sm:p-6" data-testid="inbound-mail-never" /* one 512px width for its words and its panel, inside the padding */>
           {/* One column, one edge: the words stand left on the panel's inner edge, 24px above it, not centred over a left-aligned sheet. */}
           <EmptyState
             variant="bare"
@@ -318,7 +318,7 @@ function ListBody({
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
               {/* A 24px line whose press overhangs it by 4px each way (44px under touch): the label stands 16px over its first
                   row's words and 24px under the section's heading, nearer what it heads than what heads it. */}
-              <div className="flex min-h-6 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-2 [&>[data-slot=button]]:-my-1" /* one height with its press or without */>
+              <div className="flex min-h-6 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-2 [&_[data-slot=button]]:-my-1" /* one height with its press or without */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   {/* A stack of mails: the circling arrows read as „sync“. */}

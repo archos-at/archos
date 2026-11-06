@@ -152,7 +152,7 @@ export const FOLDERS: FolderItem[] = [
   { id: 'f-brand', parentId: null, name: 'Brandschutz', path: '/Brandschutz' },
   { id: 'f-brand-plan', parentId: 'f-brand', name: 'Fluchtwege', path: '/Brandschutz/Fluchtwege' },
   { id: 'f-statik', parentId: null, name: 'Statik', path: '/Statik' },
-  { id: 'f-arch', parentId: null, name: 'Architektur', path: '/Architektur' },
+  { id: 'f-arch', parentId: null, name: 'Architektur', path: '/Architektur', createdAt: '2026-07-01T09:00:00Z' },
 ]
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {

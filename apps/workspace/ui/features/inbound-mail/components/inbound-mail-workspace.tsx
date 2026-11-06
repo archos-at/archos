@@ -552,7 +552,7 @@ export function InboundMailWorkspace({
             // picked it says what the bar does, not „2 ausgewählt“ a second time beside the bar's own count.
             <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
               <MailSearch className="size-5" aria-hidden />
-              <p className="max-w-xs text-sm text-pretty">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
+              <p className="max-w-xs text-sm text-balance">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
             </div>
           )}
         </div>

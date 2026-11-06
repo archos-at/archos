@@ -46,7 +46,7 @@ describe('MailHeader', () => {
   it('says who, then how far confirmed and when, and folds the evidence behind „Details“', async () => {
     renderDetail('member-verified')
     const line = screen.getByTestId('mail-header-line')
-    expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber ‹m.huber@huber-architektur.at›')
+    expect(within(line).getByTestId('mail-header-from')).toHaveTextContent('Miriam Huber m.huber@huber-architektur.at')
     // Trust is never folded away.
     expect(within(line).getByTestId('sender-trust')).toHaveTextContent('Domain verified: huber-architektur.at')
     expect(within(line).getByTestId('mail-header-received')).toBeInTheDocument()

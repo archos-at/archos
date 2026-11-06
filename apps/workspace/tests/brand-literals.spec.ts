@@ -415,3 +415,13 @@ describe('a folder row in the table’s columns', () => {
     expect(row).toContain(`hidden ${added} shrink-0 px-2 text-right text-xs tabular-nums @4xl/filelist:block`)
   })
 })
+
+describe('said once per view', () => {
+  // The preview's header says which file it is by its name and its facts line („PDF · 24 Seiten“); a format box
+  // before the name and a type chip after it said „PDF“ and the rail's „Grundriss“ a second time (2026-11).
+  it('the preview header draws no format box and no type chip', () => {
+    const chrome = withoutComments(files.find((f) => f.name === 'ui/features/documents/components/file-preview-pane-chrome.tsx')?.text ?? '')
+    expect(chrome).not.toMatch(/<FileExtChip\b/)
+    expect(chrome).not.toMatch(/\btagLabel\(/)
+  })
+})

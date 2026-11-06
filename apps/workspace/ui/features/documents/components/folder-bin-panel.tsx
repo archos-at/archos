@@ -179,14 +179,14 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                     {/* On a phone when it goes is a line of its own, with no dot to strand at a wrap. */}
                     <span className="max-sm:hidden">{CLAUSE_JOIN}</span>
                     <span className="max-sm:block max-sm:first-letter:uppercase">
+                      {/* Before its clause, in the clause's line on a desk and a phone alike („◌ wird gerade …“). */}
+                      {entry.status === 'purging' && <Spinner size="xs" className="mr-1 inline-block align-[-2px]" />}
                       {entry.status === 'purging'
                         ? t('bin.purging')
                         : entry.status === 'failed'
                           ? t('bin.failed')
                           : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
                     </span>
-                    {/* Inline after the words, on a phone too, so the line keeps its edge with the ones above. */}
-                    {entry.status === 'purging' && <Spinner size="xs" className="ml-1 inline-block align-[-2px]" />}
                   </span>
                 </ItemDescription>
               </ItemContent>

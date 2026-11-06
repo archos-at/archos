@@ -87,18 +87,22 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
             name (on a phone a line of its own). Both wrap on a phone, never truncate. */}
         <div className="flex flex-col gap-1" data-testid="mail-header-line">
           {view.sender && (
+            // The name in ink, the address beside it muted, no ‹ › around it: the tone tells them apart.
             <span className="text-foreground min-w-0 text-sm [overflow-wrap:anywhere]" data-testid="mail-header-from">
-              {t('header.fromShort', { name: senderDisplayName(view.sender), address: view.sender.address })}
+              {senderDisplayName(view.sender)} <span className="text-muted-foreground">{view.sender.address}</span>
             </span>
           )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          {/* Its clauses apart by the one separator: a dot 4px from each neighbour, as every meta line of the surface. */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs">
             {/* Trust is never folded away. */}
             {view.sender && <SenderTrustLine sender={view.sender} impersonation={view.impersonation} claim={mailClaimOf(view)} />}
+            {view.sender && <MetaDot />}
             {/* The time and „Details“ keep together, so on a phone „Details“ never stands on a line of its own. */}
-            <span className="inline-flex items-center gap-x-3 whitespace-nowrap">
+            <span className="inline-flex items-center gap-x-1 whitespace-nowrap">
               <time className="text-muted-foreground tabular-nums" dateTime={view.receivedAt} data-testid="mail-header-received">
                 {formatAbsoluteTime(view.receivedAt, locale)}
               </time>
+              <MetaDot />
               <CollapsibleTrigger
                 className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-inline outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 data-testid="mail-details-toggle"
@@ -195,5 +199,13 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
         </CollapsibleContent>
       </header>
     </Collapsible>
+  )
+}
+
+function MetaDot(): JSX.Element {
+  return (
+    <span aria-hidden className="text-muted-foreground/40">
+      ·
+    </span>
   )
 }

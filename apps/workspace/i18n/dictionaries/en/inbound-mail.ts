@@ -24,7 +24,7 @@ export const inboundMail = {
   empty: {
     neverTitle: 'No mail to this project yet',
     neverText:
-      'Put the address in Cc when you write to the authority, the structural engineer or the client. The replies wait here to be filed.',
+      'Put the address in Cc when you write to the authority, the structural engineer or the client.',
     neverNoAddress:
       'This project has no mail address yet. With one, the correspondence with the authority, the structural engineer and the client lands in the project without anyone saving it by hand.',
     neverNoAddressMember: 'This project has no mail address yet. Ask someone who manages the project to create it.',
@@ -159,7 +159,6 @@ export const inboundMail = {
     addressMore: 'About the address',
     addressCopy: 'Copy address',
     addressCopied: 'Address copied',
-    fromShort: '{name} ‹{address}›',
     details: 'Details',
     sentLabel: 'Sent',
     receivedLabel: 'Received',

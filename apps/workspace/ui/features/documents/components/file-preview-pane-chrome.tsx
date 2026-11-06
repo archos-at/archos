@@ -9,7 +9,6 @@ import { documentFileUrl } from '@/lib/documents/urls'
 
 import { isOptimizerEligible } from '@/lib/images/optimizable'
 
-import { FileExtChip } from './file-ext-chip'
 
 import { PdfViewerDialog } from '@/features/knowledge/components/pdf-viewer-dialog'
 
@@ -33,7 +32,7 @@ import type { FilePreviewController } from './use-file-preview-controller'
 import { MailProvenanceRow } from './mail-thread'
 
 export function FilePreviewChrome({ controller }: { controller: FilePreviewController }) {
-  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, sideways, t } = controller
+  const { actions, canExpandPreview, canManage, closedProjectName, detailsOpen, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, sideways, t } = controller
   return (
     <>
         {/* Peek chrome lives on the host — this header is the modal/expanded one,
@@ -120,8 +119,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
           />
         )}
         {!peeking && !reader && (
-          <div className="@md:gap-x-3 @md:px-5 flex shrink-0 items-start gap-x-2 px-3.5 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
-            <FileExtChip filename={file.filename} fallback={<Icon className="size-4" />} />
+          // The name on the rail's 16px edge, with no format box before it: the facts line under the name says „PDF“.
+          <div className="flex shrink-0 items-start gap-x-2 px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:pt-3.5">
             {/* The name the document was GIVEN, if it was given one. `title`
               carries it in full for the truncated case — and the file's own name
               underneath it, which is the answer to "which file is this actually"

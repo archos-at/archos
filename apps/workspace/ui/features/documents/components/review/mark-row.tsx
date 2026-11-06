@@ -73,8 +73,9 @@ export function MarkRowContent({
           <MarkBody text={annotation.body} mentions={annotation.mentions} viewerId={viewerId} clamped />
         </span>
         {/* Items apart by „·“ as every meta line of the surface (the tile's, the mail row's), the dot after an item
-            so a wrapped line never starts with one; each item keeps to one line. */}
-        <span className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs [&>*:not(:last-child)]:after:ml-1 [&>*:not(:last-child)]:after:text-muted-foreground/40 [&>*:not(:last-child)]:after:content-['·']" data-testid="review-row-meta">
+            so a wrapped line never starts with one; each item keeps to one line. 4px each side: a glyph clause's own
+            2px gap counts toward its dot's margin. */}
+        <span className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs [&>*:not(:last-child)]:after:ml-1 [&>.inline-flex:not(:last-child)]:after:ml-0.5 [&>*:not(:last-child)]:after:text-muted-foreground/40 [&>*:not(:last-child)]:after:content-['·']" data-testid="review-row-meta">
           <span className="whitespace-nowrap">{t(`annotations.kinds.${annotation.kind}`)}</span>
           {showPage && <span className="whitespace-nowrap">{t('review.page', { page: annotation.page })}</span>}
           <span className="min-w-0 truncate">{author}</span>

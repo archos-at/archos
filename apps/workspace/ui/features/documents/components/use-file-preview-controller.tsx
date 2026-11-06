@@ -22,7 +22,7 @@ import { useMediaQuery } from '@/hooks/use-media-query'
 import { PHONE_ON_ITS_SIDE_QUERY, PHONE_QUERY } from '@/hooks/use-is-mobile'
 
 import { useDocumentActions, useMoveInSheet } from './document-actions'
-import { fileTypeIcon, isCitable, isCitableStatus, isNeverIndexed, isSettlingStatus } from './document-status'
+import { isCitable, isCitableStatus, isNeverIndexed, isSettlingStatus } from './document-status'
 
 import type { VisualDetail } from './page-readings'
 import { useFileFacts } from '../hooks/use-file-facts'
@@ -276,7 +276,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   useEffect(() => {
     setShownFinding(firstFinding(heldVerdict))
   }, [file.id, heldVerdict])
-  const Icon = fileTypeIcon(file.contentType, file.filename)
   const fileFacts = useFileFacts(file)
   const responsibleNames = (file.assignees ?? [])
     .map((person) => person.name || person.email || '')
@@ -851,7 +850,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     : undefined
 
   return {
-    Icon,
     actions,
     addressed,
     annotateLead,

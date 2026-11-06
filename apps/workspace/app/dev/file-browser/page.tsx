@@ -80,7 +80,6 @@ import { RevisionsFixture } from './revisions-fixture'
 import { FolderBrief } from '@/features/documents/components/folder-brief'
 import { buildFolderBrief } from '@/features/documents/lib/folder-knowledge'
 
-
 export default function FileBrowserDevPage(): JSX.Element {
   const variant = useSearchParams()?.get('variant') ?? 'default'
   if (process.env.NODE_ENV !== 'development') {
@@ -296,6 +295,7 @@ function FoldersInListViewFixture(): JSX.Element {
             search={search}
             view="list"
             folderNav={folderNav}
+            renderActions={() => <DocumentActionsTrigger />} /* as the workspace passes it: the folder menus' column */
           />
         </div>
       </div>
