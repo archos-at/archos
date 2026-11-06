@@ -187,7 +187,7 @@ export function SidebarUserMenu({
               missing contrast; nothing grey on grey needs no line. */}
           <Avatar className={avatarSizeClass}>
             {(authUser?.image ?? user?.image) && <AvatarImage src={authUser?.image ?? user?.image ?? undefined} alt="" />}
-            <AvatarFallback className="in-data-[surface=sunken]:bg-on-sunken text-xs font-medium">
+            <AvatarFallback className="in-data-[surface=sunken]:bg-mark-on-sunken text-xs font-medium">
               {initial}
             </AvatarFallback>
           </Avatar>

@@ -48,7 +48,7 @@ export function ProjectPill({
       )}
     >
       {/* White in the grey phone band, where the pill is white: then the mark is the one grey; over the chat's white page the pill is grey and the mark white. */}
-      <ProjectMark name={name} className="bg-on-sunken in-data-[surface=sunken]:bg-muted" />
+      <ProjectMark name={name} className="bg-mark-on-sunken in-data-[surface=sunken]:bg-muted" />
       {/* Two lines before a cut: the end of a name („Baufeld D12") is what
           tells sibling projects apart. */}
       <span className="text-foreground line-clamp-2 min-w-0 flex-1 text-[15px] leading-tight font-medium">

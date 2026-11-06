@@ -193,10 +193,10 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
                   setOpen(false)
                   router.push('/app/projects')
                 }}
-                className="text-muted-foreground gap-2.5 data-[selected=true]:text-foreground"
+                className="gap-2.5"
               >
                 {/* In the marks' slot, so the words stand on the names' edge. */}
-                <span className="flex size-6 shrink-0 items-center justify-center" aria-hidden>
+                <span className="text-muted-foreground flex size-6 shrink-0 items-center justify-center" aria-hidden>
                   <LayoutList className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>

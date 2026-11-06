@@ -34,7 +34,7 @@ export function ProjectMark({
         // square showing round them: at 20px the initials filled it edge to
         // edge and read as loose text beside the name.
         'text-foreground flex size-6 shrink-0 items-center justify-center rounded-inline text-xs leading-none font-medium',
-        onBand ? 'bg-on-sunken' : 'bg-muted',
+        onBand ? 'bg-mark-on-sunken' : 'bg-muted',
         className
       )}
     >

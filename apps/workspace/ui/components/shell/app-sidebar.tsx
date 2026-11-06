@@ -55,7 +55,6 @@ import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
 import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
-import { ProjectMark } from './project-mark'
 import { ProjectPill } from './project-pill'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
@@ -411,23 +410,16 @@ function AppSidebarFrame({
           {orgGroup && (
             <nav aria-label={orgGroup.label} className="mt-6">
               <SidebarGroup className="p-0">
-                {/* The organisation heads its doorways as the project heads its
-                    sections: its mark on the 32px axis and its name in ink at
-                    14px on the labels' edge, 8px over its first row. A 12px grey
-                    label under a 14px ink switcher read as an orphan list; in
-                    the icon rail the mark alone says where the scope changes. */}
-                <div
-                  className={cn('flex min-h-9 items-center', iconRail ? 'justify-center' : 'gap-[7px] px-2 py-1.5')}
-                  title={iconRail ? orgGroup.label : undefined}
-                >
-                  <ProjectMark name={orgGroup.label} onBand />
-                  {!iconRail && (
-                    <span className="text-foreground line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-medium">
-                      {orgGroup.label}
-                    </span>
-                  )}
-                </div>
-                <SidebarGroupContent className="mt-2">
+                {/* The organisation's name as the group's 12px label, on the
+                    icons' 24px edge, 4px over its first row. Not a second
+                    mark-and-name head: that looked like a switcher that does
+                    nothing and set three 14px ink lines against the selection. */}
+                {!iconRail && (
+                  <div className="text-muted-foreground flex min-h-6 items-end px-3 pb-1 text-xs font-medium" title={orgGroup.label}>
+                    <span className="line-clamp-2">{orgGroup.label}</span>
+                  </div>
+                )}
+                <SidebarGroupContent>
                   <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>

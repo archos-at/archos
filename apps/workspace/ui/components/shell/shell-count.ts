@@ -9,4 +9,4 @@
  * page's one black action, for a count that is information beside a place.
  */
 export const SHELL_COUNT =
-  'h-5 text-xs in-data-[surface=sunken]:bg-on-sunken in-data-[surface=sunken]:text-foreground in-aria-[current=page]:bg-transparent in-aria-[current=page]:text-muted-foreground in-aria-expanded:bg-transparent in-aria-expanded:text-muted-foreground group-data-[collapsible=icon]:in-aria-[current=page]:bg-on-sunken group-data-[collapsible=icon]:in-aria-[current=page]:text-foreground'
+  'h-5 text-xs in-data-[surface=sunken]:bg-mark-on-sunken in-data-[surface=sunken]:text-foreground in-aria-[current=page]:bg-transparent in-aria-[current=page]:text-muted-foreground in-aria-expanded:bg-transparent in-aria-expanded:text-muted-foreground group-data-[collapsible=icon]:in-aria-[current=page]:bg-mark-on-sunken group-data-[collapsible=icon]:in-aria-[current=page]:text-foreground'
