@@ -255,7 +255,7 @@ What took Dateien and the E-Mail-Eingang from a 5 to a 10 over the 2026-11 revie
 - **No section lines.** No rule above or below a block, no hairlines between rows, no dashed box, no bordered card around a bar: white space and the one grey separate. A bar pinned over the content it sits in takes `shadow-pinned-foot` (`globals.css`), drawn only while content lies beneath it; a split view's pane divider is a function and stays (held: „no section lines“).
 - **A mode is a band.** A selection bar under a list is a band of the one grey across its column, its content on the listing's edges, the secondary (white on it) before the primary at the end, in Dateien and the E-Mail-Eingang alike.
 - **An unchecked control draws the field border** (`--ds-line-strong`, 3.4:1): the alpha `--input` measured under WCAG 1.4.11's 3:1 (`checkbox.tsx`, `radio-group.tsx`).
-- **Quiet is the normal case.** All read, nothing open, nothing waiting says nothing or one muted line; ochre is for what needs a person, red for a failure, each with its glyph and word.
+- **Quiet is the normal case.** All read, nothing open, nothing waiting says nothing or one muted line; ochre is for what needs a person (an overdue point, a mail to check), red for a failure, each with its glyph and word. A destructive press is ink like its neighbours; its confirm says what cannot be undone (five red „Endgültig löschen“ led the Papierkorb).
 
 **Edges and rhythm**
 
@@ -270,6 +270,8 @@ What took Dateien and the E-Mail-Eingang from a 5 to a 10 over the 2026-11 revie
 
 - **A name is one size wherever it stands:** 13px medium in a tile, a file row and a folder row. **One size per band:** the tabs row's tools take the tabs' 14px.
 - **A count is the muted pill** (`CountPill`), never brackets: „Bereit 3“, as the tabs write it; on a grey surface the pill is white.
+- **A level outranks what it holds:** a section heading of a list is 13px in ink, a group inside it (a mail thread) 12px muted, and a group ends 24px before the next row.
+- **A code is a word, not a disc:** the list writes a file's format as the tile's meta does (11px, muted, its own 32px column, where a folder row has its bare glyph); 8.5px in a 24px disc was below any legible size.
 - **Names keep their end.** A file name wraps (`FileName wrap`) or is cut in the middle, never at its end: the revision and the drawing number are the end.
 - **A clause drops whole, never cut.** Below 640px the comment chip shows „4 offen · 2 für Sie“ and drops „3 Vorschläge“; the accessible name says the whole sentence.
 - **A chevron follows its words**, not the far edge of its row: the brief's line ends in its chevron.
@@ -280,7 +282,7 @@ What took Dateien and the E-Mail-Eingang from a 5 to a 10 over the 2026-11 revie
 - **Columns appear only when a row fills them** (`listColumns` in `file-list-columns.ts`): an empty Status column is a promise of nothing.
 - **One look for one of these.** Where a page shows tabs, a segmented control beside them is `bare`: no track, the chosen one the one grey (held: „one look for one of these“).
 - **One primary per surface:** Hochladen in Dateien, the decision bar's filing press in an opened mail. **While items are picked the bar owns the action:** the section's and the thread's own presses step back.
-- **One shape for one pick:** a square checkbox in the list, the E-Mail-Eingang and on a tile (`rounded-inline`), never a circle on one of them.
+- **One shape for one pick:** a square checkbox in the list, the E-Mail-Eingang and on a tile (`rounded-inline`), never a circle on one of them. Where rows can be picked the boxes are drawn on every row, not on hover: a hidden box left a column that read as an indent.
 - **A column only where something can be in it:** the E-Mail-Eingang's handled list has no checkbox column, as an empty 28px gutter read as an indent.
 - **Like things, like words:** a folder's count reads „2 Elemente“ in a tile and in a row; a chip beside a near-namesake wears its own glyph (the folder's folder, the Dokumentart's tag).
 - **A placeholder is the thing's own shell.** A skeleton uses the real tile, row or pane geometry and draws no row the loaded page does not have; an empty pane is a bare state in its middle, not a dashed panel.

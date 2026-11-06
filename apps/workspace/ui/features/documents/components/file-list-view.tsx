@@ -11,7 +11,7 @@ import { DocumentVersionStateBadge } from './document-version-badge'
 import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revision-badge'
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { approvalSubjectOf, listColumns, type FileListColumns } from './file-list-columns'
-import { FileExtChip } from './file-ext-chip'
+import { fileExtensionLabel } from '../document-kind'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -383,15 +383,15 @@ const FileListRowItem = memo(function FileListRowItem({
       )}
       <TableCell className={CELL}>
         <div className="flex min-h-8 min-w-0 items-center gap-2.5">
-          {/* The same tile the upload tray's row draws, so a document looks
-              like itself from the second it is dropped. */}
-          <FileExtChip filename={file.filename} size="xs" fallback="—" />
+          {/* The format in words, as the tile's meta writes it (8.5px in a disc was illegible); 32px, a folder's glyph column. */}
+          <span className="text-muted-foreground w-8 shrink-0 text-[11px] font-medium uppercase" aria-hidden>
+            {fileExtensionLabel(file.filename) || '—'}
+          </span>
           <span className="min-w-0 flex-1">
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"
                 column, and here it never makes a row taller. */}
-            {/* 13px, the tile's and the folder row's: a name is one size wherever it stands. */}
-            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-[1.4] text-foreground">
+            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-[1.4] text-foreground" /* a name is 13px everywhere */>
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
               {/* What is still open on its pages; a press opens the review, not the row. */}
@@ -604,7 +604,7 @@ export function FileListSkeleton({ rows = 6 }: { rows?: number }) {
       <FileListSkeletonHeader />
       {Array.from({ length: rows }).map((_, index) => (
         <div key={index} className="flex items-center gap-2.5 px-2 py-1.5">
-          <Skeleton className="size-6 shrink-0 rounded-full" />
+          <Skeleton className="h-3 w-8 shrink-0" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Skeleton className="h-3.5 w-1/3" />
             <Skeleton className="h-3 w-2/3" />

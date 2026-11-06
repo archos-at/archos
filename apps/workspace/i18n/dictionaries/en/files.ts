@@ -640,8 +640,8 @@ export const files = {
     deletedOn: 'Deleted on {date}',
     contents:
       '{documents, plural, one {# document} other {# documents}} · {folders, plural, one {# folder} other {# folders}}',
-    purgeOn: 'Permanently deleted on {date}',
-    purging: 'Being permanently deleted',
+    purgeOn: 'permanently deleted on {date}',
+    purging: 'being permanently deleted',
     failed: 'The permanent deletion has stopped. An admin is looking into it.',
     restore: 'Restore',
     restored: '“{name}” is restored. Its documents are being read again.',
@@ -1520,7 +1520,7 @@ export const files = {
   assignment: {
     unassigned: 'Unassigned',
     assign: 'Assign',
-    edit: 'Edit',
+    edit: 'Change',
     assignToMe: 'Assign to me',
     filterAll: 'All',
     filterMine: 'Mine',

@@ -279,7 +279,7 @@ export function ReaderActions({
       className={cn(
         'flex items-center',
         bar
-          ? 'bg-card shrink-0 gap-2 pt-2 pr-[max(0.75rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,env(safe-area-inset-left))]'
+          ? 'bg-card shrink-0 gap-2 pt-2 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))]'
           : 'shrink-0 gap-1',
       )}
     >

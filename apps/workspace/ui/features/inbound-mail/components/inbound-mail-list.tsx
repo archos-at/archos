@@ -16,7 +16,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle2, ChevronDown, FileInput, History, Inbox as InboxGlyph, MailOpen, Repeat2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Repeat2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -169,9 +169,9 @@ function ListBody({
         <div className="flex min-h-7 items-center px-4 pt-4 pb-1">
           <Skeleton className="h-3 w-16" />
         </div>
-        <ul className="flex flex-col gap-0.5 px-1.5">
+        <ul className="flex flex-col gap-0.5 px-1">
           {[0, 1, 2, 3, 4].map((row) => (
-            <li key={row} className="flex items-start gap-3 px-2.5 py-3">
+            <li key={row} className="flex items-start gap-3 px-3 py-3">
               <span className="w-4 shrink-0" aria-hidden />
               <Skeleton className="mt-0.5 size-7 shrink-0 rounded-full" />
               <div className="flex flex-1 flex-col gap-1.5 pt-0.5">
@@ -254,7 +254,7 @@ function ListBody({
     <div className="flex flex-col">
       {sections.map((section) => {
         // Rows sit apart by a gap and answer with a fill, not a rule under each.
-        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col gap-0.5 px-1.5 py-0.5">{row(section.mail)}</ul>
+        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col gap-0.5 px-1 py-0.5">{row(section.mail)}</ul>
         if (section.kind === 'readiness') {
           const ready = section.readiness === 'ready'
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
@@ -263,20 +263,23 @@ function ListBody({
               key={`readiness-${section.readiness}`}
               // The Postfach's „E-Mails warten“ row links here (`lib/inbox/targets.ts`).
               id={ready ? INBOUND_MAIL_READY_ANCHOR : undefined}
-              className="flex scroll-mt-2 flex-col gap-1 px-4 pt-4 pb-1"
+              data-readiness={section.readiness}
+              // The list's first heading sits 8px under the filter; later ones open a section with 16px.
+              className="flex scroll-mt-2 flex-col gap-1 px-4 pt-4 pb-1 first:pt-1"
               data-testid={`readiness-${section.readiness}`}
             >
               <div className="flex min-h-7 items-center justify-between gap-2">
                 {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
                 {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
-                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="flex items-center gap-1.5">
+                {/* A section outranks a thread: 13px in ink here, the thread's line 12px muted. */}
+                <SectionLabel as="h3" title={ready ? t('readiness.readyHint') : undefined} className="text-foreground flex items-center gap-1.5 text-[13px]">
                   {t(`readiness.${section.readiness}`)}
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
                 {ready && batch.length > 1 && !picking && (
                   <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 h-7 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
-                    <FileInput className="size-3.5" aria-hidden />
-                    {/* One request decides at most twenty mails: past that, the press says it files the first ones. */}
+                    {/* No glyph, as the thread's press has none: row-end actions are text presses. One request decides at
+                        most twenty mails: past that, the press says it files the first ones. */}
                     {t(batch.length < section.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}
                   </Button>
                 )}
@@ -293,7 +296,8 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              <div className="flex items-center justify-between gap-2 px-4 pt-3" /* centred: under touch the press is 44px tall */>
+              {/* Centred: under touch the press is 44px tall. Right under its section's heading it sits 4px below it. */}
+              <div className="flex items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-1">
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   <Repeat2 className="size-3.5 shrink-0" aria-hidden />
@@ -321,14 +325,13 @@ function ListBody({
                   // Every mail of this half needs the person: the way in is its first mail, and no Fassung range is promised.
                   <Button asChild size="sm" variant="ghost" className={GROUP_ACTION}>
                     <Link href={hrefFor(section.mails[0].id)} data-testid="thread-group-open">
-                      <ArrowRight className="size-3.5" aria-hidden />
                       {t('group.reviewInOrder')}
                     </Link>
                   </Button>
                 )}
               </div>
               {/* 24px after its last member, the gap between sections: a row below it visibly stands outside the thread. */}
-              <ul className="flex flex-col gap-0.5 px-1.5 pt-0.5 pb-6">{section.mails.map((mail) => row(mail, true))}</ul>
+              <ul className="flex flex-col gap-0.5 px-1 pt-0.5 pb-6">{section.mails.map((mail) => row(mail, true))}</ul>
             </section>
           )
         }
@@ -345,7 +348,7 @@ function ListBody({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <p className="text-muted-foreground px-4 pb-2 text-xs">{t('group.quietHint')}</p>
-                <ul className="flex flex-col gap-0.5 px-1.5 py-0.5">{section.mails.map((mail) => row(mail))}</ul>
+                <ul className="flex flex-col gap-0.5 px-1 py-0.5">{section.mails.map((mail) => row(mail))}</ul>
               </CollapsibleContent>
             </section>
           </Collapsible>

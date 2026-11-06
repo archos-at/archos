@@ -110,17 +110,16 @@ export interface FolderBriefProps {
  * So every level opens with Piloti's account of its whole subtree, built from
  * nothing but what the listing already carries (`folder-knowledge.ts`):
  *
- * 1. How much of it Piloti can cite — one sentence and one bar, every state a
- *    swatch AND a word, each a way into exactly those documents.
- * 2. What it is about — the document types and disciplines Piloti assigned, and
- *    the kinds of content it found, as chips that narrow the listing to them.
- * 3. What needs a person — failures with a single re-read for all of them,
- *    documents the content screen is holding, documents Piloti could not place.
- * 4. Where below it the trouble sits — the deepest folder, one click away.
+ * 1. How much of it Piloti can cite (a sentence and a bar, each state a swatch and a word).
+ * 2. What it is about (types, disciplines, kinds of content, as chips that narrow the listing).
+ * 3. What needs a person (failures with one re-read for all, held and unplaced documents).
+ * 4. Where below it the trouble sits (the deepest folder, one click away).
  *
  * It never shows CONTENT of a document Piloti cannot cite: a quarantined file
  * is counted, never described (`buildFolderBrief`).
  */
+const BRIEF_CHEVRON = 'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none'
+
 export function FolderBrief({
   brief,
   folderName,
@@ -136,6 +135,7 @@ export function FolderBrief({
   detailsLoading = false,
 }: FolderBriefProps): JSX.Element | null {
   const t = useTranslations(filesCopy)
+  const { locale } = useLocale()
   const { tally } = brief
   const phone = usePhoneLayout()
   if (tally.total === 0) return null
@@ -157,6 +157,8 @@ export function FolderBrief({
   // (`-mx-4`, square, 16px inside): 12px of bleed into a 16px gutter left it 4px from the glass.
   const open = !collapsed
   const allRead = everythingRead(tally)
+  const quietPages = allRead && !hasUnindexedAside(tally) && tally.pages > 0
+  const pagesLine = t('brief.pages', { count: tally.pages, formatted: tally.pages.toLocaleString(locale) })
   return (
     <Card
       className={cn(
@@ -185,21 +187,19 @@ export function FolderBrief({
               <span className="min-w-0 truncate phone:whitespace-normal" /* the chevron follows the words; a phone wraps, never cuts */>
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
+                {/* All read, the page count is the brief's one figure: on its line, not a row of its own. */}
+                {open && quietPages && <span className="text-muted-foreground tabular-nums"> · {pagesLine}</span>}
+                {/* On a phone the line wraps, and the chevron follows its last word there too. */}
+                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
               </span>
-              <ChevronDown
-                className={cn(
-                  'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-                  open && 'rotate-180'
-                )}
-                aria-hidden
-              />
+              <ChevronDown className={cn(BRIEF_CHEVRON, 'phone:hidden', open && 'rotate-180')} aria-hidden />
             </button>
           </CollapsibleTrigger>
         </h2>
 
         <CollapsibleContent id="folder-brief-body">
           {/* All read is the quiet case: no bar. While something is open, a hairline, never a band. */}
-          {(!allRead || hasUnindexedAside(tally) || tally.pages > 0) && (
+          {(!allRead || hasUnindexedAside(tally)) && (
             <div className="flex flex-col gap-2.5 px-3 pb-3 pt-0.5 phone:px-4" data-testid="folder-brief-meter">
               {!allRead && <SegmentMeter className="h-1" label={meterLabel} segments={meterSegments(tally)} />}
               <ReadStateLegend tally={tally} onSelect={onSelect} />
@@ -211,7 +211,7 @@ export function FolderBrief({
               trouble sits, each folded to one line that already names its content.
               Open in full, the brief was taller than a laptop screen and the
               listing it introduces started below the fold. */}
-          <div className="flex flex-col gap-1 pb-1.5" data-testid="folder-brief-sections">
+          <div className="flex flex-col gap-1" data-testid="folder-brief-sections">
             <NeedsYouSection
               brief={brief}
               onSelect={onSelect}
@@ -611,7 +611,7 @@ function AttentionRow({
               type="button"
               size="sm"
               variant="ghost"
-              className="-mr-2 h-7 shrink-0"
+              className="-mr-3.5 h-7 shrink-0" /* its padding: the word ends on the brief's edge */
               onClick={onShow}
               aria-label={showLabel}
               title={showLabel}

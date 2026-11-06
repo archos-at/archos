@@ -149,6 +149,7 @@ describe('data palette', () => {
 const CAPITALS_ALLOWED = new Set([
   'ui/components/brand/logo.tsx', // the wordmark
   'ui/features/documents/components/file-ext-chip.tsx', // file-format code
+  'ui/features/documents/components/file-list-view.tsx', // file-format code in the list's first column
   'ui/features/documents/components/file-card.tsx', // file-format code chip
   'ui/features/documents/components/document-kind-thumbnail.tsx', // file-format code chip
   'ui/features/chat/components/MessageAuthor.tsx', // initials in the avatar disc

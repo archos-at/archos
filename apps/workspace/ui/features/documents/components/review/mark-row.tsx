@@ -91,14 +91,14 @@ export function MarkRowContent({
             </span>
           )}
           {annotation.dueOn && (
-            <span className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', overdue && 'text-foreground font-medium')}>
+            <span className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', overdue && 'text-warning font-medium' /* ochre with its clock and word: this one waits on a person */)}>
               <Clock className="size-3" aria-hidden />
               {overdue ? t('review.overdue') : formatDayRange(annotation.dueOn, annotation.dueOn, locale)}
             </span>
           )}
         </span>
         {!annotation.onCurrentRevision && (
-          <span className="text-muted-foreground mt-0.5 block text-xs italic" title={t('annotations.earlierRevisionHint')}>
+          <span className="text-muted-foreground mt-0.5 block text-xs" title={t('annotations.earlierRevisionHint')}>
             {annotation.revisionNumber
               ? t('annotations.earlierRevision', { number: annotation.revisionNumber })
               : t('annotations.earlierRevisionUnnumbered')}

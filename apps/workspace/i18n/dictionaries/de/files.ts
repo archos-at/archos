@@ -624,8 +624,9 @@ export const files: typeof en.files = {
     deletedOn: 'Gelöscht am {date}',
     contents:
       '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
-    purgeOn: 'Wird am {date} endgültig gelöscht',
-    purging: 'Wird gerade endgültig gelöscht',
+    // After „Gelöscht … am …“ and a „·“ on the same line, so lower case.
+    purgeOn: 'endgültig gelöscht am {date}',
+    purging: 'wird gerade endgültig gelöscht',
     failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
     restore: 'Wiederherstellen',
     restored: '„{name}“ ist wiederhergestellt. Die Dokumente werden neu eingelesen.',
@@ -1478,7 +1479,8 @@ export const files: typeof en.files = {
   assignment: {
     unassigned: 'Unvergeben',
     assign: 'Zuweisen',
-    edit: 'Bearbeiten',
+    // Beside the person who is responsible: „Bearbeiten“ read as editing the file.
+    edit: 'Ändern',
     assignToMe: 'Mir zuweisen',
     filterAll: 'Alle',
     filterMine: 'Meine',

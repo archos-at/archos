@@ -794,9 +794,8 @@ export function FolderRow({
     )
   }
 
-  // THE ROW THAT WAS YELLOW: amber wells, pills and chevrons read as a warning, and that gold is a signal
-  // (`--source-office`) in the same table. A folder is built from the neutral ramp; the glyph and the chevron say
-  // „folder“. It does not animate itself in: the level's keyed transition owns the entrance.
+  // THE ROW THAT WAS YELLOW: its amber read as a warning, and that gold is a signal (`--source-office`). Neutral ramp;
+  // glyph and chevron say „folder“. No entrance of its own: the level's keyed transition owns it.
   // A row of the table below it in all but its columns: on the page, the cells' 8px inset, a 24px round glyph
   // where a file has its format, the name at 13px, the hover the one grey. It sat in a grey box with hairlines
   // until 2026-11, a second list above the first. A drop target is marked inside its box (`ring-inset`).
@@ -819,8 +818,9 @@ export function FolderRow({
       >
         {/* One glyph, for the reason the card's comment gives. The row's own
             background change is the hover feedback, and a finger gets it too. */}
-        <span className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
-          <Folder className="text-muted-foreground size-3.5" aria-hidden />
+        {/* A bare glyph, as on the folder tile, in the 32px column where a file row writes its format. */}
+        <span className="flex w-8 shrink-0 items-center">
+          <Folder className="text-muted-foreground size-4" aria-hidden />
         </span>
         <FileName text={folder.name} className="text-foreground shrink font-medium" />
         {folder.description && (
@@ -899,8 +899,8 @@ export function FolderCardSkeleton(): JSX.Element {
 export function FolderRowSkeleton(): JSX.Element {
   return (
     <Item className="w-full gap-2 px-2 py-1.5" data-testid="folder-row-skeleton">
-      <span className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
-        <Folder className="text-muted-foreground/40 size-3.5" aria-hidden />
+      <span className="flex w-8 shrink-0 items-center">
+        <Folder className="text-muted-foreground/40 size-4" aria-hidden />
       </span>
       <Skeleton className="h-3.5 w-40" />
       <Skeleton className="h-3.5 w-8 rounded-full" />

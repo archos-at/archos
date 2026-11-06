@@ -82,5 +82,6 @@ export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement
 /** A block of the detail that belongs together: a quiet tint, one hairline, the surface radius. */
 export function QuietPanel({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
   // A quiet tone, no border: the mail feature's panels group by fill, like the rest of Dateien.
-  return <div data-surface="sunken" className={cn('bg-muted rounded-surface flex flex-col gap-2 p-3', className)} {...props} />
+  // 16px inside, the detail's panels' inset; on a phone a band across the screen rather than a card in the gutter.
+  return <div data-surface="sunken" className={cn('bg-muted rounded-surface flex flex-col gap-2 p-4 phone:-mx-4 phone:rounded-none', className)} {...props} />
 }

@@ -175,7 +175,8 @@ export function FilesHeaderControls({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2" data-testid="files-controls">
+    // At the tabs' 14px, as the tabs row's tools below: one press size for the head of the page.
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
       <ToggleGroup
         type="single"
         value={view}

@@ -502,7 +502,7 @@ export const inboundMail = {
     loadError: 'The project mail address could not be loaded.',
     lastReceived: 'Last mail received {time}',
     nothingReceived: 'No mail received yet',
-    sizeLimit: 'Up to {limit} MB per mail, attachments together up to about {attachments} MB.',
+    sizeLimit: 'Attachments up to about {attachments} MB per mail.',
     uploadInstead: 'Upload larger files directly',
     dropped: '{count, plural, one {# automatic reply or delivery report in the last {days} days, not shown} other {# automatic replies or delivery reports in the last {days} days, not shown}}',
     rotate: 'Create a new address …',

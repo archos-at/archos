@@ -139,7 +139,8 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
 
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="open-points-filters">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-medium">{t('openPoints.filters.assignee')}</span>
+            {/* One column for both labels, so the two rows of choices start on one edge when they wrap on a phone. */}
+            <span className="text-muted-foreground min-w-16 text-xs font-medium">{t('openPoints.filters.assignee')}</span>
             <ToggleGroup
               type="single"
               value={assignee}
@@ -160,7 +161,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
             </ToggleGroup>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-medium">{t('openPoints.filters.due')}</span>
+            <span className="text-muted-foreground min-w-16 text-xs font-medium">{t('openPoints.filters.due')}</span>
             <ToggleGroup
               type="single"
               value={due}

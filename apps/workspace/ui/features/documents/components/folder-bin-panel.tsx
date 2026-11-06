@@ -26,6 +26,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Spinner } from '@/components/ui/spinner'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -159,17 +160,20 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 <ItemDescription className="whitespace-normal sm:truncate">
                   {entry.document ? t('bin.document') : t('bin.contents', { documents: entry.documents, folders: entry.folders })}
                 </ItemDescription>
-                <ItemDescription className="whitespace-normal sm:truncate">
-                  {entry.deletedBy.name
-                    ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
-                    : t('bin.deletedOn', { date: date(entry.deletedAt) })}
-                </ItemDescription>
-                <ItemDescription className="whitespace-normal sm:truncate">
-                  {entry.status === 'purging'
-                    ? t('bin.purging')
-                    : entry.status === 'failed'
-                      ? t('bin.failed')
-                      : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
+                {/* Who deleted it and when it goes, on one line: four lines of 12px meta per row was a form, not a list. */}
+                <ItemDescription className="flex items-center gap-1 whitespace-normal sm:truncate">
+                  {entry.status === 'purging' && <Spinner size="xs" className="shrink-0" />}
+                  <span>
+                    {entry.deletedBy.name
+                      ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
+                      : t('bin.deletedOn', { date: date(entry.deletedAt) })}
+                    {' · '}
+                    {entry.status === 'purging'
+                      ? t('bin.purging')
+                      : entry.status === 'failed'
+                        ? t('bin.failed')
+                        : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
+                  </span>
                 </ItemDescription>
               </ItemContent>
               {/* Restore at the start of the row, „Endgültig löschen" at the far
@@ -177,7 +181,8 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                   between it and the one a thumb reaches for. It used to sit 23px
                   from Wiederherstellen. `ml-auto` keeps it at the end when it is
                   the only action, so the row does not change shape. */}
-              <ItemActions className="w-full flex-wrap justify-between sm:w-auto sm:flex-nowrap sm:justify-end">
+              {/* On a phone the actions line up under the name they belong to, not under the glyph. */}
+              <ItemActions className="w-full flex-wrap justify-between pl-11 sm:w-auto sm:flex-nowrap sm:justify-end sm:pl-0">
                 {entry.canRestore && (
                   <Button
                     variant="secondary"
@@ -194,7 +199,9 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-destructive ml-auto -mr-3.5" /* its words end on the edge */
+                    // Ink, as every press in the row: five red words led the page, and red is for a failure. The
+                    // confirm dialog says what cannot be undone. Its words end on the edge.
+                    className="ml-auto -mr-3.5"
                     onClick={() => setPurging(entry)}
                     data-testid={`bin-purge-${entry.folderId}`}
                   >

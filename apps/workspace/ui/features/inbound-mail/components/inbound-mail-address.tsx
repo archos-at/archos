@@ -215,7 +215,8 @@ export function InboundMailAddressBlock({
   return (
     <div className="flex flex-col gap-4" data-testid="inbound-mail-address">
       {showUses && <AddressUses />}
-      <QuietPanel>
+      {/* In a dialog's sheet the panel keeps its card: the sheet's own inset is its edge. */}
+      <QuietPanel className={cn(surface === 'dialog' && 'phone:mx-0 phone:rounded-surface')}>
         {/* The eyebrow names the value; in the dialog its title already does. */}
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         {showValue &&

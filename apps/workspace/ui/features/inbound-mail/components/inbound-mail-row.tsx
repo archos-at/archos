@@ -58,7 +58,7 @@ export interface InboundMailRowProps {
   /** Checked for a bulk action. */
   checked: boolean
   onCheckedChange: (checked: boolean) => void
-  /** The list is selecting: checkboxes stay visible on every row. */
+  /** The list is selecting. The boxes are drawn in every waiting row anyway (no hover reveal), so it changes nothing here. */
   selecting: boolean
   onFocusRow?: () => void
   /** Under a thread group's header: the header names the thread, so the row does not. */
@@ -76,7 +76,6 @@ export function InboundMailRow({
   focused,
   checked,
   onCheckedChange,
-  selecting,
   onFocusRow,
   inGroup = false,
   onFileAsSuggested,
@@ -117,7 +116,7 @@ export function InboundMailRow({
     <Item
       as="li"
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
-      className="group/row relative items-start rounded-control px-2.5 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
+      className="group/row relative items-start rounded-control px-3 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}
@@ -135,10 +134,7 @@ export function InboundMailRow({
             onCheckedChange={(value) => onCheckedChange(value === true)}
             aria-label={t('row.select', { subject })}
             data-testid="inbound-mail-row-checkbox"
-            className={cn(
-              'transition-opacity duration-quick ease-out motion-reduce:transition-none',
-              !selecting && !checked && 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100'
-            )}
+            // Always drawn in the waiting list: a box shown only on hover left a 28px column that read as a thread's indent.
           />
         )}
       </div>
@@ -159,7 +155,7 @@ export function InboundMailRow({
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex min-w-0 items-baseline gap-2">
-              <p className={cn('min-w-0 flex-1 line-clamp-2 text-sm [overflow-wrap:anywhere]', waiting ? 'text-foreground font-medium' : 'text-foreground')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
+              <p className={cn('min-w-0 flex-1 line-clamp-2 text-sm text-pretty [overflow-wrap:anywhere]', waiting ? 'text-foreground font-medium' : 'text-foreground')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
                 {subject}
               </p>
               <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />

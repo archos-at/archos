@@ -76,7 +76,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
   // A text that is not waiting any more says what became of it.
   if (part && part.state !== 'waiting') {
     return (
-      <Item className="items-start px-3 sm:px-4" data-testid="message-row" data-status={part.state}>
+      <Item className="items-start px-4" data-testid="message-row" data-status={part.state}>
         <Mail className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
         <div className="flex min-w-0 flex-col gap-1">
           <p className="text-sm font-medium">{t('message.label')}</p>
@@ -99,7 +99,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
   }
 
   return (
-    <Item className="items-start px-3 sm:px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
+    <Item className="items-start px-4" data-testid="message-row" data-checked={draft.checked || undefined}>
       <div className="flex h-5 items-center pointer-coarse:h-11">
         <Checkbox
           checked={selectable && draft.checked}

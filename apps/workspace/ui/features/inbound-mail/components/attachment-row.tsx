@@ -231,7 +231,7 @@ export function AttachmentRow({
   return (
     <Item
       as="li"
-      className="items-start px-3 sm:px-4"
+      className="items-start px-4"
       data-cursor={focused || undefined}
       data-testid={`attachment-${part.id}`}
       data-status={status}

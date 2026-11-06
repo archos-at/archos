@@ -471,7 +471,7 @@ export function InboundMailDetail({
 
         {!stopped && !readOnly && messagePart && draft?.message && (
           <section className="flex flex-col gap-2" aria-label={t('message.label')}>
-            <ItemList data-surface="sunken" className="bg-muted border-0">
+            <ItemList data-surface="sunken" className={DETAIL_PANEL}>
               <MessageRow
                 projectId={projectId}
                 view={view}
@@ -489,7 +489,7 @@ export function InboundMailDetail({
           <section className="flex flex-col gap-2" aria-label={t('attachments.label')}>
             <SectionLabel as="h3">{t('attachments.label')}</SectionLabel>
             {attachments.length > 0 && (
-              <ItemList as="ul" data-surface="sunken" className="bg-muted border-0">
+              <ItemList as="ul" data-surface="sunken" className={DETAIL_PANEL}>
                 {attachments.map((entry) => {
                   const attachmentDraft = draft.attachments.find((candidate) => candidate.partId === entry.part.id)
                   if (!attachmentDraft) return null
@@ -615,9 +615,9 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
         <Skeleton className="h-3.5 w-9/12" />
       </div>
       {/* The attachments' own list, so the rows land where their skeletons stood. */}
-      <ItemList data-surface="sunken" className="bg-muted border-0">
+      <ItemList data-surface="sunken" className={DETAIL_PANEL}>
         {[0, 1, 2].map((row) => (
-          <Item key={row} className="px-3 sm:px-4">
+          <Item key={row} className="px-4">
             <Skeleton className="size-4" />
             <Skeleton className="size-10 rounded-control" />
             <div className="flex flex-1 flex-col gap-1.5">
@@ -630,3 +630,6 @@ export function DetailSkeleton({ back }: { back?: ReactNode }): JSX.Element {
     </div>
   )
 }
+
+/** A group of the detail on the one grey: no border, no hairline between its rows, and on a phone a band across the screen. */
+const DETAIL_PANEL = 'bg-muted border-0 divide-y-0 phone:-mx-4 phone:rounded-none'
