@@ -29,7 +29,7 @@
     "apps/workspace/bff/bim/extract.ts": 697,
     "apps/workspace/bff/bim/query.ts": 1291,
     "apps/workspace/bff/bim/repository.ts": 1229,
-    "apps/workspace/bff/bim/rules.ts": 1549,
+    "apps/workspace/bff/bim/rules.ts": 1469,
     "apps/workspace/bff/budgets/repository.ts": 660,
     "apps/workspace/bff/budgets/service.ts": 1014,
     "apps/workspace/bff/citations/repository.ts": 610,
