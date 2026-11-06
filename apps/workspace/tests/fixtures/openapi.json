@@ -20846,6 +20846,809 @@
         }
       }
     },
+    "/api/base-knowledge/{entryId}/checks": {
+      "post": {
+        "operationId": "base-knowledge-check-record",
+        "summary": "Record that a base-knowledge entry was checked",
+        "description": "Records that somebody checked whether the copy is still the edition in force, and the result; anything but `current` keeps it overdue. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "type": "string",
+                    "enum": [
+                      "current",
+                      "newer_known",
+                      "withdrawn",
+                      "source_unreachable"
+                    ],
+                    "description": "current: still the edition in force."
+                  },
+                  "note": {
+                    "description": "Where it was checked.",
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Record that a base-knowledge entry was checked",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/{entryId}/confirm": {
+      "post": {
+        "operationId": "base-knowledge-confirm",
+        "summary": "Confirm a proposed base-knowledge entry",
+        "description": "Confirms a proposed entry, with any corrections: ARCHOS answers from it for this office from then on, and it counts as the first check. A licensed copy needs `licenceAttested`. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "technical_standard",
+                      "guideline",
+                      "commentary",
+                      "authority_directive",
+                      "statute"
+                    ],
+                    "description": "commentary only interprets; authority_directive binds where its authority decides."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "description": "The title as the document prints it."
+                  },
+                  "designation": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The standard designation with its year, e.g. \"ÖNORM B 1600:2017\"; null when none."
+                  },
+                  "editionLabel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the masthead prints it, e.g. \"2017-04-01\"."
+                  },
+                  "issuedOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "territoryIds": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$"
+                    },
+                    "description": "Where it applies; empty for a standard."
+                  },
+                  "issuer": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "addressees": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "e.g. \"MA 37\"."
+                        },
+                        "territoryId": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+                          "description": "Where it decides, e.g. AT-9."
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "territoryId"
+                      ]
+                    },
+                    "description": "A directive’s authorities; empty otherwise."
+                  },
+                  "licenceClass": {
+                    "type": "string",
+                    "enum": [
+                      "public_open",
+                      "public_restricted",
+                      "licensed"
+                    ],
+                    "description": "licensed for a purchased copy."
+                  },
+                  "licenceAttested": {
+                    "description": "Required true for a licensed copy: its licence covers everyone in the office.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Confirm a proposed base-knowledge entry",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge/{entryId}": {
+      "get": {
+        "operationId": "base-knowledge-get",
+        "summary": "Read one base-knowledge entry",
+        "description": "An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue). Any member may read.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Read one base-knowledge entry",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "delete": {
+        "operationId": "base-knowledge-remove",
+        "summary": "Remove a base-knowledge entry and its document",
+        "description": "Deletes the entry’s document and with it the entry, its history, its checks and its passages in search. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Remove a base-knowledge entry and its document",
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "patch": {
+        "operationId": "base-knowledge-update",
+        "summary": "Change a confirmed base-knowledge entry",
+        "description": "Changes a confirmed entry’s values; the earlier values stay in its history. 409 for a proposal. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "From base-knowledge-list."
+            },
+            "description": "From base-knowledge-list."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "technical_standard",
+                      "guideline",
+                      "commentary",
+                      "authority_directive",
+                      "statute"
+                    ],
+                    "description": "commentary only interprets; authority_directive binds where its authority decides."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "description": "The title as the document prints it."
+                  },
+                  "designation": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The standard designation with its year, e.g. \"ÖNORM B 1600:2017\"; null when none."
+                  },
+                  "editionLabel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the masthead prints it, e.g. \"2017-04-01\"."
+                  },
+                  "issuedOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "territoryIds": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$"
+                    },
+                    "description": "Where it applies; empty for a standard."
+                  },
+                  "issuer": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "addressees": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "e.g. \"MA 37\"."
+                        },
+                        "territoryId": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+                          "description": "Where it decides, e.g. AT-9."
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "territoryId"
+                      ]
+                    },
+                    "description": "A directive’s authorities; empty otherwise."
+                  },
+                  "licenceClass": {
+                    "type": "string",
+                    "enum": [
+                      "public_open",
+                      "public_restricted",
+                      "licensed"
+                    ],
+                    "description": "licensed for a purchased copy."
+                  },
+                  "licenceAttested": {
+                    "description": "Required true for a licensed copy: its licence covers everyone in the office.",
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Change a confirmed base-knowledge entry",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
+    "/api/base-knowledge": {
+      "get": {
+        "operationId": "base-knowledge-list",
+        "summary": "List the office’s base knowledge: its standards, commentaries and directives",
+        "description": "An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue). Only confirmed entries reach ARCHOS’s answers. Any member may read.",
+        "tags": [
+          "knowledge"
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "proposed",
+                "confirmed"
+              ]
+            }
+          },
+          {
+            "name": "designation",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "Part of a designation or title.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "Part of a designation or title."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Default 50, max 200.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Default 50, max 200."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "description": "The previous page’s `nextCursor`.",
+              "type": "string",
+              "pattern": "^\\d{1,4}$"
+            },
+            "description": "The previous page’s `nextCursor`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "List the office’s base knowledge: its standards, commentaries and directives",
+          "readOnlyHint": true,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        }
+      },
+      "post": {
+        "operationId": "base-knowledge-propose",
+        "summary": "Propose an office shelf document as base knowledge",
+        "description": "Records what an office shelf document is (a licensed standard, a commentary, an authority directive, a guideline, a law): give the values you read from its masthead; the rest come from its reading. It reaches no answer until a person confirms it. 409 when the document already has an entry. Needs org:office_shelf:manage.",
+        "tags": [
+          "knowledge"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "technical_standard",
+                      "guideline",
+                      "commentary",
+                      "authority_directive",
+                      "statute"
+                    ],
+                    "description": "commentary only interprets; authority_directive binds where its authority decides."
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300,
+                    "description": "The title as the document prints it."
+                  },
+                  "designation": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "description": "The standard designation with its year, e.g. \"ÖNORM B 1600:2017\"; null when none."
+                  },
+                  "editionLabel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "The edition as the masthead prints it, e.g. \"2017-04-01\"."
+                  },
+                  "issuedOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "territoryIds": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$"
+                    },
+                    "description": "Where it applies; empty for a standard."
+                  },
+                  "issuer": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "addressees": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120,
+                          "description": "e.g. \"MA 37\"."
+                        },
+                        "territoryId": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}(-[A-Z0-9]{1,3})?$",
+                          "description": "Where it decides, e.g. AT-9."
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "territoryId"
+                      ]
+                    },
+                    "description": "A directive’s authorities; empty otherwise."
+                  },
+                  "licenceClass": {
+                    "type": "string",
+                    "enum": [
+                      "public_open",
+                      "public_restricted",
+                      "licensed"
+                    ],
+                    "description": "licensed for a purchased copy."
+                  },
+                  "documentId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "An office shelf document id, from document-list."
+                  }
+                },
+                "required": [
+                  "documentId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success. The body is the route’s JSON answer; no response schema is declared for it yet, so read the operation description for what it contains.",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        },
+        "x-mcp-annotations": {
+          "title": "Propose an office shelf document as base knowledge",
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        }
+      }
+    },
     "/api/knowledge-base": {
       "get": {
         "operationId": "knowledge-base-get",

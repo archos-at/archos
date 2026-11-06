@@ -56,6 +56,7 @@ import {
   TASK,
 } from './exposure-presets'
 import { MAIL_EXPOSURE } from './exposure-mail'
+import { BASE_KNOWLEDGE_EXPOSURE } from './exposure-base-knowledge'
 
 /**
  * Why an operation is withheld from agents. `external-service`: a service we
@@ -227,6 +228,7 @@ export const EXPOSURE = {
 
   // mail: `exposure-mail.ts`
   ...MAIL_EXPOSURE,
+  ...BASE_KNOWLEDGE_EXPOSURE,
 
   // review
   'annotation-create': { external: true, agent: 'native:canvas__mark', reason: CANVAS },

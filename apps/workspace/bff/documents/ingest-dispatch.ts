@@ -18,6 +18,7 @@ import { announceIngestStarted } from '@/lib/analytics/ingest-events'
 import { filingChoiceRecord } from './filing-choice'
 import type { DocumentTypeTag } from './tag-vocabulary'
 import type { MailOriginIngestFacts, MailThreadIngestFacts } from '@/lib/mail-thread/ingest-facts'
+import { copyMarkForDocument } from '@/lib/base-knowledge/store/repository'
 
 /**
  * Bound every server-side call to the Python backend: an unreachable backend
@@ -226,6 +227,16 @@ export interface AgentDocumentProvenance {
   producer: string | null
 }
 
+/**
+ * The base-knowledge mark of a document, as ingest job fields (ADR-0158): empty
+ * unless it is a confirmed copy. A failed read sends no mark rather than failing
+ * the dispatch; the next confirm or edit marks the points again.
+ */
+async function knowledgeMarkForIngest(organizationId: string, documentId: string): Promise<Record<string, string>> {
+  const mark = await copyMarkForDocument(organizationId, documentId).catch(() => null)
+  return mark ? { licence_class: mark.licenceClass, knowledge_edition_id: mark.editionId } : {}
+}
+
 export async function dispatchIngest(
   documentId: string,
   collectionName: string,
@@ -324,6 +335,10 @@ export async function dispatchIngest(
     // only the bytes read differ, never the identity.
     extraction_ref: extras.extractionRef ?? null,
     folder_path: folderPath,
+    // A confirmed base-knowledge copy's licence class and edition (ADR-0158),
+    // stamped on every point so a re-ingest keeps the mark the licensed seam
+    // keys on. Absent for every other document.
+    ...(await knowledgeMarkForIngest(organizationId, documentId)),
     // Null when screening is off for the organization or a reviewer released
     // these exact bytes from quarantine; the job then reads as it always did.
     screening,

@@ -298,6 +298,7 @@ const READS_WITHOUT_PROJECT_CONTENT: Readonly<Record<string, string>> = {
   'document-name-match': SHELF_SCOPED,
   'document-revision-candidates': SHELF_SCOPED,
   'office-shelf-root-sort-get': 'the office shelf, which belongs to no project',
+  'base-knowledge-list': 'the office shelf’s standards, commentaries and directives, which belong to no project',
   'knowledge-base-get': 'the platform’s base corpus, the same for every organization',
   'release-note-list': 'the product’s release notes, the same for every organization',
   'norm-list': 'the platform’s norm register, public law pointers, the same for every organization',

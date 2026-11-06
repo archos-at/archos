@@ -1386,9 +1386,9 @@
       "version": "7",
       "when": 1792820000000,
       "tag": "0197_sender_class",
-        "breakpoints": true
-      },
-      {
+      "breakpoints": true
+    },
+    {
       "idx": 198,
       "version": "7",
       "when": 1792830000000,
@@ -1400,6 +1400,13 @@
       "version": "7",
       "when": 1792840000000,
       "tag": "0199_receive_faults",
+      "breakpoints": true
+    },
+    {
+      "idx": 200,
+      "version": "7",
+      "when": 1792850000000,
+      "tag": "0200_base_knowledge",
       "breakpoints": true
     }
   ]

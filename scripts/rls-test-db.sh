@@ -234,7 +234,8 @@ TEST_DATABASE_URL="postgres://app_rw:$RUNTIME_PASSWORD@127.0.0.1:$PORT/grid_app"
     bff/inbound-mail/review-first.e2e.spec.ts \
     bff/mail-thread/append.integration.spec.ts \
     bff/mail-thread/follow.integration.spec.ts \
-    bff/mail-thread/archive.integration.spec.ts
+    bff/mail-thread/archive.integration.spec.ts \
+    bff/base-knowledge/store/repository.integration.spec.ts
 
 # The tenant suites above may leave queued jobs behind: Ausmisten bins a
 # subfolder, and a Papierkorb delete queues its purge takeover and a refused

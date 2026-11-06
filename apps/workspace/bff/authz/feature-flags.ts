@@ -303,6 +303,20 @@ export const FEATURE_FLAGS = {
    * held until it is filed, dismissed or expires.
    */
   inboundMail: 'inbound-mail',
+  /**
+   * The office's base knowledge (ADR-0158, ticket 32): an Archiv document can be
+   * recorded as a licensed standard, a commentary, an authority directive, a
+   * guideline or a law, with its edition, territory, authority and last check,
+   * and a turn tells the agent which of them the office holds and how far each
+   * binds. Read from the session by the routes (`requireFeature`) and per
+   * organization (`isOrgFeatureEnabled`) when a turn is assembled.
+   *
+   * An entitlement, off until an operator targets the organization: licensed
+   * text reaches answers only once the licensed seam is in place. With it off
+   * the routes answer 403, the turn carries no base-knowledge block, and records
+   * already written stay untouched.
+   */
+  officeBaseKnowledge: 'office-base-knowledge',
 } as const
 
 export type KnownFeatureFlag = (typeof FEATURE_FLAGS)[keyof typeof FEATURE_FLAGS]
@@ -333,6 +347,7 @@ export const FLAG_KINDS: Readonly<Record<KnownFeatureFlag, 'entitlement' | 'roll
   'folder-cards': 'entitlement',
   'office-conventions': 'entitlement',
   'inbound-mail': 'entitlement',
+  'office-base-knowledge': 'entitlement',
   'web-search': 'rollout',
   'project-knowledge-page': 'rollout',
   'image-upload': 'rollout',

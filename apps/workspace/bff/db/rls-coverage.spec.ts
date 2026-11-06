@@ -216,6 +216,11 @@ const BOUNDARY_MIGRATIONS = [
   // composite foreign keys tie each to its project's, and DELETE is revoked
   // from the runtime role on all but the Message-ID index.
   '0196_inbound_mail.sql',
+  // Adds the base knowledge records (ADR-0158): works, editions and copies with
+  // their append-only revisions, typed bodies and checks, for the platform
+  // (organization_id NULL) and each office. Layered: an office reads its own rows
+  // and platform rows in force, writes only its own; history is never updated.
+  '0200_base_knowledge.sql',
 ]
 
 const MIGRATION_SOURCES = BOUNDARY_MIGRATIONS.map((file) =>

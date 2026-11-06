@@ -53,6 +53,7 @@ describe('the registry', () => {
         'folder-cards',
         'inbound-mail',
         'mail-import',
+        'office-base-knowledge',
         'office-conventions',
         'piloti-acts',
         'piloti-ask',
