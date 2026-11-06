@@ -34,8 +34,8 @@ function tailOf(text: string): number {
  *
  * The wrapper owns the width (`min-w-0`), so it truncates inside a flex row.
  */
-/** Up to this many characters a wrapping name fits three lines of a 156px phone tile whole (two on a desk). */
-const WRAP_MAX = 44
+/** Up to this many characters a wrapping name fits three lines of a 156px phone tile whole. */
+const WRAP_MAX = 54
 
 /**
  * `wrap`: up to three lines before any cut, for a tile (`Baustellenf…_Rohbau.jpg` lost

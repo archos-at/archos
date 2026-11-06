@@ -39,7 +39,7 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
         >
           {value}
         </CopyableValue>
-        <Button type="button" variant="ghost" size="sm" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
+        <Button type="button" variant="ghost" size="sm" className="-mr-3" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
           <Info className="size-4" aria-hidden />
           {t('header.addressMore')}
         </Button>

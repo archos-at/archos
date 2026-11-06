@@ -359,7 +359,7 @@ export function InboundMailDetail({
 
   return (
     <article className="flex min-h-full flex-col" data-testid="inbound-mail-detail" data-mail-id={view.id}>
-      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
+      <div className="flex flex-1 flex-col gap-6 p-4 sm:px-8 sm:py-6" /* the section head's 32px, one right edge with it and the bar */>
         {back}
         {view.projectClosed && !closedNoticeHidden && (
           <Alert data-testid="detail-closed">
