@@ -24,6 +24,10 @@ env:
   - WORKOS_API_KEY
   - WORKOS_CLIENT_ID
   - WORKOS_AUTHKIT_DOMAIN
+sdks:
+  - 'js:@workos-inc/authkit-nextjs'
+  - 'js:@workos-inc/node'
+  - 'js:@workos-inc/widgets'
 evidence:
   - docs/adr/0002-outsource-identity-to-workos.md
   - apps/workspace/bff/audit/document-names.ts

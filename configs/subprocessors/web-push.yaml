@@ -20,6 +20,8 @@ deletion:
     delivery.
 hosts: [fcm.googleapis.com, updates.push.services.mozilla.com, web.push.apple.com]
 env: []
+sdks:
+  - 'js:web-push'
 evidence:
   - apps/workspace/bff/push/endpoint.ts
 copy:

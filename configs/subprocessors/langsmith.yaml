@@ -20,6 +20,9 @@ deletion:
 hosts: [api.smith.langchain.com]
 env: [LANGCHAIN_API_KEY, LANGSMITH_API_KEY]
 activation_env: [LANGCHAIN_TRACING_V2, LANGCHAIN_API_KEY, LANGSMITH_TRACING, LANGSMITH_API_KEY]
+# langchain-core ships LangSmith tracing, off unless activation_env switches it on.
+sdks:
+  - 'py:langchain-core'
 evidence:
   - uv.lock
 copy:

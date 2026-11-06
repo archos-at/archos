@@ -16,6 +16,8 @@ deletion:
   en: Whether and how long Tavily keeps search queries is not established; deletion at contract end does not reach them.
 hosts: [api.tavily.com, tavily.com]
 env: [TAVILY_API_KEY]
+sdks:
+  - 'py:langchain-tavily'
 evidence:
   - packages/tavily-web-search/src/register.py
 copy:

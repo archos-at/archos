@@ -123,3 +123,9 @@ def test_a_stale_exemption_fails(tmp_path: Path) -> None:
     (tmp_path / "apps").mkdir()
     errors = check.flow_errors(check.Register(not_flows={"hosts": {"gone.io": "was a link"}}), tmp_path)
     assert errors == ["not-flows.yaml: gone.io no longer occurs; remove it"]
+
+
+def test_the_shipped_packages_are_all_classified() -> None:
+    """The scan reads real manifests: the workspace's SDKs, PostHog's among them, are found."""
+    packages = check.scan_packages()
+    assert {"js:posthog-node", "js:@workos-inc/node", "py:langchain-tavily", "js:web-push"} <= set(packages)

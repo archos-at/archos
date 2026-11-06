@@ -110,7 +110,7 @@ repos:
         entry: bash -c '.venv/bin/python scripts/check_data_flow_register.py && .venv/bin/python scripts/generate_subprocessor_pages.py'
         language: system
         pass_filenames: false
-        files: ^(apps/(workspace|agent-host)/|packages/(agent|knowledge-layer|ris-adapter|tavily-web-search)/src/|deploy/|configs/|docs/deployment/environment-variables\.md$|docs/compliance/dpa-subprocessor-annex\.md$|scripts/(check_data_flow_register|generate_subprocessor_pages)\.py$)
+        files: ^(pyproject\.toml$|apps/(workspace|agent-host)/|packages/(agent|knowledge-layer|ris-adapter|tavily-web-search)/(src/|pyproject\.toml$)|deploy/|configs/|docs/deployment/environment-variables\.md$|docs/compliance/dpa-subprocessor-annex\.md$|scripts/(check_data_flow_register|generate_subprocessor_pages)\.py$)
 
       - id: agent-docs
         name: every AGENTS.md is reachable by the agents that need it

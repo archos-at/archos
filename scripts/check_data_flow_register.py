@@ -14,7 +14,10 @@ the code for the four things that open a new outbound flow:
 3. a ``.hog`` file under ``deploy/posthog/`` (code that runs inside PostHog and
    can ``fetch`` anywhere);
 4. a PostHog destination id in a table of ``deploy/posthog/README.md`` (one
-   built from PostHog's own templates has no ``.hog`` file here).
+   built from PostHog's own templates has no ``.hog`` file here);
+5. a direct runtime dependency of an image: an SDK reaches its vendor's
+   default host with no URL in our code, so each package is named by a row's
+   ``sdks`` or by ``not-flows.yaml`` with the reason it opens no flow.
 
 Each must be named by a row, by ``in-cluster.yaml`` (an address inside the
 cluster), or by ``not-flows.yaml`` with the reason it carries no data out (an
@@ -27,8 +30,10 @@ Usage: python scripts/check_data_flow_register.py. Exit code 0 when clean.
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import sys
+import tomllib
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -327,6 +332,46 @@ def scan_destinations(repo_root: Path = REPO_ROOT) -> set[str]:
     return {match for line in lines if line.startswith("|") for match in DESTINATION_ID.findall(line)}
 
 
+#: Manifests whose runtime dependencies ship in an image. Pulumi's runs on an operator's machine.
+PY_MANIFESTS = (
+    "pyproject.toml",
+    "apps/agent-host/pyproject.toml",
+    "packages/agent/pyproject.toml",
+    "packages/knowledge-layer/pyproject.toml",
+    "packages/ris-adapter/pyproject.toml",
+    "packages/tavily-web-search/pyproject.toml",
+)
+JS_MANIFESTS = ("apps/workspace/package.json",)
+
+
+def scan_packages(repo_root: Path = REPO_ROOT) -> dict[str, set[str]]:
+    """Each direct runtime dependency (``py:name`` or ``js:name``), with the manifests that declare it.
+
+    An SDK reaches its vendor's default host without any URL in our code, so
+    every dependency must say where it talks to: a row's ``sdks``, or a reason
+    in ``not-flows.yaml``.
+    """
+    found: dict[str, set[str]] = {}
+    for manifest in PY_MANIFESTS:
+        path = repo_root / manifest
+        if path.is_file():
+            for spec in tomllib.loads(path.read_text(encoding="utf-8")).get("project", {}).get("dependencies", []):
+                name = re.split(r"[<>=\[;~! ]", spec, maxsplit=1)[0].lower().replace("_", "-")
+                found.setdefault(f"py:{name}", set()).add(manifest)
+    for manifest in JS_MANIFESTS:
+        path = repo_root / manifest
+        if path.is_file():
+            for name in json.loads(path.read_text(encoding="utf-8")).get("dependencies", {}):
+                found.setdefault(f"js:{name}", set()).add(manifest)
+    return found
+
+
+def registered_packages(register: Register) -> set[str]:
+    """Every dependency the register accounts for: rows' ``sdks`` and ``not-flows.yaml``'s ``packages``."""
+    names = {name for row in register.rows for name in row.get("sdks", [])}
+    return names | {name for group in (register.not_flows.get("packages") or {}).values() for name in group}
+
+
 def registered_env(register: Register) -> set[str]:
     """Every variable the register accounts for."""
     names = {name for row in register.rows for name in [*row.get("env", []), *row.get("activation_env", [])]}
@@ -367,6 +412,17 @@ def flow_errors(register: Register, repo_root: Path = REPO_ROOT) -> list[str]:
     errors += [
         f"PostHog destination {d} (deploy/posthog/README.md) has no row naming it in `posthog_destinations`"
         for d in sorted(scan_destinations(repo_root) - destinations)
+    ]
+    packages, known_packages = scan_packages(repo_root), registered_packages(register)
+    errors += [
+        f"dependency {name} ({', '.join(sorted(files))}) is in no row's `sdks` and not in not-flows.yaml `packages`"
+        for name, files in sorted(packages.items())
+        if name not in known_packages
+    ]
+    stale_packages = registered_packages(register) - set(packages)
+    errors += [
+        f"package {name} is named in the register but is no longer a dependency; remove it"
+        for name in sorted(stale_packages)
     ]
     stale_hosts = set((register.not_flows.get("hosts") or {}).keys()) - set(hosts)
     stale_env = set((register.not_flows.get("env") or {}).keys()) - set(env)

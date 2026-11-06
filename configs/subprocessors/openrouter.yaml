@@ -46,6 +46,10 @@ env:
   - BACKFILL_SUMMARY_API_KEY
   - BACKFILL_SUMMARY_BASE_URL
   - SKILL_REVIEW_LLM_BASE_URL
+# langchain-openai defaults to api.openai.com; every model call passes an
+# OpenRouter base URL through common/openrouter.py (test_openrouter_call_sites.py).
+sdks:
+  - 'py:langchain-openai'
 evidence:
   - packages/agent/src/agent/common/openrouter.py
   - configs/config_oib_openrouter.yml

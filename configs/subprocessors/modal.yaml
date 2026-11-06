@@ -20,6 +20,8 @@ deletion:
 hosts: [modal.com, api.modal.com]
 env: [MODAL_TOKEN_ID]
 activation_env: [MODAL_TOKEN_ID, MODAL_TOKEN_SECRET]
+sdks:
+  - 'py:langchain-modal'
 evidence:
   - packages/agent/src/agent/agents/deep_researcher/deepagents_runtime.py
 copy:

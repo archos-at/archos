@@ -29,12 +29,17 @@ code, Pulumi, Compose, `deploy/.env.example`, the env reference and
 | A literal `http(s)://host` | a row's `hosts` (a subdomain counts), `public-sources.yaml`, `build.yaml`, `in-cluster.yaml`'s `hosts`, or `not-flows.yaml` |
 | A `.hog` file under `deploy/posthog/` | a row's `hog_files` |
 | A destination id in a table of `deploy/posthog/README.md` | a row's `posthog_destinations` |
+| A direct runtime dependency (the image's `pyproject.toml` files, `apps/workspace/package.json`): an SDK reaches its vendor's default host with no URL in our code | a row's `sdks` (`py:<name>` or `js:<name>`), or `not-flows.yaml`'s `packages`, grouped under the reason it opens no flow of its own |
 
 A retired variable name counts as the name it is read as now (`current_name` in
 `apps/agent-host/entrypoint.py`), so the register lists only current names.
+Each check has a positive control in `tests/test_data_flow_register.py`: it plants
+an unregistered host, variable, Hog file and SDK dependency in a scratch tree and
+asserts the scan fails on each.
 Not scanned: specs, fixtures and `/app/dev/` preview pages; reserved names
 (`example.com`, `.invalid`, `.test`, `.internal`, `.svc`). An entry in
-`not-flows.yaml` that no longer occurs fails too, so an exemption cannot outlive
+`not-flows.yaml` that no longer occurs, or a named package that is no longer a
+dependency, fails too, so an exemption cannot outlive
 its reason. A host that only arrives at runtime (a BYOK base URL, a browser's push
 endpoint) is caught through its variable, or listed on the row by hand.
 
@@ -66,7 +71,7 @@ One file per recipient, named by its `id`. The four list files (`in-cluster.yaml
 | `data_classes` | `tenant_content`, `model_io`, `voice_audio`, `account_identity`, `audit_metadata`, `telemetry`, `operational_log`, `support_text`, `trace_metadata`, `search_query`, `address_query`, `mail_transit`, `notification`, `ids_only`, `backups` |
 | `purposes` | `service_provision`, `quality_evaluation`, `product_improvement`, `customer_support`, `security`, `operations` (mapped to DPV in the annex) |
 | `holds_tenant_text`, `deletion` | whether an office's text rests there, and `deletion.status` (`covered`, `partial`, `gap`, `unknown`, `not_retained`, `no_tenant_text`, `vendor_retention`, `controller_designated`, `not_used`) with German and English text |
-| `hosts`, `env`, `activation_env`, `hog_files`, `posthog_destinations` | what the scan matches against |
+| `hosts`, `env`, `activation_env`, `hog_files`, `posthog_destinations`, `sdks` | what the scan matches against |
 | `copy` | `name`, `purpose`, `data`, `location`, `required`, each `de` and `en`: the page's cells. `{productName}` is filled in |
 | `evidence` | files that show the flow; each must exist |
 

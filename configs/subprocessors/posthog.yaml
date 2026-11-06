@@ -34,6 +34,12 @@ posthog_destinations:
 hog_files:
   - deploy/posthog/support/reply-poke.hog
   - deploy/posthog/surveys/chat-message-count.hog
+sdks:
+  - 'js:posthog-js'
+  - 'js:posthog-node'
+  - 'js:@posthog/core'
+  - 'js:@posthog/next'
+  - 'py:posthog'
 evidence:
   - docs/adr/0100-posthog-is-the-product-platform-and-langfuse-feeds-it.md
   - docs/adr/0118-posthog-support-is-the-record-for-product-feedback.md
