@@ -410,9 +410,13 @@ exception classes, and the fifth is not catchable at all.
 `ModelUnreadableError` carrying a German `reason` for every path. The truncation
 check is the load-bearing one: a complete SPF file ends with
 `END-ISO-10303-21;`, an interrupted upload essentially never does, and the last
-4 KB are read before the parser ever sees the bytes. This is a guard, **not** a
-validator — a file can still be malformed in ways only the parser discovers, and
-the real answer remains the design doc's worker process.
+4 KB are read before the parser ever sees the bytes. A file can still be malformed
+in ways only the parser discovers, so `crash_probe` then parses it in a child, and
+a child the parser killed is a refusal. That costs one more parse on a first open
+(0.2 to 0.6 s on the public models up to 11 MB); the real answer remains the design
+doc's worker process. Measured on macOS: the footer does not prove the rest is whole,
+a mid-entity cut with the original end put back segfaults too, and deep nesting only
+overflows on a thread (exit -10), which is why the child parses on one.
 
 *Regression:* `test_a_truncated_file_is_refused_before_the_parser_crashes` and
 five siblings, plus
@@ -657,6 +661,7 @@ Stated so the next person does not read this document as broader than it is.
   calibration over ~150 hand-verified questions. This run measures whether the
   operators survive real files and whether their numbers match the files' own
   declarations. It does not measure whether an agent asks the right one.
-- **The segfault guard is a guard.** It catches truncation, which is the realistic
-  corruption. It cannot catch a file that is complete and internally malformed, and
-  no in-process check can. The worker process remains the answer.
+- **The segfault guard is a guard.** The byte check catches truncation, which is the
+  realistic corruption, and the trial parse in a child catches what kills the parser
+  while it opens a file. A crash later, in the geometry pass, still takes the process.
+  The worker process remains the answer.

@@ -1,0 +1,7 @@
+---
+# area: bim
+security:
+  - >
+    An IFC file that made the parser crash while opening took the whole agent
+    process with it. Such a file is now tried in a separate process first and
+    refused as damaged, with a request to export the model again.
