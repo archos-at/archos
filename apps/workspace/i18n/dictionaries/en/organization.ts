@@ -659,6 +659,8 @@ export const organization = {
     detector: {
       iban: 'IBAN',
       at_svnr: 'Social security number (AT)',
+      de_svnr: 'Social insurance number (DE)',
+      de_tax_id: 'Tax ID (DE)',
       credit_card: 'Credit card number',
     },
     limits:
@@ -728,6 +730,8 @@ export const organization = {
       term: 'Term',
       iban: 'IBAN',
       at_svnr: 'Social security no.',
+      de_svnr: 'Social insurance no. (DE)',
+      de_tax_id: 'Tax ID',
       credit_card: 'Card number',
       other: 'Other rule',
       unscreened: 'Not checked',

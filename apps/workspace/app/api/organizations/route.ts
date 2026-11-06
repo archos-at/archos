@@ -20,9 +20,13 @@ import { publicApiRoute } from '@/lib/api/handler'
 import { BadRequestError, UnauthorizedError } from '@/lib/api/errors'
 import { getWorkOS } from '@/lib/workos/client'
 import { recordAuditEvent } from '@/lib/audit/service'
+import { HOME_COUNTRIES, homeCountrySchema } from '@/lib/organizations/home-country'
+import { placeOrganization } from '@/lib/organizations/repository'
 
 const createOrganizationSchema = z.object({
   name: z.string().min(1).max(100).trim(),
+  /** The office's own seat (migration 0200). Never the law of its projects' sites. */
+  homeCountry: homeCountrySchema,
 })
 
 /**
@@ -42,10 +46,12 @@ export const POST = publicApiRoute(
     const parsed = createOrganizationSchema.safeParse(body)
 
     if (!parsed.success) {
-      throw new BadRequestError('Organization name is required and must be 1-100 characters.')
+      throw new BadRequestError(
+        'Organization name (1-100 characters) and home country (one of ' + HOME_COUNTRIES.join(', ') + ') are required.'
+      )
     }
 
-    const { name } = parsed.data
+    const { name, homeCountry } = parsed.data
 
     let session
     try {
@@ -77,6 +83,9 @@ export const POST = publicApiRoute(
         roleSlug: 'admin',
       })
 
+      // The row and its home country exist from the start: every organization is placed (design 5.1).
+      await placeOrganization(organization.id, homeCountry)
+
       await refreshSession({ organizationId: organization.id, ensureSignedIn: true })
 
       await recordAuditEvent({
@@ -85,7 +94,7 @@ export const POST = publicApiRoute(
         action: 'org.created',
         targetType: 'organization',
         targetId: organization.id,
-        metadata: { name },
+        metadata: { name, homeCountry },
         request,
       })
       // The server is the truth for this event (ADR-0100): the browser's copy

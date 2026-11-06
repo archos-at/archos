@@ -24728,14 +24728,16 @@
                     }
                   },
                   "detectors": {
-                    "maxItems": 3,
+                    "maxItems": 5,
                     "type": "array",
                     "items": {
                       "type": "string",
                       "enum": [
                         "iban",
                         "at_svnr",
-                        "credit_card"
+                        "credit_card",
+                        "de_svnr",
+                        "de_tax_id"
                       ]
                     }
                   }

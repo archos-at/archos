@@ -427,6 +427,14 @@ export const collaboration: typeof en.collaboration = {
             body: '„{subject}“ enthält eine Sozialversicherungsnummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
             bodyMany: 'Zuletzt „{subject}“, mit einer Sozialversicherungsnummer. Prüfen Sie sie: zulassen oder löschen.',
           },
+          de_svnr: {
+            body: '„{subject}“ enthält eine Sozialversicherungsnummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
+            bodyMany: 'Zuletzt „{subject}“, mit einer Sozialversicherungsnummer. Prüfen Sie sie: zulassen oder löschen.',
+          },
+          de_tax_id: {
+            body: '„{subject}“ enthält eine Steuer-ID. Kein Modell hat sie gelesen. Zulassen oder löschen?',
+            bodyMany: 'Zuletzt „{subject}“, mit einer Steuer-ID. Prüfen Sie sie: zulassen oder löschen.',
+          },
           credit_card: {
             body: '„{subject}“ enthält eine Kreditkartennummer. Kein Modell hat sie gelesen. Zulassen oder löschen?',
             bodyMany: 'Zuletzt „{subject}“, mit einer Kreditkartennummer. Prüfen Sie sie: zulassen oder löschen.',
@@ -447,6 +455,8 @@ export const collaboration: typeof en.collaboration = {
           term: { body: 'Sie enthält einen Begriff aus der Liste sensibler Daten. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           iban: { body: 'Sie enthält eine IBAN. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           at_svnr: { body: 'Sie enthält eine Sozialversicherungsnummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
+          de_svnr: { body: 'Sie enthält eine Sozialversicherungsnummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
+          de_tax_id: { body: 'Sie enthält eine Steuer-ID. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           credit_card: { body: 'Sie enthält eine Kreditkartennummer. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
           transcript: { body: 'Gefunden im Text gescannter Seiten, die ein Bildmodell gelesen hat. Sehen Sie sie an und lassen Sie sie zu oder löschen Sie sie.' },
         },

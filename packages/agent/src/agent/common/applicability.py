@@ -74,6 +74,8 @@ _VERDICT_LABELS: dict[str, str] = {
 }
 
 # The four boolean intake triggers -> one-liner shown when the fact is true.
+# Two of them name a Viennese law, so they read only for a project in Wien;
+# every other Land gets the Land-neutral line (``_LAND_NEUTRAL_HINTS``).
 _TRIGGER_HINTS: tuple[tuple[str, str], ...] = (
     (
         "allotment_garden_area",
@@ -94,6 +96,15 @@ _TRIGGER_HINTS: tuple[tuple[str, str], ...] = (
         "Stellplatzverpflichtung (parking obligation): check the Wiener Garagengesetz (or state law).",
     ),
 )
+
+#: The Land the Viennese hints are true for, and what every other Land reads instead.
+_VIENNA = "vienna"
+_LAND_NEUTRAL_HINTS: dict[str, str] = {
+    "allotment_garden_area": "Kleingartengebiet (allotment garden area): check whether the Land's own "
+    "allotment-garden law (Kleingartengesetz) applies as lex specialis — before BauO/OIB.",
+    "parking_relevant": "Stellplatzverpflichtung (parking obligation): check the Land's parking rules "
+    "(its Bauordnung or its Garagen- or Stellplatz law).",
+}
 
 
 def _as_number(value: Any) -> float | None:
@@ -409,9 +420,20 @@ def resolve_oib_applicability(facts: Facts) -> list[OibVerdict]:
     return verdicts
 
 
-def trigger_hints(facts: Facts) -> list[str]:
-    """One-liners for the four boolean intake triggers that are set true."""
-    return [hint for key, hint in _TRIGGER_HINTS if _is_true(facts.get(key))]
+def trigger_hints(facts: Facts, federal_state: str | None = None) -> list[str]:
+    """One-liners for the four boolean intake triggers that are set true.
+
+    A Viennese law is named only for a project in Wien (``federal_state`` the
+    Land token); any other Land, or none known, reads the Land-neutral line.
+    """
+    hints: list[str] = []
+    for key, hint in _TRIGGER_HINTS:
+        if not _is_true(facts.get(key)):
+            continue
+        if federal_state != _VIENNA and key in _LAND_NEUTRAL_HINTS:
+            hint = _LAND_NEUTRAL_HINTS[key]
+        hints.append(hint)
+    return hints
 
 
 def facts_from_project_context(text: str) -> Facts:
@@ -460,19 +482,29 @@ def facts_from_project_context(text: str) -> Facts:
 
 
 def render_project_block(project_context: str) -> str | None:
-    """Prompt section for the parsed project facts, or None when empty.
+    """Prompt section for the parsed project facts, or None when empty or not in Austria.
 
     Called lazily by ``norm_registry.render_block_for_prompt``. Lists each OIB
     verdict (``code — verdict — reason_en``) followed by any trigger hints.
+    The verdicts are Austrian law, so a project outside Austria, or one whose
+    site nothing states, gets none (``country_profile.resolve_site``): the
+    turn's jurisdiction note says what is not covered instead.
     """
+    from agent.common.country_profile import resolve_site
+
+    site = resolve_site(project_context)
+    if site.country != "at":
+        return None
     facts = facts_from_project_context(project_context)
     if not facts:
         return None
-    lines = ["### Likely relevant for this project", ""]
+    from agent.common.oib_adoption import adoption_line
+
+    lines = ["### Likely relevant for this project", "", adoption_line(site.federal_state)]
     for verdict in resolve_oib_applicability(facts):
         label = _VERDICT_LABELS.get(verdict.verdict, verdict.verdict)
         lines.append(f"- {verdict.code} — {label} — {verdict.reason_en}")
-    hints = trigger_hints(facts)
+    hints = trigger_hints(facts, site.federal_state)
     if hints:
         lines.append("")
         lines.extend(f"- {hint}" for hint in hints)

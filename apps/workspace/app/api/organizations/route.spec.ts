@@ -17,6 +17,9 @@ vi.mock('@/lib/workos/client', () => ({
   }),
 }))
 
+const placeOrganization = vi.hoisted(() => vi.fn())
+vi.mock('@/lib/organizations/repository', () => ({ placeOrganization }))
+
 const captureServer = vi.hoisted(() => vi.fn(() => true))
 vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer }))
 
@@ -38,7 +41,7 @@ describe('POST /api/organizations', () => {
   })
 
   it('creates an org and makes the caller admin', async () => {
-    const res = await POST(request({ name: 'Acme' }))
+    const res = await POST(request({ name: 'Acme', homeCountry: 'AT' }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ organizationId: 'org_new' })
     expect(createOrganizationMembership).toHaveBeenCalledWith(
@@ -46,9 +49,24 @@ describe('POST /api/organizations', () => {
     )
   })
 
+  it('writes the row with the home country the office named', async () => {
+    const res = await POST(request({ name: 'Acme', homeCountry: 'DE' }))
+    expect(res.status).toBe(200)
+    expect(placeOrganization).toHaveBeenCalledWith('org_new', 'DE')
+  })
+
+  it('refuses a request that names no home country, or one not offered, and creates nothing', async () => {
+    for (const body of [{ name: 'Acme' }, { name: 'Acme', homeCountry: 'at' }, { name: 'Acme', homeCountry: 'XX' }]) {
+      const res = await POST(request(body))
+      expect(res.status).toBe(400)
+    }
+    expect(createOrganization).not.toHaveBeenCalled()
+    expect(placeOrganization).not.toHaveBeenCalled()
+  })
+
   it('is blocked when self-serve org creation is disabled (invite-only platform)', async () => {
     process.env.DISABLE_SELF_SERVE_ORGS = 'true'
-    const res = await POST(request({ name: 'Acme' }))
+    const res = await POST(request({ name: 'Acme', homeCountry: 'AT' }))
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ error: 'self-serve-disabled' })
     expect(createOrganization).not.toHaveBeenCalled()
@@ -58,14 +76,14 @@ describe('POST /api/organizations', () => {
     createOrganization.mockRejectedValue(
       new Error('WorkOS internal: connection cfg_123 misconfigured')
     )
-    const res = await POST(request({ name: 'Acme' }))
+    const res = await POST(request({ name: 'Acme', homeCountry: 'AT' }))
     expect(res.status).toBe(500)
     const body = await res.json()
     expect(body).toEqual({ error: 'create-failed' })
   })
 
   it('reports organization_created to PostHog as the creator, carrying no name', async () => {
-    await POST(request({ name: 'Acme' }))
+    await POST(request({ name: 'Acme', homeCountry: 'AT' }))
 
     expect(captureServer).toHaveBeenCalledTimes(1)
     expect(captureServer).toHaveBeenCalledWith({
@@ -80,7 +98,7 @@ describe('POST /api/organizations', () => {
     createOrganization.mockRejectedValue(new Error('boom'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await POST(request({ name: 'Acme' }))
+    await POST(request({ name: 'Acme', homeCountry: 'AT' }))
 
     expect(captureServer).not.toHaveBeenCalled()
   })
@@ -88,7 +106,7 @@ describe('POST /api/organizations', () => {
   it('reports nothing when self-serve creation is disabled', async () => {
     process.env.DISABLE_SELF_SERVE_ORGS = 'true'
 
-    await POST(request({ name: 'Acme' }))
+    await POST(request({ name: 'Acme', homeCountry: 'AT' }))
 
     expect(captureServer).not.toHaveBeenCalled()
   })

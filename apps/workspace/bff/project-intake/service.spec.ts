@@ -384,6 +384,21 @@ describe('recordIntakeValues — what a value becomes', () => {
     ])
   })
 
+  // Defect 5 (design 2.2): the OIB building class was derived for a project in any country.
+  it('derives no building class for a project placed outside Austria', async () => {
+    useProfile({
+      ...emptyProfile(),
+      facts: {
+        country: { value: 'de', confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
+        'building_type@bldg1': { value: 'building', confidence: 'confirmed', source: 'onboarding', updatedAt: NOW },
+      },
+    })
+
+    await recordIntakeValues(SESSION, PROJECT, JOB, [value('storeys_above_ground@bldg1', 3)])
+
+    expect(op('/assumptions/building_class@bldg1')).toBeUndefined()
+  })
+
   it('refuses the building class a document states, beside a confirmed class too: it is derived, never recorded', async () => {
     useProfile({
       ...emptyProfile(),

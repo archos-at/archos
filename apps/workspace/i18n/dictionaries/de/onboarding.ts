@@ -5,6 +5,7 @@ export const onboarding: typeof en.onboarding = {
   validation: {
     nameRequired: 'Der Organisationsname ist erforderlich.',
     nameTooLong: 'Der Organisationsname darf höchstens 100 Zeichen lang sein.',
+    homeCountryRequired: 'Wählen Sie das Land Ihres Büros.',
   },
   inviteOnly: {
     eyebrow: 'Einladung erforderlich',
@@ -32,6 +33,15 @@ export const onboarding: typeof en.onboarding = {
     nameLabel: 'Organisationsname',
     namePlaceholder: 'Musterarchitektur ZT GmbH',
     nameHint: 'Meist der Name Ihres Büros.',
+    homeCountryLabel: 'Land Ihres Büros',
+    homeCountryPlaceholder: 'Land wählen',
+    homeCountryHint: 'Wo Ihr Büro seinen Sitz hat. Welches Baurecht für ein Projekt gilt, entscheidet nicht der Sitz, sondern der Standort.',
+    homeCountries: {
+      AT: 'Österreich',
+      DE: 'Deutschland',
+      CH: 'Schweiz',
+      LI: 'Liechtenstein',
+    },
     submit: 'Organisation erstellen',
     invitedHint:
       'Sie möchten einer bestehenden Organisation beitreten? Bitten Sie deren Administrator um eine Einladung — eingeladene Mitglieder überspringen diesen Schritt.',

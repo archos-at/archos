@@ -667,6 +667,8 @@ export const organization: typeof en.organization = {
     detector: {
       iban: 'IBAN',
       at_svnr: 'Sozialversicherungsnummer (AT)',
+      de_svnr: 'Sozialversicherungsnummer (DE)',
+      de_tax_id: 'Steuer-ID (DE)',
       credit_card: 'Kreditkartennummer',
     },
     limits:
@@ -743,6 +745,8 @@ export const organization: typeof en.organization = {
       term: 'Begriff',
       iban: 'IBAN',
       at_svnr: 'SV-Nummer',
+      de_svnr: 'RV-Nummer',
+      de_tax_id: 'Steuer-ID',
       credit_card: 'Kartennummer',
       other: 'Andere Regel',
       unscreened: 'Nicht geprüft',

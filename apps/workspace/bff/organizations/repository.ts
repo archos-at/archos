@@ -100,3 +100,21 @@ export async function upsertOrganization(values: {
       .onConflictDoUpdate({ target: organizations.workosOrganizationId, set: row }),
   )
 }
+
+/**
+ * Create the row of a new organization with its home country, or set the home
+ * country on a row a settings write already made. Only the creation route
+ * calls it: the office states its seat once, when it creates the organization.
+ */
+export async function placeOrganization(organizationId: string, homeCountry: string): Promise<void> {
+  const db = getDb()
+  await withTenant({ organizationId }, () =>
+    db
+      .insert(organizations)
+      .values({ workosOrganizationId: organizationId, homeCountry })
+      .onConflictDoUpdate({
+        target: organizations.workosOrganizationId,
+        set: { homeCountry, updatedAt: new Date() },
+      }),
+  )
+}

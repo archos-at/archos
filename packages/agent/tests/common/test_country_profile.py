@@ -63,10 +63,10 @@ class TestAustriaProfile:
         assert callable(profile.applicability)
         assert callable(profile.corpus_doc_class)
 
-    def test_default_country_is_austria(self):
+    def test_no_country_has_no_profile(self):
+        # DEFAULT_COUNTRY keys the store and the corpus; it is never a project's country by default.
         assert cp.DEFAULT_COUNTRY == "at"
-        assert cp.get_country_profile(None) is not None
-        assert cp.get_country_profile(None).country == "at"
+        assert cp.get_country_profile(None) is None
 
     def test_country_code_is_case_insensitive(self):
         assert cp.get_country_profile("AT") is not None
@@ -172,3 +172,87 @@ class TestLoadNormsFile:
     def test_unknown_country_yaml_missing_returns_none(self):
         nr.set_db_loader(None)
         assert nr.load_norms_file("zz") is None
+
+
+# ---------------------------------------------------------------------------
+# Where the project is: resolve_site, and what each consumer makes of it
+# ---------------------------------------------------------------------------
+
+
+def _profile(confirmed: str = "", assumptions: str = "") -> str:
+    text = "PROJECT_CONTEXT v1\n"
+    if confirmed:
+        text += f"\nconfirmed:\n{confirmed}\n"
+    if assumptions:
+        text += f"\nassumptions:\n{assumptions}\n"
+    return text
+
+
+class TestResolveSite:
+    @pytest.mark.parametrize(
+        ("profile", "country", "state", "confirmed"),
+        [
+            (_profile("- country=at\n- federal_state=tyrol"), "at", "tyrol", True),
+            (_profile("- federal_state=vienna"), "at", "vienna", True),
+            (_profile("- country=de"), "de", None, True),
+            (_profile("- country=ch"), "ch", None, True),
+            # `other` never matched the old `country=[a-z]{2}\b` and fell through to Austria.
+            (_profile("- country=other"), "other", None, True),
+            (_profile("- federal_state=outside_austria"), "other", None, True),
+            (_profile(assumptions="- federal_state=vienna [Vorschlag: Plan.pdf, S. 1]"), "at", "vienna", False),
+            (_profile("- country=de", "- federal_state=vienna"), "de", None, True),
+            # A legacy German key from an older pod.
+            (_profile("- bundesland=wien"), "at", "vienna", True),
+            (_profile("- main_use=residential"), None, None, False),
+        ],
+    )
+    def test_the_profile_places_the_project(self, profile, country, state, confirmed):
+        site = cp.resolve_site(profile)
+        assert (site.country, site.federal_state) == (country, state)
+        if country is not None:
+            assert site.confirmed is confirmed
+
+    def test_nothing_places_a_project_by_default(self):
+        """Defect 1: an unplaced project resolved to Austria."""
+        assert cp.resolve_site(None) == cp.SITE_UNKNOWN
+        assert nr.resolve_country(None) is None
+        assert nr.resolve_country("country=other") is None  # free text is not a profile line
+
+    def test_memory_lines_do_not_place_a_project(self):
+        composed = _profile("- main_use=residential") + "\nPROJECT_MEMORY v1\n- country=de\n"
+        assert cp.resolve_site(composed).country is None
+
+
+class TestSiteNote:
+    def test_an_austrian_project_reads_nothing_new(self):
+        assert cp.site_note(_profile("- federal_state=vienna")) is None
+        assert cp.site_note(None) is None
+
+    @pytest.mark.parametrize(("line", "name"), [("- country=de", "Germany"), ("- country=ch", "Switzerland")])
+    def test_a_project_abroad_is_told_what_is_not_covered(self, line, name):
+        note = cp.site_note(_profile(line))
+        assert note is not None
+        assert f"Jurisdiction: {name}, not covered" in note
+        assert "No Austrian law, OIB-Richtlinie" in note
+
+    def test_an_unplaced_project_is_told_the_site_is_missing(self):
+        note = cp.site_note(_profile("- main_use=residential"))
+        assert note is not None
+        assert "site not stated" in note
+
+
+class TestDoctrineAbroad:
+    @pytest.mark.parametrize("line", ["- country=de", "- country=ch", "- country=other"])
+    def test_no_austrian_doctrine_for_a_project_abroad(self, line):
+        doctrine = nr.doctrine_for(_profile(line))
+        assert doctrine != nr.NORM_DOCTRINE
+        assert "not covered" in doctrine
+
+    def test_an_austrian_project_keeps_the_doctrine(self):
+        assert nr.doctrine_for(_profile("- federal_state=tyrol")) == nr.NORM_DOCTRINE
+
+    def test_no_austrian_catalogue_for_a_project_abroad(self):
+        assert nr.render_block_for_prompt(_profile("- country=de\n- main_use=residential")) is None
+
+    def test_the_doctrine_names_no_viennese_portal_for_every_land(self):
+        assert "(in Wien:\nwien.gv.at/flaechenwidmung/public)" in nr.NORM_DOCTRINE

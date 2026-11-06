@@ -26,7 +26,7 @@ import type { AuthorizedSession } from '@/lib/auth/types'
 import type { GeocodeResult } from '@/lib/geocoding/types'
 import { ProjectProfileSchema } from '@/lib/project-profile/types'
 import { makeProject } from '@/test-utils/db-fixtures'
-import { intakeRowFor, intakeSeedFacts, startProjectIntake } from './intake-seed'
+import { intakeRowFor, intakeSeed, startProjectIntake, TYPED_ADDRESS_REASON } from './intake-seed'
 
 const NOW = new Date('2026-10-14T09:00:00Z')
 const session = { organizationId: 'org_1', userId: 'user_pl' } as AuthorizedSession
@@ -43,11 +43,12 @@ const location: GeocodeResult = {
   kind: 'address',
 }
 
-describe('intakeSeedFacts', () => {
+describe('intakeSeed', () => {
   it('turns a chosen address into address, country and Bundesland, the address with its geocoder evidence', () => {
-    const facts = intakeSeedFacts({ location }, NOW, 'u1')
+    const { facts, assumptions } = intakeSeed({ location }, NOW, 'u1')
 
     expect(Object.keys(facts).sort()).toEqual(['country', 'federal_state', 'site_address'])
+    expect(assumptions).toEqual({})
     expect(facts.site_address).toEqual({
       value: 'Innrain 1, 6020 Innsbruck',
       confidence: 'confirmed',
@@ -63,36 +64,46 @@ describe('intakeSeedFacts', () => {
   })
 
   it('leaves the Bundesland out when the provider named none we can match', () => {
-    const facts = intakeSeedFacts({ location: { ...location, federalState: null } }, NOW, 'u1')
+    const { facts } = intakeSeed({ location: { ...location, federalState: null } }, NOW, 'u1')
     expect(Object.keys(facts).sort()).toEqual(['country', 'site_address'])
   })
 
   it('takes a Bundesland chosen by hand, without evidence', () => {
-    const facts = intakeSeedFacts({ federalState: 'salzburg' }, NOW, 'u1')
+    const { facts } = intakeSeed({ federalState: 'salzburg' }, NOW, 'u1')
     expect(Object.keys(facts).sort()).toEqual(['country', 'federal_state'])
     expect(facts.federal_state?.evidence).toBeUndefined()
   })
 
-  it('keeps a typed address as the person\'s fact, and derives nothing from it', () => {
-    const facts = intakeSeedFacts({ address: '  Am Bahnhof 4, Gänserndorf ' }, NOW, 'u1')
-    expect(Object.keys(facts)).toEqual(['site_address'])
-    expect(facts.site_address).toEqual({
+  // Defect 3 (design 2.2): `outside_austria` was written as country=at.
+  it('never writes country=at for a project marked outside Austria', () => {
+    const { facts } = intakeSeed({ federalState: 'outside_austria' }, NOW, 'u1')
+    expect(facts.country).toBeUndefined()
+    expect(facts.federal_state?.value).toBe('outside_austria')
+  })
+
+  // Defect 3 (design 2.2): a typed address no register confirmed was stored as a confirmed fact.
+  it('keeps a typed address as an unconfirmed assumption with the person as evidence, and derives nothing from it', () => {
+    const { facts, assumptions } = intakeSeed({ address: '  Am Bahnhof 4, Gänserndorf ' }, NOW, 'u1')
+    expect(facts).toEqual({})
+    expect(assumptions.site_address).toEqual({
       value: 'Am Bahnhof 4, Gänserndorf',
-      confidence: 'confirmed',
-      source: 'onboarding',
+      status: 'unconfirmed',
+      reason: TYPED_ADDRESS_REASON,
+      source: 'onboarding_default',
       updatedAt: NOW.toISOString(),
       evidence: [{ kind: 'person', userId: 'u1', at: NOW.toISOString() }],
     })
-    expect(ProjectProfileSchema.parse({ facts })).toBeTruthy()
+    expect(ProjectProfileSchema.parse({ assumptions })).toBeTruthy()
   })
 
   it('takes the chosen hit over a typed line', () => {
-    const facts = intakeSeedFacts({ location, address: 'something else' }, NOW, 'u1')
+    const { facts, assumptions } = intakeSeed({ location, address: 'something else' }, NOW, 'u1')
     expect(facts.site_address?.value).toBe('Innrain 1, 6020 Innsbruck')
+    expect(assumptions).toEqual({})
   })
 
   it('is empty without an address or a Bundesland', () => {
-    expect(intakeSeedFacts({}, NOW, 'u1')).toEqual({})
+    expect(intakeSeed({}, NOW, 'u1')).toEqual({ facts: {}, assumptions: {} })
   })
 })
 
@@ -142,6 +153,14 @@ describe('startProjectIntake', () => {
     expect(profile.facts.site_address?.value).toBe('Innrain 1, 6020 Innsbruck')
     expect(insertProjectIntake).toHaveBeenCalledWith('tx-profile', expect.objectContaining({ projectId: 'p1', status: 'waiting' }))
     expect(inProjectTransaction).not.toHaveBeenCalled()
+  })
+
+  it('writes a typed address with the intake row, as an assumption', async () => {
+    await startProjectIntake(session, makeProject({ id: 'p1', profile: { facts: {}, goals: {}, unknowns: [], assumptions: {} } }), { address: 'Hauptstraße 1' }, NOW)
+
+    const [, profile] = seedProjectProfile.mock.calls[0] as [unknown, { facts: Record<string, unknown>; assumptions: Record<string, { value: unknown }> }]
+    expect(profile.facts).toEqual({})
+    expect(profile.assumptions.site_address?.value).toBe('Hauptstraße 1')
   })
 
   it('writes only the intake row when nothing is known about the place', async () => {

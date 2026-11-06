@@ -26,6 +26,15 @@ const codesOf = (standards: ReturnType<typeof getApplicableStandards>): string[]
   standards.map((s) => s.code)
 
 describe('getApplicableStandards', () => {
+  // Defect 2 (design 2.2): the OIB verdicts were shown for every country.
+  it.each(['de', 'ch', 'other'])('lists no OIB-Richtlinie for a project placed in %s', (country) => {
+    expect(getApplicableStandards(profileWith({ country, main_use: 'residential' }))).toEqual([])
+  })
+
+  it('lists none for a project marked outside Austria', () => {
+    expect(getApplicableStandards(profileWith({ federal_state: 'outside_austria' }))).toEqual([])
+  })
+
   it('returns the six near-universal standards, all required, for a null profile', () => {
     const result = getApplicableStandards(null)
 

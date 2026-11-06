@@ -1,16 +1,23 @@
 /**
  * What creating a project with „Piloti richtet ein" writes beyond the project:
- * the `project_intakes` row and the profile facts the address already decides
+ * the `project_intakes` row and the profile entries the address already decides
  * (ADR-0111, `docs/design/agentic-project-intake.md`).
  *
  * The address search's hit is evidence, not a guess: a person chose it from the
  * geocoder's list, so `site_address`, `country` and `federal_state` go onto the
  * profile as confirmed facts, the first one carrying the geocoder as its source.
  * An address typed and not chosen from a list (no geocoder configured, or no
- * hit taken) is the person's own line: `site_address` as a confirmed fact
- * with the person as its source, and nothing derived from it. The Bundesland
- * is then the reading's to find or the review's to ask. A Bundesland chosen by
- * hand (older API callers) is a fact without evidence.
+ * hit taken) is the person's own line, and no register confirmed it: it goes
+ * in as an unconfirmed assumption (`site_address`, the person as its evidence),
+ * never as a confirmed fact, and nothing is derived from it (design
+ * `docs/design/international/design.md`, invariant A1). The Bundesland is then
+ * the reading's to find or the review's to ask. A Bundesland chosen by hand
+ * (older API callers) is a fact without evidence.
+ *
+ * `country` is written as `at` only for an Austrian site: a geocoder hit (the
+ * adapter keeps Austrian hits only) or an Austrian Land. A project marked
+ * `outside_austria` gets no country: it is not Austrian, and which country it
+ * is, the intake asks.
  *
  * The profile and the intake row are one write (`seedProjectProfile`'s
  * `inTransaction`), so a project never has facts without its intake or the
@@ -29,7 +36,7 @@ import type { ClosingIntent } from '@/lib/project-intake/types'
 import { emptyProjectProfile, pruneResolvedAssumptions } from '@/lib/project-profile/patch-engine'
 import { seedProjectProfile } from '@/lib/project-profile/profile-service'
 import { salvageProjectProfile } from '@/lib/project-profile/salvage'
-import type { ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
+import type { ProjectAssumption, ProjectFact, ProjectProfile } from '@/lib/project-profile/types'
 import { inProjectTransaction } from './repository'
 
 export interface IntakeSeedInput {
@@ -52,29 +59,47 @@ function fact(value: string, now: Date, evidence?: ProjectFact['evidence']): Pro
   }
 }
 
+/** Why a typed address waits for confirmation. Read by a person in the brief and by the agent's prompt view. */
+export const TYPED_ADDRESS_REASON = 'Adresse eingetippt, von keinem Register bestätigt'
+
+/** The profile entries a new project starts with. */
+export interface IntakeSeed {
+  facts: Record<string, ProjectFact>
+  assumptions: Record<string, ProjectAssumption>
+}
+
 /**
- * The facts a location, or a hand-chosen Bundesland, puts on a new profile.
- * Empty when neither was given. Pure.
+ * The entries a location, a typed address or a hand-chosen Bundesland puts on
+ * a new profile. Empty when none was given. Pure.
  */
-export function intakeSeedFacts(
+export function intakeSeed(
   input: Pick<IntakeSeedInput, 'location' | 'address' | 'federalState'>,
   now: Date,
   userId: string
-): Record<string, ProjectFact> {
+): IntakeSeed {
   const { location } = input
   const typed = input.address?.trim()
   const federalState = location?.federalState ?? input.federalState ?? null
   const facts: Record<string, ProjectFact> = {}
+  const assumptions: Record<string, ProjectAssumption> = {}
   if (location) {
     facts.site_address = fact(location.label, now, [
       { kind: 'geocoder', provider: 'photon', label: location.label, resolvedAt: now.toISOString() },
     ])
   } else if (typed) {
-    facts.site_address = fact(typed, now, [{ kind: 'person', userId, at: now.toISOString() }])
+    assumptions.site_address = {
+      value: typed,
+      status: 'unconfirmed',
+      reason: TYPED_ADDRESS_REASON,
+      source: 'onboarding_default',
+      updatedAt: now.toISOString(),
+      evidence: [{ kind: 'person', userId, at: now.toISOString() }],
+    }
   }
-  if (location || federalState) facts.country = fact('at', now)
+  const austrianState = federalState !== null && federalState !== 'outside_austria'
+  if (location || austrianState) facts.country = fact('at', now)
   if (federalState) facts.federal_state = fact(federalState, now)
-  return facts
+  return { facts, assumptions }
 }
 
 /** The intake row of a project being created: waiting for its documents. */
@@ -103,15 +128,19 @@ export async function startProjectIntake(
   now: Date
 ): Promise<void> {
   const row = intakeRowFor(session, project.id, input)
-  const seeded = intakeSeedFacts(input, now, session.userId)
+  const seeded = intakeSeed(input, now, session.userId)
   const insertRow = async (tx: Parameters<typeof insertProjectIntake>[0]): Promise<void> => {
     await insertProjectIntake(tx, row)
   }
-  if (Object.keys(seeded).length === 0) {
+  if (Object.keys(seeded.facts).length === 0 && Object.keys(seeded.assumptions).length === 0) {
     await inProjectTransaction(session.organizationId, insertRow)
     return
   }
   const base: ProjectProfile = salvageProjectProfile(project.profile).profile ?? emptyProjectProfile()
-  const profile = pruneResolvedAssumptions({ ...base, facts: { ...base.facts, ...seeded } })
+  const profile = pruneResolvedAssumptions({
+    ...base,
+    facts: { ...base.facts, ...seeded.facts },
+    assumptions: { ...base.assumptions, ...seeded.assumptions },
+  })
   await seedProjectProfile(project, profile, insertRow)
 }
