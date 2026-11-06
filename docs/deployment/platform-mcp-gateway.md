@@ -5,10 +5,10 @@ One public host, `platform-mcp.<baseDomain>`, where platform staff's agents
 cluster. The servers stay private. A person signs in with WorkOS, and the
 gateway presents each server's own credential, which never leaves the cluster.
 
-| Path | Server | Credential the gateway presents |
-|---|---|---|
-| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) |
-| `/cms/mcp` | The website's CMS (`cms.cms.svc:3000/api/mcp`), where `cmsEnabled` | the MCP key of the CMS's agent account, `Bearer …` (`authorization` in `cms-platform-mcp`); every write is a draft |
+| Path | Server | Credential the gateway presents | Tools an agent reaches (ADR-0158) |
+|---|---|---|---|
+| `/langfuse/mcp` | Langfuse (`langfuse-web:3000/api/public/mcp`) | the project key's `Basic …` header (`otlp-basic-auth` in `langfuse-secrets`) | configuration only (`LANGFUSE_PLATFORM_TOOLS`): prompts, skills, models, score configs, evaluators and their rules, health. Never traces, scores, comments, datasets, queues, media or metrics: traces carry every office's turns |
+| `/cms/mcp` | The website's CMS (`cms.cms.svc:3000/api/mcp`), where `cmsEnabled` | the MCP key of the CMS's agent account, `Bearer …` (`authorization` in `cms-platform-mcp`); every write is a draft | all: the public website, written by the team |
 
 The gateway is [agentgateway](https://github.com/agentgateway/agentgateway)
 v1.7.0, standalone, behind Envoy Gateway. Code:
@@ -155,7 +155,10 @@ file, and two behaviours read from its source at v1.7.0.
    The second must give `resource` as the route URL and `authorization_servers`
    as the AuthKit issuer.
 3. **Langfuse answers, not 403.** List the tools through a signed-in client (or
-   MCP Inspector). A 403 from Langfuse itself means the `Host` rewrite did not
+   MCP Inspector). The list is `LANGFUSE_PLATFORM_TOOLS` and nothing else: no
+   `listObservations`, `getObservation`, `listScores` or `listComments`. A
+   configuration tool missing from it was renamed in this Langfuse version;
+   name the new tool in the list, after checking it reads no trace. A 403 from Langfuse itself means the `Host` rewrite did not
    reach it. Then set `LANGFUSE_MCP_ALLOWED_HOSTS=langfuse-web` on
    `langfuse-web` instead, and record which one held here and in ADR-0154.
 4. **The token carries the role.** Decode a gateway token (the client's, or one
@@ -167,7 +170,11 @@ file, and two behaviours read from its source at v1.7.0.
 
 1. An entry in `mcpServers` (`mcp-gateway.ts`): `name` (the path segment;
    lowercase, no `_`), its in-cluster URL, the credential's Secret and key if
-   it needs one, and `authority` if it checks the `Host`.
+   it needs one, `authority` if it checks the `Host`, and `tools`. `tools` is
+   `"all"` only for a server that holds nothing an office wrote; otherwise it
+   lists the tools that hold the platform's own content, and agentgateway
+   refuses every other tool, prompt and resource (`mcpAuthorization`,
+   ADR-0158). The operator's agent vendor is no processor of tenant content.
 2. If its pod is withheld from the namespace-wide allow (rule 2 of
    `network-policies.ts`), a rule naming the gateway as its caller, as rule 23
    does for Langfuse.

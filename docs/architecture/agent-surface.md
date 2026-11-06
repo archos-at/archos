@@ -445,15 +445,35 @@ The operator console (`platform` domain, `/api/platform/…`) is GRID's, not an
 office's, and is on no office door, for platform staff neither. It has a second
 MCP server of its own, `POST /api/platform/mcp` (ADR-0126), for platform staff.
 
-The platform door offers the console's own operations. MCP servers that run
-inside the cluster for the team (Langfuse's, and those that follow) are on
-neither door: platform staff reach them through the platform MCP gateway at
-`platform-mcp.<baseDomain>/<server>/mcp`, agentgateway behind Envoy (ADR-0154,
+The platform door offers the console's own operations, and of those only the
+platform-public ones. MCP servers that run inside the cluster for the team
+(Langfuse's, and those that follow) are on neither door: platform staff reach
+them through the platform MCP gateway at `platform-mcp.<baseDomain>/<server>/mcp`,
+agentgateway behind Envoy (ADR-0154,
 [`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md)).
+
+**Tenant content is on no door** (ADR-0158). The operator's agent (Claude
+onboarding a country) runs at a vendor that is no processor of what offices
+wrote. So every console operation is classified in
+`bff/agent-api/exposure/platform.ts`: `PLATFORM_PUBLIC` (models, prices, the
+base corpus, platform skills, limits by organization id, organization names) is
+on the platform door; `tenantContent(reason)` (cross-office conversations and
+their search, product feedback, ratings and their comments, lessons, flagged
+turns, project names, spend per named person) is `withheld`, category
+`tenant-content`, on no door for anyone. Every caller of the platform door is an
+outside agent, so this one rule is the whole split, read server-side by
+`isExposedTo`. Staff read tenant content in the console in the browser, where the
+route's `platform:*` permission decides, as before. The gateway holds the same
+line per server: `tools` in `mcpServers` is `"all"` or an allowlist that
+agentgateway enforces (`mcpAuthorization`), and Langfuse's route offers its
+configuration tools only, because traces carry every office's turns.
+`exposure/platform.spec.ts` holds the door: no tenant-content operation is
+listed, found, described or called there, and a pinned list and a path pattern
+keep the ones known to read tenant content classified as such.
 
 | | Office doors (`/api/mcp`, `/api/a2a`) | Platform door (`/api/platform/mcp`) |
 |---|---|---|
-| Offers | every domain but `platform`, the agent read tools | the `platform` domain only (`platform: true` in the exposure config) |
+| Offers | every domain but `platform`, the agent read tools | the `platform` domain's platform-public operations only (`platform: true` in the exposure config); tenant content on no door |
 | Token audience | either office door's resource | its own resource only; neither side accepts the other's |
 | Organization | any, with `agent-mcp` on | the GRID Platform organization's live membership, whichever organization the sign-in picked, with `platform-agent-mcp` on there |
 | Person | a live member | a live member who is platform staff (`isPlatformStaff`) |
@@ -503,11 +523,11 @@ is no operation, or an operation without an entry, does not compile (the object
 | `agent` | the in-product agent on its workspace door | `true`; `false`; `'native:<tool>'`: the agent does it with that native tool, so the door hides the operation from it |
 | `platform` | platform staff on the platform door (ADR-0126) | `true` for the `platform` domain, absent elsewhere |
 | `app` | an MCP Apps view in an outside agent's host (ADR-0142) | `true` on an app-only tool (`catalog/app-views.ts`) only, with `external` and `piloti` false: a card's button, listed with `_meta.ui.visibility: ["app"]` |
-| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence` |
+| `withheld` | nobody | `{ category, reason }`: `external-service`, `product-config`, `model-compute`, `ui-state`, `evidence`, `tenant-content` (a console operation that reads what offices wrote, ADR-0158) |
 | `reason` | the reviewer | why the entry is not simply offered to both office audiences |
 
 The constants at the top name the common rows: `OFFERED` (both office
-audiences), `PLATFORM`, `SENSITIVE` (outside agents behind the guards, never
+audiences), `PLATFORM_PUBLIC` and `tenantContent` (in `exposure/platform.ts`), `SENSITIVE` (outside agents behind the guards, never
 Piloti), `DECISION` (a proposal's own decision, never Piloti) and `ASK` (the
 recursion lock). A `native:<tool>` is the name the model binds: a function of
 `shallow_research_agent.tools` in `configs/config_oib_openrouter.yml`, or a
@@ -528,7 +548,7 @@ ceiling.
 **Changing an entry.**
 
 1. Edit the entry, with a `reason` unless it becomes `OFFERED`.
-2. `UPDATE_FIXTURES=1 bunx vitest run src/lib/agent-api/exposure.config.spec.ts src/app/api/mcp/workspace-eval.fixture.spec.ts`
+2. `UPDATE_FIXTURES=1 bunx vitest run bff/agent-api/exposure.config.spec.ts app/api/mcp/workspace-eval.fixture.spec.ts`
    rewrites `tests/fixtures/exposure.json` (the docs' and Python's copy) and the
    workspace eval's catalog (what Piloti sees).
 3. `.venv/bin/pytest packages/agent/tests/tools/test_exposure_config.py` checks that
@@ -538,16 +558,16 @@ ceiling.
    ([testing-and-verification.md](../contributing/testing-and-verification.md#the-workspace-set));
    its `uses` rows check the job got done with the native tool.
 
-**What it holds today** (365 entries: 358 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
+**What it holds today** (371 entries: 364 operations, 7 read tools; regenerate from `apps/workspace/tests/fixtures/exposure.json`):
 
 | Column | Count |
 |---|---|
-| `external: true` | 259 |
-| `agent: true` | 216 |
+| `external: true` | 261 |
+| `agent: true` | 217 |
 | `agent: 'native:…'` | 16 |
-| `agent: false` | 133 (51 withheld, 55 platform, 13 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
-| `platform: true` | 55 |
-| `withheld` | 51 (29 `product-config`, 13 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
+| `agent: false` | 138 (73 withheld, 37 platform, 14 sensitive, 3 asks, 3 decisions, 3 Outlook archive bytes, 2 held mail text and bytes, 2 skill reads, 1 standing decision: `mail-thread-unfollow`) |
+| `platform: true` | 37 (of the 55 console operations; the other 18 are `tenant-content`) |
+| `withheld` | 73 (29 `product-config`, 18 `tenant-content`, 17 `ui-state`, 4 `external-service`, 3 `model-compute`, 2 `evidence`) |
 | `app: true` | 2 (the proposal card's buttons, the fixture's `appTools`; not counted in the entries above) |
 
 | Piloti uses | Instead of |

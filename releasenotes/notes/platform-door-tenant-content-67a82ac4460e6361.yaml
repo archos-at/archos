@@ -1,0 +1,17 @@
+---
+# area: agents
+security:
+  - >
+    An agent on the platform door no longer reaches what offices wrote:
+    conversations and their search, product feedback, answer ratings and
+    comments, lessons, flagged citation turns, project names and spend per
+    named person are on no agent door (ADR-0158). The platform MCP gateway's
+    Langfuse route offers configuration tools only, never traces.
+operators:
+  - >
+    Platform staff who triaged feedback or read conversation profiles through
+    Claude on the platform door now do it in the platform console in the
+    browser, where nothing changed. Langfuse traces stay readable in Langfuse's
+    own UI. After the next deploy, list the Langfuse route's tools once through
+    a signed-in client: it should show the configuration tools and no trace,
+    score or comment tool.

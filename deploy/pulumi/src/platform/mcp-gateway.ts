@@ -40,8 +40,64 @@ const DRAIN_SECONDS = 5;
 const SESSION_KEY = "session-key"; // pragma: allowlist secret (Secret key name, not a credential)
 
 /**
+ * The tools of Langfuse's MCP server an operator's agent may reach (ADR-0158),
+ * read against Langfuse 4.74.0 (`web/src/features/mcp/`, the version
+ * `config/langfuse.ts` pins): the project's configuration, which the team
+ * writes. Left out is everything that holds what offices wrote, since traces
+ * carry every turn's question and answer: observations, scores and their
+ * comments, comments, datasets and experiments, annotation queues, media,
+ * metrics and dashboards over traces, alerts, batch and test evaluation runs,
+ * and the storage and feedback settings. A tool a later Langfuse adds stays
+ * refused until it is named here.
+ */
+export const LANGFUSE_PLATFORM_TOOLS = [
+  // Prompts: the platform prompt and the judges' templates (`task prompts:push`).
+  "getPrompt",
+  "getPromptUnresolved",
+  "listPrompts",
+  "createTextPrompt",
+  "createChatPrompt",
+  "updatePromptLabels",
+  // Skills kept in Langfuse.
+  "getSkill",
+  "listSkills",
+  "loadSkill",
+  "loadSkillResource",
+  "createSkillVersion",
+  "updateSkillLabels",
+  "updateSkillTags",
+  // Model definitions and prices.
+  "listModels",
+  "getModel",
+  "createModel",
+  "deleteModel",
+  // The score catalogue (`SCORE_DEFINITIONS`, `task langfuse:provision`).
+  "listScoreConfigs",
+  "getScoreConfig",
+  "createScoreConfig",
+  "updateScoreConfig",
+  "deleteScoreConfig",
+  // The judges' configuration, not their runs.
+  "listEvaluators",
+  "getEvaluator",
+  "createEvaluator",
+  "updateEvaluator",
+  "deleteEvaluator",
+  "listManagedEvaluatorTemplates",
+  "listEvaluationRules",
+  "getEvaluationRule",
+  "createEvaluationRule",
+  "updateEvaluationRule",
+  "deleteEvaluationRule",
+  "attachEvaluatorToEvaluationRule",
+  "detachEvaluatorFromEvaluationRule",
+  "listLlmConnections",
+  "getHealth",
+] as const;
+
+/**
  * The MCP servers behind the gateway, each at `/<name>/mcp`. Adding one is an
- * entry here, plus the NetworkPolicy that lets the gateway reach it when its
+ * entry here, with its `tools` classified (ADR-0158), plus the NetworkPolicy that lets the gateway reach it when its
  * pod is withheld from the namespace-wide allow (`network-policies.ts`).
  */
 export function mcpServers(cfg: DeployConfig): McpServer[] {
@@ -60,6 +116,8 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             // that project, prompts included (`ADMITTED_ROLES`).
             credential: { secretName: LANGFUSE_SECRETS_NAME, secretKey: LANGFUSE_SECRET_KEYS.otlpBasicAuth },
             timeout: "300s",
+            // Traces hold every office's turns: configuration tools only (ADR-0158).
+            tools: LANGFUSE_PLATFORM_TOOLS,
           },
         ]
       : []),
@@ -72,6 +130,8 @@ export function mcpServers(cfg: DeployConfig): McpServer[] {
             // every write is a draft that a publisher reviews in the admin panel.
             credential: { secretName: CMS_GATEWAY_CREDENTIAL_SECRET, secretKey: CMS_GATEWAY_CREDENTIAL_KEY },
             timeout: "120s",
+            // The public website and its blog, written by the team: platform-public whole (ADR-0158).
+            tools: "all",
           },
         ]
       : []),

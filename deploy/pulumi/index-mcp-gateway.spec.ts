@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import { baseStackConfig, langfuseStackConfig } from "./src/test-support/stack-config";
 import { checkSessionKey, loadMcpGateway } from "./src/config/mcp-gateway";
 import { GATEWAY_NAME } from "./src/platform/gateway";
-import { MCP_GATEWAY } from "./src/platform/mcp-gateway-config";
+import { MCP_GATEWAY, toolAllowlist } from "./src/platform/mcp-gateway-config";
+import { LANGFUSE_PLATFORM_TOOLS } from "./src/platform/mcp-gateway";
 import { LEGACY_PROJECT, objectName } from "./src/names";
 
 /** A stack config key of the project these specs run as. */
@@ -57,7 +58,7 @@ type AgTarget = { mcp: unknown; policies: { backendAuth?: unknown } };
 type AgRoute = {
   name: string;
   matches: unknown[];
-  policies: { mcpAuthentication: unknown; authorization: unknown; urlRewrite?: unknown };
+  policies: { mcpAuthentication: unknown; authorization: unknown; urlRewrite?: unknown; mcpAuthorization?: unknown };
   backends: Array<{ mcp: { targets: AgTarget[] } }>;
 };
 type AgConfig = { routes: AgRoute[]; frontendPolicies: { tracing: unknown } };
@@ -260,6 +261,43 @@ describe("the platform MCP gateway, switched on", () => {
     });
     // The gateway holds no other secret of the app's.
     expect(JSON.stringify(pod())).not.toContain("INTERNAL_API_TOKEN");
+  });
+
+  it("lets an operator's agent reach Langfuse's configuration tools and none that read traces (ADR-0158)", () => {
+    // Traces carry every office's turns; an operator's agent vendor is no processor of them.
+    expect(langfuseRoute().policies.mcpAuthorization).toEqual({
+      rules: [{ allow: `mcp.tool.name in [${LANGFUSE_PLATFORM_TOOLS.map((t) => `"${t}"`).join(", ")}]` }],
+    });
+    // Langfuse 4.74.0's tools that hold what offices wrote, each by name.
+    const tenantContent = [
+      "listObservations",
+      "getObservation",
+      "getObservationFilterValues",
+      "listScores",
+      "getScore",
+      "createScore",
+      "listComments",
+      "getComment",
+      "listDatasetItems",
+      "getDatasetItem",
+      "listDatasetRunItems",
+      "listExperimentItems",
+      "listAnnotationQueueItems",
+      "getAnnotationQueueItem",
+      "getMedia",
+      "queryMetrics",
+      "runBatchEvaluation",
+      "testEvaluator",
+      "listAlerts",
+    ];
+    expect(tenantContent.filter((tool) => (LANGFUSE_PLATFORM_TOOLS as readonly string[]).includes(tool))).toEqual([]);
+    expect(LANGFUSE_PLATFORM_TOOLS).toContain("getPrompt");
+  });
+
+  it("restricts no tool of a server that holds only the platform's own content, and refuses a name it cannot match literally", () => {
+    const server = { name: "cms", url: "http://cms:3000/api/mcp", timeout: "120s" } as const;
+    expect(toolAllowlist({ ...server, tools: "all" })).toBeUndefined();
+    expect(() => toolAllowlist({ ...server, tools: ['getPrompt", "getObservation'] })).toThrow();
   });
 
   it("calls Langfuse in-cluster under its public Host, with the project key from a file", () => {

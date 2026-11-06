@@ -84,6 +84,16 @@ export interface McpServer {
   credential?: { secretName: string; secretKey: string };
   /** The longest a call to this server may take. */
   timeout: string;
+  /**
+   * What an operator's agent may reach on this server (ADR-0158): `"all"` for a
+   * server that holds only the platform's own content, or the names of the
+   * tools that do, when it also holds what offices wrote. A list is enforced
+   * here, by agentgateway's `mcpAuthorization`: a tool not named is left out
+   * of `tools/list` and refused on `tools/call`, and the server's prompts and
+   * resources are refused too. A tool a later version of the server adds is
+   * refused until it is named, so an upgrade never widens what the agent reaches.
+   */
+  tools: "all" | readonly string[];
 }
 
 export interface McpGatewaySettings {
@@ -121,6 +131,21 @@ export function credentialPath(server: McpServer): string {
 /** The protected resource a server is (RFC 9728), and the audience its tokens must name (RFC 8707). */
 export function resourceUrl(origin: string, server: McpServer): string {
   return `${origin}/${server.name}/mcp`;
+}
+
+/**
+ * The tool allowlist of a server that names its tools, as agentgateway's
+ * `mcpAuthorization`: one `allow` rule, so a tool, prompt or resource it does
+ * not match is denied (agentgateway's allowlist semantics, `RuleSets::validate`
+ * at v1.7.0). For a prompt or a resource `mcp.tool` is unset, the expression
+ * errors, and an erroring rule does not allow.
+ */
+export function toolAllowlist(server: McpServer): Record<string, unknown> | undefined {
+  if (server.tools === "all") return undefined;
+  for (const tool of server.tools) {
+    if (!/^[A-Za-z0-9_.-]+$/.test(tool)) throw new Error(`Not a tool name agentgateway can match literally: ${tool}`);
+  }
+  return { rules: [{ allow: `mcp.tool.name in [${server.tools.map((tool) => `"${tool}"`).join(", ")}]` }] };
 }
 
 /** The CEL condition under which the app decides: a token of another organization, outside discovery. */
@@ -239,6 +264,7 @@ function route(settings: McpGatewaySettings, server: McpServer, origin: string):
       },
       ...(otherOrganizationAdmission(settings) ? { extAuthz: otherOrganizationAdmission(settings) } : {}),
       authorization: { rules: [{ require: admissionRule(settings.platformOrgId, settings.admission !== undefined) }] },
+      ...(toolAllowlist(server) ? { mcpAuthorization: toolAllowlist(server) } : {}),
       ...(server.authority ? { urlRewrite: { authority: { full: server.authority } } } : {}),
     },
     backends: [{ mcp: { statefulMode: "stateful", targets: [target] } }],
