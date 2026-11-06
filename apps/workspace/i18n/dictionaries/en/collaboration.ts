@@ -967,6 +967,10 @@ export const collaboration = {
       inboundMailWaiting: {
         titleOne: 'A mail to “{subject}” is waiting to be filed',
         titleMany: '{count} mails to “{subject}” are waiting to be filed',
+        // The row counts what waits now (`lib/inbox/live-counts.ts`): none, until the row is settled.
+        titleNone: 'No mail to “{subject}” is waiting any more',
+        // Without access to the project: no name, and no number the row no longer knows.
+        titleRedacted: 'Mails were waiting to be filed in a project',
         title: 'Mails to “{subject}” are waiting to be filed',
         body: 'None of it is in the project until someone files it.',
         variants: {
