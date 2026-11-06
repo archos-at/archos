@@ -355,7 +355,7 @@ export const FileCard = memo(function FileCard({
       {selection && <SelectionMark checked={selection.checked} />}
       {actions && !selection && (
         <div
-          className="absolute right-1.5 top-1.5 z-[1] pointer-coarse:opacity-100 md:opacity-0 md:group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
+          className="absolute right-0.5 top-[133px] z-[1] pointer-coarse:opacity-100 md:opacity-0 md:group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -424,7 +424,8 @@ export const FileCard = memo(function FileCard({
                 comes from the FILE name, because that is what the bytes are —
                 a rename changes the label, never the format. */}
             {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
-            <p className="min-w-0 text-[13px] font-medium leading-[1.35] text-foreground">
+            {/* Room at its end for the ⋯, which sits on this line (6 + 124 + 10px down), off the thumbnail. */}
+            <p className={cn('min-w-0 text-[13px] font-medium leading-[1.35] text-foreground', actions && !selection && 'pr-8')}>
               <FileName text={name} wrap />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in

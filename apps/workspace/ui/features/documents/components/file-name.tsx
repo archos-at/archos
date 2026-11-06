@@ -34,11 +34,11 @@ function tailOf(text: string): number {
  *
  * The wrapper owns the width (`min-w-0`), so it truncates inside a flex row.
  */
-/** Up to this many characters a wrapping name fits two lines of a 156px phone tile whole. */
+/** Up to this many characters a wrapping name fits three lines of a 156px phone tile whole (two on a desk). */
 const WRAP_MAX = 44
 
 /**
- * `wrap`: two lines before any cut, for a tile (`Baustellenf…_Rohbau.jpg` lost
+ * `wrap`: up to three lines before any cut, for a tile (`Baustellenf…_Rohbau.jpg` lost
  * its start on a phone's two columns). A name that fits two lines is shown
  * whole; a longer one keeps the middle cut on one line.
  */
@@ -47,14 +47,16 @@ export function FileName({ text, className, wrap = false }: { text: string; clas
     // Drawn with a break chance after each `_` (and never inside the extension), read as the one
     // string it is: a `<wbr>` in the accessible text read „Gutachten_ v2.pdf“.
     const parts = text.split('_')
-    const wrapClass = cn('line-clamp-2 min-w-0 max-w-full [overflow-wrap:anywhere]', className)
+    const wrapClass = cn('line-clamp-3 min-w-0 max-w-full [overflow-wrap:anywhere]', className)
     if (parts.length === 1) return <span className={wrapClass}>{text}</span>
     return (
       <span className={wrapClass}>
         <span aria-hidden>
           {parts.map((part, index) => (
+            // No break right after a hyphen (a word joiner, drawn only): `Index-` then „C.pdf“ alone read
+            // as a fault. Whole segments would push the end past two lines and lose it.
             <span key={index}>
-              {index < parts.length - 1 ? `${part}_` : part}
+              {(index < parts.length - 1 ? `${part}_` : part).replaceAll('-', '-\u2060')}
               {index < parts.length - 1 && <wbr />}
             </span>
           ))}

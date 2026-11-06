@@ -462,7 +462,7 @@ function BriefDisclosure({
             >
               <span className="text-muted-foreground shrink-0 text-xs font-medium">{title}</span>
               {/* What the section holds, while it is shut; open, the section says it itself. */}
-              <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs font-normal" aria-hidden={open}>
+              <span className="text-muted-foreground min-w-0 truncate text-xs font-normal" aria-hidden={open} /* the chevron follows, as on the brief's own line */>
                 {open ? '' : summary}
               </span>
               <ChevronDown

@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import type { JSX } from 'react'
 import { Fragment, memo, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react'
 import type { FileItem, FolderItem } from '../file-types'
@@ -699,7 +700,7 @@ export function FileBrowserPane({
               data-testid="selection-start"
             >
               <CheckSquare className="size-4" aria-hidden />
-              <span className="phone:sr-only">{t('selection.start')}</span>
+              <span className={cn(folderNav.currentFolderId !== null && 'phone:sr-only')}>{t('selection.start')}</span>
             </Button>
           )}
         </FolderBreadcrumbRow>

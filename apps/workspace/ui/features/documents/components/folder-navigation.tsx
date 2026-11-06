@@ -289,10 +289,10 @@ function NewFolderControl({
   return (
     <Popover open={open} onOpenChange={(next) => (isCreating ? undefined : setOpen(next))}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="gap-1.5">
+        <Button type="button" variant="ghost" size="sm" className="-mr-2 gap-1.5 phone:mr-0">
           <FolderPlus className="size-4" aria-hidden />
-          {/* A glyph on a phone: the path row has the width for where you are or for two words, and where you are wins. */}
-          <span className="phone:sr-only">{t('folders.newFolder')}</span>
+          {/* A glyph on a phone inside a folder, where the path needs the width; at the root, its words. */}
+          <span className={cn(currentFolderId !== null && 'phone:sr-only')}>{t('folders.newFolder')}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 p-2">

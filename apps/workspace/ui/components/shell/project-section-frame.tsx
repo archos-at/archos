@@ -219,8 +219,9 @@ export function ProjectSectionFrame({
   return (
     <ActionsContext.Provider value={setActions}>
       <div className="flex h-full min-h-0 flex-col">
-        {/* Dateien's head keeps its content's container: the design system's 1280px with the 32px margins. */}
-        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && '[&>*]:max-w-[1216px]')}>
+        {/* The head keeps its tab's container: a listing's 1280px with the 32px margins; the E-Mail-Eingang's
+            split view is full width, and so is its head, or the page had two right edges. */}
+        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && subpage !== 'files/mail' && '[&>*]:max-w-[1216px]')}>
           {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
               search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
               the E-Mail-Eingang, which has none. */}
