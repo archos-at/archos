@@ -8,7 +8,7 @@ own lines, so a licensed document gets none there: its passage above is the refe
 
 from types import SimpleNamespace
 
-from knowledge_layer.browse.rows import FileRow
+from knowledge_layer.browse import FileRow
 from knowledge_layer.estate import grep
 from knowledge_layer.estate.render import _chunk_hit
 from knowledge_layer.estate.render import _page_hit

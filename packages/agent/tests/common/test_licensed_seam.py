@@ -244,7 +244,7 @@ def _model(wire: Wire, *, streaming: bool):
 
 def _turn_messages(block: str) -> list:
     return [
-        SystemMessage(content="Du bist Piloti."),
+        SystemMessage(content="Du bist eine Kollegin im Planungsbüro."),
         HumanMessage(content="Welche Mindesthöhe gilt bei 20 m Absturzhöhe?"),
         AIMessage(content="", tool_calls=[{"name": "knowledge_search", "args": {"query": "Brüstung"}, "id": "t1"}]),
         ToolMessage(content=block, tool_call_id="t1"),
@@ -331,7 +331,7 @@ async def test_a_reference_from_an_earlier_turn_is_not_expanded():
 
 async def test_a_call_without_licensed_text_sends_and_reports_exactly_what_it_did_before():
     wire, recorder = Wire(), Recorder()
-    messages = [SystemMessage(content="Du bist Piloti."), HumanMessage(content="Hallo")]
+    messages = [SystemMessage(content="Du bist eine Kollegin im Planungsbüro."), HumanMessage(content="Hallo")]
     reply = await _model(wire, streaming=True).ainvoke(messages, config={"callbacks": [recorder]})
 
     assert reply.content == "Laut Norm: „nichts“ [1]"

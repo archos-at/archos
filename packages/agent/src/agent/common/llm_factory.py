@@ -330,8 +330,10 @@ def _chunk_capper(cap: Any) -> ChunkCap:
 # if nothing of it was yielded yet; the refusal comes before the first chunk.
 # Licensed text (``common/licensed_text.py``) is expanded here, after LangChain has
 # reported the messages to every callback, and a call that expanded any returns
-# capped. A capped stream reports its tokens itself (``_capped_chunk``), so no
-# callback sees a chunk before its cap.
+# capped. langchain-core reports each streamed chunk after ``_astream`` yields it
+# (it passes no run manager down), so callbacks see the capped chunk. A caller that
+# does pass one down would have the implementation report before the cap, so a
+# capped stream withholds it and reports the capped chunk itself (``_capped_chunk``).
 def _contract_generate(base: type) -> Any:
     """The contract's ``_generate``, over ``base``'s."""
 

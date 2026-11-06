@@ -347,14 +347,17 @@ class _Run:
         out: list[str] = []
         for char in piece:
             logical, cuttable = self._logical(char)
-            if logical is not None and self._advance(logical) and cuttable:
-                if not self._marked:
-                    self._marked = True
-                    self._owner.capped_runs += 1
-                    out.append(CAP_MARKER)
-                continue
-            out.append(char)
+            past_cap = logical is not None and self._advance(logical) and cuttable
+            out.append(self._cut() if past_cap else char)
         return "".join(out)
+
+    def _cut(self) -> str:
+        """What a dropped character leaves: the marker, once per run."""
+        if self._marked:
+            return ""
+        self._marked = True
+        self._owner.capped_runs += 1
+        return CAP_MARKER
 
     def _advance(self, logical: str) -> bool:
         """Move the window by one character; True when that character lies past its run's cap."""

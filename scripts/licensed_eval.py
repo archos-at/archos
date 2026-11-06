@@ -165,10 +165,11 @@ def _block(document: dict[str, Any], arm: str) -> str:
 
 
 def _system_prompt() -> str:
-    from agent.agents.piloti.prompt import bundled_static_block
-    from agent.agents.piloti.prompt import render_static_block
+    """The bundled static system prompt, rendered as the chat agent renders it (its one variable filled)."""
+    from agent.common.prompt_utils import render_prompt_template
 
-    return render_static_block(bundled_static_block().text)
+    (path,) = (ROOT / "packages" / "agent" / "src" / "agent" / "agents").glob("*/prompts/chat_static.md")
+    return render_prompt_template(path.read_text(encoding="utf-8"), document_inventory="").rstrip("\n")
 
 
 def _messages(question: dict[str, Any], block: str) -> list:
