@@ -126,7 +126,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
     <div className="h-full overflow-y-auto">
       {/* The listing's container and edges (1280px, 32px; 16px on a phone), as „Alle Dateien“: centred at 896px the
           tab had a left edge of its own. */}
-      <div className="flex listing-container flex-col gap-6 px-4 py-4 md:px-8" data-testid="open-points">
+      <div className="flex listing-container flex-col gap-6 px-4 pb-4 pt-2 md:px-8" data-testid="open-points">
         {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
         <ProjectSectionActions>
           <ProjectProtocolMenu
@@ -200,6 +200,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           </div>
         ) : list.load === 'error' ? (
           <EmptyState
+            variant="bare"
             icon={AlertTriangle}
             tone="destructive"
             title={t('openPoints.loadError')}
@@ -211,7 +212,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
             }
           />
         ) : list.marks.length === 0 ? (
-          <EmptyState
+          <EmptyState variant="bare"
             icon={CheckCheck}
             title={t(filtered ? 'openPoints.empty.filteredTitle' : 'openPoints.empty.noneTitle')}
             description={t(filtered ? 'openPoints.empty.filteredBody' : 'openPoints.empty.noneBody')}

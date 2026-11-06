@@ -112,7 +112,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 (@2xl+) it is level with the top of the document; stacked, it is
                 the first thing under the preview. */}
               {hasOwnershipBlock && (
-              <div className="mb-5 flex flex-col gap-2" /* 16px from the card to the presses, 8px between them */>
+              <div className="mb-5 flex flex-col gap-3" /* 12px between the presses, as every pair */>
                 {/* Provenance, not status: the badge is up in the header with
                   the name. „Von Piloti erstellt" leads the rail instead, because
                   for the one document where it appears it is the reason the Ask

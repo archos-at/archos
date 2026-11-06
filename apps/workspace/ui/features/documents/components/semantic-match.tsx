@@ -4,12 +4,16 @@ import type { JSX, ReactNode } from 'react'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 
-/** The query's words worth marking: three letters or more, escaped for a pattern. */
+/**
+ * The query's words worth marking (three letters or more), and for a long German compound its stem too: a passage
+ * that says „Fluchtweg“ answers „Fluchtwegbreite“, and nothing marked left the reader guessing why it matched.
+ */
 function queryWords(query: string): string[] {
   return query
     .split(/\s+/)
     .map((word) => word.replace(/[^\p{L}\p{N}-]/gu, ''))
     .filter((word) => word.length >= 3)
+    .flatMap((word) => (word.length >= 10 ? [word, word.slice(0, 6)] : [word]))
     .map((word) => word.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&'))
 }
 
@@ -20,7 +24,8 @@ function queryWords(query: string): string[] {
 export function MarkedSnippet({ text, query }: { text: string; query?: string | null }): JSX.Element {
   const words = query ? queryWords(query) : []
   if (words.length === 0) return <>{text}</>
-  const pattern = new RegExp(`(${words.join('|')})`, 'giu')
+  // A whole word that starts with a query word or its stem is marked, not a part of one.
+  const pattern = new RegExp(`((?<![\\p{L}])(?:${words.join('|')})[\\p{L}-]*)`, 'giu')
   const parts: ReactNode[] = text.split(pattern).map((part, index) =>
     index % 2 === 1 ? (
       <mark key={index} className="bg-transparent font-medium text-foreground" data-testid="snippet-match">

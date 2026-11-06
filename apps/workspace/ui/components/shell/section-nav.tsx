@@ -25,7 +25,6 @@ import { cn } from '@/lib/utils'
 import { motion, springGlide } from '@/components/motion'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
 import { CountPill } from '@/components/ui/count-pill'
-import { Skeleton } from '@/components/ui/skeleton'
 
 export interface SectionNavItem {
   key: string
@@ -153,8 +152,11 @@ export function SectionStrip({
     const scroller = strip?.firstElementChild
     const current = strip?.querySelector<HTMLElement>('[aria-current="page"]')
     if (!(scroller instanceof HTMLElement) || !current) return
-    const target = current.offsetLeft - (scroller.clientWidth - current.offsetWidth) / 2
-    scroller.scrollLeft = Math.max(0, target)
+    // The nearest scroll that shows the open tab whole, not the centre: centred, both ends showed fragments of
+    // their tabs („ı Dateien“); this way the row starts on its first tab unless the open one lies past the edge.
+    const right = current.offsetLeft + current.offsetWidth
+    if (right > scroller.scrollLeft + scroller.clientWidth) scroller.scrollLeft = right - scroller.clientWidth
+    else if (current.offsetLeft < scroller.scrollLeft) scroller.scrollLeft = current.offsetLeft
   }, [pathname])
 
   return (
@@ -225,7 +227,12 @@ function SectionNavLink({
       {item.label}
       {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
           when it lands. `undefined` is a tab without a count. */}
-      {item.count === null && <Skeleton className="h-4 w-5 rounded-full" aria-hidden />}
+      {item.count === null && (
+        // A pill of one digit's width and no text to read: white, as a count on the open tab's grey is.
+        <CountPill tone="muted" aria-hidden className="bg-background">
+          <span className="invisible before:content-['8']" />
+        </CountPill>
+      )}
       {item.count != null && item.count > 0 && (
         // White on the active tab's grey, as everything on a grey surface is: grey on grey hid the pill.
         <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active && 'bg-background')} />

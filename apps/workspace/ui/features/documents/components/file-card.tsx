@@ -274,7 +274,7 @@ function SelectionMark({ checked }: { checked: boolean }) {
       aria-hidden
       className={cn(
         // A square, as every other checkbox of the page (the list's, the E-Mail-Eingang's): one shape for one pick.
-        'pointer-events-none absolute right-2 top-2 z-[1] flex size-5 items-center justify-center rounded-inline border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
+        'pointer-events-none absolute right-3.5 top-3.5 z-[1] flex size-5 items-center justify-center rounded-inline border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
         checked ? 'border-primary bg-primary text-primary-foreground' : 'border-(--ds-line-strong) bg-background'
       )}
       data-testid="file-card-check"

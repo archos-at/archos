@@ -221,14 +221,14 @@ export function InboundMailAddressBlock({
         {surface !== 'dialog' && showValue && <SectionLabel as="p">{t('address.label')}</SectionLabel>}
         {showValue &&
           (surface === 'never_used' ? (
-            // Never used, the address is the page's focal point: a size up, read here and copied by the button below.
-            <p className="text-foreground font-mono text-base [overflow-wrap:anywhere]" data-testid="address-value">
+            // Never used, the address is the page's focal point, read here and copied by the button below; 14px mono, under its heading's rank.
+            <p className="text-foreground font-mono text-sm [overflow-wrap:anywhere]" data-testid="address-value">
               <EmailAddress address={value} />
             </p>
           ) : (
             <AddressValue value={value} surface={surface} className="w-full justify-between" />
           ))}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {surface === 'never_used' && <CopyAddressButton value={value} surface={surface} />}
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
         </div>

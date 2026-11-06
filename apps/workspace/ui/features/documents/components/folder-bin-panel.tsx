@@ -119,6 +119,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
     return (
       <div className={BIN_PAGE}>
         <EmptyState
+          variant="bare"
           icon={AlertTriangle}
           tone="destructive"
           title={t('bin.loadError')}
@@ -136,7 +137,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
   return (
     <div className={BIN_PAGE} data-testid="folder-bin">
       {listing.entries.length === 0 ? (
-        <EmptyState icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
+        <EmptyState variant="bare" icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
         // Rows on the page, no box and no hairlines; they bleed by their inset so the glyphs stand on the edge.
         <ul className="-mx-4 flex flex-col gap-1">
@@ -152,21 +153,16 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 )}
               </ItemMedia>
               <ItemContent className="basis-[calc(100%-2.75rem)] sm:basis-auto">
-                <ItemTitle title={entry.path}>{entry.name}</ItemTitle>
-                {/* What is in it first: it is the figure that says whether this
-                    is the folder to bring back, and the line used to end in
-                    „… 14 Do…" on a phone. Each fact its own line, wrapping
-                    below `sm` instead of cutting. */}
-                <ItemDescription className="whitespace-normal sm:truncate">
-                  {entry.document ? t('bin.document') : t('bin.contents', { documents: entry.documents, folders: entry.folders })}
-                </ItemDescription>
-                {!entry.canRestore && entry.restoreBlocked && (
-                  <ItemDescription className="whitespace-normal" data-testid={`bin-blocked-${entry.folderId}`}>
-                    {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
+                <ItemTitle title={entry.path} className="text-[13px]">{entry.name}</ItemTitle>
+                {/* What a folder holds first: the figure that says whether it is the one to bring back. A document's
+                    glyph says what it is, so it has no such line. */}
+                {!entry.document && (
+                  <ItemDescription className="whitespace-normal sm:truncate">
+                    {t('bin.contents', { documents: entry.documents, folders: entry.folders })}
                   </ItemDescription>
                 )}
                 {/* Who deleted it and when it goes, on one line: four lines of 12px meta per row was a form, not a list. */}
-                <ItemDescription className="flex items-center gap-1 whitespace-normal sm:truncate">
+                <ItemDescription className="whitespace-normal text-pretty sm:truncate">
                   <span>
                     {entry.deletedBy.name
                       ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
@@ -177,9 +173,9 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                       : entry.status === 'failed'
                         ? t('bin.failed')
                         : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
+                    {/* Inline after the words, on a phone too, so the line keeps its edge with the ones above. */}
+                    {entry.status === 'purging' && <Spinner size="xs" className="ml-1 inline-block align-[-2px]" />}
                   </span>
-                  {/* After the words, so the line keeps its edge with the ones above. */}
-                  {entry.status === 'purging' && <Spinner size="xs" className="shrink-0" />}
                 </ItemDescription>
               </ItemContent>
               {/* Restore at the start of the row, „Endgültig löschen" at the far
@@ -188,7 +184,13 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                   from Wiederherstellen. `ml-auto` keeps it at the end when it is
                   the only action, so the row does not change shape. */}
               {/* On a phone the actions line up under the name they belong to, not under the glyph. */}
-              <ItemActions className="w-full flex-wrap justify-between pl-11 sm:w-auto sm:flex-nowrap sm:justify-end sm:pl-0">
+              <ItemActions className="w-full flex-wrap justify-between pl-8 sm:w-auto sm:flex-nowrap sm:justify-end sm:pl-0">
+                {/* Where the press would be, the reason it is not: a hole in the press column was a question. */}
+                {!entry.canRestore && entry.restoreBlocked && (
+                  <span className="text-muted-foreground text-xs sm:max-w-56 sm:text-right" data-testid={`bin-blocked-${entry.folderId}`}>
+                    {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
+                  </span>
+                )}
                 {entry.canRestore && (
                   <Button
                     variant="secondary"
@@ -241,4 +243,4 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
 }
 
 /** The listing's container and edges (1280px, 32px; 16px on a phone), as every Dateien tab keeps them. */
-const BIN_PAGE = 'flex listing-container flex-col gap-6 px-4 py-4 md:px-8'
+const BIN_PAGE = 'flex listing-container flex-col gap-6 px-4 pb-4 md:px-8' // starts under the tabs, as every tab

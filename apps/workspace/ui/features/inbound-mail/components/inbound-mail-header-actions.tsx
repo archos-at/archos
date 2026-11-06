@@ -37,6 +37,9 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
           type="button"
           size="sm"
           variant="secondary"
+          // On a phone a word press, as „Mehr zur Adresse“ beside it: three grey pills stacked (the open tab, this,
+          // the chosen filter) meant three things in one look. Its padding given back, its glyph on the edge.
+          className="phone:-ml-3.5 phone:bg-transparent phone:hover:bg-accent"
           onClick={() =>
             void navigator.clipboard?.writeText(value).then(() => {
               raise()

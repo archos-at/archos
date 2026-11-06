@@ -635,7 +635,7 @@ export function FileBrowserPane({
   if (corpusEmpty && (folderNav?.folders ?? []).length === 0) {
     return (
       <div className="flex h-full items-center justify-center p-8">
-        <EmptyState
+        <EmptyState variant="bare"
           art={<RisoPrint id="vignetten/planschrank/empty" />}
           title={t('browser.noDocumentsTitle')}
           description={t('browser.noDocumentsDescription')}
@@ -923,7 +923,7 @@ export function FileBrowserPane({
           {...levelTransition(navDirection, 16)}
           className="flex flex-1 items-center justify-center p-8"
         >
-          <EmptyState
+          <EmptyState variant="bare"
             icon={FolderOpen}
             title={t('browser.folderEmptyTitle')}
             description={t('browser.folderEmptyDescription')}

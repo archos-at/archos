@@ -397,7 +397,7 @@ const FileListRowItem = memo(function FileListRowItem({
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"
                 column, and here it never makes a row taller. */}
-            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-snug text-foreground" /* a name is 13px everywhere */>
+            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-5 text-foreground" /* 13px, a 20px line a chip fits */>
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
               {file.status && !isCitableStatus(file.status) && (

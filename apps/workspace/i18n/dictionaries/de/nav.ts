@@ -59,7 +59,7 @@ export const nav: typeof en.nav = {
     },
     'files/bin': {
       title: 'Papierkorb',
-      subtitle: 'Gelöschte Ordner mit ihren Unterordnern und Dokumenten. Bis zur endgültigen Löschung lassen sie sich mit ihren Zugriffsrechten wiederherstellen.',
+      subtitle: 'Gelöschte Dokumente und Ordner. Bis zur endgültigen Löschung lassen sie sich wiederherstellen.',
     },
     'files/open-points': {
       title: 'Offene Punkte',

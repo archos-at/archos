@@ -68,7 +68,7 @@ export const nav = {
     },
     'files/bin': {
       title: 'Bin',
-      subtitle: 'Deleted folders with their subfolders and documents. Until they are permanently deleted they can be restored with their access.',
+      subtitle: 'Deleted documents and folders. Until they are permanently deleted they can be restored.',
     },
     'files/open-points': {
       title: 'Open points',

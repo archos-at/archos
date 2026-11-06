@@ -90,7 +90,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     const binned = entry({ folderId: 'f-holder', name: 'Plan.pdf', document: { id: 'd1', name: 'Plan.pdf' } })
     render(<FolderBinPanel projectId="p1" initial={listing([binned])} />)
 
-    expect(screen.getByText('Document')).toBeDefined()
+    expect(screen.getByText('Plan.pdf')).toBeDefined()
     await userEvent.click(screen.getByTestId('bin-restore-f-holder'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())

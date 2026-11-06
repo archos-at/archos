@@ -335,6 +335,12 @@ describe('one ramp, one scale', () => {
   it('a press is the kit\u2019s 32px (`size="sm"`), never a 28px override', () => {
     expect(offending(/(?<![\w-])h-7(?![\w-])/)).toEqual([])
   })
+  it('an empty state is bare, never the kit\u2019s dashed grey panel', () => {
+    const offenders = surface
+      .filter((f) => [...withoutComments(f.text).matchAll(/<EmptyState\b[\s\S]*?(?:\/>|\n\s*>)/g)].some(([tag]) => !/variant="bare"/.test(tag)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
   it('a listing is the shared container, never a typed 1280px', () => {
     expect(offending(/max-w-\[1280px\]/)).toEqual([])
   })

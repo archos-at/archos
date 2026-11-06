@@ -160,7 +160,7 @@ export function InboundMailRow({
               <p className={cn('min-w-0 flex-1 line-clamp-2 text-sm text-pretty [overflow-wrap:anywhere]', waiting ? 'text-foreground font-medium' : 'text-foreground')} title={mail.subject ?? undefined} /* a handled mail reads in ink at the normal weight: the tab says it is done, grey made every row read disabled */>
                 {subject}
               </p>
-              <TimeAgo date={mail.receivedAt} locale={locale} short className="text-muted-foreground shrink-0 text-xs tabular-nums" />
+              <TimeAgo date={mail.receivedAt} locale={locale} className="text-muted-foreground shrink-0 text-xs tabular-nums" />
             </div>
             <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs">
               {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} />}

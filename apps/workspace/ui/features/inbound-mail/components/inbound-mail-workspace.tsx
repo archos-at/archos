@@ -447,7 +447,9 @@ export function InboundMailWorkspace({
   )
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
+    // Dateien's container, as every tab of the section: centred with the others from a 1440px section, so the title
+    // and the tabs stand still when the tab changes (a full-width split moved them 80px).
+    <div className="@container listing-container flex h-full min-h-0 flex-col" data-testid="inbound-mail-workspace">
       <ProjectSectionActions>
         {/* An opened mail on a phone shows the mail: the address is a press away, back in the list. Nothing is
             portalled then, or the header kept an empty row's margin above the mail. */}

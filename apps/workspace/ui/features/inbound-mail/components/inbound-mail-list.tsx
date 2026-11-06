@@ -102,7 +102,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="inbound-mail-list">
-      <div className={cn('flex flex-col gap-2 px-4 py-3', !showFilter && 'hidden')}>
+      <div className={cn('flex flex-col gap-2 px-4 pb-3 pt-2', !showFilter && 'hidden')} /* 24px under the tabs, as every tab */>
         <ToggleGroup
           type="single"
           segmented
@@ -117,7 +117,12 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
             {/* Held while the count loads, so „Bearbeitet“ does not move when it lands. */}
-            {waitingCount === null && <Skeleton className="h-4 w-5 rounded-full" aria-hidden />}
+            {/* One digit's width and no text to read, white on the chosen segment's grey. */}
+            {waitingCount === null && (
+              <CountPill tone="muted" aria-hidden className="bg-background">
+                <span className="invisible before:content-['8']" />
+              </CountPill>
+            )}
             {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" className="in-data-[state=on]:bg-background" />}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
@@ -202,7 +207,7 @@ function ListBody({
     if (status === 'handled') {
       return (
         <div className="p-4">
-          <EmptyState icon={History} title={t('empty.handledTitle')} description={t('empty.handledText', { days: INBOUND_MAIL_RESTORE_DAYS })} />
+          <EmptyState variant="bare" icon={History} title={t('empty.handledTitle')} description={t('empty.handledText', { days: INBOUND_MAIL_RESTORE_DAYS })} />
         </div>
       )
     }
@@ -223,6 +228,7 @@ function ListBody({
     return (
       <div className="p-4">
       <EmptyState
+        variant="bare"
         icon={CheckCircle2}
         title={t('empty.doneTitle')}
         description={t('empty.doneText')}
@@ -275,11 +281,12 @@ function ListBody({
               // The Postfach's „E-Mails warten“ row links here (`lib/inbox/targets.ts`).
               id={ready ? INBOUND_MAIL_READY_ANCHOR : undefined}
               data-readiness={section.readiness}
-              // The list's first heading sits 8px under the filter; later ones open a section with 16px.
-              className="flex scroll-mt-2 flex-col gap-1 px-4 pt-4 pb-1 first:pt-1"
+              // A section opens about 48px of white under the row above it (the row's 12px inset counted), twice a
+              // thread's 24px end, which it absorbs after a thread; the list's first heading sits under the filter.
+              className="flex scroll-mt-2 flex-col gap-1 px-4 pt-9 pb-1 first:pt-1 [section+&]:pt-3"
               data-testid={`readiness-${section.readiness}`}
             >
-              <div className="flex min-h-7 items-center justify-between gap-2">
+              <div className="flex min-h-8 items-center justify-between gap-2" /* one height with its press or without */>
                 {/* What „Bereit“ means is the label's hover, not a second line over every list. */}
                 {/* The count is the tabs' muted pill, not brackets: one way to write a count on the page. */}
                 {/* A section outranks a thread: 13px in ink here, the thread's line 12px muted. */}

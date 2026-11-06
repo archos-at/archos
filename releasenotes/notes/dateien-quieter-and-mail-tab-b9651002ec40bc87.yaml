@@ -43,6 +43,9 @@ features:
   - >
     On a tile, open comments now sit on the preview image beside the reading
     state, and the files at the top level are headed "Files".
+  - >
+    The title and tabs of Files stay in place on every tab, the inbox
+    included, and on a phone the open tab is shown whole.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

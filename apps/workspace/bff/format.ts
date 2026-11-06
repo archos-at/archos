@@ -178,6 +178,7 @@ export const formatRelativeTime = (
   const absSeconds = Math.abs(diffSeconds)
 
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style })
+  const numericRtf = new Intl.RelativeTimeFormat(locale, { numeric: 'always', style })
 
   const thresholds: Array<[number, Intl.RelativeTimeFormatUnit]> = [
     [60, 'second'],
@@ -203,6 +204,9 @@ export const formatRelativeTime = (
     if (absSeconds < limit) {
       const divisor = divisors[unit]
       const value = Math.trunc(diffSeconds / divisor)
+      // Months and years in numbers („vor 1 Monat“), as every other step reads: „letzten Monat“ beside „vor 4
+      // Monaten“ was two forms for one scale. Days and hours keep „gestern“, „vor 3 Stunden“.
+      if (unit === 'month' || unit === 'year') return numericRtf.format(value, unit)
       return rtf.format(value, unit)
     }
   }

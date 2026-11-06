@@ -627,7 +627,7 @@ export const files: typeof en.files = {
       '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
     // After „Gelöscht … am …“ and a „·“ on the same line, so lower case; what stays, not the press's words again;
     // the date bound to its word.
-    purgeOn: 'bleibt bis {date}',
+    purgeOn: 'bleibt bis {date}',
     purging: 'wird gerade endgültig gelöscht',
     failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
     restore: 'Wiederherstellen',

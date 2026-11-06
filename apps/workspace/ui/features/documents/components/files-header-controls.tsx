@@ -176,7 +176,7 @@ export function FilesHeaderControls({
 
   return (
     // At the tabs' 14px, as the tabs row's tools below: one press size for the head of the page.
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
+    <div className="flex min-w-0 flex-wrap items-center justify-end gap-3 [&_[data-slot=button]]:text-sm" data-testid="files-controls">
       <ToggleGroup
         type="single"
         value={view}
@@ -230,7 +230,8 @@ export function FilesHeaderControls({
           </Link>
         </Button>
       )}
-      {renderFilter(false)}
+      {/* A ghost press gives back its padding, so its word stands 12px from its neighbours, as the filled ones do. */}
+      <div className="-mx-3.5 flex">{renderFilter(false)}</div>
       {searchField('w-full sm:w-64 lg:w-72')}
       {upload}
       {advancedEntries && advancedEntries.length > 0 && (

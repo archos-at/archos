@@ -249,10 +249,9 @@ export function ProjectSectionFrame({
     <ActionsContext.Provider value={setActions}>
     <TabActionsContext.Provider value={segment === 'files' && !phone ? setTabActions : null}>
       <div className="@container/section flex h-full min-h-0 flex-col">
-        {/* The head keeps its tab's container: a listing's 1280px with the 32px margins; the E-Mail-Eingang's
-            split view is full width, and so is its head, or the page had two right edges. */}
-        {/* A listing's head is the listing's container (1280px, 32px margins), centred with it from a 1440px section. */}
-        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && subpage !== 'files/mail' && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
+        {/* Every Dateien tab's head is the listing's container (1280px, 32px margins), centred with it from a 1440px
+            section: the E-Mail-Eingang's split view sits in the same container, so no tab moves the title. */}
+        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && '[&>*]:max-w-[1216px] @min-[90rem]/section:[&>*]:mx-auto')}>
           {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
               search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
               the E-Mail-Eingang, which has none. */}
