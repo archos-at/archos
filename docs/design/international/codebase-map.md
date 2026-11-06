@@ -274,7 +274,7 @@ So 6 of 11 fields have no reader. The contract fails its own docstring, which li
 | `country-extensibility.md`: "one collection per country … membership in the base collection *is* the country tag" | `scope.py` routes only when config equals the AT default; no country payload | partly true, untested for country 2 |
 | `country-extensibility.md` phase 1: "add `registry.yml`" | `load_registry` merges all files; store and admin AT-only | misleading [V] |
 | `country-extensibility.md`: `oib_knowledge` at 6 sites | about 38 non-test files | stale [V] |
-| ADR-0025: path `src/aiq_agent/common/norm_registry.py`, German ranks | `packages/agent/src/agent/common/norm_registry.py`, English ranks plus `LEGACY_NORM_RANK` read-only aliases | stale [V] |
+| ADR-0025: the pre-move path of `norm_registry.py` (before the package moved to `packages/agent`), German ranks | `packages/agent/src/agent/common/norm_registry.py`, English ranks plus `LEGACY_NORM_RANK` read-only aliases | stale [V] |
 | ADR-0025 Consequences: "Statute texts are re-fetched per session (no persistent RIS cache)" | 7-day Dragonfly cache (`ris-adapter/src/cache.py`, `RIS_CACHE_TTL_DAYS` default 7) | stale [V] |
 | ADR-0025: the Punkt chunker was deleted for shredding OIB text | `ingest/clause_chunking.py` cuts per Punkt again (`chunking: "clause"`), `CHUNK_FORMAT_VERSION = 4` | reintroduced; the ADR does not say so [V] |
 | ADR-0025: "Bundesland vocabulary and doctrine move to data when country #2 ships" | doctrine overridable; Bundesland is code and validated in `_validated_entries` | partly stale |
