@@ -51,7 +51,7 @@
     "apps/workspace/bff/feedback/repository.ts": 836,
     "apps/workspace/bff/inbox/registry.ts": 695,
     "apps/workspace/bff/inbox/repository.ts": 1201,
-    "apps/workspace/bff/inbox/service.ts": 1001,
+    "apps/workspace/bff/inbox/service.ts": 1000,
     "apps/workspace/bff/jobs/service.ts": 789,
     "apps/workspace/bff/mentions/service.ts": 921,
     "apps/workspace/bff/pdf/blocks-to-pdf.tsx": 675,

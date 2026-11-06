@@ -611,7 +611,9 @@ holding two, because reading it set the count to 0 and the next mail added one,
 and a mail whose filing failed (`filing_failed`, its own row) was never added.
 So the read path (`listInbox`, and the push's `viewInboxItemAs`) replaces the
 count of an `inbound_mail.waiting` row with the project's waiting mails, by
-`projectNoticeState`'s rule (`waitingMailCounts`). Only the words follow it;
+`projectNoticeState`'s rule (`waitingMailCounts`), once the view is built and
+only when its target is reachable: a redacted row (access revoked) keeps its
+stored tally and reads nothing. Only the words follow it;
 the badge counts rows, and read and unread are as stored. `titleNone` covers a
 row read after its last mail was decided and before the settle resolved it.
 

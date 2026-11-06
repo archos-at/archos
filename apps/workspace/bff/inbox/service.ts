@@ -771,7 +771,7 @@ export async function listInbox(
   )
   // Each lane is newest-first and bounded, so the merged page is the newest `pageSize` across them.
   const merged = perLane.flat().sort(newestFirst)
-  const rows = await withLiveCounts(merged.slice(0, pageSize))
+  const rows = merged.slice(0, pageSize)
   const hasMore = merged.length > pageSize
   const last = rows.at(-1)
 
@@ -790,7 +790,7 @@ export async function listInbox(
   const projectNames = await listProjectNamesInOrg(session.organizationId, projectIdsOf(targets))
 
   return {
-    items: rows.map((row) => toItemView(row, targets, actorNames, withheld, answers, projectNames)),
+    items: await withLiveCounts(rows.map((row) => toItemView(row, targets, actorNames, withheld, answers, projectNames))),
     pending,
     counts,
     hasMore,
@@ -844,9 +844,8 @@ export async function viewInboxItemAs(session: AuthorizedSession, row: InboxItem
   ])
   const actorNames = new Map([...people].map(([userId, person]) => [userId, person.name]))
   const projectNames = await listProjectNamesInOrg(session.organizationId, projectIdsOf(targets))
-  const [live] = await withLiveCounts([row]) // its number, as the list says it
-  const view = toItemView(live, targets, actorNames, withheld, await markAnswersFor(session, [row], targets), projectNames)
-  return view.href ? view : null
+  const view = toItemView(row, targets, actorNames, withheld, await markAnswersFor(session, [row], targets), projectNames)
+  return view.href ? (await withLiveCounts([view]))[0] : null // counted only once the target is reachable
 }
 
 /**
