@@ -1,5 +1,6 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -119,7 +120,7 @@ export function AgentReading({
               middot is bound to the word before it, so a wrapped line never starts with one. */}
           {types.length > 0 && (
             <p className="text-foreground text-sm font-medium" data-testid="agent-reading-type">
-              {types.map((tag) => tagLabel(tag, t)).join(' · ')}
+              {types.map((tag) => tagLabel(tag, t)).join(CLAUSE_JOIN)}
             </p>
           )}
           {disciplines.length > 0 && <WordRun words={disciplines.map((tag) => tagLabel(tag, t))} className="text-muted-foreground" />}
@@ -163,7 +164,7 @@ function readingFacts(file: FileItem, locale: string, t: ReturnType<typeof useTr
   if (kinds.some((content) => content !== 'text')) {
     parts.push(kinds.map((content) => t(`preview.contentTypeNames.${content}`)).join(', '))
   }
-  return parts.length > 0 ? parts.join(' · ') : null
+  return parts.length > 0 ? parts.join(CLAUSE_JOIN) : null
 }
 
 /**
@@ -178,7 +179,7 @@ function CaptureLine({ capture }: { capture: PhotoCapture }) {
   const located = capture.latitude !== undefined && capture.longitude !== undefined
   if (!when && !capture.camera && !located) return null
   return (
-    <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs" data-testid="agent-reading-capture">
+    <p className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-xs" data-testid="agent-reading-capture">
       {when && <span>{t('preview.reading.capturedAt', { when })}</span>}
       {capture.camera && (
         <>

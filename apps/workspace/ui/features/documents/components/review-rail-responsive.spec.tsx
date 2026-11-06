@@ -143,20 +143,13 @@ describe('the review rail is a column on a wide container and a stacked block on
     expect(body.className).toContain('@2xl:overflow-hidden')
   })
 
-  it('the type chip may shrink, so it cannot run under the header controls', async () => {
+  it('the header carries no type chip, so nothing runs under the header controls', async () => {
     const { container } = renderPane()
     await screen.findByTestId('document-revisions')
-    // Scoped to the HEADER: the same tag is also a chip down in the rail's tag
-    // list, and only the header one is squeezed by the controls beside it.
+    // At 390px „Grundriss" ran out of the name column and under the Download button; the chip is gone since
+    // 2026-11 (the rail's reading says the type), and the name still truncates in its column.
     const nameColumn = container.querySelector('h3')?.parentElement as HTMLElement
-    const badge = within(nameColumn).getByText('Grundriss').parentElement as HTMLElement
-    // `Badge` is `w-fit shrink-0` by construction, so `min-w-0` alone never
-    // made it narrow: at 390px „Grundriss" ran out of the name column and under
-    // the Download button. Both halves of the fix are asserted, because either
-    // one alone leaves the overlap.
-    expect(badge.className).toContain('shrink')
-    expect(badge.className).not.toContain('shrink-0')
-    expect((badge.parentElement as HTMLElement).className).toContain('overflow-hidden')
+    expect(within(nameColumn).queryByText('Grundriss')).toBeNull()
     expect(container.querySelector('.truncate')).toBeTruthy()
   })
 })

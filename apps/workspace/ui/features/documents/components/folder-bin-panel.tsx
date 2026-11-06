@@ -11,8 +11,9 @@
  * every action again.
  */
 
+import { fileExtensionLabel } from '../document-kind'
 import { useCallback, useState, type JSX } from 'react'
-import { AlertTriangle, FileText, Folder, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
+import { AlertTriangle, Folder, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   FolderBinRequestError,
@@ -30,7 +31,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
 import { FOLDER_NAME_TAKEN_REASON } from '@/lib/projects/folder-bin-codes'
 
 export interface FolderBinPanelProps {
@@ -145,11 +146,14 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
             // On a phone the actions take their own line under the entry,
             // rather than squeezing its name and dates to nothing.
             <Item key={entry.folderId} as="li" className="flex-wrap rounded-surface hover:bg-muted sm:flex-nowrap" data-testid={`bin-entry-${entry.folderId}`}>
-              <ItemMedia className="h-5 w-auto justify-start self-start" /* the glyph on the edge and on the name's line */>
+              {/* The list's 32px column: a document's format in words, as the file list writes it, a folder's glyph. */}
+              <ItemMedia className="h-5 w-8 justify-start self-start" /* on the edge and on the name's line */>
                 {entry.document ? (
-                  <FileText className="text-muted-foreground size-5" aria-hidden />
+                  <span className="text-muted-foreground text-[11px] font-medium uppercase" aria-hidden>
+                    {fileExtensionLabel(entry.name) || '—'}
+                  </span>
                 ) : (
-                  <Folder className="text-muted-foreground size-5" aria-hidden />
+                  <Folder className="text-muted-foreground size-4" aria-hidden />
                 )}
               </ItemMedia>
               <ItemContent className="basis-[calc(100%-2.75rem)] sm:basis-auto">
@@ -158,7 +162,12 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                     glyph says what it is, so it has no such line. */}
                 {!entry.document && (
                   <ItemDescription className="whitespace-normal sm:truncate">
-                    {t('bin.contents', { documents: entry.documents, folders: entry.folders })}
+                    {[
+                      entry.documents > 0 && t('bin.contentsDocuments', { count: entry.documents }),
+                      entry.folders > 0 && t('bin.contentsFolders', { count: entry.folders }),
+                    ]
+                      .filter(Boolean)
+                      .join(CLAUSE_JOIN) || t('bin.contentsDocuments', { count: 0 })}
                   </ItemDescription>
                 )}
                 {/* Who deleted it and when it goes, on one line: four lines of 12px meta per row was a form, not a list. */}
@@ -167,12 +176,15 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                     {entry.deletedBy.name
                       ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
                       : t('bin.deletedOn', { date: date(entry.deletedAt) })}
-                    {' · '}
-                    {entry.status === 'purging'
-                      ? t('bin.purging')
-                      : entry.status === 'failed'
-                        ? t('bin.failed')
-                        : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
+                    {/* On a phone when it goes is a line of its own, with no dot to strand at a wrap. */}
+                    <span className="max-sm:hidden">{CLAUSE_JOIN}</span>
+                    <span className="max-sm:block max-sm:first-letter:uppercase">
+                      {entry.status === 'purging'
+                        ? t('bin.purging')
+                        : entry.status === 'failed'
+                          ? t('bin.failed')
+                          : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
+                    </span>
                     {/* Inline after the words, on a phone too, so the line keeps its edge with the ones above. */}
                     {entry.status === 'purging' && <Spinner size="xs" className="ml-1 inline-block align-[-2px]" />}
                   </span>
@@ -184,10 +196,10 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                   from Wiederherstellen. `ml-auto` keeps it at the end when it is
                   the only action, so the row does not change shape. */}
               {/* On a phone the actions line up under the name they belong to, not under the glyph. */}
-              <ItemActions className="w-full flex-wrap justify-between pl-8 sm:w-auto sm:flex-nowrap sm:justify-end sm:pl-0">
+              <ItemActions className="w-full items-center justify-between gap-3 pl-11 sm:w-auto sm:justify-end sm:pl-0" /* one row on a phone: the reason or the press left, the delete right */>
                 {/* Where the press would be, the reason it is not: a hole in the press column was a question. */}
                 {!entry.canRestore && entry.restoreBlocked && (
-                  <span className="text-muted-foreground text-xs sm:max-w-56 sm:text-right" data-testid={`bin-blocked-${entry.folderId}`}>
+                  <span className="text-muted-foreground min-w-0 flex-1 text-xs sm:max-w-56 sm:flex-none sm:text-right" data-testid={`bin-blocked-${entry.folderId}`}>
                     {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
                   </span>
                 )}

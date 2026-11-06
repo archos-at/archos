@@ -794,6 +794,7 @@ export function FolderRow({
     )
   }
 
+  const changedAt = lastModified ?? folder.createdAt ?? null
   // THE ROW THAT WAS YELLOW: its amber read as a warning, and that gold is a signal (`--source-office`). Neutral ramp;
   // glyph and chevron say „folder“. No entrance of its own: the level's keyed transition owns it.
   // A row of the table below it in all but its columns: on the page, the cells' 8px inset, a 24px round glyph
@@ -834,31 +835,30 @@ export function FolderRow({
         )}
         {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
         {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-        {/* What it holds in words, as the folder tile says it, then when it changed: „2 Elemente · vor 4 Monaten“. */}
-        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">{t('folders.items', { count: itemCount })}</span>
-        {lastModified && (
-          <>
-            <span aria-hidden className="text-muted-foreground/40 text-xs phone:hidden">
-              ·
-            </span>
-            <TimeAgo date={lastModified} locale={locale} className="shrink-0 text-xs tabular-nums text-muted-foreground phone:hidden" />
-          </>
-        )}
+        {/* Below the table's reference columns, what it holds stands after the name, as the folder tile says it. */}
+        <span className="text-muted-foreground shrink-0 text-xs tabular-nums @3xl/filelist:hidden">{t('folders.items', { count: itemCount })}</span>
         <span className="flex-1" />
         {/* Only what departs from „all read“, as on the tile: the normal case is quiet. */}
         <FolderReadState tally={knowledge} exceptionsOnly />
+        {/* In the table's columns where it has them: what it holds under Größe, when it changed (or was made) under
+            Hinzugefügt, the widths and insets of the table's cells, so a folder's date stands where a file's does. */}
+        <span className="text-muted-foreground hidden w-[104px] shrink-0 px-2 text-right text-xs tabular-nums @3xl/filelist:block">{t('folders.items', { count: itemCount })}</span>
+        {changedAt ? (
+          <TimeAgo date={changedAt} locale={locale} className="text-muted-foreground hidden w-[120px] shrink-0 px-2 text-right text-xs tabular-nums @4xl/filelist:block" />
+        ) : (
+          <span className="hidden w-[120px] shrink-0 @4xl/filelist:block" />
+        )}
       </button>
-      {actions ?? (
-        <FolderActionsMenu
-          folder={folder}
-          onStartRename={() => setEditing(true)}
-          onDeleteFolder={onDeleteFolder}
-        />
-      )}
-      <ChevronRight
-        className="text-muted-foreground/40 group-hover:text-muted-foreground size-3.5 shrink-0 transition-colors duration-quick ease-out motion-reduce:transition-none"
-        aria-hidden
-      />
+      {/* The table's 40px actions column, flush with the row's end (gap and inset given back); no chevron, as a file row. */}
+      <span className="-ml-2 -mr-2 flex w-10 shrink-0 justify-center">
+        {actions ?? (
+          <FolderActionsMenu
+            folder={folder}
+            onStartRename={() => setEditing(true)}
+            onDeleteFolder={onDeleteFolder}
+          />
+        )}
+      </span>
     </Item>
   )
 }

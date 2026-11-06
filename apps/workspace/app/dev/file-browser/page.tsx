@@ -343,7 +343,7 @@ function SearchInListViewFixture(): JSX.Element {
       {/* Mirrors ProjectFileWorkspace's composition: the field lives in the
           header, one component above the pane it filters. */}
       <div className="flex h-[460px] flex-col overflow-hidden rounded-xl border" data-testid="file-browser-search-list">
-        <div className="flex items-center justify-end border-b px-4 py-3">
+        <div className="flex items-center justify-end px-4 py-3">
           <FileSearchField
             className="w-72"
             value={search.query}
@@ -510,7 +510,7 @@ function SearchFailedFixture(): JSX.Element {
       {/* Mirrors ProjectFileWorkspace's composition: the field lives in the
           header, one component above the pane it filters. */}
       <div className="flex h-[460px] flex-col overflow-hidden rounded-xl border" data-testid="file-browser-search-failed">
-        <div className="flex items-center justify-end border-b px-4 py-3">
+        <div className="flex items-center justify-end px-4 py-3">
           <FileSearchField
             className="w-72"
             value={search.query}
@@ -601,7 +601,7 @@ function FileBrowserFixtures(): JSX.Element {
         {/* The REAL header controls (`FilesHeaderControls`), so this preview
             draws the row the product draws: one row on a phone, the desk's
             toggle, filter and search otherwise. */}
-        <div className="border-b px-4 py-3">
+        <div className="px-4 py-3">
           <FilesHeaderControls
             phone={phone}
             view={view}

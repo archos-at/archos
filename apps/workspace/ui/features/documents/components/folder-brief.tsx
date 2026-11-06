@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { SegmentMeter, ToneSwatch, type MeterTone } from '@/components/ui/segment-meter'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatDayRange } from '@/lib/format'
+import { CLAUSE_JOIN, formatDayRange } from '@/lib/format'
 import { offeredForRetry } from '@/lib/documents/retry-policy'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
 import { cn } from '@/lib/utils'
@@ -188,7 +188,7 @@ export function FolderBrief({
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
                 {/* All read, the page count is the brief's one figure: on its line, not a row of its own. */}
-                {open && quietPages && <span className="text-muted-foreground tabular-nums"> · {pagesLine}</span>}
+                {open && quietPages && <span className="text-muted-foreground tabular-nums">{CLAUSE_JOIN}{pagesLine}</span>}
                 {/* On a phone the line wraps, and the chevron follows its last word there too. */}
                 <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
               </span>
@@ -319,7 +319,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
   // The closed line names the first four kinds and counts the rest; the disclosure holds them all.
   const kinds = [...documentTypes, ...disciplines].map(({ label }) => tagLabel(label, t))
   const more = kinds.length - 4
-  const summary = kinds.length === 0 ? t('brief.noTypes') : [...kinds.slice(0, 4), ...(more > 0 ? [t('brief.aboutMore', { count: more })] : [])].join(' · ')
+  const summary = kinds.length === 0 ? t('brief.noTypes') : [...kinds.slice(0, 4), ...(more > 0 ? [t('brief.aboutMore', { count: more })] : [])].join(CLAUSE_JOIN)
   return (
     <BriefDisclosure id="folder-brief-about" title={t('brief.aboutTitle')} summary={summary}>
       {documentTypes.length === 0 && disciplines.length === 0 ? (
@@ -360,7 +360,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
         </ChipFamily>
       )}
       {contentNames.length > 0 && (
-        <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(' · ') })}</p>
+        <p className="text-muted-foreground text-xs">{t('brief.contains', { list: contentNames.join(CLAUSE_JOIN) })}</p>
       )}
       {photos && (
         <button data-attr="folder-brief-photos"
@@ -520,7 +520,7 @@ function NeedsYouSection({
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-2 px-3 pb-3 pt-3 phone:px-4" aria-labelledby="folder-brief-needs">
+    <section className="flex flex-col gap-1 px-3 pb-3 pt-2 phone:px-4" aria-labelledby="folder-brief-needs" /* its heading 4px over its rows; 24px from the legend above */>
       <h3 id="folder-brief-needs" className="text-foreground text-[13px] font-medium" /* a heading: 13px ink; row labels 12px muted */>
         {t('brief.needsTitle')}
       </h3>
@@ -636,7 +636,7 @@ function HotspotSection({
     <BriefDisclosure
       id="folder-brief-where"
       title={t('brief.whereTitle')}
-      summary={hotspots.map(({ trail }) => trail.join(' / ')).join(' · ')}
+      summary={hotspots.map(({ trail }) => trail.join(' / ')).join(CLAUSE_JOIN)}
     >
       <ul className="-mx-1.5 flex flex-col">
         {hotspots.map(({ folder, trail, tally }) => (

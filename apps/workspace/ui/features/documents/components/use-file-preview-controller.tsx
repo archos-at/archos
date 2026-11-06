@@ -7,7 +7,6 @@ import { isTextPageType } from './file-text-page'
 import { MessageSquarePlus } from 'lucide-react'
 import { firstFinding, quarantineVerdictOf, type QuarantineFinding } from '@/lib/upload-screening/quarantine'
 
-import { documentTypeOf } from '@/lib/documents/tag-vocabulary'
 
 import { useLocale, useTranslations } from '@/i18n'
 
@@ -286,9 +285,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
   // The document has visual chunks (drawings/images/charts) whose per-page VLM
   // descriptions can be browsed in the "detailed information" section.
   const hasVisualContent = (file.contentTypes ?? []).some((c) => VISUAL_CONTENT_TYPES.includes(c))
-  // The ingestion-detected document type (first document-type tag), shown as
-  // the indexed panel's Type row. Only real metadata — nothing is inferred here.
-  const detectedType = documentTypeOf(file.tags)
   /**
    * Whether the rail's ownership block has anything in it. In the chat peek an
    * ordinary upload has no Piloti byline, no Discuss button (the reader is
@@ -872,7 +868,6 @@ export function useFilePreviewController(props: FilePreviewPaneProps) {
     detailsFailed,
     detailsLoading,
     detailsOpen,
-    detectedType,
     discussHint,
     file,
     fileFacts,

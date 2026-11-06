@@ -31,6 +31,7 @@
  * several-mail sizes confirm first, listing where everything goes.
  */
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -40,7 +41,6 @@ import { ArrowLeft, Lock, MailPlus, MailSearch, X } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { EmptyState } from '@/components/ui/empty-state'
 import { ProjectSectionActions } from '@/components/shell/project-section-frame'
 import { PHONE_QUERY } from '@/hooks/use-is-mobile'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -291,7 +291,7 @@ export function InboundMailWorkspace({
   const send = async (decisions: InboundMailDecision[], plan: BulkPlan, surface: AsSuggestedSurface): Promise<void> => {
     await client.file(projectId, { mails: decisions })
     toast.success(t('toast.filedAsSuggested', { count: decisions.length }), {
-      description: plan.destinations.map(destinationLine).join(' · '),
+      description: plan.destinations.map(destinationLine).join(CLAUSE_JOIN),
     })
     // Whether „Bereit“ is the way people file: by surface, how many mails per press.
     capturePosthog('inbound_mail_filed_as_suggested', { surface, mails: decisions.length, files: plan.files, texts: plan.texts })
@@ -438,7 +438,7 @@ export function InboundMailWorkspace({
     ) : null
 
   const back = (
-    <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit @3xl:hidden">
+    <Button asChild variant="ghost" size="sm" className="-ml-3.5 w-fit @3xl:hidden" /* its 14px padding given back: the arrow on the gutter */>
       <Link href={paths.list(filter)} data-testid="inbound-mail-back">
         <ArrowLeft className="size-4" aria-hidden />
         {t('title')}
@@ -548,9 +548,11 @@ export function InboundMailWorkspace({
             />
           ) : list.kind === 'loading' ? null /* nothing to pick yet: „Wählen Sie …“ only once there is a list */ : (
             // Bare and in the pane's middle: a dashed grey panel was a box and a line around one sentence.
-            <div className="flex h-full items-center justify-center p-8">
-              {/* While mails are picked the pane says how many, not „Wählen Sie eine E-Mail“ beside two ticked rows. */}
-              <EmptyState variant="bare" icon={MailSearch} title={checked.size > 0 ? t('bulk.selected', { count: checked.size }) : t('noSelection')} />
+            // Quiet is the normal case: one muted 14px line under a muted glyph, not a heading in ink. While mails are
+            // picked it says what the bar does, not „2 ausgewählt“ a second time beside the bar's own count.
+            <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 p-8 text-center" data-testid="inbound-mail-no-selection">
+              <MailSearch className="size-5" aria-hidden />
+              <p className="max-w-xs text-sm text-pretty">{checked.size > 0 ? t('bulk.paneHint') : t('noSelection')}</p>
             </div>
           )}
         </div>

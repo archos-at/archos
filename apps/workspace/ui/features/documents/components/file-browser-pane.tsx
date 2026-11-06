@@ -938,7 +938,7 @@ export function FileBrowserPane({
         >
             {folderNav && childFolders.length > 0 && (
               // The folders head the table as rows of their own, on the page like its rows: no box, no hairlines.
-              <div className="flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0" role="group" aria-label={t('folders.heading')}>
+              <div className="@container/filelist flex flex-col px-2 pb-2 pt-1 md:-mx-2 md:px-0" role="group" aria-label={t('folders.heading')}>
                 {childFolders.map((folder) => (
                   <Fragment key={folder.id}>{folderTile(folder, true)}</Fragment>
                 ))}

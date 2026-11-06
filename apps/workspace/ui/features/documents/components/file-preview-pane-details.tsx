@@ -137,7 +137,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                         </ItemTitle>
                         <ItemDescription className="text-[11px]/4">{t('assignment.responsible')}</ItemDescription>
                       </ItemContent>
-                      <ItemActions>
+                      <ItemActions className="-mr-2" /* the press's 8px given back: „Ändern“ ends 12px from the card's edge, as the facts do */>
                         <AssignPopover
                           documentId={file.id}
                           assignees={file.assignees ?? []}

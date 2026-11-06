@@ -154,10 +154,10 @@ describe('FilePreviewPane', () => {
     expect(chrome.getByRole('button', { name: 'Download' })).toBeInTheDocument()
     expect(chrome.getByTestId('document-actions-trigger')).toBeInTheDocument()
     expect(chrome.getByRole('button', { name: 'Close preview' })).toBeInTheDocument()
-    // Which document it is — the category, as a chip under the name. No
-    // „Citable" chip: this document is citable like almost every other, and a
-    // badge that appears on everything distinguishes nothing.
-    expect(chrome.getByText('Grundriss')).toBeInTheDocument()
+    // Which document it is is the rail's reading („… hält es für Grundriss“), not a header chip that said it
+    // twice. No „Citable" chip: this document is citable like almost every other, and a badge that appears on
+    // everything distinguishes nothing.
+    expect(chrome.queryByText('Grundriss')).toBeNull()
     expect(screen.queryByText('Citable')).toBeNull()
 
     // What Piloti made of it, and who owns it — the rail's, not the chrome's.
@@ -865,10 +865,9 @@ describe('FilePreviewPane', () => {
           projectName="Stadthaus Linz"
         />
       )
-      // The detected type is a chip beside the name now, not a rail row —
-      // 'Grundriss' appears there and as the reading's type chip, and nowhere else.
+      // The detected type is the reading's, in the rail, once: no rail row and no header chip.
       expect(screen.queryByText('Document type')).toBeNull()
-      expect(screen.getAllByText('Grundriss')).toHaveLength(2)
+      expect(screen.getAllByText('Grundriss')).toHaveLength(1)
     })
 
     it('omits the project row and the category chip without the metadata', () => {

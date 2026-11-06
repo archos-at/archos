@@ -54,11 +54,11 @@ export const inboundMail: typeof en.inboundMail = {
     noSubject: '(ohne Betreff)',
     attachments: '{count, plural, one {# Anhang} other {# Anhänge}}',
     automatic: 'Automatisch',
-    thread: 'E-Mail-Verlauf „{name}“ · wird Fassung {version}',
+    thread: 'E-Mail-Verlauf „{name}“\u00A0· wird Fassung {version}',
     select: '„{subject}“ auswählen',
-    impersonation: 'Gibt sich als {name} aus · nicht ablegen',
+    impersonation: 'Gibt sich als {name} aus\u00A0· nicht ablegen',
     // Die eigene Adresse des Lesers, von seiner Domain abgelehnt: an ihn selbst, nie „gibt sich als Sie aus“.
-    impersonationOwn: 'Mit Ihrer Adresse, von Ihrer Domain abgelehnt · prüfen',
+    impersonationOwn: 'Mit Ihrer Adresse, von Ihrer Domain abgelehnt\u00A0· prüfen',
     /** Wer eine E-Mail ablegt, die ein Mitglied nennt, ohne dass seine Domain sie bestätigt hat. */
     claim: {
       own: 'Haben Sie sie gesendet? Bestätigen Sie es',
@@ -69,11 +69,11 @@ export const inboundMail: typeof en.inboundMail = {
     outcome: {
       filed: '{count, plural, one {# Teil abgelegt} other {# Teile abgelegt}}',
       dismissed: '{count, plural, one {# Teil verworfen} other {# Teile verworfen}}',
-      expired: '{count, plural, one {# Teil abgelaufen} other {# Teile abgelaufen}}',
+      expired: '{count, plural, one {# Teil ohne Entscheidung abgelaufen} other {# Teile ohne Entscheidung abgelaufen}}',
     },
     textFollowed: 'Text dem E-Mail-Verlauf angefügt (Verlauf folgen)',
     // Die Domain eines Mitglieds, das im Projekt ablegen darf, hat sie bestätigt, die direkte Ablage hat sie trotzdem nicht abgelegt (`not_filed`).
-    notFiled: 'Nicht direkt abgelegt · {need}',
+    notFiled: 'Nicht direkt abgelegt\u00A0· {need}',
     filing: 'Wird abgelegt …',
     notFiledReady: 'Nicht direkt abgelegt',
     fileAsSuggested: '„{subject}“ wie vorgeschlagen ablegen',
@@ -101,7 +101,7 @@ export const inboundMail: typeof en.inboundMail = {
   },
 
   group: {
-    thread: 'E-Mail-Verlauf „{name}“ · {count, plural, one {# neue E-Mail} other {# neue E-Mails}}',
+    thread: 'E-Mail-Verlauf „{name}“\u00A0· {count, plural, one {# neue E-Mail} other {# neue E-Mails}}',
     threadLine: '„{name}“',
     threadAction: '{count, plural, one {Als Fassung {first} ablegen} other {Als Fassung {first}–{last} ablegen}}',
     threadActionFirst: 'Die ersten {count} als Fassung {first}–{last} ablegen',
@@ -113,9 +113,9 @@ export const inboundMail: typeof en.inboundMail = {
   trust: {
     verified: 'Domain bestätigt: {domain}',
     bccOwn: 'Ihre eigene E-Mail (Bcc)',
-    memberUnverified: 'Mitglied · Domain nicht bestätigt',
+    memberUnverified: 'Mitglied\u00A0· Domain nicht bestätigt',
     impersonation: 'Gibt sich als {name} aus',
-    impersonationOwn: 'Ihre Adresse · von Ihrer Domain abgelehnt',
+    impersonationOwn: 'Ihre Adresse\u00A0· von Ihrer Domain abgelehnt',
     unverified: 'Domain nicht bestätigt',
     explain: {
       verified:
@@ -151,8 +151,8 @@ export const inboundMail: typeof en.inboundMail = {
     paused: 'Wartet: Die direkte Ablage ist ausgeschaltet, deshalb wurde sie nicht direkt abgelegt. Alle, die in diesem Projekt ablegen dürfen, können sie ablegen.',
     // Eine E-Mail, die die Domain eines Mitglieds, das im Projekt ablegen darf, bestätigt hat und die trotzdem wartet: die direkte Ablage hat sie (ganz oder teilweise) nicht abgelegt.
     not_filed: 'Wartet: {name} hat sie gesendet und die Domain hat sie bestätigt, aber sie wurde nicht direkt abgelegt. Prüfen Sie sie und legen Sie sie ab oder verwerfen Sie sie.',
-    // Information, not an instruction: under „Bereit“ one press files it, and „Prüfen Sie …“ there contradicted it.
-    no_write_rights: 'Wartet auf Ihre Ablage: Diese Absenderadresse ist für das Projekt nicht freigegeben.',
+    // Information, not an instruction, and one cause: under „Bereit“ one press files it; „nicht freigegeben“ was Freigabe's word (CONTEXT.md) and read against „Domain bestätigt“.
+    no_write_rights: 'Wartet auf Ihre Ablage, weil der Absender in diesem Projekt nicht ablegen darf.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Legen Sie ab, was ins Projekt gehört; legt sie niemand ab, läuft sie nach {days} Tagen ab und lässt sich danach nicht wiederherstellen.',
     sender_unchecked: 'Wartet: Beim Eingang ließ sich nicht prüfen, wer der Absender im Büro ist. Prüfen Sie Adresse und Domain oben, bevor Sie ablegen.',
   },
@@ -179,7 +179,7 @@ export const inboundMail: typeof en.inboundMail = {
     cc: 'Cc',
     replyTo: 'Antwort an',
     // Dieselben Worte wie der E-Mail-Verlauf: zuerst wer sie geschrieben hat, dann wer sie weitergeleitet hat.
-    forwardedFrom: 'Von {who} · Domain nicht bestätigt · weitergeleitet von {forwarder}',
+    forwardedFrom: 'Von {who}\u00A0· Domain nicht bestätigt\u00A0· weitergeleitet von {forwarder}',
     forwardedExplain: 'Aus dem weitergeleiteten Text gelesen. Die Domain bestätigt nur die Weiterleitung, nicht, wer die E-Mail ursprünglich geschrieben hat.',
     original: 'Original (.eml) herunterladen',
     originalHint: 'Öffnet sich im Mailprogramm; Bilder von außen werden dort geladen.',
@@ -263,15 +263,15 @@ export const inboundMail: typeof en.inboundMail = {
     label: 'Anhänge',
     unnamed: 'Anhang {position}',
     file: '{name} ablegen',
-    facts: '{type} · {size}',
+    facts: '{type}\u00A0· {size}',
     open: 'Öffnen',
     change: 'Ändern',
     preview: '{name} ansehen',
     status: {
       scan_pending: 'Wird auf Schadsoftware geprüft …',
       scan_failed: 'Prüfung fehlgeschlagen, wird wiederholt',
-      scan_infected: 'Schadsoftware gefunden · lässt sich nicht ablegen',
-      not_offered: 'Dateityp wird in diesem Büro nicht abgelegt · im Original enthalten',
+      scan_infected: 'Schadsoftware gefunden\u00A0· lässt sich nicht ablegen',
+      not_offered: 'Dateityp wird in diesem Büro nicht abgelegt\u00A0· im Original enthalten',
       filing: 'Wird abgelegt …',
       filed: 'In Dateien abgelegt',
       filedTo: 'Abgelegt in {folder}',
@@ -282,7 +282,7 @@ export const inboundMail: typeof en.inboundMail = {
     notes: {
       duplicate: 'Liegt schon im Projekt: {path}',
       revision: 'wird Fassung {version} von {name}',
-      revisionUnverified: 'könnte Fassung {version} von {name} sein · Domain nicht bestätigt',
+      revisionUnverified: 'könnte Fassung {version} von {name} sein\u00A0· Domain nicht bestätigt',
       revisionHidden: 'Eine mögliche frühere Fassung liegt in einem Ordner, den Sie nicht sehen',
       nameStop: 'Namensprüfung: „{terms}“',
       releaseName: 'Trotzdem ablegen',
@@ -296,13 +296,13 @@ export const inboundMail: typeof en.inboundMail = {
       lastFailure: 'Konnte nicht abgelegt werden: {reason}',
     },
     notStaged: {
-      tnef: '{name} · Outlook-eigener Anhang, nicht geöffnet · im Original enthalten',
-      encrypted: '{name} · verschlüsselt · im Original enthalten',
-      archive: '{name} · Archivdatei, nicht entpackt · im Original enthalten',
-      calendar: '{name} · Termin, im Text angezeigt',
-      size: '{name} · zu groß zum Ablegen · im Original enthalten',
-      limit: '{name} · über der Anzahl an Anhängen, die eine E-Mail haben darf · im Original enthalten',
-      layoutImages: '{count, plural, one {# Bild aus der Signatur} other {# Bilder aus der Signatur}} · im Original enthalten',
+      tnef: '{name}\u00A0· Outlook-eigener Anhang, nicht geöffnet\u00A0· im Original enthalten',
+      encrypted: '{name}\u00A0· verschlüsselt\u00A0· im Original enthalten',
+      archive: '{name}\u00A0· Archivdatei, nicht entpackt\u00A0· im Original enthalten',
+      calendar: '{name}\u00A0· Termin, im Text angezeigt',
+      size: '{name}\u00A0· zu groß zum Ablegen\u00A0· im Original enthalten',
+      limit: '{name}\u00A0· über der Anzahl an Anhängen, die eine E-Mail haben darf\u00A0· im Original enthalten',
+      layoutImages: '{count, plural, one {# Bild aus der Signatur} other {# Bilder aus der Signatur}}\u00A0· im Original enthalten',
     },
   },
 
@@ -387,10 +387,10 @@ export const inboundMail: typeof en.inboundMail = {
     partialFailureAll: '{failed, plural, one {Die Datei konnte nicht abgelegt werden.} other {Keine der # Dateien konnte abgelegt werden.}}',
     partialFailureHint: 'Sie warten wieder hier. Wählen Sie einen anderen Namen oder Ordner und legen Sie sie erneut ab.',
     quotaFull: 'Der Speicher des Büros ist voll. Es wurde nichts abgelegt; die E-Mail wartet weiter.',
-    expired: 'Abgelaufen · wiederherstellbar bis {date}',
-    dismissed: 'Verworfen · wiederherstellbar bis {date}',
-    partsExpired: '{count, plural, one {# Teil abgelaufen} other {# Teile abgelaufen}} · wiederherstellbar bis {date}',
-    partsDismissed: '{count, plural, one {# Teil verworfen} other {# Teile verworfen}} · wiederherstellbar bis {date}',
+    expired: 'Ohne Entscheidung abgelaufen\u00A0· wiederherstellbar bis {date}',
+    dismissed: 'Verworfen\u00A0· wiederherstellbar bis {date}',
+    partsExpired: '{count, plural, one {# Teil ohne Entscheidung abgelaufen} other {# Teile ohne Entscheidung abgelaufen}}\u00A0· wiederherstellbar bis {date}',
+    partsDismissed: '{count, plural, one {# Teil verworfen} other {# Teile verworfen}}\u00A0· wiederherstellbar bis {date}',
     restore: 'Wiederherstellen',
     restoreBusy: 'Wird wiederhergestellt …',
     settled: 'Alles an dieser E-Mail ist bearbeitet.',
@@ -415,6 +415,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   bulk: {
     selected: '{count} ausgewählt',
+    paneHint: 'Die Leiste unter der Liste gilt für alle ausgewählten E-Mails.',
     clear: 'Auswahl aufheben',
     fileSuggested: 'Wie vorgeschlagen ablegen',
     fileSuggestedBusy: 'Wird abgelegt …',
@@ -499,7 +500,7 @@ export const inboundMail: typeof en.inboundMail = {
     label: 'E-Mail-Adresse des Projekts',
     copy: 'Kopieren',
     saveContact: 'Als Kontakt sichern',
-    contactName: '{productName} · {project}',
+    contactName: '{productName}\u00A0· {project}',
     contactNote:
       'Ihre eigenen E-Mails an diese Adresse, die Ihre Domain bestätigt, legt {productName} direkt ab, wenn Sie im Projekt ablegen dürfen; andere warten, bis jemand sie ablegt.',
     usesLabel: 'Wofür die Adresse da ist',

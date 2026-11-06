@@ -429,15 +429,16 @@ export function DocumentKindThumbnail({
           data-kind={kind}
           data-testid="document-kind-thumbnail"
           data-state="failed"
+          title={failedLabel}
           className={cn(
-            'absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground',
+            'absolute inset-0 flex flex-col items-center justify-center bg-muted text-muted-foreground',
             className
           )}
         >
-          <ImageOff className="size-6 opacity-50" aria-hidden />
-          {failedLabel && (
-            <span className="px-3 text-center text-xs font-medium leading-tight">{failedLabel}</span>
-          )}
+          {/* The glyph alone, at the 16px of every glyph on the tile: a centred sentence on grey made it the
+              loudest tile in the grid, and the tile's name already says what the file is. The words stay as its title. */}
+          <ImageOff className="size-4 opacity-60" aria-hidden />
+          {failedLabel && <span className="sr-only">{failedLabel}</span>}
         </div>
       )
     }

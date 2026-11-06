@@ -137,12 +137,13 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           />
         </ProjectSectionActions>
 
-        {/* 32px between the two groups and 8px from a label to its first choice: „Frist“ read as a third choice of
+        {/* 32px between the two groups and 12px from a label to its first choice: „Frist“ read as a third choice of
             „Zuständig“ when both gaps were the same. */}
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2" data-testid="open-points-filters">
-          <div className="flex items-center gap-2">
-            {/* One column for both labels, so the two rows of choices start on one edge when they wrap on a phone. */}
-            <span className="text-muted-foreground min-w-16 text-xs font-medium">{t('openPoints.filters.assignee')}</span>
+          <div className="flex items-center gap-3">
+            {/* One column for both labels on a phone, where the groups stack and their choices start on one edge; on a
+                desk each label stands 12px from its own choices (a fixed column floated „Frist“ 47px from them). */}
+            <span className="text-muted-foreground text-xs font-medium max-sm:min-w-16">{t('openPoints.filters.assignee')}</span>
             <ToggleGroup
               type="single"
               value={assignee}
@@ -164,8 +165,8 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground min-w-16 text-xs font-medium">{t('openPoints.filters.due')}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-muted-foreground text-xs font-medium max-sm:min-w-16">{t('openPoints.filters.due')}</span>
             <ToggleGroup
               type="single"
               value={due}
@@ -223,10 +224,12 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
             {byDocument(list.marks).map((group) => (
               // A document's points under its name, on the page: no box and no line under the heading. The rows bleed by
               // their inset, so the numbers stand on the edge under the document's glyph.
-              <section key={group.documentId} aria-label={group.documentName} className="flex flex-col gap-1" data-testid="open-points-document">
-                {/* The glyph in the points' 24px marker column, so the document's name stands on their text's edge. */}
-                <div className="flex items-center gap-3">
-                  <span className="flex w-6 shrink-0 justify-center">
+              <section key={group.documentId} aria-label={group.documentName} className="flex flex-col" data-testid="open-points-document">
+                {/* The glyph on the column's edge in the points' 24px marker column, so the name stands on their text's
+                    edge. A 24px line whose press overhangs it: the heading stands 10px over its first point, nearer it
+                    than the points stand to each other (18px). */}
+                <div className="flex min-h-6 items-center gap-3 [&>[data-slot=button]]:-my-1">
+                  <span className="flex w-6 shrink-0 justify-start">
                     <FileText className="text-muted-foreground size-4" aria-hidden />
                   </span>
                   <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>

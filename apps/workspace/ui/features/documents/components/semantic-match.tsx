@@ -4,28 +4,31 @@ import type { JSX, ReactNode } from 'react'
 import { useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 
+const escape = (word: string): string => word.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')
+
 /**
  * The query's words worth marking (three letters or more), and for a long German compound its stem too: a passage
  * that says „Fluchtweg“ answers „Fluchtwegbreite“, and nothing marked left the reader guessing why it matched.
  */
-function queryWords(query: string): string[] {
-  return query
+function queryWords(query: string): { words: string[]; stems: string[] } {
+  const words = query
     .split(/\s+/)
     .map((word) => word.replace(/[^\p{L}\p{N}-]/gu, ''))
     .filter((word) => word.length >= 3)
-    .flatMap((word) => (word.length >= 10 ? [word, word.slice(0, 6)] : [word]))
-    .map((word) => word.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&'))
+  return { words: words.map(escape), stems: words.filter((word) => word.length >= 10).map((word) => escape(word.slice(0, 6))) }
 }
 
 /**
  * A passage with the query's words in ink at weight 500 inside the muted text: the reader sees why it matched
- * without reading the whole passage. A word is matched at its start, so „Fluchtweg“ also marks „Fluchtwegbreite“.
+ * without reading the whole passage. A query word is marked with the rest of its word („Fluchtweg“ in
+ * „Fluchtwegbreite“); a stem only as far as it goes, so „Fluchtwegbreite“ marks „Flucht“ in „Fluchtbalkon“, not
+ * the whole word, which claimed a match the passage does not make.
  */
 export function MarkedSnippet({ text, query }: { text: string; query?: string | null }): JSX.Element {
-  const words = query ? queryWords(query) : []
+  const { words, stems } = query ? queryWords(query) : { words: [], stems: [] }
   if (words.length === 0) return <>{text}</>
-  // A whole word that starts with a query word or its stem is marked, not a part of one.
-  const pattern = new RegExp(`((?<![\\p{L}])(?:${words.join('|')})[\\p{L}-]*)`, 'giu')
+  const whole = `(?<![\\p{L}])(?:${words.join('|')})[\\p{L}-]*`
+  const pattern = new RegExp(`(${stems.length > 0 ? `${whole}|(?<![\\p{L}])(?:${stems.join('|')})` : whole})`, 'giu')
   const parts: ReactNode[] = text.split(pattern).map((part, index) =>
     index % 2 === 1 ? (
       <mark key={index} className="bg-transparent font-medium text-foreground" data-testid="snippet-match">

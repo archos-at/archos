@@ -51,7 +51,7 @@ import {
   INBOUND_MAIL_MAX_ATTACHMENT_BYTES,
   INBOUND_MAIL_MAX_MESSAGE_BYTES,
 } from '@/lib/inbound-mail/inbound-mail-vocabulary'
-import { formatRelativeTime } from '@/lib/format'
+import { CLAUSE_JOIN, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { usePublicSiteUrl } from '@/shared/context'
 import { publicSiteLink } from '@/shared/public-site'
@@ -240,7 +240,7 @@ export function InboundMailAddressBlock({
             ? t('address.lastReceived', { time: formatRelativeTime(address.lastReceivedAt, locale) })
             : t('address.nothingReceived')}
           {address.droppedLast30Days > 0 && (
-            <> · {t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
+            <>{CLAUSE_JOIN}{t('address.dropped', { count: address.droppedLast30Days, days: INBOUND_MAIL_ADDRESS_STATS_DAYS })}</>
           )}
         </p>
       </QuietPanel>

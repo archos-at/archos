@@ -72,7 +72,7 @@ beforeEach(() => {
 describe('InboundMailWorkspace', () => {
   it('steps the group presses back while mails are picked: the bar under the list files them', () => {
     renderWorkspace('selected')
-    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis” · 4 new mails/ })
+    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis”\s· 4 new mails/ })
     expect(within(group).queryByTestId('thread-group-file')).toBeNull()
     expect(screen.queryByTestId('readiness-file-all')).toBeNull()
     expect(screen.getByTestId('inbound-mail-selection-bar')).toBeInTheDocument()
@@ -81,7 +81,7 @@ describe('InboundMailWorkspace', () => {
   it('groups a conversation with one button that files it as suggested', async () => {
     renderWorkspace('selected')
     await userEvent.click(screen.getByTestId('selection-clear'))
-    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis” · 4 new mails/ })
+    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis”\s· 4 new mails/ })
     expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–7')
     await userEvent.click(within(group).getByTestId('thread-group-file'))
     const destinations = await screen.findByTestId('bulk-destinations')
@@ -174,7 +174,7 @@ describe('InboundMailWorkspace', () => {
     expect(body.mails[0]).not.toHaveProperty('acknowledgeRisk')
     expect(screen.queryByTestId('bulk-destinations')).not.toBeInTheDocument()
     expect(toast.success).toHaveBeenCalledWith('1 mail is being filed as suggested', {
-      description: 'In mail thread “Verfahren MA 37”: 1 · In “Behörde”: 1',
+      description: 'In mail thread “Verfahren MA 37”: 1\u00A0· In “Behörde”: 1',
     })
     expect(capturePosthog).toHaveBeenCalledWith('inbound_mail_filed_as_suggested', { surface: 'row', mails: 1, files: 1, texts: 1 })
   })

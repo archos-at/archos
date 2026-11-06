@@ -183,7 +183,7 @@ export function FilesHeaderControls({
         onValueChange={choose}
         segmented
         bare
-        size="icon-sm"
+        size="icon" /* 32px, the search field's and Hochladen's height */
         aria-label={t('workspace.view.label')}
       >
         <ToggleGroupItem value="cards" aria-label={t('workspace.view.cards')} title={t('workspace.view.cards')}>

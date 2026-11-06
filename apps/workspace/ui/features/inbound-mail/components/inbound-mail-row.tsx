@@ -39,7 +39,7 @@ import { Item } from '@/components/ui/item'
 import { TimeAgo } from '@/components/ui/time-ago'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailSummaryView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { displaySubject, subjectWithinThread } from '@/lib/inbound-mail/subject'
 import { fileableReason } from '../lib/completeness'
@@ -166,7 +166,7 @@ export function InboundMailRow({
               {mail.automatic ? <Bot className="size-3.5 shrink-0" aria-label={t('row.automatic')} /> : <SenderTrustGlyph trust={mail.senderTrust} flags={mail.senderFlags} impersonation={mail.impersonation} claim={claim} />}
               <span className="min-w-0 truncate">
                 {who}
-                {mail.senderDomain && mail.senderName && <span> · {mail.senderDomain}</span>}
+                {mail.senderDomain && mail.senderName && <span>{CLAUSE_JOIN}{mail.senderDomain}</span>}
               </span>
               {mail.attachments > 0 && (
                 <span className="inline-flex shrink-0 items-center gap-1">
@@ -212,8 +212,8 @@ export function InboundMailRow({
             )}
             {!waiting && outcomes.length > 0 && (
               <p className="text-muted-foreground text-xs text-pretty" data-testid="inbound-mail-row-outcome" /* no date stranded on a line of its own */>
-                {outcomes.map((outcome) => t(`row.outcome.${outcome}`, { count: mail.outcomes[outcome] })).join(' · ')}
-                {mail.restorableUntil && ` · ${t('row.restorableUntil', { date: formatCalendarDate(mail.restorableUntil, locale) })}`}
+                {outcomes.map((outcome) => t(`row.outcome.${outcome}`, { count: mail.outcomes[outcome] })).join(CLAUSE_JOIN)}
+                {mail.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(mail.restorableUntil, locale) })}`}
               </p>
             )}
           </div>

@@ -108,7 +108,8 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           segmented
           bare
           // The first segment's label on the list's edge on a desk: its fill bleeds by its inset, as the tabs' does.
-          className="md:-ml-3"
+          // 14px, the tabs' size and Offene Punkte's filter's: one size for a segmented control in Dateien.
+          className="md:-ml-3 [&>button]:text-sm"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -183,7 +184,7 @@ function ListBody({
                 <Skeleton className="size-4 rounded-inline" />
               </span>
               <Skeleton className="mt-0.5 size-7 shrink-0 rounded-full" />
-              <div className="flex flex-1 flex-col gap-2 pt-0.5">
+              <div className="flex flex-1 flex-col gap-1.5 pt-0.5" /* 38px, the loaded row's two lines: 62px a row, so nothing jumps */>
                 <div className="flex items-center gap-2">
                   <Skeleton className="h-4 flex-1" />
                   <Skeleton className="h-3 w-16" />
@@ -213,10 +214,11 @@ function ListBody({
     }
     if (everReceived === false) {
       return (
-        <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-4 sm:p-6" data-testid="inbound-mail-never" /* one width for its words and its panel */>
-          {/* One sheet holds the address below: the words above it stand on the page, not in a second box. */}
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-6 p-4 sm:p-6" data-testid="inbound-mail-never" /* one width for its words and its panel */>
+          {/* One column, one edge: the words stand left on the panel's inner edge, 24px above it, not centred over a left-aligned sheet. */}
           <EmptyState
             variant="bare"
+            className="items-start py-0 text-left phone:px-0 [&>p]:max-w-none"
             icon={InboxGlyph}
             title={t('empty.neverTitle')}
             description={t(neverCase === 'create' ? 'empty.neverNoAddress' : neverCase === 'ask' ? 'empty.neverNoAddressMember' : 'empty.neverText')}
@@ -314,8 +316,9 @@ function ListBody({
           return (
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
-              {/* Centred: under touch the press is 44px tall. Right under its section's heading it sits 4px below it. */}
-              <div className="flex min-h-10 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-1" /* one height with its press or without */>
+              {/* A 24px line whose press overhangs it by 4px each way (44px under touch): the label stands 16px over its first
+                  row's words and 24px under the section's heading, nearer what it heads than what heads it. */}
+              <div className="flex min-h-6 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-2 [&>[data-slot=button]]:-my-1" /* one height with its press or without */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   {/* A stack of mails: the circling arrows read as „sync“. */}
@@ -350,7 +353,7 @@ function ListBody({
                 )}
               </div>
               {/* 24px after its last member, the gap between sections: a row below it visibly stands outside the thread. */}
-              <ul className="flex flex-col px-1 pt-0.5 pb-6" /* rows touch: two picked rows are one region, not two boxes */>{section.mails.map((mail) => row(mail, true))}</ul>
+              <ul className="flex flex-col px-1 pb-6" /* rows touch: two picked rows are one region, not two boxes */>{section.mails.map((mail) => row(mail, true))}</ul>
             </section>
           )
         }

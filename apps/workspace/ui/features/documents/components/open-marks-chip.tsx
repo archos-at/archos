@@ -1,5 +1,6 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX, SyntheticEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { MessageSquareText } from 'lucide-react'
@@ -59,7 +60,7 @@ function openMarksShortParts(t: Translator, marks: MarkCounts): string[] {
 
 /** What the chip says in its own words, short enough for a card: „2 offen · 1 für Sie · 12 Vorschläge". */
 export function openMarksShortLabel(t: Translator, marks: MarkCounts): string {
-  return openMarksShortParts(t, marks).join(' · ')
+  return openMarksShortParts(t, marks).join(CLAUSE_JOIN)
 }
 
 /** A click or a key on the chip is the chip's: the row or card around it opens the file, not the review. */
@@ -133,7 +134,7 @@ function OpenMarksButton({
             <span className="min-w-0 truncate">
               {openMarksShortParts(t, marks).map((part, index) => (
                 <span key={part} className={cn(index > 0 && 'max-sm:hidden')}>
-                  {index > 0 && ' · '}
+                  {index > 0 && CLAUSE_JOIN}
                   {part}
                 </span>
               ))}

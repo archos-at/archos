@@ -1,5 +1,6 @@
 'use client'
 
+import { CLAUSE_JOIN } from '@/lib/format'
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, RotateCcw, ScanSearch } from 'lucide-react'
@@ -170,7 +171,7 @@ function PageReading({
       <span className="text-foreground min-w-0 flex-1 truncate font-medium">
         {typeLabel ?? t('preview.visualDetails.page', { page: detail.page })}
         {position && (
-          <span className="text-muted-foreground font-normal tabular-nums"> · {position}</span>
+          <span className="text-muted-foreground font-normal tabular-nums">{CLAUSE_JOIN}{position}</span>
         )}
       </span>
       {scale && (

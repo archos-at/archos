@@ -26,14 +26,14 @@ export const files: typeof en.files = {
       processingOther: '{productName} liest {count} Dokumente',
       doneOne: '1 Dokument hinzugefügt',
       doneOther: '{count} Dokumente hinzugefügt',
-      mixed: '{ready} hinzugefügt · {failed} fehlgeschlagen',
+      mixed: '{ready} hinzugefügt\u00A0· {failed} fehlgeschlagen',
       failedOne: '1 Dokument konnte nicht hinzugefügt werden',
       failedOther: '{count} Dokumente konnten nicht hinzugefügt werden',
       // Von der Inhaltsprüfung zurückgehalten (ADR-0086): kein Fehler, nichts zu
       // wiederholen. Nie „freigeben“, das Wort gehört der Freigabe einer Fassung.
       heldOne: '1 Dokument zurückgehalten',
       heldOther: '{count} Dokumente zurückgehalten',
-      mixedHeld: '{ready} hinzugefügt · {held} zurückgehalten',
+      mixedHeld: '{ready} hinzugefügt\u00A0· {held} zurückgehalten',
       canceled: 'Upload abgebrochen',
     },
     detail: {
@@ -97,7 +97,7 @@ export const files: typeof en.files = {
     unknown: 'Unbekannt',
     // Nur die eigenen Uploads des Büros: Innerhalb eines Büros wird der Reihe
     // nach gelesen, zwischen Büros fair abgewechselt (ADR-0076).
-    queuedAhead: '{count, plural, one {Wartet · # Datei davor} other {Wartet · # Dateien davor}}',
+    queuedAhead: '{count, plural, one {Wartet\u00A0· # Datei davor} other {Wartet\u00A0· # Dateien davor}}',
   },
   toast: {
     // Sobald die asynchrone Verarbeitung abgeschlossen ist und das Dokument
@@ -623,8 +623,9 @@ export const files: typeof en.files = {
     emptyHint: 'Gelöschte Ordner erscheinen hier und lassen sich wiederherstellen.',
     deletedBy: 'Gelöscht von {name} am {date}',
     deletedOn: 'Gelöscht am {date}',
-    contents:
-      '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
+    // What a folder holds, each figure only when it is not zero („0 Ordner“ was a clause that said nothing).
+    contentsDocuments: '{count, plural, one {# Dokument} other {# Dokumente}}',
+    contentsFolders: '{count, plural, one {# Ordner} other {# Ordner}}',
     // After „Gelöscht … am …“ and a „·“ on the same line, so lower case; what stays, not the press's words again;
     // the date bound to its word.
     purgeOn: 'bleibt bis {date}',
@@ -1574,7 +1575,7 @@ export const files: typeof en.files = {
     listedOpenIn: '{marks} in „{name}“',
     // Was der Chip selbst sagt, kurz genug für eine Karte; der Tooltip trägt den ganzen Satz.
     listedOpenShort: '{count} offen',
-    listedOpenShortForYou: '{count} offen · {mine} für Sie',
+    listedOpenShortForYou: '{count} offen\u00A0· {mine} für Sie',
     // Pilotis Vorschläge, die niemand übernommen hat: getrennt von „offen“, wie in Offene Punkte und im Protokoll.
     listedProposedShort: '{count, plural, one {# Vorschlag} other {# Vorschläge}}',
   },

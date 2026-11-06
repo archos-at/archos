@@ -270,7 +270,9 @@ export function ProjectSectionFrame({
               </div>
               {/* The tabs' own `pb-2` under the pills, so the tools stand on the pills' line. */}
               {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
-              {tabActions && <div className="flex shrink-0 items-center pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
+              {/* Word presses 12px apart, glyph to word, as every bar's: each keeps 6px of padding and the last gives its
+                  back, so the tools end on the content edge (they stood 29px apart on two 14px insets). */}
+              {tabActions && <div className="-mr-1.5 flex shrink-0 items-center pb-2 [&_[data-slot=button]]:mr-0 [&_[data-slot=button]]:px-1.5 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
             </div>
           )}
           {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}

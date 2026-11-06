@@ -46,6 +46,12 @@ features:
   - >
     The title and tabs of Files stay in place on every tab, the inbox
     included, and on a phone the open tab is shown whole.
+  - >
+    In the list view a folder's size and date stand in the same columns as a
+    file's, and search marks only the part of a word that matched.
+  - >
+    A mail held because its sender may not file in the project now says so in
+    one sentence, and the Bin's dates no longer list a folder count of zero.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

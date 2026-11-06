@@ -93,7 +93,7 @@ export function FileTileBody({ className, children, ...rest }: ComponentProps<'d
 /** The facts (size, age, what is open), muted, at the foot of the tile. */
 export function FileTileFooter({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('text-muted-foreground mt-auto flex w-full items-center gap-1.5 pb-0.5 pt-1.5 text-xs', className)} {...rest}>
+    <div className={cn('text-muted-foreground mt-auto flex w-full items-center gap-1.5 pt-1.5 text-xs', className)} {...rest}>
       {children}
     </div>
   )

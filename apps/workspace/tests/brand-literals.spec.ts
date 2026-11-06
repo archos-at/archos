@@ -1,4 +1,4 @@
-// @disk-inputs: app/**, ui/**, shared/**
+// @disk-inputs: app/**, ui/**, shared/**, i18n/dictionaries/**
 /**
  * The brand rules the workspace keeps at its own level (docs/design/design-language.md,
  * "Type ramp" and "Weight and white"): nothing but the wordmark is set in capitals,
@@ -151,6 +151,7 @@ const CAPITALS_ALLOWED = new Set([
   'ui/features/documents/components/file-ext-chip.tsx', // file-format code
   'ui/features/documents/components/file-list-view.tsx', // file-format code in the list's first column
   'ui/features/documents/components/file-card.tsx', // file-format code chip
+  'ui/features/documents/components/folder-bin-panel.tsx', // file-format code in the Papierkorb's first column
   'ui/features/documents/components/document-kind-thumbnail.tsx', // file-format code chip
   'ui/features/chat/components/MessageAuthor.tsx', // initials in the avatar disc
   'ui/features/chat/components/AuthorityTag.tsx', // OIB / RIS / ÖNORM
@@ -356,5 +357,61 @@ describe('the agent\u2019s disc', () => {
       .filter((f) => /\bAgentGlyph\b/.test(withoutComments(f.text)) && !CLAIMS_A_SUGGESTION.has(f.name))
       .map((f) => f.name)
     expect(offenders).toEqual([])
+  })
+})
+
+describe('one separator', () => {
+  // A line's clauses are joined by `CLAUSE_JOIN` (a middot bound to the clause before it by a no-break space), so
+  // a wrapped line never starts with „· bleibt bis …“ or ends in a stranded dot, and every joined line has one width
+  // of space around its dot (2026-11: rows stranded dots at their wraps, and two spacings stood side by side).
+  const UNBOUND_IN_CODE = /' · '|" · "|` · |> · |\{' · '\}/
+  it('Dateien and the E-Mail-Eingang join clauses with the bound separator, never a bare „ · “', () => {
+    const offenders = files
+      .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) => UNBOUND_IN_CODE.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+  it('the E-Mail-Eingang’s copy binds every middot to the clause before it', () => {
+    const offenders = ['de', 'en'].flatMap((locale) =>
+      withoutComments(readFileSync(join(ROOT, 'i18n', 'dictionaries', locale, 'inbound-mail.ts'), 'utf8'))
+        .split('\n')
+        .filter((line) => line.includes(' · '))
+        .map((line) => `${locale}: ${line.trim()}`)
+    )
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('one size for a segmented control', () => {
+  // Dateien's two worded segmented controls (the E-Mail-Eingang's filter, Offene Punkte's) are set at the tabs'
+  // 14px; at 12px and 14px side by side the same control read as two (2026-11).
+  it('every worded bare group in Dateien is 14px', () => {
+    const offenders = files
+      .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) =>
+        [...withoutComments(f.text).matchAll(/<ToggleGroup\b[\s\S]*?\n\s*>/g)].some(
+          ([tag]) => /\bbare\b/.test(tag) && !/size="icon/.test(tag) && !/\[&>button\]:text-sm/.test(tag)
+        )
+      )
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('a folder row in the table’s columns', () => {
+  // In the list view a folder's size and date stand in the table's Größe and Hinzugefügt columns, at their widths,
+  // so a folder's date is where a file's is (2026-11: it stood inline after „2 Elemente“). Change a column's width
+  // and the folder row's together.
+  const read = (component: string): string => files.find((f) => f.name === `ui/features/documents/components/${component}.tsx`)?.text ?? ''
+  it('the folder row uses the size and date columns’ widths', () => {
+    const list = read('file-list-view')
+    const size = list.match(/column="size"[\s\S]*?className="hidden (w-\[\d+px\]) @3xl\/filelist:table-cell"/)?.[1]
+    const added = list.match(/column="added"[\s\S]*?className="hidden (w-\[\d+px\]) @4xl\/filelist:table-cell"/)?.[1]
+    expect(size).toBeDefined()
+    expect(added).toBeDefined()
+    const row = read('folder-navigation')
+    expect(row).toContain(`hidden ${size} shrink-0 px-2 text-right text-xs tabular-nums @3xl/filelist:block`)
+    expect(row).toContain(`hidden ${added} shrink-0 px-2 text-right text-xs tabular-nums @4xl/filelist:block`)
   })
 })

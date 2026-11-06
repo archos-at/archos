@@ -32,14 +32,13 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
   if (address.state === 'active' && address.address) {
     const value = address.address
     return (
-      <div className="flex min-w-0 items-center gap-2" data-testid="inbound-mail-header-address">
+      // No gap: the ghost press's own 12px of padding is the 12px between the tonal fill and its glyph.
+      <div className="flex min-w-0 items-center" data-testid="inbound-mail-header-address">
         <Button
           type="button"
           size="sm"
           variant="secondary"
-          // On a phone a word press, as „Mehr zur Adresse“ beside it: three grey pills stacked (the open tab, this,
-          // the chosen filter) meant three things in one look. Its padding given back, its glyph on the edge.
-          className="phone:-ml-3.5 phone:bg-transparent phone:hover:bg-accent"
+          // Tonal at every width: the one press of this tab's tools looks the same on a desk and a phone.
           onClick={() =>
             void navigator.clipboard?.writeText(value).then(() => {
               raise()
@@ -52,7 +51,7 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
           {t(copied ? 'header.addressCopied' : 'header.addressCopy')}
         </Button>
         {/* `-mr-3.5`, its padding: the words end on the right edge. */}
-        <Button type="button" variant="ghost" size="sm" className="-mr-3.5 shrink-0 phone:mr-0" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
+        <Button type="button" variant="ghost" size="sm" className="-mr-3.5 shrink-0 pl-3" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
           <Info className="size-4" aria-hidden />
           {t('header.addressMore')}
         </Button>

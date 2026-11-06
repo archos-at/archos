@@ -46,7 +46,7 @@ import { documentFilesHref, FolderPickerSheet } from '@/features/documents'
 import { fileExtensionLabel } from '@/features/documents/document-kind'
 import { useLocale, useTranslations } from '@/i18n'
 import { tagLabel } from '@/lib/documents/tag-vocabulary'
-import { formatBytes, formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatBytes, formatCalendarDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { AttachmentCase, AttachmentNote } from '../lib/attachment-case'
 import { targetForPath, type AttachmentDraft, type FolderOption, type FolderTarget } from '../lib/draft'
@@ -117,7 +117,7 @@ export function AttachmentRow({
         return (
           <FactLine key="duplicate" icon={Copy} testId="note-duplicate">
             {t('attachments.notes.duplicate', { path: note.folderPath ? `${note.folderPath}/${note.name}` : note.name })}
-            {' · '}
+            {CLAUSE_JOIN}
             <Button asChild variant="inline">
               <Link href={documentFilesHref(projectId, note.documentId)}>{t('attachments.open')}</Link>
             </Button>
@@ -217,7 +217,7 @@ export function AttachmentRow({
         return (
           <FactLine icon={Undo2} testId={`status-${status}`}>
             {t(`attachments.status.${status}`)}
-            {part.restorableUntil && ` · ${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
+            {part.restorableUntil && `${CLAUSE_JOIN}${t('row.restorableUntil', { date: formatCalendarDate(part.restorableUntil, locale) })}`}
           </FactLine>
         )
       case 'waiting':

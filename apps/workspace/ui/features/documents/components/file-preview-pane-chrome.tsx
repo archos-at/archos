@@ -31,10 +31,9 @@ import { ReaderActions, ReaderHeader } from './file-preview-reader'
 
 import type { FilePreviewController } from './use-file-preview-controller'
 import { MailProvenanceRow } from './mail-thread'
-import { tagLabel } from '@/lib/documents/tag-vocabulary'
 
 export function FilePreviewChrome({ controller }: { controller: FilePreviewController }) {
-  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, detectedType, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, showMetadataPanel, sideways, t } = controller
+  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, sideways, t } = controller
   return (
     <>
         {/* Peek chrome lives on the host — this header is the modal/expanded one,
@@ -229,11 +228,8 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                     </span>
                   </Badge>
                 )}
-                {showMetadataPanel && detectedType && (
-                  <Badge variant="secondary" className="min-w-0 max-w-full shrink font-normal">
-                    <span className="truncate">{tagLabel(detectedType, t)}</span>
-                  </Badge>
-                )}
+                {/* No type chip: the rail's reading says what the file is („… hält es für Grundriss“), and a header chip
+                    said it a second time beside it (and not at all on a phone). */}
               </div>
             </div>
             {/* Who is in the document right now. Following someone is the

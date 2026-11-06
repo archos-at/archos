@@ -6,6 +6,13 @@
  * optional so non-React callers without locale context keep working (they
  * get the runtime default).
  */
+/**
+ * The separator between a line's clauses („PDF\u00A0· 2,4 MB\u00A0· vor 3 Tagen“): a middot bound to the clause
+ * before it by a no-break space, so a wrapped line never starts with one, and one width of space on either side
+ * wherever the surface joins clauses in text (the chat's `JOIN` says the same).
+ */
+export const CLAUSE_JOIN = '\u00A0· '
+
 export const formatEur = (value: number, locale?: string): string =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }).format(value)
 

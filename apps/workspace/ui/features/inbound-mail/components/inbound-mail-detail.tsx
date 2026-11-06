@@ -32,7 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { documentFilesHref } from '@/features/documents'
 import { useLocale, useTranslations } from '@/i18n'
 import type { InboundMailPartView, InboundMailTextView, InboundMailView } from '@/lib/inbound-mail/inbound-mail-wire'
-import { formatCalendarDate } from '@/lib/format'
+import { CLAUSE_JOIN, formatCalendarDate } from '@/lib/format'
 import { attachmentCase, notStagedSummary } from '../lib/attachment-case'
 import type { InboundMailClient } from '../lib/client'
 import {
@@ -594,7 +594,7 @@ function FiledLines({ lines }: { lines: FiledLine[] }): JSX.Element {
       {lines.map((line, index) => (
         <li key={`${line.kind}-${index}`} className="[overflow-wrap:anywhere]">
           {line.kind === 'message' ? t('toast.lineText', { name: line.place.name }) : t('toast.lineFile', { name: line.place.name, folder: line.place.folder })}
-          {line.place.version != null && ` · ${t('attachments.status.version', { version: line.place.version })}`}
+          {line.place.version != null && `${CLAUSE_JOIN}${t('attachments.status.version', { version: line.place.version })}`}
         </li>
       ))}
     </ul>

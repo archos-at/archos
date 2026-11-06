@@ -24,14 +24,14 @@ export const files = {
       processingOther: '{productName} is reading {count} documents',
       doneOne: '1 document added',
       doneOther: '{count} documents added',
-      mixed: '{ready} added · {failed} failed',
+      mixed: '{ready} added\u00A0· {failed} failed',
       failedOne: '1 document could not be added',
       failedOther: '{count} documents could not be added',
       // Held back by the content check (ADR-0086): not a failure, nothing to
       // retry. Never "release", which collides with approving a revision.
       heldOne: '1 document held back',
       heldOther: '{count} documents held back',
-      mixedHeld: '{ready} added · {held} held back',
+      mixedHeld: '{ready} added\u00A0· {held} held back',
       canceled: 'Upload canceled',
     },
     detail: {
@@ -95,7 +95,7 @@ export const files = {
     unknown: 'Unknown',
     // Only the office's own uploads: inside one office the queue reads in
     // order, across offices it takes turns (ADR-0076).
-    queuedAhead: '{count, plural, one {Waiting · # file ahead} other {Waiting · # files ahead}}',
+    queuedAhead: '{count, plural, one {Waiting\u00A0· # file ahead} other {Waiting\u00A0· # files ahead}}',
   },
   toast: {
     // Fired the instant async ingestion finishes and the document becomes
@@ -638,8 +638,8 @@ export const files = {
     emptyHint: 'Deleted folders appear here and can be restored.',
     deletedBy: 'Deleted by {name} on {date}',
     deletedOn: 'Deleted on {date}',
-    contents:
-      '{documents, plural, one {# document} other {# documents}} · {folders, plural, one {# folder} other {# folders}}',
+    contentsDocuments: '{count, plural, one {# document} other {# documents}}',
+    contentsFolders: '{count, plural, one {# folder} other {# folders}}',
     purgeOn: 'kept until {date}',
     purging: 'being permanently deleted',
     failed: 'The permanent deletion has stopped. An admin is looking into it.',
@@ -1607,7 +1607,7 @@ export const files = {
     listedOpenIn: '{marks} in “{name}”',
     // What the chip itself says, short enough for a card; the tooltip carries the whole sentence.
     listedOpenShort: '{count} open',
-    listedOpenShortForYou: '{count} open · {mine} for you',
+    listedOpenShortForYou: '{count} open\u00A0· {mine} for you',
     // Piloti's proposals nobody took over: counted apart from “open”, as Offene Punkte and the minutes count them.
     listedProposedShort: '{count, plural, one {# proposal} other {# proposals}}',
   },
