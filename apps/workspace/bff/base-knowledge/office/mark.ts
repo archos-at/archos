@@ -10,6 +10,7 @@
 
 import 'server-only'
 import { getBackendUrl } from '@/lib/backend-url'
+import { internalServiceHeaders } from '@/lib/internal-auth'
 import type { LicenceClass } from '@/lib/db/schema/knowledge-records'
 import type { EntryDocument } from './repository'
 
@@ -18,11 +19,12 @@ const MARK_TIMEOUT_MS = 5_000
 export async function markCopyPoints(document: EntryDocument, editionId: string, licenceClass: LicenceClass): Promise<boolean> {
   const row = { collectionName: document.collectionName, filename: document.storedName }
   try {
+    const backendUrl = getBackendUrl()
     const response = await fetch(
-      `${getBackendUrl()}/v1/collections/${encodeURIComponent(row.collectionName)}/knowledge-mark`,
+      `${backendUrl}/v1/collections/${encodeURIComponent(row.collectionName)}/knowledge-mark`,
       {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalServiceHeaders(backendUrl) },
         body: JSON.stringify({ file_name: row.filename, licence_class: licenceClass, edition_id: editionId }),
         signal: AbortSignal.timeout(MARK_TIMEOUT_MS),
       }

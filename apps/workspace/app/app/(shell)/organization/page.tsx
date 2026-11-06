@@ -16,7 +16,7 @@
 
 import { chatEffortFromSettings } from '@/lib/reasoning-settings/catalog'
 import type { JSX } from 'react'
-import { Building2, FileDown, GraduationCap, Globe, Mail, MessageSquareText, ShieldAlert, Users } from 'lucide-react'
+import { Building2, FileDown, GraduationCap, Globe, Library, Mail, MessageSquareText, ShieldAlert, Users } from 'lucide-react'
 import { withPageSession } from '@/lib/auth/require-auth'
 import { isOrgAdmin } from '@/lib/authz/organizations'
 import {
@@ -27,6 +27,7 @@ import {
 import { getOrgInstructions } from '@/lib/org-instructions/service'
 import { retentionDaysFromSettings } from '@/lib/download-log/kinds'
 import { OfficeConventionsCard } from '@/features/organization/components/office-conventions-card'
+import { BaseKnowledgeCard } from '@/features/organization/components/base-knowledge-card'
 import { DownloadLogRetentionForm } from '@/features/organization/components/download-log-retention-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -237,6 +238,18 @@ export default async function OrganizationOverviewPage(): Promise<JSX.Element> {
           </CardHeader>
           <CardContent>
             <OfficeConventionsCard />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Library className="size-4 text-muted-foreground" aria-hidden />
+              {t('baseKnowledge.title')}
+            </CardTitle>
+            <CardDescription>{t('baseKnowledge.description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <BaseKnowledgeCard />
           </CardContent>
         </Card>
       </div>
