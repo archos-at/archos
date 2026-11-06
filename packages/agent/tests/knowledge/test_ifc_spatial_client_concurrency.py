@@ -249,11 +249,7 @@ print(bool(engine.open_model(source("building"))))
 
 @pytest.mark.usefixtures("engine")
 def test_a_length_unit_that_never_ends_leaves_the_open_lock_free(tmp_path) -> None:
-    """In a child, because a regression spins holding `_OPEN_LOCK`.
-
-    A wait does not end that spin, and it takes enough of the GIL that pytest in
-    the same process cannot finish reporting the failure.
-    """
+    """In a child, because a regression spins holding `_OPEN_LOCK` and no wait ends that spin."""
     looped = tmp_path / "looped.ifc"
     foot = "IFCRATIOMEASURE(0.3048),#8)"
     assert foot in MODELS["d"].read_text()

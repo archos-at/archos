@@ -32,6 +32,7 @@ import ifcopenshell
 import pytest
 from ifc_spatial import render
 from ifc_spatial.model import SpatialModel
+from ifc_spatial.project_units import MAX_CONVERSION_LINKS
 from ifc_spatial.tools import ToolError
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -371,8 +372,11 @@ def _open_in_a_child(tmp_path: Path, *swaps: tuple[str, str]) -> str:
             ],
             id="with-offset-points-at-itself",
         ),
-        pytest.param([(FOOT_FACTOR, _foot_through(16))], id="deeper-than-the-limit"),
-        pytest.param([(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#11,' * 255}#10,#12));")], id="longer-than-the-limit"),
+        pytest.param([(FOOT_FACTOR, _foot_through(MAX_CONVERSION_LINKS))], id="a-chain-past-the-limit"),
+        pytest.param(
+            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#10,' * MAX_CONVERSION_LINKS}#10,#11,#12));")],
+            id="a-list-of-short-chains-past-the-limit",
+        ),
     ],
 )
 def test_a_length_unit_that_cannot_be_followed_is_refused_with_a_reason(tmp_path: Path, swaps) -> None:
@@ -395,9 +399,17 @@ def test_a_length_unit_that_cannot_be_followed_is_refused_with_a_reason(tmp_path
             0.9144000000000001,
             id="yard-via-foot",
         ),
-        pytest.param([(FOOT_FACTOR, _foot_through(15))], 0.3048, id="at-the-depth-limit"),
+        pytest.param([(FOOT_FACTOR, _foot_through(MAX_CONVERSION_LINKS - 1))], 0.3048, id="a-chain-at-the-limit"),
         pytest.param(
-            [(UNIT_LIST, f"#13=IFCUNITASSIGNMENT(({'#11,' * 254}#10,#12));")], 0.3048, id="at-the-length-limit"
+            [
+                (
+                    UNIT_LIST,
+                    "#60=IFCCONVERSIONBASEDUNIT(#7,.USERDEFINED.,'U',#9);\n"
+                    f"#13=IFCUNITASSIGNMENT(({'#60,' * MAX_CONVERSION_LINKS}#60,#10,#11,#12));",
+                )
+            ],
+            0.3048,
+            id="a-long-list-of-units-the-scale-never-reads",
         ),
         pytest.param(
             [
