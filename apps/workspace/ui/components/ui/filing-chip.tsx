@@ -101,7 +101,8 @@ export const FilingChip = forwardRef<HTMLButtonElement, FilingChipProps>(functio
         <Folder className="text-muted-foreground ml-[3px] size-3.5 shrink-0" aria-hidden data-testid="filing-chip-folder" />
       )}
       <span className="min-w-0 truncate">
-        <span aria-hidden>→ </span>
+        {/* The folder glyph says where without the mark; the arrow says it with the mark. One sign each. */}
+        {mark && <span aria-hidden>→ </span>}
         {target}
       </span>
       {newLabel && <NewMark>{newLabel}</NewMark>}
