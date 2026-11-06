@@ -24,7 +24,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { useTranslations } from '@/i18n'
 import { commonCopy } from '@/i18n/namespaces/common'
 import { settingsCopy } from '@/i18n/namespaces/settings'
-import { SettingsPanel } from './settings/settings-panel'
+import { SettingsPanel } from '@/components/settings/settings-panel'
 
 interface ProjectReindexCardProps {
   projectId: string

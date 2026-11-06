@@ -51,6 +51,7 @@ import {
 import type { CitationSource } from '@/features/chat/types'
 import { assemblePdf, buildPdf, encryptedPdf, pdfString, type PdfLine } from '../_fixtures/sample-pdf'
 import { PdfViewerDialog } from '@/features/knowledge/components/pdf-viewer-dialog'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const FILE_NAME = 'bescheid_ba-2026-0417.pdf'
 const TITLE = 'Bescheid BA-2026-0417'
@@ -349,25 +350,24 @@ const StatesPreview = () => {
   const permitDecision = useBlobUrl(buildPermitDecision)
   const locked = useBlobUrl(encryptedPdf)
   const pane = 'flex min-w-0 flex-col rounded-lg border border-border bg-card p-3'
-  const label = 'mb-2 shrink-0 text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground'
   return (
     <div className="grid h-[calc(100dvh-3rem)] grid-cols-[minmax(0,1fr)_340px] grid-rows-2 gap-4">
       <div className={`${pane} row-span-1`} data-search-on-load>
-        <p className={label}>Suche im Dokument</p>
+        <SectionLabel as="p" className="mb-2 shrink-0">Suche im Dokument</SectionLabel>
         {permitDecision && <PdfDocumentView src={permitDecision} title={`${TITLE}.pdf`} />}
         <SearchOnLoad query="Fluchtwege" />
       </div>
       <div className={`${pane} row-span-2`}>
-        <p className={label}>Schmale Bühne (Chat-Seitenleiste)</p>
+        <SectionLabel as="p" className="mb-2 shrink-0">Schmale Bühne (Chat-Seitenleiste)</SectionLabel>
         {permitDecision && <PdfDocumentView src={permitDecision} title={`${TITLE}.pdf`} page={2} />}
       </div>
       <div className="grid min-h-0 grid-cols-2 gap-4">
         <div className={pane}>
-          <p className={label}>Nicht lesbar</p>
+          <SectionLabel as="p" className="mb-2 shrink-0">Nicht lesbar</SectionLabel>
           <PdfDocumentView src="/dev/does-not-exist.pdf" title="kaputt.pdf" />
         </div>
         <div className={pane}>
-          <p className={label}>Kennwortgeschützt</p>
+          <SectionLabel as="p" className="mb-2 shrink-0">Kennwortgeschützt</SectionLabel>
           {locked && <PdfDocumentView src={locked} title="geschuetzt.pdf" />}
         </div>
       </div>
@@ -567,9 +567,9 @@ export default function PdfPassagePreviewPage() {
             data-passage-state={state}
             className="flex h-[760px] min-w-0 flex-1 flex-col rounded-lg border border-border bg-card p-3 phone:h-[75dvh] phone:p-2"
           >
-            <p className="mb-2 shrink-0 text-xs font-medium uppercase tracking-[0.05em] text-muted-foreground">
+            <SectionLabel as="p" className="mb-2 shrink-0">
               {state === 'arriving' ? 'Beim Öffnen' : 'Danach'}
-            </p>
+            </SectionLabel>
             {src && (
               <PdfDocumentView
                 src={src}

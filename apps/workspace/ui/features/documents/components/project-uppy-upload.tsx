@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, type MutableRefObject } from 'react'
-import { Camera, ChevronDown, FolderUp, Images, Upload } from 'lucide-react'
+import { Camera, ChevronDown, FolderUp, Images, Mail, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -48,6 +48,12 @@ interface ProjectUppyUploadProps {
   /** Lets a context-menu item click the hidden file input. */
   pickFilesRef?: MutableRefObject<(() => void) | null>
   pickFolderRef?: MutableRefObject<(() => void) | null>
+  /**
+   * „Per E-Mail senden …“: opens the project's mail address (ADR-0137), a
+   * project shelf's only, for a reader who may decide held mail. In this menu
+   * because forwarding a mail is one more way of bringing files here.
+   */
+  onSendByMail?: () => void
 }
 
 /**
@@ -66,6 +72,7 @@ export function ProjectUppyUpload({
   allowFolders = false,
   pickFilesRef,
   pickFolderRef,
+  onSendByMail,
 }: ProjectUppyUploadProps) {
   const t = useTranslations(filesCopy)
   const tCapture = useTranslations(captureCopy)
@@ -259,7 +266,7 @@ export function ProjectUppyUpload({
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
-          className={photoEntries ? 'w-72 max-w-[calc(100vw-2rem)]' : 'w-48'}
+          className={photoEntries || onSendByMail ? 'w-72 max-w-[calc(100vw-2rem)]' : 'w-48'}
         >
           {photoEntries && (
             <>
@@ -317,6 +324,15 @@ export function ProjectUppyUpload({
               <FolderUp className="size-4" aria-hidden />
               {t('upload.uploadFolder')}
             </DropdownMenuItem>
+          )}
+          {onSendByMail && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onSendByMail} data-testid="project-upload-send-by-mail">
+                <Mail className="size-4" aria-hidden />
+                <DropdownMenuItemText title={t('inboundMail.sendByMail')} hint={t('inboundMail.sendByMailHint')} />
+              </DropdownMenuItem>
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

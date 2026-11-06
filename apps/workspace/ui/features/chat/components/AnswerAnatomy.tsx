@@ -95,7 +95,7 @@ export const AnatomyMasthead: FC<{
         <p className="text-muted-foreground text-sm leading-relaxed">{context}</p>
       )}
       {summary && (
-        <p className="text-foreground text-[1.0625rem] leading-[1.65]">
+        <p className="text-foreground text-answer">
           {summary}
           {caret}
         </p>

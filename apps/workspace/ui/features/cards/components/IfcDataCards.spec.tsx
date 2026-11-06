@@ -269,12 +269,13 @@ describe('IfcElementCard', () => {
       />
     )
     const open = await screen.findByRole('link', { name: /Open model/ })
+    // The storey comes from the fetched element, so the link isolates the right
+    // floor even though the agent never said which one it is. The link is there
+    // before that fetch answers, so wait for the href to carry it.
+    await waitFor(() => expect(open.getAttribute('href') ?? '').toContain('storey=Erdgeschoss'))
     const href = open.getAttribute('href') ?? ''
     expect(href).toContain('element=1kTvXnbbzCWw8lcMd1dR4o')
     expect(href).toContain('hl=info%3A1kTvXnbbzCWw8lcMd1dR4o')
-    // The storey comes from the fetched element, so the link isolates the right
-    // floor even though the agent never said which one it is.
-    expect(href).toContain('storey=Erdgeschoss')
   })
 
   it('says an element is not in the model instead of showing a blank card', async () => {

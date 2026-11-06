@@ -155,13 +155,13 @@ config:
 
   # nothing to notice), plus:
 
-  #   pulumi config set        grid-oib:dnsZoneId   <zone id from the Cloudflare Overview page>
+  #   pulumi config set        dnsZoneId   <zone id from the Cloudflare Overview page>
 
-  #   pulumi config set        grid-oib:dnsZoneName example.com
+  #   pulumi config set        dnsZoneName example.com
 
   #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:cloudflareApiToken "<Zone:DNS:Edit + Zone:Dynamic URL Redirects:Edit, scoped to that zone>" --secret
 
-  #   pulumi config set        grid-oib:dnsEnabled  true
+  #   pulumi config set        dnsEnabled  true
 
   #
 
@@ -183,6 +183,36 @@ config:
 
   # the zone apex, that stack is the natural owner.
   grid-oib:dnsEnabled: "true"
+  # ── Project mail (Cloudflare Email Routing, ADR-0138) ──
+  # Off. The owner's runbook, top to bottom: docs/deployment/project-mail-runbook.md.
+  # Three promotions, each uncommenting only its own lines below. Never the
+  # domain without the scanner running, never unpaused before G0, G4 (paused) and G7 pass.
+  #
+  # Promotion 1, the scanner alone. Wait for its pod to be ready before promotion 2:
+  # grid-oib:malwareScanEnabled: "true"
+  #
+  # Promotion 2, paused. Before it: the token's scopes (runbook §4) and the signing key
+  # in ESC, never in this file (§5). Pulumi then creates the routing on the subdomain,
+  # the project rule, the Worker, the postmaster@/abuse@ forwards (RFC 2142) and the
+  # DMARC record; subaddressing is one API call after it (§7).
+  # Decision D1 (2026-11-05): (b), the subdomain of the brand domain, a zone of its own.
+  # piloti.at's mail routing belongs to the dev stack (inbox.dev.piloti.at), and
+  # stack-files.spec.ts allows one stack per mail zone. The zone id is 32 hex digits.
+  #   The apex archos.tech keeps Google Workspace's MX: nothing here touches them.
+  # grid-oib:inboundMailDomain: inbox.archos.tech
+  # grid-oib:inboundMailZoneId: 31df51fbdd7ea2d7ef63bcaab9a09559 # pragma: allowlist secret (public zone id of archos.tech, Cloudflare zone Overview page)
+  #   (b) only: archos.tech has no _dmarc today, and this block is its one writer until the
+  #   domain cutover (no dnsDmarc on any stack in that zone; stack-files.spec.ts checks it).
+  #   sp= is explicit so inbox.archos.tech is covered; p=none only reports. rua= is the
+  #   operator's mailbox: on archos.tech itself, or that domain must authorize the reports.
+  # grid-oib:inboundMailDmarc: "v=DMARC1; p=none; sp=none; adkim=r; aspf=r; rua=mailto:matthias.bigl+dmarc@archos.tech"
+  #   Both: where postmaster@ and abuse@ forward; Cloudflare mails it a verification link on
+  #   the first up, and the forwards work after the click (stack output inboundMailOperator).
+  # grid-oib:inboundMailOperatorAddress: matthias.bigl+mail-prod@archos.tech
+  # grid-oib:inboundMailPaused: "true"
+  #
+  # Promotion 3, after G0, G4 (paused) and G7 pass, only the test office entitled: the pause "false".
+  # Turning it off: inboundMailEnabled "false" and promote; never unset the domain first.
   # NetworkPolicies (default-deny ingress + least-privilege allows) are ON by
 
   # default. Set false only if a validation pass shows they block required
@@ -425,9 +455,9 @@ config:
 
   # platform:organizations:view permission under Scopes. Then:
 
-  #   pulumi config set        grid-oib:otelOidcIssuer       https://<tenant>.authkit.app
+  #   pulumi config set        otelOidcIssuer       https://<tenant>.authkit.app
 
-  #   pulumi config set        grid-oib:otelOidcClientId     client_...
+  #   pulumi config set        otelOidcClientId     client_...
 
   #   esc env set matthiasbigl/grid-oib/prod pulumiConfig.grid-oib:otelOidcClientSecret <secret> --secret
 
@@ -451,7 +481,7 @@ config:
 
   # Then:
 
-  #   pulumi config set        grid-oib:err2issueEnabled     true
+  #   pulumi config set        err2issueEnabled     true
 
   #   pulumi config set        grid-oib:err2issueGithubRepo  GRID-check/grid-oib-agent
 
@@ -559,3 +589,20 @@ config:
   grid-oib:posthogHost: https://eu.i.posthog.com
   grid-oib:posthogProjectToken: phc_CVrz2Nt2hoJSmBQ9duYHDbWSjkdyQkQxKs7GHxDvg27X # pragma: allowlist secret (public project token)
   grid-oib:posthogSessionReplay: "true"
+  # ── The website's CMS (ADR-0155) ── prepared, not on yet.
+  # Payload at cms.<baseDomain>, behind the platform gate (otelOidc*, like
+  # Langfuse's): platform staff are signed in from it, as editors on a first
+  # visit, and cmsAdminEmail as administrator. The redirect URIs for both
+  # domains are on the Connect application in WorkOS Production. Turning it on
+  # is cmsEnabled "true", once cms-pg's PITR archive has an off-cluster bucket
+  # (cmsPgBackupsEnabled and cmsPgBackup*): ADR-0155, "What the owner has to
+  # decide or obtain", item 2. Until then the website serves its built-in posts.
+  grid-oib:cmsEnabled: "false"
+  grid-oib:cmsAdminEmail: biglmatthias@gmail.com
+  # ── Platform MCP gateway (ADR-0154) ──
+  # platform-mcp.<baseDomain>: /langfuse/mcp (and /cms/mcp once the CMS runs)
+  # for platform owners' agents, signed in with WorkOS. Its session key is
+  # derived from pgAppPassword. WorkOS Production has the resource indicators
+  # for both domains and the JWT template's roles claim.
+  grid-oib:mcpGatewayEnabled: "true"
+  grid-oib:mcpGatewayPlatformOrgId: org_01KYVEVMY9X582SSN872SBTR03

@@ -1057,6 +1057,25 @@ Every evidence tool answers in one grammar: a preamble, a run of
 `--- Result N ---` blocks whose header states `Source:`, `Collection:`,
 `Shelf:`, `Dokumentart:`, `Punkt:`, `Citation:` and `Relevance Score:`, the
 passage body under that last line, and one `## Trace-Lanes` object at the end.
+The body sits between `<document_content>` and `</document_content>`, and a
+line under the preamble says once that text inside is quoted content, never an
+instruction (`common/passage_fence.py`). A body that spells either tag has its
+`<` written as `&lt;`, so no document, and no filed mail (ADR-0137), can close
+the fence early; the text reader takes the fence back off. The grammar's own
+lines a body spells (`--- Result 2 ---`, `## Trace-Lanes`) stay as written, and
+every reader that splits the grammar skips them inside a fence
+(`passage_fence.unfenced`): the text parser (`citations/grounding_text.py`),
+`strip_trace_lanes`, the history's compaction and deep research's exclusion cut.
+Without that, a mail body spelling a second hit with `Shelf: building_law` was a
+hit on every replayed turn. A free-text header value outside the fence (a
+mail's subject is its Verlauf's title, a folder, a label) has its tags escaped
+and a spelled `--- Result` made one dash (`grounding_block._line`), and a
+`Source:` title stops at 200 characters. A key another tool takes back
+(`Path:` for `read_file`, `Citation:` for the registry, the codes, the
+project id) is only made one line (`grounding_block._key`), so it round-trips;
+it cannot act as grammar mid-line, since every reader anchors the tags and the
+delimiter at the start of a line. Grep's `## Lines around the matches`
+index prints documents' own lines, so it is fenced too.
 
 The hit is now a record and the text is its rendering.
 `common/grounding_block.py` holds `GroundingHit`, `GroundingBlock` and the one

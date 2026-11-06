@@ -74,17 +74,36 @@ const renderBrief = (
 }
 
 describe('FolderBrief — the numbers add up', () => {
-  it('puts only the documents Piloti is meant to read in the legend, so it sums to the headline', () => {
+  it('says the read count once, in the headline, and the legend adds the rest up to its „of N"', () => {
     renderBrief()
     expect(screen.getByText(/3 of 5 documents read/)).toBeInTheDocument()
-    const legendCounts = ['readable', 'failed', 'held'].map((state) =>
+    expect(screen.queryByTestId('folder-brief-state-readable')).not.toBeInTheDocument()
+    const legendCounts = ['failed', 'held'].map((state) =>
       Number(screen.getByTestId(`folder-brief-state-${state}`).textContent?.match(/\d+/)?.[0])
     )
-    expect(legendCounts.reduce((a, b) => a + b, 0)).toBe(5)
+    expect(3 + legendCounts.reduce((a, b) => a + b, 0)).toBe(5)
     // The report is named beside the legend, plainly as an extra.
-    expect(screen.getByTestId('folder-brief-state-unindexed')).toHaveTextContent(
-      'plus 1 not in the knowledge base'
-    )
+    expect(screen.getByTestId('folder-brief-state-unindexed')).toHaveTextContent('1 more not in the knowledge base')
+    // Something is open, so there is a bar: a hairline, never a band.
+    expect(document.querySelector('[data-slot="segment-meter"]')).toHaveClass('h-1')
+  })
+
+  // Ticket #38, topic 6: „Alle 27 Dokumente gelesen" over „dazu 16 nicht in der
+  // Wissensbasis", a full green band, and 27 three times.
+  it('is quiet when all is read: no bar, the count once, and „all" says which documents it means', () => {
+    renderBrief([file({ tags: ['Grundriss'] }), file({ tags: ['Schnitt'] }), file({ status: 'stored' })], { missing: null })
+    const brief = screen.getByTestId('folder-brief')
+    expect(screen.getByTestId('folder-brief-toggle')).toHaveTextContent('All 2 knowledge-base documents read')
+    expect(document.querySelector('[data-slot="segment-meter"]')).toBeNull()
+    expect(screen.queryByTestId('folder-brief-state-readable')).not.toBeInTheDocument()
+    expect(screen.getByTestId('folder-brief-state-unindexed')).toHaveTextContent('1 more not in the knowledge base')
+    expect(brief.textContent?.match(/\b2\b/g)).toHaveLength(1)
+  })
+
+  it('draws nothing under the headline when all is read and nothing else is there to say', () => {
+    renderBrief([file({ tags: ['Grundriss'] }), file({ tags: ['Schnitt'] })], { missing: null })
+    expect(screen.getByTestId('folder-brief-toggle')).toHaveTextContent('All 2 documents read')
+    expect(screen.queryByTestId('folder-brief-meter')).not.toBeInTheDocument()
   })
 
   it('counts one document with three Fassungen once, and never asks to re-read a replaced one', () => {

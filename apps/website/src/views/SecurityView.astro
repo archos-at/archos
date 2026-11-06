@@ -25,12 +25,16 @@ const contact = { label: t(locale).kontakt, href: localePath('contact', locale),
 <BaseLayout locale={locale} title={c.title} description={c.description} faq={c.faq}>
   <Hero title={c.hero.title} text={c.hero.text} />
 
-  <section class="ui-container page-section">
-    <SectionIntro title={c.intro.title} as="h2" />
-    <FeatureTiles class="page-gap" items={c.items} columns={3} />
+  <!-- The protections are the page's point: a grey band with each one as a cell of its own,
+       set apart from the hero and the FAQ (owner decision, 2026-11-05). -->
+  <section class="ui-band">
+    <div class="ui-container ui-section">
+      <SectionIntro title={c.intro.title} as="h2" />
+      <FeatureTiles class="page-gap" items={c.items} columns={3} variant="cells" />
+    </div>
   </section>
 
-  <section class="ui-container page-section">
+  <section class="ui-container ui-section">
     <FAQ title={c.faqTitle} items={c.faq} />
   </section>
 

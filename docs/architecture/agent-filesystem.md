@@ -341,8 +341,10 @@ Der Fluchtweg aller Wohnungen führt über das bestehende Stiegenhaus ins Freie.
 --- Result 2 --- (p.7)   --- Result 3 --- (p.11)
 
 ## Lines around the matches
+<document_content>
 /project/Gutachten/Brandschutz/Brandschutzkonzept_Hubergasse14.pdf.md#page=3 [2.1 Rettungsweg]:
 > Der Fluchtweg aller Wohnungen führt über das bestehende Stiegenhaus ins Freie. Das Stiegenhaus bleibt der einzige
+</document_content>
 Cite the passages above, not these lines.
 ```
 

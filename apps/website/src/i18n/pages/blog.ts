@@ -11,6 +11,7 @@ const de = {
   filterLabel: 'Beiträge filtern',
   filterAll: 'Alle',
   backToBlog: 'Zurück zum Blog',
+  preview: 'Vorschau: Diese Fassung ist noch nicht veröffentlicht.',
 };
 
 const en: typeof de = {
@@ -22,6 +23,7 @@ const en: typeof de = {
   filterLabel: 'Filter posts',
   filterAll: 'All',
   backToBlog: 'Back to the blog',
+  preview: 'Preview: this version is not published yet.',
 };
 
 export default { de, en };

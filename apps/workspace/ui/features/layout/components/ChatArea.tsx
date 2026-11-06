@@ -13,6 +13,7 @@
 import { type FC, memo } from 'react'
 import { ArrowDown, Check, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
 import { PRESSABLE } from '@/components/ui/press'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { MentionPeopleProvider } from '@/features/collaboration/context/mention-people'
@@ -63,7 +64,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
           {controller.accessLost && (
             <div
               role="status"
-              className="text-muted-foreground mx-auto mt-3 w-full max-w-5xl px-4 text-sm sm:px-6"
+              className={cn(THREAD_COLUMN, THREAD_GUTTER, 'text-muted-foreground mt-3 text-sm')}
             >
               {controller.tCollaboration('thread.accessLost')}
             </div>
@@ -101,7 +102,7 @@ export const ChatArea: FC<ChatAreaProps> = memo(function ChatArea(props) {
             started or stopped typing) and the connection's state (the card it
             replaces collapsed out of the thread on reconnect). */}
         <div
-          className="pointer-events-none absolute inset-x-0 z-10 mx-auto flex w-full max-w-5xl items-end pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))]"
+          className={cn(THREAD_COLUMN, THREAD_GUTTER, 'pointer-events-none absolute inset-x-0 z-10 flex items-end')}
           style={{ bottom: 'calc(var(--composer-h, 11rem) + 0.125rem)' }}
           data-testid="thread-status-dock"
         >

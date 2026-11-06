@@ -123,7 +123,7 @@ let catalog = CATALOG
 vi.mock('./exposure.config', async (importOriginal) => {
   const real = await importOriginal<typeof import('./exposure.config')>()
   // The fakes are kinds of operation; organization-memory-create keeps its real entry (Piloti does it natively).
-  const offered = { external: true, piloti: true }
+  const offered = { external: true, agent: true }
   return { ...real, EXPOSURE: { ...real.EXPOSURE, 'folder-rename': offered, 'folder-list': offered, 'folder-search': offered } }
 })
 vi.mock('./catalog', () => ({
@@ -570,7 +570,7 @@ describe('applying an operation proposal', () => {
     catalog = [FOLDER_RENAME]
     const entries = EXPOSURE as Record<string, Exposure>
     const before = entries['folder-rename']
-    entries['folder-rename'] = { external: false, piloti: false, platform: true }
+    entries['folder-rename'] = { external: false, agent: false, platform: true }
     try {
       const hidden = await applyProposal(ACCEPTER, second.proposalId, new Request('https://grid.test'))
       expect(hidden.status).toBe('failed')

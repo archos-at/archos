@@ -11,6 +11,11 @@
 
 import { getByPath, type Translator } from '@/i18n/translate'
 import { formatDayRange } from '@/lib/format'
+import {
+  INBOUND_MAIL_EXPIRING_NOTICE_DAYS,
+  INBOUND_MAIL_RESTORE_DAYS,
+  MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS,
+} from '@/lib/inbound-mail/inbound-mail-vocabulary'
 import { INBOX_TYPE_PRESENTATION, UNKNOWN_TYPE_PRESENTATION, type InboxItemView } from './types'
 
 /** Dictionary root for the item-type entries. */
@@ -81,6 +86,11 @@ export function inboxItemCopy(item: InboxItemView, t: Translator, dictionary: un
     due: item.dueOn ? formatDayRange(item.dueOn, item.dueOn, locale) : '',
     marks: item.openMarks ?? 0,
     revision: item.marksRevision ?? '',
+    // The project-mail windows, so a notice's day counts cannot drift from the
+    // sweeps that keep them (docs/ux/inbound-mail.md).
+    restoreDays: INBOUND_MAIL_RESTORE_DAYS,
+    noticeDays: INBOUND_MAIL_EXPIRING_NOTICE_DAYS,
+    followNoticeDays: MAIL_THREAD_FOLLOW_EXPIRING_NOTICE_DAYS,
   }
 
   const countedTitles =

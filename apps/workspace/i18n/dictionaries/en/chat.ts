@@ -130,11 +130,6 @@ export const chat = {
     placeholder: 'Ask {productName} about this project …',
     sources: 'Data basis',
     sourcesAria: 'Data basis — {enabled} of {total} sources enabled. Opens the data sources panel.',
-    scopeAria: 'Search scope: {project}',
-    scopeFallback: 'This project',
-    scopeCurrent: 'Current project',
-    scopeAll: 'All projects',
-    scopeAllSoon: 'Coming soon — cross-project search is not available yet.',
     // Mobile-only cue: the source/scope labels collapse to icons on phones, so a
     // tiny one-line hint under the composer keeps the active source count legible.
     sourcesActiveMobile: '{count, plural, one {# source} other {# sources}} active',
@@ -220,7 +215,8 @@ export const chat = {
     projectWrites:
       '{productName} does more than answer — ask, and it writes file notes, memos and drafts straight into the project files.',
   },
-  // Thread role tabs (click-dummy overhaul, WS-3).
+  // Whose turn a message is, for a screen reader only: on screen the bubble
+  // and the answer card say it, so no role tab draws it (Notion #38, topic 9).
   roles: {
     input: 'Input',
     result: 'Result',
@@ -720,6 +716,8 @@ export const chat = {
       // A reading is what Piloti read off the page, never a measurement (ADR-0125).
       reading: 'Read: {reading}',
       readingNote: 'Read off the page by {productName}, not measured.',
+      // Opens what {productName} looked for and what it read there.
+      explanation: 'Explanation',
       embeddedImage: 'image {index}',
       open: 'Open {document} at p. {page}',
     },
@@ -902,6 +900,8 @@ export const chat = {
         upload_batch: 'Upload {name}',
         proposal: 'Proposal {name}',
         member: 'Person {name}',
+        inbound_mail: 'Email {name}',
+        mail_thread: 'Mail thread {name}',
       },
       applied: 'The action was carried out.',
       dismissed: 'Discarded. The action was not carried out.',

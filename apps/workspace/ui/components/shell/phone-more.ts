@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Building2, LayoutDashboard, UserRound } from 'lucide-react'
+import { Building2, LayoutDashboard, Sparkles, UserRound } from 'lucide-react'
 
 import {
   railSections,
@@ -57,6 +57,13 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       href: '/app/profile',
       icon: UserRound,
       label: { namespace: 'nav', key: 'userMenu.profile' },
+      group: 'account',
+    },
+    {
+      key: 'whats-new',
+      href: '/app/whats-new',
+      icon: Sparkles,
+      label: { namespace: 'nav', key: 'userMenu.whatsNew' },
       group: 'account',
     },
   ]

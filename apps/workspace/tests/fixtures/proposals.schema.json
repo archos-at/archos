@@ -1595,6 +1595,8 @@
                       "bim_model",
                       "upload_batch",
                       "proposal",
+                      "inbound_mail",
+                      "mail_thread",
                       "member"
                     ]
                   },
@@ -2525,6 +2527,8 @@
                           "bim_model",
                           "upload_batch",
                           "proposal",
+                          "inbound_mail",
+                          "mail_thread",
                           "member"
                         ]
                       },

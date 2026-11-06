@@ -186,3 +186,13 @@ metadata and tags.
 * ADR-0016: the GRID Platform organization and its roles.
 * [`../architecture/agent-surface.md`](../architecture/agent-surface.md), "The platform door".
 * [`../deployment/workos-provisioning.md`](../deployment/workos-provisioning.md): the flag and the resource indicator.
+
+## Amendment (2026-11-05): the organization picked at sign-in
+
+The door no longer refuses a token of another organization. It resolves the
+session in the platform organization from the person's live membership
+(`platformPrincipal`), so platform staff who picked an office at sign-in are
+admitted with exactly their platform rights, and a person without platform
+membership is refused as before. What this gives up, a sign-in policy of the
+platform organization's own, and how to switch it off before one is set:
+[`../deployment/platform-mcp-gateway.md`](../deployment/platform-mcp-gateway.md#what-admitting-any-organization-gives-up).

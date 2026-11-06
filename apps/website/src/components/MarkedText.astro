@@ -1,0 +1,15 @@
+---
+/**
+ * A run of text in its marks (bold, italic, struck, code, sub, sup), outermost
+ * first. The text is an Astro expression, so it is escaped: a `<` an editor typed
+ * is a `<` on the page.
+ */
+interface Props {
+  text: string;
+  marks: Array<'strong' | 'em' | 's' | 'code' | 'sub' | 'sup'>;
+}
+const { text, marks } = Astro.props;
+const [Tag, ...rest] = marks;
+---
+
+{Tag ? <Tag><Astro.self text={text} marks={rest} /></Tag> : text}

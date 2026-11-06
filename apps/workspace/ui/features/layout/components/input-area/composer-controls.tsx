@@ -1,9 +1,6 @@
-import { ArrowUp, Check, ChevronDown, FileText, Loader2, Square } from 'lucide-react'
+import { ArrowUp, FileText, Loader2, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Spinner } from '@/components/ui/spinner'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { AnimatePresence, motion } from '@/components/motion'
 import { EffortDial } from '@/features/chat/components/effort-dial'
@@ -16,7 +13,13 @@ import type { InputAreaController } from './use-input-area-controller'
 export function ComposerControls({ controller }: { controller: InputAreaController }) {
   return (
     <>
-      <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+      {/* ONE row at every width: the mention offer at its start, the actions at its
+          end (ticket #38, R2). It was a column below `sm`, so a phone stacked the
+          actions and the offer on lines of their own and the composer grew by a
+          row for a hint. The offer folds to its `@` where the card is narrow
+          (`AddresseeIndicator`, against the card's `@container`); only a
+          statement about who receives the message takes a line of its own. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {/* The hold, said out loud. Without it the message simply
                       vanishes from the composer and nothing arrives — which reads
                       as a dropped send, the one impression a held message must not
@@ -30,7 +33,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
               initial={{ opacity: 0 }}
               animate={{ opacity: 1, transition: controller.holdEnter }}
               exit={{ opacity: 0, transition: controller.holdExit }}
-              className="text-muted-foreground flex items-center gap-1.5 text-xs sm:order-2"
+              className="text-muted-foreground flex basis-full items-center gap-1.5 text-xs @lg:order-2 @lg:basis-auto"
               data-testid="composer-held-for-upload"
               role="status"
             >
@@ -47,76 +50,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
           )}
         </AnimatePresence>
 
-        <div className="flex min-w-0 items-center gap-1.5 sm:contents">
-          {/* Scope chip — current project; cross-project is honestly disabled.
-                  Dashed status-active dot + label + chevron (dummy composer). */}
-          <Popover>
-            <PopoverTrigger asChild>
-              {/* The primitive, not a hand-rolled `<button>`: the outline/sm
-                      variant IS this chip's geometry, and it ships the press
-                      response with its `motion-reduce` escape for free. Matches
-                      `SourceBasisTrigger` beside it. */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={controller.cannotContribute}
-                aria-label={controller.tChat('composer.scopeAria', {
-                  project: controller.scopeLabel,
-                })}
-                title={controller.tChat('composer.scopeAria', { project: controller.scopeLabel })}
-                className="min-w-0 shrink max-sm:gap-1.5 max-sm:px-2.5 sm:order-1"
-              >
-                <span className="border-status-active flex size-3.5 shrink-0 items-center justify-center rounded-full border border-dashed max-sm:hidden">
-                  {/* 5px: the dot has to sit INSIDE a 14px dashed ring with a
-                          visible gap on every side, and the 6px token step closes it. */}
-                  <span className="bg-status-active size-[5px] rounded-full" />
-                </span>
-                {/* Named on a phone too: which project Piloti searches is
-                        the first doubt an answer raises, and a bare dot answers
-                        nothing. It truncates before anything else in the row. */}
-                <span className="text-foreground/85 max-w-44 min-w-0 truncate">
-                  {controller.scopeLabel}
-                </span>
-                <ChevronDown
-                  className="text-muted-foreground size-3 shrink-0 max-sm:hidden"
-                  aria-hidden="true"
-                />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent side="top" align="start" className="w-64 p-1.5">
-              <div
-                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm"
-                aria-current="true"
-              >
-                <Check className="text-foreground size-3.5 shrink-0" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate font-medium">{controller.scopeLabel}</span>
-                <span className="text-muted-foreground shrink-0 text-xs">
-                  {controller.tChat('composer.scopeCurrent')}
-                </span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  {/* span wrapper: disabled elements don't emit hover events */}
-                  <span className="block" tabIndex={0}>
-                    <button
-                      type="button"
-                      disabled
-                      aria-disabled="true"
-                      className="text-muted-foreground flex w-full cursor-not-allowed items-center gap-2 rounded-lg px-2.5 py-2 text-sm opacity-60"
-                    >
-                      <span className="size-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{controller.tChat('composer.scopeAll')}</span>
-                    </button>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-60">
-                  {controller.tChat('composer.scopeAllSoon')}
-                </TooltipContent>
-              </Tooltip>
-            </PopoverContent>
-          </Popover>
-
+        <div className="contents">
           {/* Datenbasis — the one control for WHERE Piloti may look.
                   WITHHELD for now (product decision, 2026-08): the picker is
                   commented out rather than deleted so it can return. While it is
@@ -124,8 +58,9 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
                   available source enabled (`fetchDataSources`) — so nothing
                   narrows silently; only a conversation that saved a narrower
                   selection while the control existed still restores it.
-                  To restore: uncomment this block and the `SourceBasisPicker,
-                  SourceBasisTrigger` import above.
+                  To restore: uncomment this block and import `SourceBasisPicker`,
+                  `SourceBasisTrigger` and `Popover`, `PopoverTrigger`,
+                  `PopoverContent`.
 
                   The trigger names the mix (a preset, a set of strata, "Alle
                   Quellen"); it never renders a bare count, because the count it
@@ -149,7 +84,7 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
 
           {/* Right Actions: manage-files, effort, attach, dictation, send —
                   pushed right. Dictation sits beside Send, where the thumb ends up. */}
-          <div className="ml-auto flex shrink-0 items-center gap-1 sm:order-3">
+          <div className="order-3 ml-auto flex shrink-0 items-center gap-1">
             {/* Manage files — opens a Dialog hosting the full FileSourcesTab
                     (browse, upload zone, per-file delete). Replaces the old
                     right-panel toggle. Shown only when files exist. */}
@@ -184,9 +119,8 @@ export function ComposerControls({ controller }: { controller: InputAreaControll
                         not a question, so the dial has nothing to say there. It is
                         hidden rather than unmounted: it keeps its box, so the
                         buttons to its right do not shift when a prompt arrives. */}
-            {/* On a phone both chevrons go (here and on the scope chip):
-                          the row is 294px, and the room they took is what lets
-                          the project's name show at all. Both still open. */}
+            {/* On a phone the chevron goes: the row is 294px wide. The
+                          dial still opens. */}
             <EffortDial
               className="max-sm:px-1.5 max-sm:[&>svg]:hidden"
               conversationId={controller.currentConversationId}

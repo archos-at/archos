@@ -101,6 +101,7 @@ async def _resolve_targets(entries: list[Any], document: str) -> list[PassageTar
                     file_name=str(getattr(candidate, "file_name", "")),
                     shelf=str(shelf) if shelf is not None else None,
                     current=_current_revision(candidate, docs),
+                    mail_origin=getattr(candidate, "mail_origin", None),
                 )
             )
     return targets

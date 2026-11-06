@@ -45,6 +45,7 @@ import {
 import { findOwnUploadBatch } from '@/lib/upload-batches/service'
 import { getOwnProductFeedback } from '@/lib/product-feedback/repository'
 import { feedbackThreadHref } from '@/lib/product-feedback/types'
+import { inboundMailPaths, inboundMailReadyPath } from '@/lib/inbound-mail/paths'
 
 /** Row-level context a deep link may use. */
 export interface InboxTargetLinkContext {
@@ -244,6 +245,8 @@ const projectTarget: InboxTargetDescriptor = {
         if (context.itemType === 'piloti.proposal_waiting') return `/app/projects/${resourceId}/files`
         // A finished reading waits on the project's setup page, where it is reviewed (ADR-0111).
         if (context.itemType === 'piloti.intake_ready') return `/app/projects/${resourceId}/setup`
+        const mailLink = inboundMailLink(resourceId, context)
+        if (mailLink) return mailLink
         // A sort of the project's root waits in its files, with the dialog open (ADR-0121).
         if (context.itemType.startsWith('root_sort.')) {
           return rootSortHref(`/app/projects/${resourceId}/files`, context.anchorId)
@@ -257,6 +260,50 @@ const projectTarget: InboxTargetDescriptor = {
       },
     }
   },
+}
+
+/**
+ * Where a row of the E-Mail-Eingang (ADR-0137) lands, or null for any other
+ * type. „E-Mails warten“ opens the list at its „Bereit“ section, where each
+ * complete mail is one press: the row is one per project and carries no mail's
+ * state (no sender, subject or completeness, by construction), so the filing
+ * itself is not on the row. The other collapsed rows (mail expires, the
+ * address is full) open the list, where the address dialog is too; a failed filing opens its mail,
+ * for the decider who may file it again. A decided mail is told to its sender,
+ * who may read the project without deciding its mail (D9): the list would
+ * answer them 404, so it opens Dateien, at the folder the files went to when
+ * the row names one they may open (its anchor). The member's own rows about
+ * their mail (held for the writers, rejected, expired) open Dateien too; the
+ * one they must answer („Haben Sie diese E-Mail gesendet?“, `held`) opens the mail,
+ * which they, a writer, may read. `inbound_mail.appended` and
+ * `mail_thread.follow_expiring` point at the Verlauf document instead.
+ */
+function inboundMailLink(projectId: string, context: InboxTargetLinkContext): string | null {
+  const paths = inboundMailPaths(projectId)
+  const waiting = { status: 'waiting', outcome: null } as const
+  switch (context.itemType) {
+    case 'inbound_mail.waiting':
+      return inboundMailReadyPath(projectId)
+    case 'inbound_mail.expiring':
+    case 'inbound_mail.cap_reached':
+      return paths.list(waiting)
+    case 'inbound_mail.filing_failed':
+    case 'inbound_mail.held': {
+      const mailId = context.anchorId?.trim()
+      return mailId ? paths.mail(mailId, waiting) : paths.list(waiting)
+    }
+    // The member may read the project without deciding its mail: Dateien, as for `decided`.
+    case 'inbound_mail.held_for_writers':
+    case 'inbound_mail.rejected':
+    case 'inbound_mail.expired':
+      return paths.files
+    case 'inbound_mail.decided': {
+      const folderId = context.anchorId?.trim()
+      return folderId ? `${paths.files}?folder=${encodeURIComponent(folderId)}` : paths.files
+    }
+    default:
+      return null
+  }
 }
 
 /** The thread at the run: the shape `features/tasks/lib/task-view.ts` builds. */

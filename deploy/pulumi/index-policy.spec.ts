@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { load } from "js-yaml";
 import { LEGACY_PROJECT } from "./src/names";
+import { SIGNING_KEYS } from "./src/test-support/app-zone-config";
 import { baseStackConfig } from "./src/test-support/stack-config";
 
 /**
@@ -26,6 +27,12 @@ import { baseStackConfig } from "./src/test-support/stack-config";
  */
 
 type Resource = { type: string; name: string; inputs: Record<string, any> };
+
+/** The public zone ids the stack files name, and their zones. */
+const ZONE_NAMES: Record<string, string> = {
+  "66de14f8d07a729634f5d230418bb907": "piloti.at", // pragma: allowlist secret (public zone id)
+  "31df51fbdd7ea2d7ef63bcaab9a09559": "archos.tech", // pragma: allowlist secret (public zone id)
+};
 const RESOURCES: Resource[] = [];
 
 pulumi.runtime.setMocks(
@@ -34,7 +41,17 @@ pulumi.runtime.setMocks(
       RESOURCES.push({ type: args.type, name: args.name, inputs: args.inputs });
       return { id: `${args.name}-id`, state: { ...args.inputs, metadata: args.inputs.metadata ?? { name: args.name } } };
     },
-    call: () => ({}),
+    call: (args: pulumi.runtime.MockCallArgs) => {
+      // Project mail's zone check and MX guard read Cloudflare; answer as the real
+      // zones do after a first `up` (the zone ids are the stack files' own).
+      if (args.token === "cloudflare:index/getZone:getZone") {
+        return { id: args.inputs.zoneId, name: ZONE_NAMES[args.inputs.zoneId as string], account: { id: "account-1", name: "Office" } };
+      }
+      if (args.token === "cloudflare:index/getDnsRecords:getDnsRecords") {
+        return { results: [{ name: args.inputs.name?.exact ?? "", content: "route1.mx.cloudflare.net", type: "MX" }] };
+      }
+      return {};
+    },
   },
   LEGACY_PROJECT,
   "dev",
@@ -60,6 +77,11 @@ function devStackConfig(): Record<string, string> {
   ),
     // In the dev stack's ESC environment, not its file.
     [`${LEGACY_PROJECT}:registryPassword`]: "placeholder-secret-value",
+    // The platform Connect application's secret: the gate in front of Langfuse and the CMS.
+    [`${LEGACY_PROJECT}:otelOidcClientSecret`]: "placeholder-secret-value",
+    [`${LEGACY_PROJECT}:cloudflareApiToken`]: "placeholder-secret-value",
+    // Project mail's signing key, also in ESC (runbook §5); the plan refuses the domain without it.
+    [`${LEGACY_PROJECT}:inboundMailSigningKeys`]: SIGNING_KEYS,
   };
 }
 

@@ -484,7 +484,7 @@ describe('who may press', () => {
   it('is an outside agent only: Piloti’s audience has no app-only tool', () => {
     for (const tool of APP_TOOLS) {
       expect(isAppToolFor('external', tool.name)).toBe(true)
-      expect(isAppToolFor('piloti', tool.name), tool.name).toBe(false)
+      expect(isAppToolFor('agent', tool.name), tool.name).toBe(false)
     }
   })
 

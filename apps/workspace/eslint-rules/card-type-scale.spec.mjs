@@ -76,8 +76,8 @@ describe('grid/card-type-scale', () => {
     }
 
     expect(collected.map((d) => d.step)).toEqual([
-      'card-body (13.5px)',
-      'card-title (14px)',
+      'card-body (16px) — or `card-title` for the title, `card-figure-16` for a figure in a list',
+      'card-body (16px) — or `card-title` for the title, `card-figure-16` for a figure in a list',
       'card-figure-24 (24px)',
       'card-eyebrow (10.5px) — or `SectionLabel`, which is the eyebrow',
     ])

@@ -1,0 +1,30 @@
+---
+/**
+ * A hero headline's text as words that can rise out of their own line, once on load (motion.css,
+ * "the hero"; used by Hero and StatusBlock only: a heading further down is read, not performed).
+ * Each word sits in a mask (`ui-rise`) and carries its place (`--ui-rise-i`), so a line
+ * reads as written left to right. A `\n` is a deliberate line break. Without motion the
+ * words are plain text in inline boxes, laid out exactly as with it.
+ */
+interface Props {
+  text: string;
+}
+
+const { text } = Astro.props;
+let place = 0;
+const lines = text.split('\n').map((line) => line.split(/\s+/).filter(Boolean).map((word) => ({ word, place: place++ })));
+---
+
+{
+  lines.map((words, li) => (
+    <>
+      {li > 0 && <br />}
+      {words.map(({ word, place }, wi) => (
+        <>
+          {wi > 0 && ' '}
+          <span class="ui-rise"><span style={`--ui-rise-i: ${place}`}>{word}</span></span>
+        </>
+      ))}
+    </>
+  ))
+}

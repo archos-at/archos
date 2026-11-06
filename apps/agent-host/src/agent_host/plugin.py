@@ -90,6 +90,7 @@ from .routes.ingest import add_ingest_routes
 from .routes.internal_tools import add_internal_tool_routes
 from .routes.jobs import register_job_routes
 from .routes.lesson_distill import add_lesson_distill_routes
+from .routes.mail import add_mail_routes
 from .routes.mail_archive import add_mail_archive_routes
 from .routes.maintenance import add_maintenance_routes
 from .routes.norms import add_norm_routes
@@ -322,11 +323,14 @@ API_APP_REGISTRARS = (register_job_routes,)
 #: allowlist, mounted where they always were in the ``api`` role's order:
 #: the agent's read tools for the BFF's MCP server, run for the person a signed
 #: envelope names (ADR-0122); the reader of an Outlook archive the BFF staged for
-#: its mail import (ADR-0085); and the DXF converter the BFF calls for a drawing's
-#: PDF rendition where it calls Gotenberg for an office file (ADR-0152).
+#: its mail import (ADR-0085); the reader of one mail sent to a project's address,
+#: for the BFF's receive job (own text, quoted blocks, calendar; DECISION D12);
+#: and the DXF converter the BFF calls for a drawing's PDF rendition where it
+#: calls Gotenberg for an office file (ADR-0157).
 _INTERNAL_SERVICE_ROUTERS: tuple[Callable[[APIRouter], None], ...] = (
     add_internal_tool_routes,
     add_mail_archive_routes,
+    add_mail_routes,
     add_drawing_rendition_routes,
 )
 

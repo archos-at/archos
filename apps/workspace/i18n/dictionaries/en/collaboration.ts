@@ -394,7 +394,7 @@ export const collaboration = {
       waiting: 'Waiting on you',
       news: 'News',
       late: '{count} overdue',
-      nothingWaiting: 'Nothing is waiting on you.',
+      nothingWaiting: 'No open requests.',
       newsRead: 'Mark as read',
       chat: 'Chat',
     },
@@ -614,7 +614,7 @@ export const collaboration = {
       // An Outlook archive was imported. {subject} is the archive's file name.
       mailImportCompleted: {
         title: '“{subject}” has been imported',
-        body: '{productName} filed the emails and their attachments in the project under E-Mail-Import.',
+        body: '{productName} filed the attachments under E-Mail-Import and the emails in the project’s mail threads.',
       },
       mailImportFailed: {
         title: 'The import of “{subject}” stopped',
@@ -963,6 +963,103 @@ export const collaboration = {
             title: 'The sort of the office filing is ready to review',
           },
         },
+      },
+      inboundMailWaiting: {
+        titleOne: 'A mail to “{subject}” is waiting to be filed',
+        titleMany: '{count} mails to “{subject}” are waiting to be filed',
+        title: 'Mails to “{subject}” are waiting to be filed',
+        body: 'None of it is in the project until someone files it.',
+        variants: {
+          // Domain not verified, or sent automatically (a newsletter, a list).
+          unconfirmed: {
+            body: 'Some of them come from a domain that is not verified, or were sent automatically.',
+          },
+        },
+      },
+      // Day 25 of 30: what nobody files expires (restorable for seven days).
+      inboundMailExpiring: {
+        titleOne: 'A mail to “{subject}” expires in {noticeDays} days',
+        titleMany: '{count} mails to “{subject}” expire in {noticeDays} days',
+        title: 'Mails to “{subject}” expire in {noticeDays} days',
+        titleResolved: 'No mail to “{subject}” is about to expire',
+        body: 'What nobody files by then expires. A member’s mail can be restored for {restoreDays} days after, one from outside the office cannot.',
+        variants: {
+          unconfirmed: {
+            body: 'Some of them come from a domain that is not verified, or were sent automatically. What nobody files expires.',
+          },
+        },
+      },
+      // To the member whose own mail was decided. The folder only when they may see it.
+      inboundMailDecided: {
+        title: 'Your mail to “{subject}” was filed',
+        titleRelated: 'Your mail to “{subject}” was filed in “{related}”',
+        body: 'Filed by {actor}.',
+        variants: {
+          dismissed: {
+            title: 'Your mail to “{subject}” was dismissed',
+            titleRelated: 'Your mail to “{subject}” was dismissed',
+            body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+          },
+          // Filed as you, without anyone looking at it: your domain verified it and you may file in the project.
+          direct: {
+            title: 'Your mail to “{subject}” was filed directly',
+            titleRelated: 'Your mail to “{subject}” was filed directly in “{related}”',
+            body: 'Nobody looked at it: your domain verified it and you may file in this project.',
+          },
+        },
+      },
+      // A forger causes this row too, so the title names both answers. No subject: a stranger's words reach no row (RT-X1).
+      inboundMailHeld: {
+        title: 'Did you send a mail to the project “{subject}”? Otherwise dismiss it',
+        titleResolved: 'The mail with your address to “{subject}” is done',
+        body: 'It carries your address, but your domain did not verify it. Only you can file it. If you did not send it, dismiss it: this is how fraud begins.',
+      },
+      inboundMailHeldForWriters: {
+        title: 'Your mail to “{subject}” waits to be filed',
+        body: 'You cannot file in this project, so someone who can decides where it goes.',
+        variants: {
+          // WorkOS did not answer whether the member may file here (`sender_unchecked`): never „you cannot“.
+          unchecked: {
+            body: 'When it arrived, whether you may file in this project could not be checked, so someone who can file there decides where it goes.',
+          },
+        },
+      },
+      inboundMailRejected: {
+        title: 'Your mail to “{subject}” was dismissed',
+        body: 'Dismissed by {actor}. It can be restored for {restoreDays} days.',
+      },
+      inboundMailExpired: {
+        title: 'Your mail to “{subject}” was not filed in time',
+        body: 'Nobody filed it within its window. For {restoreDays} days it can be restored in Project mail under “Handled”: by you if you may file in the project, otherwise by someone who may.',
+      },
+      inboundMailFilingFailed: {
+        title: 'A mail to “{subject}” was not filed completely',
+        titleResolved: 'The mail to “{subject}” is done',
+        body: 'What was not filed is waiting in Project mail again. Open the mail to see why.',
+      },
+      // 80% or 100% of the bytes an address or the office may hold staged.
+      inboundMailCapReached: {
+        title: 'The project mail address of “{subject}” is nearly full',
+        titleResolved: 'The project mail address of “{subject}” has room again',
+        body: 'File or dismiss waiting mail, or create a new address.',
+        variants: {
+          full: {
+            title: 'The project mail address of “{subject}” is full',
+            body: 'New mail arrives again once waiting mail is filed or dismissed. You can also create a new address.',
+          },
+        },
+      },
+      // Following a mail thread: a reply's text was appended as you; its attachments wait.
+      inboundMailAppended: {
+        titleOne: 'A reply was appended to a mail thread in “{subject}”',
+        titleMany: '{count} replies were appended to a mail thread in “{subject}”',
+        title: 'Replies were appended to a mail thread in “{subject}”',
+        body: 'As you, because you follow the mail thread. Attachments wait in Project mail.',
+      },
+      mailThreadFollowExpiring: {
+        title: 'You follow a mail thread in “{subject}” for {followNoticeDays} more days',
+        titleResolved: 'Your follow of a mail thread in “{subject}” was renewed or ended',
+        body: 'Renew it so later replies keep being appended.',
       },
       rootSortFailed: {
         title: 'The sort of “{subject}” stopped',

@@ -13,6 +13,7 @@ import { type LangfuseConfig, loadLangfuse, refuseLangfuseV4WriteMode } from "./
 import { type ObservabilityConfig, loadObservability } from "./config/observability";
 import { type PostgresConfig, loadPostgres } from "./config/postgres";
 import { type BackgroundWorkConfig, loadBackgroundWork } from "./config/background-work";
+import { type CmsConfig, loadCms } from "./config/cms";
 import { refuseInClusterAppArchive } from "./config/barman-backups";
 import { type PosthogConfig, loadPosthog } from "./config/posthog";
 import {
@@ -23,9 +24,12 @@ import {
   loadQdrant,
   refuseRetiredVectorKeys,
 } from "./config/qdrant";
+import { type McpGatewayConfig, loadMcpGateway } from "./config/mcp-gateway";
 import { bool, nodeGroup, num } from "./config/readers";
 import { type SeaweedfsConfig, loadSeaweedfs } from "./config/seaweedfs";
 import { type FrontendConfig, type WebConfig, loadWebTier } from "./config/web-tier";
+import { malwareScanConfig } from "./config/malware-scan";
+import { type InboundMailConfig, inboundMailConfig } from "./config/inbound-mail";
 import {
   type BffJobsConfig,
   type GotenbergConfig,
@@ -103,6 +107,9 @@ export interface DeployConfig {
    * so long as the domain's NS records delegate there.
    */
   dns: DnsConfig;
+
+  /** Project mail (ADR-0138): see {@link InboundMailConfig}. */
+  inboundMail: InboundMailConfig;
 
   /**
    * Edge rate limiting — ADR-0040 layer L1. Enforced by Envoy Gateway's global
@@ -182,6 +189,23 @@ export interface DeployConfig {
    * address stays a plain text field.
    */
   geocoderUrl: string;
+
+  /**
+   * The malware scanner (ADR-0157, `app/clamav.ts`): clamd with freshclam,
+   * scanning what strangers send before anyone may file or download it. The
+   * frontend and the bff-jobs pool get `MALWARE_SCAN_URL` exactly when
+   * this is on; off, every scan fails closed with `not-configured`, and nothing
+   * that needs a clean scan is ever filed.
+   */
+  malwareScan: {
+    /**
+     * OFF by default: prepared, switched on per stack (`malwareScanEnabled`).
+     * The pod asks for 2 GiB and fetches signatures from database.clamav.net.
+     */
+    enabled: boolean;
+    /** `clamav/clamav` with its signatures baked in, pinned by digest (refused otherwise). */
+    image: string;
+  };
 
   /**
    * The one-shot Job that moves the retired Chroma store into Qdrant
@@ -367,6 +391,10 @@ export interface DeployConfig {
    */
   langfuse: LangfuseConfig;
 
+  /** The website's CMS, Payload in namespace `cms` (ADR-0155, `config/cms.ts`). */
+  cms: CmsConfig;
+  /** The platform MCP gateway (ADR-0154, `config/mcp-gateway.ts`). */
+  mcpGateway: McpGatewayConfig;
 }
 
 export function loadConfig(): DeployConfig {
@@ -406,6 +434,7 @@ export function loadConfig(): DeployConfig {
   rejectPlaceholder("letsEncryptEmail", ["example.com"]);
   rejectPlaceholder("langfuseDomain", ["example.com"]);
   rejectPlaceholder("qdrantDashboardDomain", ["example.com"]);
+  rejectPlaceholder("cmsDomain", ["example.com"]);
 
   // The BFF clamps a nonsense threshold back to 80 rather than switching the
   // warning off, which is the right runtime behaviour and a terrible deploy-time
@@ -475,6 +504,10 @@ export function loadConfig(): DeployConfig {
   const langfuse = loadLangfuse(cfg, baseDomain, missingOidcDeps, observabilityFlag);
 
   const qdrantDashboard = loadQdrantDashboard(cfg, baseDomain, missingOidcDeps);
+  const cms = loadCms(cfg, baseDomain, missingOidcDeps);
+  const mcpGateway = loadMcpGateway(
+    cfg, baseDomain, appServices.auth.workosAuthkitDomain, langfuse.enabled || cms.enabled, cfg.requireSecret("pgAppPassword"),
+  );
 
   // ── Public DNS (Cloudflare) ────────────────────────────────────────────────
   //
@@ -489,9 +522,20 @@ export function loadConfig(): DeployConfig {
     s3Domain,
     langfuseDomain: langfuse.enabled ? langfuse.domain : undefined,
     qdrantDashboardDomain: qdrantDashboard.enabled ? qdrantDashboard.domain : undefined,
+    cmsDomain: cms.enabled ? cms.domain : undefined,
+    mcpGatewayDomain: mcpGateway.enabled ? mcpGateway.domain : undefined,
   });
 
   const posthog = loadPosthog(cfg, observabilityFlag);
+
+  // ── Project mail (Cloudflare Email Routing, ADR-0138) ──────────────────────
+  const malwareScan = malwareScanConfig(cfg);
+  const inboundMail = inboundMailConfig(cfg, {
+    dns,
+    // The token itself, not DNS's: an inbox zone of its own needs it while DNS is off.
+    cloudflareApiToken: cfg.getSecret("cloudflareApiToken"),
+    malwareScanEnabled: malwareScan.enabled,
+  });
 
   const observability = loadObservability(
     cfg,
@@ -517,6 +561,8 @@ export function loadConfig(): DeployConfig {
 
     ingress: loadIngress(cfg, { appDomain, s3Domain, webDomain }, loadBalancerIp),
 
+    inboundMail,
+
     dns,
 
     postgres,
@@ -534,6 +580,8 @@ export function loadConfig(): DeployConfig {
       data: nodeGroup(cfg, "nodeGroupData"),
       batch: nodeGroup(cfg, "nodeGroupBatch"),
     },
+
+    malwareScan,
 
     ...loadWorkers(cfg),
 
@@ -568,6 +616,9 @@ export function loadConfig(): DeployConfig {
     observability,
 
     langfuse,
+
+    cms,
+    mcpGateway,
   };
 }
 

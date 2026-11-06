@@ -1,0 +1,38 @@
+/*
+ * Blog covers: one line drawing per post, on the sunken ground, drawn with six pens.
+ * The rules, the canvas and how to draw a new one: packages/brand/docs/blog-covers.md.
+ *
+ * The pens follow the line types of a construction drawing (ISO 128-2, ÖNORM A 6240): a cut
+ * line for what the section cuts, a view line for edges seen beyond, dashed for what is
+ * hidden, dash-dot for axes. Their widths are the brand's strokes in screen pixels at every
+ * size (`vector-effect: non-scaling-stroke`), as a plot keeps its pen widths at any scale.
+ * Tokens only: the share images are rendered from this same file (src/pages/media/covers).
+ */
+.ui-cover { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; background: var(--surface-sunken); }
+.ui-cover * { fill: none; stroke: none; stroke-linecap: butt; stroke-linejoin: miter; vector-effect: non-scaling-stroke; }
+
+/* Ground and module grid: drawn by the frame, never by a cover. */
+.ui-cover .ground { fill: var(--surface-sunken); }
+.ui-cover .grid { stroke: var(--line); stroke-width: var(--stroke-hairline); }
+
+/* The six pens. */
+.ui-cover .cut { stroke: var(--ink); stroke-width: var(--stroke-strong); }
+.ui-cover .view { stroke: var(--ink); stroke-width: var(--stroke-hairline); }
+.ui-cover .hidden { stroke: var(--ink); stroke-width: var(--stroke-hairline); stroke-dasharray: 6 4; }
+.ui-cover .axis { stroke: var(--line-strong); stroke-width: var(--stroke-hairline); stroke-dasharray: 18 4 2 4; }
+.ui-cover .dim { stroke: var(--line-strong); stroke-width: var(--stroke-hairline); }
+.ui-cover .hatch-line { stroke: var(--ink-faint); stroke-width: var(--stroke-hairline); }
+
+/* The fills: paper for a sheet or a surface, tone for a quiet second plane, the hatch for a cut
+   material (`--hatch` is the frame's pattern, set on the root by src/lib/covers.ts), and solid
+   for the one element the cover is about. */
+.ui-cover .paper { fill: var(--surface); }
+.ui-cover .tone { fill: var(--line); }
+.ui-cover .hatch { fill: var(--hatch); }
+.ui-cover .solid { fill: var(--ink); }
+
+/* In a post: the cover under the lead, cropped to the share band (1200 × 630 of the 1200 × 800
+   canvas), as wide as a figure and no wider. */
+.ui-cover-banner { margin: var(--space-16) 0 0; max-width: 1040px; }
+.ui-cover-banner > .ui-cover { aspect-ratio: 40 / 21; }
+@media (max-width: 767px) { .ui-cover-banner { margin-top: var(--space-12); } }

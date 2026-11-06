@@ -5,13 +5,13 @@ import PostCard from '../components/PostCard.astro';
 import copy from '../i18n/pages/blog';
 import type { Locale } from '../i18n/paths';
 import { CATEGORIES, CATEGORY_IDS, blogPath, type Category } from '../lib/categories';
-import { formatDate, postPath, type BlogPost } from '../lib/posts';
+import { formatDate, postPath, type Post } from '../lib/posts';
 
 // Markup only. Text comes from src/i18n/pages/blog.ts and src/lib/categories.ts.
 interface Props {
   locale: Locale;
   /** The listing's posts, newest first, already filtered by the route. */
-  posts: BlogPost[];
+  posts: Post[];
   /** Set on a category page; the index leaves it out. */
   category?: Category;
 }
@@ -22,12 +22,15 @@ const cat = category ? CATEGORIES[locale][category] : undefined;
 const title = cat ? cat.label : c.title;
 const description = cat ? cat.descriptor : c.hero.text;
 const heroTitle = cat ? cat.label : c.hero.title;
-// A category page sits under the blog in the breadcrumbs; the feed covers both strands.
+// A category page sits under the blog in the breadcrumbs; the feed covers every category.
 const crumbs = cat ? [{ name: c.title, path: blogPath(locale) }] : [];
+// Category segments are translated (src/lib/categories.ts), so the switch and hreflang need the twin.
+const other: Locale = locale === 'de' ? 'en' : 'de';
+const alternatePath = blogPath(other, category);
 const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
 ---
 
-<BaseLayout locale={locale} title={title} description={description} crumbs={crumbs} feed={feed}>
+<BaseLayout locale={locale} title={title} description={description} alternatePath={alternatePath} crumbs={crumbs} feed={feed}>
   <Hero title={heroTitle} text={description} />
 
   <section class="ui-container page-section">
@@ -54,10 +57,13 @@ const feed = locale === 'en' ? '/en/rss.xml' : '/rss.xml';
       {
         posts.map((post) => (
           <PostCard
-            title={post.data.heading}
-            text={post.data.description}
-            date={formatDate(post.data.pubDate, locale)}
+            title={post.heading}
+            text={post.description}
+            date={formatDate(post.pubDate, locale)}
+            label={category ? undefined : CATEGORIES[locale][post.category].label}
             href={postPath(locale, post)}
+            cover={post.cover}
+            locale={locale}
           />
         ))
       }

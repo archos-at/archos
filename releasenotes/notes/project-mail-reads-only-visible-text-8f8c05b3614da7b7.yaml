@@ -1,0 +1,7 @@
+---
+features:
+  - >
+    Project mail now keeps only the text a person can see: hidden paragraphs,
+    tracking images and invisible characters that split words or turn a file
+    name around are left out of the mail text and its E-Mail-Verlauf. What you
+    read in a mail is exactly what search and answers work from.

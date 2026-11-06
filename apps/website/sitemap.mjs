@@ -2,25 +2,24 @@
  * The sitemap's pairs and dates, for @astrojs/sitemap's `serialize` (astro.config.mjs).
  *
  * The plugin pairs a page with its other-locale twin only by the `/en` prefix, which is
- * wrong here: `/datensicherheit/` is `/en/security/`, and a post's twin has a slug of its
- * own. So each item gets its `xhtml:link` pair from the route table (src/i18n/paths.ts)
- * or from the post's `translationSlug`, and a `lastmod`:
- *   - a post: its `pubDate`;
- *   - a page in the route table: the last commit that touched its view or its copy, when
- *     git is there (a local or CI build); the image build has no git, and then the page
- *     carries no date rather than a wrong one.
+ * wrong here: `/datensicherheit/` is `/en/security/`. So each item gets its `xhtml:link`
+ * pair from the route table (src/i18n/paths.ts), and a `lastmod`: the last commit that
+ * touched its view or its copy, when git is there (a local or CI build); the image build
+ * has no git, and then the page carries no date rather than a wrong one.
+ *
+ * The blog is not here: its pages are rendered on request (ADR-0155), which the plugin does
+ * not list, and src/pages/sitemap-blog.xml.ts is their sitemap.
  * No `priority`, no `changefreq`: search engines ignore both.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { ROUTES } from './src/i18n/paths.ts'
+import { ROUTES, isUnlisted } from './src/i18n/paths.ts'
 
 const ROOT = fileURLToPath(new URL('./', import.meta.url))
 
 /**
  * The files a page in the route table is made of, for its date. Keys are route keys;
- * a page not listed here gets no date. `blog` lists no file: its date is the newest post.
+ * a page not listed here gets no date.
  */
 const PAGE_SOURCES = {
   home: ['src/views/HomeView.astro', 'src/i18n/pages/home.ts'],
@@ -44,51 +43,12 @@ function lastCommitDate(files) {
   }
 }
 
-/** Each top-level `key: value` line of a frontmatter block, first occurrence wins, quotes dropped. */
-function frontmatterFields(head) {
-  const fields = new Map()
-  for (const line of head.split('\n')) {
-    const match = /^(\w+):\s*'?([^'\n]+)'?\s*$/.exec(line)
-    if (match && !fields.has(match[1])) fields.set(match[1], match[2])
-  }
-  return fields
-}
-
-/** The frontmatter fields the sitemap needs, read from each post's MDX file. */
-function posts() {
-  const out = []
-  for (const locale of ['de', 'en']) {
-    const dir = `${ROOT}src/content/blog/${locale}`
-    if (!existsSync(dir)) continue
-    for (const file of readdirSync(dir).filter((f) => f.endsWith('.mdx'))) {
-      const head = /^---\n([\s\S]*?)\n---/.exec(readFileSync(`${dir}/${file}`, 'utf8'))?.[1] ?? ''
-      const fields = frontmatterFields(head)
-      const field = (name) => fields.get(name)
-      // A draft is not built (outside preview builds), so nothing may pair with it.
-      if (field('draft') === 'true' && process.env.PUBLIC_INCLUDE_DRAFTS !== '1') continue
-      out.push({ locale, slug: file.replace(/\.mdx$/, ''), pubDate: field('pubDate'), translationSlug: field('translationSlug') })
-    }
-  }
-  return out
-}
-
-const blogBase = { de: '/blog/', en: '/en/blog/' }
-
 /** path -> { pair: { de, en } | undefined, lastmod: ISO string | undefined } */
 function pageTable() {
   const table = new Map()
-  const all = posts()
-  const newestPost = all.map((p) => p.pubDate).filter(Boolean).sort().at(-1)
   for (const [key, route] of Object.entries(ROUTES)) {
-    const lastmod = key === 'blog' ? newestPost && new Date(newestPost).toISOString() : PAGE_SOURCES[key] && lastCommitDate(PAGE_SOURCES[key])
+    const lastmod = PAGE_SOURCES[key] && lastCommitDate(PAGE_SOURCES[key])
     for (const locale of ['de', 'en']) table.set(route[locale], { pair: route, lastmod })
-  }
-  for (const post of all) {
-    const other = post.locale === 'de' ? 'en' : 'de'
-    const twin = post.translationSlug && all.find((p) => p.locale === other && p.slug === post.translationSlug)
-    const own = `${blogBase[post.locale]}${post.slug}/`
-    const pair = twin ? { [post.locale]: own, [other]: `${blogBase[other]}${twin.slug}/` } : undefined
-    table.set(own, { pair, lastmod: post.pubDate && new Date(post.pubDate).toISOString() })
   }
   return table
 }
@@ -113,7 +73,8 @@ export function serializeSitemapItem(item) {
   return item
 }
 
-/** @astrojs/sitemap `filter`: no error page, and nothing that only redirects. */
+/** @astrojs/sitemap `filter`: no error page, nothing that only redirects, and no unlisted page (paths.ts). */
 export function sitemapFilter(page) {
-  return !/\/(404|sign-in)(\/|$)/.test(new URL(page).pathname)
+  const { pathname } = new URL(page)
+  return !/\/(404|500|sign-in)(\/|$)/.test(pathname) && !isUnlisted(pathname)
 }

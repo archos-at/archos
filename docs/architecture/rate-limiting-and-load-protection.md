@@ -379,6 +379,17 @@ mandatory) is deliberate: an ungated route is a security hole with no safe
 default, an unlimited route is a cost risk that has one. Reads are left to the
 edge's per-IP budget.
 
+A route declares its budget in the `apiRoute` options: `limits: { rule:
+DOCUMENT_UPLOAD_LIMIT }` for a tighter one (the factory charges it per
+`memberSubject`; the upload routes work this way), or `limits: { none: true,
+why: '…' }` for an exemption, where the sentence says who spends the budget
+instead (`app/api/realtime/send/route.ts`). A new rule is three edits: the rule
+in `lib/limits/rules.js`, its typed export in `catalog.ts`, and its entry in
+`LIMIT_CATALOG`. `enforce.spec.ts` checks only that no two catalogued rules
+share a name, so a rule left out of `LIMIT_CATALOG` is not caught. Call
+`enforceLimit(rule, memberSubject(session), units)` yourself only where one
+request costs several units or no route factory wraps the call.
+
 **One unit per request is the default, not the rule.** A route that does N times
 the work for one call has to charge N, or the budget stops bounding what the
 endpoint does. The messages route is the case in the tree today: it accepts
@@ -413,6 +424,25 @@ requests; it now takes 200.
 `@/lib/sharing/rate-limit` is **deleted**; its three rules moved to the catalog
 with their budgets unchanged, so that migration was an algorithm change and not a
 silent retune.
+
+**Project mail's webhook is limited after its signature, not at the edge.**
+`POST /api/internal/signed/inbound-mail` has no edge bucket: every office's
+mail arrives from Cloudflare's shared egress, so a per-IP budget would let any
+other Cloudflare traffic defer it (ADR-0138). Its edge bound is a 27 MiB
+`Content-Length` header match. The BFF charges, after the signature and before
+the body is read (`lib/inbound-mail/receive.ts`), narrowest first so a
+refusal never spends a wider bucket: `inbound-mail-address` 120/h,
+`inbound-mail-organization` 600/h, `inbound-mail-signing-key` 60,000/h per
+signing key (one bucket every office shares, so it is sized to a hundred offices at
+their full organization cap at once: at 3,000, five busy offices deferred everyone's
+mail; `bff/limits/inbound-mail.spec.ts` holds the ratio); and `inbound-mail-unknown-address` 300/h per
+signing key for tokens no project has, a bucket of its own so a guesser walking
+the token space never spends real mail's budget. On top, byte caps on staged
+raw bytes: 1 GiB per address, 5 GiB per organization; over either the answer
+is 429 (outcome `cap_reached` in the log line) and the managers are told at 80% and 100%
+(`inbound_mail.cap_reached`). There is no count cap: a count cap bounces real
+senders after a backlog. `mail-original-download` (60/h, 10/min per person)
+bounds the ClamAV scan every original download runs.
 
 ### L2b — WebSocket frames (`apps/workspace/server.js`)
 

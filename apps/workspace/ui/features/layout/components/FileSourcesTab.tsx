@@ -253,7 +253,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
 
   const uploadTargetControls = projectId ? (
     <div className="flex flex-col gap-2 rounded-surface bg-muted p-3">
-      <span className="text-xs font-medium uppercase text-muted-foreground">{t('fileSourcesTab.uploadTo')}</span>
+      <span className="text-xs font-medium text-muted-foreground">{t('fileSourcesTab.uploadTo')}</span>
       <div className="flex gap-2">
         <Button
           variant={uploadTarget === 'project' ? 'default' : 'outline'}
@@ -362,7 +362,7 @@ export const FileSourcesTab: FC<FileSourcesTabProps> = ({ onDeleteFile }) => {
       {uploadTargetControls}
 
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           {t('fileSourcesTab.filesCount', { target: uploadTargetLabel, count: targetFiles.length })}
         </span>
         <Button

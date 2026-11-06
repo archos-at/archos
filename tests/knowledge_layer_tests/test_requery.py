@@ -514,13 +514,15 @@ class TestTheCoverageGate:
     def test_the_real_renderer_states_the_gap_and_stops_calling_the_hits_relevant(self):
         from knowledge_layer.search import format_results
 
+        from agent.common.passage_fence import DATA_NOTE
+
         result = SimpleNamespace(success=True, error_message=None, chunks=[_chunk("nah", "a")])
         rendered = format_results(result, "q", coverage_gap="kein Beleg")
         assert rendered.startswith(
             "Found 1 document(s); none of the judged ones answers the question:\n"
             "Coverage: insufficient — kein Beleg. No passage here states what was asked"
         )
-        assert format_results(result, "q").startswith("Found 1 relevant document(s):\n\n--- Result 1 ---")
+        assert format_results(result, "q").startswith(f"Found 1 relevant document(s):\n{DATA_NOTE}\n\n--- Result 1 ---")
 
 
 class TestTheSearchRetrieverHandle:

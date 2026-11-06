@@ -212,7 +212,7 @@ function operationObject(op: AgentOperation): JsonSchemaNode {
     '200': successResponse(op),
     ...errorResponses(),
   }
-  if (op.sensitivity) operation['x-piloti-sensitivity'] = op.sensitivity
+  if (op.sensitivity) operation['x-sensitivity'] = op.sensitivity
   operation['x-mcp-annotations'] = annotationsOf(op)
   return operation
 }

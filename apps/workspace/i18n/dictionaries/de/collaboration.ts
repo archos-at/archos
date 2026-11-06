@@ -284,7 +284,8 @@ export const collaboration: typeof en.collaboration = {
       waiting: 'Wartet auf Sie',
       news: 'Neuigkeiten',
       late: '{count} überfällig',
-      nothingWaiting: 'Nichts wartet auf Sie.',
+      // Unter der Überschrift „Wartet auf Sie“, wenn nichts wartet: sagt nicht noch einmal „wartet auf Sie“.
+      nothingWaiting: 'Keine offenen Anfragen.',
       newsRead: 'Als gelesen markieren',
       chat: 'Chat',
     },
@@ -459,7 +460,7 @@ export const collaboration: typeof en.collaboration = {
       // Ein Outlook-Archiv ist importiert. {subject} ist der Dateiname des Archivs.
       mailImportCompleted: {
         title: '„{subject}“ ist importiert',
-        body: '{productName} hat die E-Mails und ihre Anhänge im Projekt unter E-Mail-Import abgelegt.',
+        body: '{productName} hat die Anhänge unter E-Mail-Import und die E-Mails in den E-Mail-Verläufen des Projekts abgelegt.',
       },
       mailImportFailed: {
         title: 'Der Import von „{subject}“ wurde abgebrochen',
@@ -814,6 +815,104 @@ export const collaboration: typeof en.collaboration = {
             title: 'Die Sortierung der Büroablage ist bereit zur Durchsicht',
           },
         },
+      },
+      inboundMailWaiting: {
+        titleOne: 'Eine E-Mail an „{subject}“ wartet auf Ablage',
+        titleMany: '{count} E-Mails an „{subject}“ warten auf Ablage',
+        title: 'E-Mails an „{subject}“ warten auf Ablage',
+        body: 'Nichts davon ist im Projekt, bis jemand es ablegt.',
+        variants: {
+          // Domain nicht bestätigt, oder automatisch versandt (Newsletter, Liste).
+          unconfirmed: {
+            body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden.',
+          },
+        },
+      },
+      // Tag 25 von 30: was niemand ablegt, läuft ab (wiederherstellbar sieben Tage).
+      inboundMailExpiring: {
+        titleOne: 'Eine E-Mail an „{subject}“ läuft in {noticeDays} Tagen ab',
+        titleMany: '{count} E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
+        title: 'E-Mails an „{subject}“ laufen in {noticeDays} Tagen ab',
+        titleResolved: 'Keine E-Mail an „{subject}“ läuft mehr ab',
+        body: 'Was bis dahin niemand ablegt, läuft ab. Die E-Mail eines Mitglieds lässt sich danach noch {restoreDays} Tage wiederherstellen, eine von außerhalb des Büros nicht.',
+        variants: {
+          unconfirmed: {
+            body: 'Darunter E-Mails, deren Domain nicht bestätigt ist oder die automatisch versandt wurden. Was niemand ablegt, läuft ab.',
+          },
+        },
+      },
+      // An das Mitglied, dessen eigene E-Mail entschieden wurde. Der Ordner nur, wenn es ihn sehen darf.
+      inboundMailDecided: {
+        title: 'Ihre E-Mail an „{subject}“ wurde abgelegt',
+        titleRelated: 'Ihre E-Mail an „{subject}“ wurde in „{related}“ abgelegt',
+        body: 'Abgelegt von {actor}.',
+        variants: {
+          dismissed: {
+            title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+            titleRelated: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+            body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
+          },
+          // In Ihrem Namen abgelegt, ohne dass jemand sie angesehen hat: Ihre Domain hat sie bestätigt, und Sie dürfen im Projekt ablegen.
+          direct: {
+            title: 'Ihre E-Mail an „{subject}“ wurde direkt abgelegt',
+            titleRelated: 'Ihre E-Mail an „{subject}“ wurde direkt in „{related}“ abgelegt',
+            body: 'Niemand hat sie angesehen: Ihre Domain hat sie bestätigt, und Sie dürfen in diesem Projekt ablegen.',
+          },
+        },
+      },
+      // Die E-Mail trägt die Adresse des Mitglieds, seine Domain hat sie nicht bestätigt: nur es selbst kann sie ablegen.
+      // Auch ein Fälscher löst diese Zeile aus, deshalb nennt der Titel beide Antworten. Kein Betreff: fremde Worte erreichen keine Zeile (RT-X1).
+      inboundMailHeld: {
+        title: 'Haben Sie eine E-Mail an das Projekt „{subject}“ gesendet? Sonst verwerfen',
+        titleResolved: 'Die E-Mail mit Ihrer Adresse an „{subject}“ ist erledigt',
+        body: 'Sie trägt Ihre Adresse, aber Ihre Domain hat sie nicht bestätigt. Nur Sie können sie ablegen. Haben Sie sie nicht gesendet, verwerfen Sie sie: So beginnen Betrugsversuche.',
+      },
+      inboundMailHeldForWriters: {
+        title: 'Ihre E-Mail an „{subject}“ wartet auf Ablage',
+        body: 'Sie dürfen in diesem Projekt nicht ablegen, deshalb entscheidet jemand, der es darf.',
+        variants: {
+          // WorkOS hat nicht beantwortet, ob das Mitglied hier ablegen darf (`sender_unchecked`): nie „Sie dürfen nicht“.
+          unchecked: {
+            body: 'Beim Eingang war nicht zu prüfen, ob Sie in diesem Projekt ablegen dürfen, deshalb entscheidet jemand, der es darf.',
+          },
+        },
+      },
+      inboundMailRejected: {
+        title: 'Ihre E-Mail an „{subject}“ wurde verworfen',
+        body: 'Verworfen von {actor}. Sie kann {restoreDays} Tage lang wiederhergestellt werden.',
+      },
+      inboundMailExpired: {
+        title: 'Ihre E-Mail an „{subject}“ wurde nicht rechtzeitig abgelegt',
+        body: 'Niemand hat sie innerhalb ihrer Frist abgelegt. {restoreDays} Tage lang lässt sie sich im E-Mail-Eingang unter „Bearbeitet“ wiederherstellen: von Ihnen, wenn Sie im Projekt ablegen dürfen, sonst von jemandem, der es darf.',
+      },
+      inboundMailFilingFailed: {
+        title: 'Eine E-Mail an „{subject}“ wurde nicht vollständig abgelegt',
+        titleResolved: 'Die E-Mail an „{subject}“ ist erledigt',
+        body: 'Was nicht abgelegt wurde, wartet wieder im E-Mail-Eingang. Öffnen Sie die E-Mail, um den Grund zu sehen.',
+      },
+      // 80 % oder 100 % der Bytes, die eine Adresse oder das Büro zwischenspeichern darf.
+      inboundMailCapReached: {
+        title: 'Die E-Mail-Adresse des Projekts „{subject}“ ist fast voll',
+        titleResolved: 'Die E-Mail-Adresse des Projekts „{subject}“ hat wieder Platz',
+        body: 'Legen Sie wartende E-Mails ab oder verwerfen Sie sie, oder erzeugen Sie eine neue Adresse.',
+        variants: {
+          full: {
+            title: 'Die E-Mail-Adresse des Projekts „{subject}“ ist voll',
+            body: 'Neue E-Mails kommen erst wieder an, wenn wartende abgelegt oder verworfen sind. Sie können auch eine neue Adresse erzeugen.',
+          },
+        },
+      },
+      // Verlauf folgen: der Text einer Antwort wurde in Ihrem Namen angefügt, die Anhänge warten.
+      inboundMailAppended: {
+        titleOne: 'Eine Antwort wurde einem E-Mail-Verlauf in „{subject}“ angefügt',
+        titleMany: '{count} Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
+        title: 'Antworten wurden einem E-Mail-Verlauf in „{subject}“ angefügt',
+        body: 'In Ihrem Namen, weil Sie dem E-Mail-Verlauf folgen. Anhänge warten im E-Mail-Eingang.',
+      },
+      mailThreadFollowExpiring: {
+        title: 'Sie folgen einem E-Mail-Verlauf in „{subject}“ noch {followNoticeDays} Tage',
+        titleResolved: 'Ihr Folgen eines E-Mail-Verlaufs in „{subject}“ ist verlängert oder beendet',
+        body: 'Verlängern Sie, damit spätere Antworten weiter angefügt werden.',
       },
       rootSortFailed: {
         title: 'Die Sortierung von „{subject}“ wurde abgebrochen',

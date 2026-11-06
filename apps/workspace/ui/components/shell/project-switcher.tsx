@@ -134,7 +134,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         {triggerBody}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" className="w-60 motion-reduce:animate-none">
-        <DropdownMenuLabel className="text-[10.5px] font-medium tracking-[0.05em] text-muted-foreground uppercase">
+        <DropdownMenuLabel className="text-[10.5px] font-medium text-muted-foreground">
           {t('projectSwitcher.switchHeading')}
         </DropdownMenuLabel>
         {offered.map((project) => {

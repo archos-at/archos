@@ -8,15 +8,9 @@
 import 'server-only'
 import { BadRequestError } from '@/lib/api/errors'
 import type { AuthorizedSession } from '@/lib/auth/types'
-import { FEATURE_FLAGS, isFeatureEnabled, isIfcModelsEnabled } from '@/lib/authz/feature-flags'
 import { isVlmConfigured } from '@/lib/documents/vlm-capability'
-import { getFileUploadConfigFromEnv } from '@/shared/config/file-upload'
-
-/** Lowercased extension including the leading dot, or '' when there is none. */
-function fileExtension(name: string): string {
-  const idx = name.lastIndexOf('.')
-  return idx > 0 ? name.slice(idx).toLowerCase() : ''
-}
+import { uploadExtensionOf } from '@/shared/config/file-upload'
+import { acceptedTypesForFlags } from './accepted-types'
 
 /**
  * Server-side upload allow-list. The client already filters by accepted type,
@@ -29,24 +23,17 @@ function fileExtension(name: string): string {
  * TTL-cached probe (`isVlmConfigured`) that layout.tsx uses, so this allow-list
  * and the client's accepted-types list are ONE truth. Fail-closed: an
  * unconfirmable capability excludes images (never a silent-failure upload).
+ *
+ * The list is `acceptedTypesForFlags`, the resolver the sessionless path
+ * (`acceptedTypesForOrganization`) answers from too, so a mail part offered for
+ * filing and the upload that files it agree by construction.
  */
 export async function assertUploadTypeAllowed(
   session: AuthorizedSession,
   filename: string
 ): Promise<void> {
-  const imageUploadEnabled = isFeatureEnabled(session, FEATURE_FLAGS.imageUpload)
-  const ifcUploadEnabled = isIfcModelsEnabled(session)
-  const vlmAvailable = await isVlmConfigured()
-  const { acceptedTypes } = getFileUploadConfigFromEnv(process.env, {
-    imageUploadEnabled,
-    vlmAvailable,
-    ifcUploadEnabled,
-  })
-  const allowed = acceptedTypes
-    .split(',')
-    .map((ext) => ext.trim().toLowerCase())
-    .filter(Boolean)
-  const ext = fileExtension(filename)
+  const allowed = [...acceptedTypesForFlags(session, await isVlmConfigured())]
+  const ext = uploadExtensionOf(filename)
   if (!ext || !allowed.includes(ext)) {
     throw new BadRequestError(`File type "${ext || 'unknown'}" is not permitted`, {
       extension: ext || null,

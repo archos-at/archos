@@ -43,7 +43,7 @@ import { hasPermission, ORG_PERMISSIONS } from './permissions'
 import { rolesHoldPermission } from './org-role-permissions'
 import { resolveMembershipRoles } from '@/lib/auth/membership-roles'
 import { requireProjectAccess } from './projects'
-import { checkResourcePermission } from './resource-check'
+import { effectiveResourcePermissions } from './resource-check'
 import { resolveSubjectMembership } from './project-membership'
 import { findProjectTenancy } from '@/lib/projects/repository'
 import { isProjectClosed, isProjectClosedError } from '@/lib/projects/project-status'
@@ -136,9 +136,13 @@ export async function clearanceOf(session: AuthorizedSession, projectId: string)
 
 /**
  * Whether the membership reads `projectId` only because it is closed: the
- * project is closed and the membership holds no FGA grant on it. A failed
- * check answers yes, the narrower clearance (`checkResourcePermission` fails
- * closed). False for an active project, at the cost of the tenancy probe.
+ * project is closed and the membership holds no FGA grant on it, i.e. not even
+ * `project:view`. A member who holds only `project:view` keeps their folder
+ * roles in a closed project, though the chat they reach there comes from the
+ * closure (`ProjectAccess.readsBecauseClosed` answers that other question). A
+ * failed lookup answers yes, the narrower clearance (it grants nothing). False
+ * for an active project, at the cost of the tenancy probe. Reads the same
+ * cached entry as `requireProjectAccess`.
  */
 async function readsOnlyBecauseClosed(
   organizationId: string,
@@ -148,14 +152,13 @@ async function readsOnlyBecauseClosed(
   const project = await findProjectTenancy(projectId)
   if (!isProjectClosed(project)) return false
   if (!organizationMembershipId) return true
-  const member = await checkResourcePermission({
+  const held = await effectiveResourcePermissions({
     organizationMembershipId,
     organizationId,
-    permissionSlug: 'project:view',
     resourceExternalId: projectId,
     resourceTypeSlug: 'project',
   })
-  return !member
+  return !held.has('project:view')
 }
 
 /**

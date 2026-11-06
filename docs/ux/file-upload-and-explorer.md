@@ -362,7 +362,7 @@ Two things changed, and the order matters:
   never exactly it, and a two-line summary next to a one-line one has the same
   problem — so the row still needs the block to grow. The same block in
   `DocumentAnswerCard`'s unresolved tile got the same treatment, for the same
-  reason. This is a property of the shared card, so the Büroablage (which draws the same `FileCard`, with its gold kind chip passed in) is fixed by the same change.
+  reason. This is a property of the shared card, so the Büroablage (which draws the same `FileCard`) is fixed by the same change.
 
 **The second half of the same moment:** the thumbnail cache treated "no
 thumbnail" as permanent. If the page rendered a second before the backend
@@ -431,7 +431,7 @@ card and list choice is.
 
 | Part | What it says | Each count opens |
 |---|---|---|
-| Bar and legend | How many documents in the subtree Piloti has read, and where the rest of those it is meant to read stand: read, being read, failed, held back. The legend adds up to the headline's „von N“. Documents Piloti never reads follow as an aside, „dazu 1 nicht in der Wissensbasis“, outside the sum. | The flat list of that state, across all subfolders |
+| Bar and legend | How many documents in the subtree Piloti has read, and where the rest of those it is meant to read stand: being read, failed, held back. The headline names the read count, so the legend does not repeat it; with it, the legend adds up to the headline's „von N“. Documents Piloti never reads follow last, „16 weitere nicht in der Wissensbasis“, outside the sum, and then the headline says what „alle“ counts („Alle 27 Dokumente der Wissensbasis gelesen“). The bar is a hairline, drawn only while something is still open: everything read is the quiet case, with no bar at all. | The flat list of that state, across all subfolders |
 | What needs a person (first, open) | Failed documents, with one button to read all of them again. Documents held back by the content check. Citable documents Piloti placed in no document type. Each „Anzeigen“ has its own accessible name. | The flat list of those documents |
 | What it is about (folded) | The document types and disciplines Piloti assigned to the citable documents, each family under its label („Dokumentart“, „Fachbereich“), most frequent first, and the kinds of content it found. „Sonstiges“ always comes last. Then the topics Piloti recognised (up to twelve), and for photos the span of days the camera says they were taken on. Folded, its line names the types. A long chip truncates and carries its full text on hover. | The flat list of documents with that tag or topic, or of the dated photos |
 | Where it sticks (folded) | Up to four subfolders, worst first, whose own documents need attention or are being read. Each is named by its path, so the reader lands on the folder with the trouble and not on an ancestor. | Walks into that folder |
@@ -829,10 +829,9 @@ What a shelf may differ in is exactly the fields of `FileShelf`:
 | `canCollaborate`, `currentUserId` | collaboration flag | off | Assignment is project-scoped |
 | `askAbout` | opens the project chat | absent | There is no Archiv chat to open |
 | `preview` | `store` (the project shell hosts it; chat shares it) | `dialog` (the sheet has no host) | Where a preview can be mounted |
-| `cardExtras` | none | gold kind chip + tag provenance | The Büroablage provenance signal (spec §4) |
 | `handoverKey` | project id | absent | `ProjectFileDrop` hands a drop to a project only |
 | `messages` | „… in dieses Projekt", „in Piloti’s Wissen" | „… in die Büroablage", „in der Büroablage" | Two sentences naming the shelf |
-| header | `ProjectSectionActions` portal | gold identity row, count pill, sheet close | Each frames the same controls |
+| header | `ProjectSectionActions` portal into the section's `PageHeader` | the same band (`SECTION_HEADER_CLASS`) and `PageHeader`, with a count pill by the title and the sheet's close beside it | Each frames the same controls |
 
 The tag chips of the old Archiv grid are „Kategorie" in the shared filter menu
 (`FileFilters.tags`, any-of), so they work under folders and on every shelf. The
@@ -1033,3 +1032,12 @@ never drains the shelf for the default view.
 Still open: a virtualised grid and list, and the kind/tag filters and the
 brief's content facts on the server once the backend's tags are mirrored into
 Postgres.
+
+## Parts to reuse
+
+A new review surface in Dateien composes what the existing ones use: the
+`SuggestionPanel` family (`components/ui/suggestion-panel.tsx`), `FolderPickerSheet`
+and `QuarantineFindings` (`features/documents/components/`), the decision and
+status atoms in `upload-decision-atoms.tsx` and `ingestion-atoms.tsx`, and
+`ItemList` (`components/ui/item.tsx`). A sub-place of Dateien is a route under
+`/files/` (`open-points`, `bin`), with its entry in `files-header-controls.tsx`.

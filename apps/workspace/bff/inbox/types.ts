@@ -4,13 +4,12 @@
  * No `'server-only'`: the inbox list, the badge and the row renderer are client
  * components and import these directly.
  *
- * **The extensibility contract lives here.** A new notification type needs:
- *   1. a member added to `INBOX_ITEM_TYPES` (in the schema module),
- *   2. an entry in `INBOX_TYPE_PRESENTATION` below,
- *   3. the two translation keys it names.
+ * A new notification type needs, among other steps, an entry in
+ * `INBOX_TYPE_PRESENTATION` below; the full list is in
+ * docs/architecture/adding-a-shareable-resource-type.md#adding-an-inbox-item-type.
  * No schema change, no new component — the generic row renders every registered
  * type from its entry. `Record<InboxItemType, …>` makes the map exhaustive, so
- * `tsc` fails until step 2 is done.
+ * `tsc` fails until it has the entry.
  */
 
 import type { InboxItemType, InboxTargetType } from '@/lib/db/schema/inbox'
@@ -201,6 +200,12 @@ export interface InboxTypePresentation {
     | 'megaphone'
     | 'shield-alert'
     | 'layers'
+    | 'mail'
+    | 'mail-clock'
+    | 'mail-check'
+    | 'mail-x'
+    | 'mail-warning'
+    | 'mail-plus'
     /** Piloti's own glyph (`components/ui/agent-glyph.tsx`), for what Piloti did or asks. */
     | 'piloti'
   /**
@@ -272,6 +277,20 @@ export const INBOX_TYPE_PRESENTATION: Record<InboxItemType, InboxTypePresentatio
   'annotation.mentioned': { icon: 'at-sign', i18nKey: 'annotationMentioned', tone: 'request', anchor: 'mark' },
   'root_sort.ready': { icon: 'check-circle', i18nKey: 'rootSortReady', tone: 'info' },
   'root_sort.failed': { icon: 'alert-triangle', i18nKey: 'rootSortFailed', tone: 'warning' },
+  // The E-Mail-Eingang's rows wear an envelope, each marked with what happened to it.
+  'inbound_mail.waiting': { icon: 'mail', i18nKey: 'inboundMailWaiting', tone: 'request' },
+  'inbound_mail.expiring': { icon: 'mail-clock', i18nKey: 'inboundMailExpiring', tone: 'warning' },
+  'inbound_mail.decided': { icon: 'mail-check', i18nKey: 'inboundMailDecided', tone: 'info' },
+  'inbound_mail.filing_failed': { icon: 'mail-x', i18nKey: 'inboundMailFilingFailed', tone: 'warning' },
+  'inbound_mail.cap_reached': { icon: 'mail-warning', i18nKey: 'inboundMailCapReached', tone: 'warning' },
+  'inbound_mail.appended': { icon: 'mail-plus', i18nKey: 'inboundMailAppended', tone: 'info' },
+  // „Haben Sie diese E-Mail gesendet?“: the shield of a claim only the reader can confirm.
+  'inbound_mail.held': { icon: 'shield-alert', i18nKey: 'inboundMailHeld', tone: 'request' },
+  'inbound_mail.held_for_writers': { icon: 'mail', i18nKey: 'inboundMailHeldForWriters', tone: 'info' },
+  'inbound_mail.rejected': { icon: 'mail-x', i18nKey: 'inboundMailRejected', tone: 'info' },
+  'inbound_mail.expired': { icon: 'mail-clock', i18nKey: 'inboundMailExpired', tone: 'info' },
+  // The run block's „waiting for you" clock: a follow that asks to be renewed.
+  'mail_thread.follow_expiring': { icon: 'clock', i18nKey: 'mailThreadFollowExpiring', tone: 'request' },
 }
 
 /**

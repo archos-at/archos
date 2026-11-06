@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from dataclasses import field
 from typing import Any
 
 from pydantic import AliasChoices
@@ -37,6 +39,8 @@ class PassageTarget:
     shelf: str | None
     #: The current Fassung of this document when a PERSON confirmed it replaced, else None.
     current: str | None = None
+    #: The message this document came with, when a person filed it from a mail (``mail_facts``).
+    mail_origin: Mapping[str, Any] | None = field(default=None, compare=False)
 
 
 @dataclass(frozen=True)

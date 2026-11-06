@@ -295,8 +295,6 @@ export const projects: typeof en.projects = {
     },
   },
   card: {
-    summaryFallback:
-      'Arbeitsbereich des Planungsbüros. Fügen Sie Dokumente und ein Briefing hinzu, damit {productName} aus diesem Projekt arbeiten kann.',
     status: {
       active: 'Aktiv',
       paused: 'Ruhend',
@@ -311,6 +309,8 @@ export const projects: typeof en.projects = {
     open: '{name} öffnen',
     overview: 'Übersicht',
     overviewAria: 'Übersicht von {name} öffnen',
+    mailWaiting: '{count, plural, one {# E-Mail wartet} other {# E-Mails warten}}',
+    mailWaitingAria: '{count, plural, one {# E-Mail wartet in {name} auf Ablage} other {# E-Mails warten in {name} auf Ablage}}',
   },
   officeShelfCard: {
     title: 'Büroablage',

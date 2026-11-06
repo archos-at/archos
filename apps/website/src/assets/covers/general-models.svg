@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <!-- ChatGPT and building law: a detail callout on a drawing, in front of its older editions, refers to a sheet that does not exist (hidden). -->
+  <rect class="paper view" x="192" y="128" width="400" height="480"/>
+  <rect class="paper view" x="176" y="144" width="400" height="480"/>
+  <rect class="paper cut" x="160" y="160" width="400" height="480"/>
+  <path class="cut hatch" d="M200 200H520V560H200Z M216 216V544H504V216Z" fill-rule="evenodd"/>
+  <line class="view" x1="216" y1="400" x2="320" y2="400"/>
+  <line class="view" x1="368" y1="400" x2="504" y2="400"/>
+  <line class="view" x1="400" y1="216" x2="400" y2="400"/>
+  <line class="view" x1="400" y1="448" x2="400" y2="544"/>
+  <path class="view" d="M320 400A48 48 0 0 0 368 352"/>
+  <line class="view" x1="368" y1="352" x2="368" y2="400"/>
+  <rect class="view" x="480" y="600" width="80" height="40"/>
+  <line class="view" x1="480" y1="616" x2="560" y2="616"/>
+  <circle class="view" cx="456" cy="296" r="44"/>
+  <circle class="solid" cx="456" cy="296" r="10"/>
+  <line class="view" x1="500" y1="292" x2="756" y2="280"/>
+  <rect class="hidden" x="680" y="160" width="360" height="480"/>
+  <circle class="hidden" cx="800" cy="280" r="44"/>
+  <line class="hidden" x1="720" y1="400" x2="1000" y2="400"/>
+  <line class="hidden" x1="720" y1="440" x2="960" y2="440"/>
+  <line class="hidden" x1="720" y1="480" x2="984" y2="480"/>
+  <line class="hidden" x1="720" y1="520" x2="920" y2="520"/>
+  <line class="hidden" x1="720" y1="560" x2="976" y2="560"/>
+  <rect class="hidden" x="960" y="600" width="80" height="40"/>
+</svg>

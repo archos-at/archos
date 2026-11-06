@@ -72,6 +72,8 @@ from .factory import set_document_tags_by_person
 from .factory import set_document_topics_by_person
 from .factory import unregister_summary
 from .factory import update_document_tags
+from .factory_mail import set_document_mail_origin
+from .factory_mail import set_document_mail_thread
 from .inventory import allocate_inventory
 from .inventory import allocate_inventory_detailed
 from .inventory import get_inventory_drops
@@ -141,6 +143,8 @@ __all__ = [
     "get_document_display_titles",
     "set_document_folder_path",
     "set_document_page_count",
+    "set_document_mail_thread",
+    "set_document_mail_origin",
     "set_document_provenance",
     "get_document_provenance",
     "get_document_folder_paths",

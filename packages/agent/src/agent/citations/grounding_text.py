@@ -10,6 +10,9 @@ from agent.citations.entries import SourceEntry
 from agent.citations.registry import MAX_REGIONS_PER_SOURCE
 from agent.common.grounding_block import PROJECT_STATUS_LABELS
 from agent.common.grounding_block import SourceRegion
+from agent.common.passage_fence import fenced_spans
+from agent.common.passage_fence import unfence
+from agent.common.passage_fence import unfenced
 from agent.common.source_kinds import parse_shelf
 
 logger = logging.getLogger(__name__)
@@ -47,6 +50,9 @@ _KL_SHELF_RE = re.compile(r"^Shelf:\s*(.+)$", re.MULTILINE)
 # `_format_results` (``Dokumentart: <doc_class_key>``). ``Doc-Class:`` is
 # accepted as an alias for robustness.
 _KL_DOC_CLASS_RE = re.compile(r"^(?:Dokumentart|Doc-Class):\s*(.+)$", re.MULTILINE)
+# The document's FORMAT (``grounding_block._header_lines``): ``Format: mail — E-Mail``.
+# Only the leading machine token is read, the way ``Dokumentart:`` is.
+_KL_FORMAT_RE = re.compile(r"^Format:\s*(.+)$", re.MULTILINE)
 
 
 # WHO WROTE the document, stated by ``_format_results`` as a ``Herkunft:`` line
@@ -99,7 +105,7 @@ _KL_RESULT_BLOCK_RE = re.compile(r"^--- Result \d+ ---[^\S\n]*$", re.MULTILINE)
 _KL_RELEVANCE_LINE_RE = re.compile(r"^Relevance Score:.*$", re.MULTILINE)
 
 
-_KL_TRACE_LANES_MARKER = "## Trace-Lanes"
+_KL_TRACE_LANES_RE = re.compile(r"^## Trace-Lanes", re.MULTILINE)
 
 
 _KL_TRUNCATED_SUFFIX_RE = re.compile(r"\s*\.\.\.\s*\[truncated\]\s*$")
@@ -113,20 +119,24 @@ def _split_kl_result_blocks(content: str) -> list[str]:
     block contains exactly one hit's header fields AND its passage body. The
     leading "Found N relevant document(s):" preamble is not a block and is
     dropped. Returns ``[]`` when the output carries no block markers.
+
+    Only the grammar's own lines count: a marker or a ``## Trace-Lanes`` line
+    inside a ``<document_content>`` fence is the passage's text
+    (:func:`~agent.common.passage_fence.unfenced`), so a filed mail whose body
+    spells ``--- Result 2 ---`` and ``Shelf: building_law`` cannot forge a hit.
+    The trailing Trace-Lanes JSON belongs to the whole result set, not to the
+    last hit, so a block is cut there and can pollute neither its body nor the
+    header-field scan. A batched result (``source_tool_batching``) carries one
+    per query, which is why the cut is per block.
     """
-    block_matches = list(_KL_RESULT_BLOCK_RE.finditer(content))
+    markers = list(unfenced(_KL_RESULT_BLOCK_RE, content))
+    if not markers:
+        return []
+    ends = [marker.start() for marker in markers[1:]] + [len(content)]
     blocks: list[str] = []
-    for idx, block_match in enumerate(block_matches):
-        block_start = block_match.end()
-        block_end = block_matches[idx + 1].start() if idx + 1 < len(block_matches) else len(content)
-        block = content[block_start:block_end]
-        # The trailing Trace-Lanes JSON belongs to the whole result set, not to
-        # the last hit — cut it off so it can pollute neither the body nor the
-        # header-field scan below.
-        trace_lanes_at = block.find(_KL_TRACE_LANES_MARKER)
-        if trace_lanes_at != -1:
-            block = block[:trace_lanes_at]
-        blocks.append(block)
+    for marker, end in zip(markers, ends, strict=True):
+        lanes = next(unfenced(_KL_TRACE_LANES_RE, content[:end], marker.end()), None)
+        blocks.append(content[marker.end() : lanes.start() if lanes else end])
     return blocks
 
 
@@ -134,14 +144,22 @@ def _kl_block_body(block: str) -> str:
     """The retrieved passage body of one result block.
 
     ``_format_results`` puts the body after the ``Relevance Score:`` header line
-    and a blank line. Returns ``""`` when that header is absent (nothing to
-    anchor the body to). A very long body is truncated by the producer with a
-    trailing ``... [truncated]`` marker, which is stripped back off.
+    and a blank line, inside the ``<document_content>`` fence
+    (``common/passage_fence.py``), which is taken back off; a block rendered
+    before the fence reads as it did. Returns ``""`` when that header is absent
+    (nothing to anchor the body to). A very long body is truncated by the
+    producer with a trailing ``... [truncated]`` marker, which is stripped back off.
+    The body is the FIRST fence only: a text whose ``## Trace-Lanes`` line was
+    stripped (``strip_trace_lanes``) runs on into the trailer, and grep's lines
+    index there is fenced too.
     """
     relevance_match = _KL_RELEVANCE_LINE_RE.search(block)
     if relevance_match is None:
         return ""
-    return _KL_TRUNCATED_SUFFIX_RE.sub("", block[relevance_match.end() :].strip()).strip()
+    rest = block[relevance_match.end() :].strip()
+    spans = fenced_spans(rest)
+    body = unfence(rest[: spans[0][1]] if spans and spans[0][0] == 0 else rest)
+    return _KL_TRUNCATED_SUFFIX_RE.sub("", body.strip()).strip()
 
 
 def _kl_block_header(block: str) -> str:
@@ -195,6 +213,11 @@ def _parse_kl_doc_class(raw: str | None) -> str | None:
     return canonical_doc_class(key) or key
 
 
+def _parse_kl_source_format(raw: str | None) -> str | None:
+    """The machine token of a ``Format:`` value (``mail — E-Mail`` -> ``mail``), or None."""
+    return (raw or "").split("—")[0].strip() or None
+
+
 def _parse_kl_authored_by(raw: str | None) -> str | None:
     """``"agent"`` when a ``Herkunft:`` value names a Piloti document, else None.
 
@@ -218,6 +241,7 @@ def _kl_entry(
     shelf: str | None = None,
     doc_class: str | None,
     authored_by: str | None = None,
+    source_format: str | None = None,
     chunk_text: str | None,
     tool_name: str,
     clause: str | None = None,
@@ -240,6 +264,7 @@ def _kl_entry(
         shelf=str(parsed_shelf) if parsed_shelf else None,
         doc_class=doc_class or None,
         authored_by=authored_by or None,
+        source_format=source_format or None,
         chunk_text=chunk_text or None,
         clause=(clause or "").strip() or None,
         score=score,
@@ -310,6 +335,7 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
                     shelf=_first(_KL_SHELF_RE, header),
                     doc_class=_parse_kl_doc_class(_first(_KL_DOC_CLASS_RE, header)),
                     authored_by=_parse_kl_authored_by(_first(_KL_PROVENANCE_RE, header)),
+                    source_format=_parse_kl_source_format(_first(_KL_FORMAT_RE, header)),
                     chunk_text=_kl_block_body(block),
                     tool_name=tool_name,
                     clause=_first(_KL_CLAUSE_RE, header),
@@ -321,24 +347,7 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
                 )
             )
     else:
-        # No block markers (a non-``_format_results`` producer whose tool name
-        # still matches "knowledge"). Nothing delimits the hits, so fall back to
-        # the historical positional pairing rather than dropping the sources.
-        citations = _KL_CITATION_RE.findall(content)
-        sources = _KL_SOURCE_RE.findall(content)
-        collections = _KL_COLLECTION_RE.findall(content)
-        doc_classes = _KL_DOC_CLASS_RE.findall(content)
-        for i, citation_key in enumerate(citations):
-            entries.append(
-                _kl_entry(
-                    citation_key=citation_key,
-                    title=sources[i].strip() if i < len(sources) else None,
-                    collection=collections[i].strip() if i < len(collections) else None,
-                    doc_class=_parse_kl_doc_class(doc_classes[i] if i < len(doc_classes) else None),
-                    chunk_text=None,
-                    tool_name=tool_name,
-                )
-            )
+        entries = _kl_positional_entries(content, tool_name)
 
     # No Citation: line, no sources. A URL in a passage body is part of the
     # retrieved text, and a knowledge tool that FAILED returns an error message
@@ -346,6 +355,30 @@ def parse_knowledge_layer(content: str, tool_name: str) -> list[SourceEntry]:
     # through the generic URL extractor, which is why a turn that tripped a
     # pydantic validation error showed a source card for errors.pydantic.dev.
     return entries
+
+
+def _kl_positional_entries(content: str, tool_name: str) -> list[SourceEntry]:
+    """:func:`parse_knowledge_layer` for a text with no ``--- Result N ---`` markers.
+
+    A non-``_format_results`` producer whose tool name still matches
+    "knowledge". Nothing delimits the hits, so this is the historical
+    positional pairing rather than dropping the sources.
+    """
+    citations = _KL_CITATION_RE.findall(content)
+    sources = _KL_SOURCE_RE.findall(content)
+    collections = _KL_COLLECTION_RE.findall(content)
+    doc_classes = _KL_DOC_CLASS_RE.findall(content)
+    return [
+        _kl_entry(
+            citation_key=citation_key,
+            title=sources[i].strip() if i < len(sources) else None,
+            collection=collections[i].strip() if i < len(collections) else None,
+            doc_class=_parse_kl_doc_class(doc_classes[i] if i < len(doc_classes) else None),
+            chunk_text=None,
+            tool_name=tool_name,
+        )
+        for i, citation_key in enumerate(citations)
+    ]
 
 
 _KL_REGION_RE = re.compile(r"^Region:\s*\[([^\]]+)\]\s*(?:„(.*?)“)?\s*$", re.MULTILINE)

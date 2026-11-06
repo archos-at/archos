@@ -110,6 +110,14 @@ export const files = {
     image: 'Image',
     unavailable: 'Preview unavailable',
   },
+  /**
+   * The Dokumentart where it is stored as an English token (`LABELLED_TAGS` in
+   * lib/documents/tag-vocabulary.ts). The older types are still stored as a
+   * German word and read as themselves.
+   */
+  documentTag: {
+    correspondence: 'Correspondence',
+  },
   preview: {
     closePreview: 'Close preview',
     expandPreview: 'Open large preview',
@@ -349,10 +357,8 @@ export const files = {
     retryingIngestion: 'Retrying…',
     retryIngestionError: "Reading couldn't be restarted. Please try again.",
     dialogLabel: 'File preview: {name}',
-    // The two faces of the file beside the chat: the document, and what is known about it.
+    // What is known about the file beside the chat, behind the ⓘ in its toolbar.
     peekViews: {
-      label: 'File view',
-      document: 'Document',
       details: 'Details',
     },
     // The length, in the facts line under the name in the chat peek.
@@ -936,11 +942,22 @@ export const files = {
    * The Outlook archive import (ADR-0085): a .pst or .ost sent in parts, then
    * filed by a background job, one folder per mail.
    */
+  // The way into the E-Mail-Eingang from Dateien (ADR-0137): the header entry,
+  // its count, the upload menu's address entry and the quiet line above the shelf.
+  inboundMail: {
+    open: 'Project mail',
+    waitingAria: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
+    sendByMail: 'Send by mail …',
+    sendByMailHint: 'Forward mail to the project mail address',
+    waitingLine: '{count, plural, one {# mail waits to be filed} other {# mails wait to be filed}}',
+    waitingLineMore: 'More than {count} mails wait to be filed',
+    view: 'View',
+  },
   mailImport: {
     action: 'Import Outlook archive',
     title: 'Import an Outlook archive',
     description:
-      'Choose a .pst or .ost file. Each email becomes a folder under “E-Mail-Import” with its attachments and a note holding its text and headers.',
+      'Choose a .pst or .ost file. Each email’s attachments go into a folder under “E-Mail-Import”, its text into the project’s mail threads. Emails the project already has are not filed twice.',
     privacy:
       'An archive holds the correspondence of everyone who wrote to this mailbox. Import what the project needs, not a whole mailbox.',
     choose: 'Choose archive…',
@@ -991,6 +1008,8 @@ export const files = {
     progress: '{done} of {total} items',
     filed: '{mails, plural, one {# email} other {# emails}}, {files, plural, one {# attachment} other {# attachments}}',
     skipped: '{count, plural, one {# skipped} other {# skipped}}',
+    threads: '{created, plural, one {# new mail thread} other {# new mail threads}}, {appended, plural, one {# added to} other {# added to}}',
+    alreadyInProject: '{count, plural, one {# email already in the project} other {# emails already in the project}}',
     skippedItem: '{file} in {mail}: {reason}',
     skippedMail: '{mail}: {reason}',
     status: {
@@ -1103,6 +1122,8 @@ export const files = {
     scopeProject: 'in this project',
     scopeOffice: 'in Office filing',
     headlineAll: '{count, plural, one {The document is read} other {All # documents read}}',
+    /** Everything readable is read, beside documents that never join the knowledge base: “all” says whose. */
+    headlineAllOfKnowledge: '{count, plural, one {The one knowledge-base document is read} other {All # knowledge-base documents read}}',
     headlineSome: '{readable} of {count, plural, one {# document} other {# documents}} read',
     headlineNone: '{count, plural, one {The document is not read yet} other {None of the # documents read yet}}',
     headlineNothingToRead: '{count, plural, one {# document, not part of the knowledge base} other {# documents, none part of the knowledge base}}',
@@ -1116,7 +1137,7 @@ export const files = {
     allRead: 'All read',
     unplacedShort: '{count} without a document type',
     /** Beside the legend: documents Piloti never reads. Not part of the headline's “of N”. */
-    unindexedAside: 'plus {count} not in the knowledge base',
+    unindexedAside: '{count} more not in the knowledge base',
     /** Run-in labels of the two chip families under “What this is about”. */
     typesLabel: 'Document type',
     disciplinesLabel: 'Discipline',

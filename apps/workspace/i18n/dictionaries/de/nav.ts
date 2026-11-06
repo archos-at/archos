@@ -15,7 +15,7 @@ export const nav: typeof en.nav = {
   openNavigation: 'Navigation öffnen',
   closeNavigation: 'Navigation schließen',
   sections: {
-    chat: 'Frag {productName}',
+    chat: 'Chat',
     files: 'Dateien',
     knowledge: 'Wissen',
     research: 'Recherche',
@@ -74,6 +74,7 @@ export const nav: typeof en.nav = {
     newProject: 'Neues Projekt',
   },
   /** Die untere Tab-Leiste am Telefon (`components/shell/phone-tab-bar.tsx`). */
+  inboundMailWaiting: '{count, plural, one {# E-Mail wartet auf Ablage} other {# E-Mails warten auf Ablage}}',
   tabBar: {
     label: 'Hauptnavigation',
     /** Öffnet das Blatt mit den Zielen, die die Leiste nicht trägt. */
@@ -115,6 +116,7 @@ export const nav: typeof en.nav = {
     switchingOrganization: 'Wechselt…',
     switchOrganizationFailed: 'Wechsel fehlgeschlagen. Bitte erneut versuchen.',
     settings: 'Einstellungen',
+    whatsNew: 'Neuerungen',
     productTour: 'Produkttour',
   },
 }

@@ -190,12 +190,7 @@ export default function ChatWelcomePreviewPage() {
                 default state is now silent, and an empty row is exactly the
                 evidence this capture is for. */}
             {ready && (
-              <InputArea
-                isAuthenticated
-                connectionMode="sse"
-                projectName="Stadthaus Wien 1090"
-                canCollaborate
-              />
+              <InputArea isAuthenticated connectionMode="sse" canCollaborate />
             )}
           </motion.div>
         </div>

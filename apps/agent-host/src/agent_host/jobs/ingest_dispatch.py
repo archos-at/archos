@@ -18,7 +18,8 @@ process's own pool.
 
 The payload carries presigned URLs, bearer credentials to a tenant's objects, so
 it is encrypted (``payload_crypto``, ``JOB_PAYLOAD_KEK``) before it leaves this
-tier, and every URL passes the SSRF gates again when a worker reads it back.
+tier, and every URL passes the object-store gate (``agent_host.object_store_url``)
+again when a worker reads it back.
 Without a key nothing goes to Hatchet: its database must hold no tenant content.
 
 A person may stop a job (:func:`cancel`): its status settles ``cancelled`` and
@@ -41,6 +42,7 @@ from agent.knowledge.ingest_execution import unreadable_job_failure  # noqa: F40
 from agent.knowledge.schema import IngestionJobStatus
 from agent.knowledge.schema import JobState
 
+from ..object_store_url import object_store_request_url
 from . import payload_crypto
 
 logger = logging.getLogger(__name__)
@@ -119,8 +121,6 @@ def _decode_entry(entry: Any) -> Any:
 
 def decode(stored: str) -> PreparedIngestJob:
     """Inverse of ``encode``; raises on anything a worker must not run."""
-    from ..routes.ingest import _assert_fetchable_object_store_url
-
     data = payload_crypto.deserialize(stored)
     config = dict(data["config"])
     for key in _DEFERRED_CONFIG_LISTS:
@@ -128,7 +128,8 @@ def decode(stored: str) -> PreparedIngestJob:
             config[key] = [_decode_entry(e) for e in config[key]]
     for key in _URL_CONFIG_KEYS:
         if config.get(key):
-            _assert_fetchable_object_store_url(config[key], field=key)
+            # Gated again and rebuilt on the configured store's origin, whatever the row says.
+            config[key] = object_store_request_url(config[key], field=key)
     return PreparedIngestJob(
         job_id=data["job_id"],
         status=IngestionJobStatus.model_validate(data["status"]),

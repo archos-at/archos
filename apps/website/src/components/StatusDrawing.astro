@@ -1,0 +1,191 @@
+---
+/**
+ * The drawing beside the text of a status page (404, 410, 500): a line drawing with the
+ * blog covers' frame and pens (covers.css), drawn as the page loads (status.css).
+ *
+ *   missing  a floor plan: a door opens onto a room that was never built. The walk line
+ *            from the entrance runs through the door and ends in the empty outline (404).
+ *   gone     the same plan with the opening walled up: the new wall is the solid element,
+ *            and the walk line ends in front of it (410).
+ *   fault    a beam has lost the column at its end (hidden lines) and sags onto a
+ *            temporary prop; a level line and a dimension show how far (500).
+ *
+ * Decorative: the heading beside it says what happened, so the drawing is hidden from
+ * assistive technology and has no words. Canvas 960 × 800 on the covers' 40-unit grid.
+ */
+import '../styles/brand/covers.css';
+import '../styles/brand/status.css';
+
+interface Props {
+  kind: 'missing' | 'gone' | 'fault';
+}
+
+const { kind } = Astro.props;
+
+const W = 960;
+const H = 800;
+const MODULE = 40;
+const grid = [
+  ...Array.from({ length: W / MODULE - 1 }, (_, i) => `M${(i + 1) * MODULE} 0V${H}`),
+  ...Array.from({ length: H / MODULE - 1 }, (_, i) => `M0 ${(i + 1) * MODULE}H${W}`),
+].join('');
+
+/** A dimension tick: a short stroke at 45° through a point. */
+const tick = (x: number, y: number) => `M${x - 8} ${y + 8}L${x + 8} ${y - 8}`;
+
+// The beam of the fault drawing sags 40 units at its far end (x 760), turning about the
+// outer edge of its column (x 220): atan(40 / 540). The prop stands under it at x 600.
+const SAG = (Math.atan(40 / 540) * 180) / Math.PI;
+const propTop = 180 + 380 * Math.tan((SAG * Math.PI) / 180);
+
+const id = `status-${kind}`;
+const mask = (name: string) => `url(#${id}-${name})`;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  class="ui-cover ui-status-drawing"
+  viewBox={`0 0 ${W} ${H}`}
+  preserveAspectRatio="xMidYMid slice"
+  style={`--hatch: url(#${id}-hatch)`}
+  aria-hidden="true"
+  focusable="false"
+>
+  <defs>
+    <pattern id={`${id}-hatch`} width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line class="hatch-line" x1="0" y1="0" x2="0" y2="10" />
+    </pattern>
+  </defs>
+  <rect class="ground" width={W} height={H} />
+  <path class="grid" d={grid} />
+
+  {
+    kind !== 'fault' && (
+      <>
+        <defs>
+          {/* Each mask is the path its part is drawn along, wide enough to cover the part. */}
+          <mask id={`${id}-walls`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
+            {/* Both walls grow from the entrance: dashes restart at every subpath, so one path each. */}
+            <path class="ui-status-mask" pathLength="1" stroke-width="44" d="M240 590H170V210H470V360" style="--ui-step: 0" />
+            <path class="ui-status-mask is-quick" pathLength="1" stroke-width="44" d="M320 590H470V440" style="--ui-step: 0" />
+          </mask>
+          <mask id={`${id}-walk`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
+            <path class="ui-status-mask" pathLength="1" stroke-width="28" d={kind === 'missing' ? 'M280 680V400H640' : 'M280 680V400H444'} style="--ui-step: 5" />
+          </mask>
+          {kind === 'missing' && (
+            <mask id={`${id}-swing`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
+              <path class="ui-status-mask" pathLength="1" stroke-width="14" d="M460 440A80 80 0 0 1 380 360" style="--ui-step: 2" />
+            </mask>
+          )}
+        </defs>
+
+        {/* The dimension chain over the plan: the room that is there, and the one that is not. */}
+        <g class="ui-status-fade" style="--ui-step: 1">
+          <path class="dim" d={`M160 140H800M160 128V188M480 128V188M800 128V188${tick(160, 140)}${tick(480, 140)}${tick(800, 140)}`} />
+        </g>
+
+        {/* The room that was never built: its outline, seen as hidden lines. */}
+        <g class="ui-status-fade" style="--ui-step: 4">
+          <path class="hidden" d="M480 200H800V600H480M480 220H780V580H480" />
+        </g>
+
+        {/* The built room: walls cut and hatched, a window in the north wall, the entrance in the south. */}
+        <g mask={mask('walls')}>
+          <path class="cut hatch" d="M240 600H160V200H240V220H180V580H240Z" />
+          <path class="cut hatch" d="M400 200H480V360H460V220H400Z" />
+          <path class="cut hatch" d="M480 440V600H320V580H460V440Z" />
+          <rect class="view" x="240" y="200" width="160" height="20" />
+          <line class="view" x1="240" y1="210" x2="400" y2="210" />
+        </g>
+
+        {/* The opening, walled up: the new wall is what changed, so it is the solid element. */}
+        {kind === 'gone' && (
+          <g class="ui-status-fade" style="--ui-step: 3">
+            <rect class="solid" x="460" y="360" width="20" height="80" />
+          </g>
+        )}
+
+        {
+          kind === 'missing' && (
+            <>
+              <g mask={mask('swing')}>
+                <path class="view" d="M380 360A80 80 0 0 0 460 440" />
+              </g>
+              <g class="ui-status-leaf" style="--ui-hinge: 460px 360px; --ui-step: 2">
+                <g>
+                  <rect class="paper cut" x="380" y="357" width="80" height="6" />
+                </g>
+              </g>
+            </>
+          )
+        }
+
+        {/* The walk line: from outside, through the entrance, to where the visitor wanted to go. */}
+        <g mask={mask('walk')}>
+          <circle class="solid" cx="280" cy="680" r="7" />
+          {kind === 'missing' ? (
+            <path class="view" d="M280 680V400H640M624 392L640 400L624 408" />
+          ) : (
+            <path class="view" d="M280 680V400H444M428 392L444 400L428 408" />
+          )}
+        </g>
+      </>
+    )
+  }
+
+  {
+    kind === 'fault' && (
+      <>
+        <defs>
+          <mask id={`${id}-frame`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
+            <path class="ui-status-mask" pathLength="1" stroke-width="84" d="M120 620H840" style="--ui-step: 0" />
+            <path class="ui-status-mask" pathLength="1" stroke-width="44" d="M240 600V180" style="--ui-step: 1" />
+          </mask>
+          <mask id={`${id}-beam`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
+            <path class="ui-status-mask" pathLength="1" stroke-width="64" d="M216 160H764" style="--ui-step: 3" />
+          </mask>
+          <mask id={`${id}-prop`} maskUnits="userSpaceOnUse" x="0" y="0" width={W} height={H} style="mask-type: alpha">
+            <path class="ui-status-mask is-quick" pathLength="1" stroke-width="56" d={`M600 600V${(propTop - 4).toFixed(1)}`} style="--ui-step: 7" />
+          </mask>
+        </defs>
+
+        {/* The level the beam should keep: an axis. */}
+        <g class="ui-status-fade" style="--ui-step: 1">
+          <path class="axis" d="M120 180H880" />
+        </g>
+
+        {/* The column at the far end is not there: hidden lines. */}
+        <g class="ui-status-fade" style="--ui-step: 4">
+          <rect class="hidden" x="700" y="180" width="40" height="420" />
+        </g>
+
+        {/* Ground, cut, and the column that stands. */}
+        <g mask={mask('frame')}>
+          <rect class="hatch" x="120" y="600" width="720" height="40" />
+          <path class="cut" d="M120 600H840" />
+          <rect class="cut hatch" x="220" y="180" width="40" height="420" />
+        </g>
+
+        {/* The beam: drawn level, then it sags about its support until the prop holds it. */}
+        <g class="ui-status-sag" style={`--ui-hinge: 220px 180px; --ui-sag: ${SAG.toFixed(2)}deg; --ui-step: 6`}>
+          <g mask={mask('beam')}>
+            <rect class="cut hatch" x="220" y="140" width="540" height="40" />
+          </g>
+        </g>
+
+        {/* The temporary prop: base plate, outer and inner tube, head plate. */}
+        <g mask={mask('prop')}>
+          <rect class="solid" x="576" y="592" width="48" height="8" />
+          <rect class="solid" x="593" y="404" width="14" height="188" />
+          <rect class="solid" x="597" y={(propTop + 6).toFixed(1)} width="6" height={(404 - propTop - 6).toFixed(1)} />
+          <rect class="solid" x="580" y={propTop.toFixed(1)} width="40" height="6" />
+        </g>
+
+        {/* How far it sagged: a dimension at the free end. */}
+        <g class="ui-status-fade" style="--ui-step: 9">
+          <path class="dim" d={`M848 180V220M772 220H860${tick(848, 180)}${tick(848, 220)}`} />
+        </g>
+      </>
+    )
+  }
+</svg>

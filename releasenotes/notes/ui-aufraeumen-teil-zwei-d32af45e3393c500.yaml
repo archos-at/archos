@@ -1,0 +1,26 @@
+---
+improvements:
+  - >
+    An answer reads at one text size, and the lightest text is a touch
+    heavier, so long answers are easier to read.
+  - >
+    An answer no longer carries "Input" and "Result" tags, and labels in an
+    answer drop the icons that repeated them. The explanation under a looked-at
+    passage is folded away and opens on click.
+  - >
+    The answer and the input field share one column, the thread header no
+    longer lets the conversation show through or squeezes its title under
+    "New chat", and the input field's controls fit in one row on a phone.
+  - >
+    Clicking into a text field marks it with its border alone instead of a
+    thick frame, and the logo is a little larger and no longer jumps when you
+    open a project.
+  - >
+    The search field in Files is as tall as the buttons beside it, the reading
+    status above the file list stays quiet once everything is read and says
+    each number once, and the office filing looks like a project's files,
+    with its folder row pinned while you scroll.
+  - >
+    In review, the annotation list stays folded while a document has no
+    annotations. Next to the chat, full screen opens the review, and a
+    document's details sit behind an info button instead of a tab row.

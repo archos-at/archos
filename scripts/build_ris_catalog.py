@@ -73,6 +73,8 @@ def _load_norm_registry_module():
     _standalone_module("agent.common.source_kinds", common_dir / "source_kinds.py")
     # So does profile_names (stdlib only), for the federal-state tokens.
     _standalone_module("agent.profile_names", common_dir.parent / "profile_names.py")
+    # family_query (stdlib only) holds the family-query detection norm_registry re-exports.
+    _standalone_module("agent.common.family_query", common_dir / "family_query.py")
     return _standalone_module("agent.common.norm_registry", common_dir / "norm_registry.py")
 
 

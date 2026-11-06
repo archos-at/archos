@@ -96,7 +96,7 @@ import {
   type AuthoredRefKind,
   type DocumentAuthor,
 } from '@/lib/documents/document-authors'
-import { DOCUMENT_LIFECYCLES, type DocumentLifecycle } from '@/lib/documents/lifecycle-types'
+import { DOCUMENT_LIFECYCLES, type DocumentLifecycle } from '@/lib/documents/lifecycle-vocabulary'
 import { DOCUMENT_STATUSES, type DocumentStatus } from '@/lib/documents/document-status'
 import type { IngestFailureCategory } from '@/lib/documents/retry-policy'
 import type { StoredQuarantineVerdict } from '@/lib/upload-screening/quarantine'

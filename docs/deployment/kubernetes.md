@@ -29,6 +29,7 @@ their own namespaces.
 | `postgres` (`jobs`, `checkpoints`, `app`) | CloudNativePG `Cluster` | 1 (→3 HA) | RWO PVC | Add replicas |
 | `dragonfly` (Redis-proto cache) | Deployment | 1 | — (cache) | — |
 | `gotenberg` (office → PDF, ADR-0070; required to index Word, presentation, `.xls` and `.ods` files, ADR-0071; `gotenbergEnabled`, default on) | Deployment | `gotenbergReplicas` (sized to the `bff-jobs` pool's conversion ceiling, prod 2; §6.3c) | — | n/a (stateless. A conversion it drops fails that ingest retryably, so a rollout drains for up to 120s) |
+| `clamav` (clamd and freshclam, the malware scanner for what strangers send, ADR-0157; `malwareScanEnabled`, default off) | Deployment | 1 | emptyDir `/var/lib/clamav` (signatures, seeded from the image, then freshclam's) | n/a (fail closed: while no pod is ready every scan fails and is retried; ready only while its signatures are under 48 h old) |
 | `qdrant` (the vector store, ADR-0115; always deployed) | StatefulSet (`Parallel`) + PDB + `qdrant-snapshot` CronJob | `qdrantReplicas` (default 3, one per node; 1 runs without cluster mode) | RWO PVC `/qdrant/storage` per peer, `Retain` | Peers by hand, shards moved by the runbook ([`qdrant-runbook.md`](qdrant-runbook.md)) |
 | `chroma-migration` (one-shot copy of the retired Chroma store into Qdrant; `chromaMigration`, default off) | Job | 1 pod | exports from the still-running `chroma` Service over HTTP, awaited before the backend tiers roll; scratch is a generic ephemeral claim | n/a ([runbook](qdrant-runbook.md#migrating-from-chroma-on-kubernetes)) |
 | `seaweedfs` (filer + S3 gateway) | StatefulSet | 1 (`single`) / N (`split`) | RWO PVC `/data` (unused under the Postgres filer store) | See §4 |
@@ -437,8 +438,9 @@ from code at all while they serve it.
 |---|---|
 | `dnsEnabled` | Master switch. Everything else is unread while false |
 | `dnsZoneId` | Cloudflare zone → Overview → API section |
-| `dnsZoneName` | The zone **apex** (`piloti.at`), which need not equal `baseDomain` — a stack may live on a subdomain of its zone |
-| 🔒 `cloudflareApiToken` | Scoped to that one zone: `Zone:DNS:Edit`, plus `Zone:Dynamic URL Redirects:Edit` on the `dnsZoneBaseline` stack |
+| `dnsZoneName` | The zone **apex** (`example.com`), which need not equal `baseDomain` — a stack may live on a subdomain of its zone |
+| 🔒 `cloudflareApiToken` | Scoped to that one zone (both zones during a domain move): `Zone:DNS:Edit`, plus `Zone:Dynamic URL Redirects:Edit` on the `dnsZoneBaseline` stack. `deploy/pulumi/scripts/check-cloudflare-token.sh --stack <stack>` proves it against the API |
+| `formerDnsZoneName` / `formerDnsZoneId` | During a domain move, the zone of `formerBaseDomain` when it is not this stack's zone ([`domain-cutover.md`](domain-cutover.md)) |
 | `dnsTtl` | Default 600s |
 | `dnsZoneBaseline` | Whether this stack owns the zone-level records (`www`, `_dmarc`, the apex). **At most one stack**, and required on the stack that serves the apex |
 | `dnsDmarc` | Value of the `_dmarc` TXT record, when the baseline is owned here |
@@ -547,6 +549,300 @@ Abandonable up to step 7: everything before it is invisible to the internet, and
 reverting is deleting a Cloudflare zone nobody is pointed at.
 
 ---
+
+## 3c. Project mail (Cloudflare Email Routing, ADR-0138)
+
+Every project of an office with the `inbound-mail` entitlement can have an
+address `project+<slug>.<token>@<domain>` (`<domain>` a receiving subdomain such as
+`inbox.example.org`); a project writer's own signed mail to it is filed
+directly as them, and every other mail waits in the project's E-Mail-Eingang
+until a person files it (ADR-0137 and its amendment of 2026-11-03,
+[`inbound-mail.md`](../architecture/inbound-mail.md)). Off by default: nothing
+is deployed until `inboundMailDomain` is set.
+
+**Taking it to production:** [`project-mail-runbook.md`](project-mail-runbook.md),
+the owner's checklist from "off" to the first office, in order: decisions, the
+Cloudflare and ESC steps, the three promotions, gates G0–G9 as a test protocol,
+operating it, and what the customer sees. This section is the reference it orders.
+
+### What it is
+
+```text
+sender ─SMTP─▶ Cloudflare Email Routing (MX of inbox.<domain>) ─rule project@─▶ Email Worker
+                 subaddressing: project+<anything>@ falls back         shape check, buffer,
+                 to the one literal rule project@inbox.<domain>        RFC 9421 sign, post
+                                                                           │
+   app.<domain> Envoy: route app-signed, Content-Length ≤ 27 MiB, no edge limit
+                                                                           ▼
+   frontend: POST /api/internal/signed/inbound-mail ─▶ staging ─▶ bff-jobs: receive job
+                                                                        ─▶ ClamAV, /v1/mail/read
+```
+
+Pieces: `deploy/pulumi/src/platform/{inbound-mail,email-routing}.ts` and the
+Worker `inbound-mail-worker.js` (uploaded verbatim); the signed route
+`SIGNED_INTERNAL_ROUTE` in `src/signed-route-constants.ts`; the frontend's
+`INBOUND_MAIL_{DOMAIN,LOCAL_PART,PAUSED,SIGNING_KEYS}`; the in-cluster ClamAV
+(`malwareScanEnabled`, ADR-0157). Config keys and their meaning:
+[`deploy/pulumi/README.md`](../../deploy/pulumi/README.md) („Project mail“ rows).
+What runs in the cluster after the webhook is Hatchet's (ADR-0150): the
+receive, suggest, file and follow jobs are `bff-job` runs on the `bff-jobs`
+pool (each job's row in `bff_job_queue` keeps its payload; a run's input is
+ids and the priority only), and project mail's sweeps are the
+`inbound-mail-sweep` cron task on the same worker, every minute. There is no
+scheduler container.
+
+### Prerequisites
+
+- **Cloudflare Workers Paid** on the account (gate O2), for CPU time, not
+  memory: both plans give an isolate 128 MB, but Free allows 10 ms of CPU per
+  invocation and Paid 30 s by default, up to 5 min
+  ([Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+  read 2026-10-27). The Worker copies up to 25 MiB into an ArrayBuffer and
+  hashes it with SHA-256 to sign it, which runs well past 10 ms for a large
+  mail. On Free the handler then fails, which the verdict contract makes a
+  temporary error, so the sender retries for days and the mail never arrives.
+  A small mail may fit in 10 ms. Gate G5 measures the CPU of a 25 MiB mail.
+- `cloudflareApiToken` with, on the mail domain's zone, `Zone:Zone Settings:Edit`,
+  `Zone:Email Routing Rules:Edit`, `Zone:DNS:Edit` and `Zone:Zone:Read`, plus Account
+  `Workers Scripts:Edit` and `Email Routing Addresses:Edit` with the account under
+  the token's Account Resources.
+- `inboundMailOperatorAddress`, the mailbox `postmaster@` and `abuse@` of the
+  mail domain forward to (RFC 2142). Pulumi creates it as a destination
+  address and the two forwarding rules; the forwards work once someone opens
+  Cloudflare's verification mail to it (stack output `inboundMailOperator`).
+- `inboundMailDmarc`, optional: the zone apex's `_dmarc` record for a mail zone
+  of its own. Refused beside `dnsDmarc` on the same zone, in one stack
+  (`loadConfig`), across stacks (`stack-files.spec.ts`) and against a record
+  already in the zone (the preview), because two DMARC records are none.
+- The mail domain is a subdomain nothing else receives mail on, normally
+  `inbox.<app zone>` (ADR-0138): the apex's MX belongs to the company's mail
+  provider (Google Workspace), and Email Routing needs the MX of the domain it
+  routes. On the app zone that needs `dnsEnabled` and `dnsZoneBaseline`
+  (`inboundMailZoneId` may then be left out). The preview refuses a mail
+  domain whose MX points anywhere but `*.mx.cloudflare.net`; the apex's MX are
+  not read. Email Routing adds and locks the subdomain's MX, an SPF TXT and a
+  DKIM TXT.
+- **Subaddressing** on the zone, by hand: one `PATCH
+  /zones/{zone}/email/routing` with `{"support_subaddress":true}` (the runbook's
+  §7). Pulumi cannot set it: the provider's only handle onboards the apex
+  (`platform/email-routing.ts` says why). Without it `project+<slug>.<token>@`
+  does not reach the rule for `project@`, and every project address bounces. Gate G0
+  checks it and proves it on the subdomain.
+- **The scanner first.** `loadConfig` refuses an inbound domain while
+  `malwareScanEnabled` is false. Promote the scanner on its own and wait for its
+  pod to be ready (signatures under 48 h old) before the mail promote.
+- The WorkOS entitlement `inbound-mail` exists (gate O1, created 2026-10-27,
+  [`workos-provisioning.md`](workos-provisioning.md)). Staging: ON for all
+  organizations since 2026-11-05 (the owner's decision: every office is a pilot,
+  and dev is where mail is tested first). Production: OFF until prod's gates pass.
+- Nothing manual for the audit trail: the deploy Job `audit-schemas-job.ts`
+  runs `provision-workos-audit-schemas.mjs --apply` on every deploy and creates
+  the `inbound_mail.*`, `inbound_mail_address.*` and `mail_thread.*` schemas;
+  until the first deploy with the feature they are simply missing in WorkOS.
+  The authz catalog Job works the same way.
+
+### The migration's lock on `document_versions` (0196)
+
+0196 adds `UNIQUE (id, project_id)` to `document_versions`, so a filed
+message's entry can point at its Fassung with the project (the 0067 shape).
+`ALTER TABLE … ADD CONSTRAINT … UNIQUE` builds the index under an `ACCESS
+EXCLUSIVE` lock, and `drizzle-kit migrate` runs every pending migration in one
+transaction (0039, 0149), so the lock is held until 0196 to 0199 all commit:
+every read and write of any document's versions waits for the build (uploads,
+the viewer, retrieval's version reads). `CONCURRENTLY` cannot run in that
+transaction, and the runner has no non-transactional step.
+
+Measure before the deploy, on the production database:
+
+```sql
+SELECT pg_size_pretty(pg_relation_size('document_versions')) AS heap,
+       (SELECT reltuples::bigint FROM pg_class WHERE relname = 'document_versions') AS rows;
+```
+
+The lock lasts as long as the index build. To know it rather than guess, time
+the same build on a restored copy (`\timing`, then the `CREATE UNIQUE INDEX`
+below without `CONCURRENTLY`). A pause of a few seconds needs nothing more.
+Longer, build the index online first, outside any transaction, as the owner:
+
+```sql
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS "document_versions_id_project_id_key"
+  ON "document_versions" ("id", "project_id");
+-- Check it is valid; an interrupted build leaves an INVALID index: DROP INDEX CONCURRENTLY it and build again.
+SELECT indisvalid FROM pg_index WHERE indexrelid = 'document_versions_id_project_id_key'::regclass;
+```
+
+0196 then adopts it (`ADD CONSTRAINT … UNIQUE USING INDEX`), which takes the
+lock only for a catalog change. Either way, deploy outside office hours: the
+migrate Job runs before the new pods take traffic, and a document request that
+waits on the lock times out at Envoy after its route timeout.
+
+### Setup: the first promote is paused
+
+1. Give the token its scopes (above). Nothing on the apex changes: its MX stay
+   with the company's mail provider.
+2. Generate a key: `openssl rand -base64 32`. Set, in **one** promote:
+   `inboundMailDomain` (`inbox.<zone>`), `inboundMailPaused: true`, the secret
+   `inboundMailSigningKeys` (`{"mi-2026-10":"<key>"}`; on dev and prod in the
+   stack's ESC environment with `esc env set … --secret --string`, never
+   `pulumi config set --secret`, the runbook's §5), `inboundMailLocalPart`
+   only to change the default `project`, `inboundMailZoneId` only for a domain on
+   a zone of its own, `inboundMailOperatorAddress`, and `inboundMailDmarc` for a
+   zone of its own. Pulumi enables Email Routing on the subdomain and creates
+   the one literal rule `project@<domain>` → the Worker, the destination address
+   and the two RFC 2142 forwards, and the DMARC record.
+3. `npm run preview`, then `npm run up` (gate O4). Then the verification click
+   and the subaddressing call (the runbook's §7).
+4. With only the test office holding the entitlement, run G0, G4's paused half
+   and G7 (below), then set `inboundMailPaused: false` and promote: that exposes
+   no customer. Then run the gates that need mail to arrive (G1–G6). The smoke
+   tool's `signed --run` expects 202s, so it cannot pass while paused.
+5. Switch `inbound-mail` on for an office only after the Datenschutzberater's
+   sign-off and the customer notice (gate O7).
+
+### The gates, in order
+
+Owner gates are post-merge: each is a one-way door or a billing or production
+change. The owner says yes, the operator runs it, and the result is recorded
+below.
+
+| # | Gate | When |
+|---|---|---|
+| O1 | WorkOS dashboard: create the `inbound-mail` entitlement OFF in staging and production; delete PR #831's `project-mail-inbox` | **Done 2026-10-27** except the deletion: `inbound-mail` („Project mail“, `flag_01M5Y9JMZAB7EZA8F37800ZNWW`) exists, OFF for all organizations in both environments; staging switched ON for all organizations on 2026-11-05 (owner). `project-mail-inbox` still exists (its staging switch on, production off); deleting it waits on the owner. `.github/workflows/workos-drift.yml` (weekly, staging) checks the flag registry against WorkOS and is what catches a missing flag |
+| O2 | Cloudflare Workers Paid | before O4 |
+| O3 | `task langfuse:provision -- --apply` (score config `mail-thread-match`, the decision score (`DECISION_SCORE_NAME`) subject `inbound_mail_suggestion`) | after the merge |
+| O4 | `npm run up` with `malwareScanEnabled` (the scanner), then with `inboundMailDomain`, the keys and `inboundMailPaused: true` | after the merge |
+| O5 | DNS: Email Routing on the subdomain writes its MX and TXT records, Pulumi the zone's DMARC record (`inboundMailDmarc`); then subaddressing switched on with one API call and the operator's destination address verified with one click (the runbook's §7) | with O4 |
+| O6 | Launch gates G0–G9, then unpause | after O4 and O5, with a named pilot office for G9 |
+| O7 | The `inbound-mail` entitlement on, per office, only after the Datenschutzberater's sign-off and the customer notice | per office |
+
+Launch gates, run with `deploy/pulumi/scripts/inbound-mail-smoke.ts` (usage in
+[`deploy/pulumi/README.md`](../../deploy/pulumi/README.md#project-mails-launch-gates);
+`plan` prints every gate's steps, nothing is sent without `--run`, and the
+probes are held mail in the TEST office, never a customer's):
+
+| Gate | Check |
+|---|---|
+| G0 | Subaddressing reaches the subdomain's rule: `g0` reads both MX sets over public DNS (the subdomain's Cloudflare's, the apex's unchanged), `support_subaddress`, the rules, the forwards' verified destination, exactly one DMARC record at the apex, and prints the test mail; one plain mail to `project+smoke.aaaaaaaaaaaa@<domain>` while paused gets a temporary failure (the Worker answered), not "Address does not exist" (no rule matched). A permanent refusal stops the launch: take ADR-0138's fallback, a dedicated mail domain with an apex catch-all |
+| G1 | A DKIM-signed test mail arrives `*_verified` with its `signed_headers` (DKIM survives into `message.raw`) |
+| G2 | A throwing Worker gives a temporary failure, and the retry delivers |
+| G3 | 24 MiB is held, 26 MiB refused by Cloudflare, a truncated body gives `body-truncated`, unsigned and unknown-key requests 401 |
+| G4 | While paused, a temporary failure; after the unpause the mail is delivered |
+| G5 | Worker CPU time for a 25 MiB message (Workers Paid; Free allows 10 ms). A failure blocks the launch: there is no fallback that drops the digest |
+| G6 | EICAR through the full path; a limit-exceeding archive and a stale signature database each give `failed`, never `clean`; an infected original's download is refused. Known engine gap (ClamAV 1.5.4): a zip member over `MaxFileSize` (100 MB) is scanned only up to that size and answers `OK` with no alert, gzip alerts (ADR-0157) |
+| G7 | The one literal rule `project@<domain>` → the Worker; literal `postmaster@<domain>` and `abuse@<domain>` rules (RFC 2142) forward to the operator's verified mailbox (`inboundMailOperatorAddress`, created by Pulumi); no other rule on the receiving domain |
+| G8 | G1 and G2 again after any `COMPATIBILITY_DATE` bump of the Worker (a spec fails once the date is a year old) |
+| G9 | The aligned-DKIM share of a pilot office's real project mail, counted offline from an archive's `Authentication-Results` (`dkim-share`). It sets expectations for the trust labels and following |
+
+Record of runs: none yet.
+
+### Operating
+
+- **Alerts** (BFF log lines and PostHog `inbound_mail_refused.reason`):
+  `bad-signature` (a key or `BFF_URL` mismatch), `body-truncated`,
+  `unavailable` (storage or database), `cap_reached`, and no `received` for
+  24 hours on a deployment that usually receives mail. The receive log line per
+  delivery carries ids, sizes and the outcome code only.
+- **A dependency that does not answer delays mail, it does not degrade it.**
+  The receive job gives a WorkOS, DNS, reader, object-store or database fault
+  (for the object store: no answer, a timeout or a 5xx; a 4xx is a bug and spends
+  an attempt) back to the queue without spending an attempt and tries again after 1, 2, 4,
+  8, 16 and 32 minutes, then hourly, about six hours in all
+  (`lib/inbound-mail/receive-faults.ts`); DNS for DKIM waits only 2 and 10
+  minutes, since a sender's own nameserver can fail at will, and then its
+  transient reason stands. Each wait is a `bff-jobs` warning
+  `[inbound-mail] mail <id>: the <dependency> did not answer (<n> of <budget>)`
+  (11, or 2 for `dkim_dns`). A `mail <id>: the verifier threw` error is a
+  mailauth exception on that message, held unverified at once. Past
+  the budget the mail is held anyway: a sender WorkOS could not place is
+  flagged `sender_unchecked` (30 days, for the writers, never filed directly),
+  a text the reader did not answer for keeps `reader_fault_at` and sweep 15
+  reads it again every 15 minutes while the mail waits, five a tick within 45 s
+  (`rereads: … deferred <n>` in its log line counts those left for the next). Alert on the warning
+  rate, and on any `sender_unchecked` or `reader_fault_at` row
+  (`SELECT count(*) FROM inbound_mails WHERE status = 'waiting' AND (reader_fault_at IS NOT NULL OR 'sender_unchecked' = ANY (sender_flags))`).
+- **Retention sweeps** run in the scheduler's background-work call, one log
+  line per sweep that acted (§6.3c).
+- **The scanner's image.** The ClamAV pin lives in `deploy/pulumi/src/config.ts`
+  (and the Compose service); read it there rather than from a doc. trivy's
+  changed-pins scan fails when a pinned image gets a fixable HIGH or CRITICAL
+  finding; the fix is to re-pin to the upstream rebuild of the same version
+  after checking its package versions (the 1.5.4 rebuild of 2026-10-26 fixed
+  brotli-libs and libcurl), in Pulumi and Compose together.
+
+### Signing-key rotation
+
+1. Add the successor to `inboundMailSigningKeys` (two entries at most).
+2. Set `inboundMailSigningKeyId` to the successor's keyid, promote. The BFF
+   accepts both keys meanwhile; the Worker signs with the new one.
+3. Remove the old entry, promote.
+
+Never edit the Worker's binding in the Cloudflare dashboard: the next `up`
+restores it from state. The Worker must post to the origin of
+`WORKOS_REDIRECT_URI` (both come from `appOrigin(cfg)` in
+`src/app/config.ts`); a domain move without it is a `bad-signature` on every
+delivery, which the senders retry.
+The bounce's help and privacy links come the same way: the Worker's
+`LANDING_URL` binding and the frontend's `LANDING_URL` are both
+`cfg.ingress.webOrigin`, the website at `webDomain`, so a domain move updates the
+bounce text with the same `up`.
+
+### Incidents
+
+0. **Direct filing misbehaves** (a way past the sender rule, a filing that
+   goes wrong): `inboundMailDirectFiling: false`, promote. Mail is still
+   received; a verified writer's mail keeps its class but is queued no
+   sender job, so it waits for any of the project's writers (wait reason
+   `paused`), and a sender job already queued files nothing. Mail held
+   meanwhile keeps waiting for the writers after it is switched back on: it
+   is not filed retroactively, unless a re-scan or a re-read (sweeps 7 and 15)
+   queues its sender's filing again after that. This is the first lever;
+   pausing receipt is the next.
+1. **Pause**: `inboundMailPaused: true`, promote. The Worker answers a
+   temporary failure before reading anything, effective as soon as Cloudflare
+   has the binding (no frontend rollout needed for that half), and the BFF
+   answers 503. Senders retry for days; nothing bounces.
+2. A leaked project address: a manager replaces it (Settings › Dokumente,
+   „Neue Adresse erzeugen“, or `inbound-mail-address-rotate`); the old one
+   stops at once and every follow on the project ends.
+3. A leaked signing key: rotate it (above).
+4. One office: switch its `inbound-mail` entitlement off; its addresses then
+   bounce as unknown, and what is held stays held.
+
+### Turning it off
+
+Set `inboundMailEnabled: false` and promote. The rule is updated in place to
+disabled, so no rule matches and Cloudflare refuses the addresses at SMTP time
+(never Drop, which accepts and discards), and Pulumi deletes the Worker
+afterwards (deletions run last). The frontend loses `INBOUND_MAIL_DOMAIN`. Only
+then unset `inboundMailDomain`, if it is for good. Email Routing itself is
+`retainOnDelete`: its delete is zone-level. Reversing migration 0196
+needs every staged object and kept original erased first
+([`schema.md`](../database/schema.md#reversing-0196)).
+
+### Privacy settings at Cloudflare
+
+Workers observability is off (Pulumi sets `observability.enabled: false`); no
+Logpush. Cloudflare keeps Email Routing's activity log (sender, recipient,
+time, outcome). Cloudflare is a transit processor of project mail: the
+sub-processor row and the customer notice belong to gate O7
+([`docs/compliance/inbound-mail-review-2026-10.md`](../compliance/inbound-mail-review-2026-10.md)).
+
+### Known unknowns
+
+- What Cloudflare checks before the Worker runs. Its docs (Email Service →
+  Postmaster, "Mail authentication requirement"; Email handler,
+  "Authentication results"; read 2026-11-03) say Email Routing refuses mail
+  that passes neither SPF nor DKIM, refuses mail failing the sender's DMARC
+  policy, and prepends an `Authentication-Results` header of its own. ADR-0138
+  was written assuming no verdict at all; the BFF still computes its own from
+  the raw message and never reads that header. For support: a correspondent
+  whose domain publishes neither SPF nor DKIM is bounced by Cloudflare, before
+  the product sees the mail ([`project-mail-runbook.md`](project-mail-runbook.md) §0, B3).
+- That a thrown error in an email Worker is a temporary SMTP failure is not
+  documented by Cloudflare; G2 proves it and G8 re-proves it.
+- The email handler's wall-clock limit is undocumented; the Worker gives up on
+  the BFF at 90 s and throws (a retry).
+- G5's numbers for a 25 MiB message.
 
 ## 4. SeaweedFS — two topologies, and the migration between them
 
@@ -1344,10 +1640,9 @@ thousand documents inside one HTTP request on a frontend pod: a request that
 died half way left no record of which half. Both are now jobs, and a job is one
 `bff-job` run on Hatchet (the kind in its input), fair across offices by
 `GROUP_ROUND_ROBIN` on `input.organization_id` and ordered inside one by run
-priority ([`hatchet.md`](hatchet.md)). The claim queue this section was written
-for, `bff_job_queue` (app database, migration 0104), is kept until the cutover
-drains it; where a bullet below says "claim", "lane" or "row", it describes how
-the rows still in it run.
+priority ([`hatchet.md`](hatchet.md)). Each job's row in `bff_job_queue` (app
+database, migration 0104) is what a run takes and leaves behind; its `lane` is
+the organisation.
 
 - **The request enqueues and answers 202.** `POST /api/projects/{id}/reindex`
   and `POST /api/organization/documents/reingest-failed` check access, start
@@ -1359,32 +1654,34 @@ the rows still in it run.
   cursor and the counts) after every slice, so whichever worker claims it next
   resumes there.
 - **The `bff-jobs` Deployment runs them.** The frontend image, command
-  `node workers/jobs/index.js`: one container that supervises the BFF and a
-  Hatchet worker for `bff-job`, which POSTs each slice to its own pod's
-  `/api/internal/jobs/run`. Fairness across organisations and interactive
-  before bulk are the task's concurrency and run priority, not a claim query. **There is no Service and no
+  `node workers/jobs/index.js`: one process that loads the BFF's services,
+  bundled at image build into `dist-jobs/slice.mjs`, and runs the Hatchet
+  worker for `bff-job` and the scheduling tasks (`bff/jobs-queue/slice-entry.ts`).
+  It answers the probes' `/api/healthz` itself. Fairness across organisations
+  and interactive before bulk are the task's concurrency and run priority, not
+  a claim query (`bff/jobs-queue/task.ts`). **There is no Service and no
   HTTPRoute**, and the work runs here, never on the pods that proxy chat.
-  With `bffJobsMode: inprocess` (default `http`) the pod spawns no BFF: the
-  loop runs each slice from the services bundled at image build
-  (`dist-jobs/slice.mjs`) and answers the probes' `/api/healthz` itself
-  (ADR-0079 amendment 1).
-- **A drain never costs an attempt; a failure always does.** On SIGTERM the loop stops claiming, lets
-  the slice in hand finish (`bffJobsDrainSeconds`, 60), gives every claim back
-  without spending an attempt, and only then stops the BFF; the pod's grace
-  period is the drain plus 30 s. A claim that has held its slot for ten
-  minutes is given back the same way between two slices, so a job that runs
-  for hours (an archive import) waits its turn behind the other offices' work instead of
-  keeping the slot. A claim that lost its worker is taken again
-  after `BFF_JOBS_STALE_SECONDS`. Every other end of an attempt spends
-  it (a handler that threw, a slice past `BFF_JOBS_SLICE_TIMEOUT_MS`, a BFF
-  that answered 5xx or not at all) and the job waits `BFF_JOBS_RETRY_BACKOFF_SECONDS`,
-  doubling, before the next, so a job that always times out or kills the BFF
-  ends. After `BFF_JOBS_MAX_ATTEMPTS` the row is marked `dead` with its
-  reason in `last_error` and its payload (a report, the requester, storage keys)
-  reduced to ids; it is deleted `BFF_JOBS_DEAD_RETENTION_DAYS` later, or at
-  once with its project. It reports the `grid.queue.*` meters as `queue="bff"`
-  (`workers/jobs/queue-metrics.js`), beside the Python queues, and each death is
-  also a `[bff-jobs] … now dead` ERROR line.
+- **A run takes the job's row, runs one slice and leaves the row as it found
+  it.** The row in `bff_job_queue` (migration 0104) stays the job's record and
+  saved progress; a run holds it per attempt (`run/retry@worker`) and beats its
+  heartbeat every 15 s (`bff/jobs-queue/task-run.ts`). A slice that is not done
+  saves its place and triggers the next run, at its `notBefore` when it waits
+  (a wake waiting on the person's running turn), so every slice queues again
+  behind the other offices' work. On SIGTERM the worker stops taking runs, lets
+  the ones in hand finish for `bffJobsDrainSeconds` (60), and gives back the
+  rows of the slices it cut off (`releaseInFlightJobs`), so Hatchet's retry on
+  another pod takes them at once; the pod's grace period is the drain plus
+  30 s. A row whose holder went silent past `BFF_JOBS_STALE_SECONDS` (at least
+  the slice timeout plus 60 s) is taken over. A handler that threw or a slice
+  past `BFF_JOBS_SLICE_TIMEOUT_MS` spends an attempt, and Hatchet retries the
+  run after `BFF_JOBS_RETRY_BACKOFF_SECONDS`, doubling, at most 15 minutes.
+  After `BFF_JOBS_MAX_ATTEMPTS` the row is marked `dead` with its reason in
+  `last_error` and its payload (a report, the requester, storage keys) reduced
+  to ids; it is deleted `BFF_JOBS_DEAD_RETENTION_DAYS` later, or at once with
+  its project. Each death is a `[bff-jobs] … now dead` ERROR line on the pod;
+  Hatchet is told only the category and the error's class. A row no run is
+  coming for is started again by the dispatch sweep every `bff-jobs` replica
+  runs (`dispatchStrandedJobs`).
 - **KEDA scales it on the backlog.** A `postgresql` trigger counts the
   `bff-job` runs Hatchet holds queued or running (`hatchetBacklogQuery`, through
   the shared `hatchet-queue-auth`) and asks for ceil(runs / `bffJobsConcurrency`)
@@ -1417,7 +1714,10 @@ a project a slice at a time; the other three are one step each:
   one, a document whose job is dead is failed with its reason, and a report
   filing `queued` for 15 minutes whose job is gone ends as `filed` (the report
   is there after all) or `failed`. A row whose job is queued or running is left
-  alone however long it waits.
+  alone however long it waits. The same call runs project mail's retention
+  sweeps (`lib/inbound-mail/sweep.ts`, ADR-0137), and the scheduler logs one
+  line per sweep that acted or failed, counts by name:
+  `[job-scheduler] background work sweep, project mail expired: checked 3, errors 0, expired 2, parts 5`.
 - **Gotenberg's capacity is a ceiling on the pool.** Conversions are claimed
   from the queue, so the fleet-wide bound is arithmetic:
   `bffJobsMaxReplicas` times `bffJobsRenditionConcurrency` (the pod's
@@ -1774,6 +2074,11 @@ emitted somewhere it can read; see §10.
   With `networkPolicies` off that policy is gone; Gotenberg's
   `--libreoffice-deny-private-ips` and `--libreoffice-deny-public-ips` flags
   still refuse every URL LibreOffice would fetch.
+  `clamav` (`clamav-bff-only`, when `malwareScanEnabled`) is withheld from the
+  intra-namespace allow too: clamd authenticates nobody and opens hostile files
+  for a living, so it admits the frontend and the `bff-jobs` pool alone. Its
+  egress stays open, because freshclam fetches signatures from
+  `database.clamav.net`, a CDN no NetworkPolicy can name (ADR-0157).
 - **Dragonfly authentication** (`grid-oib:dragonflyPassword` and
   `grid-oib:rateLimitStorePassword`, both **required**): `requirepass` on both
   instances, delivered as `DFLY_requirepass` from a Kubernetes Secret rather
@@ -2086,8 +2391,9 @@ Three things are true of this whole table and are easy to miss:
 | Frontend → backend (WebSocket chat) | **No** | `ws://` to the `chat` role (`BACKEND_CHAT_URL`), per-replica via the headless service (ADR-0028 conversation affinity). This is the full chat transport, including prompts and answers. |
 | Producers → OTel Collector, Collector → Langfuse | **No** | Plain OTLP on `http://otel-collector:4318`, and the collector's export to `http://langfuse-web:3000`. This traffic carries **prompts, retrieved snippets, LLM output and live presigned S3 URLs**, so it is the most sensitive plaintext channel in the namespace; Langfuse's store is likewise kept off-limits only by NetworkPolicy, which is why `langfuseEnabled` refuses to deploy with `networkPolicies=false`. |
 | Frontend and `bff-jobs` → Gotenberg | **No, and unauthenticated** | `http://gotenberg:3000`. It carries the bytes of every office file converted, and anyone who can reach it can have LibreOffice parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only. |
+| Frontend and `bff-jobs` → ClamAV | **No, and unauthenticated** | `tcp://clamav:3310`, when `malwareScanEnabled`. It carries every attachment and raw message scanned, and anyone who can reach it can have clamd parse a file of their choosing. NetworkPolicy admits the frontend and the `bff-jobs` pool only (ADR-0157). |
 | App → Qdrant | **No, but authenticated** | `http://qdrant.grid.svc.cluster.local:6333` (and gRPC 6334) with the read-write API key, which an observer of the pod network could read off the wire. NetworkPolicy admits the named callers only (`allow-app-to-qdrant`); the peers' p2p traffic (6335) is plaintext too, between the peers alone (`qdrant-peers`). The keyless metrics port (6336) admits the collector alone. |
-| Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, and from the frontend komoot's public Photon at `photon.komoot.io`, ADR-0151) | **Yes** | All HTTPS. The geocoder call carries every address typed into the project dialog. |
+| Cluster egress (OpenRouter, Tavily, WorkOS, GitHub, from the frontend komoot's public Photon at `photon.komoot.io`, ADR-0151, and with the malware scanner `database.clamav.net`) | **Yes** | All HTTPS. The geocoder call carries every address typed into the project dialog. |
 
 Everything in the "No" rows above is confined to the pod network of a
 single-tenant namespace, and the intra-namespace NetworkPolicy is what bounds
@@ -2378,6 +2684,7 @@ One-time setup, in the WorkOS dashboard under **Connect**:
 
    ```text
    https://qdrant.<baseDomain>/oauth2/callback   # Envoy's OIDC callback for the Qdrant dashboard
+   https://cms.<baseDomain>/oauth2/callback      # Envoy's OIDC callback for the website's CMS, where cmsEnabled
    ```
 
    Only that one: the dashboard has no login of its own behind the gate. The
@@ -2925,6 +3232,14 @@ docker compose --env-file ../.env -f docker-compose.yaml --profile langfuse up -
 There is no ingestion path locally: no collector runs, and the backend's OTLP
 exporter is gated off in compose by design (§9, ADR-0029). The profile is for
 developing against the Langfuse UI and API, not for reproducing ingestion.
+
+## 9c. The platform MCP gateway (ADR-0154)
+
+`mcpGatewayEnabled`, off by default: agentgateway on `platform-mcp.<baseDomain>`,
+where platform staff's agents reach Langfuse's MCP server (and the in-cluster
+servers that follow) signed in with WorkOS, without any of them getting a public
+host. WorkOS setup, the stack keys, connecting a client and the first-deploy
+checks: [`platform-mcp-gateway.md`](platform-mcp-gateway.md).
 
 ## 10. Out of scope (deliberate follow-ups)
 

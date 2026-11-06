@@ -34,6 +34,7 @@ export const APP_ROUTE_URLS: readonly string[] = [
   '/app/organization/screening',
   '/app/organization/storage',
   '/app/platform',
+  '/app/platform/agents',
   '/app/platform/cards',
   '/app/platform/feedback',
   '/app/platform/knowledge',
@@ -53,6 +54,8 @@ export const APP_ROUTE_URLS: readonly string[] = [
   '/app/projects/[id]/chat',
   '/app/projects/[id]/files',
   '/app/projects/[id]/files/bin',
+  '/app/projects/[id]/files/mail',
+  '/app/projects/[id]/files/mail/[mailId]',
   '/app/projects/[id]/files/open-points',
   '/app/projects/[id]/history',
   '/app/projects/[id]/intake',
@@ -72,4 +75,5 @@ export const APP_ROUTE_URLS: readonly string[] = [
   '/app/projects/[id]/skills',
   '/app/search',
   '/app/uploads/[id]',
+  '/app/whats-new',
 ]

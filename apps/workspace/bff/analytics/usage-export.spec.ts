@@ -25,6 +25,7 @@ const repo = vi.hoisted(() => ({
   advanceCursor: vi.fn(async () => undefined),
   releaseCursor: vi.fn(async () => undefined),
   sumUsageByHour: vi.fn(),
+  sumUsageByOutcome: vi.fn(async (): Promise<UsageOutcomeRow[]> => []),
   listSnapshotOrganizations: vi.fn(async () => [] as string[]),
 }))
 vi.mock('./usage-export-repository', () => repo)
@@ -43,8 +44,16 @@ vi.mock('@/lib/db/tenant-context', () => ({
   withPlatformAccess: async (_reason: string, run: () => unknown) => await run(),
 }))
 
-import type { UsageHourRow } from './usage-export-repository'
-import { BACKFILL_DAYS, MAX_HOURS_PER_RUN, exportUsageToPosthog, exportWindow, usageHourProperties } from './usage-export'
+import type { UsageHourRow, UsageOutcomeRow } from './usage-export-repository'
+import {
+  BACKFILL_DAYS,
+  MAX_HOURS_PER_RUN,
+  exportUsageToPosthog,
+  exportWindow,
+  outcomeKind,
+  usageHourProperties,
+  usageOutcomeProperties,
+} from './usage-export'
 
 const HOUR = 60 * 60_000
 
@@ -70,12 +79,36 @@ const row = (over: Partial<UsageHourRow> = {}): UsageHourRow => ({
   ...over,
 })
 
+const outcomeRow = (over: Partial<UsageOutcomeRow> = {}): UsageOutcomeRow => ({
+  organizationId: 'org_1',
+  hour: new Date('2026-10-20T06:00:00Z'),
+  messageId: 'msg_1',
+  jobId: null,
+  conversationId: 's_1',
+  model: 'openai/gpt-6.1-terra',
+  activity: null,
+  agentGroup: null,
+  calls: 4,
+  promptTokens: 150000,
+  completionTokens: 1800,
+  cachedTokens: 105000,
+  reasoningTokens: 300,
+  costUsd: 0.2025,
+  priceUsd: 0.2025,
+  firstCallPromptTokens: 37000,
+  firstCallCachedTokens: 30000,
+  firstAgentCallAt: new Date('2026-10-20T06:12:03Z'),
+  lastAgentCallAt: new Date('2026-10-20T06:12:41Z'),
+  ...over,
+})
+
 const window = (counts: Record<string, unknown>) => ({ day: { ...counts }, month: { ...counts } })
 
 beforeEach(() => {
   vi.clearAllMocks()
   enabled.value = true
   repo.listSnapshotOrganizations.mockResolvedValue([])
+  repo.sumUsageByOutcome.mockResolvedValue([])
   budgets.getOrgBudgetUnit.mockResolvedValue('credit')
 })
 
@@ -137,12 +170,63 @@ describe('usageHourProperties', () => {
   })
 })
 
+describe('usageOutcomeProperties', () => {
+  it('names an answer by its message, so PostHog joins it to answer_completed', () => {
+    expect(usageOutcomeProperties(outcomeRow())).toMatchObject({
+      hour: '2026-10-20T06:00:00.000Z',
+      outcome: 'answer',
+      message_id: 'msg_1',
+      conversation_id: 's_1',
+      model: 'openai/gpt-6.1-terra',
+      activity: 'chat',
+      purpose: 'agent',
+      calls: 4,
+      prompt_tokens: 150000,
+      cached_tokens: 105000,
+      cost_usd: 0.2025,
+    })
+    expect(usageOutcomeProperties(outcomeRow()).job_id).toBeUndefined()
+  })
+
+  it("names when the answer's agent calls ran, so the gap to the next answer can be read", () => {
+    expect(usageOutcomeProperties(outcomeRow())).toMatchObject({
+      first_agent_call_at: '2026-10-20T06:12:03.000Z',
+      last_agent_call_at: '2026-10-20T06:12:41.000Z',
+    })
+    const support = usageOutcomeProperties(outcomeRow({ firstAgentCallAt: null, lastAgentCallAt: null }))
+    expect(support.first_agent_call_at).toBeUndefined()
+  })
+
+  it("carries the first agent call's tokens only on the row that holds it, so the carry can be read per answer", () => {
+    expect(usageOutcomeProperties(outcomeRow())).toMatchObject({
+      first_call_prompt_tokens: 37000,
+      first_call_cached_tokens: 30000,
+    })
+    const later = usageOutcomeProperties(outcomeRow({ firstCallPromptTokens: 0, firstCallCachedTokens: 0 }))
+    expect(later.first_call_prompt_tokens).toBeUndefined()
+    expect(later.first_call_cached_tokens).toBeUndefined()
+  })
+
+  it('names an ingest job apart from other jobs, and an answer before the job it ran in', () => {
+    expect(outcomeKind({ messageId: null, jobId: 'job_1', activity: 'ingest' })).toBe('ingest')
+    expect(outcomeKind({ messageId: null, jobId: 'job_1', activity: null })).toBe('job')
+    expect(outcomeKind({ messageId: 'msg_1', jobId: 'job_1', activity: null })).toBe('answer')
+    expect(outcomeKind({ messageId: null, jobId: null, activity: null })).toBe('conversation')
+  })
+
+  it('carries no free text: every value is a scalar of our own', () => {
+    for (const value of Object.values(usageOutcomeProperties(outcomeRow({ agentGroup: 'ingest_vision' })))) {
+      expect(['string', 'number', 'boolean', 'undefined']).toContain(typeof value)
+    }
+  })
+})
+
 describe('exportUsageToPosthog', () => {
   const now = new Date('2026-10-20T08:15:00Z')
 
   it('reads nothing while PostHog is off', async () => {
     enabled.value = false
-    expect(await exportUsageToPosthog(now)).toEqual({ enabled: false, usage: null, snapshot: null })
+    expect(await exportUsageToPosthog(now)).toEqual({ enabled: false, usage: null, outcomes: null, snapshot: null })
     expect(repo.claimCursor).not.toHaveBeenCalled()
   })
 
@@ -171,6 +255,25 @@ describe('exportUsageToPosthog', () => {
     expect(batch.close).toHaveBeenCalled()
   })
 
+  it('sends the outcome stream on its own cursor, after the hourly one', async () => {
+    repo.claimCursor.mockResolvedValueOnce(null).mockResolvedValueOnce(new Date('2026-10-20T06:00:00Z'))
+    repo.sumUsageByOutcome.mockResolvedValue([outcomeRow(), outcomeRow({ messageId: null, jobId: 'job_1', activity: 'ingest' })])
+
+    const result = await exportUsageToPosthog(now)
+
+    expect(repo.claimCursor.mock.calls.map((call) => call[0])).toEqual([
+      'posthog_usage_hourly',
+      'posthog_usage_by_outcome',
+      'posthog_budget_snapshot',
+    ])
+    expect(repo.sumUsageByHour).not.toHaveBeenCalled()
+    expect(repo.sumUsageByOutcome).toHaveBeenCalledWith(new Date('2026-10-20T06:00:00Z'), new Date('2026-10-20T08:00:00Z'))
+    expect(batch.capture.mock.calls.map((call) => call[0]?.event)).toEqual(['llm_usage_by_outcome', 'llm_usage_by_outcome'])
+    expect(batch.capture.mock.calls[1]?.[0]).toMatchObject({ properties: { outcome: 'ingest', job_id: 'job_1' } })
+    expect(repo.advanceCursor).toHaveBeenCalledWith('posthog_usage_by_outcome', new Date('2026-10-20T08:00:00Z'), now)
+    expect(result.outcomes).toMatchObject({ rows: 2, caughtUp: true })
+  })
+
   it('leaves the cursor where it was when PostHog refused the send', async () => {
     repo.claimCursor.mockResolvedValueOnce(new Date('2026-10-20T06:00:00Z'))
     repo.sumUsageByHour.mockResolvedValue([row()])
@@ -186,12 +289,15 @@ describe('exportUsageToPosthog', () => {
   it('sends nothing for a stream another run holds', async () => {
     repo.claimCursor.mockResolvedValue(null)
 
-    expect(await exportUsageToPosthog(now)).toEqual({ enabled: true, usage: null, snapshot: null })
+    expect(await exportUsageToPosthog(now)).toEqual({ enabled: true, usage: null, outcomes: null, snapshot: null })
     expect(batch.capture).not.toHaveBeenCalled()
   })
 
   it('snapshots each organization once an hour with its limits and how much of them is used', async () => {
-    repo.claimCursor.mockResolvedValueOnce(null).mockResolvedValueOnce(new Date('2026-10-20T07:00:00Z'))
+    repo.claimCursor
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(new Date('2026-10-20T07:00:00Z'))
     repo.listSnapshotOrganizations.mockResolvedValue(['org_1'])
     budgets.getOrgBudget.mockResolvedValue({ dailyLimit: 100, monthlyLimit: 1000, explicit: false })
     budgets.getSpendSummary.mockResolvedValue({
@@ -225,7 +331,10 @@ describe('exportUsageToPosthog', () => {
   })
 
   it('does not snapshot an hour twice', async () => {
-    repo.claimCursor.mockResolvedValueOnce(null).mockResolvedValueOnce(new Date('2026-10-20T08:00:00Z'))
+    repo.claimCursor
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(new Date('2026-10-20T08:00:00Z'))
 
     expect((await exportUsageToPosthog(now)).snapshot).toBeNull()
     expect(repo.listSnapshotOrganizations).not.toHaveBeenCalled()

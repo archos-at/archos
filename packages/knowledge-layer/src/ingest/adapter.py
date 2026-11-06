@@ -57,6 +57,9 @@ from knowledge_layer.embedding import embed_fingerprint_metadata
 from knowledge_layer.env import env_float
 from knowledge_layer.env import env_int
 from knowledge_layer.env import env_switch
+from knowledge_layer.ingest.listing import LISTING_FIELDS
+from knowledge_layer.ingest.listing import files_from_payloads
+from knowledge_layer.ingest.listing import from_epoch
 
 from agent.common.connect_retry import connect_retrying_client
 from agent.knowledge import ingest_status_store
@@ -73,7 +76,10 @@ from agent.knowledge.schema import JobState
 from agent.knowledge.schema import QuarantineVerdict
 from agent.knowledge.schema import stable_file_id
 
+from . import chosen_document_type
+from . import filed_mail
 from . import revisions
+from . import row_facts
 from .chunk_metadata import provenance_from_config
 from .chunk_metadata import stamp_chunk_metadata
 from .measures import INGEST_TRACE_NAME  # noqa: F401 - re-exported, the trace's name
@@ -2340,24 +2346,8 @@ def _merge_file_records(indexed: FileInfo | None, recorded: FileInfo | None) -> 
 
 
 #: The payload a file listing reads per chunk: no text, no vectors.
-_LISTING_FIELDS = (
-    "file_name",
-    "file_size",
-    "file_type",
-    "creation_date",
-    "last_modified_date",
-    "content_type",
-    "page_label",
-)
 #: Points per page of a listing scroll: payload-limited records are small.
 _LISTING_PAGE = 2048
-
-
-def _from_epoch(seconds: int | None) -> datetime | None:
-    """An ``indexed_at`` value as an aware UTC datetime; None stays None."""
-    from datetime import UTC
-
-    return datetime.fromtimestamp(seconds, UTC) if seconds is not None else None
 
 
 class _PdfScreen(NamedTuple):
@@ -3260,8 +3250,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             name=name,
             file_count=files,
             chunk_count=count,
-            created_at=_from_epoch(store.newest(name, INDEXED_AT_FIELD, oldest=True) if count else None),
-            updated_at=_from_epoch(store.newest(name, INDEXED_AT_FIELD) if count else None),
+            created_at=from_epoch(store.newest(name, INDEXED_AT_FIELD, oldest=True) if count else None),
+            updated_at=from_epoch(store.newest(name, INDEXED_AT_FIELD) if count else None),
             backend=self.backend_name,
             metadata={"embed_model": self.embed_model_name},
         )
@@ -3481,47 +3471,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
             return False
 
     def _indexed_files(self, collection_name: str) -> dict[str, FileInfo]:
-        """``file_name -> FileInfo`` for each file the collection holds chunks of: the store says what is indexed.
-
-        One payload-limited scroll over the collection (no chunk text). The
-        document's facts come from its metadata row, which the routes merge in;
-        what only the chunks know (how many, which pages, which content types)
-        comes from here, and the drift checks compare the two
-        (``routes/maintenance.py``, ``factory.reconcile_collection_summaries``).
-        """
-        stats: dict[str, dict[str, Any]] = {}
-        for record in self._store().scroll(collection_name, None, fields=_LISTING_FIELDS, page_size=_LISTING_PAGE):
-            m = record.payload or {}
-            if "file_name" not in m:
-                continue
-            seen = stats.setdefault(m["file_name"], {"chunk_count": 0, "content_types": set(), "pages": set()})
-            seen["chunk_count"] += 1
-            for key in ("file_size", "file_type", "creation_date", "last_modified_date"):
-                if key in m and seen.get(key) is None:
-                    seen[key] = m[key]
-            if "content_type" in m:
-                seen["content_types"].add(m["content_type"])
-            if "page_label" in m:
-                seen["pages"].add(m["page_label"])
-
-        return {
-            file_name: FileInfo(
-                file_id=stable_file_id(collection_name, file_name),
-                file_name=file_name,
-                collection_name=collection_name,
-                status=FileStatus.SUCCESS,
-                chunk_count=seen["chunk_count"],
-                file_size=seen.get("file_size"),
-                uploaded_at=self._parse_timestamp(seen.get("creation_date")),
-                ingested_at=self._parse_timestamp(seen.get("last_modified_date")),
-                metadata={
-                    "content_types": sorted(seen["content_types"]),
-                    "page_count": len(seen["pages"]),
-                    "file_type": seen.get("file_type"),
-                },
-            )
-            for file_name, seen in stats.items()
-        }
+        """``file_name -> FileInfo`` for each file the collection holds chunks of: the store says what is indexed."""
+        records = self._store().scroll(collection_name, None, fields=LISTING_FIELDS, page_size=_LISTING_PAGE)
+        return files_from_payloads(collection_name, (record.payload for record in records))
 
     @staticmethod
     def _recorded_files(collection_name: str) -> dict[str, FileInfo]:
@@ -4736,12 +4688,17 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                     # row — and an empty dict for every human document leaves
                     # those chunks byte-for-byte unchanged.
                     provenance = provenance_from_config(config)
+                    # The format rides the same loop for the same reason: a filed
+                    # E-Mail-Verlauf's chunks are placed in the mail lane where
+                    # retrieval reads them, and each `##` section the Markdown
+                    # chunker cut is one message (`text_formats.markdown_documents`).
                     stamp_chunk_metadata(
                         all_documents,
                         doc_class=doc_class,
                         provenance=provenance,
                         chunk_size=chunk_size,
                         file_name=file_name,
+                        source_format=filed_mail.source_format_from_config(config),
                     )
 
                     # Embedding is the expensive step; a run that lost its claim stops before it.
@@ -4816,6 +4773,9 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                             segment_types=(doc.metadata.get("drawing_type") or "" for doc in text_documents),
                         )
 
+                    # A person's type at filing beats the classifier's, before the permit check reads it.
+                    chosen_type, tags = chosen_document_type.apply(config, tags)
+
                     self._remember_permit(config, collection_name, file_name, tags, text_documents)
 
                     # Standalone images must appear in the per-turn
@@ -4888,27 +4848,15 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         from agent.knowledge import set_document_folder_path
 
                         register_summary(collection_name, file_name, summary, tags=tags, topics=topics)
-                        # The page count the listing and the tree show: the highest page
-                        # any chunk reaches. A text file has none, which clears an old count.
-                        from agent.knowledge import set_document_page_count
-                        from agent.knowledge.page_count import largest_page
-
-                        set_document_page_count(
-                            collection_name, file_name, largest_page(doc.metadata for doc in all_documents)
+                        # Pages, title block, photo and mail, read off this Fassung (`row_facts`).
+                        revision_facts = row_facts.store_read_facts(
+                            collection_name,
+                            file_name,
+                            all_documents,
+                            photo=photo,
+                            config=config,
+                            replaced=previous is not None,
                         )
-                        # The title block (Plankopf) the vision model read on the first drawing
-                        # page that has one: Plannummer, Index, Datum. Read from the same
-                        # analysis as the chunks, so it costs no further call. A re-upload
-                        # without one clears the old sheet's facts.
-                        revision_facts = revisions.revision_facts_from_documents(all_documents)
-                        if revision_facts or previous is not None:
-                            from agent.knowledge import set_document_revision_facts
-
-                            set_document_revision_facts(collection_name, file_name, revision_facts)
-                        if photo is not None and not photo.empty:
-                            from agent.knowledge import set_document_capture
-
-                            set_document_capture(collection_name, file_name, photo.as_metadata())
 
                         # What the ingest read: the dossier, the references, the coverage.
                         # Written together, so a re-ingest replaces the whole reading.
@@ -4951,14 +4899,8 @@ class LlamaIndexIngestor(TTLCleanupMixin, BaseIngestor):
                         folder_path = folder_path or preserved.get("folder_path")
                         if folder_path:
                             set_document_folder_path(collection_name, file_name, folder_path)
-                        # Tags a person chose survive the re-read. The upsert above
-                        # already keeps them on a row of the same name; this
-                        # carries them from a row under another spelling, which
-                        # retiring the previous version removed.
-                        if "tags" in preserved:
-                            from agent.knowledge import set_document_tags_by_person
-
-                            set_document_tags_by_person(collection_name, file_name, json.loads(preserved["tags"]))
+                        # Tags a person chose survive the re-read, then the type chosen at filing.
+                        chosen_document_type.carry_person_tags(collection_name, file_name, preserved, chosen_type, tags)
                         if "topics" in preserved:
                             from agent.knowledge import set_document_topics_by_person
 

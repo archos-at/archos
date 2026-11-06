@@ -1,0 +1,61 @@
+---
+/**
+ * Two to four figures in a row: the value large, its unit smaller, what it counts below, and
+ * where it comes from as a numbered note under the row (Belegpflicht). Shown, never counted up.
+ * Contract: contracts.ts (`KeyFiguresBlock`). Rules: packages/brand/docs/components/KeyFigures.md.
+ */
+import '../../styles/brand/blocks.css';
+import type { Locale } from '../../i18n/paths';
+import { t } from '../../i18n/ui';
+import { blockId } from './block-id';
+import type { KeyFiguresBlock } from './contracts';
+
+interface Props extends KeyFiguresBlock {
+  locale: Locale;
+  class?: string;
+}
+
+const { locale, items, class: className } = Astro.props;
+const ui = t(locale);
+const id = blockId('figures', items);
+// Each distinct source gets one number, in the order the figures name them.
+const sources = [...new Set(items.flatMap((item) => (item.source ? [item.source] : [])))];
+const noteOf = (source?: string) => (source ? sources.indexOf(source) + 1 : 0);
+---
+
+<div class:list={['ui-block ui-figures', className]}>
+  <ul class="ui-figures-list" role="list" style={`--count: ${items.length}`}>
+    {
+      items.map((item) => (
+        <li class="ui-figures-item">
+          <p class="ui-figures-value">
+            {item.value}
+            {item.unit && <span class="ui-figures-unit">{item.unit}</span>}
+          </p>
+          <p class="ui-figures-label">
+            {item.label}
+            {item.source && (
+              <sup class="ui-figures-ref">
+                <a href={`#${id}-note-${noteOf(item.source)}`} aria-label={`${ui.blockSource} ${noteOf(item.source)}`}>
+                  {noteOf(item.source)}
+                </a>
+              </sup>
+            )}
+          </p>
+        </li>
+      ))
+    }
+  </ul>
+  {
+    sources.length > 0 && (
+      <ol class="ui-figures-notes" aria-label={ui.blockSource}>
+        {sources.map((source, i) => (
+          <li id={`${id}-note-${i + 1}`}>
+            <span aria-hidden="true">{i + 1}</span>
+            <span>{source}</span>
+          </li>
+        ))}
+      </ol>
+    )
+  }
+</div>

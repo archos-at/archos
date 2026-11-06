@@ -17,8 +17,6 @@ import { type FC } from 'react'
 
 import { HeightExpand } from '@/components/motion/height-arrival'
 import { cn } from '@/lib/utils'
-import { MessageCircle } from 'lucide-react'
-import { SectionLabel } from '@/components/ui/section-label'
 import { MarkdownRenderer } from '@/shared/components/MarkdownRenderer'
 import { MarkdownSlotProvider } from '@/shared/components/MarkdownRenderer/slot-context'
 import { handleNearestCitationTap } from '../hooks/use-nearest-citation-tap'
@@ -33,7 +31,7 @@ import { AnswerDataProvider } from '@/shared/components/MarkdownRenderer/answer-
 import { AnswerProjectStrip } from '@/shared/components/MarkdownRenderer/project-binding'
 import { LookupFoundNothingNote } from './agent-response/answer-notes'
 import { AnswerDetails } from './agent-response/answer-details'
-import { RoleTabMark, StreamingCaret } from './agent-response/answer-role'
+import { StreamingCaret } from './agent-response/answer-role'
 import { proseClass } from './agent-response/answer-prose'
 import { AgentResponseProps } from './agent-response/agent-response-props'
 import { useAgentResponseController } from './agent-response/use-agent-response-controller'
@@ -191,44 +189,25 @@ const AgentResponseComponent: FC<AgentResponseProps> = (props) => {
             {/* No entrance of its own: the thread row owns it, gated on whether
             the answer is arriving or being restored (a CSS entrance here
             replayed on every thread open, switch and reload). */}
-            {/* An article named by its role tab, busy while it arrives, in the
-            answer's language (German) whatever the UI locale: hyphenation
-            and a screen reader's voice follow `lang`. */}
+            {/* An article named by its kind (Ergebnis, Hinweis, Antwort), busy
+            while it arrives, in the answer's language (German) whatever the UI
+            locale: hyphenation and a screen reader's voice follow `lang`. The
+            name is for a screen reader alone: on screen the card's surface and
+            place in the column already say whose turn it is, and the black
+            "Ergebnis" tab that used to say it again was the loudest thing in
+            the answer (Notion #38, topic 9). Completion is the footer's
+            arrival and the Herleitung header's check, so the tab's check went
+            with it. */}
             <article
               className="flex w-full flex-col"
-              aria-labelledby={controller.roleTabId}
+              aria-label={controller.kindLabel}
               aria-busy={controller.live || undefined}
               data-testid={controller.failed ? 'answer-failed' : undefined}
               lang="de"
             >
-              {/* Role tab — uppercase 10.5/600. Substantive answer: near-black action
-          fill + check. Meta / direct reply: quiet secondary fill + conversation icon. */}
-              {controller.isNote ? (
-                <SectionLabel
-                  as="div"
-                  id={controller.roleTabId}
-                  className="bg-secondary text-secondary-foreground ml-[14px] inline-flex w-fit items-center gap-1.5 rounded-t-md px-2.5 py-1"
-                >
-                  <MessageCircle className="size-2.5" strokeWidth={2.6} aria-hidden="true" />
-                  {controller.tabLabel}
-                </SectionLabel>
-              ) : (
-                <SectionLabel
-                  as="div"
-                  id={controller.roleTabId}
-                  className="bg-primary text-primary-foreground ml-[14px] inline-flex w-fit items-center gap-1.5 rounded-t-md px-2.5 py-1"
-                >
-                  <RoleTabMark
-                    complete={!controller.live && !controller.stopped && !controller.failed}
-                    arrived={controller.mountedLive}
-                  />
-                  {controller.tabLabel}
-                </SectionLabel>
-              )}
-
               {/* Shell: subtle surface + hairline + soft shadow, corners clipped. A meta
-          reply sits on a quieter muted surface, so the whole card — not just the
-          tab — reads as the calmer, non-result kind. Both kinds use shadow-sm,
+          reply sits on a quieter muted surface, so the whole card reads as the
+          calmer, non-result kind. Both kinds use shadow-sm,
           matching the composer's elevation so the answer never outranks it. */}
               <div
                 className={

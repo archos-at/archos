@@ -125,7 +125,7 @@ export function ToolbarDivider({ className, ...props }: ComponentProps<'span'>):
 
 /**
  * A typing surface inside a pill: the page number, a search query. The field
- * recipe (border promotion and halo on focus) at the pill's `size-7` height,
+ * recipe (its border turns ink on focus) at the pill's `size-7` height,
  * on the pill's own ground so it reads as cut into it rather than as a second
  * floating object. 16px on a coarse pointer, or iOS zooms the page on focus.
  */

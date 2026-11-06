@@ -20,8 +20,8 @@ import {
   readStorageUsage,
   type DbTransaction,
 } from '@/lib/storage/repository'
-import type { DocumentVersionState } from './lifecycle-types'
-import { DOCUMENT_VERSION_STATES, OPEN_DOCUMENT_VERSION_STATES } from './lifecycle-types'
+import type { DocumentVersionState } from './lifecycle-vocabulary'
+import { DOCUMENT_VERSION_STATES, OPEN_DOCUMENT_VERSION_STATES } from './lifecycle-vocabulary'
 import { mapVersionInsertError } from './unique-conflicts'
 import { documentVisibleTo, SCREENED_ONLY, type ShelfReader } from './visibility'
 

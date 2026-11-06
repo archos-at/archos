@@ -35,6 +35,7 @@ from agent.knowledge import document_metadata_decode as decode_impl
 from agent.knowledge import document_metadata_engines as engines_impl
 from agent.knowledge import document_metadata_fields as fields_impl
 from agent.knowledge import document_metadata_folders as folders_impl
+from agent.knowledge import document_metadata_mail as mail_impl
 from agent.knowledge import document_metadata_reads as reads_impl
 from agent.knowledge import document_metadata_records as records_impl
 from agent.knowledge import document_metadata_revisions as revisions_impl
@@ -281,6 +282,12 @@ class DocumentMetadataStore:
 
     def set_capture(self, collection: str, filename: str, capture: dict[str, Any] | None) -> bool:
         return fields_impl.set_capture(self, collection, filename, capture)
+
+    def set_mail_thread(self, collection: str, filename: str, thread: dict[str, Any] | None) -> bool:
+        return mail_impl.set_mail_thread(self, collection, filename, thread)
+
+    def set_mail_origin(self, collection: str, filename: str, origin: dict[str, Any] | None) -> bool:
+        return mail_impl.set_mail_origin(self, collection, filename, origin)
 
     def set_revision_facts(self, collection: str, filename: str, facts: dict[str, Any] | None) -> bool:
         return fields_impl.set_revision_facts(self, collection, filename, facts)

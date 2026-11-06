@@ -39,6 +39,9 @@ function row(overrides: Partial<MailImportView>): MailImportView {
     filesFiled: 3_874,
     itemsSkipped: 292,
     filesSkipped: 0,
+    threadsCreated: 412,
+    threadsAppended: 37,
+    alreadyInProject: 18,
     skippedSamples: [],
     errorCode: null,
     error: null,
@@ -109,7 +112,7 @@ const HISTORY: MailImportView[] = [
 function state(variant: string): UseMailImports {
   const noop = async () => {}
   const base: UseMailImports = {
-    list: { imports: HISTORY, maxSizeBytes: 25e9, partSize: PART },
+    list: { imports: HISTORY, nextCursor: null, maxSizeBytes: 25e9, partSize: PART },
     loadError: false,
     sending: null,
     sendError: null,
@@ -156,7 +159,7 @@ function state(variant: string): UseMailImports {
 export default function MailImportPreview() {
   const variant = useSearchParams()?.get('variant') ?? 'default'
   return (
-    <main className="min-h-screen bg-background p-8" data-testid="mail-import-preview">
+    <main className="min-h-dvh bg-background p-8" data-testid="mail-import-preview">
       <MailImportDialogView projectId={PROJECT} open onOpenChange={() => {}} state={state(variant)} />
     </main>
   )

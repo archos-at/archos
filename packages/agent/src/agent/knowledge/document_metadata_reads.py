@@ -9,12 +9,15 @@ from typing import Any
 if TYPE_CHECKING:
     from .schema import AvailableDocument
 
+from agent.knowledge import document_metadata_mail as mail_impl
 from agent.knowledge.document_metadata_constants import _DOCUMENT_COLUMNS
 from agent.knowledge.document_metadata_constants import _OFFICE_TIMEZONE
 from agent.knowledge.document_metadata_constants import TABLE_NAME
 from agent.knowledge.document_metadata_constants import logger
 from agent.knowledge.document_metadata_helpers import _current_doc_class
 from agent.knowledge.document_metadata_helpers import _decode_page_count
+from agent.knowledge.mail_facts import normalise_mail_origin
+from agent.knowledge.mail_facts import normalise_mail_thread
 
 
 def _row_to_document(store, row: Any, collection: str | None = None) -> AvailableDocument:
@@ -39,6 +42,8 @@ def _row_to_document(store, row: Any, collection: str | None = None) -> Availabl
         dossier=store._decode_json(row[15], dict) if len(row) > 15 else None,
         doc_references=store._decode_json(row[16], list) if len(row) > 16 else None,
         coverage=store._decode_json(row[17], dict) if len(row) > 17 else None,
+        mail_thread=mail_impl.decode_mail(row[18], normalise_mail_thread) if len(row) > 18 else None,
+        mail_origin=mail_impl.decode_mail(row[19], normalise_mail_origin) if len(row) > 19 else None,
         collection=collection,
     )
 
