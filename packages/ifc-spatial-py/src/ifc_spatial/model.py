@@ -50,6 +50,7 @@ import ifcopenshell.util.unit as uu
 import numpy as np
 
 from .envelope import ElementRef
+from .project_units import project_unit_scale
 
 # ── kinds ───────────────────────────────────────────────────────────────────
 #
@@ -397,7 +398,7 @@ class SpatialModel:
                 "Entweder ist das Schema nicht unterstützt oder die Datei ist beschädigt.",
             ) from None
         self.open_seconds = time.perf_counter() - t0
-        self.unit_scale = uu.calculate_unit_scale(self.file)
+        self.unit_scale = project_unit_scale(self.file, path)
 
         self._settings = ifcopenshell.geom.settings()
         self._settings.set("use-world-coords", True)
