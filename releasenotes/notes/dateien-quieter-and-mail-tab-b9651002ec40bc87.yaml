@@ -25,6 +25,10 @@ features:
     While files or mails are picked, the bar at the foot is a grey band with
     the main action last, the same in Files and in the inbox. Checkboxes and
     option buttons have a clearer edge.
+  - >
+    Open points and the Bin keep the same page edges as All files, without
+    boxes or lines, and in the inbox a picked set of mails is filed from the
+    bar alone while the group buttons step back.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

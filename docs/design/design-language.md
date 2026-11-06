@@ -252,20 +252,24 @@ What took Dateien and the E-Mail-Eingang from a 5 to a 10 over the 2026-11 revie
 - **Hover is the one grey, the open or picked item the state grey.** A tile, a list row, a folder row and a mail row hover `bg-muted` and hold `bg-accent` when open or picked; a thumbnail sheet on that fill takes the fill (`bg-transparent`), or it is grey on grey.
 - **A box earns its grey.** Folders are a glyph and a name on the page, not grey tiles: they read apart from files by shape (a line, not a sheet), and three grey blocks over a grid of grey sheets was the page's loudest thing. Thumbnails keep the grey: the design system lays cut-outs on `surface-sunken`.
 - **The secondary press is tonal** (D4): grey on white, white on a grey panel (`data-surface="sunken"`), never an outline (held: „the secondary press“).
-- **No section lines.** No rule above or below a block, no hairlines between rows, no dashed box, no bordered card around a bar: white space and the one grey separate. A bar pinned over scrolling content takes `shadow-pinned-foot` (`globals.css`); a split view's pane divider is a function and stays (held: „no section lines“).
+- **No section lines.** No rule above or below a block, no hairlines between rows, no dashed box, no bordered card around a bar: white space and the one grey separate. A bar pinned over the content it sits in takes `shadow-pinned-foot` (`globals.css`), drawn only while content lies beneath it; a split view's pane divider is a function and stays (held: „no section lines“).
+- **A mode is a band.** A selection bar under a list is a band of the one grey across its column, its content on the listing's edges, the secondary (white on it) before the primary at the end, in Dateien and the E-Mail-Eingang alike.
+- **An unchecked control draws the field border** (`--ds-line-strong`, 3.4:1): the alpha `--input` measured under WCAG 1.4.11's 3:1 (`checkbox.tsx`, `radio-group.tsx`).
 - **Quiet is the normal case.** All read, nothing open, nothing waiting says nothing or one muted line; ochre is for what needs a person, red for a failure, each with its glyph and word.
 
 **Edges and rhythm**
 
-- **One left and one right edge per tab container.** A listing is the design system's 1280px container with 32px margins (16px on a phone), its header included (`SECTION_HEADER_CLASS`); a split view (the E-Mail-Eingang) is full width, its header too. Every element's content stands on those edges.
-- **Content on the edge, state fills bleed.** An inset that only holds a hover fill is given back as a negative margin: the file grid by the tile's 6px (`-mx-1.5`), the list by its cells' 8px (`md:-mx-2`), the brief by 12px; a ghost press at a row's end by its padding (`-mr-3.5`), so its words end under the filled press above (held: „one left edge“).
-- **Equal gaps between like sections, 24px or so on the 4px scale:** tabs → brief → folders → label each about 24px of visible white; a label sits closer to what it heads (16–20px) than to what precedes it.
+- **One left and one right edge per tab container.** A listing is the design system's 1280px container with 32px margins (16px on a phone), its header included (`SECTION_HEADER_CLASS`), and so is every Dateien tab that lists (Offene Punkte, Papierkorb: never a centred narrower column); a split view (the E-Mail-Eingang) is full width, its header too. Every element's content stands on those edges.
+- **On a phone a grey panel spans the screen** rather than bleed into the 16px gutter (the open brief: `-mx-4`, square, 16px inside); 12px of bleed left it 4px from the glass.
+- **Content on the edge, state fills bleed.** An inset that only holds a hover fill is given back as a negative margin: the file grid by the tile's 6px (`-mx-1.5`), the list by its cells' 8px (`md:-mx-2`), the brief by 12px, the tabs and a bare segmented control by their 12px on a desk (`md:-ml-3`), so the first glyph stands on the title's edge; a ghost press at a row's end by its padding (`-mr-3.5`), so its words end under the filled press above. Inside a tile the name sits on the thumbnail's edge, no inset of its own (held: „one left edge“).
+- **Equal gaps between like sections, 24px or so on the 4px scale:** tabs → brief → folders → label each about 24px of visible white; a label sits 12px over what it heads, nearer to it than to what precedes it. Tiles are 24px apart (a 12px gap and their two 6px insets).
 - **A level's tools end the row that names the level.** At Dateien's root the tab names it, so „Auswählen“ and „Ordner anlegen“ stand at the end of the tabs row (`ProjectSectionTabActions`); inside a folder they end the path row; on a phone they are the ⋯'s first entries (iOS Files' order). A row that holds only two presses is a row too many.
 - **A phone's tools sit under the tabs**, never above them: the tabs stay put from tab to tab (`project-section-frame.tsx`).
 
 **Type and words**
 
-- **A name is one size wherever it stands:** 13px medium in a tile, a file row and a folder row.
+- **A name is one size wherever it stands:** 13px medium in a tile, a file row and a folder row. **One size per band:** the tabs row's tools take the tabs' 14px.
+- **A count is the muted pill** (`CountPill`), never brackets: „Bereit 3“, as the tabs write it; on a grey surface the pill is white.
 - **Names keep their end.** A file name wraps (`FileName wrap`) or is cut in the middle, never at its end: the revision and the drawing number are the end.
 - **A clause drops whole, never cut.** Below 640px the comment chip shows „4 offen · 2 für Sie“ and drops „3 Vorschläge“; the accessible name says the whole sentence.
 - **A chevron follows its words**, not the far edge of its row: the brief's line ends in its chevron.
@@ -275,7 +279,10 @@ What took Dateien and the E-Mail-Eingang from a 5 to a 10 over the 2026-11 revie
 - **A tile row shares one meta baseline.** The footer fills the cell and sets its lines at its foot (`content-end`), so the size and age line is every tile's last line, whichever tile carries a second name line or „4 offen“ (`file-card.test.tsx`).
 - **Columns appear only when a row fills them** (`listColumns` in `file-list-columns.ts`): an empty Status column is a promise of nothing.
 - **One look for one of these.** Where a page shows tabs, a segmented control beside them is `bare`: no track, the chosen one the one grey (held: „one look for one of these“).
-- **One primary per surface:** Hochladen in Dateien, the decision bar's filing press in an opened mail.
+- **One primary per surface:** Hochladen in Dateien, the decision bar's filing press in an opened mail. **While items are picked the bar owns the action:** the section's and the thread's own presses step back.
+- **One shape for one pick:** a square checkbox in the list, the E-Mail-Eingang and on a tile (`rounded-inline`), never a circle on one of them.
+- **A column only where something can be in it:** the E-Mail-Eingang's handled list has no checkbox column, as an empty 28px gutter read as an indent.
+- **Like things, like words:** a folder's count reads „2 Elemente“ in a tile and in a row; a chip beside a near-namesake wears its own glyph (the folder's folder, the Dokumentart's tag).
 - **A placeholder is the thing's own shell.** A skeleton uses the real tile, row or pane geometry and draws no row the loaded page does not have; an empty pane is a bare state in its middle, not a dashed panel.
 - **Every hover reveal has a finger path** (`pointer-coarse:opacity-100`, `mobile-files.spec.ts`): the tile's ⋯ stays visible under touch.
 

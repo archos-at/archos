@@ -162,11 +162,10 @@ export function AskColleagueButton({
         })
       }}
       onChanged={() => undefined}
-      // Full width in the rail, beside „Piloti dazu fragen", rather than the
-      // ghost pill the popover draws for the Files list. The two Ask affordances
-      // are one pair and have to read as one.
+      // Full width in the rail, under the primary: the tonal secondary (D4), so the two Ask affordances read as one
+      // pair of presses. A bare centred word beside left-aligned content had no affordance.
       trigger={
-        <Button type="button" variant="ghost" size="sm" className="h-8 w-full">
+        <Button type="button" variant="secondary" size="sm" className="h-8 w-full">
           {t('assignment.askColleague')}
         </Button>
       }

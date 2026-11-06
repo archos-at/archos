@@ -30,7 +30,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Bot, CircleDashed, FileInput, LoaderCircle, Paperclip, Repeat2, ShieldAlert } from 'lucide-react'
+import { Bot, CircleAlert, FileInput, LoaderCircle, Paperclip, Repeat2, ShieldAlert } from 'lucide-react'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -126,9 +126,10 @@ export function InboundMailRow({
       data-current={open || undefined}
       data-cursor={(focused && !open) || undefined}
     >
-      {/* Above the link's full-row press area, so a tap on the box selects instead of opening. */}
-      <div className="relative z-10 flex h-8 w-4 shrink-0 items-center">
-        {bulkSelectable(mail) && (
+      {/* Above the link's full-row press area, so a tap on the box selects instead of opening. No column in the handled
+          list, where nothing is filed or dismissed in bulk: an empty 28px gutter read as an indent under a thread. */}
+      <div className={cn('relative z-10 flex h-8 w-4 shrink-0 items-center', !waiting && 'hidden')}>
+        {waiting && bulkSelectable(mail) && (
           <Checkbox
             checked={checked}
             onCheckedChange={(value) => onCheckedChange(value === true)}
@@ -188,7 +189,8 @@ export function InboundMailRow({
                 {filingNow ? (
                   <LoaderCircle className="size-3 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
                 ) : (
-                  <CircleDashed className="size-3 shrink-0" aria-hidden />
+                  // Ochre: a person is needed here (a dashed circle read as „still loading“).
+                  <CircleAlert className="text-warning size-3 shrink-0" aria-hidden />
                 )}
                 <span className="min-w-0 truncate">{reasonLine.text}</span>
               </p>
@@ -210,7 +212,7 @@ export function InboundMailRow({
               </p>
             )}
             {!waiting && outcomes.length > 0 && (
-              <p className="text-muted-foreground text-xs" data-testid="inbound-mail-row-outcome">
+              <p className="text-muted-foreground text-xs text-pretty" data-testid="inbound-mail-row-outcome" /* no date stranded on a line of its own */>
                 {outcomes.map((outcome) => t(`row.outcome.${outcome}`, { count: mail.outcomes[outcome] })).join(' · ')}
                 {mail.restorableUntil && ` · ${t('row.restorableUntil', { date: formatCalendarDate(mail.restorableUntil, locale) })}`}
               </p>

@@ -69,8 +69,9 @@ export function PinnedBar({ className, ...props }: HTMLAttributes<HTMLDivElement
   return (
     <div
       className={cn(
-        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 px-3 pt-3 shadow-pinned-foot backdrop-blur sm:px-8',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+        'bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky bottom-0 z-10 flex flex-col gap-2 px-4 pt-3 shadow-pinned-foot backdrop-blur sm:px-8',
+        // The page's 16px gutter on a phone; 24px under the presses on a desk, not 12 against 32 at the sides.
+        'pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6',
         className
       )}
       {...props}

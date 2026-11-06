@@ -182,7 +182,7 @@ export function FolderBrief({
               data-testid="folder-brief-toggle"
             >
               <Sparkles className="size-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 truncate" /* the chevron follows the words, not the far edge */>
+              <span className="min-w-0 truncate phone:whitespace-normal" /* the chevron follows the words; a phone wraps, never cuts */>
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
               </span>
@@ -276,7 +276,8 @@ function ReadStateLegend({ tally, onSelect }: { tally: KnowledgeTally; onSelect:
   const states = tally.total > tally.unindexed ? MEANT_TO_READ.filter((state) => state !== 'readable' && tally[state] > 0) : []
   if (hasUnindexedAside(tally)) states.push('unindexed')
   return (
-    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+    // `-mx-1.5`: the entries' inset holds their hover fill, so dots and page count stand on the brief's edges.
+    <div className="-mx-1.5 flex flex-wrap items-center gap-x-1 gap-y-1">
       {states.map((state) => (
         <button data-attr={state === 'unindexed' ? 'folder-brief-state-unindexed' : 'files-select'}
           key={state}
@@ -454,10 +455,9 @@ function BriefDisclosure({
               className="hover:bg-accent focus-visible:ring-ring group flex w-full min-w-0 items-center gap-3 px-3 py-2.5 text-left phone:px-4 transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset motion-reduce:transition-none pointer-coarse:min-h-11"
               data-testid={`${id}-toggle`}
             >
-              {/* One column for the titles (the longest, „Worum es hier geht“, is 108px), so the summaries start on one edge. */}
-              <span className="text-muted-foreground min-w-28 shrink-0 text-xs font-medium">{title}</span>
+              <span className="text-muted-foreground min-w-28 shrink-0 text-xs font-medium" /* one column: summaries on one edge */>{title}</span>
               {/* What the section holds, while it is shut; open, the section says it itself. */}
-              <span className="text-muted-foreground min-w-0 truncate text-xs font-normal" aria-hidden={open} /* the chevron follows, as on the brief's own line */>
+              <span className="text-muted-foreground min-w-0 truncate text-xs font-normal phone:line-clamp-2 phone:whitespace-normal" aria-hidden={open} /* as the brief's line: a phone wraps, never cuts */>
                 {open ? '' : summary}
               </span>
               <ChevronDown

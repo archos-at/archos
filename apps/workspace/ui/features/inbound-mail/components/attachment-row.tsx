@@ -30,6 +30,7 @@ import {
   Lock,
   ShieldAlert,
   ShieldQuestion,
+  Tag,
   Timer,
   Undo2,
 } from 'lucide-react'
@@ -295,7 +296,10 @@ export function AttachmentRow({
                   </Button>
                 ))}
               {draft.documentType && (
-                <Badge variant="secondary" className="bg-background" data-testid="attachment-type">
+                // Its own glyph, as the folder chip has its folder: „Bescheide“ and „Bescheid“ side by side were two words
+                // one letter apart.
+                <Badge variant="secondary" className="bg-background gap-1" data-testid="attachment-type">
+                  <Tag className="text-muted-foreground size-3" aria-hidden />
                   {tagLabel(draft.documentType, tFiles)}
                 </Badge>
               )}

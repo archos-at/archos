@@ -70,8 +70,17 @@ beforeEach(() => {
 })
 
 describe('InboundMailWorkspace', () => {
+  it('steps the group presses back while mails are picked: the bar under the list files them', () => {
+    renderWorkspace('selected')
+    const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis” · 4 new mails/ })
+    expect(within(group).queryByTestId('thread-group-file')).toBeNull()
+    expect(screen.queryByTestId('readiness-file-all')).toBeNull()
+    expect(screen.getByTestId('inbound-mail-selection-bar')).toBeInTheDocument()
+  })
+
   it('groups a conversation with one button that files it as suggested', async () => {
     renderWorkspace('selected')
+    await userEvent.click(screen.getByTestId('selection-clear'))
     const group = screen.getByRole('region', { name: /Mail thread “Stellplatznachweis” · 4 new mails/ })
     expect(within(group).getByTestId('thread-group-file')).toHaveTextContent('File as revisions 4–7')
     await userEvent.click(within(group).getByTestId('thread-group-file'))
@@ -95,6 +104,7 @@ describe('InboundMailWorkspace', () => {
     const { client } = renderWorkspace('selected')
     const get = client.get.bind(client)
     vi.spyOn(client, 'get').mockImplementation(async (projectId, mailId) => ({ ...(await get(projectId, mailId)), incompleteReason: 'scanning' }))
+    await userEvent.click(screen.getByTestId('selection-clear'))
     const group = screen.getByRole('region', { name: /4 new mails/ })
     await userEvent.click(within(group).getByTestId('thread-group-file'))
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith(expect.stringContaining('/files/mail/')))

@@ -103,6 +103,8 @@ function FilesPage(): JSX.Element {
           )}
           renderActions={() => <DocumentActionsTrigger />}
         />
+        {/* The workspace ends a phone's list above the floating Hochladen (`pb-24`): the last tiles are never under it. */}
+        {phone && <div className="h-24" aria-hidden />}
       </ProjectSectionFrame>
       {/* The phone's Hochladen, floating at the foot as the workspace draws it (`uploadFab`). */}
       {phone && (

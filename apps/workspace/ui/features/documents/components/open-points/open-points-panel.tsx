@@ -22,6 +22,7 @@
 import { useState, type JSX } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 import { AlertTriangle, CheckCheck, FileText, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -123,7 +124,9 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex max-w-4xl flex-col gap-5 p-4 sm:p-6" data-testid="open-points">
+      {/* The listing's container and edges (1280px, 32px; 16px on a phone), as „Alle Dateien“: centred at 896px the
+          tab had a left edge of its own. */}
+      <div className="flex w-full max-w-[1280px] flex-col gap-6 px-4 py-4 md:px-8" data-testid="open-points">
         {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
         <ProjectSectionActions>
           <ProjectProtocolMenu
@@ -144,6 +147,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 if (value === 'all' || value === 'me') choose({ assignee: value, due })
               }}
               segmented
+              bare
               size="sm"
               aria-label={t('openPoints.filters.assignee')}
             >
@@ -166,6 +170,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                 }
               }}
               segmented
+              bare
               size="sm"
               aria-label={t('openPoints.filters.due')}
             >
@@ -208,16 +213,13 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
         ) : (
           <>
             {byDocument(list.marks).map((group) => (
-              <section
-                key={group.documentId}
-                aria-label={group.documentName}
-                className="rounded-surface border"
-                data-testid="open-points-document"
-              >
-                <div className="flex items-center gap-2 border-b px-3 py-2">
+              // A document's points under its name, on the page: no box and no line under the heading. The rows bleed by
+              // their inset, so the numbers stand on the edge under the document's glyph.
+              <section key={group.documentId} aria-label={group.documentName} className="flex flex-col gap-1" data-testid="open-points-document">
+                <div className="flex items-center gap-2">
                   <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
                   <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>
-                  <Button asChild variant="ghost" size="sm" className="shrink-0">
+                  <Button asChild variant="ghost" size="sm" className="-mr-3.5 shrink-0">
                     <Link
                       href={reviewFilesHref(projectId, { documentId: group.documentId }, { back: here })}
                       aria-label={t('openPoints.openReviewOf', { name: group.documentName })}
@@ -226,7 +228,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                     </Link>
                   </Button>
                 </div>
-                <ul className="space-y-0.5 p-1">
+                <ul className="-mx-2.5 flex flex-col gap-0.5">
                   {group.marks.map((mark) => (
                     <li key={mark.id}>
                       <Link
@@ -235,7 +237,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
                           { documentId: mark.documentId, annotationId: mark.id },
                           { back: here }
                         )}
-                        className={markRowClassName()}
+                        className={cn(markRowClassName(), 'hover:bg-muted')}
                         data-testid="open-point-row"
                       >
                         <MarkRowContent annotation={mark} viewerId={currentUserId} showPage />

@@ -231,6 +231,8 @@ export function InboundMailAddressBlock({
           {surface === 'never_used' && <CopyAddressButton value={value} surface={surface} />}
           <SaveContactButton value={value} projectName={projectName} surface={surface} />
         </div>
+        {/* Inside the panel under a centred empty state: outside it, a left-aligned line hung under centred words. */}
+        {surface === 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
         {/* Under the never-used list's own „Noch keine E-Mails“ the line would say it twice. */}
         <p className={cn('text-muted-foreground text-xs', surface === 'never_used' && !address.lastReceivedAt && address.droppedLast30Days === 0 && 'hidden')}>
           {address.lastReceivedAt
@@ -241,7 +243,7 @@ export function InboundMailAddressBlock({
           )}
         </p>
       </QuietPanel>
-      <AddressSizeLimit projectId={projectId} onLeave={onLeave} />
+      {surface !== 'never_used' && <AddressSizeLimit projectId={projectId} onLeave={onLeave} />}
       {guideUrl && (
         <Button asChild variant="inline" className="touch-target w-fit gap-1.5 text-xs [&_svg:not([class*='size-'])]:size-3.5">
           <a href={guideUrl} target="_blank" rel="noopener noreferrer">

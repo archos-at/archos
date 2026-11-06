@@ -107,6 +107,8 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           type="single"
           segmented
           bare
+          // The first segment's label on the list's edge on a desk: its fill bleeds by its inset, as the tabs' does.
+          className="md:-ml-3"
           size="sm"
           value={status}
           onValueChange={(value) => value && onFilterChange(value as InboundMailListStatus, null)}
@@ -127,7 +129,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
       </div>
       {/* A band of the one grey under the list while mails are picked, as Dateien's: a mode, set apart by its tone. */}
       {props.selectionBar && (
-        <div data-surface="sunken" className="bg-muted px-4 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 md:-mx-4 md:px-8" /* the column's full width, its content on the list's edge */>{props.selectionBar}</div>
+        <div data-surface="sunken" className="bg-muted px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 md:-mx-4 md:px-8" /* the column's full width, its content on the list's edge */>{props.selectionBar}</div>
       )}
     </div>
   )
@@ -161,20 +163,25 @@ function ListBody({
   const t = useTranslations(inboundMailCopy)
   if (state.kind === 'loading') {
     return (
-      // The rows' own geometry (the list's 6px, the row's inset, the checkbox's column), no hairlines: the rows have none.
-      <ul className="flex flex-col gap-0.5 px-1.5 pt-4" aria-busy="true" data-testid="inbound-mail-list-loading">
-        {[0, 1, 2, 3, 4].map((row) => (
-          <li key={row} className="flex items-start gap-3 px-2.5 py-3">
-            <span className="w-4 shrink-0" aria-hidden />
-            <Skeleton className="size-7 shrink-0 rounded-full" />
-            <div className="flex flex-1 flex-col gap-1.5">
-              <Skeleton className="h-3.5 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
-              <Skeleton className="h-3 w-2/5" />
-            </div>
-          </li>
-        ))}
-      </ul>
+      // The loaded list's geometry: a section label where „Bereit“ stands, then rows of a subject and a sender at the
+      // rows' pitch, in the list's 6px, the row's inset and the checkbox's column. No hairlines: the rows have none.
+      <div aria-busy="true" data-testid="inbound-mail-list-loading">
+        <div className="flex min-h-7 items-center px-4 pt-4 pb-1">
+          <Skeleton className="h-3 w-16" />
+        </div>
+        <ul className="flex flex-col gap-0.5 px-1.5">
+          {[0, 1, 2, 3, 4].map((row) => (
+            <li key={row} className="flex items-start gap-3 px-2.5 py-3">
+              <span className="w-4 shrink-0" aria-hidden />
+              <Skeleton className="mt-0.5 size-7 shrink-0 rounded-full" />
+              <div className="flex flex-1 flex-col gap-1.5 pt-0.5">
+                <Skeleton className="h-3.5 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     )
   }
   if (state.kind === 'error') {
@@ -224,6 +231,8 @@ function ListBody({
     )
   }
 
+  // While mails are picked the bar under the list is the one way to file them: the heading's and the thread's presses step back.
+  const picking = checked.size > 0
   const row = (mail: InboundMailSummaryView, inGroup = false): JSX.Element => (
     <InboundMailRow
       key={mail.id}
@@ -264,7 +273,7 @@ function ListBody({
                   {t(`readiness.${section.readiness}`)}
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
-                {ready && batch.length > 1 && (
+                {ready && batch.length > 1 && !picking && (
                   <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 h-7 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
                     <FileInput className="size-3.5" aria-hidden />
                     {/* One request decides at most twenty mails: past that, the press says it files the first ones. */}
@@ -290,7 +299,7 @@ function ListBody({
                   <Repeat2 className="size-3.5 shrink-0" aria-hidden />
                   <span className="min-w-0 truncate">{t('group.threadLine', { name: section.name })}</span>
                 </p>
-                {section.mails.every(isReady) ? (
+                {picking ? null : section.mails.every(isReady) ? (
                   <BusyButton
                     type="button"
                     size="sm"
@@ -318,8 +327,8 @@ function ListBody({
                   </Button>
                 )}
               </div>
-              {/* Room after its last member, so a row below that names the same thread visibly stands outside it. */}
-              <ul className="flex flex-col gap-0.5 px-1.5 pt-0.5 pb-3">{section.mails.map((mail) => row(mail, true))}</ul>
+              {/* 24px after its last member, the gap between sections: a row below it visibly stands outside the thread. */}
+              <ul className="flex flex-col gap-0.5 px-1.5 pt-0.5 pb-6">{section.mails.map((mail) => row(mail, true))}</ul>
             </section>
           )
         }

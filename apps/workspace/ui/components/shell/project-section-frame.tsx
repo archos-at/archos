@@ -264,12 +264,13 @@ export function ProjectSectionFrame({
             // On a phone an opened mail (`files/mail/<id>`) is a page of its own with its way back at its top: the
             // places would only push its subject below the fold.
             <div className={cn('-mb-2 mt-3 flex items-start justify-between gap-4 phone:mt-2', pathname.split('/').filter(Boolean).length > 5 && 'phone:hidden')}>
-              <div className="min-w-0">
+              {/* On a desk the first tab's glyph stands on the title's edge: the pill bleeds by its 12px inset. */}
+              <div className="min-w-0 md:-ml-3">
                 <FilesTabs projectId={projectId} inboundMail={inboundMail} pathname={pathname} />
               </div>
               {/* The tabs' own `pb-2` under the pills, so the tools stand on the pills' line. */}
               {/* At the tabs' 14px: one size for the band, the tabs' and their tools'. */}
-              {tabActions && <div className="flex shrink-0 items-center gap-2 pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
+              {tabActions && <div className="flex shrink-0 items-center pb-2 [&_[data-slot=button]]:text-sm">{tabActions}</div>}
             </div>
           )}
           {segment === 'files' && phone && actions && <div className="mt-4 min-w-0">{actions}</div>}

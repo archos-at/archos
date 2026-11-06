@@ -262,7 +262,7 @@ describe('no section lines', () => {
       'file-browser-pane', 'file-workspace', 'folder-navigation', 'file-card', 'file-tile', 'file-grid', 'file-list-view',
       'folder-brief', 'files-header-controls', 'selection-bar', 'open-marks-chip', 'phone-root-tools',
       'file-preview-pane-details', 'page-readings', 'folder-read-state', 'file-name', 'file-preview-reader',
-      'file-preview-pane-chrome', 'file-search-bar',
+      'file-preview-pane-chrome', 'file-search-bar', 'folder-bin-panel', 'open-points/open-points-panel',
     ].map((name) => `ui/features/documents/components/${name}.tsx`),
   ]
   it('Dateien and the E-Mail-Eingang draw no line between sections or rows', () => {
@@ -298,7 +298,11 @@ describe('one look for one of these', () => {
   // Dateien's places are tabs: no track, the chosen one the one grey. A segmented control beside them (the view
   // toggle, the E-Mail-Eingang's filter) wore a grey track with a white thumb, a second grey shape for the same
   // idea; it is `bare`, the tabs' look (`ToggleGroup`'s `bare`).
-  const SURFACE = ['ui/features/inbound-mail/', 'ui/features/documents/components/files-header-controls.tsx']
+  const SURFACE = [
+    'ui/features/inbound-mail/',
+    'ui/features/documents/components/files-header-controls.tsx',
+    'ui/features/documents/components/open-points/open-points-panel.tsx',
+  ]
   it('every segmented group in Dateien’s header and the E-Mail-Eingang is bare', () => {
     const offenders = files
       .filter((f) => SURFACE.some((path) => f.name.startsWith(path)))

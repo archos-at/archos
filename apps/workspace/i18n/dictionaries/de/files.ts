@@ -695,7 +695,7 @@ export const files: typeof en.files = {
   selection: {
     start: 'Auswählen',
     done: 'Fertig',
-    all: 'Alle',
+    all: 'Alle auswählen',
     move: 'Verschieben',
     column: 'Auswahl',
     count: '{count} ausgewählt',

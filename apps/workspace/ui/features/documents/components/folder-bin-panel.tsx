@@ -26,7 +26,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import { Item, ItemActions, ItemContent, ItemDescription, ItemList, ItemMedia, ItemTitle } from '@/components/ui/item'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
 import { formatCalendarDate } from '@/lib/format'
@@ -116,7 +116,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
 
   if (loadFailed || !listing) {
     return (
-      <div className="flex flex-col gap-6 p-4 sm:p-6">
+      <div className={BIN_PAGE}>
         <EmptyState
           icon={AlertTriangle}
           tone="destructive"
@@ -133,15 +133,16 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6" data-testid="folder-bin">
+    <div className={BIN_PAGE} data-testid="folder-bin">
       {listing.entries.length === 0 ? (
         <EmptyState icon={Trash2} title={t('bin.empty')} description={t('bin.emptyHint')} />
       ) : (
-        <ItemList as="ul">
+        // Rows on the page, no box and no hairlines; they bleed by their inset so the glyphs stand on the edge.
+        <ul className="-mx-4 flex flex-col gap-1">
           {listing.entries.map((entry) => (
             // On a phone the actions take their own line under the entry,
             // rather than squeezing its name and dates to nothing.
-            <Item key={entry.folderId} as="li" className="flex-wrap sm:flex-nowrap" data-testid={`bin-entry-${entry.folderId}`}>
+            <Item key={entry.folderId} as="li" className="flex-wrap rounded-surface hover:bg-muted sm:flex-nowrap" data-testid={`bin-entry-${entry.folderId}`}>
               <ItemMedia>
                 {entry.document ? (
                   <FileText className="text-muted-foreground size-5" aria-hidden />
@@ -193,7 +194,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-destructive ml-auto"
+                    className="text-destructive ml-auto -mr-3.5" /* its words end on the edge */
                     onClick={() => setPurging(entry)}
                     data-testid={`bin-purge-${entry.folderId}`}
                   >
@@ -204,7 +205,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
               </ItemActions>
             </Item>
           ))}
-        </ItemList>
+        </ul>
       )}
       {listing.nextCursor && (
         <Button variant="secondary" size="sm" className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
@@ -225,3 +226,6 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
     </div>
   )
 }
+
+/** The listing's container and edges (1280px, 32px; 16px on a phone), as every Dateien tab keeps them. */
+const BIN_PAGE = 'flex w-full max-w-[1280px] flex-col gap-6 px-4 py-4 md:px-8'

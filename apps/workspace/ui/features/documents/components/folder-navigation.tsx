@@ -22,7 +22,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { CountPill } from '@/components/ui/count-pill'
 import { Item } from '@/components/ui/item'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FileName } from './file-name'
@@ -835,8 +834,8 @@ export function FolderRow({
         )}
         {lockLabel && <FolderAccessMark label={lockLabel} testId={`folder-lock-${folder.id}`} />}
         {readOnly && <FolderReadOnlyBadge testId={`folder-read-only-${folder.id}`} />}
-        {/* The kit's numeric pill, not a fourth hand-rolled one. */}
-        <CountPill count={itemCount} />
+        {/* What it holds in words, as the folder tile says it, then when it changed: „2 Elemente · vor 4 Monaten“. */}
+        <span className="text-muted-foreground shrink-0 text-xs tabular-nums">{t('folders.items', { count: itemCount })}</span>
         {lastModified && (
           <>
             <span aria-hidden className="text-muted-foreground/40 text-xs phone:hidden">

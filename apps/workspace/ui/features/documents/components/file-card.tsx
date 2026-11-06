@@ -273,7 +273,8 @@ function SelectionMark({ checked }: { checked: boolean }) {
     <span
       aria-hidden
       className={cn(
-        'pointer-events-none absolute right-2 top-2 z-[1] flex size-6 items-center justify-center rounded-full border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
+        // A square, as every other checkbox of the page (the list's, the E-Mail-Eingang's): one shape for one pick.
+        'pointer-events-none absolute right-2 top-2 z-[1] flex size-5 items-center justify-center rounded-inline border shadow-2xs transition-colors duration-quick ease-out motion-reduce:transition-none',
         checked ? 'border-primary bg-primary text-primary-foreground' : 'border-(--ds-line-strong) bg-background'
       )}
       data-testid="file-card-check"
@@ -416,7 +417,8 @@ export const FileCard = memo(function FileCard({
           {/* At least the name and two summary lines tall (10 + 17.6 + 4 + 34.8px): a row of one-line names needs no
               slack. Where one tile runs longer (a name on two lines, „4 offen“) the footer's content sits at the cell's
               foot, so the meta lines of a row still share one baseline. */}
-          <div className="min-h-[66px] px-1 pt-2.5">
+          {/* On the thumbnail's edge, no inset of its own: the name, the summary and the meta line start where the sheet does. */}
+          <div className="min-h-[66px] pt-2.5">
             {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
             {source && sourceLabel && (
               <span

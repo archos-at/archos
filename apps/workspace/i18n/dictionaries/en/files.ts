@@ -707,7 +707,7 @@ export const files = {
   selection: {
     start: 'Select',
     done: 'Done',
-    all: 'All',
+    all: 'Select all',
     move: 'Move',
     column: 'Selected',
     count: '{count} selected',
