@@ -155,7 +155,7 @@ An authority is a record with `function_codes` (`building_permit`, `heritage`, `
 Competence is a ruleset per node with purpose `competence`, evaluated on today's date. It returns `{bodies: [{authorityId, role: decides|consents|checks}]}`.
 - **Austria.** The Bürgermeister. Exceptions: Magistrat Wien (MA 37), the Statutarstädte, BH delegations [S].
 - **Germany at `open`.** The Kreis, unless the Gemeinde is kreisfrei or on the Land's list: Große Kreisstädte in Bavaria; große and mittlere kreisangehörige Städte under § 58 BauO NRW [verify]. In Berlin and Hamburg, the Bezirksamt, read from `city_district`. In Bremen, Bremen or Bremerhaven. Stubs are labelled "Zuständigkeit nicht geprüft".
-- **Switzerland.** The Gemeinde. Outside the building zone, the canton (Art. 25 Abs. 2 RPG), read from the fact `outside_building_zone`.
+- **Switzerland.** The Gemeinde. Outside the building zone, the canton decides on the exception (Art. 25 Abs. 2 RPG) and the Gemeinde stays a body of the procedure, so both are bodies of the authority function (as in Zurich), read from the fact `outside_building_zone`; centralised cantons (GE, BL) name the canton alone.
 
 Directives carry `addressees`. A directive applies when the competent body matches an addressee or is supervised by one, so an MA 37 directive never applies in Graz. An unknown authority is said.
 
