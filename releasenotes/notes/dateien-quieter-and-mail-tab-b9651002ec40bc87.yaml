@@ -28,9 +28,11 @@ features:
   - >
     Open points and the Bin keep the same page edges as All files, without
     boxes or lines, and in the inbox a picked set of mails is filed from the
-    bar alone while the group buttons step back. The list view writes each
-    file's format as a word, and the inbox states one size limit for
-    attachments.
+    bar alone while the group buttons step back.
+  - >
+    The list view writes each file's format as a word, and the inbox states
+    one size limit for attachments. In an opened mail on a wide screen, the
+    buttons follow the mail instead of waiting at the foot of the screen.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

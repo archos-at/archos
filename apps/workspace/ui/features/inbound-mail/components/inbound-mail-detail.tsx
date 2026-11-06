@@ -360,7 +360,9 @@ export function InboundMailDetail({
   return (
     <article className="flex min-h-full flex-col" data-testid="inbound-mail-detail" data-mail-id={view.id}>
       {/* The section head's 32px, one right edge with it and the bar; on a phone the way back sits 4px under the title. */}
-      <div className="flex flex-1 flex-col gap-6 p-4 pt-1 sm:px-8 sm:pb-6 sm:pt-3" /* the subject on the list's filter line */>
+      {/* The subject on the list's filter line. On a desk the decision bar follows the content (sticky only once it
+          overflows), not 180px below it at the pane's foot; on a phone it stays at the foot, under the thumb. */}
+      <div className="flex flex-1 flex-col gap-6 p-4 pt-1 sm:flex-none sm:px-8 sm:pb-6 sm:pt-3">
         {back}
         {view.projectClosed && !closedNoticeHidden && (
           <Alert data-testid="detail-closed">

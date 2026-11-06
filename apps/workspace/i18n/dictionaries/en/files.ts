@@ -640,7 +640,7 @@ export const files = {
     deletedOn: 'Deleted on {date}',
     contents:
       '{documents, plural, one {# document} other {# documents}} · {folders, plural, one {# folder} other {# folders}}',
-    purgeOn: 'permanently deleted on {date}',
+    purgeOn: 'to be permanently deleted on {date}',
     purging: 'being permanently deleted',
     failed: 'The permanent deletion has stopped. An admin is looking into it.',
     restore: 'Restore',
@@ -1145,6 +1145,7 @@ export const files = {
     showState: 'Show “{state}” documents across all subfolders',
     showTag: 'Show every “{tag}” document in this folder and its subfolders',
     pages: '{count, plural, one {{formatted} page read} other {{formatted} pages read}}',
+    pagesCount: '{count, plural, one {{formatted} page} other {{formatted} pages}}',
     aboutTitle: 'What this is about',
     aboutMore: '+{count}',
     noTypes: '{productName} has not recognized a document type here yet.',

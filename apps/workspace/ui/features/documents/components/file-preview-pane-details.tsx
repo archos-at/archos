@@ -112,7 +112,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 (@2xl+) it is level with the top of the document; stacked, it is
                 the first thing under the preview. */}
               {hasOwnershipBlock && (
-              <div className="mb-5 space-y-2.5">
+              <div className="mb-5 flex flex-col gap-2" /* 16px from the card to the presses, 8px between them */>
                 {/* Provenance, not status: the badge is up in the header with
                   the name. „Von Piloti erstellt" leads the rail instead, because
                   for the one document where it appears it is the reason the Ask
@@ -128,7 +128,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     and initials are a thing to recall, not to recognise; with
                     the label, the name and the control on one 248px line the
                     name was the part that could not fit. */
-                  <InspectorGroup className="mb-3.5" data-testid="file-preview-responsible">
+                  <InspectorGroup className="mb-2" data-testid="file-preview-responsible">
                     <Item className="gap-2.5 px-3 py-2 hover:bg-transparent">
                       <AssignmentFaces assignees={file.assignees} faceOnly />
                       <ItemContent>

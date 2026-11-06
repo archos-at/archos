@@ -137,7 +137,9 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           />
         </ProjectSectionActions>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2" data-testid="open-points-filters">
+        {/* 40px between the two groups and 8px from a label to its first choice: „Frist“ read as a third choice of
+            „Zuständig“ when both gaps were the same. */}
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-2" data-testid="open-points-filters">
           <div className="flex items-center gap-2">
             {/* One column for both labels, so the two rows of choices start on one edge when they wrap on a phone. */}
             <span className="text-muted-foreground min-w-16 text-xs font-medium">{t('openPoints.filters.assignee')}</span>

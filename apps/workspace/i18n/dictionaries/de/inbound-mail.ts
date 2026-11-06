@@ -64,7 +64,8 @@ export const inboundMail: typeof en.inboundMail = {
       own: 'Haben Sie sie gesendet? Bestätigen Sie es',
       colleague: 'Wartet auf {name}',
     },
-    restorableUntil: 'wiederherstellbar bis {date}',
+    // A no-break space: „bis 13.11.2026“ alone on a line read as a stray date.
+    restorableUntil: 'wiederherstellbar bis {date}',
     outcome: {
       filed: '{count, plural, one {# Teil abgelegt} other {# Teile abgelegt}}',
       dismissed: '{count, plural, one {# Teil verworfen} other {# Teile verworfen}}',
@@ -150,7 +151,7 @@ export const inboundMail: typeof en.inboundMail = {
     paused: 'Wartet: Die direkte Ablage ist ausgeschaltet, deshalb wurde sie nicht direkt abgelegt. Alle, die in diesem Projekt ablegen dürfen, können sie ablegen.',
     // Eine E-Mail, die die Domain eines Mitglieds, das im Projekt ablegen darf, bestätigt hat und die trotzdem wartet: die direkte Ablage hat sie (ganz oder teilweise) nicht abgelegt.
     not_filed: 'Wartet: {name} hat sie gesendet und die Domain hat sie bestätigt, aber sie wurde nicht direkt abgelegt. Prüfen Sie sie und legen Sie sie ab oder verwerfen Sie sie.',
-    no_write_rights: 'Wartet: Die Absenderadresse darf in diesem Projekt nicht ablegen. Prüfen Sie die E-Mail und legen Sie ab, was ins Projekt gehört.',
+    no_write_rights: 'Wartet: Diese Absenderadresse ist für das Projekt nicht freigegeben. Prüfen Sie die E-Mail und legen Sie ab, was ins Projekt gehört.',
     outside_office: 'Wartet: Der Absender gehört nicht zum Büro. Legen Sie ab, was ins Projekt gehört; legt sie niemand ab, läuft sie nach {days} Tagen ab und lässt sich danach nicht wiederherstellen.',
     sender_unchecked: 'Wartet: Beim Eingang ließ sich nicht prüfen, wer der Absender im Büro ist. Prüfen Sie Adresse und Domain oben, bevor Sie ablegen.',
   },

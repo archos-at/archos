@@ -144,7 +144,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
             // On a phone the actions take their own line under the entry,
             // rather than squeezing its name and dates to nothing.
             <Item key={entry.folderId} as="li" className="flex-wrap rounded-surface hover:bg-muted sm:flex-nowrap" data-testid={`bin-entry-${entry.folderId}`}>
-              <ItemMedia>
+              <ItemMedia className="mt-0.5 self-start" /* on the name's line, not the middle of the block */>
                 {entry.document ? (
                   <FileText className="text-muted-foreground size-5" aria-hidden />
                 ) : (
@@ -162,7 +162,6 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 </ItemDescription>
                 {/* Who deleted it and when it goes, on one line: four lines of 12px meta per row was a form, not a list. */}
                 <ItemDescription className="flex items-center gap-1 whitespace-normal sm:truncate">
-                  {entry.status === 'purging' && <Spinner size="xs" className="shrink-0" />}
                   <span>
                     {entry.deletedBy.name
                       ? t('bin.deletedBy', { name: entry.deletedBy.name, date: date(entry.deletedAt) })
@@ -174,6 +173,8 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                         ? t('bin.failed')
                         : t('bin.purgeOn', { date: date(entry.purgeAfter) })}
                   </span>
+                  {/* After the words, so the line keeps its edge with the ones above. */}
+                  {entry.status === 'purging' && <Spinner size="xs" className="shrink-0" />}
                 </ItemDescription>
               </ItemContent>
               {/* Restore at the start of the row, „Endgültig löschen" at the far

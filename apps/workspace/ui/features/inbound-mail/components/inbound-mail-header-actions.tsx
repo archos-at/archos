@@ -17,6 +17,7 @@ import type { JSX } from 'react'
 import { Info, MailPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CopyableValue } from '@/components/ui/copyable-value'
+import { EmailAddress } from '@/components/ui/email-address'
 import { MiddleTruncate } from '@/components/ui/middle-truncate'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslations } from '@/i18n'
@@ -36,11 +37,17 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
         <CopyableValue
           value={value}
           // Mono, as the address reads everywhere else (the empty state's, the dialog's): one face for one address.
-          className="text-foreground bg-muted hover:bg-accent rounded-control mx-0 h-8 min-w-0 cursor-pointer items-center px-2.5 max-w-80 font-mono text-xs transition-colors duration-quick phone:max-w-none phone:flex-1 phone:h-11 [&>span]:flex [&>span]:min-w-0"
+          className="text-foreground bg-muted hover:bg-accent rounded-control mx-0 h-8 min-w-0 cursor-pointer items-center px-2.5 font-mono text-xs transition-colors duration-quick phone:h-auto phone:min-h-11 phone:flex-1 phone:py-2 [&>span]:flex [&>span]:min-w-0"
           onCopied={() => capturePosthog('inbound_mail_address_copied', { surface: 'header' })}
         >
-          {/* Cut in the middle where it must be: the domain says whose address it is. */}
-          <MiddleTruncate text={value} tail={Math.max(value.length - value.indexOf('@'), 8)} />
+          {/* Whole on a desk (the header has the room); cut in the middle only if it must, the domain kept. On a phone
+              on two lines, broken at „@“, as the empty state writes it. */}
+          <span className="flex min-w-0 phone:hidden">
+            <MiddleTruncate text={value} tail={Math.max(value.length - value.indexOf('@'), 8)} />
+          </span>
+          <span className="hidden text-left phone:block">
+            <EmailAddress address={value} />
+          </span>
         </CopyableValue>
         {/* `-mr-3.5`, its padding: the words end on the right edge. On a phone the address takes the row and this is
             its glyph, the words its name: both side by side ran 30px past a 390px screen. */}

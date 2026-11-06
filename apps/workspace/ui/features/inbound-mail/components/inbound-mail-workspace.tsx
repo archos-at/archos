@@ -547,7 +547,8 @@ export function InboundMailWorkspace({
           ) : list.kind === 'loading' ? null /* nothing to pick yet: „Wählen Sie …“ only once there is a list */ : (
             // Bare and in the pane's middle: a dashed grey panel was a box and a line around one sentence.
             <div className="flex h-full items-center justify-center p-8">
-              <EmptyState variant="bare" icon={MailSearch} title={t('noSelection')} />
+              {/* While mails are picked the pane says how many, not „Wählen Sie eine E-Mail“ beside two ticked rows. */}
+              <EmptyState variant="bare" icon={MailSearch} title={checked.size > 0 ? t('bulk.selected', { count: checked.size }) : t('noSelection')} />
             </div>
           )}
         </div>

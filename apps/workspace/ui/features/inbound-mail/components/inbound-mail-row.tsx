@@ -30,7 +30,7 @@
 
 import type { JSX } from 'react'
 import Link from 'next/link'
-import { Bot, CircleAlert, FileInput, LoaderCircle, Paperclip, Repeat2, ShieldAlert } from 'lucide-react'
+import { Bot, CircleAlert, FileInput, LoaderCircle, Mails, Paperclip, ShieldAlert } from 'lucide-react'
 import { PersonAvatar } from '@/components/ui/avatar-stack'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -116,7 +116,9 @@ export function InboundMailRow({
     <Item
       as="li"
       // The open row is a fill, not a drawn box: the selected hairline the kit's `Item` gives it is turned off here.
-      className="group/row relative items-start rounded-control px-3 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0"
+      // Picked holds the state grey as the open row does, as a picked tile does; what sits on it turns white.
+      className={cn('group/row relative items-start rounded-control px-3 hover:bg-muted pointer-coarse:min-h-11 data-current:bg-accent data-current:inset-ring-0', checked && 'bg-accent hover:bg-accent')}
+      data-checked={checked || undefined}
       data-mail-id={mail.id}
       data-testid={`inbound-mail-row-${mail.id}`}
       data-open={open || undefined}
@@ -151,7 +153,7 @@ export function InboundMailRow({
           <PersonAvatar
             person={{ userId: mail.senderDomain ?? who, name: who }}
             size="sm"
-            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-muted [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background"
+            className="mt-0.5 shrink-0 [&_[data-slot=avatar-fallback]]:!bg-muted [&_[data-slot=avatar-fallback]]:!text-muted-foreground group-hover/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-current/row:[&_[data-slot=avatar-fallback]]:!bg-background group-data-checked/row:[&_[data-slot=avatar-fallback]]:!bg-background"
           />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <div className="flex min-w-0 items-baseline gap-2">
@@ -193,7 +195,8 @@ export function InboundMailRow({
             )}
             {waiting && mail.thread && !inGroup && !textFollowed && (
               <p
-                className="text-muted-foreground min-w-0 truncate text-xs"
+                // Wraps rather than cut „wird Fassung 3“ at its end: a clause drops whole or stays whole.
+                className="text-muted-foreground min-w-0 text-xs text-pretty [overflow-wrap:anywhere]"
                 data-testid="inbound-mail-row-thread"
                 title={t('row.thread', { name: mail.thread.name, version: mail.thread.nextVersion })}
               >
@@ -203,7 +206,7 @@ export function InboundMailRow({
             )}
             {textFollowed && (
               <p className="text-muted-foreground flex items-center gap-1 text-xs">
-                <Repeat2 className="size-3" aria-hidden />
+                <Mails className="size-3" aria-hidden />
                 {t('row.textFollowed')}
               </p>
             )}

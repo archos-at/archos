@@ -624,8 +624,8 @@ export const files: typeof en.files = {
     deletedOn: 'Gelöscht am {date}',
     contents:
       '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
-    // After „Gelöscht … am …“ and a „·“ on the same line, so lower case.
-    purgeOn: 'endgültig gelöscht am {date}',
+    // After „Gelöscht … am …“ and a „·“ on the same line, so lower case; future, as it has not happened.
+    purgeOn: 'wird am {date} endgültig gelöscht',
     purging: 'wird gerade endgültig gelöscht',
     failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
     restore: 'Wiederherstellen',
@@ -1117,6 +1117,8 @@ export const files: typeof en.files = {
     showState: 'Dokumente „{state}“ in allen Unterordnern zeigen',
     showTag: 'Alle Dokumente „{tag}“ in diesem Ordner und seinen Unterordnern zeigen',
     pages: '{count, plural, one {{formatted} Seite gelesen} other {{formatted} Seiten gelesen}}',
+    // On the brief's own line after „… gelesen“: the count alone, or „gelesen“ twice in one line.
+    pagesCount: '{count, plural, one {{formatted} Seite} other {{formatted} Seiten}}',
     aboutTitle: 'Worum es hier geht',
     aboutMore: '+{count}',
     noTypes: '{productName} hat hier noch keine Dokumentart erkannt.',

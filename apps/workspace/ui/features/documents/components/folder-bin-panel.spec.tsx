@@ -43,7 +43,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     expect(screen.getByText('Verträge')).toBeDefined()
     expect(screen.getByText(/Deleted by Gerda Fischer on/)).toBeDefined()
     expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
-    expect(screen.getByText(/permanently deleted on/)).toBeDefined()
+    expect(screen.getByText(/to be permanently deleted on/)).toBeDefined()
   })
 
   test('says the bin is empty', () => {

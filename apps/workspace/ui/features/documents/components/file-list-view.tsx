@@ -211,7 +211,7 @@ export function FileListView({
               column="name"
               sort={sort}
               onSort={setSort}
-              className="w-auto"
+              className="w-auto [&>button]:pl-[50px]" /* over the names, past the 32px format column */
             />
             {semantic && (
               <SortHeader

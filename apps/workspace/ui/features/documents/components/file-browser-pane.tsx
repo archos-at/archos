@@ -686,7 +686,7 @@ export function FileBrowserPane({
           folders={folderNav.folders}
           currentFolderId={folderNav.currentFolderId}
           onNavigate={folderNav.onNavigate}
-          onCreateFolder={folderNav.readOnly ? undefined : folderNav.onCreateFolder}
+          onCreateFolder={folderNav.readOnly || picking ? undefined : folderNav.onCreateFolder}
           onDropDocument={onDropDocumentInFolder}
           onDropFolder={onDropFolderInFolder}
           canAcceptFolder={canAcceptFolder}
@@ -724,7 +724,7 @@ export function FileBrowserPane({
           />
         </div>
       )}
-      {/* Right under the tabs where the root's path row went to them (or to a phone's ⋯): 24px from the pills. */}
+      {/* Under the tabs where the root's row went (tabs, ⋯). While picking the bar owns the action: no „Ordner anlegen“. */}
       {brief && !semantic.active && !searching && (
         <div className={cn(CONTENT_MAX, 'px-4 phone:pt-2', rootRowGone ? 'pt-0' : 'pt-4')}>{brief}</div>
       )}

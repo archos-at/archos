@@ -158,7 +158,7 @@ export function FolderBrief({
   const open = !collapsed
   const allRead = everythingRead(tally)
   const quietPages = allRead && !hasUnindexedAside(tally) && tally.pages > 0
-  const pagesLine = t('brief.pages', { count: tally.pages, formatted: tally.pages.toLocaleString(locale) })
+  const pagesLine = t('brief.pagesCount', { count: tally.pages, formatted: tally.pages.toLocaleString(locale) })
   return (
     <Card
       className={cn(
@@ -459,14 +459,9 @@ function BriefDisclosure({
               {/* What the section holds, while it is shut; open, the section says it itself. */}
               <span className="text-muted-foreground min-w-0 truncate text-xs font-normal phone:line-clamp-2 phone:whitespace-normal" aria-hidden={open} /* as the brief's line: a phone wraps, never cuts */>
                 {open ? '' : summary}
+                <ChevronDown className={cn(BRIEF_CHEVRON, 'ml-1 hidden align-[-2px] phone:inline', open && 'rotate-180')} aria-hidden />
               </span>
-              <ChevronDown
-                className={cn(
-                  'text-muted-foreground size-3.5 shrink-0 transition-transform duration-quick ease-out motion-reduce:transition-none',
-                  open && 'rotate-180'
-                )}
-                aria-hidden
-              />
+              <ChevronDown className={cn(BRIEF_CHEVRON, 'phone:hidden', open && 'rotate-180')} aria-hidden />
             </button>
           </CollapsibleTrigger>
         </h3>
@@ -525,8 +520,9 @@ function NeedsYouSection({
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-2.5 px-3 py-3 phone:px-4" aria-labelledby="folder-brief-needs">
-      <h3 id="folder-brief-needs" className="text-muted-foreground text-xs font-medium">
+    <section className="flex flex-col gap-2.5 px-3 pb-3 pt-2 phone:px-4" aria-labelledby="folder-brief-needs">
+      {/* A heading over its rows, so 13px in ink: the disclosures below are row labels, 12px muted. */}
+      <h3 id="folder-brief-needs" className="text-foreground text-[13px] font-medium">
         {t('brief.needsTitle')}
       </h3>
       {failed > 0 && (

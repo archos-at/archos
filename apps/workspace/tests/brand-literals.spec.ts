@@ -282,7 +282,7 @@ describe('one left edge', () => {
   const read = (component: string): string => files.find((f) => f.name === `ui/features/documents/components/${component}.tsx`)?.text ?? ''
   it('the file grid bleeds by the tile shell’s inset', () => {
     const shell = read('file-tile').match(/rounded-surface p-(\d(?:\.\d)?)/)?.[1]
-    const listingBleed = read('file-grid').match(/items-stretch gap-3 -mx-(\d(?:\.\d)?)/)?.[1]
+    const listingBleed = read('file-grid').match(/items-stretch[^']*? -mx-(\d(?:\.\d)?)/)?.[1]
     expect(shell).toBeDefined()
     expect(listingBleed).toBe(shell)
   })

@@ -16,7 +16,7 @@
 
 import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Repeat2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, History, Inbox as InboxGlyph, MailOpen, Mails } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BusyButton } from '@/components/ui/busy-button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -172,11 +172,16 @@ function ListBody({
         <ul className="flex flex-col gap-0.5 px-1">
           {[0, 1, 2, 3, 4].map((row) => (
             <li key={row} className="flex items-start gap-3 px-3 py-3">
-              <span className="w-4 shrink-0" aria-hidden />
+              <span className="flex h-8 w-4 shrink-0 items-center" aria-hidden>
+                <Skeleton className="size-4 rounded-inline" />
+              </span>
               <Skeleton className="mt-0.5 size-7 shrink-0 rounded-full" />
-              <div className="flex flex-1 flex-col gap-1.5 pt-0.5">
-                <Skeleton className="h-3.5 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
+              <div className="flex flex-1 flex-col gap-2 pt-0.5">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                <Skeleton className="h-3.5 w-1/2" />
               </div>
             </li>
           ))}
@@ -297,10 +302,11 @@ function ListBody({
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
               {/* Centred: under touch the press is 44px tall. Right under its section's heading it sits 4px below it. */}
-              <div className="flex items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-1">
+              <div className="flex min-h-10 items-center justify-between gap-2 px-4 pt-3 [[data-readiness]+section>&]:pt-1" /* one height with its press or without */>
                 {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
-                  <Repeat2 className="size-3.5 shrink-0" aria-hidden />
+                  {/* A stack of mails: the circling arrows read as „sync“. */}
+                  <Mails className="size-3.5 shrink-0" aria-hidden />
                   <span className="min-w-0 truncate">{t('group.threadLine', { name: section.name })}</span>
                 </p>
                 {picking ? null : section.mails.every(isReady) ? (

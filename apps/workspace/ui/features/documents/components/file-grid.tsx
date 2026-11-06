@@ -20,7 +20,8 @@ export function FileGrid({ children, className }: { children: ReactNode; classNa
         // `-mx-1.5`: a tile's 6px inset holds only its hover fill, so the grid bleeds by it and the
         // thumbnails stand on the column's edge, the title's and the brief's. 12px of gap and the two insets are the
         // 24px the eye reads between two thumbnails, on the 4px scale.
-        'grid items-stretch gap-3 -mx-1.5 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]',
+        // Rows too: a 10px row gap, the insets and the meta line's foot read as the columns' 24px.
+        'grid items-stretch gap-3 gap-y-2.5 -mx-1.5 [grid-template-columns:repeat(auto-fill,minmax(150px,1fr))] md:[grid-template-columns:repeat(auto-fill,minmax(196px,1fr))]',
         className
       )}
     >
