@@ -1,0 +1,23 @@
+---
+# area: building-law
+fixes:
+  - >
+    For a project outside Austria, or one whose site is not yet stated, the
+    assistant no longer presents Austrian law, OIB guidelines or building
+    classes as applying, and says plainly what it does not cover yet. Within
+    Austria it names the OIB edition your Land has adopted and no longer cites
+    Vienna's laws for projects in other Länder.
+  - >
+    An address typed when creating a project, rather than chosen from the
+    search, now waits for your confirmation instead of counting as confirmed.
+features:
+  - >
+    A new organization names the country its office is in, and upload
+    screening can now also hold files with German social insurance numbers or
+    tax IDs.
+operators:
+  - >
+    Migration 0200 gives every organization row a home country (AT for every
+    existing organization) and creates rows for organizations that had none.
+    The country-neutral static prompt change waits for a person to publish it
+    with the prompt push task.

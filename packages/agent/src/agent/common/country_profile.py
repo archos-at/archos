@@ -246,19 +246,21 @@ def _site_lines(project_context: str) -> dict[str, dict[str, str]]:
     found: dict[str, dict[str, str]] = {"confirmed": {}, "assumptions": {}}
     section: str | None = None
     for raw in normalize_prompt_view(project_context).splitlines():
-        line = raw.strip()
-        header = _SECTION_HEADER.match(raw.rstrip())
-        if header:
-            section = header.group(1)
-            continue
-        if section and raw and not raw.startswith((" ", "-")):
-            section = None
-        if section is None:
-            continue
-        match = _SITE_LINE.match(line)
-        if match:
+        section = _section_after(raw, section)
+        match = _SITE_LINE.match(raw.strip()) if section else None
+        if section and match:
             found[section].setdefault(match.group(1), match.group(2))
     return found
+
+
+def _section_after(raw: str, section: str | None) -> str | None:
+    """The profile section a line leaves the reader in: a header opens one, an unindented line ends it. Pure."""
+    header = _SECTION_HEADER.match(raw.rstrip())
+    if header:
+        return header.group(1)
+    if section and raw and not raw.startswith((" ", "-")):
+        return None
+    return section
 
 
 def _site_from(lines: dict[str, str], confirmed: bool) -> Site | None:
@@ -284,12 +286,10 @@ def resolve_site(project_context: str | None) -> Site:
     a default. The signed envelope's ``federal_state`` places a project whose
     text carries no line (a caller that sends the envelope and no view).
     """
-    if project_context:
-        lines = _site_lines(project_context)
-        for section, confirmed in (("confirmed", True), ("assumptions", False)):
-            site = _site_from(lines[section], confirmed)
-            if site is not None:
-                return site
+    lines = _site_lines(project_context) if project_context else {"confirmed": {}, "assumptions": {}}
+    site = _site_from(lines["confirmed"], True) or _site_from(lines["assumptions"], False)
+    if site is not None:
+        return site
     try:
         from agent.project_context import RequestContext
 

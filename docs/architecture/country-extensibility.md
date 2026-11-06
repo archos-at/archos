@@ -65,7 +65,8 @@ Phase 3 — vocabulary and language surfaces (scoped per country):
    (`country_name`, `legal_source_tools`) when country #2 ships.
 8. Request envelope: its `federal_state` is AT-vocabulary; add a
    `country` envelope field alongside it (the structured `country=<cc>` prompt
-   fact is already parsed by `resolve_country`).
+   fact is already parsed by `country_profile.resolve_site`, which never
+   defaults to Austria: an unplaced project is `site_unknown`).
 
 ## Known duplications (consolidate opportunistically, never let them drift)
 

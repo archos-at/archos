@@ -121,22 +121,24 @@ def de_tax_id_at(text: str, start: int, soft: frozenset[int]) -> tuple[str, int]
 
     Unbroken, or in groups of 2-3-3-3 joined by whitespace (``36 574 261 809``).
     """
+    unbroken = _digits_at(text, start, 11)
+    found = (unbroken, start + 11) if unbroken is not None else _grouped_tax_id(text, start)
+    if found is None or _digit_touches(text, found[1], soft) or not valid_de_tax_id(found[0]):
+        return None
+    return found
+
+
+def _grouped_tax_id(text: str, start: int) -> tuple[str, int] | None:
+    """Eleven digits printed 2-3-3-3, each group after a run of whitespace, and where they end."""
     first = _digits_at(text, start, 2)
     if first is None:
         return None
-    unbroken = _digits_at(text, start, 11)
-    if unbroken is not None:
-        digits, end = unbroken, start + 11
-    else:
-        parts, index = [first], start + 2
-        for width in (3, 3, 3):
-            group_at = _skip_separator(text, index, "")
-            group = _digits_at(text, group_at, width) if group_at > index else None
-            if group is None:
-                return None
-            parts.append(group)
-            index = group_at + width
-        digits, end = "".join(parts), index
-    if _digit_touches(text, end, soft) or not valid_de_tax_id(digits):
-        return None
-    return digits, end
+    parts, index = [first], start + 2
+    for width in (3, 3, 3):
+        group_at = _skip_separator(text, index, "")
+        group = _digits_at(text, group_at, width) if group_at > index else None
+        if group is None:
+            return None
+        parts.append(group)
+        index = group_at + width
+    return "".join(parts), index
