@@ -821,6 +821,8 @@ export const collaboration: typeof en.collaboration = {
         titleMany: '{count} E-Mails an „{subject}“ warten auf Ablage',
         // Die Zeile zählt, was jetzt wartet (`lib/inbox/live-counts.ts`): keine, bis sie erledigt ist.
         titleNone: 'Keine E-Mail an „{subject}“ wartet mehr auf Ablage',
+        // Ohne Zugriff auf das Projekt: kein Name und keine Zahl, die die Zeile nicht mehr kennt.
+        titleRedacted: 'E-Mails warteten in einem Projekt auf Ablage',
         title: 'E-Mails an „{subject}“ warten auf Ablage',
         body: 'Nichts davon ist im Projekt, bis jemand es ablegt.',
         variants: {
