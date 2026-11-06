@@ -249,26 +249,29 @@ describe('the secondary press', () => {
   })
 })
 
+/** The files that draw Dateien (its listing, its tabs, the preview's rail) and the E-Mail-Eingang. */
+const DATEIEN_SURFACE = [
+  'ui/features/inbound-mail/',
+  'ui/components/shell/project-section-frame.tsx',
+  'ui/components/shell/section-nav.tsx',
+  ...[
+    'file-browser-pane', 'file-workspace', 'folder-navigation', 'file-card', 'file-tile', 'file-grid', 'file-list-view',
+    'folder-brief', 'files-header-controls', 'selection-bar', 'open-marks-chip', 'phone-root-tools',
+    'file-preview-pane-details', 'page-readings', 'folder-read-state', 'file-name', 'file-preview-reader',
+    'file-preview-pane-chrome', 'file-search-bar', 'folder-bin-panel', 'open-points/open-points-panel',
+    'agent-reading', 'semantic-match', 'review/mark-row',
+  ].map((name) => `ui/features/documents/components/${name}.tsx`),
+]
+
 describe('no section lines', () => {
   // The design system draws lines only where they carry a function (a field's border, an info list), never
   // between sections, under a header or around a group (packages/brand/README.md, „Layout and shape“). Dateien's
   // listing and the E-Mail-Eingang separate by white space and the one grey alone since 2026-11: no rule above
   // or below a block, no hairlines between rows, no dashed box. A pinned bar over scrolling content takes the
   // faint `shadow-pinned-foot` instead; a split view's pane divider (`border-r`) is a function and not matched.
-  const SURFACE = [
-    'ui/features/inbound-mail/',
-    'ui/components/shell/project-section-frame.tsx',
-    'ui/components/shell/section-nav.tsx',
-    ...[
-      'file-browser-pane', 'file-workspace', 'folder-navigation', 'file-card', 'file-tile', 'file-grid', 'file-list-view',
-      'folder-brief', 'files-header-controls', 'selection-bar', 'open-marks-chip', 'phone-root-tools',
-      'file-preview-pane-details', 'page-readings', 'folder-read-state', 'file-name', 'file-preview-reader',
-      'file-preview-pane-chrome', 'file-search-bar', 'folder-bin-panel', 'open-points/open-points-panel',
-    ].map((name) => `ui/features/documents/components/${name}.tsx`),
-  ]
   it('Dateien and the E-Mail-Eingang draw no line between sections or rows', () => {
     const offenders = files
-      .filter((f) => SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
       .filter((f) => /(?<![\w:-])(border-[tb]|divide-y|border-dashed)(?![\w-])/.test(withoutComments(f.text)))
       .map((f) => f.name)
     expect(offenders).toEqual([])
@@ -308,6 +311,43 @@ describe('one look for one of these', () => {
     const offenders = files
       .filter((f) => SURFACE.some((path) => f.name.startsWith(path)))
       .filter((f) => [...withoutComments(f.text).matchAll(/<ToggleGroup\b[^>]*>/g)].some(([tag]) => /\bsegmented\b/.test(tag) && !/\bbare\b/.test(tag)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('one ramp, one scale', () => {
+  // The consistency pass of 2026-11: every text style, line height, radius and press height Dateien and the
+  // E-Mail-Eingang use is one of a short list (design-language.md, „Surface rules“), so a new 15px heading, a
+  // `leading-[1.45]` or a 28px press is caught here rather than by the next review.
+  const surface = files.filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
+  const offending = (pattern: RegExp) => surface.filter((f) => pattern.test(withoutComments(f.text))).map((f) => f.name)
+  it('text is the ramp: 11px codes and counts, 12px meta, 13px names, 14px body, 16px fields, 18px a mail subject', () => {
+    expect(offending(/(?<![\w-])text-\[(?!13px\]|11px\])[0-9.]+(px|rem)\]/)).toEqual([])
+    expect(offending(/(?<![\w-])text-(xl|2xl|3xl)(?![\w-])/)).toEqual([])
+  })
+  it('line heights are the named steps, never a typed ratio', () => {
+    expect(offending(/(?<![\w-])leading-\[/)).toEqual([])
+  })
+  it('a radius is a step of the app ladder by its name (inline, control, surface, overlay, full)', () => {
+    expect(offending(/(?<![\w:\[-])rounded(-(sm|md|lg|xl))?(?=[\s"'`])/)).toEqual([])
+  })
+  it('a press is the kit\u2019s 32px (`size="sm"`), never a 28px override', () => {
+    expect(offending(/(?<![\w-])h-7(?![\w-])/)).toEqual([])
+  })
+  it('a listing is the shared container, never a typed 1280px', () => {
+    expect(offending(/max-w-\[1280px\]/)).toEqual([])
+  })
+})
+
+describe('the agent\u2019s disc', () => {
+  // The filled disc (`AgentGlyph`) claims a suggestion of the agent's and nothing else; what the agent read is
+  // the brief's and the preview's one glyph. A disc beside „gelesen“ would claim a reading as a proposal.
+  const CLAIMS_A_SUGGESTION = new Set(['ui/features/inbound-mail/components/attachment-row.tsx'])
+  it('Dateien and the E-Mail-Eingang draw it only where it marks a suggestion', () => {
+    const offenders = files
+      .filter((f) => DATEIEN_SURFACE.some((path) => f.name.startsWith(path)))
+      .filter((f) => /\bAgentGlyph\b/.test(withoutComments(f.text)) && !CLAIMS_A_SUGGESTION.has(f.name))
       .map((f) => f.name)
     expect(offenders).toEqual([])
   })

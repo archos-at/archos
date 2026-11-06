@@ -761,8 +761,7 @@ export function FileBrowserPane({
             </div>
           )
         ) : semantic.error ? (
-          // A SEARCH THAT NEVER RAN IS NOT A SEARCH THAT FOUND NOTHING: the hook fails open to no hits and says so;
-          // read as „keine Treffer“, a backend timeout told the reader their corpus lacks what they searched for.
+          // A SEARCH THAT NEVER RAN IS NOT ONE THAT FOUND NOTHING: a timeout read as „keine Treffer“ misinformed.
           <div className="p-8">
             <EmptyState
               variant="bare"
@@ -809,6 +808,7 @@ export function FileBrowserPane({
             <FileListView
               key={semantic.query ?? ''}
               semantic
+              query={semantic.query}
               files={semantic.hits}
               selectedFileId={selectedFileId}
               onSelectFile={onSelectFile}
@@ -821,7 +821,7 @@ export function FileBrowserPane({
             <FileGrid>
               {semantic.hits.map((hit) => (
                 <Fragment key={hit.id}>
-                  {fileCard(hit, { match: { snippet: hit.snippet, page: hit.page } })}
+                  {fileCard(hit, { match: { snippet: hit.snippet, page: hit.page, query: semantic.query } })}
                 </Fragment>
               ))}
             </FileGrid>
@@ -1125,6 +1125,6 @@ export function FileBrowserSkeleton({
  * the section header's edges: the design system's 1280px container with its
  * 32px margins, which the header keeps too. Centred, the page had three left edges.
  */
-const CONTENT_MAX = 'w-full max-w-[1280px] md:px-8'
+const CONTENT_MAX = 'listing-container md:px-8'
 
 const noToggle = (): void => undefined

@@ -209,7 +209,7 @@ export function MessageRow({ projectId, view, draft, folders, copy, threadNameSt
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-xs">{t('message.folderLabel')}</span>
               {target.folder.path === '' ? (
-                <Button type="button" size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)}>
+                <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)}>
                   <FolderInput className="size-3.5" aria-hidden />
                   {t('suggestion.root')}
                 </Button>

@@ -231,6 +231,16 @@ export const formatCalendarDate = (isoDate: string, locale?: string): string => 
 }
 
 /**
+ * A UTC calendar day (`YYYY-MM-DD`, a due date) in the same form as {@link formatCalendarDate}: one absolute
+ * date format on a surface („08.11.2026“ beside „06.10.2026“, not „8. Nov. 2026“). UTC, as the day is a bucket.
+ */
+export const formatCalendarDay = (day: string, locale?: string): string => {
+  const date = new Date(`${day}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return day
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(date)
+}
+
+/**
  * Localized absolute date/time ("14 Jul 2026, 09:30"), used as the hover
  * tooltip that pins a relative timestamp to an exact moment. Without
  * `timeZone` it reads in the runtime's own zone, so text that is rendered on the

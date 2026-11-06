@@ -41,7 +41,7 @@ export function FileCardSkeleton() {
       <FileTileMedia className="h-[124px]">
         <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
       </FileTileMedia>
-      <div className="min-h-[66px] space-y-2 pt-3">
+      <div className="min-h-[68px] space-y-2 pt-3">
         <Skeleton className="h-3.5 w-3/4" />
         <Skeleton className="h-3 w-full" />
         <Skeleton className="h-3 w-2/3" />

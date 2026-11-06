@@ -53,10 +53,12 @@ describe('FolderBinPanel (the Papierkorb)', () => {
 
   test('offers restore only where the reader may restore, and purge only to a project admin', () => {
     render(
-      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false })])} />
+      <FolderBinPanel projectId="p1" initial={listing([entry(), entry({ folderId: 'f-ro', name: 'Honorare', canRestore: false, restoreBlocked: 'folder_read_only' })])} />
     )
     expect(screen.getByTestId('bin-restore-f-vertraege')).toBeDefined()
     expect(screen.queryByTestId('bin-restore-f-ro')).toBeNull()
+    // Where the press is missing, the row says why.
+    expect(screen.getByTestId('bin-blocked-f-ro')).toHaveTextContent('you may only read this folder')
     expect(screen.queryByTestId('bin-purge-f-vertraege')).toBeNull()
   })
 

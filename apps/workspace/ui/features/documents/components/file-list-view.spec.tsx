@@ -160,7 +160,15 @@ describe('FileListView', () => {
       renderList(HITS, { semantic: true })
       // Newest-first would put Statik on top; the ranking puts Flucht there.
       expect(rowNames()).toEqual(['Flucht.pdf', 'Statik.pdf'])
-      expect(screen.getAllByTestId('file-list-relevance')[0]).toHaveTextContent('1')
+      // Ranked by relevance, the order is the rank: no „1, 2“ beside it.
+      expect(screen.queryByTestId('file-list-relevance')).toBeNull()
+    })
+
+    it('shows the rank once another column orders the rows', async () => {
+      const user = userEvent.setup()
+      renderList(HITS, { semantic: true })
+      await user.click(screen.getByRole('button', { name: /^name/i }))
+      expect(screen.getAllByTestId('file-list-relevance').length).toBeGreaterThan(0)
     })
 
     it('shows the passage that matched, with its page', () => {
@@ -233,10 +241,12 @@ describe('FileListView', () => {
       expect(within(plain).getByTestId('file-list-approval-empty')).toHaveTextContent('—')
     })
 
-    it('has no Status column while every document is readable', () => {
-      renderList([doc('Plan.pdf', { status: 'success' })])
+    it('has no Status column: what is in progress stands after the name, where „4 offen“ stands too', () => {
+      renderList([doc('Plan.pdf', { status: 'success' }), doc('Energieausweis.pdf', { status: 'processing' })])
 
       expect(screen.queryByRole('columnheader', { name: /status/i })).not.toBeInTheDocument()
+      const row = screen.getAllByTestId('file-list-row').find((candidate) => within(candidate).queryByText('Energieausweis.pdf'))!
+      expect(within(row).getByText('Reading')).toBeInTheDocument()
     })
   })
 })

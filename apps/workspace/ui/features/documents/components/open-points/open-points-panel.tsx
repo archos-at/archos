@@ -126,7 +126,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
     <div className="h-full overflow-y-auto">
       {/* The listing's container and edges (1280px, 32px; 16px on a phone), as „Alle Dateien“: centred at 896px the
           tab had a left edge of its own. */}
-      <div className="flex w-full max-w-[1280px] flex-col gap-6 px-4 py-4 md:px-8" data-testid="open-points">
+      <div className="flex listing-container flex-col gap-6 px-4 py-4 md:px-8" data-testid="open-points">
         {/* The title and the way back are the section frame's (`Dateien ›`); the protocol is this page's action. */}
         <ProjectSectionActions>
           <ProjectProtocolMenu

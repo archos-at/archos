@@ -79,6 +79,7 @@ const LISTING: FolderBinListing = {
       documents: 6,
       folders: 0,
       canRestore: false,
+      restoreBlocked: 'folder_read_only',
       document: null,
     },
     {

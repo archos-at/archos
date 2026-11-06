@@ -145,7 +145,7 @@ export function FileSearchBanner({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 shrink-0 gap-1.5 px-2 text-muted-foreground transition-colors duration-snap ease-out hover:text-foreground motion-reduce:transition-none"
+        className="shrink-0 gap-1.5 px-2 text-muted-foreground transition-colors duration-snap ease-out hover:text-foreground motion-reduce:transition-none"
         onClick={onResetSemantic}
       >
         <X className="size-3.5" aria-hidden />

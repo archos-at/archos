@@ -228,7 +228,7 @@ export interface FileCardProps {
   onSelect: () => void
   locale: string
   /** Present on a search result: the passage and its page, WHY it matched. */
-  match?: { snippet: string; page: number | null }
+  match?: { snippet: string; page: number | null; query?: string | null }
   /** Coarse corpus for a provenance chip in the metadata row (project vs Büroablage). */
   source?: 'project' | 'office' | null
   /** Localized label for the provenance chip. */
@@ -414,11 +414,11 @@ export const FileCard = memo(function FileCard({
             )}
           </FileTileMedia>
 
-          {/* At least the name and two summary lines tall (10 + 17.6 + 4 + 34.8px): a row of one-line names needs no
+          {/* At least the name and two summary lines tall (10 + 17.9 + 4 + 36px, `leading-snug` and `-normal`): a row of one-line names needs no
               slack. Where one tile runs longer (a name on two lines, „4 offen“) the footer's content sits at the cell's
               foot, so the meta lines of a row still share one baseline. */}
           {/* On the thumbnail's edge, no inset of its own: the name, the summary and the meta line start where the sheet does. */}
-          <div className="min-h-[66px] pt-2.5">
+          <div className="min-h-[68px] pt-2.5">
             {/* Provenance, where a surface mixes stores (the Archiv): a signal, so it keeps its colour and its word. */}
             {source && sourceLabel && (
               <span
@@ -434,7 +434,7 @@ export const FileCard = memo(function FileCard({
                 a rename changes the label, never the format. */}
             {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
             {/* Room at its end for the ⋯, which sits on this line (6 + 124 + 10px down), off the thumbnail. */}
-            <p className={cn('min-w-0 text-[13px] font-medium leading-[1.35] text-foreground', actions && !selection && 'pointer-coarse:pr-8')}>
+            <p className={cn('min-w-0 text-[13px] font-medium leading-snug text-foreground', actions && !selection && 'pointer-coarse:pr-8')}>
               <FileName text={name} wrap />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
@@ -475,10 +475,10 @@ export const FileCard = memo(function FileCard({
               )
             )}
             {match ? (
-              <SemanticMatch snippet={match.snippet} page={match.page} />
+              <SemanticMatch snippet={match.snippet} page={match.page} query={match.query} />
             ) : isFailed ? (
               <p
-                className="mt-1 line-clamp-2 text-xs leading-[1.45] text-destructive"
+                className="mt-1 line-clamp-2 text-xs leading-normal text-destructive"
                 title={failureText?.raw ?? failureReason}
                 data-testid="file-card-failure"
               >
@@ -494,7 +494,7 @@ export const FileCard = memo(function FileCard({
               </div>
             ) : (
               file.summary && (
-                <p className="mt-1 line-clamp-2 text-xs leading-[1.45] text-muted-foreground" title={file.summary}>
+                <p className="mt-1 line-clamp-2 text-xs leading-normal text-muted-foreground" title={file.summary}>
                   {file.summary}
                 </p>
               )

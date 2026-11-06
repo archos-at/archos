@@ -165,6 +165,8 @@ export const inboundMail: typeof en.inboundMail = {
 
   header: {
     addressMore: 'Mehr zur Adresse',
+    addressCopy: 'Adresse kopieren',
+    addressCopied: 'Adresse kopiert',
     fromShort: '{name} ‹{address}›',
     details: 'Details',
     sentLabel: 'Gesendet',

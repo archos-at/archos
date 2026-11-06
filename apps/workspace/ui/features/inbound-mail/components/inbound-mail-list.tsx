@@ -94,7 +94,7 @@ export interface InboundMailListProps {
 
 /** A thread group's press: quiet text at the line's end, a finger's 44px under touch. */
 const GROUP_ACTION =
-  'text-muted-foreground hover:text-foreground -mr-2 h-7 shrink-0 gap-1.5 px-2 text-xs pointer-coarse:min-h-11'
+  'text-muted-foreground hover:text-foreground -mr-2 shrink-0 gap-1.5 px-2 text-xs pointer-coarse:min-h-11'
 
 export function InboundMailList(props: InboundMailListProps): JSX.Element {
   const t = useTranslations(inboundMailCopy)
@@ -116,6 +116,8 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
         >
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
+            {/* Held while the count loads, so „Bearbeitet“ does not move when it lands. */}
+            {waitingCount === null && <span aria-hidden className="inline-block h-4 min-w-5" />}
             {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" className="in-data-[state=on]:bg-background" />}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
@@ -282,7 +284,7 @@ function ListBody({
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
                 {ready && batch.length > 1 && !picking && (
-                  <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 h-7 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
+                  <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
                     {/* No glyph, as the thread's press has none: row-end actions are text presses. One request decides at
                         most twenty mails: past that, the press says it files the first ones. */}
                     {t(batch.length < section.mails.length ? 'readiness.fileFirst' : 'readiness.fileAll', { count: batch.length })}

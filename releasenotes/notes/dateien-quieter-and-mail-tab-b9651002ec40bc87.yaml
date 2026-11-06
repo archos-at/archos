@@ -33,6 +33,13 @@ features:
     The list view writes each file's format as a word, and the inbox states
     one size limit for attachments. In an opened mail on a wide screen, the
     buttons follow the mail instead of waiting at the foot of the screen.
+  - >
+    The inbox header offers "Copy address" instead of showing the whole
+    address, and Files centres its content on a wide screen without a side
+    rail. Search results mark the words they matched.
+  - >
+    The Bin says why a folder cannot be restored, and the list view shows
+    reading and open comments right after each file's name.
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

@@ -644,6 +644,11 @@ export const files = {
     purging: 'being permanently deleted',
     failed: 'The permanent deletion has stopped. An admin is looking into it.',
     restore: 'Restore',
+    restoreBlocked: {
+      folder_read_only: 'Cannot be restored: you may only read this folder.',
+      project_closed: 'Cannot be restored: the project is closed.',
+      no_write: 'Cannot be restored: you may not file in this project.',
+    },
     restored: '“{name}” is restored. Its documents are being read again.',
     restoredToRoot: '“{name}” is restored at the top of the project, because its parent folder is deleted.',
     restoreNameTaken: 'A folder named “{name}” already exists there. Rename it, then restore again.',

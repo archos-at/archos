@@ -401,8 +401,8 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
     // cards — and clearing the query threw them back again.
     expect(await screen.findByTestId('file-list-view')).toBeInTheDocument()
     expect(screen.queryByTestId('semantic-match')).not.toBeInTheDocument()
-    // And the ranking survives into it: the rank is on the row.
-    expect(await screen.findByTestId('file-list-relevance')).toHaveTextContent('1')
+    // And the ranking survives into it: ranked rows under the Relevance header, which needs no „1, 2“ beside them.
+    expect(await screen.findByRole('button', { name: /relevance/i })).toBeInTheDocument()
   })
 
   it('waits in the shape of the view the answer will arrive in', async () => {
@@ -455,7 +455,7 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
 
     // The match evidence: the passage and its page. The search ranks and shows no score (ADR-0136).
     const match = await screen.findByTestId('semantic-match')
-    expect(within(match).getByText(/second escape route/i)).toBeInTheDocument()
+    expect(match).toHaveTextContent(/second escape route/i)
     expect(within(match).getByTestId('semantic-page')).toHaveTextContent(/page 4/i)
     expect(within(match).queryByText(/%/)).not.toBeInTheDocument()
 
@@ -615,7 +615,7 @@ describe('FileBrowserPane — loading', () => {
     expect(within(skeleton).getByTestId('file-list-skeleton')).toBeInTheDocument()
     // The detail view's column headings are known before the listing is, so the
     // rows do not jump down by a header when the answer lands.
-    expect(within(skeleton).getByText('Status')).toBeInTheDocument()
+    expect(within(skeleton).getByText('Name')).toBeInTheDocument()
   })
 })
 

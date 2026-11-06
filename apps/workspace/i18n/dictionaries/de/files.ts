@@ -629,6 +629,12 @@ export const files: typeof en.files = {
     purging: 'wird gerade endgültig gelöscht',
     failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
     restore: 'Wiederherstellen',
+    // Where the press would be, so the row says why it is not there.
+    restoreBlocked: {
+      folder_read_only: 'Nicht wiederherstellbar: Sie dürfen diesen Ordner nur lesen.',
+      project_closed: 'Nicht wiederherstellbar: Das Projekt ist abgeschlossen.',
+      no_write: 'Nicht wiederherstellbar: Sie dürfen in diesem Projekt nicht ablegen.',
+    },
     restored: '„{name}“ ist wiederhergestellt. Die Dokumente werden neu eingelesen.',
     restoredToRoot:
       '„{name}“ ist wiederhergestellt, und zwar direkt im Projekt: Sein übergeordneter Ordner ist gelöscht.',

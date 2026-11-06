@@ -148,7 +148,7 @@ export function SenderTrustLine({
         <TooltipTrigger asChild>
           <button
             type="button"
-            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="text-muted-foreground hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/60"
             aria-label={explain}
           >
             <Info className="size-3.5" aria-hidden />

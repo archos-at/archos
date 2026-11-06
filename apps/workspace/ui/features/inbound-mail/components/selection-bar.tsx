@@ -65,7 +65,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="text-muted-foreground hover:text-foreground touch-target ml-auto inline-flex size-7 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="text-muted-foreground hover:text-foreground touch-target ml-auto inline-flex size-7 items-center justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 aria-label={reason}
                 data-testid="selection-why"
               >
@@ -76,8 +76,8 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
           </Toggletip>
         )}
       </div>
-      <div className="flex items-center gap-1.5">
-        {/* The secondary, then the primary at the end, as in Dateien's selection bar and the decision bar. */}
+      {/* The secondary, then the primary at the end, 12px apart, as in Dateien's selection bar and the decision bar. */}
+      <div className="flex items-center gap-3">
         <BusyButton
           type="button"
           size="sm"

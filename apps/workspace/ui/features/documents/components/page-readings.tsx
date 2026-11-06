@@ -99,7 +99,7 @@ export function PageReadings({
         ) : failed ? (
           <div className="space-y-2 p-3">
             <p className="text-muted-foreground text-xs">{t('preview.visualDetails.failed')}</p>
-            <Button variant="secondary" size="sm" className="h-7 gap-1.5" onClick={onRetry}>
+            <Button variant="secondary" size="sm" className="gap-1.5" onClick={onRetry}>
               <RotateCcw className="size-3.5" aria-hidden />
               {t('preview.tryAgain')}
             </Button>

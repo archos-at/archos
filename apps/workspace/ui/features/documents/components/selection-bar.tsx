@@ -45,7 +45,7 @@ export function SelectionBar({
       className="bg-muted animate-in fade-in-0 slide-in-from-bottom-2 duration-base shrink-0 pb-[max(0.5rem,var(--shell-inset-bottom,env(safe-area-inset-bottom)))] pt-2 ease-out motion-reduce:animate-none"
       data-testid="selection-bar"
     >
-      <div className="flex w-full max-w-[1280px] items-center gap-2 px-4 md:px-8">
+      <div className="flex listing-container items-center gap-3 px-4 md:px-8" /* presses 12px apart, as every bar */>
       <Button
         type="button"
         variant="ghost"

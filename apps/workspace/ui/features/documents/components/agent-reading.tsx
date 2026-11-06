@@ -84,7 +84,8 @@ export function AgentReading({
       {file.capture && <CaptureLine capture={file.capture} />}
 
       {correcting ? (
-        <div className="flex flex-col gap-2 rounded-control border border-dashed p-2.5" data-testid="agent-reading-editor">
+        // White on the card's grey, as anything on a grey surface is: a dashed box was a line around a form.
+        <div className="flex flex-col gap-2 rounded-control bg-background p-2.5" data-testid="agent-reading-editor">
           <DocumentTagsEditor
             fileId={file.id}
             initialTags={tags}
@@ -103,7 +104,7 @@ export function AgentReading({
             }}
           />
           <p className="text-muted-foreground text-xs leading-relaxed">{t('preview.reading.correctionKept')}</p>
-          <Button type="button" size="sm" variant="secondary" className="h-7 self-start" onClick={() => setCorrecting(false)}>
+          <Button type="button" size="sm" variant="secondary" className="self-start" onClick={() => setCorrecting(false)}>
             {t('preview.reading.done')}
           </Button>
         </div>
@@ -112,20 +113,19 @@ export function AgentReading({
           <p className="text-muted-foreground text-xs">
             {types.length + disciplines.length + topics.length > 0 ? t('preview.reading.classifiedAs') : t('preview.reading.noType')}
           </p>
-          {/* Three weights for three kinds of reading, one line each, so the eye ranks them before it reads them:
-              the type in ink and weight (it decides what the document is), the disciplines in ink, the topics in
-              muted ink after their label. Seven outlined pills in a 220px rail were a wall of equal boxes, and words
-              in one wrapped run lost which kind each was. The middot is bound to the word before it, so a wrapped
-              line never starts with one. */}
+          {/* Two steps of the ramp, so the card has three styles in all (the summary's 14px, this 14px medium, the
+              12px muted meta): the type in ink and weight (it decides what the document is), the disciplines and the
+              topics in the muted meta. Seven styles in one card (ink 12px, ink 80 %, 15px …) read as unranked. The
+              middot is bound to the word before it, so a wrapped line never starts with one. */}
           {types.length > 0 && (
             <p className="text-foreground text-sm font-medium" data-testid="agent-reading-type">
               {types.map((tag) => tagLabel(tag, t)).join(' · ')}
             </p>
           )}
-          {disciplines.length > 0 && <WordRun words={disciplines.map((tag) => tagLabel(tag, t))} className="text-foreground" />}
+          {disciplines.length > 0 && <WordRun words={disciplines.map((tag) => tagLabel(tag, t))} className="text-muted-foreground" />}
           {topics.length > 0 && (
             <p className="text-muted-foreground text-xs leading-relaxed" data-testid="agent-reading-topics">
-              <span className="text-foreground/80">{t('preview.reading.topics')}: </span>
+              {t('preview.reading.topics')}:{' '}
               <WordRun words={topics} inline />
             </p>
           )}

@@ -12,6 +12,7 @@ import { RevisionCount, OlderRevisionBadge, isOlderRevisionEntry } from './revis
 import { documentBadgeState } from '../lib/document-lifecycle'
 import { approvalSubjectOf, listColumns, type FileListColumns } from './file-list-columns'
 import { fileExtensionLabel } from '../document-kind'
+import { MarkedSnippet } from './semantic-match'
 import { DEFAULT_FILE_SORT, RELEVANCE_SORT, nextSort, sortFiles, type FileSort, type FileSortKey } from '../lib/file-sort'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
@@ -53,6 +54,8 @@ interface FileListViewProps {
    * away without saying so.
    */
   semantic?: boolean
+  /** The query the ranked rows answer: its words are marked in each row's passage. */
+  query?: string | null
   /**
    * The listing's order, when somebody outside owns it.
    *
@@ -92,6 +95,7 @@ export function FileListView({
   renderActions,
   wrapRow,
   semantic = false,
+  query = null,
   sort: controlledSort,
   onSortChange,
   draggable = false,
@@ -106,6 +110,7 @@ export function FileListView({
   // holds — the same rule as the menu, which hides the sort section while a
   // semantic search is active.
   const sort = semantic || !controlledSort ? uncontrolledSort : controlledSort
+  const showRank = semantic && sort.key !== 'relevance'
   const setSort = semantic || !onSortChange ? setUncontrolledSort : onSortChange
   const bodyRef = useRef<HTMLTableSectionElement>(null)
 
@@ -213,6 +218,8 @@ export function FileListView({
               onSort={setSort}
               className="w-auto [&>button]:pl-[50px]" /* over the names, past the 32px format column */
             />
+            {/* The header always (it sorts the ranking either way); the ranks only while another column orders the
+                rows: sorted by relevance, the order IS the rank and the cells only repeated it („1, 2, 3“). */}
             {semantic && (
               <SortHeader
                 label={t('list.columns.relevance')}
@@ -230,19 +237,11 @@ export function FileListView({
                 className="hidden w-[92px] @3xl/filelist:table-cell"
               />
             )}
-            {/* Status, Freigabe and Seiten step in only when a row has something to say (`listColumns`).
-                Status is 104px, 156px from 28rem: a badge wider than its cell renders over its neighbour,
-                so the word ellipsizes and the glyph stays. The reference columns step in where the name
-                keeps ~220px: Freigabe and Größe at 48rem, Hinzugefügt at 56rem, Seiten at 64rem. */}
-            {columns.status && (
-              <SortHeader
-                label={t('list.columns.status')}
-                column="status"
-                sort={sort}
-                onSort={setSort}
-                className="w-[104px] @md/filelist:w-[156px]"
-              />
-            )}
+            {/* Freigabe and Seiten step in only when a row has something to say (`listColumns`). The reference columns
+                step in where the name keeps ~220px: Freigabe and Größe at 48rem, Hinzugefügt at 56rem, Seiten at 64rem.
+                What is in progress or open on a document („Wird gelesen“, „4 offen“) stands after its name, in one
+                place, as the tile carries both on itself: a Status column held one and not the other. Sorting by
+                status stays in the filter menu. */}
             {columns.approval && (
               <TableHead scope="col" className="hidden h-auto w-[120px] px-2 py-1.5 @3xl/filelist:table-cell">
                 {t('list.columns.approval')}
@@ -283,6 +282,8 @@ export function FileListView({
               isSelected={selectedFileId === file.id}
               isTabStop={index === tabStop}
               semantic={semantic}
+              query={query}
+              showRank={showRank}
               columns={columns}
               draggable={draggable && !picking}
               picking={picking}
@@ -308,6 +309,9 @@ interface FileListRowItemProps {
   /** Whether this row holds the list's one tab stop (roving tabindex). */
   isTabStop: boolean
   semantic: boolean
+  query: string | null
+  /** The relevance column is drawn (another column orders the rows). */
+  showRank: boolean
   /** The optional columns any row fills (`listColumns`). */
   columns: FileListColumns
   draggable: boolean
@@ -334,6 +338,8 @@ const FileListRowItem = memo(function FileListRowItem({
   isSelected,
   isTabStop,
   semantic,
+  query,
+  showRank,
   columns,
   draggable,
   picking,
@@ -391,9 +397,12 @@ const FileListRowItem = memo(function FileListRowItem({
             {/* „· 3 Fassungen" after the name, on the same line: the
                 history belongs to the document, not to the „Freigabe"
                 column, and here it never makes a row taller. */}
-            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-[1.4] text-foreground" /* a name is 13px everywhere */>
+            <span className="flex min-w-0 items-baseline gap-1.5 text-[13px] font-medium leading-snug text-foreground" /* a name is 13px everywhere */>
               <FileName text={documentDisplayName(file)} />
               <RevisionCount file={file} />
+              {file.status && !isCitableStatus(file.status) && (
+                <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="shrink-0 self-center px-2" />
+              )}
               {/* What is still open on its pages; a press opens the review, not the row. */}
               <OpenMarksChip file={file} name={documentDisplayName(file)} className="self-center" />
               {/* Where Piloti would file it: the same chip as on the card,
@@ -417,11 +426,9 @@ const FileListRowItem = memo(function FileListRowItem({
                   data-testid="file-list-snippet"
                 >
                   {file.page !== null && file.page !== undefined && (
-                    <span className="mr-1 font-medium tabular-nums text-primary/80">
-                      {t('browser.semantic.page', { page: String(file.page) })}
-                    </span>
+                    <span className="mr-1 font-medium tabular-nums">{t('browser.semantic.page', { page: String(file.page) })}</span>
                   )}
-                  {file.snippet}
+                  <MarkedSnippet text={file.snippet ?? ''} query={query} />
                 </span>
               )
             ) : (
@@ -441,7 +448,7 @@ const FileListRowItem = memo(function FileListRowItem({
             CELL,
           )}
         >
-          {file.rank !== undefined && (
+          {showRank && file.rank !== undefined && (
             <span
               className="font-medium text-foreground"
               title={t('browser.semantic.rank', { rank: String(file.rank) })}
@@ -449,14 +456,6 @@ const FileListRowItem = memo(function FileListRowItem({
             >
               {file.rank}
             </span>
-          )}
-        </TableCell>
-      )}
-      {columns.status && (
-        <TableCell className={CELL}>
-          {/* `max-w-full`: the badge is `w-fit whitespace-nowrap`, so without a ceiling a German word overlaps the next cell. */}
-          {file.status && !isCitableStatus(file.status) && (
-            <DocumentStatusBadge status={file.status} queueAhead={file.queueAhead} className="max-w-full px-2" />
           )}
         </TableCell>
       )}
@@ -625,7 +624,6 @@ function FileListSkeletonHeader(): JSX.Element {
   return (
     <div className="text-muted-foreground flex items-center gap-2.5 px-2 pb-1.5 card-eyebrow" /* no line: the real header has none */>
       <span className="min-w-0 flex-1">{t('list.columns.name')}</span>
-      <span className="w-[104px] shrink-0 @md/filelist:w-[156px]">{t('list.columns.status')}</span>
       <span className="hidden w-[120px] shrink-0 @3xl/filelist:block">{t('list.columns.approval')}</span>
       <span className="hidden w-[76px] shrink-0 text-right @5xl/filelist:block">{t('list.columns.pages')}</span>
       <span className="hidden w-[104px] shrink-0 text-right @3xl/filelist:block">{t('list.columns.size')}</span>

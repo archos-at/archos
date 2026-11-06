@@ -5,7 +5,7 @@ import { Clock, MessageCircle, UserRound } from 'lucide-react'
 import { CommentPin } from '@/components/ui/comment-pin'
 import { useLocale, useTranslations } from '@/i18n'
 import { filesCopy } from '@/i18n/namespaces/files'
-import { formatDayRange, localCalendarDay } from '@/lib/format'
+import { formatCalendarDay, localCalendarDay } from '@/lib/format'
 import { isLive, isOverdue, type AnnotationView } from '@/lib/annotations/types'
 import { cn } from '@/lib/utils'
 import { MarkBody } from './mark-body'
@@ -93,7 +93,7 @@ export function MarkRowContent({
           {annotation.dueOn && (
             <span className={cn('inline-flex items-center gap-0.5 whitespace-nowrap', overdue && 'text-warning font-medium' /* ochre with its clock and word: this one waits on a person */)}>
               <Clock className="size-3" aria-hidden />
-              {overdue ? t('review.overdue') : formatDayRange(annotation.dueOn, annotation.dueOn, locale)}
+              {overdue ? t('review.overdue') : formatCalendarDay(annotation.dueOn, locale)}
             </span>
           )}
         </span>

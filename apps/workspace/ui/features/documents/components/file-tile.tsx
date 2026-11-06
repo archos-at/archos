@@ -75,7 +75,7 @@ export function TileShell({ interactive = true, className, children, ...rest }: 
 /** The thumbnail: on the one grey, as the design system lays product cut-outs on `surface-sunken`, so every tile reads the same size; rounded, no border, no shadow. */
 export function FileTileMedia({ className, children, ...rest }: ComponentProps<'div'>): JSX.Element {
   return (
-    <div className={cn('bg-muted relative w-full overflow-hidden rounded-lg', className)} {...rest}>
+    <div className={cn('bg-muted relative w-full overflow-hidden rounded-surface', className)} {...rest}>
       {children}
     </div>
   )

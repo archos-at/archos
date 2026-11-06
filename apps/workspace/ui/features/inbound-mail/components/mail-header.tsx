@@ -99,7 +99,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
                 {formatAbsoluteTime(view.receivedAt, locale)}
               </time>
               <CollapsibleTrigger
-                className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                className="text-muted-foreground hover:text-foreground group/details touch-target inline-flex items-center gap-0.5 rounded-inline outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 data-testid="mail-details-toggle"
               >
                 {t('header.details')}
@@ -125,7 +125,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
                 <button
                   type="button"
                   aria-label={t('header.forwardedExplain')}
-                  className="hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  className="hover:text-foreground touch-target inline-flex size-4 shrink-0 items-center justify-center rounded-inline outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <Info className="size-3.5" aria-hidden />
                 </button>

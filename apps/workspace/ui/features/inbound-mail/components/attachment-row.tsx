@@ -253,7 +253,7 @@ export function AttachmentRow({
         onClick={onPreview}
         disabled={!contentUrl || !onPreview}
         aria-label={t('attachments.preview', { name })}
-        className="shrink-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
+        className="shrink-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:cursor-default"
       >
         <AttachmentThumbnail filename={name} contentType={part.contentType} url={contentUrl} />
       </button>
@@ -290,7 +290,7 @@ export function AttachmentRow({
                     data-testid="attachment-folder"
                   />
                 ) : (
-                  <Button type="button" size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
+                  <Button type="button" size="sm" variant="secondary" className="px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
                     <FolderInput className="size-3.5" aria-hidden />
                     {t('target.chooseFolder')}
                   </Button>
@@ -308,7 +308,7 @@ export function AttachmentRow({
                   → {draft.name}
                 </span>
               )}
-              <Button type="button" size="sm" variant="ghost" className="text-muted-foreground h-7 px-2 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
+              <Button type="button" size="sm" variant="ghost" className="text-muted-foreground px-2 text-xs" onClick={() => setEditOpen(true)} data-testid="attachment-change">
                 {t('attachments.change')}
               </Button>
             </div>

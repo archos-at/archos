@@ -346,6 +346,19 @@ body {
   }
 }
 
+/* The design system's 1280px content container, for every listing of a project's section (Dateien and its
+   tabs). It keeps the section's left edge, which beside the app rail is the rail's edge, and centres once its
+   section is at least 1440px wide: the page cannot ask whether a rail is shown, but a 1440px section has none
+   beside it at a laptop's width and is a wide screen otherwise, where 192px of paper on one side read as a
+   page that had slid. The section frame names the container (`@container/section`). */
+@utility listing-container {
+  width: 100%;
+  max-width: 1280px;
+  @container section (min-width: 90rem) {
+    margin-inline: auto;
+  }
+}
+
 @utility scroll-edge-top {
   @supports (animation-timeline: scroll(nearest block)) {
     animation: scroll-edge-reveal-top linear both;

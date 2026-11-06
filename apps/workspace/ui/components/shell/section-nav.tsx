@@ -222,6 +222,9 @@ function SectionNavLink({
       )}
       <Icon className="size-4 shrink-0" aria-hidden />
       {item.label}
+      {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
+          when it lands. `undefined` is a tab without a count. */}
+      {item.count === null && <span aria-hidden className="inline-block h-4 min-w-5" />}
       {item.count != null && item.count > 0 && (
         // White on the active tab's grey, as everything on a grey surface is: grey on grey hid the pill.
         <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active && 'bg-background')} />

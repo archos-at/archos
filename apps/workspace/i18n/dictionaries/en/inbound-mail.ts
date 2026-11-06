@@ -157,6 +157,8 @@ export const inboundMail = {
 
   header: {
     addressMore: 'About the address',
+    addressCopy: 'Copy address',
+    addressCopied: 'Address copied',
     fromShort: '{name} ‹{address}›',
     details: 'Details',
     sentLabel: 'Sent',

@@ -352,7 +352,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-7 gap-1.5"
+                className="gap-1.5"
                 onClick={() =>
                   dropFileSubject({
                     cleared: t('preview.goneCleared'),
@@ -368,7 +368,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 type="button"
                 variant="secondary"
                 size="sm"
-                className="h-7 gap-1.5"
+                className="gap-1.5"
                 onClick={() => void actions.download()}
                 disabled={actions.isDownloading}
               >

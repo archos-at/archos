@@ -402,7 +402,7 @@ function DeferredAboutSection({
           type="button"
           size="sm"
           variant="secondary"
-          className="h-7 self-start"
+          className="self-start"
           onClick={onLoadDetails}
           disabled={loading}
           data-testid="folder-brief-load-details"
@@ -538,7 +538,7 @@ function NeedsYouSection({
               type="button"
               size="sm"
               variant="secondary"
-              className="h-7 gap-1.5"
+              className="gap-1.5"
               onClick={onReadAgain}
               disabled={Boolean(readAgainProgress)}
               data-testid="folder-brief-read-again"
@@ -607,7 +607,7 @@ function AttentionRow({
               type="button"
               size="sm"
               variant="ghost"
-              className="-mr-3.5 h-7 shrink-0" /* its padding: the word ends on the brief's edge */
+              className="-mr-3.5 shrink-0" /* its padding: the word ends on the brief's edge */
               onClick={onShow}
               aria-label={showLabel}
               title={showLabel}

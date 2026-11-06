@@ -160,6 +160,11 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
                 <ItemDescription className="whitespace-normal sm:truncate">
                   {entry.document ? t('bin.document') : t('bin.contents', { documents: entry.documents, folders: entry.folders })}
                 </ItemDescription>
+                {!entry.canRestore && entry.restoreBlocked && (
+                  <ItemDescription className="whitespace-normal" data-testid={`bin-blocked-${entry.folderId}`}>
+                    {t(`bin.restoreBlocked.${entry.restoreBlocked}`)}
+                  </ItemDescription>
+                )}
                 {/* Who deleted it and when it goes, on one line: four lines of 12px meta per row was a form, not a list. */}
                 <ItemDescription className="flex items-center gap-1 whitespace-normal sm:truncate">
                   <span>
@@ -236,4 +241,4 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
 }
 
 /** The listing's container and edges (1280px, 32px; 16px on a phone), as every Dateien tab keeps them. */
-const BIN_PAGE = 'flex w-full max-w-[1280px] flex-col gap-6 px-4 py-4 md:px-8'
+const BIN_PAGE = 'flex listing-container flex-col gap-6 px-4 py-4 md:px-8'

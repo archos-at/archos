@@ -146,7 +146,7 @@ export function InboundMailRow({
           onFocus={onFocusRow}
           aria-current={open ? 'page' : undefined}
           data-testid="inbound-mail-row-link"
-          className="flex min-w-0 flex-1 items-start gap-3 rounded-sm outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-inline outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring/60"
         >
           {/* A sender is not a member: one neutral disc, no identity hue (colour here would mean nothing). The one
               grey on the page; white on the row's hover and open fill, as anything on a grey surface is. */}
@@ -227,8 +227,8 @@ export function InboundMailRow({
               type="button"
               size="sm"
               variant="secondary"
-              // `h-7` on a mouse; under a finger the kit's 44px, as the row's link sits right behind it.
-              className="h-7 px-2.5 text-xs"
+              // The kit's 32px on a mouse; under a finger its 44px, as the row's link sits right behind it.
+              className="px-2.5 text-xs"
               busy={filingAsSuggested}
               busyLabel={t('bulk.fileSuggestedBusy')}
               icon={<FileInput aria-hidden />}

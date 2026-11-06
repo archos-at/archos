@@ -1404,4 +1404,4 @@ function PaneLoadError({
 }
 
 /** A notice above the listing, on the listing's edges and without a line under it (the design system draws none between sections). */
-const NOTICE_STRIP = 'w-full max-w-[1280px] px-4 pt-3 md:px-8'
+const NOTICE_STRIP = 'listing-container px-4 pt-3 md:px-8'
