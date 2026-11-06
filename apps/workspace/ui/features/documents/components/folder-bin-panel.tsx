@@ -122,7 +122,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
           tone="destructive"
           title={t('bin.loadError')}
           action={
-            <Button variant="outline" size="sm" onClick={() => void reload()}>
+            <Button variant="secondary" size="sm" onClick={() => void reload()}>
               <RefreshCw className="size-3.5" aria-hidden />
               {t('bin.retry')}
             </Button>
@@ -179,7 +179,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
               <ItemActions className="w-full flex-wrap justify-between sm:w-auto sm:flex-nowrap sm:justify-end">
                 {entry.canRestore && (
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     disabled={busyId === entry.folderId}
                     onClick={() => void restore(entry)}
@@ -207,7 +207,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
         </ItemList>
       )}
       {listing.nextCursor && (
-        <Button variant="outline" size="sm" className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
+        <Button variant="secondary" size="sm" className="self-center" disabled={loadingMore} onClick={() => void loadMore()}>
           {t('bin.loadMore')}
         </Button>
       )}

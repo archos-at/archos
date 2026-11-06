@@ -613,7 +613,7 @@ export function FileBrowserPane({
           title={filterEmptyNotice.title}
           description={filterEmptyNotice.description}
           action={
-            <Button variant="outline" size="sm" onClick={filterEmptyNotice.onClear}>
+            <Button variant="secondary" size="sm" onClick={filterEmptyNotice.onClear}>
               {t('browser.clearFilters')}
             </Button>
           }
@@ -772,7 +772,7 @@ export function FileBrowserPane({
                   <Button size="sm" onClick={search.run}>
                     {t('browser.semantic.retry')}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={search.clear}>
+                  <Button variant="secondary" size="sm" onClick={search.clear}>
                     {t('browser.semantic.reset')}
                   </Button>
                 </div>
@@ -787,7 +787,7 @@ export function FileBrowserPane({
               title={t('browser.semantic.noResults', { query: semantic.query ?? '' })}
               description={t('browser.semantic.noResultsDescription')}
               action={
-                <Button variant="outline" size="sm" onClick={search.clear}>
+                <Button variant="secondary" size="sm" onClick={search.clear}>
                   {t('browser.semantic.reset')}
                 </Button>
               }
@@ -833,7 +833,7 @@ export function FileBrowserPane({
               title={t('browser.noMatch', { query })}
               description={t(searchMatchesNamesOnly ? 'browser.noMatchNamesDescription' : 'browser.noMatchDescription')}
               action={
-                <Button variant="outline" size="sm" onClick={search.clear}>
+                <Button variant="secondary" size="sm" onClick={search.clear}>
                   {t('browser.clearSearch')}
                 </Button>
               }
@@ -869,7 +869,7 @@ export function FileBrowserPane({
         <div className={CONTENT_MAX} data-testid="folder-brief-slice">
           <div className="flex items-center gap-2 px-4 pt-4">
             <p className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{slice.label}</p>
-            <Button type="button" variant="outline" size="sm" onClick={slice.onClear} data-testid="folder-brief-slice-clear">
+            <Button type="button" variant="secondary" size="sm" onClick={slice.onClear} data-testid="folder-brief-slice-clear">
               {t('brief.sliceClear')}
             </Button>
           </div>

@@ -53,7 +53,9 @@ const buttonVariants = cva(
         // to accent (a filled-to-accent outline reads as secondary).
         outline:
           'border border-input bg-transparent hover:bg-card hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-accent',
+        // Tonal: the one grey on white, white on a grey panel (`data-surface="sunken"`), never an outline (D4).
+        secondary:
+          'bg-secondary text-secondary-foreground hover:bg-accent in-data-[surface=sunken]:bg-background in-data-[surface=sunken]:hover:bg-accent',
         // Ghost is the quietest action: one step to secondary, not accent.
         ghost: 'hover:bg-secondary hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline active:scale-100',

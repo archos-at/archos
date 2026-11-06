@@ -224,7 +224,7 @@ export function InboundMailRow({
             <BusyButton
               type="button"
               size="sm"
-              variant="outline"
+              variant="secondary"
               // `h-7` on a mouse; under a finger the kit's 44px, as the row's link sits right behind it.
               className="h-7 px-2.5 text-xs"
               busy={filingAsSuggested}

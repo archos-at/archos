@@ -174,7 +174,7 @@ export function AssignPopover({
         {!pickOnly && actorId && !alreadyMine && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="w-full"
             disabled={busy}
@@ -186,7 +186,7 @@ export function AssignPopover({
         {pickOnly && onPick && self && !assignees.some((person) => person.userId === self.userId) && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="w-full"
             data-testid="assign-pick-self"
@@ -207,7 +207,7 @@ export function AssignPopover({
             </FieldError>
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-7"
               disabled={busy}
@@ -239,7 +239,7 @@ export function AssignPopover({
               <FieldError>{t('assignment.peopleLoadError')}</FieldError>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-7"
                 onClick={() => setAttempt((current) => current + 1)}

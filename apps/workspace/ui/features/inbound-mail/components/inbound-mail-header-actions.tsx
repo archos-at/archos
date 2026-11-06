@@ -48,7 +48,7 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
   }
   if (address.state === 'none' && address.canManage) {
     return (
-      <Button type="button" variant="outline" size="sm" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
+      <Button type="button" variant="secondary" size="sm" onClick={onOpenAddress} data-testid="inbound-mail-address-open">
         <MailPlus className="size-4" aria-hidden />
         {t('address.create')}
       </Button>

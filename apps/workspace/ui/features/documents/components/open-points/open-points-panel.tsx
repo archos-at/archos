@@ -192,7 +192,7 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
             tone="destructive"
             title={t('openPoints.loadError')}
             action={
-              <Button variant="outline" size="sm" onClick={list.retry} data-testid="open-points-retry">
+              <Button variant="secondary" size="sm" onClick={list.retry} data-testid="open-points-retry">
                 <RefreshCw className="size-3.5" aria-hidden />
                 {t('openPoints.retry')}
               </Button>

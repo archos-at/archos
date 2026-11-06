@@ -1394,7 +1394,7 @@ function PaneLoadError({
 }) {
   const t = useTranslations(filesCopy)
   const retry = (
-    <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onRetry} data-attr="files-pane-retry">
+    <Button type="button" variant="secondary" size="sm" className="gap-1.5" onClick={onRetry} data-attr="files-pane-retry">
       <RotateCcw className="size-3.5" aria-hidden />
       {t('workspace.tryAgain')}
     </Button>

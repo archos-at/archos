@@ -469,7 +469,7 @@ function AgentThreadRow({ ask, review }: { ask: CanvasAsk; review: DocumentRevie
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="secondary"
             className="h-7 text-xs"
             disabled={adopting}
             onClick={async () => {
@@ -653,7 +653,7 @@ function RevisionLines({
         {target && (
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="sm"
             className="h-7 self-start text-xs"
             disabled={busy}
@@ -1223,7 +1223,7 @@ export function ThreadCard({
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-8 justify-between text-xs"
               disabled={busy}

@@ -208,7 +208,7 @@ function ListBody({
         description={t('empty.doneText')}
         data-testid="inbound-mail-done"
         action={
-          <Button type="button" variant="outline" size="sm" onClick={() => onFilterChange('handled', null)}>
+          <Button type="button" variant="secondary" size="sm" onClick={() => onFilterChange('handled', null)}>
             <MailOpen className="size-4" aria-hidden />
             {t('empty.showHandled')}
           </Button>
@@ -336,7 +336,7 @@ function ListBody({
       })}
       {state.nextCursor && (
         <div className="flex justify-center p-3">
-          <BusyButton type="button" variant="outline" size="sm" busy={loadingMore} busyLabel={t('loadMore')} onClick={onLoadMore}>
+          <BusyButton type="button" variant="secondary" size="sm" busy={loadingMore} busyLabel={t('loadMore')} onClick={onLoadMore}>
             {t('loadMore')}
           </BusyButton>
         </div>

@@ -219,7 +219,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       // reader cannot do from inside a viewer that will not load.
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={() =>
@@ -236,7 +236,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                     null : previewFailed && (canPreview || isTextual) ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={loadPreview}
@@ -253,7 +253,7 @@ export function FilePreviewDocumentPanel({ controller }: { controller: FilePrevi
                       // an icon the reader has to go and find in the chrome.
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         className="gap-1.5"
                         onClick={() => void actions.download()}

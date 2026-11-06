@@ -143,7 +143,7 @@ export function DecisionBar({
         {offersFiling && (
           <BusyButton
             type="button"
-            variant={impersonation ? 'outline' : 'default'}
+            variant={impersonation ? 'secondary' : 'default'}
             busy={onlyDismiss ? dismissing : filing}
             busyLabel={onlyDismiss ? t('bar.dismissBusy') : t('bar.busy')}
             onClick={nothing ? onDismiss : onFile}

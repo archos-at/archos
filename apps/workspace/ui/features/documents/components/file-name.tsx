@@ -34,7 +34,35 @@ function tailOf(text: string): number {
  *
  * The wrapper owns the width (`min-w-0`), so it truncates inside a flex row.
  */
-export function FileName({ text, className }: { text: string; className?: string }): JSX.Element {
+/** Up to this many characters a wrapping name fits two lines of a 156px phone tile whole. */
+const WRAP_MAX = 44
+
+/**
+ * `wrap`: two lines before any cut, for a tile (`Baustellenf…_Rohbau.jpg` lost
+ * its start on a phone's two columns). A name that fits two lines is shown
+ * whole; a longer one keeps the middle cut on one line.
+ */
+export function FileName({ text, className, wrap = false }: { text: string; className?: string; wrap?: boolean }): JSX.Element {
+  if (wrap && text.length <= WRAP_MAX) {
+    // Drawn with a break chance after each `_` (and never inside the extension), read as the one
+    // string it is: a `<wbr>` in the accessible text read „Gutachten_ v2.pdf“.
+    const parts = text.split('_')
+    const wrapClass = cn('line-clamp-2 min-w-0 max-w-full [overflow-wrap:anywhere]', className)
+    if (parts.length === 1) return <span className={wrapClass}>{text}</span>
+    return (
+      <span className={wrapClass}>
+        <span aria-hidden>
+          {parts.map((part, index) => (
+            <span key={index}>
+              {index < parts.length - 1 ? `${part}_` : part}
+              {index < parts.length - 1 && <wbr />}
+            </span>
+          ))}
+        </span>
+        <span className="sr-only">{text}</span>
+      </span>
+    )
+  }
   return (
     <span className={cn('flex min-w-0 max-w-full', className)}>
       <MiddleTruncate text={text} tail={tailOf(text)} />

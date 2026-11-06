@@ -219,7 +219,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                   hands out the original. */}
                 {isOfficeRendition && previewUrl && (
                   <Badge
-                    variant="outline"
+                    variant="secondary"
                     className="min-w-0 max-w-full shrink font-normal"
                     data-testid="file-preview-rendition-note"
                     title={t('preview.renditionNote', { name: file.filename })}
@@ -350,7 +350,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             {previewGone ? (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-7 gap-1.5"
                 onClick={() =>
@@ -366,7 +366,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             ) : (
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className="h-7 gap-1.5"
                 onClick={() => void actions.download()}

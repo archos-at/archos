@@ -103,7 +103,7 @@ export function AgentReading({
             }}
           />
           <p className="text-muted-foreground text-xs leading-relaxed">{t('preview.reading.correctionKept')}</p>
-          <Button type="button" size="sm" variant="outline" className="h-7 self-start" onClick={() => setCorrecting(false)}>
+          <Button type="button" size="sm" variant="secondary" className="h-7 self-start" onClick={() => setCorrecting(false)}>
             {t('preview.reading.done')}
           </Button>
         </div>

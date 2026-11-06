@@ -287,7 +287,7 @@ export function AttachmentRow({
                     data-testid="attachment-folder"
                   />
                 ) : (
-                  <Button type="button" size="sm" variant="outline" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
+                  <Button type="button" size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setPickerOpen(true)} data-testid="attachment-folder-choose">
                     <FolderInput className="size-3.5" aria-hidden />
                     {t('target.chooseFolder')}
                   </Button>

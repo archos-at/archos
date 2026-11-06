@@ -92,7 +92,7 @@ export function SelectionBar({ count, block, max, filing, dismissing, onFile, on
         <BusyButton
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           busy={dismissing}
           busyLabel={t('bar.dismissBusy')}
           blocked={filing}

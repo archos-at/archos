@@ -71,6 +71,8 @@ function FilesPage(): JSX.Element {
           view={view}
           onViewChange={setView}
           folderNav={folderNav}
+          // „Auswählen“ in the path row, as a project with files offers it.
+          selection={{ active: false, selectedIds: new Set(), onToggle: () => {}, onStart: () => {} }}
           brief={
             <FolderBrief
               brief={buildFolderBrief(FILES, FOLDERS, folderNav.currentFolderId)}

@@ -378,7 +378,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                     canManage && (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         className="w-full gap-2"
                         onClick={handleReingest}
                         disabled={actions.isReingesting}

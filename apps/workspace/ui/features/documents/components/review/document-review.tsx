@@ -495,7 +495,7 @@ function AgentReview({ review, onWalk }: { review: ReviewState; onWalk: () => vo
     const button = (
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size="sm"
         className="h-8 gap-1.5"
         data-testid="review-with-agent"
@@ -1160,7 +1160,7 @@ export function DocumentReviewMode({
             )}
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="sm"
               className="h-8 gap-1.5 pointer-coarse:h-11"
               aria-haspopup={listBeside ? undefined : 'dialog'}

@@ -425,7 +425,7 @@ export const FileCard = memo(function FileCard({
                 a rename changes the label, never the format. */}
             {/* Cut in the MIDDLE: the revision and the drawing number are the end of the name, and a finger has no tooltip to read the rest. */}
             <p className="min-w-0 text-[13px] font-medium leading-[1.35] text-foreground">
-              <FileName text={name} />
+              <FileName text={name} wrap />
             </p>
             {/* A byline, directly under the name — who WROTE this. It is not in
                 the footer, because the footer is where the faces and the word

@@ -267,7 +267,7 @@ function FileRow({ file, depth, onToggleFile, onRetarget, targets }: FileRowProp
           {t(file.certainty === 'sure' ? 'rootSort.tree.sure' : 'rootSort.tree.unsure')}
         </Badge>
       )}
-      {file.chosenByPerson && <Badge variant="outline">{t('rootSort.tree.changed')}</Badge>}
+      {file.chosenByPerson && <Badge variant="secondary">{t('rootSort.tree.changed')}</Badge>}
       <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
         {file.reason || (placed || file.chosenByPerson ? '' : t('rootSort.tree.noReason'))}
       </span>

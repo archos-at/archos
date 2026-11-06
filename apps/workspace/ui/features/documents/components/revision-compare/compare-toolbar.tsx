@@ -203,7 +203,7 @@ export function MarkButton({ state, onMark, className }: { state: MarkState; onM
           : t('compare.markPage', { page })
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="sm"
       className={className}
       loading={state.kind === 'loading'}

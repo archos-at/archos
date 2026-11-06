@@ -59,6 +59,7 @@ export function InspectorGroup({
   return (
     <div
       data-slot="inspector-group"
+      data-surface="sunken"
       className={cn(
         // The one grey on the rail's white, as an iOS inset group: the tone says where it ends, no border
         // and no shadow. The first row's hairline would draw an edge at its top, so it is never drawn.

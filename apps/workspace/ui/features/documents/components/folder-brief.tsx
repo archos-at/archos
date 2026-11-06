@@ -170,7 +170,7 @@ export function FolderBrief({
         collapsed && 'bg-transparent shadow-none'
       )}
       data-testid="folder-brief"
-      data-state={open ? 'open' : 'closed'}
+      data-state={open ? 'open' : 'closed'} data-surface={open ? 'sunken' : undefined}
       aria-labelledby="folder-brief-title"
       role="region"
     >
@@ -341,7 +341,7 @@ function AboutSection({ brief, onSelect }: { brief: FolderBriefData; onSelect: (
           {disciplines.length > 0 && (
             <ChipFamily label={t('brief.disciplinesLabel')}>
               {disciplines.map(({ label, count }) => (
-                <TagChip key={label} label={label} count={count} onSelect={onSelect} variant="outline" />
+                <TagChip key={label} label={label} count={count} onSelect={onSelect} variant="secondary" />
               ))}
             </ChipFamily>
           )}
@@ -692,7 +692,7 @@ function MissingSection({ missing }: { missing: readonly MissingDocument[] }) {
       <ul className="flex min-w-0 flex-wrap gap-1.5 pointer-coarse:gap-2">
         {shown.map((entry) => (
           <li key={`${entry.role}@${entry.buildingName ?? ''}`} className="min-w-0 max-w-full">
-            <Chip variant="outline" size="sm" title={name(entry)}>
+            <Chip variant="secondary" size="sm" title={name(entry)}>
               <ToneSwatch tone="muted" />
               <ChipLabel>{name(entry)}</ChipLabel>
             </Chip>

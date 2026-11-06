@@ -99,7 +99,7 @@ export function HeldReview({
       <div className="flex flex-wrap items-center gap-2" data-testid="preview-held-review">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
           onClick={() => setReleaseOpen(true)}
           data-testid="preview-held-release"
@@ -286,7 +286,7 @@ export function ReaderActions({
     >
       <Button
         type="button"
-        variant="outline"
+        variant="secondary"
         size={bar ? 'default' : 'sm'}
         className={cn(
           'gap-1.5',
@@ -308,7 +308,7 @@ export function ReaderActions({
       {annotate && (
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size={bar ? 'default' : 'sm'}
           className={cn('gap-1.5', bar ? 'h-11 min-w-11 shrink-0 px-3' : 'h-9 pointer-coarse:h-11')}
           // On a narrow bar the words give way to the glyph and the count, so

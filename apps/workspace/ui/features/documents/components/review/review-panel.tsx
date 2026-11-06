@@ -279,7 +279,7 @@ function CarriedFrom({
           <p className="text-muted-foreground text-[11px] leading-4">
             {t('review.carriedLoadError', { name: group.from.filename })}
           </p>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
+          <Button type="button" variant="secondary" size="sm" className="h-7 text-xs" onClick={review.retryCarried}>
             {t('annotations.retry')}
           </Button>
         </div>
@@ -315,7 +315,7 @@ function CarriedFrom({
                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className="h-7 text-xs"
                     disabled={busy}
@@ -489,7 +489,7 @@ export function ReviewPanel({
         ) : load === 'error' ? (
           <div className="space-y-2 px-2 py-6 text-center">
             <p className="text-muted-foreground text-sm">{t('annotations.loadError')}</p>
-            <Button type="button" variant="outline" size="sm" onClick={review.retry}>
+            <Button type="button" variant="secondary" size="sm" onClick={review.retry}>
               {t('annotations.retry')}
             </Button>
           </div>

@@ -233,3 +233,17 @@ describe('one grey', () => {
     expect(offenders).toEqual([])
   })
 })
+
+describe('the secondary press', () => {
+  // Owner decision D4 (design-language.md): the app's secondary press is tonal, the one grey on
+  // white and white on a grey panel, never the design system's outline. Dateien and the
+  // E-Mail-Eingang are held to it; the rest of the app is not yet.
+  it('Dateien and the E-Mail-Eingang set no outline button', () => {
+    const offenders = files
+      .filter((f) => f.name.startsWith('ui/features/documents/') || f.name.startsWith('ui/features/inbound-mail/'))
+      .filter((f) => /variant=["{][^>]*?\boutline\b/.test(withoutComments(f.text)) && /<Button|<BusyButton/.test(f.text))
+      .filter((f) => /\bvariant=("outline"|\{[^}]*'outline'[^}]*\})/.test(withoutComments(f.text)))
+      .map((f) => f.name)
+    expect(offenders).toEqual([])
+  })
+})

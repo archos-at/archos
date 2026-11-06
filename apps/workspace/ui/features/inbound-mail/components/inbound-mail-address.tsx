@@ -438,7 +438,7 @@ export function InboundMailAddressCard({ projectId, projectName, client }: Inbou
         )}
         {manage && (
           <div className="flex flex-wrap gap-2 border-t pt-4">
-            <Button type="button" variant="outline" size="sm" onClick={() => setConfirm('rotate')} data-testid="address-rotate">
+            <Button type="button" variant="secondary" size="sm" onClick={() => setConfirm('rotate')} data-testid="address-rotate">
               <RefreshCw className="size-4" aria-hidden />
               {t('address.rotate')}
             </Button>

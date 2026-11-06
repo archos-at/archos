@@ -169,7 +169,7 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
               <div className="flex flex-col items-start gap-1">
                 <BusyButton
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   busy={downloading}
                   busyLabel={t('header.original')}
