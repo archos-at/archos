@@ -819,6 +819,8 @@ export const collaboration: typeof en.collaboration = {
       inboundMailWaiting: {
         titleOne: 'Eine E-Mail an „{subject}“ wartet auf Ablage',
         titleMany: '{count} E-Mails an „{subject}“ warten auf Ablage',
+        // Die Zeile zählt, was jetzt wartet (`lib/inbox/live-counts.ts`): keine, bis sie erledigt ist.
+        titleNone: 'Keine E-Mail an „{subject}“ wartet mehr auf Ablage',
         title: 'E-Mails an „{subject}“ warten auf Ablage',
         body: 'Nichts davon ist im Projekt, bis jemand es ablegt.',
         variants: {

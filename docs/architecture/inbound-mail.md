@@ -591,7 +591,7 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 
 | Type | Told to | Row | Link | Push | Settled |
 |---|---|---|---|---|---|
-| `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing waits |
+| `inbound_mail.waiting` | the member sender (`member_verified`, addressed to the project or their Bcc copy, and holding a document write right, so able to file it), else the project's writers (any of `DOCUMENT_WRITE_PERMISSIONS`; a read-only member's signed mail included, whose member hears `held_for_writers`) | collapsed per project, actionable; its number is what waits now (`lib/inbox/live-counts.ts`), not the row's since-read tally | `/files/mail` | requests, normal | nothing waits |
 | `inbound_mail.expiring` | the same, once per mail (sweep 4) | collapsed per project, actionable | `/files/mail` | requests, normal | nothing it told about waits |
 | `inbound_mail.decided` | the member the From names (verified or not), when the run filed the mail's last part; variant `direct` when it was filed as them without a click (told although they are its decider) | per mail | `/files?folder=…` when every file went to one folder the member may open, else `/files` | results, low | — |
 | `inbound_mail.rejected` | the member the From names, when a dismissal ended their mail | per mail | `/files` | results, low | — |
@@ -602,6 +602,18 @@ forger causes it too), `decided` `direct` with „direkt“, and a title never s
 | `inbound_mail.cap_reached` | the project's managers; variant `nearly_full` or `full` | per address, actionable | `/files/mail` | requests, normal | below 80%, or a new address |
 | `inbound_mail.appended` | the follower | per Verlauf and day | the Verlauf document | results, low | — |
 | `mail_thread.follow_expiring` | the follower, once (sweep 12) | per follow, actionable | the Verlauf document | requests, low | renewed or ended |
+
+**A waiting row says what waits, not what arrived.** A collapsed row's `count`
+is occurrences since the reader last read it (`markReadValues`), right for
+„3 neue Nachrichten“ and wrong for „2 E-Mails warten auf Ablage“: on dev
+(2026-11-06) the row read „Eine E-Mail … wartet“ beside an E-Mail-Eingang
+holding two, because reading it set the count to 0 and the next mail added one,
+and a mail whose filing failed (`filing_failed`, its own row) was never added.
+So the read path (`listInbox`, and the push's `viewInboxItemAs`) replaces the
+count of an `inbound_mail.waiting` row with the project's waiting mails, by
+`projectNoticeState`'s rule (`waitingMailCounts`). Only the words follow it;
+the badge counts rows, and read and unread are as stored. `titleNone` covers a
+row read after its last mail was decided and before the settle resolved it.
 
 **The project's writers** are asked of WorkOS once per organization and
 project every five minutes (`lib/inbound-mail/notice-recipients.ts`,
