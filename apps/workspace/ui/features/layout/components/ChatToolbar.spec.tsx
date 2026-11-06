@@ -384,6 +384,31 @@ describe('ChatToolbar', () => {
       expect(title.closest('div[class*="max-w-[64%]"]')).toBeNull()
     })
 
+    // Ticket #38, R1: in a narrow window the title ran under „Neuer Chat“, both
+    // unreadable, and the thread read through the header behind the pills.
+    test('from `sm` the title yields to New chat: it shrinks and clamps, the actions keep their width', () => {
+      render(<ChatToolbar sessionTitle="Wiener Garagengesetz — Stellplatzverpflichtung" />)
+
+      const title = screen.getByText('Wiener Garagengesetz — Stellplatzverpflichtung')
+      expect(title.className).toContain('sm:line-clamp-1')
+      // `flex-none` cannot shrink: the title kept its whole width and overflowed.
+      for (const box of [title.closest('button'), title.closest('nav')]) {
+        expect(box?.className).toContain('min-w-0')
+        expect(box?.className).toContain('sm:flex-initial')
+        expect(box?.className).not.toContain('sm:flex-none')
+      }
+      const newChat = screen.getByRole('button', { name: 'Create new session' })
+      expect(newChat.parentElement?.className).toContain('shrink-0')
+    })
+
+    test('the header is an opaque band in the page surface, and takes its own clicks', () => {
+      render(<ChatToolbar sessionTitle="My Session" />)
+
+      const header = screen.getByRole('banner')
+      expect(header.className).toContain('bg-background')
+      expect(header.className).not.toContain('pointer-events-none')
+    })
+
     test('a running research is on the phone too, at the end of the title row, not behind `hidden sm:flex`', () => {
       mockIsDeepResearchStreaming = true
 
@@ -435,6 +460,18 @@ describe('ChatToolbar', () => {
       render(<ChatToolbar sessionTitle="My Session" />)
 
       expect(screen.getByText('My Session')).toBeInTheDocument()
+    })
+
+    test('the title is the size of the New chat label beside it, from `sm` on', () => {
+      // The title read as a heading next to a button, one step larger than the
+      // only other words in the row. Beside each other they are one row.
+      render(<ChatToolbar sessionTitle="My Session" />)
+
+      const newChatLabel = screen.getByText('New chat')
+      const title = screen.getByRole('button', { name: /rename session/i })
+      expect(newChatLabel.className).toContain('text-xs')
+      expect(title.className).toContain('sm:text-xs')
+      expect(title.className).toContain('sm:leading-4')
     })
 
     test('does not repeat the project name in the breadcrumb — the context row above it carries it', () => {

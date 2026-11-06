@@ -21,6 +21,8 @@ import { AlertTriangle, X } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AnimatePresence } from '@/components/motion'
 import { HeightArrival } from '@/components/motion/height-arrival'
+import { THREAD_COLUMN, THREAD_GUTTER } from '@/components/ui/thread-column'
+import { cn } from '@/lib/utils'
 import { useTranslations } from '@/i18n'
 import { chatCopy } from '@/i18n/namespaces/chat'
 import { useLayoutStore } from '@/features/layout/store'
@@ -80,7 +82,7 @@ export const NoSourcesBanner: FC<NoSourcesBannerProps> = ({ isAuthenticated = fa
   return (
     <AnimatePresence initial={false}>
       {visible && (
-        <HeightArrival key="no-sources" className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+        <HeightArrival key="no-sources" className={cn(THREAD_COLUMN, THREAD_GUTTER)}>
           <Alert variant="warning" className="relative">
             <AlertTriangle />
             <AlertDescription className="pr-6">{t('noSources.warning')}</AlertDescription>

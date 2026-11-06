@@ -1,7 +1,7 @@
 """Every ``native:<tool>`` in the exposure config is a tool Piloti really has (ADR-0122).
 
 ``apps/workspace/bff/agent-api/exposure.config.ts`` decides who sees each
-operation of the agent door. ``piloti: 'native:<tool>'`` hides an operation from
+operation of the agent door. ``agent: 'native:<tool>'`` hides an operation from
 Piloti's door because Piloti does that work with its own tool. A name that is
 not in Piloti's tool list would hide the operation and leave Piloti with no way
 to do the work at all, so each one is checked against the chat agent's
@@ -31,9 +31,9 @@ def exposure() -> dict[str, dict]:
 def test_every_native_tool_the_config_names_is_one_the_chat_agent_has(exposure: dict[str, dict]) -> None:
     tools = chat_tool_names()
     natives = {
-        name: entry["piloti"].removeprefix("native:")
+        name: entry["agent"].removeprefix("native:")
         for name, entry in exposure.items()
-        if isinstance(entry["piloti"], str)
+        if isinstance(entry["agent"], str)
     }
     assert natives, "the config names no native tool: the fixture is not the one this test reads"
     unknown = {name: tool for name, tool in natives.items() if tool not in tools}
@@ -53,7 +53,7 @@ def test_the_consultants_steps_hide_these_from_the_chat_agent_behind_its_own_too
         "annotation-delete": "native:canvas__delete",
         "annotation-reply-create": "native:canvas__reply",
     }
-    assert {name: exposure[name]["piloti"] for name in expected} == expected
+    assert {name: exposure[name]["agent"] for name in expected} == expected
     assert all(exposure[name]["external"] for name in expected)
 
 
@@ -64,7 +64,7 @@ def test_the_tool_list_reader_sees_the_canvas_group() -> None:
 
 def test_the_door_looks_with_the_tool_agent_looks_with(exposure: dict[str, dict]) -> None:
     """ADR-0128: one name for one act. The door's ``document-look`` is Piloti's own ``look``, offered outside."""
-    assert exposure["document-look"]["piloti"] == "native:look"
+    assert exposure["document-look"]["agent"] == "native:look"
     assert exposure["document-look"]["external"] is True
     assert "knowledge-image-view" not in exposure
     assert "look" in chat_tool_names()

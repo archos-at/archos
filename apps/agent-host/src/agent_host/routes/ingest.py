@@ -2,11 +2,9 @@
 
 import asyncio
 import hashlib
-import ipaddress
 import logging
 import os
 import re
-import socket
 import tempfile
 import time
 from collections.abc import AsyncIterator
@@ -22,9 +20,12 @@ from fastapi import HTTPException
 
 from agent.common.connect_retry import CONNECT_RETRIES
 from agent.common.connect_retry import CONNECT_TIMEOUT_SECONDS
+from agent.common.source_kinds import MAIL_SOURCE_FORMAT
 from agent.knowledge.base import BaseIngestor
 
 from ..models.requests import IngestRequest
+from ..object_store_url import assert_fetchable_object_store_url
+from ..object_store_url import object_store_request_url
 from .collections import _require_ingestor
 
 logger = logging.getLogger(__name__)
@@ -39,14 +40,13 @@ def add_ingest_routes(router: APIRouter):
         tags=["ingestion"],
         summary="Ingest a file from a URL reference",
         description=(
-            "Validates the presigned URL and submits an ingestion job that downloads"
-            " the file when it runs. Nothing is downloaded inside the request."
+            "Submits an ingestion job that downloads the file when it runs. Every URL in the body"
+            " must name the object store (`ObjectStoreUrl`); nothing is downloaded in the request."
         ),
-        # Every status this handler actually raises. The download is the job's
-        # (DeferredObjectDownload), so a missing object or an unreachable store
-        # is a FAILED file with `original_download_failed`, never a status here.
+        # Every status this handler raises: a missing object or an unreachable store is the job's
+        # FAILED file (`original_download_failed`), and 422 (a URL off the store) is FastAPI's own.
         responses={
-            400: {"description": "Invalid request: a URL off the object store, or a missing field"},
+            400: {"description": "Invalid request: no collection"},
             500: {"description": "The job could not be submitted"},
         },
     )
@@ -56,7 +56,7 @@ def add_ingest_routes(router: APIRouter):
         x_grid_organization_id: str | None = Header(default=None),
     ) -> dict:
         """
-        Validate the presigned URL and submit a job that downloads it.
+        Submit a job that downloads the presigned URL.
 
         The BFF upload route writes the file to SeaweedFS and calls this endpoint
         with a presigned URL so the Python backend can ingest it into the
@@ -76,9 +76,9 @@ def add_ingest_routes(router: APIRouter):
         override — the ingest thread is detached from the request, so the org
         id must be captured here and carried in the job config.
         """
-        if not request.file_ref or not request.collection:
-            raise HTTPException(status_code=400, detail="file_ref and collection are required")
-        _assert_request_urls(request)
+        # Every URL passed `ObjectStoreUrl`; the job gates them again (`DeferredObjectDownload.from_payload`).
+        if not request.collection:
+            raise HTTPException(status_code=400, detail="collection is required")
 
         # Idempotent per document, object and collection (see _dispatch_key): the BFF
         # retries once when its ten-second budget runs out, and a retry must
@@ -149,33 +149,15 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
         # The original's size: a large file reads on the high-memory pool (`ingest_dispatch.original_bytes`).
         "original_bytes": request.byte_size,
     }
-    if request.thumbnail_upload_url:
-        # Gated in _assert_request_urls before anything was requested.
-        config["thumbnail_upload_url"] = request.thumbnail_upload_url
-    # What a retried dispatch of this document and object is matched against
-    # (`BaseIngestor.find_live_job`).
+    if thumbnail_url := request.thumbnail_upload_url:
+        # Gated as an `ObjectStoreUrl` and rebuilt on the configured store's origin.
+        config["thumbnail_upload_url"] = object_store_request_url(thumbnail_url, field="thumbnail_upload_url")
+    # What a retried dispatch of this document and object is matched against (`BaseIngestor.find_live_job`).
     if dispatch_key:
         config["dispatch_key"] = dispatch_key
-    # The folder this document was filed into, as the BFF's materialised path
-    # (ADR-0049), stamped onto the metadata row: a folder is part of what the
-    # agent must know about a document, not only of how the object is keyed.
-    if folder_path := (request.folder_path or "").strip():
-        config["folder_path"] = folder_path
-    # A person's choice at upload: this file replaces that one (CONTEXT.md,
-    # "Fassung"). The job writes the confirmed link once the file has been read.
-    if revision_of := (request.revision_of or "").strip():
-        config["revision_of"] = revision_of
-    # The org id, so the detached ingest thread resolves the tenant's BYOK
-    # VLM credential and runtime model override.
-    if organization_id:
-        config["organization_id"] = organization_id
-        # Who the job's model spend is booked to beside the organization
-        # (`_ingest_cost_scope`): attribution on the usage ledger only, never
-        # authorization, and only ever within the organization above.
-        if request.project_id:
-            config["project_id"] = request.project_id
-        if request.user_id:
-            config["user_id"] = request.user_id
+    config.update(_filing_choice_config(request))
+    config.update(_mail_config(request))
+    config.update(_tenant_config(request, organization_id))
     # The project's facts for the chunks' payload (`qdrant.writes.enrichment`), as
     # plain data so they ride the durable queue's JSON payload unchanged.
     if request.project_facts is not None:
@@ -212,21 +194,58 @@ def _job_config(request: IngestRequest, organization_id: str | None, dispatch_ke
     return config
 
 
-def _assert_request_urls(request: IngestRequest) -> None:
-    """Every URL this request names passes both SSRF gates, before anything is requested.
+def _tenant_config(request: IngestRequest, organization_id: str | None) -> dict[str, str]:
+    """Whose job this is: the organization, and the project and user its spend is booked to.
 
-    Nothing is fetched inside the request: ``file_ref``, ``extraction_ref`` and
-    ``preview_ref`` are downloaded by the job, and ``thumbnail_upload_url``
-    feeds the job's PUT. So this gate is the only
-    one those URLs meet, and an unvalidated URL on any of those paths is an
-    arbitrary-destination server-side request forgery. Fail-closed for all of them: a request naming a non-object-store
-    URL is malformed, not decorative.
+    The org id, so the detached ingest thread resolves the tenant's BYOK VLM
+    credential and runtime model override. The project and the user are who the
+    job's model spend is booked to beside the organization (`_ingest_cost_scope`):
+    attribution on the usage ledger only, never authorization, and only ever
+    within that organization, so neither is stated without it.
     """
-    _assert_fetchable_object_store_url(request.file_ref)
-    for field in ("preview_ref", "extraction_ref", "thumbnail_upload_url"):
-        value = getattr(request, field)
-        if value:
-            _assert_fetchable_object_store_url(value, field=field)
+    if not organization_id:
+        return {}
+    config = {"organization_id": organization_id}
+    if request.project_id:
+        config["project_id"] = request.project_id
+    if request.user_id:
+        config["user_id"] = request.user_id
+    return config
+
+
+def _filing_choice_config(request: IngestRequest) -> dict[str, str]:
+    """Where and as what the person filed this document, for the job's config.
+
+    - ``folder_path``: the folder it was filed into, as the BFF's materialised path
+      (ADR-0049), stamped onto the metadata row: a folder is part of what the agent
+      must know about a document, not only of how the object is keyed.
+    - ``revision_of``: this file replaces that one (CONTEXT.md, "Fassung"). The job
+      writes the confirmed link once the file has been read.
+    - ``document_type``: what this document is (its type tag). The job stores it as
+      the person's type tag, which no classifier pass replaces.
+    """
+    choices = {
+        "folder_path": (request.folder_path or "").strip(),
+        "revision_of": (request.revision_of or "").strip(),
+        "document_type": request.document_type or "",
+    }
+    return {key: value for key, value in choices.items() if value}
+
+
+def _mail_config(request: IngestRequest) -> dict:
+    """A filed mail's facts for the job's config (ADR-0137), or nothing.
+
+    The Verlauf's chunks carry its format, and its row and an attachment's row carry
+    what a reader attributes a passage by. Plain JSON, so both ride the durable queue's
+    payload unchanged; the job stores them through the store's normaliser.
+    """
+    config: dict = {}
+    if request.mail_thread is not None:
+        config["source_format"] = MAIL_SOURCE_FORMAT
+        config["mail_thread"] = request.mail_thread.model_dump(mode="json")
+    if request.mail_origin is not None:
+        config["mail_origin"] = request.mail_origin.model_dump(mode="json", exclude_none=True)
+    return config
 
 
 def _dispatch_key(request: IngestRequest) -> str | None:
@@ -332,7 +351,7 @@ class DeferredObjectDownload:
         so the gates run again before the worker requests anything.
         """
         url = data["url"]
-        _assert_fetchable_object_store_url(url)
+        assert_fetchable_object_store_url(url)
         return cls(url, data.get("suffix"))
 
     def __call__(self) -> str:
@@ -340,7 +359,10 @@ class DeferredObjectDownload:
         # (e.g. a cloud metadata endpoint), which would make the route's host
         # check a no-op. Presigned object-store GETs never redirect; a 3xx is
         # a failed download like any other.
-        response = _get_original(self._url)
+        # The request goes to the configured store by construction: only the
+        # object's path and its presigned query come from the URL handed in
+        # (`object_store_request_url`), never its host.
+        response = _get_original(object_store_request_url(self._url))
         response.raise_for_status()
         suffix = self._suffix or _infer_suffix(response.headers.get("content-type", ""), self._url)
         fd, path = tempfile.mkstemp(suffix=suffix)
@@ -422,86 +444,6 @@ def _provenance_config(request: IngestRequest) -> dict[str, str]:
         KEY_PRODUCER: (request.producer or "").strip(),
     }
     return {key: value for key, value in fields.items() if value}
-
-
-def _assert_fetchable_object_store_url(url: str, field: str = "file_ref") -> None:
-    """Both SSRF gates every URL this route requests must pass, in order."""
-    _assert_object_store_url(url, field=field)
-    _assert_public_host_resolution(url, field=field)
-
-
-def _assert_public_host_resolution(url: str, field: str = "file_ref") -> None:
-    """Ensure a URL host OUTSIDE the object-store allowlist resolves publicly.
-
-    Hosts on the allowlist are exempt: the in-network object store
-    (``SEAWEED_ENDPOINT=http://seaweedfs:8333`` in compose/Kubernetes)
-    resolves to a private address by design, so demanding a public IP for it
-    would reject every legitimate presigned upload in those deployments.
-    Trust for those names comes from ``_assert_object_store_url``, which has
-    already matched them strictly against operator configuration. Any other
-    host must resolve public-only — a private/loopback/link-local answer is
-    exactly the DNS-rebinding shape that would aim this route at internal
-    services.
-    """
-    parsed = urlparse(url)
-    host = parsed.hostname
-    if not host:
-        raise HTTPException(status_code=400, detail=f"{field} must include a valid hostname")
-    if host.casefold() in _object_store_hosts():
-        return
-
-    try:
-        infos = socket.getaddrinfo(host, parsed.port or 443, type=socket.SOCK_STREAM)
-    except socket.gaierror as exc:
-        raise HTTPException(status_code=400, detail=f"{field} host could not be resolved") from exc
-
-    for info in infos:
-        ip_str = info[4][0]
-        ip = ipaddress.ip_address(ip_str)
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_multicast
-            or ip.is_reserved
-            or ip.is_unspecified
-        ):
-            raise HTTPException(
-                status_code=400,
-                detail=f"{field} host resolves to a non-public IP address",
-            )
-
-
-def _object_store_hosts() -> frozenset[str]:
-    """Hostnames the ingest endpoint may download from: the object store itself.
-
-    ``file_ref`` is a presigned SeaweedFS URL, so a request that points
-    anywhere else is a server-side request forgery. The store is reachable
-    under up to two names — the in-network endpoint (``SEAWEED_ENDPOINT``,
-    what the backend itself uses) and the browser-facing one the BFF signs
-    presigned URLs against (``SEAWEED_PUBLIC_ENDPOINT``) — and both must be
-    trusted. An attacker with a user-level token could otherwise call this
-    route with a URL aimed at the Docker network's metadata service or any
-    other internal host, and the fetch would happen with the backend's trust
-    level. Strict host match, no substrings: ``evil-seaweedfs.com`` must not
-    pass for ``seaweedfs.com``.
-    """
-    hosts: set[str] = set()
-    for environment_variable in ("SEAWEED_ENDPOINT", "SEAWEED_PUBLIC_ENDPOINT"):
-        endpoint = os.environ.get(environment_variable, "")
-        host = urlparse(endpoint).hostname
-        if host:
-            hosts.add(host.casefold())
-    return frozenset(hosts)
-
-
-def _assert_object_store_url(url: str, field: str = "file_ref") -> None:
-    """Reject a URL that is not an http(s) URL to the object store."""
-    parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
-        raise HTTPException(status_code=400, detail=f"{field} must be an http(s) object-store URL")
-    if not parsed.hostname or parsed.hostname.casefold() not in _object_store_hosts():
-        raise HTTPException(status_code=400, detail=f"{field} must point at the configured object store")
 
 
 def _infer_suffix(content_type: str, url: str) -> str:

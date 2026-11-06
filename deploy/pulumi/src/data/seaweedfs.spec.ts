@@ -171,6 +171,12 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
         s3SecretKey: pulumi.secret("qdrant-secret"), // pragma: allowlist secret
       },
     },
+    // The CMS's identity (ADR-0155): zipped on like Langfuse's, off by default.
+    cms: {
+      enabled: false,
+      s3AccessKey: "cms",
+      s3SecretKey: pulumi.secret("cms-secret"), // pragma: allowlist secret
+    },
     // No worker groups: no nodeSelector, as on every stack but prod.
     nodeGroups: {},
   };

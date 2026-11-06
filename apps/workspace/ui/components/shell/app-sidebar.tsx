@@ -48,6 +48,8 @@ import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
 import { useLayoutStore } from '@/features/layout/store'
+import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
+import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
 import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
@@ -146,6 +148,12 @@ export interface AppSidebarProps {
    * what the rail looks like. A required prop turns that into a compile error.
    */
   canAccessInbox: boolean
+  /**
+   * The office receives project mail (`inbound-mail`, ADR-0137): Dateien
+   * carries the muted count of mail waiting for this reader. Optional and off
+   * by default, so a preview without it shows the rail as it was.
+   */
+  inboundMailEnabled?: boolean
 }
 
 /** One rendered rail entry, after both scopes have been reduced to a shape. */
@@ -158,6 +166,8 @@ interface RailItemModel {
   badgeCount: number
   /** The Postfach's: it may open beside the page instead of following `href`. */
   door?: StartDockDoor
+  /** A quiet count beside the entry (mail waiting in Dateien); the Postfach's ink pill is `badgeCount`. */
+  waitingCount: number | null
 }
 
 interface RailGroupModel {
@@ -195,6 +205,7 @@ function AppSidebarFrame({
   showModels = false,
   showSkills = false,
   canAccessInbox,
+  inboundMailEnabled = false,
 }: AppSidebarProps) {
   const pathname = usePathname() ?? ''
   const t = useTranslations(navCopy)
@@ -202,6 +213,7 @@ function AppSidebarFrame({
   const { state, isMobile } = useSidebar()
   const { pending: inboxPending } = useInboxBadge(canAccessInbox)
   const inboxDoor = useStartDockDoor('inbox')
+  const inboundMail = useInboundMailWaiting(projectId, inboundMailEnabled)
 
   const projectSheetOpen = useShellOverlays((s) => s.projectSheetOpen)
   const setProjectSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
@@ -240,6 +252,7 @@ function AppSidebarFrame({
       active: pathname.startsWith(sectionHref(item, base)),
       badgeCount: item.key === 'inbox' ? inboxPending : 0,
       door: item.key === 'inbox' ? inboxDoor : undefined,
+      waitingCount: item.key === 'files' ? inboundMail.count : null,
     })),
   }))
 
@@ -313,8 +326,9 @@ function AppSidebarFrame({
         <SidebarHeader
           className={cn(
             // On a phone this is the top of a full-height drawer, under the
-            // status bar; the inset is 0 everywhere else, so 18px stands.
-            'shrink-0 gap-0 p-0 pt-[max(18px,env(safe-area-inset-top))]',
+            // status bar; the inset is 0 everywhere else. The brand row below
+            // carries the rest (`brand-slot.ts`): 56px, as the org header's band.
+            'shrink-0 gap-0 p-0 pt-[env(safe-area-inset-top)]',
             // 14px, so a 36px tile centres at x=32 in the 64px rail — the same
             // axis as the brand mark, the presence dot and the avatar. A zero
             // inset left the icon column flush at x=0 (centre 18) while
@@ -328,7 +342,8 @@ function AppSidebarFrame({
             // pinned here so the nav below always starts at the same edge —
             // that 36px is the difference between "the contents changed" and
             // "the page jumped".
-            <div className="mt-[18px] flex h-9 items-center pointer-coarse:h-11">
+            // `mt-2` under the 56px brand row: the switcher's top stays at 64px.
+            <div className="mt-2 flex h-9 items-center pointer-coarse:h-11">
               <ProjectSwitcher
                 projects={projects}
                 activeProjectId={projectId}
@@ -370,6 +385,7 @@ function AppSidebarFrame({
                         active={item.active}
                         label={item.label}
                         badgeCount={item.badgeCount}
+                        waitingCount={item.waitingCount}
                         tooltip={iconRail}
                         pillId={activePillId}
                         door={item.door}
@@ -403,6 +419,7 @@ function AppSidebarFrame({
                           active={item.active}
                           label={item.label}
                           badgeCount={item.badgeCount}
+                          waitingCount={item.waitingCount}
                           tooltip={iconRail}
                           pillId={activePillId}
                           door={item.door}
@@ -513,6 +530,7 @@ function RailNavItem({
   active,
   label,
   badgeCount,
+  waitingCount = null,
   tooltip,
   pillId,
   tourAnchor,
@@ -523,6 +541,8 @@ function RailNavItem({
   active: boolean
   label: string
   badgeCount: number
+  /** The muted count (mail waiting in Dateien); shown only where no ink pill is. */
+  waitingCount?: number | null
   tooltip: boolean
   /** Shared-layout identity for the active chip — see {@link railActivePillId}. */
   pillId: string
@@ -617,6 +637,12 @@ function RailNavItem({
             pending={badgeCount}
             className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0"
           />
+          {badgeCount <= 0 && (
+            <InboundMailWaitingBadge
+              count={waitingCount}
+              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0"
+            />
+          )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>

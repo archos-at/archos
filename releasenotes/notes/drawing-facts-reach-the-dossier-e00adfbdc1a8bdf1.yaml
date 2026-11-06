@@ -1,0 +1,7 @@
+---
+fixes:
+  - >
+    Heights and other values printed on a drawing, such as a room height in a
+    section, now reach the document's facts after upload. Before, a drawing's
+    printed values were read but never kept, so only what the text pages said
+    showed up there.

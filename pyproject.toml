@@ -66,7 +66,7 @@ target-version = "py314"
 [tool.ruff.per-file-target-version]
 "ci/**/*.py" = "py312"
 "scripts/check_*.py" = "py312"
-"scripts/release_notes.py" = "py312"
+"scripts/release_notes*.py" = "py312"
 "deploy/migration/**/*.py" = "py312"
 
 [tool.ruff.lint]

@@ -10,7 +10,8 @@
  *   app       → chat (StatefulSet, the chat role), api (Deployment + HPA,
  *               the api role), each beside its legacy name until the switch, frontend (Deployment + HPA), purger, gotenberg (office
  *               → PDF), a migration Job, a WorkOS audit-schema reconcile Job and,
- *               opt-in, the one-shot Chroma-to-Qdrant Job
+ *               opt-in, the one-shot Chroma-to-Qdrant Job and ClamAV (the
+ *               malware scanner, ADR-0157)
  *   edge      → Gateway API (Envoy Gateway) + HTTPRoutes with cert-manager TLS,
  *               for the app, the landing site and the public S3 endpoint
  *
@@ -49,6 +50,7 @@ import { LEGACY_API_TIER, LEGACY_CHAT_TIER } from "./src/app/tier-names";
 import { installFrontend } from "./src/app/frontend";
 import { installWeb } from "./src/app/web";
 import { installGotenberg } from "./src/app/gotenberg";
+import { installClamAV } from "./src/app/clamav";
 import { installWorkers } from "./src/app/workers";
 import { installAgentWorker } from "./src/app/agent-worker";
 import { installIngestWorker, installIngestWorkerHeavy } from "./src/app/ingest-worker";
@@ -64,9 +66,15 @@ import { installHttpRoutes } from "./src/app/httproutes";
 import { installOtelCollector } from "./src/platform/otel-collector";
 import { installOtelAgent } from "./src/platform/otel-agent";
 import { installDns, managedRecordNames } from "./src/platform/dns";
+import { inboundMailOutputs, installInboundMail } from "./src/platform/inbound-mail";
+import { installInboundMailZone } from "./src/platform/email-routing";
 import { installLangfuse } from "./src/platform/langfuse";
 import { installQdrantDashboard } from "./src/platform/qdrant-dashboard";
+import { installMcpGateway } from "./src/platform/mcp-gateway";
 import { LANGFUSE, QDRANT } from "./src/constants";
+import { CMS, cmsImage } from "./src/config/cms";
+import { installCmsGatewayCredential, installWebCmsSecret } from "./src/platform/cms";
+import { installCmsTier } from "./src/platform/cms-tier";
 
 const cfg = loadConfig();
 const provider = makeProvider(cfg);
@@ -110,6 +118,8 @@ const extraBuckets = [
   ...(cfg.langfuse.enabled ? [LANGFUSE.bucket] : []),
   // Qdrant's shard snapshots (ADR-0115), reached only as `grid-qdrant`.
   QDRANT.snapshotBucket,
+  // The CMS's file library (ADR-0155), reached only as `cms`.
+  ...(cfg.cms.enabled ? [CMS.bucket] : []),
 ];
 const filerNeedsPostgres =
   cfg.seaweedfs.topology === "split" && cfg.seaweedfs.filerStore === "postgres";
@@ -222,6 +232,13 @@ const qdrant = installQdrant(cfg, provider, namespace, seaweed.internalEndpoint,
 const gotenberg = cfg.gotenberg.enabled
   ? installGotenberg(cfg, provider, namespace, [ns])
   : undefined;
+// The malware scanner (ADR-0157): clamd and freshclam for what strangers send.
+// Off by default (`malwareScanEnabled`). Fail closed: without it every scan
+// fails and nothing that needs a clean one is filed, so nothing waits on it.
+const clamav = cfg.malwareScan.enabled
+  ? installClamAV(cfg, provider, namespace, [ns])
+  : undefined;
+
 // ── Shared wiring for the app tier ─────────────────────────────────────────
 // Pull Secret for private app images (no-op when none are configured).
 const pullSecret = buildRegistryPullSecret(cfg, provider, namespace);
@@ -233,6 +250,7 @@ const wiring: AppWiring = {
   seaweedInternalEndpoint: seaweed.internalEndpoint,
   seaweedPublicEndpoint: seaweed.publicEndpoint,
   gotenbergUrl: gotenberg?.url,
+  malwareScanUrl: clamav?.url,
   qdrantUrl: qdrant.url,
   dsn: postgres.dsn,
   imagePullSecrets: pullSecret ? [{ name: PULL_SECRET_NAME }] : [],
@@ -367,9 +385,12 @@ const legacyBackend = installBackend(
 
 // The public website + blog (Astro, apps/website) — static-first, no app secrets,
 // but it pulls from the same registry, so it gets the pull Secret too.
+// With the CMS (ADR-0155) it also reads the posts from it, with the `web-cms` tokens.
+const webCmsSecret = installWebCmsSecret(cfg, provider, cfg.namespace, [ns]);
 const web = installWeb(cfg, provider, namespace, wiring.imagePullSecrets, [
   ns,
   ...(pullSecret ? [pullSecret] : []),
+  ...(webCmsSecret ? [webCmsSecret] : []),
 ]);
 
 // KEDA scales the research and ingest workers and the BFF job pool (Hatchet's
@@ -458,6 +479,10 @@ const routes = installHttpRoutes(cfg, provider, namespace, [
   // while enforcing nothing.
   ...(rateLimitStore ? [rateLimitStore.service] : []),
 ]);
+// The website's CMS (ADR-0155) on `cms.<baseDomain>`: off unless `cmsEnabled`.
+if (cfg.cms.enabled) {
+  installCmsTier(cfg, provider, { appNamespace: ns, postgresOperator: postgres.cluster, bucketInit: seaweed.bucketInitJob, gateway: gatewayResources.gateway });
+}
 // Qdrant's dashboard on its own host, behind the platform-operator gate. Off
 // by default (`qdrantDashboardEnabled`); operators port-forward otherwise.
 if (cfg.qdrant.dashboard.enabled) {
@@ -501,6 +526,17 @@ if (cfg.observability.enabled) {
         )
       : undefined;
 
+  // The platform MCP gateway (ADR-0154), in front of Langfuse's and the CMS's MCP servers.
+  if (cfg.mcpGateway.enabled && (langfuse || cfg.cms.enabled)) {
+    const cmsCredential = installCmsGatewayCredential(cfg, provider, namespace, [ns]);
+    installMcpGateway(cfg, provider, namespace, [
+      gatewayResources.gateway,
+      ...(langfuse ? [langfuse.webService, langfuse.secret] : []),
+      ...(cmsCredential ? [cmsCredential] : []),
+      ...(rateLimitStore ? [rateLimitStore.service] : []), frontend.service, // and with it the admission Secret
+    ]);
+  }
+
   const collector = installOtelCollector(
     cfg, provider, namespace,
     [
@@ -531,6 +567,14 @@ if (cfg.observability.enabled) {
 // this exists to prevent.
 const dns = installDns(cfg);
 
+// ── Project mail (Cloudflare Email Routing, ADR-0138) ────────────────────────
+//
+// Cloudflare-only as well, and independent for the same reason: a Worker that
+// posts to a frontend not up yet gets a connection error or a 404, throws, and
+// the sending server retries. The promote that first sets the domain sets
+// `inboundMailPaused` too, and the unpause follows the launch gates.
+const inboundMail = installInboundMail(cfg, installInboundMailZone(cfg));
+
 // ── Stack outputs ────────────────────────────────────────────────────────────
 export const appUrl = pulumi.interpolate`https://${cfg.ingress.appDomain}`;
 export const s3Url = pulumi.interpolate`https://${cfg.ingress.s3Domain}`;
@@ -553,12 +597,18 @@ export const geocoderUrl = cfg.geocoderUrl || "(none: geocoderUrl is empty)";
 export const pgInstances = cfg.postgres.instances;
 export const pgBackupsEnabled = cfg.postgres.backups.enabled;
 export const networkPoliciesEnabled = cfg.networkPolicies;
+export const cmsUrl = cfg.cms.enabled ? `https://${cfg.cms.domain}` : "(none: cmsEnabled=false)";
 export const langfuseUrl = cfg.langfuse.enabled
   ? pulumi.interpolate`https://${cfg.langfuse.domain}`
   : pulumi.output("(none: langfuse disabled)");
+export const platformMcpUrl = cfg.mcpGateway.enabled
+  ? pulumi.interpolate`https://${cfg.mcpGateway.domain}/langfuse/mcp`
+  : pulumi.output("(none: mcpGatewayEnabled=false)");
 export const dnsRecords = dns
   ? pulumi.all(managedRecordNames(dns)).apply((names) => names.join(", "))
   : pulumi.output("(none: dnsEnabled=false — records are maintained by hand)");
+// `inboundMailOperator` says whether the RFC 2142 forwards' address is verified yet.
+export const { inboundMailWorker, inboundMailOperator } = inboundMailOutputs(cfg, inboundMail);
 // The image refs this update deployed. `deploy.yml` reads them back before the
 // next staging deploy and refuses one that would move a service to an older
 // commit (`scripts/resolve-image-refs.sh`). The stack file cannot answer that:
@@ -568,6 +618,9 @@ export const deployedImages = {
   backend: backendImage(cfg),
   frontend: frontendImage(cfg),
   web: webImage(cfg),
+  // The CMS's image, so the next staging deploy's downgrade guard can read it
+  // (scripts/resolve-image-refs.sh). Recorded even while the CMS is off.
+  cms: cmsImage(cfg.images, cfg.cms.imageOverride),
 };
 export const ingestWorkerDeployment = ingestWorker.deployment.metadata.name;
 export const bffJobsDeployment = bffJobs.deployment.metadata.name;

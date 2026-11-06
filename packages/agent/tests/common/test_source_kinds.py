@@ -82,6 +82,25 @@ class TestAgentAuthoredLane:
         assert "{" not in AGENT_AUTHORED_LANE_LABEL
 
 
+class TestMailLanes:
+    """A filed E-Mail-Verlauf is Projektwissen with a sub-label, never building law (ADR-0137)."""
+
+    def test_the_project_thread_is_project_and_the_office_thread_is_office(self):
+        from agent.common.source_kinds import MAIL_LANE
+        from agent.common.source_kinds import OFFICE_MAIL_LANE
+
+        assert kind_for_lane(MAIL_LANE) == "project"
+        assert kind_for_lane(OFFICE_MAIL_LANE) == "office"
+
+    def test_both_lanes_carry_the_one_label(self):
+        from agent.common.norm_registry import _LANE_LABELS
+        from agent.common.source_kinds import MAIL_LANE
+        from agent.common.source_kinds import MAIL_LANE_LABEL
+        from agent.common.source_kinds import OFFICE_MAIL_LANE
+
+        assert _LANE_LABELS[MAIL_LANE] == _LANE_LABELS[OFFICE_MAIL_LANE] == MAIL_LANE_LABEL == "E-Mail"
+
+
 class TestSourceKindLookup:
     def test_known_kind(self):
         assert source_kind("office").label == "Büroablage"

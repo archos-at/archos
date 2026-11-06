@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { SectionLabel } from '@/components/ui/section-label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useTranslations } from '@/i18n'
 import { intakeProfileStepCopy } from '@/i18n/namespaces/intake-profile-step'
@@ -175,7 +176,7 @@ function ClassResult({
       </div>
       <CollapsibleContent data-testid="profile-class-working">
         <div className="border-border mt-4 space-y-2 border-t pt-3 text-[13px]">
-          <p className="text-muted-foreground text-[11px] uppercase tracking-[0.06em]">{t('class.inputs')}</p>
+          <SectionLabel as="p">{t('class.inputs')}</SectionLabel>
           <ul className="space-y-1">
             {derivation.inputs.map((input) => (
               <li key={input.key} className="flex items-baseline justify-between gap-3">

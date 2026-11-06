@@ -1,15 +1,16 @@
 'use client'
 
 /**
- * Settings → Documents & index: who brought which files into the project, and
- * whether the index answers are grounded on is current.
+ * Settings → Documents & index: who brought which files into the project, the
+ * project's mail address (ADR-0137), and whether the index answers are grounded
+ * on is current.
  *
  * The upload history is the reference record (ADR-0086); the index controls
  * act on what those uploads became. Both used to sit between the roster and
  * the memory on one long page.
  */
 
-import type { JSX } from 'react'
+import type { JSX, ReactNode } from 'react'
 import Link from 'next/link'
 import { BookOpenCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,7 @@ import { useTranslations } from '@/i18n'
 import { settingsCopy } from '@/i18n/namespaces/settings'
 import { uploadBatchesCopy } from '@/i18n/namespaces/upload-batches'
 import { ProjectReindexCard } from '../project-reindex-card'
-import { SettingsPanel } from './settings-panel'
+import { SettingsPanel } from '@/components/settings/settings-panel'
 
 export interface DocumentsSettingsProps {
   projectId: string
@@ -28,6 +29,14 @@ export interface DocumentsSettingsProps {
   canReindex: boolean
   /** The flagged knowledge-base page, linked from here rather than the rail. */
   showKnowledgeLink: boolean
+  /**
+   * The project mail address card, for a reader who may decide the project's
+   * held mail (`inbound-mail` and `project:documents:write`); a manager may
+   * create, replace and switch it off there (`InboundMailAddressCard`). Absent:
+   * no card. The route passes it in, so the projects feature never imports the
+   * inbound-mail feature (module-seams.md).
+   */
+  inboundMailAddress?: ReactNode
 }
 
 export function DocumentsSettings({
@@ -35,6 +44,7 @@ export function DocumentsSettings({
   currentUserId,
   canReindex,
   showKnowledgeLink,
+  inboundMailAddress,
 }: DocumentsSettingsProps): JSX.Element {
   const t = useTranslations(settingsCopy)
   const tUploads = useTranslations(uploadBatchesCopy)
@@ -47,6 +57,8 @@ export function DocumentsSettings({
       >
         <UploadHistory projectId={projectId} currentUserId={currentUserId} />
       </SettingsPanel>
+
+      {inboundMailAddress}
 
       {canReindex && <ProjectReindexCard projectId={projectId} />}
 

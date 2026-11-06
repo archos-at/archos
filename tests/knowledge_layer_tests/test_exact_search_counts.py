@@ -317,6 +317,9 @@ class TestThroughTheTool:
         snippets = text[text.index("## Lines around the matches") :]
         assert "›" not in snippets
         assert snippets.count("> 3 Rettungswege und Aufzug") == 1
+        # The documents' own lines sit in the passages' fence.
+        opened, closed = snippets.index("<document_content>\n"), snippets.index("\n</document_content>")
+        assert opened < snippets.index("> 3 Rettungswege und Aufzug") < closed < snippets.index("This is an index")
 
     async def test_a_regex_counts_each_distinct_string_once_per_place(self, search_with):
         search_with(_Store(_as_chunks(PROTOCOL)))

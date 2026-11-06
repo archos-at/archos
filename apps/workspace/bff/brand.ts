@@ -16,6 +16,9 @@ import identity from '@/shared/brand/identity.json'
  */
 export const PRODUCT_NAME: string = identity.name
 
+/** The company's contact address, from the same file: where an error screen's „Fehler melden“ writes to. */
+export const CONTACT_EMAIL: string = identity.email
+
 const PRODUCT_NAME_TOKEN = /\{productName\}/g
 
 /**

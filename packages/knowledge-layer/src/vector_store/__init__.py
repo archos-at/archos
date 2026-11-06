@@ -90,6 +90,7 @@ _LAZY: dict[str, str] = {
     "make_client": ".store",
     "reset_store": ".store",
     "with_retry": ".store",
+    "enrichment": ".writes",
     "write_chunks": ".writes",
 }
 
@@ -137,6 +138,7 @@ __all__ = [
     "coerce_field",
     "compile_user_regex",
     "document_facts",
+    "enrichment",
     "exact_term",
     "fact_value",
     "find_similar",

@@ -363,9 +363,9 @@ tasks:
 
   be:test:postgres:
     desc: >-
-      The claim-queue suites' Postgres branch (production's SQL), and the
-      rename of the AI-Q databases, against a throwaway cluster. Needs
-      PostgreSQL server binaries.
+      The claim-queue suites' Postgres branch (production's SQL), the rename of
+      the AI-Q databases, and the metadata store's mail records, against a
+      throwaway cluster. Needs PostgreSQL server binaries.
     cmds:
       # Serial, not -n logical: every test drops and recreates the same tables
       # in the one scratch database.
@@ -374,3 +374,4 @@ tasks:
         packages/agent/tests/common/test_claim_queue.py
         packages/agent/tests/knowledge/folder_cards
         tests/test_postgres_rename_legacy_names.py
+        packages/agent/tests/knowledge/test_mail_facts.py

@@ -335,7 +335,7 @@ export async function runBackendOperation(
 
 /**
  * What Piloti reads when it names an operation it does with a native tool
- * (`piloti: 'native:<tool>'` in `exposure.config.ts`): the tool, not a search.
+ * (`agent: 'native:<tool>'` in `exposure.config.ts`): the tool, not a search.
  */
 export function nativeToolRefusal(name: string, tool: string): string {
   return `${name} is not offered to you: you do this with your own tool ${tool}. Call that instead.`

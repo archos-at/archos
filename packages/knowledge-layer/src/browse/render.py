@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from agent.common.brand import PRODUCT_NAME
+from agent.knowledge.mail_facts import mail_origin_label
+from agent.knowledge.mail_facts import mail_thread_label
 from agent.knowledge.title_block import title_block_label
 
 from .rows import _SHELF_LABELS
@@ -75,6 +77,11 @@ def _row_line(row: FileRow, *, show_shelf: bool, mark: str | None = None) -> str
     title_block = title_block_label(row.revision_facts)
     if title_block:
         bits.append(f"Plankopf: {title_block}")
+    # A filed mail, in the words of the Verlauf's own headings: the sender's domain only when a
+    # signature confirmed it, „Domain nicht bestätigt“ otherwise (ADR-0137, RT-S2).
+    for mail_line in (mail_thread_label(row.mail_thread), mail_origin_label(row.mail_origin)):
+        if mail_line:
+            bits.append(mail_line)
     if row.facts:
         bits.append(f"States: {'; '.join(row.facts)}")
     if row.references:

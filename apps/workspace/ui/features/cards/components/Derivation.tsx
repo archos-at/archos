@@ -20,6 +20,7 @@
  */
 
 import type { FC } from 'react'
+import { SectionLabel } from '@/components/ui/section-label'
 import type { Translator } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { fmtTolerance, missingLabel, statusColor } from '../schematics/kit'
@@ -74,7 +75,7 @@ const Operand: FC<{
 
   return (
     <span className="flex shrink-0 flex-col items-center">
-      <span className="text-foreground font-mono text-[13.5px] whitespace-nowrap tabular-nums">
+      <span className="text-foreground font-mono card-body whitespace-nowrap tabular-nums">
         {/* The rule's own multiplier reads as part of the term („2 × 17 cm"),
             because that is what it is — not a quantity anybody measured. */}
         {factor != null && <span className="text-muted-foreground">{formatInput(factor)} × </span>}
@@ -132,16 +133,14 @@ const StepRow: FC<{
 
   return (
     <li className="flex flex-col gap-1">
-      <span className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-        {step.label}
-      </span>
+      <SectionLabel>{step.label}</SectionLabel>
       <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
         {step.operands.map((operand, position) => (
           <span key={`${operand.label}-${position}`} className="flex items-start gap-2">
             {position > 0 && (
               <span
                 aria-hidden="true"
-                className="text-muted-foreground pt-0.5 font-mono text-[13.5px]"
+                className="text-muted-foreground pt-0.5 font-mono card-body"
               >
                 {operatorFor(step.operation, operand)}
               </span>
@@ -167,12 +166,12 @@ const StepRow: FC<{
           {PERCENT_FACTOR[step.operation] && (
             <span
               aria-hidden="true"
-              className="text-muted-foreground pt-0.5 font-mono text-[13.5px]"
+              className="text-muted-foreground pt-0.5 font-mono card-body"
             >
               {PERCENT_FACTOR[step.operation]}
             </span>
           )}
-          <span aria-hidden="true" className="text-muted-foreground pt-0.5 font-mono text-[13.5px]">
+          <span aria-hidden="true" className="text-muted-foreground pt-0.5 font-mono card-body">
             =
           </span>
 
@@ -180,7 +179,7 @@ const StepRow: FC<{
             <span
               className={cn(
                 'font-mono whitespace-nowrap',
-                emphasis ? 'card-figure-24' : 'pt-0.5 text-[13.5px]',
+                emphasis ? 'card-figure-24' : 'pt-0.5 card-body',
                 color ? undefined : 'text-foreground'
               )}
               style={color ? { color } : undefined}

@@ -110,7 +110,7 @@ describe("Qdrant's dashboard, switched on", () => {
       "grid-oib:qdrantDashboardEnabled": "true",
       "grid-oib:loadBalancerIp": "203.0.113.10",
       "grid-oib:dnsEnabled": "true",
-      "grid-oib:dnsZoneId": "zone-abc123",
+      "grid-oib:dnsZoneId": "00000000000000000000000000abc123",
       "grid-oib:dnsZoneName": "example.test",
       "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
     });

@@ -29,6 +29,21 @@ export const common: typeof en.common = {
     empty: 'Noch nichts vorhanden',
     copyFailed: 'Kopieren nicht möglich',
   },
+  /**
+   * Leaving an editor with unsaved changes (`components/ui/unsaved-edit-confirm.tsx`): Escape, the X and a
+   * scrim click ask first. Never „verwerfen“: in the E-Mail-Eingang that word says no to a whole mail.
+   */
+  unsavedEdit: {
+    title: 'Änderungen nicht übernehmen?',
+    text: 'Was Sie hier geändert haben, ist noch nicht übernommen.',
+    confirm: 'Nicht übernehmen',
+    keep: 'Weiter bearbeiten',
+  },
+  /** A value a press copies (`components/ui/copyable-value.tsx`): an IFC GlobalId, a project's mail address. */
+  copyableValue: {
+    copy: 'Kopieren: {value}',
+    copied: 'Kopiert',
+  },
   /** The shared „failed to load, retry" block (`components/ui/load-error.tsx`). */
   loadError: {
     retry: 'Erneut versuchen',

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { installLayoutObservers } from '@/test-utils/layout-observers'
 import {
@@ -12,6 +12,7 @@ import {
 import { FilePreviewPane } from './file-preview-pane'
 import { CurrentProjectProvider } from '@/features/projects/lib/current-project'
 import { PRODUCT_NAME } from '@/lib/brand'
+import { useFilePreviewStore } from '../stores/file-preview-store'
 
 /**
  * pdf.js, stood in for by the shared fake, plus a record of every URL the
@@ -1494,6 +1495,30 @@ describe('FilePreviewPane', () => {
       expect(well.classList.contains('justify-center')).toBe(true)
       expect(well.classList.contains('[&>*]:my-auto')).toBe(true)
       expect(well.classList.contains('items-center')).toBe(false)
+    })
+
+    it('shows the document alone: no tab row, and what was read sits in the details behind ⓘ', async () => {
+      useFilePreviewStore.setState({ peekDetails: false })
+      mockText('# Fluchtwege\n\nKurz.')
+      render(<FilePreviewPane file={{ ...markdownFile, summary: 'Fluchtwegkonzept des Erdgeschosses.' }} presentation="peek" />)
+      await screen.findByRole('heading', { name: 'Fluchtwege' })
+
+      expect(screen.queryByRole('tablist')).toBeNull()
+      expect(screen.queryByRole('tab')).toBeNull()
+      expect(screen.getByTestId('file-peek-document')).toBeVisible()
+      expect(screen.getByTestId('file-peek-details')).not.toBeVisible()
+      // Nothing under the document: the summary is the details' now.
+      expect(screen.queryByTestId('file-peek-summary')).toBeNull()
+
+      // ⓘ in the host's toolbar sets the face through the store.
+      act(() => useFilePreviewStore.getState().setPeekDetails(true))
+
+      const details = screen.getByTestId('file-peek-details')
+      expect(details).toBeVisible()
+      expect(screen.getByTestId('file-peek-document')).not.toBeVisible()
+      expect(within(details).getByText(`Read by ${PRODUCT_NAME}`)).toBeInTheDocument()
+      expect(within(details).getByText('Fluchtwegkonzept des Erdgeschosses.')).toBeInTheDocument()
+      act(() => useFilePreviewStore.getState().setPeekDetails(false))
     })
 
     it('leaves the modal/stacked well alone', async () => {

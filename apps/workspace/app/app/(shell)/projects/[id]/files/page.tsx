@@ -6,9 +6,11 @@ import { requireProjectAccess } from '@/lib/authz/projects'
 import { can } from '@/lib/authz/decide'
 import {
   isCollaborationEnabled,
+  isInboundMailEnabled,
   isMailImportEnabled,
   isIfcModelsEnabled,
 } from '@/lib/authz/feature-flags'
+import { requireMailReviewer } from '@/lib/inbound-mail/access'
 import { findProjectInOrg } from '@/lib/projects/repository'
 import { listProjectFolders, projectRootAccess } from '@/lib/projects/folder-service'
 import { listDocumentsPage } from '@/lib/documents/document-listing'
@@ -18,7 +20,7 @@ import { resolveDocumentLifecyclePermissions } from '@/lib/documents/lifecycle-p
 import { toDocumentWireRow, toFolderWireRow } from '@/lib/documents/list-projection'
 import { getTranslations } from '@/i18n/server'
 import { navCopy } from '@/i18n/namespaces/nav'
-import { ProjectFileWorkspace } from '@/features/documents/components/project-file-workspace'
+import { ProjectFilesClient } from './project-files-client'
 
 interface FilesPageProps {
   params: Promise<{ id: string }>
@@ -104,6 +106,10 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
      */
     // `project:manage` decides whether „Zugriff…" is offered on a folder
     // (ADR-0087); the access route asks the same question again.
+    // Who may decide the project's held mail sees the E-Mail-Eingang's entry
+    // and its count (ADR-0137); the gate is the feature's own, asked once here.
+    const inboundMailEnabled =
+      isInboundMailEnabled(session) && (await requireMailReviewer(session, id).then(() => true, () => false))
     const [versionSummaries, lifecyclePermissions, canManageFolderAccess, initialRootAccess] = await Promise.all([
       summarizeDocumentVersions(
         session.organizationId,
@@ -117,7 +123,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
     ])
 
     return (
-      <ProjectFileWorkspace
+      <ProjectFilesClient
         lifecyclePermissions={lifecyclePermissions}
         projectId={id}
         initialFolders={initialFolders.map(toFolderWireRow)}
@@ -136,6 +142,7 @@ export default async function FilesPage({ params, searchParams }: FilesPageProps
         canCollaborate={isCollaborationEnabled(session)}
         currentUserId={session.userId}
         mailImportEnabled={isMailImportEnabled(session)}
+        inboundMailEnabled={inboundMailEnabled}
       />
     )
   })

@@ -1,5 +1,8 @@
 ---
+import { Image } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
 import identity from '../lib/identity';
+import { PHOTO_QUALITY, PHOTO_WIDTHS, SIZES } from '../lib/media';
 import AITag from './AITag.astro';
 import Wordmark from './Wordmark.astro';
 import type { NavLink } from '../i18n/nav';
@@ -10,8 +13,8 @@ interface Props {
   locale: Locale;
   /** login: 5:7, photo right · form: 1:1, form card on a photo right */
   variant?: 'login' | 'form';
-  /** Right side: photo URL (login: full bleed; form: behind the card) */
-  image?: string;
+  /** Right side: photo from `src/lib/media.ts` (login: full bleed; form: behind the card) */
+  image?: ImageMetadata;
   imageAlt?: string;
   /** Shows the AI tag on the photo (login) */
   ai?: boolean;
@@ -56,7 +59,7 @@ const mainWidth = even ? 'var(--split-form)' : 'var(--login-form)';
   {
     even ? (
       <div class="ui-split-aside ui-split-panel">
-        {image && <img src={image} alt="" />}
+        {image && <Image src={image} widths={PHOTO_WIDTHS} sizes={SIZES.splitPanel} quality={PHOTO_QUALITY} alt="" />}
         <div class="ui-split-card">
           <slot name="aside" />
         </div>
@@ -68,7 +71,7 @@ const mainWidth = even ? 'var(--split-form)' : 'var(--login-form)';
       </div>
     ) : (
       <div class="ui-split-aside">
-        {image ? <img src={image} alt={imageAlt} /> : <slot name="aside" />}
+        {image ? <Image src={image} widths={PHOTO_WIDTHS} sizes={SIZES.splitPanel} quality={PHOTO_QUALITY} alt={imageAlt} /> : <slot name="aside" />}
         {ai && <AITag locale={locale} />}
       </div>
     )

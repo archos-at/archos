@@ -42,6 +42,7 @@ import type { Document } from '@/lib/db/schema/documents'
 import { getAccessibleDocument } from '@/lib/documents/access'
 import type { JobAttempt, JobSliceResult, AgentWakePayload } from '@/lib/jobs-queue/types'
 import { publishToDocumentRoom } from '@/lib/realtime/document-channel'
+import { documentFocus } from '@/lib/turns/document-focus'
 import { chatSocketUrl, runHeadlessTurn, type HeadlessUserMessage } from '@/lib/turns/headless-turn'
 import { HEADLESS_MODE_HEADERS } from '@/lib/turns/headless-mode'
 import { resolveTurnContext, TurnBudgetExhaustedError } from '@/lib/turns/turn-context'
@@ -103,9 +104,8 @@ export function wakeMessage(input: {
     message_id: payload.wakeId,
     text: input.text,
     author_name: input.authorName,
-    focus_file_name: doc.displayName?.trim() || doc.filename,
+    ...documentFocus(doc),
     focus_shelf: doc.scope === 'office_shelf' ? 'office_shelf' : 'project',
-    focus_document_id: doc.id,
     focus_region: { ...regionAround(mark), annotation_id: mark.id },
     reply_in_thread: true,
     trigger: { kind: payload.trigger, event_id: payload.eventId, annotation_id: payload.annotationId },

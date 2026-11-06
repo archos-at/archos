@@ -47,7 +47,10 @@ import { intakeFilingStep } from './intake-filing-step'
 import { intakeProjectStep } from './intake-project-step'
 import { intakeShell } from './intake-shell'
 import { notifications } from './notifications'
+import { inboundMail } from './inbound-mail'
+import { mailThread } from './mail-thread'
 import { search } from './search'
+import { whatsNew } from './whats-new'
 import type { Dictionary } from '../index'
 
 export const de: Dictionary = {
@@ -92,5 +95,8 @@ export const de: Dictionary = {
   intakeProjectStep,
   intakeShell,
   notifications,
+  inboundMail,
+  mailThread,
   search,
+  whatsNew,
 }

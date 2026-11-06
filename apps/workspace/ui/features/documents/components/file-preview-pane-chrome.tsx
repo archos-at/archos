@@ -30,9 +30,11 @@ import { ProjectClosedChip } from '@/components/projects/project-status'
 import { ReaderActions, ReaderHeader } from './file-preview-reader'
 
 import type { FilePreviewController } from './use-file-preview-controller'
+import { MailProvenanceRow } from './mail-thread'
+import { tagLabel } from '@/lib/documents/tag-vocabulary'
 
 export function FilePreviewChrome({ controller }: { controller: FilePreviewController }) {
-  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, detectedType, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, showMetadataPanel, sideways, t } = controller
+  const { Icon, actions, canExpandPreview, canManage, closedProjectName, detailsOpen, detectedType, discussHint, file, fileFacts, handleDeleted, inChat, isImage, isLargePreviewOpen, isOfficeRendition, mailThread, moveInSheet, onClose, onRenamed, openReview, peeking, presenceSentence, previewGone, previewImageUrl, previewUrl, projectId, reader, readerAnnotate, review, reviewEnabled, scope, setDetailsOpen, setIsLargePreviewOpen, showMetadataPanel, sideways, t } = controller
   return (
     <>
         {/* Peek chrome lives on the host — this header is the modal/expanded one,
@@ -229,7 +231,7 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
                 )}
                 {showMetadataPanel && detectedType && (
                   <Badge variant="secondary" className="min-w-0 max-w-full shrink font-normal">
-                    <span className="truncate">{detectedType}</span>
+                    <span className="truncate">{tagLabel(detectedType, t)}</span>
                   </Badge>
                 )}
               </div>
@@ -325,6 +327,11 @@ export function FilePreviewChrome({ controller }: { controller: FilePreviewContr
             )}
           </div>
         )}
+
+        {/* Which mail brought the Fassung in front of the reader (D36): under the
+            header, so the header keeps its one shape on every document. A thread
+            document's own mails are its „E-Mails“ tab. */}
+        {projectId && !mailThread && <MailProvenanceRow key={file.id} projectId={projectId} documentId={file.id} />}
 
         {actions.downloadFailed && (
           <div

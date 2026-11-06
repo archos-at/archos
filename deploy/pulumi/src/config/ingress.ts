@@ -12,6 +12,12 @@ export interface IngressConfig {
   /** Public host for the public website (apps/website). Derived: the `baseDomain` apex itself unless the `webDomain` key overrides it. */
   webDomain: string;
   /**
+   * The website's origin, `https://<webDomain>`, derived: the frontend's `LANDING_URL` and the
+   * inbound mail Worker's binding of that name (the bounce text's help and privacy links). One
+   * value for both, so the domain cutover moves both.
+   */
+  webOrigin: string;
+  /**
    * The domain this stack served before a domain move, or undefined (the default: no move
    * in progress). Set, its apex and `app.` host answer with a 301 to `webDomain` and
    * `appDomain` (app/former-domain.ts, docs/deployment/domain-cutover.md).
@@ -70,6 +76,7 @@ export function loadIngress(
     appDomain,
     s3Domain,
     webDomain,
+    webOrigin: `https://${webDomain}`,
     formerBaseDomain: cfg.get("formerBaseDomain")?.trim() || undefined,
     letsEncryptEmail: cfg.require("letsEncryptEmail"),
     // Default to the LE STAGING CA: on a first deploy the LoadBalancer IP (and

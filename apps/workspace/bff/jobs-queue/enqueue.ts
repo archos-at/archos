@@ -18,7 +18,7 @@
 import 'server-only'
 import type { DbExecutor } from '@/lib/db/executor'
 import { BFF_JOB_PRIORITY, type BffJobKind, type BffJobPriority } from './types'
-import { insertJob } from './repository'
+import { insertJob, insertJobIfAbsent } from './repository'
 import { priorityName } from './task'
 import { triggerBffJob } from './orchestrator'
 
@@ -60,12 +60,41 @@ export async function enqueueJob(
     },
     executor
   )
-  const run = { job_id: jobId, kind: input.kind, organization_id: input.organizationId, priority: priorityName(priority), generation: 0 }
+  await startRun({ jobId, kind: input.kind, organizationId: input.organizationId, priority, notBefore: input.notBefore })
+  return { jobId }
+}
+
+/**
+ * {@link enqueueJob} for a job whose id is derived from what it is about
+ * (`insertJobIfAbsent`): a second enqueue of the same id stores nothing and
+ * starts nothing. Whether this call added the job. The run is started only for
+ * a row this call stored, so a job nobody added twice is never triggered twice;
+ * the dispatch sweep starts whatever a failed start left behind.
+ */
+export async function enqueueJobIfAbsent(
+  input: {
+    kind: BffJobKind
+    organizationId: string
+    payload: Record<string, unknown>
+    jobId: string
+    priority?: BffJobPriority
+    notBefore?: Date
+  },
+  executor?: DbExecutor
+): Promise<boolean> {
+  const priority = input.priority ?? BFF_JOB_PRIORITY.bulk
+  const added = await insertJobIfAbsent({ ...input, priority }, executor)
+  if (added) await startRun({ jobId: input.jobId, kind: input.kind, organizationId: input.organizationId, priority, notBefore: input.notBefore })
+  return added
+}
+
+/** Start the job's first run; best effort, the row is the job. Never throws. */
+async function startRun(job: { jobId: string; kind: BffJobKind; organizationId: string; priority: BffJobPriority; notBefore?: Date }): Promise<void> {
+  const run = { job_id: job.jobId, kind: job.kind, organization_id: job.organizationId, priority: priorityName(job.priority), generation: 0 }
   // `then`, so a client that cannot even be built (no token) is caught here too.
   await Promise.resolve()
-    .then(() => triggerBffJob(run, input.notBefore ? { notBefore: input.notBefore } : {}))
+    .then(() => triggerBffJob(run, job.notBefore ? { notBefore: job.notBefore } : {}))
     .catch((error: unknown) => {
-    console.warn(`[jobs] ${input.kind} ${jobId} is stored but its run did not start; the dispatch sweep will start it:`, error)
-  })
-  return { jobId }
+      console.warn(`[jobs] ${job.kind} ${job.jobId} is stored but its run did not start; the dispatch sweep will start it:`, error)
+    })
 }

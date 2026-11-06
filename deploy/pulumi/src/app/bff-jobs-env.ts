@@ -28,6 +28,7 @@ const BFF_JOBS_OVERRIDES = new Set(["OTEL_SERVICE_NAME", "SHUTDOWN_DRAIN_MS"]);
  *
  * The geocoder's URL likewise: address search is a request-path feature the
  * frontend's `/api/geocode` serves, and no job calls it (ADR-0151).
+ * And the inbound mail webhook's key map and pause, for the same reason (ADR-0138).
  */
 const BFF_JOBS_WITHHELD = new Set([
   "LANGFUSE_HOST",
@@ -36,6 +37,10 @@ const BFF_JOBS_WITHHELD = new Set([
   "LANGFUSE_PUBLIC_KEY",
   "LANGFUSE_SECRET_KEY",
   "GEOCODER_URL",
+  // The inbound mail webhook is a request-path route; the receive job works on
+  // what it staged and verifies nothing, so it gets no key to verify with.
+  "INBOUND_MAIL_SIGNING_KEYS",
+  "INBOUND_MAIL_PAUSED",
 ]);
 const inheritedByBffJobs = (env: EnvVar) =>
   typeof env.name !== "string" || !(BFF_JOBS_OVERRIDES.has(env.name) || BFF_JOBS_WITHHELD.has(env.name));

@@ -1,0 +1,1097 @@
+/**
+ * @vitest-environment node
+ *
+ * The receive job against REAL mail: messages built and DKIM-signed by the
+ * hostile corpus's builders (`__fixtures__/hostile.ts`), verified by mailauth
+ * against a fake DNS, parsed by postal-mime, screened by the office's real
+ * rules. The database, the object store, the scanner and the Python reader are
+ * stood in for (an in-memory row, a map of objects), so each case reads as what
+ * the job leaves behind:
+ *
+ * - the raw message is scanned before the mail is `waiting`, and a failed
+ *   scan still holds it (never lost, never clean);
+ * - auto-replies are dropped, their raw message erased by its key (a legal
+ *   hold defers the erasure);
+ * - a mail nobody can read is held `unreadable` on the last attempt, and only
+ *   then;
+ * - B8: another office's project address never reaches what a person reads
+ *   (subject, participants, text, quotes and their headers), the receiving
+ *   address does;
+ * - the PII canary: a sender, subject, file name and token never reach a log,
+ *   PostHog or the audit trail;
+ * - the follow job is queued only when D31's conditions 1–6 hold;
+ * - a mail whose DKIM fails is held like any other (the NEGATIVE).
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { InboundMailRow, NewInboundMailPartRow } from '@/lib/db/schema/inbound-mail'
+import type { MalwareScanVerdict } from '@/lib/malware-scan/types'
+
+vi.mock('server-only', () => ({}))
+
+const state = vi.hoisted(() => ({
+  row: null as InboundMailRow | null,
+  parts: [] as NewInboundMailPartRow[],
+  objects: new Map<string, Uint8Array>(),
+  erased: [] as string[],
+  calls: [] as string[],
+  threadCandidates: [] as unknown[],
+  filedMessages: [] as unknown[],
+  followContext: null as unknown,
+  dns: null as unknown,
+}))
+
+vi.mock('./repository', () => ({
+  findMailForReceive: vi.fn(async () => (state.row ? { ...state.row } : null)),
+  findAddressToken: vi.fn(async () => 'abcdefgh2345'),
+  recordRawScan: vi.fn(async (_id: string, scan: { status: string; engine: string | null; scannedAt: Date }) => {
+    state.calls.push(`scan:${scan.status}`)
+    if (state.row?.status === 'received') Object.assign(state.row, { rawScanStatus: scan.status, rawScanEngine: scan.engine, rawScannedAt: scan.scannedAt })
+  }),
+  dropMail: vi.fn(async (_id: string, input: { reason: string; erasureDeferred: boolean }) => {
+    state.calls.push(`drop:${input.reason}`)
+    if (!state.row || state.row.status !== 'received') return false
+    Object.assign(state.row, {
+      status: 'dropped',
+      droppedReason: input.reason,
+      envelopeFrom: null,
+      rawStorageKey: input.erasureDeferred ? state.row.rawStorageKey : null,
+      erasureDeferredAt: input.erasureDeferred ? new Date() : null,
+    })
+    return true
+  }),
+  findThreadCandidates: vi.fn(async () => state.threadCandidates),
+  findFiledMessages: vi.fn(async () => state.filedMessages),
+  findScreenedDuplicates: vi.fn(async () => new Map()),
+  findScreenedNamesakes: vi.fn(async () => new Map()),
+  findThreadFollowContext: vi.fn(async () => state.followContext),
+  holdMail: vi.fn(async (_id: string, fields: Record<string, unknown>, parts: NewInboundMailPartRow[]) => {
+    state.calls.push('hold')
+    if (!state.row || state.row.status !== 'received') return false
+    if (state.row.rawScanStatus === 'pending') throw new Error('CHECK inbound_mails_waiting_is_scanned')
+    Object.assign(state.row, fields, { status: 'waiting', receiveProgress: null })
+    state.parts = parts
+    return true
+  }),
+  findPartSummaries: vi.fn(async () =>
+    state.parts.map((part) => ({ kind: part.kind, riskFlags: part.riskFlags ?? [], contentFindings: part.contentFindings ?? [] })),
+  ),
+  markNotified: vi.fn(async () => {
+    state.calls.push('notified')
+    if (state.row) state.row.notifiedAt = new Date()
+  }),
+  keepReceiveProgress: vi.fn(async (_id: string, progress: Record<string, unknown>) => {
+    // As jsonb would: the Dates come back as strings.
+    if (state.row?.status === 'received') state.row.receiveProgress = JSON.parse(JSON.stringify(progress))
+  }),
+}))
+vi.mock('./staging', () => ({
+  readStagedObject: vi.fn(async (_bucket: string, key: string) => {
+    const bytes = state.objects.get(key)
+    if (!bytes) throw new Error(`no object ${key}`)
+    return bytes
+  }),
+  putStagedObject: vi.fn(async (_bucket: string, key: string, body: Uint8Array) => {
+    state.objects.set(key, body)
+  }),
+  eraseStagedObjects: vi.fn(async (_bucket: string, keys: string[]) => {
+    for (const key of keys) {
+      state.erased.push(key)
+      state.objects.delete(key)
+    }
+    return []
+  }),
+  stagedObjectUrlForBackend: vi.fn(async () => 'http://seaweed.test/presigned/raw.eml'),
+}))
+vi.mock('@/lib/malware-scan/client', () => ({ scanForMalware: vi.fn() }))
+vi.mock('./read-client', async (importOriginal) => ({ ...(await importOriginal<typeof import('./read-client')>()), readMail: vi.fn() }))
+vi.mock('./sender-auth', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./sender-auth')>()
+  return {
+    ...actual,
+    authenticateSender: vi.fn((raw: Uint8Array, options: Parameters<typeof actual.authenticateSender>[1]) =>
+      actual.authenticateSender(raw, { ...options, resolver: (state.dns as { resolver: never }).resolver }),
+    ),
+  }
+})
+vi.mock('@/lib/documents/accepted-types', () => ({
+  acceptedTypesForOrganization: vi.fn(async () => ['.pdf', '.docx', '.txt', '.md', '.csv', '.xlsx', '.pptx']),
+}))
+vi.mock('@/lib/sharing/directory', () => ({ loadOrganizationDirectory: vi.fn(), loadOrganizationDirectoryStrict: vi.fn() }))
+vi.mock('@/lib/upload-screening/service', async () => {
+  const { SUGGESTED_SCREENING_POLICY } = await import('@/lib/upload-screening/policy')
+  return { gatePolicy: vi.fn(async () => SUGGESTED_SCREENING_POLICY) }
+})
+vi.mock('@/lib/compliance/repository', () => ({ isCoveredByActiveHold: vi.fn(async () => false) }))
+vi.mock('@/lib/audit/after-commit', () => ({ recordAuditEventAfterCommit: vi.fn() }))
+vi.mock('@/lib/analytics/posthog-server', () => ({ captureServer: vi.fn() }))
+vi.mock('@/lib/realtime/door-events', () => ({ publishProjectChanged: vi.fn() }))
+vi.mock('@/lib/jobs-queue/enqueue', () => ({ enqueueJobIfAbsent: vi.fn(async () => true) }))
+vi.mock('@/lib/auth/pinned-session', () => ({ resolvePinnedRequesterSession: vi.fn() }))
+vi.mock('./announce', () => ({ announceWaiting: vi.fn(async () => true), announceHeld: vi.fn(async () => true) }))
+// Whether the From's member may write in the project (the sender rule): no, unless a test says so.
+vi.mock('@/lib/authz/project-membership', () => ({ userHoldsProjectPermissionStrict: vi.fn(async () => false) }))
+vi.mock('./receive-original', () => ({ recordOriginal: vi.fn(async () => 'none') }))
+// The real original reader, where a case asks for it (B2): its row write lands on the in-memory row.
+vi.mock('./receive-repository', () => ({ findAddressToken: vi.fn(async () => 'abcdefgh2345') }))
+vi.mock('./receive-original-repository', () => ({
+  recordOriginalFields: vi.fn(async (_id: string, fields: Partial<InboundMailRow>) => {
+    if (state.row?.status === 'received') Object.assign(state.row, fields)
+  }),
+}))
+
+import { captureServer } from '@/lib/analytics/posthog-server'
+import { recordAuditEventAfterCommit } from '@/lib/audit/after-commit'
+import { resolvePinnedRequesterSession } from '@/lib/auth/pinned-session'
+import type { AuthorizedSession } from '@/lib/auth/types'
+import { isCoveredByActiveHold } from '@/lib/compliance/repository'
+import { enqueueJobIfAbsent } from '@/lib/jobs-queue/enqueue'
+import { scanForMalware } from '@/lib/malware-scan/client'
+import { loadOrganizationDirectory, loadOrganizationDirectoryStrict } from '@/lib/sharing/directory'
+import {
+  attachment,
+  BODY,
+  bytes,
+  forwarded,
+  fakeDns,
+  INBOUND_DOMAIN,
+  keyFor,
+  MEMBER_DOMAIN,
+  message,
+  multipart,
+  OTHER_TENANT_ADDRESS,
+  pdf,
+  PROJECT_ADDRESS,
+  RECEIVED,
+  sign,
+} from './__fixtures__/hostile'
+import { userHoldsProjectPermissionStrict as userHoldsProjectPermission } from '@/lib/authz/project-membership'
+import { announceHeld, announceWaiting } from './announce'
+import { readMail, type MailRead } from './read-client'
+import { recordOriginal } from './receive-original'
+import { RECEIVE_FAULT_BUDGET, RECEIVE_FAULT_WAITS_MS } from './receive-faults'
+import { findAddressToken, findThreadCandidates } from './repository'
+import { ATTACHMENT_SCANS_IN_FLIGHT, inboundMailJobId, runInboundMailReceive } from './receive-job'
+
+const ORG = 'org_01RECEIVEJOB'
+const PROJECT = '0e5b4f2e-1d7c-4c3a-9a51-2f0d8c6b7a10'
+const MAIL = '3c2b1a00-0000-4000-8000-00000000a001'
+const ADDRESS = '7a1f5c3e-8b2d-4e6f-9a0b-1c2d3e4f5a6b'
+const BUCKET = 'org-test-bucket'
+const RAW_KEY = `org/${ORG}/project/${PROJECT}/_inbound-mail/${MAIL}/raw.eml`
+const READ_KEY = `org/${ORG}/project/${PROJECT}/_inbound-mail/${MAIL}/read.json`
+const MEMBER_ID = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H3'
+const FOLLOWER_ID = 'user_01HZX3Y4Z5A6B7C8D9E0F1G2H4'
+const THREAD = '9d8c7b6a-0000-4000-8000-0000000000aa'
+const NOT_LAST = { last: false }
+const LAST = { last: true }
+
+const CLEAN: MalwareScanVerdict = {
+  status: 'clean',
+  engine: { version: 'ClamAV 1.5.4', signatures: 28157, signaturesPublishedAt: new Date('2026-09-28T00:00:00Z') },
+}
+
+function read(overrides: Partial<MailRead> = {}): MailRead {
+  return {
+    readerVersion: 1,
+    bodySource: 'plain',
+    ownText: 'Hallo, anbei die Unterlagen.',
+    ownTextTruncated: false,
+    split: true,
+    signatureRemoved: true,
+    quoted: [],
+    quotedTruncated: false,
+    calendar: [],
+    calendarTruncated: false,
+    encrypted: false,
+    unreadableReasons: [],
+    unreadable: false,
+    ...overrides,
+  }
+}
+
+function receivedRow(overrides: Partial<InboundMailRow> = {}): InboundMailRow {
+  return {
+    id: MAIL,
+    organizationId: ORG,
+    projectId: PROJECT,
+    addressId: ADDRESS,
+    status: 'received',
+    deliveryKey: 'a'.repeat(64),
+    envelopeFrom: 'bounce@buero-muster.at',
+    rawSizeBytes: 2048,
+    stagingBucket: BUCKET,
+    rawStorageKey: RAW_KEY,
+    readStorageKey: null,
+    rawScanStatus: 'pending',
+    rawScanEngine: null,
+    rawScanSignature: null,
+    rawScannedAt: null,
+    rawScanAttempts: 0,
+    messageId: null,
+    inReplyTo: [],
+    referenceIds: [],
+    threadIndexGuid: null,
+    baseSubject: null,
+    threadMatch: [],
+    senderAddress: null,
+    senderName: null,
+    subject: null,
+    participants: [],
+    participantDomains: [],
+    recipientCount: 0,
+    senderTrust: null,
+    senderUserId: null,
+    senderClass: null,
+    senderReason: null,
+    signerDomain: null,
+    signedHeaders: [],
+    senderFlags: [],
+    authenticationResults: null,
+    automatic: false,
+    droppedReason: null,
+    sentAt: null,
+    sentAtHeader: null,
+    receivedAt: RECEIVED,
+    expiresAt: new Date(RECEIVED.getTime() + 30 * 86_400_000),
+    settledAt: null,
+    notifiedAt: null,
+    expiringNotifiedAt: null,
+    notStaged: [],
+    ignored: {},
+    erasureDeferredAt: null,
+    originalMovePendingAt: null,
+    originalAuthorAddress: null,
+    originalAuthorName: null,
+    originalSentAt: null,
+    originalSubject: null,
+    originalMessageId: null,
+    originalSource: null,
+    readerFaultAt: null,
+    receiveProgress: null,
+    createdAt: RECEIVED,
+    updatedAt: RECEIVED,
+    ...overrides,
+  }
+}
+
+/** Stage `raw` as the webhook would have, and make the row for it. */
+function receive(raw: string, overrides: Partial<InboundMailRow> = {}) {
+  state.objects.set(RAW_KEY, bytes(raw))
+  state.row = receivedRow(overrides)
+}
+
+const run = (attempt = NOT_LAST, faults?: number) => runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, faults }, attempt)
+const waitDays = () => (new Date(heldRow().expiresAt).getTime() - new Date(heldRow().receivedAt).getTime()) / 86_400_000
+const heldRow = () => state.row as InboundMailRow
+const stagedRead = () => JSON.parse(Buffer.from(state.objects.get(READ_KEY) ?? new Uint8Array()).toString()) as MailRead
+const jobKinds = () => vi.mocked(enqueueJobIfAbsent).mock.calls.map(([job]) => job.kind)
+
+/** The INFO lines (the per-delivery operator trail), through the spy rather than `console`. */
+let infoSpy: ReturnType<typeof vi.spyOn>
+const infoLines = () => infoSpy
+
+beforeEach(() => {
+  Object.assign(state, {
+    row: null,
+    parts: [],
+    objects: new Map(),
+    erased: [],
+    calls: [],
+    threadCandidates: [],
+    filedMessages: [],
+    followContext: null,
+    dns: fakeDns({ ...keyFor(MEMBER_DOMAIN), ...keyFor('statik-weber.at') }),
+  })
+  vi.stubEnv('INBOUND_MAIL_DOMAIN', INBOUND_DOMAIN)
+  vi.mocked(scanForMalware).mockResolvedValue(CLEAN)
+  vi.mocked(readMail).mockResolvedValue(read())
+  const directory = new Map([
+    [MEMBER_ID, { userId: MEMBER_ID, email: 'Anna@Buero-Muster.at', name: 'Anna Muster', profilePictureUrl: null }],
+    [FOLLOWER_ID, { userId: FOLLOWER_ID, email: 'max@buero-muster.at', name: 'Max', profilePictureUrl: null }],
+  ])
+  vi.mocked(loadOrganizationDirectory).mockResolvedValue(directory)
+  vi.mocked(loadOrganizationDirectoryStrict).mockResolvedValue(directory)
+  vi.mocked(resolvePinnedRequesterSession).mockResolvedValue({
+    userId: FOLLOWER_ID,
+    email: 'max@buero-muster.at',
+    name: null,
+    accessToken: '',
+    organizationId: ORG,
+    organizationMembershipId: 'om_01',
+    role: 'member',
+    permissions: [],
+    featureFlags: null,
+  } as unknown as AuthorizedSession)
+  infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+  vi.clearAllMocks()
+  vi.restoreAllMocks()
+})
+
+describe('the receive job holds a mail for a person', () => {
+  it('holds a member’s signed mail with its text and attachment, scanned, labelled and announced', async () => {
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    await run()
+
+    const row = heldRow()
+    expect(row).toMatchObject({
+      status: 'waiting',
+      rawScanStatus: 'clean',
+      rawScanEngine: 'ClamAV 1.5.4/28157',
+      senderTrust: 'member_verified',
+      senderUserId: MEMBER_ID,
+      senderReason: 'dkim_pass',
+      signerDomain: MEMBER_DOMAIN,
+      senderAddress: 'anna@buero-muster.at',
+      subject: 'Einreichplan',
+      baseSubject: 'einreichplan',
+      messageId: 'm1@buero-muster.at',
+      readStorageKey: READ_KEY,
+      automatic: false,
+    })
+    expect(row.senderFlags).toEqual([])
+    expect(row.signedHeaders).toEqual(expect.arrayContaining(['from', 'subject', 'date', 'message-id', 'to']))
+    expect(row.authenticationResults).not.toMatch(/spf=/i)
+    expect(state.parts.map((part) => [part.position, part.kind, part.scanStatus])).toEqual([
+      [0, 'message', 'not_applicable'],
+      [1, 'attachment', 'clean'],
+    ])
+    expect(state.parts[1]).toMatchObject({
+      filename: 'S-101_C.pdf',
+      storageKey: `org/${ORG}/project/${PROJECT}/_inbound-mail/${MAIL}/1`,
+      scanEngine: 'ClamAV 1.5.4/28157',
+    })
+    expect(state.objects.get(`org/${ORG}/project/${PROJECT}/_inbound-mail/${MAIL}/1`)).toBeDefined()
+    expect(stagedRead().ownText).toBe('Hallo, anbei die Unterlagen.')
+    expect(announceWaiting).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL, senderTrust: 'member_verified' }))
+    expect(jobKinds()).toEqual(['inbound_mail_suggest'])
+    expect(vi.mocked(enqueueJobIfAbsent).mock.calls[0][0]).toMatchObject({ jobId: inboundMailJobId('suggest', MAIL) })
+    expect(row.notifiedAt).not.toBeNull()
+  })
+
+  it('scans the whole raw message before the mail is waiting, and holds it on a failed scan (never clean)', async () => {
+    vi.mocked(scanForMalware).mockResolvedValue({ status: 'failed', failure: 'unavailable', detail: null, engine: null })
+    receive(await sign(message()))
+
+    await run()
+
+    expect(state.calls.indexOf('scan:failed')).toBeLessThan(state.calls.indexOf('hold'))
+    expect(heldRow()).toMatchObject({ status: 'waiting', rawScanStatus: 'failed' })
+  })
+
+  it('scans every attachment on its own, and an infected one waits for a dismissal only', async () => {
+    vi.mocked(scanForMalware).mockResolvedValueOnce(CLEAN).mockResolvedValueOnce({ ...CLEAN, status: 'infected', signature: 'Eicar-Test-Signature' })
+    receive(await sign(message(multipart('mixed', [BODY, attachment('Plan.pdf', 'application/pdf', pdf('x'))]))))
+
+    await run()
+
+    expect(state.parts[1]).toMatchObject({ scanStatus: 'infected', scanSignature: 'Eicar-Test-Signature' })
+  })
+
+  it('scans at most four attachments at once, within clamd’s queue (S2)', async () => {
+    let inFlight = 0
+    let most = 0
+    vi.mocked(scanForMalware).mockImplementation(async () => {
+      most = Math.max(most, ++inFlight)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      inFlight -= 1
+      return CLEAN
+    })
+    const files = Array.from({ length: 12 }, (_, index) => attachment(`S-${100 + index}.pdf`, 'application/pdf', pdf(`S-${index}`)))
+    receive(await sign(message(multipart('mixed', [BODY, ...files]))))
+
+    await run()
+
+    expect(state.parts.filter((part) => part.kind === 'attachment')).toHaveLength(12)
+    expect(most).toBe(ATTACHMENT_SCANS_IN_FLIGHT)
+    expect(ATTACHMENT_SCANS_IN_FLIGHT).toBeLessThanOrEqual(4)
+  })
+
+  it('holds a mail whose DKIM fails like any other: labelled, never refused (NEGATIVE)', async () => {
+    state.dns = fakeDns({})
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_unverified', senderUserId: MEMBER_ID })
+    expect(heldRow().senderReason).not.toBe('dkim_pass')
+  })
+
+  it('labels an unsigned stranger external_unverified and spends no model on it', async () => {
+    receive(message(BODY, { From: 'Wer Auch Immer <x@stranger.example>' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'external_unverified', senderUserId: null })
+    expect(jobKinds()).not.toContain('inbound_mail_suggest')
+    expect(announceWaiting).toHaveBeenCalledTimes(1)
+  })
+
+  it('flags an attachment the Namensprüfung stops, and keeps it a part (flag, not drop)', async () => {
+    receive(await sign(message(multipart('mixed', [BODY, attachment('Honorarnote_Mai.pdf', 'application/pdf', pdf('h'))]))))
+
+    await run()
+
+    expect(state.parts[1].riskFlags).toContain('name_stop')
+    expect(state.parts[1].nameStopTerms).toEqual(['Honorar'])
+  })
+
+  it('records the content check of the own text, after the reader removed the signature', async () => {
+    vi.mocked(readMail).mockResolvedValue(read({ ownText: 'Bitte überweisen an AT61 1904 3002 3457 3201.' }))
+    receive(await sign(message()))
+
+    await run()
+
+    expect(state.parts[0].contentFindings).toEqual(['iban'])
+  })
+
+  it('sets message_id_reused when the project has the id, and already_filed when it has the message', async () => {
+    state.filedMessages = [{ entryId: 'e1', threadId: THREAD, source: 'inbound', ownTextSha256: '0'.repeat(64) }]
+    receive(await sign(message()))
+    await run()
+    expect(heldRow().senderFlags).toContain('message_id_reused')
+
+    state.filedMessages = [{ entryId: 'e1', threadId: THREAD, source: 'archive', ownTextSha256: '0'.repeat(64) }]
+    receive(await sign(message()))
+    await run()
+    expect(heldRow().senderFlags).toContain('already_filed')
+  })
+
+  it('stores the thread match as ids and strengths only', async () => {
+    state.threadCandidates = [
+      {
+        threadId: THREAD,
+        baseSubject: 'einreichplan',
+        threadIndexGuid: null,
+        receivedIds: ['m0@buero-muster.at'],
+        referencedIds: [],
+        participants: [],
+        lastEntryAt: RECEIVED,
+      },
+    ]
+    receive(await sign(message(BODY, { 'In-Reply-To': '<m0@buero-muster.at>', References: '<m0@buero-muster.at>', Subject: 'AW: Einreichplan' })))
+
+    await run()
+
+    expect(heldRow().threadMatch).toEqual([{ threadId: THREAD, strength: 'reference', headers: ['in-reply-to', 'references'] }])
+  })
+})
+
+describe('automatic mail', () => {
+  it('drops an auto-reply unseen and erases its raw message by its key', async () => {
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied', Subject: 'Abwesend' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', droppedReason: 'auto_reply', rawStorageKey: null, envelopeFrom: null })
+    expect(state.erased).toEqual([RAW_KEY])
+    expect(announceWaiting).not.toHaveBeenCalled()
+    expect(captureServer).toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped', properties: { reason: 'auto_reply' } }))
+  })
+
+  it('keeps the raw message of a dropped mail under a legal hold, for the deferred erasure', async () => {
+    vi.mocked(isCoveredByActiveHold).mockResolvedValue(true)
+    receive(message(BODY, { 'Auto-Submitted': 'auto-replied' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'dropped', rawStorageKey: RAW_KEY })
+    expect(heldRow().erasureDeferredAt).not.toBeNull()
+    expect(state.erased).toEqual([])
+  })
+
+  it('holds list mail, marked automatic and announced, with no model spent on it', async () => {
+    receive(await sign(message(BODY, { 'List-Id': '<news.example.org>' })))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', automatic: true })
+    expect(jobKinds()).not.toContain('inbound_mail_suggest')
+    expect(announceWaiting).toHaveBeenCalledWith(expect.objectContaining({ automatic: true }))
+  })
+})
+
+describe('mail is never lost to a parser bug', () => {
+  it('holds the mail unreadable on the last attempt when a bug throws, the sender as judged before it', async () => {
+    vi.mocked(findThreadCandidates).mockRejectedValueOnce(new TypeError('a bug')).mockRejectedValueOnce(new TypeError('a bug'))
+    receive(await sign(message()))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('a bug')
+    expect(heldRow().status).toBe('received')
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    // B3: the member it was judged to be, never a stranger's 14 days.
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', senderUserId: MEMBER_ID, senderClass: 'office_member' })
+    expect(heldRow()).toMatchObject({ readStorageKey: null, rawScanStatus: 'clean' })
+    expect(waitDays()).toBe(30)
+    expect(state.parts).toHaveLength(1)
+    expect(state.parts[0].riskFlags).toEqual(['unreadable'])
+    expect(announceWaiting).toHaveBeenCalledTimes(1)
+  })
+
+  it('holds a mail whose sender was never judged as unchecked for 30 days, never as an outsider’s 14', async () => {
+    vi.mocked(findAddressToken).mockResolvedValueOnce(null)
+    receive(await sign(message()))
+
+    await run(LAST)
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'external_unverified', senderClass: 'external' })
+    expect(heldRow().senderFlags).toContain('sender_unchecked')
+    expect(waitDays()).toBe(30)
+  })
+
+  it('announces a mail an earlier run held but did not announce, and never twice', async () => {
+    receive(await sign(message()))
+    await run()
+    expect(announceWaiting).toHaveBeenCalledTimes(1)
+
+    await run()
+    expect(announceWaiting).toHaveBeenCalledTimes(1)
+
+    state.row = { ...heldRow(), notifiedAt: null }
+    await run()
+    expect(announceWaiting).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('B8: another office’s project address never reaches what a person reads', () => {
+  const OTHER_TOKEN = OTHER_TENANT_ADDRESS.split('@')[0].split('.').pop() as string
+
+  it('redacts it in the subject, the participants, the text, every quote and its header; keeps the receiving one', async () => {
+    vi.mocked(readMail).mockResolvedValue(
+      read({
+        ownText: `Bitte auch an ${OTHER_TENANT_ADDRESS} und ${PROJECT_ADDRESS}.`,
+        quoted: [{ header: `Am 1.10.2026 schrieb Nachbar <${OTHER_TENANT_ADDRESS}>:`, text: `Kopie an ${OTHER_TENANT_ADDRESS}` }],
+        calendar: [
+          {
+            method: 'REQUEST',
+            summary: `Termin ${OTHER_TENANT_ADDRESS}`,
+            start: null,
+            end: null,
+            allDay: false,
+            location: OTHER_TENANT_ADDRESS,
+            status: null,
+            organizerName: null,
+            recurring: false,
+          },
+        ],
+      }),
+    )
+    receive(
+      await sign(
+        message(BODY, {
+          Subject: `Fwd: ${OTHER_TENANT_ADDRESS}`,
+          Cc: `Nachbar <${OTHER_TENANT_ADDRESS}>, Statik <weber@statik-weber.at>`,
+        }),
+      ),
+    )
+
+    await run()
+
+    const visible = JSON.stringify([heldRow(), stagedRead(), state.parts])
+    expect(visible).not.toContain(OTHER_TOKEN)
+    expect(stagedRead().ownText).toContain(PROJECT_ADDRESS)
+    expect(stagedRead().quoted[0].header).toContain('nachbar.…@example.org')
+    expect(heldRow().participants.map((participant) => participant.address)).toEqual(['anna@buero-muster.at', 'weber@statik-weber.at'])
+    expect(heldRow().participantDomains).toEqual([MEMBER_DOMAIN, 'statik-weber.at'])
+  })
+})
+
+describe('the recipient count (review D, finding 6)', () => {
+  it('counts To and Cc without the project addresses, as the participants hold them, so a follow can tell none was cut', async () => {
+    receive(await sign(message(BODY, { Cc: `Nachbar <${OTHER_TENANT_ADDRESS}>, Statik <weber@statik-weber.at>` })))
+
+    await run()
+
+    const recipients = heldRow().participants.filter((participant) => participant.role === 'to' || participant.role === 'cc')
+    expect(heldRow().recipientCount).toBe(1)
+    expect(recipients).toHaveLength(heldRow().recipientCount)
+  })
+})
+
+describe('the PII canary', () => {
+  it('lets no sender, subject, file name, address or token reach a log line, PostHog or the audit trail', async () => {
+    const canaries = ['Zebulon Quixote', 'Kanarienvogel-Betreff', 'Flamingo-Rechnungsliste.pdf', 'quixote@canary-domain.example', 'abcdefgh2345']
+    receive(
+      message(multipart('mixed', [BODY, attachment(canaries[2], 'application/pdf', pdf('c'))]), {
+        From: `${canaries[0]} <${canaries[3]}>`,
+        Subject: canaries[1],
+      }),
+    )
+    await run()
+    vi.mocked(readMail).mockRejectedValue(new Error(`reader failed on ${canaries[1]}`))
+    receive(message(BODY, { From: `${canaries[0]} <${canaries[3]}>`, Subject: canaries[1] }))
+    // The fault's own log line, then the hold once the budget is spent.
+    expect(await run(LAST)).toMatchObject({ done: false })
+    await run(LAST, RECEIVE_FAULT_BUDGET)
+    receive(message(BODY, { From: `${canaries[0]} <${canaries[3]}>`, 'Auto-Submitted': 'auto-replied' }))
+    await run()
+
+    const outbound = JSON.stringify([
+      infoLines().mock.calls,
+      vi.mocked(console.warn).mock.calls,
+      vi.mocked(console.error).mock.calls.map((call) => call.map(String)),
+      vi.mocked(captureServer).mock.calls,
+      vi.mocked(recordAuditEventAfterCommit).mock.calls,
+    ])
+    for (const canary of canaries) expect(outbound, canary).not.toContain(canary)
+    expect(vi.mocked(recordAuditEventAfterCommit).mock.calls.map(([event]) => event.action)).toEqual([
+      'inbound_mail.received',
+      'inbound_mail.received',
+      'inbound_mail.received',
+    ])
+  })
+})
+
+describe('following: the follow job is queued only when D31’s conditions 1–6 hold', () => {
+  const REFERENCE_HEADERS = { 'In-Reply-To': '<m0@buero-muster.at>', References: '<m0@buero-muster.at>', Subject: 'AW: Einreichplan' }
+
+  beforeEach(() => {
+    state.threadCandidates = [
+      {
+        threadId: THREAD,
+        baseSubject: 'einreichplan',
+        threadIndexGuid: null,
+        receivedIds: ['m0@buero-muster.at'],
+        referencedIds: [],
+        participants: ['anna@buero-muster.at'],
+        lastEntryAt: RECEIVED,
+      },
+    ]
+    state.followContext = {
+      threadId: THREAD,
+      participantDomains: [MEMBER_DOMAIN],
+      follows: [
+        { id: 'f0000000-0000-4000-8000-000000000001', userId: FOLLOWER_ID, createdAt: new Date(RECEIVED.getTime() - 86_400_000), expiresAt: new Date(Date.now() + 86_400_000), endedAt: null },
+      ],
+    }
+  })
+
+  it('queues it, as the follower, for a verified reply whose thread headers are signed', async () => {
+    receive(await sign(message(BODY, REFERENCE_HEADERS)))
+
+    await run()
+
+    expect(jobKinds()).toContain('inbound_mail_follow')
+    const follow = vi.mocked(enqueueJobIfAbsent).mock.calls.find(([job]) => job.kind === 'inbound_mail_follow')?.[0]
+    expect(follow).toMatchObject({
+      jobId: inboundMailJobId('follow', MAIL),
+      payload: { mailId: MAIL, projectId: PROJECT, followId: 'f0000000-0000-4000-8000-000000000001', requester: { userId: FOLLOWER_ID } },
+    })
+  })
+
+  it('does not queue it when the References were added outside the signature', async () => {
+    receive(await sign(message(BODY, REFERENCE_HEADERS), { headerList: 'from:to:subject:date:message-id' }))
+
+    await run()
+
+    expect(jobKinds()).not.toContain('inbound_mail_follow')
+  })
+
+  it('does not queue it when a new domain joins the conversation', async () => {
+    receive(await sign(message(BODY, { ...REFERENCE_HEADERS, Cc: 'neu@new-party.example' })))
+
+    await run()
+
+    expect(jobKinds()).not.toContain('inbound_mail_follow')
+  })
+
+  it('does not queue it for an unverified sender, nor without a follow', async () => {
+    state.dns = fakeDns({})
+    receive(await sign(message(BODY, REFERENCE_HEADERS)))
+    await run()
+    expect(jobKinds()).not.toContain('inbound_mail_follow')
+
+    state.dns = fakeDns(keyFor(MEMBER_DOMAIN))
+    state.followContext = { threadId: THREAD, participantDomains: [MEMBER_DOMAIN], follows: [] }
+    receive(await sign(message(BODY, REFERENCE_HEADERS)))
+    await run()
+    expect(jobKinds()).not.toContain('inbound_mail_follow')
+  })
+
+  it('does not queue it when the follower left the organization', async () => {
+    vi.mocked(resolvePinnedRequesterSession).mockResolvedValue(null)
+    receive(await sign(message(BODY, REFERENCE_HEADERS)))
+
+    await run()
+
+    expect(jobKinds()).not.toContain('inbound_mail_follow')
+  })
+})
+
+describe('a job that has nothing to do', () => {
+  it('leaves a mail of another project, organization or status alone', async () => {
+    receive(await sign(message()), { projectId: 'ffffffff-0000-4000-8000-000000000000' })
+    await run()
+    expect(state.calls).toEqual([])
+
+    receive(await sign(message()), { status: 'dropped' })
+    await run()
+    expect(state.calls).toEqual([])
+  })
+})
+
+describe('the sender rule: the class the hold writes (ADR-0137, amendment of 2026-11-03)', () => {
+  const DAY = 86_400_000
+  beforeEach(() => {
+    vi.mocked(userHoldsProjectPermission).mockReset().mockResolvedValue(false)
+  })
+  const writes = () => vi.mocked(userHoldsProjectPermission).mockImplementation(async (_org, _project, userId, permission) =>
+    userId === MEMBER_ID && permission === 'project:documents:write')
+
+  it('a writer’s signed mail is a verified writer’s: its sender’s filing is queued by name, nothing is announced yet', async () => {
+    writes()
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', senderClass: 'verified_writer' })
+    expect(new Date(heldRow().expiresAt).getTime() - new Date(heldRow().receivedAt).getTime()).toBe(30 * DAY)
+    expect(jobKinds()).toEqual(['inbound_mail_suggest', 'inbound_mail_sender_file'])
+    expect(vi.mocked(enqueueJobIfAbsent).mock.calls[1][0]).toMatchObject({
+      jobId: inboundMailJobId('sender', MAIL),
+      payload: { mailId: MAIL, projectId: PROJECT, waits: 0 },
+    })
+    expect(announceWaiting).not.toHaveBeenCalled()
+    expect(announceHeld).not.toHaveBeenCalled()
+  })
+
+  it('a writer’s mail whose signature fails waits for that writer, who is asked whether they sent it', async () => {
+    writes()
+    state.dns = fakeDns({})
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_unverified', senderClass: 'unverified_writer', senderUserId: MEMBER_ID })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+    expect(announceWaiting).toHaveBeenCalledOnce()
+    expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ mailId: MAIL, senderClass: 'unverified_writer', senderUserId: MEMBER_ID }))
+  })
+
+  it('a spoofed From of a real writer, unsigned, is never a verified writer’s', async () => {
+    writes()
+    receive(message(BODY, { From: 'Anna Muster <anna@buero-muster.at>' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_unverified', senderClass: 'unverified_writer' })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+  })
+
+  it('a writer’s signed mail replayed (its Message-ID already in the project) waits for that writer', async () => {
+    writes()
+    state.filedMessages = [{ entryId: 'e1', threadId: THREAD, source: 'inbound', ownTextSha256: '0'.repeat(64) }]
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow().senderFlags).toContain('message_id_reused')
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'unverified_writer' })
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+  })
+
+  it('a member without write rights waits for the project’s writers, and hears why', async () => {
+    receive(await sign(message()))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'member_verified', senderClass: 'office_member' })
+    expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ senderClass: 'office_member' }))
+  })
+
+  it('a write check WorkOS does not answer is retried, never frozen as no write right (S7)', async () => {
+    vi.mocked(userHoldsProjectPermission).mockRejectedValueOnce(new Error('WorkOS unavailable'))
+    writes()
+    receive(await sign(message()))
+
+    expect(await run()).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(heldRow().status).toBe('received')
+
+    await run(NOT_LAST, 1)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+    expect(heldRow().senderFlags).not.toContain('sender_unchecked')
+  })
+
+  it('an outsider’s mail waits 14 days, and nobody outside the office hears of it', async () => {
+    receive(message(BODY, { From: 'Wer Auch Immer <x@stranger.example>' }))
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ senderTrust: 'external_unverified', senderClass: 'external' })
+    expect(new Date(heldRow().expiresAt).getTime() - new Date(heldRow().receivedAt).getTime()).toBe(14 * DAY)
+    expect(announceHeld).toHaveBeenCalledWith(expect.objectContaining({ senderClass: 'external', senderUserId: null }))
+  })
+})
+
+describe('B2: an attached original’s Message-ID never drops a delivery', () => {
+  const REAL_ID = 'real-bescheid-123@ma37.wien.gv.at'
+  const decisionMail = (body: string) =>
+    [
+      'From: Mag. Anna Huber <anna.huber@ma37.wien.gv.at>',
+      'To: anna@buero-muster.at',
+      'Subject: Bescheid',
+      `Message-ID: <${REAL_ID}>`,
+      'Date: Mon, 21 Sep 2026 09:15:00 +0200',
+      '',
+      body,
+    ].join('\r\n')
+  beforeEach(async () => {
+    const actual = await vi.importActual<typeof import('./receive-original')>('./receive-original')
+    vi.mocked(recordOriginal).mockImplementation(actual.recordOriginal)
+    vi.mocked(userHoldsProjectPermission).mockImplementation(async (_org, _project, userId, permission) =>
+      userId === MEMBER_ID && permission === 'project:documents:write')
+  })
+
+  it('holds an outsider’s junk claiming a real original, and then the architect’s real forward of it (suppression)', async () => {
+    receive(
+      message(multipart('mixed', [BODY, forwarded(decisionMail('gefälscht'))]), { From: 'x@stranger.example', 'Message-ID': '<junk@stranger.example>' }),
+    )
+    await run()
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'external', originalMessageId: REAL_ID })
+
+    receive(await sign(message(multipart('mixed', [BODY, forwarded(decisionMail('Der Bescheid.'))]), { Subject: 'WG: Bescheid' })))
+    await run()
+    expect(heldRow()).toMatchObject({ status: 'waiting', droppedReason: null, senderClass: 'verified_writer', originalMessageId: REAL_ID })
+    expect(jobKinds()).toContain('inbound_mail_sender_file')
+    expect(captureServer).not.toHaveBeenCalledWith(expect.objectContaining({ event: 'inbound_mail_dropped' }))
+  })
+
+  it('holds a colleague’s mail that attaches an original the project holds, with its own text and new attachment', async () => {
+    receive(
+      await sign(
+        message(multipart('mixed', [BODY, attachment('Antwort_v2.pdf', 'application/pdf', pdf('Antwort v2')), forwarded(decisionMail('Der Bescheid.'))]), {
+          Subject: 'Antwortentwurf',
+        }),
+      ),
+    )
+
+    await run()
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', originalMessageId: REAL_ID })
+    expect(state.parts.map((part) => part.kind)).toEqual(['message', 'attachment'])
+    expect(state.parts[1]).toMatchObject({ filename: 'Antwort_v2.pdf' })
+    expect(stagedRead().ownText).toBe('Hallo, anbei die Unterlagen.')
+  })
+})
+
+describe('B3: a dependency that does not answer spends no attempt and freezes no degraded verdict', () => {
+  const SPENT = RECEIVE_FAULT_BUDGET
+  beforeEach(() => {
+    vi.mocked(userHoldsProjectPermission).mockReset().mockImplementation(async (_org, _project, userId, permission) =>
+      userId === MEMBER_ID && permission === 'project:documents:write')
+  })
+
+  it('waits a fault out over about six hours, doubling from a minute, and gives the attempt back each time', async () => {
+    vi.mocked(loadOrganizationDirectoryStrict).mockRejectedValue(new Error('WorkOS 503'))
+    receive(await sign(message()))
+    const before = Date.now()
+
+    const first = await run(LAST)
+    expect(first).toMatchObject({ done: false, payload: { mailId: MAIL, projectId: PROJECT, faults: 1 } })
+    expect((first as { notBefore: Date }).notBefore.getTime() - before).toBeGreaterThanOrEqual(60_000)
+    expect(heldRow().status).toBe('received')
+    expect(RECEIVE_FAULT_WAITS_MS.reduce((sum, wait) => sum + wait, 0) / 3_600_000).toBeCloseTo(6.05, 1)
+
+    const later = await run(LAST, SPENT - 1)
+    expect(later).toMatchObject({ done: false, payload: { faults: SPENT } })
+    expect((later as { notBefore: Date }).notBefore.getTime() - Date.now()).toBeGreaterThan(59 * 60_000)
+    expect(heldRow().status).toBe('received')
+  })
+
+  it('directory down for the whole budget: a member’s mail is held unchecked for 30 days, never an outsider’s', async () => {
+    vi.mocked(loadOrganizationDirectoryStrict).mockRejectedValue(new Error('WorkOS 503'))
+    receive(await sign(message()))
+
+    expect(await run(LAST, SPENT)).toMatchObject({ done: true })
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'external_verified', senderClass: 'external' })
+    expect(heldRow().senderFlags).toContain('sender_unchecked')
+    expect(waitDays()).toBe(30)
+    expect(jobKinds()).not.toContain('inbound_mail_sender_file')
+  })
+
+  it('a write check down for the whole budget: held unchecked for the writers, not frozen as “no write rights”', async () => {
+    vi.mocked(userHoldsProjectPermission).mockRejectedValue(new Error('WorkOS 503'))
+    receive(await sign(message()))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: false })
+    await run(NOT_LAST, SPENT)
+
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderTrust: 'member_verified', senderClass: 'office_member' })
+    expect(heldRow().senderFlags).toContain('sender_unchecked')
+    expect(waitDays()).toBe(30)
+  })
+
+  it('DNS for DKIM down: waited out, then a verified writer’s mail once it answers', async () => {
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
+    receive(await sign(message()))
+
+    expect(await run(LAST)).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
+    expect(heldRow().status).toBe('received')
+
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) })
+    await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, LAST)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+  })
+
+  it('DNS for DKIM down: two short waits of its own, then the transient reason stands, the long budget untouched (R2)', async () => {
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
+    receive(await sign(message()))
+    const before = Date.now()
+
+    const first = await run(NOT_LAST)
+    expect(first).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
+    expect((first as { payload: { faults?: number } }).payload.faults).toBeUndefined()
+    const wait = (first as { notBefore: Date }).notBefore.getTime() - before
+    expect(wait).toBeGreaterThanOrEqual(2 * 60_000)
+    expect(wait).toBeLessThan(3 * 60_000)
+    expect(await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, NOT_LAST)).toMatchObject({
+      done: false,
+      payload: { dkimFaults: 2 },
+    })
+    expect(heldRow().status).toBe('received')
+
+    expect(await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 2 }, NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'dkim_temperror', senderClass: 'unverified_writer' })
+  })
+
+  it('a verifier that throws is a verdict, not a fault: held unverified at once, and logged by the mail’s id (R2)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    vi.mocked(authenticateSender).mockResolvedValueOnce({
+      fromAddress: 'anna@buero-muster.at',
+      fromDomain: 'buero-muster.at',
+      verified: false,
+      reason: 'verifier_error',
+      signerDomain: null,
+      signedHeaders: [],
+      signedRecipientNamesProject: false,
+      authenticationResults: '',
+    })
+    receive(await sign(message()))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'verifier_error' })
+    expect(heldRow().senderClass).not.toBe('verified_writer')
+    expect(vi.mocked(console.error).mock.calls.flat().join('\n')).toContain(`mail ${MAIL}: the verifier threw`)
+  })
+
+  it('the reader down: waited out; past the budget the text waits unreadable with reader_fault_at, the class kept', async () => {
+    vi.mocked(readMail).mockRejectedValue(new Error('the mail reader answered 503'))
+    receive(await sign(message()))
+
+    expect(await run(LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(heldRow().status).toBe('received')
+
+    await run(LAST, SPENT)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+    expect(heldRow().readerFaultAt).toBeInstanceOf(Date)
+    expect(state.parts[0]).toMatchObject({ kind: 'message', riskFlags: ['unreadable'] })
+  })
+
+  it('a reader that refuses the request (422) is no fault: unreadable at once, no re-read due', async () => {
+    const { MailReadRefusedError } = await import('./read-client')
+    vi.mocked(readMail).mockRejectedValue(new MailReadRefusedError(422))
+    receive(await sign(message()))
+
+    expect(await run()).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', readerFaultAt: null })
+    expect(state.parts[0].riskFlags).toEqual(['unreadable'])
+  })
+
+  it('the object store down while staging: waited out, nothing held', async () => {
+    const { putStagedObject } = await import('./staging')
+    vi.mocked(putStagedObject).mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    expect(await run(LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(heldRow().status).toBe('received')
+  })
+
+  it('a run after a fault reuses the sender’s authentication and each scan, and scans again only what failed (R10)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    vi.mocked(readMail).mockRejectedValueOnce(new Error('the mail reader answered 503'))
+    vi.mocked(scanForMalware)
+      .mockResolvedValueOnce(CLEAN) // the raw message
+      .mockResolvedValueOnce(CLEAN)
+      .mockResolvedValueOnce({ status: 'failed', failure: 'unavailable', detail: null, engine: null })
+    receive(
+      await sign(
+        message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C')), attachment('S-102_A.pdf', 'application/pdf', pdf('S-102 A'))])),
+      ),
+    )
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: false, payload: { faults: 1 } })
+    expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(scanForMalware)).toHaveBeenCalledTimes(3)
+    expect(heldRow().receiveProgress).toMatchObject({ authentication: { reason: 'dkim_pass' } })
+
+    expect(await run(NOT_LAST, 1)).toMatchObject({ done: true })
+    // DKIM is not asked again; of the attachments only the one whose scan failed is scanned again.
+    expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(scanForMalware)).toHaveBeenCalledTimes(4)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer', receiveProgress: null })
+    expect(state.parts.filter((part) => part.kind === 'attachment').map((part) => part.scanStatus)).toEqual(['clean', 'clean'])
+  })
+
+  it('asks DNS for DKIM again after a fault when its verdict was transient, never reusing it (R10)', async () => {
+    const { authenticateSender } = await import('./sender-auth')
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) }, [`sel._domainkey.${MEMBER_DOMAIN}`])
+    receive(await sign(message()))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: false, payload: { dkimFaults: 1 } })
+    expect(heldRow().receiveProgress).not.toHaveProperty('authentication')
+
+    state.dns = fakeDns({ ...keyFor(MEMBER_DOMAIN) })
+    await runInboundMailReceive(ORG, { mailId: MAIL, projectId: PROJECT, dkimFaults: 1 }, NOT_LAST)
+    expect(vi.mocked(authenticateSender)).toHaveBeenCalledTimes(2)
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderReason: 'dkim_pass' })
+  })
+
+  it('a store that answers 5xx or times out is a fault; one that answers 4xx, or a request Node refuses to send, is not (R1)', async () => {
+    const { isObjectStoreFault } = await import('./receive-faults')
+    const status = (code: number) => Object.assign(new Error('store'), { $metadata: { httpStatusCode: code } })
+    expect([500, 502, 503, 408, 429].map((code) => isObjectStoreFault(status(code)))).toEqual([true, true, true, true, true])
+    expect(isObjectStoreFault(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))).toBe(true)
+    expect(isObjectStoreFault(new Error('wrapped', { cause: Object.assign(new Error('x'), { code: 'ECONNREFUSED' }) }))).toBe(true)
+
+    expect([400, 403, 404, 411].map((code) => isObjectStoreFault(status(code)))).toEqual([false, false, false, false])
+    expect(isObjectStoreFault(Object.assign(new TypeError('Invalid character in header content'), { code: 'ERR_INVALID_CHAR' }))).toBe(false)
+    expect(isObjectStoreFault(new Error('a bug'))).toBe(false)
+  })
+
+  it('a store that refuses one object spends attempts, not six hours, and the last one holds the mail (R1)', async () => {
+    const { putStagedObject } = await import('./staging')
+    const refused = () => Object.assign(new Error('Bad Request'), { name: 'InvalidArgument', $metadata: { httpStatusCode: 400 } })
+    vi.mocked(putStagedObject).mockRejectedValueOnce(refused()).mockRejectedValueOnce(refused())
+    receive(await sign(message(multipart('mixed', [BODY, attachment('S-101_C.pdf', 'application/pdf', pdf('S-101 C'))]))))
+
+    await expect(run(NOT_LAST)).rejects.toThrow('Bad Request')
+    expect(heldRow().status).toBe('received')
+
+    expect(await run(LAST)).toMatchObject({ done: true })
+    expect(heldRow()).toMatchObject({ status: 'waiting', senderClass: 'verified_writer' })
+    expect(state.parts[0]).toMatchObject({ kind: 'message', riskFlags: ['unreadable'] })
+  })
+
+  it('stages an attachment whose Content-Type Node would refuse as a header as application/octet-stream (R1)', async () => {
+    const { validateHeaderValue } = await import('node:http')
+    const { putStagedObject } = await import('./staging')
+    // The real client sends the type as a header; Node throws ERR_INVALID_CHAR on `☃`.
+    vi.mocked(putStagedObject).mockImplementation(async (_bucket, key, body, contentType) => {
+      validateHeaderValue('content-type', contentType)
+      state.objects.set(key, body)
+    })
+    receive(await sign(message(multipart('mixed', [BODY, attachment('Schnee.pdf', 'application/pdf☃', pdf('snow'))]))))
+
+    expect(await run(NOT_LAST)).toMatchObject({ done: true })
+    expect(heldRow().status).toBe('waiting')
+    expect(state.parts[1]).toMatchObject({ kind: 'attachment', filename: 'Schnee.pdf', contentType: 'application/octet-stream' })
+  })
+})

@@ -25,7 +25,7 @@
  *     its three proposals; asked in a thread, it answers there as a reply.
  *
  * Routes:
- *   /dev/annotations                         the pane: pins, regions, pointers inline
+ *   /dev/annotations                         the pane: pins, regions, pointers inline; `&blank=1`: a document nobody marked yet
  *   /dev/annotations?doc=dev-doc-annotations&review=1            the focused review
  *   …&review=1&mark=ann-1                    the review, open at Anmerkung 1
  *   …&review=1&piloti=1                      the review, while Piloti proposes
@@ -259,7 +259,7 @@ const agentReply = (
   body: string
 ): AnnotationReplyView => ({ ...reply(annotationId, asker, 0, body), id, authorKind: 'piloti' })
 
-let annotations: AnnotationView[] = [
+let annotations: AnnotationView[] = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('blank') ? [] : [
   {
     ...base,
     id: 'ann-1',
@@ -372,7 +372,7 @@ let nextNumber = 7
 let unreadMarks = ['ann-1']
 
 /** Index B's marks: two still open, one done. Carried on, each comes over as a linked mark of this document. */
-let indexB: AnnotationView[] = [
+let indexB: AnnotationView[] = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('blank') ? [] : [
   {
     ...base,
     documentId: INDEX_B.id,

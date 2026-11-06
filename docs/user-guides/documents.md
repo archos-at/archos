@@ -6,23 +6,30 @@ Keep the office's files in folders and share them with everyone who has access t
 
 ## Uploading Documents
 
-There are two upload zones in the UI:
+Files can also reach a project by e-mail: mail sent to the project's own
+address waits in its **E-Mail-Eingang** until someone files it (a member's own
+mail, confirmed by their domain, is filed directly), and its text becomes an
+**E-Mail-Verlauf**. See [Project mail](inbound-mail.md).
 
-- **Project upload zone** — appears in the Data Sources panel when a project is active. Files uploaded here are scoped to the project (`proj_{projectId}` collection) and shared with everyone who has access to that project.
-- **Chat upload zone** — appears within a conversation. Files uploaded here are scoped to that session (`s_{conversationId}` collection) and visible only within that conversation.
+A file goes to one of two places, and the place decides who can use it:
 
-To upload, drag and drop files onto the upload zone or click to browse. Multiple files can be uploaded at once.
+- **The project's Dateien** — the project's file storage. Files here are shared with everyone who has access to the project and searched by every chat in it (`proj_{projectId}` collection). Upload with **„Hochladen“** in the Dateien header (its menu offers **„Dateien auswählen“** and **„Ordner hochladen“**), with the dashed upload card at the end of the grid, or by dropping files anywhere on the file area; on a phone „Hochladen“ floats over the foot of the list. The Büroablage has the same controls for the whole office (see [The Büroablage](#the-büroablage-adr-0024)).
+- **A chat** — drop files anywhere over the conversation („Dateien zum Hochladen ablegen“), paste them, or pick them with the paperclip. They stay in that conversation (`s_{conversationId}` collection), and the line under their chips says so: „Hier hochgeladene Dateien gelangen in die private Sitzung, sofern nicht entfernt.“ The chips, **Dateien verwalten** and the touch menu are described in [the chat guide](chat.md#the-composer).
 
-The project Files workspace shows folders, the file grid, and the preview side by side on desktop. On small screens the panes stack — folders above the file grid — and selecting a file opens the preview as a full-screen overlay with a close button.
+In a project chat that already has a file attached, **Dateien verwalten** also offers **„Hochladen nach“** with **„Projektwissen“** and **„Private Sitzung“**. It starts on „Projektwissen“, so a file added there with **„+ Datei hinzufügen“** goes into the project's Dateien, not into the chat; pick „Private Sitzung“ to keep it in the conversation. A project file listed there is deleted in Dateien („Projektdateien löschen Sie in den Projektdateien.“), not in the dialog.
+
+Every way of uploading takes several files at once.
+
+In Dateien, folders are the drill-down inside the listing: each level shows its folders as tiles (or rows, in the list view) beside its files, and the breadcrumb above names the path and walks back out. That row, with „Neuer Ordner“, stays pinned at the top while the listing scrolls. Opening a file opens its preview in a dialog; on a phone the dialog fills the screen.
 
 ### Folders
 
-The folder tree in the left pane is the project's filing system, and it supports the full set of operations — not just creating folders.
+The folders are the project's filing system, and they support the full set of operations — not just creating folders.
 
-- **Create** — `New folder` at the bottom of the tree adds a top-level folder; hovering a row reveals a `+` (`Add subfolder in {name}`) that nests one inside it. Both open an inline name field; Enter commits, Escape cancels.
-- **Rename** — the row's `⋯` menu → `Rename…` turns the row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
+- **Create** — **„Neuer Ordner“** beside the breadcrumb opens a name field and creates the folder in the level you are in; to nest one, open the parent first, or use **„Neuer Ordner darin“** in a folder's `⋯` menu. Enter commits, Escape cancels.
+- **Rename** — the folder's `⋯` menu → **„Umbenennen …“** turns the tile or row itself into an input, pre-filled with the current name. Enter commits, Escape cancels, and a name that did not change makes no request at all. If the rename fails the row stays in edit mode with your text intact, so nothing is retyped.
 - **Move** — `PATCH …/folders/{folderId}` accepts a new `parentId`; moving a folder into itself or into one of its own subfolders is refused rather than silently producing a loop.
-- **Delete** — the same menu's `Delete…`. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
+- **Delete** — the same menu's **„Löschen …“**. The folder goes to the project's **Papierkorb** with its subfolders and documents: *"Move the folder 'Brandschutz' to the bin? Its subfolders and documents go with it. From the bin it can be restored with its access until it is permanently deleted."* The toast says until when: *"'Brandschutz' is in the bin. Restorable until 20 Oct 2026."* It is gone from every listing, search and answer at once, and restorable for 14 days from the bin icon in Files; then it is deleted for good. A folder holding a folder you may not edit is refused. The whole story: [Deleting folders: the Papierkorb](sensitive-data-and-access.md#deleting-folders-the-papierkorb).
 
 Each of these is a write in the folder. In a folder whose access list gives you only **Lesen**, the tree and the file grid mark it **Nur lesen** and offer none of them, nor upload or moving a document in or out; the route refuses them too (403, `reason: folder-read-only`). Who may read and edit a folder: [sensitive data and access](sensitive-data-and-access.md#who-may-read-and-edit-a-folder).
 
@@ -219,6 +226,19 @@ and the overlay says „Nur lesen“ in red instead of offering a drop that the
 server would refuse. A second drop while an upload is still running waits its
 turn, and ARCHOS says that it will follow, rather than dropping it.
 
+## Sorting the root folder into folders
+
+**Alle Dateien in Ordner einsortieren…** (the file area's menu, under
+„Erweitert“) asks ARCHOS to propose a folder for every file lying in the root
+folder of a project or of the Büroablage. It is offered to people who manage the
+files and may write at the root. ARCHOS first matches each file to an existing
+folder, then proposes new folders for the rest; you need at least one folder
+before it can start. Files ARCHOS has not read yet stay out. Nothing moves until
+you accept the proposal, and **Rückgängig** puts moved files back. The run is
+the server's: you can close the dialog and keep working, and ARCHOS tells you in
+the inbox when the proposal is ready to review
+([ADR-0121](../adr/0121-bulk-work-is-owned-by-the-server.md)).
+
 ## Uploading a whole folder
 
 A büro onboarding a project moves a directory tree, not a hand-picked list. Two
@@ -318,6 +338,9 @@ offered as its next Fassung, an unchanged one left alone.
   upload report, like any other file. A ZIP inside a ZIP is not unpacked.
 - **An `.ifczip` is not a ZIP of documents.** It is a building model and is
   uploaded as one, as before.
+- **Only the browser unpacks.** A ZIP that reaches ARCHOS any other way (a mail
+  attachment in an Outlook import, an agent's upload) is refused as a type
+  ARCHOS does not read; unpack it and upload its content.
 
 File names in ZIPs made by very old Windows versions, which did not mark their
 names as UTF-8, can show garbled umlauts; renaming the folder in ARCHOS fixes it.
@@ -542,6 +565,18 @@ People assigned to the older document, and whoever uploaded it, get a note in th
 inbox when a newer Fassung is linked or uploaded under the same name, if they
 may open the newer one (see „The inbox“ in the chat guide).
 
+### ARCHOS notices a new Fassung
+
+When a document becomes the newer Fassung of another, ARCHOS can compare the
+pages that changed on its own and leave **proposed marks** where something
+moved, in the name of the person whose upload or link made the Fassung. Each
+mark waits for a person to take it over or dismiss it. That person gets one
+message in the document's chat and one inbox row, which opens the Prüfansicht at
+the first mark. Your organization's operator switches this on; with it off, nothing is compared
+until someone opens
+**Vergleichen**
+([ADR-0130](../adr/0130-piloti-notices-a-new-fassung.md)).
+
 ### Anmerkungen from an earlier Fassung, and the Protokoll
 
 In the Prüfansicht of the current Fassung, the list keeps what is still open
@@ -731,19 +766,17 @@ component, two shelves** (`FileWorkspace`; see
 Everything described for a project's Dateien above — folders, moving files by
 menu or drag, uploading a whole folder, the cards/list toggle, filters and sort,
 search, the preview and its `?doc=` link — works the same here, with the same
-words. It keeps the gold office mark (the Büroablage provenance signal used
-across the app) and what is specific to the office:
+words, and it looks the same: the header of a project section, the same cards and
+rows. What is specific to the office:
 
 - **Folders** — the office's own tree, separate from every project's. Members
   with `org:office_shelf:manage` create, rename, move and delete folders and re-file
   documents; deleting a folder never deletes documents, it re-files them into the
   parent. Everyone else can open folders, search, filter, preview and download
   but sees no upload, drag, create, rename, move or delete.
-- **Gold kind chip and provenance footer** — a card shows the document's kind
-  (floor plan, notice, …) on a gold chip, and cards whose documents carry
-  ingestion tags show them as an "Aus: …"/"From: …" line. Documents without
-  tags show none, and there is no "verified" marker — the Büroablage has no review
-  workflow.
+- **Cards as in a project** — a Büroablage card is a project's card: no kind
+  chip and no provenance line of its own. There is no "verified" marker — the
+  Büroablage has no review workflow.
 - **Category filter** — the filter menu offers „Kategorie“, derived from the
   controlled ingestion tags actually present on the loaded documents (document
   type + OIB discipline). Categories come from the documents themselves;

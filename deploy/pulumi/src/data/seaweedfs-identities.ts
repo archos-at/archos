@@ -2,6 +2,7 @@ import * as k8s from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
 import { DeployConfig } from '../config'
 import { LANGFUSE, QDRANT } from "../constants";
+import { CMS } from "../config/cms";
 
 /**
  * The SeaweedFS S3 identity set — who can touch which bucket.
@@ -38,6 +39,7 @@ import { LANGFUSE, QDRANT } from "../constants";
  * | `grid-tenant-admin` | provisioning + purge paths | `Admin` on the tenant bucket PREFIX and nothing else. |
  * | `grid-langfuse` | Langfuse (ADR-0044) | object CRUD on the Langfuse bucket only. |
  * | `grid-qdrant` | Qdrant (ADR-0115) | object CRUD on the snapshot bucket only. |
+ * | `cms` | the website's CMS, Payload (ADR-0155) | object CRUD on its file library's bucket only. |
  *
  * The split between `grid` and `grid-tenant-admin` is the point: SeaweedFS
  * cannot express "may create a bucket but not delete one" — `Admin:<bucket>`
@@ -100,6 +102,7 @@ export function s3IdentityCatalog({
   provisioning,
   langfuseBucket,
   qdrantBucket,
+  cmsBucket,
 }: {
   documentsBucket: string;
   platformBuckets: string[];
@@ -117,6 +120,12 @@ export function s3IdentityCatalog({
    * office's chunk text and vectors, and the BFF has no reason to read one.
    */
   qdrantBucket?: string;
+  /**
+   * The CMS's file library (ADR-0155), when the CMS is deployed. Withheld from
+   * `grid`: the app has no business in the website's drafts and uploads, and
+   * the CMS none in the offices' documents.
+   */
+  cmsBucket?: string;
 }): S3IdentityShape[] {
   // `Read:grid-org-*` — the star is matched by prefix, so this covers every
   // bucket the tenant provisioner will ever create without covering
@@ -131,7 +140,9 @@ export function s3IdentityCatalog({
   // output in their most unredacted form. Langfuse reaches its own bucket with
   // its own identity below. Excluding it here is what keeps adding a platform
   // bucket from silently widening an existing credential.
-  const appBuckets = platformBuckets.filter((bucket) => bucket !== langfuseBucket && bucket !== qdrantBucket);
+  const appBuckets = platformBuckets.filter(
+    (bucket) => bucket !== langfuseBucket && bucket !== qdrantBucket && bucket !== cmsBucket,
+  );
 
   const perBucket = (action: string): string[] => [
     ...appBuckets.map((bucket) => `${action}:${bucket}`),
@@ -206,6 +217,11 @@ export function s3IdentityCatalog({
     });
   }
 
+  if (cmsBucket) {
+    // Object CRUD on exactly one bucket, for the reasons the Langfuse entry gives.
+    identities.push({ name: CMS.s3Identity, actions: OBJECT_ACTIONS.map((action) => `${action}:${cmsBucket}`) });
+  }
+
   return identities;
 }
 
@@ -226,14 +242,17 @@ export function renderS3Config(
       cfg.langfuse.s3SecretKey,
       pulumi.output(cfg.qdrant.snapshots.s3AccessKey),
       cfg.qdrant.snapshots.s3SecretKey,
+      pulumi.output(cfg.cms.s3AccessKey),
+      cfg.cms.s3SecretKey,
     ])
-    .apply(([ak, sk, brak, brsk, taak, task, lfak, lfsk, qdak, qdsk]) => {
+    .apply(([ak, sk, brak, brsk, taak, task, lfak, lfsk, qdak, qdsk, cmak, cmsk]) => {
       const credentials: Record<string, { accessKey: string; secretKey: string }> = {
         grid: { accessKey: ak, secretKey: sk },
         "grid-backend-read": { accessKey: brak, secretKey: brsk },
         "grid-tenant-admin": { accessKey: taak, secretKey: task },
         [LANGFUSE.s3Identity]: { accessKey: lfak, secretKey: lfsk },
         [QDRANT.s3Identity]: { accessKey: qdak, secretKey: qdsk },
+        [CMS.s3Identity]: { accessKey: cmak, secretKey: cmsk },
       };
 
       const identities = s3IdentityCatalog({
@@ -243,6 +262,7 @@ export function renderS3Config(
         provisioning,
         langfuseBucket: cfg.langfuse.enabled ? LANGFUSE.bucket : undefined,
         qdrantBucket: QDRANT.snapshotBucket,
+        cmsBucket: cfg.cms.enabled ? CMS.bucket : undefined,
       }).map((identity) => ({
         name: identity.name,
         credentials: [credentials[identity.name]],

@@ -45,6 +45,9 @@ pulumi.runtime.setMocks(
 
 const ZONE = "example.test";
 
+/** A stack config key, in the project's namespace. */
+const KEY = (name: string) => `${pulumi.getProject()}:${name}`;
+
 /** The `spec.listeners` slice this file reads back off the Gateway resource. */
 type GatewaySpec = { listeners: Array<{ name: string; protocol: string; hostname?: string }> };
 
@@ -64,9 +67,14 @@ describe("the program constructs with public DNS enabled", () => {
       "grid-oib:otelOidcClientSecret": "otel-secret", // pragma: allowlist secret
       "grid-oib:loadBalancerIp": "203.0.113.10",
       "grid-oib:dnsEnabled": "true",
-      "grid-oib:dnsZoneId": "zone-abc123",
+      "grid-oib:dnsZoneId": "00000000000000000000000000abc123",
       "grid-oib:dnsZoneName": ZONE,
       "grid-oib:cloudflareApiToken": "cf-token", // pragma: allowlist secret
+      // A domain move in progress: the former hosts' listeners must have
+      // records too, or their 301s and certificates answer nobody.
+      [KEY("formerBaseDomain")]: "dev.former.test",
+      [KEY("formerDnsZoneName")]: "former.test",
+      [KEY("formerDnsZoneId")]: "00000000000000000000000000f0f0f0",
     });
     const stack = (await import("./index")) as Record<string, unknown>;
     await Promise.all(
@@ -106,7 +114,11 @@ describe("the program constructs with public DNS enabled", () => {
       expect(listenerHosts()).toContain(host);
       expect(dnsHosts()).toContain(host);
     }
-    expect(dnsHosts()).toHaveLength(5);
+    for (const host of ["dev.former.test", "app.dev.former.test"]) {
+      expect(listenerHosts()).toContain(host);
+      expect(dnsHosts()).toContain(host);
+    }
+    expect(dnsHosts()).toHaveLength(7);
   });
 
   it("points every record at the pinned LoadBalancer IP", () => {

@@ -1,4 +1,4 @@
-// @disk-inputs: ../../packages/agent/src/agent/knowledge/document_classification.py
+// @disk-inputs: ../../packages/agent/src/agent/knowledge/doc_class_vocabulary.py
 /**
  * @vitest-environment node
  */
@@ -6,7 +6,7 @@
  * Parity guard: the frontend Dokumentart vocabulary must match the backend enum.
  *
  * The canonical doc_class vocabulary lives in the Python backend
- * (`packages/agent/src/agent/knowledge/document_classification.py` — `DOCUMENT_CLASS_LABELS`,
+ * (`packages/agent/src/agent/knowledge/doc_class_vocabulary.py` — `DOCUMENT_CLASS_LABELS`,
  * whose ordered keys are `DOCUMENT_CLASSES`). The base-knowledge admin UI keeps a
  * hand-written TypeScript mirror (`doc-class.ts`) to render its dropdown + badge.
  * This test reads the Python file at test time and fails if the two ever drift —
@@ -16,7 +16,7 @@
 
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import {
   DEFAULT_DOC_CLASS,
@@ -29,12 +29,10 @@ import {
   LEGACY_DOC_CLASSES,
 } from './doc-class'
 
-// apps/workspace/bff/knowledge → repo root is four levels up from src/.
+// apps/workspace/bff/knowledge → the repo root is four levels up.
 const HERE = dirname(fileURLToPath(import.meta.url))
-const BACKEND_SOURCE = resolve(
-  HERE,
-  '../../../../packages/agent/src/agent/knowledge/document_classification.py',
-)
+const REPO_ROOT = resolve(HERE, '..', '..', '..', '..')
+const BACKEND_SOURCE = join(REPO_ROOT, 'packages', 'agent', 'src', 'agent', 'knowledge', 'doc_class_vocabulary.py')
 
 /** Pull the ordered keys out of the Python `DOCUMENT_CLASS_LABELS` dict block. */
 function backendDocClassKeys(): string[] {

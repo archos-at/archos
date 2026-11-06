@@ -14,6 +14,8 @@ from knowledge_layer.chunk_positions import OwnText
 from knowledge_layer.chunk_positions import own_matches
 from knowledge_layer.chunk_positions import own_text
 
+from agent.common.passage_fence import fence
+
 from .matches import MAX_MATCH_CHUNKS
 from .matches import FileMatches
 from .matches import _distinct_lines
@@ -123,6 +125,9 @@ def _chunk_snippets(own: OwnText, where: str, pattern: Any, context: int, room: 
     return out, False
 
 
+_SNIPPETS_NOTE = "This is an index: cite the passages above, not these lines."
+
+
 def match_snippets(groups: Sequence[FileMatches], pattern: Any, context: int, *, timeout: float | None = None) -> str:
     """The lines around every match, ``context`` each side: grep ``-C`` over the files, as an index.
 
@@ -142,10 +147,11 @@ def match_snippets(groups: Sequence[FileMatches], pattern: Any, context: int, *,
             break
     if not out:
         return ""
-    if cut:
-        out.append(f"… the lines stop at {MAX_SNIPPET_LINES}; narrow with `folder=` or `file_name=` for the rest.")
-    out.append("This is an index: cite the passages above, not these lines.")
-    return "\n".join(["## Lines around the matches", *out])
+    # The lines are the documents' own text, so they sit in the passages' fence (``passage_fence``).
+    notes = (
+        [f"… the lines stop at {MAX_SNIPPET_LINES}; narrow with `folder=` or `file_name=` for the rest."] if cut else []
+    )
+    return "\n".join(["## Lines around the matches", fence("\n".join(out)), *notes, _SNIPPETS_NOTE])
 
 
 def no_match_message(

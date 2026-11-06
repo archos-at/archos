@@ -40,6 +40,7 @@ import {
   SlashCommandPicker,
   type SlashCommandSkill,
 } from '@/features/skills/components/SlashCommandPicker'
+import { SectionLabel } from '@/components/ui/section-label'
 
 const SKILLS: SlashCommandSkill[] = [
   {
@@ -93,11 +94,11 @@ export default function SkillComposerPreviewPage(): JSX.Element {
         className="text-foreground mx-auto flex w-full max-w-[680px] flex-col gap-8 p-6"
       >
         <section className="flex flex-col gap-3">
-          <h2 className="text-muted-foreground text-[10.5px] font-medium uppercase tracking-wider">
+          <SectionLabel as="h2">
             {isEmpty
               ? 'Slash-Menü — Organisation ohne Skills'
               : 'Slash-Menü — getippt: /oib'}
-          </h2>
+          </SectionLabel>
 
           <SlashCommandPicker
             query={isEmpty ? '' : 'oib'}
@@ -107,9 +108,9 @@ export default function SkillComposerPreviewPage(): JSX.Element {
 
           {!isEmpty && (
             <>
-              <h2 className="text-muted-foreground mt-4 text-[10.5px] font-medium uppercase tracking-wider">
+              <SectionLabel as="h2" className="mt-4">
                 Nach der Auswahl — unter dem Eingabefeld
-              </h2>
+              </SectionLabel>
               {/* `onRemove` supplied: the removable form is the one every author
                   meets, and an unremovable chip only exists on a read-only
                   composer. */}

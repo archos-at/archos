@@ -7,20 +7,15 @@
 
 import type { Project } from '@/lib/db/schema/projects'
 import type { ListProjectsQuery, ProjectSummary } from './project-wire'
-
-function factText(project: Pick<Project, 'profile'>, key: string): string | null {
-  const value = project.profile?.facts?.[key]?.value
-  return typeof value === 'string' && value.trim() ? value.trim() : null
-}
+import { projectFactText, projectSiteAddress } from './site-address'
 
 export function toProjectSummary(project: Project): ProjectSummary {
   return {
     id: project.id,
     name: project.name,
     status: project.status,
-    projectName: factText(project, 'project_name'),
-    // `standort_adresse`: the key an older pod still writes during a rolling deploy (migration 0159).
-    siteAddress: factText(project, 'site_address') ?? factText(project, 'standort_adresse'),
+    projectName: projectFactText(project, 'project_name'),
+    siteAddress: projectSiteAddress(project),
     createdAt: project.createdAt,
     pausedAt: project.pausedAt,
     closedAt: project.closedAt,

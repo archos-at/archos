@@ -77,8 +77,13 @@ new or touched:
 
 - **Two levels of nesting inside a function, at most.** A third `if`/`for`/
   `try` inside a function body is a function waiting to be named. Ruff's
-  `PLR1702` (`max-nested-blocks = 2`) is the check; it is turned on for the
-  paths that already meet it and joins the rest as they are brought under.
+  `PLR1702` (`max-nested-blocks = 2`) is the check, run by the `nesting` hook
+  (`scripts/check_nesting.py`) over `packages/*/src` and `apps/agent-host/src`.
+  `pyproject.toml` still ignores the rule, and Ruff 0.17 keeps it in preview, so
+  a bare `ruff check` never reports it. The hook is a ratchet on
+  `ci/nesting_baseline.json`: a file there may not gain a finding, every other
+  file may have none, and `--update` lowers an entry when you name an inner
+  block.
 - **Early exit, never an `else` ladder.** Guard clauses first, the happy path
   last and unindented. `if not x: return` beats wrapping the body in `if x:`.
 - **Sixty lines is long.** Past that, the function is doing two things.
@@ -224,5 +229,9 @@ per organization, changed in the dashboard with no deploy, and reaches the
 Python tier through the BFF (`GET /api/internal/stages`), which has no WorkOS
 client of its own. `FOLDER_CARDS` and `OFFICE_CONVENTIONS` were built
 as variables and replaced by the `folder-cards` and `office-conventions` flags;
-their tuning (`FOLDER_CARDS_MONTHLY_TOKENS`) stayed. Registering a flag:
+their tuning (`FOLDER_CARDS_MONTHLY_TOKENS`) stayed. One exception remains:
+`FILING_SUGGESTIONS=off` (`lib/filing/trigger.ts`) switches filing
+suggestions off for a whole deployment. It is still a variable, documented in
+[`environment-variables.md`](../deployment/environment-variables.md), and
+becomes a flag the next time filing suggestions are touched. Registering a flag:
 [`workos-provisioning.md`](../deployment/workos-provisioning.md).

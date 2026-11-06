@@ -1,0 +1,13 @@
+Bitte ins Projekt.
+
+Anfang der weitergeleiteten Nachricht:
+
+Von: Thomas Müller <t.mueller@statik-mueller.de>
+Betreff: Tragwerksplanung Haus B - Revision 3
+Datum: 3. November 2026 um 10:15:00 MEZ
+An: Anna Bauer <a.bauer@architekten-bauer.de>
+Kopie: Peter Schmidt <p.schmidt@architekten-bauer.de>
+
+Sehr geehrte Frau Bauer,
+
+anbei die Revision 3.

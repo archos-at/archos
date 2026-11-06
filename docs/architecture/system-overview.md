@@ -174,7 +174,7 @@ The workspace surfaces, each with its own doc:
 - **Research and reports:** [reports Piloti writes](../user-guides/agent-authored-reports.md), [deep research report](deep-research-report.md)
 - **Team and access:** [collaboration lifecycle](collaboration-lifecycle.md), [sensitive data and access](../user-guides/sensitive-data-and-access.md)
 - **Office knowledge:** [project memory design](project-memory-design.md)
-- **Mail import:** [Outlook archive import](mail-import.md)
+- **Project mail:** [the E-Mail-Eingang and the E-Mail-Verläufe](inbound-mail.md), [Outlook archive import](mail-import.md)
 
 ### 5.1 Chat & the agent pipeline
 Chat is **WebSocket-only** (ADR 0009). A turn runs through a LangGraph workflow
@@ -470,5 +470,5 @@ What lives where in the checkout.
 | `docs/architecture/` | Architecture docs (see `backend-deep-dive.md`, `project-memory-design.md`, `docs/audit/citation-system-audit-2026-07.md` for the citation pipeline as built) |
 | `skills/` | API-consumer skill examples |
 | `scripts/` | Utility scripts, including `scripts/upload_oib_corpus.py` |
-| `releasenotes/` | reno release notes — one YAML file per user-visible change, published to piloti.at/changelog |
+| `releasenotes/` | reno release notes — one YAML file per user-visible change, published to the app's What's new; the website's changelog shows the weekly summaries (ADR-0156) |
 | `data/oib/` | A local, gitignored copy of the OIB Richtlinien PDFs for the evals and tests. The platform does not read it: the base corpus is uploaded through the admin UI into object storage |

@@ -33,9 +33,11 @@ import { AskColleagueButton, HeldReview, ReaderDetails } from './file-preview-re
 
 import { IfcFileFacts } from './file-preview-pane-lazy'
 import type { FilePreviewController } from './use-file-preview-controller'
+import { MailThreadTab, ThreadRailViews } from './mail-thread'
 
 export function FilePreviewDetailsPanel({ controller }: { controller: FilePreviewController }) {
-  const { actions, assigneeNames, canCollaborate, canManage, details, detailsFailed, detailsLoading, detailsOpen, discussHint, file, handleReingest, hasOwnershipBlock, hasVisualContent, heldVerdict, inChat, indexedReady, isFailed, isHeld, isModel, onAssigneesChanged, onLifecycleChanged, onOpenDocument, onReingested, onRevisionChanged, onTagsUpdated, openMarks, openReview, pdfInWell, peeking, projectId, reader, responsibleNames, retryDetails, review, reviewEnabled, reviewViewer, revisionsShown, scope, setDetailsOpen, setShownFinding, setShownPage, showIndexedHeading, showInlinePdf, showMetadataPanel, showPage, shownFinding, shownType, t } = controller
+  const { mailFocus, mailThread, railView, setRailView, viewerUserId } = controller
+  const { actions, assigneeNames, canCollaborate, canManage, details, detailsFailed, detailsLoading, detailsOpen, discussHint, file, handleReingest, hasOwnershipBlock, hasVisualContent, heldVerdict, inChat, indexedReady, isFailed, isHeld, isModel, onAssigneesChanged, onLifecycleChanged, onOpenDocument, onReingested, onRevisionChanged, onTagsUpdated, openMarks, openReview, pdfInWell, peekView, peeking, projectId, reader, responsibleNames, retryDetails, review, reviewEnabled, reviewViewer, revisionsShown, scope, setDetailsOpen, setShownFinding, setShownPage, showIndexedHeading, showInlinePdf, showMetadataPanel, showPage, shownFinding, shownType, t } = controller
   return (
     <>
           {/* Right: indexed-metadata panel (FB-8; off only in the peek).
@@ -52,7 +54,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
               middle of a value reads as broken rather than as "there is more".
               The utility is scroll-driven, so the fade RETRACTS at the bottom of
               travel: its presence is the signal, not decoration. */}
-          <PeekPanel peeking={peeking} value="details">
+          <PeekPanel peeking={peeking} active={peekView === 'details'} view="details">
             <ReaderDetails
               sheet={reader}
               open={detailsOpen}
@@ -74,6 +76,25 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                   : 'scroll-fade-bottom bg-surface-sunken @2xl:w-[280px] @2xl:shrink-0 @2xl:min-h-0 @2xl:overflow-y-auto @2xl:overscroll-contain @2xl:border-l @2xl:border-t-0 @2xl:pb-4 flex w-full flex-col border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]'
               }
             >
+              <ThreadRailViews
+                mail={
+                  mailThread && projectId ? (
+                    <MailThreadTab
+                      key={mailThread.id}
+                      projectId={projectId}
+                      documentId={file.id}
+                      threadId={mailThread.id}
+                      folderId={file.folderId}
+                      viewerUserId={viewerUserId ?? null}
+                      focus={mailFocus}
+                    />
+                  ) : null
+                }
+                mailCount={mailThread?.entryCount ?? 0}
+                value={railView}
+                onValueChange={setRailView}
+                detailsLabel={t('preview.peekViews.details')}
+              >
               {/* WHO OWNS THIS DOCUMENT, AND WHAT YOU CAN ASK OF IT.
 
                 The byline, who is responsible and „Piloti dazu fragen" all used
@@ -229,6 +250,7 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 <DocumentRevisions
                   key={file.id}
                   file={file}
+                  projectId={projectId}
                   canManage={canManage}
                   viewer={reviewViewer}
                   names={assigneeNames}
@@ -412,6 +434,8 @@ export function FilePreviewDetailsPanel({ controller }: { controller: FilePrevie
                 expanded in place, pushing the rest of the rail down. Both moved
                 into the header's actions menu, beside the other controls that act
                 on this file. */}
+
+              </ThreadRailViews>
 
               <div className="flex-1" />
             </div>

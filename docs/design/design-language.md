@@ -77,7 +77,7 @@ because `:root` and `.dark` have equal specificity there. Decorative overlays
 that paint the card's colour over content (the streaming caret's veil) are
 hidden under `contrast-more:` and `forced-colors:`.
 
-**Ink ramp (light):** #1f2023 (foreground/action) → #55565a secondary → #6f706c muted → #8a8a86 placeholder → #b3b3af ghost. Borders are **alpha ink hairlines** (`rgba(28,30,33,…)` equivalents at .08 base / .12 input / .16 strong / .22–.32 selected), so they composite on any surface. Focus ring is ink-based (`--ring`), never blue, and it is for the keyboard: the global `:focus-visible` outline is unlayered on purpose, so it survives every control's `outline-none` and gives the keyboard its 3:1 indicator on top of the softer `FOCUS_RING` halo (in a cascade layer, `outline-none` once dropped it app-wide); an overlay's panel never draws one when it takes the focus itself on open. **A focus ring snaps.** No transition list in a control names `box-shadow` (a Tailwind ring is a box-shadow) or, on a field, `border-color` (a field's focus is its border turning to `--ring`): a ring that fades in is a ring that is not there yet when the reader looks for it.
+**Ink ramp (light):** #1f2023 (foreground/action) → #55565a secondary → #6f706c muted → #8a8a86 placeholder → #b3b3af ghost. Borders are **alpha ink hairlines** (`rgba(28,30,33,…)` equivalents at .08 base / .12 input / .16 strong / .22–.32 selected), so they composite on any surface. Focus ring is ink-based (`--ring`), never blue, and it is for the keyboard: the global `:focus-visible` outline is unlayered on purpose, so it survives every control's `outline-none` and gives the keyboard its 3:1 indicator on top of the softer `FOCUS_RING` halo (in a cascade layer, `outline-none` once dropped it app-wide); an overlay's panel never draws one when it takes the focus itself on open. **A field's focus is its border, nothing more.** A text field (`Input`, `Textarea`, `Select`, every search bar, the chat composer) shows `:focus-visible` on a mouse click, so a halo or the global outline on it is drawn on every click: three bands where the reader wanted a caret (Notion #38). `FIELD_FOCUS_RING` / `FIELD_FOCUS_WITHIN_RING` (`components/ui/focus-ring.ts`) turn the 1px border to `--ring` and switch the global outline off (`outline-hidden!`, which forced colours still draw); that border is above 3:1 against paper and against the resting border in both themes. Buttons keep `FOCUS_RING`. **A focus ring snaps.** No transition list in a control names `box-shadow` (a Tailwind ring is a box-shadow) or, on a field, `border-color` (a field's focus is its border turning to `--ring`): a ring that fades in is a ring that is not there yet when the reader looks for it.
 
 **Provenance signal system** — each signal has a base color, a `-tint` surface (for chips/rows on cards), and a `-text` variant (AA-readable on the tint), both modes:
 
@@ -135,7 +135,7 @@ made. **Do not reintroduce a general accent token.** If a future surface needs
 
 ## Type ramp (Tailwind classes — use verbatim)
 
-The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **uppercase ~10.5px eyebrow/label convention** (wide tracking, muted ink).
+The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero greeting** (the one larger moment, chat empty state only), and the **~10.5px eyebrow/label convention** (sentence case, medium weight, muted ink). Nothing but the wordmark is set in capitals: a label in capitals shouts, and the wide tracking it needs to stay legible reads as a rendering fault once the label is in sentence case. Acronyms, file-format codes (PDF, DWG) and keycaps keep their own spelling. The few files that may set `uppercase` (the wordmark, format chips, authority tags, initials) are listed in `apps/workspace/tests/brand-literals.spec.ts`; a new one needs an entry there with its reason.
 
 | Role | Classes |
 |---|---|
@@ -143,7 +143,8 @@ The ramp targets the dummy's 9.5–24px scale: **20px page titles**, **23px hero
 | Page title (≈20px) | `text-xl font-medium tracking-tight` |
 | Section heading | `text-lg font-medium tracking-tight` |
 | Card/subsection title | `text-sm font-medium` |
-| Eyebrow / label (uppercase ≈10.5px) | `text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground`, written once as `.card-eyebrow` (`tracking-wider` is its 0.05em) and reached through `SectionLabel`; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Eyebrow / label (sentence case ≈10.5px) | `text-[10.5px] font-medium text-muted-foreground`, written once as `.card-eyebrow` and reached through `SectionLabel`; no `uppercase`, no tracking; `TableHead` takes it too (existing `text-xs` eyebrows are acceptable until a screen is restyled) |
+| Answer text (16px) | `text-answer` (`--text-answer`, `ui/styles/tokens.css`): the ONE size of an answer's text: prose, lede, standfirst, a block's body, a card's body and title (`.card-body` and `.card-title` read the token). Headings, figures and the caption/meta/eyebrow steps keep their own; a size step inside an answer that expresses no rank is the defect it removed (Notion #38) |
 | Body | `text-sm` (leading-relaxed for prose) |
 | Body secondary | `text-sm text-muted-foreground` |
 | Caption / meta | `text-xs text-muted-foreground` |
@@ -158,9 +159,13 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 
 - **Content weight is 500.** Emphasis is size and ink, never 600 or 700: a
   title is `font-medium` at a larger size or in `text-foreground`, its
-  context in `text-muted-foreground`. Secondary running text is 400
-  (`font-normal`). The card scale in `globals.css` (`.card-title`,
-  `.card-headline`, `.card-figure-*`) is 500 as well.
+  context in `text-muted-foreground`. Secondary running text is the
+  light end, `font-normal`, which is **440, not 400**: General Sans is
+  variable and its 400 read thin on paper and charcoal alike (Notion #38).
+  `--font-weight-normal` in `tokens.css` sets it once, `body` reads it, and
+  nothing is set lighter (`tests/brand-literals.spec.ts`). The card scale in `globals.css` (`.card-title`,
+  `.card-headline`, `.card-figure-*`) is 500 as well; its caption and body
+  steps read `--font-weight-normal`.
 - **One documented exception to 600:** numerals and initials set at 12px or
   smaller inside a badge, marker, count or avatar (a citation marker, a count
   pill, a stepper numeral, a collaborator's initials), where 500 loses against
@@ -176,6 +181,11 @@ app's own choices, not defects). Inside that level the rules are the brand's:
 - **Body face** is General Sans (`--font-sans`). **Geist Mono** is the app's
   monospace for code, keycaps, identifiers and the skill editor
   (`--font-mono`); the brand has no mono, and the app keeps one on purpose.
+  Its 0 is plain, never slashed: a slashed 0 in a count read as a crossed-out
+  zero. The face's own stylistic set (`ss09`) does it, switched on once with
+  the family (`--font-mono--font-feature-settings` in `tokens.css`), which is
+  why the font comes from the `geist` package and not Google Fonts, whose copy
+  has no plain 0 ([gotcha](../contributing/gotchas.md)).
 - **The brand has no colour of its own.** It is black and white: warm white `--ds-surface` (#fafaf9), black `--ds-ink` (#0f0e0d) and one light grey `--ds-surface-sunken` (#f2f1f0). The app's hues (provenance signals, status, the data palette, the energy scale) are functional and documented exceptions; add no new one.
 - **No pure white.** Surfaces are `--ds-surface` (paper), `--ds-surface-raised`
   (`--card`, `--popover`, overlays) and `--ds-surface-sunken`. Pure white stays
@@ -449,7 +459,7 @@ through the same discard confirmation, because a form that throws work away on
 a stray Escape has the failure the rule above was written to prevent, and it has
 it whichever gesture triggers it. A clean editor — nothing typed, or everything
 saved — closes like any other overlay; the confirmation is about the unsaved
-edit, not about the form.
+edit, not about the form. The shared form is `useUnsavedEditGuard` (`components/ui/unsaved-edit-confirm.tsx`): it takes the editor's `onOpenChange` and its dirty flag, and asks „Änderungen nicht übernehmen?“ (`common.unsavedEdit`). Never „verwerfen“ there: in the E-Mail-Eingang that word says no to a whole mail. The E-Mail-Eingang's „Ändern“ dialog and the Verlauf's „Herauslösen …“ name field use it; the custom-role, skill and sketch editors still carry their own copies of the question.
 
 An overlay whose state is worth sending to a colleague puts that state on the
 URL with `push`, so browser Back closes it. One whose state is not worth sharing
@@ -542,8 +552,8 @@ shortfall. Measured at 390px, the History subtitle rendered 44px wide across
 eight lines, one word per line. Never reintroduce a bare `shrink-0` here;
 `page-header.spec.ts` fails it.
 
-**Project section chrome** — every project section except **Ask Piloti**
-(chat) opens with the same block: a muted `{project} / {section}` breadcrumb
+**Project section chrome** — every project section except **Chat**
+opens with the same block: a muted `{project} / {section}` breadcrumb
 trail, then the `PageHeader` title + one-line subtitle, then optional actions
 on the right. The two shapes are an action button (Files' view toggle,
 Automation's "New job"/"New skill") and title-only (Settings, Knowledge). The
@@ -556,7 +566,7 @@ its own toolbar, not a content page. Evidence: `/dev/project-chrome`.
 **Section** — eyebrow label + content, no heavy chrome:
 ```tsx
 <section className="space-y-3">
-  <h2 className="text-[10.5px] font-medium uppercase tracking-wider text-muted-foreground">{label}</h2>
+  <SectionLabel as="h2">{label}</SectionLabel>
   {content}
 </section>
 ```
@@ -579,7 +589,7 @@ Tabbed shells (Organisation, Platform) are **one place**, not a stack of submenu
 
 **List container** — `ItemList` (`rounded-lg border divide-y`) with `Item` / `ItemMedia` / `ItemContent` / `ItemTitle` / `ItemDescription` / `ItemActions`. That is the list molecule for the chat history sheet (`SessionsPanel`), Inbox, Settings rosters, and admin pickers. Do not hand-roll a second `rounded-lg border` + `divide-y` row. The raised product card (Files tiles, project cards) is `RaisedCard`, not `Item`.
 
-**A row in a list is connected, never a pill.** `ItemList` owns the outer corners (`overflow-hidden`) and the hairlines between rows (`divide-y`), so only the first and last row round, and the seam is one line rather than two stacked borders. A row (`Item`) takes no radius, border or shadow of its own. Hover tints the row and does not lift it, because a lifted row detaches from its neighbours. A drop target marks itself with `ring-inset`, since an outer ring on the first or last row is clipped. The three layers are the atom `Item` (one row), the molecule `ItemList` (the connected run), and the organisms that fill it (`ProjectListRow`, `FolderRow`).
+**A row in a list is connected, never a pill.** `ItemList` owns the outer corners (`overflow-hidden`) and the hairlines between rows (`divide-y`), so only the first and last row round, and the seam is one line rather than two stacked borders. A row (`Item`) takes no radius, border or shadow of its own. Hover tints the row and does not lift it, because a lifted row detaches from its neighbours. A drop target marks itself with `ring-inset`, since an outer ring on the first or last row is clipped; the selected row and the keyboard's row mark themselves inset too (`Item`, above under „Warning gold“). A row of a list is `Item`, even a dense one with a checkbox and a stretched link (the E-Mail-Eingang's `InboundMailRow`): its padding, hover and states come with it. The three layers are the atom `Item` (one row), the molecule `ItemList` (the connected run), and the organisms that fill it (`ProjectListRow`, `FolderRow`).
 
 **Empty state** — `EmptyState` (`components/ui/empty-state.tsx`), never bare
 text and never hand-rolled. The icon sits in a **raised disc** — border, card
@@ -610,6 +620,12 @@ surface that already has a border.
 **People** — a group of people is `AvatarStack` (`components/ui/avatar-stack.tsx`): overlapping `Avatar` discs in the order given (it never re-sorts — ordering is the caller's information), ring-separated, tail collapsed into a neutral `+N`. `sm` is 28px, not 24px: below that the overlap plus the ring clips the second initial. A single disc is `PersonAvatar` from the same module. Identity colour and initials come from `components/ui/avatar-identity.ts` — keyed on the **user id** so one colleague is one colour on every surface, and generated as a hue only: lightness comes from `color-mix()` against `--card`/`--foreground`, so dark mode needs no second palette. **Identity is not signal**: these tints carry no meaning, always ride with initials or a photo, and are deliberately off the provenance hues.
 
 **Scroll boundaries** — a bounded list that clips its next row through the middle of its text reads as broken, not as "there is more below". Dissolve the edge with the `scroll-fade-bottom` utility (`app/globals.css`) on the scroll container itself. It is a **mask**, not an overlay gradient: masking composites against whatever surface the list happens to sit on (popover, card, dialog), so it names no colour and light/dark are free — an overlay would have to hard-code a surface token and be wrong on the next surface. It stays a one-line utility rather than a wrapper component precisely because it is one paint rule with no DOM, no state and no children. Anything that must stay sharp (a keyboard-hint footer, a dialog footer) belongs *outside* the faded scroll region.
+
+**Warning gold is a glyph colour, not a small-text colour.** `text-warning` measures 4.48:1 on the paper background and about 4.2:1 inside `Alert variant="warning"` at 12–14px (axe `color-contrast`, measured 2026-10-22), under the 4.5:1 WCAG AA asks of body text. A warning line that a person must read before acting draws its glyph in `text-warning` and its words in ink, a step heavier: `FactLine tone="warning"` (`components/ui/fact-line.tsx`), and a default `Alert` with a gold icon. The signal red takes the same cure on a line (`FactLine tone="danger"`): red words measured 4.08:1 on the danger tint and barely 4.5:1 on paper, so a line that says filing is impossible („Schadsoftware gefunden“) draws a red glyph and ink words. The kit's `Alert variant="warning"` itself still fails the ratio wherever it carries text; retuning `--warning` (or that variant's text) is the open fix. Likewise a selected row does not take a tint under muted text (`bg-accent/70` behind `text-muted-foreground` is 4.33:1): it lifts to `bg-card` and draws the selected hairline (`--border-color-brand`, the ramp's .32 step) all round, inset (`inset-ring-strong`). That is `Item`'s current state (`aria-current="true"` on the row, or `data-current` where the row's link carries `aria-current` itself). A row the keyboard walks to while the focus stays put (J/K) is `data-cursor`: the keyboard's own ring, inset. Neither is a bar down the leading edge: that was the selected row's mark until 2026-11-03, and it is the stripe **Emphasis without a stripe** retired.
+
+**Measured contrasts that decide a token (axe `color-contrast`, 2026-10-22).** `Tabs`' inactive label was `text-muted-foreground` on the strip's `bg-muted`: 4.44:1 at 12px, so the kit's `TabsList` now inks it `text-foreground/70`; the muted `CountPill` had the same pair (4.44:1 at 11px, 2026-10-27) and takes the same ink. The kit's `Alert variant="destructive"` drew its words in `text-error` on `bg-danger-subtle`, 4.08:1; since 2026-10-27 it takes the warning line's cure, the signal red on the glyph and the words in ink (`components/ui/alert.tsx`, held by `alert.spec.tsx`), and `LoadError` inherits it. A must-not-miss stop is still the default `Alert` with the signal red on its glyph and on its full hairline (`border-danger`, `features/inbound-mail/components/impersonation-warning.tsx`), the words in ink: a stop is not an error surface, and it carries no leading rule (**Emphasis without a stripe**). Muted text directly on the preview rail's `bg-surface-sunken` measures 4.41:1: a rail section sets its rows on a card (`InspectorGroup`, the „E-Mails“ tab's list) rather than straight on the sunken ground.
+
+**The agent's mark claims the agent.** `FilingChip` draws `AgentGlyph` only when its target IS a stored the agent suggestion (`suggested`, default true for the suggestion surfaces); a folder a rule picked (the E-Mail-Eingang's correspondence default, `defaultThreadFolder`) or the person chose wears a plain folder glyph. A mark on a rule's guess is a false claim, and on an unconfirmed or forged mail it puts the agent's weight behind a stranger (`lib/inbound-mail/suggest.ts`).
 
 **Status badges** — Badge variants: `success` (ready/completed — project green family), `info` (in-progress/running — law blue family), `warning` (needs attention — office gold family), `danger` (failed — the signal-red tint, the same pair as Chip and Alert), `secondary` (neutral/cancelled). `destructive` is the solid red plate, action weight: a status that says something failed is a fact in a row and takes `danger`, or a four-day-old failure is the loudest thing in the list. A document's status (`DocumentStatusBadge`, the upload tray's row) carries a glyph per state from one table (`features/documents/components/ingestion-atoms.tsx`), because several states share a colour: „Wartet" and „Wird gelesen" are both blue, „Abgelegt", „Abgebrochen" and „Unbekannt" all grey, and the glyph is what tells them apart. Project status chips: "Aktiv" = `--status-active(-tint)` (green), "Abgeschlossen" = `--status-done(-tint)` (warm gray) — always dot/icon + label, never a bare color dot.
 
@@ -907,7 +923,7 @@ times stops being a physical cue and becomes texture.
   and a running step chip pulses, because people watch that panel to see the
   agent work (2026-10). While the answer streams the label stops shimmering and
   the caret is the text's one loop, pending citation pills muted and still;
-  after the settle, none. At rest, only a skeleton. A stagger inside a loop belongs to its `@utility` and derives from
+  after the settle, none. At rest, only a skeleton. A spinner is a loop too: a state that repeats on rows (each attachment being scanned or filed) is a still glyph, and the one spinner is the surface's own line („Wird abgelegt …“). A stagger inside a loop belongs to its `@utility` and derives from
   the token (`animate-typing-dot` staggers its own siblings), never to an
   `[animation-delay:…]` at the call site.
 

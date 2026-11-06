@@ -11,7 +11,7 @@
  * Copy: every string of the website's dictionaries (apps/website/src/i18n/ui.ts and
  * src/i18n/pages/*.ts), both locales. Bun runs it because the dictionaries are TypeScript.
  * CSS: the website's own CSS (src/styles/site.css, <style> blocks in .astro files) and the
- * design system's component CSS (packages/brand/css/components.css).
+ * design system's stylesheets (packages/brand/css/*.css: components, motion, covers, status, blocks).
  * Media: the built pages in apps/website/dist/client, when a build exists, for the AI tag.
  *
  * The rule functions are pure and exported; check_brand_rules.test.mjs pins them.
@@ -155,11 +155,13 @@ export function definedProperties(tokensCss) {
 // ---------------------------------------------------------------------------
 
 /**
- * The website's AI-generated images. The design system requires the AITag on each
- * (bottom right, in the same frame as the image). TODO(owner): confirm whether
- * demo-panel-background.webp and the sign-in photo are AI-generated; add them here if so.
+ * The website's AI-generated images, by file stem: Astro's <Image> serves them from
+ * /_astro/ under a hashed name (`planner-design-photo.<hash>.webp`), so the stem is
+ * what stays. The design system requires the AITag on each (bottom right, in the same
+ * frame as the image). TODO(owner): confirm whether demo-panel-background.webp and the
+ * sign-in photo are AI-generated; add them here if so.
  */
-export const AI_GENERATED_MEDIA = ['/media/planner-design-photo.webp', '/media/ai-search-compare-photo.webp']
+export const AI_GENERATED_MEDIA = ['planner-design-photo', 'ai-search-compare-photo']
 
 const VOID = new Set(['img', 'br', 'hr', 'input', 'source', 'meta', 'link', 'track', 'wbr', 'area', 'base', 'col', 'embed', 'path', 'rect', 'circle', 'line'])
 const TAG = /<(\/?)([a-zA-Z][a-zA-Z0-9-]*)\b[^>]*?(\/?)>/g
@@ -194,9 +196,9 @@ function enclosingElement(html, at) {
  */
 export function aiTagFindings(html) {
   const out = []
-  for (const src of AI_GENERATED_MEDIA) {
-    for (let at = html.indexOf(`src="${src}"`); at !== -1; at = html.indexOf(`src="${src}"`, at + 1)) {
-      if (!enclosingElement(html, at).includes('ui-ai-tag')) out.push(`${src} is AI-generated and has no AITag in its frame`)
+  for (const stem of AI_GENERATED_MEDIA) {
+    for (const m of html.matchAll(new RegExp(`\\ssrc="[^"]*/${stem}\\.[^"]*"`, 'g'))) {
+      if (!enclosingElement(html, m.index).includes('ui-ai-tag')) out.push(`${stem} is AI-generated and has no AITag in its frame`)
     }
   }
   return out
@@ -244,7 +246,7 @@ async function main() {
 
   const defined = definedProperties(readFileSync(join(WEBSITE, 'src/styles/brand/tokens.css'), 'utf8'))
   const sheets = [
-    join(REPO, 'packages/brand/css/components.css'),
+    ...filesUnder(join(REPO, 'packages/brand/css'), '.css'),
     ...filesUnder(join(WEBSITE, 'src/styles'), '.css'),
   ]
   for (const path of sheets) {

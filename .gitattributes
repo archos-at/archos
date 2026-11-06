@@ -1,0 +1,25 @@
+# Files a tool writes. `linguist-generated` makes GitHub collapse them in a pull
+# request's diff and leave them out of the language statistics, so a review reads
+# the lines a person wrote. They stay committed: what regenerates each, and why it
+# is not built at image time, is in the file's own header or the tool that writes it.
+
+# Lockfiles
+**/bun.lock linguist-generated=true
+**/uv.lock linguist-generated=true
+
+# Code and data written by the repo's generators
+*.generated.ts linguist-generated=true
+*.generated.json linguist-generated=true
+apps/website/src/data/changelog.json linguist-generated=true
+apps/workspace/tests/fixtures/exposure.json linguist-generated=true
+apps/workspace/tests/fixtures/openapi.json linguist-generated=true
+
+# Schema snapshots and types a migration tool writes
+apps/workspace/migrations/meta/*.json linguist-generated=true
+apps/cms/src/migrations/*.json linguist-generated=true
+apps/cms/src/payload-types.ts linguist-generated=true
+
+# The design system's built output and its copies in the apps (packages/brand/sync.mjs)
+packages/brand/dist/** linguist-generated=true
+apps/website/src/styles/brand/** linguist-generated=true
+apps/workspace/shared/brand/** linguist-generated=true

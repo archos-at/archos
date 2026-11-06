@@ -19,7 +19,7 @@ export const nav = {
   openNavigation: 'Open navigation',
   closeNavigation: 'Close navigation',
   sections: {
-    chat: 'Ask {productName}',
+    chat: 'Chat',
     files: 'Files',
     knowledge: 'Knowledge',
     research: 'Research',
@@ -92,6 +92,8 @@ export const nav = {
     newProject: 'New project',
   },
   /** The phone's bottom tab bar (`components/shell/phone-tab-bar.tsx`). */
+  /** The muted count on Files in the rail and the tab bar: mail waiting in the E-Mail-Eingang. */
+  inboundMailWaiting: '{count, plural, one {# mail waiting to be filed} other {# mails waiting to be filed}}',
   tabBar: {
     label: 'Main navigation',
     /** Opens the sheet with the destinations the bar does not carry. */
@@ -133,6 +135,7 @@ export const nav = {
     switchingOrganization: 'Switching…',
     switchOrganizationFailed: 'Could not switch. Please try again.',
     settings: 'Settings',
+    whatsNew: "What's new",
     productTour: 'Product tour',
   },
 }

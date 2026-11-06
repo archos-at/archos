@@ -31,6 +31,7 @@ lib64/
 !apps/workspace/**/lib/
 !apps/workspace/tests/lib/
 !packages/brand/art/riso/lib/
+!apps/cms/scripts/lib/
 # The riso exporter's non-committed files (decks, social, postcards, separations).
 packages/brand/art/riso/out/
 parts/
@@ -118,7 +119,9 @@ evals/*/analysis/*.csv
 /config_*.yml
 
 
-# Node dependencies (never commit)
+# Node dependencies (never commit). No trailing slash: `node_modules/` matches
+# only a directory, and an agent worktree links the main checkout's install in
+# as a symlink, which then showed up as a new file and got committed.
 node_modules
 
 # Claude Code agent worktrees (transient, isolated checkouts)

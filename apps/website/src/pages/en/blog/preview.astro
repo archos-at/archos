@@ -1,0 +1,18 @@
+---
+import BlogPostView from '../../../views/BlogPostView.astro';
+import { cmsSettings } from '../../../lib/cms';
+import { fetchPreviewPost } from '../../../lib/cms-preview';
+import { fromCms } from '../../../lib/post-model';
+
+// The CMS's live preview of a draft (ADR-0155, src/lib/cms-preview.ts): rendered on request,
+// never cached, never indexed, framed only by the CMS (runtime/security-headers.mjs). Without a
+// CMS, or with a link that is not (or no longer) signed, the 404 page.
+export const prerender = false;
+const settings = cmsSettings();
+const draft = settings ? await fetchPreviewPost(settings, Astro.url.searchParams) : undefined;
+const post = draft ? fromCms(draft, 'en') : undefined;
+if (!settings || !post) return Astro.rewrite('/404/');
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<BlogPostView locale="en" post={post} preview={{ cmsOrigin: new URL(settings.publicUrl).origin }} />

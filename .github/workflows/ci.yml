@@ -81,6 +81,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend || 'false' }}
       workspace: ${{ steps.filter.outputs.workspace || 'false' }}
       site: ${{ steps.filter.outputs.site || 'false' }}
+      cms: ${{ steps.filter.outputs.cms || 'false' }}
       infra: ${{ steps.filter.outputs.infra || 'false' }}
       packages: ${{ steps.filter.outputs.packages || 'false' }}
       migrations: ${{ steps.filter.outputs.migrations || 'false' }}
@@ -770,6 +771,7 @@ jobs:
   site:
     name: Website (Astro check, tests, build, a11y)
     # The public website, apps/website, and the riso kit's fast gate (task website:verify).
+    # Its CMS has its own job, `cms`.
     needs: changes
     if: needs.changes.outputs.site == 'true'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
@@ -787,6 +789,29 @@ jobs:
       # (the version is apps/website's playwright devDependency).
       - run: npx --yes playwright@1.63.0 install-deps chromium
       - run: task website:verify
+
+  cms:
+    name: CMS (typecheck, lint, tests, Postgres suite)
+    # The website's CMS, apps/cms (Payload, ADR-0155): task cms:verify. Its own job
+    # and its own tier, because its toolchain is its own lockfile and its suite
+    # needs a Postgres the website's job has no use for.
+    needs: changes
+    if: needs.changes.outputs.cms == 'true'
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - uses: ./.github/actions/setup-bun
+      - uses: ./.github/actions/setup-task
+      # ubuntu-latest ships PostgreSQL server binaries but runs no cluster;
+      # scripts/test-db.sh builds a throwaway one, migrates it, checks the config
+      # against the migrations, runs the review rules on it, and tears it down.
+      - run: task cms:verify
 
   infra:
     name: Infra (Pulumi typecheck + manifest tests)
@@ -827,6 +852,21 @@ jobs:
           echo "${OTELCOL_SHA256}  $RUNNER_TEMP/otelcol.tar.gz" | sha256sum -c -
           tar -xzf "$RUNNER_TEMP/otelcol.tar.gz" -C "$RUNNER_TEMP" otelcol-contrib
           echo "OTELCOL_BIN=$RUNNER_TEMP/otelcol-contrib" >> "$GITHUB_ENV"
+      # agentgateway's published config schema at the tag its image pins
+      # (`MCP_GATEWAY.image` in deploy/pulumi/src/platform/mcp-gateway-config.ts):
+      # `index-mcp-gateway.spec.ts` holds the file the program renders against it,
+      # which refuses a key agentgateway does not know before a pod would. Bump
+      # the version and checksum together with that digest.
+      - name: Fetch agentgateway's config schema (config validation)
+        env:
+          AGENTGATEWAY_VERSION: "v1.7.0"
+          AGENTGATEWAY_SCHEMA_SHA256: "8d757c092bc30a5ed5fd38a07a47d72602941c8344203c2d1f86e02d6dbb2bd3"
+        run: |
+          curl -sSfL --retry 3 -o "$RUNNER_TEMP/agentgateway-config.schema.json" \
+            "https://raw.githubusercontent.com/agentgateway/agentgateway/${AGENTGATEWAY_VERSION}/schema/config.json"
+          echo "${AGENTGATEWAY_SCHEMA_SHA256}  $RUNNER_TEMP/agentgateway-config.schema.json" | sha256sum -c -
+          echo "AGENTGATEWAY_SCHEMA=$RUNNER_TEMP/agentgateway-config.schema.json" >> "$GITHUB_ENV"
+          echo "AGENTGATEWAY_SCHEMA_VERSION=${AGENTGATEWAY_VERSION}" >> "$GITHUB_ENV"
       - run: task infra:test
 
   # packages/ifc-spatial-py sits outside the uv workspace (own uv.lock),
@@ -1074,7 +1114,7 @@ jobs:
   # has all three images, and no commit CI failed has any.
   publish:
     name: Tag images for this commit
-    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, infra, packages, agent-engine, hatchet, trivy, image-push]
+    needs: [changes, repo, repo-tests, release-notes, backend, backend-coverage, backend-suites, workspace, workspace-test, site, cms, infra, packages, agent-engine, hatchet, trivy, image-push]
     if: >-
       always() && github.event_name == 'push' && needs.changes.result == 'success'
       && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
@@ -1120,7 +1160,7 @@ jobs:
     # checkout can hold a corpus to measure, and a job that can only pass
     # vacuously is worse than none. It survives as `task be:eval:retrieval`;
     # ADR-0058 "Update (2026-09-09)" says what restoring the gate would take.
-    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, infra, packages, agent-engine, hatchet, trivy, image, image-push, publish]
+    needs: [changes, repo, repo-tests, release-notes, semgrep, backend, backend-coverage, backend-suites, backend-affected, workspace, workspace-test, site, cms, infra, packages, agent-engine, hatchet, trivy, image, image-push, publish]
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 5
     steps:

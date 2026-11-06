@@ -16,6 +16,13 @@ identifier, a file name or a module. Say the German term to users and the code
 name to the compiler. The stored values, URLs and permission slugs that still
 read German are listed after the table.
 
+The banned stems live in [`ci/german_stems.json`](../ci/german_stems.json):
+`stems` for identifiers, `prose_words` for what an agent reads. Do not copy the
+list here. A cleanup shrinks the ratchet's baseline
+(`ci/english_names_baseline_py.json` for Python): rerun
+`tests/test_english_names.py` or `apps/workspace/tests/english-names.spec.ts` with
+`UPDATE_ENGLISH_NAMES=1` to lock it in.
+
 | Domain term | Code name | Not |
 |---|---|---|
 | Fassung | `revision` (`lib/documents/revision-*`, `DocumentRevisions`, `revision_diff.py`) | `version`, which is the approval states |
@@ -28,6 +35,18 @@ read German are listed after the table.
 | Gebäudeklasse, Bauwerk | `buildingClass`, `building` | |
 | Herleitung | `derivation` (`/dev/derivation`) | |
 | Papierkorb | `bin` (`/dev/bin`) | |
+| E-Mail-Eingang | `inbound mail` (`lib/inbound-mail`, `inbound_mails`, `inbound-mail-*`, route `/files/mail`) | `inbox` (the Postfach), `intake` (the project setup) |
+| E-Mail-Adresse des Projekts | `inbound mail address` (`inbound_mail_addresses`, `inbound-mail-address-*`) | `projectAddress` (the site's address) |
+| E-Mail-Verlauf | `mail thread` (`lib/mail-thread`, `mail_threads`); one filed e-mail is a `mail thread entry` | `conversation` (a chat) |
+| ablegen, verwerfen, wiederherstellen (a held mail's part) | `file`, `dismiss`, `restore` | `accept`, `reject`, `approve` (Freigabe's) |
+| Verlauf folgen | `follow` / `unfollow` (`mail_thread_follows`) | `subscribe` |
+| herauslösen | `detach` (`mail-thread-entry-detach`) | `delete`, `remove` |
+| Original (.eml) | `original` (`original_storage_key`, `_mail-originals/`) | `raw` (the staged `raw.eml` before filing) |
+| Korrespondenz (Dokumentart) | `correspondence` | `mail` (the format, `source_format: mail`) |
+| Domain bestätigt / nicht bestätigt | `sender_trust` `*_verified` / `*_unverified` (`not_checked` for the archive) | `trusted`, `authenticated sender` |
+| direkt abgelegt (a member's own mail, filed as they sent it) | the sender class `verified_writer`; the decision's `via = 'sender'`; `waitReason` `not_filed` (left waiting) and `paused` (switched off) | `auto_file`, `automatic` (a sender flag: mail sent by a machine) |
+| Haben Sie diese E-Mail gesendet? (a mail only its member may file) | the sender class `unverified_writer`; `acknowledgeSender`, `onlySenderReleases`, the refusal `sender_only`, `mailClaimOf` (`own` / `colleague`) | `release`, `approve` (Freigabe's) |
+| the sender, as the E-Mail-Eingang classes it | `INBOUND_MAIL_SENDER_CLASSES`: `verified_writer`, `unverified_writer`, `office_member`, `external` (`inbound_mails.sender_class`, `lib/inbound-mail/sender-class.ts`) | `sender_trust`, which is the domain's verdict, not who the sender is to the project |
 | Punkt, Absatz (of a norm) | `clause`, `subsection` (`clause_chunking.py`, `build_clause_index.py`; the Qdrant keys `clause_id`, `clause_path`, `chunking: "clause"`; the `read_passage` argument `clause`) | |
 | Richtlinie (OIB) | `guideline` (the Qdrant key `guideline`; `norm_registry.oib_doc_class` returns `guideline`, `guide`, `explanatory_note`, `definitions`, `referenced_standards`, `amendment`) | |
 | Nutzung, Bauweise, Vorhabensart | `use` / `uses`, `construction_method`, `work_type` (the boost weights `use`, `use_max`; the `project_facts` payload keys) | |
@@ -37,6 +56,9 @@ read German are listed after the table.
 | Gesetzesnummer (RIS law number in a norm's verify seed) | `statute_number` | the RIS URL parameter `Gesetzesnummer`, which is the external API's |
 | Spatial result keys (`warum`, `abhilfe`, `lage`, `trennend`, `gemeinsam`, `oeffnungen` …) | `why`, `remedy`, `position`, `separating`, `shared`, `openings` … (`ifc-spatial`, `ifc-spatial-py`) | |
 | Befund, Befundmatrix | `finding`, `findingsMatrix` | |
+| Postfach (what needs a person's attention) | `inbox` (`lib/inbox/`, the `inbox-*` operations in `catalog/collaboration.ts`) | the mail import (`lib/mail-import/`), which is not a mail inbox |
+| Projekterfassung | `project-intake` (`lib/project-intake/`, the page `/app/projects/[id]/setup`, ADR-0111) | `inbox` |
+| Verlauf | `conversation` for a chat; an annotation's replies are its `thread` (`lib/annotations/`). `POST /api/documents/[id]/thread` is the exception: it answers a chat `conversationId` (ADR-0106) | bare `thread` for a chat |
 | erfüllt, nicht erfüllt, offen, nicht anwendbar | `met`, `notMet`, `open`, `notApplicable` | |
 | Laufblock | `RunBlock`; states `running`, `waiting`, `done`, `cancelled`, `interrupted` | |
 | Aktenvermerk | `fileNote` | |
@@ -119,7 +141,7 @@ replaced `agent_capability_missing`.
 | Workspace primitive, typed client | A workspace capability exposed as one HTTP API with a typed client, which the UI, the agent's tools and tasks all call as equal clients (ADR-0055) | [`docs/adr/0055-api-first-workspace-primitives.md`](adr/0055-api-first-workspace-primitives.md) |
 | Route factories | `apiRoute`, `internalApiRoute`, `publicApiRoute`, `platformApiRoute`: the only sanctioned wrappers for a BFF route handler, each declaring its authorization | [`apps/workspace/bff/api/handler.ts`](../apps/workspace/bff/api/handler.ts) |
 | `SourceKind` | The code form of a source kind (`building_law`, `office`, `project`, `web`, plus `measurement` for model measurements). Defined in Python and mirrored by hand in `source-kinds.ts`; changing one and not the other renders the chip as unknown | [`packages/agent/src/agent/common/source_kinds.py`](../packages/agent/src/agent/common/source_kinds.py) |
-| `doc_class`, norm lanes | The stored Dokumentart (human-set, beats any filename guess), and the finer `norm_registry` lanes (`building_law_oib`, `building_law_state`, …) that sub-label a source kind | [`packages/agent/src/agent/knowledge/document_classification.py`](../packages/agent/src/agent/knowledge/document_classification.py) |
+| `doc_class`, norm lanes | The base corpus's norm class (closed vocabulary `DOCUMENT_CLASSES`: `oib_guideline` … `law`, `other`), human-set and beating any filename guess, and the finer `norm_registry` lanes (`building_law_oib`, `building_law_state`, …) that sub-label a source kind. A fine lane maps to its kind by prefix (`kind_for_lane`, mirrored by `kindForLane` in `source-kinds.ts`), so a new `office_*` or `project_*` lane needs no `SourceKind` change, but `lane_for_hit` must produce it: a user's shelf yields plain `office` or `project`, and the one fine lane that beats the shelf is `office_piloti` (stated provenance, `authored_by`). Not the Dokumentart of a project document: that is its type tag (`DOCUMENT_TYPE_TAGS`: `Grundriss`, `Gutachten`, `Sonstiges`, …) in `document_metadata.tags` | [`packages/agent/src/agent/knowledge/document_classification.py`](../packages/agent/src/agent/knowledge/document_classification.py) |
 | Answer envelope | The one JSON object a research answer is generated as: the `answer` prose plus optional anatomy (kind, verdict, takeaways, callout, cards) | [`packages/agent/src/agent/common/answer_envelope.py`](../packages/agent/src/agent/common/answer_envelope.py) |
 | Grounding block | The single renderer for what an evidence tool returns: each hit becomes a `--- Result N ---` block with source, citation and score, and a `## Trace-Lanes` line names the collections searched | [`packages/agent/src/agent/common/grounding_block.py`](../packages/agent/src/agent/common/grounding_block.py) |
 | Knowledge layer | The `packages/knowledge-layer` package (LlamaIndex ingestion, Qdrant storage) behind `knowledge_search` | [`packages/AGENTS.md`](../packages/AGENTS.md) |
@@ -136,6 +158,9 @@ replaced `agent_capability_missing`.
 | Ask (`agent_asks`) | A question another agent puts to Piloti for a person (ADR-0124): `agent-ask-create` on the MCP door, `SendMessage` on the A2A door. Runs as a headless turn (trigger `agent_consult`) in the person's own thread; its states are the A2A task states. Not an Aufgabe (`task`) and not a task run | [`apps/workspace/bff/agent-asks/service.ts`](../apps/workspace/bff/agent-asks/service.ts) |
 | A2A | The Agent2Agent protocol: how one agent hands work to another. Piloti serves it at `/api/a2a` (JSON-RPC, 1.0 and 0.3) with its agent card at `/.well-known/agent-card.json`. Its words map onto ours: an A2A **task** is an ask, its **context** (`contextId`) the conversation, a **message** a question or an answer in it, a **part** the message's text, an **artifact** the answer or a document Piloti filed | [`docs/adr/0124-agents-consult-piloti-over-mcp-and-a2a.md`](adr/0124-agents-consult-piloti-over-mcp-and-a2a.md) |
 | Piloti vs GRID | Piloti is the name in anything a user reads; GRID is the repository, the `GRID_*` variables, the `x-grid-*` headers and the CSS variables | [`apps/workspace/bff/brand.ts`](../apps/workspace/bff/brand.ts) |
+| Signed internal route | A BFF route under `/api/internal/signed/`, authenticated by an RFC 9421 HTTP Message Signature (`internalApiRoute`'s `auth: { signature }`) instead of the internal token, and excluded from the Next proxy so its body streams. Today only the project-mail webhook | [`ADR-0138`](adr/0138-project-mail-arrives-through-cloudflare-email-routing-and-a-signed-worker.md), `apps/workspace/bff/internal-auth.ts` |
+| Mail standards in project mail | RFC 5321 (SMTP; the envelope, `x-envelope-to` / `x-envelope-from`), RFC 5322 (the message format; one From, the singleton headers), RFC 6376 (DKIM), RFC 9989 (DMARC alignment), RFC 8601 (`Authentication-Results`, our evidence line, never with `spf=`), RFC 3834 (automatic replies, dropped), RFC 5256 (the base subject), RFC 8621 §3 (thread matching by references and subject), RFC 9421 (HTTP Message Signatures) and RFC 9530 (`Content-Digest`) for the Worker's post | [`inbound-mail.md`](architecture/inbound-mail.md) |
+| Render lease | The compare-and-set claim on a mail thread (`render_lease_holder`, `render_lease_until`) every writer of a Verlauf's next Fassung takes, because Fassung N+1 must hold every section of Fassung N and an upload cannot sit inside a transaction | `apps/workspace/bff/mail-thread/append.ts`, `write-repository.ts` |
 
 ## The chat wire
 
@@ -193,7 +218,7 @@ replaced `agent_capability_missing`.
 | AGENTS.md, CLAUDE.md bridge | Each area's guide is an `AGENTS.md`; a one-line `CLAUDE.md` beside it imports it for Claude | [`docs/contributing/agent-onboarding-files.md`](contributing/agent-onboarding-files.md) |
 | Skill or document | A repo skill exists only for agent-specific procedure; anything a contributor needs too is a document | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
 | apm, `apm.lock.yaml` | The agent package manager that installs third-party skills, and the lockfile that hashes them; `task agents:audit` fails on drift | [`docs/contributing/agent-skills.md`](contributing/agent-skills.md) |
-| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the changelog. The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
+| reno, release note | One YAML note per customer-visible change (`task release:note -- <slug>`), published to the app's What's new, by week and product area; the public changelog shows the weekly summaries (ADR-0156). The `no-release-note` label exempts a change nobody can notice | [`docs/contributing/release-notes.md`](contributing/release-notes.md) |
 | oxlint, `grid/*` rules | The UI linter, and the repo's own rules it runs as a JS plugin (tenant scope, tenant cache key, motion vocabulary, card type scale, restricted syntax) | [`docs/contributing/lint-evaluation.md`](contributing/lint-evaluation.md) |
 
 ## CI

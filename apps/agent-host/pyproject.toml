@@ -56,6 +56,13 @@ dependencies = [
     # A Katastralmappe stores no parcel as a polygon (BEV spec §3.2): the parcels and
     # their areas are rebuilt from its boundary network with GEOS (BSD, wheels bundle it).
     "shapely>=2.1",
+    # Inbound mail (`agent_host.mail`): the reply and quote split and the
+    # signature cut, German and English rules. MIT, pure Python, no
+    # dependencies; pinned because its rules are what the review shows.
+    "mail-parser-reply==1.36",
+    # Calendar invites in inbound mail. BSD-2-Clause, pure Python; brings
+    # python-dateutil and tzdata (Europe/Vienna without the system zone files).
+    "icalendar==7.3.0",
 ]
 
 [project.optional-dependencies]

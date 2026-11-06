@@ -56,8 +56,10 @@ TypeScript 6's view of the code.
 Every change a customer can notice ships with a release note in the same PR —
 this is an obligation, enforced by CI's **Repo checks** job, not a
 convention. Notes are written with [reno](https://docs.openstack.org/reno/latest/)
-and published automatically to piloti.at/changelog (German and English) when the
-PR merges.
+and published automatically when the PR merges, in German and English: every
+note to the app's "What's new" for signed-in members, by week and product area;
+the public changelog on the website shows only the weekly summaries
+(ADR-0156). Each note names its area in its first line (`# area: documents`).
 
 ```bash
 task release:note -- re-index-projects   # creates releasenotes/notes/<slug>-<hash>.yaml

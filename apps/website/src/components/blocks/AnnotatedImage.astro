@@ -1,0 +1,99 @@
+---
+/**
+ * A drawing or a screenshot with numbered markers, and the same numbers as a list below it.
+ * A marker is a link to its entry and an entry's number a link back, so the pair works without
+ * script (`:target` marks both); the script lights up marker and entry together instead of
+ * jumping, on a press, on keyboard focus and, with a fine pointer, on hover. Nothing is only in
+ * a hover: every explanation is in the list.
+ * Contract: contracts.ts (`AnnotatedImageBlock`). Rules: packages/brand/docs/components/AnnotatedImage.md.
+ */
+import '../../styles/brand/blocks.css';
+import type { Locale } from '../../i18n/paths';
+import { format, t } from '../../i18n/ui';
+import { blockId } from './block-id';
+import type { AnnotatedImageBlock } from './contracts';
+
+interface Props extends AnnotatedImageBlock {
+  locale: Locale;
+  class?: string;
+}
+
+const { locale, image, markers, caption, class: className } = Astro.props;
+const ui = t(locale);
+const id = blockId('annotated', { image: image.src, markers });
+---
+
+<figure class:list={['ui-block ui-block-wide ui-annotated', className]} data-annotated>
+  <div class="ui-annotated-stage">
+    <img
+      src={image.src}
+      srcset={image.srcset}
+      sizes={image.sizes ?? '(min-width: 1280px) 1040px, (min-width: 768px) calc(100vw - 64px), calc(100vw - 32px)'}
+      width={image.width}
+      height={image.height}
+      alt={image.alt}
+      loading="lazy"
+      decoding="async"
+    />
+    {
+      markers.map((marker, i) => (
+        <a
+          class="ui-annotated-pin"
+          id={`${id}-pin-${i + 1}`}
+          href={`#${id}-note-${i + 1}`}
+          style={`--x: ${marker.x}%; --y: ${marker.y}%`}
+          aria-label={format(ui.blockMarker, { index: i + 1, title: marker.title })}
+          data-index={i + 1}
+        >
+          {i + 1}
+        </a>
+      ))
+    }
+  </div>
+  <ol class="ui-annotated-list">
+    {
+      markers.map((marker, i) => (
+        <li class="ui-annotated-item" id={`${id}-note-${i + 1}`} data-index={i + 1}>
+          <a class="ui-annotated-num" href={`#${id}-pin-${i + 1}`} aria-label={format(ui.blockMarker, { index: i + 1, title: marker.title })}>
+            {i + 1}
+          </a>
+          <div>
+            <p class="ui-annotated-title">{marker.title}</p>
+            {marker.text && <p class="ui-annotated-text">{marker.text}</p>}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+  {caption && <figcaption class="ui-block-caption">{caption}</figcaption>}
+</figure>
+
+<script>
+  // Lights up a marker and its entry together. A press keeps the page where it is when the
+  // partner is already in view and otherwise brings it just into view, never with a long glide.
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-annotated]')) {
+    const parts = [...root.querySelectorAll<HTMLElement>('[data-index]')];
+    const activate = (index: string | undefined) => {
+      for (const part of parts) part.toggleAttribute('data-active', part.dataset.index === index);
+    };
+    const partner = (link: HTMLAnchorElement) => root.querySelector<HTMLElement>(link.hash ? `[id="${link.hash.slice(1)}"]` : '');
+
+    for (const link of root.querySelectorAll<HTMLAnchorElement>('.ui-annotated-pin, .ui-annotated-num')) {
+      const index = link.closest<HTMLElement>('[data-index]')?.dataset.index;
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        activate(index);
+        partner(link)?.scrollIntoView({ block: 'nearest', behavior: reduce.matches ? 'auto' : 'smooth' });
+      });
+      link.addEventListener('focus', () => activate(index));
+    }
+    for (const part of parts) {
+      part.addEventListener('pointerenter', () => {
+        if (fine.matches) activate(part.dataset.index);
+      });
+    }
+  }
+</script>

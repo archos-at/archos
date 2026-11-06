@@ -75,6 +75,7 @@ def source_lane(entry: SourceEntry, registry: NormRegistry | None = None) -> tup
         registry=registry,
         shelf=entry.shelf,
         authored_by=entry.authored_by,
+        source_format=entry.source_format,
     )
 
 

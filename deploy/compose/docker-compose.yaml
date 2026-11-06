@@ -133,7 +133,7 @@ services:
       # base64 32-byte key to encrypt: `openssl rand -base64 32`.
       JOB_PAYLOAD_KEK: ${JOB_PAYLOAD_KEK:-${GRID_JOB_PAYLOAD_KEK:-}}
       # Server config
-      # Grid OIB config (default)
+      # OIB config (default)
       CONFIG_FILE: ${BACKEND_CONFIG:-/app/configs/config_oib_openrouter.yml}
       HOST: 0.0.0.0
       PORT: "8000"
@@ -653,6 +653,19 @@ services:
       - ADMIN_TOKEN=${ADMIN_TOKEN:-${GRID_ADMIN_TOKEN:-}}
       # Corpus tarball (/api/internal/oib-corpus). No caller since the answer-suite CI workflow was removed. Unset = disabled.
       - CORPUS_EXPORT_TOKEN=${CORPUS_EXPORT_TOKEN:-${GRID_CORPUS_EXPORT_TOKEN:-}}
+      # Project mail (ADR-0138). Off unless the domain is set (the UI then shows
+      # no address). The Cloudflare Email Worker that posts to
+      # /api/internal/signed/inbound-mail runs only on Cloudflare; Pulumi deploys
+      # it (deploy/pulumi/src/platform/inbound-mail.ts). The key map is what its
+      # RFC 9421 signatures are checked against: unset = the route answers 503.
+      # PAUSED=true answers 503 too, and the sender retries.
+      - INBOUND_MAIL_DOMAIN=${INBOUND_MAIL_DOMAIN:-}
+      - INBOUND_MAIL_LOCAL_PART=${INBOUND_MAIL_LOCAL_PART:-project}
+      - INBOUND_MAIL_SIGNING_KEYS=${INBOUND_MAIL_SIGNING_KEYS:-}
+      - INBOUND_MAIL_PAUSED=${INBOUND_MAIL_PAUSED:-false}
+      # DIRECT_FILING=false files no verified writer's mail as them: it waits for
+      # the project's writers (ADR-0137, amendment of 2026-11-03).
+      - INBOUND_MAIL_DIRECT_FILING=${INBOUND_MAIL_DIRECT_FILING:-true}
       - WORKOS_CLIENT_ID=${WORKOS_CLIENT_ID}
       - WORKOS_API_KEY=${WORKOS_API_KEY}
       - NEXT_PUBLIC_WORKOS_REDIRECT_URI=${NEXT_PUBLIC_WORKOS_REDIRECT_URI:-${WORKOS_REDIRECT_URI:-http://localhost:3000/api/auth/callback}}
@@ -693,6 +706,11 @@ services:
       # Address search in the project dialog (ADR-0151): komoot's public Photon,
       # no account. Empty switches it off and the address stays a text field.
       - GEOCODER_URL=${GEOCODER_URL-https://photon.komoot.io}
+      # The malware scanner (ADR-0157). Unset, every scan fails `not-configured`
+      # and nothing that waits on a clean scan is filed. To scan, start clamd
+      # with `--profile malware-scan` and set MALWARE_SCAN_URL=tcp://clamav:3310
+      # in deploy/.env. `fake://` is accepted only with APP_ENV=development.
+      - MALWARE_SCAN_URL=${MALWARE_SCAN_URL:-}
       - SEAWEED_ENDPOINT=http://seaweedfs:8333
       # Browser-reachable endpoint used ONLY to sign presigned URLs handed to the
       # browser (PDF preview/download). Must be a host the browser can resolve --
@@ -853,7 +871,7 @@ services:
     # the routes do, and two lists that agree today are two lists that drift.
     # (`extends` would also inherit the frontend's published port, which cannot
     # be removed without Compose's `!reset` tag, and no other reader of this
-    # file understands it.) The runner's knobs (GRID_BFF_JOBS_*) keep their code
+    # file understands it.) The runner's knobs (BFF_JOBS_*) keep their code
     # defaults here; set them on this service to change them.
     image: ${FRONTEND_IMAGE:-frontend:local}
     build:
@@ -1016,6 +1034,47 @@ services:
         reservations:
           cpus: '0.2'
           memory: 512M
+    restart: unless-stopped
+
+  clamav:
+    # The malware scanner (ADR-0157): clamd, and freshclam updating its
+    # signatures. OPT-IN (`--profile malware-scan`): it holds about 1 GiB of
+    # signatures in memory, twice that while it loads new ones, and nothing
+    # scans until MALWARE_SCAN_URL points here (see the frontend).
+    #   - The same image pin as Pulumi (`malwareScanImage`), and the same two
+    #     config files, mounted from ./clamav/ (clamav.spec.ts holds them equal).
+    #   - The image's own entrypoint: it starts as root, chowns the database
+    #     volume, and starts freshclam and clamd, which drop to `clamav`
+    #     (`User clamav` in clamd.conf). FRESHCLAM_CHECKS keeps it at twelve
+    #     checks a day; the entrypoint's default is one.
+    #   - No published port. It needs egress for database.clamav.net, so it
+    #     sits on the shared compose network rather than an internal one.
+    #   - Healthy only while clamd answers and its signatures are younger than
+    #     48 hours: the Kubernetes readiness check, `$` doubled for Compose, and
+    #     the age past which the BFF refuses every scan.
+    image: clamav/clamav:1.5.4@sha256:bda39705e291105049c3936e2803ac90b955172af8030f94f05dce1252df6c6d
+    profiles: [malware-scan]
+    environment:
+      - FRESHCLAM_CHECKS=12
+    volumes:
+      - ./clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+      - ./clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
+      - clamav-data:/var/lib/clamav
+    networks:
+      - aiq-network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - |-
+          reply=$$(printf 'zVERSION\0' | nc -w 5 127.0.0.1 3310 | tr -d '\0')
+          built=$$(date -u -D "%a %b %d %H:%M:%S %Y" -d "$${reply##*/}" +%s) || exit 1
+          [ $$(( $$(date -u +%s) - built )) -lt 172800 ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # The first start loads the baked signatures, then freshclam fetches
+      # what changed since the image was built.
+      start_period: 300s
     restart: unless-stopped
 
   dragonfly:
@@ -1427,6 +1486,73 @@ services:
       - app
     restart: unless-stopped
 
+  # ===========================================================================
+  # The website's CMS (ADR-0155): Payload, built from apps/cms, and its own Postgres
+  # ===========================================================================
+  #
+  # OPT-IN: both services carry `profiles: [cms]`. Kubernetes runs the same image
+  # on its own CloudNativePG cluster with files in SeaweedFS
+  # (deploy/pulumi/src/platform/cms.ts); here the files stay on a volume.
+  #
+  #   task cms:up                                   # build, migrate on start, provision the admin and the website's key
+  #   DATABASE_URL=postgresql://cms:cms@localhost:5434/cms PAYLOAD_SECRET=local-cms-secret-not-for-production \
+  #     task cms:import -- apply                    # the MDX posts
+  #
+  # Admin panel: http://localhost:3100/admin (admin@example.com / local-admin-password;
+  # local only). The website reads it with CMS_URL=http://localhost:3100 and
+  # CMS_API_KEY=local-website-key (apps/website/README.md, "Blog").
+  cms-postgres:
+    image: postgres:16-alpine
+    profiles: [cms]
+    environment:
+      POSTGRES_USER: cms
+      POSTGRES_PASSWORD: cms
+      POSTGRES_DB: cms
+    ports:
+      # For the import, which runs on the host against the database.
+      - "5434:5432"
+    volumes:
+      - cms-postgres-data:/var/lib/postgresql/data
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d cms -U cms"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  cms:
+    # The image CI builds and Kubernetes runs (ci/image_inputs.py, repository `cms`).
+    build:
+      context: ../../apps/cms
+    profiles: [cms]
+    depends_on:
+      cms-postgres:
+        condition: service_healthy
+    ports:
+      - "3100:3000"
+    environment:
+      CMS_PUBLIC_URL: http://localhost:3100
+      PAYLOAD_SECRET: local-cms-secret-not-for-production
+      DATABASE_URL: postgresql://cms:cms@cms-postgres:5432/cms
+      CMS_ADMIN_EMAIL: admin@example.com
+      CMS_ADMIN_PASSWORD: local-admin-password
+      CMS_WEBSITE_API_KEY: local-website-key
+      # The website's dev server on the host (`bun run dev` in apps/website).
+      WEBSITE_REVALIDATE_URL: http://host.docker.internal:4321/api/cms/revalidate
+      WEBSITE_REVALIDATE_TOKEN: local-revalidate-token
+      WEBSITE_PUBLIC_URL: http://localhost:4321
+      CMS_PREVIEW_SECRET: local-preview-secret
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - cms-media:/app/media
+    networks:
+      - app
+    restart: unless-stopped
+
 volumes:
   # No `chroma_data` any more (ADR-0115). An installation that ran Chroma still
   # has the volume (`compose_chroma_data` with the default project name):
@@ -1443,9 +1569,16 @@ volumes:
     driver: local
   clickhouse-data:
     driver: local
+  # ClamAV's signature database, so a restart does not download it again.
+  clamav-data:
+    driver: local
   hatchet-postgres-data:
     driver: local
   hatchet-lite-config:
+    driver: local
+  cms-postgres-data:
+    driver: local
+  cms-media:
     driver: local
 
 networks:

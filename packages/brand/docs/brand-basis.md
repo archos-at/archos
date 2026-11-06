@@ -34,7 +34,7 @@ When two sources disagree, the first matching rule decides. The owner may revise
 | ™ | Wordmark set as „ARCHOS™“ (MB p.1, p.14) | Text: „ARCHOS, ohne ™“ | No ™ in running text or UI; the wordmark component carries none either (there is no vector artwork yet) | P1 |
 | Product noun | MB p.9 offers „Der KI-Workspace, in dem Ihr Projekt entsteht.“ | – | Not used: MB p.12 forbids „KI-Workspace“ | P2 |
 | Mission | „Wir nehmen Planer:innen alles ab, was nicht Planung ist.“ (MB p.2) | – | Public wording „Wir übernehmen, was Planer:innen vom Planen abhält.“ (MB p.12's own „So“) | P2 |
-| Hero line | „Der Workspace für Planungsbüros.“ (MB p.9, p.12) | „Der Workspace für Architekturbüros.“ (reference site) | Audience „Architektur- und Planungsbüros“; the website's hero copy is the website's decision | P2 |
+| Hero line | „Der Workspace für Planungsbüros.“ (MB p.9, p.12) | „Der Workspace für Architekturbüros.“ (reference site) | „Der Workspace für Architekturbüros.“ on the website's home page, its title and `llms.txt`, without „und Planungsbüros“ (owner decision, 2026-11-05). Elsewhere the audience stays „Architektur- und Planungsbüros“ | P2 |
 | Address | „euch“ (MB p.4) and „Ihr Projekt“ (MB p.9–11) | „Sie“ | „Sie“ | P2 (the brand book itself uses „Ihr“ in product sentences) |
 | Look model | „ähnlich wie bei Harvey“ (MB p.13); Harvey screenshot (MS s.7) | – | Never shown or named | P3 |
 
@@ -139,7 +139,11 @@ From MB p.14, with the design system's formats.
 3. **Linie**: fine line drawings instead of illustrations: floor-plan fragments, figure-
    ground plans, axes, axonometries. Black on light, the same stroke weights as the rest
    of the brand (`stroke-hairline`, `stroke-strong`), no shadows, no fills, no colour. The
-   blog's line figures (`apps/website/src/components/figures/`) belong to this family.
+   blog's line figures (`apps/website/src/components/figures/`) belong to this family, and
+   so do the blog covers, its one fixed format ([blog-covers.md](blog-covers.md)). A cover
+   allows three fills a construction drawing has too: white paper for a sheet lying on
+   another, the hatch of a cut material, and one solid black element, as in a
+   figure-ground plan.
 4. **Produkt**: flat product cut-outs on exactly `surface-sunken`, never floating laptop or
    phone mock-ups; rather a detail (a plan excerpt with ARCHOS's answer beside it) than a
    whole screen.

@@ -90,9 +90,11 @@ backend:
   - 'apps/workspace/bff/documents/retry-policy.ts'
   - 'apps/workspace/bff/documents/semantic-search.ts'
   - 'apps/workspace/bff/documents/tag-vocabulary.ts'
+  - 'apps/workspace/bff/inbound-mail/inbound-mail-vocabulary.ts'
   - 'apps/workspace/bff/jobs-queue/attempts.ts'
   - 'apps/workspace/bff/jobs-queue/task.ts'
   - 'apps/workspace/bff/jobs/types.ts'
+  - 'apps/workspace/bff/mail-thread/render-copy.ts'
   - 'apps/workspace/bff/model-config/agent-groups.ts'
   - 'apps/workspace/bff/platform/vector-reconcile.ts'
   - 'apps/workspace/bff/project-profile/legacy-names.json'
@@ -147,6 +149,7 @@ backend:
   - 'ci/package_surface_baseline.json'
   - 'ci/size_baseline.json'
   - 'contracts/cards/schemas.json'
+  - 'contracts/thread-index.json'
   - 'deploy/compose/docker-compose.yaml'
   - 'deploy/postgres/rename-legacy-names.sh'
   - 'deploy/posthog/support/copy.de.json'
@@ -236,12 +239,24 @@ workspace:
   - '.github/actions/build-image/**'
   # The brand script writes the app's icons (packages/brand/build-brand-assets.mjs).
   - 'packages/brand/**'
+  # shared/public-site.spec.ts holds the app's links into the website to it.
+  - 'contracts/public-site.json'
   # Read as source by this tier's tests (scripts/check_ci_filter_reads.py --fix writes it):
+  - 'apps/agent-host/src/agent_host/models/document_type_tag.py'
+  - 'apps/agent-host/src/agent_host/models/mail_facts.py'
   - 'apps/agent-host/src/agent_host/models/requests.py'
+  - 'apps/agent-host/src/agent_host/routes/ingest.py'
+  - 'contracts/inbound-address.json'
+  - 'contracts/inbound-mail-contract.json'
+  - 'contracts/inbound-mail-signature.json'
+  - 'contracts/thread-index.json'
   - 'deploy/compose/init-db.sql'
   - 'docs/technical-reference/answer-feedback-export.md'
   - 'packages/agent/src/agent/common/status_keys.py'
+  - 'packages/agent/src/agent/knowledge/doc_class_vocabulary.py'
+  - 'packages/agent/src/agent/knowledge/document_classification.py'
   - 'packages/agent/src/agent/skills/events.py'
+  - 'packages/knowledge-layer/src/ingest/chosen_document_type.py'
   - 'packages/ris-adapter/src/client.py'
   # End of the files this tier's tests read.
 site:
@@ -249,10 +264,16 @@ site:
   - '.node-version'
   # The public website (built from packages/brand).
   - 'apps/website/**'
+  # The CMS's blocks and its revalidate call: src/lib/rich-text.test.ts and
+  # cms.test.ts hold the website's renderer and route to them (ADR-0155).
+  - 'apps/cms/src/blocks/**'
+  - 'apps/cms/src/hooks/revalidate-website.ts'
   # The brand package: the website's `bun run check` holds the token and name copies
   # (sync.mjs --check), the icon copies (build-brand-assets.mjs --check) and the
   # email signatures to it, and art:check holds the app's riso art to its source.
   - 'packages/brand/**'
+  # src/i18n/public-site.test.ts holds the route table to the pages text outside the site links to.
+  - 'contracts/public-site.json'
   # The brand rules the website's `bun run check` and `task website:verify` run.
   - 'scripts/check_brand_rules.mjs'
   - 'scripts/check_brand_rules.test.mjs'
@@ -269,6 +290,25 @@ site:
   - '.github/filters.yml'
   - '.github/actions/setup-bun/**'
   - '.github/actions/setup-task/**'
+cms:
+  # The website's CMS (apps/cms, Payload, ADR-0155): its own job runs `task cms:verify`
+  # (typecheck, lint, unit tests, and the Postgres suite with the migration drift gate).
+  - '.node-version'
+  - 'apps/cms/**'
+  - 'taskfiles/cms.yml'
+  # Its tests hold its choices and its import to the website's code and posts:
+  # the cover drawings, the categories, the routes a call to action names, the
+  # MDX fixtures the import converts, and the block contracts it registers.
+  - 'apps/website/src/assets/covers/**'
+  - 'apps/website/src/lib/categories.ts'
+  - 'apps/website/src/i18n/paths.ts'
+  - 'apps/website/src/content/blog/**'
+  - 'apps/website/src/components/blocks/contracts.ts'
+  - 'Taskfile.yml'
+  - '.github/workflows/ci.yml'
+  - '.github/filters.yml'
+  - '.github/actions/setup-bun/**'
+  - '.github/actions/setup-task/**'
 infra:
   # The Node version every job of this tier runs on (setup-node reads it).
   - '.node-version'
@@ -277,6 +317,9 @@ infra:
   # server its CMD starts.
   - 'apps/website/Dockerfile'
   - 'apps/website/runtime/server.mjs'
+  # deploy/pulumi/src/platform/inbound-mail-worker.spec.ts reads the public site's
+  # help and privacy paths the Worker's refusal links to.
+  - 'contracts/public-site.json'
   # deploy/pulumi/src/data/qdrant-alerts.spec.ts reads the runbook it links.
   - 'docs/deployment/qdrant-runbook.md'
   - 'Taskfile.yml'
@@ -295,6 +338,7 @@ infra:
   - 'apps/agent-host/src/agent_host/routes/chat_occupancy.py'
   - 'apps/agent-host/src/agent_host/routes/internal_auth.py'
   - 'apps/agent-host/src/agent_host/routes/jobs.py'
+  - 'apps/workspace/bff/malware-scan/config.ts'
   - 'apps/workspace/bff/model-config/openrouter.ts'
   - 'apps/workspace/bff/scheduling/sweeps.ts'
   - 'apps/workspace/deploy/Dockerfile'

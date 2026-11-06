@@ -27,10 +27,7 @@ const c = withName(copy[locale]);
 const nav = navigation(locale);
 const ui = t(locale);
 const security = { label: ui.navSecurity, href: localePath('security', locale), key: 'security' };
-// The two abilities with a page of their own link to it; the others are explained on home.
-const abilityLinks = [localePath('buildingLaw', locale), localePath('revisions', locale)];
-const abilities = c.today.items.map((item, i) => ({ ...item, href: abilityLinks[i] }));
-// The journal post that asks the questions this page answers (they link to each other).
+// The blog post that asks the questions this page answers (they link to each other).
 const post = locale === 'de' ? '/blog/ki-im-architekturbuero/' : '/en/blog/ai-in-architecture-firms/';
 ---
 
@@ -47,7 +44,7 @@ const post = locale === 'de' ? '/blog/ki-im-architekturbuero/' : '/en/blog/ai-in
       alt={c.today.imageAlt}
       style="display: block; width: 100%; height: auto; margin: var(--space-8) 0 var(--space-16); background: var(--surface-sunken);"
     />
-    <FeatureTiles items={abilities} columns={4} />
+    <FeatureTiles items={c.today.items} columns={4} />
   </section>
 
   <section class="ui-container page-section">

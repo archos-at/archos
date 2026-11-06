@@ -16,6 +16,11 @@ export const errors: typeof en.errors = {
       'Ein unerwarteter Fehler ist aufgetreten. Sie können es erneut versuchen oder zu Ihren Projekten zurückkehren.',
     action: 'Erneut versuchen',
     backAction: 'Zurück zu den Projekten',
+    report: 'Fehler melden',
+    reference: 'Referenz: {reference}',
+    reportSubject: 'Fehler in {productName}',
+    reportAddress: 'Adresse: {address}',
+    reportPrompt: 'Was haben Sie gerade getan?',
   },
   access: {
     code: 'Zugriff',

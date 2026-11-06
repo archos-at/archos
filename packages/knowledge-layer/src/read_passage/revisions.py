@@ -50,3 +50,28 @@ def older_revision_line(name: str, current: str) -> str:
         f"Older Fassung: {name} is replaced by {current} (confirmed); {current} is current. "
         "Say in the answer that you are reading the older Fassung.\n\n"
     )
+
+
+def _mail_origin_notice(targets: Sequence[PassageTarget]) -> str:
+    """The line that says which mail a document came with, in the words of its Verlauf (ADR-0137).
+
+    So a passage of an attachment is attributed to the message that brought it
+    („laut der E-Mail von Ing. Gruber vom 04.05.2026“), and a sender nobody
+    confirmed reads as „Domain nicht bestätigt“, never as the domain's owner.
+    Rides the notice slot like :func:`_older_revision_notice`; a file of a
+    restricted collection nobody admitted is never named.
+    """
+    from agent.knowledge.mail_facts import mail_origin_label
+    from agent.knowledge.restricted_use import may_name
+
+    lines = {
+        (target.file_name, label)
+        for target in targets
+        if may_name(target.collection) and (label := mail_origin_label(target.mail_origin))
+    }
+    return "".join(f"{name} {label}.\n\n" for name, label in sorted(lines))
+
+
+def _target_notices(targets: Sequence[PassageTarget]) -> str:
+    """Every notice about the documents read: an older Fassung first, then the mail it came with."""
+    return _older_revision_notice(targets) + _mail_origin_notice(targets)

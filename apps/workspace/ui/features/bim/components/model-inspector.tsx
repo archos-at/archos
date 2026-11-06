@@ -39,7 +39,7 @@ import { elementQuestionHref } from '../lib/element-question'
 import { formatPropertyValue } from '../lib/format-value'
 import { humaniseIfcType } from '../lib/stage-model'
 import type { BimElementDetail } from '../hooks/use-bim-model'
-import { CopyableValue } from './copyable-value'
+import { CopyableValue } from '@/components/ui/copyable-value'
 import {
   ViewerField,
   ViewerFieldGroup,
@@ -319,7 +319,7 @@ function ModelInspectorDetails({
         `<summary>`'s display has a history of costing it its toggle in Safari,
         and padding needs no display change at all.
       */}
-      <summary className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 pointer-coarse:min-h-11 pointer-coarse:py-3.5 duration-quick cursor-pointer rounded text-xs font-medium tracking-wide outline-none transition-colors ease-out marker:content-none focus-visible:ring-2">
+      <summary className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/60 pointer-coarse:min-h-11 pointer-coarse:py-3.5 duration-quick cursor-pointer rounded text-xs font-medium outline-none transition-colors ease-out marker:content-none focus-visible:ring-2">
         {label}
       </summary>
 

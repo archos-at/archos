@@ -19,6 +19,11 @@ from pydantic import model_validator
 from agent.knowledge.dossier import DocumentType
 from agent.profile_names import normalize_profile_token
 
+from ..object_store_url import ObjectStoreUrl
+from .document_type_tag import DocumentTypeField
+from .mail_facts import MailOrigin
+from .mail_facts import MailThreadFacts
+
 logger = logging.getLogger(__name__)
 
 #: Bounds of an office's screening terms. The ingest job applies the same ones
@@ -172,7 +177,7 @@ class ProjectFactsUpdate(BaseModel):
 class IngestRequest(BaseModel):
     """Request body for URL-based ingestion."""
 
-    file_ref: str = Field(..., description="Presigned URL or file reference to download")
+    file_ref: ObjectStoreUrl = Field(..., description="Presigned GET of the original in the object store")
     collection: str = Field(..., description="Target collection name")
     document_id: str | None = Field(None, description="Optional document tracking ID")
     byte_size: int | None = Field(
@@ -233,18 +238,16 @@ class IngestRequest(BaseModel):
             "decides, whatever the priority."
         ),
     )
-    thumbnail_upload_url: str | None = Field(None, description="Presigned URL for uploading a generated thumbnail")
-    preview_ref: str | None = Field(
+    thumbnail_upload_url: ObjectStoreUrl | None = Field(None, description="Presigned PUT for the generated thumbnail")
+    preview_ref: ObjectStoreUrl | None = Field(
         None,
         description=(
-            "Presigned GET of the document's PDF rendition (`<dir>/_render.pdf`, ADR-0070), sent "
-            "for an office original. Read ONLY to draw the thumbnail of an original that is neither "
-            "a PDF nor an image, in a background task after the response; not read at all when "
-            "`extraction_ref` is sent (the job draws the thumbnail from that download). Never "
-            "stored in the job config and never logged: a presigned URL is a bearer credential."
+            "Presigned GET of an office original's PDF rendition (`<dir>/_render.pdf`, ADR-0070), read only to draw "
+            "its thumbnail: the job downloads it once the file's screening has passed (ADR-0086), and not at all "
+            "when `extraction_ref` is sent. Never logged: a presigned URL is a bearer credential."
         ),
     )
-    extraction_ref: str | None = Field(
+    extraction_ref: ObjectStoreUrl | None = Field(
         None,
         description=(
             "Presigned GET of the document's PDF rendition to EXTRACT from (ADR-0071), sent by the "
@@ -263,6 +266,8 @@ class IngestRequest(BaseModel):
             "(e.g. 'Brandschutz/Fluchtwege'). Omit or null for the project root."
         ),
     )
+    document_type: DocumentTypeField = None
+
     file_name: str | None = Field(
         None,
         description=(
@@ -305,6 +310,30 @@ class IngestRequest(BaseModel):
         None,
         description="Which pipeline wrote an agent-authored document (`documents.authored_by_producer`).",
     )
+    mail_thread: MailThreadFacts | None = Field(
+        None,
+        description=(
+            "Sent for a filed E-Mail-Verlauf (ADR-0137): the document's chunks are stamped "
+            "`source_format: mail`, which places them in the lane `project_mail`, and the newest "
+            "message's date becomes the document's own date. Omit for every other document."
+        ),
+    )
+    mail_origin: MailOrigin | None = Field(
+        None,
+        description=(
+            "Sent for a file a person filed from a mail: the message it came with. Stored on the "
+            "document's metadata row and printed by `list_files` and `read_passage`. Omit for every "
+            "other document."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _a_thread_came_with_no_mail(self) -> IngestRequest:
+        """A Verlauf IS the mails; an attachment came WITH one. Both on one document is a caller bug."""
+        if self.mail_thread is not None and self.mail_origin is not None:
+            raise ValueError("mail_thread and mail_origin describe different documents; send one")
+        return self
+
     screening: ScreeningPolicy | None = Field(
         None,
         description=(
@@ -939,71 +968,6 @@ class OibDocumentDeleteResponse(BaseModel):
 
     success: bool
     file_name: str
-
-
-#: Ceiling on the live lesson register a distill request may carry. Mirrors the
-#: BFF's MAX_DISTILL_REGISTER_SIZE (lib/platform-lessons/types.ts).
-MAX_DISTILL_LESSONS = 60
-
-
-class LessonRegisterEntry(BaseModel):
-    """One live platform lesson the matcher compares a new report against."""
-
-    id: str = Field(..., description="Lesson uuid (returned verbatim as match_lesson_id on a match)")
-    content: str = Field(..., description="The lesson text (anonymized German corrective)")
-
-
-class LessonDistillRequest(BaseModel):
-    """Request body for distilling ONE negative feedback report into a lesson.
-
-    Everything free-text here was already PII-scrubbed and truncated by the BFF
-    (lib/text/redact-pii.ts); the route re-bounds it anyway — a route that
-    trusts its caller's bounds is one refactor away from posting a transcript.
-    Organization, user and conversation identifiers never arrive at all.
-    """
-
-    question: str | None = Field(None, description="The user's question, scrubbed + truncated")
-    answer: str | None = Field(None, description="The rated answer's text, scrubbed + truncated")
-    reason: str | None = Field(None, description="Down-vote reason key (inaccurate|too_slow|wrong_source|other)")
-    comment: str | None = Field(None, description="The reporter's free-text comment, scrubbed + truncated")
-    existing_lessons: list[LessonRegisterEntry] = Field(
-        default_factory=list,
-        description="The live lesson register the matcher deduplicates against",
-        max_length=MAX_DISTILL_LESSONS,
-    )
-
-
-class LessonDistillResponse(BaseModel):
-    """The distiller's verdict on one report.
-
-    Exactly one of ``match_lesson_id`` / ``lesson`` is set on success; both are
-    None when the report is not generalizable. ``audit_passed`` is a SECOND
-    model's screening of the distilled text for identifying or manipulative
-    content — the BFF holds a failed-audit lesson back as a candidate instead
-    of activating it.
-    """
-
-    match_lesson_id: str | None = Field(
-        None, description="Id of the existing lesson this report restates, when one matches"
-    )
-    lesson: str | None = Field(
-        None, description="New lesson text (anonymized German corrective), when no existing lesson matches"
-    )
-    canonical_summary: str | None = Field(
-        None, description="One anonymized sentence restating what went wrong in THIS report"
-    )
-    category: str = Field("other", description="inaccurate|too_slow|wrong_source|other")
-    generalizable: bool = Field(
-        False, description="False when the complaint is instance-specific and teaches the fleet nothing"
-    )
-    audit_passed: bool = Field(False, description="Whether the auditor model cleared the distilled text")
-    error: str | None = Field(
-        default=None,
-        description=(
-            "Failure code when distillation could not complete "
-            "(llm_not_configured, llm_request_failed, llm_response_malformed); None on success"
-        ),
-    )
 
 
 #: Ceiling on the notes one embedding request may carry. Mirrors `_MAX_TEXTS`

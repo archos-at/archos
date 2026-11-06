@@ -88,6 +88,7 @@ EXCLUDED = re.compile(
             r"(^|/)migrations/|^apps/workspace/migrations/",  # Alembic and Drizzle history, written once
             r"(^|/)i18n/dictionaries/",  # copy, where the name belongs
             r"^apps/website/src/data/changelog\.json$",  # generated from releasenotes/, excluded above
+            r"^apps/workspace/bff/release-notes/release-notes\.generated\.json$",  # the same, the app's copy
             r"^packages/brand/signatures/",  # email signatures, generated from identity.json
             r"(^|/)public/",  # published assets: their URLs are public
             r"(^|/)(uv\.lock|bun\.lockb?|package-lock\.json|apm\.lock\.yaml)$",  # rendered from manifests
@@ -125,7 +126,8 @@ EXCLUDED = re.compile(
 )
 
 URL = re.compile(r"\b(?:https?|git|ssh)://\S+|\bgit@[\w.-]+:\S+")
-HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org)$")  # a host name, or an email address's
+# A host name, or an email address's. `.tech` is the brand's own domain (identity.json's "domain").
+HOST = re.compile(r"\.(?:at|ai|app|com|de|dev|eu|io|net|org|tech)$")
 # The Kubernetes and Compose tier names `aiq-agent` and `aiq-api` are not
 # counted: renaming them recreates resources and an operator applies it (ADR-0145
 # row 10c). Delete this set with that rename.
