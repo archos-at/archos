@@ -188,7 +188,7 @@ export function FolderBrief({
               data-testid="folder-brief-toggle"
             >
               <Sparkles className="size-3.5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
+              <span className="min-w-0 truncate" /* the chevron follows the words, not the far edge */>
                 <span className={cn(open && 'font-medium')}>{headline}</span>{' '}
                 <span className="text-muted-foreground">{scope}</span>
               </span>

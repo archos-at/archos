@@ -152,7 +152,7 @@ export function FolderBreadcrumbRow({
       // the cards, taking „Ordner anlegen" and the way up with it; on a phone it
       // was left half-hidden under the controls. Pinned, it is whole, never cut.
       // No hairline under it; at the root it holds only its controls (the crumb is the tab above), so it sits tighter.
-      className={cn('sticky top-0 z-10 flex w-full max-w-[1600px] shrink-0 items-center justify-between gap-2 bg-background px-4 pb-2 pt-4 phone:pt-2 md:px-8', currentFolderId === null && 'pb-0 pt-2')}
+      className={cn('sticky top-0 z-10 flex w-full max-w-[1280px] shrink-0 items-center justify-between gap-2 bg-background px-4 pb-2 pt-4 phone:pt-2 md:px-8', currentFolderId === null && 'pb-0 pt-2')}
       data-testid="folder-breadcrumb-row"
     >
       <div className="flex min-w-0 items-center gap-2">

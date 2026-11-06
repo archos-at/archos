@@ -219,7 +219,8 @@ export function ProjectSectionFrame({
   return (
     <ActionsContext.Provider value={setActions}>
       <div className="flex h-full min-h-0 flex-col">
-        <div className={SECTION_HEADER_CLASS}>
+        {/* Dateien's head keeps its content's container: the design system's 1280px with the 32px margins. */}
+        <div className={cn(SECTION_HEADER_CLASS, segment === 'files' && '[&>*]:max-w-[1216px]')}>
           {/* On a phone Dateien's places sit right under the title on every tab, and a tab's own tools (the
               search, the filter) come below them: above them, the tabs moved down on „Alle Dateien“ and up in
               the E-Mail-Eingang, which has none. */}

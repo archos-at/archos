@@ -1138,9 +1138,9 @@ export function FileBrowserSkeleton({
 
 /**
  * The listing's width cap (a 4K monitor would stretch cards into a wall), on
- * the section header's edges: left at its 32px from `md`, and wide enough to end
- * where it ends on a desk. Centred at 1200px, the page had three left edges.
+ * the section header's edges: the design system's 1280px container with its
+ * 32px margins, which the header keeps too. Centred, the page had three left edges.
  */
-const CONTENT_MAX = 'w-full max-w-[1600px] md:px-8'
+const CONTENT_MAX = 'w-full max-w-[1280px] md:px-8'
 
 const noToggle = (): void => undefined
