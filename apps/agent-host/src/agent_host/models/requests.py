@@ -21,6 +21,7 @@ from agent.profile_names import normalize_profile_token
 
 from ..object_store_url import ObjectStoreUrl
 from .document_type_tag import DocumentTypeField
+from .knowledge_mark import KnowledgeMarkFields
 from .mail_facts import MailOrigin
 from .mail_facts import MailThreadFacts
 
@@ -174,8 +175,8 @@ class ProjectFactsUpdate(BaseModel):
     status: ProjectStatus = Field(..., description="The project's lifecycle state (ADR-0098)")
 
 
-class IngestRequest(BaseModel):
-    """Request body for URL-based ingestion."""
+class IngestRequest(KnowledgeMarkFields):
+    """Request body for URL-based ingestion; a base-knowledge copy also carries its licence mark."""
 
     file_ref: ObjectStoreUrl = Field(..., description="Presigned GET of the original in the object store")
     collection: str = Field(..., description="Target collection name")

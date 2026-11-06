@@ -10,8 +10,8 @@ instead, so the suites cannot quietly stop covering it.
 :func:`qdrant_store` points the process-wide store at a pair of physical
 collections this process shares (a unique alias suffix, ``schema.ALIASES``
 monkeypatched), so the adapter, the routes and the test all read and write the
-same pair, and empties both after every test. Creating a pair is 62 payload
-indexes, one request each: over four seconds, which every test used to pay.
+same pair, and empties both after every test. Creating a pair is one payload
+index per indexed field (70), one request each: over four seconds, which every test used to pay.
 A test of the collection's own life (created or adopted, its indexes, its
 metadata, its aliases) asks for :func:`fresh_qdrant_store`, a pair of its own
 deleted afterwards. Imported as ``knowledge_layer_testing.vector_store`` and

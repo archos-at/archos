@@ -218,7 +218,7 @@
     "apps/agent-host/src/agent_host/routes/cleanup_proposal.py::add_cleanup_proposal_routes": 63,
     "apps/agent-host/src/agent_host/routes/consistency_check.py::add_consistency_check_routes": 99,
     "apps/agent-host/src/agent_host/routes/consistency_check.py::add_consistency_check_routes.consistency_check": 85,
-    "apps/agent-host/src/agent_host/routes/document_search.py::add_document_search_routes": 75,
+    "apps/agent-host/src/agent_host/routes/document_search.py::add_document_search_routes": 65,
     "apps/agent-host/src/agent_host/routes/documents.py::_merge_summaries": 66,
     "apps/agent-host/src/agent_host/routes/drafts.py::add_draft_routes": 67,
     "apps/agent-host/src/agent_host/routes/feedback_digest.py::_build_brief": 105,

@@ -24,6 +24,8 @@ from knowledge_layer.vector_store import writes
 from knowledge_layer_testing.vector_store import record as _record
 from knowledge_layer_testing.vector_store import vector as _vector
 
+from agent import project_context
+
 #: The real reader, before ``retriever`` stubs it for the tests that need no metadata store.
 FACTS_BY_FILE = writes.facts_by_file
 
@@ -36,6 +38,8 @@ def _cosine(a: list[float], b: list[float]) -> float:
 @pytest.fixture
 def retriever(qdrant_store, monkeypatch) -> LlamaIndexRetriever:
     monkeypatch.setattr(writes, "facts_by_file", lambda scope, names=None: {})
+    # The request's office, as a chat turn carries it (``knowledge_layer.search.office_for``).
+    monkeypatch.setattr(project_context, "get_organization_id_from_context", lambda: "org_test")
     instance = LlamaIndexRetriever({"embed_model": "test-model", "embed_base_url": "https://test"})
     instance._initialized = True
     monkeypatch.setattr(instance, "_embed_query_cached", lambda query: _vector(query))
@@ -339,6 +343,7 @@ async def test_numeric_legal_references_reach_the_exact_term_channel(retriever):
         filters=None,
         exact_terms=["§ 3"],
         identity=retriever._identity(),
+        office_id="org_test",
     )
     assert {hit.payload["file_name"] for hit in hits[:2]} == {"0.pdf", "1.pdf"}
 
@@ -403,7 +408,7 @@ async def test_find_text_with_the_token_prefilter_returns_exactly_what_the_full_
 
     def run(pattern: str) -> tuple[list[str], int]:
         scanned["n"] = 0
-        hits = qdrant_retrieval.find_text("proj_a", pattern, None, 100)
+        hits = qdrant_retrieval.find_text("proj_a", pattern, None, 100, office_id="org_test")
         return [hit.chunk_id for hit in hits], scanned["n"]
 
     narrowed_patterns = 0

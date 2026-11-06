@@ -65,7 +65,9 @@ def _no_folder(payloads) -> None:
 
 class TestNoChunkReadSeesAFolder:
     def test_the_ranked_search(self, placed):
-        hits = hybrid_search(placed, [PROJECT], vector=vector(CARD_TEXT), lexical_text=CARD_TEXT, limit=10)
+        hits = hybrid_search(
+            placed, [PROJECT], vector=vector(CARD_TEXT), lexical_text=CARD_TEXT, limit=10, office_id="org_test"
+        )
 
         _no_folder(hit.payload for hit in hits)
         assert len(hits) == 2
@@ -79,6 +81,7 @@ class TestNoChunkReadSeesAFolder:
             group_by="scope",
             groups=5,
             group_size=5,
+            office_id="org_test",
         )
 
         _no_folder(hit.payload for _scope, hits in groups for hit in hits)
@@ -91,6 +94,7 @@ class TestNoChunkReadSeesAFolder:
             embed=vector,
             documents=5,
             per_document=3,
+            office_id="org_test",
         )
 
         assert [document.file_name for document in result.documents] == ["BS.pdf"]
@@ -104,7 +108,7 @@ class TestNoChunkReadSeesAFolder:
 
     def test_grep(self, placed):
         # The card's abstract says "Brandschutzgutachten"; a grep reads chunk text only.
-        hits = retrieval.find_text(PROJECT, r"(?i)brandschutz", None, 50)
+        hits = retrieval.find_text(PROJECT, r"(?i)brandschutz", None, 50, office_id="org_test")
 
         _no_folder(hit.payload for hit in hits)
 

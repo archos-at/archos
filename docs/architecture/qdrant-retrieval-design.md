@@ -192,6 +192,8 @@ full-text index.
 | `text` | `text` index (`word` tokenizer, lowercased, `ascii_folding`, `phrase_matching`; no stemmer, so a phrase is the literal words) | Chunk body. Feeds phrase and exact queries. `word` keeps digits: `multilingual` drops them, and "5.1.1" or "43" matched nothing (§12) |
 | `paragraph_refs[]` | keyword | Every `§ n` the text cites (`§ 3`, `§ 12.1`, `§ 3a`), derived at write time. No tokenizer keeps the `§`, so "§ 3" as a phrase is the token `3` and matches "Abs. 3" |
 | `stand` | datetime, `is_principal` on documents | Document date, for recency |
+| `licence_class` | keyword | How the source may be used: `public_open`, `public_restricted`, `licensed` (office base knowledge). Set by `PUT /v1/collections/{c}/knowledge-mark` and by an ingest job that names it (`writes.licence_mark`) |
+| `knowledge_edition_id` | keyword | The knowledge edition the source belongs to; written like `licence_class` |
 
 Payload indexes are created *before* the first upsert (Qdrant builds the
 filterable HNSW links at index time). **Strict mode** is on with
@@ -245,6 +247,35 @@ def compile_scope(envelope: SignedScope, *, purpose: Purpose) -> models.Filter
   forget the rule because it never writes the filter itself, which is what
   ADR-0087 wanted from separate collections.
 - **Superseded Fassungen are excluded unless `purpose` asks for history.**
+
+**As built (2026-11): `office_id` is filtered on every tenant-scope search.**
+The envelope still carries collection names (§12), so the filter is still built
+from the scope list (`vector_store/scope.py`, `scope_filter`). Every search
+read (`search.hybrid_search`, `search.grouped_search`, `similar.find_similar`,
+`retrieval.search`, `retrieval.search_grouped`, `retrieval.find_text`,
+`retrieval.candidate_counts`) takes a keyword-only `office_id` with no default
+and builds a `ScopeRead(scopes, office_id)`; constructing one over a tenant scope
+(`schema.TENANT_PREFIXES`: the office shelf, `proj_`, `s_`) with no office raises
+`ValueError`. `scope.office_condition` is ANDed into the filter: a point passes
+when its scope is none of the read's tenant scopes, or its `office_id` is the
+office, or it carries no `office_id`. The first clause keeps the corpus readable
+(its points may carry the platform organization's `office_id`); the last is the
+known legacy gap: points imported from Chroma before enrichment
+(`import_vectors.scope_enrichment` sets `office_id` for office-shelf scopes
+only) and points written by an ingest job that named no organization carry
+none, and for them the scope list stays the only boundary until a backfill
+stamps them. The office comes from `knowledge_layer.search.office_for`: an
+office a caller named for the context (`reading_as`, which the plain FastAPI
+routes `/v1/collections/search`, `/v1/collections/{c}/search` and
+`/v1/collections/similar` set from the signed envelope's `organizationId`,
+`document_search.request_office`), else the request context's organization
+(chat turns, background runs, the internal tool door), else the organization an
+office-shelf scope name holds. Writes, deletes, facets, folder-card reads and
+the structural fetch (`reads.py`) still use `scope_filter` alone, and the BM25
+IDF corpus is still counted over the scopes without the office.
+`packages/knowledge-layer/tests/test_vector_store_office_filter.py` holds the
+positive control: each leak test also runs with the condition dropped and must
+then leak.
 
 The ratchet, in descending order of strength:
 
