@@ -279,6 +279,8 @@ export function AppShellChrome({
         <PhoneMoreSheet
           projectId={projectId}
           organizationName={chrome.organizationName}
+          projectName={chrome.projects.find((project) => project.id === projectId)?.name ?? null}
+          user={chrome.user}
           authRequired={chrome.authRequired}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessInbox={chrome.canAccessInbox}

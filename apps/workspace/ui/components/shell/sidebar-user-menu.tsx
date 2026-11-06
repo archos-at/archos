@@ -60,9 +60,13 @@ export interface SidebarUserMenuProps {
   user?: SidebarUser
   authRequired: boolean
   /** Dropdown side — 'top' for the sidebar footer (default), 'bottom' for a topbar. */
-  menuSide?: 'top' | 'bottom'
+  menuSide?: 'top' | 'bottom' | 'right'
   /** Dropdown alignment — defaults to 'start'. */
   menuAlign?: 'start' | 'end'
+  /** Gap between the trigger and the menu, px. */
+  menuSideOffset?: number
+  /** The menu takes the trigger's width (the rail's person row), so it stays inside the band. */
+  menuMatchTrigger?: boolean
   /** Hide the name label next to the avatar (compact avatar-only trigger). */
   compact?: boolean
   /** Show the org-management entry (org admins only). */
@@ -106,6 +110,8 @@ export function SidebarUserMenu({
   authRequired,
   menuSide = 'top',
   menuAlign = 'start',
+  menuSideOffset = 4,
+  menuMatchTrigger = false,
   compact = false,
   canManageOrganization = false,
   canViewOrganization = false,
@@ -144,7 +150,7 @@ export function SidebarUserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'group/user flex items-center gap-2.5 text-left text-sm',
+          'group/user flex items-center text-left text-sm',
           // The state fill on paper (the org header); on the rail's grey band a
           // press is white (the tonal secondary, D4), and the disc turns grey.
           'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-on-sunken',
@@ -157,10 +163,12 @@ export function SidebarUserMenu({
           // in the org header the search button stands right beside it.
           // Expanded, the disc centres on the section icons' axis (x=32 in the
           // rail), where the icon rail centres it too, so it does not move when
-          // the rail folds, and the org's name keeps the width it needs.
+          // the rail folds.
           compact
             ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
-            : 'w-full rounded-control py-1.5 pl-1 pr-2.5',
+            : // The 28px disc at 18–46 and a 5px gap put the name on the
+              // section labels' 51px edge.
+              'w-full gap-[5px] rounded-control py-1.5 pl-1.5 pr-2.5',
         )}
         aria-label={
           feedbackUpdatedCount > 0
@@ -196,14 +204,24 @@ export function SidebarUserMenu({
           </>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={menuAlign} side={menuSide} className="w-56 motion-reduce:animate-none">
+      <DropdownMenuContent
+        align={menuAlign}
+        side={menuSide}
+        sideOffset={menuSideOffset}
+        className={cn(
+          menuMatchTrigger ? 'w-(--radix-dropdown-menu-trigger-width)' : 'w-56',
+          'motion-reduce:animate-none'
+        )}
+      >
         <DropdownMenuLabel>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-medium">{displayName}</span>
             {user?.email && user?.name && (
               <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
             )}
-            {organizationName && (
+            {/* Where the rail is expanded its heading names the organisation
+                already; the avatar alone (the org header, the icon rail) does not. */}
+            {organizationName && compact && (
               <span className="text-xs font-normal text-muted-foreground">{organizationName}</span>
             )}
             {!authRequired && (

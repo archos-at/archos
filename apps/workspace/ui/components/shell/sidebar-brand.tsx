@@ -21,36 +21,54 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   const t = useTranslations(navCopy)
   const { isMobile } = useSidebar()
 
+  const home = (
+    <Link
+      href="/app/projects"
+      aria-label={t('allProjects')}
+      className={cn(
+        'rounded-control outline-none',
+        FOCUS_RING_INSET,
+        iconRail
+          ? // Under the pointer the fold control takes the mark's place (the
+            // way back to every project is also the switcher's last row); a
+            // finger has no hover, so there the control stands alone.
+            'flex size-9 items-center justify-center transition-opacity duration-quick ease-out group-hover/brand:opacity-0 group-has-[[data-slot=rail-fold]:focus-visible]/brand:opacity-0 pointer-coarse:hidden motion-reduce:transition-none'
+          : 'text-foreground'
+      )}
+    >
+      <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
+    </Link>
+  )
+
+  // Both widths keep the fold control in the head's 56px row, so it never
+  // changes corner on a fold: expanded at the row's end, in the icon rail in
+  // the mark's place while the pointer is on the head (the idiom of the
+  // collapsed sidebars people know). The row is the org header's (`brand-slot.ts`),
+  // so the wordmark does not move when the overview gives way to a project,
+  // and the project tile and the sections below start at the height they start
+  // at expanded.
+  if (iconRail) {
+    return (
+      <div className={cn(BRAND_ROW, 'justify-center')}>
+        <div className="group/brand relative flex size-9 items-center justify-center">
+          {home}
+          <RailFoldButton className="absolute inset-0 opacity-0 transition-opacity duration-quick ease-out group-hover/brand:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none" />
+        </div>
+      </div>
+    )
+  }
   return (
-    // Icon rail: the mark alone, centred in the same 56px row, so the project
-    // tile and the sections below start at the height they start at expanded
-    // and nothing jumps vertically on a fold; its fold control stands at the foot
-    // (`app-sidebar.tsx`). Expanded: the wordmark in the org header's own row and
-    // inset (`brand-slot.ts`), so it does not move when the overview gives way to
-    // a project, with the fold control at the row's end.
-    <div className={cn(BRAND_ROW, iconRail ? 'justify-center' : BRAND_INSET_RAIL)}>
-      <Link
-        href="/app/projects"
-        aria-label={t('allProjects')}
-        className={cn(
-          'rounded-control outline-none',
-          FOCUS_RING_INSET,
-          iconRail
-            ? 'flex h-7 items-center justify-center'
-            : 'text-foreground'
-        )}
-      >
-        <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
-      </Link>
-      {!iconRail && !isMobile && <RailFoldButton className="ml-auto" />}
+    <div className={cn(BRAND_ROW, BRAND_INSET_RAIL)}>
+      {home}
+      {!isMobile && <RailFoldButton className="ml-auto" />}
     </div>
   )
 }
 
 /**
  * The control that folds the rail and brings it back. Expanded it ends the
- * brand row (28px, 44px under a finger); in the icon rail it is a 36px tile
- * over the person, on the rail's 32px axis.
+ * brand row (28px, 44px under a finger); in the icon rail it is the head's
+ * 36px tile, on the rail's 32px axis.
  */
 export function RailFoldButton({ className }: { className?: string }) {
   const t = useTranslations(navCopy)
@@ -59,6 +77,7 @@ export function RailFoldButton({ className }: { className?: string }) {
   return (
     <button
       type="button"
+      data-slot="rail-fold"
       onClick={toggleSidebar}
       aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
       className={cn(

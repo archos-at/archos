@@ -27,7 +27,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronRight } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
 import { SearchField } from '@/components/ui/search-field'
@@ -153,17 +152,22 @@ export function ProjectSwitcherSheet({
               )}
             </>
           )}
-        </div>
-        {/* The way to every project, closed ones included: the tonal secondary
-            press (D4), 44px, set off from the list by its fill and the space
-            around it rather than by a rule across the sheet. */}
-        <div className="shrink-0 px-4 pb-3 pt-2">
-          <Button asChild variant="secondary" size="lg" className="w-full justify-between px-4 text-sm">
-            <Link href="/app/projects" onClick={() => setOpen(false)}>
-              {t('projectSwitcher.viewAllProjects')}
-              <ChevronRight className="text-muted-foreground" aria-hidden />
-            </Link>
-          </Button>
+          {/* The way to every project, closed ones included: the list's last
+              row, with the list it continues. Pinned to the sheet's foot as a
+              grey bar it stood a screen away from the projects it belongs to. */}
+          <Link
+            href="/app/projects"
+            onClick={() => setOpen(false)}
+            className={cn(
+              'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] font-medium outline-none',
+              PRESSABLE,
+              FOCUS_RING_INSET,
+              'active:bg-accent'
+            )}
+          >
+            <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
+            <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+          </Link>
         </div>
       </SheetContent>
     </Sheet>

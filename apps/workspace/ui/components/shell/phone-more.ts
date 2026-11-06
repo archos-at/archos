@@ -24,10 +24,12 @@ import {
  * same gates), so a destination added to the bar leaves this list by itself and
  * the two can never drift. `phone-more.spec.ts` pins it per scope.
  *
- * Three groups, as the rail groups them: `project` (the project's sections
- * without a tab: Automatisierung), `organization` (the organisation's doorways
- * without a tab: the Büroablage, Suche) and `account` (the avatar menu's links,
- * in the menu's order and gated as the menu gates them). The project's and the
+ * Groups as the rail groups them: `project` (the project's sections without a
+ * tab: Automatisierung), `organization` (the organisation's doorways without a
+ * tab: the Büroablage), `account` (the avatar menu's links, in the menu's
+ * order and gated as the menu gates them) and `help` (Neuerungen, after the
+ * tour, as the menu has it). Suche is not listed: the top band's search
+ * reaches it, and twice was once too often. The project's and the
  * organisation's places stood in one „Bereiche" list, which the rail keeps
  * apart on purpose. Actions (theme, language, tour, feedback, sign out) are the sheet's
  * own and not destinations.
@@ -38,7 +40,7 @@ export interface MoreDestination {
   href: string
   icon: ComponentType<{ className?: string }>
   label: PhoneTabLabel
-  group: 'project' | 'organization' | 'account'
+  group: 'project' | 'organization' | 'account' | 'help'
 }
 
 export interface MoreFlags extends PhoneTabFlags {
@@ -47,6 +49,9 @@ export interface MoreFlags extends PhoneTabFlags {
   canManageOrganization: boolean
   canManagePlatform: boolean
 }
+
+/** Reached from the top band's search on a phone (`ShellSearchButton`), so not listed again. */
+const ON_THE_BAND: ReadonlySet<string> = new Set(['search'])
 
 /** The destination keys the bar carries, so a section with a tab never appears twice. */
 function carried(tabs: readonly PhoneTab[]): ReadonlySet<string> {
@@ -87,7 +92,7 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
     href: '/app/whats-new',
     icon: Sparkles,
     label: { namespace: 'nav', key: 'userMenu.whatsNew' },
-    group: 'account',
+    group: 'help',
   })
   return list
 }
@@ -104,7 +109,7 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
     canAccessInbox: flags.canAccessInbox,
   }
   const places = railSections(sectionFlags)
-    .filter((section) => !onBar.has(section.key))
+    .filter((section) => !onBar.has(section.key) && !ON_THE_BAND.has(section.key))
     .map(
       (section): MoreDestination => ({
         key: section.key,

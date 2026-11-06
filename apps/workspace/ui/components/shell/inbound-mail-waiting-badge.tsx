@@ -14,6 +14,7 @@ import type { JSX } from 'react'
 import { CountPill } from '@/components/ui/count-pill'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { SHELL_COUNT } from './shell-count'
 import { cn } from '@/lib/utils'
 
 export function InboundMailWaitingBadge({ count, className }: { count: number | null; className?: string }): JSX.Element | null {
@@ -28,7 +29,7 @@ export function InboundMailWaitingBadge({ count, className }: { count: number | 
       title={t('inboundMailWaiting', { count })}
       data-testid="inbound-mail-badge"
       data-waiting={count}
-      className={cn('in-data-[surface=sunken]:bg-on-sunken', className)}
+      className={cn(SHELL_COUNT, className)}
       count={count}
     />
   )

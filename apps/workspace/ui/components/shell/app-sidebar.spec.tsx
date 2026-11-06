@@ -233,6 +233,19 @@ describe('AppSidebar - collapsed icon rail', () => {
   })
 })
 
+// The fold control jumped from the head (expanded) to the foot (icon rail) in
+// one round; the one control just used must stay where it was clicked.
+describe('AppSidebar - the fold control stays in the head', () => {
+  test('in both widths', async () => {
+    const user = userEvent.setup()
+    render(<AppSidebar {...baseProps} />)
+    const head = (): Element => document.querySelector('[data-sidebar="header"]')!
+    expect(head()).toContainElement(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+    expect(head()).toContainElement(screen.getByRole('button', { name: 'Expand sidebar' }))
+  })
+})
+
 describe('AppSidebar - the resize edge', () => {
   // The primitive ships English strings of its own; the rail is a tab stop now,
   // so the one control a keyboard user lands on must be named from the

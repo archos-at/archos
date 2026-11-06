@@ -191,9 +191,9 @@ function PhoneTabItem({
         )}
         <Icon aria-hidden className="relative size-[1.125rem]" />
         {/* Beside the glyph's top-right corner rather than over it. */}
-        <InboxBadge pending={badgeCount} tone="muted" className="absolute -top-1.5 left-[calc(50%+5px)]" />
+        <InboxBadge pending={badgeCount} tone="muted" className="absolute -top-1 left-[calc(50%+5px)]" />
         <AttentionDot show={newsLabel !== null} label={newsLabel ?? undefined} className="absolute top-0 right-2.5" />
-        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -top-1.5 left-[calc(50%+5px)]" />}
+        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -top-1 left-[calc(50%+5px)]" />}
       </span>
       <span
         data-slot="phone-tab-label"

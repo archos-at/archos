@@ -28,6 +28,7 @@
 import type { JSX } from 'react'
 import { useEffect, useRef } from 'react'
 import { motion, springSnap, useMotionToken } from '@/components/motion'
+import { SHELL_COUNT } from '@/components/shell/shell-count'
 import { CountPill } from '@/components/ui/count-pill'
 import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
@@ -76,8 +77,7 @@ export function InboxBadge({ pending, className, tone = 'attention' }: InboxBadg
     >
       <CountPill
         tone={tone}
-        // On a grey band (the rail, the project's tab bar) the muted pill is white.
-        className={tone === 'muted' ? 'in-data-[surface=sunken]:bg-on-sunken' : undefined}
+        className={tone === 'muted' ? SHELL_COUNT : undefined}
         // role="status" so a count that changes while the badge is mounted is
         // announced politely rather than silently repainted (NF-3).
         role="status"

@@ -57,7 +57,7 @@ import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { ProjectPill } from './project-pill'
-import { RailFoldButton, SidebarBrand } from './sidebar-brand'
+import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import {
@@ -73,6 +73,8 @@ import { useRecordRecentProject } from './recent-projects'
 import { useShellOverlays } from './shell-overlays'
 import { ShellSearchButton } from './shell-search-button'
 import { ConnectionBand } from './connection-band'
+import { ShortcutKeys } from './shortcut-keys'
+import { LEADER_KEY } from './shortcuts'
 import { sectionAnchor } from '@/lib/onboarding/product-tour'
 
 /**
@@ -170,8 +172,10 @@ interface RailItemModel {
   badgeCount: number
   /** The Postfach's: it may open beside the page instead of following `href`. */
   door?: StartDockDoor
-  /** A quiet count beside the entry (mail waiting in Dateien); the Postfach's ink pill is `badgeCount`. */
+  /** A quiet count beside the entry (mail waiting in Dateien); the Postfach's is `badgeCount`. */
   waitingCount: number | null
+  /** The `g …` jump's second key, shown in the icon rail's tooltip. */
+  shortcutKey?: string
 }
 
 interface RailGroupModel {
@@ -253,31 +257,35 @@ function AppSidebarFrame({
         badgeCount: item.key === 'inbox' ? inboxPending : 0,
         door: item.key === 'inbox' ? inboxDoor : undefined,
         waitingCount: item.key === 'files' ? inboundMail.count : null,
+        shortcutKey: item.shortcutKey,
       })),
     })
   )
 
   // The project's own sections under its switcher, Übersicht (the project hub)
-  // last among them: it is the project's, and at the foot under „Organisation“
-  // proximity read it as the organisation's. The switcher is the group's
+  // after Dateien, in the phone tab bar's order (Chat · Dateien · Übersicht):
+  // it is the project's, and at the foot under „Organisation“ proximity read it
+  // as the organisation's. The switcher is the group's
   // heading, so the group carries no label of its own. The organisation's
   // doorways (Büroablage, Suche, Postfach) follow, headed by the organisation's
   // name as the project's are by the project's: a label „Organisation“ there
   // was the same word as the user menu's organisation settings.
   const orgGroup = groups.find((g) => g.key === 'org')
   const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
-  const projectItems: RailItemModel[] = [
-    ...groups.filter((g) => g.key !== 'org').flatMap((g) => g.items),
-    {
-      key: PROJECT_SETTINGS_SECTION.key,
-      href: settingsHref,
-      icon: PROJECT_SETTINGS_SECTION.icon,
-      label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
-      active: pathname.startsWith(settingsHref),
-      badgeCount: 0,
-      waitingCount: null,
-    },
-  ]
+  const overview: RailItemModel = {
+    key: PROJECT_SETTINGS_SECTION.key,
+    href: settingsHref,
+    icon: PROJECT_SETTINGS_SECTION.icon,
+    label: sectionLabel(PROJECT_SETTINGS_SECTION, t, tCollaboration),
+    active: pathname.startsWith(settingsHref),
+    badgeCount: 0,
+    waitingCount: null,
+    shortcutKey: PROJECT_SETTINGS_SECTION.shortcutKey,
+  }
+  const projectItems: RailItemModel[] = groups
+    .filter((g) => g.key !== 'org')
+    .flatMap((g) => g.items)
+    .flatMap((item) => (item.key === 'files' ? [item, overview] : [item]))
 
   const activePillId = railActivePillId(iconRail)
   const railItem = (item: RailItemModel): React.JSX.Element => (
@@ -291,6 +299,7 @@ function AppSidebarFrame({
       badgeCount={item.badgeCount}
       waitingCount={item.waitingCount}
       tooltip={iconRail}
+      shortcutKey={item.shortcutKey}
       pillId={activePillId}
       door={item.door}
     />
@@ -370,20 +379,19 @@ function AppSidebarFrame({
           <SidebarBrand iconRail={iconRail} />
           {/* The context slot, in both widths: which project this is, and the
               way to another. The icon rail keeps it as a tile, or a collapsed
-              rail could not say which project its sections belong to. `h-9` is
-              the switcher's own height, pinned so the nav below always starts
-              at the same edge; `mt-2` under the 56px brand row puts its top at
-              64px. */}
-          <div className={cn('mt-2 flex h-9 items-center pointer-coarse:h-11', iconRail && 'justify-center')}>
+              rail could not say which project its sections belong to. `mt-2`
+              under the 56px brand row puts its top at 64px; its height is the
+              name's, one line or two, and the sections keep 8px under it. */}
+          <div className={cn('mt-2 flex min-h-9 items-center pointer-coarse:min-h-11', iconRail && 'justify-center')}>
             <ProjectSwitcher projects={projects} activeProjectId={projectId} collapsed={iconRail} />
           </div>
         </SidebarHeader>
 
         <SidebarContent
           className={cn(
-            // 16px under the switcher: near enough to read as what it heads,
-            // far enough not to read as the first row.
-            'mt-4 flex-1',
+            // 8px under the switcher's own box, whatever its height: near
+            // enough to read as what it heads, more than the rows' 2px.
+            'mt-2 flex-1',
             column,
             // overflow-y-auto here used to replace the primitive's
             // group-data-[collapsible=icon]:overflow-hidden, so labels kept
@@ -401,7 +409,7 @@ function AppSidebarFrame({
               corners when the reader stepped into a project, and left 440px
               of empty band between the two groups. */}
           {orgGroup && (
-            <nav aria-label={orgGroup.label} className={iconRail ? 'mt-4' : 'mt-6'}>
+            <nav aria-label={orgGroup.label} className="mt-6">
               <SidebarGroup className="p-0">
                 {/* `px-3`: the heading starts on the icons' edge (24px), as the
                     wordmark does; the primitive's 8px put it 4px left of both. */}
@@ -432,16 +440,21 @@ function AppSidebarFrame({
               eye) while all is well. Nothing above it moves when it appears:
               the space it takes is the band's empty middle. */}
           <ConnectionBand appearance="rail" compact={iconRail} />
-          {/* The icon rail's way back out stands here, over the person: in the
-              head, between the mark and the project tile, it read as the first
-              destination. Expanded, it is the head's („«", `SidebarBrand`). */}
-          {iconRail && <RailFoldButton className="mb-2" />}
           <SidebarUserMenu
             user={user}
             organizationName={organizationName}
             authRequired={authRequired}
             compact={iconRail}
-            avatarSizeClass="size-8"
+            // 28px, centred on the icons' axis in both widths, so the name
+            // lands on the labels' 51px edge and nothing moves on a fold.
+            avatarSizeClass="size-7"
+            // Inside the rail's band: the menu is as wide as the row it opens
+            // from, and in the icon rail it opens beside the rail, not across
+            // its edge.
+            menuSide={iconRail ? 'right' : 'top'}
+            menuAlign="end"
+            menuSideOffset={iconRail ? 24 : 6}
+            menuMatchTrigger={!iconRail}
             canManageOrganization={canManageOrganization}
             canViewOrganization={canViewOrganization}
             canManagePlatform={canManagePlatform}
@@ -468,6 +481,7 @@ function RailNavItem({
   badgeCount,
   waitingCount = null,
   tooltip,
+  shortcutKey,
   pillId,
   tourAnchor,
   door,
@@ -480,6 +494,8 @@ function RailNavItem({
   /** The muted count (mail waiting in Dateien); shown only where no ink pill is. */
   waitingCount?: number | null
   tooltip: boolean
+  /** The `g …` jump's second key: the icon rail's tooltip names it beside the label. */
+  shortcutKey?: string
   /** Shared-layout identity for the active chip — see {@link railActivePillId}. */
   pillId: string
   /** Marks the item as a product-tour stop (`data-tour`). */
@@ -491,7 +507,26 @@ function RailNavItem({
       <SidebarMenuButton
         asChild
         isActive={active}
-        tooltip={tooltip ? label : undefined}
+        tooltip={
+          tooltip
+            ? {
+                children: (
+                  <span className="flex items-center gap-2">
+                    {label}
+                    {shortcutKey && (
+                      <ShortcutKeys
+                        segments={[
+                          { kind: 'chord', caps: [LEADER_KEY.toUpperCase()] },
+                          { kind: 'then' },
+                          { kind: 'chord', caps: [shortcutKey.toUpperCase()] },
+                        ]}
+                      />
+                    )}
+                  </span>
+                ),
+              }
+            : undefined
+        }
         className={cn(
           // 36px under a mouse; 44px under a finger, grown rather than given a
           // catchment, because the rows sit 2px apart.
@@ -510,7 +545,8 @@ function RailNavItem({
                 'bg-on-sunken text-foreground hover:bg-on-sunken hover:text-foreground'
               : // Hover is the ink, not a fill: a darker grey under the pointer
                 // and white under the selection pulled two ways on one band.
-                'text-muted-foreground hover:bg-transparent hover:text-foreground'
+                // A press shows white, as the selection it is about to become.
+                'text-muted-foreground hover:bg-transparent hover:text-foreground active:bg-on-sunken'
         )}
       >
         <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
@@ -572,12 +608,12 @@ function RailNavItem({
           <InboxBadge
             pending={badgeCount}
             tone="muted"
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0"
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-0.5 group-data-[collapsible=icon]:-top-0.5 group-data-[collapsible=icon]:ml-0"
           />
           {badgeCount <= 0 && (
             <InboundMailWaitingBadge
               count={waitingCount}
-              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0"
+              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-0.5 group-data-[collapsible=icon]:-top-0.5 group-data-[collapsible=icon]:ml-0"
             />
           )}
         </Link>

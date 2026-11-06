@@ -34,7 +34,8 @@ export interface ProjectSwitcherProps {
  * it white and the mark turns to the one grey.
  */
 const TRIGGER_CLASS = cn(
-  'group/switcher flex min-h-9 w-full items-center gap-[9px] rounded-control px-2.5 py-2 text-left pointer-coarse:min-h-11',
+  // The 24px mark at 20–44 (centred on x=32) and a 7px gap put the name on 51.
+  'group/switcher flex min-h-9 w-full items-center gap-[7px] rounded-control px-2 py-2 text-left pointer-coarse:min-h-11',
   'transition-[color,background-color,scale] duration-quick ease-out',
   'hover:bg-on-sunken data-[state=open]:bg-on-sunken active:scale-[0.98] motion-reduce:transition-none',
   'outline-none',
@@ -125,8 +126,12 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         trigger
       )}
       <PopoverContent
+        // Beside the rail, 8px past its edge, in both widths: hanging below
+        // the switcher at 288px it straddled the rail's edge, half on the band
+        // and half on the page.
         align="start"
-        side={collapsed ? 'right' : 'bottom'}
+        side="right"
+        sideOffset={collapsed ? 22 : 20}
         className="w-72 p-0 motion-reduce:animate-none"
       >
         {/* The phone's sheet in a popover: a search first (a dozen running

@@ -36,6 +36,9 @@
  * default, another with `?active=` (`chat`, `automation`, `settings`,
  * `officeShelf`, `search`, `inbox`). `?presence=reconnecting` or `offline`
  * shows the connection row, which says nothing while all is well.
+ * `?gates=viewer` is a member with no Büroablage, no Automatisierung and no
+ * organisation or platform rights: the organisation's group is Suche and
+ * the Postfach alone.
  *
  * Below `md` the same page is the PHONE shell: the rail's top band (project
  * pill, search), a content stand-in, and the bottom tab bar, lit for Dateien.
@@ -114,6 +117,7 @@ export default function AppRailPreview(): JSX.Element {
   const params = useSearchParams()
   const variant = params?.get('variant') ?? 'default'
   const open = params?.get('open')
+  const viewer = params?.get('gates') === 'viewer'
   const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
   const setSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
 
@@ -145,13 +149,13 @@ export default function AppRailPreview(): JSX.Element {
           // Every gated entry on, so the shot shows the rail at FULL height —
           // the footer-clipping and group-rhythm defects only surface when the
           // nav column is long enough to compete for vertical space.
-          canViewOrganization
-          canManageOrganization
-          canManagePlatform
-          canAccessOfficeShelf
+          canViewOrganization={!viewer}
+          canManageOrganization={!viewer}
+          canManagePlatform={!viewer}
+          canAccessOfficeShelf={!viewer}
           canAccessInbox
           showModels
-          showSkills
+          showSkills={!viewer}
         />
       </div>
 

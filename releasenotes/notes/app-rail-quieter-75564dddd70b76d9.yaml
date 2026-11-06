@@ -10,7 +10,8 @@ improvements:
     switcher, rather than at the foot of the sidebar among the organisation's
     Büroablage, Suche and Postfach.
   - >
-    The collapsed sidebar lets you switch projects from it.
+    The collapsed sidebar lets you switch projects from it, and its tooltips
+    name each area's keyboard shortcut.
   - >
     The connection state appears only while the connection is being restored
     or is gone; the green „Verbunden“ is no longer shown all the time.
@@ -25,6 +26,10 @@ improvements:
   - >
     The counts beside Postfach are quiet grey pills, as the count beside the
     E-Mail-Eingang in Dateien.
+  - >
+    On a phone, „Mehr“ shows who is signed in and groups its entries under
+    the project's and the office's names; Suche is reached from the search at
+    the top.
 fixes:
   - >
     The connection state reads „Verbindung unterbrochen“ or „Keine
