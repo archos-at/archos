@@ -46,7 +46,7 @@ the agent has two halves. One is a Next.js UI plus BFF (`apps/workspace`, which 
 **Tenancy.** The tenant is a WorkOS organisation id. Postgres isolation uses RLS on `organization_id = grid_current_org()` (migration 0031), which fails closed. Qdrant isolation works by logical `scope` (a collection name in a signed envelope). The indexed `office_id` field is written but **never filtered** in `vector_store/scope.py` [V]. SeaweedFS gives each org its own bucket in prod (`seaweedfsPerOrgBuckets: "true"`) [V]. Platform-wide config sits in global tables with no org column (`platform_model_defaults`, `platform_skills`, `platform_lessons`, …), read-only to tenants via `grid_secure_platform_table` [S]. Org overrides beat platform defaults, which beat YAML (model config). The norm registry follows the same idea, with an admin store taking precedence over the YAML seed.
 
 **Data location.** One Pulumi program deploys one Kubernetes cluster (IPAX managed k0s; the repo states no physical location). Domains are `piloti.at` and `dev.piloti.at` [V]. All stores are in-cluster: CNPG Postgres, SeaweedFS, Qdrant, Dragonfly, self-hosted Langfuse and Hatchet. Data leaves the cluster on these paths: <!-- brand-history -->
-- every model call (chat, embeddings, VLM, reranker, decisions) to OpenRouter (`openrouter.ai`, US);
+- every model call (chat, embeddings, VLM, reranker, decisions) to OpenRouter (`openrouter.ai`, US) by default, or directly to an organization's own non-OpenRouter endpoint when it brings its own key (5.2, 5.4);
 - Tavily web search (US);
 - keystroke address search to `photon.komoot.io`;
 - identity and audit events to WorkOS (US);
@@ -367,7 +367,7 @@ Physical location of the cluster is not in the repo. The sales FAQ says IPAX in 
 
 ### 5.3 What enforces location today
 
-Two things: the one model-call seam (`common/openrouter.py`, held by `test_openrouter_call_sites.py`, with `provider_limiter`), and upload screening (`iban`, `at_svnr`, `credit_card`) before any model reads a file. Nothing records the processing location per call. Nothing allowlists egress (network policy is open on purpose). No data-class tag exists on any store or flow. The org has no residency field, and there is one deployment.
+The model-call seam (`common/openrouter.py`, held by `test_openrouter_call_sites.py`, with `provider_limiter`) applies zero retention by default and prefers EU providers, but allows fallback. Upload screening (`iban`, `at_svnr`, `credit_card`) detects sensitive content before any model reads a file; it does not choose a processing region. Neither guarantees regional processing. Nothing records the processing location per call. Nothing allowlists egress (network policy is open on purpose). No data-class tag exists on any store or flow. The org has no residency field, and there is one deployment.
 
 ### 5.4 Sales FAQ promises, checked
 
@@ -379,7 +379,7 @@ Two things: the one model-call seam (`common/openrouter.py`, held by `test_openr
 | Only the relevant excerpt is sent | retrieval sends chunks; `read_document`/`document-look` send whole pages; permit extraction sends up to 24k chars [S]. Broadly true, not absolute |
 | BYOK | yes, LLM only (`llm-credentials/providers.ts`) [S] |
 | Exclusion list, sensitive-data quarantine, folder roles, DPA, export and deletion | exclusion list and screening exist (ADR-0086); deletion pipeline exists; PostHog, WorkOS audit and `llm_usage_events` are not purged [S] |
-| "For Austria and Germany the most important law texts are in" | **False for Germany** [V]: `configs/norms/` holds only `at/`; no German statute, corpus, adapter or Länder vocabulary exists; the only German-law tokens in code are a citation-reference regex (`knowledge-layer/src/references.py:75` lists `BauGB|BauNVO|LBO`) and a docstring example "§ 33 BayBO". The intake help text itself says "Für Deutschland werden Fragebogen und Regelwerks-Layer noch angepasst" (`project-basis.ts`) [V]. For Austria: 24 pointers, live RIS, the OIB 2023 corpus |
+| "For Austria and Germany the most important law texts are in" | **False for Germany** [V]: `configs/norms/` holds only `at/`; no German statute, corpus, adapter or Länder vocabulary exists; the only German-law tokens in code are a citation-reference regex (`knowledge-layer/src/references.py:75` lists `BauGB\|BauNVO\|LBO`) and a docstring example "§ 33 BayBO". The intake help text itself says "Für Deutschland werden Fragebogen und Regelwerks-Layer noch angepasst" (`project-basis.ts`) [V]. For Austria: 24 pointers, live RIS, the OIB 2023 corpus |
 | "Because we keep older versions, older projects get the law that applied then" | **False** [V]: corpus table and Qdrant payload carry no edition or validity; the family key strips the edition; older OIB files are hidden by a filename exclusion list; `ris_lookup` cannot ask for a date and cites `GeltendeFassung`; `ris_search` supports a date only for federal law; ADR-0111 says "the corpus holds one" edition |
 
 ---

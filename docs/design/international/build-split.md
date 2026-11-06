@@ -59,6 +59,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 ## Wave 1
 
 ### S1 Office layer (ticket 32)
+- **Fixed, licensing:** an office licence for office-wide use does not by itself allow AI processing. Licensed text enters indexing, model reads or quotation only after the office confirms its licence covers processing by the hosted AI services; without that, the copy stays metadata-only.
 - **Design suggests:** v7 8.1. Office upload, confirm, update, check, remove, search, get. Kinds `technical_standard`, `guideline`, `commentary`, `authority_directive`, `statute`. Edition from the masthead, outline, ISO territory ids, issuer and addressees with the interim authority path, the "zuletzt geprüft" marker (365 days for standards, 180 for directives), `licence_class` with metadata-only ingest, erasure with a receipt.
 - **Outcome the review asked for:** office records reuse the same revision history and removal as platform records (no second lifecycle, only "confirmation moves the head"); every office work carries its standard designation (`ÖNORM B 1600:2017`) as an identifier, so a later platform listing attaches instead of duplicating.
 - **Fixed, ownership:** `bff/base-knowledge/{store,office}/`, `knowledge-layer/src/vector_store/scope.py` (`ScopeRead` with a mandatory `office_id`, about 20 call sites), office UI and labels.
@@ -72,7 +73,7 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### S3 Correctness and the organization flag
 - **Design suggests:** v7 defects 1 – 8 (`resolve_country`, OIB verdicts outside Austria, `country=at` and confirmed typed addresses in `intake-seed.ts`, Vienna laws in every Land in `applicability.py`, OIB classes for every project, permit extraction, the Fluchtniveau question); organization rows backfilled with a home country; DE sensitive-data detectors via `stdnum`; geocoder default off.
-- **Fixed, ownership:** `intake-seed.ts`, `country_profile.py`, `project_context.py`, `common/applicability.py`, `permit_extraction.py`, the intake prompt, migration 0194, the geocoder default in Pulumi config.
+- **Fixed, ownership:** `intake-seed.ts`, `country_profile.py`, `project_context.py`, `common/applicability.py`, `permit_extraction.py`, the intake prompt, a migration (next free number). The geocoder is S5's to list, not S3's to switch off.
 - **Fixed, safety:** prepares, does not run the country-neutral static prompt push (ask first).
 - **Outcome, measured by:** DE and CH fixtures produce no OIB fact, rule or doctrine; every WorkOS organization has a row; answer suite before and after, with an allowlist of expected diffs.
 
@@ -85,9 +86,10 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 ### S5 Data-flow register
 - **Design suggests:** `configs/subprocessors/*.yaml` as the one register; the legal page generated from it; a test that fails when a `*_BASE_URL`, `*_API_KEY`, `*_HOST` or Hog destination has no row. Adds the flows found in review: PostHog Support tickets (feedback text and email), the Slack alert with message text (strip it or register Slack), ElevenLabs dictation, and the latent vendors Modal, Serper, Jina and W&B (boot assertion unless registered). PostHog redaction of content.
 - **Fixed, ownership:** `configs/subprocessors/`, `bff/legal/content/`, `deploy/posthog/support/`, boot assertions, `docs/compliance/`.
-- **Outcome, measured by:** the ratchet test green; the legal page lists every flow.
+- **Outcome, measured by:** the ratchet test green, including a positive control that plants an unregistered flow; the check also finds outbound integrations that use a literal endpoint or an SDK's default host, not only named variables; the legal page lists every flow.
 
 ### S6 Connector types
+- **Fixed, safety:** the fetcher rejects internal, link-local, cluster and cloud-metadata addresses after DNS resolution, with tests for each, before any source test is enabled.
 - **Design suggests:** `packages/public-sources/` with access types `rest`, `http_eli`, `web_document` and engines `ris_xml`, `akn`, `html_statute`; a sandboxed fetcher Deployment with its NetworkPolicy; the RIS adapter re-expressed as one configured `rest` + `ris_xml` source behind `sourceRouting`, with the nine `_FEDERAL_STATE_PARAMS` moved into config.
 - **Fixed, ownership:** `packages/public-sources/` (new), `packages/ris-adapter/`, the fetcher Pulumi resource.
 - **Outcome, measured by:** the Austrian answer suite unchanged with `sourceRouting` on; `task pkg:test` green.
@@ -96,19 +98,19 @@ The design, the codebase map and this split are on branch `claude/intl-design` u
 
 ### S7 Platform records, review, publish
 - **Design suggests:** v7 4.4. Change requests, per-claim review, approvals with the person's yes, preview and stable channels, golden runs, rollback, the validation kit; territory import; AT authorities; the text-less `std-asi` listing of the ÖNORMs OIB cites; the platform view (countries, coverage, queue).
-- **Fixed, ownership:** `bff/base-knowledge/platform/`, `catalog/platform-knowledge.ts`, the platform UI area, migration 0195.
+- **Fixed, ownership:** `bff/base-knowledge/platform/`, `catalog/platform-knowledge.ts`, the platform UI area, a migration (next free number).
 - **Outcome, measured by:** a rollback round trip; MA 37 excluded for a project in Graz.
 
 ### S8 Austria as pack 1
 - **Design suggests:** OIB adoption per Land as relations; roles replace `citations/binding.py`; chain text replaces the static `<building_law>` block; Qdrant payload gains `edition_id`, `work_id`, `territory_ids`.
 - **Outcome, measured by:** v7 8.3. Byte-identical prompt blocks where nothing should change, identical top-k through an id map, paired answer-suite runs with an allowlist.
-- **Fixed, ownership:** `citations/binding.py`, prompt rendering of the chain, the knowledge-layer payload, migration 0196.
+- **Fixed, ownership:** `citations/binding.py`, prompt rendering of the chain, the knowledge-layer payload, a migration (next free number).
 
 ### S9 Setup facts as data
 - **Design suggests:** `fact_definitions` and `fact_sources` per country as records; the intake stages read them instead of TypeScript options; a parity harness for `location-register.ts` and `derivations.ts`.
 - **Why:** this is the last per-country code (review finding); setup is going agentic (ticket 31).
-- **Fixed, ownership:** `bff/project-profile/intake-stages/`, `location-register.ts`, `derivations.ts`, migration 0197.
-- **Outcome, measured by:** zero diffs on Austrian profiles and fixtures.
+- **Fixed, ownership:** `bff/project-profile/intake-stages/`, `location-register.ts`, `derivations.ts`, a migration (next free number).
+- **Outcome, measured by:** zero diffs on Austrian profiles and fixtures; DE and CH fixtures with distinct synthetic setup records show that each project receives only its own country's options.
 
 ## Wave 3 (after S7 is merged)
 
