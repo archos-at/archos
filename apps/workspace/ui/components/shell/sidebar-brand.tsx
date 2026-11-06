@@ -10,7 +10,6 @@ import Link from 'next/link'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
-import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { useSidebar } from '@/components/ui/sidebar'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
@@ -25,35 +24,27 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
     <Link
       href="/app/projects"
       aria-label={t('allProjects')}
+      data-focus-inset=""
       className={cn(
-        'rounded-control outline-none',
-        FOCUS_RING_INSET,
-        iconRail
-          ? // Under the pointer the fold control takes the mark's place (the
-            // way back to every project is also the switcher's last row); a
-            // finger has no hover, so there the control stands alone.
-            'flex size-9 items-center justify-center transition-opacity duration-quick ease-out group-hover/brand:opacity-0 group-has-[[data-slot=rail-fold]:focus-visible]/brand:opacity-0 pointer-coarse:hidden motion-reduce:transition-none'
-          : 'text-foreground'
+        'rounded-control',
+        iconRail ? 'flex size-9 items-center justify-center' : 'text-foreground'
       )}
     >
       <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
     </Link>
   )
 
-  // Both widths keep the fold control in the head's 56px row, so it never
-  // changes corner on a fold: expanded at the row's end, in the icon rail in
-  // the mark's place while the pointer is on the head (the idiom of the
-  // collapsed sidebars people know). The row is the org header's (`brand-slot.ts`),
-  // so the wordmark does not move when the overview gives way to a project,
-  // and the project tile and the sections below start at the height they start
-  // at expanded.
+  // Both widths keep the fold control in the head, in view, so it never changes
+  // corner on a fold: expanded at the end of the brand row, in the icon rail
+  // under the mark. It jumped to the foot in one round and hid behind a hover
+  // in the next; the way out of a mode is visible where it was used. The row is
+  // the org header's (`brand-slot.ts`), so the wordmark does not move when the
+  // overview gives way to a project.
   if (iconRail) {
     return (
-      <div className={cn(BRAND_ROW, 'justify-center')}>
-        <div className="group/brand relative flex size-9 items-center justify-center">
-          {home}
-          <RailFoldButton className="absolute inset-0 opacity-0 transition-opacity duration-quick ease-out group-hover/brand:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 motion-reduce:transition-none" />
-        </div>
+      <div className="flex flex-col items-center">
+        <div className={cn(BRAND_ROW, 'justify-center')}>{home}</div>
+        <RailFoldButton />
       </div>
     )
   }
@@ -67,8 +58,8 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
 
 /**
  * The control that folds the rail and brings it back. Expanded it ends the
- * brand row (28px, 44px under a finger); in the icon rail it is the head's
- * 36px tile, on the rail's 32px axis.
+ * brand row (28px, 44px under a finger); in the icon rail it is a 36px tile
+ * under the mark, on the rail's 32px axis.
  */
 export function RailFoldButton({ className }: { className?: string }) {
   const t = useTranslations(navCopy)
@@ -78,11 +69,11 @@ export function RailFoldButton({ className }: { className?: string }) {
     <button
       type="button"
       data-slot="rail-fold"
+      data-focus-inset=""
       onClick={toggleSidebar}
       aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
       className={cn(
-        'text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center rounded-control outline-none transition-colors duration-quick ease-out motion-reduce:transition-none',
-        FOCUS_RING_INSET,
+        'text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none',
         collapsed ? 'size-9' : 'size-7 pointer-coarse:size-11',
         className
       )}

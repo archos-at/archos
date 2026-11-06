@@ -8,6 +8,8 @@ export const presence: typeof en.presence = {
     reconnecting: 'Verbindung unterbrochen',
     offline: 'Keine Verbindung',
   },
+  /** Der Knopf in der Verbindungszeile, solange der Server nicht antwortet. */
+  retry: 'Erneut versuchen',
   tooltip: {
     connected: 'Sie sind verbunden. Alles ist auf dem aktuellen Stand.',
     reconnecting: 'Der Server antwortet gerade nicht. Es wird laufend von selbst erneut versucht.',

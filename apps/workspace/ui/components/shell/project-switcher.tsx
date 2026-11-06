@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useTranslations } from '@/i18n'
@@ -30,16 +29,18 @@ export interface ProjectSwitcherProps {
  * of a name, „Baufeld D12", is what tells sibling projects apart), the mark
  * centred on the icons' axis and the name on the labels' edge. It was a white
  * card with a hairline and a shadow, the one raised box on the rail. A press
- * on the grey band is white (the tonal secondary, D4), so hover and open fill
- * it white and the mark turns to the one grey.
+ * on the grey band is white (the tonal secondary, D4), so open and a press fill
+ * it white while it is open or pressed, and the mark turns to the one grey; a
+ * hover is the ink, as on every row of the band.
  */
 const TRIGGER_CLASS = cn(
   // The 24px mark at 20–44 (centred on x=32) and a 7px gap put the name on 51.
   'group/switcher flex min-h-9 w-full items-center gap-[7px] rounded-control px-2 py-2 text-left pointer-coarse:min-h-11',
   'transition-[color,background-color,scale] duration-quick ease-out',
-  'hover:bg-on-sunken data-[state=open]:bg-on-sunken active:scale-[0.98] motion-reduce:transition-none',
-  'outline-none',
-  FOCUS_RING_INSET,
+  // Hover is the ink, as every row on the band; white is for open and pressed.
+  'hover:text-foreground data-[state=open]:bg-on-sunken active:bg-on-sunken active:scale-[0.98] motion-reduce:transition-none',
+  // Focus is the app's one outline (globals.css), drawn inside the box
+  // (`data-focus-inset`) so it stays in the rail's column.
 )
 
 /** The icon rail's tile: a nav tile's 36px square on the rail's 32px axis. */
@@ -56,13 +57,21 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [recentIds, setRecentIds] = React.useState<string[]>([])
+  // The keyboard's place in the list. It starts on the first project that is
+  // not the current one: starting on the current row drew the cursor's fill
+  // and the check on one row, two marks for one thing.
+  const [cursor, setCursor] = React.useState('')
 
   const onOpenChange = (next: boolean): void => {
     setOpen(next)
     // Read on every open: the reader may have moved between projects since.
     if (next) {
-      setRecentIds(readRecentProjectIds())
+      const recent = readRecentProjectIds()
+      setRecentIds(recent)
       setQuery('')
+      const first = switcherSections(projects, activeProjectId, recent, '')
+      const order = first.kind === 'browse' ? [...first.recent, ...first.rest] : first.matches
+      setCursor(order.find((project) => project.id !== activeProjectId)?.id ?? '')
     }
   }
 
@@ -92,11 +101,11 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
   }
 
   const trigger = (
-    <PopoverTrigger className={cn(TRIGGER_CLASS, collapsed && TILE_CLASS)} aria-label={triggerLabel}>
+    <PopoverTrigger data-focus-inset="" className={cn(TRIGGER_CLASS, collapsed && TILE_CLASS)} aria-label={triggerLabel}>
       <ProjectMark
         name={name}
         onBand
-        className="group-hover/switcher:bg-muted group-data-[state=open]/switcher:bg-muted"
+        className="group-active/switcher:bg-muted group-data-[state=open]/switcher:bg-muted"
       />
       {!collapsed && (
         <>
@@ -137,10 +146,16 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
         {/* The phone's sheet in a popover: a search first (a dozen running
             projects is past what a reader scans), then the three opened last,
             then the rest. One order on both shapes (`project-list.ts`). */}
-        <Command shouldFilter={false} loop label={t('projectSwitcher.switchHeading')}>
+        <Command shouldFilter={false} loop value={cursor} onValueChange={setCursor} label={t('projectSwitcher.switchHeading')}>
           <CommandInput
             value={query}
-            onValueChange={setQuery}
+            onValueChange={(next) => {
+              setQuery(next)
+              // Enter takes the first match, as the list now reads.
+              const found = switcherSections(projects, activeProjectId, recentIds, next)
+              const order = found.kind === 'browse' ? [...found.recent, ...found.rest] : found.matches
+              setCursor(order[0]?.id ?? 'all-projects')
+            }}
             placeholder={t('projectSheet.searchPlaceholder')}
             aria-label={t('projectSheet.searchLabel')}
           />

@@ -225,21 +225,10 @@ function Sidebar({
   ...props
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right'
-  collapsible?: 'offcanvas' | 'icon' | 'none'
+  collapsible?: 'offcanvas' | 'icon'
 }): React.JSX.Element | null {
   const { isMobile, state } = useSidebar()
 
-  if (collapsible === 'none') {
-    return (
-      <div
-        data-slot="sidebar"
-        className={cn('flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground', className)}
-        {...props}
-      >
-        {children}
-      </div>
-    )
-  }
 
   // No phone drawer: below `md` the shell's phone chrome is the top band and
   // the tab bar, with „Mehr“ for the rest (`phone-tab-bar.tsx`). The drawer
@@ -656,7 +645,7 @@ const sidebarMenuButtonVariants = cva(
   // hover fill) was snapping while its geometry was easing. Both are now the
   // right way round: the tile resizes in one pass with the rail, and `colors`
   // carries the hover.
-  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm outline-none focus-visible:ring-ring/60 focus-visible:ring-inset transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-on-sunken data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-on-sunken data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -681,12 +670,15 @@ function SidebarMenuButton({
   variant = 'default',
   size = 'default',
   tooltip,
+  tooltipWhenExpanded = false,
   className,
   ...props
 }: React.ComponentProps<'button'> & {
   asChild?: boolean
   isActive?: boolean
   tooltip?: string | React.ComponentProps<typeof TooltipContent>
+  /** Also in the expanded rail, after a longer rest (a key hint, not the label). */
+  tooltipWhenExpanded?: boolean
 } & VariantProps<typeof sidebarMenuButtonVariants>): React.JSX.Element {
   const Comp = asChild ? Slot : 'button'
   const { isMobile, state } = useSidebar()
@@ -695,6 +687,8 @@ function SidebarMenuButton({
     <Comp
       data-slot="sidebar-menu-button"
       data-sidebar="menu-button"
+      // The app's one focus outline (globals.css), inside the row: rows sit 2px apart.
+      data-focus-inset=""
       data-size={size}
       data-active={isActive}
       className={cn(sidebarMenuButtonVariants({ variant, size }), className)}
@@ -708,10 +702,16 @@ function SidebarMenuButton({
 
   const tooltipProps = typeof tooltip === 'string' ? { children: tooltip } : tooltip
 
+  const expanded = state !== 'collapsed'
   return (
-    <Tooltip>
+    <Tooltip delayDuration={expanded && tooltipWhenExpanded ? 700 : undefined}>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
-      <TooltipContent side="right" align="center" hidden={state !== 'collapsed' || isMobile} {...tooltipProps} />
+      <TooltipContent
+        side="right"
+        align="center"
+        hidden={(expanded && !tooltipWhenExpanded) || isMobile}
+        {...tooltipProps}
+      />
     </Tooltip>
   )
 }

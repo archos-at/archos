@@ -41,7 +41,7 @@ export function ProjectPill({
       aria-expanded={expanded}
       data-testid="project-pill"
       className={cn(
-        'bg-muted in-data-[surface=sunken]:bg-on-sunken flex h-11 min-w-0 max-w-[min(100%,20rem)] items-center gap-2.5 rounded-control pl-3 pr-2.5 text-left outline-none',
+        'bg-muted in-data-[surface=sunken]:bg-on-sunken flex min-h-11 py-1 min-w-0 max-w-[min(100%,20rem)] items-center gap-2.5 rounded-control pl-3 pr-2.5 text-left outline-none',
         PRESSABLE,
         FOCUS_RING,
         className
@@ -49,7 +49,9 @@ export function ProjectPill({
     >
       {/* White in the grey phone band, where the pill is white: then the mark is the one grey; over the chat's white page the pill is grey and the mark white. */}
       <ProjectMark name={name} className="bg-on-sunken in-data-[surface=sunken]:bg-muted" />
-      <span className="text-foreground min-w-0 flex-1 truncate text-[15px] font-medium">
+      {/* Two lines before a cut: the end of a name („Baufeld D12") is what
+          tells sibling projects apart. */}
+      <span className="text-foreground line-clamp-2 min-w-0 flex-1 text-[15px] leading-tight font-medium">
         {name}
       </span>
       <ChevronDown className="text-muted-foreground size-4 shrink-0" aria-hidden />

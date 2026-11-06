@@ -19,7 +19,9 @@
 
 import type { JSX } from 'react'
 
-import { useConnectionPresence } from '@/shared/hooks/use-connection-presence'
+import { useTranslations } from '@/i18n'
+import { presenceCopy } from '@/i18n/namespaces/presence'
+import { requestConnectionCheck, useConnectionPresence } from '@/shared/hooks/use-connection-presence'
 import { cn } from '@/lib/utils'
 import { ConnectionPresenceIndicator } from './connection-presence-indicator'
 
@@ -29,7 +31,7 @@ const APPEARANCE = {
   /** A thin line of text with no fill, for a header that floats over content (the chat toolbar). */
   line: 'h-6 justify-start px-1',
   /** A rail row: the dot in the icons' 16px slot at 24px, the words on the labels' edge. */
-  rail: 'min-h-9 justify-start px-3 py-2.5',
+  rail: 'min-h-9 flex-col items-start justify-center gap-1 px-3 py-2.5',
 } as const
 
 export function ConnectionBand({
@@ -42,6 +44,7 @@ export function ConnectionBand({
   /** The icon rail: the dot alone in a 36px tile, its words in the tooltip and the status's name. */
   compact?: boolean
 }): JSX.Element {
+  const t = useTranslations(presenceCopy)
   const presence = useConnectionPresence()
   const quiet = presence === 'connected'
   return (
@@ -59,6 +62,22 @@ export function ConnectionBand({
       )}
     >
       <ConnectionPresenceIndicator presence={presence} compact={compact} iconSlot={appearance === 'rail'} />
+      {/* While the server does not answer, a way to ask now rather than at the
+          next interval. Offline has none: the browser says when the network
+          is back, and the page then checks by itself. */}
+      {presence === 'reconnecting' && !compact && (
+        <button
+          type="button"
+          onClick={requestConnectionCheck}
+          className={cn(
+            'text-foreground shrink-0 rounded-control text-xs font-medium underline-offset-2 hover:underline',
+            // In a rail row, under the words, on the labels' edge (16px glyph + 11px gap).
+            appearance === 'rail' ? 'ml-[27px]' : 'ml-2'
+          )}
+        >
+          {t('retry')}
+        </button>
+      )}
     </div>
   )
 }

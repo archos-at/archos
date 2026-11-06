@@ -1,11 +1,13 @@
-import { render } from '@/test-utils'
+import { render, screen } from '@/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import type { ConnectionPresence } from '@/shared/hooks/use-connection-presence'
 import { ConnectionBand } from './connection-band'
 
 let presence: ConnectionPresence = 'connected'
+const requestConnectionCheck = vi.fn()
 vi.mock('@/shared/hooks/use-connection-presence', () => ({
   useConnectionPresence: () => presence,
+  requestConnectionCheck: () => requestConnectionCheck(),
 }))
 
 describe('ConnectionBand', () => {
@@ -42,6 +44,19 @@ describe('ConnectionBand', () => {
 
   // A status that is fine says nothing: the rail footer carried a green
   // „Verbunden“ all day. It is this band now, quiet while connected.
+  // Nielsen 9: while the server does not answer, a way to ask now. Offline has
+  // none: the browser says when the network is back.
+  it('offers to try again while reconnecting, and not while offline', async () => {
+    presence = 'reconnecting'
+    const { rerender } = render(<ConnectionBand appearance="rail" />)
+    screen.getByRole('button', { name: 'Try again' }).click()
+    expect(requestConnectionCheck).toHaveBeenCalledTimes(1)
+
+    presence = 'offline'
+    rerender(<ConnectionBand appearance="rail" />)
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  })
+
   it('is a rail row on the icons’ column while the link is gone, and nothing to the eye while it is fine', () => {
     presence = 'reconnecting'
     const { container, rerender } = render(<ConnectionBand appearance="rail" />)
@@ -51,6 +66,8 @@ describe('ConnectionBand', () => {
 
     rerender(<ConnectionBand appearance="rail" compact />)
     expect(band()).toHaveClass('size-9')
+    // No words beside a 36px tile, so no button either: its tooltip explains.
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
 
     presence = 'connected'
     rerender(<ConnectionBand appearance="rail" />)

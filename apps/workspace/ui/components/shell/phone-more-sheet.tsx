@@ -185,7 +185,7 @@ export function PhoneMoreSheet({
             {account.map(row)}
             <li className="flex min-h-14 items-center gap-3 px-4">
               <ActiveThemeIcon className="text-muted-foreground size-5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 text-sm">{tc('theme.label')}</span>
+              <span className="min-w-0 flex-1 text-[15px]">{tc('theme.label')}</span>
               <Segmented
                 ariaLabel={tc('theme.label')}
                 value={theme}
@@ -195,7 +195,7 @@ export function PhoneMoreSheet({
             </li>
             <li className="flex min-h-14 items-center gap-3 px-4">
               <Globe className="text-muted-foreground size-5 shrink-0" aria-hidden />
-              <span className="min-w-0 flex-1 text-sm">{tc('language.label')}</span>
+              <span className="min-w-0 flex-1 text-[15px]">{tc('language.label')}</span>
               <Segmented
                 ariaLabel={tc('language.label')}
                 value={locale}

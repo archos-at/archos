@@ -29,24 +29,22 @@ describe('ConnectionPresenceIndicator', () => {
     expect(container.querySelector('.animate-ping')).toBeNull()
   })
 
-  it('renders the reconnecting state as an amber dot with a reduced-motion-safe pulse', () => {
+  // Colour never travels alone (design-language.md, Principles 2): a state
+  // that is not fine is a glyph in its colour beside its words.
+  it('renders the reconnecting state as the ochre refresh glyph and its words, not a pulsing dot', () => {
     const { container } = render(<ConnectionPresenceIndicator presence="reconnecting" />)
 
     expect(screen.getByText('Connection interrupted')).toBeInTheDocument()
-    expect(container.querySelector('.bg-warning')).toBeTruthy()
-
-    const pulse = container.querySelector('.animate-ping')
-    expect(pulse).toBeTruthy()
-    // Pulse is suppressed for users who prefer reduced motion.
-    expect(pulse).toHaveClass('motion-reduce:hidden')
+    expect(container.querySelector('svg.lucide-refresh-cw')).toHaveClass('text-warning')
+    expect(container.querySelector('.animate-ping')).toBeNull()
   })
 
-  it('renders the offline state as a danger dot', () => {
+  it('renders the offline state as the red wifi-off glyph and its words', () => {
     const { container } = render(<ConnectionPresenceIndicator presence="offline" />)
 
     expect(screen.getByText('No connection')).toBeInTheDocument()
-    expect(container.querySelector('.bg-danger')).toBeTruthy()
-    expect(container.querySelector('.animate-ping')).toBeNull()
+    expect(container.querySelector('svg.lucide-wifi-off')).toHaveClass('text-error')
+    expect(container.querySelector('.bg-danger')).toBeNull()
   })
 
   it('hides the label in compact mode but preserves the accessible name', () => {

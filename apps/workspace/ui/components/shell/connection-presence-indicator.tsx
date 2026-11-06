@@ -3,16 +3,14 @@
 /**
  * ConnectionPresenceIndicator
  *
- * A quiet, native-app-style status readout for the app shell: a small colored
- * dot (plus an optional label) that communicates live connection health so the
+ * A quiet status readout for the app shell: live connection health, so the
  * product never feels dead or ambiguous.
  *
- *   connected    -> subtle success dot, no motion. The shell does not show this
- *                   state: it mounts the indicator through `ConnectionBand`,
- *                   which hides it while connected (a fine status says nothing)
- *   reconnecting -> amber dot with a soft ping pulse (suppressed under
- *                   prefers-reduced-motion)
- *   offline      -> danger dot, no motion
+ *   connected    -> a still success dot. The shell does not show this state:
+ *                   it mounts the indicator through `ConnectionBand`, which
+ *                   hides it while connected (a fine status says nothing)
+ *   reconnecting -> the ochre RefreshCw glyph and „Verbindung unterbrochen"
+ *   offline      -> the red WifiOff glyph and „Keine Verbindung"
  *
  * Accessibility: the wrapper is a `role="status"` / `aria-live="polite"` region
  * so assistive tech announces state changes calmly, not on every render. The
@@ -24,7 +22,6 @@
 import { useTranslations } from '@/i18n'
 import { presenceCopy } from '@/i18n/namespaces/presence'
 import { RefreshCw, WifiOff, type LucideIcon } from 'lucide-react'
-import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -32,8 +29,8 @@ import {
   type ConnectionPresence,
 } from '@/shared/hooks/use-connection-presence'
 
-/** The icon rail's glyph per state, where no words stand beside it. */
-const COMPACT_ICON: Record<ConnectionPresence, LucideIcon | null> = {
+/** The glyph per state that is not fine. */
+const STATE_ICON: Record<ConnectionPresence, LucideIcon | null> = {
   connected: null,
   reconnecting: RefreshCw,
   offline: WifiOff,
@@ -80,7 +77,7 @@ export function ConnectionPresenceIndicator({
   const presence = presenceOverride ?? detected
 
   const label = t(`status.${presence}`)
-  const CompactIcon = COMPACT_ICON[presence]
+  const StateIcon = STATE_ICON[presence]
   const tooltip = t(`tooltip.${presence}`)
 
   return (
@@ -94,40 +91,22 @@ export function ConnectionPresenceIndicator({
           className={cn(
             'inline-flex min-h-4 rounded-control text-xs text-muted-foreground select-none',
             // In a rail row the words may take two lines rather than lose
-            // their end („Verbindung wird wiederh…“): the dot then stands by
-            // the first line, in a slot as tall as it.
+            // their end: the glyph then stands by the first line, in a slot
+            // as tall as it.
             iconSlot ? 'max-w-full items-start gap-[11px]' : 'items-center gap-2',
-            'outline-none',
-            FOCUS_RING_INSET,
             className,
           )}
         >
-          {compact && CompactIcon ? (
-            // Alone in the icon rail a dot was colour carrying the meaning by
-            // itself: the glyph says it in shape too.
-            <CompactIcon className={cn('size-4', ICON_COLOR[presence])} aria-hidden />
+          {StateIcon ? (
+            // A state that is not fine is a glyph in its colour beside its
+            // words, in every width: a dot alone was colour carrying the
+            // meaning by itself (Principles, 2), and a dot here and a glyph
+            // in the icon rail drew one state two ways.
+            <StateIcon className={cn('shrink-0', iconSlot || compact ? 'size-4' : 'size-3.5', ICON_COLOR[presence])} aria-hidden />
           ) : (
-          <span className={cn('relative flex shrink-0 items-center justify-center', iconSlot ? 'size-4' : 'size-2')} aria-hidden>
-            {presence === 'reconnecting' && (
-              // Intentional `animate-ping`, not the ambient shimmer loop: a
-              // reconnect is an EVENT that must catch the eye once and then
-              // resolve (to the still dot or to offline), never a background
-              // state to breathe at `--motion-ambient`. Removed entirely under
-              // reduced-motion.
-              <span
-                className={cn(
-                  'absolute inline-flex size-2 rounded-full opacity-60',
-                  'animate-ping bg-warning motion-reduce:hidden motion-reduce:animate-none',
-                )}
-              />
-            )}
-            <span
-              className={cn(
-                'relative inline-flex size-2 rounded-full',
-                DOT_COLOR[presence],
-              )}
-            />
-          </span>
+            <span className={cn('relative flex shrink-0 items-center justify-center', iconSlot ? 'size-4' : 'size-2')} aria-hidden>
+              <span className={cn('relative inline-flex size-2 rounded-full', DOT_COLOR[presence])} />
+            </span>
           )}
           {!compact && <span className={cn('min-w-0', !iconSlot && 'truncate')}>{label}</span>}
         </div>

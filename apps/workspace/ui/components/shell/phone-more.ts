@@ -26,8 +26,8 @@ import {
  *
  * Groups as the rail groups them: `project` (the project's sections without a
  * tab: Automatisierung), `organization` (the organisation's doorways without a
- * tab: the Büroablage), `account` (the avatar menu's links, in the menu's
- * order and gated as the menu gates them) and `help` (Neuerungen, after the
+ * tab: the Büroablage, then the organisation's settings), `account` (the
+ * avatar menu's links, in the menu's order and gated as the menu gates them) and `help` (Neuerungen, after the
  * tour, as the menu has it). Suche is not listed: the top band's search
  * reaches it, and twice was once too often. The project's and the
  * organisation's places stood in one „Bereiche" list, which the rail keeps
@@ -49,6 +49,8 @@ export interface MoreFlags extends PhoneTabFlags {
   canManageOrganization: boolean
   canManagePlatform: boolean
 }
+
+const GROUP_ORDER: readonly MoreDestination['group'][] = ['project', 'organization', 'account', 'help']
 
 /** Reached from the top band's search on a phone (`ShellSearchButton`), so not listed again. */
 const ON_THE_BAND: ReadonlySet<string> = new Set(['search'])
@@ -74,7 +76,9 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       href: '/app/organization',
       icon: Building2,
       label: { namespace: 'nav', key: 'userMenu.organization' },
-      group: 'account',
+      // Under the organisation's own heading with the Büroablage, not under
+      // Konto: one sheet, one place for the organisation's things.
+      group: 'organization',
     })
   }
   if (flags.canManagePlatform) {
@@ -119,7 +123,8 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
         group: section.group === 'org' ? 'organization' : 'project',
       })
     )
-  return [...places, ...account]
+  // The organisation's settings follow its doorways, under its heading.
+  return [...places, ...account].sort((a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group))
 }
 
 /** Which listed destination is the page the reader is on. */

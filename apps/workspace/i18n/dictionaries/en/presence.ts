@@ -5,6 +5,8 @@ export const presence = {
     reconnecting: 'Connection interrupted',
     offline: 'No connection',
   },
+  /** The connection row's button while the server does not answer. */
+  retry: 'Try again',
   tooltip: {
     connected: 'You are connected. Everything is up to date.',
     reconnecting: 'The server is not answering right now. Retrying on its own.',

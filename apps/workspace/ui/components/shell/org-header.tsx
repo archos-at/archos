@@ -196,17 +196,21 @@ function OrgHeaderIconLink({
           onClick={door?.onClick}
           data-tour={tourAnchor}
           className={cn(
-            'focus-visible:ring-ring/60 relative hidden size-9 items-center justify-center rounded-control transition-colors pointer-coarse:size-11 md:flex duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none',
+            // From 1280px the doorway carries its word, as the rail's row does
+            // inside a project: an icon alone asked the reader to recall which
+            // box was the Büroablage.
+            'relative hidden size-9 items-center justify-center gap-2 rounded-control text-[13px] transition-colors pointer-coarse:size-11 md:flex xl:w-auto xl:px-2.5 duration-quick ease-out motion-reduce:transition-none',
             active || door?.open
               ? 'bg-accent text-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
         >
-          <Icon className="size-4" aria-hidden />
+          <Icon className="size-4 shrink-0" aria-hidden />
+          <span className="hidden xl:inline">{label}</span>
           <InboxBadge
             pending={badgeCount}
             tone="muted"
-            className="absolute right-0.5 top-0.5 -translate-y-1/3 translate-x-1/3"
+            className="absolute right-0.5 top-0.5 -translate-y-1/3 translate-x-1/3 xl:static xl:translate-x-0 xl:translate-y-0"
           />
         </Link>
       </TooltipTrigger>

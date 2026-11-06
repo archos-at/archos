@@ -335,7 +335,7 @@ function AppSidebarFrame({
             <Link
               href={back.href}
               aria-label={t('backTo', { label: t(`sections.${back.sectionKey}`) })}
-              className="text-muted-foreground hover:bg-on-sunken-hover hover:text-foreground focus-visible:ring-ring/60 flex size-11 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2 motion-reduce:transition-none"
+              className="text-muted-foreground hover:text-foreground active:bg-on-sunken flex size-11 shrink-0 items-center justify-center rounded-control transition-colors duration-quick ease-out motion-reduce:transition-none"
             >
               <ChevronLeft className="size-5" aria-hidden />
             </Link>
@@ -414,7 +414,9 @@ function AppSidebarFrame({
                 {/* `px-3`: the heading starts on the icons' edge (24px), as the
                     wordmark does; the primitive's 8px put it 4px left of both. */}
                 {!iconRail && (
-                  <SidebarGroupLabel className="px-3" title={orgGroup.label}>
+                  // 24px, its words at the box's foot, 4px over the first row:
+                  // the 32px box doubled the space above the heading.
+                  <SidebarGroupLabel className="h-6 items-end px-3 pb-1" title={orgGroup.label}>
                     <span className="truncate">{orgGroup.label}</span>
                   </SidebarGroupLabel>
                 )}
@@ -445,9 +447,9 @@ function AppSidebarFrame({
             organizationName={organizationName}
             authRequired={authRequired}
             compact={iconRail}
-            // 28px, centred on the icons' axis in both widths, so the name
-            // lands on the labels' 51px edge and nothing moves on a fold.
-            avatarSizeClass="size-7"
+            // 24px, as the project's mark: both start at 20 and centre on the
+            // icons' axis in both widths, and the name lands on 51.
+            avatarSizeClass="size-6"
             // Inside the rail's band: the menu is as wide as the row it opens
             // from, and in the icon rail it opens beside the rail, not across
             // its edge.
@@ -507,26 +509,11 @@ function RailNavItem({
       <SidebarMenuButton
         asChild
         isActive={active}
-        tooltip={
-          tooltip
-            ? {
-                children: (
-                  <span className="flex items-center gap-2">
-                    {label}
-                    {shortcutKey && (
-                      <ShortcutKeys
-                        segments={[
-                          { kind: 'chord', caps: [LEADER_KEY.toUpperCase()] },
-                          { kind: 'then' },
-                          { kind: 'chord', caps: [shortcutKey.toUpperCase()] },
-                        ]}
-                      />
-                    )}
-                  </span>
-                ),
-              }
-            : undefined
-        }
+        // The icon rail names the section and its `g …` jump; the expanded
+        // rail, whose label is in view, names the jump alone after a longer
+        // rest, so the keys are taught where most people work.
+        tooltip={tooltip || shortcutKey ? { children: <RailTooltip label={tooltip ? label : null} shortcutKey={shortcutKey} /> } : undefined}
+        tooltipWhenExpanded={!tooltip && Boolean(shortcutKey)}
         className={cn(
           // 36px under a mouse; 44px under a finger, grown rather than given a
           // catchment, because the rows sit 2px apart.
@@ -608,16 +595,33 @@ function RailNavItem({
           <InboxBadge
             pending={badgeCount}
             tone="muted"
-            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-0.5 group-data-[collapsible=icon]:-top-0.5 group-data-[collapsible=icon]:ml-0"
+            className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
           />
           {badgeCount <= 0 && (
             <InboundMailWaitingBadge
               count={waitingCount}
-              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-0.5 group-data-[collapsible=icon]:-top-0.5 group-data-[collapsible=icon]:ml-0"
+              className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0 group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar"
             />
           )}
         </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
+  )
+}
+
+function RailTooltip({ label, shortcutKey }: { label: string | null; shortcutKey?: string }) {
+  return (
+    <span className="flex items-center gap-2">
+      {label}
+      {shortcutKey && (
+        <ShortcutKeys
+          segments={[
+            { kind: 'chord', caps: [LEADER_KEY.toUpperCase()] },
+            { kind: 'then' },
+            { kind: 'chord', caps: [shortcutKey.toUpperCase()] },
+          ]}
+        />
+      )}
+    </span>
   )
 }
