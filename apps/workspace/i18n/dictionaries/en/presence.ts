@@ -2,13 +2,13 @@
 export const presence = {
   status: {
     connected: 'Connected',
-    reconnecting: 'Reconnecting',
-    offline: 'Offline',
+    reconnecting: 'Connection interrupted',
+    offline: 'No connection',
   },
   tooltip: {
     connected: 'You are connected. Everything is up to date.',
-    reconnecting: 'Connection interrupted — trying to reconnect…',
-    offline: "You're offline. Check your network connection.",
+    reconnecting: 'The server is not answering right now. Retrying on its own.',
+    offline: 'This device has no network. The page reconnects on its own once it is back.',
   },
   /**
    * Whose request Piloti is working on, wherever it is present (ADR-0105; EU AI

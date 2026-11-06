@@ -13,7 +13,6 @@ export const nav: typeof en.nav = {
   resizeSidebarHint: 'Ziehen zum Ändern der Breite, klicken zum Einklappen',
   expandSidebarHint: 'Ziehen oder klicken zum Ausklappen',
   openNavigation: 'Navigation öffnen',
-  closeNavigation: 'Navigation schließen',
   sections: {
     chat: 'Chat',
     files: 'Dateien',
@@ -102,7 +101,7 @@ export const nav: typeof en.nav = {
       title: 'Mehr',
       description: 'Weitere Bereiche und das Konto.',
       close: 'Schließen',
-      places: 'Bereiche',
+      project: 'Projekt',
       account: 'Konto',
     },
   },

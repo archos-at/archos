@@ -205,6 +205,7 @@ function OrgHeaderIconLink({
           <Icon className="size-4" aria-hidden />
           <InboxBadge
             pending={badgeCount}
+            tone="muted"
             className="absolute right-0.5 top-0.5 -translate-y-1/3 translate-x-1/3"
           />
         </Link>

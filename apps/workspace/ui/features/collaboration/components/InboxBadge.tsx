@@ -40,9 +40,17 @@ export interface InboxBadgeProps {
    * here so the pill can hug the icon tile.
    */
   className?: string
+  /**
+   * `attention` (the default) is the near-black ink. The shell's chrome (the
+   * rail, the tab bar, the org header) passes `muted`: there the ink pill was
+   * the heaviest mark on screen, outweighing the selected section and the
+   * page's one black action, for a count that is information beside a place,
+   * as the E-Mail-Eingang's count in Dateien is.
+   */
+  tone?: 'attention' | 'muted'
 }
 
-export function InboxBadge({ pending, className }: InboxBadgeProps): JSX.Element | null {
+export function InboxBadge({ pending, className, tone = 'attention' }: InboxBadgeProps): JSX.Element | null {
   const t = useTranslations(collaborationCopy)
   const settle = useMotionToken(springSnap)
   const shown = Number.isFinite(pending) && pending > 0 ? Math.floor(pending) : 0
@@ -67,7 +75,9 @@ export function InboxBadge({ pending, className }: InboxBadgeProps): JSX.Element
       transition={settle}
     >
       <CountPill
-        tone="attention"
+        tone={tone}
+        // On a grey band (the rail, the project's tab bar) the muted pill is white.
+        className={tone === 'muted' ? 'in-data-[surface=sunken]:bg-on-sunken' : undefined}
         // role="status" so a count that changes while the badge is mounted is
         // announced politely rather than silently repainted (NF-3).
         role="status"

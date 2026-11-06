@@ -4,9 +4,9 @@
  * The muted count on Dateien in the rail and the phone's tab bar: mails
  * waiting in the project's E-Mail-Eingang for this reader.
  *
- * Muted, never the Postfach's ink: the rail has one pill that asks for
- * attention, and it is the Postfach's (`InboxBadge`). This one is a quiet
- * number beside a place, the `CountPill` muted tone. Nothing at zero; the
+ * Muted, as the Postfach's count is in the shell's chrome (`InboxBadge`,
+ * `tone="muted"`): a quiet number beside a place, the `CountPill` muted tone,
+ * white on the rail's grey band. Nothing at zero; the
  * real count is in the label, the pill caps at 99+.
  */
 
@@ -14,6 +14,7 @@ import type { JSX } from 'react'
 import { CountPill } from '@/components/ui/count-pill'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
+import { cn } from '@/lib/utils'
 
 export function InboundMailWaitingBadge({ count, className }: { count: number | null; className?: string }): JSX.Element | null {
   const t = useTranslations(navCopy)
@@ -27,7 +28,7 @@ export function InboundMailWaitingBadge({ count, className }: { count: number | 
       title={t('inboundMailWaiting', { count })}
       data-testid="inbound-mail-badge"
       data-waiting={count}
-      className={className}
+      className={cn('in-data-[surface=sunken]:bg-on-sunken', className)}
       count={count}
     />
   )

@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
 import { cn } from '@/lib/utils'
-import { ProjectStatusDot } from './project-switcher'
+import { ProjectMark } from './project-mark'
 
 /**
  * The project's name on a phone, and the door to the switcher sheet.
@@ -47,7 +47,8 @@ export function ProjectPill({
         className
       )}
     >
-      <ProjectStatusDot active />
+      {/* White in the grey phone band, where the pill is white: then the mark is the one grey; over the chat's white page the pill is grey and the mark white. */}
+      <ProjectMark name={name} className="bg-on-sunken in-data-[surface=sunken]:bg-muted" />
       <span className="text-foreground min-w-0 flex-1 truncate text-[15px] font-medium">
         {name}
       </span>

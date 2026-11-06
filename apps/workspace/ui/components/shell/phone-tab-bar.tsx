@@ -114,7 +114,8 @@ export function PhoneTabBar({
         // Inside a project the grey band is the edge and needs no rule. Above
         // one the bar is paper on paper, and the rule is the only thing that
         // says where the scrolling page ends and the fixed bar begins.
-        projectId ? 'bg-surface-sunken' : 'border-border bg-background border-t',
+        // In dark the grey bar and the plane are 1.03:1: the rule again.
+        projectId ? 'bg-surface-sunken dark:border-border dark:border-t' : 'border-border bg-background border-t',
         'pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]',
         className
       )}
@@ -182,14 +183,17 @@ function PhoneTabItem({
             // The rail's active fill, at the size of one glyph: white on the
             // project's grey bar, the one grey on the paper bar above a
             // project. A fill, never a box.
-            className="bg-muted in-data-[surface=sunken]:bg-on-sunken absolute inset-0 rounded-full"
+            // `rounded-control`, as the rail's and the Dateien tabs' selected
+            // fill: a capsule is for what is round (a count, an avatar).
+            className="bg-muted in-data-[surface=sunken]:bg-on-sunken absolute inset-0 rounded-control"
             transition={springGlide}
           />
         )}
         <Icon aria-hidden className="relative size-[1.125rem]" />
-        <InboxBadge pending={badgeCount} className="absolute -right-0.5 -top-1.5" />
+        {/* Beside the glyph's top-right corner rather than over it. */}
+        <InboxBadge pending={badgeCount} tone="muted" className="absolute -top-1.5 left-[calc(50%+5px)]" />
         <AttentionDot show={newsLabel !== null} label={newsLabel ?? undefined} className="absolute top-0 right-2.5" />
-        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -right-0.5 -top-1.5" />}
+        {badgeCount <= 0 && <InboundMailWaitingBadge count={waitingCount} className="absolute -top-1.5 left-[calc(50%+5px)]" />}
       </span>
       <span
         data-slot="phone-tab-label"

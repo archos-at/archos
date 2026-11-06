@@ -23,12 +23,26 @@
 
 import { useTranslations } from '@/i18n'
 import { presenceCopy } from '@/i18n/namespaces/presence'
+import { RefreshCw, WifiOff, type LucideIcon } from 'lucide-react'
+import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   useConnectionPresence,
   type ConnectionPresence,
 } from '@/shared/hooks/use-connection-presence'
+
+/** The icon rail's glyph per state, where no words stand beside it. */
+const COMPACT_ICON: Record<ConnectionPresence, LucideIcon | null> = {
+  connected: null,
+  reconnecting: RefreshCw,
+  offline: WifiOff,
+}
+const ICON_COLOR: Record<ConnectionPresence, string> = {
+  connected: 'text-muted-foreground',
+  reconnecting: 'text-warning',
+  offline: 'text-error',
+}
 
 /** Solid dot fill per state (feedback tokens from styles/tokens.css). */
 const DOT_COLOR: Record<ConnectionPresence, string> = {
@@ -66,6 +80,7 @@ export function ConnectionPresenceIndicator({
   const presence = presenceOverride ?? detected
 
   const label = t(`status.${presence}`)
+  const CompactIcon = COMPACT_ICON[presence]
   const tooltip = t(`tooltip.${presence}`)
 
   return (
@@ -82,10 +97,16 @@ export function ConnectionPresenceIndicator({
             // their end („Verbindung wird wiederh…“): the dot then stands by
             // the first line, in a slot as tall as it.
             iconSlot ? 'max-w-full items-start gap-[11px]' : 'items-center gap-2',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            'outline-none',
+            FOCUS_RING_INSET,
             className,
           )}
         >
+          {compact && CompactIcon ? (
+            // Alone in the icon rail a dot was colour carrying the meaning by
+            // itself: the glyph says it in shape too.
+            <CompactIcon className={cn('size-4', ICON_COLOR[presence])} aria-hidden />
+          ) : (
           <span className={cn('relative flex shrink-0 items-center justify-center', iconSlot ? 'size-4' : 'size-2')} aria-hidden>
             {presence === 'reconnecting' && (
               // Intentional `animate-ping`, not the ambient shimmer loop: a
@@ -107,6 +128,7 @@ export function ConnectionPresenceIndicator({
               )}
             />
           </span>
+          )}
           {!compact && <span className={cn('min-w-0', !iconSlot && 'truncate')}>{label}</span>}
         </div>
       </TooltipTrigger>

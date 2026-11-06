@@ -205,23 +205,6 @@
   },
   {
     "type": "dependency",
-    "from": "ui/components/shell/app-sidebar.tsx",
-    "to": "ui/features/layout/store.ts",
-    "unresolvedTo": "@/features/layout/store",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "ui/components/shell/command-palette.tsx",
     "to": "ui/features/layout/store.ts",
     "unresolvedTo": "@/features/layout/store",
@@ -413,23 +396,6 @@
     "from": "ui/components/shell/phone-tab-bar.tsx",
     "to": "ui/features/product-feedback/components/index.ts",
     "unresolvedTo": "@/features/product-feedback/components",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "components-import-features"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "ui/components/shell/project-switcher.tsx",
-    "to": "ui/features/layout/store.ts",
-    "unresolvedTo": "@/features/layout/store",
     "dependencyTypes": [
       "aliased",
       "aliased-tsconfig",

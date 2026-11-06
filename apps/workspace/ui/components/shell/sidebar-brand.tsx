@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
+import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { useSidebar } from '@/components/ui/sidebar'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
@@ -18,19 +19,22 @@ import { BRAND_INSET_RAIL, BRAND_ROW } from './brand-slot'
 
 export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
   const t = useTranslations(navCopy)
-  const { state, toggleSidebar, isMobile } = useSidebar()
-  const collapsed = state === 'collapsed'
+  const { isMobile } = useSidebar()
 
   return (
-    // Icon rail: the mark over the fold control, 18px down. Expanded: the wordmark
-    // in the org header's own row and inset (`brand-slot.ts`), so it does not move
-    // when the overview gives way to a project.
-    <div className={cn(iconRail ? 'flex flex-col items-center pt-[18px]' : [BRAND_ROW, BRAND_INSET_RAIL])}>
+    // Icon rail: the mark alone, centred in the same 56px row, so the project
+    // tile and the sections below start at the height they start at expanded
+    // and nothing jumps vertically on a fold; its fold control stands at the foot
+    // (`app-sidebar.tsx`). Expanded: the wordmark in the org header's own row and
+    // inset (`brand-slot.ts`), so it does not move when the overview gives way to
+    // a project, with the fold control at the row's end.
+    <div className={cn(BRAND_ROW, iconRail ? 'justify-center' : BRAND_INSET_RAIL)}>
       <Link
         href="/app/projects"
         aria-label={t('allProjects')}
         className={cn(
-          'focus-visible:ring-ring/60 rounded-control focus-visible:outline-none focus-visible:ring-2',
+          'rounded-control outline-none',
+          FOCUS_RING_INSET,
           iconRail
             ? 'flex h-7 items-center justify-center'
             : 'text-foreground'
@@ -38,29 +42,33 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
       >
         <Logo kind={iconRail ? 'icon' : 'wordmark'} size="small" />
       </Link>
-      {!isMobile && (
-        <button
-          type="button"
-          onClick={toggleSidebar}
-          aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
-          className={cn(
-            'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-ring/60 flex items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2',
-            // Icon rail: exactly a nav tile (36px square), so it lands on the same
-            // column and the same grid as the items below instead of reading as a
-            // loose glyph floating in the header's dead space. It was `h-9 w-10` —
-            // a 40px width that matched nothing else in the rail.
-            // Expanded it grows to 44px under a finger (a touch tablet), inside
-            // the 56px brand row.
-            iconRail ? 'mt-2 size-9' : 'ml-auto size-7 pointer-coarse:size-11'
-          )}
-        >
-          {collapsed ? (
-            <ChevronsRight className="size-4" aria-hidden />
-          ) : (
-            <ChevronsLeft className="size-4" aria-hidden />
-          )}
-        </button>
-      )}
+      {!iconRail && !isMobile && <RailFoldButton className="ml-auto" />}
     </div>
+  )
+}
+
+/**
+ * The control that folds the rail and brings it back. Expanded it ends the
+ * brand row (28px, 44px under a finger); in the icon rail it is a 36px tile
+ * over the person, on the rail's 32px axis.
+ */
+export function RailFoldButton({ className }: { className?: string }) {
+  const t = useTranslations(navCopy)
+  const { state, toggleSidebar } = useSidebar()
+  const collapsed = state === 'collapsed'
+  return (
+    <button
+      type="button"
+      onClick={toggleSidebar}
+      aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
+      className={cn(
+        'text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center rounded-control outline-none transition-colors duration-quick ease-out motion-reduce:transition-none',
+        FOCUS_RING_INSET,
+        collapsed ? 'size-9' : 'size-7 pointer-coarse:size-11',
+        className
+      )}
+    >
+      {collapsed ? <ChevronsRight className="size-4" aria-hidden /> : <ChevronsLeft className="size-4" aria-hidden />}
+    </button>
   )
 }

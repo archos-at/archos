@@ -1,9 +1,8 @@
 import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from 'react'
-import { render, screen, act, within } from '@/test-utils'
+import { render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, test, expect, afterEach } from 'vitest'
 import { useIsMobile } from '@/hooks/use-is-mobile'
-import { useLayoutStore } from '@/features/layout/store'
 import { useShellOverlays } from './shell-overlays'
 import { I18nProvider } from '@/i18n'
 import { AppSidebar, railActivePillId } from './app-sidebar'
@@ -37,7 +36,7 @@ vi.mock('@/hooks/use-last-project-section', () => ({
   pruneProjectSections: () => {},
 }))
 
-vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div />, ProjectStatusDot: () => <span /> }))
+vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div /> }))
 vi.mock('./connection-band', () => ({
   ConnectionBand: ({ appearance = 'band' }: { appearance?: string }) => (
     <div data-testid="connection-band" data-appearance={appearance} />
@@ -69,7 +68,6 @@ afterEach(() => {
   // the rail used to hand the icon rail to every test that ran after it.
   window.localStorage.removeItem('sidebar.collapsed')
   vi.mocked(useIsMobile).mockReturnValue(false)
-  useLayoutStore.setState({ isMobileNavOpen: false })
   useShellOverlays.setState({ projectSheetOpen: false, paletteOpen: false })
 })
 
@@ -387,18 +385,25 @@ describe('AppSidebar - active state', () => {
   })
 })
 
-describe('AppSidebar - layout store mobile nav sync', () => {
-  test('opens the primitive sheet when the chat toolbar sets the store', async () => {
+// The phone drawer had no door in the product (nothing set it open), so it
+// went: on a phone the rail draws its top band and nothing else.
+describe('AppSidebar - on a phone', () => {
+  test('renders the top band and no rail', () => {
+    pathname = '/app/projects/p1/files'
     vi.mocked(useIsMobile).mockReturnValue(true)
-    render(<AppSidebar {...baseProps} />)
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    const { container } = render(<AppSidebar {...baseProps} />)
+    expect(screen.getByRole('banner')).toBeInTheDocument()
+    expect(container.querySelector('[data-sidebar="sidebar"]')).toBeNull()
+  })
+})
 
-    await act(async () => {
-      useLayoutStore.getState().setMobileNavOpen(true)
-    })
-
-    expect(await screen.findByRole('dialog')).toBeInTheDocument()
-    expect(screen.getAllByText('Chat').length).toBeGreaterThan(0)
+describe('AppSidebar - the organisation heads its doorways', () => {
+  test("the doorways' heading is the organisation's name, under the project's sections", () => {
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf organizationName="Musterarchitektur ZT GmbH" />)
+    const org = screen.getByRole('navigation', { name: 'Musterarchitektur ZT GmbH' })
+    expect(within(org).getByText('Musterarchitektur ZT GmbH')).toBeInTheDocument()
+    // In the scrolling column with the project's sections, not pinned to the foot.
+    expect(org.closest('[data-sidebar="content"]')).not.toBeNull()
   })
 })
 

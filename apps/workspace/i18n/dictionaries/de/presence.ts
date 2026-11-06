@@ -4,13 +4,14 @@ import type { en } from '../en'
 export const presence: typeof en.presence = {
   status: {
     connected: 'Verbunden',
-    reconnecting: 'Verbindung wird wiederhergestellt',
-    offline: 'Offline',
+    // Der Zustand, kurz genug für eine Zeile der Leiste; was geschieht, sagt der Tooltip.
+    reconnecting: 'Verbindung unterbrochen',
+    offline: 'Keine Verbindung',
   },
   tooltip: {
     connected: 'Sie sind verbunden. Alles ist auf dem aktuellen Stand.',
-    reconnecting: 'Verbindung unterbrochen – erneuter Verbindungsversuch läuft…',
-    offline: 'Sie sind offline. Bitte überprüfen Sie Ihre Netzwerkverbindung.',
+    reconnecting: 'Der Server antwortet gerade nicht. Es wird laufend von selbst erneut versucht.',
+    offline: 'Dieses Gerät hat kein Netz. Sobald es wieder da ist, verbindet sich die Seite von selbst.',
   },
   /**
    * Whose request Piloti is working on, wherever it is present (ADR-0105; EU AI

@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Building2, LayoutDashboard, Sparkles, UserRound } from 'lucide-react'
+import { Building2, ServerCog, Sparkles, UserRound } from 'lucide-react'
 
 import {
   railSections,
@@ -24,9 +24,12 @@ import {
  * same gates), so a destination added to the bar leaves this list by itself and
  * the two can never drift. `phone-more.spec.ts` pins it per scope.
  *
- * Two groups: `places` (rail sections without a tab: Automatisierung, the
- * Büroablage) and `account` (the avatar menu's links, gated as the menu gates
- * them). Actions (theme, language, tour, feedback, sign out) are the sheet's
+ * Three groups, as the rail groups them: `project` (the project's sections
+ * without a tab: Automatisierung), `organization` (the organisation's doorways
+ * without a tab: the Büroablage, Suche) and `account` (the avatar menu's links,
+ * in the menu's order and gated as the menu gates them). The project's and the
+ * organisation's places stood in one „Bereiche" list, which the rail keeps
+ * apart on purpose. Actions (theme, language, tour, feedback, sign out) are the sheet's
  * own and not destinations.
  */
 
@@ -35,7 +38,7 @@ export interface MoreDestination {
   href: string
   icon: ComponentType<{ className?: string }>
   label: PhoneTabLabel
-  group: 'places' | 'account'
+  group: 'project' | 'organization' | 'account'
 }
 
 export interface MoreFlags extends PhoneTabFlags {
@@ -59,13 +62,6 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       label: { namespace: 'nav', key: 'userMenu.profile' },
       group: 'account',
     },
-    {
-      key: 'whats-new',
-      href: '/app/whats-new',
-      icon: Sparkles,
-      label: { namespace: 'nav', key: 'userMenu.whatsNew' },
-      group: 'account',
-    },
   ]
   if (flags.canViewOrganization || flags.canManageOrganization) {
     list.push({
@@ -80,11 +76,19 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
     list.push({
       key: 'platform',
       href: '/app/platform',
-      icon: LayoutDashboard,
+      icon: ServerCog,
       label: { namespace: 'nav', key: 'userMenu.platform' },
       group: 'account',
     })
   }
+  // Last, as in the avatar menu, after the places the account reaches.
+  list.push({
+    key: 'whats-new',
+    href: '/app/whats-new',
+    icon: Sparkles,
+    label: { namespace: 'nav', key: 'userMenu.whatsNew' },
+    group: 'account',
+  })
   return list
 }
 
@@ -107,7 +111,7 @@ export function moreDestinations(projectId: string | null, pathname: string, fla
         href: section.href ?? sectionHref(section, base),
         icon: section.icon,
         label: section.label ?? { namespace: 'nav', key: `sections.${section.i18nKey}` },
-        group: 'places',
+        group: section.group === 'org' ? 'organization' : 'project',
       })
     )
   return [...places, ...account]

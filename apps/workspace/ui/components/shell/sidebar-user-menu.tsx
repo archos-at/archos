@@ -5,13 +5,14 @@ import Link from 'next/link'
 import {
   Building2,
   Check,
+  ChevronsUpDown,
   Compass,
   Globe,
-  LayoutDashboard,
   LogOut,
   MessagesSquare,
   Monitor,
   Moon,
+  ServerCog,
   Sparkles,
   Sun,
   UserRound,
@@ -21,6 +22,7 @@ import { useAuth } from '@/adapters/auth/use-auth'
 import { AttentionDot } from '@/components/ui/attention-dot'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { CountPill } from '@/components/ui/count-pill'
+import { FOCUS_RING, FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,10 +84,10 @@ export interface SidebarUserMenuProps {
    */
   avatarSizeClass?: string
   /**
-   * The organization the reader is acting in, shown as an eyebrow above their
-   * name. Everything this product does — projects, the Archiv, the Inbox — is
-   * scoped to one organization, and until now nothing in the rail said which.
-   * Omitted when unresolvable, so a label lookup can never blank the footer.
+   * The organization the reader is acting in, shown in the menu's header under
+   * their name and address. Everything this product does is scoped to one
+   * organization; in the rail its name also heads the organisation's doorways.
+   * Omitted when unresolvable, so a label lookup can never blank the header.
    */
   organizationName?: string | null
   /** Marks the trigger as a product-tour stop (`data-tour`). */
@@ -142,20 +144,23 @@ export function SidebarUserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'flex items-center gap-2.5 text-left text-sm',
-          // The state fill on paper (the org header), the rail's on its grey band.
-          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-sidebar-accent',
-          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-sidebar-accent',
+          'group/user flex items-center gap-2.5 text-left text-sm',
+          // The state fill on paper (the org header); on the rail's grey band a
+          // press is white (the tonal secondary, D4), and the disc turns grey.
+          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-on-sunken',
+          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-on-sunken',
           'active:scale-[0.98] motion-reduce:transition-none',
-          'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
+          'outline-none',
+          compact ? FOCUS_RING : FOCUS_RING_INSET,
           // Compact is an avatar alone, 30-32px. Under a finger the trigger
           // grows to 44px around the disc rather than lending it a catchment:
           // in the org header the search button stands right beside it.
-          // Expanded, the disc starts on the rail's left edge (24px), where the
-          // wordmark and the section icons start.
+          // Expanded, the disc centres on the section icons' axis (x=32 in the
+          // rail), where the icon rail centres it too, so it does not move when
+          // the rail folds, and the org's name keeps the width it needs.
           compact
             ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
-            : 'w-full rounded-control py-1.5 pl-3 pr-2',
+            : 'w-full rounded-control py-1.5 pl-1 pr-2.5',
         )}
         aria-label={
           feedbackUpdatedCount > 0
@@ -175,31 +180,20 @@ export function SidebarUserMenu({
               missing contrast; nothing grey on grey needs no line. */}
           <Avatar className={avatarSizeClass}>
             {(authUser?.image ?? user?.image) && <AvatarImage src={authUser?.image ?? user?.image ?? undefined} alt="" />}
-            <AvatarFallback className="in-data-[surface=sunken]:bg-on-sunken text-xs font-medium">{initial}</AvatarFallback>
+            <AvatarFallback className="in-data-[surface=sunken]:bg-on-sunken in-data-[surface=sunken]:group-hover/user:bg-muted in-data-[surface=sunken]:group-data-[state=open]/user:bg-muted text-xs font-medium">
+              {initial}
+            </AvatarFallback>
           </Avatar>
         </span>
         {!compact && (
-          <span className="flex min-w-0 flex-1 flex-col">
-            {/* Org eyebrow. It sits ABOVE the name because it is the scope the
-                name acts in — read top-down it says "in Musterarchitektur, you
-                are Anna Berger".
-
-                The eyebrow is the 12px label, in the org's own spelling and
-                with no tracking: an org name is long user data, and set in
-                spaced capitals it spread the full 236px, truncated at once and
-                read as a heading competing with the person. Quiet is the job;
-                the person's name is the line in ink.
-
-                `truncate` on both lines: neither may push the other. */}
-            {organizationName && (
-              <span className="text-muted-foreground truncate text-xs font-medium">
-                {organizationName}
-              </span>
-            )}
-            <span className="text-foreground truncate text-[13px] font-medium">
-              {displayName}
-            </span>
-          </span>
+          <>
+            {/* The person's name alone. The organisation's name used to stand
+                over it as an eyebrow; it now heads the organisation's doorways
+                in the rail, and the menu's header says it too. */}
+            <span className="text-foreground min-w-0 flex-1 truncate text-[13px] font-medium">{displayName}</span>
+            {/* Says the row opens something, as the switcher's chevron does. */}
+            <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+          </>
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={menuAlign} side={menuSide} className="w-56 motion-reduce:animate-none">
@@ -208,6 +202,9 @@ export function SidebarUserMenu({
             <span className="text-sm font-medium">{displayName}</span>
             {user?.email && user?.name && (
               <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
+            )}
+            {organizationName && (
+              <span className="text-xs font-normal text-muted-foreground">{organizationName}</span>
             )}
             {!authRequired && (
               <span className="text-xs font-normal text-muted-foreground">{t('userMenu.authNotConfigured')}</span>
@@ -233,7 +230,8 @@ export function SidebarUserMenu({
         {canManagePlatform && (
           <DropdownMenuItem asChild className="gap-2">
             <Link href="/app/platform">
-              <LayoutDashboard className="size-4 text-muted-foreground" aria-hidden />
+              {/* Its own glyph: the grid was Übersicht's in the rail. */}
+              <ServerCog className="size-4 text-muted-foreground" aria-hidden />
               {t('userMenu.platform')}
             </Link>
           </DropdownMenuItem>

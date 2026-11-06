@@ -278,6 +278,7 @@ export function AppShellChrome({
       {inProject && tabBarShown && (
         <PhoneMoreSheet
           projectId={projectId}
+          organizationName={chrome.organizationName}
           authRequired={chrome.authRequired}
           canAccessOfficeShelf={chrome.canAccessOfficeShelf}
           canAccessInbox={chrome.canAccessInbox}

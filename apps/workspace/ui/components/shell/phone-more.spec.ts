@@ -46,17 +46,24 @@ describe('moreDestinations: what "Mehr" lists', () => {
 
   test('in a project it lists the rail sections without a tab, gated as the rail gates them', () => {
     const keys = (flags: MoreFlags) => moreDestinations('p1', '/app/projects/p1/chat', flags).map((d) => d.key)
-    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'whats-new', 'organization', 'platform'])
+    expect(keys(ALL)).toEqual(['automation', 'officeShelf', 'search', 'profile', 'organization', 'platform', 'whats-new'])
     expect(keys(NONE)).toEqual(['search', 'profile', 'whats-new'])
     expect(keys({ ...ALL, showSkills: false })).not.toContain('automation')
     expect(keys({ ...ALL, canAccessOfficeShelf: false })).not.toContain('officeShelf')
   })
 
+  // The rail keeps the project's sections and the organisation's doorways
+  // apart; „Mehr" listed them in one „Bereiche" group.
+  test('groups the places as the rail does: the project’s, then the organisation’s', () => {
+    const groups = Object.fromEntries(moreDestinations('p1', '/app/projects/p1/chat', ALL).map((d) => [d.key, d.group]))
+    expect(groups).toMatchObject({ automation: 'project', officeShelf: 'organization', search: 'organization', profile: 'account' })
+  })
+
   test('the account links are gated as the avatar menu gates them', () => {
     const keys = (flags: Partial<MoreFlags>) => moreDestinations(null, '/app/projects', { ...NONE, ...flags }).map((d) => d.key)
     expect(keys({})).toEqual(['profile', 'whats-new'])
-    expect(keys({ canViewOrganization: true })).toEqual(['profile', 'whats-new', 'organization'])
-    expect(keys({ canManageOrganization: true })).toEqual(['profile', 'whats-new', 'organization'])
-    expect(keys({ canManagePlatform: true })).toEqual(['profile', 'whats-new', 'platform'])
+    expect(keys({ canViewOrganization: true })).toEqual(['profile', 'organization', 'whats-new'])
+    expect(keys({ canManageOrganization: true })).toEqual(['profile', 'organization', 'whats-new'])
+    expect(keys({ canManagePlatform: true })).toEqual(['profile', 'platform', 'whats-new'])
   })
 })

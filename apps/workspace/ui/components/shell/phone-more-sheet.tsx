@@ -62,12 +62,15 @@ export interface PhoneMoreSheetProps extends MoreFlags {
   authRequired: boolean
   /** The route to mark current; the product omits it and the sheet reads the URL. */
   pathname?: string
+  /** Heads the organisation's places, as it heads them in the rail; „Organisation" without it. */
+  organizationName?: string | null
 }
 
 export function PhoneMoreSheet({
   projectId,
   authRequired,
   pathname: pinnedPathname,
+  organizationName = null,
   ...flags
 }: PhoneMoreSheetProps): JSX.Element {
   const t = useTranslations(navCopy)
@@ -87,7 +90,7 @@ export function PhoneMoreSheet({
   const feedbackUpdatedCount = useFeedbackUpdatedCount()
   const feedbackAvailable = useFeedbackAvailable()
 
-  // A navigation closes the sheet, as it does the drawer.
+  // A navigation closes the sheet, as it does the project sheet.
   React.useEffect(() => {
     setOpen(false)
   }, [pathname, setOpen])
@@ -97,7 +100,8 @@ export function PhoneMoreSheet({
     destination.label.namespace === 'collaboration'
       ? tCollaboration(destination.label.key)
       : t(destination.label.key)
-  const places = destinations.filter((destination) => destination.group === 'places')
+  const projectPlaces = destinations.filter((destination) => destination.group === 'project')
+  const orgPlaces = destinations.filter((destination) => destination.group === 'organization')
   const account = destinations.filter((destination) => destination.group === 'account')
   const act = (run: () => void) => (): void => {
     setOpen(false)
@@ -121,18 +125,25 @@ export function PhoneMoreSheet({
           <SheetDescription className="sr-only">{t('tabBar.moreSheet.description')}</SheetDescription>
         </SheetHeader>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2">
-          {places.length > 0 && (
-            <Group label={t('tabBar.moreSheet.places')}>
-              {places.map((destination) => (
-                <DestinationRow
-                  key={destination.key}
-                  destination={destination}
-                  label={label(destination)}
-                  current={isCurrentDestination(destination, pathname)}
-                  onNavigate={() => setOpen(false)}
-                />
-              ))}
-            </Group>
+          {/* The project's places, then the organisation's under its name,
+              as the rail groups them. */}
+          {[
+            { key: 'project', label: t('tabBar.moreSheet.project'), list: projectPlaces },
+            { key: 'organization', label: organizationName ?? t('sectionGroups.org'), list: orgPlaces },
+          ].map(({ key, label: groupLabel, list }) =>
+            list.length > 0 ? (
+              <Group key={key} label={groupLabel}>
+                {list.map((destination) => (
+                  <DestinationRow
+                    key={destination.key}
+                    destination={destination}
+                    label={label(destination)}
+                    current={isCurrentDestination(destination, pathname)}
+                    onNavigate={() => setOpen(false)}
+                  />
+                ))}
+              </Group>
+            ) : null
           )}
           <Group label={t('tabBar.moreSheet.account')}>
             {account.map((destination) => (

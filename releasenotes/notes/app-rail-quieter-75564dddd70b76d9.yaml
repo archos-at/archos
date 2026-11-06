@@ -10,8 +10,23 @@ improvements:
     switcher, rather than at the foot of the sidebar among the organisation's
     Büroablage, Suche and Postfach.
   - >
-    The collapsed sidebar shows which project you are in and lets you switch
-    from it.
+    The collapsed sidebar lets you switch projects from it.
   - >
     The connection state appears only while the connection is being restored
     or is gone; the green „Verbunden“ is no longer shown all the time.
+  - >
+    Büroablage, Suche and Postfach now stand under the project's sections at
+    the top of the sidebar, headed by the name of your office, as they stand
+    at the top of the page above a project.
+  - >
+    The project switcher in the sidebar has the search and the order of the
+    one on a phone: the projects you opened last, then the rest. Each project
+    shows its initials, so the collapsed sidebar says which project you are in.
+  - >
+    The counts beside Postfach are quiet grey pills, as the count beside the
+    E-Mail-Eingang in Dateien.
+fixes:
+  - >
+    The connection state reads „Verbindung unterbrochen“ or „Keine
+    Verbindung“, in German, and in the collapsed sidebar it is a symbol, not
+    a coloured dot alone.

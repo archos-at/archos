@@ -36,9 +36,14 @@ const RAIL_FILES = [
 const RULES_ALLOWED: Record<string, { pattern: RegExp; reason: string }[]> = {
   // Paper bar on paper page above a project: the rule is the only edge between the scrolling
   // page and the fixed bar. Inside a project the bar is grey and draws none.
-  'ui/components/shell/phone-tab-bar.tsx': [{ pattern: /'border-border bg-background border-t'/, reason: 'paper on paper' }],
-  // In dark the band and the plane are 1.03:1, no edge at all: the rule draws the one the step cannot.
-  'ui/components/ui/sidebar.tsx': [{ pattern: /dark:border-r/, reason: 'dark: band and plane are 1.03:1' }],
+  'ui/components/shell/phone-tab-bar.tsx': [
+    { pattern: /'border-border bg-background border-t'/, reason: 'paper on paper' },
+    { pattern: /dark:border-t\b/, reason: 'dark: band and plane are 1.03:1' },
+  ],
+  // In dark the band and the plane are 1.03:1, no edge at all: the rule draws the one the step
+  // cannot, along the rail and under the phone's project band.
+  'ui/components/ui/sidebar.tsx': [{ pattern: /dark:border-r\b/, reason: 'dark: band and plane are 1.03:1' }],
+  'ui/components/shell/app-sidebar.tsx': [{ pattern: /dark:border-b\b/, reason: 'dark: band and plane are 1.03:1' }],
 }
 
 function withoutComments(text: string): string {

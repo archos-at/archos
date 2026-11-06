@@ -3,7 +3,8 @@ import { act, render, screen, within } from '@/test-utils'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { ProjectSwitcherSheet, switcherSheetSections } from './project-switcher-sheet'
+import { ProjectSwitcherSheet } from './project-switcher-sheet'
+import { switcherSections as switcherSheetSections } from './project-list'
 import { RECENT_PROJECTS_STORAGE_KEY, withRecentProject } from './recent-projects'
 import { useShellOverlays } from './shell-overlays'
 
@@ -104,7 +105,9 @@ describe('ProjectSwitcherSheet', () => {
     const sheet = await open()
     const recent = within(sheet).getByRole('region', { name: 'Recently opened' })
     const rows = within(recent).getAllByRole('button')
-    expect(rows.map((row) => row.textContent)).toEqual(['Bürohaus Lände', 'Amtshaus Favoriten'])
+    // Each row leads with the project's mark (its initials, hidden from the
+    // accessibility tree), then its name.
+    expect(rows.map((row) => row.textContent)).toEqual(['BLBürohaus Lände', 'AFAmtshaus Favoriten'])
     expect(rows[1]).toHaveAttribute('aria-current', 'true')
     for (const row of rows) expect(row.className).toContain('min-h-14')
     expect(within(sheet).getByRole('link', { name: 'View all projects' })).toHaveAttribute(

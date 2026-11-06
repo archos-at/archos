@@ -4,24 +4,25 @@
  * The GRID application sidebar — the product's primary navigation surface, and
  * since the app-shell change the ONE persistent piece of chrome in `/app`.
  *
- * Composes the shadcn Sidebar primitive (Sheet on mobile, icon-collapse on
- * desktop) rather than owning a drawer, a rail, and collapse itself. IA: the
- * wordmark → the project switcher, which heads the project's sections
- * (Übersicht among them) → the organisation's doorways at the foot → the
- * person. The rail is the one grey; what sits on it is white, the active
+ * Composes the shadcn Sidebar primitive (icon-collapse, the resize edge)
+ * rather than owning a rail and collapse itself. IA: the wordmark → the
+ * project switcher, which heads the project's sections (Übersicht among them)
+ * → the organisation's doorways, headed by the organisation's name → the
+ * person at the foot. The rail is the one grey; what sits on it is white, the active
  * section included, and nothing on it is a box or a rule (design-language.md,
  * „The app rail“).
  *
  * PROJECT SCOPE ONLY. The rail earns its 236px by listing one project's
  * sections; above a project the org scope renders a slim header instead
  * (`OrgHeader`), and `AppShellChrome` decides which of the two stands. The
- * org-wide doorways (Archiv, Postfach) still appear here — as the `org` group
- * near the bottom — because they are reachable from inside a project, where
- * they open as sheets above it.
+ * org-wide doorways (Büroablage, Suche, Postfach) still appear here — as the
+ * `org` group under the project's — because they are reachable from inside a
+ * project, where they open as sheets above it. Both scopes keep them at the
+ * top: the org header's top right, the rail's top left.
  *
- * Mobile open state is owned by the layout store so the chat toolbar's
- * hamburger can open the same Sheet (`useLayoutStore.setMobileNavOpen`).
- * Collapse persistence lives in the primitive (`sidebar.collapsed`).
+ * Below `md` this renders the phone's top band only; the destinations are the
+ * tab bar's (`PhoneTabBar`) and „Mehr"'s. Collapse persistence lives in the
+ * primitive (`sidebar.collapsed`).
  */
 
 import * as React from 'react'
@@ -49,7 +50,6 @@ import { useTranslations } from '@/i18n'
 import { collaborationCopy } from '@/i18n/namespaces/collaboration'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { pruneProjectSections, useRecordProjectSection } from '@/hooks/use-last-project-section'
-import { useLayoutStore } from '@/features/layout/store'
 import { InboundMailWaitingBadge } from './inbound-mail-waiting-badge'
 import { useInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
@@ -57,7 +57,7 @@ import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
 import { ProjectPill } from './project-pill'
-import { SidebarBrand } from './sidebar-brand'
+import { RailFoldButton, SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
 import { SidebarUserMenu, type SidebarUser } from './sidebar-user-menu'
 import {
@@ -243,7 +243,7 @@ function AppSidebarFrame({
   const groups: RailGroupModel[] = railGroups({ showSkills, showModels, canAccessOfficeShelf, canAccessInbox }).map(
     (group) => ({
       key: group.group,
-      label: t(`sectionGroups.${group.group}`),
+      label: group.group === 'org' && organizationName ? organizationName : t(`sectionGroups.${group.group}`),
       items: group.items.map((item) => ({
         key: item.key,
         href: sectionLinkHref(item, base),
@@ -261,7 +261,9 @@ function AppSidebarFrame({
   // last among them: it is the project's, and at the foot under „Organisation“
   // proximity read it as the organisation's. The switcher is the group's
   // heading, so the group carries no label of its own. The organisation's
-  // doorways (Archiv, Suche, Postfach) stand at the foot, labelled.
+  // doorways (Büroablage, Suche, Postfach) follow, headed by the organisation's
+  // name as the project's are by the project's: a label „Organisation“ there
+  // was the same word as the user menu's organisation settings.
   const orgGroup = groups.find((g) => g.key === 'org')
   const settingsHref = sectionHref(PROJECT_SETTINGS_SECTION, base)
   const projectItems: RailItemModel[] = [
@@ -300,12 +302,10 @@ function AppSidebarFrame({
 
   return (
     <>
-      <MobileNavSync pathname={pathname} />
-
       {/* The phone's top band. Hidden on chat, whose toolbar is its own top
           band. The project's name is the door to the switcher sheet; the
           destinations live in the tab bar at the bottom (`PhoneTabBar`), and
-          "Mehr" there opens this rail as a drawer. */}
+          „Mehr" there lists the rest. */}
       <header
         data-scope="project"
         data-surface="sunken"
@@ -315,7 +315,9 @@ function AppSidebarFrame({
           // the screen actually starts. `min-h-14` rather than `h-14`, because the
           // inset has to be able to make the bar taller instead of eating its
           // contents. No rule under it: the band is the one grey, the page white.
-          'bg-surface-sunken w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] md:hidden',
+          // In dark the band and the plane are 1.03:1, so there the rule draws
+          // the edge the step cannot, as along the rail.
+          'bg-surface-sunken dark:border-border w-full shrink-0 flex-col pt-[env(safe-area-inset-top)] dark:border-b md:hidden',
           isChatRoute ? 'hidden' : 'flex'
         )}
       >
@@ -392,23 +394,29 @@ function AppSidebarFrame({
           <nav aria-label={t('projectSections')}>
             <SidebarMenu className="gap-0.5">{projectItems.map(railItem)}</SidebarMenu>
           </nav>
-        </SidebarContent>
 
-        {/* The organisation's doorways, pinned to the foot so the project's
-            list stays its own and the scope change has a place. Separated by
-            the space above them and their label, not by a rule. */}
-        {orgGroup && (
-          <nav aria-label={orgGroup.label} className={cn('shrink-0 pt-4', column)}>
-            <SidebarGroup className="p-0">
-              {/* `px-3`: the label starts on the icons' edge (24px), as the
-                  wordmark does; the primitive's 8px put it 4px left of both. */}
-              {!iconRail && <SidebarGroupLabel className="px-3">{orgGroup.label}</SidebarGroupLabel>}
-              <SidebarGroupContent>
-                <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </nav>
-        )}
+          {/* The organisation's doorways, under the project's sections and
+              set off by 24px and their heading, not by a rule. At the top, as
+              the org header keeps them, not at the foot: there they swapped
+              corners when the reader stepped into a project, and left 440px
+              of empty band between the two groups. */}
+          {orgGroup && (
+            <nav aria-label={orgGroup.label} className={iconRail ? 'mt-4' : 'mt-6'}>
+              <SidebarGroup className="p-0">
+                {/* `px-3`: the heading starts on the icons' edge (24px), as the
+                    wordmark does; the primitive's 8px put it 4px left of both. */}
+                {!iconRail && (
+                  <SidebarGroupLabel className="px-3" title={orgGroup.label}>
+                    <span className="truncate">{orgGroup.label}</span>
+                  </SidebarGroupLabel>
+                )}
+                <SidebarGroupContent>
+                  <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            </nav>
+          )}
+        </SidebarContent>
 
         <SidebarFooter
           className={cn(
@@ -421,9 +429,13 @@ function AppSidebarFrame({
         >
           {/* The connection says something only when it is not fine: a row
               above the person while it reconnects or is gone, nothing (to the
-              eye) while all is well. A phone shows it in its top band instead,
-              which is in view while this drawer is closed. */}
-          {!isMobile && <ConnectionBand appearance="rail" compact={iconRail} />}
+              eye) while all is well. Nothing above it moves when it appears:
+              the space it takes is the band's empty middle. */}
+          <ConnectionBand appearance="rail" compact={iconRail} />
+          {/* The icon rail's way back out stands here, over the person: in the
+              head, between the mark and the project tile, it read as the first
+              destination. Expanded, it is the head's („«", `SidebarBrand`). */}
+          {iconRail && <RailFoldButton className="mb-2" />}
           <SidebarUserMenu
             user={user}
             organizationName={organizationName}
@@ -446,42 +458,6 @@ function AppSidebarFrame({
       </Sidebar>
     </>
   )
-}
-
-/**
- * Two-way bind the layout store (chat toolbar hamburger) to the primitive's
- * mobile Sheet. Store changes open/close the Sheet; Sheet dismissals (scrim,
- * Escape, the primitive's close) write back so the store never lies.
- */
-function MobileNavSync({ pathname }: { pathname: string }) {
-  const storeOpen = useLayoutStore((s) => s.isMobileNavOpen)
-  const setStoreOpen = useLayoutStore((s) => s.setMobileNavOpen)
-  const { openMobile, setOpenMobile } = useSidebar()
-  const prev = React.useRef<{ storeOpen: boolean; openMobile: boolean } | null>(null)
-
-  React.useEffect(() => {
-    setStoreOpen(false)
-  }, [pathname, setStoreOpen])
-
-  React.useEffect(() => {
-    const previous = prev.current
-    if (previous === null) {
-      prev.current = { storeOpen, openMobile }
-      if (storeOpen !== openMobile) setOpenMobile(storeOpen)
-      return
-    }
-    const storeChanged = storeOpen !== previous.storeOpen
-    const mobileChanged = openMobile !== previous.openMobile
-    prev.current = { storeOpen, openMobile }
-
-    if (storeChanged && storeOpen !== openMobile) {
-      setOpenMobile(storeOpen)
-    } else if (mobileChanged && openMobile !== storeOpen) {
-      setStoreOpen(openMobile)
-    }
-  }, [storeOpen, openMobile, setOpenMobile, setStoreOpen])
-
-  return null
 }
 
 function RailNavItem({
@@ -527,7 +503,14 @@ function RailNavItem({
           // never a spring's.
           active
             ? 'text-foreground hover:bg-transparent hover:text-foreground data-[active=true]:bg-transparent data-[active=true]:text-foreground font-medium data-[active=true]:font-medium'
-            : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+            : door?.open
+              ? // The Postfach docked open beside the page: an open thing is a
+                // fill, white on the band as the selected section is; the
+                // section's own pill stays where the page is.
+                'bg-on-sunken text-foreground hover:bg-on-sunken hover:text-foreground'
+              : // Hover is the ink, not a fill: a darker grey under the pointer
+                // and white under the selection pulled two ways on one band.
+                'text-muted-foreground hover:bg-transparent hover:text-foreground'
         )}
       >
         <Link href={href} aria-current={active ? 'page' : undefined} aria-expanded={door?.open} data-dock-door={door?.panel} data-tour={tourAnchor} onClick={door?.onClick}>
@@ -588,6 +571,7 @@ function RailNavItem({
           </span>
           <InboxBadge
             pending={badgeCount}
+            tone="muted"
             className="relative ml-auto group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:-right-1 group-data-[collapsible=icon]:-top-1 group-data-[collapsible=icon]:ml-0"
           />
           {badgeCount <= 0 && (

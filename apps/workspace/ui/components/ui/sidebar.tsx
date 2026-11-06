@@ -9,21 +9,10 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { X } from 'lucide-react'
 
 import { useIsMobile } from '@/hooks/use-is-mobile'
-import { useTranslations } from '@/i18n'
-import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
@@ -65,8 +54,6 @@ type SidebarContextValue = {
   state: 'expanded' | 'collapsed'
   open: boolean
   setOpen: (open: boolean | ((value: boolean) => boolean)) => void
-  openMobile: boolean
-  setOpenMobile: React.Dispatch<React.SetStateAction<boolean>>
   isMobile: boolean
   toggleSidebar: () => void
   /** Current expanded width in px (the collapsed rail is `--sidebar-width-icon`). */
@@ -139,7 +126,6 @@ function SidebarProvider({
   onOpenChange?: (open: boolean) => void
 }): React.JSX.Element {
   const isMobile = useIsMobile()
-  const [openMobile, setOpenMobile] = React.useState(false)
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const [width, _setWidth] = React.useState(SIDEBAR_WIDTH)
@@ -182,8 +168,8 @@ function SidebarProvider({
   )
 
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((current) => !current) : setOpen((current) => !current)
-  }, [isMobile, setOpen])
+    setOpen((current) => !current)
+  }, [setOpen])
 
   const state = open ? 'expanded' : 'collapsed'
 
@@ -193,13 +179,11 @@ function SidebarProvider({
       open,
       setOpen,
       isMobile,
-      openMobile,
-      setOpenMobile,
       toggleSidebar,
       width,
       setWidth,
     }),
-    [state, open, setOpen, isMobile, openMobile, toggleSidebar, width, setWidth],
+    [state, open, setOpen, isMobile, toggleSidebar, width, setWidth],
   )
 
   // `--sidebar-current-width` used to be published here, and on `:root` as
@@ -238,16 +222,12 @@ function Sidebar({
   collapsible = 'offcanvas',
   className,
   children,
-  closeLabel,
   ...props
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right'
   collapsible?: 'offcanvas' | 'icon' | 'none'
-  /** The phone drawer's close button. Defaults to the shell's own „Navigation schließen". */
-  closeLabel?: string
-}): React.JSX.Element {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
-  const tNav = useTranslations(navCopy)
+}): React.JSX.Element | null {
+  const { isMobile, state } = useSidebar()
 
   if (collapsible === 'none') {
     return (
@@ -261,54 +241,10 @@ function Sidebar({
     )
   }
 
-  if (isMobile) {
-    return (
-      <Sheet open={openMobile} onOpenChange={setOpenMobile}>
-        <SheetContent
-          data-sidebar="sidebar"
-          data-slot="sidebar"
-          data-mobile="true"
-          data-surface="sunken"
-          className={cn(
-            // `p-0` takes over the sheet's padding, and with it the sheet's
-            // safe areas: the drawer's header and footer pad the top and the
-            // bottom themselves (`app-sidebar.tsx`), and the left edge is this
-            // one, where a phone on its side puts the Dynamic Island. The panel
-            // widens by the inset so the rail inside keeps its 18rem.
-            'w-[calc(18rem+env(safe-area-inset-left))] bg-sidebar p-0 pl-[env(safe-area-inset-left)] text-sidebar-foreground [&>button]:hidden sm:max-w-[calc(18rem+env(safe-area-inset-left))]',
-            className,
-          )}
-          side={side}
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Sidebar</SheetTitle>
-            <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-          </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
-          {/* The drawer's visible way out (every overlay has one on a phone;
-              the scrim and the swipe are shortcuts nobody is told about). Its
-              own, not the sheet's: that one is a 32px glyph pinned to the
-              sheet's padding, which this drawer replaces. 44px, beside the
-              brand line at the top (`app-sidebar.tsx` pads the header to
-              `max(18px, the status bar)`; the brand's line is 28px, so the
-              button's centre is the line's centre). Not a direct child, so the
-              `[&>button]:hidden` above leaves it alone. */}
-          <div className="absolute right-2 top-[calc(max(18px,env(safe-area-inset-top))-8px)] z-10">
-            <SheetClose
-              data-slot="sidebar-close"
-              className={cn(
-                'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground duration-quick inline-flex size-11 items-center justify-center rounded-control outline-none transition-colors ease-out motion-reduce:transition-none',
-                FOCUS_RING
-              )}
-            >
-              <X className="size-5" aria-hidden />
-              <span className="sr-only">{closeLabel ?? tNav('closeNavigation')}</span>
-            </SheetClose>
-          </div>
-        </SheetContent>
-      </Sheet>
-    )
-  }
+  // No phone drawer: below `md` the shell's phone chrome is the top band and
+  // the tab bar, with „Mehr“ for the rest (`phone-tab-bar.tsx`). The drawer
+  // this branch drew had no door left in the product, so it went (2026-11-06).
+  if (isMobile) return null
 
   return (
     <div
@@ -720,7 +656,7 @@ const sidebarMenuButtonVariants = cva(
   // hover fill) was snapping while its geometry was easing. Both are now the
   // right way round: the tile resizes in one pass with the rail, and `colors`
   // carries the hover.
-  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-on-sunken data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm outline-none focus-visible:ring-ring/60 focus-visible:ring-inset transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-on-sunken data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
   {
     variants: {
       variant: {

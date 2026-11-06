@@ -39,9 +39,8 @@
  *
  * Below `md` the same page is the PHONE shell: the rail's top band (project
  * pill, search), a content stand-in, and the bottom tab bar, lit for Dateien.
- * Two more states for the phone, via `?open=`:
- *   - `drawer`   — "Mehr" pressed: the rail as a drawer over the page.
- *   - `switcher` — the project pill pressed: the switcher sheet.
+ * One more state for the phone, via `?open=switcher`: the project pill
+ * pressed, the switcher sheet. („Mehr" has its own preview, `/dev/phone-more`.)
  */
 
 import type { JSX } from 'react'
@@ -52,7 +51,6 @@ import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { ProjectSwitcherSheet } from '@/components/shell/project-switcher-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
-import { useLayoutStore } from '@/features/layout/store'
 import { installConnectionHealthFake } from '../_fixtures/connection-health'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
 
@@ -117,17 +115,15 @@ export default function AppRailPreview(): JSX.Element {
   const variant = params?.get('variant') ?? 'default'
   const open = params?.get('open')
   const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
-  const setDrawerOpen = useLayoutStore((s) => s.setMobileNavOpen)
   const setSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
 
-  // After the rail's own route-change reset (it closes the drawer on mount).
+  // After the first paint, so the sheet opens as it does on a press.
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      if (open === 'drawer') setDrawerOpen(true)
       if (open === 'switcher') setSheetOpen(true)
     }, 150)
     return () => window.clearTimeout(timer)
-  }, [open, setDrawerOpen, setSheetOpen])
+  }, [open, setSheetOpen])
 
   return (
     <div
@@ -137,7 +133,7 @@ export default function AppRailPreview(): JSX.Element {
     >
       {/* `contents` keeps the rail a direct flex child of the shell row, the
           way the shell hosts it: the desktop rail at `md`, the phone's top band
-          and drawer below. */}
+          below. */}
       <div className="contents">
         <AppSidebar
           projectId="p-1"

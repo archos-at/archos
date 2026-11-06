@@ -36,6 +36,7 @@ export default function PhoneMoreDevPage(): JSX.Element {
       <PhoneMoreSheet
         projectId={projectId}
         pathname={pathname}
+        organizationName="Musterarchitektur ZT GmbH"
         authRequired
         canAccessOfficeShelf
         canAccessInbox
