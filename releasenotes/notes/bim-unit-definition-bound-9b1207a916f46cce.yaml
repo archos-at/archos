@@ -1,0 +1,7 @@
+---
+# area: bim
+security:
+  - >
+    A building model whose length unit cannot be followed to its end is now refused
+    when it is opened. Such a file used to block every model opened after it in
+    the same process.
