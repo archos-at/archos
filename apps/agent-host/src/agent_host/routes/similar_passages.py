@@ -100,9 +100,17 @@ def _query(request: SimilarPassagesRequest, collections: list[str]) -> dict[str,
     }
 
 
-def _search(request: SimilarPassagesRequest, collections: list[str]) -> Any:
-    """Run the query on a worker thread's terms: the store and the embedder both block."""
+def _office(office: str | None, scopes: list[str]) -> str | None:
+    """The office this search reads as: the request's, else what the scopes name (``office_for``)."""
     from knowledge_layer.search import office_for
+    from knowledge_layer.search import reading_as
+
+    with reading_as(office):
+        return office_for(scopes)
+
+
+def _search(request: SimilarPassagesRequest, collections: list[str], office: str | None) -> Any:
+    """Run the query on a worker thread's terms, as ``office`` reads: the store and the embedder both block."""
     from knowledge_layer.vector_store import PassageSource
     from knowledge_layer.vector_store import find_similar
     from knowledge_layer.vector_store import get_store
@@ -122,7 +130,7 @@ def _search(request: SimilarPassagesRequest, collections: list[str]) -> Any:
     return find_similar(
         get_store(retriever.embedding_identity()),
         collections,
-        office_id=office_for([*collections, source.scope]),
+        office_id=_office(office, [*collections, source.scope]),
         source=source,
         embed=retriever.embed_query,
         documents=request.documents,
@@ -152,15 +160,12 @@ def add_similar_passages_routes(router: APIRouter):
         place to search for the office's experience), 409 where this backend
         embeds no queries, 503 when the store cannot answer.
         """
-        from knowledge_layer.search import reading_as
-
         collections = list(dict.fromkeys(request.collections))
         for collection in [request.source.collection, *collections]:
             _authorize_collection(http_request, collection)
         with observed_retrieval(TRACE_FEATURE, step=TRACE_STEP, query=_query(request, collections)) as trace:
             try:
-                with reading_as(request_office(http_request)):
-                    result = await asyncio.to_thread(_search, request, collections)
+                result = await asyncio.to_thread(_search, request, collections, request_office(http_request))
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=str(e)) from e
             except LookupError as e:

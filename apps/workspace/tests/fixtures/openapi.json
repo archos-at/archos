@@ -20937,7 +20937,7 @@
       "post": {
         "operationId": "base-knowledge-confirm",
         "summary": "Confirm a proposed base-knowledge entry",
-        "description": "Confirms a proposed entry, with any corrections: ARCHOS answers from it for this office from then on, and it counts as the first check. A licensed copy needs `licenceAttested`. Needs org:office_shelf:manage.",
+        "description": "Confirms a proposed entry, with any corrections: answers in this office draw on it from then on, and it counts as the first check. A licensed copy needs `licenceAttested`. Needs org:office_shelf:manage.",
         "tags": [
           "knowledge"
         ],
@@ -21397,7 +21397,7 @@
       "get": {
         "operationId": "base-knowledge-list",
         "summary": "List the office’s base knowledge: its standards, commentaries and directives",
-        "description": "An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue). Only confirmed entries reach ARCHOS’s answers. Any member may read.",
+        "description": "An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, a directive’s authorities, licence), `status` (proposed until a person confirms) and `freshness` (last check, overdue). Only confirmed entries reach answers. Any member may read.",
         "tags": [
           "knowledge"
         ],

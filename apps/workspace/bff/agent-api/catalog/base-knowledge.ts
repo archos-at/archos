@@ -19,7 +19,6 @@ import {
   updateEntryBodySchema,
 } from '@/lib/base-knowledge/wire'
 import type { AgentOperation } from '../operation'
-import { PRODUCT_NAME } from '@/lib/brand'
 
 const ENTRY =
   'An entry is one office shelf document read as base knowledge: its `values` (kind, designation, edition, territories, ' +
@@ -31,7 +30,7 @@ export const baseKnowledgeOperations = [
     domain: 'knowledge',
     summary: 'List the office’s base knowledge: its standards, commentaries and directives',
     description:
-      ENTRY + ' Only confirmed entries reach ' + PRODUCT_NAME + '’s answers. Any member may read.',
+      ENTRY + ' Only confirmed entries reach answers. Any member may read.',
     method: 'GET',
     path: '/api/base-knowledge',
     query: listEntriesQuerySchema,
@@ -65,7 +64,7 @@ export const baseKnowledgeOperations = [
     domain: 'knowledge',
     summary: 'Confirm a proposed base-knowledge entry',
     description:
-      'Confirms a proposed entry, with any corrections: ' + PRODUCT_NAME + ' answers from it for this office from then on, and ' +
+      'Confirms a proposed entry, with any corrections: answers in this office draw on it from then on, and ' +
       'it counts as the first check. A licensed copy needs `licenceAttested`. Needs org:office_shelf:manage.',
     method: 'POST',
     path: '/api/base-knowledge/[entryId]/confirm',
