@@ -9,16 +9,13 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { PanelLeft, X } from 'lucide-react'
+import { X } from 'lucide-react'
 
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { FOCUS_RING } from '@/components/ui/focus-ring'
-import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetClose,
@@ -27,7 +24,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
@@ -228,7 +224,7 @@ function SidebarProvider({
       <div
         data-slot="sidebar-wrapper"
         style={wrapperStyle}
-        className={cn('group/sidebar-wrapper flex min-h-0 w-full has-data-[variant=inset]:bg-sidebar', className)}
+        className={cn('group/sidebar-wrapper flex min-h-0 w-full', className)}
         {...props}
       >
         {children}
@@ -239,7 +235,6 @@ function SidebarProvider({
 
 function Sidebar({
   side = 'left',
-  variant = 'sidebar',
   collapsible = 'offcanvas',
   className,
   children,
@@ -247,7 +242,6 @@ function Sidebar({
   ...props
 }: React.ComponentProps<'div'> & {
   side?: 'left' | 'right'
-  variant?: 'sidebar' | 'floating' | 'inset'
   collapsible?: 'offcanvas' | 'icon' | 'none'
   /** The phone drawer's close button. Defaults to the shell's own „Navigation schließen". */
   closeLabel?: string
@@ -274,6 +268,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
+          data-surface="sunken"
           className={cn(
             // `p-0` takes over the sheet's padding, and with it the sheet's
             // safe areas: the drawer's header and footer pad the top and the
@@ -320,7 +315,6 @@ function Sidebar({
       className="group peer hidden text-sidebar-foreground md:block"
       data-state={state}
       data-collapsible={state === 'collapsed' ? collapsible : ''}
-      data-variant={variant}
       data-side={side}
       data-slot="sidebar"
     >
@@ -344,9 +338,7 @@ function Sidebar({
           'relative w-(--sidebar-width) bg-transparent',
           'group-data-[collapsible=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
-          variant === 'floating' || variant === 'inset'
-            ? 'group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
-            : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
+          'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
         )}
       />
       <div
@@ -374,9 +366,12 @@ function Sidebar({
           side === 'left'
             ? 'left-0 group-data-[collapsible=offcanvas]:-translate-x-full'
             : 'right-0 group-data-[collapsible=offcanvas]:translate-x-full',
-          variant === 'floating' || variant === 'inset'
-            ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
-            : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l',
+          // No rule along the page's edge in light: the rail is the one grey and the page is
+            // white, and that step is the edge (design-language.md, „The app rail“). In dark the
+            // band (#0a0908) is 1.03:1 against the plane (#0f0e0d), no edge at all, so there the
+            // rule carries the function the step cannot. The resize handle draws its own line
+            // while it is held or hovered.
+          'dark:border-border group-data-[collapsible=icon]:w-(--sidebar-width-icon) dark:border-r',
           className,
         )}
         {...props}
@@ -384,38 +379,15 @@ function Sidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-surface group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm"
+          // A grey band: what sits on it is white (`bg-on-sunken`), and the tonal secondary
+          // press reads this to turn white (`button.tsx`).
+          data-surface="sunken"
+          className="flex h-full w-full flex-col bg-sidebar"
         >
           {children}
         </div>
       </div>
     </div>
-  )
-}
-
-function SidebarTrigger({
-  className,
-  onClick,
-  ...props
-}: React.ComponentProps<typeof Button>): React.JSX.Element {
-  const { toggleSidebar } = useSidebar()
-
-  return (
-    <Button
-      data-sidebar="trigger"
-      data-slot="sidebar-trigger"
-      variant="ghost"
-      size="icon"
-      className={cn('size-7', className)}
-      onClick={(event) => {
-        onClick?.(event)
-        toggleSidebar()
-      }}
-      {...props}
-    >
-      <PanelLeft />
-      <span className="sr-only">Toggle Sidebar</span>
-    </Button>
   )
 }
 
@@ -645,31 +617,6 @@ function SidebarRail({
   )
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<'main'>): React.JSX.Element {
-  return (
-    <main
-      data-slot="sidebar-inset"
-      className={cn(
-        'relative flex w-full flex-1 flex-col bg-background',
-        'md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-surface md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function SidebarInput({ className, ...props }: React.ComponentProps<typeof Input>): React.JSX.Element {
-  return (
-    <Input
-      data-slot="sidebar-input"
-      data-sidebar="input"
-      className={cn('h-8 w-full bg-background shadow-none focus-visible:ring-2 focus-visible:ring-sidebar-ring', className)}
-      {...props}
-    />
-  )
-}
-
 function SidebarHeader({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div data-slot="sidebar-header" data-sidebar="header" className={cn('flex flex-col gap-2 p-2', className)} {...props} />
@@ -679,17 +626,6 @@ function SidebarHeader({ className, ...props }: React.ComponentProps<'div'>): Re
 function SidebarFooter({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
   return (
     <div data-slot="sidebar-footer" data-sidebar="footer" className={cn('flex flex-col gap-2 p-2', className)} {...props} />
-  )
-}
-
-function SidebarSeparator({ className, ...props }: React.ComponentProps<typeof Separator>): React.JSX.Element {
-  return (
-    <Separator
-      data-slot="sidebar-separator"
-      data-sidebar="separator"
-      className={cn('mx-2 w-auto bg-sidebar-border', className)}
-      {...props}
-    />
   )
 }
 
@@ -735,30 +671,8 @@ function SidebarGroupLabel({
         // layout — the label used to drag every row below it up over 200ms.
         // Same split as the rail: the size change lands in one pass, and only
         // the compositable half is timed.
-        'flex h-8 shrink-0 items-center rounded-control px-2 text-xs font-medium text-sidebar-foreground/70 outline-none ring-sidebar-ring transition-opacity duration-quick ease-out motion-reduce:transition-none focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
+        'flex h-8 shrink-0 items-center rounded-control px-2 text-xs font-medium text-muted-foreground outline-none ring-sidebar-ring transition-opacity duration-quick ease-out motion-reduce:transition-none focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
         'group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function SidebarGroupAction({
-  className,
-  asChild = false,
-  ...props
-}: React.ComponentProps<'button'> & { asChild?: boolean }): React.JSX.Element {
-  const Comp = asChild ? Slot : 'button'
-
-  return (
-    <Comp
-      data-slot="sidebar-group-action"
-      data-sidebar="group-action"
-      className={cn(
-        'absolute top-3.5 right-3 flex aspect-square w-5 items-center justify-center rounded-control p-0 text-sidebar-foreground outline-none ring-sidebar-ring transition-transform hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
-        'after:absolute after:-inset-2 pointer-fine:after:hidden',
-        'group-data-[collapsible=icon]:hidden',
         className,
       )}
       {...props}
@@ -806,13 +720,11 @@ const sidebarMenuButtonVariants = cva(
   // hover fill) was snapping while its geometry was easing. Both are now the
   // right way round: the tile resizes in one pass with the rail, and `colors`
   // carries the hover.
-  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors duration-quick ease-out group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-control p-2 text-left text-sm outline-none ring-sidebar-ring transition-colors duration-quick ease-out group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-on-sunken data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
   {
     variants: {
       variant: {
         default: 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-        outline:
-          'bg-background shadow-[0_0_0_1px_var(--color-sidebar-border)] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_var(--color-sidebar-accent)]',
       },
       size: {
         default: 'h-8 text-sm',
@@ -868,166 +780,18 @@ function SidebarMenuButton({
   )
 }
 
-function SidebarMenuAction({
-  className,
-  asChild = false,
-  showOnHover = false,
-  ...props
-}: React.ComponentProps<'button'> & {
-  asChild?: boolean
-  showOnHover?: boolean
-}): React.JSX.Element {
-  const Comp = asChild ? Slot : 'button'
-
-  return (
-    <Comp
-      data-slot="sidebar-menu-action"
-      data-sidebar="menu-action"
-      className={cn(
-        'absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-control p-0 text-sidebar-foreground outline-none ring-sidebar-ring transition-transform peer-hover/menu-button:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
-        'after:absolute after:-inset-2 pointer-fine:after:hidden',
-        'peer-data-[size=sm]/menu-button:top-1',
-        'peer-data-[size=default]/menu-button:top-1.5',
-        'peer-data-[size=lg]/menu-button:top-2.5',
-        'group-data-[collapsible=icon]:hidden',
-        showOnHover &&
-          // Hidden at rest only where a hover can reveal it: a touch tablet is
-          // past `md` and has none.
-          'group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-[active=true]/menu-button:text-sidebar-accent-foreground data-[state=open]:opacity-100 md:opacity-0 pointer-coarse:opacity-100',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function SidebarMenuBadge({ className, ...props }: React.ComponentProps<'div'>): React.JSX.Element {
-  return (
-    <div
-      data-slot="sidebar-menu-badge"
-      data-sidebar="menu-badge"
-      className={cn(
-        'pointer-events-none absolute right-1 flex h-5 min-w-5 items-center justify-center rounded-control px-1 text-xs font-medium text-sidebar-foreground tabular-nums select-none',
-        'peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[active=true]/menu-button:text-sidebar-accent-foreground',
-        'peer-data-[size=sm]/menu-button:top-1',
-        'peer-data-[size=default]/menu-button:top-1.5',
-        'peer-data-[size=lg]/menu-button:top-2.5',
-        'group-data-[collapsible=icon]:hidden',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function SidebarMenuSkeleton({
-  className,
-  showIcon = false,
-  ...props
-}: React.ComponentProps<'div'> & {
-  showIcon?: boolean
-}): React.JSX.Element {
-  const width = React.useMemo(() => `${Math.floor(Math.random() * 40) + 50}%`, [])
-  const skeletonStyle: SidebarStyle = { '--skeleton-width': width }
-
-  return (
-    <div
-      data-slot="sidebar-menu-skeleton"
-      data-sidebar="menu-skeleton"
-      className={cn('flex h-8 items-center gap-2 rounded-control px-2', className)}
-      {...props}
-    >
-      {showIcon && <Skeleton className="size-4 rounded-control" data-sidebar="menu-skeleton-icon" />}
-      <Skeleton
-        className="h-4 max-w-(--skeleton-width) flex-1"
-        data-sidebar="menu-skeleton-text"
-        style={skeletonStyle}
-      />
-    </div>
-  )
-}
-
-function SidebarMenuSub({ className, ...props }: React.ComponentProps<'ul'>): React.JSX.Element {
-  return (
-    <ul
-      data-slot="sidebar-menu-sub"
-      data-sidebar="menu-sub"
-      className={cn(
-        'mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5',
-        'group-data-[collapsible=icon]:hidden',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function SidebarMenuSubItem({ className, ...props }: React.ComponentProps<'li'>): React.JSX.Element {
-  return (
-    <li
-      data-slot="sidebar-menu-sub-item"
-      data-sidebar="menu-sub-item"
-      className={cn('group/menu-sub-item relative', className)}
-      {...props}
-    />
-  )
-}
-
-function SidebarMenuSubButton({
-  asChild = false,
-  size = 'md',
-  isActive = false,
-  className,
-  ...props
-}: React.ComponentProps<'a'> & {
-  asChild?: boolean
-  size?: 'sm' | 'md'
-  isActive?: boolean
-}): React.JSX.Element {
-  const Comp = asChild ? Slot : 'a'
-
-  return (
-    <Comp
-      data-slot="sidebar-menu-sub-button"
-      data-sidebar="menu-sub-button"
-      data-size={size}
-      data-active={isActive}
-      className={cn(
-        'flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-control px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground',
-        'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground',
-        size === 'sm' && 'text-xs',
-        size === 'md' && 'text-sm',
-        'group-data-[collapsible=icon]:hidden',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 export {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarInput,
-  SidebarInset,
   SidebarMenu,
-  SidebarMenuAction,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
-  SidebarSeparator,
-  SidebarTrigger,
   useSidebar,
 }

@@ -143,15 +143,19 @@ export function SidebarUserMenu({
       <DropdownMenuTrigger
         className={cn(
           'flex items-center gap-2.5 text-left text-sm',
-          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent',
+          // The state fill on paper (the org header), the rail's on its grey band.
+          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-sidebar-accent',
+          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-sidebar-accent',
           'active:scale-[0.98] motion-reduce:transition-none',
           'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
           // Compact is an avatar alone, 30-32px. Under a finger the trigger
           // grows to 44px around the disc rather than lending it a catchment:
           // in the org header the search button stands right beside it.
+          // Expanded, the disc starts on the rail's left edge (24px), where the
+          // wordmark and the section icons start.
           compact
             ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
-            : 'w-full rounded-control py-1 pl-0 pr-2',
+            : 'w-full rounded-control py-1.5 pl-3 pr-2',
         )}
         aria-label={
           feedbackUpdatedCount > 0
@@ -165,17 +169,13 @@ export function SidebarUserMenu({
               count is on that row, one level down, and without a mark here
               nobody opens the menu to find it. */}
           <AttentionDot show={feedbackUpdatedCount > 0} className="absolute -top-0.5 -right-0.5 z-10" />
-          {/* The hairline is not decoration. `AvatarFallback` fills with
-              `bg-muted` (L 0.961), and the rail it sits on is
-              `--background-color-surface-sunken` (L 0.958) — a 0.3% lightness
-              step, so on this one surface the disc is invisible and the
-              monogram reads as loose text on the rail. An alpha-ink ring
-              composites on whatever surface the avatar lands on, which is
-              exactly what the border ramp is for, and it matches how
-              `AvatarStack` already separates overlapping discs. */}
-          <Avatar className={cn('ring-border ring-1', avatarSizeClass)}>
+          {/* The disc is the one grey on paper and white on the rail's grey
+              band (`bg-on-sunken`), where the grey fallback was invisible: a
+              0.3% lightness step. A hairline ring used to stand in for the
+              missing contrast; nothing grey on grey needs no line. */}
+          <Avatar className={avatarSizeClass}>
             {(authUser?.image ?? user?.image) && <AvatarImage src={authUser?.image ?? user?.image ?? undefined} alt="" />}
-            <AvatarFallback className="text-xs font-medium">{initial}</AvatarFallback>
+            <AvatarFallback className="in-data-[surface=sunken]:bg-on-sunken text-xs font-medium">{initial}</AvatarFallback>
           </Avatar>
         </span>
         {!compact && (
@@ -184,18 +184,19 @@ export function SidebarUserMenu({
                 name acts in — read top-down it says "in Musterarchitektur, you
                 are Anna Berger".
 
-                The eyebrow's 10.5px, in the org's own spelling and with no
-                tracking: an org name is long user data, and set in spaced
-                capitals it spread the full 236px, truncated at once and read
-                as a heading competing with the person. Quiet is the job.
+                The eyebrow is the 12px label, in the org's own spelling and
+                with no tracking: an org name is long user data, and set in
+                spaced capitals it spread the full 236px, truncated at once and
+                read as a heading competing with the person. Quiet is the job;
+                the person's name is the line in ink.
 
                 `truncate` on both lines: neither may push the other. */}
             {organizationName && (
-              <span className="text-muted-foreground truncate text-[10.5px] font-medium">
+              <span className="text-muted-foreground truncate text-xs font-medium">
                 {organizationName}
               </span>
             )}
-            <span className="text-muted-foreground truncate text-[12.5px] font-medium">
+            <span className="text-foreground truncate text-[13px] font-medium">
               {displayName}
             </span>
           </span>

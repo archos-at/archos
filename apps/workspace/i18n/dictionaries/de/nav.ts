@@ -36,7 +36,6 @@ export const nav: typeof en.nav = {
     setup: 'Einrichtung',
   },
   sectionGroups: {
-    work: 'Arbeit',
     org: 'Organisation',
   },
   sectionSubtitles: {

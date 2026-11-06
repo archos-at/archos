@@ -40,7 +40,6 @@ export const nav = {
     setup: 'Setup',
   },
   sectionGroups: {
-    work: 'Work',
     org: 'Organization',
   },
   sectionSubtitles: {

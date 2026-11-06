@@ -38,11 +38,12 @@ vi.mock('@/hooks/use-last-project-section', () => ({
 }))
 
 vi.mock('./project-switcher', () => ({ ProjectSwitcher: () => <div />, ProjectStatusDot: () => <span /> }))
-vi.mock('./connection-band', () => ({ ConnectionBand: () => <div data-testid="connection-band" /> }))
-vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div /> }))
-vi.mock('./connection-presence-indicator', () => ({
-  ConnectionPresenceIndicator: () => <div />,
+vi.mock('./connection-band', () => ({
+  ConnectionBand: ({ appearance = 'band' }: { appearance?: string }) => (
+    <div data-testid="connection-band" data-appearance={appearance} />
+  ),
 }))
+vi.mock('./sidebar-user-menu', () => ({ SidebarUserMenu: () => <div /> }))
 vi.mock('@/components/brand/logo', () => ({ Logo: () => <div /> }))
 
 // Only the hook is stood in for: the module's named queries stay real.
@@ -194,10 +195,20 @@ describe('AppSidebar - office shelf nav item (ADR-0024)', () => {
     const labels = Array.from(navs)
       .flatMap((nav) => Array.from(nav.querySelectorAll('a span[data-slot="rail-nav-label"]')))
       .map((el) => el.textContent)
-    // Chat · Files · Automation* · Archiv* · Suche · Inbox*,
+    // Chat · Files · Automation* · Overview, then Archiv* · Suche · Inbox*,
     // per `project-sections.ts`. Automation is absent here because `showSkills`
     // is off.
-    expect(labels).toEqual(['Chat', 'Files', 'Office filing', 'Search', 'Inbox'])
+    expect(labels).toEqual(['Chat', 'Files', 'Overview', 'Office filing', 'Search', 'Inbox'])
+  })
+})
+
+// The Übersicht (the project hub) stood at the foot under „Organisation“,
+// where proximity read it as the organisation's. It is the project's.
+describe('AppSidebar - the project hub stands with the project', () => {
+  test('Overview is in the project sections, not among the organisation doorways', () => {
+    render(<AppSidebar {...baseProps} canAccessOfficeShelf />)
+    expect(within(screen.getByLabelText('Project sections')).getByText('Overview')).toBeInTheDocument()
+    expect(within(screen.getByRole('navigation', { name: 'Organization' })).queryByText('Overview')).toBeNull()
   })
 })
 
@@ -207,8 +218,12 @@ describe('AppSidebar - collapsed icon rail', () => {
     render(<AppSidebar {...baseProps} />)
 
     const sections = screen.getByLabelText('Project sections')
+    const org = screen.getByRole('navigation', { name: 'Organization' })
     expect(within(sections).getByText('Chat')).toBeVisible()
-    expect(within(sections).getByText('Work')).toBeVisible()
+    // The project's sections carry no label: the switcher above them is their
+    // heading. The organisation's doorways carry theirs.
+    expect(sections.querySelector('[data-sidebar="group-label"]')).toBeNull()
+    expect(within(org).getByText('Organization')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
 
@@ -216,7 +231,7 @@ describe('AppSidebar - collapsed icon rail', () => {
     // sr-only as visible, so we assert the class rather than toBeVisible.
     expect(within(sections).getByText('Chat')).toHaveClass('sr-only')
     expect(within(sections).getByText('Files')).toHaveClass('sr-only')
-    expect(within(sections).queryByText('Work')).not.toBeInTheDocument()
+    expect(within(org).queryByText('Organization')).not.toBeInTheDocument()
   })
 })
 
@@ -309,6 +324,17 @@ describe('AppSidebar - the phone top band', () => {
     vi.mocked(useIsMobile).mockReturnValue(true)
     render(<AppSidebar {...baseProps} />)
     expect(within(screen.getByRole('banner')).getByTestId('connection-band')).toBeInTheDocument()
+    // One per shell: the drawer does not carry a second band (or a second ping).
+    expect(screen.getAllByTestId('connection-band')).toHaveLength(1)
+  })
+
+  test('on a desktop the connection is a row of the rail footer, and the header carries none', () => {
+    pathname = '/app/projects/p1/files'
+    const { container } = render(<AppSidebar {...baseProps} />)
+    const bands = screen.getAllByTestId('connection-band')
+    expect(bands).toHaveLength(1)
+    expect(bands[0]).toHaveAttribute('data-appearance', 'rail')
+    expect(container.querySelector('[data-sidebar="footer"]')).toContainElement(bands[0]!)
   })
 })
 
@@ -332,6 +358,21 @@ describe('AppSidebar - active state', () => {
     expect(pills).toHaveLength(1)
     expect(pills[0]!.closest('a')).toHaveAttribute('aria-current', 'page')
     expect(pills[0]!.closest('a')).toHaveTextContent('Chat')
+  })
+
+  test('the active entry is a fill, never a box: no border and no shadow on the pill', () => {
+    // The pill was `border-border bg-card border shadow-xs`, the one raised box
+    // on the rail. On the grey rail what sits on it is white (`bg-on-sunken`).
+    const { container } = render(<AppSidebar {...baseProps} />)
+    const pill = container.querySelector('[data-slot="rail-active-pill"]')!
+    expect(pill).toHaveClass('bg-on-sunken')
+    expect(pill.className).not.toMatch(/\b(border|shadow)\b|\bborder-|\bshadow-/)
+  })
+
+  test('a preview can pin the route the rail lights', () => {
+    render(<AppSidebar {...baseProps} pathname="/app/projects/p1/settings" />)
+    const overview = screen.getAllByText('Overview').map((el) => el.closest('a'))
+    expect(overview.some((link) => link?.getAttribute('aria-current') === 'page')).toBe(true)
   })
 
   test('keys the pill identity by rail width, so it never scales across a collapse', () => {

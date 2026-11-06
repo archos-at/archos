@@ -44,12 +44,14 @@ export function SidebarBrand({ iconRail }: { iconRail: boolean }) {
           onClick={toggleSidebar}
           aria-label={collapsed ? t('expandSidebar') : t('collapseSidebar')}
           className={cn(
-            'text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-ring/60 flex items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2',
+            'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground focus-visible:ring-ring/60 flex items-center justify-center rounded-control transition-colors duration-quick ease-out focus-visible:outline-none focus-visible:ring-2',
             // Icon rail: exactly a nav tile (36px square), so it lands on the same
             // column and the same grid as the items below instead of reading as a
             // loose glyph floating in the header's dead space. It was `h-9 w-10` —
             // a 40px width that matched nothing else in the rail.
-            iconRail ? 'mt-2 size-9' : 'ml-auto size-7'
+            // Expanded it grows to 44px under a finger (a touch tablet), inside
+            // the 56px brand row.
+            iconRail ? 'mt-2 size-9' : 'ml-auto size-7 pointer-coarse:size-11'
           )}
         >
           {collapsed ? (

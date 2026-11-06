@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, Settings } from 'lucide-react'
+import { Check, ChevronDown, Settings } from 'lucide-react'
 
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useLayoutStore } from '@/features/layout/store'
 import { useIsMobile } from '@/hooks/use-is-mobile'
 import { useTranslations } from '@/i18n'
@@ -45,12 +46,15 @@ export interface ProjectSwitcherProps {
 }
 
 /**
- * A small dashed-ring status dot — the click dummy's project marker. Green
- * (`--status-active`) for the active project, quiet ink otherwise. The color
- * always travels with the project label beside it, never alone.
+ * A small dashed ring with a dot — the project's glyph, from the click dummy.
+ * In ink for the project one is in, quiet ink for the others. It was green
+ * (`--status-active`) for the current project, which made the always-on
+ * marker a status colour that said nothing: green means a project is Aktiv,
+ * and the current one is green whatever its status. Colour is for attention
+ * and error, and the check mark and the weight say which one is current.
  */
 export function ProjectStatusDot({ active }: { active?: boolean }) {
-  const color = active ? 'var(--status-active)' : 'var(--muted-foreground)'
+  const color = active ? 'var(--foreground)' : 'var(--muted-foreground)'
   return (
     <span
       className="flex size-3.5 shrink-0 items-center justify-center rounded-full border border-dashed"
@@ -62,12 +66,23 @@ export function ProjectStatusDot({ active }: { active?: boolean }) {
   )
 }
 
+/**
+ * The switcher is the heading of the project's sections, so it is set as one:
+ * no box, the name in ink at 14px on the nav's own columns (the glyph in the
+ * icons' 16px slot at 24px, the name on the labels' edge), a fill only while
+ * it is hovered or open. It was a white card with a hairline and a shadow, the
+ * one raised box on the rail, competing with the active section beneath it.
+ */
 const TRIGGER_CLASS = cn(
-  'flex h-9 w-full items-center gap-2.5 rounded-control border border-border bg-card px-3 text-left pointer-coarse:h-11 shadow-xs',
-  'transition-[color,background-color,border-color,box-shadow,transform] duration-quick ease-out',
-  'hover:bg-accent active:scale-[0.98] motion-reduce:transition-none',
+  'flex h-9 w-full items-center gap-[11px] rounded-control px-3 text-left pointer-coarse:h-11',
+  'transition-[color,background-color,transform] duration-quick ease-out',
+  // Open is the state fill, as hover: white is the selected section's alone.
+  'hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent active:scale-[0.98] motion-reduce:transition-none',
   'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
 )
+
+/** The icon rail's tile: a nav tile's 36px square on the rail's 32px axis. */
+const TILE_CLASS = 'size-9 justify-center px-0 pointer-coarse:size-9'
 
 export function ProjectSwitcher({ projects, activeProjectId, collapsed }: ProjectSwitcherProps) {
   const router = useRouter()
@@ -85,10 +100,12 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     : t('projectSwitcher.select')
   const triggerBody = (
     <>
-      <ProjectStatusDot active={Boolean(active)} />
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        <ProjectStatusDot active={Boolean(active)} />
+      </span>
       {!collapsed && (
         <>
-          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+          <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
             {active?.name ?? t('projectSwitcher.select')}
           </span>
           <span
@@ -112,7 +129,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     return (
       <button
         type="button"
-        className={cn(TRIGGER_CLASS, collapsed && 'w-10 justify-center px-0')}
+        className={cn(TRIGGER_CLASS, collapsed && TILE_CLASS)}
         aria-label={triggerLabel}
         aria-haspopup="dialog"
         onClick={() => {
@@ -125,16 +142,32 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
     )
   }
 
+  const trigger = (
+    <DropdownMenuTrigger className={cn(TRIGGER_CLASS, collapsed && TILE_CLASS)} aria-label={triggerLabel}>
+      {triggerBody}
+    </DropdownMenuTrigger>
+  )
+
   return (
     <DropdownMenu onOpenChange={setOpen}>
-      <DropdownMenuTrigger
-        className={cn(TRIGGER_CLASS, collapsed && 'w-10 justify-center px-0')}
-        aria-label={triggerLabel}
+      {collapsed ? (
+        // The icon rail shows the glyph alone, so the name is a tooltip beside
+        // it, as the section tiles below name theirs.
+        <Tooltip>
+          <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+          <TooltipContent side="right">{active?.name ?? t('projectSwitcher.select')}</TooltipContent>
+        </Tooltip>
+      ) : (
+        trigger
+      )}
+      <DropdownMenuContent
+        align="start"
+        side={collapsed ? 'right' : 'bottom'}
+        // 288px: at 240 a project's name kept a dozen characters beside its
+        // status and its settings.
+        className="w-72 motion-reduce:animate-none"
       >
-        {triggerBody}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="bottom" className="w-60 motion-reduce:animate-none">
-        <DropdownMenuLabel className="text-[10.5px] font-medium text-muted-foreground">
+        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
           {t('projectSwitcher.switchHeading')}
         </DropdownMenuLabel>
         {offered.map((project) => {
@@ -146,20 +179,21 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
               // Switching into a project always lands on its Chat — the
               // project's primary workspace (spec §5).
               onSelect={() => router.push(`/app/projects/${project.id}/chat`)}
-              className="gap-2.5 pr-1.5"
+              className="group/project gap-2.5 pr-1.5"
             >
               <ProjectStatusDot active={isCurrent} />
               <span
                 className={cn(
-                  'min-w-0 flex-1 truncate text-[13px]',
-                  isCurrent ? 'font-medium text-foreground' : 'text-foreground/90',
+                  'min-w-0 flex-1 truncate text-[13px] text-foreground',
+                  isCurrent && 'font-medium',
                 )}
               >
                 {project.name}
               </span>
               {quiet && project.status && (
-                <span className="text-muted-foreground shrink-0 text-[11px]">{tProjects(`card.status.${project.status}`)}</span>
+                <span className="text-muted-foreground shrink-0 text-xs">{tProjects(`card.status.${project.status}`)}</span>
               )}
+              {isCurrent && <Check className="size-4 shrink-0 text-foreground" aria-hidden />}
               <button
                 type="button"
                 aria-label={t('projectSwitcher.projectSettings', { name: project.name })}
@@ -170,7 +204,10 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
                 }}
                 // ≥44px touch target (a11y) via padding, with the icon kept
                 // small; negative margin keeps the row from growing.
-                className="-my-2 -mr-1.5 flex size-11 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-[color,background-color,scale] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-snap)] ease-out hover:bg-accent hover:text-foreground active:scale-[0.98] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
+                // On the row under the pointer or the keyboard, and always under
+                // a finger: six gears down the list were six times the same
+                // word, read before any project's name.
+                className="-my-2 -mr-1.5 flex size-11 shrink-0 items-center justify-center rounded-control text-muted-foreground opacity-0 group-data-[highlighted]/project:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100 transition-[color,background-color,scale,opacity] [transition-duration:var(--motion-quick),var(--motion-quick),var(--motion-snap),var(--motion-quick)] ease-out hover:bg-accent hover:text-foreground active:scale-[0.98] motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
               >
                 <Settings className="size-3.5" aria-hidden />
               </button>

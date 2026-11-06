@@ -81,7 +81,7 @@
     "apps/workspace/ui/adapters/api/deep-research-client.ts": 1107,
     "apps/workspace/ui/components/projects/create-project-form.tsx": 648,
     "apps/workspace/ui/components/projects/project-members-form.tsx": 758,
-    "apps/workspace/ui/components/ui/sidebar.tsx": 1010,
+    "apps/workspace/ui/components/ui/sidebar.tsx": 778,
     "apps/workspace/ui/features/bim/components/ifc-compliance-panel.tsx": 791,
     "apps/workspace/ui/features/bim/components/ifc-model-explorer.tsx": 662,
     "apps/workspace/ui/features/bim/components/use-ifc-viewer-canvas-controller.tsx": 1641,

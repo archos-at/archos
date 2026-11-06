@@ -11,10 +11,13 @@ import { ProjectStatusDot } from './project-switcher'
 /**
  * The project's name on a phone, and the door to the switcher sheet.
  *
- * The material is the desktop switcher's trigger (a raised card chip) at 44px,
- * so the same control looks the same on both shapes. It stands in two places:
- * the phone header, and the chat toolbar, whose route has no phone header
- * (`ChatToolbar`). One atom, so the two cannot drift.
+ * The tonal secondary press (D4) at 44px: white on the phone's grey project
+ * band (`data-surface="sunken"`), the one grey where it floats over the
+ * chat's white page, and never a box. It was a raised card with a hairline and
+ * a shadow. A fill and not the desktop switcher's bare row, because over the
+ * chat the thread scrolls under it. It stands in two places: the phone header,
+ * and the chat toolbar, whose route has no phone header (`ChatToolbar`). One
+ * atom, so the two cannot drift.
  */
 export function ProjectPill({
   name,
@@ -38,7 +41,7 @@ export function ProjectPill({
       aria-expanded={expanded}
       data-testid="project-pill"
       className={cn(
-        'border-border bg-card flex h-11 min-w-0 max-w-[min(100%,20rem)] items-center gap-2.5 rounded-control border pl-3 pr-2.5 text-left outline-none shadow-xs',
+        'bg-muted in-data-[surface=sunken]:bg-on-sunken flex h-11 min-w-0 max-w-[min(100%,20rem)] items-center gap-2.5 rounded-control pl-3 pr-2.5 text-left outline-none',
         PRESSABLE,
         FOCUS_RING,
         className

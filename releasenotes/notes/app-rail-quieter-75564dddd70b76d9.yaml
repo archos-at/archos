@@ -1,0 +1,17 @@
+---
+improvements:
+  - >
+    The sidebar inside a project is quieter: the section you are in is a white
+    fill on the grey sidebar, the project switcher reads as the heading of its
+    sections, and the lines between the parts of the sidebar are gone. The
+    same holds on a phone, for the top band, the tab bar and the project list.
+  - >
+    Übersicht now stands with the project's other sections, under the project
+    switcher, rather than at the foot of the sidebar among the organisation's
+    Büroablage, Suche and Postfach.
+  - >
+    The collapsed sidebar shows which project you are in and lets you switch
+    from it.
+  - >
+    The connection state appears only while the connection is being restored
+    or is gone; the green „Verbunden“ is no longer shown all the time.

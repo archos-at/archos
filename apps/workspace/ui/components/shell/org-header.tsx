@@ -87,7 +87,9 @@ export function OrgHeader({
   return (
     <header
       data-scope="org"
-      className="border-border bg-background flex w-full shrink-0 flex-col border-b pt-[env(safe-area-inset-top)]"
+      // No rule under the header, also not while the page scrolls under it: the
+      // design system's rule (packages/brand/README.md, „Layout and shape“).
+      className="bg-background flex w-full shrink-0 flex-col pt-[env(safe-area-inset-top)]"
     >
       <div className={cn(BRAND_ROW, BRAND_INSET_ORG, 'justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(0.5rem,env(safe-area-inset-right))] md:pr-6')}>
         <div className="flex min-w-0 items-center gap-2">
@@ -140,7 +142,8 @@ export function OrgHeader({
             />
           )}
           <ShellSearchButton className="md:hidden" />
-          <div className="bg-border mx-2 hidden h-6 w-px md:block" aria-hidden />
+          {/* Space, not a rule, between the doorways and the person. */}
+          <div className="hidden w-2 md:block" aria-hidden />
           <SidebarUserMenu
             user={user}
             organizationName={organizationName}

@@ -32,6 +32,11 @@
  *     nav column and footer edge as the default shot, at a width the design
  *     was never reviewed at.
  *
+ * The rail lights a section, as it always does inside a project: Dateien by
+ * default, another with `?active=` (`chat`, `automation`, `settings`,
+ * `officeShelf`, `search`, `inbox`). `?presence=reconnecting` or `offline`
+ * shows the connection row, which says nothing while all is well.
+ *
  * Below `md` the same page is the PHONE shell: the rail's top band (project
  * pill, search), a content stand-in, and the bottom tab bar, lit for Dateien.
  * Two more states for the phone, via `?open=`:
@@ -48,6 +53,7 @@ import { ProjectSwitcherSheet } from '@/components/shell/project-switcher-sheet'
 import { recordRecentProject } from '@/components/shell/recent-projects'
 import { useShellOverlays } from '@/components/shell/shell-overlays'
 import { useLayoutStore } from '@/features/layout/store'
+import { installConnectionHealthFake } from '../_fixtures/connection-health'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
 
 const SIDEBAR_STORAGE_KEY = 'sidebar.collapsed'
@@ -60,6 +66,8 @@ const WIDE_WIDTH = 400
 // is already too late for the provider's restore effect.
 // The badge shows a count, as it does for anyone with something waiting.
 installInboxBadgeFake(3)
+// Healthy unless `?presence=` says otherwise, so the shot does not depend on load time.
+installConnectionHealthFake()
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   try {
@@ -85,8 +93,17 @@ const PROJECTS = [
   { id: 'p-6', name: 'Dachausbau Kaiserstraße 12' },
 ]
 
-/** The tab the phone preview lights: the page the stand-in is pretending to be. */
-const PREVIEW_PATH = '/app/projects/p-1/files'
+/** The route each `?active=` value lights. */
+const ACTIVE_PATHS: Record<string, string> = {
+  chat: '/app/projects/p-1/chat/t-1',
+  files: '/app/projects/p-1/files',
+  automation: '/app/projects/p-1/automation',
+  settings: '/app/projects/p-1/settings',
+  officeShelf: '/app/office-shelf',
+  search: '/app/search',
+  inbox: '/app/inbox',
+}
+
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   // A week on site: the reader came here from two other projects.
@@ -99,6 +116,7 @@ export default function AppRailPreview(): JSX.Element {
   const params = useSearchParams()
   const variant = params?.get('variant') ?? 'default'
   const open = params?.get('open')
+  const previewPath = ACTIVE_PATHS[params?.get('active') ?? 'files'] ?? ACTIVE_PATHS.files!
   const setDrawerOpen = useLayoutStore((s) => s.setMobileNavOpen)
   const setSheetOpen = useShellOverlays((s) => s.setProjectSheetOpen)
 
@@ -124,6 +142,7 @@ export default function AppRailPreview(): JSX.Element {
         <AppSidebar
           projectId="p-1"
           projects={PROJECTS}
+          pathname={previewPath}
           user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
           organizationName="Musterarchitektur ZT GmbH"
           authRequired={false}
@@ -150,10 +169,10 @@ export default function AppRailPreview(): JSX.Element {
             : variant === 'wide'
               ? `rail dragged to ${WIDE_WIDTH}px`
               : 'expanded rail (236px)'}
-          <span className="md:hidden"> · phone: tab bar lit for {PREVIEW_PATH}</span>
+          <span className="md:hidden"> · phone: tab bar lit for {previewPath}</span>
         </p>
       </main>
-      <PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname={PREVIEW_PATH} />
+      <PhoneTabBar projectId="p-1" canAccessOfficeShelf canAccessInbox pathname={previewPath} />
       <ProjectSwitcherSheet projects={PROJECTS} activeProjectId="p-1" />
     </div>
   )

@@ -30,6 +30,7 @@ import { AppSidebar } from '@/components/shell/app-sidebar'
 import { OrgHeader } from '@/components/shell/org-header'
 import { PhoneTabBar } from '@/components/shell/phone-tab-bar'
 import { installInboxBadgeFake } from '../_fixtures/inbox-badge'
+import { installConnectionHealthFake } from '../_fixtures/connection-health'
 
 const PROJECTS = [
   { id: 'p-1', name: 'Wohnbau Seestadt Baufeld D12' },
@@ -38,6 +39,7 @@ const PROJECTS = [
 
 // The badge shows a count, as it does for anyone with something waiting.
 installInboxBadgeFake(3)
+installConnectionHealthFake()
 
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   try {

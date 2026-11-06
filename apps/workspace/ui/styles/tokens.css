@@ -155,6 +155,11 @@
   --background-color-surface-base: var(--ds-surface); /* #fafaf9 */
   --background-color-surface-raised: var(--ds-surface-sunken); /* #f2f1f0 — chip */
   --background-color-surface-sunken: var(--ds-surface-sunken); /* #f2f1f0 — sidebar / rails (surface-sunken) */
+  /* What sits on the sunken band (the rail, the phone's project chrome): white, as the design system
+     keeps a band's content white. The selected entry, a control's fill, an avatar's disc. Its hover is
+     the state fill. Dark mode below: the band is darker than the plane there, so white has no twin. */
+  --surface-on-sunken: var(--ds-surface);
+  --surface-on-sunken-hover: var(--accent);
   --background-color-surface-overlay: var(--ds-surface-raised);
   --background-color-interaction-base: oklch(0.943 0.003 106.5); /* #ececea — inset */
   --background-color-interaction-primary-base: var(--ink);
@@ -299,6 +304,10 @@
   --background-color-surface-base: oklch(0.165 0.003 67.6);
   --background-color-surface-raised: oklch(0.286 0.006 78.2);
   --background-color-surface-sunken: var(--ds-surface-sunken); /* sidebar sits below content */
+  /* The plane (#0f0e0d) is one step above the band (#0a0908) and too close to it to mark anything, so
+     what sits on the band takes the state fill and its hover the one grey. */
+  --surface-on-sunken: var(--accent);
+  --surface-on-sunken-hover: var(--muted);
   --background-color-surface-overlay: oklch(0.253 0.005 67.6);
   --background-color-interaction-base: oklch(0.315 0.007 67.6);
   --background-color-interaction-primary-base: var(--ink);
@@ -509,7 +518,10 @@
   --color-sidebar-foreground: var(--foreground);
   --color-sidebar-primary: var(--primary);
   --color-sidebar-primary-foreground: var(--primary-foreground);
-  --color-sidebar-accent: var(--accent);
+  --color-sidebar-accent: var(--surface-on-sunken-hover);
+  /* The selected entry on the rail, and anything else that sits on a sunken band. */
+  --color-on-sunken: var(--surface-on-sunken);
+  --color-on-sunken-hover: var(--surface-on-sunken-hover);
   --color-sidebar-accent-foreground: var(--foreground);
   --color-sidebar-border: var(--border);
   --color-sidebar-ring: var(--ring);
