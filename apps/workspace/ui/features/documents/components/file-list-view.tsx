@@ -565,12 +565,10 @@ function SortHeader({
           // 26px. Padding rather than a catchment: these are adjacent cells in one
           // row, so an overhang would put each header's target on top of its
           // neighbour's.
-          // `min-h-11` rather than more padding: the label is 10.5px, so reaching
-          // 44 by padding alone means guessing at the leading and landing near it
-          // (`py-3.5` measured 42). The `<th>` above is `h-auto p-0`, so the
-          // button owns the whole cell and a min-height is exact.
+          // `min-h-11`, not padding (`py-3.5` measured 42): the `<th>` is `h-auto p-0`, so a min-height is exact.
           'flex w-full items-center gap-1 px-2 py-1.5 pointer-coarse:min-h-11 text-xs font-medium transition-colors duration-snap ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 motion-reduce:transition-none',
-          align === 'right' && 'justify-end',
+          // A right-aligned head puts its reserved arrow before the word, so the word ends where the values do.
+          align === 'right' && 'flex-row-reverse',
           isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
         )}
       >

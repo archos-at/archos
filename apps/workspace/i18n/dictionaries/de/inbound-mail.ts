@@ -101,7 +101,7 @@ export const inboundMail: typeof en.inboundMail = {
 
   group: {
     thread: 'E-Mail-Verlauf „{name}“ · {count, plural, one {# neue E-Mail} other {# neue E-Mails}}',
-    threadLine: 'E-Mail-Verlauf „{name}“',
+    threadLine: '„{name}“',
     threadAction: '{count, plural, one {Als Fassung {first} ablegen} other {Als Fassung {first}–{last} ablegen}}',
     threadActionFirst: 'Die ersten {count} als Fassung {first}–{last} ablegen',
     reviewInOrder: 'Ansehen',

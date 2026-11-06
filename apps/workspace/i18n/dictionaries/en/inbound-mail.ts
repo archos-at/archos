@@ -95,7 +95,7 @@ export const inboundMail = {
 
   group: {
     thread: 'Mail thread “{name}” · {count, plural, one {# new mail} other {# new mails}}',
-    threadLine: 'Mail thread “{name}”',
+    threadLine: '“{name}”',
     threadAction: '{count, plural, one {File as revision {first}} other {File as revisions {first}–{last}}}',
     threadActionFirst: 'File the first {count} as revisions {first}–{last}',
     reviewInOrder: 'Review',

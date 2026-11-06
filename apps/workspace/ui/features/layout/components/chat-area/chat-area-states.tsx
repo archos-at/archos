@@ -17,7 +17,7 @@ import { researchCopy } from '@/i18n/namespaces/research'
 import { projectIdFromPathname } from '@/components/shell'
 import { useInboundMailWaitingShown } from '@/hooks/use-inbound-mail-waiting'
 import { inboundMailPaths } from '@/lib/inbound-mail/paths'
-import { InboundMailWaitingLine } from '@/features/documents/components/inbound-mail-waiting-line'
+import { InboundMailWaitingLine } from '@/features/documents'
 import { WELCOME_OFFSET_FALLBACK } from '../../hooks/use-composer-metrics'
 import { TOOLBAR_CLEAR_PADDING } from '../../lib/toolbar-clearance'
 

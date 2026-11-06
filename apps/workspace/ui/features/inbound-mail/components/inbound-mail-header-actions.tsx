@@ -34,7 +34,7 @@ export function InboundMailHeaderActions({ state, onOpenAddress }: { state: Addr
       <div className="flex min-w-0 items-center gap-1" data-testid="inbound-mail-header-address">
         <CopyableValue
           value={value}
-          className="text-foreground bg-muted/80 hover:bg-muted rounded-control h-8 min-w-0 items-center px-2.5 font-mono text-xs transition-colors duration-quick [&>span]:truncate"
+          className="text-foreground bg-muted/80 hover:bg-muted rounded-control mx-0 h-8 min-w-0 cursor-pointer items-center px-2.5 text-[13px] transition-colors duration-quick [&>span]:truncate"
           onCopied={() => capturePosthog('inbound_mail_address_copied', { surface: 'header' })}
         >
           {value}

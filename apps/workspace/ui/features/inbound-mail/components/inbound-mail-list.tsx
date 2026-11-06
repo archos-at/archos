@@ -277,10 +277,10 @@ function ListBody({
             <section key={groupKey} aria-label={t('group.thread', { name: section.name, count: section.mails.length })} data-testid={`thread-group-${section.threadId}`}>
               {/* One line: what the group is on the left, the one press on the right, in the „Bereit“ heading's quiet voice. */}
               <div className="flex items-start justify-between gap-2 px-3 pt-3 sm:px-4">
-                {/* The rows below show how many; the section's label says it in full. */}
+                {/* The thread's glyph and name; its title and the section's label say „E-Mail-Verlauf“ and how many in full. */}
                 <p className="text-muted-foreground flex min-w-0 items-start gap-1.5 py-1 text-xs font-medium" title={t('group.thread', { name: section.name, count: section.mails.length })}>
                   <Repeat2 className="mt-px size-3.5 shrink-0" aria-hidden />
-                  <span className="min-w-0 [overflow-wrap:anywhere]">{t('group.threadLine', { name: section.name })}</span>
+                  <span className="min-w-0 truncate">{t('group.threadLine', { name: section.name })}</span>
                 </p>
                 {section.mails.every(isReady) ? (
                   <BusyButton
