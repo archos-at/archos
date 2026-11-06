@@ -12,8 +12,8 @@
  *    tenant content. Platform staff keep it in the console in the browser,
  *    where the route's own `platform:*` permission decides, as before.
  *
- * Every caller of the platform door is an outside agent (Piloti's credential is
- * refused there, `principal.ts`), so "withheld from any external agent client"
+ * Every caller of the platform door is an outside agent (the in-product agent's
+ * credential is refused there, `principal.ts`), so "withheld from any external agent client"
  * and "off the platform door" are the same rule, and `isExposedTo` enforces it
  * server-side for every listing, search, describe and call. The platform MCP
  * gateway in front of the cluster's own MCP servers holds the same line per

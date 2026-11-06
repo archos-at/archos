@@ -26,7 +26,7 @@ import { callOperation } from '../dispatch'
 import { type Audience, isExposedTo, isOnDoor } from '../exposure'
 import { EXPOSURE, type Exposure } from '../exposure.config'
 import { createAgentDoorHandler } from '../mcp-server'
-import { canSee, findVisibleOperation } from '../policy'
+import { SENSITIVE_SCOPE, canSee, findVisibleOperation } from '../policy'
 import type { AgentPrincipal } from '../principal'
 import { PLATFORM_EXPOSURE, PLATFORM_PUBLIC } from './platform'
 
@@ -71,7 +71,7 @@ const TENANT_CONTENT_PATH = /^\/api\/platform\/(feedback|answer-feedback|lessons
 
 const session = {
   userId: 'user_1',
-  email: 'operator@piloti.test',
+  email: 'operator@example.test',
   name: null,
   accessToken: '',
   organizationId: 'org_platform',
@@ -83,13 +83,12 @@ const session = {
 const operatorAgent: AgentPrincipal = {
   actor: 'external_agent',
   clientId: 'client_claude',
-  scopes: ['piloti:sensitive'],
+  scopes: [SENSITIVE_SCOPE],
   sensitiveOptIns: ['access', 'secret', 'control'],
   session,
   door: 'platform',
 }
 const officeAgent: AgentPrincipal = { ...operatorAgent, door: undefined }
-const piloti: AgentPrincipal = { actor: 'piloti', clientId: null, scopes: [], session }
 const AUDIENCES: readonly Audience[] = ['external', 'agent', 'platform']
 
 describe('every console operation is classified', () => {
@@ -131,9 +130,10 @@ describe('no tenant-content operation is reachable by an agent', () => {
     }
   })
 
-  it('is invisible to the operator’s agent, an office’s agent and the in-product agent, as if it did not exist', () => {
+  // The in-product agent is the `agent` audience above: `canSee` asks `isExposedTo` for it first.
+  it('is invisible to the operator’s agent and to an office’s agent, as if it did not exist', () => {
     for (const op of PLATFORM_OPERATIONS.filter((candidate) => isTenantContent(candidate.name))) {
-      for (const principal of [operatorAgent, officeAgent, piloti]) {
+      for (const principal of [operatorAgent, officeAgent]) {
         expect(canSee(principal, op), `${op.name} to ${principal.actor} on ${principal.door ?? 'office'}`).toBe(false)
         expect(findVisibleOperation(principal, op.name), op.name).toBeUndefined()
       }
@@ -153,7 +153,7 @@ describe('the platform door, through the real MCP server', () => {
 
   async function rpc(mode: 'search' | 'tools', method: string, params: object = {}): Promise<string> {
     const response = await handler.fetch(
-      new Request('https://app.piloti.test/api/platform/mcp', {
+      new Request('https://app.example.test/api/platform/mcp', {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json', 'mcp-protocol-version': '2025-11-25' },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),

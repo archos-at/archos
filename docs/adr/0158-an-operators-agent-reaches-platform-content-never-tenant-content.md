@@ -59,7 +59,7 @@ operator's agent vendor.
 Chosen option: "classify every console operation; tenant content is on no door".
 
 Every caller of the platform door is an outside agent: `principal.ts` refuses
-Piloti's credential there, and the console in the browser calls its routes with
+the in-product agent's credential there, and the console in the browser calls its routes with
 the cookie session, never through the door. So "withheld from any external agent
 client" and "off the platform door" are the same set, and the existing exposure
 rule (`isExposedTo`, read by every listing, search, describe and call) already
@@ -117,7 +117,7 @@ enforces it server-side. Nothing new has to be built on the request path.
   pinned list of tenant-content operations and a path pattern
   (`/api/platform/{feedback,answer-feedback,lessons,profiler,quality,citation-health,conversations}`)
   stay tenant content; none is on any door or visible to an operator's agent, an
-  office's agent or Piloti; and through the real MCP server on the platform door,
+  office's agent or the in-product agent; and through the real MCP server on the platform door,
   none is listed, found by search, described or called, and no route runs.
   A platform-public operation is listed (positive control).
 * `deploy/pulumi/index-mcp-gateway.spec.ts`: the Langfuse route's
