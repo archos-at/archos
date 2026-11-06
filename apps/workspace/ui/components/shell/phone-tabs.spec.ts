@@ -32,7 +32,7 @@ describe('inside a project', () => {
     ])
   })
 
-  it('on the chat route, "Mehr" is there: the door to the drawer, since chat has no menu button of its own', () => {
+  it('on the chat route, "Mehr" is there: the door to its sheet, since chat has no menu button of its own', () => {
     const more = projectPhoneTabs('p1', '/app/projects/p1/chat', NONE).find((tab) => tab.key === 'more')
     expect(more).toMatchObject({ href: null })
     expect(phoneTabBarHiddenOnRoute('/app/projects/p1/chat')).toBe(false)
@@ -76,7 +76,7 @@ describe('inside a project', () => {
     }
   })
 
-  it('lights "Mehr" where only the drawer reaches', () => {
+  it('lights "Mehr" where only its sheet reaches', () => {
     expect(lit(projectPhoneTabs('p1', '/app/projects/p1/automation', ALL))).toEqual(['more'])
     expect(lit(projectPhoneTabs('p1', '/app/office-shelf', ALL))).toEqual(['more'])
   })

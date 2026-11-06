@@ -13,15 +13,14 @@ import {
  * The phone's bottom tab bar, as data: which destinations it carries in each
  * scope, which one is current, and on which pages it stands down.
  *
- * WHY THESE. On a phone the rail is a drawer behind one control, so every
- * destination costs a stretch to the top of the screen and a second tap. The
- * bar takes the places an architect on site goes to several times an hour and
- * puts them under the thumb; the drawer stays, behind "Mehr", for everything
- * else (Automatisierung, the Büroablage, the account).
+ * WHY THESE. On a phone there is no rail: the bar takes the places an
+ * architect on site goes to several times an hour and puts them under the
+ * thumb, and the sheet behind "Mehr" (`phone-more-sheet.tsx`) holds everything
+ * else (Automatisierung, the Büroablage, Suche, the account).
  *
  * - Inside a project: Chat, Dateien, Übersicht, Postfach, Mehr. Chat
  *   and Dateien are the two work surfaces. Übersicht is the project's
- *   dashboard, which on a phone is otherwise two taps deep in the drawer and is
+ *   dashboard, which on a phone would otherwise be two taps deep behind Mehr and is
  *   the page that says where the project stands. The Postfach is where the
  *   decisions waiting for this person are, and carries the badge. The
  *   Büroablage is a doorway OUT of the project, used less often from a site,
@@ -43,7 +42,7 @@ export interface PhoneTabLabel {
 
 export interface PhoneTab {
   key: PhoneTabKey
-  /** Null for "Mehr", which opens the drawer instead of going anywhere. */
+  /** Null for "Mehr", which opens its sheet instead of going anywhere. */
   href: string | null
   icon: ComponentType<{ className?: string }>
   label: PhoneTabLabel
@@ -104,7 +103,7 @@ function inboxTab(pathname: string, tourAnchor: string): PhoneTab {
   }
 }
 
-/** The bar inside a project. "Mehr" is lit while the reader is somewhere only the drawer reaches. */
+/** The bar inside a project. "Mehr" is lit while the reader is somewhere only its sheet reaches. */
 export function projectPhoneTabs(
   projectId: string,
   pathname: string,

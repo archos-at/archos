@@ -5,13 +5,14 @@ import Link from 'next/link'
 import {
   Building2,
   Check,
+  ChevronsUpDown,
   Compass,
   Globe,
-  LayoutDashboard,
   LogOut,
   MessagesSquare,
   Monitor,
   Moon,
+  ServerCog,
   Sparkles,
   Sun,
   UserRound,
@@ -58,9 +59,13 @@ export interface SidebarUserMenuProps {
   user?: SidebarUser
   authRequired: boolean
   /** Dropdown side — 'top' for the sidebar footer (default), 'bottom' for a topbar. */
-  menuSide?: 'top' | 'bottom'
+  menuSide?: 'top' | 'bottom' | 'right'
   /** Dropdown alignment — defaults to 'start'. */
   menuAlign?: 'start' | 'end'
+  /** Gap between the trigger and the menu, px. */
+  menuSideOffset?: number
+  /** The menu takes the trigger's width (the rail's person row), so it stays inside the band. */
+  menuMatchTrigger?: boolean
   /** Hide the name label next to the avatar (compact avatar-only trigger). */
   compact?: boolean
   /** Show the org-management entry (org admins only). */
@@ -82,10 +87,10 @@ export interface SidebarUserMenuProps {
    */
   avatarSizeClass?: string
   /**
-   * The organization the reader is acting in, shown as an eyebrow above their
-   * name. Everything this product does — projects, the Archiv, the Inbox — is
-   * scoped to one organization, and until now nothing in the rail said which.
-   * Omitted when unresolvable, so a label lookup can never blank the footer.
+   * The organization the reader is acting in, shown in the menu's header under
+   * their name and address. Everything this product does is scoped to one
+   * organization; in the rail its name also heads the organisation's doorways.
+   * Omitted when unresolvable, so a label lookup can never blank the header.
    */
   organizationName?: string | null
   /** Marks the trigger as a product-tour stop (`data-tour`). */
@@ -104,6 +109,8 @@ export function SidebarUserMenu({
   authRequired,
   menuSide = 'top',
   menuAlign = 'start',
+  menuSideOffset = 4,
+  menuMatchTrigger = false,
   compact = false,
   canManageOrganization = false,
   canViewOrganization = false,
@@ -142,16 +149,25 @@ export function SidebarUserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'flex items-center gap-2.5 text-left text-sm',
-          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent',
+          'group/user flex items-center text-left text-sm',
+          // The state fill on paper (the org header); on the rail's grey band a
+          // press is white (the tonal secondary, D4), and the disc turns grey.
+          // On paper (the org header) a hover is the state fill; on the rail's
+          // band it is the ink, as every row there, and open is the state fill.
+          'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-transparent',
+          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-sidebar-accent',
           'active:scale-[0.98] motion-reduce:transition-none',
-          'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
           // Compact is an avatar alone, 30-32px. Under a finger the trigger
           // grows to 44px around the disc rather than lending it a catchment:
           // in the org header the search button stands right beside it.
+          // Expanded, the disc centres on the section icons' axis (x=32 in the
+          // rail), where the icon rail centres it too, so it does not move when
+          // the rail folds.
           compact
             ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
-            : 'w-full rounded-control py-1 pl-0 pr-2',
+            : // The 24px disc at 20–44 (the project mark's edge) and a 7px gap
+              // put the name on the section labels' 51px edge.
+              'w-full gap-[7px] rounded-control py-1.5 pl-2 pr-3',
         )}
         aria-label={
           feedbackUpdatedCount > 0
@@ -165,48 +181,49 @@ export function SidebarUserMenu({
               count is on that row, one level down, and without a mark here
               nobody opens the menu to find it. */}
           <AttentionDot show={feedbackUpdatedCount > 0} className="absolute -top-0.5 -right-0.5 z-10" />
-          {/* The hairline is not decoration. `AvatarFallback` fills with
-              `bg-muted` (L 0.961), and the rail it sits on is
-              `--background-color-surface-sunken` (L 0.958) — a 0.3% lightness
-              step, so on this one surface the disc is invisible and the
-              monogram reads as loose text on the rail. An alpha-ink ring
-              composites on whatever surface the avatar lands on, which is
-              exactly what the border ramp is for, and it matches how
-              `AvatarStack` already separates overlapping discs. */}
-          <Avatar className={cn('ring-border ring-1', avatarSizeClass)}>
+          {/* The disc is the one grey on paper and white on the rail's grey
+              band (`bg-on-sunken`), where the grey fallback was invisible: a
+              0.3% lightness step. A hairline ring used to stand in for the
+              missing contrast; nothing grey on grey needs no line. */}
+          <Avatar className={avatarSizeClass}>
             {(authUser?.image ?? user?.image) && <AvatarImage src={authUser?.image ?? user?.image ?? undefined} alt="" />}
-            <AvatarFallback className="text-xs font-medium">{initial}</AvatarFallback>
+            <AvatarFallback className="in-data-[surface=sunken]:bg-mark-on-sunken text-xs font-medium">
+              {initial}
+            </AvatarFallback>
           </Avatar>
         </span>
         {!compact && (
-          <span className="flex min-w-0 flex-1 flex-col">
-            {/* Org eyebrow. It sits ABOVE the name because it is the scope the
-                name acts in — read top-down it says "in Musterarchitektur, you
-                are Anna Berger".
-
-                The eyebrow's 10.5px, in the org's own spelling and with no
-                tracking: an org name is long user data, and set in spaced
-                capitals it spread the full 236px, truncated at once and read
-                as a heading competing with the person. Quiet is the job.
-
-                `truncate` on both lines: neither may push the other. */}
-            {organizationName && (
-              <span className="text-muted-foreground truncate text-[10.5px] font-medium">
-                {organizationName}
-              </span>
-            )}
-            <span className="text-muted-foreground truncate text-[12.5px] font-medium">
-              {displayName}
-            </span>
-          </span>
+          <>
+            {/* The person's name alone. The organisation's name used to stand
+                over it as an eyebrow; it now heads the organisation's doorways
+                in the rail, and the menu's header says it too. */}
+            {/* 14px at 440, as the rail's rows: the person is not a second
+                focal point beside the selected section. */}
+            <span className="text-foreground min-w-0 flex-1 truncate text-sm">{displayName}</span>
+            {/* Says the row opens something, as the switcher's chevron does. */}
+            <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
+          </>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={menuAlign} side={menuSide} className="w-56 motion-reduce:animate-none">
+      <DropdownMenuContent
+        align={menuAlign}
+        side={menuSide}
+        sideOffset={menuSideOffset}
+        className={cn(
+          menuMatchTrigger ? 'w-(--radix-dropdown-menu-trigger-width)' : 'w-56',
+          'motion-reduce:animate-none'
+        )}
+      >
         <DropdownMenuLabel>
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-medium">{displayName}</span>
             {user?.email && user?.name && (
               <span className="text-xs font-normal text-muted-foreground">{user.email}</span>
+            )}
+            {/* Where the rail is expanded its heading names the organisation
+                already; the avatar alone (the org header, the icon rail) does not. */}
+            {organizationName && compact && (
+              <span className="text-xs font-normal text-muted-foreground">{organizationName}</span>
             )}
             {!authRequired && (
               <span className="text-xs font-normal text-muted-foreground">{t('userMenu.authNotConfigured')}</span>
@@ -232,7 +249,8 @@ export function SidebarUserMenu({
         {canManagePlatform && (
           <DropdownMenuItem asChild className="gap-2">
             <Link href="/app/platform">
-              <LayoutDashboard className="size-4 text-muted-foreground" aria-hidden />
+              {/* Its own glyph: the grid was Übersicht's in the rail. */}
+              <ServerCog className="size-4 text-muted-foreground" aria-hidden />
               {t('userMenu.platform')}
             </Link>
           </DropdownMenuItem>

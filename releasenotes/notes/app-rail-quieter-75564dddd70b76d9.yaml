@@ -1,0 +1,41 @@
+---
+improvements:
+  - >
+    The sidebar inside a project is quieter: the section you are in is a white
+    fill on the grey sidebar, the project switcher reads as the heading of its
+    sections, and the lines between the parts of the sidebar are gone. The
+    same holds on a phone, for the top band, the tab bar and the project list.
+  - >
+    Übersicht now stands with the project's other sections, under the project
+    switcher, rather than at the foot of the sidebar among the organisation's
+    Büroablage, Suche and Postfach.
+  - >
+    The collapsed sidebar lets you switch projects from it, and its tooltips
+    name each area's keyboard shortcut.
+  - >
+    The connection state appears only while the connection is being restored
+    or is gone; the green „Verbunden“ is no longer shown all the time.
+  - >
+    Büroablage, Suche and Postfach now stand under the project's sections at
+    the top of the sidebar, under your office's name, as they stand at the
+    top of the page above a project.
+  - >
+    The project switcher in the sidebar has the search and the order of the
+    one on a phone: the projects you opened last, then the rest. Each project
+    shows its initials, so the collapsed sidebar says which project you are in.
+  - >
+    The counts beside Postfach are quiet grey pills, as the count beside the
+    E-Mail-Eingang in Dateien.
+  - >
+    Above a project, the header marks „Projekte“ as the page you are on, and
+    its Büroablage, Suche and Postfach show their names on wide screens.
+  - >
+    On a phone, „Mehr“ shows who is signed in and groups its entries under
+    the project's and the office's names; Suche is reached from the search at
+    the top.
+fixes:
+  - >
+    The connection state reads „Verbindung unterbrochen“ or „Keine
+    Verbindung“, in German, with a symbol beside the words instead of a
+    coloured dot alone; while the server does not answer, „Erneut versuchen“
+    checks again at once.

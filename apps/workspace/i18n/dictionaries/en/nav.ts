@@ -17,7 +17,6 @@ export const nav = {
   resizeSidebarHint: 'Drag to resize, click to collapse',
   expandSidebarHint: 'Drag or click to expand the sidebar',
   openNavigation: 'Open navigation',
-  closeNavigation: 'Close navigation',
   sections: {
     chat: 'Chat',
     files: 'Files',
@@ -40,7 +39,6 @@ export const nav = {
     setup: 'Setup',
   },
   sectionGroups: {
-    work: 'Work',
     org: 'Organization',
   },
   sectionSubtitles: {
@@ -122,7 +120,7 @@ export const nav = {
       title: 'More',
       description: 'More areas and your account.',
       close: 'Close',
-      places: 'Areas',
+      project: 'Project',
       account: 'Account',
     },
   },

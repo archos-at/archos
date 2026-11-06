@@ -331,36 +331,24 @@ describe('useSidebar width', () => {
   })
 })
 
-describe('Sidebar - the phone drawer', () => {
-  function OpenOnMount(): null {
-    const { setOpenMobile } = useSidebar()
-    useEffect(() => setOpenMobile(true), [setOpenMobile])
-    return null
-  }
-
-  beforeEach(() => {
+// The phone drawer had no door left in the product (nothing set it open), so
+// the primitive draws nothing below `md`: the phone's chrome is the top band
+// and the tab bar.
+describe('Sidebar - on a phone', () => {
+  test('renders nothing, so no unreachable drawer stays in the tree', () => {
     mobile.value = true
-    return () => {
+    try {
+      const { container } = render(
+        <SidebarProvider>
+          <Sidebar collapsible="icon">
+            <nav>Chat</nav>
+          </Sidebar>
+        </SidebarProvider>
+      )
+      expect(container.querySelector('[data-slot="sidebar"]')).toBeNull()
+      expect(screen.queryByText('Chat')).toBeNull()
+    } finally {
       mobile.value = false
     }
-  })
-
-  test('has a visible, finger-sized way out that closes it', () => {
-    render(
-      <SidebarProvider>
-        <OpenOnMount />
-        <Sidebar>
-          <nav>Chat</nav>
-        </Sidebar>
-      </SidebarProvider>
-    )
-
-    const close = document.querySelector<HTMLElement>('[data-slot="sidebar-close"]')!
-    expect(close).toBeVisible()
-    expect(close).toHaveClass('size-11')
-    expect(close).toHaveAccessibleName(/navigation/i)
-
-    fireEvent.click(close)
-    expect(document.querySelector('[data-mobile="true"]')).toBeNull()
   })
 })

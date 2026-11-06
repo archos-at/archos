@@ -25,7 +25,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronRight } from 'lucide-react'
+import { Check, ChevronRight, LayoutList } from 'lucide-react'
 
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
@@ -41,55 +41,11 @@ import {
 import { useTranslations } from '@/i18n'
 import { navCopy } from '@/i18n/namespaces/nav'
 import { projectsCopy } from '@/i18n/namespaces/projects'
-import { foldDiacritics } from '@/lib/text/latinize'
 import { cn } from '@/lib/utils'
-import {
-  ProjectStatusDot,
-  switchableProjects,
-  type ProjectSwitcherProject,
-} from './project-switcher'
+import { switcherSections, type ProjectSwitcherProject } from './project-list'
+import { ProjectMark } from './project-mark'
 import { readRecentProjectIds } from './recent-projects'
 import { useShellOverlays } from './shell-overlays'
-
-/** How many recent projects lead the list. Three is a week on site, not a history. */
-const RECENT_SLOTS = 3
-
-export type SwitcherSheetSections =
-  | { kind: 'browse'; recent: ProjectSwitcherProject[]; rest: ProjectSwitcherProject[] }
-  | { kind: 'search'; matches: ProjectSwitcherProject[] }
-
-function fold(value: string): string {
-  return foldDiacritics(value).toLowerCase()
-}
-
-/**
- * What the sheet lists. Pure, so the ordering rules are tested without a
- * browser: recents first (in the order they were opened, only ones still
- * offered), then the rest by the order the server sent (name); a query folds
- * case and diacritics, so "muhlgasse" finds „Mühlgasse".
- */
-export function switcherSheetSections(
-  projects: readonly ProjectSwitcherProject[],
-  currentId: string | undefined,
-  recentIds: readonly string[],
-  query: string
-): SwitcherSheetSections {
-  const offered = switchableProjects(projects, currentId)
-  const needle = fold(query.trim())
-  if (needle) {
-    return {
-      kind: 'search',
-      matches: offered.filter((project) => fold(project.name).includes(needle)),
-    }
-  }
-  const byId = new Map(offered.map((project) => [project.id, project]))
-  const recent = recentIds
-    .map((id) => byId.get(id))
-    .filter((project): project is ProjectSwitcherProject => project !== undefined)
-    .slice(0, RECENT_SLOTS)
-  const recentSet = new Set(recent.map((project) => project.id))
-  return { kind: 'browse', recent, rest: offered.filter((project) => !recentSet.has(project.id)) }
-}
 
 export interface ProjectSwitcherSheetProps {
   projects: ProjectSwitcherProject[]
@@ -116,7 +72,7 @@ export function ProjectSwitcherSheet({
     setQuery('')
   }, [open])
 
-  const sections = switcherSheetSections(projects, activeProjectId, recentIds, query)
+  const sections = switcherSections(projects, activeProjectId, recentIds, query)
   const choose = (projectId: string): void => {
     setOpen(false)
     // Switching into a project lands on its chat, as the desktop switcher does.
@@ -196,18 +152,23 @@ export function ProjectSwitcherSheet({
               )}
             </>
           )}
-        </div>
-        <div className="border-border shrink-0 border-t">
+          {/* The way to every project, closed ones included: the list's last
+              row, with the list it continues. Pinned to the sheet's foot as a
+              grey bar it stood a screen away from the projects it belongs to. */}
           <Link
             href="/app/projects"
             onClick={() => setOpen(false)}
             className={cn(
-              'text-foreground flex min-h-14 items-center gap-3 px-4 text-sm font-medium outline-none',
+              'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
               PRESSABLE,
               FOCUS_RING_INSET,
               'active:bg-accent'
             )}
           >
+            {/* In the marks' slot, so the words stand on the names' edge. */}
+            <span className="text-muted-foreground flex size-6 shrink-0 items-center justify-center" aria-hidden>
+              <LayoutList className="size-4" />
+            </span>
             <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
             <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
           </Link>
@@ -259,11 +220,11 @@ function SwitcherRow({
           'active:bg-accent'
         )}
       >
-        <ProjectStatusDot active={current} />
+        <ProjectMark name={project.name} />
         <span
           className={cn(
-            'min-w-0 flex-1 truncate text-[15px]',
-            current ? 'text-foreground font-medium' : 'text-foreground/90'
+            'text-foreground min-w-0 flex-1 truncate text-[15px]',
+            current && 'font-medium'
           )}
         >
           {project.name}

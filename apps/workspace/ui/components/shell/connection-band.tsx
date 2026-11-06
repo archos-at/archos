@@ -1,38 +1,50 @@
 'use client'
 
 /**
- * The connection state on a phone, in the top band where it is seen.
+ * The connection state where it is seen, and only while it is not fine.
  *
- * On a desktop the presence dot sits in the rail's footer, always in view. On
- * a phone that footer is inside a closed drawer, so the one reader most likely
- * to lose the network (on site, in a basement, between cells) learned it only
- * after a send failed. This is a thin line under the mobile header that says
- * so while it is true and takes no space while all is well.
+ * A status that is fine says nothing (design-language.md, „The app rail“): the
+ * rail's footer used to carry a green „Verbunden“ dot all day, the one colour
+ * on the rail and it meant nothing. Now every surface reads this band, which
+ * says so while the link is gone or coming back and takes no space while all
+ * is well. The status region stays in the tree while connected, visually
+ * hidden, so the change to offline is announced rather than inserted silently.
  *
- * Mounted only below `md` (the caller checks), because the presence hook pings
- * on an interval and the rail's own indicator already runs one on a desktop.
- * The status region stays in the tree while connected, visually hidden, so the
- * change to offline is announced rather than inserted silently.
+ * On a phone it is a line in the top band (the rail's footer is inside a closed
+ * drawer there, and the reader most likely to lose the network, on site or in a
+ * basement, learned it only after a send failed). On a desktop it is a row in
+ * the rail's footer, above the person. Each shell mounts one, because the
+ * presence hook pings on an interval.
  */
 
 import type { JSX } from 'react'
 
-import { useConnectionPresence } from '@/shared/hooks/use-connection-presence'
+import { useTranslations } from '@/i18n'
+import { presenceCopy } from '@/i18n/namespaces/presence'
+import { requestConnectionCheck, useConnectionPresence } from '@/shared/hooks/use-connection-presence'
 import { cn } from '@/lib/utils'
 import { ConnectionPresenceIndicator } from './connection-presence-indicator'
+
+const APPEARANCE = {
+  /** A full-width line under a header's row, inside its band: no rule of its own. */
+  band: 'h-7 justify-center px-4',
+  /** A thin line of text with no fill, for a header that floats over content (the chat toolbar). */
+  line: 'h-6 justify-start px-1',
+  /** A rail row: the dot in the icons' 16px slot at 24px, the words on the labels' edge. */
+  rail: 'min-h-9 flex-col items-start justify-center gap-1 px-3 py-2.5',
+} as const
 
 export function ConnectionBand({
   className,
   appearance = 'band',
+  compact = false,
 }: {
   className?: string
-  /**
-   * `band`: a full-width strip under a header's rule. `line`: a thin line of
-   * text with no rule or fill, for a header that floats over content (the chat
-   * toolbar), where a bordered pill would be a third card in the stack.
-   */
-  appearance?: 'band' | 'line'
+  appearance?: keyof typeof APPEARANCE
+  /** The icon rail: the dot alone in a 36px tile, its words in the tooltip and the status's name. */
+  compact?: boolean
 }): JSX.Element {
+  const t = useTranslations(presenceCopy)
   const presence = useConnectionPresence()
   const quiet = presence === 'connected'
   return (
@@ -43,15 +55,34 @@ export function ConnectionBand({
         quiet
           ? 'sr-only'
           : cn(
-              'animate-in fade-in-0 duration-quick flex w-full items-center motion-reduce:animate-none',
-              appearance === 'band'
-                ? 'border-border h-7 justify-center border-t px-4'
-                : 'h-6 justify-start px-1'
+              'animate-in fade-in-0 duration-quick flex w-full shrink-0 items-center motion-reduce:animate-none',
+              compact ? 'size-9 justify-center' : APPEARANCE[appearance]
             ),
         className
       )}
     >
-      <ConnectionPresenceIndicator presence={presence} />
+      <ConnectionPresenceIndicator presence={presence} compact={compact} iconSlot={appearance === 'rail'} />
+      {/* While the server does not answer, a way to ask now rather than at the
+          next interval. Offline has none: the browser says when the network
+          is back, and the page then checks by itself. */}
+      {presence === 'reconnecting' && !compact && (
+        <button
+          type="button"
+          onClick={requestConnectionCheck}
+          className={cn(
+            'text-foreground shrink-0 rounded-control text-xs font-medium',
+            appearance === 'rail'
+              ? // A press, in the rail: the tonal secondary (D4), white on the
+                // band, under the words on the labels' edge (16px glyph + 11px
+                // gap), 28px and 44px under a finger.
+                'bg-on-sunken hover:bg-accent ml-[27px] h-7 px-2.5 pointer-coarse:h-11'
+              : // In a one-line band: a link-weight word with a finger's catchment.
+                'touch-target ml-2 underline underline-offset-2'
+          )}
+        >
+          {t('retry')}
+        </button>
+      )}
     </div>
   )
 }

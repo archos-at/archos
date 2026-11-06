@@ -36,6 +36,9 @@ export default function PhoneMoreDevPage(): JSX.Element {
       <PhoneMoreSheet
         projectId={projectId}
         pathname={pathname}
+        organizationName="Musterarchitektur ZT GmbH"
+        projectName="Wohnbau Seestadt Baufeld D12"
+        user={{ name: 'Anna Berger', email: 'anna.berger@example.at' }}
         authRequired
         canAccessOfficeShelf
         canAccessInbox
