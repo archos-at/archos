@@ -70,9 +70,14 @@ export function ConnectionBand({
           type="button"
           onClick={requestConnectionCheck}
           className={cn(
-            'text-foreground shrink-0 rounded-control text-xs font-medium underline-offset-2 hover:underline',
-            // In a rail row, under the words, on the labels' edge (16px glyph + 11px gap).
-            appearance === 'rail' ? 'ml-[27px]' : 'ml-2'
+            'text-foreground shrink-0 rounded-control text-xs font-medium',
+            appearance === 'rail'
+              ? // A press, in the rail: the tonal secondary (D4), white on the
+                // band, under the words on the labels' edge (16px glyph + 11px
+                // gap), 28px and 44px under a finger.
+                'bg-on-sunken hover:bg-accent ml-[27px] h-7 px-2.5 pointer-coarse:h-11'
+              : // In a one-line band: a link-weight word with a finger's catchment.
+                'touch-target ml-2 underline underline-offset-2'
           )}
         >
           {t('retry')}

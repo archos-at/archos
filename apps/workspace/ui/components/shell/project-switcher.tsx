@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, LayoutList } from 'lucide-react'
 
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -29,16 +29,19 @@ export interface ProjectSwitcherProps {
  * of a name, „Baufeld D12", is what tells sibling projects apart), the mark
  * centred on the icons' axis and the name on the labels' edge. It was a white
  * card with a hairline and a shadow, the one raised box on the rail. A press
- * on the grey band is white (the tonal secondary, D4), so open and a press fill
- * it white while it is open or pressed, and the mark turns to the one grey; a
- * hover is the ink, as on every row of the band.
+ * open or pressed takes the state fill, and a hover is the ink, as on every row
+ * of the band; white stays the selected section's.
  */
 const TRIGGER_CLASS = cn(
   // The 24px mark at 20–44 (centred on x=32) and a 7px gap put the name on 51.
   'group/switcher flex min-h-9 w-full items-center gap-[7px] rounded-control px-2 py-2 text-left pointer-coarse:min-h-11',
   'transition-[color,background-color,scale] duration-quick ease-out',
   // Hover is the ink, as every row on the band; white is for open and pressed.
-  'hover:text-foreground data-[state=open]:bg-on-sunken active:bg-on-sunken active:scale-[0.98] motion-reduce:transition-none',
+  // Open is the state fill (one grey: „the open row" is `bg-accent`), not the
+  // selection's white: open and selected two rows apart read as one group.
+  'hover:text-foreground data-[state=open]:bg-sidebar-accent active:bg-sidebar-accent active:scale-[0.98] motion-reduce:transition-none',
+  // 12px on the right, so the chevron ends on 212 with the counts and the fold.
+  'pr-3',
   // Focus is the app's one outline (globals.css), drawn inside the box
   // (`data-focus-inset`) so it stays in the rail's column.
 )
@@ -105,7 +108,7 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
       <ProjectMark
         name={name}
         onBand
-        className="group-active/switcher:bg-muted group-data-[state=open]/switcher:bg-muted"
+        className=""
       />
       {!collapsed && (
         <>
@@ -190,8 +193,12 @@ export function ProjectSwitcher({ projects, activeProjectId, collapsed }: Projec
                   setOpen(false)
                   router.push('/app/projects')
                 }}
-                className="font-medium"
+                className="text-muted-foreground gap-2.5 data-[selected=true]:text-foreground"
               >
+                {/* In the marks' slot, so the words stand on the names' edge. */}
+                <span className="flex size-6 shrink-0 items-center justify-center" aria-hidden>
+                  <LayoutList className="size-4" />
+                </span>
                 <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
                 <ChevronRight className="text-muted-foreground size-4" aria-hidden />
               </CommandItem>

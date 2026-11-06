@@ -37,7 +37,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -56,6 +55,7 @@ import { useInboxBadge } from '@/features/collaboration/hooks/use-inbox'
 import { useStartDockDoor, type StartDockDoor } from './start-dock'
 import { InboxBadge } from '@/features/collaboration/components'
 import { cn } from '@/lib/utils'
+import { ProjectMark } from './project-mark'
 import { ProjectPill } from './project-pill'
 import { SidebarBrand } from './sidebar-brand'
 import { ProjectSwitcher, type ProjectSwitcherProject } from './project-switcher'
@@ -411,16 +411,23 @@ function AppSidebarFrame({
           {orgGroup && (
             <nav aria-label={orgGroup.label} className="mt-6">
               <SidebarGroup className="p-0">
-                {/* `px-3`: the heading starts on the icons' edge (24px), as the
-                    wordmark does; the primitive's 8px put it 4px left of both. */}
-                {!iconRail && (
-                  // 24px, its words at the box's foot, 4px over the first row:
-                  // the 32px box doubled the space above the heading.
-                  <SidebarGroupLabel className="h-6 items-end px-3 pb-1" title={orgGroup.label}>
-                    <span className="truncate">{orgGroup.label}</span>
-                  </SidebarGroupLabel>
-                )}
-                <SidebarGroupContent>
+                {/* The organisation heads its doorways as the project heads its
+                    sections: its mark on the 32px axis and its name in ink at
+                    14px on the labels' edge, 8px over its first row. A 12px grey
+                    label under a 14px ink switcher read as an orphan list; in
+                    the icon rail the mark alone says where the scope changes. */}
+                <div
+                  className={cn('flex min-h-9 items-center', iconRail ? 'justify-center' : 'gap-[7px] px-2 py-1.5')}
+                  title={iconRail ? orgGroup.label : undefined}
+                >
+                  <ProjectMark name={orgGroup.label} onBand />
+                  {!iconRail && (
+                    <span className="text-foreground line-clamp-2 min-w-0 flex-1 text-sm leading-snug font-medium">
+                      {orgGroup.label}
+                    </span>
+                  )}
+                </div>
+                <SidebarGroupContent className="mt-2">
                   <SidebarMenu className="gap-0.5">{orgGroup.items.map(railItem)}</SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
@@ -517,7 +524,9 @@ function RailNavItem({
         className={cn(
           // 36px under a mouse; 44px under a finger, grown rather than given a
           // catchment, because the rows sit 2px apart.
-          'h-9 gap-[11px] rounded-control px-3 text-[13px] pointer-coarse:h-11',
+          // 14px, the ramp's body size: the global navigation no smaller than
+          // a page's own tabs (Dateien's).
+          'h-9 gap-[11px] rounded-control px-3 text-sm pointer-coarse:h-11',
           'group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center',
           // The active SURFACE lives on the pill below, so every fill the
           // primitive would otherwise paint under it is turned off explicitly.

@@ -17,8 +17,9 @@ improvements:
     or is gone; the green „Verbunden“ is no longer shown all the time.
   - >
     Büroablage, Suche and Postfach now stand under the project's sections at
-    the top of the sidebar, headed by the name of your office, as they stand
-    at the top of the page above a project.
+    the top of the sidebar, headed by your office's initials and name as the
+    project's sections are headed by the project's, as they stand at the top
+    of the page above a project.
   - >
     The project switcher in the sidebar has the search and the order of the
     one on a phone: the projects you opened last, then the rest. Each project
@@ -27,8 +28,8 @@ improvements:
     The counts beside Postfach are quiet grey pills, as the count beside the
     E-Mail-Eingang in Dateien.
   - >
-    Above a project, Büroablage and Postfach in the header show their names on
-    wide screens.
+    Above a project, the header marks „Projekte“ as the page you are on, and
+    its Büroablage, Suche and Postfach show their names on wide screens.
   - >
     On a phone, „Mehr“ shows who is signed in and groups its entries under
     the project's and the office's names; Suche is reached from the search at

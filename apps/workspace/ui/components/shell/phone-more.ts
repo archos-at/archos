@@ -26,8 +26,8 @@ import {
  *
  * Groups as the rail groups them: `project` (the project's sections without a
  * tab: Automatisierung), `organization` (the organisation's doorways without a
- * tab: the Büroablage, then the organisation's settings), `account` (the
- * avatar menu's links, in the menu's order and gated as the menu gates them) and `help` (Neuerungen, after the
+ * tab: the Büroablage), `account` (the avatar menu's links, in the menu's
+ * order and gated as the menu gates them) and `help` (Neuerungen, after the
  * tour, as the menu has it). Suche is not listed: the top band's search
  * reaches it, and twice was once too often. The project's and the
  * organisation's places stood in one „Bereiche" list, which the rail keeps
@@ -76,9 +76,8 @@ function accountDestinations(flags: MoreFlags): MoreDestination[] {
       href: '/app/organization',
       icon: Building2,
       label: { namespace: 'nav', key: 'userMenu.organization' },
-      // Under the organisation's own heading with the Büroablage, not under
-      // Konto: one sheet, one place for the organisation's things.
-      group: 'organization',
+      // Under Konto, as in the avatar menu on a desk: one place on both shapes.
+      group: 'account',
     })
   }
   if (flags.canManagePlatform) {

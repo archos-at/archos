@@ -54,7 +54,7 @@ const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const
 const THEME_MODES: ThemeMode[] = ['system', 'light', 'dark']
 
 const ROW =
-  'flex min-h-14 w-full items-center gap-3 px-4 text-left text-sm outline-none active:bg-accent ' +
+  'flex min-h-12 w-full items-center gap-3 px-4 text-left text-sm outline-none active:bg-accent ' +
   PRESSABLE +
   ' ' +
   FOCUS_RING_INSET
@@ -172,7 +172,7 @@ export function PhoneMoreSheet({
           <Group label={t('tabBar.moreSheet.account')}>
             {/* Who is signed in, first, as the avatar menu's header says it. */}
             {user && (
-              <li className="flex min-h-14 items-center gap-3 px-4">
+              <li className="flex min-h-12 items-center gap-3 px-4">
                 <span className="bg-muted text-foreground flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-medium">
                   {initials(user)}
                 </span>
@@ -183,7 +183,7 @@ export function PhoneMoreSheet({
               </li>
             )}
             {account.map(row)}
-            <li className="flex min-h-14 items-center gap-3 px-4">
+            <li className="flex min-h-12 items-center gap-3 px-4">
               <ActiveThemeIcon className="text-muted-foreground size-5 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 text-[15px]">{tc('theme.label')}</span>
               <Segmented
@@ -193,7 +193,7 @@ export function PhoneMoreSheet({
                 onChange={(mode) => setTheme(mode as ThemeMode)}
               />
             </li>
-            <li className="flex min-h-14 items-center gap-3 px-4">
+            <li className="flex min-h-12 items-center gap-3 px-4">
               <Globe className="text-muted-foreground size-5 shrink-0" aria-hidden />
               <span className="min-w-0 flex-1 text-[15px]">{tc('language.label')}</span>
               <Segmented

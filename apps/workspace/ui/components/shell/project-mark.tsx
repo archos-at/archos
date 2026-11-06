@@ -6,7 +6,8 @@ import { cn } from '@/lib/utils'
 import { projectInitials } from './project-list'
 
 /**
- * The project's mark: its initials in a 24px square, the one grey on white and
+ * The project's mark (and the organisation's, heading its doorways in the
+ * rail): its initials in a 24px square, the one grey on white and
  * white where it sits on the rail's grey band (`onBand`). It replaced a dashed
  * ring that was the same for every project, green for the current one
  * whatever its status: a glyph that told no project from another, in a status

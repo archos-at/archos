@@ -25,7 +25,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronRight } from 'lucide-react'
+import { Check, ChevronRight, LayoutList } from 'lucide-react'
 
 import { FOCUS_RING_INSET } from '@/components/ui/focus-ring'
 import { PRESSABLE } from '@/components/ui/press'
@@ -159,14 +159,18 @@ export function ProjectSwitcherSheet({
             href="/app/projects"
             onClick={() => setOpen(false)}
             className={cn(
-              'text-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] font-medium outline-none',
+              'text-muted-foreground flex min-h-14 items-center gap-3 px-4 text-[15px] outline-none',
               PRESSABLE,
               FOCUS_RING_INSET,
               'active:bg-accent'
             )}
           >
+            {/* In the marks' slot, so the words stand on the names' edge. */}
+            <span className="flex size-6 shrink-0 items-center justify-center" aria-hidden>
+              <LayoutList className="size-4" />
+            </span>
             <span className="min-w-0 flex-1">{t('projectSwitcher.viewAllProjects')}</span>
-            <ChevronRight className="text-muted-foreground size-4 shrink-0" aria-hidden />
+            <ChevronRight className="size-4 shrink-0" aria-hidden />
           </Link>
         </div>
       </SheetContent>

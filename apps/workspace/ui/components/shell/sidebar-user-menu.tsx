@@ -153,9 +153,9 @@ export function SidebarUserMenu({
           // The state fill on paper (the org header); on the rail's grey band a
           // press is white (the tonal secondary, D4), and the disc turns grey.
           // On paper (the org header) a hover is the state fill; on the rail's
-          // band it is the ink, as every row there, and white is for open.
+          // band it is the ink, as every row there, and open is the state fill.
           'transition-[color,background-color,transform] duration-quick ease-out hover:bg-accent in-data-[surface=sunken]:hover:bg-transparent',
-          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-on-sunken',
+          'data-[state=open]:bg-accent in-data-[surface=sunken]:data-[state=open]:bg-sidebar-accent',
           'active:scale-[0.98] motion-reduce:transition-none',
           // Compact is an avatar alone, 30-32px. Under a finger the trigger
           // grows to 44px around the disc rather than lending it a catchment:
@@ -167,7 +167,7 @@ export function SidebarUserMenu({
             ? 'w-auto rounded-full p-0 pointer-coarse:size-11 pointer-coarse:justify-center'
             : // The 24px disc at 20–44 (the project mark's edge) and a 7px gap
               // put the name on the section labels' 51px edge.
-              'w-full gap-[7px] rounded-control py-1.5 pl-2 pr-2.5',
+              'w-full gap-[7px] rounded-control py-1.5 pl-2 pr-3',
         )}
         aria-label={
           feedbackUpdatedCount > 0
@@ -187,7 +187,7 @@ export function SidebarUserMenu({
               missing contrast; nothing grey on grey needs no line. */}
           <Avatar className={avatarSizeClass}>
             {(authUser?.image ?? user?.image) && <AvatarImage src={authUser?.image ?? user?.image ?? undefined} alt="" />}
-            <AvatarFallback className="in-data-[surface=sunken]:bg-on-sunken in-data-[surface=sunken]:group-data-[state=open]/user:bg-muted text-xs font-medium">
+            <AvatarFallback className="in-data-[surface=sunken]:bg-on-sunken text-xs font-medium">
               {initial}
             </AvatarFallback>
           </Avatar>
@@ -197,9 +197,9 @@ export function SidebarUserMenu({
             {/* The person's name alone. The organisation's name used to stand
                 over it as an eyebrow; it now heads the organisation's doorways
                 in the rail, and the menu's header says it too. */}
-            {/* 13px at 440, as the rail's rows: the person is not a second
+            {/* 14px at 440, as the rail's rows: the person is not a second
                 focal point beside the selected section. */}
-            <span className="text-foreground min-w-0 flex-1 truncate text-[13px]">{displayName}</span>
+            <span className="text-foreground min-w-0 flex-1 truncate text-sm">{displayName}</span>
             {/* Says the row opens something, as the switcher's chevron does. */}
             <ChevronsUpDown className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
           </>

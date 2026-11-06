@@ -4,7 +4,7 @@ import type { JSX } from 'react'
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Archive, Bell, MessageSquarePlus, Search } from 'lucide-react'
+import { Archive, Bell, FolderKanban, MessageSquarePlus, Search } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -103,6 +103,14 @@ export function OrgHeader({
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Where the reader is, as the phone's tab bar lights „Projekte":
+              the wordmark goes there too, but says nothing about being there. */}
+          <OrgHeaderIconLink
+            href="/app/projects"
+            label={t('projectSwitcher.projects')}
+            icon={FolderKanban}
+            active={pathname === '/app/projects'}
+          />
           {/* On a phone the two doorways live in the tab bar, under the thumb
               (`PhoneTabBar`), and feedback in the avatar menu; the band keeps
               search and the account. */}
