@@ -3,6 +3,6 @@
 security:
   - >
     A building model whose length unit definition leads back to itself, or takes
-    more than a thousand conversion steps to follow, is now refused when it is
+    more than a thousand steps to follow, is now refused when it is
     opened. A definition that leads back to itself used to block every model
     opened after it in the same process.
