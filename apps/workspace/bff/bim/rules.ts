@@ -873,7 +873,9 @@ export const BIM_RULES: RuleDefinition[] = [
         ? 'OIB 6 gilt für unkonditionierte Lager-/landwirtschaftliche Gebäude nicht ohne Weiteres'
         : null,
     judge: (element) => {
-      if (externalFlag(element) === null) return undecidableWithoutExternalFlag('Pset_WallCommon.IsExternal')
+      if (externalFlag(element) === null) {
+        return undecidableWithoutExternalFlag('Pset_WallCommon.IsExternal')
+      }
       const uValue = numericProperty(element, ['ThermalTransmittance'])
       if (uValue === null) {
         return {
@@ -946,7 +948,11 @@ export const BIM_RULES: RuleDefinition[] = [
         ? 'OIB 5 ist für diese Nutzung nicht lärmempfindlich einschlägig'
         : null,
     judge: (element) => {
-      if (externalFlag(element) === null) return undecidableWithoutExternalFlag('Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)')
+      if (externalFlag(element) === null) {
+        return undecidableWithoutExternalFlag(
+          'Pset_WallCommon.IsExternal (bzw. Pset_SlabCommon.IsExternal)'
+        )
+      }
       const rating = property(element, ['AcousticRating'])
       if (rating === null || String(rating).trim() === '') {
         return {
