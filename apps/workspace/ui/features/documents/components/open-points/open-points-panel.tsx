@@ -137,9 +137,9 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
           />
         </ProjectSectionActions>
 
-        {/* 40px between the two groups and 8px from a label to its first choice: „Frist“ read as a third choice of
+        {/* 32px between the two groups and 8px from a label to its first choice: „Frist“ read as a third choice of
             „Zuständig“ when both gaps were the same. */}
-        <div className="flex flex-wrap items-center gap-x-10 gap-y-2" data-testid="open-points-filters">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2" data-testid="open-points-filters">
           <div className="flex items-center gap-2">
             {/* One column for both labels, so the two rows of choices start on one edge when they wrap on a phone. */}
             <span className="text-muted-foreground min-w-16 text-xs font-medium">{t('openPoints.filters.assignee')}</span>
@@ -152,6 +152,8 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
               segmented
               bare
               size="sm"
+              // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
+              className="[&>button]:text-sm"
               aria-label={t('openPoints.filters.assignee')}
             >
               <ToggleGroupItem value="all" data-testid="open-points-assignee-all">
@@ -175,6 +177,8 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
               segmented
               bare
               size="sm"
+              // The choices at the body's 14px, their label the 12px muted meta: a label set like its options read as one.
+              className="[&>button]:text-sm"
               aria-label={t('openPoints.filters.due')}
             >
               <ToggleGroupItem value="all" data-testid="open-points-due-all">
@@ -219,8 +223,11 @@ export function OpenPointsPanel({ projectId, currentUserId, initial, filing = nu
               // A document's points under its name, on the page: no box and no line under the heading. The rows bleed by
               // their inset, so the numbers stand on the edge under the document's glyph.
               <section key={group.documentId} aria-label={group.documentName} className="flex flex-col gap-1" data-testid="open-points-document">
-                <div className="flex items-center gap-2">
-                  <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                {/* The glyph in the points' 24px marker column, so the document's name stands on their text's edge. */}
+                <div className="flex items-center gap-3">
+                  <span className="flex w-6 shrink-0 justify-center">
+                    <FileText className="text-muted-foreground size-4" aria-hidden />
+                  </span>
                   <h2 className="text-foreground min-w-0 flex-1 truncate text-sm font-medium">{group.documentName}</h2>
                   <Button asChild variant="ghost" size="sm" className="-mr-3.5 shrink-0">
                     <Link

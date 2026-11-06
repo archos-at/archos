@@ -520,9 +520,8 @@ function NeedsYouSection({
   const sendable = offeredForRetry(brief.attention.failed).length
   if (failed + held + unplaced === 0) return null
   return (
-    <section className="flex flex-col gap-2.5 px-3 pb-3 pt-2 phone:px-4" aria-labelledby="folder-brief-needs">
-      {/* A heading over its rows, so 13px in ink: the disclosures below are row labels, 12px muted. */}
-      <h3 id="folder-brief-needs" className="text-foreground text-[13px] font-medium">
+    <section className="flex flex-col gap-2 px-3 pb-3 pt-3 phone:px-4" aria-labelledby="folder-brief-needs">
+      <h3 id="folder-brief-needs" className="text-foreground text-[13px] font-medium" /* a heading: 13px ink; row labels 12px muted */>
         {t('brief.needsTitle')}
       </h3>
       {failed > 0 && (
@@ -546,7 +545,9 @@ function NeedsYouSection({
               <RotateCcw className={cn('size-3.5', readAgainProgress && 'animate-spin motion-reduce:animate-none')} aria-hidden />
               {readAgainProgress
                 ? t('brief.readAgainProgress', { done: readAgainProgress.done, count: readAgainProgress.total })
-                : t('brief.readAgainAll', { count: sendable })}
+                : sendable === 2
+                  ? t('brief.readAgainBoth')
+                  : t('brief.readAgainAll', { count: sendable })}
             </Button>
           )}
         </AttentionRow>
@@ -596,8 +597,7 @@ function AttentionRow({
   return (
     <div className="flex items-start gap-2" data-testid={testId}>
       <ToneSwatch tone={tone} className="mt-[7px]" />
-      {/* The sentence, then its actions as one group (re-read, „Anzeigen“): at the line's end where it fits, and
-          together under the sentence on a phone, never split one right and one below. */}
+      {/* The sentence, then its actions as one group: at the line's end where it fits, together below on a phone. */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <p className="text-foreground min-w-0 flex-1 basis-48 py-[3px] text-[13px] leading-snug">{text}</p>

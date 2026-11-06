@@ -464,7 +464,8 @@ export const files: typeof en.files = {
     clearSearch: 'Suche löschen',
     clearFilters: 'Filter zurücksetzen',
     resetSearch: 'Suche zurücksetzen',
-    recentlyUploaded: 'Zuletzt hochgeladen',
+    // The label heads all of the root's files: „Zuletzt hochgeladen“ promised a subset.
+    recentlyUploaded: 'Dateien',
     /** Leere Suche, wenn die Suche nur im Namen sucht (der Ordner wird seitenweise geladen, ADR-0102). */
     noMatchNamesDescription:
       'Gesucht wird im Dateinamen. Drücken Sie Enter, um auch im Inhalt zu suchen – oder löschen Sie die Suche, um alle Dateien zu sehen.',
@@ -624,8 +625,9 @@ export const files: typeof en.files = {
     deletedOn: 'Gelöscht am {date}',
     contents:
       '{documents, plural, one {# Dokument} other {# Dokumente}} · {folders, plural, one {# Ordner} other {# Ordner}}',
-    // After „Gelöscht … am …“ and a „·“ on the same line, so lower case; future, as it has not happened.
-    purgeOn: 'wird am {date} endgültig gelöscht',
+    // After „Gelöscht … am …“ and a „·“ on the same line, so lower case; what stays, not the press's words again;
+    // the date bound to its word.
+    purgeOn: 'bleibt bis {date}',
     purging: 'wird gerade endgültig gelöscht',
     failed: 'Die endgültige Löschung ist angehalten. Ein Admin kümmert sich darum.',
     restore: 'Wiederherstellen',
@@ -651,7 +653,7 @@ export const files: typeof en.files = {
     cancel: 'Abbrechen',
     loadError: 'Der Papierkorb konnte nicht geladen werden.',
     retry: 'Erneut versuchen',
-    document: 'Dokument · kommt beim Wiederherstellen in seinen Ordner zurück',
+    document: 'Dokument',
     loadMore: 'Weitere laden',
   },
   workspace: {
@@ -1138,6 +1140,7 @@ export const files: typeof en.files = {
     needsTitle: 'Hier sind Sie gefragt',
     failedLine: '{count, plural, one {{productName} konnte # Dokument nicht lesen.} other {{productName} konnte # Dokumente nicht lesen.}}',
     readAgainAll: '{count, plural, one {Erneut lesen} other {Alle # erneut lesen}}',
+    readAgainBoth: 'Beide erneut lesen',
     readAgainProgress: '{done} von {count} gestartet…',
     readAgainDone: '{count, plural, one {# Dokument wird neu gelesen} other {# Dokumente werden neu gelesen}}',
     readAgainPartial: '{count, plural, one {# Dokument ließ sich nicht neu starten} other {# Dokumente ließen sich nicht neu starten}}',

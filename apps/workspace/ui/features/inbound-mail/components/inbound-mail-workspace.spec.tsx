@@ -116,7 +116,8 @@ describe('InboundMailWorkspace', () => {
     const file = vi.spyOn(client, 'file')
     const press = screen.getByTestId('thread-group-file')
     expect(press).toHaveTextContent('File the first 20 as revisions 4–23')
-    expect(screen.getByTestId('readiness-file-all')).toHaveTextContent('File the first 20 as suggested')
+    // The section is this one thread: its press would file the same mails, so only the thread's is offered.
+    expect(screen.queryByTestId('readiness-file-all')).toBeNull()
     await userEvent.click(press)
     await userEvent.click(await screen.findByTestId('bulk-file-confirm'))
     await waitFor(() => expect(file).toHaveBeenCalledTimes(1))

@@ -78,7 +78,8 @@ export function MailHeader({ view, forwarded, originalUrl, now }: MailHeaderProp
       asChild
     >
       <header className="flex flex-col gap-2" data-testid="mail-header">
-        <h2 className="text-lg font-medium [overflow-wrap:anywhere]" title={view.subject ?? undefined}>
+        {/* 16px on a phone, under the page's own title, which it must not outrank; 18px on a desk. */}
+        <h2 className="text-base font-medium [overflow-wrap:anywhere] sm:text-lg" title={view.subject ?? undefined}>
           {subject}
         </h2>
         {/* Who on the first line; how far the domain is confirmed, when it arrived and the way to the rest on the second,

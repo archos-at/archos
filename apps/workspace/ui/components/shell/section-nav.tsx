@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { motion, springGlide } from '@/components/motion'
 import { HorizontalScroll } from '@/components/ui/horizontal-scroll'
 import { CountPill } from '@/components/ui/count-pill'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export interface SectionNavItem {
   key: string
@@ -224,7 +225,7 @@ function SectionNavLink({
       {item.label}
       {/* `null` is a count still on its way: its width is held (an invisible pill), so the tabs after it do not move
           when it lands. `undefined` is a tab without a count. */}
-      {item.count === null && <span aria-hidden className="inline-block h-4 min-w-5" />}
+      {item.count === null && <Skeleton className="h-4 w-5 rounded-full" aria-hidden />}
       {item.count != null && item.count > 0 && (
         // White on the active tab's grey, as everything on a grey surface is: grey on grey hid the pill.
         <CountPill tone="muted" count={item.count} aria-label={item.countLabel} title={item.countLabel} className={cn(active && 'bg-background')} />

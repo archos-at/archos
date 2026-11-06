@@ -19,6 +19,8 @@ import type { JSX } from 'react'
 import { notFound } from 'next/navigation'
 import type { FolderBinListing } from '@/adapters/api/folder-bin-client'
 import { SourceDeletedNote } from '@/components/projects/source-deleted-note'
+import { ProjectSectionFrame } from '@/components/shell/project-section-frame'
+import { primeInboundMailWaiting } from '@/hooks/use-inbound-mail-waiting'
 import { FolderBinPanel } from '@/features/documents/components/folder-bin-panel'
 import { DeletedFolderContentCard } from '@/features/organization/components/deleted-folder-content-card'
 
@@ -146,9 +148,18 @@ export default function BinDevPage(): JSX.Element {
   if (process.env.NODE_ENV !== 'development') {
     notFound()
   }
+  // The waiting count the rail would have read, for the E-Mail-Eingang tab.
+  primeInboundMailWaiting(PROJECT, { count: 3, more: false })
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-10 pb-12" data-testid="bin-preview">
-      <FolderBinPanel projectId={PROJECT} initial={{ ...LISTING, entries: state.entries }} />
+    <main className="flex flex-col gap-10 pb-12" data-testid="bin-preview">
+      {/* In the section frame, as the project's Papierkorb tab draws it: its head, its tabs, its container. */}
+      <div className="h-dvh">
+        <ProjectSectionFrame projectId={PROJECT} projectName="Wohnhaus Lend" pathname={`/app/projects/${PROJECT}/files/bin`} inboundMail>
+          <div className="h-full overflow-y-auto">
+            <FolderBinPanel projectId={PROJECT} initial={{ ...LISTING, entries: state.entries }} />
+          </div>
+        </ProjectSectionFrame>
+      </div>
       <section className="flex flex-col gap-3 px-4 sm:px-6">
         <h2 className="text-sm font-semibold">Organisation → Sensible Daten → „Inhalte aus gelöschten Ordnern“</h2>
         <DeletedFolderContentCard canEdit />

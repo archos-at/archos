@@ -126,7 +126,7 @@ export function DecisionBar({
           For an impersonation „Verwerfen“ IS the primary: it moves last, and filing (once opened) is the quiet one. */}
       {/* Paired at the end of the bar, „Verwerfen“ the tonal secondary beside the primary (D4), as in the selection bar:
           a bare word beside the primary floated on the phone's full-width stack. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         {!onlyDismiss && (
           <BusyButton
             type="button"

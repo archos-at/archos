@@ -144,7 +144,7 @@ export function FolderBinPanel({ projectId, initial }: FolderBinPanelProps): JSX
             // On a phone the actions take their own line under the entry,
             // rather than squeezing its name and dates to nothing.
             <Item key={entry.folderId} as="li" className="flex-wrap rounded-surface hover:bg-muted sm:flex-nowrap" data-testid={`bin-entry-${entry.folderId}`}>
-              <ItemMedia className="mt-0.5 self-start" /* on the name's line, not the middle of the block */>
+              <ItemMedia className="h-5 w-auto justify-start self-start" /* the glyph on the edge and on the name's line */>
                 {entry.document ? (
                   <FileText className="text-muted-foreground size-5" aria-hidden />
                 ) : (

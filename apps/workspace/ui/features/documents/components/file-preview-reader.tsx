@@ -279,7 +279,7 @@ export function ReaderActions({
       className={cn(
         'flex items-center',
         bar
-          ? 'bg-card shrink-0 gap-2 pt-2 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))]'
+          ? 'bg-card shrink-0 gap-3 pt-2 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(0.5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))]'
           : 'shrink-0 gap-1',
       )}
     >
@@ -299,10 +299,9 @@ export function ReaderActions({
         data-testid="file-reader-details"
       >
         <ListTree className="size-4" aria-hidden />
-        {/* Three actions and the menu do not fit a 393px bar in words: the two
-            beside „Besprechen" keep their glyphs and give their names to a
-            screen reader. */}
-        <span className={cn(bar && annotate && 'max-[27.5rem]:sr-only')}>{detailsLabel}</span>
+        {/* „Besprechen“ and the menu with a word beside them do not fit a 393px bar: the presses beside it keep
+            their glyphs and give their names to a screen reader, so the primary keeps its padding. */}
+        <span className={cn(bar && 'max-[27.5rem]:sr-only')}>{detailsLabel}</span>
       </Button>
       {annotate && (
         <Button

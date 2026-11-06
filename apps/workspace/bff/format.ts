@@ -164,7 +164,12 @@ export const formatBytes = (bytes: number | null | undefined, locale?: string): 
  * `now` is the moment it is relative to: a caller that decided by its own `now`
  * whether to say a relative time at all must format against the same one.
  */
-export const formatRelativeTime = (isoDate: string, locale?: string, now: number = Date.now()): string => {
+export const formatRelativeTime = (
+  isoDate: string,
+  locale?: string,
+  now: number = Date.now(),
+  style: Intl.RelativeTimeFormatStyle = 'long'
+): string => {
   const date = new Date(isoDate)
   if (Number.isNaN(date.getTime())) return isoDate
 
@@ -172,7 +177,7 @@ export const formatRelativeTime = (isoDate: string, locale?: string, now: number
   const diffSeconds = Math.round(diffMs / 1000)
   const absSeconds = Math.abs(diffSeconds)
 
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style })
 
   const thresholds: Array<[number, Intl.RelativeTimeFormatUnit]> = [
     [60, 'second'],

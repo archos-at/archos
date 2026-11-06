@@ -43,7 +43,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     expect(screen.getByText('Verträge')).toBeDefined()
     expect(screen.getByText(/Deleted by Gerda Fischer on/)).toBeDefined()
     expect(screen.getByText(/14 documents · 2 folders/)).toBeDefined()
-    expect(screen.getByText(/to be permanently deleted on/)).toBeDefined()
+    expect(screen.getByText(/kept until/)).toBeDefined()
   })
 
   test('says the bin is empty', () => {
@@ -90,7 +90,7 @@ describe('FolderBinPanel (the Papierkorb)', () => {
     const binned = entry({ folderId: 'f-holder', name: 'Plan.pdf', document: { id: 'd1', name: 'Plan.pdf' } })
     render(<FolderBinPanel projectId="p1" initial={listing([binned])} />)
 
-    expect(screen.getByText('Document · goes back to its folder when restored')).toBeDefined()
+    expect(screen.getByText('Document')).toBeDefined()
     await userEvent.click(screen.getByTestId('bin-restore-f-holder'))
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled())

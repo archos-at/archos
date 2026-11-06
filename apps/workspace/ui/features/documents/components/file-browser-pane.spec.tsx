@@ -401,8 +401,9 @@ describe('FileBrowserPane — semantic search (explicit run)', () => {
     // cards — and clearing the query threw them back again.
     expect(await screen.findByTestId('file-list-view')).toBeInTheDocument()
     expect(screen.queryByTestId('semantic-match')).not.toBeInTheDocument()
-    // And the ranking survives into it: ranked rows under the Relevance header, which needs no „1, 2“ beside them.
-    expect(await screen.findByRole('button', { name: /relevance/i })).toBeInTheDocument()
+    // And the ranking survives into it: the rows in rank order, with no „1, 2“ column repeating it.
+    expect(await screen.findAllByTestId('file-list-row')).not.toHaveLength(0)
+    expect(screen.queryByTestId('file-list-relevance')).toBeNull()
   })
 
   it('waits in the shape of the view the answer will arrive in', async () => {

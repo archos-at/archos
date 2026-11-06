@@ -117,7 +117,7 @@ export function InboundMailList(props: InboundMailListProps): JSX.Element {
           <ToggleGroupItem value="waiting" data-testid="filter-waiting" className="gap-1.5">
             {t('filters.waiting')}
             {/* Held while the count loads, so „Bearbeitet“ does not move when it lands. */}
-            {waitingCount === null && <span aria-hidden className="inline-block h-4 min-w-5" />}
+            {waitingCount === null && <Skeleton className="h-4 w-5 rounded-full" aria-hidden />}
             {waitingCount !== null && waitingCount > 0 && <CountPill count={waitingCount} tone="muted" className="in-data-[state=on]:bg-background" />}
           </ToggleGroupItem>
           <ToggleGroupItem value="handled" data-testid="filter-handled">
@@ -171,7 +171,7 @@ function ListBody({
         <div className="flex min-h-7 items-center px-4 pt-4 pb-1">
           <Skeleton className="h-3 w-16" />
         </div>
-        <ul className="flex flex-col gap-0.5 px-1">
+        <ul className="flex flex-col px-1">
           {[0, 1, 2, 3, 4].map((row) => (
             <li key={row} className="flex items-start gap-3 px-3 py-3">
               <span className="flex h-8 w-4 shrink-0 items-center" aria-hidden>
@@ -208,7 +208,7 @@ function ListBody({
     }
     if (everReceived === false) {
       return (
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 sm:p-6" data-testid="inbound-mail-never">
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-4 p-4 sm:p-6" data-testid="inbound-mail-never" /* one width for its words and its panel */>
           {/* One sheet holds the address below: the words above it stand on the page, not in a second box. */}
           <EmptyState
             variant="bare"
@@ -259,12 +259,16 @@ function ListBody({
 
   return (
     <div className="flex flex-col">
-      {sections.map((section) => {
+      {sections.map((section, index) => {
         // Rows sit apart by a gap and answer with a fill, not a rule under each.
-        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col gap-0.5 px-1 py-0.5">{row(section.mail)}</ul>
+        if (section.kind === 'mail') return <ul key={section.mail.id} className="flex flex-col px-1 py-0.5">{row(section.mail)}</ul>
         if (section.kind === 'readiness') {
           const ready = section.readiness === 'ready'
           const batch = section.mails.slice(0, INBOUND_MAIL_DECISION_MAX_MAILS)
+          // A section that is one thread and nothing else: the thread's own press files the same mails, so the
+          // section's would be a second press for one act, 40px above it.
+          const next = sections[index + 1]
+          const soleThread = next?.kind === 'thread' && next.mails.length === section.mails.length && sections[index + 2]?.kind !== 'mail'
           return (
             <div
               key={`readiness-${section.readiness}`}
@@ -283,7 +287,7 @@ function ListBody({
                   {t(`readiness.${section.readiness}`)}
                   <CountPill count={section.mails.length} tone="muted" />
                 </SectionLabel>
-                {ready && batch.length > 1 && !picking && (
+                {ready && batch.length > 1 && !picking && !soleThread && (
                   <Button type="button" size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground -mr-2 gap-1.5 px-2 text-xs pointer-coarse:min-h-11" onClick={() => onFileReady(batch.map((mail) => mail.id))} data-testid="readiness-file-all">
                     {/* No glyph, as the thread's press has none: row-end actions are text presses. One request decides at
                         most twenty mails: past that, the press says it files the first ones. */}
@@ -339,7 +343,7 @@ function ListBody({
                 )}
               </div>
               {/* 24px after its last member, the gap between sections: a row below it visibly stands outside the thread. */}
-              <ul className="flex flex-col gap-0.5 px-1 pt-0.5 pb-6">{section.mails.map((mail) => row(mail, true))}</ul>
+              <ul className="flex flex-col px-1 pt-0.5 pb-6" /* rows touch: two picked rows are one region, not two boxes */>{section.mails.map((mail) => row(mail, true))}</ul>
             </section>
           )
         }
@@ -356,7 +360,7 @@ function ListBody({
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <p className="text-muted-foreground px-4 pb-2 text-xs">{t('group.quietHint')}</p>
-                <ul className="flex flex-col gap-0.5 px-1 py-0.5">{section.mails.map((mail) => row(mail))}</ul>
+                <ul className="flex flex-col px-1 py-0.5">{section.mails.map((mail) => row(mail))}</ul>
               </CollapsibleContent>
             </section>
           </Collapsible>

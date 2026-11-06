@@ -218,9 +218,9 @@ export function FileListView({
               onSort={setSort}
               className="w-auto [&>button]:pl-[50px]" /* over the names, past the 32px format column */
             />
-            {/* The header always (it sorts the ranking either way); the ranks only while another column orders the
-                rows: sorted by relevance, the order IS the rank and the cells only repeated it („1, 2, 3“). */}
-            {semantic && (
+            {/* Only while another column orders the rows: sorted by relevance the order IS the rank, and a column of
+                „1, 2, 3“, or an empty one under its header, only repeated it. Its header is the way back. */}
+            {showRank && (
               <SortHeader
                 label={t('list.columns.relevance')}
                 column="relevance"
@@ -441,14 +441,14 @@ const FileListRowItem = memo(function FileListRowItem({
           </span>
         </div>
       </TableCell>
-      {semantic && (
+      {showRank && (
         <TableCell
           className={cn(
             'hidden whitespace-nowrap text-right text-xs tabular-nums @3xl/filelist:table-cell',
             CELL,
           )}
         >
-          {showRank && file.rank !== undefined && (
+          {file.rank !== undefined && (
             <span
               className="font-medium text-foreground"
               title={t('browser.semantic.rank', { rank: String(file.rank) })}

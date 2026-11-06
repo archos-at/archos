@@ -354,6 +354,13 @@ export const FileCard = memo(function FileCard({
       {...(draggable && !selection ? documentDragProps(file.id, file.folderId ?? null) : {})}
     >
       {selection && <SelectionMark checked={selection.checked} />}
+      {/* What is open on the pages, on the sheet beside what is in progress, as the list puts both after the name:
+          one place. Over the thumbnail's foot (above „Wird gelesen“ when that is there), outside the card's button,
+          since it is a press of its own that opens the review. A line of its own under the summary left every other
+          tile of its row a 50px hole. */}
+      <div className={cn('absolute left-3.5 z-[1] max-w-[calc(100%-1.75rem)]', showStatus ? 'top-[78px]' : 'top-[102px]')}>
+        <OpenMarksChip file={file} name={name} className="bg-background" />
+      </div>
       {actions && !selection && (
         <div
           className="absolute right-0.5 top-[133px] z-[1] pointer-coarse:opacity-100 md:opacity-0 md:group-hover/card:opacity-100 group-focus-within/card:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity duration-quick ease-out motion-reduce:transition-none"
@@ -409,7 +416,7 @@ export const FileCard = memo(function FileCard({
                 // Capped at the well's width less its insets: on a phone's
                 // two-column grid „Wartet · 3 Dateien davor" ran into the
                 // card's edge; now its word ends in an ellipsis instead.
-                className="absolute bottom-2 left-2 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-xs font-medium leading-4"
+                        className="absolute bottom-2 left-2 h-5 max-w-[calc(100%-1rem)] border-transparent bg-background px-1.5 py-0 text-[11px] font-medium leading-none"
               />
             )}
           </FileTileMedia>
@@ -510,12 +517,9 @@ export const FileCard = memo(function FileCard({
           box is a line of text), so a row of tiles stays even when a
           suggestion arrives or goes. On a narrow tile the chip's folder name
           ellipsizes first, then the relative time drops; it never wraps.
-          What is still open on the pages takes a line of its own, above the
-          size and the age and never in their place: „4 offen · 2 für Sie" and
-          „vor 4 Monaten" do not share a 220px tile, and a count without its
-          words had to be learnt. The footer fills the cell and sets its lines at
-          its foot (`content-end`), so the meta line is the tile's last line in
-          every tile of a row, whichever of them carries the extra line. */}
+          The footer fills the cell and sets its lines at its foot (`content-end`),
+          so the meta line is the tile's last line in every tile of a row,
+          whichever of them runs longer (a name on two lines). */}
       {!hideFooter && (
         <FileTileFooter
           onClick={onSelect}
@@ -543,11 +547,6 @@ export const FileCard = memo(function FileCard({
               {(ext !== '' || hasSize) && <FactDot />}
               <TimeAgo date={file.createdAt} locale={locale} className="tabular-nums" />
             </span>
-          </span>
-          {/* Its own line (`basis-full`) above the meta line, and none at all when nothing is open:
-              the review opens from here without opening the card first. */}
-          <span className="order-first flex min-w-0 basis-full empty:hidden">
-            <OpenMarksChip file={file} name={name} />
           </span>
         </FileTileFooter>
       )}

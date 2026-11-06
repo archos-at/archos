@@ -178,12 +178,14 @@ describe('FileListView', () => {
       expect(first).toHaveTextContent('2')
     })
 
-    it('offers relevance as a column that can be sorted the other way', async () => {
+    it('brings the ranking back from its column once another column orders the rows', async () => {
       const user = userEvent.setup()
       renderList(HITS, { semantic: true })
-
+      // Ranked, there is no Relevance column: the order is the rank.
+      expect(screen.queryByRole('button', { name: /relevance/i })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /^name/i }))
       await user.click(screen.getByRole('button', { name: /relevance/i }))
-      expect(rowNames()).toEqual(['Statik.pdf', 'Flucht.pdf'])
+      expect(rowNames()).toEqual(['Flucht.pdf', 'Statik.pdf'])
     })
 
     it('has no relevance column in a plain listing', () => {

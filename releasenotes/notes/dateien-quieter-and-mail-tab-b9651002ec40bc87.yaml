@@ -40,6 +40,9 @@ features:
   - >
     The Bin says why a folder cannot be restored, and the list view shows
     reading and open comments right after each file's name.
+  - >
+    On a tile, open comments now sit on the preview image beside the reading
+    state, and the files at the top level are headed "Files".
 fixes:
   - >
     A project's Files no longer repeats the number of waiting mails in a line

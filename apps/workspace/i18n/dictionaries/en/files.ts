@@ -476,7 +476,7 @@ export const files = {
     clearSearch: 'Clear search',
     clearFilters: 'Clear filters',
     resetSearch: 'Reset search',
-    recentlyUploaded: 'Recently uploaded',
+    recentlyUploaded: 'Files',
     /** Empty search when the search matches names only (the folder loads page by page, ADR-0102). */
     noMatchNamesDescription:
       'The search looks at file names. Press Enter to search the contents too, or clear the search to see every file.',
@@ -640,7 +640,7 @@ export const files = {
     deletedOn: 'Deleted on {date}',
     contents:
       '{documents, plural, one {# document} other {# documents}} · {folders, plural, one {# folder} other {# folders}}',
-    purgeOn: 'to be permanently deleted on {date}',
+    purgeOn: 'kept until {date}',
     purging: 'being permanently deleted',
     failed: 'The permanent deletion has stopped. An admin is looking into it.',
     restore: 'Restore',
@@ -664,7 +664,7 @@ export const files = {
     cancel: 'Cancel',
     loadError: 'The bin could not be loaded.',
     retry: 'Try again',
-    document: 'Document · goes back to its folder when restored',
+    document: 'Document',
     loadMore: 'Load more',
   },
   workspace: {
@@ -1164,6 +1164,7 @@ export const files = {
     needsTitle: 'Needs your attention',
     failedLine: '{count, plural, one {{productName} could not read # document.} other {{productName} could not read # documents.}}',
     readAgainAll: '{count, plural, one {Read again} other {Read all # again}}',
+    readAgainBoth: 'Read both again',
     readAgainProgress: 'Starting {done} of {count}…',
     readAgainDone: '{count, plural, one {# document is being read again} other {# documents are being read again}}',
     readAgainPartial: '{count, plural, one {# document could not be restarted} other {# documents could not be restarted}}',
