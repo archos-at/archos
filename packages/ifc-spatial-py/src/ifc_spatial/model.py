@@ -49,6 +49,8 @@ import ifcopenshell.util.shape as us
 import ifcopenshell.util.unit as uu
 import numpy as np
 
+from .crash_probe import PARSER_CRASH_REASON
+from .crash_probe import crashes_the_parser
 from .envelope import ElementRef
 
 # ── kinds ───────────────────────────────────────────────────────────────────
@@ -156,7 +158,7 @@ class ModelTooLargeError(ModelUnreadableError):
 
 
 def _preflight(path: str, max_bytes: int) -> None:
-    """Everything about the bytes that can be checked before the parser sees them.
+    """Everything about the bytes that can be checked before this process parses them.
 
     The truncation check is the one that matters. ``ifcopenshell.open`` **crashes
     the process** on a file cut mid-entity — measured on this corpus: a Duplex
@@ -166,9 +168,7 @@ def _preflight(path: str, max_bytes: int) -> None:
     before handing the bytes over. A complete SPF file ends with
     ``END-ISO-10303-21;``; a truncated download essentially never does.
 
-    This is a guard, not a validator. A file can still be malformed in ways only
-    the parser discovers, which is why the design doc's "extraction becomes a
-    worker" (§11) remains the real answer and this is the cheap half of it.
+    Last comes a trial parse in a child; the design doc's worker (§11) remains the real answer.
     """
     if not isinstance(path, (str, os.PathLike)):
         raise ModelUnreadableError(str(path), "Kein Dateipfad übergeben.")
@@ -205,6 +205,8 @@ def _preflight(path: str, max_bytes: int) -> None:
             "bringt den Parser zum Absturz und wird deshalb gar nicht erst geöffnet; die Datei bitte "
             "vollständig neu hochladen.",
         )
+    if crashes_the_parser(path):
+        raise ModelUnreadableError(path, PARSER_CRASH_REASON)
 
 
 class UnknownElementError(KeyError):

@@ -1,8 +1,8 @@
 """What this package refuses to do with input it does not control.
 
-Two of these are not questions about a building. They are questions about the
+Three of these are not questions about a building. They are questions about the
 PROCESS the building is measured in, and each was reproduced against the code
-before it was fixed. (A third, ``open_model(url=…)`` reading whatever a URL
+before it was fixed. (A fourth, ``open_model(url=…)`` reading whatever a URL
 named, went with the URL itself on 2026-11-04: the engine opens a path its host
 fetched through the host's own access check.)
 
@@ -10,7 +10,9 @@ fetched through the host's own access check.)
     absolute name replaced the directory and a ``..`` walked out of it;
   - ``render.plan`` derived the raster HEIGHT from the model's aspect ratio and
     allocated it. A 400 m × 2 m gallery is 365 megapixels at the default width,
-    which is 1.41 GB and an OOM-killed worker rather than a refused request.
+    which is 1.41 GB and an OOM-killed worker rather than a refused request;
+  - a file the parser dies on in C took the process with it, and with the process
+    every conversation running there.
 
 The first is a refusal and read as ``ToolError``: the call could not be
 made. None of them is an ``undecidable`` — that is a finding about an export,
@@ -19,6 +21,9 @@ and "we will not connect there" is a finding about us.
 
 from __future__ import annotations
 
+import signal
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -289,3 +294,125 @@ def test_a_real_document_still_lands_under_the_given_name(tmp_path: Path) -> Non
 
     assert facts["path"] == str(tmp_path / "haus.ids")
     assert (tmp_path / "haus.ids").is_file()
+
+
+# ── a file the parser dies on ───────────────────────────────────────────────
+
+_NAME = "FILE_NAME('h.ifc','2026-08-12T00:00:00',(''),(''),'','','');\n"
+_SCHEMA = "FILE_SCHEMA(('IFC4'));\n"
+
+#: In a child, because without the probe this is a SIGSEGV and the test run would die of it.
+_OPEN_AND_PRINT_THE_REFUSAL = """
+import sys
+from ifc_spatial.model import ModelUnreadableError, SpatialModel
+try:
+    SpatialModel(sys.argv[1])
+except ModelUnreadableError as refusal:
+    print(refusal.reason)
+except Exception:
+    pass
+"""
+
+
+def _open_in_a_child(tmp_path: Path, header: str, data: str) -> subprocess.CompletedProcess[str]:
+    path = tmp_path / "broken.ifc"
+    path.write_text(
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\n"
+        f"{header}ENDSEC;\nDATA;\n{data}ENDSEC;\nEND-ISO-10303-21;\n"
+    )
+    return subprocess.run(
+        [sys.executable, "-c", _OPEN_AND_PRINT_THE_REFUSAL, str(path)],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+
+
+def test_a_file_the_parser_dies_on_is_refused_and_the_process_lives(tmp_path: Path) -> None:
+    child = _open_in_a_child(tmp_path, _NAME + "FILE_SCHEMA(('HEADER_SECTION_SCHEMA'));\n", "")
+    assert child.returncode == 0, child.stderr[-500:]
+    assert "neu exportieren" in child.stdout
+
+
+# A SIGSEGV on macOS; whether Linux faults too is not established, so these hold
+# only that the process lives.
+@pytest.mark.parametrize(
+    ("header", "data"),
+    [
+        pytest.param(_NAME + _SCHEMA, "#1=IFCWALL('x\n", id="string-open-to-the-end-in-data"),
+        pytest.param("FILE_NAME('h.ifc\n", "", id="string-open-to-the-end-in-the-header"),
+    ],
+)
+def test_a_string_left_open_does_not_take_the_process(tmp_path: Path, header: str, data: str) -> None:
+    child = _open_in_a_child(tmp_path, header, data)
+    assert child.returncode == 0, child.stderr[-500:]
+
+
+def test_nesting_the_hosts_stack_cannot_hold_does_not_fit_the_probe_either(tmp_path: Path) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    path = tmp_path / "nested.ifc"
+    path.write_text(
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\n"
+        f"{_NAME}{_SCHEMA}ENDSEC;\nDATA;\n"
+        f"#1=IFCPROJECT({'(' * 40_000}{')' * 40_000});\n"
+        "ENDSEC;\nEND-ISO-10303-21;\n"
+    )
+    assert crashes_the_parser(str(path)) is True
+
+
+def test_the_child_that_reads_the_upload_gets_no_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ifc_spatial import crash_probe
+
+    seen: dict[str, Any] = {}
+
+    def run(*_args: Any, **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        seen.update(kwargs)
+        return subprocess.CompletedProcess(args=[], returncode=0)
+
+    monkeypatch.setattr(crash_probe.subprocess, "run", run)
+    crash_probe.crashes_the_parser(str(HOUSE))
+    assert seen["env"] == {}
+
+
+@pytest.mark.parametrize(
+    ("fixture", "schema"),
+    [("Ifc4_SampleHouse.ifc", "IFC4"), ("units-feet.ifc", "IFC2X3")],
+)
+def test_a_valid_model_passes_the_probe_and_opens(fixture: str, schema: str) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    assert crashes_the_parser(str(FIXTURES / fixture)) is False
+    assert SpatialModel(str(FIXTURES / fixture)).file.schema == schema
+
+
+@pytest.mark.parametrize(
+    ("returncode", "crashed"),
+    [
+        (0, False),
+        (1, False),
+        (-signal.SIGKILL, False),
+        (-signal.SIGTERM, False),
+        (-signal.SIGSEGV, True),
+        (-signal.SIGBUS, True),
+        (-signal.SIGABRT, True),
+    ],
+)
+def test_only_a_death_the_parser_caused_counts_as_a_crash(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, crashed: bool
+) -> None:
+    from ifc_spatial import crash_probe
+
+    finished = subprocess.CompletedProcess(args=[], returncode=returncode)
+    monkeypatch.setattr(crash_probe.subprocess, "run", lambda *_args, **_kwargs: finished)
+    assert crash_probe.crashes_the_parser(str(HOUSE)) is crashed
+
+
+def test_a_probe_that_cannot_start_leaves_the_file_to_the_real_open(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from ifc_spatial.crash_probe import crashes_the_parser
+
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "no-such-python"))
+    assert crashes_the_parser(str(HOUSE)) is False
