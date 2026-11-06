@@ -40,6 +40,11 @@ class ContextBlocks:
     #: The WORKSPACE block (ADR-0123): who asks, where, and what is open now,
     #: this conversation's proposals included. None from an older BFF.
     workspace: str | None = None
+    #: The office's confirmed base knowledge (ADR-0158): its licensed standards,
+    #: commentaries, directives, guidelines and laws, one line each with edition,
+    #: role and last check (``lib/base-knowledge/office/turn-block.ts``). None
+    #: from an older BFF, with the flag off, or when the office holds none.
+    base_knowledge: str | None = None
     #: Where the BFF spent its time, read off the route's ``Server-Timing``
     #: (``bff_<phase>_ms``, and ``bff_memory_desc``: whether the memory read
     #: waited for the query embed). Scalars only, never content; empty from an
@@ -56,6 +61,10 @@ REFERENCE_PROJECTS_MAX_CHARS = 4000
 #: the office's conventions (``lib/office-conventions/render.ts``, ADR-0129),
 #: which a cut at a line drops first.
 WORKSPACE_MAX_CHARS = 6500
+
+#: A header and at most 40 lines of 400 chars (``MAX_TURN_ENTRIES``,
+#: ``MAX_TURN_LINE_CHARS`` in ``lib/base-knowledge/office/turn-block.ts``).
+BASE_KNOWLEDGE_MAX_CHARS = 17_000
 
 #: The line that opens the office's conventions in the WORKSPACE block
 #: (``officeConventionsHeader`` in ``lib/office-conventions/render.ts``).
@@ -156,7 +165,24 @@ def _parse_blocks(body: object) -> ContextBlocks:
             data.get("workspace") if isinstance(data.get("workspace"), str) else None,
             WORKSPACE_MAX_CHARS,
         ),
+        base_knowledge=_bounded_lines(
+            data.get("baseKnowledge") if isinstance(data.get("baseKnowledge"), str) else None,
+            BASE_KNOWLEDGE_MAX_CHARS,
+        ),
     )
+
+
+def with_base_knowledge(memory: str | None, base_knowledge: str | None) -> str | None:
+    """The memory part of the project context with the office's base knowledge after it, tagged. Pure.
+
+    It rides in the project context so every agent that reads the project
+    (the conversation, deep research) reads which standards the office holds
+    and how far each binds here, without a field of its own on every state.
+    """
+    if not base_knowledge:
+        return memory
+    block = f"<office_base_knowledge>\n{base_knowledge}\n</office_base_knowledge>"
+    return f"{memory}\n\n{block}" if memory else block
 
 
 def fetch_turn_context(request: RequestContext, *, query: str | None = None) -> ContextBlocks:

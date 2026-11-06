@@ -281,3 +281,26 @@ def test_a_malformed_or_wordy_server_timing_puts_nothing_in_the_trace(header):
     facts = client.parse_server_timing(header)
     assert not any("Attika" in str(value) for value in facts.values())
     assert "bff_memory_desc" not in facts
+
+
+def test_base_knowledge_is_read_and_bounded_at_a_line(request_context, opener):
+    lines = "\n".join(f"- ÖNORM B {n}: technical standard, edition 2017" for n in range(1000))
+    opener.open.return_value.read.return_value = json.dumps(
+        {"data": {"projectContext": None, "projectMemory": None, "orgInstructions": None, "baseKnowledge": lines}}
+    ).encode("utf-8")
+    blocks = client.fetch_turn_context(request_context)
+    assert blocks.base_knowledge is not None
+    assert len(blocks.base_knowledge) <= client.BASE_KNOWLEDGE_MAX_CHARS
+    assert blocks.base_knowledge.splitlines()[-1].startswith("- ÖNORM B ")
+
+
+def test_an_older_bff_without_base_knowledge_reads_as_none(request_context, opener):
+    assert client.fetch_turn_context(request_context).base_knowledge is None
+
+
+def test_base_knowledge_rides_after_the_memory_tagged():
+    assert client.with_base_knowledge("MEMORY", None) == "MEMORY"
+    assert client.with_base_knowledge(None, "- a") == "<office_base_knowledge>\n- a\n</office_base_knowledge>"
+    assert client.with_base_knowledge("MEMORY", "- a") == (
+        "MEMORY\n\n<office_base_knowledge>\n- a\n</office_base_knowledge>"
+    )

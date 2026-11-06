@@ -36,6 +36,7 @@ from agent.stages.flags import resolve_turn_flags
 from agent.turn.context_client import ContextBlocks
 from agent.turn.context_client import fetch_turn_context
 from agent.turn.context_client import office_convention_lines
+from agent.turn.context_client import with_base_knowledge
 
 logger = logging.getLogger(__name__)
 
@@ -333,12 +334,19 @@ async def _load_turn_context(
         # The office's conventions the turn was shown (ADR-0129): 0 on a turn
         # without them, so Langfuse can compare filing answers with and without.
         record_trace_metadata(office_conventions_lines=office_convention_lines(blocks.workspace))
+    # The office's base-knowledge entries the turn was shown (ADR-0158), so Langfuse
+    # can compare answers with and without the office's own standards.
+    if blocks.base_knowledge is not None:
+        lines = blocks.base_knowledge.splitlines()
+        record_trace_metadata(base_knowledge_entries=sum(1 for line in lines if line.startswith("- ")))
     if blocks.drew_on_other_projects and (cross := current_cross_project_turn()) is not None:
         # An earlier turn drew on another project (ADR-0094): this one starts
         # with every door a whole project reads shut (`settle_restriction`).
         cross.drew_on_others = True
     return TurnContext(
-        project_context=compose_project_context(blocks.project_context, blocks.project_memory),
+        project_context=compose_project_context(
+            blocks.project_context, with_base_knowledge(blocks.project_memory, blocks.base_knowledge)
+        ),
         platform_lessons=lessons.digest,
         org_instructions=blocks.org_instructions,
         reference_projects=blocks.reference_projects,
