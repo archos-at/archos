@@ -173,6 +173,13 @@ def _older_revision_notice(file: EstateFile) -> str:
     return older_revision_line(file.row.file_name, current).strip()
 
 
+def file_licence(row: Any) -> Any:
+    """The licence a document row states (``FileRow.licence_class``), as grounding terms; ``None`` when unmarked."""
+    from agent.common.licensed_text import licence_from_metadata
+
+    return licence_from_metadata({"licence_class": row.licence_class, "quote_max_chars": row.quote_max_chars})
+
+
 def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: bool = True) -> Any:
     """One page as a grounding record: the page's text, the file's own row, the ``file, p.N`` key."""
     from knowledge_layer.search.grounding_hits import _citation_key_for
@@ -202,6 +209,7 @@ def _page_hit(file: EstateFile, page: stored_pages.Page, *, budget: int, paged: 
         body=body[:budget] if truncated else body,
         body_truncated=truncated,
         path=file.path,
+        licence=file_licence(file.row),
     )
 
 
@@ -212,6 +220,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
     from knowledge_layer.search.grounding_hits import _hit_provenance
 
     from agent.common.grounding_block import GroundingHit
+    from agent.common.licensed_text import licence_from_metadata
     from agent.common.source_kinds import parse_shelf
 
     shelf = parse_shelf(file.row.shelf)
@@ -237,6 +246,7 @@ def _chunk_hit(file: EstateFile, chunk: Any) -> Any:
         body=content[:_CHUNK_TRUNCATE_CHARS] if truncated else content,
         body_truncated=truncated,
         path=file.path,
+        licence=licence_from_metadata(chunk.metadata) or file_licence(file.row),
     )
 
 

@@ -193,6 +193,14 @@ tasks:
       # or localhost:6333). Only uniquely named parity_* collections are touched.
       - '{{.PY}} -m oib_retrieval.qdrant_parity.runner {{.CLI_ARGS}}'
 
+  be:eval:licensed:
+    desc: 'Licensed-seam eval — answers from norm-like licensed tables, public / seam / off, with leak checks (NEEDS OPENROUTER_API_KEY; no backend)'
+    cmds:
+      # The question the seam has to answer twice: do answers still read the
+      # office's licensed copy well, and does none of it reach a trace or a
+      # checkpoint. Exit 1 = a seam or off run leaked past the quote cap.
+      - '{{.PY}} scripts/licensed_eval.py {{.CLI_ARGS}}'
+
   be:eval:decisions:
     desc: 'Decision-model eval — does Jev pick the right OIB family, corpus and evidence need on the loop-eval questions (NEEDS OPENROUTER_API_KEY; no backend)'
     cmds:

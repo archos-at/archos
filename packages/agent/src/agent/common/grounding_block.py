@@ -39,6 +39,11 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 from agent.common.action_rows import current_action_call
+from agent.common.licensed_text import LicenceTerms
+from agent.common.licensed_text import begin_licensed_capture
+from agent.common.licensed_text import end_licensed_capture
+from agent.common.licensed_text import licence_line
+from agent.common.licensed_text import licensed_body
 from agent.common.passage_fence import DATA_NOTE
 from agent.common.passage_fence import fence
 from agent.common.passage_fence import neutralise_tags
@@ -220,6 +225,8 @@ class GroundingHit(BaseModel):
     #: another project (not mounted), the web, RIS. Not the citation key: a path is how the
     #: model FINDS a file, the key is what it cites.
     path: str | None = None
+    #: The licence (``common/licensed_text.py``): ``licensed`` renders a ``Licence:`` line and a reference.
+    licence: LicenceTerms | None = None
 
     @property
     def authored_by(self) -> str | None:
@@ -426,7 +433,7 @@ def _lanes_line(lanes: tuple[TraceLane, ...]) -> str:
 
 def _hit_lines(index: int, hit: GroundingHit) -> list[str]:
     """One ``--- Result N ---`` block: header, blank line, the fenced body (``common/passage_fence.py``), blank line."""
-    body = (hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body
+    body = licensed_body((hit.body + TRUNCATION_MARKER) if hit.body_truncated else hit.body, hit.licence)
     return [f"--- Result {index} ---", *_header_lines(hit), "", fence(body), ""]
 
 
@@ -470,6 +477,8 @@ def _header_lines(hit: GroundingHit) -> Iterator[str]:
         yield f"Punkt: {_line(hit.clause)}"
     if hit.status_note:
         yield f"Rechtlicher Hinweis: {_line(hit.status_note)}"
+    if licence := licence_line(hit.licence):
+        yield f"Licence: {licence}"
     yield f"Citation: {_key(hit.citation_key)}"
     yield f"Content Type: {_key(hit.content_type)}"
     if hit.stored_image_index is not None:
@@ -583,14 +592,15 @@ _captured_blocks: ContextVar[OrderedDict[str, GroundingBlock] | None] = ContextV
 )
 
 
-def begin_grounding_capture() -> Token:
-    """Start filing this turn's rendered blocks. Pair with :func:`end_grounding_capture`."""
-    return _captured_blocks.set(OrderedDict())
+def begin_grounding_capture(*, licensed_text: bool = False) -> tuple[Token, Token]:
+    """Start filing this turn's blocks and licensed passages; ``licensed_text`` is the ``licensed-seam`` flag."""
+    return _captured_blocks.set(OrderedDict()), begin_licensed_capture(text_allowed=licensed_text)
 
 
-def end_grounding_capture(token: Token) -> None:
-    """Stop filing blocks, and drop the ones this turn filed."""
-    _captured_blocks.reset(token)
+def end_grounding_capture(token: tuple[Token, Token]) -> None:
+    """Stop filing blocks, and drop the blocks and licensed passages this turn filed."""
+    _captured_blocks.reset(token[0])
+    end_licensed_capture(token[1])
 
 
 def _fingerprint(rendered_text: str) -> str:

@@ -63,6 +63,7 @@ from .backend import _render
 from .backend import estate_file
 from .backend import glob_files
 from .backend import pages_label
+from .render import file_licence
 
 logger = logging.getLogger(__name__)
 
@@ -613,11 +614,16 @@ def _content(
     return _render(tuple(hits), preamble="\n".join(lines), notices=[], trailer=trailer, tool="grep")
 
 
+def _licensed(file: EstateFile) -> bool:
+    return (licence := file_licence(file.row)) is not None and licence.licensed
+
+
 def _context_index(picked: Sequence[tuple[DocumentMatches, int | None]], query: Query, context: int) -> str:
     """``<path>#page=N`` lines with each match and ``context`` lines around it: an index under the passages."""
     out: list[str] = []
     for doc, page in picked:
-        text = doc.texts.get(page, "")
+        # A licensed document's lines would be its text outside the seam: its passage above is the reference.
+        text = "" if doc.file is not None and _licensed(doc.file) else doc.texts.get(page, "")
         if not text:
             continue
         lines = text.split("\n")

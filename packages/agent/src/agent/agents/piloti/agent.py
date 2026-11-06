@@ -1551,7 +1551,7 @@ class ChatAgent:
         # What each evidence tool STATED, filed under the bytes it returned, so
         # the citation registry copies fields instead of re-parsing the text an
         # evidence tool wrote (ADR-0061).
-        grounding_capture = begin_grounding_capture()
+        grounding_capture = begin_grounding_capture(licensed_text=state.licensed_text_allowed)
         try:
             graph_result = await self._graph.ainvoke(state, config=self._graph_config(binding))
             turn_sources = get_turn_captures()

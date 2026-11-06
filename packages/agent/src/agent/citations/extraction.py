@@ -189,6 +189,10 @@ def _entry_from_hit(hit: GroundingHit, tool_name: str) -> SourceEntry:
     return _entry_from_hit_fields(hit, tool_name)
 
 
+def _licensed(hit: GroundingHit) -> bool:
+    return hit.licence is not None and hit.licence.licensed
+
+
 def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
     """One captured grounding hit as a registry entry, by field copy.
 
@@ -215,7 +219,8 @@ def _entry_from_hit_fields(hit: GroundingHit, tool_name: str) -> SourceEntry:
         # The body as EVIDENCE: no truncation marker (the renderer adds it) and
         # no surrounding blank lines, so ``verify_quoted_spans`` matches an
         # answer's quote against the passage and nothing else.
-        chunk_text=hit.body.strip() or None,
+        # A licensed body persists with the answer's sources only as far as a quote may reach.
+        chunk_text=(hit.body.strip()[: hit.licence.quote_max_chars] if _licensed(hit) else hit.body.strip()) or None,
         clause=(hit.clause or "").strip() or None,
         score=hit.score,
         regions=list(hit.regions[:MAX_REGIONS_PER_SOURCE]),
