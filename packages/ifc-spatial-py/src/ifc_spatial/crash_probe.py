@@ -41,7 +41,8 @@ opener.join()
 
 # glibc gives a thread the soft RLIMIT_STACK, or 2 MiB when that is unlimited;
 # CPython on macOS gives its threads 16 MiB whatever the limit. The result is rounded
-# down to 64 KiB because macOS refuses a stack that is not whole pages.
+# down to 64 KiB because macOS refuses a stack that is not whole pages, and kept at
+# 64 KiB at least because a stack size of 0 means the default stack.
 _GLIBC_THREAD_STACK_WHEN_UNLIMITED = 2 * 1024 * 1024
 _CPYTHON_THREAD_STACK_ON_MACOS = 16 * 1024 * 1024
 
@@ -50,7 +51,7 @@ def _probe_stack_size() -> int:
     soft, _ = resource.getrlimit(resource.RLIMIT_STACK)
     main = _GLIBC_THREAD_STACK_WHEN_UNLIMITED if soft == resource.RLIM_INFINITY else soft
     worker = threading.stack_size() or (_CPYTHON_THREAD_STACK_ON_MACOS if sys.platform == "darwin" else main)
-    return min(main, worker) // 2 & ~0xFFFF
+    return max(min(main, worker) // 2 & ~0xFFFF, 64 * 1024)
 
 
 def crashes_the_parser(path: str) -> bool:

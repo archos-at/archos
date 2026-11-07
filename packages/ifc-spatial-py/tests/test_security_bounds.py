@@ -397,6 +397,7 @@ def test_nesting_a_host_on_small_worker_stacks_cannot_hold_is_refused(tmp_path: 
         pytest.param(resource.RLIM_INFINITY, 0, _MIB, id="unlimited-gives-glibc-threads-2-mib"),
         pytest.param(8 * _MIB, _MIB, _MIB // 2, id="host-threads-set-smaller"),
         pytest.param(8191 * 1024, 0, 4 * _MIB - 64 * 1024, id="a-limit-of-no-whole-pages"),
+        pytest.param(100 * 1024, 0, 64 * 1024, id="a-limit-too-small-to-halve-keeps-a-floor"),
     ],
 )
 def test_the_probe_gets_half_the_smallest_stack_the_host_opens_on(
