@@ -265,6 +265,15 @@ def test_a_last_attempt_out_of_time_settles_interrupted(db, serving, monkeypatch
     assert settled.error_message.startswith("interrupted:")
 
 
+def test_a_run_whose_status_nothing_holds_any_more_is_tried_again_not_a_crash(db, serving):
+    serving(_Ingestor())
+
+    with pytest.raises(RuntimeError, match="tried again"):
+        _index()(_input(), FakeContext(attempt=1, max_attempts=3))
+
+    assert ingest_status_store.get("job-1").status == JobState.PENDING
+
+
 def test_a_step_that_ends_without_a_final_status_is_tried_again(db, serving):
     serving(_Ingestor(lambda prepared: _status(prepared.job_id, JobState.PROCESSING)))
 

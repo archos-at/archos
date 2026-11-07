@@ -1000,7 +1000,7 @@ export async function reconcileDocumentStatuses<T extends ReconcilableDocument>(
   if (settled.length > 0) {
     await onDocumentsSettled(
       organizationId,
-      settled.map(([id, resolution]) => ({ id, status: resolution.status }))
+      settled.map(([id, resolution]) => ({ id, status: resolution.status, ...(isForgottenJobFailure(rows.find((row) => row.id === id)) ? { correction: true } : {}) }))
     )
     // The badge flipped for everyone reading the shelf, and a colleague's
     // upload held until its screening passed is on their shelf from now on

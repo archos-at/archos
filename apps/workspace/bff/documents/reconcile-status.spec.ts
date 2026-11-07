@@ -1412,6 +1412,8 @@ describe('reconcileDocumentStatuses on a failure written for a forgotten job', (
     expect(result.status).toBe('completed')
     expect(result.errorMessage).toBeNull()
     expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', errorMessage: null }))
+    // A correction, not a fresh arrival: the settle hook announces no Fassung for it.
+    expect(onDocumentsSettled).toHaveBeenCalledWith('org-1', [{ id: 'doc-1', status: 'completed', correction: true }])
   })
 
   it('stays failed, with no write, when the file was never indexed or its newest job failed', async () => {

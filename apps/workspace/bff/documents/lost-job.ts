@@ -84,8 +84,8 @@ export const isRecheckableInterruption = (row: ReconcilableDocument, now: number
  */
 export const JOB_NOT_FOUND_MESSAGE = 'Job ID not found'
 
-export const isForgottenJobFailure = (row: ReconcilableDocument): boolean =>
-  row.status === 'failed' && row.errorMessage === JOB_NOT_FOUND_MESSAGE
+export const isForgottenJobFailure = (row: ReconcilableDocument | undefined): boolean =>
+  row?.status === 'failed' && row.errorMessage === JOB_NOT_FOUND_MESSAGE
 
 /**
  * A `cancelled` row recent enough to still be worth asking about, and with a
