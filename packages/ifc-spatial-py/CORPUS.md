@@ -416,9 +416,10 @@ a child the parser killed is a refusal. That costs one more parse on a first ope
 (0.2 to 0.6 s on the public models up to 11 MB); the real answer remains the design
 doc's worker process. Measured on macOS: the footer does not prove the rest is whole,
 some mid-entity cuts with the original end put back segfault too (16 of 72 tried), and
-deep nesting overflows a thread's stack (exit -10). The child parses on a smaller stack
-than the host's, so a file that fits there also fits in the host; nesting past about
-13 800 levels is refused, and the public models nest three levels at most.
+deep nesting overflows a thread's stack (exit -10). The child parses on half the smallest
+stack the host can open on, read from `RLIMIT_STACK` and the thread stack size, so a file
+that fits there also fits in the host. On the usual 8 MiB limit nesting past about 13 800
+levels is refused, and the public models nest three levels at most.
 
 *Regression:* `test_a_truncated_file_is_refused_before_the_parser_crashes` and
 five siblings, plus

@@ -12,9 +12,11 @@ The child gets an empty environment, since it reads an upload and needs no secre
 from __future__ import annotations
 
 import logging
+import resource
 import signal
 import subprocess
 import sys
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -25,23 +27,36 @@ PARSER_CRASH_REASON = (
 
 _CRASH_SIGNALS = frozenset({signal.SIGSEGV, signal.SIGBUS, signal.SIGABRT, signal.SIGILL, signal.SIGFPE})
 
-# The thread is for its stack size. The host opens on a thread too, 16 MiB on macOS and
-# usually 8 on Linux, with frames of its own above the parser, so on an equal stack a
-# file can fit here and overflow there: nesting of 55184 to 55205 levels passed a probe
-# on a default thread and killed the host with exit -10.
+# The thread is for its stack size. The host has frames of its own above the parser, so
+# on an equal stack a file can fit here and overflow there: nesting of 55184 to 55205
+# levels passed a probe on a default thread and killed the host with exit -10. Hence
+# half of the smaller stack the host can open on, its main thread or a worker thread.
 _OPEN_ON_A_SMALLER_STACK = """
 import sys, threading, ifcopenshell
-threading.stack_size(4 * 1024 * 1024)
+threading.stack_size(int(sys.argv[2]))
 opener = threading.Thread(target=ifcopenshell.open, args=(sys.argv[1],))
 opener.start()
 opener.join()
 """
 
+# glibc gives a thread the soft RLIMIT_STACK, or 2 MiB when that is unlimited;
+# CPython on macOS gives its threads 16 MiB whatever the limit. The result is rounded
+# down to 64 KiB because macOS refuses a stack that is not whole pages.
+_GLIBC_THREAD_STACK_WHEN_UNLIMITED = 2 * 1024 * 1024
+_CPYTHON_THREAD_STACK_ON_MACOS = 16 * 1024 * 1024
+
+
+def _probe_stack_size() -> int:
+    soft, _ = resource.getrlimit(resource.RLIMIT_STACK)
+    main = _GLIBC_THREAD_STACK_WHEN_UNLIMITED if soft == resource.RLIM_INFINITY else soft
+    worker = threading.stack_size() or (_CPYTHON_THREAD_STACK_ON_MACOS if sys.platform == "darwin" else main)
+    return min(main, worker) // 2 & ~0xFFFF
+
 
 def crashes_the_parser(path: str) -> bool:
     try:
         child = subprocess.run(
-            [sys.executable, "-I", "-c", _OPEN_ON_A_SMALLER_STACK, path],
+            [sys.executable, "-I", "-c", _OPEN_ON_A_SMALLER_STACK, path, str(_probe_stack_size())],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

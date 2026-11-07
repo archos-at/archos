@@ -21,6 +21,7 @@ and "we will not connect there" is a finding about us.
 
 from __future__ import annotations
 
+import resource
 import signal
 import subprocess
 import sys
@@ -313,15 +314,34 @@ except Exception:
     pass
 """
 
+#: A host whose worker threads get 2 MiB, which is what glibc gives them when RLIMIT_STACK is unlimited.
+_OPEN_ON_A_2_MIB_WORKER = """
+import sys, threading
+threading.stack_size(2 * 1024 * 1024)
+from ifc_spatial.model import ModelUnreadableError, SpatialModel
+def open_it():
+    try:
+        SpatialModel(sys.argv[1])
+    except ModelUnreadableError as refusal:
+        print(refusal.reason)
+opener = threading.Thread(target=open_it)
+opener.start()
+opener.join()
+"""
 
-def _open_in_a_child(tmp_path: Path, header: str, data: str) -> subprocess.CompletedProcess[str]:
+_MIB = 1024 * 1024
+
+
+def _open_in_a_child(
+    tmp_path: Path, header: str, data: str, script: str = _OPEN_AND_PRINT_THE_REFUSAL
+) -> subprocess.CompletedProcess[str]:
     path = tmp_path / "broken.ifc"
     path.write_text(
         "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION((''),'2;1');\n"
         f"{header}ENDSEC;\nDATA;\n{data}ENDSEC;\nEND-ISO-10303-21;\n"
     )
     return subprocess.run(
-        [sys.executable, "-c", _OPEN_AND_PRINT_THE_REFUSAL, str(path)],
+        [sys.executable, "-c", script, str(path)],
         capture_output=True,
         text=True,
         timeout=120,
@@ -360,6 +380,41 @@ def test_nesting_the_hosts_stack_cannot_hold_does_not_fit_the_probe_either(tmp_p
         "ENDSEC;\nEND-ISO-10303-21;\n"
     )
     assert crashes_the_parser(str(path)) is True
+
+
+def test_nesting_a_host_on_small_worker_stacks_cannot_hold_is_refused(tmp_path: Path) -> None:
+    child = _open_in_a_child(
+        tmp_path, _NAME + _SCHEMA, f"#1=IFCPROJECT({'(' * 12_000}{')' * 12_000});\n", _OPEN_ON_A_2_MIB_WORKER
+    )
+    assert child.returncode == 0, child.stderr[-500:]
+    assert "neu exportieren" in child.stdout
+
+
+@pytest.mark.parametrize(
+    ("limit", "threads", "probe"),
+    [
+        pytest.param(8 * _MIB, 0, 4 * _MIB, id="the-usual-8-mib"),
+        pytest.param(resource.RLIM_INFINITY, 0, _MIB, id="unlimited-gives-glibc-threads-2-mib"),
+        pytest.param(8 * _MIB, _MIB, _MIB // 2, id="host-threads-set-smaller"),
+        pytest.param(8191 * 1024, 0, 4 * _MIB - 64 * 1024, id="a-limit-of-no-whole-pages"),
+    ],
+)
+def test_the_probe_gets_half_the_smallest_stack_the_host_opens_on(
+    monkeypatch: pytest.MonkeyPatch, limit: int, threads: int, probe: int
+) -> None:
+    from ifc_spatial import crash_probe
+
+    seen: list[str] = []
+
+    def run(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[bytes]:
+        seen.extend(command)
+        return subprocess.CompletedProcess(args=[], returncode=0)
+
+    monkeypatch.setattr(crash_probe.resource, "getrlimit", lambda _which: (limit, resource.RLIM_INFINITY))
+    monkeypatch.setattr(crash_probe.threading, "stack_size", lambda: threads)
+    monkeypatch.setattr(crash_probe.subprocess, "run", run)
+    crash_probe.crashes_the_parser(str(HOUSE))
+    assert int(seen[-1]) == probe
 
 
 def test_the_child_that_reads_the_upload_gets_no_environment(monkeypatch: pytest.MonkeyPatch) -> None:
