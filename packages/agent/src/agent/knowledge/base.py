@@ -473,7 +473,7 @@ class BaseIngestor(ABC):
         """
 
     @abstractmethod
-    def get_job_status(self, job_id: str) -> IngestionJobStatus:
+    def get_job_status(self, job_id: str) -> IngestionJobStatus | None:
         """
         Get the current status of an ingestion job.
 
@@ -483,7 +483,7 @@ class BaseIngestor(ABC):
             job_id: The job ID returned from submit_job.
 
         Returns:
-            IngestionJobStatus with current state.
+            IngestionJobStatus with current state; None for a job nothing knows any more, never a made-up failure.
         """
 
     #: Whether ``prepare_job``/``run_prepared`` work, so a
