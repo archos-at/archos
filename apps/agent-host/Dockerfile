@@ -82,9 +82,8 @@ COPY apps/agent-host/ ./apps/agent-host/
 COPY configs/ ./configs/
 COPY scripts/ ./scripts/
 # The spatial engine behind `ifc_measure` (ADR-0045 amendment / roadmap §13b).
-# It is not a uv workspace member — its dependency set (IfcOpenShell, shapely)
-# has nothing to do with the rest of the backend — so it is copied and installed
-# on its own below.
+# It is not a uv workspace member, so IfcOpenShell stays out of the root
+# `uv.lock`; it is copied and installed on its own below.
 COPY packages/ifc-spatial-py/ ./packages/ifc-spatial-py/
 
 # Install dependencies using uv sync. `--all-packages` takes each workspace
