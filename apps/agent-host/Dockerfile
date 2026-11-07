@@ -105,9 +105,12 @@ RUN uv pip install --no-deps -e ./packages/agent \
 # The spatial engine, installed WITH its dependencies (unlike the workspace
 # packages above, whose deps come from the lockfile). Deliberately a separate
 # layer and deliberately not in `uv.lock`: IfcOpenShell ships prebuilt wheels
-# per platform, it is the only consumer of shapely in this image, and a
-# deployment that never answers a geometric question should be able to drop
-# this one line. `ifc_measure` degrades to a plain refusal when the import
+# per platform, and a deployment that never answers a geometric question
+# should be able to drop this one line. Its dependencies resolve from its
+# pyproject.toml, never from its own uv.lock: what `uv sync` installed above
+# (numpy, shapely, pillow) stays at the root lock's version, the rest takes the
+# newest release the range allows. That is why IfcOpenShell and ifctester are
+# exact there. `ifc_measure` degrades to a plain refusal when the import
 # fails — it never reports a missing engine as an unreadable building.
 # `[ids]` pulls ifctester for the IDS shopping-list export. Optional in the
 # package because the tool degrades to a named refusal without it; installed
