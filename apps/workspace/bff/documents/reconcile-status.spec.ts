@@ -1379,6 +1379,71 @@ describe('reconcileDocumentStatuses on a failure the backend settled as interrup
   })
 })
 
+/**
+ * Until the backend answered "unknown" for a job past its status retention, it made up
+ * `failed: Job ID not found`, and every row not settled within 24 hours was written failed,
+ * indexed or not: 446 rows of one office on production in October 2026.
+ */
+describe('reconcileDocumentStatuses on a failure written for a forgotten job', () => {
+  const forgottenRow = (overrides: Partial<ReconcilableDocument> = {}) =>
+    makeRow({ status: 'failed', errorMessage: 'Job ID not found', updatedAt: new Date('2026-10-28T19:49:42Z'), ...overrides })
+
+  const batchCalls = () =>
+    mockFetch.mock.calls.filter(([url]) => String(url).includes('/v1/documents/status/batch'))
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch)
+    mockFetch.mockReset()
+    clearCollectionFilesCache()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.clearAllMocks()
+  })
+
+  it('heals to completed from the listing when the file is indexed, without asking about the job', async () => {
+    const db = makeDbMock()
+    mockFetch.mockResolvedValue(collectionResponse([{ file_name: 'plan.pdf', status: 'success', chunk_count: 12 }]))
+
+    const [result] = await reconcileDocumentStatuses([forgottenRow()], 'org-1', 'read')
+
+    expect(batchCalls()).toHaveLength(0)
+    expect(result.status).toBe('completed')
+    expect(result.errorMessage).toBeNull()
+    expect(db.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'completed', errorMessage: null }))
+  })
+
+  it('stays failed, with no write, when the file was never indexed or its newest job failed', async () => {
+    const db = makeDbMock()
+    mockFetch.mockResolvedValue(collectionResponse([{ file_name: 'other.pdf', status: 'failed' }]))
+
+    const rows = [forgottenRow(), forgottenRow({ id: 'doc-2', filename: 'other.pdf' })]
+    const result = await reconcileDocumentStatuses(rows, 'org-1', 'read')
+
+    expect(result.map((r) => r.status)).toEqual(['failed', 'failed'])
+    expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it('does not guess when two files share the name, or when the listing is unavailable', async () => {
+    const db = makeDbMock()
+    mockFetch.mockResolvedValueOnce(
+      collectionResponse([
+        { file_name: 'plan.pdf', status: 'success' },
+        { file_name: 'plan.pdf', status: 'success' },
+      ])
+    )
+    const [ambiguous] = await reconcileDocumentStatuses([forgottenRow()], 'org-1', 'read')
+
+    clearCollectionFilesCache()
+    mockFetch.mockResolvedValue({ ok: false, status: 503, json: () => Promise.resolve({}) })
+    const [unavailable] = await reconcileDocumentStatuses([forgottenRow()], 'org-1', 'read')
+
+    expect([ambiguous.status, unavailable.status]).toEqual(['failed', 'failed'])
+    expect(db.update).not.toHaveBeenCalled()
+  })
+})
+
 describe('reconcileDocumentStatuses reports finished ingests to PostHog', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', mockFetch)
