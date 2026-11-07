@@ -1014,11 +1014,10 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
     """Drop unearned cards on a short overview; ``(content, meta, suppressed)``.
 
     Clears the turn's card registry, the cards tools registered this turn
-    (fail-open when unbound), and strips
-    ``[[card:N]]`` markers so no dangling marker reaches the reader. Logs the
-    drop: a turn that came back with no cards must read as "suppressed", never
-    as "the model never tried". Mechanical — no prompt wording, no doctrine
-    change.
+    (fail-open when unbound), and strips ``[[card:N]]`` markers so no dangling
+    marker reaches the reader. Logs the drop: a turn that came back with no cards
+    must read as "suppressed", never as "the model never tried". Mechanical — no
+    prompt wording, no doctrine change.
 
     The drop is SPLIT: cards go, but the gated trailer goes only when it was
     never earned. At or above the takeaway floor the takeaways stay (with the
@@ -1036,8 +1035,7 @@ def _suppress_cards(content: str, gated_meta: dict[str, Any] | None) -> tuple[st
     markiert" with nothing on screen, or "Wählen Sie das Modell aus" with no
     tiles. The answer's proof needs no veto: the Fundstelle the verdict rests
     on is a cited blockquote in the prose (the retired ``legal_basis`` card's
-    content), and suppression never touches the
-    prose.
+    content), and suppression never touches the prose.
     """
     if not _should_suppress_meta_cards(content, gated_meta):
         return content, gated_meta, False
