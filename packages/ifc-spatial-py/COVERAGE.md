@@ -206,7 +206,8 @@ casts the same rays. `test/metric.spec.ts` asserts 2.2 m and carries the reason.
 Two caveats on the new operator, both stated in its own `caveat`: it samples a
 grid (a narrow downstand between two sample points can be missed — refine
 `samples` for a Nachweis), and it excludes furniture, `IfcStair`,
-`IfcStairFlight` and `IfcRailing` by type, because neither a piano nor a spiral
+`IfcStairFlight` and `IfcRailing` by type, with the parts aggregated into them
+(a landing `IfcSlab`, a stringer `IfcMember`), because neither a piano nor a spiral
 stair is a Raumhöhe. Each ray keeps its nearest hit, since `select_ray` promises
 no order.
 

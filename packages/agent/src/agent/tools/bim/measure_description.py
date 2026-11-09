@@ -31,7 +31,7 @@ _TOOL_DESCRIPTION = (
     "  'measure'        — one measurement of one element, or of an already-known set of them.\n"
     "  'survey'         — ONE measure across ALL elements of a selection, each named, with the SPREAD "
     "over the set. Reach for this the moment the question is plural — 'wie hoch ist der Keller' names "
-    "one room and means seventeen, and 'all 17 at 2.70 m' and '16 at 2.70 m, one at 0.25 m' are "
+    "one room and means seventeen, and 'all 17 at 2.70 m' and '16 at 2.70 m, one at 2.20 m' are "
     "different answers to it. Measuring one element and generalising supports neither, whichever "
     "element you picked. The spread IS the finding; report it.\n"
     "  'element_profile' — the reverse: EVERY measure that applies to ONE element, in one call. Which "

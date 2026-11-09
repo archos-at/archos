@@ -46,8 +46,8 @@ def _overhead_hits(
     IFC2X3 it is not, and a chair once stopped a clear-height ray for that reason.
 
     ``clear_height`` also lets stairs and railings through; here a flight
-    overhead is what a head hits. ``IfcRailing`` is NOT in that list, and
-    :data:`HEADROOM_TRANSPARENT` records
+    overhead is what a head hits. Unlike there, ``IfcRailing`` is NOT in
+    :data:`HEADROOM_TRANSPARENT`, which records
     the measurement that decided it: the balustrades this pass used to report
     were reached by the old single-plane rake across a whole dogleg, not by the
     filter, and with the flights read one at a time no railing is a candidate at

@@ -128,7 +128,7 @@ class MeasuredElement:
     """One element a value was derived from — a GlobalId, named where known.
 
     The name matters more than it looks. A reviewer who has to act on „einer
-    dieser Räume ist 0,25 m hoch" needs to know WHICH, and a 22-character
+    dieser Räume ist 2,20 m hoch" needs to know WHICH, and a 22-character
     GlobalId is not something a person can carry to a CAD window.
     """
 

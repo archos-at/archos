@@ -133,7 +133,7 @@ def _profile_lines(payload: dict[str, Any]) -> list[str]:
 
 
 def _batch_headline(payload: dict[str, Any]) -> str:
-    """The SPREAD first, because that is the finding: „alle 17 bei 2.70 m" and „16 bei 2.70 m, einer bei 0.25 m" differ.
+    """The SPREAD first, because that is the finding: „alle 17 bei 2.70 m" and „16 bei 2.70 m, einer bei 2.20 m" differ.
 
     Flattening this through `_value_text` would print „results=17 Einträge" — seventeen measurements and not one number.
     """

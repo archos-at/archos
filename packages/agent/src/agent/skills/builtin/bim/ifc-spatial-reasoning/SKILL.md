@@ -192,8 +192,8 @@ are shell dimensions from top edge to top edge; a room-height proof knows only
 
 **`clearHeight` measures up to the lowest obstacle, not up to the room
 ceiling.** It is measured with a 5×5 grid straight upward, each ray stopping at
-the nearest element. Furniture, stairs and railings are excluded, everything
-else counts. A narrow beam between two grid points can be missed;
+the nearest element. Furniture, stairs and railings, with the parts they are
+built from, are excluded; everything else counts. A narrow beam between two grid points can be missed;
 for a proof that belongs in the answer. If no grid point lies in the room body,
 `decidable: false` comes back, and a finer grid cannot be requested. Then take
 `extent` and state the number explicitly as the height of the modelled room
