@@ -1196,6 +1196,37 @@ class TestAClearHeightRayStopsAtTheNearestElementAndNotAtAStair:
         assert SPIRAL_STAIR not in answer.from_
         assert "Treppen und Geländer sind ausgenommen" in answer.caveat
 
+    @pytest.mark.parametrize(("part", "predefined"), [("IfcSlab", "LANDING"), ("IfcMember", "STRINGER")])
+    def test_a_stair_exported_in_parts_is_not_its_clear_height(
+        self, tmp_path: Path, part: str, predefined: str
+    ) -> None:
+        """An IFC4 export aggregates the landing (IfcSlab) and the stringer
+        (IfcMember) into the IfcStair. The spiral stair's body moved onto such a
+        part stopped the ray at 1.53 m, naming the part."""
+        file = ifcopenshell.open(str(FIXTURES / "gallery-slab-opening.ifc"))
+        stair = file.add(ifcopenshell.open(str(FIXTURES / "spiral-stair.ifc")).by_guid(SPIRAL_STAIR))
+        piece = file.create_entity(
+            part,
+            GlobalId=ifcopenshell.guid.new(),
+            OwnerHistory=stair.OwnerHistory,
+            ObjectPlacement=stair.ObjectPlacement,
+            Representation=stair.Representation,
+            PredefinedType=predefined,
+        )
+        stair.Representation = None
+        file.create_entity(
+            "IfcRelAggregates",
+            GlobalId=ifcopenshell.guid.new(),
+            OwnerHistory=stair.OwnerHistory,
+            RelatingObject=stair,
+            RelatedObjects=[piece],
+        )
+        path = tmp_path / f"wohnen-mit-{predefined.lower()}.ifc"
+        file.write(str(path))
+        answer = op.clear_height(SpatialModel(str(path)), self.GALLERY_LIVING)
+        assert answer.value == pytest.approx(2.50, abs=0.01), f"1.53 m was the stair's {predefined.lower()}"
+        assert piece.GlobalId not in answer.from_
+
 
 class TestAnExternalWallBoundsMoreThanOneRoom:
     """„Bounds two rooms, therefore a partition" is wrong for the ordinary case.

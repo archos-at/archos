@@ -448,9 +448,9 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             nearest: tuple[float, str] | None = None
             for hit in tree.select_ray((x, y, floor_z), (0.0, 0.0, 1.0), length=modelled + 5.0):
                 element = model.file.by_id(hit.instance.id())
-                # Every entry tested with `is_a`: IFC2X3 has no subtype relation
-                # under IfcFurnishingElement, and a chair once stopped a ray there.
-                if element.is_a() in AIR_TYPES or any(element.is_a(name) for name in CLEAR_HEIGHT_TRANSPARENT):
+                # Stairs and railings pass with their parts: an IFC4 export carries the
+                # landing as an IfcSlab and the stringer as an IfcMember under the IfcStair.
+                if element.is_a() in AIR_TYPES or _lets_a_clear_height_ray_through(element):
                     continue
                 if element.GlobalId == space_global_id:
                     continue
@@ -502,6 +502,16 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
         method=method,
         caveat=caveat,
     )
+
+
+def _lets_a_clear_height_ray_through(element: Any) -> bool:
+    # Every entry tested with `is_a`: IFC2X3 has no subtype relation under
+    # IfcFurnishingElement, and a chair once stopped a ray there.
+    while element is not None:
+        if any(element.is_a(name) for name in CLEAR_HEIGHT_TRANSPARENT):
+            return True
+        element = next((rel.RelatingObject for rel in getattr(element, "Decomposes", None) or ()), None)
+    return False
 
 
 def _storey_datum_drift(model: SpatialModel) -> float:
