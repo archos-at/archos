@@ -61,19 +61,23 @@ measures ONE measure on ALL elements of a selection (selected as in
 returns per element the name, storey and its own answer, plus the range across
 all of them.
 
-On the model AC20-Institute-Var-2, a single call with `operation: "survey"`,
-`measure: "clearHeight"` and `ifc_type: "IfcSpace"` returns 82 rooms: 79 at
-2.700 m, and under the roof "Flur 3.OG Treppe" at 1.847 m and "Dachboden-1" and
-"Dachboden-2" at 0.872 m, range 1.828 m. Whoever measures one room instead and
-generalises reports 2.70 m, correctly measured, and the rooms that matter do not
-appear in the answer.
+On the model AC20-Institute-Var-2, a call with `operation: "survey"`,
+`measure: "clearHeight"`, `ifc_type: "IfcSpace"` and `storey: "Dachgeschoss"`
+returns three rooms: 1.847 m for "Flur 3.OG Treppe" and 0.872 m for
+"Dachboden-1" and "Dachboden-2", range 0.975 m. The four storeys below hold
+the other 79 rooms, all at 2.700 m. Whoever measures one room instead and
+generalises reports 2.70 m, correctly measured, and the rooms that matter do
+not appear in the answer. A survey of the whole building does the same: it
+measures the first 50 of the 82 rooms, all at 2.700 m, and says that 82
+matched. All 82 take one survey per storey.
 
 **The range is the finding**, not an addition to it. The answer must say: how
 many elements were measured and out of how many, the minimum, the maximum and
 every outlier by name. "All 82 rooms 2.70 m" and "79 of them 2.70 m, three
-under the roof 0.87 to 1.85 m" are different answers to the same question, and a
-single measured room supports neither. Whatever returns `decidable: false` is named
-individually and never counted as "like the rest".
+under the roof 0.87 to 1.85 m" are different answers to the same question, and
+neither a single measured room nor a survey cut at 50 supports either. Whatever
+returns `decidable: false` is named individually and never counted as "like the
+rest".
 
 If the set is already fixed (the doors from an escape route, the windows of a
 facade), `operation: "measure"` takes the whole id list in `global_id` at once,
