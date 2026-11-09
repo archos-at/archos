@@ -9,11 +9,11 @@ import numpy as np
 from shapely.geometry import Point as ShapelyPoint
 
 from ifc_spatial.operators_constants import AZIMUTH_TOLERANCE_DEGREES
+from ifc_spatial.operators_constants import CLEAR_HEIGHT_TRANSPARENT
 from ifc_spatial.operators_constants import COMPASS
 from ifc_spatial.operators_constants import COORDINATE_TOLERANCE
 from ifc_spatial.operators_constants import DIMENSION_TOLERANCE
 from ifc_spatial.operators_constants import FENESTRATION
-from ifc_spatial.operators_constants import FURNISHING
 from ifc_spatial.operators_constants import MIN_INTRUSION
 from ifc_spatial.operators_guards import _geometry_or_answer
 from ifc_spatial.operators_guards import _require
@@ -394,9 +394,9 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
     exactly the number an OIB minimum room height is checked against, and the
     modelled height is the unsafe side of it.
 
-    Furniture is excluded by type and named in the caveat: a piano is not a
-    Raumhöhe. Everything else counts, including the ceiling that made the
-    difference here.
+    Furniture, stairs and railings are excluded by type and named in the caveat:
+    neither a piano nor a spiral stair is a Raumhöhe. Everything else counts,
+    including the ceiling that made the difference here.
     """
     method = f"clearHeight({space_global_id}, samples={samples})"
     subject = _require(model, space_global_id, method)
@@ -444,25 +444,25 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             elif space_global_id not in [e.GlobalId for e in tree.select((x, y, floor_z + 0.05))]:
                 continue
             tested += 1
+            # The NEAREST accepted hit: select_ray promises no order, and the first one handed back can be farther.
+            nearest: tuple[float, str] | None = None
             for hit in tree.select_ray((x, y, floor_z), (0.0, 0.0, 1.0), length=modelled + 5.0):
                 element = model.file.by_id(hit.instance.id())
-                # Every entry of FURNISHING, not just the first. `is_a(
-                # "IfcFurnishingElement")` happens to catch the other two in
-                # IFC4 because they are subtypes — but that subtype relation
-                # does not exist in IFC2X3, where the tuple's remaining names
-                # were dead code and a chair could stop a clear-height ray.
-                if element.is_a() in AIR_TYPES or any(element.is_a(name) for name in FURNISHING):
+                # Every entry tested with `is_a`: IFC2X3 has no subtype relation
+                # under IfcFurnishingElement, and a chair once stopped a ray there.
+                if element.is_a() in AIR_TYPES or any(element.is_a(name) for name in CLEAR_HEIGHT_TRANSPARENT):
                     continue
                 if element.GlobalId == space_global_id:
                     continue
-                # The ray starts 10 mm above the floor so it does not begin
-                # inside the slab; the clear run is measured from the floor.
+                # The ray starts 10 mm up, clear of the slab; the run is measured from the floor.
                 run = float(hit.distance) + (floor_z - float(low[2]))
-                if run <= 0.01:
-                    continue
-                shortest = min(shortest, run)
-                hit_by.setdefault(element.GlobalId, run)
-                break
+                if run > 0.01 and (nearest is None or run < nearest[0]):
+                    nearest = (run, element.GlobalId)
+            if nearest is None:
+                continue
+            run, global_id = nearest
+            shortest = min(shortest, run)
+            hit_by[global_id] = min(hit_by.get(global_id, run), run)
 
     if tested == 0:
         return undecidable(
@@ -490,7 +490,7 @@ def clear_height(model: SpatialModel, space_global_id: str, samples: int = 5) ->
             if lowering
             else "Kein Bauteil ragt in den Raum — lichte Höhe und Raumkörper stimmen überein. "
         )
-        + "Möblierung (IfcFurnishingElement) ist ausgenommen. Ein Raster kann eine schmale Unterzugslage "
+        + "Möblierung, Treppen und Geländer sind ausgenommen. Ein Raster kann eine schmale Unterzugslage "
         "zwischen zwei Punkten verfehlen — für einen Nachweis das Raster verfeinern."
     )
 
