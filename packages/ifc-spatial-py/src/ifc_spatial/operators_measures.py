@@ -112,7 +112,11 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
         measured = undecidable(
             from_=[global_id],
             method=method,
-            missing=MissingFact(what=_FOOTPRINT_FAILURES[reason], remedy="Geometrie des Bauteils im Modell prüfen."),
+            missing=MissingFact(
+                what=f"Grundfläche: {_FOOTPRINT_FAILURES[reason]}",
+                remedy="Geometrie des Bauteils im Modell prüfen.",
+                elements=[global_id],
+            ),
             provenance="computed",
         )
     else:
@@ -153,8 +157,10 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
         if found.scale != 1.0:
             declared_caveat = (
                 f"Die Datei deklariert {found.raw:.4f} {found.unit_label or '(Einheit der Datei)'}; "
-                f"umgerechnet {found.value:.4f} m². Verglichen wird in Metern."
+                f"umgerechnet {found.value:.4f} m²."
             )
+            if measured.decidable:
+                declared_caveat += " Verglichen wird in Metern."
     else:
         # A caller-supplied number is assumed to be SI already; it has to be,
         # because nothing here can tell which unit the caller measured in.
@@ -168,6 +174,12 @@ def floor_area(model: SpatialModel, global_id: str, declared_area: float | None 
         declared(declared_area, unit="m²", from_=[global_id], method=declared_method),
         method=method,
     )
+    if not measured.decidable:
+        unmeasured = (
+            f"Grundfläche aus der Geometrie nicht messbar: {_FOOTPRINT_FAILURES[reason]}. "
+            "Der Wert ist die deklarierte Fläche, nicht nachgemessen."
+        )
+        answer.caveat = f"{answer.caveat} {unmeasured}" if answer.caveat else unmeasured
     if declared_caveat:
         answer.caveat = f"{answer.caveat} {declared_caveat}" if answer.caveat else declared_caveat
     return answer
@@ -182,18 +194,20 @@ def _vector_text(value: Any) -> str:
 
 
 _FOOTPRINT_FAILURES = {
-    "no_triangles": "Grundfläche: die Geometrie des Bauteils enthält keine Dreiecke",
-    "invalid_triangles": "Grundfläche: alle horizontalen Dreiecke des Bauteils sind ungültig oder ohne Fläche",
-    "geos_error": "Grundfläche: die Flächenvereinigung ist fehlgeschlagen",
+    "no_triangles": "die Geometrie des Bauteils enthält keine Dreiecke",
+    "invalid_triangles": "die Dreiecke des Bauteils sind ungültig oder ohne Fläche",
+    "geos_error": "die Flächenvereinigung ist fehlgeschlagen",
 }
 
 
 def _footprint(triangles: np.ndarray) -> tuple[float, str]:
     """The plan area of a solid and why it came out that way, as ``(area, reason)``.
 
-    ``reason`` is ``measured`` or ``no_horizontal`` (a true 0: the faces exist and
-    none is horizontal) or one of :data:`_FOOTPRINT_FAILURES`, where 0 means "could
-    not be measured" and must not be reported as a value.
+    ``reason`` is ``measured`` or ``no_horizontal`` (a true 0: faces with an area
+    exist and none is horizontal) or one of :data:`_FOOTPRINT_FAILURES`, where 0
+    means "could not be measured" and must not be reported as a value. A mesh of
+    only zero-area triangles has no normal to judge by, so it is
+    ``invalid_triangles``, not ``no_horizontal``.
 
     The plan area of a solid is measured from whichever side its faces point.
 
@@ -226,6 +240,8 @@ def _footprint(triangles: np.ndarray) -> tuple[float, str]:
     if triangles is None or len(triangles) == 0:
         return 0.0, "no_triangles"
     normals, _ = triangle_normals_areas(triangles)
+    if not normals.any():
+        return 0.0, "invalid_triangles"
     best = 0.0
     saw_facing = False
     errored = False

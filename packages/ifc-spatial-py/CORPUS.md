@@ -357,10 +357,13 @@ are equal, so nothing moved: the sample house's rooms still measure
 
 *Follow-up:* `operators_measures._footprint` returns `(area, reason)`. A 0 is a
 measurement (caveat "keine horizontalen Flächen") only for `no_horizontal`, where
-faces exist and none is horizontal. For `no_triangles`, `invalid_triangles` and
-`geos_error` `floor_area` answers undecidable with the true reason in
-`missing.what`, and a declared area is then the answer instead of being overridden
-by a measured 0. Tests: `test_corpus.py`, `test_*_keep_a_declared_area`.
+at least one triangle has an area and none is horizontal. A mesh of only zero-area
+triangles is `invalid_triangles`. For `no_triangles`, `invalid_triangles` and
+`geos_error` the measured side is undecidable: without a declared area
+`floor_area` answers undecidable with the true reason in `missing.what`; with one,
+the declared area is the answer instead of being overridden by a measured 0, and
+the caveat names the reason and says the value was not measured. Tests:
+`test_corpus.py`, `test_*_keep_a_declared_area`.
 
 *Regression:* `test_a_footprint_is_measured_whichever_way_the_mesh_is_wound`,
 `test_the_union_still_refuses_to_double_count`,
