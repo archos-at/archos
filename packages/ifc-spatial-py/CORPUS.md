@@ -355,6 +355,13 @@ method: filter by normal at the same `0.01` tolerance, project, `unary_union`.
 are equal, so nothing moved: the sample house's rooms still measure
 15.41678125 / 51.994825 / 8.69350625 m², to 1·10⁻⁹.
 
+*Follow-up:* `operators_measures._footprint` returns `(area, reason)`. A 0 is a
+measurement (caveat "keine horizontalen Flächen") only for `no_horizontal`, where
+faces exist and none is horizontal. For `no_triangles`, `invalid_triangles` and
+`geos_error` `floor_area` answers undecidable with the true reason in
+`missing.what`, and a declared area is then the answer instead of being overridden
+by a measured 0. Tests: `test_corpus.py`, `test_*_keep_a_declared_area`.
+
 *Regression:* `test_a_footprint_is_measured_whichever_way_the_mesh_is_wound`,
 `test_the_union_still_refuses_to_double_count`,
 `test_zero_is_still_the_answer_for_something_with_no_horizontal_face`,

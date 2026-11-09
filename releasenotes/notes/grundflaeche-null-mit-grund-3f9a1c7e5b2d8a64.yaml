@@ -1,0 +1,8 @@
+---
+fixes:
+  - >
+    Wenn die Grundfläche eines Bauteils nicht gemessen werden kann (keine
+    Dreiecke, ungültige Geometrie, Rechenfehler), meldet Piloti das jetzt als
+    fehlende Angabe mit dem wahren Grund, statt 0 m² als Messergebnis
+    auszugeben. Eine deklarierte Fläche aus der Datei wird dadurch nicht mehr
+    überstimmt.

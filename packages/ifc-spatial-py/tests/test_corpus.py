@@ -256,6 +256,105 @@ def test_zero_is_still_the_answer_for_something_with_no_horizontal_face() -> Non
     assert op._footprint_area(plate) == 0.0
 
 
+_PLATE = np.array(
+    [
+        [[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [3.0, 0.0, 2.5]],
+        [[0.0, 0.0, 0.0], [3.0, 0.0, 2.5], [0.0, 0.0, 2.5]],
+    ]
+)
+
+
+def _floor_area_over(monkeypatch: pytest.MonkeyPatch, model: SpatialModel, triangles: np.ndarray, declared: float):
+    from types import SimpleNamespace
+
+    from ifc_spatial import operators_measures as om
+
+    monkeypatch.setattr(om, "_geometry_or_answer", lambda *_: (SimpleNamespace(triangles=triangles), None))
+    return op.floor_area(model, NORTH_WALL, declared_area=declared)
+
+
+def test_a_footprint_reports_why_it_is_zero() -> None:
+    from ifc_spatial.operators_measures import _footprint
+
+    assert _footprint(_PLATE) == (0.0, "no_horizontal")
+    assert _footprint(np.empty((0, 3, 3))) == (0.0, "no_triangles")
+    assert _footprint(_unit_box_triangles(flip=False))[1] == "measured"
+
+
+def test_only_a_true_absence_of_horizontal_faces_is_a_measured_zero(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answer = _floor_area_over(monkeypatch, model, _PLATE, declared=0.0)
+    assert answer.decidable
+    assert answer.value == 0.0
+
+
+def test_a_plate_without_declared_area_keeps_the_zero_caveat(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from ifc_spatial import operators_measures as om
+
+    monkeypatch.setattr(om, "_geometry_or_answer", lambda *_: (SimpleNamespace(triangles=_PLATE), None))
+    answer = op.floor_area(model, NORTH_WALL)
+    assert answer.value == 0.0
+    assert "keine horizontalen Flächen" in answer.caveat
+
+
+def test_no_triangles_is_missing_and_keeps_a_declared_area(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    answer = _floor_area_over(monkeypatch, model, np.empty((0, 3, 3)), declared=7.8)
+    assert answer.value == 7.8
+    assert answer.provenance == "declared"
+    assert "keine horizontalen Flächen" not in (answer.caveat or "")
+
+
+def test_invalid_triangles_are_missing_and_keep_a_declared_area(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ifc_spatial.operators_measures import _footprint
+
+    flat = np.array([[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]])
+    monkeypatch.setattr("shapely.Polygon", lambda *_: type("P", (), {"is_valid": False, "area": 1.0})())
+    assert _footprint(flat) == (0.0, "invalid_triangles")
+    answer = _floor_area_over(monkeypatch, model, flat, declared=7.8)
+    assert answer.value == 7.8
+    assert answer.provenance == "declared"
+
+
+def test_a_geos_error_is_missing_and_keeps_a_declared_area(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shapely.ops
+    from ifc_spatial.operators_measures import _footprint
+
+    def boom(_: object) -> None:
+        raise RuntimeError("GEOSException")
+
+    monkeypatch.setattr(shapely.ops, "unary_union", boom)
+    box = _unit_box_triangles(flip=False)
+    assert _footprint(box) == (0.0, "geos_error")
+    answer = _floor_area_over(monkeypatch, model, box, declared=7.8)
+    assert answer.value == 7.8
+    assert answer.provenance == "declared"
+
+
+def test_a_failed_footprint_without_a_declared_area_is_undecidable(
+    model: SpatialModel, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from ifc_spatial import operators_measures as om
+
+    monkeypatch.setattr(om, "_geometry_or_answer", lambda *_: (SimpleNamespace(triangles=np.empty((0, 3, 3))), None))
+    answer = op.floor_area(model, NORTH_WALL)
+    assert not answer.decidable
+    assert answer.value is None
+    assert "keine Dreiecke" in answer.missing.what
+
+
 def test_a_walls_own_footprint_is_unchanged(model: SpatialModel) -> None:
     """The sample house's north wall measured 4.10205 m² of footprint before the
     winding fix and must measure it after."""
