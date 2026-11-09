@@ -39,7 +39,7 @@ interface UploadAdmissionInput {
   originPath: string | null
   /** The folder it is filed into, as the name screen reads it; absent on a chat. */
   folderPath?: string | null
-  /** The project it goes into: the project's own name terms apply (migration 0154). */
+  /** The project it goes into: the project's own name terms apply (migration 0158). */
   projectId?: string | null
   /** The uploader's explicit per-file "upload anyway" for the name screen. */
   screeningRelease: boolean
