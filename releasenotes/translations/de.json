@@ -4728,6 +4728,10 @@
     "de": "Wenn die Inhaltsprüfung eine Datei aus mehr Gründen zurückhält, als sie auflistet, hält das Audit-Log nun fest, wie viele Gründe ausgelassen wurden. Eine gekürzte Liste der Gründe erscheint dadurch nicht mehr vollständig."
   },
   {
+    "en": "When the floor area of an element cannot be measured from its geometry, the answer now says why instead of reporting 0 m² as a measurement. A floor area declared in the model is no longer overruled by that zero.",
+    "de": "Wenn sich die Grundfläche eines Bauteils nicht aus seiner Geometrie messen lässt, nennt die Antwort jetzt den Grund, statt 0 m² als Messergebnis auszugeben. Eine im Modell deklarierte Grundfläche wird von dieser Null nicht mehr überstimmt."
+  },
+  {
     "en": "When the office's past projects hold nothing comparable, Piloti now says so. It used to answer that the search was unavailable and ask you to try again.",
     "de": "Wenn die bisherigen Projekte des Büros nichts Vergleichbares enthalten, sagt Piloti das jetzt. Bisher meldet es, dass die Suche nicht verfügbar ist, und bittet Sie, es erneut zu versuchen."
   },
