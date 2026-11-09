@@ -62,16 +62,17 @@ returns per element the name, storey and its own answer, plus the range across
 all of them.
 
 On the model AC20-Institute-Var-2, a single call with `operation: "survey"`,
-`measure: "clearHeight"`, `ifc_type: "IfcSpace"` and `storey: "Keller"` returns
-seventeen rooms: sixteen at 2.700 m and "Flur Keller Treppe" at 0.250 m, range
-2.450 m. Whoever measures one room instead and generalises reports 2.70 m,
-correctly measured, and the room that matters does not appear in the answer.
+`measure: "clearHeight"` and `ifc_type: "IfcSpace"` returns 82 rooms: 79 at
+2.700 m, and under the roof "Flur 3.OG Treppe" at 1.847 m and "Dachboden-1" and
+"Dachboden-2" at 0.872 m, range 1.828 m. Whoever measures one room instead and
+generalises reports 2.70 m, correctly measured, and the rooms that matter do not
+appear in the answer.
 
 **The range is the finding**, not an addition to it. The answer must say: how
 many elements were measured and out of how many, the minimum, the maximum and
-every outlier by name. "All 17 basement rooms 2.70 m" and "16 of them 2.70 m,
-one 0.25 m" are different answers to the same question, and a single measured
-room supports neither. Whatever returns `decidable: false` is named
+every outlier by name. "All 82 rooms 2.70 m" and "79 of them 2.70 m, three
+under the roof 0.87 to 1.85 m" are different answers to the same question, and a
+single measured room supports neither. Whatever returns `decidable: false` is named
 individually and never counted as "like the rest".
 
 If the set is already fixed (the doors from an escape route, the windows of a
@@ -190,8 +191,9 @@ are shell dimensions from top edge to top edge; a room-height proof knows only
 `clearHeight`.
 
 **`clearHeight` measures up to the lowest obstacle, not up to the room
-ceiling.** It is measured with a 5×5 grid straight upward, furniture excluded,
-everything else counts. A narrow beam between two grid points can be missed;
+ceiling.** It is measured with a 5×5 grid straight upward, each ray stopping at
+the nearest element. Furniture, stairs and railings are excluded, everything
+else counts. A narrow beam between two grid points can be missed;
 for a proof that belongs in the answer. If no grid point lies in the room body,
 `decidable: false` comes back, and a finer grid cannot be requested. Then take
 `extent` and state the number explicitly as the height of the modelled room
