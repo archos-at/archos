@@ -5,10 +5,3 @@ fixes:
     The clear height of a room with a stair or a railing in it is now measured
     to the ceiling, not to the underside of the stair. A living room with a
     stair was reported as 1.53 m high instead of 2.50 m.
-incident:
-  - >
-    The clear height of a room could be measured to a ceiling above the one
-    that actually limits it, when the model's geometry lookup returned the
-    farther element first. That overstated the height and could let a room
-    pass a minimum room height it does not reach. Each measuring point now
-    takes the nearest element above it.
