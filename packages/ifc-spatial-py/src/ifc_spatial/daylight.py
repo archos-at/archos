@@ -639,12 +639,9 @@ def _depth_caveat(
 def _is_excluded(element: Any) -> bool:
     """Air and furniture — the two classes that make an overhead ray lie.
 
-    ``clear_height`` tests ``element.is_a(FURNISHING[0])``, which catches
-    ``IfcFurniture`` and ``IfcSystemFurnitureElement`` too because both are
-    IFC4 subtypes of ``IfcFurnishingElement``. Every entry of the tuple is
-    checked here anyway: in IFC2X3 the subtype relation does not exist, and a
-    single-entry test would let an IFC2X3 ``IfcFurniture`` decide a room's
-    headroom.
+    Every entry of FURNISHING is tested: in IFC2X3 ``IfcFurniture`` is no
+    subtype of ``IfcFurnishingElement``. Stairs and railings stay in, unlike
+    ``clear_height``: a stair above an element is something above it.
     """
     if element.is_a() in AIR_TYPES:
         return True
