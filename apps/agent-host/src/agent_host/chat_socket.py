@@ -139,9 +139,9 @@ from agent.conversation_context import ContextOnlyMessage
 from agent.conversation_context import append_conversation_context
 from agent.conversation_context import format_context_turn
 from agent.observability import answer_failure
+from agent.observability.answer_scores import steer_scores
 from agent.observability.langfuse_scores import emit_scores
 from agent.observability.langfuse_scores import file_tool_scores
-from agent.observability.langfuse_scores import steer_scores
 from agent.observability.langfuse_scores import turn_outcome_scores
 from agent.observability.langfuse_trace_attributes import begin_trace_contributions
 from agent.observability.langfuse_trace_attributes import end_trace_contributions
