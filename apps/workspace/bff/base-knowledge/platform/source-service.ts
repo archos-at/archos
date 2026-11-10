@@ -34,6 +34,7 @@ import {
   credentialView,
   type CredentialView,
   draftSources,
+  MONITOR_REQUEST_OPEN_STATUSES,
   monitorStates,
   type MonitorState,
   type RegisteredSource,
@@ -221,7 +222,7 @@ export async function platformSourceStatus(session: UserSession | null, query: {
             and(
               eq(knowledgeChangeRequests.origin, 'monitor'),
               inArray(knowledgeChangeRequests.sourceRecordId, ids),
-              inArray(knowledgeChangeRequests.status, ['draft', 'submitted', 'approved']),
+              inArray(knowledgeChangeRequests.status, [...MONITOR_REQUEST_OPEN_STATUSES]),
             ),
           )
       : []
