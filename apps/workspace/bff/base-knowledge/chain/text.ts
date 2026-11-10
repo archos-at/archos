@@ -12,7 +12,7 @@
  */
 
 import type { KnowledgeWorkKind } from '../wire/vocab'
-import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep } from './graph'
+import type { EditionUse, KnowledgeGraph, ResolvedChain, RouteStep, UndeterminedLaw } from './graph'
 
 /** Longest name taken from a record. */
 export const MAX_NAME_CHARS = 120
@@ -47,6 +47,13 @@ export function nameOf(value: string | null | undefined): string {
     .replace(/\s+/g, ' ')
     .trim()
   return flat.length > MAX_NAME_CHARS ? `${flat.slice(0, MAX_NAME_CHARS - 1)}…` : flat
+}
+
+/** Why an edition is not determined, as the agent reads it. */
+const UNDETERMINED_REASON: Record<UndeterminedLaw['reason'], string> = {
+  ambiguous_editions: 'more than one edition is recorded as in force on this date',
+  edition_dates_unknown: 'its editions carry no in-force date',
+  history_not_held: 'the platform holds no edition this old',
 }
 
 const PREAMBLE =
@@ -134,6 +141,10 @@ export function renderChainText(graph: KnowledgeGraph, resolved: ResolvedChain, 
     ...(interpretations.length > 0
       ? section('Interpretation:', interpretations.map((use) => interpretationLine(graph, use)))
       : ['Legal commentaries are not available; say so when asked for one.']),
+    ...section(
+      'Not determined here (the records cannot name the edition in force on this date; name the law, say its edition is not determined, never assume one):',
+      resolved.undetermined.map((entry) => `- ${workName(graph, entry.workId)}: ${UNDETERMINED_REASON[entry.reason]}`),
+    ),
     ...(information === 1 ? ['1 other edition is not in force here and is information only.'] : []),
     ...(information > 1 ? [`${information} other editions are not in force here and are information only.`] : []),
   ]
