@@ -109,6 +109,10 @@ export type ApprovalRole = (typeof APPROVAL_ROLES)[number]
 export const DECISION_SOURCES = ['app', 'elicitation'] as const
 export type PersonDecisionSource = (typeof DECISION_SOURCES)[number]
 
+/** How a verdict on a claim was given: the person's own yes, or an agent's call the person did not confirm. */
+export const REVIEW_DECISION_SOURCES = [...DECISION_SOURCES, 'agent'] as const
+export type ReviewDecisionSource = (typeof REVIEW_DECISION_SOURCES)[number]
+
 /** A release channel: preview first, then stable, which moves the head offices read. */
 export const RELEASE_CHANNELS = ['preview', 'stable'] as const
 export type ReleaseChannel = (typeof RELEASE_CHANNELS)[number]

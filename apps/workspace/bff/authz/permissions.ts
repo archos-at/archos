@@ -75,6 +75,13 @@ export const PLATFORM_PERMISSIONS = {
    * there.
    */
   observabilityView: 'platform:observability:view',
+  /**
+   * Approve a platform knowledge change request in a role (ADR-0165): the role
+   * an approval records is one the approver holds, never what a client sent.
+   */
+  knowledgeApproveAsDomainExpert: 'platform:knowledge:approve_as_domain_expert',
+  knowledgeApproveAsCounsel: 'platform:knowledge:approve_as_counsel',
+  knowledgeApproveAsSecondReviewer: 'platform:knowledge:approve_as_second_reviewer',
 } as const
 
 /** Project-tier permissions, checked per project via WorkOS FGA. */

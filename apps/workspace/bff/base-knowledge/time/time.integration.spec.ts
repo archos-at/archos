@@ -72,7 +72,7 @@ describe.skipIf(!url)('editions in time against Postgres', () => {
           decision: 'accepted' as const,
         }))
       )
-      await store.insertReviewDecisions(tx, id, EXPERT, decisions)
+      await store.insertReviewDecisions(tx, id, { by: EXPERT, decisionSource: 'app' }, decisions)
       await store.insertApproval(tx, {
         changeRequestId: id,
         approver: EXPERT,
