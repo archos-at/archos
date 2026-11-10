@@ -1,11 +1,13 @@
 /**
  * @vitest-environment node
  *
- * The outcome of ADR-0166 for Austria: the OIB 2023 Gebäudeklasse, held as a
- * ruleset and run on the one evaluator, gives what the coded derivation gives.
- * First on the derivation's own cases (`building-class.fixtures.ts`, one list for
- * both), then against `deriveBuildingClass` itself on generated Buildings:
- * every input on a threshold, either side of it, or missing.
+ * The parity harness of ADR-0169 for `derivations.ts`: the product classifies
+ * an Austrian project's Building on the shipped records (the site selects the
+ * OIB 2023 table and Austria's fact definitions, the one evaluator runs it), and
+ * must give exactly what the retired coded derivation gives, kept as the
+ * oracle (`derivations.oracle.ts`). First on the derivation's own cases
+ * (`building-class.fixtures.ts`, one list for both), then on generated
+ * Buildings: every input on a threshold, either side of it, or missing.
  */
 
 import fc from 'fast-check'
@@ -16,13 +18,32 @@ import {
   singleFamilyHouse,
   type Inputs,
 } from '@/lib/project-intake/building-class.fixtures'
-import { BUILDING_CLASS_INPUTS, deriveBuildingClass } from '@/lib/project-intake/derivations'
+import { BUILDING_CLASS_INPUTS, deriveBuildingClass } from '@/lib/project-intake/derivations.oracle'
+import { deriveBuildingClass as classify } from '@/lib/project-intake/derivations'
+import { buildingClassificationOf, setupScopeOf } from '@/lib/project-intake/setup-scope'
 import { rulesetValuesSchema } from '@/lib/base-knowledge/wire/ruleset'
 import seed from './seeds/at-oib-2023-building-class.json'
-import { AT_OIB_2023_BUILDING_CLASS, buildingClassFromRuleset } from './building-class'
+import { AT_OIB_2023_BUILDING_CLASS } from './building-class'
 import { failingExamples } from './decision-table'
 
+const fact = (value: string) => ({ value, confidence: 'confirmed' as const, source: 'onboarding' as const, updatedAt: '2026-11-10T00:00:00Z' })
+
+/** What an Austrian project's site selects from the shipped records, through the product's own path. */
+const AUSTRIA = buildingClassificationOf(setupScopeOf({ facts: { country: fact('at') }, assumptions: {} }))
+if (!AUSTRIA) throw new Error('an Austrian project selects the OIB 2023 classification')
+const AT_CLASSIFICATION = AUSTRIA
+
+const buildingClassFromRuleset = (inputs: Inputs) => classify(AT_CLASSIFICATION, inputs)
+
 describe('the OIB 2023 building class ruleset', () => {
+  it('is what an Austrian site selects, in every Land', () => {
+    expect(AT_CLASSIFICATION.rulesetId).toBe('shipped:at-oib-2023-building-class')
+    const vienna = buildingClassificationOf(
+      setupScopeOf({ facts: { country: fact('at'), federal_state: fact('vienna') }, assumptions: {} })
+    )
+    expect(vienna?.rulesetId).toBe('shipped:at-oib-2023-building-class')
+  })
+
   it('is a valid ruleset whose own examples pass', () => {
     expect(rulesetValuesSchema.safeParse(seed).success).toBe(true)
     if (AT_OIB_2023_BUILDING_CLASS.body.kind !== 'table') throw new Error('a table')

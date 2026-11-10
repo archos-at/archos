@@ -48,9 +48,12 @@ import {
   buildingsTouchedBy,
   buildingIdsOf,
   buildingClassKey,
+  classificationFor,
   isBuildingClassKey,
   withDerivedClass,
 } from './derivation-view'
+import { classificationInputs } from './setup-scope'
+import type { StoredRuleset } from '@/lib/base-knowledge/rulesets/select'
 import {
   isMeaningfulValue,
   pointerSegment,
@@ -127,6 +130,8 @@ export interface RecordContext {
   /** The reading's job id: a suggestion it creates carries it, and only it may withdraw that suggestion. */
   readingId: string
   needs: ComputeNeedsOptions
+  /** The setup records to classify by; the shipped pack by default. */
+  records?: readonly StoredRuleset[]
 }
 
 /** Write one value onto the profile, or say why not. */
@@ -185,11 +190,17 @@ function withClassesDerived(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   changed: Set<string>,
-  now: string
+  now: string,
+  records?: readonly StoredRuleset[]
 ): ProjectProfile {
   let current = profile
-  for (const buildingId of buildingsTouchedBy(changed, buildingIdsOf(current, definition))) {
-    const derived = withDerivedClass(current, definition, buildingId, now)
+  // Read before the loop: a class written below moves no input, and the site is the batch's.
+  const classification = classificationFor(current, { records })
+  const all = buildingIdsOf(current, definition)
+  // Without a classification no class may stand: every building is visited, and a derived one goes.
+  const touched = classification ? buildingsTouchedBy(changed, all, classificationInputs(classification)) : all
+  for (const buildingId of touched) {
+    const derived = withDerivedClass(current, definition, buildingId, now, { records })
     current = derived.profile
     if (derived.changed) changed.add(buildingClassKey(buildingId))
   }
@@ -223,7 +234,7 @@ export function planRecord(
     results.push(applied.result)
     if (applied.result.outcome !== 'refused') changed.add(entry.key)
   }
-  current = withClassesDerived(current, definition, changed, context.now)
+  current = withClassesDerived(current, definition, changed, context.now, context.records)
   const opened = openedNeeds(
     computeNeeds(profile, definition, context.needs),
     computeNeeds(current, definition, context.needs)
@@ -259,7 +270,7 @@ export function planWithdraw(
   profile: ProjectProfile,
   definition: ProjectIntakeDefinition,
   keys: readonly string[],
-  context: Pick<RecordContext, 'now' | 'readingId'>
+  context: Pick<RecordContext, 'now' | 'readingId' | 'records'>
 ): WithdrawPlan {
   let current = profile
   const results: WithdrawResult[] = []
@@ -276,6 +287,6 @@ export function planWithdraw(
     results.push({ key, outcome: 'withdrawn' })
     changed.add(key)
   }
-  current = withClassesDerived(current, definition, changed, context.now)
+  current = withClassesDerived(current, definition, changed, context.now, context.records)
   return { results, profile: current, changedKeys: [...changed] }
 }

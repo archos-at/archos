@@ -1,0 +1,97 @@
+/**
+ * @vitest-environment node
+ *
+ * Each project receives its own country's setup records and no other's
+ * (ADR-0169), and a project nothing places receives none.
+ */
+
+import { describe, expect, it } from 'vitest'
+import { projectIntakeDefinitionV1 } from '@/lib/project-profile/intake-definition'
+import { deriveAll, withDerivedClass } from './derivation-view'
+import { buildingClassificationOf, factDefinitionsOf, factSourcesOf, setupScopeOf } from './setup-scope'
+import { GERMAN_RECORDS, THREE_COUNTRIES, placedProfile } from './setup-countries.fixtures'
+
+const scope = (facts: Parameters<typeof placedProfile>[0], records = THREE_COUNTRIES) =>
+  setupScopeOf(placedProfile(facts), { records, on: '2026-11-10' })
+
+const subdivisionTokens = (facts: Parameters<typeof placedProfile>[0]) =>
+  factDefinitionsOf(scope(facts))?.subdivisions?.options.map((option) => option.token) ?? []
+
+describe('setupScopeOf', () => {
+  it('places a project by its country and the subdivision that country lists', () => {
+    expect(scope({ country: 'at', federal_state: 'vienna' }).chain).toEqual(['AT-9', 'AT'])
+    expect(scope({ country: 'de', federal_state: 'bavaria' }).chain).toEqual(['DE-BY', 'DE'])
+    expect(scope({ country: 'ch', federal_state: 'zurich' }).chain).toEqual(['CH-ZH', 'CH'])
+    // A Land token from another country's list places no subdivision.
+    expect(scope({ country: 'de', federal_state: 'vienna' }).chain).toEqual(['DE'])
+  })
+
+  it('places nothing for a project in no country, or in one it cannot name', () => {
+    expect(scope({}).chain).toEqual([])
+    expect(scope({ country: 'other' }).chain).toEqual([])
+  })
+
+  it('takes a geocoded subdivision only where exactly one country lists it', () => {
+    const geocoded = (federalState: string) =>
+      setupScopeOf(placedProfile({}), { records: THREE_COUNTRIES, on: '2026-11-10', location: { federalState } }).chain
+    expect(geocoded('styria')).toEqual(['AT-6', 'AT'])
+    expect(geocoded('bavaria')).toEqual(['DE-BY', 'DE'])
+    expect(geocoded('atlantis')).toEqual([])
+  })
+})
+
+describe('only its own country’s options', () => {
+  it('offers each project its own country’s subdivisions', () => {
+    expect(subdivisionTokens({ country: 'at' })).toContain('vienna')
+    expect(subdivisionTokens({ country: 'at' })).not.toContain('bavaria')
+    expect(subdivisionTokens({ country: 'de' })).toEqual(['bavaria', 'berlin'])
+    expect(subdivisionTokens({ country: 'ch' })).toEqual(['zurich'])
+    expect(subdivisionTokens({})).toEqual([])
+  })
+
+  it('requests each project’s documents from its own country’s sources, the subdivision variant first', () => {
+    const documents = (facts: Parameters<typeof placedProfile>[0]) =>
+      factSourcesOf(scope(facts))?.entries.map((entry) => entry.request.document) ?? []
+    expect(documents({ country: 'de' })).toEqual(['Auszug aus dem Bebauungsplan', 'Schnitt (DE)'])
+    expect(documents({ country: 'ch' })).toEqual(['Grundbuchauszug (CH)'])
+    expect(documents({ country: 'at' })).toContain('Grundbuchauszug')
+    expect(documents({ country: 'other' })).toEqual([])
+  })
+
+  it('classifies a Building by its own country’s table, or not at all', () => {
+    const building = { 'building_type@bldg1': 'building', 'storeys_above_ground@bldg1': 3 }
+    const derived = (facts: Parameters<typeof placedProfile>[0]) =>
+      deriveAll(placedProfile({ ...facts, ...building }), projectIntakeDefinitionV1, { records: THREE_COUNTRIES })
+    const [german] = derived({ country: 'de' })
+    expect(german).toMatchObject({ value: 3, citation: 'Synthetic MBO building class for a spec', missing: [] })
+    const [austrian] = derived({ country: 'at' })
+    expect(austrian.citation).toMatch(/^OIB-Richtlinien/)
+    expect(austrian.missing).toContain('escape_level_m')
+    expect(derived({ country: 'ch' })).toEqual([])
+    expect(derived({})).toEqual([])
+  })
+
+  it('writes no class for a project whose country has no classification, and takes back a derived one', () => {
+    const profile = placedProfile({ country: 'ch', 'building_type@bldg1': 'building' })
+    profile.assumptions['building_class@bldg1'] = {
+      value: 3,
+      status: 'unconfirmed',
+      reason: 'Abgeleitet: OIB',
+      source: 'agent_suggested',
+      updatedAt: '2026-11-10T00:00:00Z',
+      evidence: [{ kind: 'derivation', rule: 'building_class', citation: 'OIB', inputs: [] }],
+    }
+    const result = withDerivedClass(profile, projectIntakeDefinitionV1, 'bldg1', '2026-11-10T00:00:00Z', {
+      records: THREE_COUNTRIES,
+    })
+    expect(result.changed).toBe(true)
+    expect(result.profile.assumptions['building_class@bldg1']).toBeUndefined()
+  })
+
+  it('refuses two classifications for one node rather than picking the first', () => {
+    const [, classification] = GERMAN_RECORDS
+    const twice = [...THREE_COUNTRIES, { ...classification, id: 'test:de-classification-2' }]
+    expect(buildingClassificationOf(scope({ country: 'de' }, twice))).toBeNull()
+    expect(buildingClassificationOf(scope({ country: 'de' }))).not.toBeNull()
+  })
+})

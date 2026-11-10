@@ -1,0 +1,144 @@
+{
+  "purpose": "fact_definitions",
+  "territoryIds": [
+    "AT"
+  ],
+  "workIds": [],
+  "validFrom": "2023-05-01",
+  "validTo": null,
+  "basisEditionId": null,
+  "body": {
+    "kind": "fact_definitions",
+    "payloadSchema": "fact_definitions.v1",
+    "payload": {
+      "subdivisions": {
+        "factKey": "federal_state",
+        "label": "Bundesland",
+        "options": [
+          {
+            "token": "vienna",
+            "territoryId": "AT-9",
+            "label": "Wien"
+          },
+          {
+            "token": "lower_austria",
+            "territoryId": "AT-3",
+            "label": "Niederösterreich"
+          },
+          {
+            "token": "upper_austria",
+            "territoryId": "AT-4",
+            "label": "Oberösterreich"
+          },
+          {
+            "token": "styria",
+            "territoryId": "AT-6",
+            "label": "Steiermark"
+          },
+          {
+            "token": "carinthia",
+            "territoryId": "AT-2",
+            "label": "Kärnten"
+          },
+          {
+            "token": "salzburg",
+            "territoryId": "AT-5",
+            "label": "Salzburg"
+          },
+          {
+            "token": "tyrol",
+            "territoryId": "AT-7",
+            "label": "Tirol"
+          },
+          {
+            "token": "vorarlberg",
+            "territoryId": "AT-8",
+            "label": "Vorarlberg"
+          },
+          {
+            "token": "burgenland",
+            "territoryId": "AT-1",
+            "label": "Burgenland"
+          }
+        ],
+        "outside": {
+          "token": "outside_austria",
+          "label": "Außerhalb Österreichs"
+        }
+      },
+      "facts": [
+        {
+          "key": "building_type",
+          "label": "Bauwerkstyp",
+          "type": "code"
+        },
+        {
+          "key": "building_position",
+          "label": "Gebäudestellung",
+          "type": "code",
+          "codes": [
+            "freestanding",
+            "attached",
+            "terraced"
+          ]
+        },
+        {
+          "key": "access_three_sides",
+          "label": "Von mindestens drei Seiten für die Feuerwehr zugänglich",
+          "type": "boolean"
+        },
+        {
+          "key": "storeys_above_ground",
+          "label": "Anzahl oberirdischer Geschoße",
+          "type": "number",
+          "existingKey": "existing_storeys_above_ground"
+        },
+        {
+          "key": "escape_level_m",
+          "label": "Fluchtniveau",
+          "type": "number",
+          "unit": "m",
+          "existingKey": "existing_escape_level_m"
+        },
+        {
+          "key": "gfa_above_ground",
+          "label": "Brutto-Grundfläche der oberirdischen Geschoße",
+          "type": "number",
+          "unit": "m2",
+          "existingKey": "existing_gfa_above_ground"
+        },
+        {
+          "key": "use_units",
+          "label": "Anzahl Nutzungseinheiten",
+          "type": "number"
+        },
+        {
+          "key": "units_over_400",
+          "label": "Eine Nutzungseinheit über 400 m² BGF",
+          "type": "boolean"
+        },
+        {
+          "key": "uses",
+          "label": "Nutzungen",
+          "type": "codes"
+        }
+      ],
+      "procedureTypes": [],
+      "derivations": [
+        {
+          "rule": "building_class",
+          "citation": "OIB-Richtlinien, Begriffsbestimmungen (Ausgabe Mai 2023), Gebäudeklassen",
+          "values": {
+            "at-oib-2023:GK1": 1,
+            "at-oib-2023:GK2": 2,
+            "at-oib-2023:GK3": 3,
+            "at-oib-2023:GK4": 4,
+            "at-oib-2023:GK5": 5
+          },
+          "highRise": "high_rise",
+          "notApplicable": "no_building"
+        }
+      ]
+    }
+  }
+}

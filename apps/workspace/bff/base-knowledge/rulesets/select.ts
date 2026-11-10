@@ -76,7 +76,12 @@ function atNode(
   return targeted.length > 0 ? targeted : here.filter(({ values }) => values.workIds.length === 0)
 }
 
-export function selectRuleset(rulesets: readonly StoredRuleset[], query: RulesetQuery): Selection {
+/**
+ * The record that speaks for the query's purpose on the chain, of any body
+ * kind: a decision table, or a setup record (`fact_definitions`,
+ * `fact_sources`). The same walk as {@link selectRuleset}.
+ */
+export function selectRecord(rulesets: readonly StoredRuleset[], query: RulesetQuery): RecordSelection {
   // Validity compares ISO dates as text, which is only right for an ISO date.
   if (!/^\d{4}-\d{2}-\d{2}$/.test(query.on))
     throw new RulesetEvaluationError(`on is an ISO date, found ${query.on}`)
@@ -90,11 +95,24 @@ export function selectRuleset(rulesets: readonly StoredRuleset[], query: Ruleset
         rulesetIds: found.map((ruleset) => ruleset.id).sort(),
       }
     const [ruleset] = found
-    if (ruleset?.values.body.kind === 'table')
-      return { status: 'found', ruleset, table: ruleset.values.body.payload, territoryId }
+    if (ruleset && ruleset.values.body.kind !== 'inherits') return { status: 'found', ruleset, territoryId }
     if (!ruleset && inheritance === 'explicit') return { status: 'no_rule' }
   }
   return { status: 'no_rule' }
+}
+
+export type RecordSelection =
+  | { status: 'found'; ruleset: StoredRuleset; territoryId: string }
+  | { status: 'no_rule' }
+  | { status: 'ambiguous'; territoryId: string; rulesetIds: string[] }
+
+export function selectRuleset(rulesets: readonly StoredRuleset[], query: RulesetQuery): Selection {
+  const selection = selectRecord(rulesets, query)
+  if (selection.status !== 'found') return selection
+  const { body } = selection.ruleset.values
+  // A decision purpose holds only tables (the wire refuses anything else); a setup record is no table to run.
+  if (body.kind !== 'table') return { status: 'no_rule' }
+  return { ...selection, table: body.payload }
 }
 
 export type RulesetResult =
